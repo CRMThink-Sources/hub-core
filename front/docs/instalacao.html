@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fluxo de instalação - Bitrix24</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 1.5rem;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      margin: 0 0 1rem 0;
+      font-weight: 600;
+    }
+
+    .diagram {
+      background: #fff;
+      border-radius: 8px;
+      padding: 1rem;
+      overflow: auto;
+      max-width: 100%;
+    }
+
+    .diagram img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+
+    .error {
+      color: #f87171;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Fluxo de instalação - Bitrix24</h1>
+  <div class="diagram" id="diagram">
+    <p>A carregar diagrama…</p>
+  </div>
+  <p class="error" id="error" style="display: none;"></p>
+
+  <script>
+    (function () {
+      var source = `@startuml instalacao-bitrix
+!theme plain
+title Fluxo de instalação - Bitrix24
+
+actor Usuário as user
+participant "Página Install\\n(Frontend)" as front
+participant "BX24 / Bitrix" as bx24
+participant "InstallController\\n(API)" as api
+participant "GetOrCreateDomain" as uc
+participant "Repositórios\\n(Domínio / App)" as repo
+
+user -> front: Acessa página de instalação
+front -> bx24: Carrega script BX24
+bx24 --> front: BX24 disponível
+
+user -> front: Informa e-mail + aceita termos
+front -> front: Valida (termos, e-mail, BX24)
+
+front -> bx24: getInstallPayload(email)
+bx24 --> front: payload (domain, member_id, appCode, ...)
+
+front -> api: POST /auth/install\\n{ domain, member_id, appCode, ... }
+
+api -> api: Valida domain, member_id, appCode
+alt Dados inválidos
+  api --> front: 400 Bad Request
+end
+
+api -> repo: getAvailableApp(appCode)
+alt App não encontrado
+  api --> front: 404 Not Found
+end
+repo --> api: availableApp
+
+api -> uc: execute({ name: domain, memberId: member_id })
+uc -> repo: getDomain(name)
+alt Domínio já existe
+  repo --> uc: domain
+  uc --> api: domain
+else Domínio não existe
+  repo --> uc: null
+  uc -> repo: createDomain({ name, memberId })
+  repo --> uc: newDomain
+  uc --> api: newDomain
+end
+
+api --> front: 200 OK\\n{ domain, app }
+
+front -> bx24: finishInstall()
+front --> user: Tela de sucesso
+
+@enduml`;
+
+      function utf8ToBase64(str) {
+        return btoa(unescape(encodeURIComponent(str)));
+      }
+
+      var encoded = utf8ToBase64(source);
+      var url = 'https://kroki.io/plantuml/svg/' + encoded;
+      var container = document.getElementById('diagram');
+      var errEl = document.getElementById('error');
+
+      var img = new Image();
+      img.alt = 'Diagrama de sequência - Fluxo de instalação Bitrix24';
+      img.style.maxWidth = '100%';
+      img.onload = function () {
+        container.innerHTML = '';
+        container.appendChild(img);
+      };
+      img.onerror = function () {
+        container.innerHTML = '';
+        errEl.style.display = 'block';
+        errEl.textContent = 'Não foi possível carregar o diagrama. Abra o ficheiro com um servidor HTTP ou verifique a ligação à internet (usa kroki.io).';
+      };
+      img.src = url;
+    })();
+  </script>
+</body>
+
+</html>

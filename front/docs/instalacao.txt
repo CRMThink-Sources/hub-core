@@ -1,0 +1,14 @@
+
+Fluxo de instalação
+
+Usuario fornece o email, e aceita termos do bitrix
+É enviado o email, e é enviado ao backend os dados do ambiente, email e qual aplicação o usuario esta instalando
+
+Backend
+Sera verificado qual aplicação esta sendo instalada
+Se ja existe um registro na tabela de dominio
+ - Caso nao exista, sera criado um novo registro
+Se existe um registro na tabela de aplicativos instalados, vinculado ao app que esta sendo instalados
+ - Caso não exista, sera criado um novo registro
+E sera armazenado na tabela de credenciais, o client id, secret, token e refresh, referentes a essa instalação, para assim o token receber o refresh quando expirar
+

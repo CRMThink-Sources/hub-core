@@ -1,0 +1,56 @@
+' Diagrama de sequência - Fluxo de instalação Bitrix24
+' Para importar no draw.io: Inserir > Avançado > PlantUML > colar o conteúdo deste arquivo
+' Ou use https://www.plantuml.com/plantuml e exporte como PNG/SVG para colar no draw.io
+
+@startuml instalacao-bitrix
+!theme plain
+title Fluxo de instalação - Bitrix24
+
+actor Usuário as user
+participant "Página Install\n(Frontend)" as front
+participant "BX24 / Bitrix" as bx24
+participant "InstallController\n(API)" as api
+participant "GetOrCreateDomain" as uc
+participant "Repositórios\n(Domínio / App)" as repo
+
+user -> front: Acessa página de instalação
+front -> bx24: Carrega script BX24
+bx24 --> front: BX24 disponível
+
+user -> front: Informa e-mail + aceita termos
+front -> front: Valida (termos, e-mail, BX24)
+
+front -> bx24: getInstallPayload(email)
+bx24 --> front: payload (domain, member_id, appCode, ...)
+
+front -> api: POST /auth/install\n{ domain, member_id, appCode, ... }
+
+api -> api: Valida domain, member_id, appCode
+alt Dados inválidos
+  api --> front: 400 Bad Request
+end
+
+api -> repo: getAvailableApp(appCode)
+alt App não encontrado
+  api --> front: 404 Not Found
+end
+repo --> api: availableApp
+
+api -> uc: execute({ name: domain, memberId: member_id })
+uc -> repo: getDomain(name)
+alt Domínio já existe
+  repo --> uc: domain
+  uc --> api: domain
+else Domínio não existe
+  repo --> uc: null
+  uc -> repo: createDomain({ name, memberId })
+  repo --> uc: newDomain
+  uc --> api: newDomain
+end
+
+api --> front: 200 OK\n{ domain, app }
+
+front -> bx24: finishInstall()
+front --> user: Tela de sucesso
+
+@enduml
