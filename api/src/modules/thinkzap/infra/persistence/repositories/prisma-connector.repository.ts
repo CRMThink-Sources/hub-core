@@ -1,28 +1,33 @@
-import { randomUUID } from "node:crypto";
-import { Connector } from "@/modules/thinkzap/domain/entities/connector";
-import { CreateConnectorRepository } from "@/modules/thinkzap/domain/repositories/create-connector.repository";
-import { prisma } from "@/config/prisma.js";
-import { ListConnectorsRepository } from "@/modules/thinkzap/domain/repositories/list-connectors";
-import { GetConnectorRepository } from "@/modules/thinkzap/domain/repositories/get-connector.repository";
+import { randomUUID } from 'node:crypto'
+import { Connector } from '@/modules/thinkzap/domain/entities/connector'
+import { CreateConnectorRepository } from '@/modules/thinkzap/domain/repositories/create-connector.repository'
+import { prisma } from '@/config/prisma.js'
+import { ListConnectorsRepository } from '@/modules/thinkzap/domain/repositories/list-connectors'
+import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
 
-export class PrismaConnectorRepository implements CreateConnectorRepository, ListConnectorsRepository, GetConnectorRepository {
-  constructor() { }
+export class PrismaConnectorRepository
+  implements
+    CreateConnectorRepository,
+    ListConnectorsRepository,
+    GetConnectorRepository
+{
+  constructor() {}
 
-  async createConnector(connector: Omit<Connector, "id">): Promise<void> {
+  async createConnector(connector: Omit<Connector, 'id'>): Promise<void> {
     await prisma.connector.create({
       data: {
         id: randomUUID(),
         instanceId: connector.instanceId,
         appId: connector.appId,
-      }
+      },
     })
   }
 
   async get(id: string): Promise<Connector | null> {
     const connector = await prisma.connector.findUnique({
       where: { id: id },
-    });
-    if (!connector) return null;
+    })
+    if (!connector) return null
 
     return {
       id: connector.id,
@@ -30,44 +35,54 @@ export class PrismaConnectorRepository implements CreateConnectorRepository, Lis
       appId: connector.appId,
       createdAt: connector.createdAt,
       updatedAt: connector.updatedAt,
-    } as Connector;
+    } as Connector
   }
 
-  async getConnectorByInstanceId(instanceId: string): Promise<Connector | null> {
+  async getConnectorByInstanceId(
+    instanceId: string,
+  ): Promise<Connector | null> {
     const connector = await prisma.connector.findUnique({
       where: { instanceId: instanceId },
-    });
-    if (!connector) return null;
+    })
+    if (!connector) return null
     return {
       id: connector.id,
       instanceId: connector.instanceId,
       appId: connector.appId,
-    } as Connector;
+    } as Connector
   }
 
-  async listConnectors(appId: string): Promise<Connector[]> {
+  async listConnectors(
+    appId: string,
+    includeZapiToken: boolean = false,
+  ): Promise<Connector[]> {
     const connectors = await prisma.connector.findMany({
       where: {
-        appId: appId
+        appId: appId,
       },
       include: {
         instance: true,
       },
-    });
+    })
 
-    return connectors.map(el => ({
-      id: el.id,
-      appId: el.appId,
-      instanceId: el.instanceId,
-      instance: el.instance ? {
-        id: el.instance.id,
-        domainId: el.instance.domainId,
-        instanceId: el.instance.instanceId,
-        vinculatedChannel: el.instance.vinculatedChannel,
-        zApiToken: el.instance.zApiToken,
-      } : undefined,
-      createdAt: el.createdAt,
-      updatedAt: el.updatedAt,
-    } as Connector));
+    return connectors.map(
+      el =>
+        ({
+          id: el.id,
+          appId: el.appId,
+          instanceId: el.instanceId,
+          instance: el.instance
+            ? {
+                id: el.instance.id,
+                domainId: el.instance.domainId,
+                instanceId: el.instance.instanceId,
+                vinculatedChannel: el.instance.vinculatedChannel,
+                zApiToken: includeZapiToken ? el.instance.zApiToken : undefined,
+              }
+            : undefined,
+          createdAt: el.createdAt,
+          updatedAt: el.updatedAt,
+        }) as Connector,
+    )
   }
 }

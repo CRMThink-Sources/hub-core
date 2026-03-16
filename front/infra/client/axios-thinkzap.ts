@@ -6,11 +6,20 @@ export const axiosThinkzap = (authTokenKey: string) => {
   if (!token) {
     throw new Error('Token not found')
   }
-  return axios.create({
+  const axiosInstance = axios.create({
     baseURL: envConfig.apiUrl,
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
   })
+  axiosInstance.interceptors.response.use(
+    response => {
+      return response.data.result
+    },
+    error => {
+      return Promise.reject(error)
+    },
+  )
+  return axiosInstance
 }
