@@ -1,5 +1,6 @@
-import { AvailableApp } from "@/shared/domain/entities/available-app";
+import { AvailableApp } from '@/shared/domain/entities/available-app'
 
 export interface GetAvailableAppRepository {
-  getAvailableApp(appCode: string): Promise<AvailableApp>;
+  getById(id: string): Promise<AvailableApp>
+  getAvailableApp(appCode: string): Promise<AvailableApp>
 }

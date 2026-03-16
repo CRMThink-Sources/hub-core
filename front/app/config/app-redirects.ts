@@ -5,7 +5,7 @@ const DEFAULT_APP_REDIRECTS: Record<
   { baseRedirectUrl: string; storageAuthTokenKey: string }
 > = {
   [envConfig.appCodes.thinkzap]: {
-    baseRedirectUrl: '/apps/thinkzap',
+    baseRedirectUrl: '/thinkzap',
     storageAuthTokenKey: 'hubthink_auth_token',
   },
 }

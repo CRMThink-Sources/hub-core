@@ -24,4 +24,7 @@ export const env = {
       process.env.BITRIX_IM_TEXTAREA_URL ??
       'http://localhost:3002/bitrix/im-text-area',
   },
+  appCodes: {
+    thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',
+  },
 } as const
