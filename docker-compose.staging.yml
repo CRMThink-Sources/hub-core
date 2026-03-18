@@ -1,0 +1,17 @@
+# Override para ambiente staging (usado com: docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d)
+services:
+  api:
+    image: ghcr.io/crmthink-sources/hub-core-api:staging
+    container_name: hubthink-api-staging
+    ports:
+      - "4001:4000"
+    env_file:
+      - ./api/.env.staging
+
+  front:
+    image: ghcr.io/crmthink-sources/hub-core-front:staging
+    container_name: hubthink-front-staging
+    ports:
+      - "3001:3000"
+    env_file:
+      - ./front/.env.staging

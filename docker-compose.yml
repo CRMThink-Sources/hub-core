@@ -1,0 +1,26 @@
+services:
+  api:
+    image: ghcr.io/crmthink-sources/hub-core-api:latest
+    container_name: hubthink-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./api/.env
+    networks:
+      - hubthink
+
+  front:
+    image: ghcr.io/crmthink-sources/hub-core-front:latest
+    container_name: hubthink-front
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./front/.env
+    networks:
+      - hubthink
+
+networks:
+  hubthink:
+    driver: bridge
