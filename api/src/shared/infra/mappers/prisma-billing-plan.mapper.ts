@@ -1,12 +1,13 @@
-import { PrismaBillingPlan } from "@repo/db";
-import { BillingPlan } from "@/shared/domain/entities/billing-plan";
+import { BillingPlan as PrismaBillingPlan } from '@/prisma/generated/prisma/client'
+import { BillingPlan, PlanType } from '@/shared/domain/entities/billing-plan'
 
 export const toBillingPlan = (raw: PrismaBillingPlan): BillingPlan => {
+  const { type, ...rest } = raw
   return {
     id: raw.id,
     name: raw.name,
-    type: raw.type as any,
-    description: raw.description ?? "Sem descrição",
+    type: raw.type as PlanType,
+    description: raw.description ?? 'Sem descrição',
     credits: raw.credits ?? 0,
     bonusCredits: raw.bonusCredits ?? 0,
     price: raw.price.toNumber(),
@@ -16,5 +17,5 @@ export const toBillingPlan = (raw: PrismaBillingPlan): BillingPlan => {
     sort: raw.sortOrder ?? 0,
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
-  };
+  }
 }

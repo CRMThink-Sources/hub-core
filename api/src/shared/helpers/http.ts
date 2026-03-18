@@ -1,4 +1,4 @@
 export type httpResponse<T = unknown> = {
-  status: number;
-  result: T;
-};
+  status: number
+  result: T
+}

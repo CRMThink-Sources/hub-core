@@ -1,5 +1,5 @@
-import { PrismaDomain } from "@repo/db";
-import { Domain } from "@/shared/domain/entities/domain";
+import { Domain as PrismaDomain } from '@/prisma/generated/prisma/client'
+import { Domain } from '@/shared/domain/entities/domain'
 
 export const toDomain = (domain: PrismaDomain): Domain => {
   return {
@@ -8,5 +8,5 @@ export const toDomain = (domain: PrismaDomain): Domain => {
     memberId: domain.memberId,
     createdAt: domain.createdAt,
     updatedAt: domain.updatedAt,
-  };
-};
+  }
+}

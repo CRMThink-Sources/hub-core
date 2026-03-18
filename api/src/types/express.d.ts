@@ -1,10 +1,10 @@
 declare global {
   namespace Express {
     interface Request {
-      appId?: string;
-      domainId?: string;
+      appId?: string
+      domainId?: string
     }
   }
 }
 
-export { };
+export {}

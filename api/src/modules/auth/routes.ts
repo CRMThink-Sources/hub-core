@@ -8,8 +8,8 @@ import { authMiddleware } from '@/composition-root'
 export const createAuthRoutes = (): Router => {
   const router = Router()
 
-  router.post('/', createLoginController().handle)
-  router.post('/install', createInstallController().handle)
+  router.post('/', adaptControllerFactory(createLoginController))
+  router.post('/install', adaptControllerFactory(createInstallController))
 
   router.use(authMiddleware)
   router.get('/session', adaptControllerFactory(makeCreateSessionController))

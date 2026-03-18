@@ -1,12 +1,10 @@
-
-import { env } from "@/config/env";
-import { CreateInstanceGateway } from "@/modules/thinkzap/domain/repositories/create-instance.gateway";
-import { CreateZApiInstanceResponse } from "@/modules/thinkzap/infra/clients/types/z-api.types";
-import { ZApiClient } from "@/modules/thinkzap/infra/clients/z-api.client";
+import { env } from '@/config/env'
+import { CreateInstanceGateway } from '@/modules/thinkzap/domain/repositories/create-instance.gateway'
+import { CreateZApiInstanceResponse } from '@/modules/thinkzap/infra/clients/types/z-api.types'
+import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 
 export class ZApiInstanceGateway implements CreateInstanceGateway {
-
-  constructor(private readonly zApiClient: ZApiClient) { }
+  constructor(private readonly zApiClient: ZApiClient) {}
 
   async create(name: string): Promise<CreateZApiInstanceResponse> {
     const instance = await this.zApiClient.createInstance({
@@ -17,8 +15,8 @@ export class ZApiInstanceGateway implements CreateInstanceGateway {
       disconnectedCallbackUrl: env.zApi.callbackUrl,
       connectedCallbackUrl: env.zApi.callbackUrl,
       messageStatusCallbackUrl: env.zApi.callbackUrl,
-    });
+    })
 
-    return instance;
+    return instance
   }
 }

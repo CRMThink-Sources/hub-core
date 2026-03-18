@@ -1,3 +1,3 @@
-import { prisma } from "@/config/prisma.js";
+import { prisma } from '@/config/prisma.js'
 
-export const prismaClient = prisma;
+export const prismaClient = prisma

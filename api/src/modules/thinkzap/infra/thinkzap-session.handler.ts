@@ -1,4 +1,5 @@
 import { env } from '@/config/env'
+
 import {
   SessionHanderPerformer,
   SessionHandler,
@@ -10,7 +11,7 @@ export class ThinkzapSessionHandler implements SessionHandler {
 
   handlers: SessionHanderPerformer[] = [
     {
-      perform: async <T>(params: any): Promise<T> => {
+      perform: async <T>(params: { appId: string }): Promise<T> => {
         const connectorRepository = new PrismaConnectorRepository()
         const connectors = await connectorRepository.listConnectors(
           params.appId,

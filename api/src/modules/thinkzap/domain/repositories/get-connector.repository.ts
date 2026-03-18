@@ -1,6 +1,6 @@
-import { Connector } from "../entities/connector";
+import { Connector } from '../entities/connector'
 
 export interface GetConnectorRepository {
-  get(id: string): Promise<Connector | null>;
-  getConnectorByInstanceId(instanceId: string): Promise<Connector | null>;
+  get(id: string): Promise<Connector | null>
+  getConnectorByInstanceId(instanceId: string): Promise<Connector | null>
 }

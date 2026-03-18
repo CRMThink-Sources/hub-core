@@ -1,12 +1,18 @@
-import { CreateInstanceRepository } from "@/modules/thinkzap/domain/repositories/create-instance.repository";
-import { randomUUID } from "node:crypto";
-import { prisma } from "@/config/prisma.js";
-import { Instance, InstanceStatus } from "@/modules/thinkzap/domain/entities/instance";
-import { GetInstanceRepository } from "@/modules/thinkzap/domain/repositories/get-instance.repository";
+import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
+import { randomUUID } from 'node:crypto'
+import { prisma } from '@/config/prisma.js'
+import {
+  Instance,
+  InstanceStatus,
+} from '@/modules/thinkzap/domain/entities/instance'
+import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 
-export class PrismaInstanceRepository implements CreateInstanceRepository, GetInstanceRepository {
-
-  async create(instance: Omit<Instance, "id" | "createdAt" | "updatedAt">): Promise<Instance> {
+export class PrismaInstanceRepository
+  implements CreateInstanceRepository, GetInstanceRepository
+{
+  async create(
+    instance: Omit<Instance, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<Instance> {
     const newInstance = await prisma.instance.create({
       data: {
         id: randomUUID(),
@@ -18,7 +24,7 @@ export class PrismaInstanceRepository implements CreateInstanceRepository, GetIn
         createdAt: new Date(),
         updatedAt: new Date(),
       },
-    });
+    })
 
     return {
       id: newInstance.id,
@@ -30,14 +36,14 @@ export class PrismaInstanceRepository implements CreateInstanceRepository, GetIn
       phoneNumber: null,
       createdAt: newInstance.createdAt,
       updatedAt: newInstance.updatedAt,
-    };
+    }
   }
 
   async getInstanceByInstanceId(instanceId: string): Promise<Instance | null> {
     const instance = await prisma.instance.findFirst({
       where: { instanceId },
-    });
-    if (!instance) return null;
+    })
+    if (!instance) return null
     return {
       id: instance.id,
       domainId: instance.domainId,
@@ -48,14 +54,14 @@ export class PrismaInstanceRepository implements CreateInstanceRepository, GetIn
       phoneNumber: null,
       createdAt: instance.createdAt,
       updatedAt: instance.updatedAt,
-    } as Instance;
+    } as Instance
   }
 
   async getInstance(instanceId: string): Promise<Instance | null> {
     const instance = await prisma.instance.findUnique({
       where: { id: instanceId },
-    });
-    if (!instance) return null;
+    })
+    if (!instance) return null
 
     return {
       id: instance.id,
@@ -67,14 +73,17 @@ export class PrismaInstanceRepository implements CreateInstanceRepository, GetIn
       phoneNumber: null,
       createdAt: instance.createdAt,
       updatedAt: instance.updatedAt,
-    };
+    }
   }
 
-  async getByDomainIdAndVinculatedChannel(domainId: string, vinculatedChannel: string): Promise<Instance | null> {
+  async getByDomainIdAndVinculatedChannel(
+    domainId: string,
+    vinculatedChannel: string,
+  ): Promise<Instance | null> {
     const instance = await prisma.instance.findFirst({
       where: { domainId, vinculatedChannel },
-    });
-    if (!instance) return null;
+    })
+    if (!instance) return null
     return {
       id: instance.id,
       domainId: instance.domainId,
@@ -85,6 +94,6 @@ export class PrismaInstanceRepository implements CreateInstanceRepository, GetIn
       phoneNumber: null,
       createdAt: instance.createdAt,
       updatedAt: instance.updatedAt,
-    };
+    }
   }
 }

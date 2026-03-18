@@ -1,4 +1,4 @@
-import type Stripe from "stripe";
-import type { EventHandler } from "./event-registry";
+import type Stripe from 'stripe'
+import type { EventHandler } from './event-registry'
 
-export type StripeEventHandler = EventHandler<Stripe.Event>;
+export type StripeEventHandler = EventHandler<Stripe.Event>

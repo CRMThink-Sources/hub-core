@@ -1,9 +1,7 @@
-
-
 export interface GenerateTokenOutput {
-  token: string;
+  token: string
 }
 
 export interface GenerateTokenRepository {
-  generateToken(input: any): Promise<GenerateTokenOutput>;
+  generateToken(input: any): GenerateTokenOutput
 }

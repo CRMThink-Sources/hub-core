@@ -20,7 +20,7 @@ app.use(cors())
 app.post(
   '/api/webhooks/stripe',
   express.raw({ type: 'application/json' }),
-  makeStripeWebhookHandlerController().handle,
+  adaptControllerFactory(makeStripeWebhookHandlerController),
 )
 
 // JSON parser para as demais rotas (incluindo z-api webhook)

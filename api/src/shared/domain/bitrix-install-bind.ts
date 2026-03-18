@@ -3,8 +3,8 @@
  * O frontend itera sobre os binds e executa cada um com BX24.callMethod(method, params).
  */
 export interface BitrixInstallBind {
-  method: string;
-  params: Record<string, unknown>;
+  method: string
+  params: Record<string, unknown>
 }
 
 /**
@@ -13,6 +13,6 @@ export interface BitrixInstallBind {
  */
 export interface BitrixInstallBindHandler {
   /** Códigos do app que este handler atende (ex: hubthink_thinkerszap, 1). Um deles deve corresponder ao app_code do install. */
-  appCode: string;
-  getBinds(): BitrixInstallBind[];
+  appCode: string
+  getBinds(): BitrixInstallBind[]
 }

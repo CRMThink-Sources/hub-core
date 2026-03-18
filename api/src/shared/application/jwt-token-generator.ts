@@ -1,10 +1,14 @@
-import { GenerateTokenOutput, GenerateTokenRepository } from "../data/contracts/generate-token";
-import jwt from "jsonwebtoken";
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+import {
+  GenerateTokenOutput,
+  GenerateTokenRepository,
+} from '../data/contracts/generate-token'
+import jwt from 'jsonwebtoken'
 
 export class JwtTokenGenerator implements GenerateTokenRepository {
-  async generateToken(input: any): Promise<GenerateTokenOutput> {
-    const secret = process.env.JWT_SECRET ?? "";
-    const token = jwt.sign(input, secret);
-    return { token };
+  generateToken(input: any): GenerateTokenOutput {
+    const secret = process.env.JWT_SECRET ?? ''
+    const token = jwt.sign(input, secret)
+    return { token }
   }
 }
