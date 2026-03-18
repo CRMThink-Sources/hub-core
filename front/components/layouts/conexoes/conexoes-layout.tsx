@@ -6,7 +6,7 @@ import { ConectarModal } from '@/components/modals/conectar-modal'
 import { ConfigurarModal } from '@/components/modals/configurar-modal'
 import { useSession } from '@/providers/session-provider'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const jsonRetorno = {
   connectors: [
@@ -135,10 +135,15 @@ export default function ConexoesLayout() {
         </div>
 
         {session?.connectors.map((conn: any, index: number) => {
-          const { name, vinculatedChannel, phoneNumber, status, paidStatus } =
-            conn.instance
+          const {
+            name,
+            vinculatedChannel,
+            phoneNumber,
+            connected,
+            paidStatus,
+          } = conn.instance
 
-          const isPaid = paidStatus === 'paid'
+          const isPaid = paidStatus === 'PAID'
 
           let bgColor = ''
           let statusColor = ''
@@ -146,9 +151,9 @@ export default function ConexoesLayout() {
           let btnText = ''
 
           switch (paidStatus) {
-            case 'paid':
-              switch (status) {
-                case 'CONNECTED':
+            case 'PAID':
+              switch (connected) {
+                case true:
                   bgColor = '#DCFCE7'
                   statusColor = '#144A1B'
                   statusText = 'Ativo'
@@ -162,7 +167,7 @@ export default function ConexoesLayout() {
                   break
               }
               break
-            case 'canceled':
+            case 'CANCELED':
               bgColor = '#FEE2E2'
               statusColor = '#7A1818'
               statusText = 'Cancelado'

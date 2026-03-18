@@ -79,13 +79,16 @@ export class ZApiClient {
     }
   }
 
-  async getInstanceStatus(instanceId: string): Promise<InstanceStatusResponse> {
+  async getInstanceStatus(
+    instanceId: string,
+    token: string,
+  ): Promise<InstanceStatusResponse> {
     try {
       const { data } = await axios.get<InstanceStatusResponse>(
-        `https://api.z-api.io/instances/${instanceId}/token/${this.clientToken}/status`,
+        `https://api.z-api.io/instances/${instanceId}/token/${token}/status`,
         {
           headers: {
-            Authorization: `Bearer ${this.zApiToken}`,
+            'client-token': this.clientToken,
             'Content-Type': 'application/json',
           },
         },

@@ -84,6 +84,22 @@ export class BitrixClient {
       console.log('error', error)
     }
   }
+
+  async getOpenChannel(id: string): Promise<IGetOpenChannelResponse> {
+    const client = this.getClient()
+    try {
+      const response = await client.get(
+        `/imopenlines.config.get?CONFIG_ID=${id}`,
+      )
+      return response.data.result
+    } catch (error) {
+      throw new Error('Failed to get open channel')
+    }
+  }
+}
+
+export interface IGetOpenChannelResponse {
+  LINE_NAME: string
 }
 
 export interface ISendMessageData {
