@@ -8,7 +8,10 @@ interface ISessionProviderProps {
   children: React.ReactNode
 }
 
-type ISession = any
+type ISession = {
+  app: any
+  connectors: any[]
+}
 
 const context = createContext<{
   session: ISession | null
@@ -35,10 +38,11 @@ const SessionProvider = ({ children }: ISessionProviderProps) => {
   useEffect(() => {
     const fetchSession = async () => {
       const data = await axios.get<ISession>(`/auth/session`)
-      console.log(data.data)
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       setSession(data as any)
     }
-    fetchSession()
+    void fetchSession()
   }, [])
 
   return <context.Provider value={{ session }}>{children}</context.Provider>

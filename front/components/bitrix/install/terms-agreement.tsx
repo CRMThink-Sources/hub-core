@@ -4,7 +4,7 @@ import {
   BITRIX_EULA_URL,
   BITRIX_MARKET_TERMS_URL,
   BITRIX_PRIVACY_POLICY_URL,
-} from '@repo/bitrix'
+} from '../../../bitrix/constants'
 
 const LINK_CLASS =
   'font-medium text-indigo-600 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-700'

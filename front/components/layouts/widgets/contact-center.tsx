@@ -1,5 +1,5 @@
 'use client'
-import { useBX24 } from '@repo/bitrix'
+import { useBX24 } from '../../../bitrix/use-bx24'
 import axios from 'axios'
 import { useEffect, useState } from 'react'
 
@@ -19,6 +19,7 @@ export const ContactCenterView = ({
     getInstallPayload,
     finishInstall,
   } = useBX24(scriptLoaded)
+
   const [connectors, setConnectors] = useState<any[]>([])
   const [selectedConnectorId, setSelectedConnectorId] = useState<string>('')
   const [placementInfo, setPlacementInfo] = useState<PlacementInfo | null>(null)
@@ -52,14 +53,15 @@ export const ContactCenterView = ({
         },
       },
     )
+
     setConnectors(connectors.filter((connector: any) => connector.phoneData))
   }
 
   useEffect(() => {
-    loadConnectors()
+    void loadConnectors()
   }, [])
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!selectedConnectorId || !placementInfo) return
     setSaving(true)
     try {
