@@ -27,19 +27,18 @@ const useSession = () => {
 
 const SessionProvider = ({ children }: ISessionProviderProps) => {
   const [session, setSession] = useState<ISession | null>(null)
-  const authTokenKey = getAppRedirectUrl(
-    envConfig.appCodes.thinkzap,
-  )?.storageAuthTokenKey
-  if (!authTokenKey) {
-    throw new Error('Auth token key not found')
-  }
-  const axios = axiosThinkzap(authTokenKey)
 
   useEffect(() => {
-    const fetchSession = async () => {
-      const data = await axios.get<ISession>(`/auth/session`)
+    const authTokenKey = getAppRedirectUrl(
+      envConfig.appCodes.thinkzap,
+    )?.storageAuthTokenKey
+    if (!authTokenKey) {
+      throw new Error('Auth token key not found')
+    }
+    const client = axiosThinkzap(authTokenKey)
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    const fetchSession = async () => {
+      const data = await client.get<ISession>(`/auth/session`)
       setSession(data as any)
     }
     void fetchSession()
