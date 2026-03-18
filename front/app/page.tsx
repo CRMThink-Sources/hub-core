@@ -1,60 +1,60 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { BX24Script } from "../bitrix/bx24-script";
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { BX24Script } from '../bitrix/bx24-script'
 
 type Connector = {
-  id: string;
-  status: "PENDING_SETUP" | "ACTIVE" | "INACTIVE";
+  id: string
+  status: 'PENDING_SETUP' | 'ACTIVE' | 'INACTIVE'
   instance: {
-    id: string;
-    instanceId: string;
-    vinculatedChannel: string | null;
-  } | null;
-  createdAt: string;
-};
+    id: string
+    instanceId: string
+    vinculatedChannel: string | null
+  } | null
+  createdAt: string
+}
 
-const STATUS_LABELS: Record<Connector["status"], string> = {
-  PENDING_SETUP: "Pendente",
-  ACTIVE: "Ativo",
-  INACTIVE: "Inativo",
-};
+const STATUS_LABELS: Record<Connector['status'], string> = {
+  PENDING_SETUP: 'Pendente',
+  ACTIVE: 'Ativo',
+  INACTIVE: 'Inativo',
+}
 
-const STATUS_COLORS: Record<Connector["status"], string> = {
-  PENDING_SETUP: "bg-amber-100 text-amber-800",
-  ACTIVE: "bg-emerald-100 text-emerald-800",
-  INACTIVE: "bg-slate-100 text-slate-600",
-};
+const STATUS_COLORS: Record<Connector['status'], string> = {
+  PENDING_SETUP: 'bg-amber-100 text-amber-800',
+  ACTIVE: 'bg-emerald-100 text-emerald-800',
+  INACTIVE: 'bg-slate-100 text-slate-600',
+}
 
 export default function Home() {
-  const router = useRouter();
-  const [connectors, setConnectors] = useState<Connector[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
+  const router = useRouter()
+  const [connectors, setConnectors] = useState<Connector[]>([])
+  const [loading, setLoading] = useState(true)
+  const [quantity, setQuantity] = useState(1)
+  const [scriptLoaded, setScriptLoaded] = useState(false)
   useEffect(() => {
     async function fetchConnectors() {
       try {
-        const res = await fetch("/api/connectors", {
+        const res = await fetch('/api/connectors', {
           headers: {
             Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkb21haW5JZCI6ImU5OTljZDM2LTkxMDItNGFmMC04NjUyLTdiZjNlZDcxMjA0MiIsImFwcENvZGVJZCI6IjEiLCJpYXQiOjE3NzA4NDg3OTl9.m5E0cqb_L683Q3H8aFA9EoKGrRPTgRaOzp1GzFpUItk`,
           },
-        });
-        const data = await res.json();
-        setConnectors(data.result.connectors ?? []);
+        })
+        const data = await res.json()
+        setConnectors(data.result.connectors ?? [])
       } catch {
-        setConnectors([]);
+        setConnectors([])
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
-    fetchConnectors();
-  }, []);
+    fetchConnectors()
+  }, [])
 
   function handleBuy() {
-    if (quantity < 1) return;
-    router.push(`/checkout?quantity=${quantity}`);
+    if (quantity < 1) return
+    router.push(`/checkout?quantity=${quantity}`)
   }
 
   return (
@@ -83,14 +83,14 @@ export default function Home() {
               type="number"
               min={1}
               value={quantity}
-              onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
+              onChange={e => setQuantity(Math.max(1, Number(e.target.value)))}
               className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             />
             <button
               onClick={handleBuy}
               className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:ring-offset-2"
             >
-              Comprar {quantity} {quantity === 1 ? "conector" : "conectores"}
+              Comprar {quantity} {quantity === 1 ? 'conector' : 'conectores'}
             </button>
           </div>
         </div>
@@ -129,7 +129,7 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {connectors.map((connector) => (
+                  {connectors.map(connector => (
                     <tr
                       key={connector.id}
                       className="transition-colors hover:bg-slate-50/50"
@@ -146,13 +146,13 @@ export default function Home() {
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-slate-600">
                         {connector.instance
-                          ? connector.instance.vinculatedChannel ??
-                          connector.instance.instanceId
-                          : "—"}
+                          ? (connector.instance.vinculatedChannel ??
+                            connector.instance.instanceId)
+                          : '—'}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-slate-500">
                         {new Date(connector.createdAt).toLocaleDateString(
-                          "pt-BR"
+                          'pt-BR',
                         )}
                       </td>
                     </tr>
@@ -164,5 +164,5 @@ export default function Home() {
         </div>
       </div>
     </div>
-  );
+  )
 }

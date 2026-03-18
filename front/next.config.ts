@@ -1,11 +1,11 @@
-import path from "node:path";
-import type { NextConfig } from "next";
+import path from 'node:path'
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: 'standalone',
   turbopack: {
     root: path.resolve(__dirname),
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

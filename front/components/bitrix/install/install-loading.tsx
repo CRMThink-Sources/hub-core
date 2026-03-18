@@ -1,12 +1,14 @@
-import { InstallLayout } from "./install-layout";
+import { InstallLayout } from './install-layout'
 
 interface InstallLoadingProps {
-  message?: string;
+  message?: string
 }
 
-const DEFAULT_MESSAGE = "Carregando...";
+const DEFAULT_MESSAGE = 'Carregando...'
 
-export function InstallLoading({ message = DEFAULT_MESSAGE }: InstallLoadingProps) {
+export function InstallLoading({
+  message = DEFAULT_MESSAGE,
+}: InstallLoadingProps) {
   return (
     <InstallLayout>
       <div className="flex flex-col items-center gap-4">
@@ -17,5 +19,5 @@ export function InstallLoading({ message = DEFAULT_MESSAGE }: InstallLoadingProp
         <p className="text-sm font-medium text-slate-600">{message}</p>
       </div>
     </InstallLayout>
-  );
+  )
 }

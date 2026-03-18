@@ -1,13 +1,16 @@
-import { InstallLayout, InstallCard } from "./install-layout";
+import { InstallLayout, InstallCard } from './install-layout'
 
 interface InstallErrorProps {
-  title?: string;
-  message: string;
+  title?: string
+  message: string
 }
 
-const DEFAULT_TITLE = "Atenção";
+const DEFAULT_TITLE = 'Atenção'
 
-export function InstallError({ title = DEFAULT_TITLE, message }: InstallErrorProps) {
+export function InstallError({
+  title = DEFAULT_TITLE,
+  message,
+}: InstallErrorProps) {
   return (
     <InstallLayout>
       <InstallCard className="p-8 text-center">
@@ -33,5 +36,5 @@ export function InstallError({ title = DEFAULT_TITLE, message }: InstallErrorPro
         <p className="mt-2 text-sm text-slate-600">{message}</p>
       </InstallCard>
     </InstallLayout>
-  );
+  )
 }

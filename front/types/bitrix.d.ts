@@ -4,12 +4,16 @@
 declare global {
   interface Window {
     BX24?: {
-      init: (callback: () => void) => void;
-      installFinish: () => void;
-      getAuth?: () => unknown;
-      callMethod?: (method: string, params?: object, callback?: (result: unknown) => void) => void;
-    };
+      init: (callback: () => void) => void
+      installFinish: () => void
+      getAuth?: () => unknown
+      callMethod?: (
+        method: string,
+        params?: object,
+        callback?: (result: unknown) => void,
+      ) => void
+    }
   }
 }
 
-export { };
+export {}

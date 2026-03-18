@@ -1,23 +1,23 @@
-"use client";
+'use client'
 
-import { type ReactNode } from "react";
-import { InstallLayout, InstallCard } from "./install-layout";
+import { type ReactNode } from 'react'
+import { InstallLayout, InstallCard } from './install-layout'
 
 const INPUT_CLASS =
-  "mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-800 placeholder-slate-400 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
+  'mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-800 placeholder-slate-400 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
 
 const BUTTON_CLASS =
-  "w-full rounded-xl bg-indigo-600 px-4 py-3.5 font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60 disabled:shadow-none";
+  'w-full rounded-xl bg-indigo-600 px-4 py-3.5 font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60 disabled:shadow-none'
 
 interface InstallFormProps {
-  email: string;
-  onEmailChange: (value: string) => void;
-  termsSection: ReactNode;
-  errorMessage: string | null;
-  isSubmitting: boolean;
-  onSubmit: (e: React.FormEvent) => void;
-  submitLabel?: string;
-  submittingLabel?: string;
+  email: string
+  onEmailChange: (value: string) => void
+  termsSection: ReactNode
+  errorMessage: string | null
+  isSubmitting: boolean
+  onSubmit: (e: React.FormEvent) => void
+  submitLabel?: string
+  submittingLabel?: string
 }
 
 export function InstallForm({
@@ -27,8 +27,8 @@ export function InstallForm({
   errorMessage,
   isSubmitting,
   onSubmit,
-  submitLabel = "Concluir instalação",
-  submittingLabel = "Concluindo...",
+  submitLabel = 'Concluir instalação',
+  submittingLabel = 'Concluindo...',
 }: InstallFormProps) {
   return (
     <InstallLayout>
@@ -62,14 +62,17 @@ export function InstallForm({
         <div className="p-8">
           <form onSubmit={onSubmit} className="space-y-6">
             <div>
-              <label htmlFor="install-email" className="block text-sm font-semibold text-slate-700">
+              <label
+                htmlFor="install-email"
+                className="block text-sm font-semibold text-slate-700"
+              >
                 E-mail de instalação
               </label>
               <input
                 id="install-email"
                 type="email"
                 value={email}
-                onChange={(e) => onEmailChange(e.target.value)}
+                onChange={e => onEmailChange(e.target.value)}
                 placeholder="seu@empresa.com"
                 className={INPUT_CLASS}
                 required
@@ -101,7 +104,11 @@ export function InstallForm({
               </div>
             )}
 
-            <button type="submit" disabled={isSubmitting} className={BUTTON_CLASS}>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={BUTTON_CLASS}
+            >
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
                   <span
@@ -118,5 +125,5 @@ export function InstallForm({
         </div>
       </InstallCard>
     </InstallLayout>
-  );
+  )
 }

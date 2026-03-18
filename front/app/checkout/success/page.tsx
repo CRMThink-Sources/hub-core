@@ -1,9 +1,9 @@
-"use client";
+'use client'
 
-import { useRouter } from "next/navigation";
+import { useRouter } from 'next/navigation'
 
 export default function CheckoutSuccessPage() {
-  const router = useRouter();
+  const router = useRouter()
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-4">
@@ -35,12 +35,12 @@ export default function CheckoutSuccessPage() {
         </p>
 
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push('/')}
           className="mt-8 w-full rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:ring-offset-2"
         >
           Voltar para conectores
         </button>
       </div>
     </div>
-  );
+  )
 }
