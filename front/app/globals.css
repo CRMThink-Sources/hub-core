@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --background: #ffffff;
@@ -23,4 +23,17 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.page-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #000;
+}
+
+.page-subtitle {
+  font-size: 1rem;
+  font-weight: 400;
+  color: #000;
+  margin-top: 0.5rem;
 }

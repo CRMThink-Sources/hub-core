@@ -2,11 +2,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 'use client'
 
-import { ConectarModal } from '@/components/modals/conectar-modal'
-import { ConfigurarModal } from '@/components/modals/configurar-modal'
 import { useSession } from '@/providers/session-provider'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { ConfigurarModal } from '../modals/configurar-modal'
+import { ConectarModal } from '../modals/conectar-modal'
 
 const jsonRetorno = {
   connectors: [
@@ -58,7 +58,6 @@ const formatPhoneNumber = (phone: string) => {
 export default function ConexoesLayout() {
   const { session } = useSession()
   const [qrCode, setQrCode] = useState<string | null>(null)
-
   const [configurarAberto, setConfigurarAberto] = useState(false)
   const [conectarAberto, setConectarAberto] = useState(false)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -90,7 +89,7 @@ export default function ConexoesLayout() {
 
         <Link
           className="bg-[#5A997E] text-white font-medium py-2.5 px-5 rounded-lg hover:bg-[#4a8169] transition-colors cursor-pointer"
-          href="/bitrix/pagamentos"
+          href="/thinkzap/financeiro"
         >
           {' '}
           + Contratar linha

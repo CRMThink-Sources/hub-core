@@ -1,29 +1,29 @@
 export const THINKZAP_ASIDE_CONFIG = {
-  logo: '/images/whatthink/thinkzap-logo1.png',
+  logo: '/images/thinkzap/logo.png',
   brandIcon:
     'https://www.crmthink.com.br/wp-content/uploads/2020/06/favicon.png',
   brandName: 'CRMThink',
   links: [
     {
-      href: '/bitrix/conexoes',
+      href: '/thinkzap/conexoes',
       label: 'Conexões',
-      icon: '/images/whatthink/connection-icon.png',
+      icon: '/images/thinkzap/connection.png',
     },
     {
-      href: '/bitrix/pagamentos',
+      href: '/thinkzap/financeiro',
       label: 'Financeiro',
-      icon: '/images/whatthink/payment-icon.png',
+      icon: '/images/thinkzap/payment.png',
     },
     {
-      href: '/bitrix/ajuda',
+      href: '/thinkzap/ajuda',
       label: 'Central de Ajuda',
-      icon: '/images/whatthink/manual-icon.png',
+      icon: '/images/thinkzap/manual.png',
     },
   ],
   languages: [
-    { code: 'pt-BR', flag: '/images/flags/4x3/br.svg' },
-    { code: 'en-US', flag: '/images/flags/4x3/us.svg' },
-    { code: 'es', flag: '/images/flags/4x3/es.svg' },
+    { code: 'pt-BR', flag: '/images/i18n-icon/4x3/br.svg' },
+    { code: 'en-US', flag: '/images/i18n-icon/4x3/us.svg' },
+    { code: 'es', flag: '/images/i18n-icon/4x3/es.svg' },
   ],
   bgColor: '#F9F9FB',
   activeColor: '#d9fce6',
