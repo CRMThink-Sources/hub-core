@@ -139,10 +139,12 @@ jobs:
 
             docker pull $IMAGE
 
+            DATABASE_URL=$(grep -E "^DATABASE_URL=" ~/hubthink/api/.env | cut -d= -f2-)
+
             docker run --rm \
               --env-file ~/hubthink/api/.env \
               $IMAGE \
-              npx prisma migrate deploy --schema=dist/prisma/schema.prisma
+              npx prisma migrate deploy --schema=dist/prisma/schema.prisma --url "$DATABASE_URL"
 
       - name: Login to GHCR on VPS & deploy
         uses: appleboy/ssh-action@v1.2.0
