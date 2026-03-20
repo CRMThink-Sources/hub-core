@@ -1,0 +1,8 @@
+services:
+  api:
+    ports:
+      - "4000:4000"
+
+  front:
+    ports:
+      - "3000:3000"
