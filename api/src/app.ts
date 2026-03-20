@@ -15,7 +15,17 @@ import { makeBitrixWebhookHandlerController } from './modules/thinkzap/main/bitr
 
 const app: Express = express()
 const stripe = new Stripe(env.stripe.secretKey)
-app.use(cors())
+app.use(
+  cors({
+    origin: '*',
+  }),
+)
+
+// Permite que origens públicas (ex: ngrok) façam requisições para localhost (Private Network Access)
+app.use((_req, res, next) => {
+  res.setHeader('Access-Control-Allow-Private-Network', 'true')
+  next()
+})
 // Webhook do Stripe ANTES do express.json() — precisa do body raw (Buffer) para validar assinatura
 app.post(
   '/api/webhooks/stripe',
