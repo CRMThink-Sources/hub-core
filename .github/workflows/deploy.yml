@@ -137,6 +137,8 @@ jobs:
               IMAGE=ghcr.io/crmthink-sources/hub-core-api:staging
             fi
 
+            docker pull $IMAGE
+
             docker run --rm \
               --env-file ~/hubthink/api/.env \
               $IMAGE \
