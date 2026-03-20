@@ -79,7 +79,7 @@ export default function GestaoLinhas() {
   // func para chamar o stripe com a quantidade de conectores selecionados.
   function handleBuy() {
     if (quantidade < 1) return // talvez adicionar um toast aqui para informar que precisa de pelo menos uma linha para prosseguir para o Stripe.
-    router.push(`/bitrix/checkout?quantity=${quantidade}`)
+    router.push(`/checkout?quantity=${quantidade}`)
   }
 
   return (

@@ -11,6 +11,7 @@ import {
   EmbeddedCheckoutProvider,
 } from '@stripe/react-stripe-js'
 import { envConfig } from '@/shared/infra/env-config'
+import axios from 'axios'
 
 const stripePromise = loadStripe(envConfig.stripePublishableKey)
 
@@ -20,15 +21,18 @@ function CheckoutContent() {
   const quantity = Number(searchParams.get('quantity')) || 1
 
   const fetchClientSecret = async () => {
-    const response = await fetch('/api/checkout', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkb21haW5JZCI6ImU5OTljZDM2LTkxMDItNGFmMC04NjUyLTdiZjNlZDcxMjA0MiIsImFwcENvZGVJZCI6IjEiLCJpYXQiOjE3NzA4NDg3OTl9.m5E0cqb_L683Q3H8aFA9EoKGrRPTgRaOzp1GzFpUItk`,
+    const token = sessionStorage.getItem('hubthink_auth_token')
+    console.log(token)
+    const { data } = await axios.post(
+      `${envConfig.apiUrl}/thinkzap/connector/create`,
+      { quantity, priceId: 'price_1Szq3BBQZChKoHsrUbFHuALX' },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
       },
-      body: JSON.stringify({ quantity }),
-    })
-    const data = await response.json()
+    )
     return data.result.clientSecret
   }
 
