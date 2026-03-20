@@ -98,6 +98,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
           source: 'docker-compose.yml,docker-compose.staging.yml'
           target: ~/hubthink
 
