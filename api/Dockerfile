@@ -11,6 +11,7 @@ COPY src ./src
 
 RUN npx prisma generate --schema=src/prisma/schema.prisma
 RUN yarn build
+RUN cp src/prisma/schema.prisma dist/prisma/schema.prisma
 
 # --- Runtime ---
 FROM node:20-alpine AS runner
