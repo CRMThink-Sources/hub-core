@@ -1,6 +1,7 @@
-import { Aside } from '@/components/layouts/aside'
 import { THINKZAP_ASIDE_CONFIG } from '@/thinkzap-aside-config'
-import PagamentosLayout from '@/components/layouts/pagamentos/pagamentos-layout'
+
+import PagamentosLayout from '@/components/layouts/thinkzap/financeiro/pagamentos-layout'
+import { Aside } from '@/components/layouts/shared/aside/aside'
 
 export default function PagamentosPage() {
   return (

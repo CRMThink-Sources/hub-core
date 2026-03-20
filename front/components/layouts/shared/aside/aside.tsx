@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { AsideProps } from './types'
+import { AsideProps } from '../../types'
 
 export const Aside = ({
   logo,
