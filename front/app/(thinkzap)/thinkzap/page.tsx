@@ -1,8 +1,8 @@
 'use client'
 import { THINKZAP_ASIDE_CONFIG } from '@/thinkzap-aside-config'
-import { Aside } from '@/components/layouts/aside'
-import ConexoesLayout from '@/components/layouts/conexoes/conexoes-layout'
+import ConexoesLayout from '@/components/layouts/thinkzap/conexoes/conexoes-layout'
 import { SessionProvider } from '@/providers/session-provider'
+import { Aside } from '@/components/layouts/shared/aside/aside'
 
 export default function Home() {
   return (
