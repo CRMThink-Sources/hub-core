@@ -66,16 +66,15 @@ export default function ConexoesLayout() {
     (typeof jsonRetorno.connectors)[0] | null
   >(null)
 
+  const total = session?.connectors.length ?? 0
+  const connected =
+    session?.connectors.filter(c => c.status === 'ATIVO').length ?? 0
+
   const handleSave = (id: string) => {
     console.log('salvar para o id:', id)
     setConfigurarAberto(false)
     setConectarAberto(false)
   }
-
-  const total = jsonRetorno.connectors.length
-  const connected = jsonRetorno.connectors.filter(
-    c => c.instance.status === 'CONNECTED',
-  ).length
 
   return (
     <div className="w-full flex flex-col pt-20 px-6 space-y-6">
@@ -134,13 +133,8 @@ export default function ConexoesLayout() {
         </div>
 
         {session?.connectors.map((conn: any, index: number) => {
-          const {
-            name,
-            vinculatedChannel,
-            phoneNumber,
-            connected,
-            paidStatus,
-          } = conn.instance
+          const { name, vinculatedChannel, phoneNumber, status, paidStatus } =
+            conn.instance
 
           const isPaid = paidStatus === 'PAID'
 
@@ -149,28 +143,24 @@ export default function ConexoesLayout() {
           let statusText = ''
           let btnText = ''
 
-          switch (paidStatus) {
-            case 'PAID':
-              switch (connected) {
-                case true:
-                  bgColor = '#DCFCE7'
-                  statusColor = '#144A1B'
-                  statusText = 'Ativo'
-                  btnText = 'Desconectar'
-                  break
-                default:
-                  bgColor = '#FEE2E2'
-                  statusColor = '#7A1818'
-                  statusText = 'Inativo'
-                  btnText = 'Conectar'
-                  break
-              }
+          switch (status) {
+            case 'ACTIVE':
+              bgColor = '#DCFCE7'
+              statusColor = '#144A1B'
+              statusText = 'Ativo'
+              btnText = 'Desconectar'
               break
-            case 'CANCELED':
+            case 'INACTIVE':
               bgColor = '#FEE2E2'
               statusColor = '#7A1818'
-              statusText = 'Cancelado'
+              statusText = 'Inativo'
               btnText = 'Conectar'
+              break
+            case 'PENDING_SETUP':
+              bgColor = '#FEF9C3'
+              statusColor = '#854D0E'
+              statusText = 'Configuração pendente'
+              btnText = 'Configurar'
               break
             default:
               bgColor = '#F3F4F6'
