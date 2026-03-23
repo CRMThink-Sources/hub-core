@@ -42,6 +42,7 @@ export default function Home() {
           setAuthRedirecting(false)
           return
         }
+        console.log('url api:', envConfig.apiUrl)
 
         const response = await axios.post(`${envConfig.apiUrl}/auth`, {
           domain: urlInfo.domain,

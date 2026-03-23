@@ -10,8 +10,8 @@ import {
   EmbeddedCheckout,
   EmbeddedCheckoutProvider,
 } from '@stripe/react-stripe-js'
-import { envConfig } from '@/shared/infra/env-config'
 import axios from 'axios'
+import { envConfig } from '@/shared/infra/env-config'
 
 const stripePromise = loadStripe(envConfig.stripePublishableKey)
 
