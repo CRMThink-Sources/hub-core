@@ -12,3 +12,7 @@
 /examples
 /tests
 /tmp
+
+.env
+.env.example
+
