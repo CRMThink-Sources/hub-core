@@ -1,3 +1,6 @@
+'use client'
+
+import { SessionProvider } from '@/providers/session-provider'
 import { Montserrat } from 'next/font/google'
 
 const montSerrat = Montserrat({
@@ -11,11 +14,13 @@ export default function ThinkzapLayout({
   children: React.ReactNode
 }) {
   return (
-    <div
-      className={montSerrat.variable}
-      style={{ fontFamily: 'var(--font-montserrat)' }}
-    >
-      {children}
-    </div>
+    <SessionProvider>
+      <div
+        className={montSerrat.variable}
+        style={{ fontFamily: 'var(--font-montserrat)' }}
+      >
+        {children}
+      </div>
+    </SessionProvider>
   )
 }
