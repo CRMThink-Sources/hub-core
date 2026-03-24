@@ -42,7 +42,7 @@ const SessionProvider = ({ children }: ISessionProviderProps) => {
     const fetchSession = async () => {
       try {
         const data = await client.get<ISession>(`/auth/session`)
-        console.log('session data:', data)
+        // console.log('session data:', data)
         setSession(data as any)
       } catch (err) {
         console.error('fetchSession error:', err)

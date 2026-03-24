@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { ConfigurarModal } from '../modals/configurar-modal'
 import { ConectarModal } from '../modals/conectar-modal'
+import { useQrCode } from '@/app/(thinkzap)/hooks/use-qr-code'
 
 const jsonQrCode = {
   qrCode:
@@ -22,7 +23,7 @@ const formatPhoneNumber = (phone: string) => {
 
 export default function ConexoesLayout() {
   const { session } = useSession()
-  const [qrCode, setQrCode] = useState<string | null>(null)
+  const { qrCode, loading, fetchQrCode } = useQrCode()
   const [configurarAberto, setConfigurarAberto] = useState(false)
   const [conectarAberto, setConectarAberto] = useState(false)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -174,10 +175,10 @@ export default function ConexoesLayout() {
                           },
                           {
                             label: btnText,
-                            onClick: () => {
-                              if (btnText === 'Conectar') {
+                            onClick: async () => {
+                              if (!isConnected) {
                                 setConnSelecionado(conn)
-                                setQrCode(jsonQrCode.qrCode)
+                                await fetchQrCode(conn.id)
                                 setConectarAberto(true)
                               } else {
                                 console.log('desconectar id:', conn.id)
