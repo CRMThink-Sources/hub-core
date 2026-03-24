@@ -35,10 +35,10 @@ export default function CheckoutSuccessPage() {
         </p>
 
         <button
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/thinkzap/conexoes')}
           className="mt-8 w-full rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:ring-offset-2"
         >
-          Voltar para conectores
+          Voltar para Gestão de linhas
         </button>
       </div>
     </div>

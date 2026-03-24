@@ -7,33 +7,37 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { ConfigurarModal } from '../modals/configurar-modal'
 import { ConectarModal } from '../modals/conectar-modal'
-import { useQrCode } from '@/app/(thinkzap)/hooks/use-qr-code'
+import { useQrCode } from '@/app/hooks/use-qr-code'
+import { useConnectors } from '@/app/hooks/use-connectors'
 
-const jsonQrCode = {
-  qrCode:
-    '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',
-}
-
-const formatPhoneNumber = (phone: string) => {
-  if (!phone) return '-'
-  const match = phone.match(/^\+(\d{2})(\d{2})(\d{5})(\d{4})$/)
-  if (!match) return phone
-  return `+${match[1]} ${match[2]} ${match[3]}-${match[4]}`
-}
+// validar com Joao questoes de numero de telefone, nao encotrei no db.
+// const formatPhoneNumber = (phone: string) => {
+//   if (!phone) return '-'
+//   const match = phone.match(/^\+(\d{2})(\d{2})(\d{5})(\d{4})$/)
+//   if (!match) return phone
+//   return `+${match[1]} ${match[2]} ${match[3]}-${match[4]}`
+// }
 
 export default function ConexoesLayout() {
   const { session } = useSession()
-  const { qrCode, loading, fetchQrCode } = useQrCode()
-  const [configurarAberto, setConfigurarAberto] = useState(false)
-  const [conectarAberto, setConectarAberto] = useState(false)
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const [connSelecionado, setConnSelecionado] = useState<any | null>(null)
+  const { qrCode, fetchQrCode } = useQrCode()
+
+  const {
+    openMenuId,
+    setOpenMenuId,
+    connSelecionado,
+    configurarAberto,
+    setConfigurarAberto,
+    conectarAberto,
+    setConectarAberto,
+    abrirConfigurar,
+    abrirConectar,
+  } = useConnectors()
 
   const total = session?.connectors.length ?? 0
   const connected =
-    session?.connectors.filter(c => c.status === 'ATIVO').length ?? 0
+    session?.connectors.filter(c => c.instance.connected === true).length ?? 0
 
-  console.log('session info', session)
   const handleSave = (id: string) => {
     console.log('salvar para o id:', id)
     setConfigurarAberto(false)
@@ -126,10 +130,10 @@ export default function ConexoesLayout() {
                     {name || 'Sem nome'}
                   </h3>
                   <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                    <span className="font-medium">
-                      {/* {formatPhoneNumber(phoneNumber)} */}
-                    </span>
-                    <span className="text-gray-400">•</span>
+                    {/* <span className="font-medium">
+                      {formatPhoneNumber(phoneNumber)}
+                    </span> */}
+                    {/* <span className="text-gray-400">•</span> */}
                     <span className="truncate">
                       {vinculatedChannel || 'Nenhum canal vinculado'}
                     </span>
@@ -169,17 +173,15 @@ export default function ConexoesLayout() {
                           {
                             label: 'Editar',
                             onClick: () => {
-                              setConnSelecionado(conn)
-                              setConfigurarAberto(true)
+                              abrirConfigurar(conn)
                             },
                           },
                           {
                             label: btnText,
                             onClick: async () => {
                               if (!isConnected) {
-                                setConnSelecionado(conn)
+                                abrirConectar(conn)
                                 await fetchQrCode(conn.id)
-                                setConectarAberto(true)
                               } else {
                                 console.log('desconectar id:', conn.id)
                               }

@@ -25,7 +25,7 @@ function CheckoutContent() {
     console.log(token)
     const { data } = await axios.post(
       `${envConfig.apiUrl}/thinkzap/connector/create`,
-      { quantity, priceId: 'price_1Szq3BBQZChKoHsrUbFHuALX' },
+      { quantity, priceId: envConfig.priceCodes.ThinkzapConnectorsCode },
       {
         headers: {
           'Content-Type': 'application/json',
@@ -72,7 +72,10 @@ function CheckoutContent() {
         <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm backdrop-blur-sm p-8">
           <EmbeddedCheckoutProvider
             stripe={stripePromise}
-            options={{ fetchClientSecret }}
+            options={{
+              fetchClientSecret,
+              onComplete: () => router.push('/checkout/success'),
+            }}
           >
             <EmbeddedCheckout />
           </EmbeddedCheckoutProvider>
