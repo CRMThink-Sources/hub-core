@@ -96,6 +96,16 @@ export class BitrixClient {
       throw new Error('Failed to get open channel')
     }
   }
+
+  async getOpenChannels(): Promise<IGetOpenChannelsResponse> {
+    const client = this.getClient()
+    try {
+      const response = await client.get('/imopenlines.config.list.get')
+      return response.data
+    } catch (error) {
+      throw new Error('Failed to get open channels')
+    }
+  }
 }
 
 export interface IGetOpenChannelResponse {
@@ -142,5 +152,13 @@ interface ISetMessageDeliveredData {
     chat: {
       id: string
     }
+  }[]
+}
+
+export interface IGetOpenChannelsResponse {
+  result: {
+    LINE_NAME: string
+    ACTIVE: string
+    ID: string
   }[]
 }
