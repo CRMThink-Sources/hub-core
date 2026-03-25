@@ -4,6 +4,7 @@ import { makeListConnectorsController } from './main/list-connectors-controller'
 import { makeGetQrCodeController } from './main/get-qr-code-controller'
 import { makeVinculateChannelController } from './main/connector/make-vinculate-channel'
 import { adaptControllerFactory } from '@/shared/main/adapt-controller'
+import { makeListOpenChannelsController } from './main/make-list-open-channels-controller'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
@@ -24,6 +25,11 @@ export const createThinkerszapRoutes = (): Router => {
   router.post(
     '/connector/vinculate-channel',
     adaptControllerFactory(makeVinculateChannelController),
+  )
+
+  router.get(
+    '/openchannels',
+    adaptControllerFactory(makeListOpenChannelsController),
   )
 
   return router
