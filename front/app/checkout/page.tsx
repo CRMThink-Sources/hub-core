@@ -10,8 +10,8 @@ import {
   EmbeddedCheckout,
   EmbeddedCheckoutProvider,
 } from '@stripe/react-stripe-js'
-import { envConfig } from '@/shared/infra/env-config'
 import axios from 'axios'
+import { envConfig } from '@/shared/infra/env-config'
 
 const stripePromise = loadStripe(envConfig.stripePublishableKey)
 
@@ -25,7 +25,7 @@ function CheckoutContent() {
     console.log(token)
     const { data } = await axios.post(
       `${envConfig.apiUrl}/thinkzap/connector/create`,
-      { quantity, priceId: 'price_1Szq3BBQZChKoHsrUbFHuALX' },
+      { quantity, priceId: envConfig.priceCodes.ThinkzapConnectorsCode },
       {
         headers: {
           'Content-Type': 'application/json',
@@ -42,8 +42,8 @@ function CheckoutContent() {
         {/* Header */}
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+            onClick={() => router.push('/thinkzap/financeiro')}
+            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -72,7 +72,10 @@ function CheckoutContent() {
         <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm backdrop-blur-sm p-8">
           <EmbeddedCheckoutProvider
             stripe={stripePromise}
-            options={{ fetchClientSecret }}
+            options={{
+              fetchClientSecret,
+              onComplete: () => router.push('/checkout/success'),
+            }}
           >
             <EmbeddedCheckout />
           </EmbeddedCheckoutProvider>

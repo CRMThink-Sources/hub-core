@@ -4,4 +4,8 @@ export const envConfig = {
   appCodes: {
     thinkzap: process.env.NEXT_PUBLIC_THINKZAP_APP_CODE ?? '',
   },
+  priceCodes: {
+    ThinkzapConnectorsCode:
+      process.env.NEXT_PUBLIC_THINKZAP_PRICE_CONNECTORS ?? '',
+  },
 }

@@ -4,46 +4,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from '@/providers/session-provider'
 
 const jsonValorLinha = {
   valor: [
     {
       valorLinha: '337.0',
-    },
-  ],
-}
-
-const jsonRetorno = {
-  connectors: [
-    {
-      id: 'c1a2b3d4',
-      instance: {
-        name: 'Celular comercial - Fulano',
-        vinculatedChannel: 'Canal Comercial - Vendas',
-        phoneNumber: '+5511999990001',
-        status: 'CONNECTED',
-        paidStatus: 'paid',
-      },
-    },
-    {
-      id: 'c5e6f7g8',
-      instance: {
-        name: 'Celular suporte - Ciclano',
-        vinculatedChannel: 'Canal suporte - Atendimento inicial',
-        phoneNumber: '+5511988880002',
-        status: 'DISCONNECTED',
-        paidStatus: 'paid',
-      },
-    },
-    {
-      id: 'c9h0i1j2',
-      instance: {
-        name: 'Canal comercial - Beltrano',
-        vinculatedChannel: null,
-        phoneNumber: '+5511977770003',
-        status: null,
-        paidStatus: 'waitting_payment',
-      },
     },
   ],
 }
@@ -63,18 +29,19 @@ const formatPhoneNumber = (phone: string) => {
 }
 
 export default function GestaoLinhas() {
+  const { session } = useSession()
+  const router = useRouter()
+
   const [quantidade, setQuantidade] = useState(1)
 
-  const totalLinhas = jsonRetorno.connectors.length
-  const valorPorLinha = parseFloat(jsonValorLinha.valor[0].valorLinha)
+  const totalLinhas = session?.connectors.length ?? 0
 
+  const valorPorLinha = parseFloat(jsonValorLinha.valor[0].valorLinha)
   const desconto = quantidade > 1 ? (quantidade - 1) * 50 : 0
   const totalFinal = valorPorLinha * quantidade - desconto
 
   const handleIncrement = () => setQuantidade(prev => prev + 1)
   const handleDecrement = () => setQuantidade(prev => (prev > 0 ? prev - 1 : 0))
-
-  const router = useRouter()
 
   // func para chamar o stripe com a quantidade de conectores selecionados.
   function handleBuy() {
@@ -162,17 +129,22 @@ export default function GestaoLinhas() {
             </p>
           </div>
 
-          {jsonRetorno.connectors.map(conn => {
+          {session?.connectors.map((conn: any) => {
             const { name, phoneNumber, status, paidStatus } = conn.instance
 
             let connectionBgColor = ''
             let connectionStatusColor = ''
             let connectionStatusText = ''
             switch (status) {
-              case 'CONNECTED':
+              case 'ACTIVE':
                 connectionBgColor = '#DCFCE7'
                 connectionStatusColor = '#144A1B'
                 connectionStatusText = 'Ativo'
+                break
+              case 'PENDING_SETUP':
+                connectionBgColor = '#FEF9C3'
+                connectionStatusColor = '#854D0E'
+                connectionStatusText = 'Configuração pendente'
                 break
               default:
                 connectionBgColor = '#FEE2E2'

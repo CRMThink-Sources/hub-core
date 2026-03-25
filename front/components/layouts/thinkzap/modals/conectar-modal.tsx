@@ -56,11 +56,7 @@ export function ConectarModal({
         <div className="flex flex-col items-center gap-3 py-4">
           {qrCode && valid ? (
             <>
-              <img
-                src={`data:image/png;base64,${qrCode}`}
-                alt="QR Code"
-                className="w-48 h-48"
-              />
+              <img src={qrCode} alt="QR Code" className="w-48 h-48" />
               <p className="text-sm text-gray-500">
                 Escaneie o QR Code com o WhatsApp
               </p>
