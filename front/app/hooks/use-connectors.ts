@@ -19,7 +19,7 @@ export const useConnectors = () => {
   }
 
   const abrirVincular = (conn: any) => {
-    setConnSelecionado(conn)
+    setConnVincular(conn)
     setVincularAberto(true)
   }
 

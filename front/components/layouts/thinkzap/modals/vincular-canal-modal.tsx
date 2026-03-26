@@ -53,7 +53,6 @@ export function VincularCanalModal({
         const canais =
           responseData?.channels || responseData?.data?.channels || []
 
-        console.log('Canais extraídos com sucesso:', canais)
         setChannels(canais)
       } catch (err: any) {
         if (err.response) {
@@ -80,13 +79,18 @@ export function VincularCanalModal({
   }, [isOpen])
 
   const handleVincular = async () => {
-    if (!selectedId || !connector) return
+    if (!selectedId || !connector) {
+      console.warn('Faltando selectedId ou connector')
+      return
+    }
 
     const authTokenKey = getAppRedirectUrl(
       envConfig.appCodes.thinkzap,
     )?.storageAuthTokenKey
-
-    if (!authTokenKey) return
+    if (!authTokenKey) {
+      console.error('Token de autenticação não encontrado')
+      return
+    }
 
     const client = axiosThinkzap(authTokenKey)
 
@@ -94,18 +98,34 @@ export function VincularCanalModal({
     setError(null)
 
     try {
-      await client.post('/connector/vinculate-channel', {
+      const payload = {
         connectorId: connector.id,
-        lineId: Number(selectedId),
-      })
+        lineId: isNaN(Number(selectedId)) ? selectedId : Number(selectedId),
+      }
 
-      onSuccess?.()
+      console.log('Enviando Payload:', payload)
+
+      const res = await client.post(
+        '/thinkzap/connector/vinculate-channel',
+        payload,
+      )
+
+      console.log('Sucesso na API:', res)
+
+      if (onSuccess) {
+        console.log('Chamando callback onSuccess')
+        onSuccess()
+      }
+
       onClose()
-    } catch (err) {
-      console.error('erro ao vincular canal', err)
-      setError('Erro ao vincular canal')
+    } catch (err: any) {
+      console.error(
+        'Erro detalhado no vínculo:',
+        err.response?.data || err.message,
+      )
+      setError(err.response?.data?.message || 'Erro ao vincular canal')
     } finally {
-      setLoading(false)
+      setSaving(false) // Corrigido de setLoading para setSaving
     }
   }
 
@@ -142,9 +162,7 @@ export function VincularCanalModal({
                       : 'hover:bg-gray-50 text-black'
                   }`}
                 >
-                  <span className="cursor-pointer">
-                    {channel.id} - {channel.name}
-                  </span>
+                  <span className="cursor-pointer">{channel.name}</span>
                   {!channel.active && (
                     <span className="text-xs text-gray-400">Inativo</span>
                   )}
