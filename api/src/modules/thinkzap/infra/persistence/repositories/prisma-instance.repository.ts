@@ -6,9 +6,13 @@ import {
   InstanceStatus,
 } from '@/modules/thinkzap/domain/entities/instance'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
+import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
 
 export class PrismaInstanceRepository
-  implements CreateInstanceRepository, GetInstanceRepository
+  implements
+    CreateInstanceRepository,
+    GetInstanceRepository,
+    UpdateInstanceRepository
 {
   async create(
     instance: Omit<Instance, 'id' | 'createdAt' | 'updatedAt'>,
@@ -95,5 +99,24 @@ export class PrismaInstanceRepository
       createdAt: instance.createdAt,
       updatedAt: instance.updatedAt,
     }
+  }
+
+  async update(
+    instance: Omit<Instance, 'createdAt' | 'updatedAt'>,
+  ): Promise<Instance> {
+    const updatedInstance = await prisma.instance.update({
+      where: { id: instance.id },
+      data: instance,
+    })
+    return {
+      id: updatedInstance.id,
+      domainId: updatedInstance.domainId,
+      instanceId: updatedInstance.instanceId,
+      vinculatedChannel: updatedInstance.vinculatedChannel,
+      zApiToken: updatedInstance.zApiToken,
+      status: updatedInstance.status as InstanceStatus,
+      phoneNumber: null,
+      createdAt: updatedInstance.createdAt,
+    } as Instance
   }
 }

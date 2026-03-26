@@ -5,11 +5,16 @@ import z from 'zod'
 import { GetConnectorRepository } from '../../domain/repositories/get-connector.repository'
 import { BitrixOAuthClient } from '@/shared/infra/clients/bitrix-oauth.client'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { UpdateInstanceRepository } from '../../domain/repositories/update-instance.repository'
+import { GetInstanceRepository } from '../../domain/repositories/get-instance.repository'
+import { InstanceStatus } from '../../domain/entities/instance'
 
 export class VinculateChannelController extends Controller {
   constructor(
     private readonly getConnectorRepository: GetConnectorRepository,
     private readonly bitrixClient: BitrixClient,
+    private readonly instanceRepository: GetInstanceRepository &
+      UpdateInstanceRepository,
   ) {
     super()
   }
@@ -35,9 +40,23 @@ export class VinculateChannelController extends Controller {
     if (!connector) {
       return this.notFound(new Error('Connector not found'))
     }
+    const instance = await this.instanceRepository.getInstance(
+      connector.instanceId,
+    )
+    if (!instance) {
+      return this.notFound(new Error('Instance not found'))
+    }
 
     await this.bitrixClient.activateConnector(lineId)
-
+    await this.instanceRepository.update({
+      id: instance.id,
+      vinculatedChannel: lineId.toString(),
+      status: InstanceStatus.CONNECTED,
+      domainId: instance.domainId,
+      instanceId: instance.instanceId,
+      zApiToken: instance.zApiToken,
+      phoneNumber: null,
+    })
     return this.ok({ message: 'Vinculate channel' })
   }
 }
