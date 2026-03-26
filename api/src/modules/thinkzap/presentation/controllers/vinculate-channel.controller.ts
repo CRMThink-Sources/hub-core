@@ -37,7 +37,10 @@ export class VinculateChannelController extends Controller {
     }
 
     await this.bitrixClient.activateConnector(lineId)
-
+    await this.instanceRepository.updateVinculatedChannel(
+      instance.id,
+      lineId.toString(),
+    )
     return this.ok({ message: 'Vinculate channel' })
   }
 }

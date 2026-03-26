@@ -109,7 +109,7 @@ export default function ConexoesLayout() {
         {session?.connectors.map((conn: any, index: number) => {
           const {
             name,
-            vinculatedChannel,
+            vinculatedChannelName,
             paidStatus,
             connected: isConnected,
           } = conn.instance
@@ -141,7 +141,7 @@ export default function ConexoesLayout() {
                     </span> */}
                     {/* <span className="text-gray-400">•</span> */}
                     <span className="truncate">
-                      {vinculatedChannel || 'Nenhum canal vinculado'}
+                      {vinculatedChannelName || 'Nenhum canal vinculado'}
                     </span>
                   </div>
                 </div>

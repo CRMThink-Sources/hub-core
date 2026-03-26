@@ -96,4 +96,26 @@ export class PrismaInstanceRepository
       updatedAt: instance.updatedAt,
     }
   }
+
+  async updateVinculatedChannel(
+    instanceId: string,
+    channelId: string,
+  ): Promise<Instance> {
+    const updatedInstance = await prisma.instance.update({
+      where: { id: instanceId },
+      data: {
+        vinculatedChannel: channelId,
+      },
+    })
+    return {
+      id: updatedInstance.id,
+      domainId: updatedInstance.domainId,
+      instanceId: updatedInstance.instanceId,
+      vinculatedChannel: updatedInstance.vinculatedChannel,
+      zApiToken: updatedInstance.zApiToken,
+      status: updatedInstance.status as InstanceStatus,
+      phoneNumber: null,
+      createdAt: updatedInstance.createdAt,
+    } as Instance
+  }
 }
