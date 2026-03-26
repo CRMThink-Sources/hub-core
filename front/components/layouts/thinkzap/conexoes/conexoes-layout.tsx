@@ -9,6 +9,7 @@ import { ConfigurarModal } from '../modals/configurar-modal'
 import { ConectarModal } from '../modals/conectar-modal'
 import { useQrCode } from '@/app/hooks/use-qr-code'
 import { useConnectors } from '@/app/hooks/use-connectors'
+import { VincularCanalModal } from '../modals/vincular-canal-modal'
 
 // validar com Joao questoes de numero de telefone, nao encotrei no db.
 // const formatPhoneNumber = (phone: string) => {
@@ -32,6 +33,11 @@ export default function ConexoesLayout() {
     setConectarAberto,
     abrirConfigurar,
     abrirConectar,
+    abrirVincular,
+    vincularAberto,
+    setVincularAberto,
+    connVincular,
+    setConnVincular,
   } = useConnectors()
 
   const total = session?.connectors.length ?? 0
@@ -187,7 +193,12 @@ export default function ConexoesLayout() {
                               }
                             },
                           },
-                          { label: 'Vincular canal', onClick: () => {} },
+                          {
+                            label: 'Vincular canal',
+                            onClick: () => {
+                              abrirVincular(conn)
+                            },
+                          },
                           { label: 'Limpar fila', onClick: () => {} },
                           { label: 'Cancelar assinatura', onClick: () => {} },
                           { label: 'Excluir', onClick: () => {} },
@@ -232,6 +243,15 @@ export default function ConexoesLayout() {
         qrCode={qrCode}
         onClose={() => setConectarAberto(false)}
         onSave={handleSave}
+      />
+
+      <VincularCanalModal
+        isOpen={vincularAberto}
+        connector={connVincular}
+        onClose={() => setVincularAberto(false)}
+        onSuccess={() => {
+          console.log('sucess')
+        }}
       />
     </div>
   )

@@ -103,6 +103,7 @@ export class BitrixClient {
       const response = await client.get('/imopenlines.config.list.get')
       return response.data
     } catch (error) {
+      console.log(error)
       throw new Error('Failed to get open channels')
     }
   }

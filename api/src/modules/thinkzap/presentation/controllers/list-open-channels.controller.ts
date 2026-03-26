@@ -10,14 +10,18 @@ export class ListOpenChannelsController extends Controller {
 
   async perform(req: Request, res: Response): Promise<httpResponse> {
     const openChannels = await this.bitrix.getOpenChannels()
-    console.log(openChannels)
-    return this.ok({
+
+    const params = {
       channels: openChannels.result.map(el => ({
         id: el.ID,
         active: el.ACTIVE === 'Y',
         name: el.LINE_NAME,
       })),
       total: openChannels.result.length,
-    })
+    }
+
+    // console.log('params enviados ao front:', params)
+
+    return this.ok(params)
   }
 }
