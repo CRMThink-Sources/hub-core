@@ -101,12 +101,15 @@ export class PrismaInstanceRepository
     }
   }
 
-  async update(
-    instance: Omit<Instance, 'createdAt' | 'updatedAt'>,
+  async updateVinculatedChannel(
+    instanceId: string,
+    channelId: string,
   ): Promise<Instance> {
     const updatedInstance = await prisma.instance.update({
-      where: { id: instance.id },
-      data: instance,
+      where: { id: instanceId },
+      data: {
+        vinculatedChannel: channelId,
+      },
     })
     return {
       id: updatedInstance.id,
