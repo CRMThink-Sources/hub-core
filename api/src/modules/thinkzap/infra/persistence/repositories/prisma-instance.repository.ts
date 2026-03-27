@@ -6,9 +6,13 @@ import {
   InstanceStatus,
 } from '@/modules/thinkzap/domain/entities/instance'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
+import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
 
 export class PrismaInstanceRepository
-  implements CreateInstanceRepository, GetInstanceRepository
+  implements
+    CreateInstanceRepository,
+    GetInstanceRepository,
+    UpdateInstanceRepository
 {
   async create(
     instance: Omit<Instance, 'id' | 'createdAt' | 'updatedAt'>,

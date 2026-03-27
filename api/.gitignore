@@ -13,6 +13,6 @@
 /tests
 /tmp
 
-.env
+.env*
 .env.example
 
