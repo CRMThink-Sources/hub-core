@@ -1,5 +1,5 @@
 'use client'
-import { THINKZAP_ASIDE_CONFIG } from '@/thinkzap-aside-config'
+import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkzap-aside-config'
 import ConexoesLayout from '@/components/layouts/thinkzap/conexoes/conexoes-layout'
 import { SessionProvider } from '@/providers/session-provider'
 import { Aside } from '@/components/layouts/shared/aside/aside'

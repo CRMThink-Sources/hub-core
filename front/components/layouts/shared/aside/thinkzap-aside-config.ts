@@ -25,10 +25,10 @@ export const THINKZAP_ASIDE_CONFIG = {
     { code: 'en-US', flag: '/images/i18n-icon/4x3/us.svg' },
     { code: 'es', flag: '/images/i18n-icon/4x3/es.svg' },
   ],
-  bgColor: '#F9F9FB',
-  activeColor: '#d9fce6',
-  activeTextColor: '#000000',
-  hoverColor: '#e8fdf0',
-  borderColor: '#e5e7eb',
-  accentColor: '#5A997E',
+  bgColor: '#F9F9FB', // cor de fundo, branco
+  activeColor: '#d9fce6', // cor de botao ativo -> verde claro
+  activeTextColor: '#000000', // preto
+  hoverColor: '#e8fdf0', // cor que fica ao mouse passar pela opcao
+  borderColor: '#e5e7eb', // cor da borda das caixas
+  accentColor: '#5A997E', // cor das sobreposicoes
 }

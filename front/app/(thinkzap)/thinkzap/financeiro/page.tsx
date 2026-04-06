@@ -1,4 +1,4 @@
-import { THINKZAP_ASIDE_CONFIG } from '@/thinkzap-aside-config'
+import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkzap-aside-config'
 
 import PagamentosLayout from '@/components/layouts/thinkzap/financeiro/pagamentos-layout'
 import { Aside } from '@/components/layouts/shared/aside/aside'

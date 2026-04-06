@@ -8,6 +8,10 @@ const DEFAULT_APP_REDIRECTS: Record<
     baseRedirectUrl: '/thinkzap',
     storageAuthTokenKey: 'hubthink_auth_token',
   },
+  [envConfig.appCodes.thinkanalise]: {
+    baseRedirectUrl: '/thinkanalise',
+    storageAuthTokenKey: 'hubthink_auth_token',
+  },
 }
 
 export function getAppRedirectUrl(
