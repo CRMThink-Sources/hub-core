@@ -1,5 +1,5 @@
 import { Aside } from '@/components/layouts/shared/aside/aside'
-import { THINKZAP_ASIDE_CONFIG } from '@/thinkzap-aside-config'
+import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkzap-aside-config'
 
 export default function AjudaPage() {
   return (
