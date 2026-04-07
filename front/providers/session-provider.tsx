@@ -1,11 +1,11 @@
 import { getAppRedirectUrl } from '@/app/config/app-redirects'
-import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 import { envConfig } from '@/shared/infra/env-config'
 import axios from 'axios'
 import { usePathname } from 'next/navigation'
 import { createContext, useContext, useEffect, useState } from 'react'
 
 interface ISessionProviderProps {
+  appCode: string
   children: React.ReactNode
 }
 
@@ -26,18 +26,40 @@ const useSession = () => {
   return session
 }
 
-const SessionProvider = ({ children }: ISessionProviderProps) => {
+const createSessionClient = (authTokenKey: string) => {
+  const token = sessionStorage.getItem(authTokenKey)
+  if (!token) {
+    throw new Error('Token not found')
+  }
+  const axiosInstance = axios.create({
+    baseURL: envConfig.apiUrl,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  })
+
+  axiosInstance.interceptors.response.use(
+    response => response.data.result,
+    error =>
+      Promise.reject(
+        error instanceof Error ? error : new Error('Request failed'),
+      ),
+  )
+
+  return axiosInstance
+}
+
+const SessionProvider = ({ appCode, children }: ISessionProviderProps) => {
   const [session, setSession] = useState<ISession | null>(null)
   const pathname = usePathname()
 
   useEffect(() => {
-    const authTokenKey = getAppRedirectUrl(
-      envConfig.appCodes.thinkzap,
-    )?.storageAuthTokenKey
+    const authTokenKey = getAppRedirectUrl(appCode)?.storageAuthTokenKey
     if (!authTokenKey) {
       throw new Error('Auth token key not found')
     }
-    const client = axiosThinkzap(authTokenKey)
+    const client = createSessionClient(authTokenKey)
 
     const fetchSession = async () => {
       try {
@@ -49,7 +71,7 @@ const SessionProvider = ({ children }: ISessionProviderProps) => {
       }
     }
     void fetchSession()
-  }, [pathname])
+  }, [appCode, pathname])
 
   return <context.Provider value={{ session }}>{children}</context.Provider>
 }
