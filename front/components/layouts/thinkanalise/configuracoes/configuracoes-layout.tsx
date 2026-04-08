@@ -1,27 +1,25 @@
 'use client'
 
 import { useState } from 'react'
-import type { Config } from '../../types/thinkanalise-types'
+import type { Connection } from '../../types/thinkanalise-types'
 import { ConfigCard } from './configcard'
 
 export default function ConfiguracoesLayout() {
-  const [configs, setConfigs] = useState<Config[]>([])
+  const [connections, setConnections] = useState<Connection[]>([])
 
-  function addConfig() {
-    const nova: Config = {
+  function addConnection() {
+    const nova: Connection = {
       id: crypto.randomUUID(),
       provider: 'asaas',
       label: '',
       apiKey: '',
-      syncFreq: 60,
       status: 'pendente',
     }
-    console.log('[nova config] criada →', nova)
-    setConfigs(prev => [...prev, nova])
+    setConnections(prev => [...prev, nova])
   }
 
-  function updateConfig(updated: Config) {
-    setConfigs(prev => prev.map(c => (c.id === updated.id ? updated : c)))
+  function updateConnection(updated: Connection) {
+    setConnections(prev => prev.map(c => (c.id === updated.id ? updated : c)))
   }
 
   return (
@@ -35,26 +33,26 @@ export default function ConfiguracoesLayout() {
           </h2>
         </div>
         <button
-          onClick={addConfig}
+          onClick={addConnection}
           className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg border border-[#e5e7eb] bg-white
-                     hover:bg-[#f3e8ff] hover:border-[#6c02ad] hover:text-[#6c02ad] transition-all cursor-pointer"
+                     hover:bg-[#eef2f9] hover:border-[#223f6e] hover:text-[#223f6e] transition-all cursor-pointer"
         >
-          <span className="w-4 h-4 rounded-full bg-[#6c02ad] text-white flex items-center justify-center text-xs leading-none">
+          <span className="w-4 h-4 rounded-full bg-[#223f6e] text-white flex items-center justify-center text-xs leading-none">
             +
           </span>
-          nova configuração
+          nova conexão
         </button>
       </div>
 
       {/* lista */}
       <div className="w-full max-w-3xl flex flex-col gap-4">
-        {configs.length === 0 ? (
+        {connections.length === 0 ? (
           <p className="text-sm text-gray-400 font-mono px-1">
-            nenhuma configuração ainda.
+            nenhuma conexão ainda.
           </p>
         ) : (
-          configs.map(c => (
-            <ConfigCard key={c.id} config={c} onChange={updateConfig} />
+          connections.map(c => (
+            <ConfigCard key={c.id} connection={c} onChange={updateConnection} />
           ))
         )}
       </div>
