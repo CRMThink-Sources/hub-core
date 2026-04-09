@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { randomUUID } from 'crypto'
+import { BitrixError } from '../infra/clients/errors/bitrix-client.error'
 
 export abstract class Controller {
   constructor() {
@@ -33,7 +34,9 @@ export abstract class Controller {
         time: endTime - initTime,
       })
     } catch (error) {
-      console.error(error)
+      if (error instanceof BitrixError) {
+        console.error(error.message)
+      }
       return res.status(500).json({
         error: 'Internal server error',
         traceId,
