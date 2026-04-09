@@ -9,6 +9,7 @@ import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositor
 import { GetOrCreateCredential } from '@/shared/application/get-or-create-credential'
 
 export const createInstallController = (): Controller => {
+  console.log('passou pelo controller de instalacao')
   const getAvailableAppRepository = new PrismaAvailableAppRepository()
   const domainRepository = new PrismaDomainRepository()
   const getOrCreateDomain = new GetOrCreateDomain(

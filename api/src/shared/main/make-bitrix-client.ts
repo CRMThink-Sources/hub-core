@@ -1,9 +1,9 @@
-import { BitrixDiskClient } from '@/shared/infra/clients/bitrix-disk'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositories/prisma-credential.repository'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { Request } from 'express'
+import { BitrixBiConnectorClient } from '../infra/clients/bitrix-biconnector.client'
 
 export const makeBitrixClient = async (
   req: Request,
@@ -28,6 +28,8 @@ export const makeBitrixClient = async (
   const credentialRepo = new PrismaCredentialRepository()
   const credential = await credentialRepo.get({ appId: app?.id })
 
+  console.log({ credential })
+
   if (!credential) {
     throw new Error('Domain or credential not found')
   }
@@ -39,9 +41,35 @@ export const makeBitrixClient = async (
   return bitrixClient
 }
 
-const clients = {
-  disk: BitrixDiskClient,
-  bitrix: BitrixClient,
+export const makeBitrixClientByAppId = async (
+  appId: string,
+  client: ClientType = 'bitrix',
+): Promise<BitrixClient | BitrixBiConnectorClient> => {
+  const credentialRepo = new PrismaCredentialRepository()
+  const installedAppRepo = new PrismaInstalledAppRepository()
+  const domainRepo = new PrismaDomainRepository()
+
+  const app = await installedAppRepo.getById(appId)
+  if (!app) throw new Error('App not found')
+
+  const domain = await domainRepo.getDomainById(app.domainId)
+  if (!domain) throw new Error('Domain not found')
+
+  const credential = await credentialRepo.get({ appId })
+  if (!credential) throw new Error('Credential not found')
+
+  const Client = clients[client as keyof typeof clients]
+  if (!Client) {
+    throw new Error('Client not found')
+  }
+  const bitrixClient = new Client(credential, domain?.name)
+  return bitrixClient
 }
 
-type ClientType = 'disk' | 'bitrix'
+const clients = {
+  biconnector: BitrixBiConnectorClient,
+  bitrix: BitrixClient,
+  disk: BitrixClient,
+}
+
+type ClientType = 'disk' | 'bitrix' | 'biconnector'

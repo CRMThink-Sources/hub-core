@@ -2,6 +2,7 @@ import express, { type Express } from 'express'
 import {
   authMiddleware,
   authRoutes,
+  thinkanaliseRoutes,
   thinkerszapRoutes,
 } from './composition-root.js'
 import cors from 'cors'
@@ -56,6 +57,7 @@ app.use('/api/auth', authRoutes)
 
 // Rotas por aplicação (com auth)
 app.use('/api/thinkzap', authMiddleware, thinkerszapRoutes)
+app.use('/api/thinkanalise', authMiddleware, thinkanaliseRoutes)
 
 const audioUploadParser = multer({
   storage: multer.memoryStorage(),

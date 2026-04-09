@@ -1,13 +1,11 @@
-export type Provider = 'asaas' | 'conta_azul'
+export type Provider = 'asaas' | 'conta_azul' | 'omie'
 
-export type ConfigStatus = 'conectado' | 'erro' | 'pendente'
+export type ConnectionStatus = 'conectado' | 'erro' | 'pendente'
 
-export type Config = {
+export interface Connection {
   id: string
   provider: Provider
   label: string
   apiKey: string
-  syncFreq: number // minutos
-  manualExec?: string // datetime-local string
-  status: ConfigStatus
+  status: ConnectionStatus
 }

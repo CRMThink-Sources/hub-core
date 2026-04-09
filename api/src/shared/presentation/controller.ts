@@ -34,10 +34,7 @@ export abstract class Controller {
         time: endTime - initTime,
       })
     } catch (error) {
-      if (error instanceof BitrixError) {
-        console.error(error.message)
-      }
-      console.error(error)
+      // console.error(error)
       return res.status(500).json({
         error: 'Internal server error',
         traceId,
