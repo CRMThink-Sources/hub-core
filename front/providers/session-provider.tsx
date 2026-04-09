@@ -11,7 +11,7 @@ interface ISessionProviderProps {
 
 type ISession = {
   app: any
-  connectors: any[]
+  [key: string]: any
 }
 
 const context = createContext<{
