@@ -2,7 +2,7 @@ import { Controller } from '@/shared/presentation/controller'
 import { VinculateChannelController } from '../../presentation/controllers/vinculate-channel.controller'
 import { PrismaConnectorRepository } from '../../infra/persistence/repositories/prisma-connector.repository'
 import { Request } from 'express'
-import { makeBitrixClient } from '../make-bitrix-client'
+import { makeBitrixClient } from '../../../../shared/main/make-bitrix-client'
 import { PrismaInstanceRepository } from '../../infra/persistence/repositories/prisma-instance.repository'
 
 export const makeVinculateChannelController = async (

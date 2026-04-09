@@ -14,9 +14,11 @@ export class GetOrCreateInstalledApp {
   ) {}
 
   async execute(input: GetOrCreateInstalledAppInput): Promise<InstalledApp> {
-    const existing = await this.getInstalledAppRepository.getByDomainId(
-      input.domainId,
-    )
+    const existing =
+      await this.getInstalledAppRepository.getByAppCodeAndDomainId(
+        input.appCodeId,
+        input.domainId,
+      )
 
     if (existing) {
       return existing
