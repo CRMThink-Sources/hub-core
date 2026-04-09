@@ -1,7 +1,7 @@
 import {
   AppCode as PrismaAppCode,
   BillingPlan as PrismaBillingPlan,
-} from '../../../prisma/generated/prisma/client'
+} from '../../../../prisma/generated/prisma/client'
 import { AvailableApp } from '@/shared/domain/entities/available-app'
 import { toBillingPlan } from './prisma-billing-plan.mapper'
 import { BillingPlan } from '@/shared/domain/entities/billing-plan'

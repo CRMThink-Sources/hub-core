@@ -5,6 +5,7 @@ import { GetInstalledAppRepository } from '../domain/repositories/instaled-app/g
 export type GetOrCreateInstalledAppInput = {
   domainId: string
   appCodeId: string
+  email: string
 }
 
 export class GetOrCreateInstalledApp {
@@ -25,6 +26,7 @@ export class GetOrCreateInstalledApp {
     return this.getInstalledAppRepository.create({
       domainId: input.domainId,
       appCodeId: input.appCodeId,
+      email: input.email,
       status: 'ACTIVE',
       installedAt: new Date(),
       updatedAt: new Date(),

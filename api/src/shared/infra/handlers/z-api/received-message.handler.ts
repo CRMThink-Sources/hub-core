@@ -73,7 +73,7 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
           : undefined
 
     const params: ISendMessageData = {
-      CONNECTOR: 'hubthink_thinkerszap',
+      CONNECTOR: 'hubthink_thinkzap',
       LINE: 208,
       MESSAGES: [
         {
@@ -103,7 +103,7 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
         },
       ],
     }
-    console.log({ params: params.MESSAGES[0] })
+
     await bitrixClient.sendMessage(params)
   }
 

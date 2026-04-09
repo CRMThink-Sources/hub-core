@@ -1,4 +1,4 @@
-import { Domain as PrismaDomain } from '@/prisma/generated/prisma/client'
+import { Domain as PrismaDomain } from '@/prisma/client'
 import { Domain } from '@/shared/domain/entities/domain'
 
 export const toDomain = (domain: PrismaDomain): Domain => {

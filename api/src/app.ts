@@ -6,8 +6,6 @@ import {
 } from './composition-root.js'
 import cors from 'cors'
 import multer from 'multer'
-import Stripe from 'stripe'
-import { env } from './config/env.js'
 import { makeStripeWebhookHandlerController } from './modules/thinkzap/main/stripe-webhook.handler.js'
 import { makeZApiWebhookHandlerController } from './modules/thinkzap/main/z-api-webhook-handle-controller.js'
 import { startCredentialRefreshJob } from './shared/infra/scheduler/credential-refresh.job.js'
@@ -16,7 +14,6 @@ import { makeBitrixWebhookHandlerController } from './modules/thinkzap/main/bitr
 import { makeUploadAudioController } from './modules/audio/main/make-upload-audio-controller.js'
 
 const app: Express = express()
-const stripe = new Stripe(env.stripe.secretKey)
 
 // Antes do cors: no preflight OPTIONS o cors encerra a resposta sem next() — o header tem que existir nessa resposta (PNA).
 app.use((_req, res, next) => {

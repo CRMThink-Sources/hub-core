@@ -12,7 +12,7 @@ export interface IBX24MessageEvent {
       message: {
         user_id: string
         text: string
-        files: {
+        files?: {
           name: string
           type: string
           mime: string
@@ -20,8 +20,8 @@ export interface IBX24MessageEvent {
           downloadLink: string
           size: string
           sizef: string
-          width: string
-          height: string
+          width: number
+          height: number
         }[]
       }
       chat: {
