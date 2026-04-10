@@ -13,6 +13,9 @@ jobs:
     defaults:
       run:
         working-directory: api
+    # prisma.config.ts exige URL ou host/user/database; generate não conecta ao banco.
+    env:
+      DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/ci
 
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +31,6 @@ jobs:
       - run: yarn lint
 
       - run: yarn check-types
-
-      - run: npx prisma generate --schema=src/prisma/schema.prisma
 
       - run: yarn build
 
