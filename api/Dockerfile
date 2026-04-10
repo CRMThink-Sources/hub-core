@@ -11,7 +11,7 @@ COPY prisma ./prisma
 COPY src ./src
 
 RUN npx prisma generate
-RUN yarn build
+RUN yarn build && ls dist/src/index.js
 RUN mkdir -p dist/prisma && cp -r prisma/schema.prisma dist/prisma/ && \
     if [ -d prisma/migrations ]; then cp -r prisma/migrations dist/prisma/; fi
 
@@ -33,4 +33,4 @@ USER api
 
 EXPOSE 4000
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/src/index.js"]
