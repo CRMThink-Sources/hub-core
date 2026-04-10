@@ -6,12 +6,14 @@ WORKDIR /app
 COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile
 
-COPY tsconfig.json ./
+COPY tsconfig.json prisma.config.ts ./
+COPY prisma ./prisma
 COPY src ./src
 
-RUN npx prisma generate --schema=src/prisma/schema.prisma
+RUN npx prisma generate
 RUN yarn build
-RUN mkdir -p dist/prisma && cp -r src/prisma/schema.prisma src/prisma/migrations dist/prisma/
+RUN mkdir -p dist/prisma && cp -r prisma/schema.prisma dist/prisma/ && \
+    if [ -d prisma/migrations ]; then cp -r prisma/migrations dist/prisma/; fi
 
 # --- Runtime ---
 FROM node:20-alpine AS runner
@@ -23,6 +25,7 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile --production && yarn cache clean
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma/generated ./prisma/generated
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 api
