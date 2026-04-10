@@ -8,7 +8,7 @@ import { CreateInstanceGateway } from '@/modules/thinkzap/domain/repositories/cr
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
 import { InstanceStatus } from '@/modules/thinkzap/domain/entities/instance'
 import { randomUUID } from 'crypto'
-import { GetOrCreateInstalledApp } from '@/shared/application/get-or-create-installed-app'
+import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 
 export class CheckoutSessionCompletedHandler implements StripeEventHandler {
   eventType = 'checkout.session.completed'
@@ -18,7 +18,7 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
     private readonly createConnectorRepo: CreateConnectorRepository,
     private readonly createInstanceGateway: CreateInstanceGateway,
     private readonly createInstanceRepo: CreateInstanceRepository,
-    private readonly getApp: GetOrCreateInstalledApp,
+    private readonly getApp: GetInstalledAppRepository,
   ) {}
 
   async handle(event: Stripe.Event): Promise<void> {
@@ -38,10 +38,13 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
       vinculatedChannel: null,
     })
 
-    const installedApp = await this.getApp.execute({
+    const installedApp = await this.getApp.getByAppCodeAndDomainId(
+      appId,
       domainId,
-      appCodeId: appId,
-    })
+    )
+    if (!installedApp) {
+      throw new Error('App not found')
+    }
 
     await this.createConnectorRepo.createConnector({
       instanceId: persistedInstance.id,

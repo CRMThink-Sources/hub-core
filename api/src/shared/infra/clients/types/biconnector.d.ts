@@ -1,3 +1,16 @@
-export type CreateBiConnectorParams = any
+export type CreateBiConnectorParams = {
+  title: string
+  urlCheck: string
+  urlData: string
+  urlTableList: string
+  urlTableDescription: string
+  settings: {
+    code: string
+    name: string
+    type: string
+  }[]
+}
 
-export type BiconnectorResult = any
+export type BiconnectorResult = {
+  ID: number
+}

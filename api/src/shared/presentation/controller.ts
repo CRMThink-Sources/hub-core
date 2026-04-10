@@ -34,12 +34,19 @@ export abstract class Controller {
         time: endTime - initTime,
       })
     } catch (error) {
-      // console.error(error)
-      return res.status(500).json({
-        error: 'Internal server error',
-        traceId,
-        time: Date.now() - initTime,
-      })
+      if (error instanceof BitrixError) {
+        return res.status(400).json({
+          error: error.message,
+          traceId,
+          time: Date.now() - initTime,
+        })
+      } else {
+        return res.status(500).json({
+          error: 'Internal server error',
+          traceId,
+          time: Date.now() - initTime,
+        })
+      }
     } finally {
       const endTime = Date.now()
       console.log(`${this.constructor.name} took ${endTime - initTime}ms`)
