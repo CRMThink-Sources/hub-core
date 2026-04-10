@@ -60,9 +60,13 @@ export class PrismaCredentialRepository
   }
 
   async listExpired(buffer: Date): Promise<Credential[]> {
+    console.log({ buffer })
+    const allCredentials = await prisma.credential.findMany()
+    console.log({ allCredentials })
     const credentials = await prisma.credential.findMany({
       where: { expiresAt: { lte: buffer } },
     })
+    console.log({ credentials })
 
     return credentials.map(credential => ({
       id: credential.id,

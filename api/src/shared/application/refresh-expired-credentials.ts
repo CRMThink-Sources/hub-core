@@ -14,7 +14,6 @@ export class RefreshExpiredCredentials {
   async execute(): Promise<void> {
     const buffer = new Date(Date.now() + BUFFER_MS)
     const expiredCredentials = await this.listExpiredRepo.listExpired(buffer)
-
     if (expiredCredentials.length === 0) return
 
     console.log(

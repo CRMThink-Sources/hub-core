@@ -8,6 +8,11 @@ import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled
 import { GetCredentialRepository } from '@/shared/domain/repositories/credential/get-credential'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { BitrixDiskClient } from '@/shared/infra/clients/bitrix-disk'
+import {
+  makeBitrixClient,
+  makeBitrixClientByAppId,
+  makeBitrixClientByDomainAndAppCoode,
+} from '@/shared/main/make-bitrix-client'
 
 export class UploadAudioController extends Controller {
   constructor(
@@ -35,47 +40,23 @@ export class UploadAudioController extends Controller {
     }
 
     const { dialogId, userId, domain } = params.data
-    const domainEntity = await this.getDomainRepository.getDomain(
-      domain.split('://')[1] || '',
-    )
-    if (!domainEntity) {
-      return this.notFound(new Error('Domain not found'))
-    }
 
-    const availableApp =
-      await this.getAvailableAppRepository.getById('crmthink_thinkzap')
-    if (!availableApp) {
-      return this.notFound(new Error('Available app not found'))
-    }
+    const parsedDomain = domain.split('://')[1] || ''
 
-    const installedApp =
-      await this.getInstalledAppRepository.getByAppCodeAndDomainId(
-        availableApp.id,
-        domainEntity.id,
-      )
+    const bitrix = (await makeBitrixClientByDomainAndAppCoode(
+      parsedDomain,
+      'crmthink_thinkzap',
+      'disk',
+    )) as BitrixDiskClient
 
-    if (!installedApp) {
-      return this.notFound(new Error('Installed apps not found'))
-    }
-
-    const credential = await this.credentialRepository.get({
-      appId: installedApp.id,
-    })
-    if (!credential) {
-      return this.notFound(new Error('Credential not found'))
-    }
-
-    const bitrix = new BitrixDiskClient(
-      credential,
-      domain.split('://')[1] || '',
-    )
     const folderId = await bitrix.getFolderId({ chatId: dialogId })
+
     const base64 = req.file?.buffer.toString('base64')
     if (!base64) {
       return this.badRequest(new Error('Audio not found'))
     }
     const audio = req.file
-    console.log(audio)
+
     const file = await bitrix.uploadFile(
       base64,
       folderId,
@@ -86,7 +67,6 @@ export class UploadAudioController extends Controller {
       return this.badRequest(new Error('Campo "audio" obrigatorio'))
     }
     const commitFile = await bitrix.commitFile(file.ID, dialogId)
-    console.log(commitFile)
 
     const audioBase64 = audio.buffer.toString('base64')
 

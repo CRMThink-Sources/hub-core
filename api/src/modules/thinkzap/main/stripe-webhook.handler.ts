@@ -17,7 +17,7 @@ export const makeStripeWebhookHandlerController = (): Controller => {
   const createInstanceGateway = new ZApiInstanceGateway(zApiClient)
   const createConnectorRepo = new PrismaConnectorRepository()
   const createInstanceRepo = new PrismaInstanceRepository()
-  const getApp = new GetOrCreateInstalledApp(new PrismaInstalledAppRepository())
+  const getApp = new PrismaInstalledAppRepository()
 
   const checkoutSessionCompletedHandler = new CheckoutSessionCompletedHandler(
     createConnectorRepo,

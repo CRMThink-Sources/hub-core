@@ -2,7 +2,9 @@ import { Request, Response } from 'express'
 import { z } from 'zod'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
-import { BitrixClient } from '../../infra/clients/bi-biulder.client'
+import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
+import { CreateBiConnectorParams } from '@/shared/infra/clients/types/biconnector'
 
 const addBiconnectorSchema = z.object({
   label: z.string().min(1),
@@ -11,7 +13,7 @@ const addBiconnectorSchema = z.object({
 })
 
 export class AddBiconnectorController extends Controller {
-  constructor(private readonly bitrix: BitrixClient) {
+  constructor(private readonly bitrix: BitrixBiConnectorClient) {
     super()
   }
 
@@ -19,7 +21,7 @@ export class AddBiconnectorController extends Controller {
     const { label, provider, apiKey } = addBiconnectorSchema.parse(req.body)
     const base = process.env.THINKANALISE_CALLBACK_URL
 
-    const result = await this.bitrix.biconnectorAdd({
+    const params: CreateBiConnectorParams = {
       title: `[ThinkAnalise] ${label}`,
       urlCheck: `${base}/thinkanalise/check`,
       urlData: `${base}/thinkanalise/data`,
@@ -29,7 +31,9 @@ export class AddBiconnectorController extends Controller {
         { code: 'integration', name: 'Integração', type: 'STRING' },
         { code: 'api_key', name: 'Chave API', type: 'STRING' },
       ],
-    })
+    }
+
+    const result = await this.bitrix.biconnectorAdd(params)
 
     return this.ok(result)
   }

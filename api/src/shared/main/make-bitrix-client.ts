@@ -4,6 +4,13 @@ import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { Request } from 'express'
 import { BitrixBiConnectorClient } from '../infra/clients/bitrix-biconnector.client'
+import { PrismaAvailableAppRepository } from '../infra/persistence/repositories/prisma-available-app.repository'
+import { BitrixDiskClient } from '../infra/clients/bitrix-disk'
+
+const credentialRepo = new PrismaCredentialRepository()
+const installedAppRepo = new PrismaInstalledAppRepository()
+const availableAppRepo = new PrismaAvailableAppRepository()
+const domainRepo = new PrismaDomainRepository()
 
 export const makeBitrixClient = async (
   req: Request,
@@ -15,17 +22,14 @@ export const makeBitrixClient = async (
     throw new Error('Domain ID and app ID are required')
   }
 
-  const getDomainRepo = new PrismaDomainRepository()
-  const domain = await getDomainRepo.getDomainById(domainId)
+  const domain = await domainRepo.getDomainById(domainId)
 
-  const getAppRepo = new PrismaInstalledAppRepository()
-  const app = await getAppRepo.getByAppCodeAndDomainId(appId, domainId)
+  const app = await installedAppRepo.getByAppCodeAndDomainId(appId, domainId)
 
   if (!domain || !app) {
     throw new Error('App not found')
   }
 
-  const credentialRepo = new PrismaCredentialRepository()
   const credential = await credentialRepo.get({ appId: app?.id })
 
   console.log({ credential })
@@ -45,10 +49,6 @@ export const makeBitrixClientByAppId = async (
   appId: string,
   client: ClientType = 'bitrix',
 ): Promise<BitrixClient | BitrixBiConnectorClient> => {
-  const credentialRepo = new PrismaCredentialRepository()
-  const installedAppRepo = new PrismaInstalledAppRepository()
-  const domainRepo = new PrismaDomainRepository()
-
   const app = await installedAppRepo.getById(appId)
   if (!app) throw new Error('App not found')
 
@@ -66,10 +66,37 @@ export const makeBitrixClientByAppId = async (
   return bitrixClient
 }
 
+export const makeBitrixClientByDomainAndAppCoode = async (
+  domain: string,
+  appCode: string,
+  client: ClientType = 'bitrix',
+): Promise<BitrixClient | BitrixBiConnectorClient> => {
+  const domainEntity = await domainRepo.getDomain(domain)
+  if (!domainEntity) throw new Error('Domain not found')
+
+  const availableApp = await availableAppRepo.getById(appCode)
+  if (!availableApp) throw new Error('Available app not found')
+
+  const installedApp = await installedAppRepo.getByAppCodeAndDomainId(
+    availableApp.id,
+    domainEntity.id,
+  )
+  if (!installedApp) throw new Error('Installed app not found')
+
+  const credential = await credentialRepo.get({ appId: installedApp.id })
+  if (!credential) throw new Error('Credential not found')
+
+  const Client = clients[client as keyof typeof clients]
+
+  if (!Client) throw new Error('Client not found')
+
+  return new Client(credential, domainEntity.name)
+}
+
 const clients = {
   biconnector: BitrixBiConnectorClient,
   bitrix: BitrixClient,
-  disk: BitrixClient,
+  disk: BitrixDiskClient,
 }
 
 type ClientType = 'disk' | 'bitrix' | 'biconnector'

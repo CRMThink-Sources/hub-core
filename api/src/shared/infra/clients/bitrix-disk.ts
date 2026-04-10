@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 import { BitrixClient } from './bitrix.client'
 import { Credential } from '@/shared/domain/entities/credential'
 import { BitrixError } from './errors/bitrix-client.error'
@@ -30,6 +30,7 @@ export class BitrixDiskClient extends BitrixClient {
 
       return response.data.result.ID
     } catch (error) {
+      console.log((error as AxiosError).response?.data)
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -77,7 +78,8 @@ export class BitrixDiskClient extends BitrixClient {
     } catch (error) {
       const message =
         axios.isAxiosError(error) && error.response
-          ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+          ? // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data.error_description)}`
           : 'Failed to commit file'
       throw new BitrixError(message)
     }

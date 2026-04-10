@@ -6,8 +6,9 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc && tsc-alias",
     "start": "tsx src/index.ts",
-    "lint": "eslint --max-warnings 0 .",
-    "check-types": "tsc --noEmit"
+    "prisma:generate": "prisma generate",
+    "lint": "yarn prisma:generate && eslint --max-warnings 0 .",
+    "check-types": "yarn prisma:generate && tsc --noEmit"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.4.2",
