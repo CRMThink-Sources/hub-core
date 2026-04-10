@@ -12,6 +12,6 @@ services:
     image: ghcr.io/crmthink-sources/hub-core-front:staging
     container_name: hubthink-front-staging
     ports:
-      - "3000:3000"
+      - "3001:3000"
     env_file:
       - ./front/.env
