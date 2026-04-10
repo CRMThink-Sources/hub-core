@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
@@ -80,7 +78,7 @@ export default function Home() {
       }
     }
 
-    runAuthAndRedirect()
+    void runAuthAndRedirect()
     return () => {
       cancelled = true
     }

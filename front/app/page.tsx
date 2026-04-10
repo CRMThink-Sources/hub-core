@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -52,7 +49,7 @@ export default function Home() {
         setLoading(false)
       }
     }
-    fetchConnectors()
+    void fetchConnectors()
   }, [])
 
   function handleBuy() {
