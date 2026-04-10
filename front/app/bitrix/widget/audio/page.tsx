@@ -3,12 +3,12 @@ import { BX24Script } from '@/bitrix'
 import { getAppRedirectUrl } from '@/app/config/app-redirects'
 import { envConfig } from '@/shared/infra/env-config'
 import { useSearchParams } from 'next/navigation'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { AudioPreview } from './_components/audio-preview'
 import { RecordToggleButton } from './_components/record-toggle-button'
 import { useAudioWidget } from './_hooks/use-audio-widget'
 
-export default function BitrixImTextAreaPage() {
+function BitrixImTextAreaContent() {
   const searchParams = useSearchParams()
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const dialogId = searchParams.get('DIALOG_ID')
@@ -78,5 +78,13 @@ export default function BitrixImTextAreaPage() {
         ) : null}
       </div>
     </main>
+  )
+}
+
+export default function BitrixImTextAreaPage() {
+  return (
+    <Suspense fallback={<main className="h-full p-2 text-slate-900 sm:p-3" />}>
+      <BitrixImTextAreaContent />
+    </Suspense>
   )
 }

@@ -42,7 +42,8 @@ export default function ConexoesLayout() {
 
   const total = session?.connectors.length ?? 0
   const connected =
-    session?.connectors.filter(c => c.instance.connected === true).length ?? 0
+    session?.connectors.filter((c: any) => c.instance.connected === true)
+      .length ?? 0
 
   const handleSave = (id: string) => {
     console.log('salvar para o id:', id)
