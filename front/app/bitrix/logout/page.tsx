@@ -5,7 +5,7 @@ import { useEffect } from 'react'
 
 export default function BitrixLogoutPage() {
   useEffect(() => {
-    signOut({ callbackUrl: '/' })
+    void signOut({ callbackUrl: '/' })
   }, [])
 
   return (
