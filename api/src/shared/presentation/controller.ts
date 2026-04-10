@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { randomUUID } from 'crypto'
+import { BitrixError } from '../infra/clients/errors/bitrix-client.error'
 
 export abstract class Controller {
   constructor() {

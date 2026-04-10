@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Credential } from '@/shared/domain/entities/credential'
 import axios from 'axios'
+import { BitrixError } from './errors/bitrix-client.error'
 
 export class BitrixClient {
   private readonly bitrixCredential: Credential
@@ -23,7 +24,6 @@ export class BitrixClient {
 
   async activateConnector(line: number) {
     const client = this.getClient()
-    console.log('client', client)
     try {
       const response = await client.post('/imconnector.activate', {
         LINE: line,
@@ -33,12 +33,11 @@ export class BitrixClient {
 
       return response.data
     } catch (error) {
-      console.log('error', error)
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
           : 'Failed to activate connector'
-      throw new Error(message)
+      throw new BitrixError(message)
     }
   }
 
@@ -53,7 +52,7 @@ export class BitrixClient {
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
           : 'Failed to create conversation'
-      throw new Error(message)
+      throw new BitrixError(message)
     }
   }
 
@@ -68,7 +67,7 @@ export class BitrixClient {
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
           : 'Failed to get chat'
-      throw new Error(message)
+      throw new BitrixError(message)
     }
   }
 
@@ -93,7 +92,7 @@ export class BitrixClient {
       )
       return response.data.result
     } catch (error) {
-      throw new Error('Failed to get open channel')
+      throw new BitrixError('Failed to get open channel')
     }
   }
 
@@ -103,8 +102,7 @@ export class BitrixClient {
       const response = await client.get('/imopenlines.config.list.get')
       return response.data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to get open channels')
+      throw new BitrixError('Failed to get open channels')
     }
   }
 }

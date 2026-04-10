@@ -17,7 +17,6 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
     if (!event.data.MESSAGES.length) return
     const message = event.data.MESSAGES[0]
     const messages = []
-
     if (message?.message.text) {
       messages.push({
         type: 'text',
@@ -36,14 +35,14 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
 
     const context = await this.bitrixWebhookContextRepo.getContext({
       domainName: event.auth.domain,
-      appCode: '1',
+      appCode: 'crmthink_thinkzap',
       line: event.data.LINE,
     })
 
+    console.log('context', context)
     if (!context) {
       throw new Error('Context not found')
     }
-
     const bitrixClient = new BitrixClient(context.app.credential, context.name)
     const zApiClient = new ZApiClient(
       env.zApi.partnerToken,

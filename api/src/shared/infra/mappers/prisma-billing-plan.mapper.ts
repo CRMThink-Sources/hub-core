@@ -1,4 +1,4 @@
-import { BillingPlan as PrismaBillingPlan } from '@/prisma/generated/prisma/client'
+import { BillingPlan as PrismaBillingPlan } from '@/prisma/client'
 import { BillingPlan, PlanType } from '@/shared/domain/entities/billing-plan'
 
 export const toBillingPlan = (raw: PrismaBillingPlan): BillingPlan => {

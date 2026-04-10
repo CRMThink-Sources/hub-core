@@ -46,7 +46,7 @@ export const ContactCenterView = ({
         result: { connectors },
       },
     } = await axios.get(
-      `${process.env.NEXT_PUBLIC_API_URL}/thinkerszap/connector/list`,
+      `${process.env.NEXT_PUBLIC_API_URL}/thinkzap/connector/list`,
       {
         headers: {
           Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkb21haW5JZCI6ImU5OTljZDM2LTkxMDItNGFmMC04NjUyLTdiZjNlZDcxMjA0MiIsImFwcENvZGVJZCI6IjEiLCJpYXQiOjE3NzA4NDg3OTl9.m5E0cqb_L683Q3H8aFA9EoKGrRPTgRaOzp1GzFpUItk`,

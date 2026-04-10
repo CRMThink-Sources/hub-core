@@ -38,6 +38,7 @@ model App {
   id          String    @id @default(uuid())
   domainId    String    @map("domain_id")
   appCodeId   String    @map("app_code_id")
+  email       String    @map("email")
   status      AppStatus @default(ACTIVE)
   installedAt DateTime  @default(now()) @map("installed_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")

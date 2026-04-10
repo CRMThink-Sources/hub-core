@@ -8,11 +8,11 @@ const WHATSAPP_ICON_DATA = `data:image/svg+xml;charset=US-ASCII,${encodeURICompo
 
 export class ThinkersZapInstallBindHandler implements BitrixInstallBindHandler {
   /** Códigos que identificam o ThinkersZap no Bitrix (app.info CODE pode variar) */
-  appCode = process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap'
+  appCode = process.env.THINKZAP_APP_CODE ?? 'crmthink_thinkzap'
 
   getBinds(): ReturnType<BitrixInstallBindHandler['getBinds']> {
     const webhookUrl = env.bitrix.webhookUrl
-    const widgetUrl = env.bitrix.widgetUrl
+    const widgetUrl = env.bitrix.connector.url
 
     const binds = []
 
@@ -27,12 +27,12 @@ export class ThinkersZapInstallBindHandler implements BitrixInstallBindHandler {
         },
       })
     }
-
+    console.log({ widgetUrl })
     binds.push({
       method: 'imconnector.register',
       params: {
-        ID: 'hubthink_thinkerszap',
-        NAME: 'ThinkersZap',
+        ID: 'hubthink_thinkzap',
+        NAME: 'Thinkzap',
         ICON: {
           DATA_IMAGE: WHATSAPP_ICON_DATA,
           COLOR: '#25D366',

@@ -1,4 +1,4 @@
-import { PrismaClient } from '../prisma/generated/prisma/client.js'
+import { PrismaClient } from '@/prisma/client'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 
 const adapter = new PrismaMariaDb({
@@ -9,4 +9,5 @@ const adapter = new PrismaMariaDb({
   database: process.env.DATABASE_NAME ?? '',
 })
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
 export const prisma = new PrismaClient({ adapter })
