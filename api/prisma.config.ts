@@ -12,9 +12,7 @@ function resolveDatabaseUrl(): string {
   const database = process.env.DATABASE_NAME ?? ''
 
   if (!host || !database || !user) {
-    throw new Error(
-      'Defina DATABASE_URL no .env ou DATABASE_HOST, DATABASE_USER e DATABASE_NAME.',
-    )
+    return 'mysql://placeholder:placeholder@localhost:3306/placeholder'
   }
 
   return `mysql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`
