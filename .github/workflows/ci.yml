@@ -198,7 +198,7 @@ jobs:
               --network host \
               --env-file ~/hubthink/api/.env \
               $IMAGE \
-              npx prisma migrate deploy --schema=dist/prisma/schema.prisma
+              npx prisma migrate deploy
 
       - name: Login to GHCR on VPS & deploy
         uses: appleboy/ssh-action@v1.2.0

@@ -12,8 +12,6 @@ COPY src ./src
 
 RUN npx prisma generate
 RUN yarn build && ls dist/src/index.js
-RUN mkdir -p dist/prisma && cp -r prisma/schema.prisma dist/prisma/ && \
-    if [ -d prisma/migrations ]; then cp -r prisma/migrations dist/prisma/; fi
 
 # --- Runtime ---
 FROM node:20-alpine AS runner
@@ -26,6 +24,10 @@ RUN yarn install --frozen-lockfile --production && yarn cache clean
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma/generated ./prisma/generated
+COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
+COPY --from=builder /app/prisma/migrations ./prisma/migrations
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 api
