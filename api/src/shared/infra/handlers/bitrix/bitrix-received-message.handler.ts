@@ -35,7 +35,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
 
     const context = await this.bitrixWebhookContextRepo.getContext({
       domainName: event.auth.domain,
-      appCode: 'crmthink_thinkzap',
+      appCode: 'crmthink.thinkzap',
       line: event.data.LINE,
     })
 
@@ -59,7 +59,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
-          CONNECTOR: 'hubthink_thinkerszap',
+          CONNECTOR: 'hubthink_thinkzap',
           LINE: event.data.LINE,
           MESSAGES: [
             {
