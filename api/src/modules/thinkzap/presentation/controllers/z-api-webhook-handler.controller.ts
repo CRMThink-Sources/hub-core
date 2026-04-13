@@ -32,7 +32,7 @@ export class ZApiWebhookHandlerController extends Controller {
     if (!handler) {
       return this.notFound(new Error('Handler not found'))
     }
-    await handler.handle(params.data as ReceivedMessageEvent)
+    await handler.handle(data as ReceivedMessageEvent)
 
     return this.ok({ message: 'Webhook received' })
   }
