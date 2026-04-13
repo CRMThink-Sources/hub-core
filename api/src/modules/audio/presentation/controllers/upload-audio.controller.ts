@@ -13,6 +13,7 @@ import {
   makeBitrixClientByAppId,
   makeBitrixClientByDomainAndAppCoode,
 } from '@/shared/main/make-bitrix-client'
+import { env } from '@/config/env'
 
 export class UploadAudioController extends Controller {
   constructor(
@@ -45,7 +46,7 @@ export class UploadAudioController extends Controller {
 
     const bitrix = (await makeBitrixClientByDomainAndAppCoode(
       parsedDomain,
-      'crmthink_thinkzap',
+      env.appCodes.thinkzap,
       'disk',
     )) as BitrixDiskClient
 
