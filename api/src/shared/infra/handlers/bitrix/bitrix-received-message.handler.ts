@@ -14,9 +14,9 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
   ) {}
 
   async handle(event: IBX24MessageEvent): Promise<void> {
-    console.log('event', event)
     if (!event.data.MESSAGES.length) return
     const message = event.data.MESSAGES[0]
+    console.log('message', message)
     const messages = []
     if (message?.message.text) {
       messages.push({
@@ -40,7 +40,6 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
       line: event.data.LINE,
     })
 
-    console.log('context', context)
     if (!context) {
       throw new Error('Context not found')
     }
