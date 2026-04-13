@@ -28,7 +28,7 @@ export const makeCreateSessionController = async (
   }
   const availableApp = await getAvailableAppRepo.getById(app?.appCodeId ?? '')
 
-  const sessionHandler = sessionRegistry.get(availableApp.code)
+  const sessionHandler = sessionRegistry.get(availableApp.id)
   if (!sessionHandler) {
     throw new Error('Session handler not found')
   }
