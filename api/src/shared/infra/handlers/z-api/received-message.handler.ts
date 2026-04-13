@@ -21,6 +21,7 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
       event.instanceId,
     )
     if (!instance) return
+    if (!instance.vinculatedChannel) return
     const connector = await connectorRepo.getConnectorByInstanceId(instance?.id)
     if (!connector) return
 
@@ -74,7 +75,7 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
 
     const params: ISendMessageData = {
       CONNECTOR: 'hubthink_thinkzap',
-      LINE: 208,
+      LINE: Number(instance.vinculatedChannel),
       MESSAGES: [
         {
           chat: {
