@@ -16,14 +16,16 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
   async handle(event: IBX24MessageEvent): Promise<void> {
     if (!event.data.MESSAGES.length) return
     const message = event.data.MESSAGES[0]
-    console.log('message', message)
+
     const messages = []
     if (message?.message.text) {
+      console.log('text', message.message.text)
       messages.push({
         type: 'text',
         text: message.message.text,
       })
     } else if (message?.message.files) {
+      console.log('files', message.message.files)
       for (const file of message.message.files) {
         messages.push({
           type: file.type,
@@ -51,6 +53,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
 
     const { chatLid, phoneNumber } = destructureChatId(message?.chat.id || '')
     for (const messageData of messages) {
+      console.log('messageData', messageData)
       if (messageData.type === 'text') {
         const sendMessageResult = await zApiClient.sendMessage(
           context.instance.instanceId,
@@ -81,7 +84,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
-          CONNECTOR: 'hubthink_thinkerszap',
+          CONNECTOR: env.appCodes.thinkzap,
           LINE: event.data.LINE,
           MESSAGES: [
             {
