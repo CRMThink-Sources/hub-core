@@ -19,6 +19,7 @@ export const env = {
       process.env.BITRIX_WEBHOOK_URL ??
       (process.env.API_URL ? `${process.env.API_URL}/api/webhooks/bitrix` : ''),
     connector: {
+      code: process.env.BITRIX_CONNECTOR_CODE ?? 'hubthink_thinkzap',
       url: process.env.BITRIX_CONNECTOR_URL ?? '',
     },
     widgetUrl:
