@@ -27,7 +27,7 @@ export class BitrixClient {
     try {
       const response = await client.post('/imconnector.activate', {
         LINE: line,
-        CONNECTOR: 'hubthink_thinkerszap',
+        CONNECTOR: 'hubthink_thinkzap',
         ACTIVE: 1,
       })
 
