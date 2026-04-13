@@ -61,7 +61,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
-          CONNECTOR: 'hubthink_thinkzap',
+          CONNECTOR: env.appCodes.thinkzap,
           LINE: event.data.LINE,
           MESSAGES: [
             {
@@ -105,7 +105,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
-          CONNECTOR: 'hubthink_thinkerszap',
+          CONNECTOR: env.appCodes.thinkzap,
           LINE: event.data.LINE,
           MESSAGES: [
             {
@@ -126,6 +126,21 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           messageData.link || '',
           phoneNumber,
         )
+        await bitrixClient.setMessageDelivered({
+          CONNECTOR: env.appCodes.thinkzap,
+          LINE: event.data.LINE,
+          MESSAGES: [
+            {
+              im: message?.im,
+              message: {
+                id: sendAudioResult.messageId,
+              },
+              chat: {
+                id: chatLid,
+              },
+            },
+          ],
+        })
       }
     }
   }
