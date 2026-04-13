@@ -106,6 +106,9 @@ jobs:
     needs: [ci-front]
     if: github.event_name == 'push'
 
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -126,11 +129,19 @@ jobs:
             echo "tag=staging" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Write front .env for build
+        run: |
+          cat > ./front/.env << 'ENVEOF'
+          ${{ secrets.ENV_FRONT }}
+          ENVEOF
+
       - uses: docker/build-push-action@v6
         with:
           context: ./front
           push: true
           tags: ${{ env.FRONT_IMAGE }}:${{ steps.tag.outputs.tag }}
+          secrets: |
+            env=./front/.env
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
