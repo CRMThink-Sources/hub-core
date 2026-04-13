@@ -2,7 +2,7 @@ import { spawn } from 'child_process'
 
 export function convertToMp3(inputBuffer: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const ffmpeg = spawn('ffmpeg', [
+    const ffmpeg = spawn('/usr/bin/ffmpeg', [
       '-i',
       'pipe:0',
       '-f',
