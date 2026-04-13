@@ -1,8 +1,13 @@
 import { spawn } from 'child_process'
+import ffmpegPath from 'ffmpeg-static'
 
 export function convertToMp3(inputBuffer: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const ffmpeg = spawn('/usr/bin/ffmpeg', [
+    if (!ffmpegPath) {
+      return reject(new Error('ffmpeg-static binary not found'))
+    }
+
+    const ffmpeg = spawn(ffmpegPath, [
       '-i',
       'pipe:0',
       '-f',
