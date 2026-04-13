@@ -8,7 +8,7 @@ RUN yarn install --frozen-lockfile
 
 COPY . .
 
-RUN --mount=type=secret,id=env,target=.env yarn build
+RUN yarn build
 
 # --- Runtime ---
 FROM node:20-alpine AS runner
