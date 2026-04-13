@@ -19,16 +19,15 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
 
     const messages = []
     if (message?.message.text) {
-      console.log('text', message.message.text)
       messages.push({
         type: 'text',
         text: message.message.text,
       })
     } else if (message?.message.files) {
-      console.log('files', message.message.files)
       for (const file of message.message.files) {
+        const type = file.name.includes('audio-') ? 'audio' : file.type
         messages.push({
-          type: file.type,
+          type: type,
           name: file.name,
           mime: file.mime,
           link: file.downloadLink,
@@ -120,6 +119,13 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
             },
           ],
         })
+      } else if (messageData.type === 'audio') {
+        const sendAudioResult = await zApiClient.sendAudio(
+          context.instance.instanceId,
+          context.instance.zApiToken || '',
+          messageData.link || '',
+          phoneNumber,
+        )
       }
     }
   }

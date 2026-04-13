@@ -219,6 +219,33 @@ export class ZApiClient {
       throw new Error('Failed to send video')
     }
   }
+
+  async sendAudio(
+    instanceId: string,
+    instanceToken: string,
+    audio: string,
+    phone: string,
+  ): Promise<SendMessageResponse> {
+    try {
+      const { data } = await axios.post<SendMessageResponse>(
+        `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-audio`,
+        {
+          phone,
+          audio,
+        },
+        {
+          headers: {
+            'client-token': this.clientToken,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to send video')
+    }
+  }
 }
 
 export type SendMessageResponse = {
