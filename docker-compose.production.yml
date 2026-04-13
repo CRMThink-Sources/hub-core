@@ -1,7 +1,7 @@
 services:
   api:
     ports:
-      - "4001:4000"
+      - "4001:4001"
 
   front:
     ports:
