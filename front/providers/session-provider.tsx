@@ -12,11 +12,13 @@ interface ISessionProviderProps {
 type ISession = {
   app: any
   [key: string]: any
+  refreshSession: () => Promise<void>
 }
 
 const context = createContext<{
   session: ISession | null
-}>({ session: null })
+  refreshSession: () => Promise<void>
+}>({ session: null, refreshSession: () => Promise.resolve() })
 
 const useSession = () => {
   const session = useContext(context)
@@ -52,6 +54,7 @@ const createSessionClient = (authTokenKey: string) => {
 
 const SessionProvider = ({ appCode, children }: ISessionProviderProps) => {
   const [session, setSession] = useState<ISession | null>(null)
+  const [isFetching, setIsFetching] = useState<boolean>(false)
   const pathname = usePathname()
 
   useEffect(() => {
@@ -63,17 +66,51 @@ const SessionProvider = ({ appCode, children }: ISessionProviderProps) => {
 
     const fetchSession = async () => {
       try {
+        setIsFetching(true)
         const data = await client.get<ISession>(`/auth/session`)
         // console.log('session data:', data)
         setSession(data as any)
       } catch (err) {
         console.error('fetchSession error:', err)
+      } finally {
+        setIsFetching(false)
       }
     }
     void fetchSession()
   }, [appCode, pathname])
 
-  return <context.Provider value={{ session }}>{children}</context.Provider>
+  const refreshSession = async () => {
+    const authTokenKey = getAppRedirectUrl(appCode)?.storageAuthTokenKey
+    if (!authTokenKey) {
+      throw new Error('Auth token key not found')
+    }
+    const client = createSessionClient(authTokenKey)
+    try {
+      setIsFetching(true)
+      const data = await client.get<ISession>(`/auth/session`)
+      setSession(data as any)
+    } catch (err) {
+      console.error('refreshSession error:', err)
+    } finally {
+      setIsFetching(false)
+    }
+  }
+
+  return (
+    <context.Provider value={{ session, refreshSession }}>
+      {isFetching ? (
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500" />
+          <span className="text-sm font-medium text-slate-600">
+            <i className="fa-solid fa-spinner fa-spin"></i>
+            <span className="animate-pulse">Carregando sessão...</span>
+          </span>
+        </div>
+      ) : (
+        children
+      )}
+    </context.Provider>
+  )
 }
 
 export { SessionProvider, useSession }
