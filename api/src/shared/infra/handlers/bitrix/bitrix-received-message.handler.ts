@@ -14,6 +14,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
   ) {}
 
   async handle(event: IBX24MessageEvent): Promise<void> {
+    console.log('event', event)
     if (!event.data.MESSAGES.length) return
     const message = event.data.MESSAGES[0]
     const messages = []
