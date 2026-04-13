@@ -5,6 +5,7 @@ import { makeGetQrCodeController } from './main/get-qr-code-controller'
 import { makeVinculateChannelController } from './main/connector/make-vinculate-channel'
 import { adaptControllerFactory } from '@/shared/main/adapt-controller'
 import { makeListOpenChannelsController } from './main/make-list-open-channels-controller'
+import { makeZApiWebhookHandlerController } from './main/z-api-webhook-handle-controller'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()

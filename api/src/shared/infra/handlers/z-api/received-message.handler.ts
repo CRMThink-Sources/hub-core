@@ -13,7 +13,7 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
 
   async handle(event: ReceivedMessageEvent): Promise<void> {
     if (this.checkIfMessageIsFromGroupOrNewsletter(event)) return
-
+    console.log({ event })
     const connectorRepo = new PrismaConnectorRepository()
     const instanceRepo = new PrismaInstanceRepository()
 
