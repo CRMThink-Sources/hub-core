@@ -32,8 +32,7 @@ export class LoginController extends Controller {
 
     const { domain, app_code, member_id } = params.data
 
-    const availableApp =
-      await this.getAvailableAppRepository.getAvailableApp(app_code)
+    const availableApp = await this.getAvailableAppRepository.getById(app_code)
 
     if (!availableApp) {
       return this.notFound(new Error('Available app not found'))
