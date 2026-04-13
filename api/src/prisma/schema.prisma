@@ -47,8 +47,9 @@ model App {
   credential    Credential?
   balance       BillingBalance?
   agents        Agent[]
-  connectors    Connector[]
-  subscriptions BillingSubscription[]
+  connectors         Connector[]
+  biAnalyseConnectors BiAnalyseConnector[]
+  subscriptions      BillingSubscription[]
 
   @@unique([domainId, appCodeId])
   @@index([domainId])
@@ -224,6 +225,26 @@ model Conversation {
 }
 
 // ============================================
+// ThinkAnalise
+// ============================================
+
+model BiAnalyseConnector {
+  id             String              @id @default(uuid())
+  appId          String              @map("app_id")
+  biconnectorId  Int                 @map("biconnector_id")
+  label          String
+  provider       BiAnalyseProvider
+  apiKey         String              @map("api_key") @db.Text
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id])
+
+  @@index([appId])
+  @@map("core_thinkanalise_connectors")
+}
+
+// ============================================
 // ENUMS
 // ============================================
 
@@ -268,4 +289,10 @@ enum InstanceStatus {
   DISCONNECTED
   CONNECTING
   ERROR
+}
+
+enum BiAnalyseProvider {
+  ASAAS
+  CONTA_AZUL
+  OMIE
 }

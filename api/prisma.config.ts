@@ -15,17 +15,13 @@ function resolveDatabaseUrl(): string {
     return 'mysql://placeholder:placeholder@localhost:3306/placeholder'
   }
 
-<<<<<<< Updated upstream
   return `mysql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${database}`
-=======
-  return `mysql://${encodeURIComponent(user)}:$npx prisma migrate deploy --schema=prisma/schema.prisma{encodeURIComponent(password)}@${host}:${port}/${database}`
->>>>>>> Stashed changes
 }
 
 export default defineConfig({
-  schema: 'prisma/schema.prisma',
+  schema: 'src/prisma/schema.prisma',
   migrations: {
-    path: 'prisma/migrations',
+    path: 'src/prisma/migrations',
   },
   datasource: {
     url: resolveDatabaseUrl(),
