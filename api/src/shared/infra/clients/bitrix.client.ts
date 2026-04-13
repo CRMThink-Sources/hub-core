@@ -78,6 +78,7 @@ export class BitrixClient {
         '/imconnector.send.status.delivery',
         data,
       )
+      console.log('response', response.data)
       return response.data
     } catch (error) {
       console.log('error', error)

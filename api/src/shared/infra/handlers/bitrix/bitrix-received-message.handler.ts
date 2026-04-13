@@ -5,6 +5,8 @@ import { env } from '@/config/env'
 import { BitrixClient } from '../../clients/bitrix.client'
 import { GetBitrixWebhookContextRepository } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
 import { destructureChatId } from '@/shared/helpers/chat-id'
+import { convertToMp3 } from '@/shared/helpers/convert-to-mp3'
+import axios from 'axios'
 
 export class BitrixReceivedMessageHandler implements BitrixEventHandler {
   eventType = 'ONIMCONNECTORMESSAGEADD'
@@ -120,10 +122,18 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           ],
         })
       } else if (messageData.type === 'audio') {
+        const audioResponse = await axios.get(messageData.link || '', {
+          responseType: 'arraybuffer',
+        })
+        const mp3Buffer = await convertToMp3(
+          Buffer.from(audioResponse.data as ArrayBuffer),
+        )
+        const base64Audio = `data:audio/mpeg;base64,${mp3Buffer.toString('base64')}`
+
         const sendAudioResult = await zApiClient.sendAudio(
           context.instance.instanceId,
           context.instance.zApiToken || '',
-          messageData.link || '',
+          base64Audio,
           phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
