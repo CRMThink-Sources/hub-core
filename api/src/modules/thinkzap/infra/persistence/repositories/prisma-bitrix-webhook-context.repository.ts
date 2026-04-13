@@ -12,6 +12,7 @@ export class PrismaBitrixWebhookContextRepository implements GetBitrixWebhookCon
     appCode: string
     line: string
   }): Promise<BitrixWebhookContext | null> {
+    console.log({ params })
     const context = await prisma.domain.findFirst({
       where: { name: params.domainName },
       include: {
@@ -26,7 +27,7 @@ export class PrismaBitrixWebhookContextRepository implements GetBitrixWebhookCon
         },
       },
     })
-
+    console.log({ context })
     if (!context) return null
     return toBitrixWebhookContext(context)
   }
