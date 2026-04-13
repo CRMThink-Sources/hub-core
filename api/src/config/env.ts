@@ -22,7 +22,7 @@ export const env = {
       url: process.env.BITRIX_CONNECTOR_URL ?? '',
     },
     widgetUrl:
-      process.env.BITRIX_WIDGET_URL ??
+      process.env.BITRIX_CHAT_IFRAME_URL ??
       'http://localhost:3002/bitrix/widget/audio',
     chatIframeHash:
       process.env.BITRIX_CHAT_IFRAME_HASH ?? 'd1ab17949a572b0979d8db0d5b349cd2',

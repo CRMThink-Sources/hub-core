@@ -68,7 +68,7 @@ export class InstallController extends Controller {
         refresh_token: z.string(),
       })
       .safeParse(req.body)
-    console.log({ params })
+
     if (!params.success) {
       return this.badRequest(
         new Error('Invalid request: ' + params.error.message),
@@ -77,16 +77,9 @@ export class InstallController extends Controller {
 
     const { domain, member_id, app_code, access_token, refresh_token, email } =
       params.data
-    console.log({
-      domain,
-      member_id,
-      app_code,
-      access_token,
-      refresh_token,
-      email,
-    })
+
     const availableApp = await this.getAvailableAppRepository.getById(app_code)
-    console.log({ availableApp })
+
     if (!availableApp) {
       return this.notFound(new Error('Available app not found'))
     }
@@ -95,13 +88,13 @@ export class InstallController extends Controller {
       name: domain,
       memberId: member_id,
     })
-    console.log({ domainEntity })
+
     const installedApp = await this.getOrCreateInstalledApp.execute({
       domainId: domainEntity.id,
       appCodeId: availableApp.id,
       email: email,
     })
-    console.log({ installedApp })
+
     await this.getOrCreateCredential.execute({
       appId: installedApp.id,
       clientId: availableApp.code,
@@ -111,9 +104,9 @@ export class InstallController extends Controller {
       expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
     })
     const bitrixClient = new BitrixRestClient(domain, access_token)
-    console.log({ bitrixClient })
+
     const bitrixBinds = bitrixInstallBindRegistry.getBindsForApp(app_code)
-    console.log({ bitrixBinds })
+    console.log('bitrixBinds', bitrixBinds)
     if (bitrixBinds.length > 0) {
       for (const bind of bitrixBinds) {
         try {
@@ -148,7 +141,6 @@ export class InstallController extends Controller {
     }
 
     const botId = await this.getOrCreateThinkzapBot(bitrixClient)
-    console.log({ botId, context: env.bitrix.chatIframeContext })
     if (!botId) {
       return
     }
