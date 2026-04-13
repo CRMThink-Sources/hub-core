@@ -140,8 +140,6 @@ jobs:
           context: ./front
           push: true
           tags: ${{ env.FRONT_IMAGE }}:${{ steps.tag.outputs.tag }}
-          secrets: |
-            env=./front/.env
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
