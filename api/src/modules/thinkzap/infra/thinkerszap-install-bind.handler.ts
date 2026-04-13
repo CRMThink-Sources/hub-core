@@ -8,7 +8,7 @@ const WHATSAPP_ICON_DATA = `data:image/svg+xml;charset=US-ASCII,${encodeURICompo
 
 export class ThinkersZapInstallBindHandler implements BitrixInstallBindHandler {
   /** Códigos que identificam o ThinkersZap no Bitrix (app.info CODE pode variar) */
-  appCode = process.env.THINKZAP_APP_CODE ?? 'crmthink_thinkzap'
+  appCode = process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap'
 
   getBinds(): ReturnType<BitrixInstallBindHandler['getBinds']> {
     const webhookUrl = env.bitrix.webhookUrl
