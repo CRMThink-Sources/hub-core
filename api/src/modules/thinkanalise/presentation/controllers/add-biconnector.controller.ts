@@ -2,7 +2,7 @@ import { Request, Response } from 'express'
 import { z } from 'zod'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
-import { BitrixClient } from '../../infra/clients/bi-biulder.client'
+import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
 
 const addBiconnectorSchema = z.object({
   label: z.string().min(1),
@@ -11,7 +11,7 @@ const addBiconnectorSchema = z.object({
 })
 
 export class AddBiconnectorController extends Controller {
-  constructor(private readonly bitrix: BitrixClient) {
+  constructor(private readonly bitrix: BitrixBiConnectorClient) {
     super()
   }
 
@@ -20,7 +20,7 @@ export class AddBiconnectorController extends Controller {
     const base = process.env.THINKANALISE_CALLBACK_URL
 
     const result = await this.bitrix.biconnectorAdd({
-      title: `[ThinkAnalise] ${label}`,
+      title: `[ThinkAnalise] ${label} (${provider})`,
       urlCheck: `${base}/thinkanalise/check`,
       urlData: `${base}/thinkanalise/data`,
       urlTableList: `${base}/thinkanalise/tables`,

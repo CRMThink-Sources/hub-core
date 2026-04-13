@@ -1,7 +1,11 @@
 import { Credential } from '@/shared/domain/entities/credential'
 import { BitrixClient } from './bitrix.client'
 import { BitrixResponse } from './types/bitrix'
-import { BiconnectorResult, CreateBiConnectorParams } from './types/biconnector'
+import {
+  BiconnectorAddResult,
+  BiconnectorItem,
+  CreateBiConnectorParams,
+} from './types/biconnector'
 
 export class BitrixBiConnectorClient extends BitrixClient {
   constructor(bitrixCredential: Credential, domain: string) {
@@ -10,9 +14,9 @@ export class BitrixBiConnectorClient extends BitrixClient {
 
   async biconnectorAdd(
     fields: CreateBiConnectorParams,
-  ): Promise<BiconnectorResult> {
+  ): Promise<BiconnectorAddResult> {
     const client = this.getClient()
-    const response = await client.post<BitrixResponse<BiconnectorResult>>(
+    const response = await client.post<BitrixResponse<BiconnectorAddResult>>(
       '/biconnector.connector.add',
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       { fields },
@@ -20,9 +24,9 @@ export class BitrixBiConnectorClient extends BitrixClient {
     return response.data.result
   }
 
-  async biconnectorList(): Promise<BiconnectorResult[]> {
+  async biconnectorList(): Promise<BiconnectorItem[]> {
     const client = this.getClient()
-    const response = await client.post<BitrixResponse<BiconnectorResult[]>>(
+    const response = await client.post<BitrixResponse<BiconnectorItem[]>>(
       '/biconnector.connector.list',
     )
     return response.data.result

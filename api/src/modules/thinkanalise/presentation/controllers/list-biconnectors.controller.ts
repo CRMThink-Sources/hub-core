@@ -1,10 +1,10 @@
 import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
-import { BitrixClient } from '../../infra/clients/bi-biulder.client'
+import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
 
 export class ListBiconnectorsController extends Controller {
-  constructor(private readonly bitrix: BitrixClient) {
+  constructor(private readonly bitrix: BitrixBiConnectorClient) {
     super()
   }
 

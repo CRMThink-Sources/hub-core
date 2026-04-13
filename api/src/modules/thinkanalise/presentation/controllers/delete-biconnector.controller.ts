@@ -1,15 +1,16 @@
 import { Request, Response } from 'express'
+import { z } from 'zod'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
-import { BitrixClient } from '@/modules/thinkanalise/infra/clients/bi-biulder.client'
+import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
 
 export class DeleteBiconnectorController extends Controller {
-  constructor(private readonly bitrix: BitrixClient) {
+  constructor(private readonly bitrix: BitrixBiConnectorClient) {
     super()
   }
 
   async perform(req: Request, _res: Response): Promise<httpResponse> {
-    const id = Number(req.params.id)
+    const id = z.coerce.number().int().positive().parse(req.params.id)
     const result = await this.bitrix.biconnectorDelete(id)
     return this.ok(result)
   }
