@@ -27,7 +27,7 @@ export function startCredentialRefreshJob(): void {
       await refreshExpiredCredentials.execute()
       console.log(`${defaultLogMessage} - Result:`, result)
     } catch (error) {
-      // console.error(`${defaultLogMessage} - Unexpected error:`, error)
+      console.error(`${defaultLogMessage} - Unexpected error:`, error)
     }
   })
 

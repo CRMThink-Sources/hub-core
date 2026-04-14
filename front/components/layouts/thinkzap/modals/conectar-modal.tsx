@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 interface IConectarProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (id: string) => void
+  onSave?: (id: string) => void
   qrCode: string | null
 }
 

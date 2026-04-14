@@ -6,6 +6,7 @@ import { makeVinculateChannelController } from './main/connector/make-vinculate-
 import { adaptControllerFactory } from '@/shared/main/adapt-controller'
 import { makeListOpenChannelsController } from './main/make-list-open-channels-controller'
 import { makeDisconnectChannelController } from './main/connector/make-disconnect-channel'
+import { makeUpdateInstanceController } from './main/instance/make-update-instance-controller'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
@@ -31,6 +32,11 @@ export const createThinkerszapRoutes = (): Router => {
   router.post(
     '/connector/disconnect-channel',
     adaptControllerFactory(makeDisconnectChannelController),
+  )
+
+  router.put(
+    '/instance/:id',
+    adaptControllerFactory(makeUpdateInstanceController),
   )
 
   router.get(

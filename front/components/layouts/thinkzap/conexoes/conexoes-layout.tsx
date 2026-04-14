@@ -9,6 +9,10 @@ import { useQrCode } from '@/app/hooks/use-qr-code'
 import { useConnectors } from '@/app/hooks/use-connectors'
 import { VincularCanalModal } from '../modals/vincular-canal-modal'
 import { DesvincularCanalModal } from '../modals/desvincular-canal-modal'
+import { envConfig } from '@/shared/infra/env-config'
+import axios from 'axios'
+import { getAppRedirectUrl } from '@/app/config/app-redirects'
+import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 
 // validar com Joao questoes de numero de telefone, nao encotrei no db.
 // const formatPhoneNumber = (phone: string) => {
@@ -48,8 +52,21 @@ export default function ConexoesLayout() {
     session?.connectors.filter((c: any) => c.instance.connected === true)
       .length ?? 0
 
-  const handleSave = (id: string) => {
-    console.log('salvar para o id:', id)
+  const handleSave = async (id: string, name: string): Promise<void> => {
+    try {
+      const authTokenKey = getAppRedirectUrl(
+        envConfig.appCodes.thinkzap,
+      )?.storageAuthTokenKey
+      if (!authTokenKey) return
+
+      const client = axiosThinkzap(authTokenKey)
+      await client.put(`${envConfig.apiUrl}/thinkzap/instance/${id}`, {
+        name,
+      })
+      await refreshSession()
+    } catch (error) {
+      console.error('Erro ao salvar:', error)
+    }
     setConfigurarAberto(false)
     setConectarAberto(false)
   }
@@ -186,17 +203,17 @@ export default function ConexoesLayout() {
                               abrirConfigurar(conn)
                             },
                           },
-                          {
-                            label: btnText,
-                            onClick: async () => {
-                              if (!isConnected) {
-                                abrirConectar(conn)
-                                await fetchQrCode(conn.id)
-                              } else {
-                                console.log('desconectar id:', conn.id)
-                              }
-                            },
-                          },
+                          // {
+                          //   label: btnText,
+                          //   onClick: async () => {
+                          //     if (!isConnected) {
+                          //       abrirConectar(conn)
+                          //       await fetchQrCode(conn.id)
+                          //     } else {
+                          //       console.log('desconectar id:', conn.id)
+                          //     }
+                          //   },
+                          // },
                           {
                             label: !conn.instance?.vinculatedChannel
                               ? 'Vincular canal'
@@ -209,9 +226,9 @@ export default function ConexoesLayout() {
                               }
                             },
                           },
-                          { label: 'Limpar fila', onClick: () => {} },
-                          { label: 'Cancelar assinatura', onClick: () => {} },
-                          { label: 'Excluir', onClick: () => {} },
+                          // { label: 'Limpar fila', onClick: () => {} },
+                          // { label: 'Cancelar assinatura', onClick: () => {} },
+                          // { label: 'Excluir', onClick: () => {} },
                         ]
 
                         return menuItems.map(item => (
@@ -245,14 +262,15 @@ export default function ConexoesLayout() {
         isOpen={configurarAberto}
         connector={connSelecionado}
         onClose={() => setConfigurarAberto(false)}
-        onSave={handleSave}
+        onSave={(id: string, name: string) => {
+          void handleSave(id, name)
+        }}
       />
 
       <ConectarModal
         isOpen={conectarAberto}
         qrCode={qrCode}
         onClose={() => setConectarAberto(false)}
-        onSave={handleSave}
       />
 
       <VincularCanalModal

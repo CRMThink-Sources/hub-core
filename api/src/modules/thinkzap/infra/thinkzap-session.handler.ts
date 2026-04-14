@@ -18,7 +18,6 @@ export class ThinkzapSessionHandler implements SessionHandler {
       perform: async <T>(params: { appId: string }): Promise<T> => {
         const connectorRepository = new PrismaConnectorRepository()
         const bx = await makeBitrixClientByAppId(params.appId)
-        console.log({ bx })
 
         const zApiClient = new ZApiClient(
           env.zApi.partnerToken,
@@ -45,7 +44,9 @@ export class ThinkzapSessionHandler implements SessionHandler {
               ...connector,
               instance: {
                 ...connector.instance,
-                name: instance.name,
+                name: instance.name.includes(' | ')
+                  ? instance.name.split(' | ')[1]
+                  : instance.name,
                 connected: instance.connected,
                 paidStatus: instance.paymentStatus,
                 due: instance.due,
