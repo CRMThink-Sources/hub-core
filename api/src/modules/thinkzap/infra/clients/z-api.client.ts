@@ -39,6 +39,30 @@ export class ZApiClient {
     }
   }
 
+  async updateInstance(
+    instanceId: string,
+    name: string,
+    token: string,
+  ): Promise<void> {
+    try {
+      const { data } = await axios.put<void>(
+        `https://api.z-api.io/instances/${instanceId}/token/${token}/update-name`,
+        {
+          value: name,
+        },
+        {
+          headers: {
+            'Client-Token': this.clientToken,
+          },
+        },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to update instance')
+    }
+  }
+
   async listInstances(): Promise<ListZApiInstancesResponse> {
     try {
       const { data } = await axios.get<ListZApiInstancesResponse>(

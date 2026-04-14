@@ -67,23 +67,6 @@ export function ConfigurarModal({
               {connector.instance.phoneNumber}
             </p>
           </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-black">Canal</label>
-            <select
-              value={channel}
-              onChange={e => setChannel(e.target.value)}
-              className="text-sm text-black border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#5A997E] focus:border-transparent transition"
-            >
-              <option value="Selecione">Selecione</option>
-              <option value="Canal 01">Canal 01</option>
-              <option value="Canal 02">Canal 02</option>
-              <option value="Canal 03">Canal 03</option>
-              <option value="Canal 04">Canal 04</option>
-              <option value="Canal 05">Canal 05</option>
-              <option value="Canal 06">Canal 06</option>
-            </select>
-          </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-6 pt-3 border-t border-gray-100 flex-shrink-0">
