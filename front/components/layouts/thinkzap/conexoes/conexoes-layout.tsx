@@ -203,17 +203,17 @@ export default function ConexoesLayout() {
                               abrirConfigurar(conn)
                             },
                           },
-                          // {
-                          //   label: btnText,
-                          //   onClick: async () => {
-                          //     if (!isConnected) {
-                          //       abrirConectar(conn)
-                          //       await fetchQrCode(conn.id)
-                          //     } else {
-                          //       console.log('desconectar id:', conn.id)
-                          //     }
-                          //   },
-                          // },
+                          {
+                            label: btnText,
+                            onClick: async () => {
+                              if (!isConnected) {
+                                abrirConectar(conn)
+                                await fetchQrCode(conn.id)
+                              } else {
+                                console.log('desconectar id:', conn.id)
+                              }
+                            },
+                          },
                           {
                             label: !conn.instance?.vinculatedChannel
                               ? 'Vincular canal'
