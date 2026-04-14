@@ -6,7 +6,6 @@ import { Aside } from '@/components/layouts/shared/aside/aside'
 export default function Home() {
   return (
     <div className="row">
-      <Aside {...THINKZAP_ASIDE_CONFIG} activeRoute="/bitrix/conexoes" />
       <main className="ml-64 w-full flex flex-col bg-white min-h-screen relative">
         <ConexoesLayout />
       </main>

@@ -36,7 +36,7 @@ export function ConfigurarModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg border border-gray-200 p-6 w-full max-w-md shadow-lg max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 flex-shrink-0">
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 shrink-0">
           <h2 className="text-lg font-semibold text-black">
             Configurar conexão
           </h2>
@@ -69,7 +69,7 @@ export function ConfigurarModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-6 pt-3 border-t border-gray-100 flex-shrink-0">
+        <div className="flex justify-end gap-2 mt-6 pt-3 border-t border-gray-100 shrink-0">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"

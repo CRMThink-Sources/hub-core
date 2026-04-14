@@ -15,17 +15,24 @@ type ISession = {
   refreshSession: () => Promise<void>
 }
 
-const context = createContext<{
+interface ISessionContext {
   session: ISession | null
+  isFetching: boolean
   refreshSession: () => Promise<void>
-}>({ session: null, refreshSession: () => Promise.resolve() })
+}
+
+const context = createContext<ISessionContext>({
+  session: null,
+  isFetching: false,
+  refreshSession: () => Promise.resolve(),
+})
 
 const useSession = () => {
-  const session = useContext(context)
-  if (!session) {
+  const ctx = useContext(context)
+  if (!ctx) {
     throw new Error('useSession must be used within a SessionProvider')
   }
-  return session
+  return ctx
 }
 
 const createSessionClient = (authTokenKey: string) => {
@@ -97,18 +104,8 @@ const SessionProvider = ({ appCode, children }: ISessionProviderProps) => {
   }
 
   return (
-    <context.Provider value={{ session, refreshSession }}>
-      {isFetching ? (
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500" />
-          <span className="text-sm font-medium text-slate-600">
-            <i className="fa-solid fa-spinner fa-spin"></i>
-            <span className="animate-pulse">Carregando sessão...</span>
-          </span>
-        </div>
-      ) : (
-        children
-      )}
+    <context.Provider value={{ session, isFetching, refreshSession }}>
+      {children}
     </context.Provider>
   )
 }

@@ -33,7 +33,7 @@ export function InstallForm({
   return (
     <InstallLayout>
       <InstallCard>
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-8 py-10 text-white">
+        <div className="bg-linear-to-r from-indigo-600 to-indigo-700 px-8 py-10 text-white">
           <div
             className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur"
             aria-hidden
