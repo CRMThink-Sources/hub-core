@@ -19,6 +19,7 @@ export function useAudioWidget({
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [isSent, setIsSent] = useState(false)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -46,6 +47,7 @@ export function useAudioWidget({
     setIsPlaying(false)
     setCurrentTime(0)
     setDuration(0)
+    setIsSent(false)
   }
 
   const stopVolumeAnimation = () => {
@@ -65,6 +67,7 @@ export function useAudioWidget({
   const startRecording = async () => {
     try {
       setError(null)
+      setIsSent(false)
 
       if (!navigator.mediaDevices?.getUserMedia) {
         setError('Seu navegador nao suporta captura de audio.')
@@ -202,6 +205,9 @@ export function useAudioWidget({
       if (!response.ok) {
         throw new Error(`Falha no upload do audio: ${response.status}`)
       }
+
+      clearCurrentAudio()
+      setIsSent(true)
     } catch (err) {
       console.error(err)
       setError('Nao foi possivel enviar o audio.')
@@ -224,6 +230,7 @@ export function useAudioWidget({
     audioUrl,
     isPlaying,
     isSending,
+    isSent,
     duration,
     currentTime,
     error,

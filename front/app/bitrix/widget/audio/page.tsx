@@ -23,6 +23,7 @@ function BitrixImTextAreaContent() {
     audioUrl,
     isPlaying,
     isSending,
+    isSent,
     duration,
     currentTime,
     error,
@@ -48,6 +49,12 @@ function BitrixImTextAreaContent() {
           buttonScale={buttonScale}
           onToggle={toggleRecording}
         />
+
+        {isSent ? (
+          <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+            Audio enviado com sucesso!
+          </p>
+        ) : null}
 
         {error ? (
           <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">

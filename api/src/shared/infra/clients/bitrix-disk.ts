@@ -20,7 +20,6 @@ export class BitrixDiskClient extends BitrixClient {
     }
     const client = this.getClient()
     const id = chatId || dialogId
-    console.log('id', id)
     try {
       const response = await client.post<{ result: { ID: string } }>(
         `im.disk.folder.get`,
