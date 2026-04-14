@@ -8,4 +8,16 @@ export interface Connection {
   label: string
   apiKey: string
   status: ConnectionStatus
+  biconnectorId?: number
+}
+
+export interface BiConnector {
+  id: string
+  appId: string
+  biconnectorId: number
+  label: string
+  provider: Provider
+  apiKey: string
+  createdAt: string
+  updatedAt: string
 }

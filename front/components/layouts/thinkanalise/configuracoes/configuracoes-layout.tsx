@@ -1,26 +1,64 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { Connection } from '../../types/thinkanalise-types'
 import { ConfigCard } from './configcard'
+import { useSession } from '@/providers/session-provider'
+
+type BitrixConnector = {
+  id: number
+  title: string
+}
 
 export default function ConfiguracoesLayout() {
-  const [connections, setConnections] = useState<Connection[]>([])
+  const { session, refreshSession } = useSession()
+  const [newConnections, setNewConnections] = useState<Connection[]>([])
+
+  const savedConnections: Connection[] = useMemo(() => {
+    const biconnectors = (session?.biconnectors ?? []) as BitrixConnector[]
+    return biconnectors.map(c => ({
+      id: String(c.id),
+      label: c.title.replace('[ThinkAnalise] ', ''),
+      provider: 'asaas' as const,
+      apiKey: '',
+      status: 'conectado' as const,
+      biconnectorId: c.id,
+    }))
+  }, [session])
 
   function addConnection() {
-    const nova: Connection = {
-      id: crypto.randomUUID(),
-      provider: 'asaas',
-      label: '',
-      apiKey: '',
-      status: 'pendente',
-    }
-    setConnections(prev => [...prev, nova])
+    setNewConnections(prev => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        provider: 'asaas' as const,
+        label: '',
+        apiKey: '',
+        status: 'pendente' as const,
+      },
+    ])
   }
 
-  function updateConnection(updated: Connection) {
-    setConnections(prev => prev.map(c => (c.id === updated.id ? updated : c)))
+  function updateNewConnection(updated: Connection) {
+    setNewConnections(prev =>
+      prev.map(c => (c.id === updated.id ? updated : c)),
+    )
   }
+
+  function removeNewConnection(id: string) {
+    setNewConnections(prev => prev.filter(c => c.id !== id))
+  }
+
+  async function handleSaved(id: string) {
+    setNewConnections(prev => prev.filter(c => c.id !== id))
+    await refreshSession()
+  }
+
+  async function handleDeleted() {
+    await refreshSession()
+  }
+
+  const allConnections = [...savedConnections, ...newConnections]
 
   return (
     <div className="w-full flex flex-col pt-20 px-6 space-y-4">
@@ -46,13 +84,20 @@ export default function ConfiguracoesLayout() {
 
       {/* lista */}
       <div className="w-full max-w-3xl flex flex-col gap-4">
-        {connections.length === 0 ? (
+        {allConnections.length === 0 ? (
           <p className="text-sm text-gray-400 font-mono px-1">
             nenhuma conexão ainda.
           </p>
         ) : (
-          connections.map(c => (
-            <ConfigCard key={c.id} connection={c} onChange={updateConnection} />
+          allConnections.map(c => (
+            <ConfigCard
+              key={c.id}
+              connection={c}
+              onChange={updateNewConnection}
+              onSaved={handleSaved}
+              onDeleted={handleDeleted}
+              onRemoveNew={removeNewConnection}
+            />
           ))
         )}
       </div>
