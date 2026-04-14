@@ -5,7 +5,7 @@ import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkza
 export default function ConexoesPage() {
   return (
     <div className="flex min-h-screen w-full">
-      <Aside {...THINKZAP_ASIDE_CONFIG} />
+      {/* <Aside {...THINKZAP_ASIDE_CONFIG} /> */}
       <main className="ml-64 w-full flex flex-col bg-white min-h-screen relative">
         <ConexoesLayout />
       </main>
