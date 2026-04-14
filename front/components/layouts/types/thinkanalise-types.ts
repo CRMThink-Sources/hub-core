@@ -6,6 +6,27 @@ export interface Connection {
   id: string
   provider: Provider
   label: string
-  apiKey: string
   status: ConnectionStatus
+  biconnectorId?: number
+}
+
+export interface BiConnector {
+  id: string
+  appId: string
+  biconnectorId: number
+  label: string
+  provider: Provider
+  apiKey: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type SourceSettings = Record<string, string>
+
+export interface Source {
+  id: number
+  connectorId: number
+  title: string
+  active: boolean
+  settings: SourceSettings
 }

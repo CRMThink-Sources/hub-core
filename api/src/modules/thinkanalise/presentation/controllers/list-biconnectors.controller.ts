@@ -1,15 +1,19 @@
 import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
-import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
+import { ListBiConnectorRepository } from '@/modules/thinkanalise/domain/repositories/list-bi-connector.repository'
 
 export class ListBiconnectorsController extends Controller {
-  constructor(private readonly bitrix: BitrixBiConnectorClient) {
+  constructor(private readonly repository: ListBiConnectorRepository) {
     super()
   }
 
-  async perform(_req: Request, _res: Response): Promise<httpResponse> {
-    const result = await this.bitrix.biconnectorList()
+  async perform(req: Request, _res: Response): Promise<httpResponse> {
+    const appId = req.appId
+    if (!appId) {
+      return this.badRequest(new Error('Invalid request'))
+    }
+    const result = await this.repository.listBiConnectors(appId)
     return this.ok(result)
   }
 }

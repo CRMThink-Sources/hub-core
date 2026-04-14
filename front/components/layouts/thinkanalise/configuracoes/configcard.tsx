@@ -2,35 +2,102 @@
 
 import { useState } from 'react'
 import { PROVIDERS } from './constants'
-import type { Connection } from '../../types/thinkanalise-types'
+import type { Connection, Source } from '../../types/thinkanalise-types'
+import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
+import { SourceCard, NewSourceCard } from './source-card'
+
+const AUTH_TOKEN_KEY = 'hubthink_auth_token'
 
 type Props = {
   connection: Connection
   onChange: (updated: Connection) => void
+  onSaved: (id: string) => Promise<void>
+  onDeleted: () => Promise<void>
+  onRemoveNew: (id: string) => void
+  sources?: Source[]
+  onSourcesChanged?: () => Promise<void>
 }
 
-export function ConfigCard({ connection, onChange }: Props) {
-  const [testStatus, setTestStatus] = useState<'idle' | 'ok' | 'erro'>('idle')
-  const [testing, setTesting] = useState(false)
-  const [expanded, setExpanded] = useState(connection.status !== 'conectado')
-  const [editingLabel, setEditingLabel] = useState(false)
+export function ConfigCard({
+  connection,
+  onChange,
+  onSaved,
+  onDeleted,
+  onRemoveNew,
+  sources = [],
+  onSourcesChanged,
+}: Props) {
+  const isSaved = !!connection.biconnectorId
 
-  function update(patch: Partial<Connection>) {
+  // draft só existe para conectores salvos em modo edição
+  const [draft, setDraft] = useState({ label: connection.label })
+  const [isEditing, setIsEditing] = useState(false)
+
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [expanded, setExpanded] = useState(!isSaved)
+  const [addingSource, setAddingSource] = useState(false)
+
+  // Para novos conectores: atualiza o estado do pai normalmente
+  function updateNew(patch: Partial<Connection>) {
     onChange({ ...connection, ...patch })
   }
 
-  async function handleTest() {
-    setTesting(true)
-    setTestStatus('idle')
-    // TODO: POST /check { provider, apiKey }
-    await new Promise(r => setTimeout(r, 800))
-    setTestStatus(connection.apiKey.length > 8 ? 'ok' : 'erro')
-    setTesting(false)
+  function handleCancelEdit() {
+    setDraft({ label: connection.label })
+    setIsEditing(false)
   }
 
-  function handleSave() {
-    // TODO: biconnector.connector.add ou .update
-    console.log('[salvar]', connection)
+  const currentLabel =
+    isSaved && !isEditing
+      ? connection.label
+      : isSaved
+        ? draft.label
+        : connection.label
+  const isReadOnly = isSaved && !isEditing
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
+      if (isSaved) {
+        await client.put(
+          `/thinkanalise/connector/${connection.biconnectorId}`,
+          {
+            label: draft.label,
+          },
+        )
+        await onSaved(connection.id)
+      } else {
+        if (!connection.label) return
+        await client.post('/thinkanalise/connector', {
+          label: connection.label,
+          provider: connection.provider,
+        })
+        await onSaved(connection.id)
+      }
+    } catch {
+      if (!isSaved) onChange({ ...connection, status: 'erro' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!isSaved) {
+      onRemoveNew(connection.id)
+      return
+    }
+    setDeleting(true)
+    try {
+      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
+      await client.delete(`/thinkanalise/connector/${connection.biconnectorId}`)
+      await onDeleted()
+    } catch {
+      await onDeleted()
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const statusColor = {
@@ -50,31 +117,11 @@ export function ConfigCard({ connection, onChange }: Props) {
           {connection.provider}
         </span>
 
-        {editingLabel ? (
-          <input
-            autoFocus
-            value={connection.label}
-            onChange={e => update({ label: e.target.value })}
-            onBlur={() => setEditingLabel(false)}
-            onKeyDown={e => e.key === 'Enter' && setEditingLabel(false)}
-            onClick={e => e.stopPropagation()}
-            placeholder="Nome da conexão"
-            className="text-sm font-semibold bg-transparent border-b border-[#223f6e] outline-none w-48 text-black placeholder:text-gray-300"
-          />
-        ) : (
-          <span
-            className="text-sm font-semibold hover:text-[#223f6e] transition-colors"
-            onClick={e => {
-              e.stopPropagation()
-              setEditingLabel(true)
-            }}
-            title="Clique para editar"
-          >
-            {connection.label || (
-              <span className="text-gray-300 font-normal">sem nome</span>
-            )}
-          </span>
-        )}
+        <span className="text-sm font-semibold">
+          {currentLabel || (
+            <span className="text-gray-300 font-normal">sem nome</span>
+          )}
+        </span>
 
         <div className="ml-auto flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${statusColor}`} />
@@ -102,6 +149,43 @@ export function ConfigCard({ connection, onChange }: Props) {
       {expanded && (
         <>
           <div className="px-5 py-5 flex flex-col gap-5">
+            {/* label — só para novos */}
+            {!isSaved && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                  Nome
+                </label>
+                <input
+                  type="text"
+                  value={connection.label}
+                  onChange={e => updateNew({ label: e.target.value })}
+                  placeholder="Nome da conexão"
+                  className="w-full font-mono text-sm px-3 py-2.5 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
+                             focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
+                             hover:border-[#223f6e] transition-colors"
+                />
+              </div>
+            )}
+
+            {/* label — edição de conector salvo */}
+            {isSaved && isEditing && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                  Nome
+                </label>
+                <input
+                  type="text"
+                  value={draft.label}
+                  onChange={e =>
+                    setDraft(d => ({ ...d, label: e.target.value }))
+                  }
+                  className="w-full font-mono text-sm px-3 py-2.5 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
+                             focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
+                             hover:border-[#223f6e] transition-colors"
+                />
+              </div>
+            )}
+
             {/* integração */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
@@ -110,11 +194,14 @@ export function ConfigCard({ connection, onChange }: Props) {
               <select
                 value={connection.provider}
                 onChange={e =>
-                  update({ provider: e.target.value as Connection['provider'] })
+                  updateNew({
+                    provider: e.target.value as Connection['provider'],
+                  })
                 }
+                disabled={isReadOnly || isSaved}
                 className="w-full font-mono text-sm px-3 py-2.5 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
                            focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
-                           hover:border-[#223f6e] transition-colors"
+                           hover:border-[#223f6e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {PROVIDERS.map(p => (
                   <option key={p.value} value={p.value} disabled={p.disabled}>
@@ -123,80 +210,104 @@ export function ConfigCard({ connection, onChange }: Props) {
                 ))}
               </select>
             </div>
-
-            {/* api key */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                API Key
-              </label>
-              <input
-                type="password"
-                value={connection.apiKey}
-                onChange={e => update({ apiKey: e.target.value })}
-                placeholder="Cole sua chave aqui"
-                className="w-full font-mono text-sm px-3 py-2.5 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
-                           focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
-                           hover:border-[#223f6e] transition-colors"
-              />
-            </div>
           </div>
 
-          {/* rodapé */}
-          <div className="flex items-center justify-between px-5 py-4 border-t border-[#e5e7eb] flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => void handleTest()}
-                disabled={testing}
-                className="flex items-center gap-1.5 text-xs font-mono px-3.5 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
-                           hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <circle cx="6" cy="6" r="5.5" stroke="currentColor" />
-                  <path
-                    d="M4 6h4M6 4v4"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                {testing ? 'testando...' : 'testar conexão'}
-              </button>
+          {/* seção de fontes — só para conectores salvos */}
+          {isSaved && (
+            <div className="px-5 pb-5 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                  Fontes ({sources.length})
+                </span>
+                {!addingSource && (
+                  <button
+                    onClick={() => setAddingSource(true)}
+                    className="flex items-center gap-1 text-xs font-mono px-2.5 py-1 rounded-lg border border-[#e5e7eb] text-gray-400
+                               hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all cursor-pointer"
+                  >
+                    <span className="text-base leading-none">+</span>
+                    nova fonte
+                  </button>
+                )}
+              </div>
 
-              {testStatus === 'ok' && (
-                <span className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg bg-[#e8eef7] text-[#223f6e] border border-[#e5e7eb]">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <circle cx="7" cy="7" r="6.5" stroke="#4a7fd4" />
-                    <path
-                      d="M4 7l2 2 4-4"
-                      stroke="#4a7fd4"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  conexão ok
-                </span>
-              )}
-              {testStatus === 'erro' && (
-                <span className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg bg-red-50 text-red-700 border border-red-200">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <circle cx="7" cy="7" r="6.5" stroke="#b91c1c" />
-                    <path
-                      d="M5 5l4 4M9 5l-4 4"
-                      stroke="#b91c1c"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  api key inválida
-                </span>
+              {sources.map(s => (
+                <SourceCard
+                  key={s.id}
+                  source={s}
+                  connectorId={connection.biconnectorId!}
+                  provider={connection.provider}
+                  onSaved={async () => {
+                    await onSourcesChanged?.()
+                  }}
+                  onDeleted={async () => {
+                    await onSourcesChanged?.()
+                  }}
+                />
+              ))}
+
+              {addingSource && (
+                <NewSourceCard
+                  connectorId={connection.biconnectorId!}
+                  provider={connection.provider}
+                  onSaved={async () => {
+                    setAddingSource(false)
+                    await onSourcesChanged?.()
+                  }}
+                  onCancel={() => setAddingSource(false)}
+                />
               )}
             </div>
+          )}
 
+          {/* rodapé */}
+          <div className="flex items-center justify-end px-5 py-4 border-t border-[#e5e7eb] gap-2">
             <button
-              onClick={handleSave}
-              className="text-sm font-semibold px-5 py-2 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors cursor-pointer"
+              onClick={() => void handleDelete()}
+              disabled={deleting}
+              className="text-xs font-mono px-3.5 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
+                         hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all disabled:opacity-50 cursor-pointer"
             >
-              salvar
+              {deleting ? 'removendo...' : 'remover'}
             </button>
+
+            {isSaved && !isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="text-sm font-semibold px-5 py-2 rounded-lg border border-[#223f6e] text-[#223f6e] hover:bg-[#eef2f9] transition-colors cursor-pointer"
+              >
+                editar
+              </button>
+            )}
+
+            {isSaved && isEditing && (
+              <>
+                <button
+                  onClick={handleCancelEdit}
+                  className="text-xs font-mono px-3.5 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
+                             hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  cancelar
+                </button>
+                <button
+                  onClick={() => void handleSave()}
+                  disabled={saving || !draft.label}
+                  className="text-sm font-semibold px-5 py-2 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {saving ? 'salvando...' : 'salvar'}
+                </button>
+              </>
+            )}
+
+            {!isSaved && (
+              <button
+                onClick={() => void handleSave()}
+                disabled={saving || !connection.label}
+                className="text-sm font-semibold px-5 py-2 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {saving ? 'salvando...' : 'salvar'}
+              </button>
+            )}
           </div>
         </>
       )}

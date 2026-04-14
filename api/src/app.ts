@@ -13,6 +13,10 @@ import { startCredentialRefreshJob } from './shared/infra/scheduler/credential-r
 import { adaptControllerFactory } from './shared/main/adapt-controller.js'
 import { makeBitrixWebhookHandlerController } from './modules/thinkzap/main/bitrix-webhook-handle-controller.js'
 import { makeUploadAudioController } from './modules/audio/main/make-upload-audio-controller.js'
+import { makeCheckController } from './modules/thinkanalise/main/callbacks/make-check-controller.js'
+import { makeTablesController } from './modules/thinkanalise/main/callbacks/make-tables-controller.js'
+import { makeDescribeController } from './modules/thinkanalise/main/callbacks/make-describe-controller.js'
+import { makeDataController } from './modules/thinkanalise/main/callbacks/make-data-controller.js'
 
 const app: Express = express()
 
@@ -54,6 +58,12 @@ app.get('/health', (_req, res) => {
 })
 
 app.use('/api/auth', authRoutes)
+
+// Callbacks públicos do Bitrix BI Builder (sem auth — chamados diretamente pelo Bitrix)
+app.post('/api/thinkanalise/check', adaptControllerFactory(makeCheckController))
+app.post('/api/thinkanalise/tables', adaptControllerFactory(makeTablesController))
+app.post('/api/thinkanalise/describe', adaptControllerFactory(makeDescribeController))
+app.post('/api/thinkanalise/data', adaptControllerFactory(makeDataController))
 
 // Rotas por aplicação (com auth)
 app.use('/api/thinkzap', authMiddleware, thinkerszapRoutes)

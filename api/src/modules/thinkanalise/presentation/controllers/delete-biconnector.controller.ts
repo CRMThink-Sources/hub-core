@@ -2,19 +2,21 @@ import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
+import { DeleteBiConnectorRepository } from '@/modules/thinkanalise/domain/repositories/delete-bi-connector.repository'
 import { z } from 'zod'
 
 export class DeleteBiconnectorController extends Controller {
-  constructor(private readonly bitrix: BitrixBiConnectorClient) {
+  constructor(
+    private readonly bitrix: BitrixBiConnectorClient,
+    private readonly repository: DeleteBiConnectorRepository,
+  ) {
     super()
   }
 
   async perform(req: Request, _res: Response): Promise<httpResponse> {
-    const id = z.number().parse(req.params.id)
-    if (!id) {
-      return this.badRequest(new Error('Invalid request'))
-    }
-    const result = await this.bitrix.biconnectorDelete(id)
-    return this.ok(result)
+    const biconnectorId = z.coerce.number().int().positive().parse(req.params.id)
+    await this.repository.deleteBiConnector(biconnectorId)
+    await this.bitrix.biconnectorDelete(biconnectorId)
+    return this.ok(true)
   }
 }
