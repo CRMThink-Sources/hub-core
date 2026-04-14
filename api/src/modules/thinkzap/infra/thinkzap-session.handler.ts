@@ -8,8 +8,7 @@ import {
 } from '@/modules/auth/infra/session-registry'
 import { PrismaConnectorRepository } from './persistence/repositories/prisma-connector.repository'
 import { ZApiClient } from './clients/z-api.client'
-import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositories/prisma-credential.repository'
-import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 
 export class ThinkzapSessionHandler implements SessionHandler {
   appCode = 'crmthink.thinkzap'
@@ -18,14 +17,8 @@ export class ThinkzapSessionHandler implements SessionHandler {
     {
       perform: async <T>(params: { appId: string }): Promise<T> => {
         const connectorRepository = new PrismaConnectorRepository()
-        const credentialRepository = new PrismaCredentialRepository()
-        const credential = await credentialRepository.get({
-          appId: params.appId,
-        })
-        if (!credential) {
-          throw new Error('Credential not found')
-        }
-        const bx = new BitrixClient(credential, 'crmthinkers.bitrix24.com.br')
+        const bx = await makeBitrixClientByAppId(params.appId)
+        console.log({ bx })
 
         const zApiClient = new ZApiClient(
           env.zApi.partnerToken,

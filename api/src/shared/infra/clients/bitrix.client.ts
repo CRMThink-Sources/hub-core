@@ -22,13 +22,13 @@ export class BitrixClient {
     })
   }
 
-  async activateConnector(line: number) {
+  async activateConnector(line: number, connector: string, active: number = 1) {
     const client = this.getClient()
     try {
       const response = await client.post('/imconnector.activate', {
         LINE: line,
-        CONNECTOR: 'hubthink_thinkzap',
-        ACTIVE: 1,
+        CONNECTOR: connector,
+        ACTIVE: active,
       })
 
       return response.data
