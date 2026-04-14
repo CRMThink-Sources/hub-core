@@ -1,6 +1,7 @@
 import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { UpdateInstanceGateway } from '@/modules/thinkzap/domain/repositories/update-instance.gateway'
+import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { httpResponse } from '@/shared/helpers/http'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { Controller } from '@/shared/presentation/controller'
@@ -14,6 +15,7 @@ export class UpdateInstanceController extends Controller {
     private readonly updateInstanceGateway: UpdateInstanceGateway,
     private readonly getConnectorRepository: GetConnectorRepository,
     private readonly getInstanceRepository: GetInstanceRepository,
+    private readonly getDomainRepository: GetDomainRepository,
   ) {
     super()
   }
@@ -41,10 +43,16 @@ export class UpdateInstanceController extends Controller {
     if (!instance) {
       return this.notFound(new Error('Instance not found'))
     }
+    const domain = await this.getDomainRepository.getDomainById(
+      instance.domainId,
+    )
+    if (!domain) {
+      return this.notFound(new Error('Domain not found'))
+    }
 
     await this.updateInstanceGateway.update(
       instance.instanceId,
-      name,
+      domain.name + ' | ' + name,
       instance.zApiToken as string,
     )
 

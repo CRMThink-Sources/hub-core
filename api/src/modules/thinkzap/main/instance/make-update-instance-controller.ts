@@ -7,6 +7,7 @@ import { ZApiClient } from '../../infra/clients/z-api.client'
 import { env } from '@/config/env'
 import { PrismaConnectorRepository } from '../../infra/persistence/repositories/prisma-connector.repository'
 import { PrismaInstanceRepository } from '../../infra/persistence/repositories/prisma-instance.repository'
+import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 
 export const makeUpdateInstanceController = async (
   req: Request,
@@ -16,10 +17,12 @@ export const makeUpdateInstanceController = async (
   const zApiInstanceGateway = new ZApiInstanceGateway(zApi)
   const getConnectorRepository = new PrismaConnectorRepository()
   const getInstanceRepository = new PrismaInstanceRepository()
+  const getDomainRepository = new PrismaDomainRepository()
   return new UpdateInstanceController(
     bx,
     zApiInstanceGateway,
     getConnectorRepository,
     getInstanceRepository,
+    getDomainRepository,
   )
 }

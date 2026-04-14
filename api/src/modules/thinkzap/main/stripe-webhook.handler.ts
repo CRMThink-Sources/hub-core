@@ -8,8 +8,8 @@ import { ZApiClient } from '../infra/clients/z-api.client'
 import { env } from '@/config/env'
 import { ZApiInstanceGateway } from '../infra/persistence/gateway/instance.gateway'
 import { PrismaInstanceRepository } from '../infra/persistence/repositories/prisma-instance.repository'
-import { GetOrCreateInstalledApp } from '@/shared/application/get-or-create-installed-app'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
+import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 
 export const makeStripeWebhookHandlerController = (): Controller => {
   const registry = new EventRegistry<StripeEventHandler>()
@@ -18,12 +18,14 @@ export const makeStripeWebhookHandlerController = (): Controller => {
   const createConnectorRepo = new PrismaConnectorRepository()
   const createInstanceRepo = new PrismaInstanceRepository()
   const getApp = new PrismaInstalledAppRepository()
+  const getDomainRepository = new PrismaDomainRepository()
 
   const checkoutSessionCompletedHandler = new CheckoutSessionCompletedHandler(
     createConnectorRepo,
     createInstanceGateway,
     createInstanceRepo,
     getApp,
+    getDomainRepository,
   )
 
   registry.register(checkoutSessionCompletedHandler)
