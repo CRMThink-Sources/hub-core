@@ -25,6 +25,16 @@ export interface BitrixConnector {
   settings: SettingsField[]
 }
 
+export type SourceSettings = Record<string, string>
+
+export interface BitrixSource {
+  id: number
+  connectorId: number
+  title: string
+  active: boolean
+  settings: SourceSettings
+}
+
 export interface CreateConnectorPayload {
   provider: Provider
   label: string

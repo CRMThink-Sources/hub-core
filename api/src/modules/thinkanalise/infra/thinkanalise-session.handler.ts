@@ -22,5 +22,17 @@ export class ThinkAnaliseSessionHandler implements SessionHandler {
         return { key: 'biconnectors', data: biconnectors } as T
       },
     },
+    {
+      perform: async <T>(params: { appId: string }): Promise<T> => {
+        const bitrix = (await makeBitrixClientByAppId(
+          params.appId,
+          'biconnector',
+        )) as BitrixBiConnectorClient
+
+        const sources = await bitrix.sourceList()
+
+        return { key: 'sources', data: sources } as T
+      },
+    },
   ]
 }

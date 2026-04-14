@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import type { Connection } from '../../types/thinkanalise-types'
+import type { Connection, Source } from '../../types/thinkanalise-types'
 import { ConfigCard } from './configcard'
 import { useSession } from '@/providers/session-provider'
 
@@ -20,10 +20,13 @@ export default function ConfiguracoesLayout() {
       id: String(c.id),
       label: c.title.replace('[ThinkAnalise] ', ''),
       provider: 'asaas' as const,
-      apiKey: '',
       status: 'conectado' as const,
       biconnectorId: c.id,
     }))
+  }, [session])
+
+  const sources = useMemo<Source[]>(() => {
+    return (session?.sources ?? []) as Source[]
   }, [session])
 
   function addConnection() {
@@ -33,7 +36,6 @@ export default function ConfiguracoesLayout() {
         id: crypto.randomUUID(),
         provider: 'asaas' as const,
         label: '',
-        apiKey: '',
         status: 'pendente' as const,
       },
     ])
@@ -97,6 +99,8 @@ export default function ConfiguracoesLayout() {
               onSaved={handleSaved}
               onDeleted={handleDeleted}
               onRemoveNew={removeNewConnection}
+              sources={sources.filter(s => s.connectorId === c.biconnectorId)}
+              onSourcesChanged={refreshSession}
             />
           ))
         )}

@@ -21,3 +21,20 @@ export type BiconnectorResult = {
   urlTableList?: string
   urlTableDescription?: string
 }
+
+export type SourceSettings = Record<string, string>
+
+export type CreateSourceParams = {
+  connectorId: number
+  title: string
+  active?: boolean
+  settings: SourceSettings
+}
+
+export type SourceResult = {
+  id: number
+  connectorId: number
+  title: string
+  active: boolean
+  settings: SourceSettings
+}

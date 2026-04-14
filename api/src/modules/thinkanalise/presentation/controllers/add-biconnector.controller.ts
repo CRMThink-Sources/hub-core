@@ -10,7 +10,6 @@ import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled
 const addBiconnectorSchema = z.object({
   label: z.string().min(1),
   provider: z.enum(['asaas', 'conta_azul', 'omie']),
-  apiKey: z.string().min(1),
 })
 
 const providerDescription: Record<string, string> = {
@@ -29,7 +28,7 @@ export class AddBiconnectorController extends Controller {
   }
 
   async perform(req: Request, _res: Response): Promise<httpResponse> {
-    const { label, provider, apiKey } = addBiconnectorSchema.parse(req.body)
+    const { label, provider } = addBiconnectorSchema.parse(req.body)
     const base = process.env.THINKANALISE_CALLBACK_URL
     const appCodeId = req.appId
     const domainId = req.domainId
@@ -65,10 +64,11 @@ export class AddBiconnectorController extends Controller {
 
     await this.biConnectorRepository.createBiConnector({
       appId: app.id,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       biconnectorId: result.id,
       label,
       provider,
-      apiKey,
+      apiKey: '',
     })
 
     return this.ok(result)
