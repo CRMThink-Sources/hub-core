@@ -27,6 +27,18 @@ export class BitrixBiConnectorClient extends BitrixClient {
     return response.data.result
   }
 
+  async biconnectorUpdate(
+    id: number,
+    fields: Partial<CreateBiConnectorParams>,
+  ): Promise<BiconnectorResult> {
+    const client = this.getClient()
+    const response = await client.post<BitrixResponse<BiconnectorResult>>(
+      '/biconnector.connector.update',
+      { id, fields },
+    )
+    return response.data.result
+  }
+
   async biconnectorDelete(id: number): Promise<boolean> {
     const client = this.getClient()
     const response = await client.post<BitrixResponse<boolean>>(

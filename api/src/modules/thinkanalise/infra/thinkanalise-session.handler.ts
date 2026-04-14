@@ -1,19 +1,13 @@
-import { env } from '@/config/env'
 import {
   SessionHanderPerformer,
   SessionHandler,
 } from '@/modules/auth/infra/session-registry'
+import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
-import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositories/prisma-credential.repository'
-import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
-import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
-import {
-  makeBitrixClient,
-  makeBitrixClientByAppId,
-} from '@/shared/main/make-bitrix-client'
+import { PrismaBiConnectorRepository } from './persistence/repositories/prisma-bi-connector.repository'
 
 export class ThinkAnaliseSessionHandler implements SessionHandler {
-  appCode = env.appCodes.thinkanalise
+  appCode = 'crmthink.thinkanalise'
 
   handlers: SessionHanderPerformer[] = [
     {

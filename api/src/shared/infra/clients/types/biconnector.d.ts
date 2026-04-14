@@ -1,5 +1,7 @@
 export type CreateBiConnectorParams = {
   title: string
+  logo: string
+  description?: string
   urlCheck: string
   urlData: string
   urlTableList: string
@@ -12,5 +14,10 @@ export type CreateBiConnectorParams = {
 }
 
 export type BiconnectorResult = {
-  ID: number
+  id: number
+  title?: string
+  urlCheck?: string
+  urlData?: string
+  urlTableList?: string
+  urlTableDescription?: string
 }
