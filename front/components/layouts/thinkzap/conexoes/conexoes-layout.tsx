@@ -269,8 +269,8 @@ export default function ConexoesLayout() {
         isOpen={desvincularAberto}
         connector={connDesvincular}
         onClose={() => setDesvincularAberto(false)}
-        onSuccess={async () => {
-          await refreshSession()
+        onSuccess={() => {
+          void refreshSession()
           setDesvincularAberto(false)
         }}
       />
