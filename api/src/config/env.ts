@@ -20,29 +20,19 @@ export const env = {
       (process.env.API_URL ? `${process.env.API_URL}/api/webhooks/bitrix` : ''),
     connector: {
       code: process.env.BITRIX_CONNECTOR_CODE ?? 'hubthink_thinkzap',
+      name: process.env.BITRIX_CONNECTOR_NAME ?? 'ThinkZap',
       url: process.env.BITRIX_CONNECTOR_URL ?? '',
     },
-    widgetUrl:
-      process.env.BITRIX_CHAT_IFRAME_URL ??
-      'http://localhost:3002/bitrix/widget/audio',
-    chatIframeHash:
-      process.env.BITRIX_CHAT_IFRAME_HASH ?? 'd1ab17949a572b0979d8db0d5b349cd2',
-    chatIframeContext: process.env.BITRIX_CHAT_IFRAME_CONTEXT ?? 'LINES',
-    chatIframeLivechatSupport:
-      process.env.BITRIX_CHAT_IFRAME_LIVECHAT ??
-      ((process.env.BITRIX_CHAT_IFRAME_CONTEXT ?? 'LINES').startsWith('LINES')
-        ? 'Y'
-        : 'N'),
-    chatIframeCode:
-      process.env.BITRIX_CHAT_IFRAME_CODE ?? 'thinkzap_chat_iframe',
-    chatIframeAppId: Number(process.env.BITRIX_CHAT_IFRAME_APP_ID ?? 0),
-    chatIframeHidden: process.env.BITRIX_CHAT_IFRAME_HIDDEN ?? 'N',
-    chatBotCode: process.env.BITRIX_CHAT_BOT_CODE ?? 'thinkzap_chat_bot',
-    chatBotName: process.env.BITRIX_CHAT_BOT_NAME ?? 'ThinkersZap Bot',
-    chatBotWorkPosition:
-      process.env.BITRIX_CHAT_BOT_WORK_POSITION ?? 'Automacao ThinkersZap',
-    chatBotType: process.env.BITRIX_CHAT_BOT_TYPE ?? 'O',
-    chatBotOpenline: process.env.BITRIX_CHAT_BOT_OPENLINE ?? 'Y',
+    iframeAudio: {
+      code: process.env.BITRIX_IFRAME_AUDIO_CODE ?? 'thinkzap_audio',
+      name: process.env.BITRIX_IFRAME_AUDIO_NAME ?? 'ThinkZap Audio',
+      url: process.env.BITRIX_IFRAME_AUDIO_URL ?? '',
+      hash: process.env.BITRIX_IFRAME_AUDIO_HASH ?? '',
+    },
+    bot: {
+      code: process.env.BITRIX_BOT_CODE ?? 'thinkzap_bot',
+      name: process.env.BITRIX_BOT_NAME ?? 'ThinkZap Bot',
+    },
   },
   appCodes: {
     thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',

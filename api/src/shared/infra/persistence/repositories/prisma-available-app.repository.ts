@@ -14,7 +14,7 @@ export class PrismaAvailableAppRepository implements GetAvailableAppRepository {
     if (!availableApp) {
       throw new Error('Available app not found')
     }
-    console.log({ availableApp })
+
     return toAvailableApp(availableApp)
   }
 

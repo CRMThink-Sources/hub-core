@@ -54,7 +54,6 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
 
     const { chatLid, phoneNumber } = destructureChatId(message?.chat.id || '')
     for (const messageData of messages) {
-      console.log('messageData', messageData)
       if (messageData.type === 'text') {
         const sendMessageResult = await zApiClient.sendMessage(
           context.instance.instanceId,
