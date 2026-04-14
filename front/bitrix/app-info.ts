@@ -101,5 +101,6 @@ export function buildInstallPayload(
     app_code: options.appInfoData?.CODE ?? '',
     email: options.email?.trim() ?? '',
     member_id: auth.member_id,
+    expires_in: auth.expires_in,
   }
 }

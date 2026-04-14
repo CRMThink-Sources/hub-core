@@ -21,30 +21,32 @@ export class RefreshExpiredCredentials {
     )
 
     for (const credential of expiredCredentials) {
-      try {
-        const result = await this.refreshGateway.refresh({
-          clientId: credential.clientId,
-          clientSecret: credential.clientSecret,
-          refreshToken: credential.refreshToken,
-        })
+      if (credential.id) {
+        try {
+          const result = await this.refreshGateway.refresh({
+            clientId: credential.clientId,
+            clientSecret: credential.clientSecret,
+            refreshToken: credential.refreshToken,
+          })
 
-        await this.updateRepo.update({
-          appId: credential.appId,
-          clientId: credential.clientId,
-          clientSecret: credential.clientSecret,
-          accessToken: result.accessToken,
-          refreshToken: result.refreshToken,
-          expiresAt: result.expiresAt,
-        })
+          await this.updateRepo.update({
+            appId: credential.appId,
+            clientId: credential.clientId,
+            clientSecret: credential.clientSecret,
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+            expiresAt: result.expiresAt,
+          })
 
-        console.log(
-          `[RefreshExpiredCredentials] Refreshed credential for app ${credential.appId}`,
-        )
-      } catch (error) {
-        console.error(
-          `[RefreshExpiredCredentials] Failed to refresh credential ${credential.id}:`,
-          error,
-        )
+          console.log(
+            `[RefreshExpiredCredentials] Refreshed credential for app ${credential.appId}`,
+          )
+        } catch (error) {
+          console.error(
+            `[RefreshExpiredCredentials] Failed to refresh credential ${credential.id}:`,
+            error,
+          )
+        }
       }
     }
   }

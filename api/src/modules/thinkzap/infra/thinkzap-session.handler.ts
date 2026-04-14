@@ -12,7 +12,7 @@ import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositor
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 
 export class ThinkzapSessionHandler implements SessionHandler {
-  appCode = env.appCodes.thinkzap
+  appCode = 'crmthink.thinkzap'
 
   handlers: SessionHanderPerformer[] = [
     {
