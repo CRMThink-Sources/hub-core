@@ -15,7 +15,7 @@ interface VincularCanalModalProps {
   isOpen: boolean
   connector: { id: string; instance: { name: string } } | null
   onClose: () => void
-  onSuccess?: () => void
+  onSuccess?: () => Promise<void>
 }
 
 export function VincularCanalModal({
@@ -114,7 +114,7 @@ export function VincularCanalModal({
 
       if (onSuccess) {
         console.log('Chamando callback onSuccess')
-        onSuccess()
+        await onSuccess()
       }
 
       onClose()

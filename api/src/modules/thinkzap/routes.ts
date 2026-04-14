@@ -5,7 +5,7 @@ import { makeGetQrCodeController } from './main/get-qr-code-controller'
 import { makeVinculateChannelController } from './main/connector/make-vinculate-channel'
 import { adaptControllerFactory } from '@/shared/main/adapt-controller'
 import { makeListOpenChannelsController } from './main/make-list-open-channels-controller'
-import { makeZApiWebhookHandlerController } from './main/z-api-webhook-handle-controller'
+import { makeDisconnectChannelController } from './main/connector/make-disconnect-channel'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
@@ -26,6 +26,11 @@ export const createThinkerszapRoutes = (): Router => {
   router.post(
     '/connector/vinculate-channel',
     adaptControllerFactory(makeVinculateChannelController),
+  )
+
+  router.post(
+    '/connector/disconnect-channel',
+    adaptControllerFactory(makeDisconnectChannelController),
   )
 
   router.get(

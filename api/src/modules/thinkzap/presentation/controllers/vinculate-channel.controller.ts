@@ -3,11 +3,10 @@ import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
 import z from 'zod'
 import { GetConnectorRepository } from '../../domain/repositories/get-connector.repository'
-import { BitrixOAuthClient } from '@/shared/infra/clients/bitrix-oauth.client'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { UpdateInstanceRepository } from '../../domain/repositories/update-instance.repository'
 import { GetInstanceRepository } from '../../domain/repositories/get-instance.repository'
-import { InstanceStatus } from '../../domain/entities/instance'
+import { env } from '@/config/env'
 
 export class VinculateChannelController extends Controller {
   constructor(
@@ -40,6 +39,7 @@ export class VinculateChannelController extends Controller {
     if (!connector) {
       return this.notFound(new Error('Connector not found'))
     }
+
     const instance = await this.instanceRepository.getInstance(
       connector.instanceId,
     )
@@ -47,7 +47,8 @@ export class VinculateChannelController extends Controller {
       return this.notFound(new Error('Instance not found'))
     }
 
-    await this.bitrixClient.activateConnector(lineId)
+    await this.bitrixClient.activateConnector(lineId, env.bitrix.connector.code)
+
     await this.instanceRepository.updateVinculatedChannel(
       instance.id,
       lineId.toString(),

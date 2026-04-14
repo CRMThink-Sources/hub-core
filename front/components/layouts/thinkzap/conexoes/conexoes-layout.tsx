@@ -8,6 +8,7 @@ import { ConectarModal } from '../modals/conectar-modal'
 import { useQrCode } from '@/app/hooks/use-qr-code'
 import { useConnectors } from '@/app/hooks/use-connectors'
 import { VincularCanalModal } from '../modals/vincular-canal-modal'
+import { DesvincularCanalModal } from '../modals/desvincular-canal-modal'
 
 // validar com Joao questoes de numero de telefone, nao encotrei no db.
 // const formatPhoneNumber = (phone: string) => {
@@ -18,7 +19,7 @@ import { VincularCanalModal } from '../modals/vincular-canal-modal'
 // }
 
 export default function ConexoesLayout() {
-  const { session } = useSession()
+  const { session, refreshSession } = useSession()
   const { qrCode, fetchQrCode } = useQrCode()
 
   const {
@@ -36,6 +37,10 @@ export default function ConexoesLayout() {
     setVincularAberto,
     connVincular,
     setConnVincular,
+    abrirDesvincular,
+    desvincularAberto,
+    setDesvincularAberto,
+    connDesvincular,
   } = useConnectors()
 
   const total = session?.connectors.length ?? 0
@@ -193,9 +198,15 @@ export default function ConexoesLayout() {
                             },
                           },
                           {
-                            label: 'Vincular canal',
+                            label: !conn.instance?.vinculatedChannel
+                              ? 'Vincular canal'
+                              : 'Desvincular canal',
                             onClick: () => {
-                              abrirVincular(conn)
+                              if (!conn.instance?.vinculatedChannel) {
+                                abrirVincular(conn)
+                              } else {
+                                abrirDesvincular(conn)
+                              }
                             },
                           },
                           { label: 'Limpar fila', onClick: () => {} },
@@ -215,7 +226,7 @@ export default function ConexoesLayout() {
                               !isPaid
                                 ? 'opacity-40 cursor-not-allowed'
                                 : 'cursor-pointer'
-                            }`}
+                            } `}
                           >
                             {item.label}
                           </button>
@@ -248,8 +259,19 @@ export default function ConexoesLayout() {
         isOpen={vincularAberto}
         connector={connVincular}
         onClose={() => setVincularAberto(false)}
-        onSuccess={() => {
-          console.log('sucess')
+        onSuccess={async () => {
+          await refreshSession()
+          setVincularAberto(false)
+        }}
+      />
+
+      <DesvincularCanalModal
+        isOpen={desvincularAberto}
+        connector={connDesvincular}
+        onClose={() => setDesvincularAberto(false)}
+        onSuccess={async () => {
+          await refreshSession()
+          setDesvincularAberto(false)
         }}
       />
     </div>

@@ -7,6 +7,8 @@ export const useConnectors = () => {
   const [conectarAberto, setConectarAberto] = useState(false)
   const [vincularAberto, setVincularAberto] = useState(false)
   const [connVincular, setConnVincular] = useState<any>(null)
+  const [desvincularAberto, setDesvincularAberto] = useState(false)
+  const [connDesvincular, setConnDesvincular] = useState<any>(null)
 
   const abrirConfigurar = (conn: any) => {
     setConnSelecionado(conn)
@@ -21,6 +23,12 @@ export const useConnectors = () => {
   const abrirVincular = (conn: any) => {
     setConnVincular(conn)
     setVincularAberto(true)
+  }
+
+  const abrirDesvincular = (conn: any) => {
+    console.log('abrirDesvincular', conn)
+    setConnDesvincular(conn)
+    setDesvincularAberto(true)
   }
 
   return {
@@ -38,5 +46,9 @@ export const useConnectors = () => {
     setVincularAberto,
     connVincular,
     setConnVincular,
+    abrirDesvincular,
+    desvincularAberto,
+    setDesvincularAberto,
+    connDesvincular,
   }
 }
