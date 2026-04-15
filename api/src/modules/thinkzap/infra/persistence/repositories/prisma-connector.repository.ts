@@ -4,12 +4,14 @@ import { CreateConnectorRepository } from '@/modules/thinkzap/domain/repositorie
 import { prisma } from '@/config/prisma.js'
 import { ListConnectorsRepository } from '@/modules/thinkzap/domain/repositories/list-connectors'
 import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
+import { UpdateConnectorRepository } from '@/modules/thinkzap/domain/repositories/update-connector.repository'
 
 export class PrismaConnectorRepository
   implements
     CreateConnectorRepository,
     ListConnectorsRepository,
-    GetConnectorRepository
+    GetConnectorRepository,
+    UpdateConnectorRepository
 {
   constructor() {}
 
@@ -59,6 +61,9 @@ export class PrismaConnectorRepository
     const connectors = await prisma.connector.findMany({
       where: {
         appId: appId,
+        status: {
+          not: 'INACTIVE',
+        },
       },
       include: {
         instance: true,
@@ -84,5 +89,14 @@ export class PrismaConnectorRepository
           updatedAt: el.updatedAt,
         }) as Connector,
     )
+  }
+
+  async markAsInactive(connectorId: string): Promise<void> {
+    await prisma.connector.update({
+      where: { id: connectorId },
+      data: {
+        status: 'INACTIVE',
+      },
+    })
   }
 }

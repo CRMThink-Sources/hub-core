@@ -5,4 +5,6 @@ export interface UpdateInstanceRepository {
     instanceId: string,
     channelId: string | null,
   ): Promise<Instance>
+
+  markAsDisconnected(instanceId: string): Promise<Instance>
 }

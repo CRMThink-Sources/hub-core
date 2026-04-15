@@ -43,14 +43,14 @@ model App {
   installedAt DateTime  @default(now()) @map("installed_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  domain        Domain                @relation(fields: [domainId], references: [id])
-  appCode       AppCode               @relation(fields: [appCodeId], references: [id])
-  credential    Credential?
-  balance       BillingBalance?
-  agents        Agent[]
-  connectors         Connector[]
+  domain              Domain                @relation(fields: [domainId], references: [id])
+  appCode             AppCode               @relation(fields: [appCodeId], references: [id])
+  credential          Credential?
+  balance             BillingBalance?
+  agents              Agent[]
+  connectors          Connector[]
   biAnalyseConnectors BiAnalyseConnector[]
-  subscriptions      BillingSubscription[]
+  subscriptions       BillingSubscription[]
 
   @@unique([domainId, appCodeId])
   @@index([domainId])
@@ -148,6 +148,7 @@ model BillingSubscription {
   status               SubscriptionStatus @default(ACTIVE)
   stripeSubscriptionId String             @unique @map("stripe_subscription_id")
   connectorQuantity    Int                @default(0) @map("connector_quantity")
+  trialEndsAt          DateTime?          @map("trial_ends_at")
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
 
@@ -230,14 +231,14 @@ model Conversation {
 // ============================================
 
 model BiAnalyseConnector {
-  id             String              @id @default(uuid())
-  appId          String              @map("app_id")
-  biconnectorId  Int                 @map("biconnector_id")
-  label          String
-  provider       BiAnalyseProvider
-  apiKey         String              @map("api_key") @db.Text
-  createdAt      DateTime            @default(now()) @map("created_at")
-  updatedAt      DateTime            @updatedAt @map("updated_at")
+  id            String            @id @default(uuid())
+  appId         String            @map("app_id")
+  biconnectorId Int               @map("biconnector_id")
+  label         String
+  provider      BiAnalyseProvider
+  apiKey        String            @map("api_key") @db.Text
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
 
   app App @relation(fields: [appId], references: [id])
 

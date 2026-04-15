@@ -5,6 +5,8 @@ import { Request, Response } from 'express'
 import Stripe from 'stripe'
 import { z } from 'zod'
 
+import { THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS } from '@/modules/thinkzap/domain/trial-connector-limit'
+
 export class CreateConnectorController extends Controller {
   private readonly stripe: Stripe
 
@@ -35,7 +37,10 @@ export class CreateConnectorController extends Controller {
       return this.badRequest(new Error('Invalid request'))
     }
 
-    const parsedQuantity = Math.max(1, Math.floor(Number(quantity)))
+    const parsedQuantity = Math.min(
+      THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS,
+      Math.max(1, Math.floor(Number(quantity))),
+    )
 
     const checkout = await this.stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -54,8 +59,7 @@ export class CreateConnectorController extends Controller {
       },
       custom_text: {
         submit: {
-          message:
-            'Você terá 15 dias grátis para testar o ThinkZap. Durante o período de trial, é possível criar até 5 conectores. Cancele quando quiser, sem cobranças.',
+          message: `Você terá 15 dias grátis para testar o ThinkZap. Durante o período de trial, é possível criar até ${THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS} conectores. Cancele quando quiser, sem cobranças.`,
         },
       },
       return_url: `${env.appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,

@@ -264,6 +264,35 @@ export class ZApiClient {
     }
   }
 
+  async cancelInstance(
+    instanceId: string,
+    instanceToken: string,
+  ): Promise<void> {
+    try {
+      const response = await axios.post(
+        `https://api.z-api.io/integrator/on-demand/cancel`,
+        {
+          instanceId,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.zApiToken}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      console.log({ data: response, instanceId })
+      return
+    } catch (error) {
+      console.log(
+        '[z-api] cancel endpoint failed, fallback to disconnect',
+        instanceId,
+      )
+    }
+
+    await this.disconnectInstance(instanceId, instanceToken)
+  }
+
   async sendAudio(
     instanceId: string,
     instanceToken: string,
