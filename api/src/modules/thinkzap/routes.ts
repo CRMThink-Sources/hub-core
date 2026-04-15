@@ -8,6 +8,7 @@ import { makeListOpenChannelsController } from './main/make-list-open-channels-c
 import { makeDisconnectChannelController } from './main/connector/make-disconnect-channel'
 import { makeUpdateInstanceController } from './main/instance/make-update-instance-controller'
 import { makeDisconnectConnectorController } from './main/connector/make-disconnect-connector'
+import { makeCancelConnectorController } from './main/connector/make-cancel-connector'
 import { makeAddSubscriptionQuantityController } from './main/add-subscription-quantity-controller'
 import { makeGetThinkzapPricingController } from './main/get-thinkzap-pricing-controller'
 import { makeCreateBillingPortalSessionController } from './main/create-billing-portal-session-controller'
@@ -49,6 +50,10 @@ export const createThinkerszapRoutes = (): Router => {
   router.post(
     '/connector/disconnect',
     adaptControllerFactory(makeDisconnectConnectorController),
+  )
+  router.post(
+    '/connector/cancel',
+    adaptControllerFactory(makeCancelConnectorController),
   )
 
   router.post(
