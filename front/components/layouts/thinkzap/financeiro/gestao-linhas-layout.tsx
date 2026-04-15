@@ -215,22 +215,7 @@ export default function GestaoLinhas() {
           </p>
           {limiteTrialAplica && (
             <div className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2 space-y-3">
-              <p>
-                No período de trial você pode ter no máximo{' '}
-                <strong>{THINKZAP_TRIAL_MAX_CONNECTORS} conectores</strong>
-                {' no total'}
-                {totalLinhas > 0 ? ` (você já tem ${totalLinhas})` : ''}.
-              </p>
-              {atingiuLimiteTrial && emTrial && (
-                <div className="pt-2 border-t border-amber-300">
-                  <p className="mb-2">
-                    Para contratar mais linhas, ative a assinatura: você será
-                    direcionado ao portal seguro da Stripe para encerrar o teste
-                    e iniciar a cobrança conforme o plano.
-                  </p>
-                  <AtivarAssinaturaButton layout="inline" />
-                </div>
-              )}
+              <p>Voce pode ativar o trial de 7 dias para testar o ThinkZap.</p>
             </div>
           )}
         </div>

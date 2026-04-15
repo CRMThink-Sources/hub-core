@@ -107,8 +107,8 @@ export default function ConexoesLayout() {
   }
 
   return (
-    <div className="w-full flex flex-col pt-20 px-6 space-y-6">
-      <div className="flex w-full max-w-5xl flex-col gap-4 rounded-lg border border-gray-100 bg-white p-6">
+    <div className="relative mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 pb-10 pt-8 sm:px-6 lg:px-8">
+      <div className="flex w-full flex-col gap-4 rounded-lg border border-gray-100 bg-white p-6">
         <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <h1 className="page-title">Configurações</h1>
@@ -117,16 +117,29 @@ export default function ConexoesLayout() {
             </h2>
           </div>
 
-          {!bloquearContratarLinhaTrial && (
-            <div className="flex w-full shrink-0 sm:w-auto sm:justify-end">
-              <Link
-                className="inline-flex w-full items-center justify-center rounded-lg bg-[#5A997E] px-5 py-2.5 text-center font-medium text-white transition-colors hover:bg-[#4a8169] sm:w-auto"
-                href="/thinkzap/financeiro"
-              >
-                + Contratar linha
-              </Link>
-            </div>
-          )}
+          <div className="flex w-full flex-wrap justify-end gap-2">
+            {!subscription && (
+              <div className="flex w-full shrink-0 sm:w-auto sm:justify-end">
+                <Link
+                  className="inline-flex w-full items-center justify-center rounded-lg bg-yellow-500 px-5 py-2.5 text-center font-medium text-white transition-colors hover:bg-yellow-600 sm:w-auto"
+                  href="/thinkzap/financeiro"
+                >
+                  + Ativar trial
+                </Link>
+              </div>
+            )}
+
+            {!bloquearContratarLinhaTrial && (
+              <div className="flex w-full shrink-0 sm:w-auto sm:justify-end">
+                <Link
+                  className="inline-flex w-full items-center justify-center rounded-lg bg-[#5A997E] px-5 py-2.5 text-center font-medium text-white transition-colors hover:bg-[#4a8169] sm:w-auto"
+                  href="/thinkzap/financeiro"
+                >
+                  + Contratar linha
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
 
         {bloquearContratarLinhaTrial && (
@@ -155,7 +168,7 @@ export default function ConexoesLayout() {
         )}
       </div>
 
-      <div className="w-full max-w-5xl">
+      <div className="w-full">
         <div className="inline-flex items-center gap-2 bg-[#e8fdf0] text-[#5A997E] px-3 py-1.5 rounded-md border border-[#d9fce6] text-sm font-medium">
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path
@@ -173,7 +186,7 @@ export default function ConexoesLayout() {
         </div>
       </div>
 
-      <div className="w-full max-w-5xl bg-white rounded-lg border border-gray-100">
+      <div className="w-full overflow-hidden rounded-lg border border-gray-100 bg-white">
         <div className="flex items-center justify-between gap-4 px-4 py-2.5 border-b border-gray-100 bg-gray-50 rounded-t-lg">
           <div className="flex-1 min-w-0">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -228,6 +241,10 @@ export default function ConexoesLayout() {
                     {/* <span className="text-gray-400">•</span> */}
                     <span className="truncate">
                       {vinculatedChannelName || 'Nenhum canal vinculado'}
+                      {conn.instance.phoneNumber != null &&
+                      conn.instance.phoneNumber !== ''
+                        ? ` · ${conn.instance.phoneNumber}`
+                        : ''}
                     </span>
                   </div>
                 </div>

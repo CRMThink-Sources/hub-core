@@ -48,14 +48,14 @@ export class CreateConnectorController extends Controller {
       line_items: [{ price: priceId, quantity: parsedQuantity }],
       metadata: { appId, domainId, quantity: String(parsedQuantity) },
       allow_promotion_codes: true,
-      payment_method_types: ['card', 'boleto'],
-      payment_method_options: {
-        boleto: {
-          expires_after_days: 3,
-        },
-      },
+      payment_method_collection: 'if_required',
       subscription_data: {
-        trial_period_days: 15,
+        trial_period_days: 7,
+        trial_settings: {
+          end_behavior: {
+            missing_payment_method: 'cancel',
+          },
+        },
       },
       custom_text: {
         submit: {

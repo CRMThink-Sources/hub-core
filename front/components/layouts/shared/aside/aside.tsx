@@ -50,7 +50,9 @@ export const Aside = ({
           marginBottom: '32px',
         }}
       >
-        <img src={logo} alt="Logo" style={{ width: 'auto', height: 'auto' }} />
+        <div className="w-full h-full p-8">
+          <img src={logo} alt="Logo" className="" />
+        </div>
         <div
           style={{
             position: 'absolute',

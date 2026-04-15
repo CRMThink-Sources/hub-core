@@ -1,6 +1,7 @@
 import 'dotenv/config'
 
 export const env = {
+  nodeEnv: process.env.NODE_ENV ?? 'development',
   appUrl: process.env.APP_URL ?? '',
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',
@@ -40,4 +41,8 @@ export const env = {
     thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',
     thinkanalise: process.env.THINKANALISE_APP_CODE ?? 'crmthink.thinkanalise',
   },
+  thinkzapMockZApiProvisioning:
+    process.env.THINKZAP_MOCK_ZAPI_PROVISIONING === 'true' ||
+    (process.env.NODE_ENV === 'local' &&
+      process.env.THINKZAP_MOCK_ZAPI_PROVISIONING !== 'false'),
 } as const

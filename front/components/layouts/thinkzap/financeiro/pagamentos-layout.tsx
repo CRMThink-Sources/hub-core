@@ -10,14 +10,14 @@ export default function PagamentosLayout() {
   const [activeTab, setActiveTab] = useState<TabType>('gestao')
 
   return (
-    <div className="w-full flex flex-col pt-20 px-6 space-y-6 ">
-      <div className="flex items-center justify-between w-full max-w-5xl bg-white p-6 rounded-lg border border-gray-100">
+    <div className="relative mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 pb-10 pt-8 sm:px-6 lg:px-8">
+      <div className="flex w-full items-center justify-between rounded-lg border border-gray-100 bg-white p-6">
         <div>
           <h1 className="page-title">Financeiro</h1>
         </div>
       </div>
 
-      <div className="w-full max-w-5xl">
+      <div className="w-full">
         <div className="flex gap-1 border-b border-gray-200">
           <button
             onClick={() => setActiveTab('gestao')}
