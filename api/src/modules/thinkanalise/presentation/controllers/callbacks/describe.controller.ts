@@ -13,54 +13,85 @@ type DescribeBody = {
 type FieldEntry = { code: string; name: string; type: string }
 
 const schemaByTable: Record<string, FieldEntry[]> = {
-  // Asaas
+  // ── Asaas ────────────────────────────────────────────────────────────────
   charges: [
     { code: 'id', name: 'ID', type: 'string' },
     { code: 'customer', name: 'ID do Cliente', type: 'string' },
     { code: 'value', name: 'Valor', type: 'double' },
+    { code: 'netValue', name: 'Valor Líquido', type: 'double' },
     { code: 'status', name: 'Status', type: 'string' },
+    { code: 'billingType', name: 'Forma de Pagamento', type: 'string' },
+    { code: 'description', name: 'Descrição', type: 'string' },
+    { code: 'externalReference', name: 'Referência Externa', type: 'string' },
+    { code: 'dueDate', name: 'Vencimento', type: 'date' },
+    { code: 'originalDueDate', name: 'Vencimento Original', type: 'date' },
+    { code: 'paymentDate', name: 'Data de Pagamento', type: 'date' },
+    { code: 'clientPaymentDate', name: 'Pagamento pelo Cliente', type: 'date' },
+    { code: 'confirmedDate', name: 'Data de Confirmação', type: 'date' },
+    { code: 'creditDate', name: 'Data de Crédito', type: 'date' },
+    { code: 'invoiceNumber', name: 'Nº da Fatura', type: 'string' },
+    { code: 'invoiceUrl', name: 'URL da Fatura', type: 'string' },
+    { code: 'bankSlipUrl', name: 'URL do Boleto', type: 'string' },
+    { code: 'subscription', name: 'ID da Assinatura', type: 'string' },
+    { code: 'installmentNumber', name: 'Nº da Parcela', type: 'double' },
+    { code: 'anticipated', name: 'Antecipado', type: 'string' },
+    { code: 'dateCreated', name: 'Data de Criação', type: 'date' },
+  ],
+
+  payments: [
+    { code: 'id', name: 'ID', type: 'string' },
+    { code: 'customer', name: 'ID do Cliente', type: 'string' },
+    { code: 'value', name: 'Valor', type: 'double' },
+    { code: 'netValue', name: 'Valor Líquido', type: 'double' },
+    { code: 'status', name: 'Status', type: 'string' },
+    { code: 'billingType', name: 'Forma de Pagamento', type: 'string' },
+    { code: 'description', name: 'Descrição', type: 'string' },
+    { code: 'externalReference', name: 'Referência Externa', type: 'string' },
     { code: 'dueDate', name: 'Vencimento', type: 'date' },
     { code: 'paymentDate', name: 'Data de Pagamento', type: 'date' },
+    { code: 'confirmedDate', name: 'Data de Confirmação', type: 'date' },
+    { code: 'creditDate', name: 'Data de Crédito', type: 'date' },
+    { code: 'subscription', name: 'ID da Assinatura', type: 'string' },
+    { code: 'dateCreated', name: 'Data de Criação', type: 'date' },
   ],
+
   customers: [
     { code: 'id', name: 'ID', type: 'string' },
     { code: 'name', name: 'Nome', type: 'string' },
     { code: 'email', name: 'E-mail', type: 'string' },
+    { code: 'phone', name: 'Telefone', type: 'string' },
+    { code: 'mobilePhone', name: 'Celular', type: 'string' },
     { code: 'cpfCnpj', name: 'CPF/CNPJ', type: 'string' },
-    { code: 'dateCreated', name: 'Data de Cadastro', type: 'datetime' },
+    { code: 'personType', name: 'Tipo de Pessoa', type: 'string' },
+    { code: 'address', name: 'Endereço', type: 'string' },
+    { code: 'addressNumber', name: 'Número', type: 'string' },
+    { code: 'complement', name: 'Complemento', type: 'string' },
+    { code: 'province', name: 'Bairro', type: 'string' },
+    { code: 'postalCode', name: 'CEP', type: 'string' },
+    { code: 'city', name: 'Cidade', type: 'string' },
+    { code: 'state', name: 'Estado', type: 'string' },
+    { code: 'externalReference', name: 'Referência Externa', type: 'string' },
+    { code: 'observations', name: 'Observações', type: 'string' },
+    {
+      code: 'notificationDisabled',
+      name: 'Notificações Desativadas',
+      type: 'string',
+    },
+    { code: 'dateCreated', name: 'Data de Cadastro', type: 'date' },
   ],
+
   subscriptions: [
     { code: 'id', name: 'ID', type: 'string' },
     { code: 'customer', name: 'ID do Cliente', type: 'string' },
     { code: 'value', name: 'Valor', type: 'double' },
     { code: 'status', name: 'Status', type: 'string' },
+    { code: 'billingType', name: 'Forma de Pagamento', type: 'string' },
+    { code: 'cycle', name: 'Ciclo', type: 'string' },
+    { code: 'description', name: 'Descrição', type: 'string' },
+    { code: 'externalReference', name: 'Referência Externa', type: 'string' },
     { code: 'nextDueDate', name: 'Próximo Vencimento', type: 'date' },
-  ],
-  payments: [
-    { code: 'id', name: 'ID', type: 'string' },
-    { code: 'value', name: 'Valor', type: 'double' },
-    { code: 'status', name: 'Status', type: 'string' },
-    { code: 'paymentDate', name: 'Data de Pagamento', type: 'date' },
-  ],
-  // Conta Azul
-  invoices: [
-    { code: 'id', name: 'ID', type: 'string' },
-    { code: 'number', name: 'Número', type: 'string' },
-    { code: 'total', name: 'Total', type: 'double' },
-    { code: 'issuedAt', name: 'Data de Emissão', type: 'datetime' },
-  ],
-  products: [
-    { code: 'id', name: 'ID', type: 'string' },
-    { code: 'name', name: 'Nome', type: 'string' },
-    { code: 'price', name: 'Preço', type: 'double' },
-  ],
-  // Omie
-  orders: [
-    { code: 'id', name: 'ID', type: 'string' },
-    { code: 'customer', name: 'Cliente', type: 'string' },
-    { code: 'total', name: 'Total', type: 'double' },
-    { code: 'status', name: 'Status', type: 'string' },
-    { code: 'createdAt', name: 'Data de Criação', type: 'datetime' },
+    { code: 'endDate', name: 'Data de Encerramento', type: 'date' },
+    { code: 'dateCreated', name: 'Data de Criação', type: 'date' },
   ],
 }
 

@@ -38,3 +38,29 @@ export type SourceResult = {
   active: boolean
   settings: SourceSettings
 }
+
+export type DatasetFieldInput = {
+  name: string
+  type: string
+  externalCode: string
+  visible?: boolean
+}
+
+export type CreateDatasetParams = {
+  sourceId: number
+  name: string
+  description?: string
+  externalCode: string
+  externalName: string
+  fields: DatasetFieldInput[]
+}
+
+export type DatasetResult = {
+  id: number
+  sourceId: number
+  name: string
+  description?: string
+  externalCode: string
+  externalName?: string
+  fields: DatasetFieldInput[]
+}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { PROVIDERS } from './constants'
-import type { Connection, Source } from '../../types/thinkanalise-types'
+import type { Connection, Dataset, Source } from '../../types/thinkanalise-types'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
 import { SourceCard, NewSourceCard } from './source-card'
 
@@ -16,6 +16,8 @@ type Props = {
   onRemoveNew: (id: string) => void
   sources?: Source[]
   onSourcesChanged?: () => Promise<void>
+  datasets?: Dataset[]
+  onDatasetsChanged?: () => Promise<void>
 }
 
 export function ConfigCard({
@@ -26,6 +28,8 @@ export function ConfigCard({
   onRemoveNew,
   sources = [],
   onSourcesChanged,
+  datasets = [],
+  onDatasetsChanged,
 }: Props) {
   const isSaved = !!connection.biconnectorId
 
@@ -237,12 +241,10 @@ export function ConfigCard({
                   source={s}
                   connectorId={connection.biconnectorId!}
                   provider={connection.provider}
-                  onSaved={async () => {
-                    await onSourcesChanged?.()
-                  }}
-                  onDeleted={async () => {
-                    await onSourcesChanged?.()
-                  }}
+                  onSaved={async () => { await onSourcesChanged?.() }}
+                  onDeleted={async () => { await onSourcesChanged?.() }}
+                  datasets={datasets.filter(d => d.sourceId === s.id)}
+                  onDatasetsChanged={onDatasetsChanged}
                 />
               ))}
 

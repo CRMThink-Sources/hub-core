@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import type { Connection, Source } from '../../types/thinkanalise-types'
+import type { Connection, Dataset, Source } from '../../types/thinkanalise-types'
 import { ConfigCard } from './configcard'
 import { useSession } from '@/providers/session-provider'
 
@@ -27,6 +27,10 @@ export default function ConfiguracoesLayout() {
 
   const sources = useMemo<Source[]>(() => {
     return (session?.sources ?? []) as Source[]
+  }, [session])
+
+  const datasets = useMemo<Dataset[]>(() => {
+    return (session?.datasets ?? []) as Dataset[]
   }, [session])
 
   function addConnection() {
@@ -101,6 +105,8 @@ export default function ConfiguracoesLayout() {
               onRemoveNew={removeNewConnection}
               sources={sources.filter(s => s.connectorId === c.biconnectorId)}
               onSourcesChanged={refreshSession}
+              datasets={datasets}
+              onDatasetsChanged={refreshSession}
             />
           ))
         )}

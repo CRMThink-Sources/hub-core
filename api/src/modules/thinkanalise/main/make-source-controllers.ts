@@ -11,14 +11,18 @@ async function getBitrix(req: Request): Promise<BitrixBiConnectorClient> {
   return (await makeBitrixClient(req, 'biconnector')) as BitrixBiConnectorClient
 }
 
-export const makeAddSourceController = async (req: Request): Promise<Controller> =>
-  new AddSourceController(await getBitrix(req))
+export const makeAddSourceController = async (
+  req: Request,
+): Promise<Controller> => new AddSourceController(await getBitrix(req))
 
-export const makeListSourcesController = async (req: Request): Promise<Controller> =>
-  new ListSourcesController(await getBitrix(req))
+export const makeListSourcesController = async (
+  req: Request,
+): Promise<Controller> => new ListSourcesController(await getBitrix(req))
 
-export const makeUpdateSourceController = async (req: Request): Promise<Controller> =>
-  new UpdateSourceController(await getBitrix(req))
+export const makeUpdateSourceController = async (
+  req: Request,
+): Promise<Controller> => new UpdateSourceController(await getBitrix(req))
 
-export const makeDeleteSourceController = async (req: Request): Promise<Controller> =>
-  new DeleteSourceController(await getBitrix(req))
+export const makeDeleteSourceController = async (
+  req: Request,
+): Promise<Controller> => new DeleteSourceController(await getBitrix(req))

@@ -14,7 +14,7 @@ export const axiosThinkanalise = (authTokenKey: string) => {
     },
   })
   axiosInstance.interceptors.response.use(
-    response => response.data.result,
+    response => response.data?.result ?? response.data,
     error =>
       Promise.reject(
         error instanceof Error ? error : new Error('Request failed'),
