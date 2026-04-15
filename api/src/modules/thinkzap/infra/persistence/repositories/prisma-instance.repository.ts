@@ -122,4 +122,26 @@ export class PrismaInstanceRepository
       createdAt: updatedInstance.createdAt,
     } as Instance
   }
+
+  async markAsDisconnected(instanceId: string): Promise<Instance> {
+    const updatedInstance = await prisma.instance.update({
+      where: { id: instanceId },
+      data: {
+        status: InstanceStatus.DISCONNECTED,
+        vinculatedChannel: null,
+      },
+    })
+
+    return {
+      id: updatedInstance.id,
+      domainId: updatedInstance.domainId,
+      instanceId: updatedInstance.instanceId,
+      vinculatedChannel: updatedInstance.vinculatedChannel,
+      zApiToken: updatedInstance.zApiToken,
+      status: updatedInstance.status as InstanceStatus,
+      phoneNumber: null,
+      createdAt: updatedInstance.createdAt,
+      updatedAt: updatedInstance.updatedAt,
+    } as Instance
+  }
 }

@@ -64,7 +64,6 @@ export class AddBiconnectorController extends Controller {
 
     await this.biConnectorRepository.createBiConnector({
       appId: app.id,
-
       biconnectorId: result.id,
       label,
       provider,

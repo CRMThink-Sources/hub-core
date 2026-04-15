@@ -1,18 +1,22 @@
 'use client'
 
+import { useState } from 'react'
 import { useSession } from '@/providers/session-provider'
 import Link from 'next/link'
-import { useState } from 'react'
 import { ConfigurarModal } from '../modals/configurar-modal'
 import { ConectarModal } from '../modals/conectar-modal'
 import { useQrCode } from '@/app/hooks/use-qr-code'
 import { useConnectors } from '@/app/hooks/use-connectors'
 import { VincularCanalModal } from '../modals/vincular-canal-modal'
 import { DesvincularCanalModal } from '../modals/desvincular-canal-modal'
+import { DesconectarModal } from '../modals/desconectar-modal'
+import { CancelarConectorModal } from '../modals/cancelar-conector-modal'
 import { envConfig } from '@/shared/infra/env-config'
-import axios from 'axios'
 import { getAppRedirectUrl } from '@/app/config/app-redirects'
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
+import { useConnectorsSocket } from '@/app/hooks/use-connectors-socket'
+import { THINKZAP_TRIAL_MAX_CONNECTORS } from '@/shared/constants/thinkzap-trial'
+import { AtivarAssinaturaButton } from '../ativar-assinatura-button'
 
 // validar com Joao questoes de numero de telefone, nao encotrei no db.
 // const formatPhoneNumber = (phone: string) => {
@@ -24,7 +28,11 @@ import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 
 export default function ConexoesLayout() {
   const { session, refreshSession } = useSession()
-  const { qrCode, fetchQrCode } = useQrCode()
+  const { qrCode, loading: qrLoading, fetchQrCode } = useQrCode()
+  const [modalCancelarConector, setModalCancelarConector] = useState<{
+    id: string
+    nome: string
+  } | null>(null)
 
   const {
     openMenuId,
@@ -45,12 +53,34 @@ export default function ConexoesLayout() {
     desvincularAberto,
     setDesvincularAberto,
     connDesvincular,
+    abrirDesconectar,
+    desconectarAberto,
+    setDesconectarAberto,
+    connDesconectar,
   } = useConnectors()
+
+  useConnectorsSocket({
+    appId: session?.app.id ?? '',
+    onDisconnected: () => {
+      console.log('connector disconnected')
+      void refreshSession()
+    },
+  })
 
   const total = session?.connectors.length ?? 0
   const connected =
     session?.connectors.filter((c: any) => c.instance.connected === true)
       .length ?? 0
+
+  const subscription = (session?.subscription ?? null) as {
+    status?: string
+    connectorQuantity?: number
+  } | null
+  const connectorQuantity = Number(subscription?.connectorQuantity ?? total)
+  const quantityAposCancelamento = Math.max(1, connectorQuantity - 1)
+  const bloquearContratarLinhaTrial =
+    subscription?.status === 'TRIALING' &&
+    total >= THINKZAP_TRIAL_MAX_CONNECTORS
 
   const handleSave = async (id: string, name: string): Promise<void> => {
     try {
@@ -71,23 +101,58 @@ export default function ConexoesLayout() {
     setConectarAberto(false)
   }
 
+  const handleCloseConectar = () => {
+    setConectarAberto(false)
+    void refreshSession()
+  }
+
   return (
     <div className="w-full flex flex-col pt-20 px-6 space-y-6">
-      <div className="flex items-center justify-between w-full max-w-5xl bg-white p-6 rounded-lg border border-gray-100">
-        <div>
-          <h1 className="page-title">Configurações</h1>
-          <h2 className="page-subtitle mt-1">
-            Gerencie os números de WhatsApp conectados ao Bitrix24
-          </h2>
+      <div className="flex w-full max-w-5xl flex-col gap-4 rounded-lg border border-gray-100 bg-white p-6">
+        <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="page-title">Configurações</h1>
+            <h2 className="page-subtitle mt-1">
+              Gerencie os números de WhatsApp conectados ao Bitrix24
+            </h2>
+          </div>
+
+          {!bloquearContratarLinhaTrial && (
+            <div className="flex w-full shrink-0 sm:w-auto sm:justify-end">
+              <Link
+                className="inline-flex w-full items-center justify-center rounded-lg bg-[#5A997E] px-5 py-2.5 text-center font-medium text-white transition-colors hover:bg-[#4a8169] sm:w-auto"
+                href="/thinkzap/financeiro"
+              >
+                + Contratar linha
+              </Link>
+            </div>
+          )}
         </div>
 
-        <Link
-          className="bg-[#5A997E] text-white font-medium py-2.5 px-5 rounded-lg hover:bg-[#4a8169] transition-colors cursor-pointer"
-          href="/thinkzap/financeiro"
-        >
-          {' '}
-          + Contratar linha
-        </Link>
+        {bloquearContratarLinhaTrial && (
+          <>
+            <div className="w-full rounded-lg border border-amber-200/90 bg-amber-50/90 px-4 py-3 text-left shadow-sm">
+              <p className="text-sm leading-relaxed text-amber-950">
+                <span className="font-semibold text-amber-900">
+                  Limite do trial atingido ({THINKZAP_TRIAL_MAX_CONNECTORS}{' '}
+                  conectores).
+                </span>{' '}
+                Para contratar mais linhas, efetive a assinatura (encerra o
+                teste e inicia a cobrança) ou use o portal Stripe para cartão e
+                faturas.
+              </p>
+            </div>
+            <div className="flex w-full flex-wrap justify-end gap-2">
+              <AtivarAssinaturaButton layout="inline" />
+              <Link
+                className="inline-flex min-h-[42px] shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50"
+                href="/thinkzap/financeiro"
+              >
+                Financeiro
+              </Link>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="w-full max-w-5xl">
@@ -210,7 +275,7 @@ export default function ConexoesLayout() {
                                 abrirConectar(conn)
                                 await fetchQrCode(conn.id)
                               } else {
-                                console.log('desconectar id:', conn.id)
+                                abrirDesconectar(conn)
                               }
                             },
                           },
@@ -227,7 +292,15 @@ export default function ConexoesLayout() {
                             },
                           },
                           // { label: 'Limpar fila', onClick: () => {} },
-                          // { label: 'Cancelar assinatura', onClick: () => {} },
+                          {
+                            label: 'Cancelar conector',
+                            onClick: () => {
+                              setModalCancelarConector({
+                                id: conn.id,
+                                nome: conn.instance?.name || 'Sem nome',
+                              })
+                            },
+                          },
                           // { label: 'Excluir', onClick: () => {} },
                         ]
 
@@ -270,7 +343,12 @@ export default function ConexoesLayout() {
       <ConectarModal
         isOpen={conectarAberto}
         qrCode={qrCode}
-        onClose={() => setConectarAberto(false)}
+        instanceId={connSelecionado?.instance?.instanceId ?? null}
+        loading={qrLoading}
+        onRefetch={() => {
+          if (connSelecionado?.id) void fetchQrCode(connSelecionado.id)
+        }}
+        onClose={() => handleCloseConectar()}
       />
 
       <VincularCanalModal
@@ -290,6 +368,25 @@ export default function ConexoesLayout() {
         onSuccess={() => {
           void refreshSession()
           setDesvincularAberto(false)
+        }}
+      />
+
+      <DesconectarModal
+        isOpen={desconectarAberto}
+        connector={connDesconectar}
+        onClose={() => setDesconectarAberto(false)}
+        onSuccess={() => {
+          void refreshSession()
+          setDesconectarAberto(false)
+        }}
+      />
+      <CancelarConectorModal
+        isOpen={modalCancelarConector != null}
+        connector={modalCancelarConector}
+        quantityAposCancelamento={quantityAposCancelamento}
+        onClose={() => setModalCancelarConector(null)}
+        onSuccess={() => {
+          void refreshSession()
         }}
       />
     </div>

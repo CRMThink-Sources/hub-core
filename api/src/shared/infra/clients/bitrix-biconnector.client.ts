@@ -77,7 +77,6 @@ export class BitrixBiConnectorClient extends BitrixClient {
     const client = this.getClient()
     const response = await client.post<BitrixResponse<SourceResult>>(
       '/biconnector.source.add',
-
       { fields },
     )
     this.checkError(response.data)
