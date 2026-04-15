@@ -10,6 +10,13 @@ import {
   makeUpdateSourceController,
   makeDeleteSourceController,
 } from './main/make-source-controllers'
+import {
+  makeAddDatasetController,
+  makeListDatasetsController,
+  makeUpdateDatasetController,
+  makeSyncDatasetFieldsController,
+  makeDeleteDatasetController,
+} from './main/make-dataset-controllers'
 
 export const createThinkAnaliseRoutes = (): Router => {
   const router = Router()
@@ -45,6 +52,28 @@ export const createThinkAnaliseRoutes = (): Router => {
   router.delete(
     '/source/:id',
     adaptControllerFactory(makeDeleteSourceController),
+  )
+
+  // Datasets
+  router.post(
+    '/source/:sourceId/dataset',
+    adaptControllerFactory(makeAddDatasetController),
+  )
+  router.get(
+    '/source/:sourceId/datasets',
+    adaptControllerFactory(makeListDatasetsController),
+  )
+  router.put(
+    '/dataset/:id',
+    adaptControllerFactory(makeUpdateDatasetController),
+  )
+  router.put(
+    '/dataset/:id/fields',
+    adaptControllerFactory(makeSyncDatasetFieldsController),
+  )
+  router.delete(
+    '/dataset/:id',
+    adaptControllerFactory(makeDeleteDatasetController),
   )
 
   return router

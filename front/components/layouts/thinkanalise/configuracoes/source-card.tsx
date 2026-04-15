@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import type { Source, SourceSettings } from '../../types/thinkanalise-types'
+import type { Dataset, Source, SourceSettings } from '../../types/thinkanalise-types'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
+import { DatasetCard, NewDatasetCard } from './dataset-card'
 
 const AUTH_TOKEN_KEY = 'hubthink_auth_token'
 
@@ -12,6 +13,8 @@ type Props = {
   provider: string
   onSaved: () => Promise<void>
   onDeleted: () => Promise<void>
+  datasets?: Dataset[]
+  onDatasetsChanged?: () => Promise<void>
 }
 
 type NewSourceProps = {
@@ -27,9 +30,12 @@ export function SourceCard({
   provider,
   onSaved,
   onDeleted,
+  datasets = [],
+  onDatasetsChanged,
 }: Props) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState({ title: source.title, apiKey: '' })
+  const [addingDataset, setAddingDataset] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [testStatus, setTestStatus] = useState<'idle' | 'ok' | 'erro'>('idle')
@@ -163,6 +169,46 @@ export function SourceCard({
           </div>
         </div>
       )}
+
+      {/* seção de datasets */}
+      <div className="px-4 pb-4 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+            Datasets ({datasets.length})
+          </span>
+          {!addingDataset && (
+            <button
+              onClick={() => setAddingDataset(true)}
+              className="flex items-center gap-1 text-xs font-mono px-2.5 py-1 rounded-lg border border-[#e5e7eb] text-gray-400
+                         hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all cursor-pointer"
+            >
+              <span className="text-base leading-none">+</span>
+              novo dataset
+            </button>
+          )}
+        </div>
+
+        {datasets.map(d => (
+          <DatasetCard
+            key={d.id}
+            dataset={d}
+            onChanged={async () => { await onDatasetsChanged?.() }}
+            onDeleted={async () => { await onDatasetsChanged?.() }}
+          />
+        ))}
+
+        {addingDataset && (
+          <NewDatasetCard
+            sourceId={source.id}
+            integration={provider}
+            onSaved={async () => {
+              setAddingDataset(false)
+              await onDatasetsChanged?.()
+            }}
+            onCancel={() => setAddingDataset(false)}
+          />
+        )}
+      </div>
 
       {/* rodapé */}
       <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-[#e5e7eb]">

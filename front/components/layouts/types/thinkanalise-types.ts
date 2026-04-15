@@ -30,3 +30,20 @@ export interface Source {
   active: boolean
   settings: SourceSettings
 }
+
+export interface DatasetField {
+  name: string
+  type: string
+  externalCode: string
+  visible: boolean
+}
+
+export interface Dataset {
+  id: number
+  sourceId: number
+  name: string
+  description?: string
+  externalCode: string
+  externalName?: string
+  fields?: DatasetField[]
+}
