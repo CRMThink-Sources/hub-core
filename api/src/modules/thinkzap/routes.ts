@@ -7,6 +7,7 @@ import { adaptControllerFactory } from '@/shared/main/adapt-controller'
 import { makeListOpenChannelsController } from './main/make-list-open-channels-controller'
 import { makeDisconnectChannelController } from './main/connector/make-disconnect-channel'
 import { makeUpdateInstanceController } from './main/instance/make-update-instance-controller'
+import { makeDisconnectConnectorController } from './main/connector/make-disconnect-connector'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
@@ -22,6 +23,11 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/connector/:id/qr-code',
     adaptControllerFactory(makeGetQrCodeController),
+  )
+
+  router.post(
+    '/connector/disconnect',
+    adaptControllerFactory(makeDisconnectConnectorController),
   )
 
   router.post(

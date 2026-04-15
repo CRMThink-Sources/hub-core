@@ -49,6 +49,15 @@ export class CreateConnectorController extends Controller {
           expires_after_days: 3,
         },
       },
+      subscription_data: {
+        trial_period_days: 15,
+      },
+      custom_text: {
+        submit: {
+          message:
+            'Você terá 15 dias grátis para testar o ThinkZap. Durante o período de trial, é possível criar até 5 conectores. Cancele quando quiser, sem cobranças.',
+        },
+      },
       return_url: `${env.appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     })
 

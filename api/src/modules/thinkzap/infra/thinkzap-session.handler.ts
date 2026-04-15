@@ -35,22 +35,27 @@ export class ThinkzapSessionHandler implements SessionHandler {
               connector.instance?.instanceId ?? '',
               connector.instance?.zApiToken ?? '',
             )
-            const phoneData = await zApiClient.getPhoneData(
-              connector.instance?.instanceId ?? '',
-              connector.instance?.zApiToken ?? '',
-            )
+            let phoneData = null
+            if (instance.connected) {
+              phoneData = await zApiClient.getPhoneData(
+                connector.instance?.instanceId ?? '',
+                connector.instance?.zApiToken ?? '',
+              )
+            }
 
             const data: any = {
               ...connector,
               instance: {
-                ...connector.instance,
+                // ...connector.instance,
+                instanceId: connector.instance?.instanceId,
+                vinculatedChannel: connector.instance?.vinculatedChannel,
                 name: instance.name.includes(' | ')
                   ? instance.name.split(' | ')[1]
                   : instance.name,
                 connected: instance.connected,
                 paidStatus: instance.paymentStatus,
                 due: instance.due,
-                phoneNumber: phoneData?.phone,
+                phoneNumber: phoneData?.phone ? phoneData.phone : null,
               },
             }
 

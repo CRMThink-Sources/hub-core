@@ -18,7 +18,7 @@ export class UpdateSourceController extends Controller {
   async perform(req: Request, _res: Response): Promise<httpResponse> {
     const id = z.coerce.number().int().positive().parse(req.params.id)
     const fields = updateSourceSchema.parse(req.body)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     const result = await this.bitrix.sourceUpdate(id, fields)
     return this.ok(result)
   }

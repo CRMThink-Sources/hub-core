@@ -57,7 +57,6 @@ export class BitrixBiConnectorClient extends BitrixClient {
     const client = this.getClient()
     const response = await client.post<BitrixResponse<SourceResult>>(
       '/biconnector.source.add',
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       { fields },
     )
     return response.data.result

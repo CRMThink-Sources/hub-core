@@ -64,7 +64,6 @@ export class AddBiconnectorController extends Controller {
 
     await this.biConnectorRepository.createBiConnector({
       appId: app.id,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       biconnectorId: result.id,
       label,
       provider,

@@ -23,7 +23,6 @@ export class AddSourceController extends Controller {
       .parse(req.params.connectorId)
     const { title, settings, active } = addSourceSchema.parse(req.body)
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const result = await this.bitrix.sourceAdd({
       connectorId,
       title,

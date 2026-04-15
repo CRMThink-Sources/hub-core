@@ -61,8 +61,14 @@ app.use('/api/auth', authRoutes)
 
 // Callbacks públicos do Bitrix BI Builder (sem auth — chamados diretamente pelo Bitrix)
 app.post('/api/thinkanalise/check', adaptControllerFactory(makeCheckController))
-app.post('/api/thinkanalise/tables', adaptControllerFactory(makeTablesController))
-app.post('/api/thinkanalise/describe', adaptControllerFactory(makeDescribeController))
+app.post(
+  '/api/thinkanalise/tables',
+  adaptControllerFactory(makeTablesController),
+)
+app.post(
+  '/api/thinkanalise/describe',
+  adaptControllerFactory(makeDescribeController),
+)
 app.post('/api/thinkanalise/data', adaptControllerFactory(makeDataController))
 
 // Rotas por aplicação (com auth)

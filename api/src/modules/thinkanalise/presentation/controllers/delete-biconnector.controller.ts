@@ -14,7 +14,11 @@ export class DeleteBiconnectorController extends Controller {
   }
 
   async perform(req: Request, _res: Response): Promise<httpResponse> {
-    const biconnectorId = z.coerce.number().int().positive().parse(req.params.id)
+    const biconnectorId = z.coerce
+      .number()
+      .int()
+      .positive()
+      .parse(req.params.id)
     await this.repository.deleteBiConnector(biconnectorId)
     await this.bitrix.biconnectorDelete(biconnectorId)
     return this.ok(true)
