@@ -9,10 +9,13 @@ import { useQrCode } from '@/app/hooks/use-qr-code'
 import { useConnectors } from '@/app/hooks/use-connectors'
 import { VincularCanalModal } from '../modals/vincular-canal-modal'
 import { DesvincularCanalModal } from '../modals/desvincular-canal-modal'
+import { DesconectarModal } from '../modals/desconectar-modal'
 import { envConfig } from '@/shared/infra/env-config'
 import axios from 'axios'
 import { getAppRedirectUrl } from '@/app/config/app-redirects'
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
+import { useInstanceSocket } from '@/app/hooks/use-instance-socket'
+import { useConnectorsSocket } from '@/app/hooks/use-connectors-socket'
 
 // validar com Joao questoes de numero de telefone, nao encotrei no db.
 // const formatPhoneNumber = (phone: string) => {
@@ -24,7 +27,7 @@ import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 
 export default function ConexoesLayout() {
   const { session, refreshSession } = useSession()
-  const { qrCode, fetchQrCode } = useQrCode()
+  const { qrCode, loading: qrLoading, fetchQrCode } = useQrCode()
 
   const {
     openMenuId,
@@ -45,7 +48,19 @@ export default function ConexoesLayout() {
     desvincularAberto,
     setDesvincularAberto,
     connDesvincular,
+    abrirDesconectar,
+    desconectarAberto,
+    setDesconectarAberto,
+    connDesconectar,
   } = useConnectors()
+
+  useConnectorsSocket({
+    appId: session?.app.id ?? '',
+    onDisconnected: () => {
+      console.log('connector disconnected')
+      void refreshSession()
+    },
+  })
 
   const total = session?.connectors.length ?? 0
   const connected =
@@ -69,6 +84,11 @@ export default function ConexoesLayout() {
     }
     setConfigurarAberto(false)
     setConectarAberto(false)
+  }
+
+  const handleCloseConectar = () => {
+    setConectarAberto(false)
+    void refreshSession()
   }
 
   return (
@@ -210,7 +230,7 @@ export default function ConexoesLayout() {
                                 abrirConectar(conn)
                                 await fetchQrCode(conn.id)
                               } else {
-                                console.log('desconectar id:', conn.id)
+                                abrirDesconectar(conn)
                               }
                             },
                           },
@@ -270,7 +290,12 @@ export default function ConexoesLayout() {
       <ConectarModal
         isOpen={conectarAberto}
         qrCode={qrCode}
-        onClose={() => setConectarAberto(false)}
+        instanceId={connSelecionado?.instance?.instanceId ?? null}
+        loading={qrLoading}
+        onRefetch={() => {
+          if (connSelecionado?.id) void fetchQrCode(connSelecionado.id)
+        }}
+        onClose={() => handleCloseConectar()}
       />
 
       <VincularCanalModal
@@ -290,6 +315,16 @@ export default function ConexoesLayout() {
         onSuccess={() => {
           void refreshSession()
           setDesvincularAberto(false)
+        }}
+      />
+
+      <DesconectarModal
+        isOpen={desconectarAberto}
+        connector={connDesconectar}
+        onClose={() => setDesconectarAberto(false)}
+        onSuccess={() => {
+          void refreshSession()
+          setDesconectarAberto(false)
         }}
       />
     </div>

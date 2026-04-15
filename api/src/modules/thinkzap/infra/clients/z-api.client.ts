@@ -244,6 +244,26 @@ export class ZApiClient {
     }
   }
 
+  async disconnectInstance(
+    instanceId: string,
+    instanceToken: string,
+  ): Promise<void> {
+    try {
+      await axios.get(
+        `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/disconnect`,
+        {
+          headers: {
+            'client-token': this.clientToken,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to disconnect instance')
+    }
+  }
+
   async sendAudio(
     instanceId: string,
     instanceToken: string,

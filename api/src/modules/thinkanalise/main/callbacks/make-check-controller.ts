@@ -4,4 +4,4 @@ import { CheckController } from '../../presentation/controllers/callbacks/check.
 
 export const makeCheckController = (_req: Request): Controller => {
   return new CheckController()
-}
+}
