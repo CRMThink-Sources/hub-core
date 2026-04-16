@@ -1,7 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import type { Dataset, Source, SourceSettings } from '../../types/thinkanalise-types'
+import type {
+  Dataset,
+  Source,
+  SourceSettings,
+} from '../../types/thinkanalise-types'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
 import { DatasetCard, NewDatasetCard } from './dataset-card'
 
@@ -192,8 +196,12 @@ export function SourceCard({
           <DatasetCard
             key={d.id}
             dataset={d}
-            onChanged={async () => { await onDatasetsChanged?.() }}
-            onDeleted={async () => { await onDatasetsChanged?.() }}
+            onChanged={async () => {
+              await onDatasetsChanged?.()
+            }}
+            onDeleted={async () => {
+              await onDatasetsChanged?.()
+            }}
           />
         ))}
 

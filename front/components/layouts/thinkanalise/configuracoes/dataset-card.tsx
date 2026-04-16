@@ -78,7 +78,9 @@ export function DatasetCard({
       await client.delete(`/thinkanalise/dataset/${dataset.id}`)
       await onDeleted()
     } catch {
-      setDeleteError('Não foi possível remover. Verifique se o dataset está em uso no BI Builder.')
+      setDeleteError(
+        'Não foi possível remover. Verifique se o dataset está em uso no BI Builder.',
+      )
     } finally {
       setDeleting(false)
     }
@@ -267,10 +269,13 @@ export function NewDatasetCard({
     setLoadingFields(true)
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
-      const fields = await client.post<DescribeField[]>('/thinkanalise/describe', {
-        name: table.code,
-        connection: { integration, api_key: '' },
-      }) as unknown as DescribeField[]
+      const fields = (await client.post<DescribeField[]>(
+        '/thinkanalise/describe',
+        {
+          name: table.code,
+          connection: { integration, api_key: '' },
+        },
+      )) as unknown as DescribeField[]
       setDescribeFields(fields)
       const vis: Record<string, boolean> = {}
       fields.forEach(f => {

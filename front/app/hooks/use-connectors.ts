@@ -1,64 +1,84 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
-export const useConnectors = () => {
+/** Conector da sessão ThinkZap — alinhar a um tipo compartilhado quando existir. */
+type Connector = any
+
+export function useConnectors() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const [connSelecionado, setConnSelecionado] = useState<any | null>(null)
+  const [connSelecionado, setConnSelecionado] = useState<Connector | null>(null)
   const [configurarAberto, setConfigurarAberto] = useState(false)
   const [conectarAberto, setConectarAberto] = useState(false)
   const [vincularAberto, setVincularAberto] = useState(false)
-  const [connVincular, setConnVincular] = useState<any>(null)
+  const [connVincular, setConnVincular] = useState<Connector | null>(null)
   const [desvincularAberto, setDesvincularAberto] = useState(false)
-  const [connDesvincular, setConnDesvincular] = useState<any>(null)
+  const [connDesvincular, setConnDesvincular] = useState<Connector | null>(null)
   const [desconectarAberto, setDesconectarAberto] = useState(false)
-  const [connDesconectar, setConnDesconectar] = useState<any>(null)
+  const [connDesconectar, setConnDesconectar] = useState<Connector | null>(null)
 
-  const abrirConfigurar = (conn: any) => {
-    setConnSelecionado(conn)
-    setConfigurarAberto(true)
+  const menu = {
+    openConnectorId: openMenuId,
+    toggle: useCallback((connectorId: string) => {
+      setOpenMenuId(prev => (prev === connectorId ? null : connectorId))
+    }, []),
+    close: useCallback(() => setOpenMenuId(null), []),
   }
 
-  const abrirConectar = (conn: any) => {
-    setConnSelecionado(conn)
-    setConectarAberto(true)
+  const edit = {
+    isOpen: configurarAberto,
+    connector: connSelecionado,
+    open: useCallback((conn: Connector) => {
+      setConnSelecionado(conn)
+      setConfigurarAberto(true)
+    }, []),
+    close: useCallback(() => setConfigurarAberto(false), []),
   }
 
-  const abrirVincular = (conn: any) => {
-    setConnVincular(conn)
-    setVincularAberto(true)
+  const connect = {
+    isOpen: conectarAberto,
+    connector: connSelecionado,
+    open: useCallback((conn: Connector) => {
+      setConnSelecionado(conn)
+      setConectarAberto(true)
+    }, []),
+    close: useCallback(() => setConectarAberto(false), []),
   }
 
-  const abrirDesvincular = (conn: any) => {
-    setConnDesvincular(conn)
-    setDesvincularAberto(true)
+  const linkChannel = {
+    isOpen: vincularAberto,
+    connector: connVincular,
+    open: useCallback((conn: Connector) => {
+      setConnVincular(conn)
+      setVincularAberto(true)
+    }, []),
+    close: useCallback(() => setVincularAberto(false), []),
   }
 
-  const abrirDesconectar = (conn: any) => {
-    setConnDesconectar(conn)
-    setDesconectarAberto(true)
+  const unlinkChannel = {
+    isOpen: desvincularAberto,
+    connector: connDesvincular,
+    open: useCallback((conn: Connector) => {
+      setConnDesvincular(conn)
+      setDesvincularAberto(true)
+    }, []),
+    close: useCallback(() => setDesvincularAberto(false), []),
+  }
+
+  const disconnect = {
+    isOpen: desconectarAberto,
+    connector: connDesconectar,
+    open: useCallback((conn: Connector) => {
+      setConnDesconectar(conn)
+      setDesconectarAberto(true)
+    }, []),
+    close: useCallback(() => setDesconectarAberto(false), []),
   }
 
   return {
-    openMenuId,
-    setOpenMenuId,
-    connSelecionado,
-    configurarAberto,
-    setConfigurarAberto,
-    conectarAberto,
-    setConectarAberto,
-    abrirConfigurar,
-    abrirConectar,
-    abrirVincular,
-    vincularAberto,
-    setVincularAberto,
-    connVincular,
-    setConnVincular,
-    abrirDesvincular,
-    desvincularAberto,
-    setDesvincularAberto,
-    connDesvincular,
-    abrirDesconectar,
-    desconectarAberto,
-    setDesconectarAberto,
-    connDesconectar,
+    menu,
+    edit,
+    connect,
+    linkChannel,
+    unlinkChannel,
+    disconnect,
   }
 }

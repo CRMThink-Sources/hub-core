@@ -1,7 +1,11 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import type { Connection, Dataset, Source } from '../../types/thinkanalise-types'
+import type {
+  Connection,
+  Dataset,
+  Source,
+} from '../../types/thinkanalise-types'
 import { ConfigCard } from './configcard'
 import { useSession } from '@/providers/session-provider'
 

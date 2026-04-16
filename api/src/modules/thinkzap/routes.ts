@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { makeCreateConnectorController } from './main/create-connector-controller'
+import { makeCreateSubscriptionCheckoutController } from './main/make-create-subscription-checkout-controller'
 import { makeListConnectorsController } from './main/list-connectors-controller'
 import { makeGetQrCodeController } from './main/get-qr-code-controller'
 import { makeVinculateChannelController } from './main/connector/make-vinculate-channel'
@@ -31,8 +31,8 @@ export const createThinkerszapRoutes = (): Router => {
   )
 
   router.post(
-    '/connector/create',
-    adaptControllerFactory(makeCreateConnectorController),
+    '/subscription/checkout',
+    adaptControllerFactory(makeCreateSubscriptionCheckoutController),
   )
   router.post(
     '/subscription/add-quantity',
