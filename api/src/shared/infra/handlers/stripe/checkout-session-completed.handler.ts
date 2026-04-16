@@ -8,13 +8,14 @@ import {
   SubscriptionStatus,
   fromStripeStatus,
 } from '@/shared/domain/entities/billing-subscription'
-import { StripeEventHandler } from './stripe-event-handler'
+
 import {
   provisionMissingConnectorsForApp,
   type ProvisionMissingConnectorsDeps,
 } from '@/modules/thinkzap/application/provision-missing-connectors'
 import { THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS } from '@/modules/thinkzap/domain/trial-connector-limit'
 import { getThinkzapConnectorQuantity } from '@/shared/infra/stripe/thinkzap-subscription-line'
+import { StripeEventHandler } from '../stripe-event-handler'
 
 export class CheckoutSessionCompletedHandler implements StripeEventHandler {
   eventType = 'checkout.session.completed'
