@@ -17,24 +17,8 @@ function CheckoutContent() {
   const router = useRouter()
   const quantity = Number(searchParams.get('quantity')) || 1
 
-  const fetchClientSecret = async () => {
-    const token = sessionStorage.getItem('hubthink_auth_token')
-    console.log(token)
-    const { data } = await axios.post(
-      `${envConfig.apiUrl}/thinkzap/connector/create`,
-      { quantity, priceId: envConfig.priceCodes.ThinkzapConnectorsCode },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    )
-    return data.result.clientSecret
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-4 sm:p-8">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50/40 p-4 sm:p-8">
       <div className="mx-auto max-w-4xl space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -70,7 +54,8 @@ function CheckoutContent() {
           <EmbeddedCheckoutProvider
             stripe={stripePromise}
             options={{
-              fetchClientSecret,
+              clientSecret: searchParams.get('session_id'),
+              // fetchClientSecret,
               onComplete: () => router.push('/checkout/success'),
             }}
           >
@@ -86,7 +71,7 @@ export default function CheckoutPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-indigo-50/40">
+        <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-slate-50 via-white to-indigo-50/40">
           <div className="flex items-center gap-3">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
             <span className="text-sm text-slate-500">

@@ -3,12 +3,8 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
 import Stripe from 'stripe'
-import { z } from 'zod'
 
-import {
-  computeThinkzapLineTotalCents,
-  normalizeTiers,
-} from '@/modules/thinkzap/application/stripe-thinkzap-price-tiers'
+import { normalizeTiers } from '@/modules/thinkzap/application/stripe-thinkzap-price-tiers'
 
 function centsToAmount(cents: number): number {
   return Math.round(cents) / 100
@@ -30,20 +26,6 @@ export class GetThinkzapPricingController extends Controller {
       )
     }
 
-    const qParsed = z
-      .object({
-        quantity: z.coerce.number().min(1).max(500).optional(),
-      })
-      .safeParse(req.query)
-
-    if (!qParsed.success) {
-      return this.badRequest(
-        new Error('Parâmetro quantity inválido: ' + qParsed.error.message),
-      )
-    }
-
-    const quantity = qParsed.data.quantity
-
     const price = await this.stripe.prices.retrieve(priceId, {
       // Sem expand, o Stripe devolve billing_scheme=tiered mas `tiers` vazio.
       expand: ['tiers', 'currency_options'],
@@ -51,21 +33,6 @@ export class GetThinkzapPricingController extends Controller {
 
     const tiers = normalizeTiers(price)
     const tiersMode = price.tiers_mode ?? null
-
-    let estimate: {
-      quantity: number
-      totalAmountCents: number
-      totalAmount: number
-    } | null = null
-
-    if (quantity != null) {
-      const totalCents = computeThinkzapLineTotalCents(quantity, price)
-      estimate = {
-        quantity,
-        totalAmountCents: totalCents,
-        totalAmount: centsToAmount(totalCents),
-      }
-    }
 
     const firstTier = tiers[0]
     const firstTierUnit =
@@ -88,7 +55,6 @@ export class GetThinkzapPricingController extends Controller {
         flatAmountCents: t.flatAmountCents,
       })),
       firstTierUnitAmount: firstTierUnit,
-      estimate,
     })
   }
 }

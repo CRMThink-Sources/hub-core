@@ -81,6 +81,7 @@ export class ThinkzapSessionHandler implements SessionHandler {
         const subscription = await subscriptionRepository.getByAppId(
           params.appId,
         )
+        console.log('subscription', subscription)
         return {
           key: 'subscription',
           data: subscription
