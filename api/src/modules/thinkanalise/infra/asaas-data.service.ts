@@ -1,16 +1,10 @@
 import { AsaasClient } from '@/shared/infra/clients/asaas.client'
 
-// Parâmetros fixos por tabela (além dos filtros dinâmicos do Bitrix)
 const TABLE_PATH: Record<string, string> = {
   charges: '/payments',
   payments: '/payments',
   customers: '/customers',
   subscriptions: '/subscriptions',
-}
-
-// Filtros fixos por tabela (ex: payments só retorna cobranças recebidas)
-const TABLE_FIXED_PARAMS: Record<string, Record<string, unknown>> = {
-  payments: { status: 'RECEIVED' },
 }
 
 // Operadores do Bitrix → sufixo da API Asaas
@@ -76,10 +70,7 @@ export class AsaasDataService {
         : strValue
     }
 
-    const params = {
-      ...(TABLE_FIXED_PARAMS[table] ?? {}),
-      ...dynamicParams,
-    }
+    const params = { ...dynamicParams }
 
     const rows = await this.client.list<Record<string, unknown>>(
       path,

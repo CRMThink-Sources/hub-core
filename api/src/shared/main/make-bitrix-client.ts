@@ -32,8 +32,6 @@ export const makeBitrixClient = async (
 
   const credential = await credentialRepo.get({ appId: app?.id })
 
-  console.log({ credential })
-
   if (!credential) {
     throw new Error('Domain or credential not found')
   }
