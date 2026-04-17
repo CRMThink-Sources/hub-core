@@ -23,6 +23,14 @@ export class ZApiInstanceGateway
     return instance
   }
 
+  async subscribe(id: string, token: string): Promise<void> {
+    await this.zApiClient.subscribe(id, token)
+  }
+
+  async unsubscribe(id: string, token: string): Promise<void> {
+    await this.zApiClient.unsubscribe(id, token)
+  }
+
   async update(id: string, name: string, token: string): Promise<void> {
     await this.zApiClient.updateInstance(id, name, token)
   }

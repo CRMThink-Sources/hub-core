@@ -8,6 +8,7 @@ import {
   PhoneDataResponse,
   ZApiListResponse,
 } from './types/z-api.types'
+import { UpdateInstanceGateway } from '../../domain/repositories/update-instance.gateway'
 
 export class ZApiClient {
   private readonly zApiToken: string
@@ -36,6 +37,40 @@ export class ZApiClient {
       return data
     } catch (error) {
       throw new Error('Failed to create instance')
+    }
+  }
+
+  async subscribe(id: string, token: string): Promise<void> {
+    try {
+      const { data } = await axios.post<void>(
+        `https://api.z-api.io/instances/${id}/token/${token}/integrator/on-demand/subscription`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${this.zApiToken}`,
+          },
+        },
+      )
+      return data
+    } catch (error) {
+      throw new Error('Failed to subscribe')
+    }
+  }
+
+  async unsubscribe(id: string, token: string): Promise<void> {
+    try {
+      const { data } = await axios.post<void>(
+        `https://api.z-api.io/instances/${id}/token/${token}/integrator/on-demand/cancel`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${this.zApiToken}`,
+          },
+        },
+      )
+      return data
+    } catch (error) {
+      throw new Error('Failed to unsubscribe')
     }
   }
 

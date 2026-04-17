@@ -140,7 +140,7 @@ export function ConexaoRow({
           </span>
         </div>
 
-        <div className="relative flex w-16 shrink-0 justify-end">
+        <div className="relative z-20 flex w-16 shrink-0 justify-end">
           <button
             type="button"
             onClick={() => control.menu.toggle(conn.id)}
@@ -151,7 +151,7 @@ export function ConexaoRow({
           </button>
 
           {control.menu.openConnectorId === conn.id && (
-            <div className="absolute right-0 top-8 z-10 w-40 rounded-lg border border-gray-200 bg-white py-0.5 shadow-md">
+            <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border border-gray-200 bg-white py-0.5 shadow-md">
               {menuItems.map(item => (
                 <button
                   key={item.label}

@@ -30,9 +30,8 @@ export async function deactivateConnectorsForApp(
     }
 
     if (instance.zApiToken) {
-      await deps.updateInstanceGateway.update(
+      await deps.updateInstanceGateway.unsubscribe(
         instance.instanceId,
-        'Cancelar',
         instance.zApiToken,
       )
     }

@@ -24,7 +24,7 @@ export function ConexoesTabelaConectores({
   const ultimoIndice = lista.length - 1
 
   return (
-    <div className="w-full overflow-hidden rounded-lg border border-gray-100 bg-white">
+    <div className="w-full overflow-visible rounded-lg border border-gray-100 bg-white">
       <div className="flex items-center justify-between gap-4 rounded-t-lg border-b border-gray-100 bg-gray-50 px-4 py-2.5">
         <div className="min-w-0 flex-1">
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">

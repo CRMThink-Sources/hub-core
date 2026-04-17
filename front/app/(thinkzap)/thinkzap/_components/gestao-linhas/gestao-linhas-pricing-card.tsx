@@ -1,5 +1,12 @@
 'use client'
 
+import { useSession } from '@/providers/session-provider'
+import { envConfig } from '@/shared/infra/env-config'
+import axios from 'axios'
+import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
+import { resolveThinkzapClient } from '../../_lib/thinkzap-client'
+
 export type ThinkzapPricingResponse = {
   currency: string
   billingScheme: string
@@ -65,8 +72,33 @@ export function GestaoLinhasPricingCard({
   onConfirmTrial,
   onReactivateSubscription,
 }: Props) {
-  const valorPrimeiraFaixa = pricing?.firstTierUnitAmount ?? null
+  const { session } = useSession()
+  const [billingPortalUrl, setBillingPortalUrl] = useState<string | undefined>(
+    undefined,
+  )
+  const hasSubscription = useMemo(
+    () => session?.subscription !== null,
+    [session?.subscription],
+  )
   const totalEstimado = computeEstimateAmount(pricing, linhasNaEstimativa)
+
+  useEffect(() => {
+    const fetchBillingPortalUrl = async () => {
+      try {
+        const resolved = resolveThinkzapClient()
+        if (!resolved.ok) {
+          return
+        }
+        const response = await resolved.client.post<{
+          url: string
+        }>('/thinkzap/subscription/billing-portal')
+        setBillingPortalUrl(response.url)
+      } catch {
+        setBillingPortalUrl(undefined)
+      }
+    }
+    void fetchBillingPortalUrl()
+  }, [])
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-5">
@@ -109,21 +141,6 @@ export function GestaoLinhasPricingCard({
           </div>
 
           <div className="space-y-1 text-left">
-            {/* <p className="text-sm text-gray-600">
-              {pricing?.billingScheme === 'tiered'
-                ? '1ª faixa (por linha)'
-                : 'Valor por linha'}
-            </p> */}
-            {/* <p className="text-lg font-semibold text-black">
-              {pricingLoading ? (
-                <span className="text-gray-400">Carregando…</span>
-              ) : valorPrimeiraFaixa != null ? (
-                <>R$ {formatCurrency(valorPrimeiraFaixa)}</>
-              ) : (
-                <span className="text-gray-400">—</span>
-              )}
-            </p> */}
-
             {pricing?.billingScheme === 'tiered' &&
               pricing.tiers.length > 0 && (
                 <ul className="max-w-md space-y-0.5 text-xs text-gray-500">
@@ -154,12 +171,6 @@ export function GestaoLinhasPricingCard({
                 : temAssinaturaAjustavel
                   ? `Valor mensal estimado com ${totalAposContratar} linha${totalAposContratar !== 1 ? 's' : ''} no total (${linhasNaAssinatura} + ${quantidade} adicional${quantidade !== 1 ? 'is' : ''})`
                   : `Valor mensal desta contratação (${quantidade} linha${quantidade !== 1 ? 's' : ''})`}
-              {/* {pricing?.tiersMode && (
-                <span className="mt-0.5 block text-[11px] text-gray-400">
-                  Modo Stripe:{' '}
-                  {pricing.tiersMode === 'graduated' ? 'graduado' : 'volume'}
-                </span>
-              )} */}
             </p>
 
             <p className="text-lg font-semibold text-[#5A997E]">
@@ -174,27 +185,40 @@ export function GestaoLinhasPricingCard({
           </div>
         </div>
 
-        {!isTrial && !isCancelled && (
-          <button
-            type="button"
-            onClick={onContinue}
-            disabled={submitting}
-            className="cursor-pointer rounded-md bg-[#5A997E] px-5 py-2 text-sm font-medium text-white hover:bg-[#4a8169] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Contratar {quantidade} linha{quantidade !== 1 ? 's' : ''}
-          </button>
-        )}
+        <div className="flex gap-2">
+          {!isTrial && !isCancelled && (
+            <button
+              type="button"
+              onClick={onContinue}
+              disabled={submitting}
+              className="cursor-pointer rounded-md bg-[#5A997E] px-5 py-2 text-sm font-medium text-white hover:bg-[#4a8169] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Contratar {quantidade} linha{quantidade !== 1 ? 's' : ''}
+            </button>
+          )}
 
-        {(isTrial || isCancelled) && (
-          <button
-            type="button"
-            onClick={isCancelled ? onReactivateSubscription : onConfirmTrial}
-            disabled={submitting}
-            className="cursor-pointer rounded-md bg-yellow-500 px-5 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isCancelled ? 'Reativar assinatura' : 'Efetivar assinatura'}
-          </button>
-        )}
+          {isCancelled && (
+            <button
+              type="button"
+              onClick={onReactivateSubscription}
+              disabled={submitting}
+              className="cursor-pointer rounded-md bg-gray-200 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Reativar assinatura
+            </button>
+          )}
+
+          {hasSubscription && (
+            <Link
+              href={billingPortalUrl ?? ''}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cursor-pointer rounded-md bg-gray-200 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Portal de cobrança
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   )

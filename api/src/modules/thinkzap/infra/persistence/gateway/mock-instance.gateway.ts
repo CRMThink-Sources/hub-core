@@ -35,4 +35,21 @@ export class MockZApiInstanceGateway
 
     return Promise.resolve()
   }
+  subscribe(id: string, token: string): Promise<void> {
+    console.log('[thinkzap] mock z-api instance subscribed', {
+      id,
+      token,
+    })
+
+    return Promise.resolve()
+  }
+
+  unsubscribe(id: string, token: string): Promise<void> {
+    console.log('[thinkzap] mock z-api instance unsubscribed', {
+      id,
+      token,
+    })
+
+    return Promise.resolve()
+  }
 }

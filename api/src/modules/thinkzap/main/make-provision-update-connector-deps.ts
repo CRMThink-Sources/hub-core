@@ -3,7 +3,6 @@ import type { ProvisionUpdateConnectorsDeps } from '../application/provision-upd
 import { PrismaConnectorRepository } from '../infra/persistence/repositories/prisma-connector.repository'
 import { ZApiClient } from '../infra/clients/z-api.client'
 import { ZApiInstanceGateway } from '../infra/persistence/gateway/instance.gateway'
-import { MockZApiInstanceGateway } from '../infra/persistence/gateway/mock-instance.gateway'
 import { PrismaInstanceRepository } from '../infra/persistence/repositories/prisma-instance.repository'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 
