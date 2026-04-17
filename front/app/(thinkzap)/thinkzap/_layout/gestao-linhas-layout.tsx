@@ -110,39 +110,42 @@ export default function GestaoLinhas() {
     if (quantidade < 1) return
     setErro(null)
 
-    if (temAssinaturaAjustavel) {
-      setSubmitting(true)
-      try {
-        const resolved = resolveThinkzapClient()
-        if (!resolved.ok) {
-          setErro(resolved.message)
-          return
-        }
-
-        const body = await resolved.client.post<{ connectorQuantity?: number }>(
-          '/thinkzap/subscription/add-quantity',
-          {
-            additionalQuantity: quantidade,
-          },
-        )
-
-        if (body?.connectorQuantity != null) {
-          await refreshSession()
-        }
-      } catch (e: unknown) {
-        setErro(
-          thinkzapApiErrorMessage(
-            e,
-            'Não foi possível atualizar a assinatura.',
-          ),
-        )
-      } finally {
-        setSubmitting(false)
+    setSubmitting(true)
+    try {
+      const resolved = resolveThinkzapClient()
+      if (!resolved.ok) {
+        setErro(resolved.message)
+        return
       }
-      return
-    }
 
-    router.push(`/checkout?quantity=${quantidade}`)
+      if (hasSubscription) {
+        const body = await resolved.client.post<{
+          connectorQuantity?: number
+        }>('/thinkzap/subscription/add-quantity', {
+          additionalQuantity: quantidade,
+        })
+      } else {
+        const data = await resolved.client.post<{
+          clientSecret?: string | null
+        }>('/thinkzap/subscription/checkout', {
+          quantity: quantidade,
+          mode: 'subscription',
+          priceId: envConfig.priceCodes.ThinkzapConnectorsCode,
+        })
+        if (data.clientSecret) {
+          router.push(`/checkout?session_id=${data.clientSecret}`)
+        }
+      }
+    } catch (e: unknown) {
+      setErro(
+        thinkzapApiErrorMessage(e, 'Não foi possível atualizar a assinatura.'),
+      )
+    } finally {
+      setSubmitting(false)
+    }
+    return
+
+    // router.push(`/checkout?quantity=${quantidade}`)
   }
 
   async function handleActivateTrial() {
@@ -249,7 +252,7 @@ export default function GestaoLinhas() {
           onConfirmTrial={() => void handleConfirmTrial()}
         />
 
-        {hasSubscription && (
+        {
           <GestaoLinhasPricingCard
             erro={erro}
             submitting={submitting}
@@ -269,7 +272,7 @@ export default function GestaoLinhas() {
             onConfirmTrial={() => void handleConfirmTrial()}
             onReactivateSubscription={() => void handleReactivateSubscription()}
           />
-        )}
+        }
       </div>
 
       <GestaoLinhasContratadas

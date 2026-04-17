@@ -17,7 +17,7 @@ function getSubscriptionStatusBanner(
 ): { text: string; className: string } {
   if (!hasSubscription) {
     return {
-      text: 'Você ainda não possui assinatura ativa. Inicie seu trial para liberar os conectores.',
+      text: 'Você ainda não possui assinatura ativa. Inicie seu trial, ou contrate conectores para começar a utilizar o ThinkZap.',
       className: 'border-amber-200 bg-amber-50 text-amber-700',
     }
   }
@@ -44,7 +44,7 @@ function getSubscriptionStatusBanner(
   }
 
   return {
-    text: 'Assinatura ativa e pronta para uso.',
+    text: 'Assinatura ativa e pronta para conectar seus números.',
     className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   }
 }
