@@ -1,3 +1,4 @@
+import axios from 'axios'
 import { Request, Response } from 'express'
 import { Controller } from './controller'
 
@@ -11,7 +12,15 @@ export abstract class CallbackController extends Controller {
       const response = await this.perform(req, res)
       return res.status(response.status).json(response.result)
     } catch (error) {
-      console.log({ error })
+      if (axios.isAxiosError(error)) {
+        console.error('[CallbackController] HTTP error from upstream:', {
+          status: error.response?.status,
+          data: error.response?.data as unknown,
+          url: error.config?.url,
+        })
+      } else {
+        console.error('[CallbackController] Unexpected error:', error)
+      }
       return res.status(500).json({ error: 'Internal server error' })
     }
   }

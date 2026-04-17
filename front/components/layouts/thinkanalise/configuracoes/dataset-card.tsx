@@ -177,44 +177,7 @@ export function DatasetCard({
               {syncing ? 'sincronizando...' : 'sincronizar campos'}
             </button>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => void handleDelete()}
-                disabled={deleting}
-                className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
-                           hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all disabled:opacity-50 cursor-pointer"
-              >
-                {deleting ? 'removendo...' : 'remover'}
-              </button>
-
-              {isEditing ? (
-                <>
-                  <button
-                    onClick={() => {
-                      setIsEditing(false)
-                      setName(dataset.name)
-                    }}
-                    className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400 hover:bg-gray-50 cursor-pointer"
-                  >
-                    cancelar
-                  </button>
-                  <button
-                    onClick={() => void handleSave()}
-                    disabled={saving || !name}
-                    className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] disabled:opacity-50 cursor-pointer"
-                  >
-                    {saving ? 'salvando...' : 'salvar'}
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#223f6e] text-[#223f6e] hover:bg-[#eef2f9] transition-colors cursor-pointer"
-                >
-                  editar
-                </button>
-              )}
-            </div>
+            <div className="flex items-center gap-2" />
           </div>
         </>
       )}

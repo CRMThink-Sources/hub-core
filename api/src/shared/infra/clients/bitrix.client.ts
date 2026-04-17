@@ -47,7 +47,6 @@ export class BitrixClient {
       const response = await client.post('/imconnector.send.messages', data)
       return response.data
     } catch (error) {
-      console.log('error', error)
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -62,7 +61,6 @@ export class BitrixClient {
       const response = await client.get(`/im.dialog.get?DIALOG_ID=${chatId}`)
       return response.data.result
     } catch (error) {
-      console.log('error', error)
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -78,10 +76,9 @@ export class BitrixClient {
         '/imconnector.send.status.delivery',
         data,
       )
-      console.log('response', response.data)
       return response.data
     } catch (error) {
-      console.log('error', error)
+      console.error('[BitrixClient] setMessageDelivered error:', error)
     }
   }
 

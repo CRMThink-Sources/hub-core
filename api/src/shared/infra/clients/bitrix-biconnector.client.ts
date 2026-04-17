@@ -154,6 +154,16 @@ export class BitrixBiConnectorClient extends BitrixClient {
     return response.data.result
   }
 
+  async datasetGet(id: number): Promise<DatasetResult> {
+    const client = this.getClient()
+    const response = await client.post<BitrixResponse<{ item: DatasetResult }>>(
+      '/biconnector.dataset.get',
+      { id },
+    )
+    this.checkError(response.data)
+    return response.data.result.item
+  }
+
   async datasetList(sourceId?: number): Promise<DatasetResult[]> {
     const client = this.getClient()
     const body = sourceId ? { filter: { sourceId } } : {}

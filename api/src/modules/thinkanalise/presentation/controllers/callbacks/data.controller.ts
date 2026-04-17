@@ -25,11 +25,6 @@ export class DataController extends CallbackController {
     const { table, select, limit, mapFields, filter, connection } =
       req.body as DataBody
 
-    console.log(
-      '[DataCallback] body recebido:',
-      JSON.stringify(req.body, null, 2),
-    )
-
     if (!table || !connection?.api_key || !connection?.integration) {
       return this.badRequest(new Error('Missing required parameters'))
     }

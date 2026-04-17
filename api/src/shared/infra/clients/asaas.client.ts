@@ -10,8 +10,24 @@ export class AsaasClient {
   private readonly baseUrl: string
 
   constructor(private readonly apiKey: string) {
-    this.baseUrl =
-      process.env.ASAAS_API_URL ?? 'https://sandbox.asaas.com/api/v3'
+    this.baseUrl = process.env.ASAAS_API_URL ?? 'https://api.asaas.com/v3'
+  }
+
+  private async fetchPage<T>(
+    path: string,
+    params: Record<string, unknown>,
+    limit: number,
+    offset: number,
+  ): Promise<AsaasListResponse<T>> {
+    const response = await axios.get<AsaasListResponse<T>>(
+      `${this.baseUrl}${path}`,
+      {
+        headers: { access_token: this.apiKey },
+        params: { limit, offset, ...params },
+        timeout: 15000,
+      },
+    )
+    return response.data
   }
 
   async list<T>(
@@ -19,26 +35,34 @@ export class AsaasClient {
     params: Record<string, unknown> = {},
     maxRows = 1000,
   ): Promise<T[]> {
-    const all: T[] = []
-    let offset = 0
-    const limit = Math.min(maxRows, 100)
+    const pageSize = 100
 
-    while (all.length < maxRows) {
-      const response = await axios.get<AsaasListResponse<T>>(
-        `${this.baseUrl}${path}`,
-        {
-          headers: { access_token: this.apiKey },
-          params: { limit, offset, ...params },
-        },
-      )
+    // Busca a primeira página para saber o total
+    const first = await this.fetchPage<T>(path, params, pageSize, 0)
+    const rows: T[] = [...first.data]
 
-      const rows = response.data.data ?? []
-      all.push(...rows)
-
-      if (!response.data.hasMore || rows.length === 0) break
-      offset += limit
+    if (!first.hasMore || rows.length >= maxRows) {
+      return rows.slice(0, maxRows)
     }
 
-    return all.slice(0, maxRows)
+    const total = Math.min(first.totalCount, maxRows)
+    const remainingOffsets: number[] = []
+    for (let offset = pageSize; offset < total; offset += pageSize) {
+      remainingOffsets.push(offset)
+    }
+
+    // Busca as páginas restantes em paralelo (lotes de 5 para não sobrecarregar)
+    const BATCH = 5
+    for (let i = 0; i < remainingOffsets.length; i += BATCH) {
+      const batch = remainingOffsets.slice(i, i + BATCH)
+      const pages = await Promise.all(
+        batch.map(offset => this.fetchPage<T>(path, params, pageSize, offset)),
+      )
+      for (const page of pages) {
+        rows.push(...page.data)
+      }
+    }
+
+    return rows.slice(0, maxRows)
   }
 }

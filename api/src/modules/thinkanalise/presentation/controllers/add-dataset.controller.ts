@@ -50,17 +50,7 @@ export class AddDatasetController extends Controller {
       fields,
     }
 
-    console.log(
-      '[AddDataset] payload enviado ao Bitrix:',
-      JSON.stringify(payload, null, 2),
-    )
-
     const result = await this.bitrix.datasetAdd(payload)
-
-    console.log(
-      '[AddDataset] resposta do Bitrix:',
-      JSON.stringify(result, null, 2),
-    )
 
     return this.ok(result)
   }

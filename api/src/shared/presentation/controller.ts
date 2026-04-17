@@ -41,16 +41,13 @@ export abstract class Controller {
           time: Date.now() - initTime,
         })
       } else {
-        console.log({ error })
+        console.error('[Controller] Unexpected error:', error)
         return res.status(500).json({
           error: 'Internal server error',
           traceId,
           time: Date.now() - initTime,
         })
       }
-    } finally {
-      const endTime = Date.now()
-      console.log(`${this.constructor.name} took ${endTime - initTime}ms`)
     }
   }
 }
