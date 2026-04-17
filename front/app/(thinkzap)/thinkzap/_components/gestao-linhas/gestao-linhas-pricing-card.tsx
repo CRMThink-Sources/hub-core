@@ -186,7 +186,7 @@ export function GestaoLinhasPricingCard({
         </div>
 
         <div className="flex gap-2">
-          {!isTrial && !isCancelled && (
+          {!isCancelled && (
             <button
               type="button"
               onClick={onContinue}

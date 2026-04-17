@@ -5,15 +5,15 @@ import { ZApiClient } from '../infra/clients/z-api.client'
 import { ZApiInstanceGateway } from '../infra/persistence/gateway/instance.gateway'
 import { PrismaInstanceRepository } from '../infra/persistence/repositories/prisma-instance.repository'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
+import { MockZApiInstanceGateway } from '../infra/persistence/gateway/mock-instance.gateway'
 
 export function makeProvisionUpdateConnectorDeps(): ProvisionUpdateConnectorsDeps {
   const zApiClient = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
   const connectorRepo = new PrismaConnectorRepository()
   const instanceRepo = new PrismaInstanceRepository()
-  const updateInstanceGateway = new ZApiInstanceGateway(zApiClient)
-  // env.thinkzapMockZApiProvisioning
-  //   ? new MockZApiInstanceGateway()
-  // : new ZApiInstanceGateway(zApiClient)
+  const updateInstanceGateway = env.thinkzapMockZApiProvisioning
+    ? new MockZApiInstanceGateway()
+    : new ZApiInstanceGateway(zApiClient)
 
   return {
     getApp: new PrismaInstalledAppRepository(),
