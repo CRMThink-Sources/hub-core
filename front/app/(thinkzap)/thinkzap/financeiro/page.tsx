@@ -36,7 +36,7 @@ export default function PagamentosPage() {
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#5A997E]" />
             )}
           </button>
-          <button
+          {/* <button
             onClick={() => setActiveTab('historico')}
             className={`relative px-4 py-2.5 text-sm font-medium transition-colors rounded-t-lg cursor-pointer
               ${
@@ -50,12 +50,12 @@ export default function PagamentosPage() {
             {activeTab === 'historico' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#5A997E]" />
             )}
-          </button>
+          </button> */}
         </div>
 
         <div className="bg-white rounded-b-lg rounded-tr-lg border border-gray-100 border-t-0 p-6">
           {activeTab === 'gestao' && <GestaoLinhas />}
-          {activeTab === 'historico' && <HistoricoPagamentos />}
+          {/* {activeTab === 'historico' && <HistoricoPagamentos />} */}
         </div>
       </div>
     </div>

@@ -11,7 +11,7 @@ import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/
 export function makeProvisionMissingConnectorsDeps(): ProvisionMissingConnectorsDeps {
   const zApiClient = new ZApiClient(env.zApi.partnerToken)
   const connectorRepo = new PrismaConnectorRepository()
-  const createInstanceGateway = env.thinkzapMockZApiProvisioning
+  const instanceGateway = env.thinkzapMockZApiProvisioning
     ? new MockZApiInstanceGateway()
     : new ZApiInstanceGateway(zApiClient)
 
@@ -24,7 +24,7 @@ export function makeProvisionMissingConnectorsDeps(): ProvisionMissingConnectors
   return {
     createConnectorRepo: connectorRepo,
     listConnectors: connectorRepo,
-    createInstanceGateway,
+    instanceGateway,
     createInstanceRepo: new PrismaInstanceRepository(),
     getApp: new PrismaInstalledAppRepository(),
     getDomainRepository: new PrismaDomainRepository(),

@@ -8,10 +8,11 @@ import { ListConnectorsRepository } from '@/modules/thinkzap/domain/repositories
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS } from '@/modules/thinkzap/domain/trial-connector-limit'
+import { UpdateInstanceGateway } from '../domain/repositories/update-instance.gateway'
 
 export type ProvisionMissingConnectorsDeps = {
   createConnectorRepo: CreateConnectorRepository
-  createInstanceGateway: CreateInstanceGateway
+  instanceGateway: CreateInstanceGateway & UpdateInstanceGateway
   createInstanceRepo: CreateInstanceRepository
   getApp: GetInstalledAppRepository
   getDomainRepository: GetDomainRepository
@@ -29,12 +30,33 @@ export async function provisionMissingConnectorsForApp(
   targetConnectorSlots: number,
   options?: { isTrialing?: boolean },
 ): Promise<{ created: number }> {
-  let target = Math.max(0, Math.floor(targetConnectorSlots))
-  if (options?.isTrialing) {
-    target = Math.min(target, THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS)
+  const requestedTarget = Math.max(0, Math.floor(targetConnectorSlots))
+  const isTrialing = options?.isTrialing === true
+  const target = isTrialing
+    ? Math.min(requestedTarget, THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS)
+    : requestedTarget
+
+  const list = await deps.listConnectors.listConnectors(appId, true)
+
+  if (!isTrialing) {
+    for (const connector of list) {
+      const instance = connector.instance
+      if (!instance?.zApiToken) continue
+
+      try {
+        await deps.instanceGateway.subscribe(
+          instance.instanceId,
+          instance.zApiToken,
+        )
+      } catch (error) {
+        console.warn(
+          `[thinkzap] falha ao assinar instância existente no z-api (${instance.instanceId})`,
+          error,
+        )
+      }
+    }
   }
 
-  const list = await deps.listConnectors.listConnectors(appId)
   const current = list.length
   const need = Math.max(0, target - current)
   if (need < 1) return { created: 0 }
@@ -49,7 +71,10 @@ export async function provisionMissingConnectorsForApp(
 
   for (let i = 0; i < need; i++) {
     const instanceName = domain.name + ' | ' + `instance-${randomUUID()}`
-    const instance = await deps.createInstanceGateway.create(instanceName)
+    const instance = await deps.instanceGateway.create(instanceName)
+    if (!isTrialing) {
+      await deps.instanceGateway.subscribe(instance.id, instance.token)
+    }
 
     const persistedInstance = await deps.createInstanceRepo.create({
       domainId: domain.id,
