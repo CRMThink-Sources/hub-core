@@ -31,4 +31,5 @@ export const THINKZAP_ASIDE_CONFIG = {
   hoverColor: '#e8fdf0', // cor que fica ao mouse passar pela opcao
   borderColor: '#e5e7eb', // cor da borda das caixas
   accentColor: '#5A997E', // cor das sobreposicoes
+  betaMode: true,
 }

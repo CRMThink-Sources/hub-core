@@ -17,6 +17,7 @@ export const Aside = ({
   hoverColor = '#e8fdf0',
   borderColor = '#e5e7eb',
   accentColor = '#5A997E',
+  betaMode,
 }: AsideProps) => {
   const pathname = usePathname()
 
@@ -118,6 +119,7 @@ export const Aside = ({
           flexDirection: 'column',
           gap: '6px',
           marginTop: '32px',
+          flex: 1,
         }}
       >
         {links.map(link => (
@@ -170,6 +172,32 @@ export const Aside = ({
           </a>
         ))}
       </nav>
+
+      {betaMode && (
+        <div
+          style={{
+            padding: '20px 0',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              color: '#3b82f6',
+              backgroundColor: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '999px',
+              padding: '3px 10px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Versão Beta
+          </span>
+        </div>
+      )}
     </aside>
   )
 }
