@@ -25,4 +25,5 @@ export const THINKANALISE_ASIDE_CONFIG = {
   hoverColor: '#223f6e', // cor que fica ao mouse passar pela opcao
   borderColor: '#e5e7eb', // cor da borda das caixas
   accentColor: '#5A997E', // cor das sobreposicoes
+  betaMode: true,
 }

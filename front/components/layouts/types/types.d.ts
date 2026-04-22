@@ -23,4 +23,5 @@ export interface AsideProps {
   hoverColor?: string
   borderColor?: string
   accentColor?: string
+  betaMode?: boolean
 }
