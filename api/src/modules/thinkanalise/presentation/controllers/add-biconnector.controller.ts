@@ -6,6 +6,7 @@ import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnect
 import { CreateBiConnectorParams } from '@/shared/infra/clients/types/biconnector'
 import { CreateBiConnectorRepository } from '@/modules/thinkanalise/domain/repositories/create-bi-connector.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
+import { env } from '@/config/env'
 
 const addBiconnectorSchema = z.object({
   label: z.string().min(1),
@@ -29,7 +30,7 @@ export class AddBiconnectorController extends Controller {
 
   async perform(req: Request, _res: Response): Promise<httpResponse> {
     const { label, provider } = addBiconnectorSchema.parse(req.body)
-    const base = process.env.API_URL
+    const url = env.apiUrl
     const appCodeId = req.appId
     const domainId = req.domainId
 
@@ -46,10 +47,10 @@ export class AddBiconnectorController extends Controller {
       title: `[ThinkAnalise] ${label}`,
       logo: 'https://cdn-icons-png.flaticon.com/512/2329/2329087.png',
       description: `Conector ThinkAnalise — integração com ${providerDescription[provider] ?? provider}`,
-      urlCheck: `${base}/thinkanalise/check`,
-      urlData: `${base}/thinkanalise/data`,
-      urlTableList: `${base}/thinkanalise/tables`,
-      urlTableDescription: `${base}/thinkanalise/describe`,
+      urlCheck: `${url}/thinkanalise/check`,
+      urlData: `${url}/thinkanalise/data`,
+      urlTableList: `${url}/thinkanalise/tables`,
+      urlTableDescription: `${url}/thinkanalise/describe`,
       settings: [
         { code: 'integration', name: 'Integração', type: 'STRING' },
         { code: 'api_key', name: 'Chave API', type: 'STRING' },
