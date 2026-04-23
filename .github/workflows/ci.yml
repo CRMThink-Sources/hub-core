@@ -86,7 +86,7 @@ jobs:
       - name: Set image tag
         id: tag
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
+          if [ "${{ github.ref_name }}" = "master" ]; then
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           else
             echo "tag=staging" >> "$GITHUB_OUTPUT"
@@ -107,7 +107,7 @@ jobs:
     if: github.event_name == 'push'
 
     environment:
-      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      name: ${{ github.ref_name == 'master' && 'production' || 'staging' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -123,7 +123,7 @@ jobs:
       - name: Set image tag
         id: tag
         run: |
-          if [ "${{ github.ref_name }}" = "main" ]; then
+          if [ "${{ github.ref_name }}" = "master" ]; then
             echo "tag=latest" >> "$GITHUB_OUTPUT"
           else
             echo "tag=staging" >> "$GITHUB_OUTPUT"
@@ -151,7 +151,7 @@ jobs:
     if: github.event_name == 'push'
 
     environment:
-      name: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+      name: ${{ github.ref_name == 'master' && 'production' || 'staging' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -164,7 +164,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
           source: 'docker-compose.yml,docker-compose.staging.yml,docker-compose.production.yml'
-          target: ${{ github.ref_name == 'main' && '~/hubthink-production' || '~/hubthink-staging' }}
+          target: ${{ github.ref_name == 'master' && '~/hubthink-production' || '~/hubthink-staging' }}
 
       - name: Write env files on VPS
         uses: appleboy/ssh-action@v1.2.0
@@ -174,7 +174,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
           script: |
-            if [ "${{ github.ref_name }}" = "main" ]; then
+            if [ "${{ github.ref_name }}" = "master" ]; then
               DEPLOY_DIR=~/hubthink-production
             else
               DEPLOY_DIR=~/hubthink-staging
@@ -201,7 +201,7 @@ jobs:
           script: |
             echo "$GH_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            if [ "${{ github.ref_name }}" = "main" ]; then
+            if [ "${{ github.ref_name }}" = "master" ]; then
               IMAGE=ghcr.io/crmthink-sources/hub-core-api:latest
               DEPLOY_DIR=~/hubthink-production
             else
@@ -230,7 +230,7 @@ jobs:
           script: |
             echo "$GH_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            if [ "${{ github.ref_name }}" = "main" ]; then
+            if [ "${{ github.ref_name }}" = "master" ]; then
               DEPLOY_DIR=~/hubthink-production
               COMPOSE_PROJECT=hubthink-production
               cd "$DEPLOY_DIR"
