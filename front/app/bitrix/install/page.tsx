@@ -88,7 +88,6 @@ export default function BitrixInstallPage() {
     setStatus('loading')
     try {
       const payload = await getInstallPayload(trimmedEmail)
-      console.log(payload)
       if (!payload) {
         setErrorMessage(MESSAGES.bx24Unavailable)
         setStatus('idle')

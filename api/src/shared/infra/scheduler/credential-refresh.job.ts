@@ -19,7 +19,7 @@ export function startCredentialRefreshJob(): void {
 
   const defaultLogMessage = '[CredentialRefreshJob]'
 
-  cron.schedule('*/5 * * * *', async () => {
+  cron.schedule('*/1 * * * *', async () => {
     const result = console.log(
       `${defaultLogMessage} - Running credential refresh check...`,
     )

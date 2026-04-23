@@ -3,5 +3,10 @@ export const envConfig = {
   stripePublishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '',
   appCodes: {
     thinkzap: process.env.NEXT_PUBLIC_THINKZAP_APP_CODE ?? '',
+    thinkanalise: process.env.NEXT_PUBLIC_THINKANALISE_APP_CODE ?? '',
+  },
+  priceCodes: {
+    ThinkzapConnectorsCode:
+      process.env.NEXT_PUBLIC_THINKZAP_PRICE_CONNECTORS ?? '',
   },
 }

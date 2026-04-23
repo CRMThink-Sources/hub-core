@@ -8,6 +8,7 @@ import { GetOrCreateCredential } from '@/shared/application/get-or-create-creden
 import { bitrixInstallBindRegistry } from '@/shared/infra/setup-bitrix-install-binds'
 import { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import z from 'zod'
+import { appIdResolver } from './helpers/app-id-resolver'
 
 export class InstallController extends Controller {
   constructor(
@@ -25,8 +26,10 @@ export class InstallController extends Controller {
         domain: z.string(),
         member_id: z.string(),
         app_code: z.string(),
+        email: z.string(),
         access_token: z.string(),
         refresh_token: z.string(),
+        expires_in: z.number(),
       })
       .safeParse(req.body)
 
@@ -36,11 +39,23 @@ export class InstallController extends Controller {
       )
     }
 
-    const { domain, member_id, app_code, access_token, refresh_token } =
-      params.data
+    const {
+      domain,
+      member_id,
+      app_code,
+      access_token,
+      refresh_token,
+      email,
+      expires_in,
+    } = params.data
 
-    const availableApp =
-      await this.getAvailableAppRepository.getAvailableApp(app_code)
+    const appId = appIdResolver[app_code]
+
+    if (!appId) {
+      return this.notFound(new Error('App ID not found'))
+    }
+
+    const availableApp = await this.getAvailableAppRepository.getById(appId)
 
     if (!availableApp) {
       return this.notFound(new Error('Available app not found'))
@@ -54,6 +69,7 @@ export class InstallController extends Controller {
     const installedApp = await this.getOrCreateInstalledApp.execute({
       domainId: domainEntity.id,
       appCodeId: availableApp.id,
+      email: email,
     })
 
     await this.getOrCreateCredential.execute({
@@ -62,13 +78,14 @@ export class InstallController extends Controller {
       clientSecret: availableApp.secret,
       accessToken: access_token,
       refreshToken: refresh_token,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+      expiresAt: new Date(expires_in),
     })
 
-    const bitrixBinds = bitrixInstallBindRegistry.getBindsForApp(app_code)
+    const bitrixClient = new BitrixRestClient(domain, access_token)
+
+    const bitrixBinds = bitrixInstallBindRegistry.getBindsForApp(appId)
 
     if (bitrixBinds.length > 0) {
-      const bitrixClient = new BitrixRestClient(domain, access_token)
       for (const bind of bitrixBinds) {
         try {
           await bitrixClient.callMethod(bind.method, bind.params)
@@ -80,6 +97,8 @@ export class InstallController extends Controller {
         }
       }
     }
+
+    await bitrixInstallBindRegistry.runOnInstall(appId, bitrixClient)
 
     return {
       result: {

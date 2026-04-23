@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
@@ -42,6 +40,7 @@ export default function Home() {
           setAuthRedirecting(false)
           return
         }
+        console.log('url api:', { apiUrl: envConfig.apiUrl, env: process.env })
 
         const response = await axios.post(`${envConfig.apiUrl}/auth`, {
           domain: urlInfo.domain,
@@ -79,7 +78,7 @@ export default function Home() {
       }
     }
 
-    runAuthAndRedirect()
+    void runAuthAndRedirect()
     return () => {
       cancelled = true
     }

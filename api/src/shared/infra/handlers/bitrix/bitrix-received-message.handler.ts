@@ -5,6 +5,9 @@ import { env } from '@/config/env'
 import { BitrixClient } from '../../clients/bitrix.client'
 import { GetBitrixWebhookContextRepository } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
 import { destructureChatId } from '@/shared/helpers/chat-id'
+import { convertToMp3 } from '@/shared/helpers/convert-to-mp3'
+import axios from 'axios'
+import { appIdResolver } from '@/modules/auth/presentation/controllers/helpers/app-id-resolver'
 
 export class BitrixReceivedMessageHandler implements BitrixEventHandler {
   eventType = 'ONIMCONNECTORMESSAGEADD'
@@ -16,8 +19,8 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
   async handle(event: IBX24MessageEvent): Promise<void> {
     if (!event.data.MESSAGES.length) return
     const message = event.data.MESSAGES[0]
-    const messages = []
 
+    const messages = []
     if (message?.message.text) {
       messages.push({
         type: 'text',
@@ -25,8 +28,9 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
       })
     } else if (message?.message.files) {
       for (const file of message.message.files) {
+        const type = file.name.includes('audio-') ? 'audio' : file.type
         messages.push({
-          type: file.type,
+          type: type,
           name: file.name,
           mime: file.mime,
           link: file.downloadLink,
@@ -36,14 +40,13 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
 
     const context = await this.bitrixWebhookContextRepo.getContext({
       domainName: event.auth.domain,
-      appCode: '1',
+      appCode: appIdResolver[env.appCodes.thinkzap] || '',
       line: event.data.LINE,
     })
 
     if (!context) {
       throw new Error('Context not found')
     }
-
     const bitrixClient = new BitrixClient(context.app.credential, context.name)
     const zApiClient = new ZApiClient(
       env.zApi.partnerToken,
@@ -60,7 +63,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
-          CONNECTOR: 'hubthink_thinkerszap',
+          CONNECTOR: env.bitrix.connector.code,
           LINE: event.data.LINE,
           MESSAGES: [
             {
@@ -82,7 +85,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
-          CONNECTOR: 'hubthink_thinkerszap',
+          CONNECTOR: env.bitrix.connector.code,
           LINE: event.data.LINE,
           MESSAGES: [
             {
@@ -104,13 +107,43 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
-          CONNECTOR: 'hubthink_thinkerszap',
+          CONNECTOR: env.bitrix.connector.code,
           LINE: event.data.LINE,
           MESSAGES: [
             {
               im: message?.im,
               message: {
                 id: sendVideoResult.messageId,
+              },
+              chat: {
+                id: chatLid,
+              },
+            },
+          ],
+        })
+      } else if (messageData.type === 'audio') {
+        const audioResponse = await axios.get(messageData.link || '', {
+          responseType: 'arraybuffer',
+        })
+        const mp3Buffer = await convertToMp3(
+          Buffer.from(audioResponse.data as ArrayBuffer),
+        )
+        const base64Audio = `data:audio/mpeg;base64,${mp3Buffer.toString('base64')}`
+
+        const sendAudioResult = await zApiClient.sendAudio(
+          context.instance.instanceId,
+          context.instance.zApiToken || '',
+          base64Audio,
+          phoneNumber,
+        )
+        await bitrixClient.setMessageDelivered({
+          CONNECTOR: env.bitrix.connector.code,
+          LINE: event.data.LINE,
+          MESSAGES: [
+            {
+              im: message?.im,
+              message: {
+                id: sendAudioResult.messageId,
               },
               chat: {
                 id: chatLid,

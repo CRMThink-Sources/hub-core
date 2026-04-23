@@ -4,8 +4,16 @@ const DEFAULT_APP_REDIRECTS: Record<
   string,
   { baseRedirectUrl: string; storageAuthTokenKey: string }
 > = {
+  'crmthink.thinkzap': {
+    baseRedirectUrl: '/thinkzap',
+    storageAuthTokenKey: 'hubthink_auth_token',
+  },
   [envConfig.appCodes.thinkzap]: {
     baseRedirectUrl: '/thinkzap',
+    storageAuthTokenKey: 'hubthink_auth_token',
+  },
+  [envConfig.appCodes.thinkanalise]: {
+    baseRedirectUrl: '/thinkanalise',
     storageAuthTokenKey: 'hubthink_auth_token',
   },
 }

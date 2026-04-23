@@ -8,6 +8,7 @@ import {
   PhoneDataResponse,
   ZApiListResponse,
 } from './types/z-api.types'
+import { UpdateInstanceGateway } from '../../domain/repositories/update-instance.gateway'
 
 export class ZApiClient {
   private readonly zApiToken: string
@@ -36,6 +37,64 @@ export class ZApiClient {
       return data
     } catch (error) {
       throw new Error('Failed to create instance')
+    }
+  }
+
+  async subscribe(id: string, token: string): Promise<void> {
+    try {
+      const { data } = await axios.post<void>(
+        `https://api.z-api.io/instances/${id}/token/${token}/integrator/on-demand/subscription`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${this.zApiToken}`,
+          },
+        },
+      )
+      return data
+    } catch (error) {
+      throw new Error('Failed to subscribe')
+    }
+  }
+
+  async unsubscribe(id: string, token: string): Promise<void> {
+    try {
+      const { data } = await axios.post<void>(
+        `https://api.z-api.io/instances/${id}/token/${token}/integrator/on-demand/cancel`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${this.zApiToken}`,
+          },
+        },
+      )
+      return data
+    } catch (error) {
+      throw new Error('Failed to unsubscribe')
+    }
+  }
+
+  async updateInstance(
+    instanceId: string,
+    name: string,
+    token: string,
+  ): Promise<void> {
+    try {
+      const { data } = await axios.put<void>(
+        `https://api.z-api.io/instances/${instanceId}/token/${token}/update-name`,
+        {
+          value: name,
+        },
+        {
+          headers: {
+            'Client-Token': this.clientToken,
+          },
+        },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to update instance')
     }
   }
 
@@ -205,6 +264,82 @@ export class ZApiClient {
         {
           phone,
           video,
+        },
+        {
+          headers: {
+            'client-token': this.clientToken,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to send video')
+    }
+  }
+
+  async disconnectInstance(
+    instanceId: string,
+    instanceToken: string,
+  ): Promise<void> {
+    try {
+      await axios.get(
+        `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/disconnect`,
+        {
+          headers: {
+            'client-token': this.clientToken,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to disconnect instance')
+    }
+  }
+
+  async cancelInstance(
+    instanceId: string,
+    instanceToken: string,
+  ): Promise<void> {
+    try {
+      const response = await axios.post(
+        `https://api.z-api.io/integrator/on-demand/cancel`,
+        {
+          instanceId,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.zApiToken}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      console.log({ data: response, instanceId })
+      return
+    } catch (error) {
+      console.log(
+        '[z-api] cancel endpoint failed, fallback to disconnect',
+        instanceId,
+      )
+    }
+
+    await this.disconnectInstance(instanceId, instanceToken)
+  }
+
+  async sendAudio(
+    instanceId: string,
+    instanceToken: string,
+    audio: string,
+    phone: string,
+  ): Promise<SendMessageResponse> {
+    try {
+      const { data } = await axios.post<SendMessageResponse>(
+        `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-audio`,
+        {
+          phone,
+          audio,
         },
         {
           headers: {

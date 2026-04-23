@@ -5,6 +5,7 @@ import { GetAvailableAppRepository } from '@/shared/domain/repositories/get-avai
 import { GetOrCreateDomain } from '@/shared/application/get-or-create-domain'
 import { GenerateTokenRepository } from '@/shared/data/contracts/generate-token'
 import z from 'zod'
+import { appIdResolver } from './helpers/app-id-resolver'
 
 export class LoginController extends Controller {
   constructor(
@@ -31,9 +32,11 @@ export class LoginController extends Controller {
     }
 
     const { domain, app_code, member_id } = params.data
-
-    const availableApp =
-      await this.getAvailableAppRepository.getAvailableApp(app_code)
+    const appId = appIdResolver[app_code]
+    if (!appId) {
+      return this.notFound(new Error('App ID not found'))
+    }
+    const availableApp = await this.getAvailableAppRepository.getById(appId)
 
     if (!availableApp) {
       return this.notFound(new Error('Available app not found'))

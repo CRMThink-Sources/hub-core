@@ -58,3 +58,23 @@ export type ReceivedMessageEvent = {
     spanId: string
   }
 }
+
+export type ZApiConnectedEvent = {
+  type: string
+  connected: boolean
+  momment: number
+  instanceId: string
+  phone: string
+  lid: string
+  isBusiness: boolean
+}
+
+export type ZApiDisconectedEvent = {
+  type: string
+  disconnected: boolean
+  momment: number
+  instanceId: string
+  phone: string
+  lid: string
+  isBusiness: boolean
+}

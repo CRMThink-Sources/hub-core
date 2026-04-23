@@ -4,9 +4,9 @@ services:
     image: ghcr.io/crmthink-sources/hub-core-api:staging
     container_name: hubthink-api-staging
     ports:
-      - "4001:4000"
+      - "4001:4001"
     env_file:
-      - ./api/.env.staging
+      - ./api/.env
 
   front:
     image: ghcr.io/crmthink-sources/hub-core-front:staging
@@ -14,4 +14,4 @@ services:
     ports:
       - "3001:3000"
     env_file:
-      - ./front/.env.staging
+      - ./front/.env

@@ -1,12 +1,23 @@
-import eslint from '@eslint/js';
-import { defineConfig } from 'eslint/config';
-import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
-import globals from 'globals';
-import tseslint from 'typescript-eslint';
+import eslint from '@eslint/js'
+import { defineConfig } from 'eslint/config'
+import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended'
+import globals from 'globals'
+import tseslint from 'typescript-eslint'
 
 export default defineConfig(
   {
-    ignores: ['eslint.config.mjs', 'node_modules/**', 'dist/**', 'build/**', 'coverage/**', 'src/prisma/generated/**', '*.js', '*.d.ts'],
+    ignores: [
+      'eslint.config.mjs',
+      'prisma.config.ts',
+      'node_modules/**',
+      'dist/**',
+      'build/**',
+      'coverage/**',
+      'src/prisma/generated/**',
+      'prisma/generated/**',
+      '*.js',
+      '*.d.ts',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
@@ -36,7 +47,7 @@ export default defineConfig(
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
       '@typescript-eslint/no-empty-interface': 'off',
-      '@typescript-eslint/no-namespace': 'off'
+      '@typescript-eslint/no-namespace': 'off',
     },
   },
-);
+)

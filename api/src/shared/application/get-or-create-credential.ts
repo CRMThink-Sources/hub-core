@@ -1,11 +1,13 @@
 import { CreateCredentialRepository } from '../domain/repositories/credential/create-credential'
 import { GetCredentialRepository } from '../domain/repositories/credential/get-credential'
 import { Credential } from '../domain/entities/credential'
+import { UpdateCredentialRepository } from '../domain/repositories/credential/update-credential'
 
 export class GetOrCreateCredential {
   constructor(
     private readonly credentialRepository: CreateCredentialRepository &
-      GetCredentialRepository,
+      GetCredentialRepository &
+      UpdateCredentialRepository,
   ) {}
 
   async execute(params: {
@@ -19,7 +21,16 @@ export class GetOrCreateCredential {
     const credential = await this.credentialRepository.get({
       appId: params.appId,
     })
-    if (credential) return credential
+    if (credential) {
+      return this.credentialRepository.update({
+        appId: params.appId,
+        clientId: params.clientId,
+        clientSecret: params.clientSecret,
+        accessToken: params.accessToken,
+        refreshToken: params.refreshToken,
+        expiresAt: params.expiresAt,
+      })
+    }
     return this.credentialRepository.create(params)
   }
 }

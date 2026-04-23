@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 'use client'
 
 import { Suspense } from 'react'
@@ -10,6 +7,7 @@ import {
   EmbeddedCheckout,
   EmbeddedCheckoutProvider,
 } from '@stripe/react-stripe-js'
+import axios from 'axios'
 import { envConfig } from '@/shared/infra/env-config'
 
 const stripePromise = loadStripe(envConfig.stripePublishableKey)
@@ -19,27 +17,14 @@ function CheckoutContent() {
   const router = useRouter()
   const quantity = Number(searchParams.get('quantity')) || 1
 
-  const fetchClientSecret = async () => {
-    const response = await fetch('/api/checkout', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkb21haW5JZCI6ImU5OTljZDM2LTkxMDItNGFmMC04NjUyLTdiZjNlZDcxMjA0MiIsImFwcENvZGVJZCI6IjEiLCJpYXQiOjE3NzA4NDg3OTl9.m5E0cqb_L683Q3H8aFA9EoKGrRPTgRaOzp1GzFpUItk`,
-      },
-      body: JSON.stringify({ quantity }),
-    })
-    const data = await response.json()
-    return data.result.clientSecret
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-4 sm:p-8">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50/40 p-4 sm:p-8">
       <div className="mx-auto max-w-4xl space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+            onClick={() => router.push('/thinkzap/financeiro')}
+            className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -68,7 +53,11 @@ function CheckoutContent() {
         <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm backdrop-blur-sm p-8">
           <EmbeddedCheckoutProvider
             stripe={stripePromise}
-            options={{ fetchClientSecret }}
+            options={{
+              clientSecret: searchParams.get('session_id'),
+              // fetchClientSecret,
+              onComplete: () => router.push('/checkout/success'),
+            }}
           >
             <EmbeddedCheckout />
           </EmbeddedCheckoutProvider>
@@ -82,7 +71,7 @@ export default function CheckoutPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-white to-indigo-50/40">
+        <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-slate-50 via-white to-indigo-50/40">
           <div className="flex items-center gap-3">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
             <span className="text-sm text-slate-500">

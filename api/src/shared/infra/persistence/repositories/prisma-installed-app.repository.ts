@@ -44,6 +44,7 @@ export class PrismaInstalledAppRepository
         id: randomUUID(),
         appCodeId: installedApp.appCodeId,
         domainId: installedApp.domainId,
+        email: installedApp.email,
       },
       include: {
         appCode: true,

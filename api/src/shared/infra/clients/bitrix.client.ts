@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Credential } from '@/shared/domain/entities/credential'
 import axios from 'axios'
+import { BitrixError } from './errors/bitrix-client.error'
 
 export class BitrixClient {
   private readonly bitrixCredential: Credential
@@ -21,24 +22,22 @@ export class BitrixClient {
     })
   }
 
-  async activateConnector(line: number) {
+  async activateConnector(line: number, connector: string, active: number = 1) {
     const client = this.getClient()
-    console.log('client', client)
     try {
       const response = await client.post('/imconnector.activate', {
         LINE: line,
-        CONNECTOR: 'hubthink_thinkerszap',
-        ACTIVE: 1,
+        CONNECTOR: connector,
+        ACTIVE: active,
       })
 
       return response.data
     } catch (error) {
-      console.log('error', error)
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
           : 'Failed to activate connector'
-      throw new Error(message)
+      throw new BitrixError(message)
     }
   }
 
@@ -48,12 +47,11 @@ export class BitrixClient {
       const response = await client.post('/imconnector.send.messages', data)
       return response.data
     } catch (error) {
-      console.log('error', error)
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
           : 'Failed to create conversation'
-      throw new Error(message)
+      throw new BitrixError(message)
     }
   }
 
@@ -63,12 +61,11 @@ export class BitrixClient {
       const response = await client.get(`/im.dialog.get?DIALOG_ID=${chatId}`)
       return response.data.result
     } catch (error) {
-      console.log('error', error)
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
           : 'Failed to get chat'
-      throw new Error(message)
+      throw new BitrixError(message)
     }
   }
 
@@ -81,7 +78,7 @@ export class BitrixClient {
       )
       return response.data
     } catch (error) {
-      console.log('error', error)
+      console.error('[BitrixClient] setMessageDelivered error:', error)
     }
   }
 
@@ -93,7 +90,17 @@ export class BitrixClient {
       )
       return response.data.result
     } catch (error) {
-      throw new Error('Failed to get open channel')
+      throw new BitrixError('Failed to get open channel')
+    }
+  }
+
+  async getOpenChannels(): Promise<IGetOpenChannelsResponse> {
+    const client = this.getClient()
+    try {
+      const response = await client.get('/imopenlines.config.list.get')
+      return response.data
+    } catch (error) {
+      throw new BitrixError('Failed to get open channels')
     }
   }
 }
@@ -142,5 +149,13 @@ interface ISetMessageDeliveredData {
     chat: {
       id: string
     }
+  }[]
+}
+
+export interface IGetOpenChannelsResponse {
+  result: {
+    LINE_NAME: string
+    ACTIVE: string
+    ID: string
   }[]
 }

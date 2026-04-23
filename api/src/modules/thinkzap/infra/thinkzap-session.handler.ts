@@ -8,24 +8,17 @@ import {
 } from '@/modules/auth/infra/session-registry'
 import { PrismaConnectorRepository } from './persistence/repositories/prisma-connector.repository'
 import { ZApiClient } from './clients/z-api.client'
-import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositories/prisma-credential.repository'
-import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
+import { PrismaBillingSubscriptionRepository } from '@/shared/infra/persistence/repositories/prisma-billing-subscription.repository'
 
 export class ThinkzapSessionHandler implements SessionHandler {
-  appCode = env.appCodes.thinkzap
+  appCode = 'crmthink.thinkzap'
 
   handlers: SessionHanderPerformer[] = [
     {
       perform: async <T>(params: { appId: string }): Promise<T> => {
         const connectorRepository = new PrismaConnectorRepository()
-        const credentialRepository = new PrismaCredentialRepository()
-        const credential = await credentialRepository.get({
-          appId: params.appId,
-        })
-        if (!credential) {
-          throw new Error('Credential not found')
-        }
-        const bx = new BitrixClient(credential, 'crmthinkers.bitrix24.com.br')
+        const bx = await makeBitrixClientByAppId(params.appId)
 
         const zApiClient = new ZApiClient(
           env.zApi.partnerToken,
@@ -43,20 +36,26 @@ export class ThinkzapSessionHandler implements SessionHandler {
               connector.instance?.instanceId ?? '',
               connector.instance?.zApiToken ?? '',
             )
-            const phoneData = await zApiClient.getPhoneData(
-              connector.instance?.instanceId ?? '',
-              connector.instance?.zApiToken ?? '',
-            )
+            let phoneData = null
+            if (instance.connected) {
+              phoneData = await zApiClient.getPhoneData(
+                connector.instance?.instanceId ?? '',
+                connector.instance?.zApiToken ?? '',
+              )
+            }
 
             const data: any = {
               ...connector,
               instance: {
-                ...connector.instance,
-                name: instance.name,
+                instanceId: connector.instance?.instanceId,
+                vinculatedChannel: connector.instance?.vinculatedChannel,
+                name: instance.name.includes(' | ')
+                  ? instance.name.split(' | ')[1]
+                  : instance.name,
                 connected: instance.connected,
                 paidStatus: instance.paymentStatus,
                 due: instance.due,
-                phoneNumber: phoneData?.phone,
+                phoneNumber: phoneData?.phone ? phoneData.phone : null,
               },
             }
 
@@ -74,6 +73,25 @@ export class ThinkzapSessionHandler implements SessionHandler {
         )
 
         return { key: 'connectors', data: mappedConnectors } as T
+      },
+    },
+    {
+      perform: async <T>(params: { appId: string }): Promise<T> => {
+        const subscriptionRepository = new PrismaBillingSubscriptionRepository()
+        const subscription = await subscriptionRepository.getByAppId(
+          params.appId,
+        )
+        console.log('subscription', subscription)
+        return {
+          key: 'subscription',
+          data: subscription
+            ? {
+                status: subscription.status,
+                connectorQuantity: subscription.connectorQuantity,
+                trialEndsAt: subscription.trialEndsAt,
+              }
+            : null,
+        } as T
       },
     },
   ]

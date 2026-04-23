@@ -12,3 +12,8 @@
 /examples
 /tests
 /tmp
+
+.env*
+!.env.example
+
+/prisma/generated

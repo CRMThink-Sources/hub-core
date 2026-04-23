@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
-  const token = req.headers.get('authorization')
-
+  const token = req.headers.get('authorization')?.split(' ')[1]
+  console.log(process.env.API_URL)
   const response = await fetch(
     `${process.env.API_URL}/thinkerszap/connector/create`,
     {

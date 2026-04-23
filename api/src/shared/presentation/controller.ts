@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { randomUUID } from 'crypto'
+import { BitrixError } from '../infra/clients/errors/bitrix-client.error'
 
 export abstract class Controller {
   constructor() {
@@ -33,15 +34,20 @@ export abstract class Controller {
         time: endTime - initTime,
       })
     } catch (error) {
-      console.error(error)
-      return res.status(500).json({
-        error: 'Internal server error',
-        traceId,
-        time: Date.now() - initTime,
-      })
-    } finally {
-      const endTime = Date.now()
-      console.log(`${this.constructor.name} took ${endTime - initTime}ms`)
+      if (error instanceof BitrixError) {
+        return res.status(400).json({
+          error: error.message,
+          traceId,
+          time: Date.now() - initTime,
+        })
+      } else {
+        console.error('[Controller] Unexpected error:', error)
+        return res.status(500).json({
+          error: 'Internal server error',
+          traceId,
+          time: Date.now() - initTime,
+        })
+      }
     }
   }
 }

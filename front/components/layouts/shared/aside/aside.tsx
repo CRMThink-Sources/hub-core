@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { AsideProps } from '../../types'
+import { AsideProps } from '../../types/types'
 
 export const Aside = ({
   logo,
@@ -17,6 +17,7 @@ export const Aside = ({
   hoverColor = '#e8fdf0',
   borderColor = '#e5e7eb',
   accentColor = '#5A997E',
+  betaMode,
 }: AsideProps) => {
   const pathname = usePathname()
 
@@ -50,7 +51,9 @@ export const Aside = ({
           marginBottom: '32px',
         }}
       >
-        <img src={logo} alt="Logo" style={{ width: 'auto', height: 'auto' }} />
+        <div className="w-full h-full p-8">
+          <img src={logo} alt="Logo" className="" />
+        </div>
         <div
           style={{
             position: 'absolute',
@@ -116,6 +119,7 @@ export const Aside = ({
           flexDirection: 'column',
           gap: '6px',
           marginTop: '32px',
+          flex: 1,
         }}
       >
         {links.map(link => (
@@ -168,6 +172,32 @@ export const Aside = ({
           </a>
         ))}
       </nav>
+
+      {betaMode && (
+        <div
+          style={{
+            padding: '20px 0',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              color: '#3b82f6',
+              backgroundColor: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '999px',
+              padding: '3px 10px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Versão Beta
+          </span>
+        </div>
+      )}
     </aside>
   )
 }

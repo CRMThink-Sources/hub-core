@@ -7,13 +7,13 @@ import { PrismaDomainRepository } from '../../persistence/repositories/prisma-do
 import { PrismaInstalledAppRepository } from '../../persistence/repositories/prisma-installed-app.repository'
 import { PrismaCredentialRepository } from '../../persistence/repositories/prisma-credential.repository'
 import { createChatId } from '@/shared/helpers/chat-id'
+import { env } from '@/config/env'
 
 export class ReceivedMessageHandler implements ZApiEventHandler {
   eventType = 'ReceivedCallback'
 
   async handle(event: ReceivedMessageEvent): Promise<void> {
     if (this.checkIfMessageIsFromGroupOrNewsletter(event)) return
-
     const connectorRepo = new PrismaConnectorRepository()
     const instanceRepo = new PrismaInstanceRepository()
 
@@ -21,6 +21,7 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
       event.instanceId,
     )
     if (!instance) return
+    if (!instance.vinculatedChannel) return
     const connector = await connectorRepo.getConnectorByInstanceId(instance?.id)
     if (!connector) return
 
@@ -73,8 +74,8 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
           : undefined
 
     const params: ISendMessageData = {
-      CONNECTOR: 'hubthink_thinkerszap',
-      LINE: 208,
+      CONNECTOR: env.bitrix.connector.code,
+      LINE: Number(instance.vinculatedChannel),
       MESSAGES: [
         {
           chat: {
@@ -103,7 +104,7 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
         },
       ],
     }
-    console.log({ params: params.MESSAGES[0] })
+
     await bitrixClient.sendMessage(params)
   }
 

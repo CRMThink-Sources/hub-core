@@ -10,22 +10,20 @@ export const makeCreateSessionController = async (
   request: Request,
 ): Promise<Controller> => {
   const { domainId, appId } = request
-
   if (!domainId || !appId) {
     throw new Error('Domain ID and app ID are required')
   }
-  const getDomainRepo = new PrismaDomainRepository()
-  const domain = await getDomainRepo.getDomainById(domainId)
   const getAppRepo = new PrismaInstalledAppRepository()
   const app = await getAppRepo.getByAppCodeAndDomainId(appId, domainId)
   const getAvailableAppRepo = new PrismaAvailableAppRepository()
-
   if (!app) {
     throw new Error('App not found')
   }
-  const availableApp = await getAvailableAppRepo.getById(app?.appCodeId ?? '')
+  const availableApp = await getAvailableAppRepo.getById(appId)
 
-  const sessionHandler = sessionRegistry.get(availableApp.code)
+  console.log({ availableApp })
+
+  const sessionHandler = sessionRegistry.get(availableApp.id)
   if (!sessionHandler) {
     throw new Error('Session handler not found')
   }
