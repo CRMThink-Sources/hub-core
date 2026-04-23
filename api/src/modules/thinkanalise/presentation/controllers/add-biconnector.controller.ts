@@ -29,7 +29,7 @@ export class AddBiconnectorController extends Controller {
 
   async perform(req: Request, _res: Response): Promise<httpResponse> {
     const { label, provider } = addBiconnectorSchema.parse(req.body)
-    const base = process.env.THINKANALISE_CALLBACK_URL
+    const base = process.env.API_URL
     const appCodeId = req.appId
     const domainId = req.domainId
 
