@@ -7,6 +7,7 @@ import { GetBitrixWebhookContextRepository } from '@/modules/thinkzap/domain/rep
 import { destructureChatId } from '@/shared/helpers/chat-id'
 import { convertToMp3 } from '@/shared/helpers/convert-to-mp3'
 import axios from 'axios'
+import { appIdResolver } from '@/modules/auth/presentation/controllers/helpers/app-id-resolver'
 
 export class BitrixReceivedMessageHandler implements BitrixEventHandler {
   eventType = 'ONIMCONNECTORMESSAGEADD'
@@ -39,7 +40,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
 
     const context = await this.bitrixWebhookContextRepo.getContext({
       domainName: event.auth.domain,
-      appCode: env.appCodes.thinkzap,
+      appCode: appIdResolver[env.appCodes.thinkzap] || '',
       line: event.data.LINE,
     })
 
