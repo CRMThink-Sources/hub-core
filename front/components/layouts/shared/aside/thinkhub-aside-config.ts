@@ -1,18 +1,13 @@
-export const THINKANALISE_ASIDE_CONFIG = {
-  logo: '/images/thinkanalise/logo.png',
+export const THINKHUB_ASIDE_CONFIG = {
+  logo: '/images/thinkhub/logo.png',
   brandIcon:
     'https://www.crmthink.com.br/wp-content/uploads/2020/06/favicon.png',
   brandName: 'CRMThink',
   links: [
-    // {
-    //   href: '/thinkanalise/conexoes',
-    //   label: 'Conexoes',
-    //   icon: '/images/thinkanalise/logo-prov.png',
-    // },
     {
-      href: '/thinkanalise/configuracoes',
-      label: 'Configuracoes',
-      icon: '/images/thinkanalise/logo-prov.png',
+      href: '/thinkhub/configuracoes',
+      label: 'Configurações',
+      icon: '/images/thinkhub/config.png',
     },
   ],
   languages: [
