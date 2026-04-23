@@ -164,7 +164,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
           source: 'docker-compose.yml,docker-compose.staging.yml,docker-compose.production.yml'
-          target: ~/hubthink
+          target: ${{ github.ref_name == 'main' && '~/hubthink-production' || '~/hubthink-staging' }}
 
       - name: Write env files on VPS
         uses: appleboy/ssh-action@v1.2.0
@@ -174,11 +174,17 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
           script: |
-            mkdir -p ~/hubthink/api ~/hubthink/front
-            cat > ~/hubthink/api/.env << 'ENVEOF'
+            if [ "${{ github.ref_name }}" = "main" ]; then
+              DEPLOY_DIR=~/hubthink-production
+            else
+              DEPLOY_DIR=~/hubthink-staging
+            fi
+
+            mkdir -p "$DEPLOY_DIR/api" "$DEPLOY_DIR/front"
+            cat > "$DEPLOY_DIR/api/.env" << 'ENVEOF'
             ${{ secrets.ENV_API }}
             ENVEOF
-            cat > ~/hubthink/front/.env << 'ENVEOF'
+            cat > "$DEPLOY_DIR/front/.env" << 'ENVEOF'
             ${{ secrets.ENV_FRONT }}
             ENVEOF
 
@@ -197,15 +203,17 @@ jobs:
 
             if [ "${{ github.ref_name }}" = "main" ]; then
               IMAGE=ghcr.io/crmthink-sources/hub-core-api:latest
+              DEPLOY_DIR=~/hubthink-production
             else
               IMAGE=ghcr.io/crmthink-sources/hub-core-api:staging
+              DEPLOY_DIR=~/hubthink-staging
             fi
 
             docker pull $IMAGE
 
             docker run --rm \
               --network host \
-              --env-file ~/hubthink/api/.env \
+              --env-file "$DEPLOY_DIR/api/.env" \
               $IMAGE \
               npx prisma migrate deploy
 
@@ -221,14 +229,19 @@ jobs:
           envs: GH_TOKEN
           script: |
             echo "$GH_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            cd ~/hubthink
 
             if [ "${{ github.ref_name }}" = "main" ]; then
-              docker compose -f docker-compose.yml -f docker-compose.production.yml pull
-              docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --remove-orphans
+              DEPLOY_DIR=~/hubthink-production
+              COMPOSE_PROJECT=hubthink-production
+              cd "$DEPLOY_DIR"
+              docker compose -p "$COMPOSE_PROJECT" -f docker-compose.yml -f docker-compose.production.yml pull
+              docker compose -p "$COMPOSE_PROJECT" -f docker-compose.yml -f docker-compose.production.yml up -d --remove-orphans
             else
-              docker compose -f docker-compose.yml -f docker-compose.staging.yml pull
-              docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --remove-orphans
+              DEPLOY_DIR=~/hubthink-staging
+              COMPOSE_PROJECT=hubthink-staging
+              cd "$DEPLOY_DIR"
+              docker compose -p "$COMPOSE_PROJECT" -f docker-compose.yml -f docker-compose.staging.yml pull
+              docker compose -p "$COMPOSE_PROJECT" -f docker-compose.yml -f docker-compose.staging.yml up -d --remove-orphans
             fi
 
             docker image prune -f
