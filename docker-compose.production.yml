@@ -3,6 +3,7 @@ services:
     ports:
       - "4000:4000"
 
+  # Host 3002 evita conflito com outro app na 3000 (ex.: PM2). Dentro do container o Next segue na 3000.
   front:
     ports:
-      - "3002:3002"
+      - "3002:3000"
