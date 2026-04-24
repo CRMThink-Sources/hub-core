@@ -47,7 +47,12 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
     if (!context) {
       throw new Error('Context not found')
     }
-    const bitrixClient = new BitrixClient(context.app.credential, context.name)
+
+    const bitrixClient = new BitrixClient({
+      bitrixCredential: context.app.credential,
+      domain: context.name,
+    })
+
     const zApiClient = new ZApiClient(
       env.zApi.partnerToken,
       env.zApi.clientToken,
