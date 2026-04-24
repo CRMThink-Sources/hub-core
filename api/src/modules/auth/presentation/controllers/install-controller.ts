@@ -9,6 +9,7 @@ import { bitrixInstallBindRegistry } from '@/shared/infra/setup-bitrix-install-b
 import { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import z from 'zod'
 import { appIdResolver } from './helpers/app-id-resolver'
+import { GetOrCreateSpa } from '@/shared/application/get-or-create-spa'
 
 export class InstallController extends Controller {
   constructor(
@@ -16,6 +17,7 @@ export class InstallController extends Controller {
     private readonly getOrCreateDomain: GetOrCreateDomain,
     private readonly getOrCreateInstalledApp: GetOrCreateInstalledApp,
     private readonly getOrCreateCredential: GetOrCreateCredential,
+    private readonly getOrCreateSpa: GetOrCreateSpa,
   ) {
     super()
   }
@@ -99,6 +101,15 @@ export class InstallController extends Controller {
     }
 
     await bitrixInstallBindRegistry.runOnInstall(appId, bitrixClient)
+    await this.getOrCreateSpa.execute({
+      appId: installedApp.appCodeId,
+      domain: domain,
+      company: '',
+      email: email,
+      memberId: member_id,
+      name: '',
+      phone: '',
+    })
 
     return {
       result: {

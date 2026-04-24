@@ -16,6 +16,9 @@ import {
 import { THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS } from '@/modules/thinkzap/domain/trial-connector-limit'
 import { getThinkzapConnectorQuantity } from '@/shared/infra/stripe/thinkzap-subscription-line'
 import { StripeEventHandler } from '../stripe-event-handler'
+import { GetSpaRepository } from '@/shared/domain/repositories/spa/get-spa.repository'
+import { UpdateSpaRepository } from '@/shared/domain/repositories/spa/update-spa.repository'
+import { STATUS_OPTIONS } from '@/shared/domain/config/bitrix.env'
 
 export class CheckoutSessionCompletedHandler implements StripeEventHandler {
   eventType = 'checkout.session.completed'
@@ -25,6 +28,7 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
     private readonly getDomainRepository: GetDomainRepository,
     private readonly createSubscriptionRepo: CreateBillingSubscriptionRepository,
     private readonly provisionDeps: ProvisionMissingConnectorsDeps,
+    private readonly spaRepository: GetSpaRepository & UpdateSpaRepository,
   ) {}
 
   async handle(event: Stripe.Event): Promise<void> {
@@ -84,6 +88,19 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
         trialEndsAt: subscriptionObj.trial_end
           ? new Date(subscriptionObj.trial_end * 1000)
           : null,
+      })
+    }
+
+    const spa = await this.spaRepository.get({
+      appId: installedApp.appCodeId,
+      domain: domain.name,
+    })
+
+    if (spa) {
+      await this.spaRepository.update({
+        appId: installedApp.appCodeId,
+        domain: domain.name,
+        status: 'active',
       })
     }
   }
