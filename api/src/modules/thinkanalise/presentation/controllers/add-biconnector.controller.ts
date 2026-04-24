@@ -32,7 +32,7 @@ export class AddBiconnectorController extends Controller {
     const { label, provider } = addBiconnectorSchema.parse(req.body)
     // const url = env.apiUrl
     // url hardcoded para cortornar erro inicial, validar motivo de em producao retornar undefined
-    const url = 'https://hubthink.crmthink.com.br/api'
+    const url = env.apiUrl
 
     const appCodeId = req.appId
     const domainId = req.domainId
