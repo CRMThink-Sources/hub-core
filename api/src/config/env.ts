@@ -5,7 +5,10 @@ export const env = {
   appUrl: process.env.APP_URL ?? '',
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',
-  apiUrl: process.env.API_URL ?? 'https://homolog-hubthink.crmthink.com.br/api',
+  apiUrl:
+    process.env.API_URL && process.env.API_URL !== 'undefined'
+      ? process.env.API_URL
+      : 'https://homolog-hubthink.crmthink.com.br/api',
   crmthinkWebhookUrl: process.env.CRMTHINK_WEBHOOK_URL ?? '',
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY ?? '',
