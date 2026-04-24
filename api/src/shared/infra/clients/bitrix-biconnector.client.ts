@@ -18,7 +18,10 @@ type BitrixErrorResponse = {
 
 export class BitrixBiConnectorClient extends BitrixClient {
   constructor(bitrixCredential: Credential, domain: string) {
-    super(bitrixCredential, domain)
+    super({
+      bitrixCredential,
+      domain,
+    })
   }
 
   private checkError<T>(

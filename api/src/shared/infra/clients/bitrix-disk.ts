@@ -5,7 +5,10 @@ import { BitrixError } from './errors/bitrix-client.error'
 
 export class BitrixDiskClient extends BitrixClient {
   constructor(bitrixCredential: Credential, domain: string) {
-    super(bitrixCredential, domain)
+    super({
+      bitrixCredential,
+      domain,
+    })
   }
 
   async getFolderId({
