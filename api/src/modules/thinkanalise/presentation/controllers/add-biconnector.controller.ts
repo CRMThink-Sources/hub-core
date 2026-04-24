@@ -32,6 +32,7 @@ export class AddBiconnectorController extends Controller {
     const { label, provider } = addBiconnectorSchema.parse(req.body)
     // const url = env.apiUrl
     // url hardcoded para cortornar erro inicial, validar motivo de em producao retornar undefined
+    console.log({ env })
     const url = env.apiUrl
 
     const appCodeId = req.appId

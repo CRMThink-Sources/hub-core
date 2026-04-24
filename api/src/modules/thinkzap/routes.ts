@@ -13,6 +13,7 @@ import { makeAddSubscriptionQuantityController } from './main/add-subscription-q
 import { makeGetThinkzapPricingController } from './main/get-thinkzap-pricing-controller'
 import { makeCreateBillingPortalSessionController } from './main/create-billing-portal-session-controller'
 import { makeEndTrialSubscriptionController } from './main/end-trial-subscription-controller'
+import { makeActivateTrialController } from './main/make-activate-trial-controller'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
@@ -28,6 +29,11 @@ export const createThinkerszapRoutes = (): Router => {
   router.post(
     '/subscription/end-trial',
     adaptControllerFactory(makeEndTrialSubscriptionController),
+  )
+
+  router.post(
+    '/subscription/activate-trial',
+    adaptControllerFactory(makeActivateTrialController),
   )
 
   router.post(

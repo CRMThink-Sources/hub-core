@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+
 type Props = {
   isTrial: boolean
   isCancelled: boolean
@@ -44,13 +46,12 @@ export function GestaoLinhasStatusBanner({
             Voce não possui uma assinatura. Ative o seu trial de 7 dias para
             testar o ThinkZap.
           </p>
-          <button
-            type="button"
-            onClick={onActivateTrial}
+          <Link
+            href="/thinkzap/ativar-trial"
             className="cursor-pointer rounded-md bg-yellow-500 px-5 py-2 text-sm font-medium text-white hover:bg-amber-500"
           >
             Ativar trial
-          </button>
+          </Link>
         </div>
         <p className="text-sm text-gray-600">
           Após o trial, você pode contratar mais linhas.
