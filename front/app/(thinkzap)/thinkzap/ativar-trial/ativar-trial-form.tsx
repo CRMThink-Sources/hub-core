@@ -45,7 +45,7 @@ export function AtivarTrialForm() {
         },
       )
 
-      // router.push(`/thinkzap/conexoes`)
+      router.push(`/thinkzap/conexoes`)
     } catch (e: unknown) {
       setErro(
         thinkzapApiErrorMessage(

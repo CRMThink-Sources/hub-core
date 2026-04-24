@@ -7,6 +7,10 @@ import { GetOrCreateInstalledApp } from '@/shared/application/get-or-create-inst
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositories/prisma-credential.repository'
 import { GetOrCreateCredential } from '@/shared/application/get-or-create-credential'
+import { GetOrCreateSpa } from '@/shared/application/get-or-create-spa'
+import { BitrixSpaRepository } from '@/shared/infra/persistence/repositories/bitrix-spa.repository'
+import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { env } from '@/config/env'
 
 export const createInstallController = (): Controller => {
   const getAvailableAppRepository = new PrismaAvailableAppRepository()
@@ -22,10 +26,15 @@ export const createInstallController = (): Controller => {
   const credentialRepository = new PrismaCredentialRepository()
   const getOrCreateCredential = new GetOrCreateCredential(credentialRepository)
 
+  const bitrixClient = new BitrixClient({ webhook: env.crmthinkWebhookUrl })
+  const spaRepository = new BitrixSpaRepository(bitrixClient)
+  const getOrCreateSpa = new GetOrCreateSpa(spaRepository)
+
   return new InstallController(
     getAvailableAppRepository,
     getOrCreateDomain,
     getOrCreateInstalledApp,
     getOrCreateCredential,
+    getOrCreateSpa,
   )
 }
