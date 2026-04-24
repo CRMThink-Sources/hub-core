@@ -10,6 +10,9 @@ import { PrismaBillingSubscriptionRepository } from '@/shared/infra/persistence/
 import { makeProvisionMissingConnectorsDeps } from './make-provision-connectors-deps'
 import { CustomerSubscriptionDeletedHandler } from '@/shared/infra/handlers/stripe/customer-subscription-deleted.handler'
 import { makeProvisionUpdateConnectorDeps } from './make-provision-update-connector-deps'
+import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { env } from '@/config/env'
+import { BitrixSpaRepository } from '@/shared/infra/persistence/repositories/bitrix-spa.repository'
 
 export const makeStripeWebhookHandlerController = (): Controller => {
   const registry = new EventRegistry<StripeEventHandler>()
@@ -18,12 +21,15 @@ export const makeStripeWebhookHandlerController = (): Controller => {
   const billingSubscriptionRepo = new PrismaBillingSubscriptionRepository()
   const provisionDeps = makeProvisionMissingConnectorsDeps()
   const provisionUpdateDeps = makeProvisionUpdateConnectorDeps()
+  const bitrixClient = new BitrixClient({ webhook: env.crmthinkWebhookUrl })
+  const spaRepository = new BitrixSpaRepository(bitrixClient)
 
   const checkoutSessionCompletedHandler = new CheckoutSessionCompletedHandler(
     getApp,
     getDomainRepository,
     billingSubscriptionRepo,
     provisionDeps,
+    spaRepository,
   )
 
   const customerSubscriptionUpdatedHandler =

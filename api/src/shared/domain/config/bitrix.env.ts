@@ -17,4 +17,12 @@ export const BITRIX_SPA_CLIENT_FIELDS = {
   TRIAL_CUSTOMER_ID: 'ufCrm55_1776709172588',
   TRIAL_SUBSCRIPTION_ID: 'ufCrm55_1776709199912',
   MEMBER_ID: 'ufCrm55_1749851446',
+  STATUS: 'ufCrm55_1776720499466',
 } as const
+
+export const STATUS_OPTIONS = {
+  active: 13133,
+  canceled: 13135,
+  past_due: 13137,
+  trialing: 13131,
+}
