@@ -42,9 +42,10 @@ export class AddSubscriptionQuantityController extends Controller {
     }
 
     const appId = req.appId
+    const domainId = req.domainId
     const priceId = env.thinkzapStripePriceId
 
-    if (!appId) {
+    if (!appId || !domainId) {
       return this.badRequest(new Error('Invalid request'))
     }
     if (!priceId) {
@@ -52,7 +53,7 @@ export class AddSubscriptionQuantityController extends Controller {
         new Error('THINKZAP_PRICE_CONNECTORS não configurado na API'),
       )
     }
-    const app = await this.getApp.getByDomainId(req.domainId as string)
+    const app = await this.getApp.getByAppCodeAndDomainId(appId, domainId)
     if (!app) {
       return this.badRequest(new Error('App not found'))
     }

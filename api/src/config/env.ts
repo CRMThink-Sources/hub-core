@@ -6,6 +6,7 @@ export const env = {
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',
   apiUrl: process.env.API_URL ?? '',
+  crmthinkWebhookUrl: process.env.CRMTHINK_WEBHOOK_URL ?? '',
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY ?? '',
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',

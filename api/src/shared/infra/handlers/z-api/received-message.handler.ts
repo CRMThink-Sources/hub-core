@@ -47,7 +47,10 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
       throw new Error('Domain or credential not found')
     }
 
-    const bitrixClient = new BitrixClient(credential, domain?.name)
+    const bitrixClient = new BitrixClient({
+      bitrixCredential: credential,
+      domain: domain?.name,
+    })
     const chatId = createChatId(event.chatLid || '', event.phone)
 
     const files = event.image

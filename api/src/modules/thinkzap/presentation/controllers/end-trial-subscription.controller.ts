@@ -28,11 +28,12 @@ export class EndTrialSubscriptionController extends Controller {
 
   async perform(req: Request, res: Response): Promise<httpResponse> {
     const domainId = req.domainId
-    if (!domainId) {
+    const appId = req.appId
+    if (!domainId || !appId) {
       return this.badRequest(new Error('Invalid request'))
     }
 
-    const app = await this.getApp.getByDomainId(domainId)
+    const app = await this.getApp.getByAppCodeAndDomainId(appId, domainId)
     if (!app) {
       return this.badRequest(new Error('App not found'))
     }

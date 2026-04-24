@@ -4,16 +4,32 @@ import { Credential } from '@/shared/domain/entities/credential'
 import axios from 'axios'
 import { BitrixError } from './errors/bitrix-client.error'
 
-export class BitrixClient {
-  private readonly bitrixCredential: Credential
-  private readonly domain: string
+interface IBitrixClientParams {
+  bitrixCredential?: Credential
+  domain?: string
+  webhook?: string
+}
 
-  constructor(bitrixCredential: Credential, domain: string) {
-    this.bitrixCredential = bitrixCredential
-    this.domain = domain
+export class BitrixClient {
+  private readonly bitrixCredential?: Credential
+  private readonly domain?: string
+  private readonly webhook?: string
+
+  constructor(params: IBitrixClientParams) {
+    this.bitrixCredential = params.bitrixCredential
+    this.domain = params.domain
+    this.webhook = params.webhook
   }
 
   getClient() {
+    if (this.webhook) {
+      return axios.create({
+        baseURL: this.webhook,
+      })
+    }
+    if (!this.bitrixCredential || !this.domain) {
+      throw new Error('Bitrix credential and domain are required')
+    }
     return axios.create({
       baseURL: `https://${this.domain}/rest/`,
       params: {
@@ -103,8 +119,81 @@ export class BitrixClient {
       throw new BitrixError('Failed to get open channels')
     }
   }
+
+  async listCrmItems(
+    entityTypeId: number,
+    filter: Record<string, unknown>,
+  ): Promise<ICrmItemListResponse> {
+    const client = this.getClient()
+    try {
+      const response = await client.get(`/crm.item.list`, {
+        params: { entityTypeId, filter },
+      })
+      return response.data
+    } catch (error) {
+      console.error('[BitrixClient] listCrmItems error:', error)
+      throw new BitrixError('Failed to list CRM items')
+    }
+  }
+
+  async createCrmItem(
+    entityTypeId: number,
+    fields: Record<string, unknown>,
+  ): Promise<ICrmItemCreateResponse> {
+    const client = this.getClient()
+    try {
+      const response = await client.post(`/crm.item.add`, {
+        entityTypeId,
+        fields,
+      })
+      return response.data
+    } catch (error) {
+      console.error('[BitrixClient] createCrmItem error:', error)
+      throw new BitrixError('Failed to create CRM item')
+    }
+  }
+
+  async updateCrmItem(
+    entityTypeId: number,
+    id: string,
+    fields: Record<string, unknown>,
+  ): Promise<ICrmItemUpdateResponse> {
+    const client = this.getClient()
+    try {
+      const response = await client.post(`/crm.item.update`, {
+        entityTypeId,
+        id,
+        fields,
+      })
+      return response.data
+    } catch (error) {
+      console.error('[BitrixClient] updateCrmItem error:', error)
+      throw new BitrixError('Failed to update CRM item')
+    }
+  }
 }
 
+export interface ICrmItemListResponse {
+  result: {
+    items: {
+      id: string
+    }[]
+  }
+}
+
+export interface ICrmItemCreateResponse {
+  result: {
+    item: {
+      id: string
+    }
+  }
+}
+
+export interface ICrmItemUpdateResponse {
+  result: {
+    id: string
+  }
+}
 export interface IGetOpenChannelResponse {
   LINE_NAME: string
 }
