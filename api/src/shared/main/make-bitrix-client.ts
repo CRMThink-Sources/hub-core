@@ -36,8 +36,15 @@ export const makeBitrixClient = async (
     throw new Error('Domain or credential not found')
   }
   const Client = clients[client as keyof typeof clients]
+
   if (!Client) {
     throw new Error('Client not found')
+  }
+  if (client === 'bitrix') {
+    return new BitrixClient({
+      bitrixCredential: credential,
+      domain: domain?.name,
+    })
   }
   const bitrixClient = new Client(credential, domain?.name)
   return bitrixClient
@@ -60,8 +67,13 @@ export const makeBitrixClientByAppId = async (
   if (!Client) {
     throw new Error('Client not found')
   }
-  const bitrixClient = new Client(credential, domain?.name)
-  return bitrixClient
+  if (client === 'bitrix') {
+    return new BitrixClient({
+      bitrixCredential: credential,
+      domain: domain?.name,
+    })
+  }
+  return new Client(credential, domain?.name)
 }
 
 export const makeBitrixClientByDomainAndAppCoode = async (
@@ -87,7 +99,12 @@ export const makeBitrixClientByDomainAndAppCoode = async (
   const Client = clients[client as keyof typeof clients]
 
   if (!Client) throw new Error('Client not found')
-
+  if (client === 'bitrix') {
+    return new BitrixClient({
+      bitrixCredential: credential,
+      domain: domainEntity.name,
+    })
+  }
   return new Client(credential, domainEntity.name)
 }
 

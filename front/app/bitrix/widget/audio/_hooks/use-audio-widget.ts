@@ -225,6 +225,7 @@ export function useAudioWidget({
 
   return {
     audioRef,
+    audioBlob,
     isRecording,
     buttonScale,
     audioUrl,

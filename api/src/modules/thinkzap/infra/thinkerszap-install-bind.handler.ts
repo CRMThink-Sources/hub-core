@@ -52,6 +52,86 @@ export class ThinkersZapInstallBindHandler implements BitrixInstallBindHandler {
       },
     })
 
+    binds.push({
+      method: 'placement.bind',
+      params: {
+        PLACEMENT: 'CRM_CONTACT_DETAIL_TAB',
+        HANDLER: env.bitrix.placement.url,
+        TITLE: env.bitrix.placement.name,
+        LANG_ALL: {
+          pt: {
+            TITLE: env.bitrix.placement.name,
+          },
+          en: {
+            TITLE: env.bitrix.placement.name,
+          },
+          es: {
+            TITLE: env.bitrix.placement.name,
+          },
+        },
+      },
+    })
+
+    binds.push({
+      method: 'placement.bind',
+      params: {
+        PLACEMENT: 'CRM_COMPANY_DETAIL_TAB',
+        HANDLER: env.bitrix.placement.url,
+        TITLE: env.bitrix.placement.name,
+        LANG_ALL: {
+          pt: {
+            TITLE: env.bitrix.placement.name,
+          },
+          en: {
+            TITLE: env.bitrix.placement.name,
+          },
+          es: {
+            TITLE: env.bitrix.placement.name,
+          },
+        },
+      },
+    })
+
+    binds.push({
+      method: 'placement.bind',
+      params: {
+        PLACEMENT: 'CRM_DEAL_DETAIL_TAB',
+        HANDLER: env.bitrix.placement.url,
+        TITLE: env.bitrix.placement.name,
+        LANG_ALL: {
+          pt: {
+            TITLE: env.bitrix.placement.name,
+          },
+          en: {
+            TITLE: env.bitrix.placement.name,
+          },
+          es: {
+            TITLE: env.bitrix.placement.name,
+          },
+        },
+      },
+    })
+
+    binds.push({
+      method: 'placement.bind',
+      params: {
+        PLACEMENT: 'CRM_LEAD_DETAIL_TAB',
+        HANDLER: env.bitrix.placement.url,
+        TITLE: env.bitrix.placement.name,
+        LANG_ALL: {
+          pt: {
+            TITLE: env.bitrix.placement.name,
+          },
+          en: {
+            TITLE: env.bitrix.placement.name,
+          },
+          es: {
+            TITLE: env.bitrix.placement.name,
+          },
+        },
+      },
+    })
+
     return binds
   }
 

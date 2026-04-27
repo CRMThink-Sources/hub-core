@@ -14,6 +14,7 @@ type AudioPreviewProps = {
   onSeek: (value: number) => void
   onDelete: () => void
   onSend: () => void
+  sendLabel?: string
 }
 
 const formatTime = (seconds: number) => {
@@ -40,6 +41,7 @@ export function AudioPreview({
   onSeek,
   onDelete,
   onSend,
+  sendLabel = 'Enviar',
 }: AudioPreviewProps) {
   return (
     <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
@@ -116,7 +118,7 @@ export function AudioPreview({
           disabled={isSending}
           className="cursor-pointer rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
-          {isSending ? 'Enviando...' : 'Enviar'}
+          {isSending ? 'Enviando...' : sendLabel}
         </button>
       </div>
     </div>
