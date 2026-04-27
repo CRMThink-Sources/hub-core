@@ -26,9 +26,11 @@ export class PrismaConnectorRepository
   }
 
   async get(id: string): Promise<Connector | null> {
+    console.log('id:', id)
     const connector = await prisma.connector.findUnique({
       where: { id: id },
     })
+    console.log('connector:', connector)
     if (!connector) return null
 
     return {

@@ -14,6 +14,8 @@ import { makeGetThinkzapPricingController } from './main/get-thinkzap-pricing-co
 import { makeCreateBillingPortalSessionController } from './main/create-billing-portal-session-controller'
 import { makeEndTrialSubscriptionController } from './main/end-trial-subscription-controller'
 import { makeActivateTrialController } from './main/make-activate-trial-controller'
+import { makeListDestinationsController } from './main/make-list-destinations-controller'
+import { makeSendWidgetMessageController } from './main/make-send-widget-message-controller'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
@@ -80,6 +82,15 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/openchannels',
     adaptControllerFactory(makeListOpenChannelsController),
+  )
+
+  router.get(
+    '/destinations',
+    adaptControllerFactory(makeListDestinationsController),
+  )
+  router.post(
+    '/messages/send-widget',
+    adaptControllerFactory(makeSendWidgetMessageController),
   )
 
   return router
