@@ -94,7 +94,7 @@ export class InstallController extends Controller {
         } catch (error: any) {
           console.error(
             `Error binding ${bind.method} to Bitrix:`,
-            (error as Error).message,
+            error as Error,
           )
         }
       }
