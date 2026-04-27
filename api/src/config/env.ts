@@ -40,6 +40,10 @@ export const env = {
       code: process.env.BITRIX_BOT_CODE ?? 'thinkzap_bot',
       name: process.env.BITRIX_BOT_NAME ?? 'ThinkZap Bot',
     },
+    placement: {
+      name: process.env.BITRIX_PLACEMENT_NAME ?? 'ThinkZap',
+      url: process.env.BITRIX_PLACEMENT_URL ?? '',
+    },
   },
   appCodes: {
     thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',

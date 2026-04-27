@@ -5,7 +5,7 @@ export const THINKHUB_ASIDE_CONFIG = {
   brandName: 'CRMThink',
   links: [
     {
-      href: '/thinkhub/configuracoes',
+      href: '/thinkanalise/configuracoes',
       label: 'Configurações',
       icon: '/images/thinkhub/config.png',
     },

@@ -120,6 +120,21 @@ export class BitrixClient {
     }
   }
 
+  async getCrmItem(
+    entityTypeId: number,
+    id: string,
+  ): Promise<ICrmItemResponse> {
+    const client = this.getClient()
+    try {
+      const response = await client.get(`/crm.item.get`, {
+        params: { entityTypeId, id },
+      })
+      return response.data
+    } catch (error) {
+      throw new BitrixError('Failed to get CRM item')
+    }
+  }
+
   async listCrmItems(
     entityTypeId: number,
     filter: Record<string, unknown>,
@@ -170,6 +185,12 @@ export class BitrixClient {
       console.error('[BitrixClient] updateCrmItem error:', error)
       throw new BitrixError('Failed to update CRM item')
     }
+  }
+}
+
+export interface ICrmItemResponse {
+  result: {
+    item: Record<string, unknown>
   }
 }
 

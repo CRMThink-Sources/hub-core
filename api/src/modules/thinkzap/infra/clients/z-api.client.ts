@@ -354,6 +354,39 @@ export class ZApiClient {
       throw new Error('Failed to send video')
     }
   }
+
+  async sendDocument(
+    instanceId: string,
+    instanceToken: string,
+    document: string,
+    phone: string,
+    fileName?: string,
+  ): Promise<SendMessageResponse> {
+    try {
+      const extension =
+        fileName && fileName.includes('.')
+          ? fileName.split('.').pop()?.toLowerCase() || 'bin'
+          : 'bin'
+      const { data } = await axios.post<SendMessageResponse>(
+        `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-document/${extension}`,
+        {
+          phone,
+          document,
+          fileName,
+        },
+        {
+          headers: {
+            'client-token': this.clientToken,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to send document')
+    }
+  }
 }
 
 export type SendMessageResponse = {
