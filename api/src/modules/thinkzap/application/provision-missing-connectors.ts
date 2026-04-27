@@ -9,6 +9,7 @@ import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS } from '@/modules/thinkzap/domain/trial-connector-limit'
 import { UpdateInstanceGateway } from '../domain/repositories/update-instance.gateway'
+import { syncThinkzapRobotConnectorOptions } from './sync-robot-connectors'
 
 export type ProvisionMissingConnectorsDeps = {
   createConnectorRepo: CreateConnectorRepository
@@ -37,7 +38,7 @@ export async function provisionMissingConnectorsForApp(
     : requestedTarget
 
   const list = await deps.listConnectors.listConnectors(appId, true)
-
+  await syncThinkzapRobotConnectorOptions(appId)
   if (!isTrialing) {
     for (const connector of list) {
       const instance = connector.instance
@@ -92,6 +93,8 @@ export async function provisionMissingConnectorsForApp(
       updatedAt: new Date(),
     })
   }
+
+  await syncThinkzapRobotConnectorOptions(appId)
 
   return { created: need }
 }
