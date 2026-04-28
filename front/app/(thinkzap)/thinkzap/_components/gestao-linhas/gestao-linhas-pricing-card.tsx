@@ -1,8 +1,6 @@
 'use client'
 
 import { useSession } from '@/providers/session-provider'
-import { envConfig } from '@/shared/infra/env-config'
-import axios from 'axios'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { resolveThinkzapClient } from '../../_lib/thinkzap-client'
@@ -21,7 +19,6 @@ export type ThinkzapPricingResponse = {
 }
 
 type Props = {
-  erro: string | null
   submitting: boolean
   quantidade: number
   pricing: ThinkzapPricingResponse | null
@@ -36,7 +33,6 @@ type Props = {
   onIncrement: () => void
   onDecrement: () => void
   onContinue: () => void
-  onConfirmTrial: () => void
   onReactivateSubscription: () => void
 }
 
@@ -54,7 +50,6 @@ function formatFaixaTiers(fromQ: number, toQ: number | null): string {
 }
 
 export function GestaoLinhasPricingCard({
-  erro,
   submitting,
   quantidade,
   pricing,
@@ -69,7 +64,6 @@ export function GestaoLinhasPricingCard({
   onIncrement,
   onDecrement,
   onContinue,
-  onConfirmTrial,
   onReactivateSubscription,
 }: Props) {
   const { session } = useSession()
@@ -100,14 +94,44 @@ export function GestaoLinhasPricingCard({
     void fetchBillingPortalUrl()
   }, [])
 
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5">
-      {erro && (
-        <p className="mb-3 text-sm text-red-600" role="alert">
-          {erro}
-        </p>
-      )}
+  const portalClassName =
+    'inline-flex cursor-pointer items-center justify-center rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-50'
 
+  if (isTrial) {
+    return (
+      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <h3 className="text-base font-semibold text-black">
+          Pagamento e faturas
+        </h3>
+        <p className="mt-2 text-sm text-gray-600">
+          Para adicionar mais linhas, efetive sua assinatura. Para efetivar a
+          assinatura, é necessário adicionar um método de pagamento no portal de
+          cobrança.
+        </p>
+        {hasSubscription ? (
+          <div className="mt-4">
+            {billingPortalUrl ? (
+              <Link
+                href={billingPortalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={portalClassName}
+              >
+                Portal de cobrança
+              </Link>
+            ) : (
+              <p className="text-xs text-gray-500">
+                Preparando link do portal…
+              </p>
+            )}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
       <p className="mb-4 text-sm text-gray-700">
         {isCancelled
           ? `Você está reativando a assinatura com ${quantidade} linha${quantidade !== 1 ? 's' : ''}.`
@@ -213,7 +237,7 @@ export function GestaoLinhasPricingCard({
               href={billingPortalUrl ?? ''}
               target="_blank"
               rel="noopener noreferrer"
-              className="cursor-pointer rounded-md bg-gray-200 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+              className={portalClassName}
             >
               Portal de cobrança
             </Link>

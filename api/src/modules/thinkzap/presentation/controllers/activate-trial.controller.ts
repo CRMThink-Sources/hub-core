@@ -101,7 +101,7 @@ export class ActivateTrialController extends Controller {
       },
       trial_settings: {
         end_behavior: {
-          missing_payment_method: 'cancel',
+          missing_payment_method: 'create_invoice',
         },
       },
     })

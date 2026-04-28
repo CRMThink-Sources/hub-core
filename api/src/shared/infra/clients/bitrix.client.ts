@@ -57,6 +57,23 @@ export class BitrixClient {
     }
   }
 
+  async callMethod<T = unknown>(
+    method: string,
+    params: Record<string, unknown>,
+  ): Promise<T> {
+    const client = this.getClient()
+    try {
+      const response = await client.post(`/${method}`, params)
+      return response.data as T
+    } catch (error) {
+      const message =
+        axios.isAxiosError(error) && error.response
+          ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+          : `Failed to call Bitrix method: ${method}`
+      throw new BitrixError(message)
+    }
+  }
+
   async sendMessage(data: ISendMessageData) {
     const client = this.getClient()
     try {

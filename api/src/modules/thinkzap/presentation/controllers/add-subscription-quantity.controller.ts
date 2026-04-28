@@ -12,7 +12,6 @@ import {
   canAdjustSubscriptionQuantity,
   fromStripeStatus,
 } from '@/shared/domain/entities/billing-subscription'
-import { THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS } from '@/modules/thinkzap/domain/trial-connector-limit'
 import { getThinkzapConnectorQuantity } from '@/shared/infra/stripe/thinkzap-subscription-line'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 
@@ -67,6 +66,14 @@ export class AddSubscriptionQuantityController extends Controller {
       )
     }
 
+    if (billing.status === SubscriptionStatus.TRIALING) {
+      return this.badRequest(
+        new Error(
+          'No período de trial não é possível contratar linhas adicionais. Efetive a assinatura primeiro.',
+        ),
+      )
+    }
+
     if (!canAdjustSubscriptionQuantity(billing.status)) {
       return this.badRequest(
         new Error(
@@ -91,19 +98,6 @@ export class AddSubscriptionQuantityController extends Controller {
     }
 
     const currentQty = line.quantity ?? 1
-
-    if (billing.status === SubscriptionStatus.TRIALING) {
-      if (
-        currentQty + additionalQuantity >
-        THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS
-      ) {
-        return this.badRequest(
-          new Error(
-            `No período de trial é possível contratar no máximo ${THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS} linhas.`,
-          ),
-        )
-      }
-    }
 
     const newQuantity = currentQty + additionalQuantity
 

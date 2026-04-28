@@ -4,6 +4,7 @@ import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/ge
 import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
 import { UpdateConnectorRepository } from '@/modules/thinkzap/domain/repositories/update-connector.repository'
 import { UpdateInstanceGateway } from '@/modules/thinkzap/domain/repositories/update-instance.gateway'
+import { syncThinkzapRobotConnectorOptions } from './sync-robot-connectors'
 
 export type ProvisionUpdateConnectorsDeps = {
   getApp: GetInstalledAppRepository
@@ -39,6 +40,10 @@ export async function deactivateConnectorsForApp(
     await deps.updateInstanceRepo.markAsDisconnected(instance.id)
     await deps.updateConnectorRepo.markAsInactive(connector.id)
     deactivated += 1
+  }
+
+  if (deactivated > 0) {
+    await syncThinkzapRobotConnectorOptions(appId)
   }
 
   return { deactivated }
