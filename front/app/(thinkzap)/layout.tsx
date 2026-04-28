@@ -1,5 +1,6 @@
 'use client'
 
+import { Toaster } from 'sonner'
 import { Aside } from '@/components/layouts/shared/aside/aside'
 import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkzap-aside-config'
 import { SessionProvider, useSession } from '@/providers/session-provider'
@@ -66,6 +67,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
       <Aside {...THINKZAP_ASIDE_CONFIG} />
       {/* Aside é fixed: padding reserva a faixa da sidebar sem somar 100vw + margin (evita scroll horizontal). */}
       <div className="box-border min-h-screen min-w-0 w-full pl-64">
+        <Toaster richColors position="top-center" closeButton />
         {isFetching ? (
           <div className="flex min-h-[50vh] items-center justify-center gap-2 py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500" />

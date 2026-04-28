@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { useSession } from '@/providers/session-provider'
 import {
   resolveThinkzapClient,
@@ -15,9 +16,9 @@ import {
 import { GestaoLinhasStatusBanner } from '../_components/gestao-linhas/gestao-linhas-status-banner'
 import { GestaoLinhasContratadas } from '../_components/gestao-linhas/gestao-linhas-contratadas'
 
-/** Alinhado ao backend: ACTIVE, TRIALING, PAST_DUE permitem aumentar linhas na mesma assinatura. */
+/** Alinhado ao backend: só ACTIVE e PAST_DUE permitem aumentar linhas (trial precisa efetivar antes). */
 function podeAlterarAssinaturaExistente(status: string | undefined): boolean {
-  return status === 'ACTIVE' || status === 'TRIALING' || status === 'PAST_DUE'
+  return status === 'ACTIVE' || status === 'PAST_DUE'
 }
 
 export default function GestaoLinhas() {
@@ -26,7 +27,6 @@ export default function GestaoLinhas() {
 
   const [quantidade, setQuantidade] = useState(1)
   const [submitting, setSubmitting] = useState(false)
-  const [erro, setErro] = useState<string | null>(null)
   const [pricing, setPricing] = useState<ThinkzapPricingResponse | null>(null)
   const [pricingLoading, setPricingLoading] = useState(true)
   const [pricingErro, setPricingErro] = useState<string | null>(null)
@@ -108,13 +108,12 @@ export default function GestaoLinhas() {
 
   async function handleContinuar() {
     if (quantidade < 1) return
-    setErro(null)
 
     setSubmitting(true)
     try {
       const resolved = resolveThinkzapClient()
       if (!resolved.ok) {
-        setErro(resolved.message)
+        toast.error(resolved.message)
         return
       }
 
@@ -137,7 +136,7 @@ export default function GestaoLinhas() {
         }
       }
     } catch (e: unknown) {
-      setErro(
+      toast.error(
         thinkzapApiErrorMessage(e, 'Não foi possível atualizar a assinatura.'),
       )
     } finally {
@@ -148,57 +147,22 @@ export default function GestaoLinhas() {
     // router.push(`/checkout?quantity=${quantidade}`)
   }
 
-  async function handleActivateTrial() {
-    const resolved = resolveThinkzapClient()
-    if (!resolved.ok) {
-      setErro(resolved.message)
-      return
-    }
-
-    setErro(null)
-    try {
-      const data = await resolved.client.post<{ clientSecret?: string | null }>(
-        '/thinkzap/subscription/checkout',
-        {
-          quantity: 1,
-          mode: 'trial',
-          priceId: envConfig.priceCodes.ThinkzapConnectorsCode,
-        },
-      )
-
-      if (data.clientSecret) {
-        router.push(`/checkout?session_id=${data.clientSecret}`)
-      }
-    } catch (e: unknown) {
-      setErro(
-        thinkzapApiErrorMessage(
-          e,
-          'Não foi possível iniciar o trial. Tente novamente.',
-        ),
-      )
-    }
-  }
-
   async function handleConfirmTrial() {
     const resolved = resolveThinkzapClient()
     if (!resolved.ok) {
-      setErro(resolved.message)
+      toast.error(resolved.message)
       return
     }
 
-    setErro(null)
     setSubmitting(true)
     try {
       await resolved.client.post('/thinkzap/subscription/end-trial')
       await refreshSession()
+      toast.success('Assinatura efetivada.')
       router.push('/thinkzap/conexoes')
     } catch (e: unknown) {
-      setErro(
-        thinkzapApiErrorMessage(
-          e,
-          'Não foi possível efetivar a assinatura. Tente novamente.',
-        ),
-      )
+      console.error((e as Error).message)
+      toast.error(thinkzapApiErrorMessage(e, (e as Error).message))
     } finally {
       setSubmitting(false)
     }
@@ -207,11 +171,10 @@ export default function GestaoLinhas() {
   async function handleReactivateSubscription() {
     const resolved = resolveThinkzapClient()
     if (!resolved.ok) {
-      setErro(resolved.message)
+      toast.error(resolved.message)
       return
     }
 
-    setErro(null)
     setSubmitting(true)
     try {
       const data = await resolved.client.post<{ clientSecret?: string | null }>(
@@ -227,7 +190,7 @@ export default function GestaoLinhas() {
         router.push(`/checkout?session_id=${data.clientSecret}`)
       }
     } catch (e: unknown) {
-      setErro(
+      toast.error(
         thinkzapApiErrorMessage(
           e,
           'Não foi possível reativar a assinatura. Tente novamente.',
@@ -242,47 +205,43 @@ export default function GestaoLinhas() {
     <div className="space-y-8">
       <div className="border-t border-gray-200" />
 
-      <div className="space-y-4 rounded-lg border border-gray-100 bg-gray-50 p-5">
+      <div className="space-y-4">
         <GestaoLinhasStatusBanner
           isTrial={isTrial}
           isCancelled={isCancelled}
           hasSubscription={hasSubscription}
-          submitting={submitting}
-          onActivateTrial={() => void handleActivateTrial()}
-          onConfirmTrial={() => void handleConfirmTrial()}
         />
 
-        {
-          <GestaoLinhasPricingCard
-            erro={erro}
-            submitting={submitting}
-            quantidade={quantidade}
-            pricing={pricing}
-            pricingLoading={pricingLoading}
-            pricingErro={pricingErro}
-            linhasNaAssinatura={linhasNaAssinatura}
-            totalAposContratar={totalAposContratar}
-            linhasNaEstimativa={linhasNaEstimativa}
-            temAssinaturaAjustavel={temAssinaturaAjustavel}
-            isTrial={isTrial}
-            isCancelled={isCancelled}
-            onIncrement={handleIncrement}
-            onDecrement={handleDecrement}
-            onContinue={() => void handleContinuar()}
-            onConfirmTrial={() => void handleConfirmTrial()}
-            onReactivateSubscription={() => void handleReactivateSubscription()}
-          />
-        }
+        <GestaoLinhasPricingCard
+          submitting={submitting}
+          quantidade={quantidade}
+          pricing={pricing}
+          pricingLoading={pricingLoading}
+          pricingErro={pricingErro}
+          linhasNaAssinatura={linhasNaAssinatura}
+          totalAposContratar={totalAposContratar}
+          linhasNaEstimativa={linhasNaEstimativa}
+          temAssinaturaAjustavel={temAssinaturaAjustavel}
+          isTrial={isTrial}
+          isCancelled={isCancelled}
+          onIncrement={handleIncrement}
+          onDecrement={handleDecrement}
+          onContinue={() => void handleContinuar()}
+          onReactivateSubscription={() => void handleReactivateSubscription()}
+        />
       </div>
 
       <GestaoLinhasContratadas
+        isTrial={isTrial}
+        submitting={submitting}
+        onConfirmTrial={() => void handleConfirmTrial()}
         connectors={
           (session?.connectors ?? []) as Array<{
             id: string
             instance: {
               name?: string | null
               phoneNumber?: string | null
-              status?: string | null
+              paidStatus?: string | null
             }
           }>
         }

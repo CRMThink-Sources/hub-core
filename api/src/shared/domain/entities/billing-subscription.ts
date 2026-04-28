@@ -30,13 +30,12 @@ export function fromStripeStatus(stripeStatus: string): SubscriptionStatus {
   return map[stripeStatus] ?? SubscriptionStatus.INCOMPLETE
 }
 
-/** Permite aumentar quantidade na assinatura existente (Stripe + banco). */
+/** Permite aumentar quantidade na assinatura existente (Stripe + banco). Trial exige efetivar antes. */
 export function canAdjustSubscriptionQuantity(
   status: SubscriptionStatus,
 ): boolean {
   return (
     status === SubscriptionStatus.ACTIVE ||
-    status === SubscriptionStatus.TRIALING ||
     status === SubscriptionStatus.PAST_DUE
   )
 }
