@@ -18,6 +18,7 @@ import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/ge
 import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
 import { UpdateConnectorRepository } from '@/modules/thinkzap/domain/repositories/update-connector.repository'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
+import { syncThinkzapRobotConnectorOptions } from '@/modules/thinkzap/application/sync-robot-connectors'
 
 export class CancelConnectorController extends Controller {
   private readonly stripe: Stripe
@@ -152,6 +153,7 @@ export class CancelConnectorController extends Controller {
     // )
     await this.updateInstanceRepository.markAsDisconnected(instance.id)
     await this.updateConnectorRepository.markAsInactive(connector.id)
+    await syncThinkzapRobotConnectorOptions(app.id)
 
     return this.ok({
       message: 'Conector cancelado com sucesso.',

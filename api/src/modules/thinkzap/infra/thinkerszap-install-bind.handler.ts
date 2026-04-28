@@ -52,82 +52,64 @@ export class ThinkersZapInstallBindHandler implements BitrixInstallBindHandler {
       },
     })
 
-    binds.push({
-      method: 'placement.bind',
-      params: {
-        PLACEMENT: 'CRM_CONTACT_DETAIL_TAB',
-        HANDLER: env.bitrix.placement.url,
-        TITLE: env.bitrix.placement.name,
-        LANG_ALL: {
-          pt: {
-            TITLE: env.bitrix.placement.name,
-          },
-          en: {
-            TITLE: env.bitrix.placement.name,
-          },
-          es: {
-            TITLE: env.bitrix.placement.name,
+    const placements = [
+      'CRM_CONTACT_DETAIL_TAB',
+      'CRM_COMPANY_DETAIL_TAB',
+      'CRM_DEAL_DETAIL_TAB',
+      'CRM_LEAD_DETAIL_TAB',
+    ]
+
+    placements.forEach(placement => {
+      binds.push({
+        method: 'placement.bind',
+        params: {
+          PLACEMENT: placement,
+          HANDLER: env.bitrix.placement.url,
+          TITLE: env.bitrix.placement.name,
+          LANG_ALL: {
+            pt: {
+              TITLE: env.bitrix.placement.name,
+            },
+            en: {
+              TITLE: env.bitrix.placement.name,
+            },
+            es: {
+              TITLE: env.bitrix.placement.name,
+            },
           },
         },
-      },
+      })
     })
 
     binds.push({
-      method: 'placement.bind',
+      method: 'bizproc.robot.add',
       params: {
-        PLACEMENT: 'CRM_COMPANY_DETAIL_TAB',
-        HANDLER: env.bitrix.placement.url,
-        TITLE: env.bitrix.placement.name,
-        LANG_ALL: {
-          pt: {
-            TITLE: env.bitrix.placement.name,
+        CODE: env.bitrix.robot.code,
+        HANDLER: env.bitrix.robot.handlerUrl,
+        USE_SUBSCRIPTION: 'N',
+        NAME: env.bitrix.robot.name,
+        PROPERTIES: {
+          connector: {
+            Name: 'Connector',
+            Type: 'select',
+            Options: {},
           },
-          en: {
-            TITLE: env.bitrix.placement.name,
+          destination: {
+            Name: 'Destination',
+            Type: 'string',
           },
-          es: {
-            TITLE: env.bitrix.placement.name,
+          message: {
+            Name: 'Message',
+            Type: 'text',
           },
         },
-      },
-    })
-
-    binds.push({
-      method: 'placement.bind',
-      params: {
-        PLACEMENT: 'CRM_DEAL_DETAIL_TAB',
-        HANDLER: env.bitrix.placement.url,
-        TITLE: env.bitrix.placement.name,
-        LANG_ALL: {
-          pt: {
-            TITLE: env.bitrix.placement.name,
-          },
-          en: {
-            TITLE: env.bitrix.placement.name,
-          },
-          es: {
-            TITLE: env.bitrix.placement.name,
-          },
-        },
-      },
-    })
-
-    binds.push({
-      method: 'placement.bind',
-      params: {
-        PLACEMENT: 'CRM_LEAD_DETAIL_TAB',
-        HANDLER: env.bitrix.placement.url,
-        TITLE: env.bitrix.placement.name,
-        LANG_ALL: {
-          pt: {
-            TITLE: env.bitrix.placement.name,
-          },
-          en: {
-            TITLE: env.bitrix.placement.name,
-          },
-          es: {
-            TITLE: env.bitrix.placement.name,
-          },
+        FILTER: {
+          INCLUDE: [
+            ['crm', 'CCrmDocumentDeal'],
+            ['crm', 'CCrmDocumentLead'],
+            ['crm', 'CCrmDocumentCompany'],
+            ['crm', 'CCrmDocumentContact'],
+          ],
         },
       },
     })

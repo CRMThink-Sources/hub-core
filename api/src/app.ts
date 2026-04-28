@@ -17,6 +17,7 @@ import { makeCheckController } from './modules/thinkanalise/main/callbacks/make-
 import { makeTablesController } from './modules/thinkanalise/main/callbacks/make-tables-controller.js'
 import { makeDescribeController } from './modules/thinkanalise/main/callbacks/make-describe-controller.js'
 import { makeDataController } from './modules/thinkanalise/main/callbacks/make-data-controller.js'
+import { makeBitrixRobotWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-robot-webhook-controller.js'
 
 const app: Express = express()
 
@@ -51,6 +52,10 @@ app.post(
 app.post(
   '/api/webhooks/bitrix',
   adaptControllerFactory(makeBitrixWebhookHandlerController),
+)
+app.post(
+  '/api/thinkzap/webhooks/bitrix/robot',
+  adaptControllerFactory(makeBitrixRobotWebhookHandlerController),
 )
 
 app.get('/health', (_req, res) => {

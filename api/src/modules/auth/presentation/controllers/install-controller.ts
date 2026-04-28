@@ -10,6 +10,7 @@ import { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import z from 'zod'
 import { appIdResolver } from './helpers/app-id-resolver'
 import { GetOrCreateSpa } from '@/shared/application/get-or-create-spa'
+import { syncThinkzapRobotConnectorOptions } from '@/modules/thinkzap/application/sync-robot-connectors'
 
 export class InstallController extends Controller {
   constructor(
@@ -110,6 +111,8 @@ export class InstallController extends Controller {
       name: '',
       phone: '',
     })
+
+    await syncThinkzapRobotConnectorOptions(installedApp.appCodeId)
 
     return {
       result: {

@@ -6,36 +6,15 @@ type Props = {
   isTrial: boolean
   isCancelled: boolean
   hasSubscription: boolean
-  submitting: boolean
-  onActivateTrial: () => void
-  onConfirmTrial: () => void
 }
 
 export function GestaoLinhasStatusBanner({
   isTrial,
   isCancelled,
   hasSubscription,
-  submitting,
-  onActivateTrial,
-  onConfirmTrial,
 }: Props) {
   if (isTrial) {
-    return (
-      <div className="flex items-center justify-between">
-        <p>
-          Voce esta em periodo de trial. Caso queira contratar mais linhas,
-          efetive a assinatura.
-        </p>
-        <button
-          type="button"
-          onClick={onConfirmTrial}
-          disabled={submitting}
-          className="cursor-pointer rounded-md bg-yellow-500 px-5 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Efetivar assinatura
-        </button>
-      </div>
-    )
+    return null
   }
 
   if (!hasSubscription) {
@@ -43,7 +22,7 @@ export function GestaoLinhasStatusBanner({
       <div>
         <div className="flex items-center justify-between">
           <p>
-            Voce não possui uma assinatura. Ative o seu trial de 7 dias para
+            Você não possui uma assinatura. Ative o seu trial de 7 dias para{' '}
             testar o ThinkZap.
           </p>
           <Link
