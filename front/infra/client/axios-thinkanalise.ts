@@ -1,7 +1,9 @@
 import { envConfig } from '@/shared/infra/env-config'
 import axios from 'axios'
 
-export const axiosThinkanalise = (authTokenKey: string) => {
+export const AUTH_TOKEN_KEY = 'hubthink_auth_token'
+
+export const axiosThinkanalise = (authTokenKey = AUTH_TOKEN_KEY) => {
   const token = sessionStorage.getItem(authTokenKey)
   if (!token) {
     throw new Error('Token not found')
@@ -14,7 +16,15 @@ export const axiosThinkanalise = (authTokenKey: string) => {
     },
   })
   axiosInstance.interceptors.response.use(
-    response => response.data?.result ?? response.data,
+    response => {
+      const result = response.data?.result ?? response.data
+      if (result?.error) {
+        const description =
+          result.error.error_description ?? 'Erro desconhecido.'
+        return Promise.reject(new Error(description))
+      }
+      return result
+    },
     error =>
       Promise.reject(
         error instanceof Error ? error : new Error('Request failed'),

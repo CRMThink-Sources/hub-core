@@ -6,7 +6,7 @@ import type {
   Dataset,
   Source,
 } from '../../types/thinkanalise-types'
-import { ConfigCard } from './configcard'
+import { ConnectorCard } from './connector/connector-card'
 import { useSession } from '@/providers/session-provider'
 
 type BitrixConnector = {
@@ -100,7 +100,7 @@ export default function ConfiguracoesLayout() {
           </p>
         ) : (
           allConnections.map(c => (
-            <ConfigCard
+            <ConnectorCard
               key={c.id}
               connection={c}
               onChange={updateNewConnection}
