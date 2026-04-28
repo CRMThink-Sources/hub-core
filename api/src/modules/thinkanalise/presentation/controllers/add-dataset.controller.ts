@@ -43,10 +43,10 @@ export class AddDatasetController extends Controller {
 
     const payload = {
       sourceId,
-      name: `thinkanalise_${toDatasetName(body.name)}`,
+      name: `thinkhub_${toDatasetName(body.name)}`,
       description: body.description,
       externalCode: body.externalCode,
-      externalName: `[ThinkAnalise] ${body.externalName}`,
+      externalName: `[ThinkHub] ${body.externalName}`,
       fields,
     }
 

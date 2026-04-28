@@ -1,16 +1,17 @@
 'use client'
 
 import { useState } from 'react'
-import { PROVIDERS } from './constants'
+import { PROVIDERS } from '../constants'
+import { useSession } from '@/providers/session-provider'
 import type {
   Connection,
   Dataset,
   Source,
-} from '../../types/thinkanalise-types'
+} from '../../../types/thinkanalise-types'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
-import { SourceCard, NewSourceCard } from './source-card'
-
-const AUTH_TOKEN_KEY = 'hubthink_auth_token'
+import { SourceCard } from '../source/source-card'
+import { SourceForm } from '../source/source-form'
+import { toast } from 'sonner'
 
 type Props = {
   connection: Connection
@@ -24,7 +25,7 @@ type Props = {
   onDatasetsChanged?: () => Promise<void>
 }
 
-export function ConfigCard({
+export function ConnectorCard({
   connection,
   onChange,
   onSaved,
@@ -35,9 +36,14 @@ export function ConfigCard({
   datasets = [],
   onDatasetsChanged,
 }: Props) {
+  const { session } = useSession()
+  const isLocal = session?.app?.appCodeId?.startsWith('local') ?? false
+  const availableProviders = isLocal
+    ? PROVIDERS.filter(p => p.value === 'asaas')
+    : PROVIDERS
+
   const isSaved = !!connection.biconnectorId
 
-  // draft só existe para conectores salvos em modo edição
   const [draft, setDraft] = useState({ label: connection.label })
   const [isEditing, setIsEditing] = useState(false)
 
@@ -46,7 +52,6 @@ export function ConfigCard({
   const [expanded, setExpanded] = useState(!isSaved)
   const [addingSource, setAddingSource] = useState(false)
 
-  // Para novos conectores: atualiza o estado do pai normalmente
   function updateNew(patch: Partial<Connection>) {
     onChange({ ...connection, ...patch })
   }
@@ -67,7 +72,7 @@ export function ConfigCard({
   async function handleSave() {
     setSaving(true)
     try {
-      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
+      const client = axiosThinkanalise()
       if (isSaved) {
         await client.put(
           `/thinkanalise/connector/${connection.biconnectorId}`,
@@ -76,6 +81,7 @@ export function ConfigCard({
           },
         )
         await onSaved(connection.id)
+        toast.success('Conector atualizado com sucesso.')
       } else {
         if (!connection.label) return
         await client.post('/thinkanalise/connector', {
@@ -83,8 +89,10 @@ export function ConfigCard({
           provider: connection.provider,
         })
         await onSaved(connection.id)
+        toast.success('Conector criado com sucesso.')
       }
     } catch {
+      toast.error('Erro ao salvar o conector.')
       if (!isSaved) onChange({ ...connection, status: 'erro' })
     } finally {
       setSaving(false)
@@ -98,9 +106,10 @@ export function ConfigCard({
     }
     setDeleting(true)
     try {
-      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
+      const client = axiosThinkanalise()
       await client.delete(`/thinkanalise/connector/${connection.biconnectorId}`)
       await onDeleted()
+      toast.success('Conector removido.')
     } catch {
       await onDeleted()
     } finally {
@@ -211,7 +220,7 @@ export function ConfigCard({
                            focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
                            hover:border-[#223f6e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {PROVIDERS.map(p => (
+                {availableProviders.map(p => (
                   <option key={p.value} value={p.value} disabled={p.disabled}>
                     {p.label}
                   </option>
@@ -257,7 +266,7 @@ export function ConfigCard({
               ))}
 
               {addingSource && (
-                <NewSourceCard
+                <SourceForm
                   connectorId={connection.biconnectorId!}
                   provider={connection.provider}
                   onSaved={async () => {

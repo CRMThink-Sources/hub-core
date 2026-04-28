@@ -30,9 +30,6 @@ export class AddBiconnectorController extends Controller {
 
   async perform(req: Request, _res: Response): Promise<httpResponse> {
     const { label, provider } = addBiconnectorSchema.parse(req.body)
-    // const url = env.apiUrl
-    // url hardcoded para cortornar erro inicial, validar motivo de em producao retornar undefined
-    console.log({ env })
     const url = env.apiUrl
 
     const appCodeId = req.appId
@@ -48,9 +45,9 @@ export class AddBiconnectorController extends Controller {
     }
 
     const params: CreateBiConnectorParams = {
-      title: `[ThinkAnalise] ${label}`,
+      title: `[Think Hub] ${label}`,
       logo: 'https://cdn-icons-png.flaticon.com/512/2329/2329087.png',
-      description: `Conector ThinkAnalise — integração com ${providerDescription[provider] ?? provider}`,
+      description: `Conector Think Hub — integração com ${providerDescription[provider] ?? provider}`,
       urlCheck: `${url}/thinkanalise/check`,
       urlData: `${url}/thinkanalise/data`,
       urlTableList: `${url}/thinkanalise/tables`,
