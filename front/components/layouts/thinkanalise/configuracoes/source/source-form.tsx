@@ -102,8 +102,14 @@ export function SourceForm({
           {testStatus === 'ok' && (
             <span className="flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <circle cx="6" cy="6" r="6" fill="#10b981" fillOpacity="0.15"/>
-                <path d="M3.5 6l1.8 1.8L8.5 4.5" stroke="#059669" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="6" cy="6" r="6" fill="#10b981" fillOpacity="0.15" />
+                <path
+                  d="M3.5 6l1.8 1.8L8.5 4.5"
+                  stroke="#059669"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
               conexão autenticada
             </span>
@@ -111,8 +117,13 @@ export function SourceForm({
           {testStatus === 'erro' && (
             <span className="flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-md bg-red-50 border border-red-200 text-red-600 font-semibold">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <circle cx="6" cy="6" r="6" fill="#ef4444" fillOpacity="0.15"/>
-                <path d="M4 4l4 4M8 4l-4 4" stroke="#dc2626" strokeWidth="1.4" strokeLinecap="round"/>
+                <circle cx="6" cy="6" r="6" fill="#ef4444" fillOpacity="0.15" />
+                <path
+                  d="M4 4l4 4M8 4l-4 4"
+                  stroke="#dc2626"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
               </svg>
               api key inválida
             </span>
