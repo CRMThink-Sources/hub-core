@@ -56,9 +56,19 @@ export class EndTrialSubscriptionController extends Controller {
       )
     }
 
-    await this.stripe.subscriptions.update(billing.stripeSubscriptionId, {
-      trial_end: 'now',
-    })
+    try {
+      await this.stripe.subscriptions.update(billing.stripeSubscriptionId, {
+        trial_end: 'now',
+      })
+    } catch (error) {
+      console.error((error as Error).message)
+      const message = (error as Error).message.includes(
+        'has no attached payment',
+      )
+        ? 'Subscription has no attached payment method. Please add a payment method to your account in the billing portal.'
+        : 'Error activating trial.'
+      return this.badRequest(new Error(message))
+    }
 
     const updated = await this.stripe.subscriptions.retrieve(
       billing.stripeSubscriptionId,
