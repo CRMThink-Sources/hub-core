@@ -20,8 +20,16 @@ import { GetSpaRepository } from '@/shared/domain/repositories/spa/get-spa.repos
 import { UpdateSpaRepository } from '@/shared/domain/repositories/spa/update-spa.repository'
 import { STATUS_OPTIONS } from '@/shared/domain/config/bitrix.env'
 
+interface IStripeMetadata {
+  domainId: string
+  appId: string
+  quantity: string
+  trial_sub?: string | null
+}
+
 export class CheckoutSessionCompletedHandler implements StripeEventHandler {
   eventType = 'checkout.session.completed'
+  private readonly stripe: Stripe = new Stripe(env.stripe.secretKey)
 
   constructor(
     private readonly getApp: GetInstalledAppRepository,
@@ -33,11 +41,8 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
 
   async handle(event: Stripe.Event): Promise<void> {
     const session = event.data.object as Stripe.Checkout.Session
-    const { domainId, appId, quantity } = session.metadata as {
-      domainId: string
-      appId: string
-      quantity: string
-    }
+    const metadata = session.metadata as unknown as IStripeMetadata
+    const { domainId, appId, quantity } = metadata
 
     const domain = await this.getDomainRepository.getDomainById(domainId)
     if (!domain) throw new Error('Domain not found')
@@ -47,6 +52,45 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
       domainId,
     )
     if (!installedApp) throw new Error('App not found')
+
+    const spa = await this.spaRepository.get({
+      appId: installedApp.appCodeId,
+      domain: domain.name,
+    })
+
+    if (spa) {
+      await this.spaRepository.update({
+        appId: installedApp.appCodeId,
+        domain: domain.name,
+        status: 'active',
+      })
+    }
+
+    if (metadata.trial_sub) {
+      const billing =
+        await this.provisionDeps.billingSubscriptionRepo.getByStripeSubscriptionId(
+          metadata.trial_sub,
+        )
+
+      if (billing) {
+        await this.provisionDeps.billingSubscriptionRepo.update(billing.id, {
+          status: SubscriptionStatus.ACTIVE,
+          stripeSubscriptionId: session.subscription as string,
+        })
+      }
+
+      await provisionMissingConnectorsForApp(
+        this.provisionDeps,
+        installedApp.id,
+        1,
+        { isTrialing: false },
+      )
+
+      await this.stripe.subscriptions.update(metadata.trial_sub, {
+        trial_end: 'now',
+      })
+      return
+    }
 
     const stripeSubscriptionId = session.subscription as string | null
     let slots = Math.max(1, Math.floor(Number(quantity ?? 1)))
@@ -63,13 +107,6 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
         slots = Math.min(slots, THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS)
       }
     }
-
-    await provisionMissingConnectorsForApp(
-      this.provisionDeps,
-      installedApp.id,
-      slots,
-      { isTrialing: subscriptionObj?.status === 'trialing' },
-    )
 
     if (stripeSubscriptionId && subscriptionObj) {
       const priceId = env.thinkzapStripePriceId
@@ -88,19 +125,6 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
         trialEndsAt: subscriptionObj.trial_end
           ? new Date(subscriptionObj.trial_end * 1000)
           : null,
-      })
-    }
-
-    const spa = await this.spaRepository.get({
-      appId: installedApp.appCodeId,
-      domain: domain.name,
-    })
-
-    if (spa) {
-      await this.spaRepository.update({
-        appId: installedApp.appCodeId,
-        domain: domain.name,
-        status: 'active',
       })
     }
   }
