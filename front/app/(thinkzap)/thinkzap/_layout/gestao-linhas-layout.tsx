@@ -156,10 +156,19 @@ export default function GestaoLinhas() {
 
     setSubmitting(true)
     try {
-      await resolved.client.post('/thinkzap/subscription/end-trial')
-      await refreshSession()
-      toast.success('Assinatura efetivada.')
-      router.push('/thinkzap/conexoes')
+      const data = await resolved.client.post<{ sessionId?: string | null }>(
+        '/thinkzap/subscription/end-trial',
+        {
+          priceId: envConfig.priceCodes.ThinkzapConnectorsCode,
+        },
+      )
+      console.log('data:', data)
+      if (data.sessionId) {
+        router.push(`/checkout?session_id=${data.sessionId}`)
+      }
+      // await refreshSession()
+      // toast.success('Assinatura efetivada.')
+      // router.push('/thinkzap/conexoes')
     } catch (e: unknown) {
       console.error((e as Error).message)
       toast.error(thinkzapApiErrorMessage(e, (e as Error).message))

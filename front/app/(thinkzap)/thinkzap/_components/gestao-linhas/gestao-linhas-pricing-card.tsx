@@ -76,6 +76,9 @@ export function GestaoLinhasPricingCard({
   )
   const totalEstimado = computeEstimateAmount(pricing, linhasNaEstimativa)
 
+  const portalClassname =
+    'border border-orange-400 text-orange-500 px-4 text-sm py-2 rounded-md hover:bg-orange-500 transition-colors duration-300 hover:text-white'
+
   useEffect(() => {
     const fetchBillingPortalUrl = async () => {
       try {
@@ -94,9 +97,6 @@ export function GestaoLinhasPricingCard({
     void fetchBillingPortalUrl()
   }, [])
 
-  const portalClassName =
-    'inline-flex cursor-pointer items-center justify-center rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-50'
-
   if (isTrial) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
@@ -104,28 +104,8 @@ export function GestaoLinhasPricingCard({
           Pagamento e faturas
         </h3>
         <p className="mt-2 text-sm text-gray-600">
-          Para adicionar mais linhas, efetive sua assinatura. Para efetivar a
-          assinatura, é necessário adicionar um método de pagamento no portal de
-          cobrança.
+          Para adicionar mais linhas, efetive sua assinatura.
         </p>
-        {hasSubscription ? (
-          <div className="mt-4">
-            {billingPortalUrl ? (
-              <Link
-                href={billingPortalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={portalClassName}
-              >
-                Portal de cobrança
-              </Link>
-            ) : (
-              <p className="text-xs text-gray-500">
-                Preparando link do portal…
-              </p>
-            )}
-          </div>
-        ) : null}
       </div>
     )
   }
@@ -226,7 +206,7 @@ export function GestaoLinhasPricingCard({
               type="button"
               onClick={onReactivateSubscription}
               disabled={submitting}
-              className="cursor-pointer rounded-md bg-gray-200 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+              className="cursor-pointer rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Reativar assinatura
             </button>
@@ -237,9 +217,9 @@ export function GestaoLinhasPricingCard({
               href={billingPortalUrl ?? ''}
               target="_blank"
               rel="noopener noreferrer"
-              className={portalClassName}
+              className={portalClassname}
             >
-              Portal de cobrança
+              Alterar método de pagamento
             </Link>
           )}
         </div>
