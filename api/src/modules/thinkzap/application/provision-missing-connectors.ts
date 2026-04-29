@@ -37,7 +37,7 @@ export async function provisionMissingConnectorsForApp(
     : requestedTarget
 
   const list = await deps.listConnectors.listConnectors(appId, true)
-  await syncThinkzapRobotConnectorOptions(appId)
+
   if (!isTrialing) {
     for (const connector of list) {
       const instance = connector.instance
