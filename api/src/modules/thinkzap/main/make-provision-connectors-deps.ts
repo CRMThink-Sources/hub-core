@@ -7,10 +7,12 @@ import { MockZApiInstanceGateway } from '../infra/persistence/gateway/mock-insta
 import { PrismaInstanceRepository } from '../infra/persistence/repositories/prisma-instance.repository'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
+import { PrismaBillingSubscriptionRepository } from '@/shared/infra/persistence/repositories/prisma-billing-subscription.repository'
 
 export function makeProvisionMissingConnectorsDeps(): ProvisionMissingConnectorsDeps {
   const zApiClient = new ZApiClient(env.zApi.partnerToken)
   const connectorRepo = new PrismaConnectorRepository()
+  const billingSubscriptionRepo = new PrismaBillingSubscriptionRepository()
   const instanceGateway = env.thinkzapMockZApiProvisioning
     ? new MockZApiInstanceGateway()
     : new ZApiInstanceGateway(zApiClient)
@@ -28,5 +30,6 @@ export function makeProvisionMissingConnectorsDeps(): ProvisionMissingConnectors
     createInstanceRepo: new PrismaInstanceRepository(),
     getApp: new PrismaInstalledAppRepository(),
     getDomainRepository: new PrismaDomainRepository(),
+    billingSubscriptionRepo,
   }
 }

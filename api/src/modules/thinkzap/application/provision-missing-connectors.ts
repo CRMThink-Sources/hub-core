@@ -10,6 +10,8 @@ import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-dom
 import { THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS } from '@/modules/thinkzap/domain/trial-connector-limit'
 import { UpdateInstanceGateway } from '../domain/repositories/update-instance.gateway'
 import { syncThinkzapRobotConnectorOptions } from './sync-robot-connectors'
+import { GetBillingSubscriptionRepository } from '@/shared/domain/repositories/billing-subscription/get-billing-subscription.repository'
+import { UpdateBillingSubscriptionRepository } from '@/shared/domain/repositories/billing-subscription/update-billing-subscription.repository'
 
 export type ProvisionMissingConnectorsDeps = {
   createConnectorRepo: CreateConnectorRepository
@@ -18,13 +20,10 @@ export type ProvisionMissingConnectorsDeps = {
   getApp: GetInstalledAppRepository
   getDomainRepository: GetDomainRepository
   listConnectors: ListConnectorsRepository
+  billingSubscriptionRepo: GetBillingSubscriptionRepository &
+    UpdateBillingSubscriptionRepository
 }
 
-/**
- * Garante que existam instâncias Z-API + registros de conector no banco até o limite
- * `targetConnectorSlots` (quantidade contratada na assinatura).
- * Em trial (`isTrialing`), não ultrapassa {@link THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS}.
- */
 export async function provisionMissingConnectorsForApp(
   deps: ProvisionMissingConnectorsDeps,
   appId: string,

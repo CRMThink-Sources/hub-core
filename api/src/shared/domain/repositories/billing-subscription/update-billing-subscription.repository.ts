@@ -12,4 +12,8 @@ export interface UpdateBillingSubscriptionRepository {
       connectorQuantity: number
     },
   ): Promise<BillingSubscription>
+  update(
+    id: string,
+    data: Partial<BillingSubscription>,
+  ): Promise<BillingSubscription>
 }

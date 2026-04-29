@@ -77,6 +77,17 @@ export class PrismaBillingSubscriptionRepository
     return this.toEntity(record)
   }
 
+  async update(
+    id: string,
+    data: Partial<BillingSubscription>,
+  ): Promise<BillingSubscription> {
+    const record = await prisma.billingSubscription.update({
+      where: { id },
+      data,
+    })
+    return this.toEntity(record)
+  }
+
   private toEntity(record: PrismaRecord): BillingSubscription {
     return {
       id: record.id,

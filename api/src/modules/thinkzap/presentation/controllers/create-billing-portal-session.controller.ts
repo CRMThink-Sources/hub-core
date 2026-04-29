@@ -55,6 +55,15 @@ export class CreateBillingPortalSessionController extends Controller {
     const portal = await this.stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: `${baseUrl}/thinkzap/financeiro`,
+      flow_data: {
+        type: 'payment_method_update',
+      },
+      // flow_data: {
+      //   type: 'subscription_cancel',
+      //   subscription_cancel: {
+      //     subscription: subscription.id,
+      //   },
+      // },
     })
 
     return this.ok({ url: portal.url })
