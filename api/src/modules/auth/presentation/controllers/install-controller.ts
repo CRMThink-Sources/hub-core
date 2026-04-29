@@ -102,6 +102,10 @@ export class InstallController extends Controller {
     }
 
     await bitrixInstallBindRegistry.runOnInstall(appId, bitrixClient)
+    console.log('appId', appId)
+    if (appId === 'crmthink.thinkzap') {
+      await syncThinkzapRobotConnectorOptions(installedApp.id)
+    }
     await this.getOrCreateSpa.execute({
       appId: installedApp.appCodeId,
       domain: domain,
@@ -111,8 +115,6 @@ export class InstallController extends Controller {
       name: '',
       phone: '',
     })
-
-    await syncThinkzapRobotConnectorOptions(installedApp.appCodeId)
 
     return {
       result: {
