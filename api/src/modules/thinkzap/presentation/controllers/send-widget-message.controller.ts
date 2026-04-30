@@ -10,6 +10,8 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
 import z from 'zod'
+import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { SendNotification } from '@/shared/data/contracts/send-notification'
 
 const attachmentSchema = z.object({
   kind: z.enum(['image', 'video', 'audio', 'file']),
@@ -22,6 +24,7 @@ export class SendWidgetMessageController extends Controller {
     private readonly getConnectorRepository: GetConnectorRepository,
     private readonly getInstanceRepository: GetInstanceRepository,
     private readonly zApiClient: ZApiClient,
+    private readonly sendBitrixNotification: SendNotification,
   ) {
     super()
   }
@@ -33,6 +36,8 @@ export class SendWidgetMessageController extends Controller {
         destination: z.string().min(1),
         message: z.string().trim().min(1).optional(),
         attachments: z.array(attachmentSchema).optional(),
+        entity: z.string().min(1),
+        entityId: z.string().min(1),
       })
       .safeParse(req.body)
 
@@ -42,7 +47,14 @@ export class SendWidgetMessageController extends Controller {
       )
     }
 
-    const { connectorId, destination, message, attachments = [] } = parsed.data
+    const {
+      connectorId,
+      destination,
+      message,
+      attachments = [],
+      entity,
+      entityId,
+    } = parsed.data
     if (!message && attachments.length === 0) {
       return this.badRequest(
         new Error('Message or at least one attachment is required'),
@@ -63,6 +75,10 @@ export class SendWidgetMessageController extends Controller {
     if (!instance.zApiToken) {
       return this.badRequest(new Error('Instance token not found'))
     }
+    const phoneData = await this.zApiClient.getPhoneData(
+      instance.instanceId,
+      instance.zApiToken,
+    )
 
     const normalizedPhone = normalizePhoneNumber(destination)
     if (!isValidZApiPhoneNumber(normalizedPhone)) {
@@ -125,6 +141,12 @@ export class SendWidgetMessageController extends Controller {
       )
       sentMessageIds.push(result.messageId)
     }
+
+    await this.sendBitrixNotification.execute({
+      contextId: entityId,
+      entity,
+      message: `De: ${phoneData?.phone ?? ''}\nPara: ${destination}\nMensagem: ${message?.trim() || ''}`,
+    })
 
     return this.ok({
       message: 'Message sent successfully',

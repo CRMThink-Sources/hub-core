@@ -20,8 +20,6 @@ export class ListOpenChannelsController extends Controller {
       total: openChannels.result.length,
     }
 
-    // console.log('params enviados ao front:', params)
-
     return this.ok(params)
   }
 }
