@@ -37,8 +37,9 @@ export function ConnectorCard({
   onDatasetsChanged,
 }: Props) {
   const { session } = useSession()
-  const isLocal = session?.app?.appCodeId?.startsWith('local') ?? false
-  const availableProviders = isLocal
+  const BLOCKED_DOMAIN_ID = '9c8d9dca-db2d-4978-93ca-fc28ba6017d7' // domainId do cliente https://bmd.bitrix24.com.br/
+  const isBlocked = session?.app?.domainId === BLOCKED_DOMAIN_ID // bloquando para o cliente apenas usar connectores asaas
+  const availableProviders = isBlocked
     ? PROVIDERS.filter(p => p.value === 'asaas')
     : PROVIDERS
 

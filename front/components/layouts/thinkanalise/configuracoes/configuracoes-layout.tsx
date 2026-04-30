@@ -73,7 +73,7 @@ export default function ConfiguracoesLayout() {
   return (
     <div className="w-full flex flex-col pt-20 px-6 space-y-4">
       {/* header */}
-      <div className="flex items-center justify-between w-full max-w-3xl bg-white p-6 rounded-xl border border-[#e5e7eb]">
+      <div className="flex items-center justify-between w-full max-w-3xl mx-auto bg-white p-6 rounded-xl border border-[#e5e7eb]">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Configurações</h1>
           <h2 className="text-sm text-gray-400 mt-1">
@@ -93,7 +93,7 @@ export default function ConfiguracoesLayout() {
       </div>
 
       {/* lista */}
-      <div className="w-full max-w-3xl flex flex-col gap-4">
+      <div className="w-full max-w-3xl mx-auto flex flex-col gap-4">
         {allConnections.length === 0 ? (
           <p className="text-sm text-gray-400 font-mono px-1">
             nenhuma conexão ainda.
