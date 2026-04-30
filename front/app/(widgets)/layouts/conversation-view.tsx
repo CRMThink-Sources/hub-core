@@ -81,7 +81,7 @@ const fileToBase64DataUrl = (file: File): Promise<string> => {
 
 const PLACEMENT_TO_ENTITY = {
   CRM_DEAL_DETAIL_TAB: 'deal',
-  CRM_CONTA_DETAIL_TAB: 'contact',
+  CRM_CONTACT_DETAIL_TAB: 'contact',
   CRM_COMPANY_DETAIL_TAB: 'company',
   CRM_LEAD_DETAIL_TAB: 'lead',
 }
