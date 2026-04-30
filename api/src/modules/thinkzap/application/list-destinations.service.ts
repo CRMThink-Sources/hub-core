@@ -48,7 +48,7 @@ export class ListDestinationsService {
 
     const destinations: Destination[] = []
     const ids = this.getRelatedDestinationIds(input.placement, entity)
-
+    console.log({ ids })
     for (const id of ids) {
       try {
         const {
@@ -90,6 +90,7 @@ export class ListDestinationsService {
   }
 
   private getDealDestinations(entity: Record<string, unknown>): EntityId[] {
+    console.log(this.getEntityId(entity, 'companyId', 4))
     return [
       this.getEntityId(entity, 'companyId', 4),
       this.getEntityId(entity, 'contactId', 3),
@@ -109,8 +110,9 @@ export class ListDestinationsService {
     key: string,
     entityTypeId: EntityTypeId,
   ): EntityId | null {
-    const value = entity[key]
-    if (typeof value !== 'string' || value.length === 0) return null
+    let value: string | number | null = entity[key] as string | number | null
+    if (typeof value === 'number') value = value.toString()
+    if (!value) return null
     return { entityTypeId, id: value }
   }
 
