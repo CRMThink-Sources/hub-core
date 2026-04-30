@@ -42,9 +42,10 @@ app.post(
   adaptControllerFactory(makeStripeWebhookHandlerController),
 )
 
-// JSON parser para as demais rotas (incluindo z-api webhook)
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+// JSON parser para as demais rotas (incluindo z-api webhook).
+// O widget envia anexos em base64 e pode ultrapassar o limite default do Express (~100kb).
+app.use(express.json({ limit: '30mb' }))
+app.use(express.urlencoded({ extended: true, limit: '30mb' }))
 app.post(
   '/api/webhooks/z-api',
   adaptControllerFactory(makeZApiWebhookHandlerController),
