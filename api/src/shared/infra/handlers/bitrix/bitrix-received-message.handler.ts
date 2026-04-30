@@ -18,8 +18,9 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
 
   async handle(event: IBX24MessageEvent): Promise<void> {
     if (!event.data.MESSAGES.length) return
+    console.log({ event })
     const message = event.data.MESSAGES[0]
-
+    console.log({ message })
     const messages = []
     if (message?.message.text) {
       messages.push({
@@ -27,6 +28,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
         text: message.message.text,
       })
     } else if (message?.message.files) {
+      console.log({ files: message.message.files })
       for (const file of message.message.files) {
         const type = file.name.includes('audio-') ? 'audio' : file.type
         messages.push({
@@ -149,6 +151,29 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
               im: message?.im,
               message: {
                 id: sendAudioResult.messageId,
+              },
+              chat: {
+                id: chatLid,
+              },
+            },
+          ],
+        })
+      } else if (messageData.type === 'file') {
+        const sendFileResult = await zApiClient.sendDocument(
+          context.instance.instanceId,
+          context.instance.zApiToken || '',
+          messageData.link || '',
+          phoneNumber,
+          messageData.name || '',
+        )
+        await bitrixClient.setMessageDelivered({
+          CONNECTOR: env.bitrix.connector.code,
+          LINE: event.data.LINE,
+          MESSAGES: [
+            {
+              im: message?.im,
+              message: {
+                id: sendFileResult.messageId,
               },
               chat: {
                 id: chatLid,
