@@ -358,7 +358,7 @@ export const ConversationView = () => {
             </label>
 
             <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 p-4">
-              {/* <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-medium text-slate-800">
                     Anexos de midia e arquivos
@@ -370,9 +370,9 @@ export const ConversationView = () => {
                 <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
                   {attachments.length} selecionado(s)
                 </span>
-              </div> */}
+              </div>
 
-              {/* <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => imageInputRef.current?.click()}
@@ -394,7 +394,7 @@ export const ConversationView = () => {
                 >
                   Arquivo
                 </button>
-              </div> */}
+              </div>
 
               <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
