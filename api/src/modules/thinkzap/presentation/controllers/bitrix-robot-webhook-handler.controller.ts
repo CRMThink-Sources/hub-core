@@ -7,6 +7,7 @@ import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/g
 import { GetInstanceRepository } from '../../domain/repositories/get-instance.repository'
 import { ZApiClient } from '../../infra/clients/z-api.client'
 import { env } from '@/config/env'
+import { SendNotification } from '@/shared/data/contracts/send-notification'
 
 export class BitrixRobotWebhookHandlerController extends Controller {
   private readonly zApiClient: ZApiClient = new ZApiClient(
@@ -18,6 +19,7 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     private readonly getApp: GetInstalledAppRepository,
     private readonly getConnector: GetConnectorRepository,
     private readonly getInstance: GetInstanceRepository,
+    private readonly sendNotification: SendNotification,
   ) {
     super()
   }
@@ -48,6 +50,11 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       return this.notFound(new Error('Instance not found'))
     }
 
+    const phoneData = await this.zApiClient.getPhoneData(
+      instance.instanceId,
+      instance.zApiToken || '',
+    )
+
     await this.zApiClient.sendMessage(
       instance.instanceId,
       instance.zApiToken || '',
@@ -55,7 +62,24 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       data.properties.destination,
     )
 
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    if (!phoneData) {
+      return this.badRequest(new Error('Phone not found'))
+    }
+
+    const documentId = data.document_id[2]
+    if (!documentId) {
+      return this.badRequest(new Error('Document ID not found'))
+    }
+    const [entity, entityId] = documentId.split('_')
+    if (!entityId || !entity) {
+      return this.badRequest(new Error('Entity ID or entity not found'))
+    }
+    await this.sendNotification.execute({
+      contextId: entityId,
+      entity: entity,
+      message: `De: ${phoneData.phone}\nPara: ${data.properties.destination}\nMensagem: ${data.properties.message}`,
+    })
+
     return this.ok({ received: true })
   }
 }
