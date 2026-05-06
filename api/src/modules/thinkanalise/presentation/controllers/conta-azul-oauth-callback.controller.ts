@@ -53,7 +53,9 @@ export class ContaAzulOAuthCallbackController extends Controller {
         accessToken: tokens.accessToken,
         expiresIn: tokens.expiresIn,
         accountId: tokens.accountId,
-        ...(payload.sourceId !== undefined && { bitrixSourceId: payload.sourceId }),
+        ...(payload.sourceId !== undefined && {
+          bitrixSourceId: payload.sourceId,
+        }),
       })
 
       const bitrix = (await makeBitrixClientByAppId(

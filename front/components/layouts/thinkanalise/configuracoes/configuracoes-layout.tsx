@@ -25,7 +25,9 @@ export default function ConfiguracoesLayout() {
 
   const [newConnections, setNewConnections] = useState<Connection[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(new Set())
+  const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(
+    new Set(),
+  )
   const initializedProviders = useRef(false)
 
   function toggleProvider(provider: string) {
@@ -94,7 +96,12 @@ export default function ConfiguracoesLayout() {
   function addConnection() {
     const newId = crypto.randomUUID()
     setNewConnections(prev => [
-      { id: newId, provider: 'asaas' as const, label: '', status: 'pendente' as const },
+      {
+        id: newId,
+        provider: 'asaas' as const,
+        label: '',
+        status: 'pendente' as const,
+      },
       ...prev,
     ])
     setExpandedId(newId)
@@ -228,7 +235,13 @@ export default function ConfiguracoesLayout() {
                   fill="none"
                   className={`text-gray-300 group-hover:text-[#223f6e] transition-all ${isCollapsed ? '-rotate-90' : ''}`}
                 >
-                  <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M2 4l4 4 4-4"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
               {!isCollapsed && (
