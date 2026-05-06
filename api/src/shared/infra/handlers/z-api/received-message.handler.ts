@@ -8,12 +8,16 @@ import { PrismaInstalledAppRepository } from '../../persistence/repositories/pri
 import { PrismaCredentialRepository } from '../../persistence/repositories/prisma-credential.repository'
 import { createChatId } from '@/shared/helpers/chat-id'
 import { env } from '@/config/env'
+import { Domain, Instance } from '@/prisma/client'
+import { Connector } from '@/modules/thinkzap/domain/entities/connector'
+import { Credential } from '@/shared/domain/entities/credential'
+import { InstalledApp } from '@/shared/domain/entities/installed-app'
 
 export class ReceivedMessageHandler implements ZApiEventHandler {
   eventType = 'ReceivedCallback'
 
   async handle(event: ReceivedMessageEvent): Promise<void> {
-    if (this.checkIfMessageIsFromGroupOrNewsletter(event)) return
+    // if (this.checkIfMessageIsFromGroupOrNewsletter(event)) return
     const connectorRepo = new PrismaConnectorRepository()
     const instanceRepo = new PrismaInstanceRepository()
 
@@ -51,6 +55,7 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
       bitrixCredential: credential,
       domain: domain?.name,
     })
+
     const chatId = createChatId(event.chatLid || '', event.phone)
 
     const files = event.image
@@ -82,7 +87,7 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
       MESSAGES: [
         {
           chat: {
-            id: chatId,
+            id: event.phone,
             name: event.chatName,
           },
           user: {
@@ -108,6 +113,17 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
       ],
     }
 
+    if (event.isGroup) {
+      await this.sendMessageFromGroup(
+        event,
+        domain,
+        credential,
+        instance,
+        files,
+      )
+      return
+    }
+
     await bitrixClient.sendMessage(params)
   }
 
@@ -115,5 +131,54 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
     event: ReceivedMessageEvent,
   ): boolean {
     return event.isGroup || event.isNewsletter
+  }
+
+  private async sendMessageFromGroup(
+    event: ReceivedMessageEvent,
+    domain: Domain,
+    credential: Credential,
+    instance: Instance,
+    files?: { url: string; name: string }[],
+  ): Promise<void> {
+    console.log('sendMessageFromGroup', event)
+
+    const params: ISendMessageData = {
+      CONNECTOR: env.bitrix.connector.code,
+      LINE: Number(instance.vinculatedChannel),
+      MESSAGES: [
+        {
+          chat: {
+            id: event.phone,
+            name: event.chatName,
+          },
+          user: {
+            id: event.phone,
+            name: event.chatName,
+            last_name: '',
+            phone: event.phone,
+            picture: {
+              url: event.photo,
+            },
+          },
+          message: {
+            id: event.messageId,
+            date: new Date(event.momment).toISOString(),
+            text:
+              '[b]' +
+              event.senderName +
+              // event.participantPhone +
+              '[/b]:\n' +
+              (event.text?.message ?? ''),
+            files,
+          },
+        },
+      ],
+    }
+    const bitrixClient = new BitrixClient({
+      bitrixCredential: credential,
+      domain: domain?.name,
+    })
+
+    await bitrixClient.sendMessage(params)
   }
 }

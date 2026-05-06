@@ -18,9 +18,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
 
   async handle(event: IBX24MessageEvent): Promise<void> {
     if (!event.data.MESSAGES.length) return
-    console.log({ event })
     const message = event.data.MESSAGES[0]
-    console.log({ message })
     const messages = []
     if (message?.message.text) {
       messages.push({
@@ -28,7 +26,6 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
         text: message.message.text,
       })
     } else if (message?.message.files) {
-      console.log({ files: message.message.files })
       for (const file of message.message.files) {
         const type = file.name.includes('audio-') ? 'audio' : file.type
         messages.push({
@@ -60,14 +57,15 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
       env.zApi.clientToken,
     )
 
-    const { chatLid, phoneNumber } = destructureChatId(message?.chat.id || '')
+    const chatId = message?.chat.id as string
+
     for (const messageData of messages) {
       if (messageData.type === 'text') {
         const sendMessageResult = await zApiClient.sendMessage(
           context.instance.instanceId,
           context.instance.zApiToken || '',
           messageData.text || '',
-          phoneNumber,
+          chatId, //phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
           CONNECTOR: env.bitrix.connector.code,
@@ -79,7 +77,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
                 id: sendMessageResult.messageId,
               },
               chat: {
-                id: chatLid,
+                id: chatId,
               },
             },
           ],
@@ -89,7 +87,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           context.instance.instanceId,
           context.instance.zApiToken || '',
           messageData.link || '',
-          phoneNumber,
+          chatId, //phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
           CONNECTOR: env.bitrix.connector.code,
@@ -101,7 +99,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
                 id: sendImageResult.messageId,
               },
               chat: {
-                id: chatLid,
+                id: chatId,
               },
             },
           ],
@@ -111,7 +109,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           context.instance.instanceId,
           context.instance.zApiToken || '',
           messageData.link || '',
-          phoneNumber,
+          chatId, //phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
           CONNECTOR: env.bitrix.connector.code,
@@ -123,7 +121,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
                 id: sendVideoResult.messageId,
               },
               chat: {
-                id: chatLid,
+                id: chatId,
               },
             },
           ],
@@ -141,7 +139,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           context.instance.instanceId,
           context.instance.zApiToken || '',
           base64Audio,
-          phoneNumber,
+          chatId, //phoneNumber,
         )
         await bitrixClient.setMessageDelivered({
           CONNECTOR: env.bitrix.connector.code,
@@ -153,7 +151,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
                 id: sendAudioResult.messageId,
               },
               chat: {
-                id: chatLid,
+                id: chatId,
               },
             },
           ],
@@ -163,7 +161,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
           context.instance.instanceId,
           context.instance.zApiToken || '',
           messageData.link || '',
-          phoneNumber,
+          chatId, //phoneNumber,
           messageData.name || '',
         )
         await bitrixClient.setMessageDelivered({
@@ -176,7 +174,7 @@ export class BitrixReceivedMessageHandler implements BitrixEventHandler {
                 id: sendFileResult.messageId,
               },
               chat: {
-                id: chatLid,
+                id: chatId,
               },
             },
           ],
