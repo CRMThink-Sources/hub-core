@@ -11,6 +11,10 @@ import {
   makeDeleteSourceController,
 } from './main/make-source-controllers'
 import {
+  makeContaAzulOAuthStartController,
+  makeContaAzulOAuthCallbackController,
+} from './main/make-conta-azul-oauth-controllers'
+import {
   makeAddDatasetController,
   makeListDatasetsController,
   makeUpdateDatasetController,
@@ -52,6 +56,16 @@ export const createThinkAnaliseRoutes = (): Router => {
   router.delete(
     '/source/:id',
     adaptControllerFactory(makeDeleteSourceController),
+  )
+
+  // OAuth
+  router.get(
+    '/oauth/conta-azul/start',
+    adaptControllerFactory(makeContaAzulOAuthStartController),
+  )
+  router.get(
+    '/oauth/conta-azul/callback',
+    adaptControllerFactory(makeContaAzulOAuthCallbackController),
   )
 
   // Datasets

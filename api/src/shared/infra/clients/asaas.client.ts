@@ -30,6 +30,14 @@ export class AsaasClient {
     return response.data
   }
 
+  async check(): Promise<void> {
+    await axios.get(`${this.baseUrl}/customers`, {
+      headers: { access_token: this.apiKey },
+      params: { limit: 1, offset: 0 },
+      timeout: 10000,
+    })
+  }
+
   async list<T>(
     path: string,
     params: Record<string, unknown> = {},

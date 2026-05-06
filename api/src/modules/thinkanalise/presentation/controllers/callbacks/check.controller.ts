@@ -1,20 +1,48 @@
+import axios from 'axios'
 import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { CallbackController } from '@/shared/presentation/callback-controller'
+import { AsaasClient } from '@/shared/infra/clients/asaas.client'
+import { thinkAnaliseAuthTokenService } from '@/modules/thinkanalise/infra/auth-token.service'
+
+const CHECKERS: Record<string, (apiKey: string) => Promise<void>> = {
+  asaas: apiKey => new AsaasClient(apiKey).check(),
+  conta_azul: async tokenKey => {
+    await thinkAnaliseAuthTokenService.getAccessToken('conta_azul', tokenKey)
+  },
+}
 
 export class CheckController extends CallbackController {
-  perform(req: Request, _res: Response): Promise<httpResponse> {
+  async perform(req: Request, _res: Response): Promise<httpResponse> {
     const body = req.body as Record<string, unknown>
     const settings =
       (body.connection as Record<string, string> | undefined) ??
       (body as Record<string, string>)
 
     if (!settings?.api_key || !settings?.integration) {
-      return Promise.resolve(
-        this.badRequest(new Error('Missing connection parameters')),
+      return this.badRequest(new Error('Missing connection parameters'))
+    }
+
+    const check = CHECKERS[settings.integration]
+    if (!check) {
+      return this.badRequest(
+        new Error(`Provider '${settings.integration}' not supported`),
       )
     }
 
-    return Promise.resolve(this.ok({ ok: true }))
+    try {
+      await check(settings.api_key)
+    } catch (error) {
+      if (
+        axios.isAxiosError(error) &&
+        error.response &&
+        error.response.status < 500
+      ) {
+        return this.badRequest(new Error('Invalid credentials'))
+      }
+      throw error
+    }
+
+    return this.ok({ ok: true })
   }
 }

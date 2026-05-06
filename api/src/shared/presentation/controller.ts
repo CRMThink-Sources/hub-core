@@ -27,6 +27,7 @@ export abstract class Controller {
     const traceId = randomUUID()
     try {
       const response = await this.perform(req, res)
+      if (res.headersSent) return res
       const endTime = Date.now()
       return res.status(response.status).json({
         result: response.result,
@@ -34,6 +35,7 @@ export abstract class Controller {
         time: endTime - initTime,
       })
     } catch (error) {
+      if (res.headersSent) return res
       if (error instanceof BitrixError) {
         return res.status(400).json({
           error: error.message,
