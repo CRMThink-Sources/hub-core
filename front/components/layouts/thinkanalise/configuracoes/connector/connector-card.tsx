@@ -57,6 +57,8 @@ export function ConnectorCard({
   onSourcesChanged,
   datasets = [],
   onDatasetsChanged,
+  isOpen,
+  onToggle,
 }: Props) {
   const { session } = useSession()
   const BLOCKED_DOMAIN_ID = '9c8d9dca-db2d-4978-93ca-fc28ba6017d7' // domainId do cliente https://bmd.bitrix24.com.br/
@@ -72,7 +74,12 @@ export function ConnectorCard({
 
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [expanded, setExpanded] = useState(!isSaved)
+  const [internalExpanded, setInternalExpanded] = useState(!isSaved)
+  const expanded = isOpen !== undefined ? isOpen : internalExpanded
+  function toggleExpanded() {
+    if (onToggle) onToggle()
+    else setInternalExpanded(prev => !prev)
+  }
   const [addingSource, setAddingSource] = useState(false)
 
   function updateNew(patch: Partial<Connection>) {
@@ -151,7 +158,7 @@ export function ConnectorCard({
       {/* cabeçalho */}
       <div
         className="flex items-center gap-3 px-5 py-4 border-b border-[#e5e7eb] bg-[#F9F9FB] cursor-pointer select-none"
-        onClick={() => setExpanded(prev => !prev)}
+        onClick={toggleExpanded}
       >
         {(() => {
           const colors =
