@@ -13,6 +13,27 @@ import { SourceCard } from '../source/source-card'
 import { SourceForm } from '../source/source-form'
 import { toast } from 'sonner'
 
+const PROVIDER_COLORS: Record<
+  string,
+  { bg: string; text: string; border: string }
+> = {
+  asaas: {
+    bg: 'bg-[#e8eef7]',
+    text: 'text-[#223f6e]',
+    border: 'border-[#e5e7eb]',
+  },
+  conta_azul: {
+    bg: 'bg-[#e8eef7]',
+    text: 'text-[#223f6e]',
+    border: 'border-[#e5e7eb]',
+  },
+  omie: {
+    bg: 'bg-[#e8eef7]',
+    text: 'text-[#223f6e]',
+    border: 'border-[#e5e7eb]',
+  },
+}
+
 type Props = {
   connection: Connection
   onChange: (updated: Connection) => void
@@ -131,9 +152,18 @@ export function ConnectorCard({
         className="flex items-center gap-3 px-5 py-4 border-b border-[#e5e7eb] bg-[#F9F9FB] cursor-pointer select-none"
         onClick={() => setExpanded(prev => !prev)}
       >
-        <span className="text-[11px] font-mono font-medium px-2.5 py-0.5 rounded bg-[#e8eef7] text-[#223f6e] border border-[#e5e7eb] tracking-wide uppercase">
-          {connection.provider}
-        </span>
+        {(() => {
+          const colors =
+            PROVIDER_COLORS[connection.provider] ?? PROVIDER_COLORS['asaas']
+          return (
+            <span
+              className={`text-[11px] font-mono font-medium px-2.5 py-0.5 rounded border tracking-wide uppercase ${colors.bg} ${colors.text} ${colors.border}`}
+            >
+              {PROVIDERS.find(p => p.value === connection.provider)?.label ??
+                connection.provider}
+            </span>
+          )
+        })()}
 
         <span className="text-sm font-semibold">
           {currentLabel || (

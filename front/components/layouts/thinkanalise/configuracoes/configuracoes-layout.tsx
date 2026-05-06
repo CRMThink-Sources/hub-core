@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import type {
   Connection,
   Dataset,
@@ -12,18 +12,44 @@ import { useSession } from '@/providers/session-provider'
 type BitrixConnector = {
   id: number
   title: string
+  provider?: string
 }
 
 export default function ConfiguracoesLayout() {
   const { session, refreshSession } = useSession()
+  const refreshSessionRef = useRef(refreshSession)
+  useEffect(() => {
+    refreshSessionRef.current = refreshSession
+  })
+
   const [newConnections, setNewConnections] = useState<Connection[]>([])
+  const [oauthBanner, setOauthBanner] = useState<'success' | 'error' | null>(
+    null,
+  )
+
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (
+        !event.data ||
+        event.data.type !== 'conta-azul-oauth' ||
+        (event.data.status !== 'success' && event.data.status !== 'error')
+      )
+        return
+      setOauthBanner(event.data.status)
+      if (event.data.status === 'success') {
+        void refreshSessionRef.current()
+      }
+    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
 
   const savedConnections: Connection[] = useMemo(() => {
     const biconnectors = (session?.biconnectors ?? []) as BitrixConnector[]
     return biconnectors.map(c => ({
       id: String(c.id),
       label: c.title.replace('[ThinkAnalise] ', ''),
-      provider: 'asaas' as const,
+      provider: (c.provider ?? 'asaas') as Connection['provider'],
       status: 'conectado' as const,
       biconnectorId: c.id,
     }))
@@ -72,6 +98,25 @@ export default function ConfiguracoesLayout() {
 
   return (
     <div className="w-full flex flex-col pt-20 px-6 space-y-4">
+      {oauthBanner && (
+        <div
+          className={`w-full max-w-3xl px-4 py-3 rounded-lg text-sm font-mono flex items-center justify-between
+            ${oauthBanner === 'success' ? 'bg-[#eef2f9] text-[#223f6e] border border-[#223f6e]/20' : 'bg-red-50 text-red-700 border border-red-200'}`}
+        >
+          <span>
+            {oauthBanner === 'success'
+              ? 'Conta Azul conectada com sucesso.'
+              : 'Não foi possível conectar com a Conta Azul. Tente novamente.'}
+          </span>
+          <button
+            onClick={() => setOauthBanner(null)}
+            className="ml-4 text-xs opacity-60 hover:opacity-100 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* header */}
       <div className="flex items-center justify-between w-full max-w-3xl mx-auto bg-white p-6 rounded-xl border border-[#e5e7eb]">
         <div>

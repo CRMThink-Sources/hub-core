@@ -1,15 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type {
   Dataset,
   Source,
   SourceSettings,
-} from '../../../types/thinkanalise-types'
+} from '../../types/thinkanalise-types'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
-import { DatasetCard } from '../dataset/dataset-card'
-import { DatasetForm } from '../dataset/dataset-form'
-import { toast } from 'sonner'
+import { DatasetCard, NewDatasetCard } from './dataset-card'
+
+const AUTH_TOKEN_KEY = 'hubthink_auth_token'
+
+const CREDENTIAL_LABEL: Record<string, string> = {
+  asaas: 'API Key',
+  omie: 'API Key',
+}
+
+const CREDENTIAL_PLACEHOLDER: Record<string, string> = {
+  asaas: 'Cole sua chave aqui',
+  omie: 'Cole sua chave aqui',
+}
 
 type Props = {
   source: Source
@@ -21,15 +31,34 @@ type Props = {
   onDatasetsChanged?: () => Promise<void>
 }
 
+type NewSourceProps = {
+  connectorId: number
+  provider: string
+  onSaved: () => Promise<void>
+  onCancel: () => void
+}
+
+async function startContaAzulOAuth(
+  client: ReturnType<typeof axiosThinkanalise>,
+  params: { connectorId: number; title: string } | { sourceId: number },
+): Promise<void> {
+  const result = (await client.get('/thinkanalise/oauth/conta-azul/start', {
+    params,
+  })) as unknown as { url: string }
+  window.open(result.url, '_blank')
+}
+
 export function SourceCard({
   source,
-  connectorId,
+  connectorId: _connectorId,
   provider,
   onSaved,
   onDeleted,
   datasets = [],
   onDatasetsChanged,
 }: Props) {
+  const isContaAzul = provider === 'conta_azul'
+
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState({ title: source.title, apiKey: '' })
   const [addingDataset, setAddingDataset] = useState(false)
@@ -37,6 +66,8 @@ export function SourceCard({
   const [deleting, setDeleting] = useState(false)
   const [testStatus, setTestStatus] = useState<'idle' | 'ok' | 'erro'>('idle')
   const [testing, setTesting] = useState(false)
+  const [connecting, setConnecting] = useState(false)
+  const [connectError, setConnectError] = useState(false)
 
   function handleCancelEdit() {
     setDraft({ title: source.title, apiKey: '' })
@@ -47,10 +78,9 @@ export function SourceCard({
   async function handleTest() {
     const apiKey = draft.apiKey || source.settings.api_key
     setTesting(true)
-
     setTestStatus('idle')
     try {
-      const client = axiosThinkanalise()
+      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await client.post('/thinkanalise/check', {
         connection: { integration: provider, api_key: apiKey },
       })
@@ -65,44 +95,64 @@ export function SourceCard({
   async function handleSave() {
     setSaving(true)
     try {
-      const client = axiosThinkanalise()
+      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       const fields: { title?: string; settings?: SourceSettings } = {}
       if (draft.title !== source.title) fields.title = draft.title
-      if (draft.apiKey)
+      if (!isContaAzul && draft.apiKey)
         fields.settings = { integration: provider, api_key: draft.apiKey }
       await client.put(`/thinkanalise/source/${source.id}`, fields)
       await onSaved()
       setIsEditing(false)
       setDraft(d => ({ ...d, apiKey: '' }))
-      toast.success('Fonte atualizada com sucesso.')
-    } catch {
-      toast.error('Erro ao salvar a fonte.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleConnectOAuth() {
+    setConnecting(true)
+    setConnectError(false)
+    try {
+      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
+      await startContaAzulOAuth(client, { sourceId: source.id })
+    } catch (err) {
+      console.error('[ContaAzulOAuth] erro ao iniciar conexão:', err)
+      setConnectError(true)
+    } finally {
+      setConnecting(false)
     }
   }
 
   async function handleDelete() {
     setDeleting(true)
     try {
-      const client = axiosThinkanalise()
+      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await client.delete(`/thinkanalise/source/${source.id}`)
       await onDeleted()
-      toast.success('Fonte removida.')
-    } catch {
-      toast.error('Erro ao remover a fonte.')
     } finally {
       setDeleting(false)
     }
   }
 
   async function handleToggleActive() {
-    const client = axiosThinkanalise()
+    const client = axiosThinkanalise(AUTH_TOKEN_KEY)
     await client.put(`/thinkanalise/source/${source.id}`, {
       active: !source.active,
     })
     await onSaved()
   }
+
+  useEffect(() => {
+    if (!isContaAzul) return
+    function handleMessage(event: MessageEvent) {
+      if (!event.data || event.data.type !== 'conta-azul-oauth') return
+      if (event.data.status === 'success') void onSaved()
+    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [isContaAzul, onSaved])
+
+  const isConnected = Boolean(source.settings.api_key)
 
   return (
     <div className="rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] overflow-hidden">
@@ -134,42 +184,68 @@ export function SourceCard({
       {/* campos em edição */}
       {isEditing && (
         <div className="px-4 pb-3 flex flex-col gap-2">
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-              API Key
-            </label>
-            <input
-              type="password"
-              value={draft.apiKey}
-              onChange={e => setDraft(d => ({ ...d, apiKey: e.target.value }))}
-              placeholder="Nova chave (deixe em branco para manter)"
-              className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-white text-black outline-none
-                         focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20
-                         hover:border-[#223f6e] transition-colors"
-            />
-          </div>
+          {isContaAzul ? (
+            <div className="flex items-center gap-3">
+              <span
+                className={`text-xs font-mono ${isConnected ? 'text-[#4a7fd4]' : 'text-gray-400'}`}
+              >
+                {isConnected ? 'conectado' : 'não conectado'}
+              </span>
+              <button
+                onClick={() => void handleConnectOAuth()}
+                disabled={connecting}
+                className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
+                           hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {connecting ? 'redirecionando...' : 'reconectar com Conta Azul'}
+              </button>
+              {connectError && (
+                <span className="text-xs font-mono text-red-600">
+                  erro ao iniciar conexão
+                </span>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                  {CREDENTIAL_LABEL[provider] ?? 'API Key'}
+                </label>
+                <input
+                  type="password"
+                  value={draft.apiKey}
+                  onChange={e =>
+                    setDraft(d => ({ ...d, apiKey: e.target.value }))
+                  }
+                  placeholder="Deixe em branco para manter"
+                  className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-white text-black outline-none
+                             focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20
+                             hover:border-[#223f6e] transition-colors"
+                />
+              </div>
 
-          {/* teste de conexão */}
-          <div className="flex items-center gap-2 mt-1">
-            <button
-              onClick={() => void handleTest()}
-              disabled={testing}
-              className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
-                         hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
-            >
-              {testing ? 'testando...' : 'testar conexão'}
-            </button>
-            {testStatus === 'ok' && (
-              <span className="text-xs font-mono text-[#4a7fd4]">
-                conexão ok
-              </span>
-            )}
-            {testStatus === 'erro' && (
-              <span className="text-xs font-mono text-red-600">
-                api key inválida
-              </span>
-            )}
-          </div>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  onClick={() => void handleTest()}
+                  disabled={testing}
+                  className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
+                             hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {testing ? 'testando...' : 'testar conexão'}
+                </button>
+                {testStatus === 'ok' && (
+                  <span className="text-xs font-mono text-[#4a7fd4]">
+                    conexão ok
+                  </span>
+                )}
+                {testStatus === 'erro' && (
+                  <span className="text-xs font-mono text-red-600">
+                    api key inválida
+                  </span>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -205,7 +281,7 @@ export function SourceCard({
         ))}
 
         {addingDataset && (
-          <DatasetForm
+          <NewDatasetCard
             sourceId={source.id}
             integration={provider}
             onSaved={async () => {
@@ -252,6 +328,179 @@ export function SourceCard({
               editar
             </button>
           </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function NewSourceCard({
+  connectorId,
+  provider,
+  onSaved,
+  onCancel,
+}: NewSourceProps) {
+  const isContaAzul = provider === 'conta_azul'
+
+  const [title, setTitle] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [testStatus, setTestStatus] = useState<'idle' | 'ok' | 'erro'>('idle')
+  const [testing, setTesting] = useState(false)
+
+  useEffect(() => {
+    if (!isContaAzul) return
+    function handleMessage(event: MessageEvent) {
+      if (!event.data || event.data.type !== 'conta-azul-oauth') return
+      if (event.data.status === 'success') void onSaved()
+      else setSaving(false)
+    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [isContaAzul, onSaved])
+
+  async function handleTest() {
+    setTesting(true)
+    setTestStatus('idle')
+    try {
+      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
+      await client.post('/thinkanalise/check', {
+        connection: { integration: provider, api_key: apiKey },
+      })
+      setTestStatus('ok')
+    } catch {
+      setTestStatus('erro')
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  async function handleSave() {
+    if (!title || !apiKey) return
+    setSaving(true)
+    try {
+      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
+      await client.post(`/thinkanalise/connector/${connectorId}/source`, {
+        title,
+        settings: { integration: provider, api_key: apiKey },
+        active: true,
+      })
+      await onSaved()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const [saveConnectError, setSaveConnectError] = useState(false)
+
+  async function handleSaveAndConnect() {
+    if (!title) return
+    setSaving(true)
+    setSaveConnectError(false)
+    try {
+      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
+      await startContaAzulOAuth(client, { connectorId, title })
+    } catch (err) {
+      console.error('[ContaAzulOAuth] erro ao iniciar OAuth:', err)
+      setSaveConnectError(true)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-dashed border-[#223f6e]/40 bg-white overflow-hidden">
+      <div className="px-4 pt-4 pb-3 flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+            Nome da Fonte
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Ex: Clientes inadimplentes"
+            className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
+                       focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
+                       hover:border-[#223f6e] transition-colors"
+          />
+        </div>
+
+        {!isContaAzul && (
+          <>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                {CREDENTIAL_LABEL[provider] ?? 'API Key'}
+              </label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={e => setApiKey(e.target.value)}
+                placeholder={
+                  CREDENTIAL_PLACEHOLDER[provider] ?? 'Cole sua chave aqui'
+                }
+                className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
+                           focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
+                           hover:border-[#223f6e] transition-colors"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void handleTest()}
+                disabled={testing || !apiKey}
+                className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
+                           hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {testing ? 'testando...' : 'testar conexão'}
+              </button>
+              {testStatus === 'ok' && (
+                <span className="text-xs font-mono text-[#4a7fd4]">
+                  conexão ok
+                </span>
+              )}
+              {testStatus === 'erro' && (
+                <span className="text-xs font-mono text-red-600">
+                  api key inválida
+                </span>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-[#e5e7eb]">
+        <button
+          onClick={onCancel}
+          className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400 hover:bg-gray-50 transition-all cursor-pointer"
+        >
+          cancelar
+        </button>
+        {isContaAzul ? (
+          <>
+            <button
+              onClick={() => void handleSaveAndConnect()}
+              disabled={saving || !title}
+              className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              {saving
+                ? 'redirecionando...'
+                : 'salvar e conectar com Conta Azul'}
+            </button>
+            {saveConnectError && (
+              <span className="text-xs font-mono text-red-600 mr-auto">
+                erro ao iniciar conexão
+              </span>
+            )}
+          </>
+        ) : (
+          <button
+            onClick={() => void handleSave()}
+            disabled={saving || !title || !apiKey}
+            className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            {saving ? 'salvando...' : 'salvar fonte'}
+          </button>
         )}
       </div>
     </div>
