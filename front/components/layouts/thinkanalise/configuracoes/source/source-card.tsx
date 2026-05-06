@@ -5,9 +5,10 @@ import type {
   Dataset,
   Source,
   SourceSettings,
-} from '../../types/thinkanalise-types'
+} from '../../../types/thinkanalise-types'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
-import { DatasetCard, NewDatasetCard } from './dataset-card'
+import { DatasetCard } from '../dataset/dataset-card'
+import { DatasetForm } from '../dataset/dataset-form'
 
 const AUTH_TOKEN_KEY = 'hubthink_auth_token'
 
@@ -281,7 +282,7 @@ export function SourceCard({
         ))}
 
         {addingDataset && (
-          <NewDatasetCard
+          <DatasetForm
             sourceId={source.id}
             integration={provider}
             onSaved={async () => {

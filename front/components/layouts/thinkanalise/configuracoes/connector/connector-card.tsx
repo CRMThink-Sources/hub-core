@@ -9,8 +9,7 @@ import type {
   Source,
 } from '../../../types/thinkanalise-types'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
-import { SourceCard } from '../source/source-card'
-import { SourceForm } from '../source/source-form'
+import { SourceCard, NewSourceCard } from '../source/source-card'
 import { toast } from 'sonner'
 
 const PROVIDER_COLORS: Record<
@@ -44,6 +43,8 @@ type Props = {
   onSourcesChanged?: () => Promise<void>
   datasets?: Dataset[]
   onDatasetsChanged?: () => Promise<void>
+  isOpen?: boolean
+  onToggle?: () => void
 }
 
 export function ConnectorCard({
@@ -297,7 +298,7 @@ export function ConnectorCard({
               ))}
 
               {addingSource && (
-                <SourceForm
+                <NewSourceCard
                   connectorId={connection.biconnectorId!}
                   provider={connection.provider}
                   onSaved={async () => {
