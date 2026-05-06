@@ -21,6 +21,17 @@ export const env = {
     clientToken: process.env.Z_API_CLIENT_TOKEN ?? '',
     callbackUrl: process.env.Z_API_CALLBACK_URL ?? '',
   },
+  contaAzul: {
+    ClientId: process.env.CONTA_AZUL_CLIENT_ID ?? '',
+    ClientSecret: process.env.CONTA_AZUL_CLIENT_SECRET ?? '',
+    AuthUrl:
+      process.env.CONTA_AZUL_AUTH_URL ??
+      'https://auth.contaazul.com/oauth2/authorize',
+    TokenUrl:
+      process.env.CONTA_AZUL_TOKEN_URL ??
+      'https://auth.contaazul.com/oauth2/token',
+    ApiUrl: process.env.CONTA_AZUL_API_URL ?? 'https://api-v2.contaazul.com/v1',
+  },
   bitrix: {
     webhookUrl:
       process.env.BITRIX_WEBHOOK_URL ??
