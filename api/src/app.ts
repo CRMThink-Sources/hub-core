@@ -14,6 +14,7 @@ import { adaptControllerFactory } from './shared/main/adapt-controller.js'
 import { makeBitrixWebhookHandlerController } from './modules/thinkzap/main/bitrix-webhook-handle-controller.js'
 import { makeUploadAudioController } from './modules/audio/main/make-upload-audio-controller.js'
 import { makeCheckController } from './modules/thinkanalise/main/callbacks/make-check-controller.js'
+import { makeContaAzulOAuthCallbackController } from './modules/thinkanalise/main/make-conta-azul-oauth-controllers.js'
 import { makeTablesController } from './modules/thinkanalise/main/callbacks/make-tables-controller.js'
 import { makeDescribeController } from './modules/thinkanalise/main/callbacks/make-describe-controller.js'
 import { makeDataController } from './modules/thinkanalise/main/callbacks/make-data-controller.js'
@@ -64,6 +65,12 @@ app.get('/health', (_req, res) => {
 })
 
 app.use('/api/auth', authRoutes)
+
+// Callback público do OAuth Conta Azul (sem auth — redirect do browser vindo da Conta Azul)
+app.get(
+  '/api/thinkanalise/oauth/conta-azul/callback',
+  adaptControllerFactory(makeContaAzulOAuthCallbackController),
+)
 
 // Callbacks públicos do Bitrix BI Builder (sem auth — chamados diretamente pelo Bitrix)
 app.post('/api/thinkanalise/check', adaptControllerFactory(makeCheckController))
