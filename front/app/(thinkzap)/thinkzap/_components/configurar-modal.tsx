@@ -61,12 +61,14 @@ export function ConfigurarModal({
             />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-black">Telefone</label>
-            <p className="text-sm text-gray-600 px-3 py-2 bg-gray-50 rounded-md border border-gray-200">
-              {connector.instance.phoneNumber}
-            </p>
-          </div>
+          {connector.instance.phoneNumber && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-black">Telefone</label>
+              <p className="text-sm text-gray-600 px-3 py-2 bg-gray-50 rounded-md border border-gray-200">
+                {connector.instance.phoneNumber}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 mt-6 pt-3 border-t border-gray-100 shrink-0">
