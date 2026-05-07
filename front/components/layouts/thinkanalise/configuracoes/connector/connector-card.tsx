@@ -9,9 +9,29 @@ import type {
   Source,
 } from '../../../types/thinkanalise-types'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
-import { SourceCard } from '../source/source-card'
-import { SourceForm } from '../source/source-form'
+import { SourceCard, NewSourceCard } from '../source/source-card'
 import { toast } from 'sonner'
+
+const PROVIDER_COLORS: Record<
+  string,
+  { bg: string; text: string; border: string }
+> = {
+  asaas: {
+    bg: 'bg-[#e8eef7]',
+    text: 'text-[#223f6e]',
+    border: 'border-[#e5e7eb]',
+  },
+  conta_azul: {
+    bg: 'bg-[#e8eef7]',
+    text: 'text-[#223f6e]',
+    border: 'border-[#e5e7eb]',
+  },
+  omie: {
+    bg: 'bg-[#e8eef7]',
+    text: 'text-[#223f6e]',
+    border: 'border-[#e5e7eb]',
+  },
+}
 
 type Props = {
   connection: Connection
@@ -23,6 +43,8 @@ type Props = {
   onSourcesChanged?: () => Promise<void>
   datasets?: Dataset[]
   onDatasetsChanged?: () => Promise<void>
+  isOpen?: boolean
+  onToggle?: () => void
 }
 
 export function ConnectorCard({
@@ -35,6 +57,8 @@ export function ConnectorCard({
   onSourcesChanged,
   datasets = [],
   onDatasetsChanged,
+  isOpen,
+  onToggle,
 }: Props) {
   const { session } = useSession()
   const BLOCKED_DOMAIN_ID = '9c8d9dca-db2d-4978-93ca-fc28ba6017d7' // domainId do cliente https://bmd.bitrix24.com.br/
@@ -50,7 +74,12 @@ export function ConnectorCard({
 
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [expanded, setExpanded] = useState(!isSaved)
+  const [internalExpanded, setInternalExpanded] = useState(!isSaved)
+  const expanded = isOpen !== undefined ? isOpen : internalExpanded
+  function toggleExpanded() {
+    if (onToggle) onToggle()
+    else setInternalExpanded(prev => !prev)
+  }
   const [addingSource, setAddingSource] = useState(false)
 
   function updateNew(patch: Partial<Connection>) {
@@ -129,11 +158,20 @@ export function ConnectorCard({
       {/* cabeçalho */}
       <div
         className="flex items-center gap-3 px-5 py-4 border-b border-[#e5e7eb] bg-[#F9F9FB] cursor-pointer select-none"
-        onClick={() => setExpanded(prev => !prev)}
+        onClick={toggleExpanded}
       >
-        <span className="text-[11px] font-mono font-medium px-2.5 py-0.5 rounded bg-[#e8eef7] text-[#223f6e] border border-[#e5e7eb] tracking-wide uppercase">
-          {connection.provider}
-        </span>
+        {(() => {
+          const colors =
+            PROVIDER_COLORS[connection.provider] ?? PROVIDER_COLORS['asaas']
+          return (
+            <span
+              className={`text-[11px] font-mono font-medium px-2.5 py-0.5 rounded border tracking-wide uppercase ${colors.bg} ${colors.text} ${colors.border}`}
+            >
+              {PROVIDERS.find(p => p.value === connection.provider)?.label ??
+                connection.provider}
+            </span>
+          )
+        })()}
 
         <span className="text-sm font-semibold">
           {currentLabel || (
@@ -267,7 +305,7 @@ export function ConnectorCard({
               ))}
 
               {addingSource && (
-                <SourceForm
+                <NewSourceCard
                   connectorId={connection.biconnectorId!}
                   provider={connection.provider}
                   onSaved={async () => {

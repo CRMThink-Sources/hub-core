@@ -6,6 +6,6 @@ export const PROVIDERS: {
   disabled?: boolean
 }[] = [
   { value: 'asaas', label: 'Asaas' },
-  { value: 'conta_azul', label: 'Conta Azul (em breve)', disabled: true },
+  { value: 'conta_azul', label: 'Conta Azul' },
   { value: 'omie', label: 'Omie (em breve)', disabled: true },
 ]

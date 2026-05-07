@@ -6,6 +6,7 @@ import { AddSourceController } from '../presentation/controllers/add-source.cont
 import { ListSourcesController } from '../presentation/controllers/list-sources.controller'
 import { UpdateSourceController } from '../presentation/controllers/update-source.controller'
 import { DeleteSourceController } from '../presentation/controllers/delete-source.controller'
+import { thinkAnaliseAuthTokenService } from '../infra/auth-token.service'
 
 async function getBitrix(req: Request): Promise<BitrixBiConnectorClient> {
   return (await makeBitrixClient(req, 'biconnector')) as BitrixBiConnectorClient
@@ -25,4 +26,5 @@ export const makeUpdateSourceController = async (
 
 export const makeDeleteSourceController = async (
   req: Request,
-): Promise<Controller> => new DeleteSourceController(await getBitrix(req))
+): Promise<Controller> =>
+  new DeleteSourceController(await getBitrix(req), thinkAnaliseAuthTokenService)

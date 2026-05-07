@@ -17,7 +17,20 @@ export class ThinkAnaliseSessionHandler implements SessionHandler {
           'biconnector',
         )) as BitrixBiConnectorClient
 
-        const biconnectors = await bitrix.biconnectorList()
+        const repo = new PrismaBiConnectorRepository()
+        const [bitrixConnectors, localConnectors] = await Promise.all([
+          bitrix.biconnectorList(),
+          repo.listBiConnectors(params.appId),
+        ])
+
+        const providerById = new Map(
+          localConnectors.map(c => [c.biconnectorId, c.provider]),
+        )
+
+        const biconnectors = bitrixConnectors.map(c => ({
+          ...c,
+          provider: providerById.get(c.id) ?? 'asaas',
+        }))
 
         return { key: 'biconnectors', data: biconnectors } as T
       },
@@ -42,12 +55,11 @@ export class ThinkAnaliseSessionHandler implements SessionHandler {
         )) as BitrixBiConnectorClient
 
         const list = await bitrix.datasetList()
-        const datasets = await Promise.all(
-          list.map(async d => {
-            const detail = await bitrix.datasetGet(d.id)
-            return { ...d, fields: detail.fields }
-          }),
-        )
+        const datasets: typeof list = []
+        for (const d of list) {
+          const detail = await bitrix.datasetGet(d.id)
+          datasets.push({ ...d, fields: detail.fields })
+        }
 
         return { key: 'datasets', data: datasets } as T
       },
