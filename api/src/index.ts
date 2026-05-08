@@ -2,25 +2,26 @@ import { env } from './config/env.js'
 import { app } from './app.js'
 import { createServer } from 'http'
 import { initSocket } from './shared/infra/socket.js'
+import { logger } from './shared/infra/logger.js'
 
 const httpServer = createServer(app)
 
 const io = initSocket(httpServer)
-console.log('[socket] initialized', io.sockets.adapter.rooms)
+logger.info('[socket] initialized')
 io.on('connection', socket => {
-  console.log('[socket] connected')
+  logger.info({ socketId: socket.id }, '[socket] connected')
   socket.on('join', (instanceId: string) => {
-    console.log('[socket] join', instanceId)
+    logger.info({ socketId: socket.id, instanceId }, '[socket] join')
     void socket.join(instanceId)
-    console.log(`[socket] joined room: ${instanceId}`)
+    logger.info({ socketId: socket.id, instanceId }, '[socket] joined room')
   })
 
   socket.on('leave', (instanceId: string) => {
-    console.log('[socket] leave', instanceId)
+    logger.info({ socketId: socket.id, instanceId }, '[socket] leave')
     void socket.leave(instanceId)
   })
 })
 
 httpServer.listen(env.port, () => {
-  console.log(`API running at http://localhost:${env.port}`)
+  logger.info({ port: env.port }, 'API running')
 })

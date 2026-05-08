@@ -11,16 +11,53 @@ import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { Domain, Instance } from '@/prisma/client'
 import { Credential } from '@/shared/domain/entities/credential'
+import { logger } from '@/shared/infra/logger'
 
 export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
+  logger.info(
+    {
+      instanceId: event.instanceId,
+      messageId: event.messageId,
+      phone: event.phone,
+      isGroup: event.isGroup,
+    },
+    'Processing received Z-API message',
+  )
+
   const connectorRepo = new PrismaConnectorRepository()
   const instanceRepo = new PrismaInstanceRepository()
 
   const instance = await instanceRepo.getInstanceByInstanceId(event.instanceId)
-  if (!instance) return
-  if (!instance.vinculatedChannel) return
+  if (!instance) {
+    logger.warn(
+      { instanceId: event.instanceId, messageId: event.messageId },
+      'Instance not found for received message',
+    )
+    return
+  }
+  if (!instance.vinculatedChannel) {
+    logger.warn(
+      {
+        instanceId: event.instanceId,
+        internalInstanceId: instance.id,
+        messageId: event.messageId,
+      },
+      'Instance has no vinculated channel',
+    )
+    return
+  }
   const connector = await connectorRepo.getConnectorByInstanceId(instance?.id)
-  if (!connector) return
+  if (!connector) {
+    logger.warn(
+      {
+        instanceId: event.instanceId,
+        internalInstanceId: instance.id,
+        messageId: event.messageId,
+      },
+      'Connector not found for instance',
+    )
+    return
+  }
 
   const { domainId } = instance
   const { appId } = connector
@@ -103,7 +140,15 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
       },
     ],
   }
-  console.log('params', params.MESSAGES)
+  logger.debug(
+    {
+      messageId: event.messageId,
+      connectorCode: params.CONNECTOR,
+      channel: params.LINE,
+      filesCount: files?.length ?? 0,
+    },
+    'Prepared message payload to send to Bitrix',
+  )
   if (event.isGroup) {
     await sendMessageFromGroup(event, domain, credential, instance, files)
     return
@@ -119,7 +164,15 @@ async function sendMessageFromGroup(
   instance: Instance,
   files?: { url: string; name: string }[],
 ): Promise<void> {
-  console.log('sendMessageFromGroup', event)
+  logger.info(
+    {
+      instanceId: event.instanceId,
+      messageId: event.messageId,
+      phone: event.phone,
+      senderName: event.senderName,
+    },
+    'Processing group message for Bitrix',
+  )
 
   const params: ISendMessageData = {
     CONNECTOR: env.bitrix.connector.code,
