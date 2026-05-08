@@ -2,12 +2,16 @@ services:
   api:
     ports:
       - "4000:4000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   worker:
     image: ghcr.io/crmthink-sources/hub-core-api:latest
     container_name: hubthink-worker
     env_file:
       - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/workers/thinkzap-inbound.worker.js"]
 
   # Host 3002 evita conflito com outro app na 3000 (ex.: PM2). Dentro do container o Next segue na 3000.
