@@ -63,7 +63,7 @@ export default function ConfiguracoesLayout() {
     const biconnectors = (session?.biconnectors ?? []) as BitrixConnector[]
     return biconnectors.map(c => ({
       id: String(c.id),
-      label: c.title.replace('[ThinkAnalise] ', ''),
+      label: c.title.replace('[Think Hub] ', ''),
       provider: (c.provider ?? 'asaas') as Connection['provider'],
       status: 'conectado' as const,
       biconnectorId: c.id,

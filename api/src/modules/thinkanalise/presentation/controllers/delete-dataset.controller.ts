@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
+import axios from 'axios'
 
 export class DeleteDatasetController extends Controller {
   constructor(private readonly bitrix: BitrixBiConnectorClient) {
@@ -16,11 +17,12 @@ export class DeleteDatasetController extends Controller {
       console.log('[DeleteDataset] id:', id, '| resultado Bitrix:', result)
       return this.ok(result)
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: unknown } }
-      console.error(
-        '[DeleteDataset] erro Bitrix:',
-        JSON.stringify(axiosErr?.response?.data, null, 2),
-      )
+      if (axios.isAxiosError(err)) {
+        console.error(
+          '[DeleteDataset] Erro no Bitrix:',
+          JSON.stringify(err.response?.data, null, 2),
+        )
+      }
       throw err
     }
   }

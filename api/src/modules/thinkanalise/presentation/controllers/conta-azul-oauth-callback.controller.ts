@@ -90,7 +90,6 @@ export class ContaAzulOAuthCallbackController extends Controller {
       console.error('[ContaAzulOAuthCallback]', error)
       res.send(oauthPopupHtml('error'))
     }
-
     return this.ok(null)
   }
 }
