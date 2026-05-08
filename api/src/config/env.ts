@@ -5,6 +5,12 @@ export const env = {
   appUrl: process.env.APP_URL ?? '',
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',
+  redisUrl: process.env.REDIS_URL ?? '',
+  bullBoard: {
+    enabled: process.env.BULL_BOARD_ENABLED === 'true',
+    username: process.env.BULL_BOARD_USERNAME ?? '',
+    password: process.env.BULL_BOARD_PASSWORD ?? '',
+  },
   apiUrl:
     process.env.API_URL && process.env.API_URL !== 'undefined'
       ? process.env.API_URL
