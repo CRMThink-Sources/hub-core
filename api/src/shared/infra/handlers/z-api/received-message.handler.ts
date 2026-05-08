@@ -13,11 +13,26 @@ import { Connector } from '@/modules/thinkzap/domain/entities/connector'
 import { Credential } from '@/shared/domain/entities/credential'
 import { InstalledApp } from '@/shared/domain/entities/installed-app'
 import { enqueueThinkzapInboundJob } from '@/queue/thinkzap-inbound.queue'
+import { logger } from '@/shared/infra/logger'
 
 export class ReceivedMessageHandler implements ZApiEventHandler {
   eventType = 'ReceivedCallback'
 
   async handle(event: ReceivedMessageEvent): Promise<void> {
+    logger.info(
+      {
+        eventType: this.eventType,
+        instanceId: event.instanceId,
+        messageId: event.messageId,
+        phone: event.phone,
+        isGroup: event.isGroup,
+        hasImage: Boolean(event.image),
+        hasAudio: Boolean(event.audio),
+        hasVideo: Boolean(event.video),
+      },
+      'Received Z-API message event',
+    )
+
     // if (this.checkIfMessageIsFromGroupOrNewsletter(event)) return
     await enqueueThinkzapInboundJob({
       source: 'z-api',
@@ -140,7 +155,15 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
     instance: Instance,
     files?: { url: string; name: string }[],
   ): Promise<void> {
-    console.log('sendMessageFromGroup', event)
+    logger.info(
+      {
+        eventType: this.eventType,
+        instanceId: event.instanceId,
+        messageId: event.messageId,
+        phone: event.phone,
+      },
+      'Sending group message to Bitrix',
+    )
 
     const params: ISendMessageData = {
       CONNECTOR: env.bitrix.connector.code,

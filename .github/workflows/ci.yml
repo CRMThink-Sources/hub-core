@@ -166,6 +166,17 @@ jobs:
           source: 'docker-compose.yml,docker-compose.staging.yml,docker-compose.production.yml'
           target: ${{ github.ref_name == 'master' && '~/hubthink-production' || '~/hubthink-staging' }}
 
+      # Stack compartilhado na VPS (Grafana/Loki/Promtail) — um diretório dedicado para todo o servidor
+      - name: Copy observability stack to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
+          source: 'docker-compose.observability.yml,observability/'
+          target: '~/hubthink-observability'
+
       - name: Write env files on VPS
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -245,3 +256,17 @@ jobs:
             fi
 
             docker image prune -f
+
+      - name: Deploy observability stack (Grafana/Loki/Promtail)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
+          script: |
+            mkdir -p ~/hubthink-observability
+            cd ~/hubthink-observability
+            docker compose -p hubthink-observability -f docker-compose.observability.yml pull || true
+            docker compose -p hubthink-observability -f docker-compose.observability.yml up -d --remove-orphans
+            docker compose -p hubthink-observability -f docker-compose.observability.yml ps

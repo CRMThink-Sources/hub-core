@@ -2,6 +2,7 @@ import 'dotenv/config'
 
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
+  logLevel: process.env.LOG_LEVEL ?? 'info',
   appUrl: process.env.APP_URL ?? '',
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',
