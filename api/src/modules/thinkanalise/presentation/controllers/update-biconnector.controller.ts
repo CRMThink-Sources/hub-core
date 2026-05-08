@@ -27,7 +27,7 @@ export class UpdateBiconnectorController extends Controller {
 
     if (label) {
       await this.bitrix.biconnectorUpdate(biconnectorId, {
-        title: `[ThinkAnalise] ${label}`,
+        title: `[Think Hub] ${label}`,
       })
     }
 

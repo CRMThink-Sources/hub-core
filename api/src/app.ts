@@ -24,8 +24,29 @@ import {
   bullBoardRouter,
   isBullBoardEnabled,
 } from './queue/bull-board.js'
+import { logger } from './shared/infra/logger.js'
 
 const app: Express = express()
+
+app.use((req, res, next) => {
+  const startedAt = Date.now()
+
+  res.on('finish', () => {
+    const durationMs = Date.now() - startedAt
+
+    logger.info(
+      {
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: res.statusCode,
+        durationMs,
+      },
+      'HTTP request completed',
+    )
+  })
+
+  next()
+})
 
 // Antes do cors: no preflight OPTIONS o cors encerra a resposta sem next() — o header tem que existir nessa resposta (PNA).
 app.use((_req, res, next) => {

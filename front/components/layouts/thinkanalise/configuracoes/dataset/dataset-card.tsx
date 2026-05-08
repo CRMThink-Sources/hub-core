@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Dataset } from '../../../types/thinkanalise-types'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
+import { useLoading } from '@/providers/loading-provider'
 
 type Props = {
   dataset: Dataset
@@ -17,8 +18,11 @@ export function DatasetCard({ dataset, onChanged, onDeleted }: Props) {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const { setLoading } = useLoading()
+
   async function handleSave() {
     setSaving(true)
+    setLoading(true, 'Salvando...')
     try {
       const client = axiosThinkanalise()
       await client.put(`/thinkanalise/dataset/${dataset.id}`, { name })
@@ -26,11 +30,13 @@ export function DatasetCard({ dataset, onChanged, onDeleted }: Props) {
       setIsEditing(false)
     } finally {
       setSaving(false)
+      setLoading(false)
     }
   }
 
   async function handleDelete() {
     setDeleting(true)
+    setLoading(true, 'Removendo...')
     setDeleteError(null)
     try {
       const client = axiosThinkanalise()
@@ -42,6 +48,7 @@ export function DatasetCard({ dataset, onChanged, onDeleted }: Props) {
       )
     } finally {
       setDeleting(false)
+      setLoading(false)
     }
   }
 

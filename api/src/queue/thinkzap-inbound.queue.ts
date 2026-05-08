@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq'
 import { redisConnection } from './redis-connection'
+import { logger } from '@/shared/infra/logger'
 
 export const THINKZAP_INBOUND = 'thinkzap-inbound'
 
@@ -15,11 +16,23 @@ export const thinkzapInboundQueue = new Queue<ThinkzapInboundJob>(
 )
 
 export async function enqueueThinkzapInboundJob(job: ThinkzapInboundJob) {
-  return thinkzapInboundQueue.add('process-inbound', job, {
+  const createdJob = await thinkzapInboundQueue.add('process-inbound', job, {
     attempts: 3,
     backoff: {
       type: 'exponential',
       delay: 1000,
     },
   })
+
+  logger.info(
+    {
+      queue: THINKZAP_INBOUND,
+      jobId: createdJob.id,
+      source: job.source,
+      type: job.type,
+    },
+    'Inbound job enqueued',
+  )
+
+  return createdJob
 }

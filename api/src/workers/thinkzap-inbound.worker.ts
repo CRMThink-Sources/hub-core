@@ -6,16 +6,21 @@ import {
 } from '@/queue/thinkzap-inbound.queue'
 import { processZApiReceivedMessage } from './z-api-received-message.processor'
 import { ReceivedMessageEvent } from '@/shared/infra/handlers/z-api/z-api'
+import { logger } from '@/shared/infra/logger'
 
 async function processJob(data: ThinkzapInboundJob) {
   if (data.source === 'z-api') {
-    // console.log('Processing Z-API inbound job', data)
+    logger.debug(
+      { source: data.source, type: data.type },
+      'Processing inbound job',
+    )
     await processZApiReceivedMessage(data.body as ReceivedMessageEvent)
-    // await handleZApiInboundJob(data.body)
   } else if (data.source === 'bitrix') {
-    console.log('Processing Bitrix inbound job', data)
+    logger.info(
+      { source: data.source, type: data.type },
+      'Processing Bitrix inbound job',
+    )
     await new Promise(resolve => setTimeout(resolve, 1000))
-    // await handleBitrixInboundJob(data.body)
   }
 }
 
@@ -31,13 +36,40 @@ export const thinkzapInboundWorker = new Worker(
 )
 
 thinkzapInboundWorker.on('failed', (job, err) => {
-  console.error('Job failed', job?.id, err)
+  logger.error(
+    {
+      queue: THINKZAP_INBOUND,
+      jobId: job?.id,
+      attemptsMade: job?.attemptsMade,
+      error: err,
+    },
+    'Worker job failed',
+  )
 })
 
 thinkzapInboundWorker.on('completed', (job, result) => {
-  console.log('Job completed', job?.id, result)
+  logger.info(
+    {
+      queue: THINKZAP_INBOUND,
+      jobId: job?.id,
+      attemptsMade: job?.attemptsMade,
+      result,
+    },
+    'Worker job completed',
+  )
 })
 
 thinkzapInboundWorker.on('active', job => {
-  console.log('Job active', job?.id)
+  logger.info(
+    {
+      queue: THINKZAP_INBOUND,
+      jobId: job?.id,
+      attemptsMade: job?.attemptsMade,
+    },
+    'Worker job active',
+  )
+})
+
+thinkzapInboundWorker.on('ready', () => {
+  logger.info({ queue: THINKZAP_INBOUND }, 'Thinkzap inbound worker is ready')
 })
