@@ -8,6 +8,13 @@ services:
     env_file:
       - ./api/.env
 
+  worker:
+    image: ghcr.io/crmthink-sources/hub-core-api:staging
+    container_name: hubthink-worker-staging
+    env_file:
+      - ./api/.env
+    command: ["node", "dist/src/workers/thinkzap-inbound.worker.js"]
+
   front:
     image: ghcr.io/crmthink-sources/hub-core-front:staging
     container_name: hubthink-front-staging
