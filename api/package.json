@@ -8,17 +8,22 @@
     "start": "tsx src/index.ts",
     "prisma:generate": "prisma generate",
     "lint": "yarn prisma:generate && eslint --max-warnings 0 .",
-    "check-types": "yarn prisma:generate && tsc --noEmit"
+    "check-types": "yarn prisma:generate && tsc --noEmit",
+    "worker:thinkzap": "tsx src/workers/thinkzap-inbound.worker.ts"
   },
   "dependencies": {
+    "@bull-board/api": "^7.0.0",
+    "@bull-board/express": "^7.0.0",
     "@prisma/adapter-mariadb": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "@types/multer": "^2.1.0",
     "axios": "^1.13.4",
+    "bullmq": "^5.76.6",
     "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "ffmpeg-static": "^5.3.0",
+    "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
