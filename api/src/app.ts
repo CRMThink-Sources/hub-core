@@ -70,7 +70,7 @@ app.get('/health', (_req, res) => {
 })
 
 if (isBullBoardEnabled) {
-  app.use('/admin/queues', bullBoardAuthMiddleware, bullBoardRouter)
+  app.use('/api/admin/queues', bullBoardAuthMiddleware, bullBoardRouter)
 }
 
 app.use('/api/auth', authRoutes)
