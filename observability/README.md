@@ -10,6 +10,18 @@ Grafana: `http://localhost:3003`
 Usuario: `admin`
 Senha: `admin`
 
+## Dashboards (provisionados)
+
+Ao subir o Grafana, a pasta **HubThink** contém o dashboard **HubThink - Logs / fila / HTTP**:
+
+- volume de log por container (`api`, `worker`, `front`, staging e produção);
+- eventos **Z-API** recebidos e **jobs enfileirados** (texto dos seus logs estruturados);
+- ciclo do worker (**ativo**, **completed**, **failed**) e um stat de falhas em 15 min;
+- série de requests **HTTP request completed** na API;
+- painéis de **logs** para API e worker + painel combinado de erros.
+
+O JSON fica versionado em `observability/grafana/provisioning/dashboards/json/hubthink-logs-overview.json` (você pode editar e versionar mudanças). **Allow UI updates** está ligado para poder ajustar no Grafana e exportar depois para o arquivo, se preferir.
+
 ## Logs coletados
 
 O Promtail coleta logs de containers Docker com os nomes:
