@@ -9,6 +9,7 @@ import type {
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
 import { DatasetCard } from '../dataset/dataset-card'
 import { DatasetForm } from '../dataset/dataset-form'
+import { useLoading } from '@/providers/loading-provider'
 
 const AUTH_TOKEN_KEY = 'hubthink_auth_token'
 
@@ -69,6 +70,7 @@ export function SourceCard({
   const [testing, setTesting] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState(false)
+  const { setLoading } = useLoading()
 
   function handleCancelEdit() {
     setDraft({ title: source.title, apiKey: '' })
@@ -95,6 +97,7 @@ export function SourceCard({
 
   async function handleSave() {
     setSaving(true)
+    setLoading(true, 'Salvando...')
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       const fields: { title?: string; settings?: SourceSettings } = {}
@@ -107,6 +110,7 @@ export function SourceCard({
       setDraft(d => ({ ...d, apiKey: '' }))
     } finally {
       setSaving(false)
+      setLoading(false)
     }
   }
 
@@ -126,21 +130,28 @@ export function SourceCard({
 
   async function handleDelete() {
     setDeleting(true)
+    setLoading(true, 'Removendo...')
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await client.delete(`/thinkanalise/source/${source.id}`)
       await onDeleted()
     } finally {
       setDeleting(false)
+      setLoading(false)
     }
   }
 
   async function handleToggleActive() {
-    const client = axiosThinkanalise(AUTH_TOKEN_KEY)
-    await client.put(`/thinkanalise/source/${source.id}`, {
-      active: !source.active,
-    })
-    await onSaved()
+    setLoading(true, 'Atualizando...')
+    try {
+      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
+      await client.put(`/thinkanalise/source/${source.id}`, {
+        active: !source.active,
+      })
+      await onSaved()
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -348,6 +359,7 @@ export function NewSourceCard({
   const [saving, setSaving] = useState(false)
   const [testStatus, setTestStatus] = useState<'idle' | 'ok' | 'erro'>('idle')
   const [testing, setTesting] = useState(false)
+  const { setLoading } = useLoading()
 
   useEffect(() => {
     if (!isContaAzul) return
@@ -379,6 +391,7 @@ export function NewSourceCard({
   async function handleSave() {
     if (!title || !apiKey) return
     setSaving(true)
+    setLoading(true, 'Salvando...')
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await client.post(`/thinkanalise/connector/${connectorId}/source`, {
@@ -389,6 +402,7 @@ export function NewSourceCard({
       await onSaved()
     } finally {
       setSaving(false)
+      setLoading(false)
     }
   }
 
@@ -398,6 +412,7 @@ export function NewSourceCard({
     if (!title) return
     setSaving(true)
     setSaveConnectError(false)
+    setLoading(true, 'Salvando...')
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await startContaAzulOAuth(client, { connectorId, title })
@@ -406,6 +421,7 @@ export function NewSourceCard({
       setSaveConnectError(true)
     } finally {
       setSaving(false)
+      setLoading(false)
     }
   }
 

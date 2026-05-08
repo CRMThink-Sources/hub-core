@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
 import { toast } from 'sonner'
+import { useLoading } from '@/providers/loading-provider'
 
 type SourceFormProps = {
   connectorId: number
@@ -22,6 +23,7 @@ export function SourceForm({
   const [saving, setSaving] = useState(false)
   const [testStatus, setTestStatus] = useState<'idle' | 'ok' | 'erro'>('idle')
   const [testing, setTesting] = useState(false)
+  const { setLoading } = useLoading()
 
   async function handleTest() {
     setTesting(true)
@@ -42,6 +44,7 @@ export function SourceForm({
   async function handleSave() {
     if (!title || !apiKey) return
     setSaving(true)
+    setLoading(true, 'Salvando...')
     try {
       const client = axiosThinkanalise()
       await client.post(`/thinkanalise/connector/${connectorId}/source`, {
@@ -55,6 +58,7 @@ export function SourceForm({
       toast.error('Erro ao criar a fonte.')
     } finally {
       setSaving(false)
+      setLoading(false)
     }
   }
 
