@@ -6,7 +6,7 @@ import { NextFunction, Request, RequestHandler, Response } from 'express'
 import { thinkzapInboundQueue } from './thinkzap-inbound.queue'
 
 const serverAdapter = new ExpressAdapter()
-serverAdapter.setBasePath('/admin/queues')
+serverAdapter.setBasePath('/api/admin/queues')
 
 createBullBoard({
   queues: [new BullMQAdapter(thinkzapInboundQueue)],
