@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
 import { toast } from 'sonner'
+import { useLoading } from '@/providers/loading-provider'
 
 function toFieldName(str: string): string {
   return str
@@ -39,9 +40,11 @@ export function DatasetForm({
   const [loadingFields, setLoadingFields] = useState(false)
   const [datasetName, setDatasetName] = useState('')
   const [saving, setSaving] = useState(false)
+  const { setLoading } = useLoading()
 
   async function loadTables() {
     setLoadingTables(true)
+    setLoading(true, 'Carregando...')
     try {
       const client = axiosThinkanalise()
       const tables = await client.post<TableEntry[]>('/thinkanalise/tables', {
@@ -50,6 +53,7 @@ export function DatasetForm({
       setTables(tables as unknown as TableEntry[])
     } finally {
       setLoadingTables(false)
+      setLoading(false)
     }
   }
 
@@ -76,6 +80,7 @@ export function DatasetForm({
   async function handleSave() {
     if (!selectedTable || !datasetName) return
     setSaving(true)
+    setLoading(true, 'Salvando...')
     try {
       const client = axiosThinkanalise()
       await client.post(`/thinkanalise/source/${sourceId}/dataset`, {
@@ -100,6 +105,7 @@ export function DatasetForm({
       }
     } finally {
       setSaving(false)
+      setLoading(false)
     }
   }
 

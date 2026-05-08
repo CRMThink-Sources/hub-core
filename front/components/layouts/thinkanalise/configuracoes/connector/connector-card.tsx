@@ -11,6 +11,7 @@ import type {
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
 import { SourceCard, NewSourceCard } from '../source/source-card'
 import { toast } from 'sonner'
+import { useLoading } from '@/providers/loading-provider'
 
 const PROVIDER_COLORS: Record<
   string,
@@ -82,6 +83,8 @@ export function ConnectorCard({
   }
   const [addingSource, setAddingSource] = useState(false)
 
+  const { setLoading } = useLoading()
+
   function updateNew(patch: Partial<Connection>) {
     onChange({ ...connection, ...patch })
   }
@@ -101,6 +104,7 @@ export function ConnectorCard({
 
   async function handleSave() {
     setSaving(true)
+    setLoading(true, 'Salvando...')
     try {
       const client = axiosThinkanalise()
       if (isSaved) {
@@ -126,6 +130,7 @@ export function ConnectorCard({
       if (!isSaved) onChange({ ...connection, status: 'erro' })
     } finally {
       setSaving(false)
+      setLoading(false)
     }
   }
 
@@ -135,6 +140,7 @@ export function ConnectorCard({
       return
     }
     setDeleting(true)
+    setLoading(true, 'Removendo...')
     try {
       const client = axiosThinkanalise()
       await client.delete(`/thinkanalise/connector/${connection.biconnectorId}`)
@@ -144,6 +150,7 @@ export function ConnectorCard({
       await onDeleted()
     } finally {
       setDeleting(false)
+      setLoading(false)
     }
   }
 
