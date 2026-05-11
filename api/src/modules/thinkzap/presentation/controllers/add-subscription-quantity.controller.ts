@@ -1,5 +1,6 @@
 import { env } from '@/config/env'
 import { httpResponse } from '@/shared/helpers/http'
+import { logger } from '@/shared/infra/logger'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
 import Stripe from 'stripe'
@@ -84,6 +85,11 @@ export class AddSubscriptionQuantityController extends Controller {
 
     const { additionalQuantity } = parsed.data
 
+    logger.info(
+      { appId, domainId, additionalQuantity, billingId: billing.id },
+      'add-subscription-quantity: iniciando adição de linhas',
+    )
+
     const current = await this.stripe.subscriptions.retrieve(
       billing.stripeSubscriptionId,
       { expand: ['items.data.price'] },
@@ -118,6 +124,19 @@ export class AddSubscriptionQuantityController extends Controller {
         : null,
       connectorQuantity,
     })
+
+    logger.info(
+      {
+        appId,
+        domainId,
+        previousQuantity: currentQty,
+        additionalQuantity,
+        newQuantity,
+        stripeSubscriptionId: updated.id,
+      },
+      'add-subscription-quantity: linhas adicionadas com sucesso',
+    )
+
     return this.ok({
       connectorQuantity: newQuantity,
       stripeSubscriptionId: updated.id,
