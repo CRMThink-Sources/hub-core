@@ -10,6 +10,7 @@ import { makeUpdateInstanceController } from './main/instance/make-update-instan
 import { makeDisconnectConnectorController } from './main/connector/make-disconnect-connector'
 import { makeCancelConnectorController } from './main/connector/make-cancel-connector'
 import { makeAddSubscriptionQuantityController } from './main/add-subscription-quantity-controller'
+import { makePreviewAddQuantityController } from './main/make-preview-add-quantity-controller'
 import { makeGetThinkzapPricingController } from './main/get-thinkzap-pricing-controller'
 import { makeCreateBillingPortalSessionController } from './main/create-billing-portal-session-controller'
 import { makeEndTrialSubscriptionController } from './main/end-trial-subscription-controller'
@@ -41,6 +42,10 @@ export const createThinkerszapRoutes = (): Router => {
   router.post(
     '/subscription/checkout',
     adaptControllerFactory(makeCreateSubscriptionCheckoutController),
+  )
+  router.get(
+    '/subscription/add-quantity-preview',
+    adaptControllerFactory(makePreviewAddQuantityController),
   )
   router.post(
     '/subscription/add-quantity',

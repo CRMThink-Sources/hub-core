@@ -101,14 +101,14 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
       ? [
           {
             url: event.audio.audioUrl,
-            name: 'Mensagem de áudio',
+            name: 'Mensagem de áudio.mp3',
           },
         ]
       : event.video
         ? [
             {
               url: event.video.videoUrl,
-              name: 'Mensagem de vídeo',
+              name: 'Mensagem de vídeo.mp4',
             },
           ]
         : undefined
