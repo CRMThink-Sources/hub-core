@@ -15,6 +15,7 @@ import {
 } from '../_components/gestao-linhas/gestao-linhas-pricing-card'
 import { GestaoLinhasStatusBanner } from '../_components/gestao-linhas/gestao-linhas-status-banner'
 import { GestaoLinhasContratadas } from '../_components/gestao-linhas/gestao-linhas-contratadas'
+import { ContratarLinhasModal } from '../_components/gestao-linhas/contratar-linhas-modal'
 
 /** Alinhado ao backend: só ACTIVE e PAST_DUE permitem aumentar linhas (trial precisa efetivar antes). */
 function podeAlterarAssinaturaExistente(status: string | undefined): boolean {
@@ -30,6 +31,7 @@ export default function GestaoLinhas() {
   const [pricing, setPricing] = useState<ThinkzapPricingResponse | null>(null)
   const [pricingLoading, setPricingLoading] = useState(true)
   const [pricingErro, setPricingErro] = useState<string | null>(null)
+  const [modalContratarAberto, setModalContratarAberto] = useState(false)
 
   const isTrial = useMemo(() => {
     return session?.subscription?.status === 'TRIALING'
@@ -106,7 +108,18 @@ export default function GestaoLinhas() {
   const handleIncrement = () => setQuantidade(prev => prev + 1)
   const handleDecrement = () => setQuantidade(prev => (prev > 1 ? prev - 1 : 1))
 
-  async function handleContinuar() {
+  function handleContinuar() {
+    if (quantidade < 1) return
+
+    if (temAssinaturaAjustavel) {
+      setModalContratarAberto(true)
+      return
+    }
+
+    void handleExecutarContratacao()
+  }
+
+  async function handleExecutarContratacao() {
     if (quantidade < 1) return
 
     setSubmitting(true)
@@ -118,11 +131,16 @@ export default function GestaoLinhas() {
       }
 
       if (hasSubscription) {
-        const body = await resolved.client.post<{
+        await resolved.client.post<{
           connectorQuantity?: number
         }>('/thinkzap/subscription/add-quantity', {
           additionalQuantity: quantidade,
         })
+        setModalContratarAberto(false)
+        toast.success(
+          `${quantidade} linha${quantidade !== 1 ? 's' : ''} adicionada${quantidade !== 1 ? 's' : ''} com sucesso!`,
+        )
+        await refreshSession()
       } else {
         const data = await resolved.client.post<{
           clientSecret?: string | null
@@ -142,9 +160,6 @@ export default function GestaoLinhas() {
     } finally {
       setSubmitting(false)
     }
-    return
-
-    // router.push(`/checkout?quantity=${quantidade}`)
   }
 
   async function handleConfirmTrial() {
@@ -212,6 +227,15 @@ export default function GestaoLinhas() {
 
   return (
     <div className="space-y-8">
+      <ContratarLinhasModal
+        isOpen={modalContratarAberto}
+        quantidade={quantidade}
+        linhasNaAssinatura={linhasNaAssinatura}
+        submitting={submitting}
+        onClose={() => setModalContratarAberto(false)}
+        onConfirm={() => void handleExecutarContratacao()}
+      />
+
       <div className="border-t border-gray-200" />
 
       <div className="space-y-4">
@@ -235,7 +259,7 @@ export default function GestaoLinhas() {
           isCancelled={isCancelled}
           onIncrement={handleIncrement}
           onDecrement={handleDecrement}
-          onContinue={() => void handleContinuar()}
+          onContinue={handleContinuar}
           onReactivateSubscription={() => void handleReactivateSubscription()}
         />
       </div>
