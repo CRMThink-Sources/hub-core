@@ -30,7 +30,11 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
   const instance = await instanceRepo.getInstanceByInstanceId(event.instanceId)
   if (!instance) {
     logger.warn(
-      { instanceId: event.instanceId, messageId: event.messageId },
+      {
+        instanceId: event.instanceId,
+        messageId: event.messageId,
+        instance: JSON.stringify(instance),
+      },
       'Instance not found for received message',
     )
     return
@@ -116,7 +120,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
       {
         chat: {
           id: event.phone,
-          name: event.chatName,
+          name: event.chatName + ' - ' + event.phone,
         },
         user: {
           id: event.phone,

@@ -267,6 +267,12 @@ jobs:
           script: |
             mkdir -p ~/hubthink-observability
             cd ~/hubthink-observability
+            echo "=== Observability files on VPS (dashboards must exist here) ==="
+            ls -la observability/grafana/provisioning/dashboards/json/ || echo "MISSING: observability/grafana/provisioning/dashboards/json — check SCP and repo"
             docker compose -p hubthink-observability -f docker-compose.observability.yml pull || true
             docker compose -p hubthink-observability -f docker-compose.observability.yml up -d --remove-orphans
+            # Grafana aplica provisioning de dashboards sobretudo no start; sem recreate pode não aparecer dash novo
+            docker compose -p hubthink-observability -f docker-compose.observability.yml up -d --force-recreate grafana
             docker compose -p hubthink-observability -f docker-compose.observability.yml ps
+            echo "=== Grafana provisioning (erros aparecem abaixo) ==="
+            docker logs hubthink-grafana 2>&1 | tail -n 80
