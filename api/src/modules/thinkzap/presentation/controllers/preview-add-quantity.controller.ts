@@ -132,7 +132,7 @@ export class PreviewAddQuantityController extends Controller {
 
     const [stripeSubscription, stripePrice] = await Promise.all([
       this.stripe.subscriptions.retrieve(billing.stripeSubscriptionId, {
-        expand: ['items.data.price', 'discount.coupon'],
+        expand: ['items.data.price', 'discounts.source.coupon'],
       }),
       this.stripe.prices.retrieve(priceId, {
         expand: ['tiers', 'currency_options'],
@@ -159,10 +159,17 @@ export class PreviewAddQuantityController extends Controller {
       newQuantity,
     )
 
-    // Cupom: pode estar como discount direto na assinatura
-    const rawDiscount = stripeSubscription.discount as
-      | (Stripe.Discount & { coupon?: Stripe.Coupon })
-      | null
+    // Cupom: discounts é array; filtra strings (não expandidas)
+    const firstDiscount = (stripeSubscription.discounts ?? [])[0]
+    const activeDiscount =
+      firstDiscount != null && typeof firstDiscount !== 'string'
+        ? firstDiscount
+        : null
+
+    // source.coupon pode ser string (ID) ou Stripe.Coupon (quando expandido)
+    const couponRaw = activeDiscount?.source?.coupon ?? null
+    const coupon =
+      couponRaw != null && typeof couponRaw !== 'string' ? couponRaw : null
 
     let discount: {
       name: string | null
@@ -172,8 +179,7 @@ export class PreviewAddQuantityController extends Controller {
       estimatedAmountWithDiscount: number | null
     } | null = null
 
-    if (rawDiscount?.coupon) {
-      const coupon = rawDiscount.coupon
+    if (coupon) {
       const percentOff = coupon.percent_off ?? null
       const amountOff =
         coupon.amount_off != null ? centsToAmount(coupon.amount_off) : null
