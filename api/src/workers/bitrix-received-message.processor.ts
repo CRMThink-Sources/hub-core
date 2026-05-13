@@ -1,0 +1,252 @@
+import axios from 'axios'
+
+import { env } from '@/config/env'
+import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
+import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
+import { PrismaConnectorRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-connector.repository'
+import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
+import { appIdResolver } from '@/modules/auth/presentation/controllers/helpers/app-id-resolver'
+import {
+  BitrixClient,
+  ISendMessageData,
+} from '@/shared/infra/clients/bitrix.client'
+import { destructureChatId } from '@/shared/helpers/chat-id'
+import { convertToMp3 } from '@/shared/helpers/convert-to-mp3'
+import { GetBitrixWebhookContextRepository } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
+import { PrismaBitrixWebhookContextRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bitrix-webhook-context.repository'
+import { logger } from '@/shared/infra/logger'
+
+export async function processBitrixReceivedMessage(
+  event: IBX24MessageEvent,
+): Promise<void> {
+  logger.info(
+    {
+      domain: event.auth.domain,
+      line: event.data.LINE,
+      messagesCount: event.data.MESSAGES.length,
+    },
+    'Processing Bitrix outbound message',
+  )
+
+  if (!event.data.MESSAGES.length) {
+    logger.warn(
+      { domain: event.auth.domain, line: event.data.LINE },
+      'Bitrix event received with no messages — skipping',
+    )
+    return
+  }
+
+  const message = event.data
+    .MESSAGES[0] as IBX24MessageEvent['data']['MESSAGES'][number]
+  const messages: Array<{
+    type: string
+    text?: string
+    name?: string
+    mime?: string
+    link?: string
+  }> = []
+
+  if (message.message.text) {
+    messages.push({ type: 'text', text: message.message.text })
+  } else if (message.message.files) {
+    for (const file of message.message.files) {
+      const type = file.name.includes('audio-') ? 'audio' : file.type
+      messages.push({
+        type,
+        name: file.name,
+        mime: file.mime,
+        link: file.downloadLink,
+      })
+    }
+  }
+
+  logger.debug(
+    {
+      domain: event.auth.domain,
+      line: event.data.LINE,
+      parsedMessages: messages.map(m => ({ type: m.type })),
+    },
+    'Bitrix messages parsed',
+  )
+
+  const bitrixWebhookContextRepo: GetBitrixWebhookContextRepository =
+    new PrismaBitrixWebhookContextRepository()
+
+  const context = await bitrixWebhookContextRepo.getContext({
+    domainName: event.auth.domain,
+    appCode: appIdResolver[env.appCodes.thinkzap] || '',
+    line: event.data.LINE,
+  })
+
+  if (!context) {
+    logger.error(
+      { domain: event.auth.domain, line: event.data.LINE },
+      'Bitrix webhook context not found',
+    )
+    throw new Error('Context not found')
+  }
+
+  logger.debug(
+    {
+      domain: event.auth.domain,
+      instanceId: context.instance.instanceId,
+      internalInstanceId: context.instance.id,
+    },
+    'Bitrix webhook context resolved',
+  )
+
+  const bitrixClient = new BitrixClient({
+    bitrixCredential: context.app.credential,
+    domain: context.name,
+  })
+
+  const zApiClient = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
+  const chatId = message.chat.id
+
+  for (const messageData of messages) {
+    logger.debug(
+      {
+        domain: event.auth.domain,
+        instanceId: context.instance.instanceId,
+        chatId,
+        messageType: messageData.type,
+      },
+      'Sending message via Z-API',
+    )
+
+    if (messageData.type === 'text') {
+      const result = await zApiClient.sendMessage(
+        context.instance.instanceId,
+        context.instance.zApiToken || '',
+        messageData.text || '',
+        chatId,
+      )
+      logger.info(
+        {
+          domain: event.auth.domain,
+          instanceId: context.instance.instanceId,
+          chatId,
+          zApiMessageId: result.messageId,
+        },
+        'Text message sent via Z-API',
+      )
+      await setDelivered(bitrixClient, event, message, chatId, result.messageId)
+    } else if (messageData.type === 'image') {
+      const result = await zApiClient.sendImage(
+        context.instance.instanceId,
+        context.instance.zApiToken || '',
+        messageData.link || '',
+        chatId,
+      )
+      logger.info(
+        {
+          domain: event.auth.domain,
+          instanceId: context.instance.instanceId,
+          chatId,
+          zApiMessageId: result.messageId,
+        },
+        'Image message sent via Z-API',
+      )
+      await setDelivered(bitrixClient, event, message, chatId, result.messageId)
+    } else if (messageData.type === 'video') {
+      const result = await zApiClient.sendVideo(
+        context.instance.instanceId,
+        context.instance.zApiToken || '',
+        messageData.link || '',
+        chatId,
+      )
+      logger.info(
+        {
+          domain: event.auth.domain,
+          instanceId: context.instance.instanceId,
+          chatId,
+          zApiMessageId: result.messageId,
+        },
+        'Video message sent via Z-API',
+      )
+      await setDelivered(bitrixClient, event, message, chatId, result.messageId)
+    } else if (messageData.type === 'audio') {
+      const audioResponse = await axios.get<ArrayBuffer>(
+        messageData.link || '',
+        { responseType: 'arraybuffer' },
+      )
+      const mp3Buffer = await convertToMp3(Buffer.from(audioResponse.data))
+      const base64Audio = `data:audio/mpeg;base64,${mp3Buffer.toString('base64')}`
+
+      const result = await zApiClient.sendAudio(
+        context.instance.instanceId,
+        context.instance.zApiToken || '',
+        base64Audio,
+        chatId,
+      )
+      logger.info(
+        {
+          domain: event.auth.domain,
+          instanceId: context.instance.instanceId,
+          chatId,
+          zApiMessageId: result.messageId,
+        },
+        'Audio message sent via Z-API',
+      )
+      await setDelivered(bitrixClient, event, message, chatId, result.messageId)
+    } else if (messageData.type === 'file') {
+      const result = await zApiClient.sendDocument(
+        context.instance.instanceId,
+        context.instance.zApiToken || '',
+        messageData.link || '',
+        chatId,
+        messageData.name || '',
+      )
+      logger.info(
+        {
+          domain: event.auth.domain,
+          instanceId: context.instance.instanceId,
+          chatId,
+          zApiMessageId: result.messageId,
+        },
+        'File message sent via Z-API',
+      )
+      await setDelivered(bitrixClient, event, message, chatId, result.messageId)
+    } else {
+      logger.warn(
+        {
+          domain: event.auth.domain,
+          instanceId: context.instance.instanceId,
+          messageType: messageData.type,
+        },
+        'Unknown message type — skipping',
+      )
+    }
+  }
+
+  logger.info(
+    {
+      domain: event.auth.domain,
+      line: event.data.LINE,
+      instanceId: context.instance.instanceId,
+      chatId,
+      messagesProcessed: messages.length,
+    },
+    'Bitrix outbound message processing completed',
+  )
+}
+
+async function setDelivered(
+  bitrixClient: BitrixClient,
+  event: IBX24MessageEvent,
+  message: IBX24MessageEvent['data']['MESSAGES'][number],
+  chatId: string,
+  zApiMessageId: string,
+): Promise<void> {
+  await bitrixClient.setMessageDelivered({
+    CONNECTOR: env.bitrix.connector.code,
+    LINE: event.data.LINE,
+    MESSAGES: [
+      {
+        im: message.im,
+        message: { id: zApiMessageId },
+        chat: { id: chatId },
+      },
+    ],
+  })
+}

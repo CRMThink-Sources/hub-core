@@ -37,7 +37,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
       },
       'Instance not found for received message',
     )
-    return
+    throw new Error('Instance not found for received message')
   }
   if (!instance.vinculatedChannel) {
     logger.warn(
@@ -48,7 +48,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
       },
       'Instance has no vinculated channel',
     )
-    return
+    throw new Error('Instance has no vinculated channel')
   }
   const connector = await connectorRepo.getConnectorByInstanceId(instance?.id)
   if (!connector) {
@@ -60,7 +60,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
       },
       'Connector not found for instance',
     )
-    return
+    throw new Error('Connector not found for instance')
   }
 
   const { domainId } = instance
@@ -154,11 +154,25 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
     'Prepared message payload to send to Bitrix',
   )
   if (event.isGroup) {
-    await sendMessageFromGroup(event, domain, credential, instance, files)
+    await sendMessageFromGroup(
+      event,
+      domain,
+      credential,
+      instance as unknown as Instance,
+      files,
+    )
     return
   }
 
-  await bitrixClient.sendMessage(params)
+  const result: unknown = await bitrixClient.sendMessage(params)
+
+  logger.info(
+    {
+      messageId: event.messageId,
+      result: JSON.stringify(result),
+    },
+    'Message sent to Bitrix',
+  )
 }
 
 async function sendMessageFromGroup(
