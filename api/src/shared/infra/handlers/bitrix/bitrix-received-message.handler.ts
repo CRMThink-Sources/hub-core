@@ -1,185 +1,25 @@
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import { BitrixEventHandler } from '../bitrix-event-handler'
-import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
-import { env } from '@/config/env'
-import { BitrixClient } from '../../clients/bitrix.client'
-import { GetBitrixWebhookContextRepository } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
-import { destructureChatId } from '@/shared/helpers/chat-id'
-import { convertToMp3 } from '@/shared/helpers/convert-to-mp3'
-import axios from 'axios'
-import { appIdResolver } from '@/modules/auth/presentation/controllers/helpers/app-id-resolver'
+import { enqueueThinkzapInboundJob } from '@/queue/thinkzap-inbound.queue'
+import { logger } from '@/shared/infra/logger'
 
 export class BitrixReceivedMessageHandler implements BitrixEventHandler {
   eventType = 'ONIMCONNECTORMESSAGEADD'
 
-  constructor(
-    private readonly bitrixWebhookContextRepo: GetBitrixWebhookContextRepository,
-  ) {}
-
   async handle(event: IBX24MessageEvent): Promise<void> {
-    if (!event.data.MESSAGES.length) return
-    const message = event.data.MESSAGES[0]
-    const messages = []
-    if (message?.message.text) {
-      messages.push({
-        type: 'text',
-        text: message.message.text,
-      })
-    } else if (message?.message.files) {
-      for (const file of message.message.files) {
-        const type = file.name.includes('audio-') ? 'audio' : file.type
-        messages.push({
-          type: type,
-          name: file.name,
-          mime: file.mime,
-          link: file.downloadLink,
-        })
-      }
-    }
-
-    const context = await this.bitrixWebhookContextRepo.getContext({
-      domainName: event.auth.domain,
-      appCode: appIdResolver[env.appCodes.thinkzap] || '',
-      line: event.data.LINE,
-    })
-
-    if (!context) {
-      throw new Error('Context not found')
-    }
-
-    const bitrixClient = new BitrixClient({
-      bitrixCredential: context.app.credential,
-      domain: context.name,
-    })
-
-    const zApiClient = new ZApiClient(
-      env.zApi.partnerToken,
-      env.zApi.clientToken,
+    logger.info(
+      {
+        domain: event.auth.domain,
+        line: event.data.LINE,
+        messagesCount: event.data.MESSAGES.length,
+      },
+      'Bitrix outbound message received — enqueueing',
     )
 
-    const chatId = message?.chat.id as string
-
-    for (const messageData of messages) {
-      if (messageData.type === 'text') {
-        const sendMessageResult = await zApiClient.sendMessage(
-          context.instance.instanceId,
-          context.instance.zApiToken || '',
-          messageData.text || '',
-          chatId, //phoneNumber,
-        )
-        await bitrixClient.setMessageDelivered({
-          CONNECTOR: env.bitrix.connector.code,
-          LINE: event.data.LINE,
-          MESSAGES: [
-            {
-              im: message?.im,
-              message: {
-                id: sendMessageResult.messageId,
-              },
-              chat: {
-                id: chatId,
-              },
-            },
-          ],
-        })
-      } else if (messageData.type === 'image') {
-        const sendImageResult = await zApiClient.sendImage(
-          context.instance.instanceId,
-          context.instance.zApiToken || '',
-          messageData.link || '',
-          chatId, //phoneNumber,
-        )
-        await bitrixClient.setMessageDelivered({
-          CONNECTOR: env.bitrix.connector.code,
-          LINE: event.data.LINE,
-          MESSAGES: [
-            {
-              im: message?.im,
-              message: {
-                id: sendImageResult.messageId,
-              },
-              chat: {
-                id: chatId,
-              },
-            },
-          ],
-        })
-      } else if (messageData.type === 'video') {
-        const sendVideoResult = await zApiClient.sendVideo(
-          context.instance.instanceId,
-          context.instance.zApiToken || '',
-          messageData.link || '',
-          chatId, //phoneNumber,
-        )
-        await bitrixClient.setMessageDelivered({
-          CONNECTOR: env.bitrix.connector.code,
-          LINE: event.data.LINE,
-          MESSAGES: [
-            {
-              im: message?.im,
-              message: {
-                id: sendVideoResult.messageId,
-              },
-              chat: {
-                id: chatId,
-              },
-            },
-          ],
-        })
-      } else if (messageData.type === 'audio') {
-        const audioResponse = await axios.get(messageData.link || '', {
-          responseType: 'arraybuffer',
-        })
-        const mp3Buffer = await convertToMp3(
-          Buffer.from(audioResponse.data as ArrayBuffer),
-        )
-        const base64Audio = `data:audio/mpeg;base64,${mp3Buffer.toString('base64')}`
-
-        const sendAudioResult = await zApiClient.sendAudio(
-          context.instance.instanceId,
-          context.instance.zApiToken || '',
-          base64Audio,
-          chatId, //phoneNumber,
-        )
-        await bitrixClient.setMessageDelivered({
-          CONNECTOR: env.bitrix.connector.code,
-          LINE: event.data.LINE,
-          MESSAGES: [
-            {
-              im: message?.im,
-              message: {
-                id: sendAudioResult.messageId,
-              },
-              chat: {
-                id: chatId,
-              },
-            },
-          ],
-        })
-      } else if (messageData.type === 'file') {
-        const sendFileResult = await zApiClient.sendDocument(
-          context.instance.instanceId,
-          context.instance.zApiToken || '',
-          messageData.link || '',
-          chatId, //phoneNumber,
-          messageData.name || '',
-        )
-        await bitrixClient.setMessageDelivered({
-          CONNECTOR: env.bitrix.connector.code,
-          LINE: event.data.LINE,
-          MESSAGES: [
-            {
-              im: message?.im,
-              message: {
-                id: sendFileResult.messageId,
-              },
-              chat: {
-                id: chatId,
-              },
-            },
-          ],
-        })
-      }
-    }
+    await enqueueThinkzapInboundJob({
+      source: 'bitrix',
+      type: this.eventType,
+      body: event as unknown as Record<string, unknown>,
+    })
   }
 }
