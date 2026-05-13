@@ -1,11 +1,13 @@
-import { Job, Worker } from 'bullmq'
+import { Worker } from 'bullmq'
 import { redisConnection } from '@/queue/redis-connection'
 import {
   THINKZAP_INBOUND,
   ThinkzapInboundJob,
 } from '@/queue/thinkzap-inbound.queue'
 import { processZApiReceivedMessage } from './z-api-received-message.processor'
+import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
 import { ReceivedMessageEvent } from '@/shared/infra/handlers/z-api/z-api'
+import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import { logger } from '@/shared/infra/logger'
 
 async function processJob(data: ThinkzapInboundJob) {
@@ -16,11 +18,13 @@ async function processJob(data: ThinkzapInboundJob) {
     )
     await processZApiReceivedMessage(data.body as ReceivedMessageEvent)
   } else if (data.source === 'bitrix') {
-    logger.info(
+    logger.debug(
       { source: data.source, type: data.type },
-      'Processing Bitrix inbound job',
+      'Processing inbound job',
     )
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await processBitrixReceivedMessage(
+      data.body as unknown as IBX24MessageEvent,
+    )
   }
 }
 
@@ -40,6 +44,8 @@ thinkzapInboundWorker.on('failed', (job, err) => {
     {
       queue: THINKZAP_INBOUND,
       jobId: job?.id,
+      source: (job?.data as ThinkzapInboundJob | undefined)?.source,
+      type: (job?.data as ThinkzapInboundJob | undefined)?.type,
       attemptsMade: job?.attemptsMade,
       error: err,
     },
@@ -47,13 +53,14 @@ thinkzapInboundWorker.on('failed', (job, err) => {
   )
 })
 
-thinkzapInboundWorker.on('completed', (job, result) => {
+thinkzapInboundWorker.on('completed', job => {
   logger.info(
     {
       queue: THINKZAP_INBOUND,
       jobId: job?.id,
+      source: (job?.data as ThinkzapInboundJob | undefined)?.source,
+      type: (job?.data as ThinkzapInboundJob | undefined)?.type,
       attemptsMade: job?.attemptsMade,
-      result,
     },
     'Worker job completed',
   )
@@ -64,6 +71,7 @@ thinkzapInboundWorker.on('active', job => {
     {
       queue: THINKZAP_INBOUND,
       jobId: job?.id,
+      source: (job?.data as ThinkzapInboundJob | undefined)?.source,
       attemptsMade: job?.attemptsMade,
     },
     'Worker job active',
