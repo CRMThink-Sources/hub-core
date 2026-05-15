@@ -89,7 +89,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
     bitrixCredential: credential,
     domain: domain?.name,
   })
-
+  console.log(event)
   const files = event.image
     ? [
         {
@@ -111,7 +111,15 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
               name: 'Mensagem de vídeo.mp4',
             },
           ]
-        : undefined
+        : event.document
+          ? [
+              {
+                url: event.document.documentUrl,
+                name: event.document.fileName,
+              },
+            ]
+          : undefined
+  console.log(files)
 
   const chatId = event.phone.includes('@lid') ? event.phone : event.chatLid
   if (!chatId) {
