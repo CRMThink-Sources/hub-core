@@ -53,6 +53,11 @@ export type ReceivedMessageEvent = {
     viewOnce: boolean
     isGif: boolean
   }
+  document?: {
+    documentUrl: string
+    fileName: string
+    mimeType: string
+  }
   _traceContext: {
     traceId: string
     spanId: string
