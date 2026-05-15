@@ -33,7 +33,11 @@ export class BitrixDiskClient extends BitrixClient {
 
       return response.data.result.ID
     } catch (error) {
-      console.log((error as AxiosError).response?.data)
+      console.log(
+        '[BitrixDiskClient] getFolderId failed for dialogId/chatId:',
+        id,
+        (error as AxiosError).response?.data,
+      )
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -64,25 +68,21 @@ export class BitrixDiskClient extends BitrixClient {
     }
   }
 
-  async commitFile(fileId: number, CHAT_ID: string) {
+  async commitFile(fileId: number, dialogId: string) {
     const client = this.getClient()
-    const chatId = CHAT_ID.includes('chat')
-      ? CHAT_ID.replace('chat', '')
-      : CHAT_ID
     try {
       const response = await client.post<{ result: { ID: number } }>(
         `im.disk.file.commit`,
         {
           FILE_ID: fileId,
-          CHAT_ID: chatId,
+          DIALOG_ID: dialogId,
         },
       )
       return response.data.result
     } catch (error) {
       const message =
         axios.isAxiosError(error) && error.response
-          ? // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data.error_description)}`
+          ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
           : 'Failed to commit file'
       throw new BitrixError(message)
     }
