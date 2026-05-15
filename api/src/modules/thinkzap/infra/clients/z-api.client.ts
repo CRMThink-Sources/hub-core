@@ -340,6 +340,7 @@ export class ZApiClient {
         {
           phone,
           audio,
+          waveform: true,
         },
         {
           headers: {

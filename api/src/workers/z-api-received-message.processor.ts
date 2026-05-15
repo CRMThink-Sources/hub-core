@@ -113,18 +113,22 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
           ]
         : undefined
 
+  const chatId = event.phone.includes('@lid') ? event.phone : event.chatLid
+  if (!chatId) {
+    throw new Error('Chat ID not found')
+  }
   const params: ISendMessageData = {
     CONNECTOR: env.bitrix.connector.code,
     LINE: Number(instance.vinculatedChannel),
     MESSAGES: [
       {
         chat: {
-          id: event.phone,
+          id: chatId,
           name: event.chatName + ' - ' + event.phone,
         },
         user: {
           id: event.phone,
-          name: event.chatName,
+          name: event.chatName ?? event.senderName,
           last_name: '',
           phone: event.phone,
           picture: {
@@ -192,18 +196,23 @@ async function sendMessageFromGroup(
     'Processing group message for Bitrix',
   )
 
+  const chatId = event.phone.includes('@lid') ? event.phone : event.chatLid
+  if (!chatId) {
+    throw new Error('Chat ID not found')
+  }
+
   const params: ISendMessageData = {
     CONNECTOR: env.bitrix.connector.code,
     LINE: Number(instance.vinculatedChannel),
     MESSAGES: [
       {
         chat: {
-          id: event.phone,
+          id: chatId,
           name: event.chatName,
         },
         user: {
           id: event.phone,
-          name: event.chatName,
+          name: event.chatName ?? event.phone,
           last_name: '',
           phone: event.phone,
           picture: {
