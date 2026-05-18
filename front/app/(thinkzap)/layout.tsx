@@ -6,6 +6,8 @@ import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkza
 import { SessionProvider, useSession } from '@/providers/session-provider'
 import { envConfig } from '@/shared/infra/env-config'
 import { Montserrat } from 'next/font/google'
+import { i18n } from '@/i18n/provider'
+import { LOCALE_COOKIE } from '@/i18n/config'
 
 const montSerrat = Montserrat({
   subsets: ['latin'],
@@ -58,13 +60,20 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
     hasSubscription,
     subscriptionStatus,
   )
+  function handleLanguageChange(code: string) {
+    document.cookie = `${LOCALE_COOKIE}=${code}; path=/; max-age=31536000`
+    void i18n.changeLanguage(code)
+  }
 
   return (
     <div
       className={`${montSerrat.variable} min-h-screen min-w-0 w-full`}
       style={{ fontFamily: 'var(--font-montserrat)' }}
     >
-      <Aside {...THINKZAP_ASIDE_CONFIG} />
+      <Aside
+        {...THINKZAP_ASIDE_CONFIG}
+        onLanguageChange={handleLanguageChange}
+      />
       {/* Aside é fixed: padding reserva a faixa da sidebar sem somar 100vw + margin (evita scroll horizontal). */}
       <div className="box-border min-h-screen min-w-0 w-full pl-64">
         <Toaster richColors position="top-center" closeButton />
