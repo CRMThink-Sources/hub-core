@@ -126,7 +126,7 @@ export function ConexaoRow({
           </h3>
           <div className="mt-1 flex items-center gap-4 text-sm text-gray-600">
             <span className="truncate">
-              {vinculatedChannelName || 'Nenhum canal vinculado'}
+              {vinculatedChannelName || t('nenhumCanalVinculado')}
               {conn.instance.phoneNumber != null &&
               conn.instance.phoneNumber !== ''
                 ? ` · ${conn.instance.phoneNumber}`

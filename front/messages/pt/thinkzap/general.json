@@ -1,0 +1,9 @@
+{
+  "banner": {
+    "semAssinatura": "Você ainda não possui assinatura ativa. Inicie seu trial, ou contrate conectores para começar a utilizar o ThinkZap.",
+    "cancelada": "Sua assinatura está cancelada. Reative para voltar a conectar novos números.",
+    "trial": "Sua assinatura está em período de trial.",
+    "pastDue": "Seu pagamento está pendente. Regularize para evitar interrupções.",
+    "ativa": "Assinatura ativa e pronta para conectar seus números."
+  }
+}

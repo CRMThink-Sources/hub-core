@@ -7,6 +7,7 @@ import {
   thinkzapApiErrorMessage,
 } from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
 import { envConfig } from '@/shared/infra/env-config'
+import { useTranslation } from 'react-i18next'
 
 const INPUT_CLASS =
   'mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-800 placeholder-slate-400 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60'
@@ -15,6 +16,7 @@ const BUTTON_CLASS =
   'cursor-pointer w-full rounded-xl bg-indigo-600 px-4 py-3.5 font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60 disabled:shadow-none'
 
 export function AtivarTrialForm() {
+  const { t } = useTranslation('thinkzap/ativar-trial')
   const router = useRouter()
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
@@ -47,12 +49,7 @@ export function AtivarTrialForm() {
 
       router.push(`/thinkzap/conexoes`)
     } catch (e: unknown) {
-      setErro(
-        thinkzapApiErrorMessage(
-          e,
-          'Não foi possível iniciar o trial. Tente novamente.',
-        ),
-      )
+      setErro(thinkzapApiErrorMessage(e, t('erroIniciarTrial')))
     } finally {
       setSubmitting(false)
     }
@@ -71,7 +68,7 @@ export function AtivarTrialForm() {
             htmlFor="trial-nome"
             className="block text-sm font-semibold text-slate-700"
           >
-            Nome
+            {t('campos.nome')}
           </label>
           <input
             id="trial-nome"
@@ -80,7 +77,7 @@ export function AtivarTrialForm() {
             autoComplete="name"
             value={nome}
             onChange={e => setNome(e.target.value)}
-            placeholder="Seu nome completo"
+            placeholder={t('campos.nomePlaceholder')}
             className={INPUT_CLASS}
             required
             minLength={2}
@@ -93,7 +90,7 @@ export function AtivarTrialForm() {
             htmlFor="trial-email"
             className="block text-sm font-semibold text-slate-700"
           >
-            E-mail
+            {t('campos.email')}
           </label>
           <input
             id="trial-email"
@@ -102,7 +99,7 @@ export function AtivarTrialForm() {
             autoComplete="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            placeholder="voce@empresa.com"
+            placeholder={t('campos.emailPlaceholder')}
             className={INPUT_CLASS}
             required
             disabled={submitting}
@@ -114,7 +111,7 @@ export function AtivarTrialForm() {
             htmlFor="trial-telefone"
             className="block text-sm font-semibold text-slate-700"
           >
-            Telefone
+            {t('campos.telefone')}
           </label>
           <input
             id="trial-telefone"
@@ -123,7 +120,7 @@ export function AtivarTrialForm() {
             autoComplete="tel"
             value={telefone}
             onChange={e => setTelefone(e.target.value)}
-            placeholder="(00) 00000-0000"
+            placeholder={t('campos.telefonePlaceholder')}
             className={INPUT_CLASS}
             required
             minLength={8}
@@ -136,7 +133,7 @@ export function AtivarTrialForm() {
             htmlFor="trial-empresa"
             className="block text-sm font-semibold text-slate-700"
           >
-            Empresa
+            {t('campos.empresa')}
           </label>
           <input
             id="trial-empresa"
@@ -145,7 +142,7 @@ export function AtivarTrialForm() {
             autoComplete="organization"
             value={empresa}
             onChange={e => setEmpresa(e.target.value)}
-            placeholder="Nome da empresa"
+            placeholder={t('campos.empresaPlaceholder')}
             className={INPUT_CLASS}
             required
             minLength={2}
@@ -169,10 +166,10 @@ export function AtivarTrialForm() {
                 className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
                 aria-hidden
               />
-              Redirecionando...
+              {t('redirecionando')}
             </span>
           ) : (
-            'Continuar para ativar o trial'
+            t('continuar')
           )}
         </button>
       </form>
