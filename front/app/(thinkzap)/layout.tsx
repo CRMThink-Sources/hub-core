@@ -6,8 +6,7 @@ import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkza
 import { SessionProvider, useSession } from '@/providers/session-provider'
 import { envConfig } from '@/shared/infra/env-config'
 import { Montserrat } from 'next/font/google'
-import { i18n } from '@/i18n/provider'
-import { LOCALE_COOKIE } from '@/i18n/config'
+import { setLocale } from '@/i18n/provider'
 import { useTranslation } from 'react-i18next'
 
 const montSerrat = Montserrat({
@@ -67,8 +66,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
   )
 
   function handleLanguageChange(code: string) {
-    document.cookie = `${LOCALE_COOKIE}=${code}; path=/; max-age=31536000`
-    void i18n.changeLanguage(code)
+    setLocale(code)
   }
 
   return (
