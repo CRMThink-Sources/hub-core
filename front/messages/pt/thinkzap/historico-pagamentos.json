@@ -1,0 +1,22 @@
+{
+  "periodo": "Período",
+  "filtro": {
+    "hoje": "Hoje",
+    "semanaAtual": "Semana atual",
+    "mesAtual": "Mês atual",
+    "customizado": "Customizado"
+  },
+  "dataInicio": "Data início",
+  "dataFim": "Data fim",
+  "filtrar": "Filtrar",
+  "tabela": {
+    "data": "Data",
+    "descricao": "Descrição",
+    "status": "Status"
+  },
+  "status": {
+    "pago": "Pago",
+    "pendente": "Pendente",
+    "cancelado": "Cancelado"
+  }
+}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const jsonRetorno = {
   success: true,
@@ -70,6 +71,7 @@ const formatDate = (dateString: string) => {
 }
 
 export default function HistoricoPagamentos() {
+  const { t } = useTranslation('thinkzap/historico-pagamentos')
   const [filtroTipo, setFiltroTipo] = useState('mes_atual')
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
@@ -82,23 +84,25 @@ export default function HistoricoPagamentos() {
     <div className="space-y-6">
       <div className="flex items-end gap-4">
         <div className="flex-1 max-w-xs">
-          <label className="text-sm text-gray-600 mb-1 block">Período</label>
+          <label className="text-sm text-gray-600 mb-1 block">
+            {t('periodo')}
+          </label>
           <select
             value={filtroTipo}
             onChange={e => setFiltroTipo(e.target.value)}
             className="w-full px-3 py-2 text-sm text-black bg-white border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#5A997E] focus:border-transparent"
           >
-            <option value="hoje">Hoje</option>
-            <option value="semana_atual">Semana atual</option>
-            <option value="mes_atual">Mês atual</option>
-            <option value="customizado">Customizado</option>
+            <option value="hoje">{t('filtro.hoje')}</option>
+            <option value="semana_atual">{t('filtro.semanaAtual')}</option>
+            <option value="mes_atual">{t('filtro.mesAtual')}</option>
+            <option value="customizado">{t('filtro.customizado')}</option>
           </select>
         </div>
         {filtroTipo === 'customizado' && (
           <>
             <div className="flex-1 max-w-[200px]">
               <label className="text-sm text-gray-600 mb-1 block">
-                Data início
+                {t('dataInicio')}
               </label>
               <input
                 type="date"
@@ -110,7 +114,7 @@ export default function HistoricoPagamentos() {
 
             <div className="flex-1 max-w-[200px]">
               <label className="text-sm text-gray-600 mb-1 block">
-                Data fim
+                {t('dataFim')}
               </label>
               <input
                 type="date"
@@ -125,7 +129,7 @@ export default function HistoricoPagamentos() {
           onClick={handleFiltrar}
           className="px-5 py-2 text-sm font-medium bg-[#5A997E] text-white rounded-md hover:bg-[#4a8169] transition-colors"
         >
-          Filtrar
+          {t('filtrar')}
         </button>
       </div>
       <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
@@ -134,13 +138,13 @@ export default function HistoricoPagamentos() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700">
-                  Data
+                  {t('tabela.data')}
                 </th>
                 <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700">
-                  Descrição
+                  {t('tabela.descricao')}
                 </th>
                 <th className="text-left px-4 py-3 text-sm font-semibold text-gray-700">
-                  Status
+                  {t('tabela.status')}
                 </th>
               </tr>
             </thead>
@@ -159,17 +163,17 @@ export default function HistoricoPagamentos() {
 
                 switch (status) {
                   case 'PAID':
-                    statusText = 'Pago'
+                    statusText = t('status.pago')
                     statusColor = '#166534'
                     bgColor = '#DCFCE7'
                     break
                   case 'waitting_payment':
-                    statusText = 'Pendente'
+                    statusText = t('status.pendente')
                     statusColor = '#78350F'
                     bgColor = '#FEF3C7'
                     break
                   default:
-                    statusText = 'Cancelado'
+                    statusText = t('status.cancelado')
                     statusColor = '#7A1818'
                     bgColor = '#FEE2E2'
                     break
