@@ -1,0 +1,7 @@
+{
+  "erroCarregarPrecos": "Não foi possível carregar os preços. Tente novamente.",
+  "erroAtualizarAssinatura": "Não foi possível atualizar a assinatura.",
+  "erroReativarAssinatura": "Não foi possível reativar a assinatura. Tente novamente.",
+  "linhasAdicionadas_one": "{{count}} linha adicionada com sucesso!",
+  "linhasAdicionadas_other": "{{count}} linhas adicionadas com sucesso!"
+}
