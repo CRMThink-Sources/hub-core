@@ -4,6 +4,7 @@ import { getAppRedirectUrl } from '@/app/config/app-redirects'
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 import { envConfig } from '@/shared/infra/env-config'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface Channel {
   id: string
@@ -24,6 +25,7 @@ export function VincularCanalModal({
   onClose,
   onSuccess,
 }: VincularCanalModalProps) {
+  const { t } = useTranslation('thinkzap/modals/vincular-canal')
   const [channels, setChannels] = useState<Channel[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -69,7 +71,7 @@ export function VincularCanalModal({
         } else {
           console.error('[ERRO GERAL]', err.message)
         }
-        setError('Erro ao carregar canais.')
+        setError(t('erroCarregar'))
       } finally {
         setLoading(false)
       }
@@ -123,7 +125,7 @@ export function VincularCanalModal({
         'Erro detalhado no vínculo:',
         err.response?.data || err.message,
       )
-      setError(err.response?.data?.message || 'Erro ao vincular canal')
+      setError(err.response?.data?.message || t('erroVincular'))
     } finally {
       setSaving(false) // Corrigido de setLoading para setSaving
     }
@@ -135,19 +137,18 @@ export function VincularCanalModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 space-y-4">
         <div>
-          <h2 className="text-base font-semibold text-black">Vincular canal</h2>
+          <h2 className="text-base font-semibold text-black">{t('titulo')}</h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Selecione o canal para vincular a{' '}
-            <strong>{connector?.instance.name}</strong>
+            {t('descricao')} <strong>{connector?.instance.name}</strong>
           </p>
         </div>
 
         {loading && (
-          <p className="text-sm text-gray-400">Carregando canais...</p>
+          <p className="text-sm text-gray-400">{t('carregandoCanais')}</p>
         )}
 
         {!loading && channels.length === 0 && !error && (
-          <p className="text-sm text-gray-400">Nenhum canal disponível.</p>
+          <p className="text-sm text-gray-400">{t('nenhumCanal')}</p>
         )}
 
         {!loading && channels.length > 0 && (
@@ -164,7 +165,9 @@ export function VincularCanalModal({
                 >
                   <span className="cursor-pointer">{channel.name}</span>
                   {!channel.active && (
-                    <span className="text-xs text-gray-400">Inativo</span>
+                    <span className="text-xs text-gray-400">
+                      {t('inativo')}
+                    </span>
                   )}
                 </button>
               </li>
@@ -179,14 +182,14 @@ export function VincularCanalModal({
             onClick={onClose}
             className="px-4 py-2 text-sm rounded-md border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
           >
-            Cancelar
+            {t('acoes.cancelar')}
           </button>
           <button
             onClick={() => void handleVincular()}
             disabled={!selectedId || saving}
             className="px-4 py-2 text-sm rounded-md bg-[#5A997E] text-white font-medium hover:bg-[#4a8169] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            {saving ? 'Vinculando...' : 'Vincular'}
+            {saving ? t('acoes.vinculando') : t('acoes.vincular')}
           </button>
         </div>
       </div>

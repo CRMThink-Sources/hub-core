@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface Connector {
   id: string
@@ -22,6 +23,7 @@ export function ConfigurarModal({
   onClose,
   onSave,
 }: IConfigurarProps) {
+  const { t } = useTranslation('thinkzap/modals/configurar')
   const [channel, setChannel] = useState('')
   const [name, setName] = useState('')
 
@@ -37,9 +39,7 @@ export function ConfigurarModal({
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg border border-gray-200 p-6 w-full max-w-md shadow-lg max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 shrink-0">
-          <h2 className="text-lg font-semibold text-black">
-            Configurar conexão
-          </h2>
+          <h2 className="text-lg font-semibold text-black">{t('titulo')}</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
@@ -51,7 +51,7 @@ export function ConfigurarModal({
         <div className="space-y-4 overflow-y-auto flex-1 pr-2 px-2 pb-2">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-black">
-              Nome do canal
+              {t('campos.nomeCanal')}
             </label>
             <input
               className="text-sm text-black border border-gray-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#5A997E] focus:border-transparent transition"
@@ -63,7 +63,9 @@ export function ConfigurarModal({
 
           {connector.instance.phoneNumber && (
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-black">Telefone</label>
+              <label className="text-sm font-medium text-black">
+                {t('campos.telefone')}
+              </label>
               <p className="text-sm text-gray-600 px-3 py-2 bg-gray-50 rounded-md border border-gray-200">
                 {connector.instance.phoneNumber}
               </p>
@@ -76,13 +78,13 @@ export function ConfigurarModal({
             onClick={onClose}
             className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
           >
-            Cancelar
+            {t('acoes.cancelar')}
           </button>
           <button
             onClick={() => onSave(connector.id, name)}
             className="px-4 py-2 text-sm font-medium bg-[#5A997E] text-white rounded-md hover:bg-[#4a8169] transition-colors cursor-pointer"
           >
-            Salvar
+            {t('acoes.salvar')}
           </button>
         </div>
       </div>

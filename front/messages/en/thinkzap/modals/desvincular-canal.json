@@ -1,0 +1,12 @@
+{
+  "titulo": "Unlink channel",
+  "descricao": "Are you sure you want to unlink the channel",
+  "descricaoDaInstancia": "from the instance",
+  "selecionado": "selected",
+  "erroDesvincular": "Error unlinking channel.",
+  "acoes": {
+    "cancelar": "Cancel",
+    "desvincular": "Unlink",
+    "desvinculando": "Unlinking..."
+  }
+}
