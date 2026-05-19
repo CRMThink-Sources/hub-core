@@ -13,6 +13,7 @@ import {
   GestaoLinhasPricingCard,
   type ThinkzapPricingResponse,
 } from '../_components/gestao-linhas/gestao-linhas-pricing-card'
+import { useTranslation } from 'react-i18next'
 import { GestaoLinhasStatusBanner } from '../_components/gestao-linhas/gestao-linhas-status-banner'
 import { GestaoLinhasContratadas } from '../_components/gestao-linhas/gestao-linhas-contratadas'
 import { ContratarLinhasModal } from '../_components/gestao-linhas/contratar-linhas-modal'
@@ -23,6 +24,7 @@ function podeAlterarAssinaturaExistente(status: string | undefined): boolean {
 }
 
 export default function GestaoLinhas() {
+  const { t } = useTranslation('thinkzap/gestao-linhas/layout')
   const { session, refreshSession } = useSession()
   const router = useRouter()
 
@@ -91,9 +93,7 @@ export default function GestaoLinhas() {
       } catch {
         if (!cancelled) {
           setPricing(null)
-          setPricingErro(
-            'Não foi possível carregar os preços. Tente novamente.',
-          )
+          setPricingErro(t('erroCarregarPrecos'))
         }
       } finally {
         if (!cancelled) setPricingLoading(false)
@@ -137,9 +137,7 @@ export default function GestaoLinhas() {
           additionalQuantity: quantidade,
         })
         setModalContratarAberto(false)
-        toast.success(
-          `${quantidade} linha${quantidade !== 1 ? 's' : ''} adicionada${quantidade !== 1 ? 's' : ''} com sucesso!`,
-        )
+        toast.success(t('linhasAdicionadas', { count: quantidade }))
         await refreshSession()
       } else {
         const data = await resolved.client.post<{
@@ -154,9 +152,7 @@ export default function GestaoLinhas() {
         }
       }
     } catch (e: unknown) {
-      toast.error(
-        thinkzapApiErrorMessage(e, 'Não foi possível atualizar a assinatura.'),
-      )
+      toast.error(thinkzapApiErrorMessage(e, t('erroAtualizarAssinatura')))
     } finally {
       setSubmitting(false)
     }
@@ -214,12 +210,7 @@ export default function GestaoLinhas() {
         router.push(`/checkout?session_id=${data.clientSecret}`)
       }
     } catch (e: unknown) {
-      toast.error(
-        thinkzapApiErrorMessage(
-          e,
-          'Não foi possível reativar a assinatura. Tente novamente.',
-        ),
-      )
+      toast.error(thinkzapApiErrorMessage(e, t('erroReativarAssinatura')))
     } finally {
       setSubmitting(false)
     }

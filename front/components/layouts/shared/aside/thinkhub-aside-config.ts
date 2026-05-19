@@ -11,8 +11,8 @@ export const THINKHUB_ASIDE_CONFIG = {
     },
   ],
   languages: [
-    { code: 'pt-BR', flag: '/images/i18n-icon/4x3/br.svg' },
-    { code: 'en-US', flag: '/images/i18n-icon/4x3/us.svg' },
+    { code: 'pt', flag: '/images/i18n-icon/4x3/br.svg' },
+    { code: 'en', flag: '/images/i18n-icon/4x3/us.svg' },
     { code: 'es', flag: '/images/i18n-icon/4x3/es.svg' },
   ],
   bgColor: '#F9F9FB', // cor de fundo, branco

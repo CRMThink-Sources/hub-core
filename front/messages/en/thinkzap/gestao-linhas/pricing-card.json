@@ -1,0 +1,24 @@
+{
+  "trial": {
+    "titulo": "Payment and invoices",
+    "info": "To add more lines, confirm your subscription."
+  },
+  "linhasPorTier_one": "{{faixa}} line: R$ {{valor}}/line",
+  "linhasPorTier_other": "{{faixa}} lines: R$ {{valor}}/line",
+  "fixo": " + R$ {{valor}} flat fee",
+  "valorMensalReativar_one": "Monthly amount to reactivate with {{count}} line",
+  "valorMensalReativar_other": "Monthly amount to reactivate with {{count}} lines",
+  "valorMensalAjustavel_one": "Estimated monthly amount with {{total}} line total ({{atual}} + {{adicional}} additional)",
+  "valorMensalAjustavel_other": "Estimated monthly amount with {{total}} lines total ({{atual}} + {{adicional}} additional)",
+  "valorMensalNovo_one": "Monthly amount for this purchase ({{count}} line)",
+  "valorMensalNovo_other": "Monthly amount for this purchase ({{count}} lines)",
+  "descricaoReativando_one": "You are reactivating the subscription with {{count}} line.",
+  "descricaoReativando_other": "You are reactivating the subscription with {{count}} lines.",
+  "descricaoAjustavel_one": "Your current subscription has {{atual}} line. After confirming, it will change to {{total}} line.",
+  "descricaoAjustavel_other": "Your current subscription has {{atual}} lines. After confirming, it will change to {{total}} lines.",
+  "proRata": " Adjustments may generate a proportional charge (pro-rata), according to Stripe's rules.",
+  "contratar_one": "Purchase {{count}} line",
+  "contratar_other": "Purchase {{count}} lines",
+  "reativarAssinatura": "Reactivate subscription",
+  "alterarPagamento": "Change payment method"
+}

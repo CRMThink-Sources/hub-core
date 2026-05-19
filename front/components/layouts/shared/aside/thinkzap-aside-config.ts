@@ -6,23 +6,24 @@ export const THINKZAP_ASIDE_CONFIG = {
   links: [
     {
       href: '/thinkzap/conexoes',
-      label: 'Conexões',
+      label: 'conexoes',
       icon: '/images/thinkzap/connection.png',
     },
     {
       href: '/thinkzap/financeiro',
-      label: 'Financeiro',
+      label: 'financeiro',
       icon: '/images/thinkzap/payment.png',
     },
     {
       href: '/thinkzap/ajuda',
-      label: 'Central de Ajuda',
+      label: 'centralDeAjuda',
       icon: '/images/thinkzap/manual.png',
     },
   ],
+  linksNamespace: 'thinkzap/aside',
   languages: [
-    { code: 'pt-BR', flag: '/images/i18n-icon/4x3/br.svg' },
-    { code: 'en-US', flag: '/images/i18n-icon/4x3/us.svg' },
+    { code: 'pt', flag: '/images/i18n-icon/4x3/br.svg' },
+    { code: 'en', flag: '/images/i18n-icon/4x3/us.svg' },
     { code: 'es', flag: '/images/i18n-icon/4x3/es.svg' },
   ],
   bgColor: '#F9F9FB', // cor de fundo, branco

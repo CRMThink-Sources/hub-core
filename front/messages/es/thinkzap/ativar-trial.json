@@ -1,0 +1,17 @@
+{
+  "titulo": "Activar prueba",
+  "subtitulo": "Completa tus datos para activar la prueba de 7 días de ThinkZap.",
+  "campos": {
+    "nome": "Nombre",
+    "nomePlaceholder": "Tu nombre completo",
+    "email": "Correo electrónico",
+    "emailPlaceholder": "tu@empresa.com",
+    "telefone": "Teléfono",
+    "telefonePlaceholder": "(00) 00000-0000",
+    "empresa": "Empresa",
+    "empresaPlaceholder": "Nombre de la empresa"
+  },
+  "continuar": "Continuar para activar la prueba",
+  "redirecionando": "Redirigiendo...",
+  "erroIniciarTrial": "No se pudo iniciar la prueba. Inténtalo de nuevo."
+}

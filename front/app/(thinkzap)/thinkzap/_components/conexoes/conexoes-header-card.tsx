@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
 
 type Props = {
   hasSubscription: boolean
@@ -11,15 +12,14 @@ export function ConexoesHeaderCard({
   hasSubscription,
   subscriptionStatus,
 }: Props) {
+  const { t } = useTranslation('thinkzap/conexoes/header-card')
   const isCancelled = subscriptionStatus === 'CANCELLED'
 
   return (
     <div className="flex w-full flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-fit">
-        <h1 className="page-title">Configurações</h1>
-        <h2 className="page-subtitle mt-1">
-          Gerencie os números de WhatsApp conectados ao Bitrix24
-        </h2>
+        <h1 className="page-title">{t('title')}</h1>
+        <h2 className="page-subtitle mt-1">{t('subtitle')}</h2>
       </div>
 
       <div className="flex w-full flex-wrap justify-end gap-2">
@@ -29,7 +29,7 @@ export function ConexoesHeaderCard({
               className="inline-flex w-full items-center justify-center rounded-lg bg-yellow-500 px-5 py-2.5 text-center font-medium text-white transition-colors hover:bg-yellow-600 sm:w-auto"
               href="/thinkzap/financeiro"
             >
-              + Ativar trial
+              {t('ativarTrial')}
             </Link>
           </div>
         )}
@@ -40,7 +40,7 @@ export function ConexoesHeaderCard({
               className="inline-flex w-full items-center justify-center rounded-lg bg-[#5A997E] px-5 py-2.5 text-center font-medium text-white transition-colors hover:bg-[#4a8169] sm:w-auto"
               href="/thinkzap/financeiro"
             >
-              {isCancelled ? 'Reativar assinatura' : '+ Contratar linha'}
+              {isCancelled ? t('reativarAssinatura') : t('contratarLinha')}
             </Link>
           </div>
         )}

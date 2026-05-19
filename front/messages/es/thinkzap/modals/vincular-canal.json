@@ -1,0 +1,14 @@
+{
+  "titulo": "Vincular canal",
+  "descricao": "Selecciona el canal para vincular a",
+  "carregandoCanais": "Cargando canales...",
+  "nenhumCanal": "No hay canales disponibles.",
+  "inativo": "Inactivo",
+  "erroCarregar": "Error al cargar canales.",
+  "erroVincular": "Error al vincular canal",
+  "acoes": {
+    "cancelar": "Cancelar",
+    "vincular": "Vincular",
+    "vinculando": "Vinculando..."
+  }
+}

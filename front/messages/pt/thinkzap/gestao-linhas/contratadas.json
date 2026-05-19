@@ -1,0 +1,17 @@
+{
+  "titulo": "Linhas contratadas",
+  "totalLinhas": "Total de linhas: {{total}}",
+  "semNome": "Sem nome",
+  "colunas": {
+    "telefone": "Telefone",
+    "nomeCanal": "Nome do canal",
+    "conexao": "Conexão"
+  },
+  "status": {
+    "ativo": "Ativo",
+    "configuracaoPendente": "Configuração pendente",
+    "trial": "Trial",
+    "inativo": "Inativo"
+  },
+  "efetivarAssinatura": "Efetivar assinatura"
+}

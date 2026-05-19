@@ -4,6 +4,7 @@ import { useSession } from '@/providers/session-provider'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { resolveThinkzapClient } from '../../_lib/thinkzap-client'
+import { useTranslation } from 'react-i18next'
 
 export type ThinkzapPricingResponse = {
   currency: string
@@ -66,6 +67,7 @@ export function GestaoLinhasPricingCard({
   onContinue,
   onReactivateSubscription,
 }: Props) {
+  const { t } = useTranslation('thinkzap/gestao-linhas/pricing-card')
   const { session } = useSession()
   const [billingPortalUrl, setBillingPortalUrl] = useState<string | undefined>(
     undefined,
@@ -101,11 +103,9 @@ export function GestaoLinhasPricingCard({
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
         <h3 className="text-base font-semibold text-black">
-          Pagamento e faturas
+          {t('trial.titulo')}
         </h3>
-        <p className="mt-2 text-sm text-gray-600">
-          Para adicionar mais linhas, efetive sua assinatura.
-        </p>
+        <p className="mt-2 text-sm text-gray-600">{t('trial.info')}</p>
       </div>
     )
   }
@@ -114,10 +114,13 @@ export function GestaoLinhasPricingCard({
     <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
       <p className="mb-4 text-sm text-gray-700">
         {isCancelled
-          ? `Você está reativando a assinatura com ${quantidade} linha${quantidade !== 1 ? 's' : ''}.`
-          : `Sua assinatura atual possui ${linhasNaAssinatura} linha${linhasNaAssinatura !== 1 ? 's' : ''}. Após confirmar, ela passará para ${totalAposContratar} linha${totalAposContratar !== 1 ? 's' : ''}.`}
-        {!isCancelled &&
-          ' Ajustes podem gerar cobrança proporcional (pró-rata), conforme as regras da Stripe.'}
+          ? t('descricaoReativando', { count: quantidade })
+          : t('descricaoAjustavel', {
+              count: linhasNaAssinatura,
+              atual: linhasNaAssinatura,
+              total: totalAposContratar,
+            })}
+        {!isCancelled && t('proRata')}
       </p>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -150,16 +153,21 @@ export function GestaoLinhasPricingCard({
                 <ul className="max-w-md space-y-0.5 text-xs text-gray-500">
                   {pricing.tiers.map((tier, index) => (
                     <li key={index}>
-                      {formatFaixaTiers(tier.fromQuantity, tier.toQuantity)}{' '}
-                      linha
-                      {tier.toQuantity !== null &&
-                      tier.toQuantity !== tier.fromQuantity
-                        ? 's'
-                        : ''}
-                      : R$ {formatCurrency(tier.unitAmount)}/linha
-                      {tier.flatAmount > 0 && (
-                        <> + R$ {formatCurrency(tier.flatAmount)} fixo</>
+                      {t(
+                        tier.toQuantity !== null &&
+                          tier.toQuantity !== tier.fromQuantity
+                          ? 'linhasPorTier_other'
+                          : 'linhasPorTier_one',
+                        {
+                          faixa: formatFaixaTiers(
+                            tier.fromQuantity,
+                            tier.toQuantity,
+                          ),
+                          valor: formatCurrency(tier.unitAmount),
+                        },
                       )}
+                      {tier.flatAmount > 0 &&
+                        t('fixo', { valor: formatCurrency(tier.flatAmount) })}
                     </li>
                   ))}
                 </ul>
@@ -171,10 +179,15 @@ export function GestaoLinhasPricingCard({
 
             <p className="pt-1 text-sm text-gray-600">
               {isCancelled
-                ? `Valor mensal para reativar com ${quantidade} linha${quantidade !== 1 ? 's' : ''}`
+                ? t('valorMensalReativar', { count: quantidade })
                 : temAssinaturaAjustavel
-                  ? `Valor mensal estimado com ${totalAposContratar} linha${totalAposContratar !== 1 ? 's' : ''} no total (${linhasNaAssinatura} + ${quantidade} adicional${quantidade !== 1 ? 'is' : ''})`
-                  : `Valor mensal desta contratação (${quantidade} linha${quantidade !== 1 ? 's' : ''})`}
+                  ? t('valorMensalAjustavel', {
+                      count: quantidade,
+                      total: totalAposContratar,
+                      atual: linhasNaAssinatura,
+                      adicional: quantidade,
+                    })
+                  : t('valorMensalNovo', { count: quantidade })}
             </p>
 
             <p className="text-lg font-semibold text-[#5A997E]">
@@ -197,7 +210,7 @@ export function GestaoLinhasPricingCard({
               disabled={submitting}
               className="cursor-pointer rounded-md bg-[#5A997E] px-5 py-2 text-sm font-medium text-white hover:bg-[#4a8169] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Contratar {quantidade} linha{quantidade !== 1 ? 's' : ''}
+              {t('contratar', { count: quantidade })}
             </button>
           )}
 
@@ -208,7 +221,7 @@ export function GestaoLinhasPricingCard({
               disabled={submitting}
               className="cursor-pointer rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Reativar assinatura
+              {t('reativarAssinatura')}
             </button>
           )}
 
@@ -219,7 +232,7 @@ export function GestaoLinhasPricingCard({
               rel="noopener noreferrer"
               className={portalClassname}
             >
-              Alterar método de pagamento
+              {t('alterarPagamento')}
             </Link>
           )}
         </div>

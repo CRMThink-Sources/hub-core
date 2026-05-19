@@ -4,18 +4,20 @@ import GestaoLinhas from '@/app/(thinkzap)/thinkzap/_layout/gestao-linhas-layout
 import HistoricoPagamentos from '@/app/(thinkzap)/thinkzap/_layout/historico-pagamentos-layout'
 import { useState } from 'react'
 import { useSession } from '@/providers/session-provider'
+import { useTranslation } from 'react-i18next'
 
 type TabType = 'gestao' | 'historico'
 
 export default function PagamentosPage() {
   const { session } = useSession()
   const [activeTab, setActiveTab] = useState<TabType>('gestao')
+  const { t } = useTranslation('thinkzap/financeiro')
 
   return (
     <div className="relative mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 pb-10 pt-8 sm:px-6 lg:px-8">
       <div className="flex w-full items-center justify-between rounded-lg border border-gray-100 bg-white p-6">
         <div>
-          <h1 className="page-title">Financeiro</h1>
+          <h1 className="page-title">{t('pageTitle')}</h1>
         </div>
       </div>
 
@@ -31,7 +33,7 @@ export default function PagamentosPage() {
         }
       `}
           >
-            Gestao de linhas
+            {t('tabs.gestao')}
             {activeTab === 'gestao' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#5A997E]" />
             )}

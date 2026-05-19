@@ -1,0 +1,11 @@
+{
+  "titulo": "Configurar conexión",
+  "campos": {
+    "nomeCanal": "Nombre del canal",
+    "telefone": "Teléfono"
+  },
+  "acoes": {
+    "cancelar": "Cancelar",
+    "salvar": "Guardar"
+  }
+}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useConnectors } from '@/app/hooks/use-connectors'
+import { useTranslation } from 'react-i18next'
 
 type Connector = any
 
@@ -17,12 +18,13 @@ function buildConnectorMenuItems(
   control: ConnectorsControl,
   fetchQrCode: (connectorId: string) => Promise<void>,
   onSolicitarCancelamento: (payload: { id: string; nome: string }) => void,
+  t: (key: string) => string,
 ): MenuItem[] {
-  const btnText = isConnected ? 'Desconectar' : 'Conectar'
+  const btnText = isConnected ? t('menu.desconectar') : t('menu.conectar')
 
   return [
     {
-      label: 'Editar',
+      label: t('menu.editar'),
       onClick: () => {
         control.edit.open(conn)
       },
@@ -40,8 +42,8 @@ function buildConnectorMenuItems(
     },
     {
       label: !conn.instance?.vinculatedChannel
-        ? 'Vincular canal'
-        : 'Desvincular canal',
+        ? t('menu.vincularCanal')
+        : t('menu.desvincularCanal'),
       onClick: () => {
         if (!conn.instance?.vinculatedChannel) {
           control.linkChannel.open(conn)
@@ -51,11 +53,11 @@ function buildConnectorMenuItems(
       },
     },
     {
-      label: 'Cancelar conector',
+      label: t('menu.cancelarConector'),
       onClick: () => {
         onSolicitarCancelamento({
           id: conn.id,
-          nome: conn.instance?.name || 'Sem nome',
+          nome: conn.instance?.name || t('semNome'),
         })
       },
     },
@@ -89,6 +91,7 @@ export function ConexaoRow({
   fetchQrCode,
   onSolicitarCancelamento,
 }: Props) {
+  const { t } = useTranslation('thinkzap/conexoes/conexao-row')
   const {
     name,
     vinculatedChannelName,
@@ -99,7 +102,7 @@ export function ConexaoRow({
   const isPaid = paidStatus === 'PAID' || paidStatus === 'TRIAL'
   const bgColor = isConnected ? '#DCFCE7' : '#FEE2E2'
   const statusColor = isConnected ? '#144A1B' : '#7A1818'
-  const statusText = isConnected ? 'Ativo' : 'Inativo'
+  const statusText = isConnected ? t('status.ativo') : t('status.inativo')
 
   const menuItems = buildConnectorMenuItems(
     conn,
@@ -107,6 +110,7 @@ export function ConexaoRow({
     control,
     fetchQrCode,
     onSolicitarCancelamento,
+    t,
   )
 
   return (
@@ -118,11 +122,11 @@ export function ConexaoRow({
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-base font-semibold text-black">
-            {name || 'Sem nome'}
+            {name || t('semNome')}
           </h3>
           <div className="mt-1 flex items-center gap-4 text-sm text-gray-600">
             <span className="truncate">
-              {vinculatedChannelName || 'Nenhum canal vinculado'}
+              {vinculatedChannelName || t('nenhumCanalVinculado')}
               {conn.instance.phoneNumber != null &&
               conn.instance.phoneNumber !== ''
                 ? ` · ${conn.instance.phoneNumber}`

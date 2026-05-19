@@ -1,0 +1,24 @@
+{
+  "titulo": "Confirm purchase",
+  "subtitulo": "Review the summary below before confirming.",
+  "linhasAtuais": "Current lines",
+  "adicionando": "Adding",
+  "totalAposConfirmacao": "Total after confirmation",
+  "linha_one": "{{count}} line",
+  "linha_other": "{{count}} lines",
+  "valorMensalEstimado": "Estimated monthly amount",
+  "carregandoEstimativa": "Loading estimate...",
+  "proRata": "Adjustments in the current cycle generate a proportional charge (pro-rata).",
+  "cupomAplicado": "Coupon applied:",
+  "descontoAtivo": "Active discount",
+  "percentDesconto": "({{percent}}% off)",
+  "valorDesconto": "(R$ {{valor}} off)",
+  "erroSessao": "Invalid session.",
+  "erroEstimativa": "Could not load the estimate. Values shown are approximate.",
+  "acoes": {
+    "cancelar": "Cancel",
+    "confirmar_one": "Confirm {{count}} line",
+    "confirmar_other": "Confirm {{count}} lines",
+    "confirmando": "Confirming..."
+  }
+}

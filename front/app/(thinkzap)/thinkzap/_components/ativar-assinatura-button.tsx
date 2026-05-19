@@ -7,6 +7,7 @@ import axios from 'axios'
 import { getAppRedirectUrl } from '@/app/config/app-redirects'
 
 import { envConfig } from '@/shared/infra/env-config'
+import { useTranslation } from 'react-i18next'
 
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 
@@ -100,6 +101,7 @@ export function AtivarAssinaturaButton({
   showPortalLink = true,
   layout = 'stack',
 }: Props) {
+  const { t } = useTranslation('thinkzap/ativar-assinatura-button')
   const [loadingTrial, setLoadingTrial] = useState(false)
 
   const [loadingPortal, setLoadingPortal] = useState(false)
@@ -122,13 +124,7 @@ export function AtivarAssinaturaButton({
     } catch (e: unknown) {
       console.error(e)
 
-      window.alert(
-        apiErrorMessage(
-          e,
-
-          'Não foi possível efetivar a assinatura. Tente de novo em instantes.',
-        ),
-      )
+      window.alert(apiErrorMessage(e, t('erroEfetivar')))
     } finally {
       setLoadingTrial(false)
     }
@@ -177,7 +173,7 @@ export function AtivarAssinaturaButton({
       disabled={busy}
       className={`cursor-pointer ${actionBtnInline} ${base}`}
     >
-      {loadingTrial ? 'Efetivando…' : 'Efetivar assinatura agora'}
+      {loadingTrial ? t('efetivando') : t('efetivarAgora')}
     </button>
   )
 
@@ -188,7 +184,7 @@ export function AtivarAssinaturaButton({
       disabled={busy}
       className={`cursor-pointer ${actionBtnInline} ${outline}`}
     >
-      {loadingPortal ? 'Abrindo portal…' : 'Cartão e faturas (Stripe)'}
+      {loadingPortal ? t('abrindoPortal') : t('cartaoFaturas')}
     </button>
   ) : null
 
@@ -209,7 +205,7 @@ export function AtivarAssinaturaButton({
         disabled={busy}
         className={`font-medium cursor-pointer rounded-lg px-5 py-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${base}`}
       >
-        {loadingTrial ? 'Efetivando…' : 'Efetivar assinatura agora'}
+        {loadingTrial ? t('efetivando') : t('efetivarAgora')}
       </button>
       {showPortalLink && (
         <button
@@ -218,7 +214,7 @@ export function AtivarAssinaturaButton({
           disabled={busy}
           className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${outline}`}
         >
-          {loadingPortal ? 'Abrindo portal…' : 'Cartão e faturas (Stripe)'}
+          {loadingPortal ? t('abrindoPortal') : t('cartaoFaturas')}
         </button>
       )}
     </div>

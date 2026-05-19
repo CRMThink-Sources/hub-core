@@ -1,0 +1,11 @@
+{
+  "titulo": "Desconectar WhatsApp",
+  "descricao": "Tem certeza que deseja desconectar a instância",
+  "descricaoComplemento": "? O QR Code precisará ser escaneado novamente para reconectar.",
+  "erroDesconectar": "Erro ao desconectar.",
+  "acoes": {
+    "cancelar": "Cancelar",
+    "desconectar": "Desconectar",
+    "desconectando": "Desconectando..."
+  }
+}

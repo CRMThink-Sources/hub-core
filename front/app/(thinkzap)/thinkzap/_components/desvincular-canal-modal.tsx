@@ -4,6 +4,7 @@ import { getAppRedirectUrl } from '@/app/config/app-redirects'
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 import { envConfig } from '@/shared/infra/env-config'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface DesvincularCanalModalProps {
   isOpen: boolean
@@ -25,6 +26,7 @@ export function DesvincularCanalModal({
   onClose,
   onSuccess,
 }: DesvincularCanalModalProps) {
+  const { t } = useTranslation('thinkzap/modals/desvincular-canal')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,7 +56,7 @@ export function DesvincularCanalModal({
         'Erro ao desvincular canal:',
         err.response?.data || err.message,
       )
-      setError(err.response?.data?.message || 'Erro ao desvincular canal.')
+      setError(err.response?.data?.message || t('erroDesvincular'))
     } finally {
       setLoading(false)
     }
@@ -66,15 +68,14 @@ export function DesvincularCanalModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-sm p-6 space-y-4">
         <div>
-          <h2 className="text-base font-semibold text-black">
-            Desvincular canal
-          </h2>
+          <h2 className="text-base font-semibold text-black">{t('titulo')}</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Tem certeza que deseja desvincular o canal{' '}
+            {t('descricao')}{' '}
             <strong>
-              {connector?.instance.vinculatedChannelName || 'selecionado'}
+              {connector?.instance.vinculatedChannelName || t('selecionado')}
             </strong>{' '}
-            da instância <strong>{connector?.instance.name}</strong>?
+            {t('descricaoDaInstancia')}{' '}
+            <strong>{connector?.instance.name}</strong>?
           </p>
         </div>
 
@@ -86,14 +87,14 @@ export function DesvincularCanalModal({
             disabled={loading}
             className="px-4 py-2 text-sm rounded-md border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
           >
-            Cancelar
+            {t('acoes.cancelar')}
           </button>
           <button
             onClick={() => void handleDesvincular()}
             disabled={loading}
             className="px-4 py-2 text-sm rounded-md bg-red-600 text-white font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            {loading ? 'Desvinculando...' : 'Desvincular'}
+            {loading ? t('acoes.desvinculando') : t('acoes.desvincular')}
           </button>
         </div>
       </div>
