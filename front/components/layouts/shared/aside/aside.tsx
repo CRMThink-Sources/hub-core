@@ -1,6 +1,8 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import Link from 'next/link'
+import { useTranslation } from 'react-i18next'
 import { AsideProps } from '../../types/types'
 
 export const Aside = ({
@@ -18,8 +20,11 @@ export const Aside = ({
   borderColor = '#e5e7eb',
   accentColor = '#5A997E',
   betaMode,
+  linksNamespace,
 }: AsideProps) => {
   const pathname = usePathname()
+  const { t } = useTranslation('shared/aside')
+  const { t: tLinks } = useTranslation(linksNamespace ?? 'shared/aside')
 
   const isActive = (href: string) =>
     activeRoute ? activeRoute === href : pathname === href
@@ -76,7 +81,7 @@ export const Aside = ({
               lineHeight: 1,
             }}
           >
-            Desenvolvido por {brandName}
+            {t('desenvolvido', { brandName })}
           </span>
         </div>
         <div
@@ -123,7 +128,7 @@ export const Aside = ({
         }}
       >
         {links.map(link => (
-          <a
+          <Link
             key={link.href}
             href={link.href}
             style={{
@@ -168,8 +173,8 @@ export const Aside = ({
               alt={link.label}
               style={{ width: '20px', height: '20px' }}
             />
-            <span>{link.label}</span>
-          </a>
+            <span>{linksNamespace ? tLinks(link.label) : link.label}</span>
+          </Link>
         ))}
       </nav>
 
@@ -194,7 +199,7 @@ export const Aside = ({
               textTransform: 'uppercase',
             }}
           >
-            Versão Beta
+            {t('versaoBeta')}
           </span>
         </div>
       )}

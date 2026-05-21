@@ -1,0 +1,18 @@
+{
+  "titulo": "Cancel connector",
+  "descricao": "You are canceling the connector",
+  "descricaoComplemento": ". This removes 1 line from the subscription.",
+  "novoValorMensal": "New monthly amount",
+  "carregandoEstimativa": "Loading estimate...",
+  "comLinhas_one": "With {{count}} line: R$ {{valor}}",
+  "comLinhas_other": "With {{count}} lines: R$ {{valor}}",
+  "estimativaIndisponivel": "Estimate unavailable at the moment.",
+  "erroEstimativa": "Could not load the new estimated amount.",
+  "erroCancelar": "Could not cancel the connector.",
+  "erroSessao": "Invalid session to query estimate.",
+  "acoes": {
+    "voltar": "Back",
+    "confirmar": "Confirm cancellation",
+    "cancelando": "Canceling..."
+  }
+}

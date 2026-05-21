@@ -24,4 +24,5 @@ export interface AsideProps {
   borderColor?: string
   accentColor?: string
   betaMode?: boolean
+  linksNamespace?: string
 }

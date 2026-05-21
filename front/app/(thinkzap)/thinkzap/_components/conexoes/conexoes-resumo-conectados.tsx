@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
+
 type Props = {
   connected: number
   total: number
@@ -18,16 +20,13 @@ function InfoIcon() {
 }
 
 export function ConexoesResumoConectados({ connected, total }: Props) {
+  const { t } = useTranslation('thinkzap/conexoes/resumo-conectados')
+
   return (
     <div className="w-full">
       <div className="inline-flex items-center gap-2 rounded-md border border-[#d9fce6] bg-[#e8fdf0] px-3 py-1.5 text-sm font-medium text-[#5A997E]">
         <InfoIcon />
-        <span>
-          Números conectados:{' '}
-          <strong>
-            {connected}/{total}
-          </strong>
-        </span>
+        <span>{t('numerosConectados', { connected, total })}</span>
       </div>
     </div>
   )

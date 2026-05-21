@@ -6,6 +6,9 @@ import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkza
 import { SessionProvider, useSession } from '@/providers/session-provider'
 import { envConfig } from '@/shared/infra/env-config'
 import { Montserrat } from 'next/font/google'
+import { setLocale } from '@/i18n/provider'
+import { useTranslation } from 'react-i18next'
+import { useEffect } from 'react'
 
 const montSerrat = Montserrat({
   subsets: ['latin'],
@@ -14,57 +17,74 @@ const montSerrat = Montserrat({
 
 function getSubscriptionStatusBanner(
   hasSubscription: boolean,
+  t: (key: string) => string,
   subscriptionStatus?: string,
 ): { text: string; className: string } {
   if (!hasSubscription) {
     return {
-      text: 'Você ainda não possui assinatura ativa. Inicie seu trial, ou contrate conectores para começar a utilizar o ThinkZap.',
+      text: t('banner.semAssinatura'),
       className: 'border-amber-200 bg-amber-50 text-amber-700',
     }
   }
 
   if (subscriptionStatus === 'CANCELLED') {
     return {
-      text: 'Sua assinatura está cancelada. Reative para voltar a conectar novos números.',
+      text: t('banner.cancelada'),
       className: 'border-red-200 bg-red-50 text-red-700',
     }
   }
 
   if (subscriptionStatus === 'TRIALING') {
     return {
-      text: 'Sua assinatura está em período de trial.',
+      text: t('banner.trial'),
       className: 'border-blue-200 bg-blue-50 text-blue-700',
     }
   }
 
   if (subscriptionStatus === 'PAST_DUE') {
     return {
-      text: 'Seu pagamento está pendente. Regularize para evitar interrupções.',
+      text: t('banner.pastDue'),
       className: 'border-amber-200 bg-amber-50 text-amber-700',
     }
   }
 
   return {
-    text: 'Assinatura ativa e pronta para conectar seus números.',
+    text: t('banner.ativa'),
     className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   }
 }
 
 function ThinkzapContent({ children }: { children: React.ReactNode }) {
+  const { t: tCommon } = useTranslation('common')
+  const { t: tGeneral } = useTranslation('thinkzap/general')
   const { isFetching, session } = useSession()
   const hasSubscription = session?.subscription != null
   const subscriptionStatus = session?.subscription?.status as string | undefined
   const statusBanner = getSubscriptionStatusBanner(
     hasSubscription,
+    tGeneral,
     subscriptionStatus,
   )
+
+  function handleLanguageChange(code: string) {
+    setLocale(code)
+    window.sessionStorage.setItem('locale', code)
+  }
+
+  useEffect(() => {
+    const locale = window.sessionStorage.getItem('locale')
+    if (locale) setLocale(locale)
+  }, [])
 
   return (
     <div
       className={`${montSerrat.variable} min-h-screen min-w-0 w-full`}
       style={{ fontFamily: 'var(--font-montserrat)' }}
     >
-      <Aside {...THINKZAP_ASIDE_CONFIG} />
+      <Aside
+        {...THINKZAP_ASIDE_CONFIG}
+        onLanguageChange={handleLanguageChange}
+      />
       {/* Aside é fixed: padding reserva a faixa da sidebar sem somar 100vw + margin (evita scroll horizontal). */}
       <div className="box-border min-h-screen min-w-0 w-full pl-64">
         <Toaster richColors position="top-center" closeButton />
@@ -72,7 +92,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
           <div className="flex min-h-[50vh] items-center justify-center gap-2 py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500" />
             <span className="animate-pulse text-sm font-medium text-slate-600">
-              Carregando...
+              {tCommon('carregando')}
             </span>
           </div>
         ) : (

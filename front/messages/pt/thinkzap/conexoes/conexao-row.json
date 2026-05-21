@@ -1,0 +1,16 @@
+{
+  "semNome": "Sem nome",
+  "nenhumCanalVinculado": "Nenhum canal vinculado",
+  "status": {
+    "ativo": "Ativo",
+    "inativo": "Inativo"
+  },
+  "menu": {
+    "editar": "Editar",
+    "conectar": "Conectar",
+    "desconectar": "Desconectar",
+    "vincularCanal": "Vincular canal",
+    "desvincularCanal": "Desvincular canal",
+    "cancelarConector": "Cancelar conector"
+  }
+}

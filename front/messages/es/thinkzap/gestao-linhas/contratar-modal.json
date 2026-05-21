@@ -1,0 +1,24 @@
+{
+  "titulo": "Confirmar contratación",
+  "subtitulo": "Revisa el resumen a continuación antes de confirmar.",
+  "linhasAtuais": "Líneas actuales",
+  "adicionando": "Agregando",
+  "totalAposConfirmacao": "Total tras confirmación",
+  "linha_one": "{{count}} línea",
+  "linha_other": "{{count}} líneas",
+  "valorMensalEstimado": "Valor mensual estimado",
+  "carregandoEstimativa": "Cargando estimación...",
+  "proRata": "Los ajustes en el ciclo actual generan un cobro proporcional (prorrateo).",
+  "cupomAplicado": "Cupón aplicado:",
+  "descontoAtivo": "Descuento activo",
+  "percentDesconto": "({{percent}}% de descuento)",
+  "valorDesconto": "(R$ {{valor}} de descuento)",
+  "erroSessao": "Sesión inválida.",
+  "erroEstimativa": "No se pudo cargar la estimación. Los valores mostrados son aproximados.",
+  "acoes": {
+    "cancelar": "Cancelar",
+    "confirmar_one": "Confirmar {{count}} línea",
+    "confirmar_other": "Confirmar {{count}} líneas",
+    "confirmando": "Confirmando..."
+  }
+}
