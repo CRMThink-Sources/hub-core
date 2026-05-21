@@ -203,7 +203,7 @@ async function sendMessageFromGroup(
     'Processing group message for Bitrix',
   )
 
-  const chatId = event.phone.includes('@group') ? event.phone : event.chatLid
+  const chatId = event.phone.includes('-group') ? event.phone : event.chatLid
   if (!chatId) {
     throw new Error('Chat ID not found')
   }
