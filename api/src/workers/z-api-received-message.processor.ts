@@ -120,10 +120,16 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
             ]
           : undefined
 
-  const chatId = event.phone.includes('@lid') ? event.phone : event.chatLid
+  const chatId = event.phone.includes('@lid')
+    ? event.phone
+    : event.phone.includes('-group')
+      ? event.phone
+      : event.chatLid
+
   if (!chatId) {
     throw new Error('Chat ID not found')
   }
+
   const params: ISendMessageData = {
     CONNECTOR: env.bitrix.connector.code,
     LINE: Number(instance.vinculatedChannel),
