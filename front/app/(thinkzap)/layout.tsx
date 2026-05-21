@@ -8,6 +8,7 @@ import { envConfig } from '@/shared/infra/env-config'
 import { Montserrat } from 'next/font/google'
 import { setLocale } from '@/i18n/provider'
 import { useTranslation } from 'react-i18next'
+import { useEffect } from 'react'
 
 const montSerrat = Montserrat({
   subsets: ['latin'],
@@ -67,7 +68,13 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
 
   function handleLanguageChange(code: string) {
     setLocale(code)
+    window.sessionStorage.setItem('locale', code)
   }
+
+  useEffect(() => {
+    const locale = window.sessionStorage.getItem('locale')
+    if (locale) setLocale(locale)
+  }, [])
 
   return (
     <div

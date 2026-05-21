@@ -89,7 +89,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
     bitrixCredential: credential,
     domain: domain?.name,
   })
-  console.log(event)
+
   const files = event.image
     ? [
         {
@@ -119,7 +119,6 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
               },
             ]
           : undefined
-  console.log(files)
 
   const chatId = event.phone.includes('@lid') ? event.phone : event.chatLid
   if (!chatId) {
@@ -135,7 +134,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
           name: event.chatName + ' - ' + event.phone,
         },
         user: {
-          id: event.phone,
+          id: chatId,
           name: event.chatName ?? event.senderName,
           last_name: '',
           phone: event.phone,
@@ -204,7 +203,7 @@ async function sendMessageFromGroup(
     'Processing group message for Bitrix',
   )
 
-  const chatId = event.phone.includes('@lid') ? event.phone : event.chatLid
+  const chatId = event.phone.includes('@group') ? event.phone : event.chatLid
   if (!chatId) {
     throw new Error('Chat ID not found')
   }
@@ -219,7 +218,7 @@ async function sendMessageFromGroup(
           name: event.chatName,
         },
         user: {
-          id: event.phone,
+          id: chatId,
           name: event.chatName ?? event.phone,
           last_name: '',
           phone: event.phone,
