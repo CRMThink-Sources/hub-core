@@ -155,11 +155,14 @@ export class BitrixClient {
   async listCrmItems(
     entityTypeId: number,
     filter: Record<string, unknown>,
+    options?: { select?: string[] },
   ): Promise<ICrmItemListResponse> {
     const client = this.getClient()
     try {
-      const response = await client.get(`/crm.item.list`, {
-        params: { entityTypeId, filter },
+      const response = await client.post(`/crm.item.list`, {
+        entityTypeId,
+        filter,
+        ...(options?.select ? { select: options.select } : {}),
       })
       return response.data
     } catch (error) {

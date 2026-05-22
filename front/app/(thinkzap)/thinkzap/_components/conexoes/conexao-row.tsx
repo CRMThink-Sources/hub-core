@@ -2,6 +2,7 @@
 
 import { useConnectors } from '@/app/hooks/use-connectors'
 import { useTranslation } from 'react-i18next'
+import { useRouter } from 'next/navigation'
 
 type Connector = any
 
@@ -18,15 +19,16 @@ function buildConnectorMenuItems(
   control: ConnectorsControl,
   fetchQrCode: (connectorId: string) => Promise<void>,
   onSolicitarCancelamento: (payload: { id: string; nome: string }) => void,
+  onOpenConfiguracoes: (connectorId: string) => void,
   t: (key: string) => string,
 ): MenuItem[] {
   const btnText = isConnected ? t('menu.desconectar') : t('menu.conectar')
 
   return [
     {
-      label: t('menu.editar'),
+      label: t('menu.configuracoes'),
       onClick: () => {
-        control.edit.open(conn)
+        onOpenConfiguracoes(conn.id)
       },
     },
     {
@@ -92,6 +94,7 @@ export function ConexaoRow({
   onSolicitarCancelamento,
 }: Props) {
   const { t } = useTranslation('thinkzap/conexoes/conexao-row')
+  const router = useRouter()
   const {
     name,
     vinculatedChannelName,
@@ -110,6 +113,8 @@ export function ConexaoRow({
     control,
     fetchQrCode,
     onSolicitarCancelamento,
+    connectorId =>
+      router.push(`/thinkzap/conexoes/${connectorId}/configuracoes`),
     t,
   )
 
@@ -121,9 +126,15 @@ export function ConexaoRow({
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-base font-semibold text-black">
+          <button
+            type="button"
+            onClick={() =>
+              router.push(`/thinkzap/conexoes/${conn.id}/configuracoes`)
+            }
+            className="cursor-pointer truncate text-left text-base font-semibold text-black transition-colors hover:text-[#5A997E]"
+          >
             {name || t('semNome')}
-          </h3>
+          </button>
           <div className="mt-1 flex items-center gap-4 text-sm text-gray-600">
             <span className="truncate">
               {vinculatedChannelName || t('nenhumCanalVinculado')}

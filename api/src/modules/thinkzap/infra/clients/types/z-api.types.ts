@@ -90,3 +90,91 @@ export type ZApiListResponse<T> = {
   page: number
   content: T[]
 }
+
+export type CreateGroupParams = {
+  autoInvite: boolean
+  groupName: string
+  phones: string[]
+}
+
+export type CreateGroupResponse = {
+  phone: string
+  invitationLink: string
+}
+
+export type ZApiGroupListItem = {
+  isGroup: boolean
+  name: string
+  phone: string
+  unread: string
+  lastMessageTime: string
+  isMuted: string
+  isMarkedSpam: string
+  archived: string
+  pinned: string
+  muteEndTime: string | null
+  messagesUnread: string
+}
+
+export type ZApiGroupParticipant = {
+  phone: string
+  isAdmin: boolean
+  isSuperAdmin: boolean
+  short?: string
+  name?: string
+  imgUrl?: string | null
+}
+
+export type ProfilePictureResponse = { link: string } | Array<{ link: string }>
+
+export type ZApiGroupMetadata = {
+  phone: string
+  description: string
+  owner: string
+  subject: string
+  creation: number
+  invitationLink: string | null
+  communityId: string | null
+  adminOnlyMessage: boolean
+  adminOnlySettings: boolean
+  requireAdminApproval: boolean
+  isGroupAnnouncement: boolean
+  participants: ZApiGroupParticipant[]
+  subjectTime?: number
+  subjectOwner?: string
+  photoUrl?: string | null
+}
+
+export type ZApiBooleanResponse = {
+  value: boolean
+}
+
+export type AddGroupParticipantsParams = {
+  autoInvite: boolean
+  groupId: string
+  phones: string[]
+}
+
+export type RemoveGroupParticipantsParams = {
+  groupId: string
+  phones: string[]
+}
+
+export type UpdateGroupNameParams = {
+  groupId: string
+  groupName: string
+}
+
+export type UpdateGroupDescriptionParams = {
+  groupId: string
+  groupDescription: string
+}
+
+export type UpdateGroupPhotoParams = {
+  groupId: string
+  groupPhoto: string
+}
+
+export type LeaveGroupParams = {
+  groupId: string
+}

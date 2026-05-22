@@ -1,11 +1,23 @@
 import axios from 'axios'
 import {
+  AddGroupParticipantsParams,
+  CreateGroupParams,
+  CreateGroupResponse,
   CreateZApiInstanceParams,
   CreateZApiInstanceResponse,
   InstanceDataResponse,
   InstanceStatusResponse,
+  LeaveGroupParams,
   ListZApiInstancesResponse,
   PhoneDataResponse,
+  RemoveGroupParticipantsParams,
+  UpdateGroupDescriptionParams,
+  UpdateGroupNameParams,
+  UpdateGroupPhotoParams,
+  ZApiBooleanResponse,
+  ProfilePictureResponse,
+  ZApiGroupListItem,
+  ZApiGroupMetadata,
   ZApiListResponse,
 } from './types/z-api.types'
 import { UpdateInstanceGateway } from '../../domain/repositories/update-instance.gateway'
@@ -353,6 +365,204 @@ export class ZApiClient {
     } catch (error) {
       console.log(error)
       throw new Error('Failed to send video')
+    }
+  }
+
+  private instanceHeaders() {
+    return {
+      'client-token': this.clientToken,
+      'Content-Type': 'application/json',
+    }
+  }
+
+  private instanceBaseUrl(instanceId: string, instanceToken: string) {
+    return `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}`
+  }
+
+  async createGroup(
+    instanceId: string,
+    instanceToken: string,
+    params: CreateGroupParams,
+  ): Promise<CreateGroupResponse> {
+    try {
+      const { data } = await axios.post<CreateGroupResponse>(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/create-group`,
+        params,
+        { headers: this.instanceHeaders() },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to create group')
+    }
+  }
+
+  async listGroups(
+    instanceId: string,
+    instanceToken: string,
+    page = 1,
+    pageSize = 20,
+  ): Promise<ZApiGroupListItem[]> {
+    try {
+      const { data } = await axios.get<ZApiGroupListItem[]>(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/groups`,
+        {
+          params: { page, pageSize },
+          headers: this.instanceHeaders(),
+        },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to list groups')
+    }
+  }
+
+  async getGroupMetadata(
+    instanceId: string,
+    instanceToken: string,
+    groupId: string,
+  ): Promise<ZApiGroupMetadata> {
+    try {
+      const { data } = await axios.get<ZApiGroupMetadata>(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/group-metadata/${encodeURIComponent(groupId)}`,
+        { headers: this.instanceHeaders() },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to get group metadata')
+    }
+  }
+
+  async getProfilePicture(
+    instanceId: string,
+    instanceToken: string,
+    phone: string,
+  ): Promise<string | null> {
+    try {
+      const { data } = await axios.get<ProfilePictureResponse>(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/profile-picture`,
+        {
+          params: { phone },
+          headers: this.instanceHeaders(),
+        },
+      )
+      if (Array.isArray(data) && data[0]?.link) return data[0].link
+      if (data && typeof data === 'object' && 'link' in data) {
+        return (data as { link: string }).link
+      }
+      return null
+    } catch {
+      return null
+    }
+  }
+
+  async addGroupParticipants(
+    instanceId: string,
+    instanceToken: string,
+    params: AddGroupParticipantsParams,
+  ): Promise<ZApiBooleanResponse> {
+    try {
+      const { data } = await axios.post<ZApiBooleanResponse>(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/add-participant`,
+        params,
+        { headers: this.instanceHeaders() },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to add group participants')
+    }
+  }
+
+  async removeGroupParticipants(
+    instanceId: string,
+    instanceToken: string,
+    params: RemoveGroupParticipantsParams,
+  ): Promise<ZApiBooleanResponse> {
+    try {
+      const { data } = await axios.post<ZApiBooleanResponse>(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/remove-participant`,
+        params,
+        { headers: this.instanceHeaders() },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to remove group participants')
+    }
+  }
+
+  async updateGroupName(
+    instanceId: string,
+    instanceToken: string,
+    params: UpdateGroupNameParams,
+  ): Promise<ZApiBooleanResponse> {
+    try {
+      const { data } = await axios.post<ZApiBooleanResponse>(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/update-group-name`,
+        params,
+        { headers: this.instanceHeaders() },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to update group name')
+    }
+  }
+
+  async updateGroupDescription(
+    instanceId: string,
+    instanceToken: string,
+    params: UpdateGroupDescriptionParams,
+  ): Promise<ZApiBooleanResponse> {
+    try {
+      const { data } = await axios.post<ZApiBooleanResponse>(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/update-group-description`,
+        params,
+        { headers: this.instanceHeaders() },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to update group description')
+    }
+  }
+
+  async updateGroupPhoto(
+    instanceId: string,
+    instanceToken: string,
+    params: UpdateGroupPhotoParams,
+  ): Promise<ZApiBooleanResponse> {
+    try {
+      const { data } = await axios.post<ZApiBooleanResponse>(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/update-group-photo`,
+        params,
+        { headers: this.instanceHeaders() },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to update group photo')
+    }
+  }
+
+  async leaveGroup(
+    instanceId: string,
+    instanceToken: string,
+    params: LeaveGroupParams,
+  ): Promise<ZApiBooleanResponse> {
+    try {
+      const { data } = await axios.post<ZApiBooleanResponse>(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/leave-group`,
+        params,
+        { headers: this.instanceHeaders() },
+      )
+      return data
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to leave group')
     }
   }
 

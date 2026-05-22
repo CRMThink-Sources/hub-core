@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useSession } from '@/providers/session-provider'
-import { ConfigurarModal } from '../_components/configurar-modal'
 import { ConectarModal } from '../_components/conectar-modal'
 import { useQrCode } from '@/app/hooks/use-qr-code'
 import { useConnectors } from '@/app/hooks/use-connectors'
@@ -10,9 +9,6 @@ import { VincularCanalModal } from '../_components/vincular-canal-modal'
 import { DesvincularCanalModal } from '../_components/desvincular-canal-modal'
 import { DesconectarModal } from '../_components/desconectar-modal'
 import { CancelarConectorModal } from '../_components/cancelar-conector-modal'
-import { envConfig } from '@/shared/infra/env-config'
-import { getAppRedirectUrl } from '@/app/config/app-redirects'
-import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 import { useConnectorsSocket } from '@/app/hooks/use-connectors-socket'
 import { THINKZAP_TRIAL_MAX_CONNECTORS } from '@/shared/constants/thinkzap-trial'
 import { ConexoesHeaderCard } from '../_components/conexoes/conexoes-header-card'
@@ -49,25 +45,6 @@ export default function ConexoesLayout() {
   const connectorQuantity = Number(subscription?.connectorQuantity ?? total)
   const quantityAposCancelamento = Math.max(1, connectorQuantity - 1)
 
-  const handleSave = async (id: string, name: string): Promise<void> => {
-    try {
-      const authTokenKey = getAppRedirectUrl(
-        envConfig.appCodes.thinkzap,
-      )?.storageAuthTokenKey
-      if (!authTokenKey) return
-
-      const client = axiosThinkzap(authTokenKey)
-      await client.put(`${envConfig.apiUrl}/thinkzap/instance/${id}`, {
-        name,
-      })
-      await refreshSession()
-    } catch (error) {
-      console.error('Erro ao salvar:', error)
-    }
-    connectors.edit.close()
-    connectors.connect.close()
-  }
-
   const handleCloseConectar = () => {
     connectors.connect.close()
     void refreshSession()
@@ -94,15 +71,6 @@ export default function ConexoesLayout() {
             nome: payload.nome,
           })
         }
-      />
-
-      <ConfigurarModal
-        isOpen={connectors.edit.isOpen}
-        connector={connectors.edit.connector}
-        onClose={connectors.edit.close}
-        onSave={(id: string, name: string) => {
-          void handleSave(id, name)
-        }}
       />
 
       <ConectarModal
