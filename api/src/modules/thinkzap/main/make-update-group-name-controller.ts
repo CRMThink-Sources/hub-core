@@ -3,7 +3,7 @@ import { UpdateGroupNameService } from '../application/update-group-name.service
 import { UpdateGroupNameController } from '../presentation/controllers/update-group-name.controller'
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
-export const makeUpdateGroupNameController = async (): Promise<Controller> => {
+export const makeUpdateGroupNameController = (): Controller => {
   const { connectorRepository, instanceRepository, zApiClient } =
     makeGroupZApiDeps()
 

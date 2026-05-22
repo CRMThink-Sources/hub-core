@@ -3,16 +3,15 @@ import { AddGroupParticipantsService } from '../application/add-group-participan
 import { AddGroupParticipantsController } from '../presentation/controllers/add-group-participants.controller'
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
-export const makeAddGroupParticipantsController =
-  async (): Promise<Controller> => {
-    const { connectorRepository, instanceRepository, zApiClient } =
-      makeGroupZApiDeps()
+export const makeAddGroupParticipantsController = (): Controller => {
+  const { connectorRepository, instanceRepository, zApiClient } =
+    makeGroupZApiDeps()
 
-    const service = new AddGroupParticipantsService(
-      connectorRepository,
-      instanceRepository,
-      zApiClient,
-    )
+  const service = new AddGroupParticipantsService(
+    connectorRepository,
+    instanceRepository,
+    zApiClient,
+  )
 
-    return new AddGroupParticipantsController(service)
-  }
+  return new AddGroupParticipantsController(service)
+}

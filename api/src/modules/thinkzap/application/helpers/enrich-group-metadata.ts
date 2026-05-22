@@ -8,15 +8,30 @@ function parseBool(value: unknown): boolean {
   return value === true || value === 'true' || value === 1 || value === '1'
 }
 
+function coerceString(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean')
+    return String(value)
+  return ''
+}
+
+function coerceOptionalString(value: unknown): string | undefined {
+  if (value == null) return undefined
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean')
+    return String(value)
+  return undefined
+}
+
 function normalizeParticipant(
   raw: Record<string, unknown>,
 ): ZApiGroupParticipant {
   return {
-    phone: String(raw.phone ?? ''),
+    phone: coerceString(raw.phone),
     isAdmin: parseBool(raw.isAdmin),
     isSuperAdmin: parseBool(raw.isSuperAdmin),
-    short: raw.short != null ? String(raw.short) : undefined,
-    name: raw.name != null ? String(raw.name) : undefined,
+    short: coerceOptionalString(raw.short),
+    name: coerceOptionalString(raw.name),
     imgUrl: null,
   }
 }

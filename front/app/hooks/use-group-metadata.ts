@@ -14,10 +14,10 @@ export function useGroupMetadata(authTokenKey: string) {
       setError(null)
       try {
         const client = axiosThinkzap(authTokenKey)
-        const result = (await client.get(
+        const result = await client.get(
           `/thinkzap/groups/${encodeURIComponent(groupId)}`,
           { params: { connectorId } },
-        )) as GroupMetadata
+        )
         setMetadata(result)
         return result
       } catch (err: unknown) {

@@ -7,14 +7,14 @@ export function extractThinkzapError(err: unknown, fallback: string): string {
     typeof err.response === 'object' &&
     'data' in err.response
   ) {
-    const data = (err.response as { data: unknown }).data
+    const data = err.response.data
     if (data && typeof data === 'object' && 'result' in data) {
-      const result = (data as { result: unknown }).result
+      const result = data.result
       if (
         result &&
         typeof result === 'object' &&
         'error' in result &&
-        typeof (result as { error: unknown }).error === 'string'
+        typeof result.error === 'string'
       ) {
         return (result as { error: string }).error
       }
