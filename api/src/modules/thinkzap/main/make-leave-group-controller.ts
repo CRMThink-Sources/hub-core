@@ -3,7 +3,7 @@ import { LeaveGroupService } from '../application/leave-group.service'
 import { LeaveGroupController } from '../presentation/controllers/leave-group.controller'
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
-export const makeLeaveGroupController = async (): Promise<Controller> => {
+export const makeLeaveGroupController = (): Controller => {
   const { connectorRepository, instanceRepository, zApiClient } =
     makeGroupZApiDeps()
 

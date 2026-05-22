@@ -3,7 +3,7 @@ import { UpdateGroupPhotoService } from '../application/update-group-photo.servi
 import { UpdateGroupPhotoController } from '../presentation/controllers/update-group-photo.controller'
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
-export const makeUpdateGroupPhotoController = async (): Promise<Controller> => {
+export const makeUpdateGroupPhotoController = (): Controller => {
   const { connectorRepository, instanceRepository, zApiClient } =
     makeGroupZApiDeps()
 

@@ -3,7 +3,7 @@ import { CreateGroupService } from '../application/create-group.service'
 import { CreateGroupController } from '../presentation/controllers/create-group.controller'
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
-export const makeCreateGroupController = async (): Promise<Controller> => {
+export const makeCreateGroupController = (): Controller => {
   const { connectorRepository, instanceRepository, zApiClient } =
     makeGroupZApiDeps()
 

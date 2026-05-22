@@ -1,23 +1,16 @@
-import axios, { type AxiosInstance } from 'axios'
+import axios from 'axios'
 
 import { getAppRedirectUrl } from '@/app/config/app-redirects'
-import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
+import {
+  axiosThinkzap,
+  type ThinkzapHttpClient,
+} from '@/infra/client/axios-thinkzap'
 import { envConfig } from '@/shared/infra/env-config'
 
 export const THINKZAP_SESSION_EXPIRED_MESSAGE =
   'Sessão expirada. Entre novamente.' as const
 
-/**
- * Contrato do axiosThinkzap após o interceptor (corpo já é `response.data.result`).
- */
-export type ThinkzapHttpClient = {
-  get<T>(url: string, config?: Parameters<AxiosInstance['get']>[1]): Promise<T>
-  post<T>(
-    url: string,
-    data?: unknown,
-    config?: Parameters<AxiosInstance['post']>[2],
-  ): Promise<T>
-}
+export type { ThinkzapHttpClient }
 
 export type ResolvedThinkzapClient =
   | { ok: true; client: ThinkzapHttpClient }
@@ -41,9 +34,7 @@ export function resolveThinkzapClient(): ResolvedThinkzapClient {
     return { ok: false, message: THINKZAP_SESSION_EXPIRED_MESSAGE }
   }
   try {
-    const client = axiosThinkzap(
-      authStorageKey,
-    ) as unknown as ThinkzapHttpClient
+    const client = axiosThinkzap(authStorageKey)
     return { ok: true, client }
   } catch {
     return { ok: false, message: THINKZAP_SESSION_EXPIRED_MESSAGE }
