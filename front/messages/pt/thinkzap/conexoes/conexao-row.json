@@ -6,6 +6,7 @@
     "inativo": "Inativo"
   },
   "menu": {
+    "configuracoes": "Configurações",
     "editar": "Editar",
     "conectar": "Conectar",
     "desconectar": "Desconectar",

@@ -1,4 +1,5 @@
 export type ReceivedMessageEvent = {
+  notification: string
   isStatusReply: boolean
   chatLid: string | null
   connectedPhone: string

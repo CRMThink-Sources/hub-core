@@ -1,0 +1,9 @@
+{
+  "pageTitle": "Connector settings",
+  "voltar": "Back to connections",
+  "conectorNaoEncontrado": "Connector not found.",
+  "tabs": {
+    "geral": "General",
+    "grupos": "Groups"
+  }
+}

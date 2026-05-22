@@ -1,0 +1,9 @@
+{
+  "pageTitle": "Configurações do conector",
+  "voltar": "Voltar para conexões",
+  "conectorNaoEncontrado": "Conector não encontrado.",
+  "tabs": {
+    "geral": "Geral",
+    "grupos": "Grupos"
+  }
+}
