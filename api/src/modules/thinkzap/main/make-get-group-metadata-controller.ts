@@ -3,7 +3,7 @@ import { GetGroupMetadataService } from '../application/get-group-metadata.servi
 import { GetGroupMetadataController } from '../presentation/controllers/get-group-metadata.controller'
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
-export const makeGetGroupMetadataController = async (): Promise<Controller> => {
+export const makeGetGroupMetadataController = (): Controller => {
   const { connectorRepository, instanceRepository, zApiClient } =
     makeGroupZApiDeps()
 

@@ -3,16 +3,15 @@ import { RemoveGroupParticipantsService } from '../application/remove-group-part
 import { RemoveGroupParticipantsController } from '../presentation/controllers/remove-group-participants.controller'
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
-export const makeRemoveGroupParticipantsController =
-  async (): Promise<Controller> => {
-    const { connectorRepository, instanceRepository, zApiClient } =
-      makeGroupZApiDeps()
+export const makeRemoveGroupParticipantsController = (): Controller => {
+  const { connectorRepository, instanceRepository, zApiClient } =
+    makeGroupZApiDeps()
 
-    const service = new RemoveGroupParticipantsService(
-      connectorRepository,
-      instanceRepository,
-      zApiClient,
-    )
+  const service = new RemoveGroupParticipantsService(
+    connectorRepository,
+    instanceRepository,
+    zApiClient,
+  )
 
-    return new RemoveGroupParticipantsController(service)
-  }
+  return new RemoveGroupParticipantsController(service)
+}
