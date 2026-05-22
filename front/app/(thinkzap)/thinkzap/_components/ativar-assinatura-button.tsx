@@ -144,7 +144,7 @@ export function AtivarAssinaturaButton({
 
       const data = await client.post('/thinkzap/subscription/billing-portal')
 
-      const url = (data as unknown as { url: string }).url
+      const url = (data as { url: string }).url
 
       if (url) {
         openBillingPortalUrl(url)

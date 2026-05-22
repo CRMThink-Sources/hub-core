@@ -14,7 +14,7 @@ export function useGroupMetadata(authTokenKey: string) {
       setError(null)
       try {
         const client = axiosThinkzap(authTokenKey)
-        const result = await client.get(
+        const result = await client.get<GroupMetadata>(
           `/thinkzap/groups/${encodeURIComponent(groupId)}`,
           { params: { connectorId } },
         )

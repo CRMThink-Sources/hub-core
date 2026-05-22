@@ -21,7 +21,10 @@ export function useCreateGroup(authTokenKey: string) {
       setError(null)
       try {
         const client = axiosThinkzap(authTokenKey)
-        const result = await client.post('/thinkzap/groups', params)
+        const result = await client.post<CreatedGroup>(
+          '/thinkzap/groups',
+          params,
+        )
         return result
       } catch (err: unknown) {
         let message: string | null = null
