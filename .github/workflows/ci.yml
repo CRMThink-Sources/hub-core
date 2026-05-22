@@ -2,9 +2,9 @@ name: CI / CD
 
 on:
   push:
-    branches: [master, develop]
+    branches: [master]
   pull_request:
-    branches: [master, develop]
+    branches: [master]
 
 env:
   REGISTRY: ghcr.io
@@ -272,7 +272,7 @@ jobs:
             docker compose -p hubthink-observability -f docker-compose.observability.yml pull || true
             docker compose -p hubthink-observability -f docker-compose.observability.yml up -d --remove-orphans
             # Grafana aplica provisioning de dashboards sobretudo no start; sem recreate pode não aparecer dash novo
-            docker compose -p hubthink-observability -f docker-compose.observability.yml up -d --force-recreate grafana
+            docker compose -p hubthink-observability -f docker-compose.observability.yml up -d --force-recreate grafana promtail
             docker compose -p hubthink-observability -f docker-compose.observability.yml ps
             echo "=== Grafana provisioning (erros aparecem abaixo) ==="
             docker logs hubthink-grafana 2>&1 | tail -n 80

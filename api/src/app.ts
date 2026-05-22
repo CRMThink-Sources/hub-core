@@ -24,7 +24,7 @@ import {
   bullBoardRouter,
   isBullBoardEnabled,
 } from './queue/bull-board.js'
-import { logger } from './shared/infra/logger.js'
+import { apiLogger, resolveLogApp } from './shared/infra/logger.js'
 
 const app: Express = express()
 
@@ -34,8 +34,9 @@ app.use((req, res, next) => {
   res.on('finish', () => {
     const durationMs = Date.now() - startedAt
 
-    logger.info(
+    apiLogger.info(
       {
+        app: resolveLogApp(req.originalUrl),
         method: req.method,
         path: req.originalUrl,
         statusCode: res.statusCode,

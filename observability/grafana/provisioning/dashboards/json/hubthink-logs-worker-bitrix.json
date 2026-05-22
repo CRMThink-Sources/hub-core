@@ -1,0 +1,258 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "title": "Overview",
+      "type": "link",
+      "url": "/d/hubthink-logs-overview"
+    },
+    {
+      "title": "ThinkZap",
+      "type": "link",
+      "url": "/d/hubthink-logs-thinkzap"
+    },
+    {
+      "title": "ThinkAnalise",
+      "type": "link",
+      "url": "/d/hubthink-logs-thinkanalise"
+    },
+    {
+      "title": "Worker Z-API",
+      "type": "link",
+      "url": "/d/hubthink-logs-worker-zapi"
+    }
+  ],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "title": "Worker Bitrix",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 0,
+        "y": 1
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\", source=\"bitrix\"} |= \"Worker job active\" [$__interval]))",
+          "legendFormat": "Ativo",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\", source=\"bitrix\"} |= \"Worker job completed\" [$__interval]))",
+          "legendFormat": "OK",
+          "queryType": "range",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\", source=\"bitrix\"} |= \"Worker job failed\" [$__interval]))",
+          "legendFormat": "Falha",
+          "queryType": "range",
+          "refId": "C"
+        }
+      ],
+      "title": "Ciclo de jobs Bitrix",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\", source=\"bitrix\"} |= \"Worker job failed\" [15m]))",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "Falhas Bitrix (15 min)",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 101,
+      "title": "Logs",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 3,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\", source=\"bitrix\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Logs worker Bitrix",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 4,
+      "options": {
+        "enableLogDetails": true,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"docker\", app=\"thinkzap\", source=\"bitrix\"} |= \"Worker job failed\" or {job=\"docker\", app=\"thinkzap\", source=\"bitrix\"} |= \"\\\"level\\\":50\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Erros Bitrix",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "hubthink",
+    "worker",
+    "bitrix",
+    "loki"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "HubThink - Worker Bitrix",
+  "uid": "hubthink-logs-worker-bitrix",
+  "version": 1
+}

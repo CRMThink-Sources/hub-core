@@ -14,12 +14,14 @@ import { destructureChatId } from '@/shared/helpers/chat-id'
 import { convertToMp3 } from '@/shared/helpers/convert-to-mp3'
 import { GetBitrixWebhookContextRepository } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
 import { PrismaBitrixWebhookContextRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bitrix-webhook-context.repository'
-import { logger } from '@/shared/infra/logger'
+import { createWorkerSourceLogger } from '@/shared/infra/logger'
+
+const log = createWorkerSourceLogger('bitrix')
 
 export async function processBitrixReceivedMessage(
   event: IBX24MessageEvent,
 ): Promise<void> {
-  logger.info(
+  log.info(
     {
       domain: event.auth.domain,
       line: event.data.LINE,
@@ -29,7 +31,7 @@ export async function processBitrixReceivedMessage(
   )
 
   if (!event.data.MESSAGES.length) {
-    logger.warn(
+    log.warn(
       { domain: event.auth.domain, line: event.data.LINE },
       'Bitrix event received with no messages — skipping',
     )
@@ -60,7 +62,7 @@ export async function processBitrixReceivedMessage(
     }
   }
 
-  logger.debug(
+  log.debug(
     {
       domain: event.auth.domain,
       line: event.data.LINE,
@@ -79,14 +81,14 @@ export async function processBitrixReceivedMessage(
   })
 
   if (!context) {
-    logger.error(
+    log.error(
       { domain: event.auth.domain, line: event.data.LINE },
       'Bitrix webhook context not found',
     )
     throw new Error('Context not found')
   }
 
-  logger.debug(
+  log.debug(
     {
       domain: event.auth.domain,
       instanceId: context.instance.instanceId,
@@ -104,7 +106,7 @@ export async function processBitrixReceivedMessage(
   const chatId = message.chat.id
 
   for (const messageData of messages) {
-    logger.debug(
+    log.debug(
       {
         domain: event.auth.domain,
         instanceId: context.instance.instanceId,
@@ -121,7 +123,7 @@ export async function processBitrixReceivedMessage(
         messageData.text || '',
         chatId,
       )
-      logger.info(
+      log.info(
         {
           domain: event.auth.domain,
           instanceId: context.instance.instanceId,
@@ -138,7 +140,7 @@ export async function processBitrixReceivedMessage(
         messageData.link || '',
         chatId,
       )
-      logger.info(
+      log.info(
         {
           domain: event.auth.domain,
           instanceId: context.instance.instanceId,
@@ -155,7 +157,7 @@ export async function processBitrixReceivedMessage(
         messageData.link || '',
         chatId,
       )
-      logger.info(
+      log.info(
         {
           domain: event.auth.domain,
           instanceId: context.instance.instanceId,
@@ -179,7 +181,7 @@ export async function processBitrixReceivedMessage(
         base64Audio,
         chatId,
       )
-      logger.info(
+      log.info(
         {
           domain: event.auth.domain,
           instanceId: context.instance.instanceId,
@@ -197,7 +199,7 @@ export async function processBitrixReceivedMessage(
         chatId,
         messageData.name || '',
       )
-      logger.info(
+      log.info(
         {
           domain: event.auth.domain,
           instanceId: context.instance.instanceId,
@@ -208,7 +210,7 @@ export async function processBitrixReceivedMessage(
       )
       await setDelivered(bitrixClient, event, message, chatId, result.messageId)
     } else {
-      logger.warn(
+      log.warn(
         {
           domain: event.auth.domain,
           instanceId: context.instance.instanceId,
@@ -219,7 +221,7 @@ export async function processBitrixReceivedMessage(
     }
   }
 
-  logger.info(
+  log.info(
     {
       domain: event.auth.domain,
       line: event.data.LINE,
