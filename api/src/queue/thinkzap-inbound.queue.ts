@@ -1,6 +1,6 @@
 import { Queue } from 'bullmq'
 import { redisConnection } from './redis-connection'
-import { logger } from '@/shared/infra/logger'
+import { apiLogger } from '@/shared/infra/logger'
 
 export const THINKZAP_INBOUND = 'thinkzap-inbound'
 
@@ -24,8 +24,9 @@ export async function enqueueThinkzapInboundJob(job: ThinkzapInboundJob) {
     },
   })
 
-  logger.info(
+  apiLogger.info(
     {
+      app: 'thinkzap',
       queue: THINKZAP_INBOUND,
       jobId: createdJob.id,
       source: job.source,

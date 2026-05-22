@@ -11,10 +11,12 @@ import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { Domain, Instance } from '@/prisma/client'
 import { Credential } from '@/shared/domain/entities/credential'
-import { logger } from '@/shared/infra/logger'
+import { createWorkerSourceLogger } from '@/shared/infra/logger'
+
+const log = createWorkerSourceLogger('z-api')
 
 export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
-  logger.info(
+  log.info(
     {
       instanceId: event.instanceId,
       messageId: event.messageId,
@@ -29,7 +31,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
 
   const instance = await instanceRepo.getInstanceByInstanceId(event.instanceId)
   if (!instance) {
-    logger.warn(
+    log.warn(
       {
         instanceId: event.instanceId,
         messageId: event.messageId,
@@ -40,7 +42,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
     throw new Error('Instance not found for received message')
   }
   if (!instance.vinculatedChannel) {
-    logger.warn(
+    log.warn(
       {
         instanceId: event.instanceId,
         internalInstanceId: instance.id,
@@ -52,7 +54,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
   }
   const connector = await connectorRepo.getConnectorByInstanceId(instance?.id)
   if (!connector) {
-    logger.warn(
+    log.warn(
       {
         instanceId: event.instanceId,
         internalInstanceId: instance.id,
@@ -161,7 +163,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
       },
     ],
   }
-  logger.debug(
+  log.debug(
     {
       messageId: event.messageId,
       connectorCode: params.CONNECTOR,
@@ -183,7 +185,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
 
   const result: unknown = await bitrixClient.sendMessage(params)
 
-  logger.info(
+  log.info(
     {
       messageId: event.messageId,
       result: JSON.stringify(result),
@@ -199,7 +201,7 @@ async function sendMessageFromGroup(
   instance: Instance,
   files?: { url: string; name: string }[],
 ): Promise<void> {
-  logger.info(
+  log.info(
     {
       instanceId: event.instanceId,
       messageId: event.messageId,

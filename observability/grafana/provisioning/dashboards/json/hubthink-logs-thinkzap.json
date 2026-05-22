@@ -1,0 +1,246 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "title": "Overview",
+      "type": "link",
+      "url": "/d/hubthink-logs-overview"
+    },
+    {
+      "title": "ThinkAnalise",
+      "type": "link",
+      "url": "/d/hubthink-logs-thinkanalise"
+    },
+    {
+      "title": "Worker Z-API",
+      "type": "link",
+      "url": "/d/hubthink-logs-worker-zapi"
+    },
+    {
+      "title": "Worker Bitrix",
+      "type": "link",
+      "url": "/d/hubthink-logs-worker-bitrix"
+    }
+  ],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "title": "ThinkZap — API e fila",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({job=\"docker\", container=~\"hubthink-api(-staging)?\", app=\"thinkzap\"} |= \"HTTP request completed\" [$__interval]))",
+          "legendFormat": "HTTP",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({job=\"docker\", app=\"thinkzap\"} |= \"Inbound job enqueued\" [$__interval]))",
+          "legendFormat": "Jobs enfileirados",
+          "queryType": "range",
+          "refId": "B"
+        }
+      ],
+      "title": "HTTP e enfileiramento",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (source) (count_over_time({job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\"} |= \"Worker job completed\" [$__interval]))",
+          "legendFormat": "{{source}} OK",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (source) (count_over_time({job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\"} |= \"Worker job failed\" [$__interval]))",
+          "legendFormat": "{{source}} falha",
+          "queryType": "range",
+          "refId": "B"
+        }
+      ],
+      "title": "Worker por source",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 101,
+      "title": "Logs",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 3,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"docker\", app=\"thinkzap\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Todos os logs ThinkZap (API + worker)",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 4,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{job=\"docker\", app=\"thinkzap\"} |= \"Worker job failed\" or {job=\"docker\", app=\"thinkzap\"} |= \"\\\"level\\\":50\" or {job=\"docker\", app=\"thinkzap\"} |= \"\\\"level\\\":60\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Erros ThinkZap",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "hubthink",
+    "thinkzap",
+    "loki"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "HubThink - ThinkZap",
+  "uid": "hubthink-logs-thinkzap",
+  "version": 1
+}

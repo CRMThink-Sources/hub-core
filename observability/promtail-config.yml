@@ -26,3 +26,10 @@ scrape_configs:
         replacement: 'docker'
     pipeline_stages:
       - docker: {}
+      - json:
+          expressions:
+            app: app
+            source: source
+      - labels:
+          app:
+          source:
