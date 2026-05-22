@@ -16,7 +16,7 @@ export function useListGroups(authTokenKey: string) {
       setError(null)
       try {
         const client = axiosThinkzap(authTokenKey)
-        const result = await client.get('/thinkzap/groups', {
+        const result = await client.get<GroupListItem[]>('/thinkzap/groups', {
           params: { connectorId, page: targetPage, pageSize },
         })
         setGroups(result)

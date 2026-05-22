@@ -27,9 +27,10 @@ export function useBitrixContacts(authTokenKey: string) {
         void (async () => {
           try {
             const client = axiosThinkzap(authTokenKey)
-            const result = await client.get('/thinkzap/contacts', {
-              params: { search: query.trim() },
-            })
+            const result = await client.get<{ contacts: BitrixContact[] }>(
+              '/thinkzap/contacts',
+              { params: { search: query.trim() } },
+            )
             setContacts(result.contacts ?? [])
           } catch {
             setContacts([])
