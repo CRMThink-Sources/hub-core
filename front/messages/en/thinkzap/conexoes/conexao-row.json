@@ -6,6 +6,7 @@
     "inativo": "Inactive"
   },
   "menu": {
+    "configuracoes": "Settings",
     "editar": "Edit",
     "conectar": "Connect",
     "desconectar": "Disconnect",

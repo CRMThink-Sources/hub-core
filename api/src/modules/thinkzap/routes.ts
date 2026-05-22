@@ -17,6 +17,16 @@ import { makeEndTrialSubscriptionController } from './main/end-trial-subscriptio
 import { makeActivateTrialController } from './main/make-activate-trial-controller'
 import { makeListDestinationsController } from './main/make-list-destinations-controller'
 import { makeSendWidgetMessageController } from './main/make-send-widget-message-controller'
+import { makeAddGroupParticipantsController } from './main/make-add-group-participants-controller'
+import { makeCreateGroupController } from './main/make-create-group-controller'
+import { makeGetGroupMetadataController } from './main/make-get-group-metadata-controller'
+import { makeLeaveGroupController } from './main/make-leave-group-controller'
+import { makeListContactsController } from './main/make-list-contacts-controller'
+import { makeListGroupsController } from './main/make-list-groups-controller'
+import { makeRemoveGroupParticipantsController } from './main/make-remove-group-participants-controller'
+import { makeUpdateGroupDescriptionController } from './main/make-update-group-description-controller'
+import { makeUpdateGroupNameController } from './main/make-update-group-name-controller'
+import { makeUpdateGroupPhotoController } from './main/make-update-group-photo-controller'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
@@ -96,6 +106,39 @@ export const createThinkerszapRoutes = (): Router => {
   router.post(
     '/messages/send-widget',
     adaptControllerFactory(makeSendWidgetMessageController),
+  )
+
+  router.get('/contacts', adaptControllerFactory(makeListContactsController))
+
+  router.get('/groups', adaptControllerFactory(makeListGroupsController))
+  router.get(
+    '/groups/:groupId',
+    adaptControllerFactory(makeGetGroupMetadataController),
+  )
+  router.post('/groups', adaptControllerFactory(makeCreateGroupController))
+  router.patch(
+    '/groups/:groupId/name',
+    adaptControllerFactory(makeUpdateGroupNameController),
+  )
+  router.patch(
+    '/groups/:groupId/description',
+    adaptControllerFactory(makeUpdateGroupDescriptionController),
+  )
+  router.patch(
+    '/groups/:groupId/photo',
+    adaptControllerFactory(makeUpdateGroupPhotoController),
+  )
+  router.post(
+    '/groups/:groupId/participants',
+    adaptControllerFactory(makeAddGroupParticipantsController),
+  )
+  router.delete(
+    '/groups/:groupId/participants',
+    adaptControllerFactory(makeRemoveGroupParticipantsController),
+  )
+  router.delete(
+    '/groups/:groupId',
+    adaptControllerFactory(makeLeaveGroupController),
   )
 
   return router

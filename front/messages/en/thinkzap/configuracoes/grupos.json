@@ -1,0 +1,73 @@
+{
+  "desconectado": "The connector must be connected to manage groups.",
+  "lista": {
+    "titulo": "WhatsApp groups",
+    "novoGrupo": "New group",
+    "colunaNome": "Name",
+    "colunaUltimaMsg": "Last activity",
+    "colunaAcoes": "Actions",
+    "editar": "Edit",
+    "sair": "Leave",
+    "vazio": "No groups found.",
+    "carregando": "Loading groups...",
+    "anterior": "Previous",
+    "proxima": "Next",
+    "pagina": "Page {{page}}"
+  },
+  "detalhe": {
+    "voltar": "Back to list",
+    "carregando": "Loading group...",
+    "nome": "Group name",
+    "descricao": "Description",
+    "foto": "Group photo",
+    "fotoHint": "JPG or PNG, up to 5 MB",
+    "selecionarFoto": "Select image",
+    "enviandoFoto": "Uploading photo...",
+    "arquivoSelecionado": "File: {{nome}}",
+    "salvarNome": "Save name",
+    "salvarDescricao": "Save description",
+    "salvarFoto": "Update photo",
+    "salvando": "Saving...",
+    "linkConvite": "Invitation link",
+    "copiar": "Copy",
+    "copiado": "Copied!",
+    "semLink": "Link unavailable (admins only)",
+    "participantes": "Participants",
+    "totalParticipantes": "{{count}} participant(s)",
+    "semParticipantes": "No participants found.",
+    "fotoAtual": "Current group photo",
+    "admin": "Admin",
+    "remover": "Remove",
+    "adicionarParticipantes": "Add participants",
+    "autoInvite": "Send private invite if cannot add directly",
+    "confirmarAdicionar": "Add to group",
+    "sairGrupo": "Leave group",
+    "fotoGrande": "Image must be 5 MB or smaller"
+  },
+  "picker": {
+    "buscarContato": "Search Bitrix contact",
+    "buscarPlaceholder": "Type at least 2 characters...",
+    "buscando": "Searching...",
+    "nenhumResultado": "No contacts found",
+    "semTelefone": "This contact has no phone number",
+    "selecionarTelefones": "Select phone number(s)",
+    "adicionarSelecionados": "Add selected",
+    "telefoneManual": "Add number manually",
+    "telefoneManualPlaceholder": "e.g. 11999999999",
+    "adicionar": "Add",
+    "erroTelefoneInvalido": "Invalid phone number",
+    "telefoneJaAdicionado": "This number was already added"
+  },
+  "modal": {
+    "sairTitulo": "Leave group",
+    "sairMensagem": "You will leave this group. This does not delete the group for other members.",
+    "removerTitulo": "Remove participant",
+    "removerMensagem": "Remove {{phone}} from the group?",
+    "cancelar": "Cancel",
+    "confirmar": "Confirm",
+    "saindo": "Leaving..."
+  },
+  "sucessoLista": {
+    "verLista": "View in list"
+  }
+}

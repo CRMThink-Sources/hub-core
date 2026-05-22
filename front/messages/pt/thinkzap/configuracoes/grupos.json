@@ -1,0 +1,73 @@
+{
+  "desconectado": "O conector precisa estar conectado para gerenciar grupos.",
+  "lista": {
+    "titulo": "Grupos do WhatsApp",
+    "novoGrupo": "Novo grupo",
+    "colunaNome": "Nome",
+    "colunaUltimaMsg": "Última interação",
+    "colunaAcoes": "Ações",
+    "editar": "Editar",
+    "sair": "Sair",
+    "vazio": "Nenhum grupo encontrado.",
+    "carregando": "Carregando grupos...",
+    "anterior": "Anterior",
+    "proxima": "Próxima",
+    "pagina": "Página {{page}}"
+  },
+  "detalhe": {
+    "voltar": "Voltar para lista",
+    "carregando": "Carregando grupo...",
+    "nome": "Nome do grupo",
+    "descricao": "Descrição",
+    "foto": "Foto do grupo",
+    "fotoHint": "JPG ou PNG, até 5 MB",
+    "selecionarFoto": "Selecionar imagem",
+    "enviandoFoto": "Enviando foto...",
+    "arquivoSelecionado": "Arquivo: {{nome}}",
+    "salvarNome": "Salvar nome",
+    "salvarDescricao": "Salvar descrição",
+    "salvarFoto": "Atualizar foto",
+    "salvando": "Salvando...",
+    "linkConvite": "Link de convite",
+    "copiar": "Copiar",
+    "copiado": "Copiado!",
+    "semLink": "Link indisponível (apenas administradores)",
+    "participantes": "Participantes",
+    "totalParticipantes": "{{count}} participante(s)",
+    "semParticipantes": "Nenhum participante encontrado.",
+    "fotoAtual": "Foto atual do grupo",
+    "admin": "Admin",
+    "remover": "Remover",
+    "adicionarParticipantes": "Adicionar participantes",
+    "autoInvite": "Enviar convite privado se não puder adicionar diretamente",
+    "confirmarAdicionar": "Adicionar ao grupo",
+    "sairGrupo": "Sair do grupo",
+    "fotoGrande": "A imagem deve ter no máximo 5 MB"
+  },
+  "picker": {
+    "buscarContato": "Buscar contato no Bitrix",
+    "buscarPlaceholder": "Digite pelo menos 2 caracteres...",
+    "buscando": "Buscando...",
+    "nenhumResultado": "Nenhum contato encontrado",
+    "semTelefone": "Este contato não possui telefone cadastrado",
+    "selecionarTelefones": "Selecione o(s) telefone(s)",
+    "adicionarSelecionados": "Adicionar selecionados",
+    "telefoneManual": "Adicionar número manualmente",
+    "telefoneManualPlaceholder": "Ex: 11999999999",
+    "adicionar": "Adicionar",
+    "erroTelefoneInvalido": "Número de telefone inválido",
+    "telefoneJaAdicionado": "Este número já foi adicionado"
+  },
+  "modal": {
+    "sairTitulo": "Sair do grupo",
+    "sairMensagem": "Você deixará de participar deste grupo. Esta ação não apaga o grupo para os demais membros.",
+    "removerTitulo": "Remover participante",
+    "removerMensagem": "Remover {{phone}} do grupo?",
+    "cancelar": "Cancelar",
+    "confirmar": "Confirmar",
+    "saindo": "Saindo..."
+  },
+  "sucessoLista": {
+    "verLista": "Ver na lista"
+  }
+}

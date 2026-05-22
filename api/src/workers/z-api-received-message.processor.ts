@@ -214,6 +214,24 @@ async function sendMessageFromGroup(
     throw new Error('Chat ID not found')
   }
 
+  const getNotificationMessage = {
+    GROUP_CHANGE_ICON: 'The group icon has been changed',
+    GROUP_CREATE: 'A new group has been created',
+  }
+
+  const text: string = event?.notification
+    ? (getNotificationMessage[
+        event.notification as keyof typeof getNotificationMessage
+      ] ?? '')
+    : '[b]' +
+      event.senderName +
+      '[/b]:\n' +
+      (event.image
+        ? event.image.caption
+        : event.video
+          ? event.video.caption
+          : event.text?.message || '')
+
   const params: ISendMessageData = {
     CONNECTOR: env.bitrix.connector.code,
     LINE: Number(instance.vinculatedChannel),
@@ -235,16 +253,7 @@ async function sendMessageFromGroup(
         message: {
           id: event.messageId,
           date: new Date(event.momment).toISOString(),
-          text:
-            '[b]' +
-            event.senderName +
-            // event.participantPhone +
-            '[/b]:\n' +
-            (event.image
-              ? event.image.caption
-              : event.video
-                ? event.video.caption
-                : event.text?.message || ''),
+          text,
           files,
         },
       },
