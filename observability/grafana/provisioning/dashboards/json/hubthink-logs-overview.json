@@ -15,7 +15,32 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "ThinkZap",
+      "type": "link",
+      "url": "/d/hubthink-logs-thinkzap",
+      "icon": "apps"
+    },
+    {
+      "title": "ThinkAnalise",
+      "type": "link",
+      "url": "/d/hubthink-logs-thinkanalise",
+      "icon": "apps"
+    },
+    {
+      "title": "Worker Z-API",
+      "type": "link",
+      "url": "/d/hubthink-logs-worker-zapi",
+      "icon": "cloud"
+    },
+    {
+      "title": "Worker Bitrix",
+      "type": "link",
+      "url": "/d/hubthink-logs-worker-bitrix",
+      "icon": "cloud"
+    }
+  ],
   "panels": [
     {
       "collapsed": false,

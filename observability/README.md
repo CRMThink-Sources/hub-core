@@ -12,33 +12,28 @@ Senha: `admin`
 
 ## Dashboards (provisionados)
 
-Ao subir o Grafana, a pasta **HubThink** contém o dashboard **HubThink - Logs / fila / HTTP**:
+Ao subir o Grafana, a pasta **HubThink** contém:
 
-- volume de log por container (`api`, `worker`, `front`, staging e produção);
-- eventos **Z-API** recebidos e **jobs enfileirados** (texto dos seus logs estruturados);
-- ciclo do worker (**ativo**, **completed**, **failed**) e um stat de falhas em 15 min;
-- série de requests **HTTP request completed** na API;
-- painéis de **logs** para API e worker + painel combinado de erros.
+| Dashboard                         | UID                           | Conteúdo                                         |
+| --------------------------------- | ----------------------------- | ------------------------------------------------ |
+| **HubThink - Logs / fila / HTTP** | `hubthink-logs-overview`      | Visão geral por container + links para os demais |
+| **HubThink - ThinkZap**           | `hubthink-logs-thinkzap`      | API, fila e worker ThinkZap (`app="thinkzap"`)   |
+| **HubThink - ThinkAnalise**       | `hubthink-logs-thinkanalise`  | API ThinkAnalise (`app="thinkanalise"`)          |
+| **HubThink - Worker Z-API**       | `hubthink-logs-worker-zapi`   | Worker com `source="z-api"`                      |
+| **HubThink - Worker Bitrix**      | `hubthink-logs-worker-bitrix` | Worker com `source="bitrix"`                     |
 
-O JSON fica versionado em `observability/grafana/provisioning/dashboards/json/hubthink-logs-overview.json` (você pode editar e versionar mudanças). **Allow UI updates** está ligado para poder ajustar no Grafana e exportar depois para o arquivo, se preferir.
+JSONs em `observability/grafana/provisioning/dashboards/json/`. **Allow UI updates** está ligado para ajustar no Grafana e exportar de volta ao repo, se preferir.
 
-**Onde achar no Grafana:** menu **Dashboards** → pasta **HubThink** → **HubThink - Logs / fila / HTTP** (não fica em “General” por padrão).
+**Onde achar no Grafana:** menu **Dashboards** → pasta **HubThink**.
 
-## Por que o deploy não mostrou o dashboard?
+## Labels Loki (`app`, `source`)
 
-1. **Pasta errada na UI** — o provisionamento coloca o painel na pasta **HubThink**.
-2. **Grafana já estava rodando** — o carregamento de dashboards por arquivo é aplicado de forma confiável no **start** do container. O CI agora faz `docker compose ... up -d --force-recreate grafana` após o deploy.
-3. **Arquivos não foram para a VPS** — no log do job deve aparecer `ls -la observability/grafana/provisioning/dashboards/json/`. Se estiver vazio ou `MISSING`, o `scp` não trouxe a árvore `observability/` ou o branch deployado não tinha esses arquivos commitados.
-4. **Erro no JSON** — veja `docker logs hubthink-grafana | grep -i provision` na VPS.
+O Promtail extrai dos logs JSON da API/worker:
 
-### Corrigir manualmente na VPS
+- **`app`**: `thinkzap`, `thinkanalise` ou `shared` (HTTP e handlers)
+- **`source`**: `z-api` ou `bitrix` (fila, worker e webhooks ThinkZap)
 
-```bash
-cd ~/hubthink-observability
-ls -la observability/grafana/provisioning/dashboards/json/
-docker compose -p hubthink-observability -f docker-compose.observability.yml up -d --force-recreate grafana
-docker logs hubthink-grafana 2>&1 | tail -n 50
-```
+Logs do front (não JSON) não recebem esses labels. Logs **anteriores ao deploy** da instrumentação não têm `app`/`source` até expirarem no retention do Loki.
 
 ## Logs coletados
 
@@ -51,19 +46,47 @@ O Promtail coleta logs de containers Docker com os nomes:
 - `hubthink-front`
 - `hubthink-front-staging`
 
-## Query inicial no Explore (Grafana)
+## Queries no Explore (Grafana)
 
 ```logql
-{job="docker", container="hubthink-worker-staging"}
+# ThinkZap (API + worker + webhooks)
+{job="docker", app="thinkzap"}
+
+# ThinkAnalise (só API)
+{job="docker", app="thinkanalise"}
+
+# Worker Z-API
+{job="docker", container=~"hubthink-worker.*", app="thinkzap", source="z-api"}
+
+# Worker Bitrix
+{job="docker", container=~"hubthink-worker.*", app="thinkzap", source="bitrix"}
+
+# Fallback sem label (logs antigos)
+{job="docker", container="hubthink-api-staging"} |= "/api/thinkzap"
 ```
 
-## Campos uteis para filtro
+## Campos úteis para filtro (JSON)
 
-Como os logs da API/worker estao em JSON, voce pode filtrar por:
+- `app`, `source`, `messageId`, `instanceId`, `jobId`, `path`, `level`
 
-- `messageId`
-- `instanceId`
-- `jobId`
-- `source`
-- `type`
-- `level`
+## Deploy na VPS
+
+Ordem recomendada após release:
+
+1. Deploy API + worker (novos campos `app` / `source` no JSON).
+2. Deploy observability (Promtail + Grafana). O CI recria `grafana` e `promtail` com `--force-recreate`.
+
+### Corrigir manualmente na VPS
+
+```bash
+cd ~/hubthink-observability
+ls -la observability/grafana/provisioning/dashboards/json/
+docker compose -p hubthink-observability -f docker-compose.observability.yml up -d --force-recreate grafana promtail
+docker logs hubthink-grafana 2>&1 | tail -n 50
+```
+
+### Por que o dashboard não aparece?
+
+1. Pasta errada na UI — procure em **HubThink**, não em General.
+2. Grafana já estava rodando — use `--force-recreate grafana` após copiar os JSONs.
+3. Arquivos não chegaram na VPS — confira o `scp` no job de CI.

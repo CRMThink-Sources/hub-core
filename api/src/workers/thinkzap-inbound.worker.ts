@@ -8,18 +8,18 @@ import { processZApiReceivedMessage } from './z-api-received-message.processor'
 import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
 import { ReceivedMessageEvent } from '@/shared/infra/handlers/z-api/z-api'
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
-import { logger } from '@/shared/infra/logger'
+import { workerLogger } from '@/shared/infra/logger'
 
 async function processJob(data: ThinkzapInboundJob) {
   if (data.source === 'z-api') {
-    logger.debug(
-      { source: data.source, type: data.type },
+    workerLogger.debug(
+      { app: 'thinkzap', source: data.source, type: data.type },
       'Processing inbound job',
     )
     await processZApiReceivedMessage(data.body as ReceivedMessageEvent)
   } else if (data.source === 'bitrix') {
-    logger.debug(
-      { source: data.source, type: data.type },
+    workerLogger.debug(
+      { app: 'thinkzap', source: data.source, type: data.type },
       'Processing inbound job',
     )
     await processBitrixReceivedMessage(
@@ -40,12 +40,14 @@ export const thinkzapInboundWorker = new Worker(
 )
 
 thinkzapInboundWorker.on('failed', (job, err) => {
-  logger.error(
+  const data = job?.data as ThinkzapInboundJob | undefined
+  workerLogger.error(
     {
+      app: 'thinkzap',
       queue: THINKZAP_INBOUND,
       jobId: job?.id,
-      source: (job?.data as ThinkzapInboundJob | undefined)?.source,
-      type: (job?.data as ThinkzapInboundJob | undefined)?.type,
+      source: data?.source,
+      type: data?.type,
       attemptsMade: job?.attemptsMade,
       error: err,
     },
@@ -54,12 +56,14 @@ thinkzapInboundWorker.on('failed', (job, err) => {
 })
 
 thinkzapInboundWorker.on('completed', job => {
-  logger.info(
+  const data = job?.data as ThinkzapInboundJob | undefined
+  workerLogger.info(
     {
+      app: 'thinkzap',
       queue: THINKZAP_INBOUND,
       jobId: job?.id,
-      source: (job?.data as ThinkzapInboundJob | undefined)?.source,
-      type: (job?.data as ThinkzapInboundJob | undefined)?.type,
+      source: data?.source,
+      type: data?.type,
       attemptsMade: job?.attemptsMade,
     },
     'Worker job completed',
@@ -67,11 +71,14 @@ thinkzapInboundWorker.on('completed', job => {
 })
 
 thinkzapInboundWorker.on('active', job => {
-  logger.info(
+  const data = job?.data as ThinkzapInboundJob | undefined
+  workerLogger.info(
     {
+      app: 'thinkzap',
       queue: THINKZAP_INBOUND,
       jobId: job?.id,
-      source: (job?.data as ThinkzapInboundJob | undefined)?.source,
+      source: data?.source,
+      type: data?.type,
       attemptsMade: job?.attemptsMade,
     },
     'Worker job active',
@@ -79,5 +86,8 @@ thinkzapInboundWorker.on('active', job => {
 })
 
 thinkzapInboundWorker.on('ready', () => {
-  logger.info({ queue: THINKZAP_INBOUND }, 'Thinkzap inbound worker is ready')
+  workerLogger.info(
+    { app: 'thinkzap', queue: THINKZAP_INBOUND },
+    'Thinkzap inbound worker is ready',
+  )
 })
