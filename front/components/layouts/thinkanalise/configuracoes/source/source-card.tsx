@@ -46,8 +46,9 @@ async function startContaAzulOAuth(
 ): Promise<void> {
   const result = (await client.get('/thinkanalise/oauth/conta-azul/start', {
     params,
-  })) as unknown as { url: string }
-  window.open(result.url, '_blank')
+  })) as unknown as { url: string; logoutUrl: string }
+
+  window.open(result.logoutUrl, 'conta-azul-oauth', 'width=500,height=700')
 }
 
 export function SourceCard({
