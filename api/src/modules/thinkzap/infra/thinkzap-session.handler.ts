@@ -86,10 +86,7 @@ export class ThinkzapSessionHandler implements SessionHandler {
         appId: string
         thinkzapAccess?: { canAccessFinance: boolean }
       }): Promise<T> => {
-        if (
-          params.thinkzapAccess &&
-          !params.thinkzapAccess.canAccessFinance
-        ) {
+        if (params.thinkzapAccess && !params.thinkzapAccess.canAccessFinance) {
           return { key: 'subscription', data: null } as T
         }
         const subscriptionRepository = new PrismaBillingSubscriptionRepository()

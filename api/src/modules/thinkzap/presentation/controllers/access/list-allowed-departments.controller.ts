@@ -16,7 +16,8 @@ export class ListAllowedDepartmentsController extends Controller {
       return this.badRequest(new Error('App context not found'))
     }
 
-    const departments = await this.listAllowedDepartments.listDepartmentsByAppId(appId)
+    const departments =
+      await this.listAllowedDepartments.listDepartmentsByAppId(appId)
     return this.ok({ departments })
   }
 }

@@ -17,7 +17,10 @@ export class RemoveAllowedDepartmentController extends Controller {
     }
 
     const bitrixDepartmentId = req.params.bitrixDepartmentId as string
-    await this.removeAllowedDepartment.removeDepartment(appId, bitrixDepartmentId)
+    await this.removeAllowedDepartment.removeDepartment(
+      appId,
+      bitrixDepartmentId,
+    )
     return this.ok({})
   }
 }

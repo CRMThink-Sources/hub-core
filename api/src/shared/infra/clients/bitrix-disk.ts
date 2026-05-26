@@ -11,7 +11,7 @@ function getBitrixErrorDetails(error: unknown) {
 
   return {
     bitrixStatus: error.response.status,
-    bitrixData: error.response.data,
+    bitrixData: error.response.data as Record<string, unknown>,
   }
 }
 

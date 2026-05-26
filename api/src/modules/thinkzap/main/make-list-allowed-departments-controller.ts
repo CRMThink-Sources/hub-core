@@ -3,5 +3,7 @@ import { ListAllowedDepartmentsController } from '../presentation/controllers/ac
 import { PrismaAllowedDepartmentRepository } from '../infra/persistence/repositories/prisma-allowed-department.repository'
 
 export const makeListAllowedDepartmentsController = (): Controller => {
-  return new ListAllowedDepartmentsController(new PrismaAllowedDepartmentRepository())
+  return new ListAllowedDepartmentsController(
+    new PrismaAllowedDepartmentRepository(),
+  )
 }

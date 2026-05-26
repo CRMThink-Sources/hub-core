@@ -58,8 +58,7 @@ export async function resolveBitrixUserAtLogin(params: {
     )
   }
 
-  const restUserId =
-    current.ID != null ? String(current.ID) : undefined
+  const restUserId = current.ID != null ? String(current.ID) : undefined
 
   const bitrixUserId = restUserId ?? params.bitrixUserIdFallback ?? ''
 

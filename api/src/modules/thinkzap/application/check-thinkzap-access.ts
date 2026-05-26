@@ -43,7 +43,9 @@ function mergeDepartmentPermissions(
   for (const category of THINKZAP_PERMISSION_CATEGORIES) {
     result[category] = {} as (typeof result)[typeof category]
     for (const action of THINKZAP_PERMISSION_ACTIONS) {
-      result[category][action] = depts.some(d => d.permissions[category][action])
+      result[category][action] = depts.some(
+        d => d.permissions[category][action],
+      )
     }
   }
   return result
@@ -82,10 +84,11 @@ export async function checkThinkzapAccess(
     ctx.bitrixDepartmentIds &&
     ctx.bitrixDepartmentIds.length > 0
   ) {
-    const matchedDepts = await getAllowedDepartments.getDepartmentsByAppIdAndIds(
-      ctx.installedAppId,
-      ctx.bitrixDepartmentIds,
-    )
+    const matchedDepts =
+      await getAllowedDepartments.getDepartmentsByAppIdAndIds(
+        ctx.installedAppId,
+        ctx.bitrixDepartmentIds,
+      )
 
     if (matchedDepts.length > 0) {
       const permissions = mergeDepartmentPermissions(matchedDepts)
