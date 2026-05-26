@@ -46,8 +46,6 @@ export function searchBitrixDepartments(
   })
 }
 
-export function formatBitrixDepartmentName(
-  dept: BitrixDepartmentHit,
-): string {
+export function formatBitrixDepartmentName(dept: BitrixDepartmentHit): string {
   return dept.NAME?.trim() || `Departamento #${dept.ID}`
 }

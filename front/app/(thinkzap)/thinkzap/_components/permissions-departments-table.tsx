@@ -92,10 +92,14 @@ export function PermissionsDepartmentsTable({
             const dirty = isDirty(dept, draftPermissions)
 
             return (
-              <tr key={dept.bitrixDepartmentId} className="hover:bg-slate-50/50">
+              <tr
+                key={dept.bitrixDepartmentId}
+                className="hover:bg-slate-50/50"
+              >
                 <td className="sticky left-0 z-10 bg-white px-3 py-2 hover:bg-slate-50/50">
                   <p className="truncate font-medium text-slate-800">
-                    {dept.displayName ?? `Departamento #${dept.bitrixDepartmentId}`}
+                    {dept.displayName ??
+                      `Departamento #${dept.bitrixDepartmentId}`}
                   </p>
                   <p className="truncate text-[10px] text-slate-400">
                     ID {dept.bitrixDepartmentId}

@@ -5,8 +5,9 @@ import { useMemo } from 'react'
 
 export function useThinkzapApi() {
   return useMemo(() => {
-    const authTokenKey = getAppRedirectUrl(envConfig.appCodes.thinkzap)
-      ?.storageAuthTokenKey
+    const authTokenKey = getAppRedirectUrl(
+      envConfig.appCodes.thinkzap,
+    )?.storageAuthTokenKey
     const token =
       typeof window !== 'undefined' && authTokenKey
         ? sessionStorage.getItem(authTokenKey)
