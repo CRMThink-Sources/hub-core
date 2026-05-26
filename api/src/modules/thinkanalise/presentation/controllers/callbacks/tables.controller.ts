@@ -4,6 +4,7 @@ import { CallbackController } from '@/shared/presentation/callback-controller'
 import { tables as asaasTables } from './schemas/asaas'
 import { tables as contaAzulTables } from './schemas/conta-azul'
 import { tables as omieTables } from './schemas/omie'
+import { tables as sonaxTables } from './schemas/sonax'
 
 type TablesBody = {
   searchString?: string
@@ -17,6 +18,7 @@ const tablesByProvider: Record<string, { code: string; title: string }[]> = {
   asaas: asaasTables,
   conta_azul: contaAzulTables,
   omie: omieTables,
+  sonax: sonaxTables,
 }
 
 export class TablesController extends CallbackController {

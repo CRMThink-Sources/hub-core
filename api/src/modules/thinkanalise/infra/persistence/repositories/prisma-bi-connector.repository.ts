@@ -13,12 +13,14 @@ const providerMap = {
   asaas: 'ASAAS',
   conta_azul: 'CONTA_AZUL',
   omie: 'OMIE',
+  sonax: 'SONAX',
 } as const
 
 const reverseProviderMap = {
   ASAAS: 'asaas',
   CONTA_AZUL: 'conta_azul',
   OMIE: 'omie',
+  SONAX: 'sonax',
 } as const satisfies Record<string, BiAnalyseProvider>
 
 export class PrismaBiConnectorRepository

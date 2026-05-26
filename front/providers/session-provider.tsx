@@ -70,20 +70,20 @@ const SessionProvider = ({ appCode, children }: ISessionProviderProps) => {
       throw new Error('Auth token key not found')
     }
     const client = createSessionClient(authTokenKey)
+    const controller = new AbortController()
 
-    const fetchSession = async () => {
-      try {
-        setIsFetching(true)
-        const data = await client.get<ISession>(`/auth/session`)
-        // console.log('session data:', data)
-        setSession(data as any)
-      } catch (err) {
-        console.error('fetchSession error:', err)
-      } finally {
-        setIsFetching(false)
-      }
-    }
-    void fetchSession()
+    setIsFetching(true)
+    client
+      .get<ISession>(`/auth/session`, { signal: controller.signal } as any)
+      .then(data => setSession(data as any))
+      .catch(err => {
+        if (!axios.isCancel(err)) {
+          console.error('fetchSession error:', err)
+        }
+      })
+      .finally(() => setIsFetching(false))
+
+    return () => controller.abort()
   }, [appCode, pathname])
 
   const refreshSession = async () => {
