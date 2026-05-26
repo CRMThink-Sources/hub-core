@@ -1,7 +1,9 @@
 export {
   buildInstallPayload,
   fetchAppInfoFromCallMethod,
+  fetchCurrentUserFromCallMethod,
   getBitrixAppInfoFromUrl,
+  type BitrixCurrentUserResult,
 } from './app-info'
 export { BX24Script } from './bx24-script'
 export {
@@ -24,3 +26,14 @@ export type {
 } from './types'
 export { useBX24 } from './use-bx24'
 export type { UseBX24Result } from './use-bx24'
+export { isBitrixAdmin } from './is-bitrix-admin'
+export {
+  searchBitrixUsers,
+  formatBitrixUserName,
+  type BitrixUserSearchHit,
+} from './user-search'
+export {
+  searchBitrixDepartments,
+  formatBitrixDepartmentName,
+  type BitrixDepartmentHit,
+} from './department-search'

@@ -1,7 +1,19 @@
-import axios, { AxiosError } from 'axios'
+import axios from 'axios'
 import { BitrixClient } from './bitrix.client'
 import { Credential } from '@/shared/domain/entities/credential'
 import { BitrixError } from './errors/bitrix-client.error'
+import { apiLogger } from '@/shared/infra/logger'
+
+function getBitrixErrorDetails(error: unknown) {
+  if (!axios.isAxiosError(error) || !error.response) {
+    return { bitrixStatus: undefined, bitrixData: undefined }
+  }
+
+  return {
+    bitrixStatus: error.response.status,
+    bitrixData: error.response.data,
+  }
+}
 
 export class BitrixDiskClient extends BitrixClient {
   constructor(bitrixCredential: Credential, domain: string) {
@@ -33,10 +45,17 @@ export class BitrixDiskClient extends BitrixClient {
 
       return response.data.result.ID
     } catch (error) {
-      console.log(
-        '[BitrixDiskClient] getFolderId failed for dialogId/chatId:',
-        id,
-        (error as AxiosError).response?.data,
+      const { bitrixStatus, bitrixData } = getBitrixErrorDetails(error)
+      apiLogger.error(
+        {
+          app: 'thinkzap',
+          phase: 'getFolderId',
+          dialogId: id,
+          bitrixStatus,
+          bitrixData,
+          err: error,
+        },
+        'bitrix-disk: getFolderId failed',
       )
       const message =
         axios.isAxiosError(error) && error.response
@@ -60,6 +79,19 @@ export class BitrixDiskClient extends BitrixClient {
       })
       return response.data.result
     } catch (error) {
+      const { bitrixStatus, bitrixData } = getBitrixErrorDetails(error)
+      apiLogger.error(
+        {
+          app: 'thinkzap',
+          phase: 'uploadFile',
+          folderId,
+          fileName: name,
+          bitrixStatus,
+          bitrixData,
+          err: error,
+        },
+        'bitrix-disk: uploadFile failed',
+      )
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -80,6 +112,19 @@ export class BitrixDiskClient extends BitrixClient {
       )
       return response.data.result
     } catch (error) {
+      const { bitrixStatus, bitrixData } = getBitrixErrorDetails(error)
+      apiLogger.error(
+        {
+          app: 'thinkzap',
+          phase: 'commitFile',
+          fileId,
+          dialogId,
+          bitrixStatus,
+          bitrixData,
+          err: error,
+        },
+        'bitrix-disk: commitFile failed',
+      )
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`

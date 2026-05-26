@@ -17,10 +17,24 @@ export function createAuthMiddleware() {
       return
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET ?? '')
+    const decoded = jwt.verify(token, process.env.JWT_SECRET ?? '') as {
+      appCodeId: string
+      domainId: string
+      bitrixUserId?: string
+      isBitrixAdmin?: boolean
+      bitrixDepartmentIds?: string[]
+    }
 
-    req.appId = (decoded as { appCodeId: string }).appCodeId
-    req.domainId = (decoded as { domainId: string }).domainId
+    req.appId = decoded.appCodeId
+    req.domainId = decoded.domainId
+    req.bitrixUserId = decoded.bitrixUserId
+    req.isBitrixAdmin = decoded.isBitrixAdmin ?? false
+    req.bitrixDepartmentIds = decoded.bitrixDepartmentIds ?? []
+
+    if (!req.bitrixUserId) {
+      res.status(401).json({ error: 'Invalid or expired token' })
+      return
+    }
 
     next()
   }

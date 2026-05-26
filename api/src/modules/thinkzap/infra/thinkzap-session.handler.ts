@@ -16,7 +16,13 @@ export class ThinkzapSessionHandler implements SessionHandler {
 
   handlers: SessionHanderPerformer[] = [
     {
-      perform: async <T>(params: { appId: string }): Promise<T> => {
+      perform: async <T>(params: {
+        appId: string
+        thinkzapAccess?: { canAccess: boolean }
+      }): Promise<T> => {
+        if (params.thinkzapAccess && !params.thinkzapAccess.canAccess) {
+          return { key: 'connectors', data: [] } as T
+        }
         const connectorRepository = new PrismaConnectorRepository()
         const bx = await makeBitrixClientByAppId(params.appId)
 
@@ -76,7 +82,16 @@ export class ThinkzapSessionHandler implements SessionHandler {
       },
     },
     {
-      perform: async <T>(params: { appId: string }): Promise<T> => {
+      perform: async <T>(params: {
+        appId: string
+        thinkzapAccess?: { canAccessFinance: boolean }
+      }): Promise<T> => {
+        if (
+          params.thinkzapAccess &&
+          !params.thinkzapAccess.canAccessFinance
+        ) {
+          return { key: 'subscription', data: null } as T
+        }
         const subscriptionRepository = new PrismaBillingSubscriptionRepository()
         const subscription = await subscriptionRepository.getByAppId(
           params.appId,

@@ -1,4 +1,8 @@
+import { env } from '@/config/env'
 import { httpResponse } from '@/shared/helpers/http'
+import { BitrixDiskClient } from '@/shared/infra/clients/bitrix-disk'
+import { apiLogger } from '@/shared/infra/logger'
+import { makeBitrixClientByDomainAndAppCoode } from '@/shared/main/make-bitrix-client'
 import { Controller } from '@/shared/presentation/controller'
 import type { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import type { Request, Response } from 'express'
@@ -6,14 +10,6 @@ import z from 'zod'
 import { GetAvailableAppRepository } from '@/shared/domain/repositories/get-available-app.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { GetCredentialRepository } from '@/shared/domain/repositories/credential/get-credential'
-import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
-import { BitrixDiskClient } from '@/shared/infra/clients/bitrix-disk'
-import {
-  makeBitrixClient,
-  makeBitrixClientByAppId,
-  makeBitrixClientByDomainAndAppCoode,
-} from '@/shared/main/make-bitrix-client'
-import { env } from '@/config/env'
 
 export class UploadAudioController extends Controller {
   constructor(
@@ -35,14 +31,41 @@ export class UploadAudioController extends Controller {
       .safeParse(req.body)
 
     if (!params.success) {
+      apiLogger.warn(
+        { app: 'thinkzap', validationError: params.error.message },
+        'audio-upload: requisicao invalida',
+      )
       return this.badRequest(
         new Error('Invalid request: ' + params.error.message),
       )
     }
 
     const { dialogId, userId, domain } = params.data
-
     const parsedDomain = domain.split('://')[1] || ''
+    const startedAt = Date.now()
+
+    const audio = req.file
+    const base64 = audio?.buffer.toString('base64')
+    if (!base64 || !audio) {
+      apiLogger.warn(
+        { app: 'thinkzap', domain, dialogId },
+        'audio-upload: audio nao encontrado',
+      )
+      return this.badRequest(new Error('Audio not found'))
+    }
+
+    apiLogger.info(
+      {
+        app: 'thinkzap',
+        domain,
+        dialogId,
+        userId,
+        fileName: audio.originalname,
+        fileSizeBytes: audio.buffer.length,
+        mimeType: audio.mimetype,
+      },
+      'audio-upload: iniciando',
+    )
 
     const bitrix = (await makeBitrixClientByDomainAndAppCoode(
       parsedDomain,
@@ -50,24 +73,89 @@ export class UploadAudioController extends Controller {
       'disk',
     )) as BitrixDiskClient
 
-    const folderId = await bitrix.getFolderId({ chatId: dialogId })
-
-    const base64 = req.file?.buffer.toString('base64')
-    if (!base64) {
-      return this.badRequest(new Error('Audio not found'))
+    let folderId: string
+    try {
+      folderId = await bitrix.getFolderId({ chatId: dialogId })
+    } catch (error) {
+      apiLogger.error(
+        { app: 'thinkzap', domain, dialogId, phase: 'getFolderId', err: error },
+        'audio-upload: falha',
+      )
+      throw error
     }
-    const audio = req.file
 
-    const file = await bitrix.uploadFile(
-      base64,
-      folderId,
-      audio?.originalname || 'audio.mp3',
+    apiLogger.info(
+      { app: 'thinkzap', domain, dialogId, folderId },
+      'audio-upload: pasta do chat obtida',
     )
 
-    if (!audio) {
-      return this.badRequest(new Error('Campo "audio" obrigatorio'))
+    let file: { ID: number; FILE_ID: number }
+    try {
+      file = await bitrix.uploadFile(
+        base64,
+        folderId,
+        audio.originalname || 'audio.mp3',
+      )
+    } catch (error) {
+      apiLogger.error(
+        {
+          app: 'thinkzap',
+          domain,
+          dialogId,
+          phase: 'uploadFile',
+          folderId,
+          err: error,
+        },
+        'audio-upload: falha',
+      )
+      throw error
     }
-    const commitFile = await bitrix.commitFile(file.ID, dialogId)
+
+    apiLogger.info(
+      { app: 'thinkzap', domain, dialogId, folderId, fileId: file.ID },
+      'audio-upload: arquivo enviado ao disco',
+    )
+
+    let commitFile: { ID: number }
+    try {
+      commitFile = await bitrix.commitFile(file.ID, dialogId)
+    } catch (error) {
+      apiLogger.error(
+        {
+          app: 'thinkzap',
+          domain,
+          dialogId,
+          phase: 'commitFile',
+          fileId: file.ID,
+          err: error,
+        },
+        'audio-upload: falha',
+      )
+      throw error
+    }
+
+    apiLogger.info(
+      {
+        app: 'thinkzap',
+        domain,
+        dialogId,
+        fileId: file.ID,
+        committedFileId: commitFile.ID,
+      },
+      'audio-upload: arquivo commitado no chat',
+    )
+
+    apiLogger.info(
+      {
+        app: 'thinkzap',
+        domain,
+        dialogId,
+        userId,
+        fileId: file.ID,
+        durationMs: Date.now() - startedAt,
+      },
+      'audio-upload: concluido com sucesso',
+    )
 
     const audioBase64 = audio.buffer.toString('base64')
 

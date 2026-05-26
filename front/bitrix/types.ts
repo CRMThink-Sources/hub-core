@@ -29,6 +29,8 @@ export interface BX24Api {
   init: (callback: () => void) => void
   installFinish: () => void
   getAuth?: () => BX24Auth | false
+  /** Indica se o usuário atual é administrador do portal Bitrix24. */
+  isAdmin?: () => boolean
   /** Chama um método REST. Assinatura comum: callMethod(method, params, callback). */
   callMethod?: (
     method: string,
