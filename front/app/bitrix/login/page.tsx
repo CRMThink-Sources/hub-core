@@ -6,6 +6,7 @@ import {
   BX24Script,
   useBX24,
   fetchAppInfoFromCallMethod,
+  fetchCurrentUserFromCallMethod,
   getBitrixAppInfoFromUrl,
 } from '@/bitrix'
 import { getAppRedirectUrl } from '@/app/config/app-redirects'
@@ -42,10 +43,52 @@ export default function Home() {
         }
         console.log('url api:', { apiUrl: envConfig.apiUrl, env: process.env })
 
+        const auth = window.BX24?.getAuth?.()
+        if (!auth || typeof auth === 'boolean') {
+          setAuthError('Não foi possível obter o token de autenticação do Bitrix24.')
+          setAuthRedirecting(false)
+          return
+        }
+
+        let currentUser
+        try {
+          currentUser = await fetchCurrentUserFromCallMethod()
+        } catch (err) {
+          console.warn('Falha ao obter user.current via BX24:', err)
+          currentUser = undefined
+        }
+
+        const bitrixUserId =
+          (currentUser?.ID != null ? String(currentUser.ID) : undefined) ??
+          urlInfo.urlParams?.USER_ID
+
+        if (!bitrixUserId) {
+          setAuthError('Não foi possível identificar o usuário do Bitrix24.')
+          setAuthRedirecting(false)
+          return
+        }
+
+        const isBitrixAdmin = Boolean(window.BX24?.isAdmin?.())
+
+        const displayName =
+          [currentUser?.NAME, currentUser?.LAST_NAME].filter(Boolean).join(' ') ||
+          undefined
+
+        const rawDepts = currentUser?.UF_DEPARTMENT
+        const bitrixDepartmentIds = Array.isArray(rawDepts)
+          ? rawDepts.map(String).filter(Boolean)
+          : []
+
         const response = await axios.post(`${envConfig.apiUrl}/auth`, {
           domain: urlInfo.domain,
-          member_id: urlInfo.member_id ?? '',
+          member_id: urlInfo.member_id ?? auth.member_id ?? '',
           app_code: appCode,
+          access_token: auth.access_token,
+          bitrix_user_id: bitrixUserId,
+          is_bitrix_admin: isBitrixAdmin,
+          bitrix_user_name: displayName,
+          bitrix_user_email: currentUser?.EMAIL ?? undefined,
+          bitrix_department_ids: bitrixDepartmentIds,
         })
 
         const dataRedirect = getAppRedirectUrl(appCode)

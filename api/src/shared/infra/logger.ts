@@ -46,6 +46,7 @@ export function createWorkerSourceLogger(source: WorkerSource): Logger {
 
 export function resolveLogApp(path: string): LogApp {
   if (path.startsWith('/api/thinkzap')) return 'thinkzap'
+  if (path.startsWith('/api/audio/upload')) return 'thinkzap'
   if (path.startsWith('/api/thinkanalise')) return 'thinkanalise'
   if (
     path.startsWith('/api/webhooks/z-api') ||
