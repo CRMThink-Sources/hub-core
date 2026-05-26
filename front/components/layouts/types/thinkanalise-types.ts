@@ -1,4 +1,4 @@
-export type Provider = 'asaas' | 'conta_azul' | 'omie'
+export type Provider = 'asaas' | 'conta_azul' | 'omie' | 'sonax'
 
 export type ConnectionStatus = 'conectado' | 'erro' | 'pendente'
 

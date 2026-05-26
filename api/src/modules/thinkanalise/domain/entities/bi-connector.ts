@@ -1,4 +1,4 @@
-export type BiAnalyseProvider = 'asaas' | 'conta_azul' | 'omie'
+export type BiAnalyseProvider = 'asaas' | 'conta_azul' | 'omie' | 'sonax'
 
 export type BiConnector = {
   id: string

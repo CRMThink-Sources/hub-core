@@ -74,6 +74,20 @@ export class ContaAzulOAuthStartController extends Controller {
       'openid profile aws.cognito.signin.user.admin',
     )
 
-    return Promise.resolve(this.ok({ url: url.toString() }))
+    const logoutUrl = new URL(authUrl)
+    logoutUrl.pathname = '/logout'
+    logoutUrl.search = ''
+    logoutUrl.searchParams.set('response_type', 'code')
+    logoutUrl.searchParams.set('client_id', clientId)
+    logoutUrl.searchParams.set('redirect_uri', redirectUri)
+    logoutUrl.searchParams.set('state', state)
+    logoutUrl.searchParams.set(
+      'scope',
+      'openid profile aws.cognito.signin.user.admin',
+    )
+
+    return Promise.resolve(
+      this.ok({ url: url.toString(), logoutUrl: logoutUrl.toString() }),
+    )
   }
 }

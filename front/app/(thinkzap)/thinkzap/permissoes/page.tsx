@@ -83,9 +83,7 @@ export default function PermissoesPage() {
   const loadUsers = useCallback(async () => {
     setLoadingUsers(true)
     try {
-      const data = (await api.get('/thinkzap/access/allowed-users')) as {
-        users: AllowedUser[]
-      }
+      const data = await api.get('/thinkzap/access/allowed-users')
       const list = data.users ?? []
       setUsers(list)
       setDraftUserPermissions(
@@ -102,9 +100,7 @@ export default function PermissoesPage() {
   const loadDepartments = useCallback(async () => {
     setLoadingDepts(true)
     try {
-      const data = (await api.get('/thinkzap/access/allowed-departments')) as {
-        departments: AllowedDepartment[]
-      }
+      const data = await api.get('/thinkzap/access/allowed-departments')
       const list = data.departments ?? []
       setDepartments(list)
       setDraftDeptPermissions(
@@ -337,8 +333,12 @@ export default function PermissoesPage() {
 
       {/* ---- USERS SECTION ---- */}
       <div className="flex flex-col gap-1 rounded-lg border border-gray-100 bg-white px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-700">{t('users.sectionTitle')}</h2>
-        <p className="text-xs text-slate-400">{t('users.sectionDescription')}</p>
+        <h2 className="text-sm font-semibold text-slate-700">
+          {t('users.sectionTitle')}
+        </h2>
+        <p className="text-xs text-slate-400">
+          {t('users.sectionDescription')}
+        </p>
       </div>
 
       <div className="rounded-lg border border-gray-100 bg-white p-4">
@@ -424,8 +424,12 @@ export default function PermissoesPage() {
 
       {/* ---- DEPARTMENTS SECTION ---- */}
       <div className="flex flex-col gap-1 rounded-lg border border-gray-100 bg-white px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-700">{t('departments.sectionTitle')}</h2>
-        <p className="text-xs text-slate-400">{t('departments.sectionDescription')}</p>
+        <h2 className="text-sm font-semibold text-slate-700">
+          {t('departments.sectionTitle')}
+        </h2>
+        <p className="text-xs text-slate-400">
+          {t('departments.sectionDescription')}
+        </p>
       </div>
 
       <div className="rounded-lg border border-gray-100 bg-white p-4">

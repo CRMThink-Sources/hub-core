@@ -1,13 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PROVIDERS } from '../constants'
 import { useSession } from '@/providers/session-provider'
-import type {
-  Connection,
-  Dataset,
-  Source,
-} from '../../../types/thinkanalise-types'
+import type { Connection, Source } from '../../../types/thinkanalise-types'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
 import { SourceCard, NewSourceCard } from '../source/source-card'
 import { toast } from 'sonner'
@@ -32,6 +28,11 @@ const PROVIDER_COLORS: Record<
     text: 'text-[#223f6e]',
     border: 'border-[#e5e7eb]',
   },
+  sonax: {
+    bg: 'bg-[#e8eef7]',
+    text: 'text-[#223f6e]',
+    border: 'border-[#e5e7eb]',
+  },
 }
 
 type Props = {
@@ -40,10 +41,6 @@ type Props = {
   onSaved: (id: string) => Promise<void>
   onDeleted: () => Promise<void>
   onRemoveNew: (id: string) => void
-  sources?: Source[]
-  onSourcesChanged?: () => Promise<void>
-  datasets?: Dataset[]
-  onDatasetsChanged?: () => Promise<void>
   isOpen?: boolean
   onToggle?: () => void
 }
@@ -54,10 +51,6 @@ export function ConnectorCard({
   onSaved,
   onDeleted,
   onRemoveNew,
-  sources = [],
-  onSourcesChanged,
-  datasets = [],
-  onDatasetsChanged,
   isOpen,
   onToggle,
 }: Props) {
@@ -82,8 +75,38 @@ export function ConnectorCard({
     else setInternalExpanded(prev => !prev)
   }
   const [addingSource, setAddingSource] = useState(false)
+  const [sources, setSources] = useState<Source[]>([])
+  const [sourcesLoading, setSourcesLoading] = useState(false)
 
   const { setLoading } = useLoading()
+
+  async function fetchSources() {
+    if (!connection.biconnectorId) return
+    setSourcesLoading(true)
+    try {
+      const client = axiosThinkanalise()
+      const data = (await client.get(
+        `/thinkanalise/connector/${connection.biconnectorId}/sources`,
+      )) as unknown as Source[]
+      setSources(data)
+    } finally {
+      setSourcesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!expanded || !isSaved || !connection.biconnectorId) return
+    const controller = new AbortController()
+    setSourcesLoading(true)
+    axiosThinkanalise()
+      .get(`/thinkanalise/connector/${connection.biconnectorId}/sources`, {
+        signal: controller.signal,
+      })
+      .then(data => setSources(data as unknown as Source[]))
+      .catch(() => {})
+      .finally(() => setSourcesLoading(false))
+    return () => controller.abort()
+  }, [expanded, isSaved])
 
   function updateNew(patch: Partial<Connection>) {
     onChange({ ...connection, ...patch })
@@ -294,20 +317,19 @@ export function ConnectorCard({
                 )}
               </div>
 
+              {sourcesLoading && (
+                <p className="text-xs font-mono text-gray-400 px-1">
+                  carregando...
+                </p>
+              )}
               {sources.map(s => (
                 <SourceCard
                   key={s.id}
                   source={s}
                   connectorId={connection.biconnectorId!}
                   provider={connection.provider}
-                  onSaved={async () => {
-                    await onSourcesChanged?.()
-                  }}
-                  onDeleted={async () => {
-                    await onSourcesChanged?.()
-                  }}
-                  datasets={datasets.filter(d => d.sourceId === s.id)}
-                  onDatasetsChanged={onDatasetsChanged}
+                  onSaved={fetchSources}
+                  onDeleted={fetchSources}
                 />
               ))}
 
@@ -317,7 +339,7 @@ export function ConnectorCard({
                   provider={connection.provider}
                   onSaved={async () => {
                     setAddingSource(false)
-                    await onSourcesChanged?.()
+                    await fetchSources()
                   }}
                   onCancel={() => setAddingSource(false)}
                 />

@@ -1,11 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import type {
-  Connection,
-  Dataset,
-  Source,
-} from '../../types/thinkanalise-types'
+import type { Connection } from '../../types/thinkanalise-types'
 import { ConnectorCard } from './connector/connector-card'
 import { PROVIDERS } from './constants'
 import { useSession } from '@/providers/session-provider'
@@ -87,14 +83,6 @@ export default function ConfiguracoesLayout() {
     if (toCollapse.size > 0) setCollapsedProviders(toCollapse)
   }, [savedConnections])
 
-  const sources = useMemo<Source[]>(() => {
-    return (session?.sources ?? []) as Source[]
-  }, [session])
-
-  const datasets = useMemo<Dataset[]>(() => {
-    return (session?.datasets ?? []) as Dataset[]
-  }, [session])
-
   function addConnection() {
     const newId = crypto.randomUUID()
     setNewConnections(prev => [
@@ -146,10 +134,6 @@ export default function ConfiguracoesLayout() {
         onSaved={handleSaved}
         onDeleted={handleDeleted}
         onRemoveNew={removeNewConnection}
-        sources={sources.filter(s => s.connectorId === c.biconnectorId)}
-        onSourcesChanged={refreshSession}
-        datasets={datasets}
-        onDatasetsChanged={refreshSession}
         isOpen={expandedId === c.id}
         onToggle={() => setExpandedId(expandedId === c.id ? null : c.id)}
       />

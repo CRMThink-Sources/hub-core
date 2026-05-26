@@ -15,7 +15,13 @@ export class ListDatasetsController extends Controller {
       .int()
       .positive()
       .parse(req.params.sourceId)
-    const datasets = await this.bitrix.datasetList(sourceId)
+    const list = await this.bitrix.datasetList(sourceId)
+    const datasets = await Promise.all(
+      list.map(async d => {
+        const detail = await this.bitrix.datasetGet(d.id)
+        return { ...d, fields: detail.fields }
+      }),
+    )
     return this.ok(datasets)
   }
 }

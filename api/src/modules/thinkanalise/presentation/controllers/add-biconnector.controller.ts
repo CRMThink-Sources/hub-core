@@ -10,13 +10,14 @@ import { env } from '@/config/env'
 
 const addBiconnectorSchema = z.object({
   label: z.string().min(1),
-  provider: z.enum(['asaas', 'conta_azul', 'omie']),
+  provider: z.enum(['asaas', 'conta_azul', 'omie', 'sonax']),
 })
 
 const providerDescription: Record<string, string> = {
   asaas: 'Asaas',
   conta_azul: 'Conta Azul',
   omie: 'Omie',
+  sonax: 'Sonax',
 }
 
 export class AddBiconnectorController extends Controller {
