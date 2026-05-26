@@ -29,8 +29,6 @@ type Props = {
   provider: string
   onSaved: () => Promise<void>
   onDeleted: () => Promise<void>
-  datasets?: Dataset[]
-  onDatasetsChanged?: () => Promise<void>
 }
 
 type NewSourceProps = {
@@ -57,8 +55,6 @@ export function SourceCard({
   provider,
   onSaved,
   onDeleted,
-  datasets = [],
-  onDatasetsChanged,
 }: Props) {
   const isContaAzul = provider === 'conta_azul'
   const isSonax = provider === 'sonax'
@@ -73,7 +69,27 @@ export function SourceCard({
   const [testing, setTesting] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState(false)
+  const [datasets, setDatasets] = useState<Dataset[]>([])
   const { setLoading } = useLoading()
+
+  async function loadDatasets() {
+    const client = axiosThinkanalise(AUTH_TOKEN_KEY)
+    const data = (await client.get(
+      `/thinkanalise/source/${source.id}/datasets`,
+    )) as unknown as Dataset[]
+    setDatasets(data)
+  }
+
+  useEffect(() => {
+    const controller = new AbortController()
+    axiosThinkanalise(AUTH_TOKEN_KEY)
+      .get(`/thinkanalise/source/${source.id}/datasets`, {
+        signal: controller.signal,
+      })
+      .then(data => setDatasets(data as unknown as Dataset[]))
+      .catch(() => {})
+    return () => controller.abort()
+  }, [source.id])
 
   function handleCancelEdit() {
     setDraft({ title: source.title, apiKey: '' })
@@ -358,12 +374,8 @@ export function SourceCard({
           <DatasetCard
             key={d.id}
             dataset={d}
-            onChanged={async () => {
-              await onDatasetsChanged?.()
-            }}
-            onDeleted={async () => {
-              await onDatasetsChanged?.()
-            }}
+            onChanged={loadDatasets}
+            onDeleted={loadDatasets}
           />
         ))}
 
@@ -373,7 +385,7 @@ export function SourceCard({
             integration={provider}
             onSaved={async () => {
               setAddingDataset(false)
-              await onDatasetsChanged?.()
+              await loadDatasets()
             }}
             onCancel={() => setAddingDataset(false)}
           />

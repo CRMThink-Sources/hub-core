@@ -57,9 +57,7 @@ const TABLE_CONFIG: Record<
 }
 
 function parseBitrixDate(value: string): Date | null {
-  const m = value.match(
-    /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}:\d{2}:\d{2}))?/,
-  )
+  const m = value.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}:\d{2}:\d{2}))?/)
   if (!m) return null
   return new Date(`${m[3]}-${m[2]}-${m[1]}T${m[4] ?? '00:00:00'}`)
 }
