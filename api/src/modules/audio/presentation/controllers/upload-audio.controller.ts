@@ -1,7 +1,7 @@
 import { env } from '@/config/env'
 import { httpResponse } from '@/shared/helpers/http'
 import { BitrixDiskClient } from '@/shared/infra/clients/bitrix-disk'
-import { logger } from '@/shared/infra/logger'
+import { apiLogger } from '@/shared/infra/logger'
 import { makeBitrixClientByDomainAndAppCoode } from '@/shared/main/make-bitrix-client'
 import { Controller } from '@/shared/presentation/controller'
 import type { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
@@ -31,7 +31,7 @@ export class UploadAudioController extends Controller {
       .safeParse(req.body)
 
     if (!params.success) {
-      logger.warn(
+      apiLogger.warn(
         { app: 'thinkzap', validationError: params.error.message },
         'audio-upload: requisicao invalida',
       )
@@ -47,14 +47,14 @@ export class UploadAudioController extends Controller {
     const audio = req.file
     const base64 = audio?.buffer.toString('base64')
     if (!base64 || !audio) {
-      logger.warn(
+      apiLogger.warn(
         { app: 'thinkzap', domain, dialogId },
         'audio-upload: audio nao encontrado',
       )
       return this.badRequest(new Error('Audio not found'))
     }
 
-    logger.info(
+    apiLogger.info(
       {
         app: 'thinkzap',
         domain,
@@ -77,14 +77,14 @@ export class UploadAudioController extends Controller {
     try {
       folderId = await bitrix.getFolderId({ chatId: dialogId })
     } catch (error) {
-      logger.error(
+      apiLogger.error(
         { app: 'thinkzap', domain, dialogId, phase: 'getFolderId', err: error },
         'audio-upload: falha',
       )
       throw error
     }
 
-    logger.info(
+    apiLogger.info(
       { app: 'thinkzap', domain, dialogId, folderId },
       'audio-upload: pasta do chat obtida',
     )
@@ -97,7 +97,7 @@ export class UploadAudioController extends Controller {
         audio.originalname || 'audio.mp3',
       )
     } catch (error) {
-      logger.error(
+      apiLogger.error(
         {
           app: 'thinkzap',
           domain,
@@ -111,7 +111,7 @@ export class UploadAudioController extends Controller {
       throw error
     }
 
-    logger.info(
+    apiLogger.info(
       { app: 'thinkzap', domain, dialogId, folderId, fileId: file.ID },
       'audio-upload: arquivo enviado ao disco',
     )
@@ -120,7 +120,7 @@ export class UploadAudioController extends Controller {
     try {
       commitFile = await bitrix.commitFile(file.ID, dialogId)
     } catch (error) {
-      logger.error(
+      apiLogger.error(
         {
           app: 'thinkzap',
           domain,
@@ -134,7 +134,7 @@ export class UploadAudioController extends Controller {
       throw error
     }
 
-    logger.info(
+    apiLogger.info(
       {
         app: 'thinkzap',
         domain,
@@ -145,7 +145,7 @@ export class UploadAudioController extends Controller {
       'audio-upload: arquivo commitado no chat',
     )
 
-    logger.info(
+    apiLogger.info(
       {
         app: 'thinkzap',
         domain,

@@ -1,0 +1,67 @@
+{
+  "pageTitle": "Access permissions",
+  "pageDescription": "Define what each user or department can view, create, update, or delete in Connectors and Billing.",
+  "users": {
+    "sectionTitle": "User permissions",
+    "sectionDescription": "Individual users added here take priority over department permissions."
+  },
+  "departments": {
+    "sectionTitle": "Department permissions",
+    "sectionDescription": "All users in the department inherit these permissions, except those with individual permissions.",
+    "addDepartment": "Add department",
+    "searchPlaceholder": "Search department...",
+    "defaultPermissionsForNewDepartment": "Default permissions for the new department",
+    "emptyList": "No authorized departments yet. Add departments and configure permissions.",
+    "alreadyOnList": "This department is already on the list.",
+    "added": "Department added successfully.",
+    "removed": "Department removed successfully.",
+    "removeConfirm": "Remove this department from the permission list?",
+    "table": {
+      "department": "Department"
+    }
+  },
+  "addUser": "Add user",
+  "searchPlaceholder": "Search by name or email...",
+  "searching": "Searching...",
+  "noResults": "No users found.",
+  "emptyList": "No authorized users yet. Add teammates and configure permissions.",
+  "defaultPermissionsForNewUser": "Default permissions for new users",
+  "savePermissions": "Save permissions",
+  "permissionsSaved": "Permissions saved successfully.",
+  "remove": "Remove",
+  "removeConfirm": "Remove this user from the permission list?",
+  "added": "User added successfully.",
+  "removed": "User removed successfully.",
+  "alreadyOnList": "This user is already on the list.",
+  "loadError": "Could not load the permission list.",
+  "saveError": "Could not save the permission.",
+  "adminOnly": "Only Bitrix24 administrators can manage permissions.",
+  "legend": "V = View · C = Create · U = Update · D = Delete. Save only when there are changes.",
+  "table": {
+    "user": "User",
+    "actions": "Actions"
+  },
+  "matrix": {
+    "category": "Category",
+    "categories": {
+      "connectors": "Connector management",
+      "finance": "Billing"
+    },
+    "categoriesShort": {
+      "connectors": "Connectors",
+      "finance": "Billing"
+    },
+    "actions": {
+      "read": "View",
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete"
+    },
+    "actionsShort": {
+      "read": "V",
+      "create": "C",
+      "update": "U",
+      "delete": "D"
+    }
+  }
+}

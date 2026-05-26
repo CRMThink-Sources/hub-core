@@ -52,6 +52,8 @@ model App {
   biAnalyseConnectors   BiAnalyseConnector[]
   thinkAnaliseAuthTokens ThinkAnaliseAuthToken[]
   subscriptions       BillingSubscription[]
+  thinkzapAllowedUsers       ThinkzapAllowedUser[]
+  thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
 
   @@unique([domainId, appCodeId])
   @@index([domainId])
@@ -225,6 +227,37 @@ model Conversation {
   @@index([instanceId])
   @@index([bitrixChatId])
   @@map("core_thinkerszap_conversations")
+}
+
+model ThinkzapAllowedUser {
+  id           String   @id @default(uuid())
+  appId        String   @map("app_id")
+  bitrixUserId String   @map("bitrix_user_id")
+  displayName  String?  @map("display_name")
+  email        String?  @map("email")
+  permissions  Json     @default("{\"connectors\":{\"read\":true,\"create\":true,\"update\":true,\"delete\":true},\"finance\":{\"read\":false,\"create\":false,\"update\":false,\"delete\":false}}")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, bitrixUserId])
+  @@index([appId])
+  @@map("thinkzap_allowed_users")
+}
+
+model ThinkzapAllowedDepartment {
+  id                   String   @id @default(uuid())
+  appId                String   @map("app_id")
+  bitrixDepartmentId   String   @map("bitrix_department_id")
+  displayName          String?  @map("display_name")
+  permissions          Json     @default("{\"connectors\":{\"read\":true,\"create\":true,\"update\":true,\"delete\":true},\"finance\":{\"read\":false,\"create\":false,\"update\":false,\"delete\":false}}")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, bitrixDepartmentId])
+  @@index([appId])
+  @@map("thinkzap_allowed_departments")
 }
 
 // ============================================

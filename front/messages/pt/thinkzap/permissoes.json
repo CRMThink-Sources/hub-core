@@ -1,0 +1,67 @@
+{
+  "pageTitle": "Permissões de acesso",
+  "pageDescription": "Defina o que cada usuário ou departamento pode visualizar, criar, alterar ou excluir em Conectores e Financeiro.",
+  "users": {
+    "sectionTitle": "Permissões por usuário",
+    "sectionDescription": "Usuários individuais adicionados aqui têm prioridade sobre as permissões de departamento."
+  },
+  "departments": {
+    "sectionTitle": "Permissões por departamento",
+    "sectionDescription": "Todos os usuários do departamento herdam essas permissões, exceto os que possuem permissão individual.",
+    "addDepartment": "Adicionar departamento",
+    "searchPlaceholder": "Buscar departamento...",
+    "defaultPermissionsForNewDepartment": "Permissões padrão para o novo departamento",
+    "emptyList": "Nenhum departamento autorizado ainda. Adicione departamentos e configure as permissões.",
+    "alreadyOnList": "Este departamento já está na lista.",
+    "added": "Departamento adicionado com sucesso.",
+    "removed": "Departamento removido com sucesso.",
+    "removeConfirm": "Remover este departamento da lista de permissões?",
+    "table": {
+      "department": "Departamento"
+    }
+  },
+  "addUser": "Adicionar usuário",
+  "searchPlaceholder": "Buscar por nome ou e-mail...",
+  "searching": "Buscando...",
+  "noResults": "Nenhum usuário encontrado.",
+  "emptyList": "Nenhum usuário autorizado ainda. Adicione colaboradores e configure as permissões.",
+  "defaultPermissionsForNewUser": "Permissões padrão para novos usuários",
+  "savePermissions": "Salvar permissões",
+  "permissionsSaved": "Permissões salvas com sucesso.",
+  "remove": "Remover",
+  "removeConfirm": "Remover este usuário da lista de permissões?",
+  "added": "Usuário adicionado com sucesso.",
+  "removed": "Usuário removido com sucesso.",
+  "alreadyOnList": "Este usuário já está na lista.",
+  "loadError": "Não foi possível carregar a lista de permissões.",
+  "saveError": "Não foi possível salvar a permissão.",
+  "adminOnly": "Apenas administradores do Bitrix24 podem gerenciar permissões.",
+  "legend": "V = Visualizar · C = Criar · A = Alterar · E = Excluir. Salve apenas quando houver alterações.",
+  "table": {
+    "user": "Usuário",
+    "actions": "Ações"
+  },
+  "matrix": {
+    "category": "Categoria",
+    "categories": {
+      "connectors": "Gestão de conectores",
+      "finance": "Financeiro"
+    },
+    "categoriesShort": {
+      "connectors": "Conectores",
+      "finance": "Financeiro"
+    },
+    "actions": {
+      "read": "Visualizar",
+      "create": "Criar",
+      "update": "Alterar",
+      "delete": "Excluir"
+    },
+    "actionsShort": {
+      "read": "V",
+      "create": "C",
+      "update": "A",
+      "delete": "E"
+    }
+  }
+}

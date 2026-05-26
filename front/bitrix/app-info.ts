@@ -82,6 +82,43 @@ export function fetchAppInfoFromCallMethod(): Promise<BitrixAppInfoResult> {
   })
 }
 
+export interface BitrixCurrentUserResult {
+  ID?: string | number
+  NAME?: string
+  LAST_NAME?: string
+  EMAIL?: string
+  UF_DEPARTMENT?: unknown
+  [key: string]: unknown
+}
+
+/**
+ * Obtém o usuário atual via BX24.callMethod("user.current").
+ * Usa o bridge do iframe — funciona sem precisar passar access_token e respeita o escopo do app.
+ */
+export function fetchCurrentUserFromCallMethod(): Promise<BitrixCurrentUserResult> {
+  return new Promise((resolve, reject) => {
+    const BX24 = typeof window !== 'undefined' ? window.BX24 : undefined
+    if (!BX24?.callMethod) {
+      reject(new Error('BX24.callMethod não disponível.'))
+      return
+    }
+    BX24.callMethod(
+      'user.current',
+      {},
+      (result: { error?: () => string | boolean; data?: () => unknown }) => {
+        if (result?.error?.()) {
+          const err =
+            typeof result.error === 'function' ? result.error() : result.error
+          reject(new Error(String(err)))
+          return
+        }
+        const data = result?.data?.()
+        resolve((data as BitrixCurrentUserResult) ?? {})
+      },
+    )
+  })
+}
+
 /**
  * Monta o payload para enviar à sua API antes de chamar installFinish.
  * Combina auth, appInfo (appInfoData de callMethod("app.info") + domain/member_id + urlParams) e email.

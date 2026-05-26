@@ -8,7 +8,11 @@ import { envConfig } from '@/shared/infra/env-config'
 import { Montserrat } from 'next/font/google'
 import { setLocale } from '@/i18n/provider'
 import { useTranslation } from 'react-i18next'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
+import { usePathname } from 'next/navigation'
+import { isBitrixAdmin } from '@/bitrix'
+import { AccessDeniedPanel } from './thinkzap/_components/access-denied-panel'
+import type { ThinkzapAccess } from '@/shared/thinkzap-permissions'
 
 const montSerrat = Montserrat({
   subsets: ['latin'],
@@ -58,6 +62,50 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
   const { t: tCommon } = useTranslation('common')
   const { t: tGeneral } = useTranslation('thinkzap/general')
   const { isFetching, session } = useSession()
+  const pathname = usePathname()
+
+  const thinkzapAccess = session?.thinkzapAccess as ThinkzapAccess | undefined
+
+  const canManageAccess =
+    thinkzapAccess?.canManageAccess === true || isBitrixAdmin()
+
+  const asideLinks = useMemo(() => {
+    return THINKZAP_ASIDE_CONFIG.links.filter(link => {
+      if (link.href === '/thinkzap/permissoes') return canManageAccess
+      if (link.href === '/thinkzap/financeiro') {
+        return thinkzapAccess?.canAccessFinance === true
+      }
+      if (link.href === '/thinkzap/conexoes') {
+        return thinkzapAccess?.canAccess === true
+      }
+      return true
+    })
+  }, [canManageAccess, thinkzapAccess])
+
+  const accessBlocked = useMemo(() => {
+    if (!pathname) return false
+    if (
+      (pathname.startsWith('/thinkzap/conexoes') ||
+        pathname.startsWith('/thinkzap/connector')) &&
+      thinkzapAccess &&
+      !thinkzapAccess.canAccess
+    ) {
+      return true
+    }
+    if (
+      (pathname.startsWith('/thinkzap/financeiro') ||
+        pathname.startsWith('/thinkzap/ativar-trial')) &&
+      thinkzapAccess &&
+      !thinkzapAccess.canAccessFinance
+    ) {
+      return true
+    }
+    if (pathname.startsWith('/thinkzap/permissoes') && !canManageAccess) {
+      return true
+    }
+    return false
+  }, [pathname, thinkzapAccess, canManageAccess])
+
   const hasSubscription = session?.subscription != null
   const subscriptionStatus = session?.subscription?.status as string | undefined
   const statusBanner = getSubscriptionStatusBanner(
@@ -83,9 +131,9 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
     >
       <Aside
         {...THINKZAP_ASIDE_CONFIG}
+        links={asideLinks}
         onLanguageChange={handleLanguageChange}
       />
-      {/* Aside é fixed: padding reserva a faixa da sidebar sem somar 100vw + margin (evita scroll horizontal). */}
       <div className="box-border min-h-screen min-w-0 w-full pl-64">
         <Toaster richColors position="top-center" closeButton />
         {isFetching ? (
@@ -104,7 +152,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
                 {statusBanner.text}
               </p>
             </div>
-            {children}
+            {accessBlocked ? <AccessDeniedPanel /> : children}
           </>
         )}
       </div>

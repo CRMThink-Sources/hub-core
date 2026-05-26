@@ -2,7 +2,7 @@ import axios from 'axios'
 import { BitrixClient } from './bitrix.client'
 import { Credential } from '@/shared/domain/entities/credential'
 import { BitrixError } from './errors/bitrix-client.error'
-import { logger } from '@/shared/infra/logger'
+import { apiLogger } from '@/shared/infra/logger'
 
 function getBitrixErrorDetails(error: unknown) {
   if (!axios.isAxiosError(error) || !error.response) {
@@ -11,7 +11,7 @@ function getBitrixErrorDetails(error: unknown) {
 
   return {
     bitrixStatus: error.response.status,
-    bitrixData: error.response.data,
+    bitrixData: error.response.data as Record<string, unknown>,
   }
 }
 
@@ -46,7 +46,7 @@ export class BitrixDiskClient extends BitrixClient {
       return response.data.result.ID
     } catch (error) {
       const { bitrixStatus, bitrixData } = getBitrixErrorDetails(error)
-      logger.error(
+      apiLogger.error(
         {
           app: 'thinkzap',
           phase: 'getFolderId',
@@ -80,7 +80,7 @@ export class BitrixDiskClient extends BitrixClient {
       return response.data.result
     } catch (error) {
       const { bitrixStatus, bitrixData } = getBitrixErrorDetails(error)
-      logger.error(
+      apiLogger.error(
         {
           app: 'thinkzap',
           phase: 'uploadFile',
@@ -113,7 +113,7 @@ export class BitrixDiskClient extends BitrixClient {
       return response.data.result
     } catch (error) {
       const { bitrixStatus, bitrixData } = getBitrixErrorDetails(error)
-      logger.error(
+      apiLogger.error(
         {
           app: 'thinkzap',
           phase: 'commitFile',

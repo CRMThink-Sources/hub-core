@@ -15,6 +15,11 @@ export const THINKZAP_ASIDE_CONFIG = {
       icon: '/images/thinkzap/payment.png',
     },
     {
+      href: '/thinkzap/permissoes',
+      label: 'permissoes',
+      icon: '/images/thinkzap/manual.png',
+    },
+    {
       href: '/thinkzap/ajuda',
       label: 'centralDeAjuda',
       icon: '/images/thinkzap/manual.png',
