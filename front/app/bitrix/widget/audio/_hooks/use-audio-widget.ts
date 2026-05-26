@@ -1,17 +1,23 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import type { BX24Auth } from '@/bitrix/types'
+import { resolveAccessToken } from '../_lib/audio-widget-auth'
 
 type UseAudioWidgetParams = {
   dialogId: string | null
   uploadEndpoint: string
   domain: string | null
+  getAuth?: () => BX24Auth | false
+  urlParams?: Record<string, string>
 }
 
 export function useAudioWidget({
   dialogId,
   uploadEndpoint,
   domain,
+  getAuth,
+  urlParams = {},
 }: UseAudioWidgetParams) {
   const [isRecording, setIsRecording] = useState(false)
   const [buttonScale, setButtonScale] = useState(1)
@@ -184,18 +190,31 @@ export function useAudioWidget({
       return
     }
 
+    const accessToken = resolveAccessToken(getAuth, urlParams)
+    if (!accessToken) {
+      setError('Abra o widget dentro do Bitrix24 para enviar audio.')
+      return
+    }
+
+    if (!dialogId) {
+      setError('Chat nao identificado. Reabra o widget no chat.')
+      return
+    }
+
+    if (!domain) {
+      setError('Dominio Bitrix24 nao identificado.')
+      return
+    }
+
     try {
       setError(null)
       setIsSending(true)
 
       const formData = new FormData()
       formData.append('audio', audioBlob, `audio-${Date.now()}.webm`)
-      if (dialogId) {
-        formData.append('dialogId', dialogId)
-      }
-      if (domain) {
-        formData.append('domain', domain)
-      }
+      formData.append('dialogId', dialogId)
+      formData.append('domain', domain)
+      formData.append('accessToken', accessToken)
 
       const response = await fetch(uploadEndpoint, {
         method: 'POST',
