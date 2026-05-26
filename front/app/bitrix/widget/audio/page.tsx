@@ -1,9 +1,8 @@
 'use client'
-import { BX24Script } from '@/bitrix'
-import { getAppRedirectUrl } from '@/app/config/app-redirects'
-import { envConfig } from '@/shared/infra/env-config'
+import { BX24Script, getBitrixAppInfoFromUrl, useBX24 } from '@/bitrix'
 import { useSearchParams } from 'next/navigation'
-import { Suspense, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
+import { resolveDialogId } from './_lib/audio-widget-auth'
 import { AudioPreview } from './_components/audio-preview'
 import { RecordToggleButton } from './_components/record-toggle-button'
 import { useAudioWidget } from './_hooks/use-audio-widget'
@@ -11,8 +10,15 @@ import { useAudioWidget } from './_hooks/use-audio-widget'
 function BitrixImTextAreaContent() {
   const searchParams = useSearchParams()
   const [scriptLoaded, setScriptLoaded] = useState(false)
-  const dialogId = searchParams.get('DIALOG_ID')
-  const domain = searchParams.get('DOMAIN')
+  const { getAuth } = useBX24(scriptLoaded)
+
+  const appInfo = useMemo(() => getBitrixAppInfoFromUrl(), [])
+  const dialogId = useMemo(
+    () => resolveDialogId(searchParams, appInfo.urlParams ?? {}),
+    [searchParams, appInfo.urlParams],
+  )
+  const domain = searchParams.get('DOMAIN') ?? appInfo.domain ?? null
+
   /** Proxy no Next evita CORS (browser → mesmo origin; servidor → API). */
   const uploadEndpoint = '/api/audio/upload'
 
@@ -37,7 +43,13 @@ function BitrixImTextAreaContent() {
     onAudioPlay,
     onAudioPause,
     onAudioEnded,
-  } = useAudioWidget({ dialogId, uploadEndpoint, domain })
+  } = useAudioWidget({
+    dialogId,
+    uploadEndpoint,
+    domain,
+    getAuth,
+    urlParams: appInfo.urlParams,
+  })
 
   return (
     <main className="h-full p-2 text-slate-900 sm:p-3">
