@@ -61,9 +61,11 @@ export function SourceCard({
   onDatasetsChanged,
 }: Props) {
   const isContaAzul = provider === 'conta_azul'
+  const isSonax = provider === 'sonax'
 
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState({ title: source.title, apiKey: '' })
+  const [sonaxDraft, setSonaxDraft] = useState({ id_cliente: '', token: '' })
   const [addingDataset, setAddingDataset] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -75,12 +77,18 @@ export function SourceCard({
 
   function handleCancelEdit() {
     setDraft({ title: source.title, apiKey: '' })
+    setSonaxDraft({ id_cliente: '', token: '' })
     setIsEditing(false)
     setTestStatus('idle')
   }
 
   async function handleTest() {
-    const apiKey = draft.apiKey || source.settings.api_key
+    const apiKey = isSonax
+      ? JSON.stringify({
+          id_cliente: sonaxDraft.id_cliente,
+          token: sonaxDraft.token,
+        })
+      : draft.apiKey || source.settings.api_key
     setTesting(true)
     setTestStatus('idle')
     try {
@@ -103,8 +111,17 @@ export function SourceCard({
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       const fields: { title?: string; settings?: SourceSettings } = {}
       if (draft.title !== source.title) fields.title = draft.title
-      if (!isContaAzul && draft.apiKey)
+      if (isSonax && (sonaxDraft.id_cliente || sonaxDraft.token)) {
+        fields.settings = {
+          integration: provider,
+          api_key: JSON.stringify({
+            id_cliente: sonaxDraft.id_cliente,
+            token: sonaxDraft.token,
+          }),
+        }
+      } else if (!isContaAzul && !isSonax && draft.apiKey) {
         fields.settings = { integration: provider, api_key: draft.apiKey }
+      }
       await client.put(`/thinkanalise/source/${source.id}`, fields)
       await onSaved()
       setIsEditing(false)
@@ -218,6 +235,63 @@ export function SourceCard({
                 </span>
               )}
             </div>
+          ) : isSonax ? (
+            <>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                  ID Cliente
+                </label>
+                <input
+                  type="text"
+                  value={sonaxDraft.id_cliente}
+                  onChange={e =>
+                    setSonaxDraft(d => ({ ...d, id_cliente: e.target.value }))
+                  }
+                  placeholder="Deixe em branco para manter"
+                  className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-white text-black outline-none
+                             focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20
+                             hover:border-[#223f6e] transition-colors"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                  Token
+                </label>
+                <input
+                  type="password"
+                  value={sonaxDraft.token}
+                  onChange={e =>
+                    setSonaxDraft(d => ({ ...d, token: e.target.value }))
+                  }
+                  placeholder="Deixe em branco para manter"
+                  className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-white text-black outline-none
+                             focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20
+                             hover:border-[#223f6e] transition-colors"
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  onClick={() => void handleTest()}
+                  disabled={
+                    testing || (!sonaxDraft.id_cliente && !sonaxDraft.token)
+                  }
+                  className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
+                             hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {testing ? 'testando...' : 'testar conexão'}
+                </button>
+                {testStatus === 'ok' && (
+                  <span className="text-xs font-mono text-[#4a7fd4]">
+                    conexão ok
+                  </span>
+                )}
+                {testStatus === 'erro' && (
+                  <span className="text-xs font-mono text-red-600">
+                    credenciais inválidas
+                  </span>
+                )}
+              </div>
+            </>
           ) : (
             <>
               <div className="flex flex-col gap-1">
@@ -354,9 +428,11 @@ export function NewSourceCard({
   onCancel,
 }: NewSourceProps) {
   const isContaAzul = provider === 'conta_azul'
+  const isSonax = provider === 'sonax'
 
   const [title, setTitle] = useState('')
   const [apiKey, setApiKey] = useState('')
+  const [sonaxCreds, setSonaxCreds] = useState({ id_cliente: '', token: '' })
   const [saving, setSaving] = useState(false)
   const [testStatus, setTestStatus] = useState<'idle' | 'ok' | 'erro'>('idle')
   const [testing, setTesting] = useState(false)
@@ -374,12 +450,18 @@ export function NewSourceCard({
   }, [isContaAzul, onSaved])
 
   async function handleTest() {
+    const testApiKey = isSonax
+      ? JSON.stringify({
+          id_cliente: sonaxCreds.id_cliente,
+          token: sonaxCreds.token,
+        })
+      : apiKey
     setTesting(true)
     setTestStatus('idle')
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await client.post('/thinkanalise/check', {
-        connection: { integration: provider, api_key: apiKey },
+        connection: { integration: provider, api_key: testApiKey },
       })
       setTestStatus('ok')
     } catch {
@@ -390,14 +472,20 @@ export function NewSourceCard({
   }
 
   async function handleSave() {
-    if (!title || !apiKey) return
+    const effectiveApiKey = isSonax
+      ? JSON.stringify({
+          id_cliente: sonaxCreds.id_cliente,
+          token: sonaxCreds.token,
+        })
+      : apiKey
+    if (!title || !effectiveApiKey) return
     setSaving(true)
     setLoading(true, 'Salvando...')
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await client.post(`/thinkanalise/connector/${connectorId}/source`, {
         title,
-        settings: { integration: provider, api_key: apiKey },
+        settings: { integration: provider, api_key: effectiveApiKey },
         active: true,
       })
       await onSaved()
@@ -444,7 +532,66 @@ export function NewSourceCard({
           />
         </div>
 
-        {!isContaAzul && (
+        {isSonax && (
+          <>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                ID Cliente
+              </label>
+              <input
+                type="text"
+                value={sonaxCreds.id_cliente}
+                onChange={e =>
+                  setSonaxCreds(d => ({ ...d, id_cliente: e.target.value }))
+                }
+                placeholder="Ex: 215"
+                className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
+                           focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
+                           hover:border-[#223f6e] transition-colors"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                Token
+              </label>
+              <input
+                type="password"
+                value={sonaxCreds.token}
+                onChange={e =>
+                  setSonaxCreds(d => ({ ...d, token: e.target.value }))
+                }
+                placeholder="Token de 20+ caracteres"
+                className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
+                           focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
+                           hover:border-[#223f6e] transition-colors"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void handleTest()}
+                disabled={
+                  testing || !sonaxCreds.id_cliente || !sonaxCreds.token
+                }
+                className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
+                           hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {testing ? 'testando...' : 'testar conexão'}
+              </button>
+              {testStatus === 'ok' && (
+                <span className="text-xs font-mono text-[#4a7fd4]">
+                  conexão ok
+                </span>
+              )}
+              {testStatus === 'erro' && (
+                <span className="text-xs font-mono text-red-600">
+                  credenciais inválidas
+                </span>
+              )}
+            </div>
+          </>
+        )}
+
+        {!isContaAzul && !isSonax && (
           <>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
@@ -514,7 +661,11 @@ export function NewSourceCard({
         ) : (
           <button
             onClick={() => void handleSave()}
-            disabled={saving || !title || !apiKey}
+            disabled={
+              saving ||
+              !title ||
+              (isSonax ? !sonaxCreds.id_cliente || !sonaxCreds.token : !apiKey)
+            }
             className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
           >
             {saving ? 'salvando...' : 'salvar fonte'}

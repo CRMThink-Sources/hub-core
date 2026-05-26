@@ -4,6 +4,7 @@ import { CallbackController } from '@/shared/presentation/callback-controller'
 import { schema as asaasSchema } from './schemas/asaas'
 import { schema as contaAzulSchema } from './schemas/conta-azul'
 import { schema as omieSchema } from './schemas/omie'
+import { schema as sonaxSchema } from './schemas/sonax'
 
 type DescribeBody = {
   name: string
@@ -20,6 +21,7 @@ const schemaByProvider: Record<
   asaas: asaasSchema,
   conta_azul: contaAzulSchema,
   omie: omieSchema,
+  sonax: sonaxSchema,
 }
 
 export class DescribeController extends CallbackController {

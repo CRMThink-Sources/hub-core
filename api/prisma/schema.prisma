@@ -318,4 +318,5 @@ enum BiAnalyseProvider {
   ASAAS
   CONTA_AZUL
   OMIE
+  SONAX
 }

@@ -5,6 +5,11 @@ import { AsaasClient } from '@/shared/infra/clients/asaas.client'
 import { AsaasDataService } from '@/modules/thinkanalise/infra/asaas-data.service'
 import { ContaAzulClient } from '@/shared/infra/clients/conta-azul.client'
 import { ContaAzulDataService } from '@/modules/thinkanalise/infra/conta-azul-data.service'
+import {
+  SonaxClient,
+  parseSonaxCredentials,
+} from '@/shared/infra/clients/sonax.client'
+import { SonaxDataService } from '@/modules/thinkanalise/infra/sonax-data.service'
 import { thinkAnaliseAuthTokenService } from '@/modules/thinkanalise/infra/auth-token.service'
 
 type DataBody = {
@@ -51,6 +56,9 @@ export class DataController extends CallbackController {
           return refreshed.accessToken
         },
       )
+    } else if (integration === 'sonax') {
+      const { idCliente, token } = parseSonaxCredentials(api_key)
+      service = new SonaxDataService(new SonaxClient(idCliente, token))
     } else {
       return this.badRequest(
         new Error(`Provider '${integration}' not implemented`),

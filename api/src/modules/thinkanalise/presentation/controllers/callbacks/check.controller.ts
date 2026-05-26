@@ -3,12 +3,20 @@ import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { CallbackController } from '@/shared/presentation/callback-controller'
 import { AsaasClient } from '@/shared/infra/clients/asaas.client'
+import {
+  SonaxClient,
+  parseSonaxCredentials,
+} from '@/shared/infra/clients/sonax.client'
 import { thinkAnaliseAuthTokenService } from '@/modules/thinkanalise/infra/auth-token.service'
 
 const CHECKERS: Record<string, (apiKey: string) => Promise<void>> = {
   asaas: apiKey => new AsaasClient(apiKey).check(),
   conta_azul: async tokenKey => {
     await thinkAnaliseAuthTokenService.getAccessToken('conta_azul', tokenKey)
+  },
+  sonax: async apiKey => {
+    const { idCliente, token } = parseSonaxCredentials(apiKey)
+    await new SonaxClient(idCliente, token).check()
   },
 }
 
@@ -34,9 +42,10 @@ export class CheckController extends CallbackController {
       await check(settings.api_key)
     } catch (error) {
       if (
-        axios.isAxiosError(error) &&
-        error.response &&
-        error.response.status < 500
+        (axios.isAxiosError(error) &&
+          error.response &&
+          error.response.status < 500) ||
+        (error instanceof Error && error.message === 'Invalid credentials')
       ) {
         return this.badRequest(new Error('Invalid credentials'))
       }

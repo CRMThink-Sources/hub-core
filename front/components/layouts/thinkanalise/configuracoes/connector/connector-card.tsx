@@ -32,6 +32,11 @@ const PROVIDER_COLORS: Record<
     text: 'text-[#223f6e]',
     border: 'border-[#e5e7eb]',
   },
+  sonax: {
+    bg: 'bg-[#e8eef7]',
+    text: 'text-[#223f6e]',
+    border: 'border-[#e5e7eb]',
+  },
 }
 
 type Props = {
