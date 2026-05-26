@@ -34,6 +34,6 @@ export function useThinkzapApi(): ThinkzapHttpClient {
       },
     )
 
-    return client as ThinkzapHttpClient
+    return client
   }, [])
 }
