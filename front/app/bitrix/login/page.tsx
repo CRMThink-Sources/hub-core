@@ -45,7 +45,9 @@ export default function Home() {
 
         const auth = window.BX24?.getAuth?.()
         if (!auth || typeof auth === 'boolean') {
-          setAuthError('Não foi possível obter o token de autenticação do Bitrix24.')
+          setAuthError(
+            'Não foi possível obter o token de autenticação do Bitrix24.',
+          )
           setAuthRedirecting(false)
           return
         }
@@ -71,8 +73,9 @@ export default function Home() {
         const isBitrixAdmin = Boolean(window.BX24?.isAdmin?.())
 
         const displayName =
-          [currentUser?.NAME, currentUser?.LAST_NAME].filter(Boolean).join(' ') ||
-          undefined
+          [currentUser?.NAME, currentUser?.LAST_NAME]
+            .filter(Boolean)
+            .join(' ') || undefined
 
         const rawDepts = currentUser?.UF_DEPARTMENT
         const bitrixDepartmentIds = Array.isArray(rawDepts)

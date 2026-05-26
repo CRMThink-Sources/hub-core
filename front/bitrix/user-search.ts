@@ -18,7 +18,9 @@ function parseCallMethodData<T>(result: BX24CallMethodResult): T {
   return (data ?? []) as T
 }
 
-export function searchBitrixUsers(find: string): Promise<BitrixUserSearchHit[]> {
+export function searchBitrixUsers(
+  find: string,
+): Promise<BitrixUserSearchHit[]> {
   return new Promise((resolve, reject) => {
     const BX24 = typeof window !== 'undefined' ? window.BX24 : undefined
     if (!BX24?.callMethod) {
