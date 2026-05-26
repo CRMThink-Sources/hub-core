@@ -83,7 +83,9 @@ export default function PermissoesPage() {
   const loadUsers = useCallback(async () => {
     setLoadingUsers(true)
     try {
-      const data = await api.get('/thinkzap/access/allowed-users')
+      const data = await api.get<{ users: AllowedUser[] }>(
+        '/thinkzap/access/allowed-users',
+      )
       const list = data.users ?? []
       setUsers(list)
       setDraftUserPermissions(
@@ -100,7 +102,9 @@ export default function PermissoesPage() {
   const loadDepartments = useCallback(async () => {
     setLoadingDepts(true)
     try {
-      const data = await api.get('/thinkzap/access/allowed-departments')
+      const data = await api.get<{ departments: AllowedDepartment[] }>(
+        '/thinkzap/access/allowed-departments',
+      )
       const list = data.departments ?? []
       setDepartments(list)
       setDraftDeptPermissions(
