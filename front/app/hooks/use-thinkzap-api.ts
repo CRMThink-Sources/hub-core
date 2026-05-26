@@ -1,9 +1,10 @@
 import { getAppRedirectUrl } from '@/app/config/app-redirects'
+import { type ThinkzapHttpClient } from '@/infra/client/axios-thinkzap'
 import { envConfig } from '@/shared/infra/env-config'
 import axios from 'axios'
 import { useMemo } from 'react'
 
-export function useThinkzapApi() {
+export function useThinkzapApi(): ThinkzapHttpClient {
   return useMemo(() => {
     const authTokenKey = getAppRedirectUrl(
       envConfig.appCodes.thinkzap,
@@ -33,6 +34,6 @@ export function useThinkzapApi() {
       },
     )
 
-    return client
+    return client as ThinkzapHttpClient
   }, [])
 }
