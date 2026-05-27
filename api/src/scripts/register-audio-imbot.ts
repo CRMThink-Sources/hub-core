@@ -77,11 +77,20 @@ async function main() {
     process.exit(1)
   }
 
+  const thinkzapCode = env.appCodes.thinkzap
   const appCode = await prisma.appCode.findFirst({
-    where: { code: env.appCodes.thinkzap },
+    where: {
+      OR: [
+        { code: thinkzapCode },
+        { id: thinkzapCode },
+        { id: 'crmthink.thinkzap' },
+      ],
+    },
   })
   if (!appCode) {
-    console.error(`App code nao encontrado: ${env.appCodes.thinkzap}`)
+    console.error(
+      `App code ThinkZap nao encontrado (code/id: ${thinkzapCode}). Verifique core_app_codes.`,
+    )
     process.exit(1)
   }
 
@@ -136,7 +145,6 @@ async function main() {
     )
     process.exit(0)
   }
-
   const result = await ensureImbotAudioApp(client, botId)
   console.log(`[register:audio-imbot] botId=${botId} result=${result}`)
 }
