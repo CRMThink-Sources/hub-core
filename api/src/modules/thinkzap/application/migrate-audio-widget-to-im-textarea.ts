@@ -20,6 +20,7 @@ export class MigrateAudioWidgetToImTextarea {
 
   async execute(client: BitrixRestClient): Promise<void> {
     const botId = await this.getOrCreateBot.execute(client)
+    console.log('botId', botId)
     if (!botId) {
       throw new Error('ThinkZap bot not available for migration')
     }
