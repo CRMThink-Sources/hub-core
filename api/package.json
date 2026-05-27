@@ -12,7 +12,7 @@
     "test": "node node_modules/vitest/vitest.mjs run",
     "test:watch": "node node_modules/vitest/vitest.mjs",
     "worker:thinkzap": "tsx src/workers/thinkzap-inbound.worker.ts",
-    "migrate:audio-im-textarea": "tsx src/scripts/migrate-audio-widget-to-im-textarea.ts"
+    "register:audio-imbot": "tsx src/scripts/register-audio-imbot.ts"
   },
   "dependencies": {
     "@bull-board/api": "^7.0.0",
