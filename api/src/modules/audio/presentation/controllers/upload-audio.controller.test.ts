@@ -24,8 +24,8 @@ describe('UploadAudioController', () => {
   const createDiskClient: CreateBitrixDiskClient = vi.fn(() => ({
     uploadFileToChat,
   }))
-  const createDiskClientFromApp: CreateBitrixDiskClientFromApp = vi.fn(
-    async () => ({
+  const createDiskClientFromApp: CreateBitrixDiskClientFromApp = vi.fn(() =>
+    Promise.resolve({
       uploadFileToChat,
     }),
   )
@@ -83,14 +83,11 @@ describe('UploadAudioController', () => {
 
   it('returns 400 when auth payload is missing', async () => {
     const response = await controller.perform(
-      makeRequest(
-        { dialogId: 'chat80619', domain },
-        {
-          buffer: Buffer.from('audio'),
-          originalname: 'audio.webm',
-          mimetype: 'audio/webm',
-        } as Express.Multer.File,
-      ),
+      makeRequest({ dialogId: 'chat80619', domain }, {
+        buffer: Buffer.from('audio'),
+        originalname: 'audio.webm',
+        mimetype: 'audio/webm',
+      } as Express.Multer.File),
       {} as never,
     )
 
@@ -166,14 +163,11 @@ describe('UploadAudioController', () => {
 
   it('uploads file using validated imbot iframe auth', async () => {
     const response = await controller.perform(
-      makeRequest(
-        makeImbotAuthBody(),
-        {
-          buffer: Buffer.from('audio-bytes'),
-          originalname: 'audio.webm',
-          mimetype: 'audio/webm',
-        } as Express.Multer.File,
-      ),
+      makeRequest(makeImbotAuthBody(), {
+        buffer: Buffer.from('audio-bytes'),
+        originalname: 'audio.webm',
+        mimetype: 'audio/webm',
+      } as Express.Multer.File),
       {} as never,
     )
 
@@ -184,14 +178,11 @@ describe('UploadAudioController', () => {
 
   it('returns 401 when imbot iframe hash is invalid', async () => {
     const response = await controller.perform(
-      makeRequest(
-        makeImbotAuthBody({ userHash: 'invalid' }),
-        {
-          buffer: Buffer.from('audio'),
-          originalname: 'audio.webm',
-          mimetype: 'audio/webm',
-        } as Express.Multer.File,
-      ),
+      makeRequest(makeImbotAuthBody({ userHash: 'invalid' }), {
+        buffer: Buffer.from('audio'),
+        originalname: 'audio.webm',
+        mimetype: 'audio/webm',
+      } as Express.Multer.File),
       {} as never,
     )
 

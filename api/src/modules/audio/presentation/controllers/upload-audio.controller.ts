@@ -74,14 +74,8 @@ export class UploadAudioController extends Controller {
       )
     }
 
-    const {
-      dialogId,
-      userId,
-      domain,
-      accessToken,
-      userHash,
-      domainHash,
-    } = params.data
+    const { dialogId, userId, domain, accessToken, userHash, domainHash } =
+      params.data
     const parsedDomain = domain.replace(/^https?:\/\//, '').split('/')[0] ?? ''
     const startedAt = Date.now()
     const usesIframeAuth = Boolean(userHash && domainHash && userId)
