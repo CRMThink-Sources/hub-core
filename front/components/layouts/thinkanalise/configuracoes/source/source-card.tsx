@@ -235,7 +235,9 @@ export function SourceCard({
                 className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
                            hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
               >
-                {connecting ? t('botoes.redirecionando') : t('botoes.reconectarContaAzul')}
+                {connecting
+                  ? t('botoes.redirecionando')
+                  : t('botoes.reconectarContaAzul')}
               </button>
               {connectError && (
                 <span className="text-xs font-mono text-red-600">
