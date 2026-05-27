@@ -1,4 +1,5 @@
 import type { PrismaThinkzapOperatorOAuthRepository } from '../infra/persistence/prisma-thinkzap-operator-oauth.repository'
+import { resolveBitrixTokenExpiresAt } from './resolve-bitrix-token-expires-at'
 
 export type UpsertOperatorBitrixOAuthInput = {
   appId: string
@@ -14,7 +15,7 @@ export class UpsertOperatorBitrixOAuth {
   ) {}
 
   async execute(input: UpsertOperatorBitrixOAuthInput): Promise<void> {
-    const expiresAt = new Date(Date.now() + input.expiresIn * 1000)
+    const expiresAt = resolveBitrixTokenExpiresAt(input.expiresIn)
 
     await this.repository.upsert({
       appId: input.appId,
