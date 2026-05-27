@@ -2,6 +2,8 @@
   "nomeCanal": "Nombre del canal",
   "telefone": "Teléfono conectado",
   "semTelefone": "Sin teléfono conectado",
+  "prefixOperatorName": "Incluir nombre del operador en los mensajes",
+  "prefixOperatorNameHint": "Agrega el nombre del operador al inicio de los mensajes enviados de Bitrix a WhatsApp (ej.: Juan Pérez: Hola).",
   "salvar": "Guardar",
   "salvando": "Guardando...",
   "salvo": "Guardado con éxito"

@@ -3,11 +3,17 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
+
+type ConnectorSettings = {
+  prefixOperatorNameEnabled: boolean
+}
+
 type Connector = {
   id: string
   instance: {
     name: string
     phoneNumber?: string | null
+    settings?: ConnectorSettings
   }
 }
 
@@ -20,12 +26,32 @@ type Props = {
 export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/geral')
   const [name, setName] = useState('')
+  const [prefixOperatorNameEnabled, setPrefixOperatorNameEnabled] =
+    useState(false)
+  const [initialName, setInitialName] = useState('')
+  const [
+    initialPrefixOperatorNameEnabled,
+    setInitialPrefixOperatorNameEnabled,
+  ] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    setName(connector.instance.name ?? '')
+    const connectorName = connector.instance.name ?? ''
+    const connectorPrefixEnabled =
+      connector.instance.settings?.prefixOperatorNameEnabled ?? false
+
+    setName(connectorName)
+    setPrefixOperatorNameEnabled(connectorPrefixEnabled)
+    setInitialName(connectorName)
+    setInitialPrefixOperatorNameEnabled(connectorPrefixEnabled)
   }, [connector])
+
+  const hasChanges =
+    name !== initialName ||
+    prefixOperatorNameEnabled !== initialPrefixOperatorNameEnabled
+
+  const canSave = hasChanges && name.trim().length > 0
 
   const handleSave = async () => {
     setSaving(true)
@@ -34,7 +60,12 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
       const client = axiosThinkzap(authTokenKey)
       await client.put(`/thinkzap/instance/${connector.id}`, {
         name,
+        settings: {
+          prefixOperatorNameEnabled,
+        },
       })
+      setInitialName(name)
+      setInitialPrefixOperatorNameEnabled(prefixOperatorNameEnabled)
       setSaved(true)
       onSaved?.()
       setTimeout(() => setSaved(false), 3000)
@@ -68,11 +99,28 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
         </p>
       </div>
 
+      <label className="flex cursor-pointer items-start gap-2">
+        <input
+          type="checkbox"
+          checked={prefixOperatorNameEnabled}
+          onChange={e => setPrefixOperatorNameEnabled(e.target.checked)}
+          className="mt-0.5"
+        />
+        <span className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-black">
+            {t('prefixOperatorName')}
+          </span>
+          <span className="text-sm text-gray-600">
+            {t('prefixOperatorNameHint')}
+          </span>
+        </span>
+      </label>
+
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => void handleSave()}
-          disabled={saving || !name.trim()}
+          disabled={saving || !canSave}
           className="cursor-pointer rounded-md bg-[#5A997E] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4a8169] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? t('salvando') : t('salvar')}

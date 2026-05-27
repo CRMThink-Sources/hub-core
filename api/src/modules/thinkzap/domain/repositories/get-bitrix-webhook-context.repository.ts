@@ -1,4 +1,5 @@
 import { Credential } from '@/shared/domain/entities/credential'
+import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 
 export interface BitrixWebhookContext {
   id: string
@@ -20,6 +21,7 @@ export interface BitrixWebhookContext {
     vinculatedChannel: string | null
     domainId: string
     status: string
+    settings: ConnectorSettings
   }
 }
 

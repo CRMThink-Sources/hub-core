@@ -84,6 +84,7 @@ export class PrismaConnectorRepository
                 domainId: el.instance.domainId,
                 instanceId: el.instance.instanceId,
                 vinculatedChannel: el.instance.vinculatedChannel,
+                settings: el.instance.settings,
                 zApiToken: includeZapiToken ? el.instance.zApiToken : undefined,
               }
             : undefined,

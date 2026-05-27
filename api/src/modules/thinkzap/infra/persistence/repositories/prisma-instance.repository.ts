@@ -7,6 +7,8 @@ import {
 } from '@/modules/thinkzap/domain/entities/instance'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
+import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
+import { toInstance } from '../mappers/instance.mapper'
 
 export class PrismaInstanceRepository
   implements
@@ -24,23 +26,14 @@ export class PrismaInstanceRepository
         instanceId: instance.instanceId,
         vinculatedChannel: instance.vinculatedChannel,
         zApiToken: instance.zApiToken,
+        settings: instance.settings,
         status: instance.status,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
     })
 
-    return {
-      id: newInstance.id,
-      domainId: newInstance.domainId,
-      instanceId: newInstance.instanceId,
-      vinculatedChannel: newInstance.vinculatedChannel,
-      zApiToken: newInstance.zApiToken,
-      status: newInstance.status as InstanceStatus,
-      phoneNumber: null,
-      createdAt: newInstance.createdAt,
-      updatedAt: newInstance.updatedAt,
-    }
+    return toInstance(newInstance)
   }
 
   async getInstanceByInstanceId(instanceId: string): Promise<Instance | null> {
@@ -48,17 +41,7 @@ export class PrismaInstanceRepository
       where: { instanceId },
     })
     if (!instance) return null
-    return {
-      id: instance.id,
-      domainId: instance.domainId,
-      instanceId: instance.instanceId,
-      vinculatedChannel: instance.vinculatedChannel,
-      zApiToken: instance.zApiToken,
-      status: instance.status as InstanceStatus,
-      phoneNumber: null,
-      createdAt: instance.createdAt,
-      updatedAt: instance.updatedAt,
-    } as Instance
+    return toInstance(instance)
   }
 
   async getInstance(instanceId: string): Promise<Instance | null> {
@@ -67,17 +50,7 @@ export class PrismaInstanceRepository
     })
     if (!instance) return null
 
-    return {
-      id: instance.id,
-      domainId: instance.domainId,
-      instanceId: instance.instanceId,
-      vinculatedChannel: instance.vinculatedChannel,
-      zApiToken: instance.zApiToken,
-      status: instance.status as InstanceStatus,
-      phoneNumber: null,
-      createdAt: instance.createdAt,
-      updatedAt: instance.updatedAt,
-    }
+    return toInstance(instance)
   }
 
   async getByDomainIdAndVinculatedChannel(
@@ -88,17 +61,7 @@ export class PrismaInstanceRepository
       where: { domainId, vinculatedChannel },
     })
     if (!instance) return null
-    return {
-      id: instance.id,
-      domainId: instance.domainId,
-      instanceId: instance.instanceId,
-      vinculatedChannel: instance.vinculatedChannel,
-      zApiToken: instance.zApiToken,
-      status: instance.status as InstanceStatus,
-      phoneNumber: null,
-      createdAt: instance.createdAt,
-      updatedAt: instance.updatedAt,
-    }
+    return toInstance(instance)
   }
 
   async updateVinculatedChannel(
@@ -111,16 +74,20 @@ export class PrismaInstanceRepository
         vinculatedChannel: channelId,
       },
     })
-    return {
-      id: updatedInstance.id,
-      domainId: updatedInstance.domainId,
-      instanceId: updatedInstance.instanceId,
-      vinculatedChannel: updatedInstance.vinculatedChannel,
-      zApiToken: updatedInstance.zApiToken,
-      status: updatedInstance.status as InstanceStatus,
-      phoneNumber: null,
-      createdAt: updatedInstance.createdAt,
-    } as Instance
+    return toInstance(updatedInstance)
+  }
+
+  async updateSettings(
+    instanceId: string,
+    settings: ConnectorSettings,
+  ): Promise<Instance> {
+    const updatedInstance = await prisma.instance.update({
+      where: { id: instanceId },
+      data: {
+        settings,
+      },
+    })
+    return toInstance(updatedInstance)
   }
 
   async markAsDisconnected(instanceId: string): Promise<Instance> {
@@ -132,16 +99,6 @@ export class PrismaInstanceRepository
       },
     })
 
-    return {
-      id: updatedInstance.id,
-      domainId: updatedInstance.domainId,
-      instanceId: updatedInstance.instanceId,
-      vinculatedChannel: updatedInstance.vinculatedChannel,
-      zApiToken: updatedInstance.zApiToken,
-      status: updatedInstance.status as InstanceStatus,
-      phoneNumber: null,
-      createdAt: updatedInstance.createdAt,
-      updatedAt: updatedInstance.updatedAt,
-    } as Instance
+    return toInstance(updatedInstance)
   }
 }
