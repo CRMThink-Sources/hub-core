@@ -4,6 +4,7 @@ import { CreateConnectorRepository } from '@/modules/thinkzap/domain/repositorie
 import { CreateInstanceGateway } from '@/modules/thinkzap/domain/repositories/create-instance.gateway'
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
 import { InstanceStatus } from '@/modules/thinkzap/domain/entities/instance'
+import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { ListConnectorsRepository } from '@/modules/thinkzap/domain/repositories/list-connectors'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
@@ -83,6 +84,7 @@ export async function provisionMissingConnectorsForApp(
       status: InstanceStatus.CONNECTED,
       zApiToken: instance.token,
       vinculatedChannel: null,
+      settings: { ...DEFAULT_CONNECTOR_SETTINGS },
     })
 
     await deps.createConnectorRepo.createConnector({

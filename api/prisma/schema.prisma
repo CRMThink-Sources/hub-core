@@ -202,6 +202,7 @@ model Instance {
   instanceId        String         @unique @map("instance_id")
   vinculatedChannel String?        @map("vinculated_channel")
   zApiToken         String?        @map("z_api_token")
+  settings          Json           @default("{}") @map("settings")
   status            InstanceStatus @default(DISCONNECTED)
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")

@@ -4,6 +4,7 @@ import {
   BitrixWebhookContext,
   GetBitrixWebhookContextRepository,
 } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
+import { parseConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings.schema'
 import { prisma } from '@/config/prisma.js'
 
 export class PrismaBitrixWebhookContextRepository implements GetBitrixWebhookContextRepository {
@@ -59,6 +60,7 @@ const toBitrixWebhookContext = (context: any): BitrixWebhookContext => {
       vinculatedChannel: instance.vinculatedChannel,
       domainId: instance.domainId,
       status: instance.status,
+      settings: parseConnectorSettings(instance.settings),
     },
   }
 }
