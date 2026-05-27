@@ -1,0 +1,34 @@
+{
+  "loading": {
+    "salvando": "Saving...",
+    "removendo": "Removing..."
+  },
+  "toast": {
+    "atualizado": "Connector updated successfully.",
+    "criado": "Connector created successfully.",
+    "erroSalvar": "Error saving connector.",
+    "removido": "Connector removed."
+  },
+  "semNome": "no name",
+  "campos": {
+    "nome": "Name",
+    "nomeConexao": "Connection name",
+    "integracao": "Integration"
+  },
+  "fontes": "Sources",
+  "carregando": "loading...",
+  "novaFonte": "new source",
+  "statusLabel": {
+    "conectado": "connected",
+    "pendente": "pending",
+    "erro": "error"
+  },
+  "acoes": {
+    "remover": "remove",
+    "removendo": "removing...",
+    "editar": "edit",
+    "cancelar": "cancel",
+    "salvar": "save",
+    "salvando": "saving..."
+  }
+}
