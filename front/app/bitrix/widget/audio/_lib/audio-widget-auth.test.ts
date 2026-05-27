@@ -1,11 +1,30 @@
 import { describe, expect, it, vi } from 'vitest'
-import { resolveAccessToken, resolveDialogId } from './audio-widget-auth'
+import {
+  parseBitrixDomain,
+  resolveAccessToken,
+  resolveDialogId,
+  resolveImbotIframeAuth,
+} from './audio-widget-auth'
+
+describe('parseBitrixDomain', () => {
+  it('removes protocol and path from domain value', () => {
+    expect(parseBitrixDomain('https://crmthink.bitrix24.com.br/')).toBe(
+      'crmthink.bitrix24.com.br',
+    )
+  })
+})
 
 describe('resolveDialogId', () => {
   it('returns DIALOG_ID from search params', () => {
     const params = new URLSearchParams('DIALOG_ID=chat123')
 
     expect(resolveDialogId(params, {})).toBe('chat123')
+  })
+
+  it('returns DIALOG_ID from url params', () => {
+    expect(
+      resolveDialogId(new URLSearchParams(), { DIALOG_ID: 'chat999' }),
+    ).toBe('chat999')
   })
 
   it('returns dialogId from PLACEMENT_OPTIONS json', () => {
@@ -28,6 +47,26 @@ describe('resolveDialogId', () => {
 
   it('returns null when dialog id is unavailable', () => {
     expect(resolveDialogId(new URLSearchParams(), {})).toBeNull()
+  })
+})
+
+describe('resolveImbotIframeAuth', () => {
+  it('returns iframe auth params when present', () => {
+    expect(
+      resolveImbotIframeAuth({
+        USER_ID: '2',
+        USER_HASH: 'abc',
+        DOMAIN_HASH: 'def',
+      }),
+    ).toEqual({
+      userId: '2',
+      userHash: 'abc',
+      domainHash: 'def',
+    })
+  })
+
+  it('returns null when iframe auth params are incomplete', () => {
+    expect(resolveImbotIframeAuth({ USER_ID: '2' })).toBeNull()
   })
 })
 

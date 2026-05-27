@@ -9,6 +9,8 @@
     "prisma:generate": "prisma generate",
     "lint": "yarn prisma:generate && eslint --max-warnings 0 .",
     "check-types": "yarn prisma:generate && tsc --noEmit",
+    "test": "node node_modules/vitest/vitest.mjs run",
+    "test:watch": "node node_modules/vitest/vitest.mjs",
     "worker:thinkzap": "tsx src/workers/thinkzap-inbound.worker.ts"
   },
   "dependencies": {
@@ -49,6 +51,7 @@
     "tsc-alias": "^1.8.16",
     "tsx": "^4.19.2",
     "typescript": "5.9.2",
+    "vitest": "^4.1.7",
     "typescript-eslint": "^8.32.0"
   }
 }
