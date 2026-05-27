@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   NEED_OPERATOR_OAUTH,
   UploadAudioController,
+  type ConvertRecordedAudio,
   type CreateBitrixDiskClient,
   type ResolveOperatorBitrixAccessToken,
 } from './upload-audio.controller'
@@ -27,11 +28,19 @@ describe('UploadAudioController', () => {
   }))
   const resolveOperatorAccessToken: ResolveOperatorBitrixAccessToken = vi.fn()
 
+  const convertRecordedAudio: ConvertRecordedAudio = vi.fn(
+    async (inputBuffer, originalFileName) => ({
+      buffer: Buffer.from(`mp3:${inputBuffer.toString()}`),
+      fileName: (originalFileName ?? 'audio').replace(/\.[^.]+$/, '') + '.mp3',
+    }),
+  )
+
   const controller = new UploadAudioController(
     getDomainRepository,
     createDiskClient,
     resolveOperatorAccessToken,
     iframeHash,
+    convertRecordedAudio,
   )
 
   function makeImbotAuthBody(overrides: Record<string, string> = {}) {
@@ -54,6 +63,12 @@ describe('UploadAudioController', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(convertRecordedAudio).mockImplementation(
+      async (inputBuffer, originalFileName) => ({
+        buffer: Buffer.from(`mp3:${inputBuffer.toString()}`),
+        fileName: (originalFileName ?? 'audio').replace(/\.[^.]+$/, '') + '.mp3',
+      }),
+    )
     getDomain.mockResolvedValue({
       id: 'domain-1',
       name: domain,
@@ -64,7 +79,7 @@ describe('UploadAudioController', () => {
     uploadFileToChat.mockResolvedValue({
       dialogId: 'chat80619',
       messageId: 99,
-      file: { id: 138, name: 'audio.webm' },
+      file: { id: 138, name: 'audio.mp3' },
     })
     vi.mocked(resolveOperatorAccessToken).mockResolvedValue('operator-token')
   })
@@ -149,10 +164,14 @@ describe('UploadAudioController', () => {
 
     expect(createDiskClient).toHaveBeenCalledWith(domain, 'operator-token')
     expect(resolveOperatorAccessToken).not.toHaveBeenCalled()
+    expect(convertRecordedAudio).toHaveBeenCalledWith(
+      Buffer.from('audio-bytes'),
+      'audio.webm',
+    )
     expect(uploadFileToChat).toHaveBeenCalledWith({
       dialogId: 'chat80619',
-      fileName: 'audio.webm',
-      base64: Buffer.from('audio-bytes').toString('base64'),
+      fileName: 'audio.mp3',
+      base64: Buffer.from('mp3:audio-bytes').toString('base64'),
       message: '',
     })
     expect(response.status).toBe(200)
@@ -202,6 +221,32 @@ describe('UploadAudioController', () => {
 
     expect(response.status).toBe(401)
     expect(resolveOperatorAccessToken).not.toHaveBeenCalled()
+  })
+
+  it('propagates conversion errors', async () => {
+    vi.mocked(convertRecordedAudio).mockRejectedValue(
+      new Error('ffmpeg exited with code 1'),
+    )
+
+    await expect(
+      controller.perform(
+        makeRequest(
+          {
+            dialogId: 'chat80619',
+            domain,
+            accessToken: 'operator-token',
+          },
+          {
+            buffer: Buffer.from('audio'),
+            originalname: 'audio.webm',
+            mimetype: 'audio/webm',
+          } as Express.Multer.File,
+        ),
+        {} as never,
+      ),
+    ).rejects.toThrow('ffmpeg exited with code 1')
+
+    expect(uploadFileToChat).not.toHaveBeenCalled()
   })
 
   it('propagates BitrixError from upload', async () => {
