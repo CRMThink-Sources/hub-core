@@ -41,6 +41,12 @@ export const axiosThinkzap = (authTokenKey: string): ThinkzapHttpClient => {
       'Content-Type': 'application/json',
     },
   })
+  axiosInstance.interceptors.request.use(config => {
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      config.headers.set('Content-Type', false)
+    }
+    return config
+  })
   axiosInstance.interceptors.response.use(
     response => {
       return response.data.result

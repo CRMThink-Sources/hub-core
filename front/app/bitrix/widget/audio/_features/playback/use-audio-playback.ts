@@ -1,5 +1,6 @@
 'use client'
 
+import { sanitizeAudioDuration } from '@/app/bitrix/widget/audio/_lib/format-audio-time'
 import { useRef, useState } from 'react'
 
 export function useAudioPlayback() {
@@ -49,7 +50,7 @@ export function useAudioPlayback() {
     handleSeek,
     resetPlayback,
     onLoadedMetadata: (durationValue: number) =>
-      setDuration(durationValue || 0),
+      setDuration(sanitizeAudioDuration(durationValue)),
     onTimeUpdate: (timeValue: number) => setCurrentTime(timeValue),
     onPlay: () => setIsPlaying(true),
     onPause: () => setIsPlaying(false),

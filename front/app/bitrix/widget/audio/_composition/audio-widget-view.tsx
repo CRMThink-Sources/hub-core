@@ -59,6 +59,7 @@ export function AudioWidgetView() {
   const handleToggleRecording = () => {
     if (!recorder.isRecording) {
       upload.resetSent()
+      playback.resetPlayback()
     }
     recorder.toggleRecording()
   }
@@ -78,6 +79,7 @@ export function AudioWidgetView() {
       <RecordControls
         isRecording={recorder.isRecording}
         buttonScale={recorder.buttonScale}
+        elapsedSeconds={recorder.recordingElapsedSeconds}
         onToggle={handleToggleRecording}
       />
 
@@ -101,6 +103,8 @@ export function AudioWidgetView() {
           isSending={upload.isSending}
           duration={playback.duration}
           currentTime={playback.currentTime}
+          fallbackDurationSeconds={recorder.recordedDurationSeconds}
+          blobSize={recorder.audioBlob?.size}
           onLoadedMetadata={playback.onLoadedMetadata}
           onTimeUpdate={playback.onTimeUpdate}
           onPlay={playback.onPlay}
