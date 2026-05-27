@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import {
   buildImbotAudioAppParams,
@@ -23,7 +22,7 @@ export class EnsureImbotAudioApp {
     console.log('appId', appId)
     await client.callMethod(
       'imbot.app.update',
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
       buildImbotAudioAppUpdateParams(appId),
     )
 
