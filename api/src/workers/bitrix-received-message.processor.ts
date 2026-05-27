@@ -3,18 +3,15 @@ import axios from 'axios'
 import { env } from '@/config/env'
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
-import { PrismaConnectorRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-connector.repository'
-import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
 import { appIdResolver } from '@/modules/auth/presentation/controllers/helpers/app-id-resolver'
-import {
-  BitrixClient,
-  ISendMessageData,
-} from '@/shared/infra/clients/bitrix.client'
-import { destructureChatId } from '@/shared/helpers/chat-id'
+import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { convertToMp3 } from '@/shared/helpers/convert-to-mp3'
 import { GetBitrixWebhookContextRepository } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
 import { PrismaBitrixWebhookContextRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bitrix-webhook-context.repository'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
+import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
+import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
+import { prepareOpenLineOutboundText } from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
 
 const log = createWorkerSourceLogger('bitrix')
 
@@ -101,6 +98,10 @@ export async function processBitrixReceivedMessage(
     bitrixCredential: context.app.credential,
     domain: context.name,
   })
+  const getBitrixUserDisplayName = new BitrixGetUserDisplayNameAdapter(
+    bitrixClient,
+  )
+  const getAllowedUser = new PrismaAllowedUserRepository()
 
   const zApiClient = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
   const chatId = message.chat.id
@@ -117,10 +118,19 @@ export async function processBitrixReceivedMessage(
     )
 
     if (messageData.type === 'text') {
+      const outboundText = await prepareOpenLineOutboundText({
+        text: messageData.text || '',
+        settings: context.instance.settings,
+        operatorUserId: message.message.user_id,
+        appId: context.app.id,
+        getBitrixUserDisplayName,
+        getAllowedUser,
+      })
+
       const result = await zApiClient.sendMessage(
         context.instance.instanceId,
         context.instance.zApiToken || '',
-        messageData.text || '',
+        outboundText,
         chatId,
       )
       log.info(

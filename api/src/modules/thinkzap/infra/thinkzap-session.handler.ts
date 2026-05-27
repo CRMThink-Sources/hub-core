@@ -10,6 +10,7 @@ import { PrismaConnectorRepository } from './persistence/repositories/prisma-con
 import { ZApiClient } from './clients/z-api.client'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { PrismaBillingSubscriptionRepository } from '@/shared/infra/persistence/repositories/prisma-billing-subscription.repository'
+import { parseConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings.schema'
 
 export class ThinkzapSessionHandler implements SessionHandler {
   appCode = 'crmthink.thinkzap'
@@ -55,6 +56,7 @@ export class ThinkzapSessionHandler implements SessionHandler {
               instance: {
                 instanceId: connector.instance?.instanceId,
                 vinculatedChannel: connector.instance?.vinculatedChannel,
+                settings: parseConnectorSettings(connector.instance?.settings),
                 name: instance.name.includes(' | ')
                   ? instance.name.split(' | ')[1]
                   : instance.name,
