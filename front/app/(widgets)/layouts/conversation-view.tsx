@@ -1,9 +1,10 @@
 'use client'
 
 import { resolveThinkzapClient } from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
-import { AudioPreview } from '@/app/bitrix/widget/audio/_components/audio-preview'
-import { RecordToggleButton } from '@/app/bitrix/widget/audio/_components/record-toggle-button'
-import { useAudioWidget } from '@/app/bitrix/widget/audio/_hooks/use-audio-widget'
+import { AudioPreviewPanel } from '@/app/bitrix/widget/audio/_features/playback/audio-preview-panel'
+import { useAudioPlayback } from '@/app/bitrix/widget/audio/_features/playback/use-audio-playback'
+import { RecordControls } from '@/app/bitrix/widget/audio/_features/recording/record-controls'
+import { useAudioRecorder } from '@/app/bitrix/widget/audio/_features/recording/use-audio-recorder'
 import { useSession } from '@/providers/session-provider'
 import {
   ChangeEvent,
@@ -126,30 +127,9 @@ export const ConversationView = () => {
   }, [])
 
   const connectors = (session?.connectors ?? []) as SessionConnector[]
-  const {
-    audioRef,
-    audioBlob,
-    isRecording,
-    buttonScale,
-    audioUrl,
-    isPlaying,
-    duration,
-    currentTime,
-    error: audioError,
-    toggleRecording,
-    togglePlayback,
-    handleSeek,
-    handleDeleteAudio,
-    onAudioLoadedMetadata,
-    onAudioTimeUpdate,
-    onAudioPlay,
-    onAudioPause,
-    onAudioEnded,
-  } = useAudioWidget({
-    dialogId: null,
-    domain: null,
-    uploadEndpoint: '/api/audio/upload',
-  })
+  const playback = useAudioPlayback()
+  const recorder = useAudioRecorder()
+  const { audioBlob, audioUrl } = recorder
 
   const selectedDestination = useMemo(
     () => destinations.find(dest => dest.phone === selectedDestinationPhone),
@@ -211,7 +191,8 @@ export const ConversationView = () => {
       },
     ])
 
-    handleDeleteAudio()
+    recorder.clearRecording()
+    playback.resetPlayback()
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -252,7 +233,8 @@ export const ConversationView = () => {
 
       setMessage('')
       setAttachments([])
-      handleDeleteAudio()
+      recorder.clearRecording()
+      playback.resetPlayback()
       setFeedbackMessage('Mensagem enviada com sucesso.')
     } catch {
       setFeedbackMessage(
@@ -400,36 +382,39 @@ export const ConversationView = () => {
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Gravador de audio
                 </p>
-                <RecordToggleButton
-                  isRecording={isRecording}
-                  buttonScale={buttonScale}
-                  onToggle={toggleRecording}
+                <RecordControls
+                  isRecording={recorder.isRecording}
+                  buttonScale={recorder.buttonScale}
+                  onToggle={recorder.toggleRecording}
                 />
 
-                {audioError ? (
+                {recorder.error ? (
                   <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                    {audioError}
+                    {recorder.error}
                   </p>
                 ) : null}
 
                 {audioUrl ? (
-                  <AudioPreview
-                    audioRef={audioRef}
+                  <AudioPreviewPanel
+                    audioRef={playback.audioRef}
                     audioUrl={audioUrl}
-                    isPlaying={isPlaying}
+                    isPlaying={playback.isPlaying}
                     isSending={false}
-                    sendLabel="Adicionar"
-                    duration={duration}
-                    currentTime={currentTime}
-                    onLoadedMetadata={onAudioLoadedMetadata}
-                    onTimeUpdate={onAudioTimeUpdate}
-                    onPlay={onAudioPlay}
-                    onPause={onAudioPause}
-                    onEnded={onAudioEnded}
-                    onTogglePlayback={togglePlayback}
-                    onSeek={handleSeek}
-                    onDelete={handleDeleteAudio}
+                    duration={playback.duration}
+                    currentTime={playback.currentTime}
+                    onLoadedMetadata={playback.onLoadedMetadata}
+                    onTimeUpdate={playback.onTimeUpdate}
+                    onPlay={playback.onPlay}
+                    onPause={playback.onPause}
+                    onEnded={playback.onEnded}
+                    onTogglePlayback={playback.togglePlayback}
+                    onSeek={playback.handleSeek}
+                    onDelete={() => {
+                      recorder.clearRecording()
+                      playback.resetPlayback()
+                    }}
                     onSend={handleAddRecordedAudio}
+                    sendLabel="Adicionar"
                   />
                 ) : null}
               </div>

@@ -54,6 +54,7 @@ model App {
   subscriptions       BillingSubscription[]
   thinkzapAllowedUsers       ThinkzapAllowedUser[]
   thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
+  thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
 
   @@unique([domainId, appCodeId])
   @@index([domainId])
@@ -258,6 +259,23 @@ model ThinkzapAllowedDepartment {
   @@unique([appId, bitrixDepartmentId])
   @@index([appId])
   @@map("thinkzap_allowed_departments")
+}
+
+model ThinkzapOperatorOAuth {
+  id           String   @id @default(uuid())
+  appId        String   @map("app_id")
+  bitrixUserId String   @map("bitrix_user_id")
+  accessToken  String   @map("access_token") @db.Text
+  refreshToken String   @map("refresh_token") @db.Text
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, bitrixUserId])
+  @@index([appId])
+  @@map("thinkzap_operator_oauth")
 }
 
 // ============================================

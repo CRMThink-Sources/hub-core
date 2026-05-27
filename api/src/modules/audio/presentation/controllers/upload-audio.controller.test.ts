@@ -1,9 +1,10 @@
 import type { Request } from 'express'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  NEED_OPERATOR_OAUTH,
   UploadAudioController,
   type CreateBitrixDiskClient,
-  type CreateBitrixDiskClientFromApp,
+  type ResolveOperatorBitrixAccessToken,
 } from './upload-audio.controller'
 import type { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { BitrixError } from '@/shared/infra/clients/errors/bitrix-client.error'
@@ -24,16 +25,12 @@ describe('UploadAudioController', () => {
   const createDiskClient: CreateBitrixDiskClient = vi.fn(() => ({
     uploadFileToChat,
   }))
-  const createDiskClientFromApp: CreateBitrixDiskClientFromApp = vi.fn(() =>
-    Promise.resolve({
-      uploadFileToChat,
-    }),
-  )
+  const resolveOperatorAccessToken: ResolveOperatorBitrixAccessToken = vi.fn()
 
   const controller = new UploadAudioController(
     getDomainRepository,
     createDiskClient,
-    createDiskClientFromApp,
+    resolveOperatorAccessToken,
     iframeHash,
   )
 
@@ -69,6 +66,7 @@ describe('UploadAudioController', () => {
       messageId: 99,
       file: { id: 138, name: 'audio.webm' },
     })
+    vi.mocked(resolveOperatorAccessToken).mockResolvedValue('operator-token')
   })
 
   function makeRequest(
@@ -93,7 +91,6 @@ describe('UploadAudioController', () => {
 
     expect(response.status).toBe(400)
     expect(createDiskClient).not.toHaveBeenCalled()
-    expect(createDiskClientFromApp).not.toHaveBeenCalled()
   })
 
   it('returns 400 when audio file is missing', async () => {
@@ -151,7 +148,7 @@ describe('UploadAudioController', () => {
     )
 
     expect(createDiskClient).toHaveBeenCalledWith(domain, 'operator-token')
-    expect(createDiskClientFromApp).not.toHaveBeenCalled()
+    expect(resolveOperatorAccessToken).not.toHaveBeenCalled()
     expect(uploadFileToChat).toHaveBeenCalledWith({
       dialogId: 'chat80619',
       fileName: 'audio.webm',
@@ -161,7 +158,7 @@ describe('UploadAudioController', () => {
     expect(response.status).toBe(200)
   })
 
-  it('uploads file using validated imbot iframe auth', async () => {
+  it('uploads file using resolved operator token after imbot hash validation', async () => {
     const response = await controller.perform(
       makeRequest(makeImbotAuthBody(), {
         buffer: Buffer.from('audio-bytes'),
@@ -171,9 +168,26 @@ describe('UploadAudioController', () => {
       {} as never,
     )
 
-    expect(createDiskClientFromApp).toHaveBeenCalledWith(domain)
-    expect(createDiskClient).not.toHaveBeenCalled()
+    expect(resolveOperatorAccessToken).toHaveBeenCalledWith(domain, userId)
+    expect(createDiskClient).toHaveBeenCalledWith(domain, 'operator-token')
     expect(response.status).toBe(200)
+  })
+
+  it('returns 401 NEED_OPERATOR_OAUTH when operator token is missing', async () => {
+    vi.mocked(resolveOperatorAccessToken).mockResolvedValue(null)
+
+    const response = await controller.perform(
+      makeRequest(makeImbotAuthBody(), {
+        buffer: Buffer.from('audio'),
+        originalname: 'audio.webm',
+        mimetype: 'audio/webm',
+      } as Express.Multer.File),
+      {} as never,
+    )
+
+    expect(response.status).toBe(401)
+    expect(response.result).toMatchObject({ code: NEED_OPERATOR_OAUTH })
+    expect(createDiskClient).not.toHaveBeenCalled()
   })
 
   it('returns 401 when imbot iframe hash is invalid', async () => {
@@ -187,7 +201,7 @@ describe('UploadAudioController', () => {
     )
 
     expect(response.status).toBe(401)
-    expect(createDiskClientFromApp).not.toHaveBeenCalled()
+    expect(resolveOperatorAccessToken).not.toHaveBeenCalled()
   })
 
   it('propagates BitrixError from upload', async () => {

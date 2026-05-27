@@ -1,4 +1,4 @@
-type AudioPreviewProps = {
+type AudioPreviewPanelProps = {
   audioRef: React.RefObject<HTMLAudioElement | null>
   audioUrl: string
   isPlaying: boolean
@@ -25,7 +25,7 @@ const formatTime = (seconds: number) => {
   return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
 }
 
-export function AudioPreview({
+export function AudioPreviewPanel({
   audioRef,
   audioUrl,
   isPlaying,
@@ -42,7 +42,7 @@ export function AudioPreview({
   onDelete,
   onSend,
   sendLabel = 'Enviar',
-}: AudioPreviewProps) {
+}: AudioPreviewPanelProps) {
   return (
     <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
       <p className="mb-2 text-xs font-medium text-slate-700">
@@ -65,7 +65,7 @@ export function AudioPreview({
         <button
           type="button"
           onClick={onTogglePlayback}
-          className="cursor-pointer grid h-9 w-9 place-items-center rounded-full bg-slate-900 text-white transition hover:bg-slate-800"
+          className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-slate-900 text-white transition hover:bg-slate-800"
         >
           {isPlaying ? (
             <svg

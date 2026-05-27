@@ -1,14 +1,14 @@
-type RecordToggleButtonProps = {
+type RecordControlsProps = {
   isRecording: boolean
   buttonScale: number
   onToggle: () => void
 }
 
-export function RecordToggleButton({
+export function RecordControls({
   isRecording,
   buttonScale,
   onToggle,
-}: RecordToggleButtonProps) {
+}: RecordControlsProps) {
   return (
     <div className="flex items-center gap-3">
       <button
