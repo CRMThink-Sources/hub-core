@@ -33,9 +33,9 @@ export default function ConexoesLayout() {
     },
   })
 
-  const total = session?.connectors.length ?? 0
+  const total = session?.connectors?.length ?? 0
   const connected =
-    session?.connectors.filter((c: any) => c.instance.connected === true)
+    session?.connectors?.filter((c: any) => c.instance.connected === true)
       .length ?? 0
 
   const subscription = (session?.subscription ?? null) as {
