@@ -43,7 +43,7 @@ export abstract class Controller {
           time: Date.now() - initTime,
         })
       } else {
-        console.error('[Controller] Unexpected error:', error)
+        console.error('[Controller] Unexpected error:', { traceId, error })
         return res.status(500).json({
           error: 'Internal server error',
           traceId,
