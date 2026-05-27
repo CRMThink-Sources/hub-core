@@ -23,7 +23,7 @@ export async function uploadAudioToChat({
   imbotAuth,
 }: UploadAudioParams): Promise<void> {
   const formData = new FormData()
-  formData.append('audio', audioBlob, `audio-${Date.now()}.webm`)
+  formData.append('audio', audioBlob, `audio-${Date.now()}.mp3`)
   formData.append('dialogId', dialogId)
   formData.append('domain', domain)
   formData.append('userId', imbotAuth.userId)
