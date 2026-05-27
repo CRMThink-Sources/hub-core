@@ -41,7 +41,11 @@ export default async function RootLayout({
     : DEFAULT_LOCALE
 
   return (
-    <html lang={locale} className={cn('font-sans', inter.variable)}>
+    <html
+      lang={locale}
+      suppressHydrationWarning
+      className={cn('font-sans', inter.variable)}
+    >
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

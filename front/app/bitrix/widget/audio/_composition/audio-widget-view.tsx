@@ -9,9 +9,27 @@ import { useAudioRecorder } from '../_features/recording/use-audio-recorder'
 import { useAudioUpload } from '../_features/upload/use-audio-upload'
 import { useAudioWidgetContext } from './audio-widget-provider'
 
+function AudioWidgetSkeleton() {
+  return (
+    <div className="mx-auto w-full rounded-xl border border-slate-200 bg-white/90 p-4 shadow-sm backdrop-blur">
+      <div className="flex items-center gap-3">
+        <div className="h-12 w-12 animate-pulse rounded-full bg-slate-200" />
+        <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+      </div>
+      <p className="mt-3 text-xs text-slate-500">Carregando...</p>
+    </div>
+  )
+}
+
 export function AudioWidgetView() {
-  const { dialogId, domain, imbotAuth, thinkzapAppCode, uploadEndpoint } =
-    useAudioWidgetContext()
+  const {
+    mounted,
+    dialogId,
+    domain,
+    imbotAuth,
+    thinkzapAppCode,
+    uploadEndpoint,
+  } = useAudioWidgetContext()
 
   const playback = useAudioPlayback()
   const recorder = useAudioRecorder()
@@ -26,6 +44,10 @@ export function AudioWidgetView() {
       playback.resetPlayback()
     },
   })
+
+  if (!mounted) {
+    return <AudioWidgetSkeleton />
+  }
 
   const displayError =
     recorder.error ??
