@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { Dataset } from '../../../types/thinkanalise-types'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
 import { useLoading } from '@/providers/loading-provider'
+import { useTranslation } from 'react-i18next'
 
 type Props = {
   dataset: Dataset
@@ -19,10 +20,11 @@ export function DatasetCard({ dataset, onChanged, onDeleted }: Props) {
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const { setLoading } = useLoading()
+  const { t } = useTranslation('thinkanalise/configuracoes/dataset')
 
   async function handleSave() {
     setSaving(true)
-    setLoading(true, 'Salvando...')
+    setLoading(true, t('loading.salvando'))
     try {
       const client = axiosThinkanalise()
       await client.put(`/thinkanalise/dataset/${dataset.id}`, { name })
@@ -36,16 +38,14 @@ export function DatasetCard({ dataset, onChanged, onDeleted }: Props) {
 
   async function handleDelete() {
     setDeleting(true)
-    setLoading(true, 'Removendo...')
+    setLoading(true, t('loading.removendo'))
     setDeleteError(null)
     try {
       const client = axiosThinkanalise()
       await client.delete(`/thinkanalise/dataset/${dataset.id}`)
       await onDeleted()
     } catch {
-      setDeleteError(
-        'Não foi possível remover. Verifique se o dataset está em uso no BI Builder.',
-      )
+      setDeleteError(t('erroRemover'))
     } finally {
       setDeleting(false)
       setLoading(false)
@@ -66,7 +66,7 @@ export function DatasetCard({ dataset, onChanged, onDeleted }: Props) {
           {dataset.name}
         </span>
         <span className="text-xs text-gray-400 font-mono">
-          {(dataset.fields ?? []).length} campos
+          {(dataset.fields ?? []).length} {t('campos')}
         </span>
         <svg
           width="12"
@@ -129,20 +129,20 @@ export function DatasetCard({ dataset, onChanged, onDeleted }: Props) {
 
           {/* editar/excluir dataset — vai ser adicionado futuramente (API Bitrix não permite no momento) */}
           <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-[#e5e7eb]">
-            <span title="Desativado temporariamente — a API do Bitrix não permite esta operação no momento">
+            <span title={t('tooltip.desativado')}>
               <button
                 disabled
                 className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-300 cursor-not-allowed"
               >
-                excluir
+                {t('acoes.excluir')}
               </button>
             </span>
-            <span title="Desativado temporariamente — a API do Bitrix não permite esta operação no momento">
+            <span title={t('tooltip.desativado')}>
               <button
                 disabled
                 className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-300 cursor-not-allowed"
               >
-                editar
+                {t('acoes.editar')}
               </button>
             </span>
           </div>

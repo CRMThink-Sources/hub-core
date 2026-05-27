@@ -1,0 +1,49 @@
+{
+  "loading": {
+    "salvando": "Saving...",
+    "atualizando": "Updating...",
+    "removendo": "Removing..."
+  },
+  "status": {
+    "ativo": "active",
+    "inativo": "inactive",
+    "conectado": "connected",
+    "naoConectado": "not connected",
+    "conexaoOk": "connection ok",
+    "credenciaisInvalidas": "invalid credentials",
+    "apiKeyInvalida": "invalid api key",
+    "conexaoAutenticada": "authenticated connection"
+  },
+  "toast": {
+    "fonteCriada": "Source created successfully.",
+    "erroCriarFonte": "Error creating source."
+  },
+  "botoes": {
+    "desativar": "Disable",
+    "ativar": "Enable",
+    "redirecionando": "redirecting...",
+    "reconectarContaAzul": "reconnect with Conta Azul",
+    "erroConexao": "error starting connection",
+    "testarConexao": "test connection",
+    "testando": "testing...",
+    "cancelar": "cancel",
+    "remover": "remove",
+    "removendo": "removing...",
+    "editar": "edit",
+    "salvar": "save",
+    "salvando": "saving...",
+    "salvarFonte": "save source",
+    "salvarConectarContaAzul": "save and connect with Conta Azul"
+  },
+  "campos": {
+    "nomeFonte": "Source Name",
+    "nomeFontePlaceholder": "Ex: Defaulting customers",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Paste your key here",
+    "idCliente": "Client ID",
+    "token": "Token",
+    "manterPlaceholder": "Leave blank to keep"
+  },
+  "datasets": "Datasets",
+  "novoDataset": "new dataset"
+}

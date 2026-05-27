@@ -1,0 +1,31 @@
+{
+  "loading": {
+    "salvando": "Salvando...",
+    "removendo": "Removendo...",
+    "carregando": "Carregando..."
+  },
+  "erroRemover": "Não foi possível remover. Verifique se o dataset está em uso no BI Builder.",
+  "campos": "campos",
+  "tooltip": {
+    "desativado": "Desativado temporariamente — a API do Bitrix não permite esta operação no momento"
+  },
+  "acoes": {
+    "excluir": "excluir",
+    "editar": "editar",
+    "cancelar": "cancelar",
+    "voltar": "← voltar",
+    "salvando": "salvando...",
+    "criarDataset": "criar dataset"
+  },
+  "form": {
+    "selecioneTabela": "Selecione a tabela",
+    "carregando": "carregando...",
+    "nomeDataset": "Nome do Dataset",
+    "camposLabel": "Campos"
+  },
+  "toast": {
+    "criado": "Dataset criado com sucesso.",
+    "jaExiste": "Já existe um dataset com esse nome, por favor altere.",
+    "erroSalvar": "Erro ao criar o dataset."
+  }
+}

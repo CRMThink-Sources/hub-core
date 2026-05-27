@@ -1,0 +1,31 @@
+{
+  "loading": {
+    "salvando": "Saving...",
+    "removendo": "Removing...",
+    "carregando": "Loading..."
+  },
+  "erroRemover": "Could not remove. Check if the dataset is in use in BI Builder.",
+  "campos": "fields",
+  "tooltip": {
+    "desativado": "Temporarily disabled — the Bitrix API does not allow this operation at the moment"
+  },
+  "acoes": {
+    "excluir": "delete",
+    "editar": "edit",
+    "cancelar": "cancel",
+    "voltar": "← back",
+    "salvando": "saving...",
+    "criarDataset": "create dataset"
+  },
+  "form": {
+    "selecioneTabela": "Select table",
+    "carregando": "loading...",
+    "nomeDataset": "Dataset Name",
+    "camposLabel": "Fields"
+  },
+  "toast": {
+    "criado": "Dataset created successfully.",
+    "jaExiste": "A dataset with this name already exists, please change it.",
+    "erroSalvar": "Error creating dataset."
+  }
+}
