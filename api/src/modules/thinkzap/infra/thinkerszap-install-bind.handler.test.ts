@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 
 const executeBot = vi.hoisted(() => vi.fn())
+const ensureImbotAudioApp = vi.hoisted(() => vi.fn())
 
 vi.mock('../application/get-or-create-thinkzap-bot', () => ({
   GetOrCreateThinkzapBot: class {
@@ -9,19 +10,23 @@ vi.mock('../application/get-or-create-thinkzap-bot', () => ({
   },
 }))
 
+vi.mock('../application/ensure-imbot-audio-app', () => ({
+  ensureImbotAudioApp,
+}))
+
 import { ThinkersZapInstallBindHandler } from './thinkerszap-install-bind.handler'
 
 describe('ThinkersZapInstallBindHandler', () => {
   const handler = new ThinkersZapInstallBindHandler()
-  const callMethod = vi.fn()
-  const client = { callMethod } as unknown as BitrixRestClient
+  const client = {} as BitrixRestClient
 
   beforeEach(() => {
     vi.clearAllMocks()
     executeBot.mockResolvedValue(42)
+    ensureImbotAudioApp.mockResolvedValue('updated')
   })
 
-  it('includes IM_TEXTAREA placement bind for audio widget', () => {
+  it('does not include IM_TEXTAREA in static binds', () => {
     const binds = handler.getBinds()
     const audioBind = binds.find(
       bind =>
@@ -29,18 +34,21 @@ describe('ThinkersZapInstallBindHandler', () => {
         bind.params.PLACEMENT === 'IM_TEXTAREA',
     )
 
-    expect(audioBind).toBeDefined()
-    expect(audioBind?.params.OPTIONS).toMatchObject({
-      iconName: 'fa-microphone',
-      context: 'LINES',
-      role: 'USER',
-    })
+    expect(audioBind).toBeUndefined()
   })
 
-  it('onInstall only ensures Open Lines bot exists', async () => {
+  it('onInstall ensures Open Lines bot and imbot audio app', async () => {
     await handler.onInstall(client)
 
     expect(executeBot).toHaveBeenCalledWith(client)
-    expect(callMethod).not.toHaveBeenCalled()
+    expect(ensureImbotAudioApp).toHaveBeenCalledWith(client, 42)
+  })
+
+  it('skips imbot app when bot is not available', async () => {
+    executeBot.mockResolvedValue(null)
+
+    await handler.onInstall(client)
+
+    expect(ensureImbotAudioApp).not.toHaveBeenCalled()
   })
 })

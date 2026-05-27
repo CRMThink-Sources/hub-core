@@ -94,6 +94,25 @@ export default function Home() {
           bitrix_department_ids: bitrixDepartmentIds,
         })
 
+        const thinkzapCodes = [
+          envConfig.appCodes.thinkzap,
+          'crmthink.thinkzap',
+        ].filter(Boolean)
+        if (thinkzapCodes.includes(appCode) && auth.refresh_token) {
+          try {
+            await axios.post(`${envConfig.apiUrl}/auth/bitrix-oauth`, {
+              domain: urlInfo.domain,
+              app_code: appCode,
+              bitrix_user_id: bitrixUserId,
+              access_token: auth.access_token,
+              refresh_token: auth.refresh_token,
+              expires_in: auth.expires_in,
+            })
+          } catch (oauthErr) {
+            console.warn('Falha ao salvar OAuth do operador:', oauthErr)
+          }
+        }
+
         const dataRedirect = getAppRedirectUrl(appCode)
 
         if (!dataRedirect) {

@@ -1,6 +1,39 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import axios, { type AxiosInstance } from 'axios'
+
+function formatBitrixApiError(
+  method: string,
+  error: string,
+  description?: string,
+): string {
+  const base = `Bitrix ${method}: ${description ?? error}`
+  const lower = `${error} ${description ?? ''}`.toLowerCase()
+
+  if (lower.includes('access_denied') || lower.includes('insufficient_scope')) {
+    return `${base}. Verifique scope im no app Bitrix24 e reinstale o app no portal.`
+  }
+
+  return base
+}
+
+function extractBitrixErrorFromAxios(
+  method: string,
+  error: unknown,
+): Error | null {
+  if (!axios.isAxiosError(error) || !error.response?.data) {
+    return null
+  }
+
+  const data = error.response.data as {
+    error?: string
+    error_description?: string
+  }
+
+  if (!data.error) return null
+
+  return new Error(
+    formatBitrixApiError(method, data.error, data.error_description),
+  )
+}
 
 /**
  * Cliente para chamadas REST do Bitrix24.
@@ -24,13 +57,23 @@ export class BitrixRestClient {
     method: string,
     params: Record<string, unknown>,
   ): Promise<unknown> {
-    const response = await this.client.post(`/${method}`, params)
-    const data = response.data
-    if (data?.error) {
-      throw new Error(
-        `Bitrix ${method}: ${data.error_description ?? data.error}`,
-      )
+    try {
+      const response = await this.client.post(`/${method}`, params)
+      const data = response.data as {
+        error?: string
+        error_description?: string
+        result?: unknown
+      }
+      if (data.error) {
+        throw new Error(
+          formatBitrixApiError(method, data.error, data.error_description),
+        )
+      }
+      return data.result ?? data
+    } catch (error) {
+      const bitrixError = extractBitrixErrorFromAxios(method, error)
+      if (bitrixError) throw bitrixError
+      throw error
     }
-    return data.result ?? data
   }
 }
