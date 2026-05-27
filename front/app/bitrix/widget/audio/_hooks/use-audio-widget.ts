@@ -14,14 +14,6 @@ type UseAudioWidgetParams = {
   getAuth?: () => BX24Auth | false
   imbotAuth?: ImbotIframeAuth | null
   urlParams?: Record<string, string>
-  /** Envia o audio via REST no contexto do usuario logado (B24Js iframe). */
-  uploadAsCurrentUser?: (params: {
-    dialogId: string
-    blob: Blob
-    fileName: string
-  }) => Promise<void>
-  /** Aguardando B24Js conectar no iframe do messenger. */
-  sdkPending?: boolean
 }
 
 export function useAudioWidget({
@@ -31,8 +23,6 @@ export function useAudioWidget({
   getAuth,
   imbotAuth = null,
   urlParams = {},
-  uploadAsCurrentUser,
-  sdkPending = false,
 }: UseAudioWidgetParams) {
   const [isRecording, setIsRecording] = useState(false)
   const [buttonScale, setButtonScale] = useState(1)
@@ -205,17 +195,9 @@ export function useAudioWidget({
       return
     }
 
-    if (sdkPending) {
-      setError('Conectando ao Bitrix24...')
-      return
-    }
+    const accessToken = resolveAccessToken(getAuth, urlParams)
 
-    const accessToken =
-      uploadAsCurrentUser || imbotAuth
-        ? null
-        : resolveAccessToken(getAuth, urlParams)
-
-    if (!uploadAsCurrentUser && !imbotAuth && !accessToken) {
+    if (!accessToken && !imbotAuth) {
       setError('Abra o widget dentro do Bitrix24 para enviar audio.')
       return
     }
@@ -225,7 +207,7 @@ export function useAudioWidget({
       return
     }
 
-    if (!uploadAsCurrentUser && !domain) {
+    if (!domain) {
       setError('Dominio Bitrix24 nao identificado.')
       return
     }
@@ -234,34 +216,26 @@ export function useAudioWidget({
       setError(null)
       setIsSending(true)
 
-      if (uploadAsCurrentUser) {
-        await uploadAsCurrentUser({
-          dialogId,
-          blob: audioBlob,
-          fileName: `audio-${Date.now()}.webm`,
-        })
-      } else {
-        const formData = new FormData()
-        formData.append('audio', audioBlob, `audio-${Date.now()}.webm`)
-        formData.append('dialogId', dialogId)
-        formData.append('domain', domain!)
+      const formData = new FormData()
+      formData.append('audio', audioBlob, `audio-${Date.now()}.webm`)
+      formData.append('dialogId', dialogId)
+      formData.append('domain', domain)
 
-        if (imbotAuth) {
-          formData.append('userId', imbotAuth.userId)
-          formData.append('userHash', imbotAuth.userHash)
-          formData.append('domainHash', imbotAuth.domainHash)
-        } else if (accessToken) {
-          formData.append('accessToken', accessToken)
-        }
+      if (accessToken) {
+        formData.append('accessToken', accessToken)
+      } else if (imbotAuth) {
+        formData.append('userId', imbotAuth.userId)
+        formData.append('userHash', imbotAuth.userHash)
+        formData.append('domainHash', imbotAuth.domainHash)
+      }
 
-        const response = await fetch(uploadEndpoint, {
-          method: 'POST',
-          body: formData,
-        })
+      const response = await fetch(uploadEndpoint, {
+        method: 'POST',
+        body: formData,
+      })
 
-        if (!response.ok) {
-          throw new Error(`Falha no upload do audio: ${response.status}`)
-        }
+      if (!response.ok) {
+        throw new Error(`Falha no upload do audio: ${response.status}`)
       }
 
       clearCurrentAudio()
