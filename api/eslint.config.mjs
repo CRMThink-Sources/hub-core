@@ -8,6 +8,7 @@ export default defineConfig(
   {
     ignores: [
       'eslint.config.mjs',
+      'vitest.config.ts',
       'prisma.config.ts',
       'node_modules/**',
       'dist/**',

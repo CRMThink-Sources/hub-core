@@ -8,23 +8,38 @@ interface IBitrixClientParams {
   bitrixCredential?: Credential
   domain?: string
   webhook?: string
+  accessToken?: string
 }
 
 export class BitrixClient {
   private readonly bitrixCredential?: Credential
   private readonly domain?: string
   private readonly webhook?: string
+  private readonly accessToken?: string
 
   constructor(params: IBitrixClientParams) {
     this.bitrixCredential = params.bitrixCredential
     this.domain = params.domain
     this.webhook = params.webhook
+    this.accessToken = params.accessToken
+  }
+
+  static withUserToken(domain: string, accessToken: string): BitrixClient {
+    return new BitrixClient({ domain, accessToken })
   }
 
   getClient() {
     if (this.webhook) {
       return axios.create({
         baseURL: this.webhook,
+      })
+    }
+    if (this.accessToken && this.domain) {
+      return axios.create({
+        baseURL: `https://${this.domain}/rest/`,
+        params: {
+          auth: this.accessToken,
+        },
       })
     }
     if (!this.bitrixCredential || !this.domain) {
