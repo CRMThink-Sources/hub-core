@@ -3,7 +3,14 @@
 import { getBitrixAppInfoFromUrl } from '@/bitrix'
 import { envConfig } from '@/shared/infra/env-config'
 import { useSearchParams } from 'next/navigation'
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import {
   resolveBitrixDomain,
   resolveDialogId,
@@ -12,12 +19,24 @@ import {
 
 const UPLOAD_ENDPOINT = '/api/audio/upload'
 
+const THINKZAP_APP_CODE = envConfig.appCodes.thinkzap || 'crmthink.thinkzap'
+
 export type AudioWidgetContextValue = {
+  mounted: boolean
   dialogId: string | null
   domain: string | null
   imbotAuth: ReturnType<typeof resolveImbotAuth>
   thinkzapAppCode: string
   uploadEndpoint: string
+}
+
+const PLACEHOLDER_CONTEXT: AudioWidgetContextValue = {
+  mounted: false,
+  dialogId: null,
+  domain: null,
+  imbotAuth: null,
+  thinkzapAppCode: THINKZAP_APP_CODE,
+  uploadEndpoint: UPLOAD_ENDPOINT,
 }
 
 const AudioWidgetContext = createContext<AudioWidgetContextValue | null>(null)
@@ -38,18 +57,29 @@ type AudioWidgetProviderProps = {
 
 export function AudioWidgetProvider({ children }: AudioWidgetProviderProps) {
   const searchParams = useSearchParams()
-  const appInfo = useMemo(() => getBitrixAppInfoFromUrl(), [])
-  const urlParams = appInfo.urlParams ?? {}
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const value = useMemo<AudioWidgetContextValue>(() => {
+    if (!mounted) {
+      return PLACEHOLDER_CONTEXT
+    }
+
+    const appInfo = getBitrixAppInfoFromUrl()
+    const urlParams = appInfo.urlParams ?? {}
+
     return {
+      mounted: true,
       dialogId: resolveDialogId(searchParams, urlParams),
       domain: resolveBitrixDomain(searchParams, appInfo.domain),
       imbotAuth: resolveImbotAuth(urlParams),
-      thinkzapAppCode: envConfig.appCodes.thinkzap || 'crmthink.thinkzap',
+      thinkzapAppCode: THINKZAP_APP_CODE,
       uploadEndpoint: UPLOAD_ENDPOINT,
     }
-  }, [appInfo.domain, searchParams, urlParams])
+  }, [mounted, searchParams])
 
   return (
     <AudioWidgetContext.Provider value={value}>

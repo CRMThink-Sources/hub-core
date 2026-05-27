@@ -1,23 +1,16 @@
 'use client'
 
-import { Suspense } from 'react'
-import { AudioWidgetProvider } from './_composition/audio-widget-provider'
-import { AudioWidgetView } from './_composition/audio-widget-view'
+import dynamic from 'next/dynamic'
+import { AudioWidgetLoading } from './audio-widget-loading'
 
-function AudioWidgetPageContent() {
-  return (
-    <main className="h-full p-2 text-slate-900 sm:p-3">
-      <AudioWidgetProvider>
-        <AudioWidgetView />
-      </AudioWidgetProvider>
-    </main>
-  )
-}
+const AudioWidgetPageClient = dynamic(
+  () => import('./audio-widget-page-client').then(m => m.AudioWidgetPageClient),
+  {
+    ssr: false,
+    loading: () => <AudioWidgetLoading />,
+  },
+)
 
 export default function BitrixAudioImbotPage() {
-  return (
-    <Suspense fallback={<main className="h-full p-2 text-slate-900 sm:p-3" />}>
-      <AudioWidgetPageContent />
-    </Suspense>
-  )
+  return <AudioWidgetPageClient />
 }
