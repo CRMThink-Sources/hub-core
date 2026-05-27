@@ -3,7 +3,7 @@ import { B24FrameScript } from '@/bitrix/b24-frame-script'
 import { getBitrixAppInfoFromUrl } from '@/bitrix'
 import { useB24Frame } from '@/bitrix/use-b24-frame'
 import { useSearchParams } from 'next/navigation'
-import { Suspense, useCallback, useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
 import {
   parseBitrixDomain,
   resolveDialogId,
@@ -39,12 +39,17 @@ function BitrixImTextAreaContent() {
   const isImbotContext = Boolean(imbotAuth)
   const canUploadAsUser = Boolean(b24Ready && b24Client)
 
-  const uploadAsCurrentUser = useCallback(
-    canUploadAsUser && b24Client
-      ? async (params: { dialogId: string; blob: Blob; fileName: string }) => {
-          await uploadAudioViaB24Frame(b24Client, params)
-        }
-      : undefined,
+  const uploadAsCurrentUser = useMemo(
+    () =>
+      canUploadAsUser && b24Client
+        ? async (params: {
+            dialogId: string
+            blob: Blob
+            fileName: string
+          }) => {
+            await uploadAudioViaB24Frame(b24Client, params)
+          }
+        : undefined,
     [canUploadAsUser, b24Client],
   )
 

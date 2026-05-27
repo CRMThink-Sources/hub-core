@@ -76,11 +76,26 @@ export const makeBitrixClientByAppId = async (
   return new Client(credential, domain?.name)
 }
 
-export const makeBitrixClientByDomainAndAppCoode = async (
+export async function makeBitrixClientByDomainAndAppCoode(
+  domain: string,
+  appCode: string,
+  client: 'disk',
+): Promise<BitrixDiskClient>
+export async function makeBitrixClientByDomainAndAppCoode(
+  domain: string,
+  appCode: string,
+  client: 'biconnector',
+): Promise<BitrixBiConnectorClient>
+export async function makeBitrixClientByDomainAndAppCoode(
+  domain: string,
+  appCode: string,
+  client?: 'bitrix',
+): Promise<BitrixClient>
+export async function makeBitrixClientByDomainAndAppCoode(
   domain: string,
   appCode: string,
   client: ClientType = 'bitrix',
-): Promise<BitrixClient | BitrixBiConnectorClient> => {
+): Promise<BitrixClient | BitrixBiConnectorClient | BitrixDiskClient> {
   const domainEntity = await domainRepo.getDomain(domain)
   if (!domainEntity) throw new Error('Domain not found')
 
@@ -96,16 +111,16 @@ export const makeBitrixClientByDomainAndAppCoode = async (
   const credential = await credentialRepo.get({ appId: installedApp.id })
   if (!credential) throw new Error('Credential not found')
 
-  const Client = clients[client as keyof typeof clients]
-
-  if (!Client) throw new Error('Client not found')
   if (client === 'bitrix') {
     return new BitrixClient({
       bitrixCredential: credential,
       domain: domainEntity.name,
     })
   }
-  return new Client(credential, domainEntity.name)
+  if (client === 'disk') {
+    return new BitrixDiskClient(credential, domainEntity.name)
+  }
+  return new BitrixBiConnectorClient(credential, domainEntity.name)
 }
 
 const clients = {

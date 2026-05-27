@@ -18,7 +18,7 @@ async function createBitrixDiskClientFromAppCredential(
     'disk',
   )
 
-  return client as Pick<BitrixDiskClient, 'uploadFileToChat'>
+  return client
 }
 
 export const makeUploadAudioController = (): Controller => {
