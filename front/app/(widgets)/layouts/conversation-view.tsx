@@ -1,11 +1,18 @@
 'use client'
 
-import { resolveThinkzapClient } from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
+import {
+  resolveThinkzapClient,
+  thinkzapApiErrorMessage,
+} from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
+import { StatusBanner } from '@/app/bitrix/widget/audio/_components/status-banner'
 import { AudioPreviewPanel } from '@/app/bitrix/widget/audio/_features/playback/audio-preview-panel'
 import { useAudioPlayback } from '@/app/bitrix/widget/audio/_features/playback/use-audio-playback'
 import { RecordControls } from '@/app/bitrix/widget/audio/_features/recording/record-controls'
 import { useAudioRecorder } from '@/app/bitrix/widget/audio/_features/recording/use-audio-recorder'
+import { formatFileSize } from '@/app/bitrix/widget/audio/_lib/format-file-size'
 import { useSession } from '@/providers/session-provider'
+import { Button } from '@/components/ui/button'
+import { Mic } from 'lucide-react'
 import {
   ChangeEvent,
   FormEvent,
@@ -14,6 +21,12 @@ import {
   useRef,
   useState,
 } from 'react'
+import { buildSendWidgetFormData } from './send-widget-message.client'
+import {
+  attachmentSizeErrorMessage,
+  isAttachmentWithinSizeLimit,
+  WIDGET_ATTACHMENT_MAX_MB,
+} from './widget-attachment-limits'
 
 type SessionConnector = {
   id: string
@@ -46,12 +59,6 @@ type ListDestinationsResponse = {
   ids: Array<{ entityTypeId: number; id: string }>
 }
 
-const formatFileSize = (value: number): string => {
-  if (value < 1024) return `${value} B`
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`
-}
-
 const normalizePhoneNumber = (value: string): string => {
   let digits = value.replace(/\D/g, '')
 
@@ -63,21 +70,6 @@ const normalizePhoneNumber = (value: string): string => {
   }
 
   return digits
-}
-
-const fileToBase64DataUrl = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') {
-        reject(new Error('Falha ao processar anexo'))
-        return
-      }
-      resolve(reader.result)
-    }
-    reader.onerror = () => reject(new Error('Falha ao processar anexo'))
-    reader.readAsDataURL(file)
-  })
 }
 
 const PLACEMENT_TO_ENTITY = {
@@ -96,6 +88,9 @@ export const ConversationView = () => {
   const [destinations, setDestinations] = useState<IDestination[]>([])
   const [isSending, setIsSending] = useState(false)
   const [feedbackMessage, setFeedbackMessage] = useState('')
+  const [feedbackVariant, setFeedbackVariant] = useState<'success' | 'error'>(
+    'success',
+  )
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
@@ -106,7 +101,6 @@ export const ConversationView = () => {
     const placement = info?.placement
     const placementOptions = info?.options ?? {}
     const contextId = placementOptions.ID
-    console.log({ contextId, placement, placementOptions })
 
     const fetchDestinations = async () => {
       const client = resolveThinkzapClient()
@@ -120,7 +114,6 @@ export const ConversationView = () => {
           },
         },
       )
-      console.log('response:', response)
       setDestinations(response.destinations)
     }
     void fetchDestinations()
@@ -136,11 +129,33 @@ export const ConversationView = () => {
     [destinations, selectedDestinationPhone],
   )
 
+  const hasOversizedAttachment = attachments.some(
+    item => !isAttachmentWithinSizeLimit(item.size),
+  )
+
   const canSubmit =
     selectedConnectorId.trim() &&
     selectedDestinationPhone.trim() &&
     (message.trim().length > 0 || attachments.length > 0) &&
-    !isSending
+    !isSending &&
+    !hasOversizedAttachment &&
+    !audioUrl
+
+  const setErrorFeedback = (text: string) => {
+    setFeedbackVariant('error')
+    setFeedbackMessage(text)
+  }
+
+  const setSuccessFeedback = (text: string) => {
+    setFeedbackVariant('success')
+    setFeedbackMessage(text)
+  }
+
+  const validateFileSize = (file: File): boolean => {
+    if (isAttachmentWithinSizeLimit(file.size)) return true
+    setErrorFeedback(attachmentSizeErrorMessage(file.name))
+    return false
+  }
 
   const handleAddAttachments = (
     event: ChangeEvent<HTMLInputElement>,
@@ -149,9 +164,15 @@ export const ConversationView = () => {
     const selectedFiles = Array.from(event.target.files ?? [])
     if (!selectedFiles.length) return
 
+    const validFiles = selectedFiles.filter(validateFileSize)
+    if (!validFiles.length) {
+      event.target.value = ''
+      return
+    }
+
     setAttachments(previous => [
       ...previous,
-      ...selectedFiles.map(file => ({
+      ...validFiles.map(file => ({
         id: `${file.name}-${file.lastModified}-${file.size}`,
         name: file.name,
         size: file.size,
@@ -168,6 +189,13 @@ export const ConversationView = () => {
     setAttachments(previous => previous.filter(item => item.id !== id))
   }
 
+  const handleToggleRecording = () => {
+    if (!recorder.isRecording) {
+      playback.resetPlayback()
+    }
+    recorder.toggleRecording()
+  }
+
   const handleAddRecordedAudio = () => {
     if (!audioBlob) return
 
@@ -178,6 +206,8 @@ export const ConversationView = () => {
       type: audioBlob.type || 'audio/webm',
       lastModified: now,
     })
+
+    if (!validateFileSize(audioFile)) return
 
     setAttachments(previous => [
       ...previous,
@@ -193,6 +223,7 @@ export const ConversationView = () => {
 
     recorder.clearRecording()
     playback.resetPlayback()
+    setSuccessFeedback('Audio adicionado aos anexos.')
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -200,7 +231,7 @@ export const ConversationView = () => {
     if (!canSubmit) return
     const client = resolveThinkzapClient()
     if (!client.ok) {
-      setFeedbackMessage(client.message)
+      setErrorFeedback(client.message)
       return
     }
 
@@ -214,31 +245,43 @@ export const ConversationView = () => {
         PLACEMENT_TO_ENTITY[placement as keyof typeof PLACEMENT_TO_ENTITY]
       const entityId = placementOptions.ID
 
-      const preparedAttachments = await Promise.all(
-        attachments.map(async item => ({
-          kind: item.kind,
-          name: item.name,
-          content: await fileToBase64DataUrl(item.file),
-        })),
-      )
-
-      await client.client.post('/thinkzap/messages/send-widget', {
+      const payloadBase = {
         connectorId: selectedConnectorId,
         destination: normalizePhoneNumber(selectedDestination?.phone ?? ''),
         message: message.trim() || undefined,
-        attachments: preparedAttachments,
         entity,
         entityId,
-      })
+      }
+
+      if (attachments.length > 0) {
+        const formData = buildSendWidgetFormData({
+          ...payloadBase,
+          attachments: attachments.map(item => ({
+            kind: item.kind,
+            name: item.name,
+            file: item.file,
+          })),
+        })
+
+        await client.client.post(
+          '/thinkzap/messages/send-widget-multipart',
+          formData,
+        )
+      } else {
+        await client.client.post('/thinkzap/messages/send-widget', payloadBase)
+      }
 
       setMessage('')
       setAttachments([])
       recorder.clearRecording()
       playback.resetPlayback()
-      setFeedbackMessage('Mensagem enviada com sucesso.')
-    } catch {
-      setFeedbackMessage(
-        'Falha ao enviar mensagem. Verifique os dados e tente novamente.',
+      setSuccessFeedback('Mensagem enviada com sucesso.')
+    } catch (error) {
+      setErrorFeedback(
+        thinkzapApiErrorMessage(
+          error,
+          'Falha ao enviar mensagem. Verifique os dados e tente novamente.',
+        ),
       )
     } finally {
       setIsSending(false)
@@ -258,15 +301,6 @@ export const ConversationView = () => {
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-100 via-blue-50 to-indigo-100 px-4 py-10 sm:px-6">
       <div className="mx-auto w-full max-w-4xl">
-        {/* <div className="mb-4 rounded-2xl border border-white/70 bg-white/75 p-4 shadow-sm backdrop-blur">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
-            Nova mensagem
-          </h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Composer com midia para envio rapido via conector.
-          </p>
-        </div> */}
-
         {!connectors.length ? (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <p className="text-sm text-amber-900">
@@ -286,9 +320,10 @@ export const ConversationView = () => {
                   Conector
                 </span>
                 <select
-                  className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition group-focus-within:border-blue-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition group-focus-within:border-blue-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
                   value={selectedConnectorId}
                   onChange={event => setSelectedConnectorId(event.target.value)}
+                  disabled={isSending}
                 >
                   <option value="">Selecione um conector</option>
                   {connectors.map(connector => (
@@ -307,11 +342,12 @@ export const ConversationView = () => {
                   Destino
                 </span>
                 <select
-                  className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition group-focus-within:border-blue-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition group-focus-within:border-blue-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
                   value={selectedDestinationPhone}
                   onChange={event =>
                     setSelectedDestinationPhone(event.target.value)
                   }
+                  disabled={isSending}
                 >
                   <option value="">Selecione um número</option>
                   {destinations.map(destination => (
@@ -331,11 +367,12 @@ export const ConversationView = () => {
                 Mensagem
               </span>
               <textarea
-                className="min-h-20 resize-y rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="min-h-20 resize-y rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
                 rows={8}
                 value={message}
                 onChange={event => setMessage(event.target.value)}
                 placeholder="Digite sua mensagem..."
+                disabled={isSending}
               />
             </label>
 
@@ -346,7 +383,7 @@ export const ConversationView = () => {
                     Anexos de midia e arquivos
                   </p>
                   <p className="text-xs text-slate-500">
-                    Adicione imagem, video ou documento.
+                    Max. {WIDGET_ATTACHMENT_MAX_MB} MB por arquivo.
                   </p>
                 </div>
                 <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
@@ -358,40 +395,53 @@ export const ConversationView = () => {
                 <button
                   type="button"
                   onClick={() => imageInputRef.current?.click()}
-                  className="inline-flex h-10 items-center rounded-xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-500"
+                  disabled={isSending}
+                  className="inline-flex h-10 items-center rounded-xl bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Imagem
                 </button>
                 <button
                   type="button"
                   onClick={() => videoInputRef.current?.click()}
-                  className="inline-flex h-10 items-center rounded-xl bg-violet-600 px-4 text-sm font-medium text-white transition hover:bg-violet-500"
+                  disabled={isSending}
+                  className="inline-flex h-10 items-center rounded-xl bg-violet-600 px-4 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Video
                 </button>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="inline-flex h-10 items-center rounded-xl bg-slate-700 px-4 text-sm font-medium text-white transition hover:bg-slate-600"
+                  disabled={isSending}
+                  className="inline-flex h-10 items-center rounded-xl bg-slate-700 px-4 text-sm font-medium text-white transition hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Arquivo
                 </button>
               </div>
 
-              <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Gravador de audio
-                </p>
+              <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-indigo-600 text-white">
+                    <Mic className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">
+                      Mensagem de voz
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Grave, ouça o preview e adicione aos anexos.
+                    </p>
+                  </div>
+                </div>
+
                 <RecordControls
                   isRecording={recorder.isRecording}
                   buttonScale={recorder.buttonScale}
-                  onToggle={recorder.toggleRecording}
+                  elapsedSeconds={recorder.recordingElapsedSeconds}
+                  onToggle={handleToggleRecording}
                 />
 
                 {recorder.error ? (
-                  <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                    {recorder.error}
-                  </p>
+                  <StatusBanner variant="error" message={recorder.error} />
                 ) : null}
 
                 {audioUrl ? (
@@ -399,9 +449,11 @@ export const ConversationView = () => {
                     audioRef={playback.audioRef}
                     audioUrl={audioUrl}
                     isPlaying={playback.isPlaying}
-                    isSending={false}
+                    isSending={isSending}
                     duration={playback.duration}
                     currentTime={playback.currentTime}
+                    fallbackDurationSeconds={recorder.recordedDurationSeconds}
+                    blobSize={audioBlob?.size}
                     onLoadedMetadata={playback.onLoadedMetadata}
                     onTimeUpdate={playback.onTimeUpdate}
                     onPlay={playback.onPlay}
@@ -416,6 +468,13 @@ export const ConversationView = () => {
                     onSend={handleAddRecordedAudio}
                     sendLabel="Adicionar"
                   />
+                ) : null}
+
+                {audioUrl ? (
+                  <p className="mt-2 text-xs text-amber-700">
+                    Clique em Adicionar para incluir o audio na lista de anexos
+                    antes de enviar.
+                  </p>
                 ) : null}
               </div>
 
@@ -445,29 +504,40 @@ export const ConversationView = () => {
 
               {attachments.length > 0 ? (
                 <ul className="mt-3 grid gap-2">
-                  {attachments.map(item => (
-                    <li
-                      key={item.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-800">
-                          {item.name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {item.kind.toUpperCase()} {' - '}
-                          {formatFileSize(item.size)}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(item.id)}
-                        className="text-xs font-semibold text-red-600 transition hover:text-red-500"
+                  {attachments.map(item => {
+                    const oversized = !isAttachmentWithinSizeLimit(item.size)
+                    return (
+                      <li
+                        key={item.id}
+                        className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
+                          oversized
+                            ? 'border-amber-300 bg-amber-50'
+                            : 'border-slate-200 bg-white'
+                        }`}
                       >
-                        Remover
-                      </button>
-                    </li>
-                  ))}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-800">
+                            {item.name}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {item.kind.toUpperCase()} -{' '}
+                            {formatFileSize(item.size)}
+                            {oversized
+                              ? ` (excede ${WIDGET_ATTACHMENT_MAX_MB} MB)`
+                              : null}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(item.id)}
+                          disabled={isSending}
+                          className="text-xs font-semibold text-red-600 transition hover:text-red-500 disabled:opacity-60"
+                        >
+                          Remover
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
               ) : (
                 <p className="mt-3 text-xs text-slate-500">
@@ -477,17 +547,16 @@ export const ConversationView = () => {
             </div>
 
             <div className="mt-5 flex justify-end">
-              <button
-                type="submit"
-                disabled={!canSubmit}
-                className="inline-flex h-11 items-center justify-center rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
-              >
+              <Button type="submit" disabled={!canSubmit} size="lg">
                 {isSending ? 'Enviando...' : 'Enviar'}
-              </button>
+              </Button>
             </div>
 
             {feedbackMessage ? (
-              <p className="mt-3 text-sm text-slate-600">{feedbackMessage}</p>
+              <StatusBanner
+                variant={feedbackVariant}
+                message={feedbackMessage}
+              />
             ) : null}
           </form>
         )}

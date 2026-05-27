@@ -1,3 +1,9 @@
+import {
+  formatAudioTime,
+  sanitizeAudioDuration,
+} from '@/app/bitrix/widget/audio/_lib/format-audio-time'
+import { formatFileSize } from '@/app/bitrix/widget/audio/_lib/format-file-size'
+
 type AudioPreviewPanelProps = {
   audioRef: React.RefObject<HTMLAudioElement | null>
   audioUrl: string
@@ -5,6 +11,8 @@ type AudioPreviewPanelProps = {
   isSending: boolean
   duration: number
   currentTime: number
+  fallbackDurationSeconds?: number
+  blobSize?: number
   onLoadedMetadata: (duration: number) => void
   onTimeUpdate: (time: number) => void
   onPlay: () => void
@@ -17,14 +25,6 @@ type AudioPreviewPanelProps = {
   sendLabel?: string
 }
 
-const formatTime = (seconds: number) => {
-  if (!Number.isFinite(seconds) || seconds < 0) return '00:00'
-  const total = Math.floor(seconds)
-  const min = Math.floor(total / 60)
-  const sec = total % 60
-  return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-}
-
 export function AudioPreviewPanel({
   audioRef,
   audioUrl,
@@ -32,6 +32,8 @@ export function AudioPreviewPanel({
   isSending,
   duration,
   currentTime,
+  fallbackDurationSeconds = 0,
+  blobSize,
   onLoadedMetadata,
   onTimeUpdate,
   onPlay,
@@ -43,11 +45,29 @@ export function AudioPreviewPanel({
   onSend,
   sendLabel = 'Enviar',
 }: AudioPreviewPanelProps) {
+  const sanitizedDuration = sanitizeAudioDuration(duration)
+  const effectiveDuration =
+    sanitizedDuration > 0
+      ? sanitizedDuration
+      : sanitizeAudioDuration(fallbackDurationSeconds)
+  const sliderMax = effectiveDuration > 0 ? effectiveDuration : 0
+  const sliderValue = Math.min(currentTime, sliderMax || currentTime)
+
   return (
     <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-      <p className="mb-2 text-xs font-medium text-slate-700">
-        Preview do audio
-      </p>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-medium text-slate-700">Preview do audio</p>
+        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+          {effectiveDuration > 0 ? (
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700">
+              {formatAudioTime(effectiveDuration)}
+            </span>
+          ) : null}
+          {blobSize != null && blobSize > 0 ? (
+            <span>{formatFileSize(blobSize)}</span>
+          ) : null}
+        </div>
+      </div>
       <audio
         ref={audioRef}
         src={audioUrl}
@@ -65,7 +85,8 @@ export function AudioPreviewPanel({
         <button
           type="button"
           onClick={onTogglePlayback}
-          className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-slate-900 text-white transition hover:bg-slate-800"
+          aria-label={isPlaying ? 'Pausar audio' : 'Reproduzir audio'}
+          className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full bg-slate-900 text-white transition hover:bg-slate-800 focus-visible:ring-4 focus-visible:ring-blue-100"
         >
           {isPlaying ? (
             <svg
@@ -87,19 +108,24 @@ export function AudioPreviewPanel({
           )}
         </button>
 
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <input
             type="range"
             min={0}
-            max={duration || 0}
+            max={sliderMax}
             step={0.01}
-            value={Math.min(currentTime, duration || 0)}
+            value={sliderValue}
             onChange={event => onSeek(Number(event.target.value))}
-            className="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-200"
+            aria-label="Posicao do audio"
+            aria-valuemin={0}
+            aria-valuemax={sliderMax}
+            aria-valuenow={sliderValue}
+            disabled={sliderMax <= 0}
+            className="h-1 w-full cursor-pointer appearance-none rounded-full bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
           />
-          <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(duration)}</span>
+          <div className="mt-1 flex items-center justify-between font-mono text-[11px] text-slate-500">
+            <span>{formatAudioTime(currentTime)}</span>
+            <span>{formatAudioTime(effectiveDuration)}</span>
           </div>
         </div>
       </div>
@@ -108,7 +134,7 @@ export function AudioPreviewPanel({
         <button
           type="button"
           onClick={onDelete}
-          className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
+          className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100 focus-visible:ring-4 focus-visible:ring-blue-100"
         >
           Excluir
         </button>
@@ -116,7 +142,7 @@ export function AudioPreviewPanel({
           type="button"
           onClick={onSend}
           disabled={isSending}
-          className="cursor-pointer rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          className="cursor-pointer rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-800 focus-visible:ring-4 focus-visible:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {isSending ? 'Enviando...' : sendLabel}
         </button>

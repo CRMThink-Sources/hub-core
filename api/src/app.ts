@@ -133,4 +133,33 @@ app.post(
 // Jobs
 startCredentialRefreshJob()
 
+app.use(
+  (
+    err: unknown,
+    _req: express.Request,
+    res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({
+          result: { error: 'File too large (max 30 MB per file)' },
+        })
+      }
+
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(413).json({
+          result: { error: 'Too many files (max 10 per request)' },
+        })
+      }
+
+      return res.status(400).json({
+        result: { error: `Upload error: ${err.message}` },
+      })
+    }
+
+    return next(err)
+  },
+)
+
 export { app }

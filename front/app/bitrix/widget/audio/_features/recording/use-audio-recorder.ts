@@ -1,5 +1,6 @@
 'use client'
 
+import { computeRecordingDurationSeconds } from '@/app/bitrix/widget/audio/_lib/format-audio-time'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 const RECORDING_TIMESLICE_MS = 1000
@@ -37,6 +38,8 @@ export function useAudioRecorder() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [recordingElapsedSeconds, setRecordingElapsedSeconds] = useState(0)
+  const [recordedDurationSeconds, setRecordedDurationSeconds] = useState(0)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -45,6 +48,28 @@ export function useAudioRecorder() {
   const animationFrameRef = useRef<number | null>(null)
   const audioUrlRef = useRef<string | null>(null)
   const recorderMimeTypeRef = useRef<string>('audio/webm')
+  const recordingStartedAtRef = useRef<number | null>(null)
+  const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const stopElapsedTimer = useCallback(() => {
+    if (elapsedIntervalRef.current) {
+      clearInterval(elapsedIntervalRef.current)
+      elapsedIntervalRef.current = null
+    }
+  }, [])
+
+  const startElapsedTimer = useCallback(() => {
+    stopElapsedTimer()
+    recordingStartedAtRef.current = Date.now()
+    setRecordingElapsedSeconds(0)
+    elapsedIntervalRef.current = setInterval(() => {
+      const startedAt = recordingStartedAtRef.current
+      if (!startedAt) return
+      setRecordingElapsedSeconds(
+        Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
+      )
+    }, 1000)
+  }, [stopElapsedTimer])
 
   const stopVolumeAnimation = useCallback(() => {
     if (animationFrameRef.current) {
@@ -71,6 +96,7 @@ export function useAudioRecorder() {
     revokeAudioUrl()
     setAudioUrl(null)
     setAudioBlob(null)
+    setRecordedDurationSeconds(0)
   }, [revokeAudioUrl])
 
   const startRecording = useCallback(async () => {
@@ -83,6 +109,8 @@ export function useAudioRecorder() {
       }
 
       clearRecording()
+      stopElapsedTimer()
+      recordingStartedAtRef.current = null
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mimeType = resolveRecorderMimeType()
@@ -133,6 +161,11 @@ export function useAudioRecorder() {
       }
 
       recorder.onstop = () => {
+        const startedAt = recordingStartedAtRef.current
+        const durationSeconds = startedAt
+          ? computeRecordingDurationSeconds(startedAt, Date.now())
+          : 0
+
         const blobType =
           recorder.mimeType || recorderMimeTypeRef.current || 'audio/webm'
         const recordedAudioBlob = new Blob(audioChunksRef.current, {
@@ -142,21 +175,28 @@ export function useAudioRecorder() {
         audioUrlRef.current = url
         setAudioBlob(recordedAudioBlob)
         setAudioUrl(url)
+        setRecordedDurationSeconds(durationSeconds)
+        setRecordingElapsedSeconds(0)
 
         mediaStreamRef.current?.getTracks().forEach(track => track.stop())
         mediaStreamRef.current = null
         mediaRecorderRef.current = null
+        recordingStartedAtRef.current = null
         stopVolumeAnimation()
+        stopElapsedTimer()
       }
 
       recorder.start(RECORDING_TIMESLICE_MS)
+      startElapsedTimer()
       setIsRecording(true)
     } catch (err) {
       console.error(err)
       setError(resolveMicrophoneError(err))
       setIsRecording(false)
+      stopElapsedTimer()
+      recordingStartedAtRef.current = null
     }
-  }, [clearRecording, stopVolumeAnimation])
+  }, [clearRecording, startElapsedTimer, stopElapsedTimer, stopVolumeAnimation])
 
   const stopRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current
@@ -177,6 +217,7 @@ export function useAudioRecorder() {
 
   useEffect(() => {
     return () => {
+      stopElapsedTimer()
       stopVolumeAnimation()
       revokeAudioUrl()
       mediaStreamRef.current?.getTracks().forEach(track => track.stop())
@@ -191,7 +232,7 @@ export function useAudioRecorder() {
       }
       mediaRecorderRef.current = null
     }
-  }, [revokeAudioUrl, stopVolumeAnimation])
+  }, [revokeAudioUrl, stopElapsedTimer, stopVolumeAnimation])
 
   return {
     isRecording,
@@ -199,6 +240,8 @@ export function useAudioRecorder() {
     audioUrl,
     audioBlob,
     error,
+    recordingElapsedSeconds,
+    recordedDurationSeconds,
     setError,
     toggleRecording,
     clearRecording,

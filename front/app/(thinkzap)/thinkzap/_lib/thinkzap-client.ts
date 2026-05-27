@@ -43,10 +43,16 @@ export function resolveThinkzapClient(): ResolvedThinkzapClient {
 
 /** Extrai `result.error` da resposta da API ou usa o fallback. */
 export function thinkzapApiErrorMessage(e: unknown, fallback: string): string {
-  if (axios.isAxiosError(e) && e.response?.data?.result?.error) {
-    return String(
-      (e.response.data as { result?: { error?: string } }).result?.error,
-    )
+  if (axios.isAxiosError(e)) {
+    if (e.response?.status === 413) {
+      return 'Arquivo muito grande (max. 30 MB por arquivo).'
+    }
+
+    if (e.response?.data?.result?.error) {
+      return String(
+        (e.response.data as { result?: { error?: string } }).result?.error,
+      )
+    }
   }
   return fallback
 }

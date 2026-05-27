@@ -17,6 +17,8 @@ import { makeEndTrialSubscriptionController } from './main/end-trial-subscriptio
 import { makeActivateTrialController } from './main/make-activate-trial-controller'
 import { makeListDestinationsController } from './main/make-list-destinations-controller'
 import { makeSendWidgetMessageController } from './main/make-send-widget-message-controller'
+import { makeSendWidgetMessageMultipartController } from './main/make-send-widget-message-multipart-controller'
+import { widgetMessageUploadParser } from './infra/http/widget-message-upload.multer'
 import { makeAddGroupParticipantsController } from './main/make-add-group-participants-controller'
 import { makeCreateGroupController } from './main/make-create-group-controller'
 import { makeGetGroupMetadataController } from './main/make-get-group-metadata-controller'
@@ -173,6 +175,12 @@ export const createThinkerszapRoutes = (): Router => {
     '/messages/send-widget',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeSendWidgetMessageController),
+  )
+  router.post(
+    '/messages/send-widget-multipart',
+    requireThinkzapPermission('connectors', 'update'),
+    widgetMessageUploadParser.array('files', 10),
+    adaptControllerFactory(makeSendWidgetMessageMultipartController),
   )
   router.get(
     '/contacts',
