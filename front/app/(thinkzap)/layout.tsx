@@ -85,7 +85,8 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
   const accessBlocked = useMemo(() => {
     if (!pathname) return false
     if (
-      (pathname.startsWith('/thinkzap/conexoes') ||
+      (pathname === '/thinkzap' ||
+        pathname.startsWith('/thinkzap/conexoes') ||
         pathname.startsWith('/thinkzap/connector')) &&
       thinkzapAccess &&
       !thinkzapAccess.canAccess
