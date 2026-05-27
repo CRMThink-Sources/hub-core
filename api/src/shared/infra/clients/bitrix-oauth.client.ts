@@ -1,3 +1,4 @@
+import { resolveBitrixTokenExpiresAt } from '@/modules/thinkzap/application/resolve-bitrix-token-expires-at'
 import axios from 'axios'
 import {
   RefreshTokenGateway,
@@ -35,7 +36,7 @@ export class BitrixOAuthClient implements RefreshTokenGateway {
       return {
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
-        expiresAt: new Date(Date.now() + data.expires_in * 1000),
+        expiresAt: resolveBitrixTokenExpiresAt(data.expires_in),
       }
     } catch (error: unknown) {
       const message =
