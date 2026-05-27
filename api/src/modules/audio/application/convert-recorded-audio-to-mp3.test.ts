@@ -5,7 +5,9 @@ import {
 } from './convert-recorded-audio-to-mp3'
 
 vi.mock('@/shared/helpers/convert-to-mp3', () => ({
-  convertToMp3: vi.fn(async (buf: Buffer) => Buffer.from(`mp3:${buf.toString()}`)),
+  convertToMp3: vi.fn(async (buf: Buffer) =>
+    Promise.resolve(Buffer.from(`mp3:${buf.toString()}`)),
+  ),
 }))
 
 describe('toMp3FileName', () => {
