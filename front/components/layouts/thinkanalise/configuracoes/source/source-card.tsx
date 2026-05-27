@@ -10,18 +10,9 @@ import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
 import { DatasetCard } from '../dataset/dataset-card'
 import { DatasetForm } from '../dataset/dataset-form'
 import { useLoading } from '@/providers/loading-provider'
+import { useTranslation } from 'react-i18next'
 
 const AUTH_TOKEN_KEY = 'hubthink_auth_token'
-
-const CREDENTIAL_LABEL: Record<string, string> = {
-  asaas: 'API Key',
-  omie: 'API Key',
-}
-
-const CREDENTIAL_PLACEHOLDER: Record<string, string> = {
-  asaas: 'Cole sua chave aqui',
-  omie: 'Cole sua chave aqui',
-}
 
 type Props = {
   source: Source
@@ -58,6 +49,7 @@ export function SourceCard({
 }: Props) {
   const isContaAzul = provider === 'conta_azul'
   const isSonax = provider === 'sonax'
+  const { t } = useTranslation('thinkanalise/configuracoes/source')
 
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState({ title: source.title, apiKey: '' })
@@ -122,7 +114,7 @@ export function SourceCard({
 
   async function handleSave() {
     setSaving(true)
-    setLoading(true, 'Salvando...')
+    setLoading(true, t('loading.salvando'))
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       const fields: { title?: string; settings?: SourceSettings } = {}
@@ -164,7 +156,7 @@ export function SourceCard({
 
   async function handleDelete() {
     setDeleting(true)
-    setLoading(true, 'Removendo...')
+    setLoading(true, t('loading.removendo'))
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await client.delete(`/thinkanalise/source/${source.id}`)
@@ -176,7 +168,7 @@ export function SourceCard({
   }
 
   async function handleToggleActive() {
-    setLoading(true, 'Atualizando...')
+    setLoading(true, t('loading.atualizando'))
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await client.put(`/thinkanalise/source/${source.id}`, {
@@ -219,11 +211,11 @@ export function SourceCard({
 
         <button
           onClick={() => void handleToggleActive()}
-          title={source.active ? 'Desativar' : 'Ativar'}
+          title={source.active ? t('botoes.desativar') : t('botoes.ativar')}
           className={`w-2 h-2 rounded-full transition-colors cursor-pointer ${source.active ? 'bg-[#4a7fd4]' : 'bg-gray-300'}`}
         />
         <span className="text-xs text-gray-400 font-mono">
-          {source.active ? 'ativo' : 'inativo'}
+          {source.active ? t('status.ativo') : t('status.inativo')}
         </span>
       </div>
 
@@ -235,7 +227,7 @@ export function SourceCard({
               <span
                 className={`text-xs font-mono ${isConnected ? 'text-[#4a7fd4]' : 'text-gray-400'}`}
               >
-                {isConnected ? 'conectado' : 'não conectado'}
+                {isConnected ? t('status.conectado') : t('status.naoConectado')}
               </span>
               <button
                 onClick={() => void handleConnectOAuth()}
@@ -243,11 +235,11 @@ export function SourceCard({
                 className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
                            hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
               >
-                {connecting ? 'redirecionando...' : 'reconectar com Conta Azul'}
+                {connecting ? t('botoes.redirecionando') : t('botoes.reconectarContaAzul')}
               </button>
               {connectError && (
                 <span className="text-xs font-mono text-red-600">
-                  erro ao iniciar conexão
+                  {t('botoes.erroConexao')}
                 </span>
               )}
             </div>
@@ -255,7 +247,7 @@ export function SourceCard({
             <>
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                  ID Cliente
+                  {t('campos.idCliente')}
                 </label>
                 <input
                   type="text"
@@ -263,7 +255,7 @@ export function SourceCard({
                   onChange={e =>
                     setSonaxDraft(d => ({ ...d, id_cliente: e.target.value }))
                   }
-                  placeholder="Deixe em branco para manter"
+                  placeholder={t('campos.manterPlaceholder')}
                   className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-white text-black outline-none
                              focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20
                              hover:border-[#223f6e] transition-colors"
@@ -271,7 +263,7 @@ export function SourceCard({
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                  Token
+                  {t('campos.token')}
                 </label>
                 <input
                   type="password"
@@ -279,7 +271,7 @@ export function SourceCard({
                   onChange={e =>
                     setSonaxDraft(d => ({ ...d, token: e.target.value }))
                   }
-                  placeholder="Deixe em branco para manter"
+                  placeholder={t('campos.manterPlaceholder')}
                   className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-white text-black outline-none
                              focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20
                              hover:border-[#223f6e] transition-colors"
@@ -294,16 +286,16 @@ export function SourceCard({
                   className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
                              hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  {testing ? 'testando...' : 'testar conexão'}
+                  {testing ? t('botoes.testando') : t('botoes.testarConexao')}
                 </button>
                 {testStatus === 'ok' && (
                   <span className="text-xs font-mono text-[#4a7fd4]">
-                    conexão ok
+                    {t('status.conexaoOk')}
                   </span>
                 )}
                 {testStatus === 'erro' && (
                   <span className="text-xs font-mono text-red-600">
-                    credenciais inválidas
+                    {t('status.credenciaisInvalidas')}
                   </span>
                 )}
               </div>
@@ -312,7 +304,7 @@ export function SourceCard({
             <>
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                  {CREDENTIAL_LABEL[provider] ?? 'API Key'}
+                  {t('campos.apiKey')}
                 </label>
                 <input
                   type="password"
@@ -320,7 +312,7 @@ export function SourceCard({
                   onChange={e =>
                     setDraft(d => ({ ...d, apiKey: e.target.value }))
                   }
-                  placeholder="Deixe em branco para manter"
+                  placeholder={t('campos.manterPlaceholder')}
                   className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-white text-black outline-none
                              focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20
                              hover:border-[#223f6e] transition-colors"
@@ -334,16 +326,16 @@ export function SourceCard({
                   className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
                              hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  {testing ? 'testando...' : 'testar conexão'}
+                  {testing ? t('botoes.testando') : t('botoes.testarConexao')}
                 </button>
                 {testStatus === 'ok' && (
                   <span className="text-xs font-mono text-[#4a7fd4]">
-                    conexão ok
+                    {t('status.conexaoOk')}
                   </span>
                 )}
                 {testStatus === 'erro' && (
                   <span className="text-xs font-mono text-red-600">
-                    api key inválida
+                    {t('status.apiKeyInvalida')}
                   </span>
                 )}
               </div>
@@ -356,7 +348,7 @@ export function SourceCard({
       <div className="px-4 pb-4 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-            Datasets ({datasets.length})
+            {t('datasets')} ({datasets.length})
           </span>
           {!addingDataset && (
             <button
@@ -365,7 +357,7 @@ export function SourceCard({
                          hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all cursor-pointer"
             >
               <span className="text-base leading-none">+</span>
-              novo dataset
+              {t('novoDataset')}
             </button>
           )}
         </div>
@@ -400,14 +392,14 @@ export function SourceCard({
               onClick={handleCancelEdit}
               className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400 hover:bg-gray-50 transition-all cursor-pointer"
             >
-              cancelar
+              {t('botoes.cancelar')}
             </button>
             <button
               onClick={() => void handleSave()}
               disabled={saving || !draft.title}
               className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
             >
-              {saving ? 'salvando...' : 'salvar'}
+              {saving ? t('botoes.salvando') : t('botoes.salvar')}
             </button>
           </>
         ) : (
@@ -418,13 +410,13 @@ export function SourceCard({
               className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
                          hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all disabled:opacity-50 cursor-pointer"
             >
-              {deleting ? 'removendo...' : 'remover'}
+              {deleting ? t('botoes.removendo') : t('botoes.remover')}
             </button>
             <button
               onClick={() => setIsEditing(true)}
               className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#223f6e] text-[#223f6e] hover:bg-[#eef2f9] transition-colors cursor-pointer"
             >
-              editar
+              {t('botoes.editar')}
             </button>
           </>
         )}
@@ -441,6 +433,7 @@ export function NewSourceCard({
 }: NewSourceProps) {
   const isContaAzul = provider === 'conta_azul'
   const isSonax = provider === 'sonax'
+  const { t } = useTranslation('thinkanalise/configuracoes/source')
 
   const [title, setTitle] = useState('')
   const [apiKey, setApiKey] = useState('')
@@ -492,7 +485,7 @@ export function NewSourceCard({
       : apiKey
     if (!title || !effectiveApiKey) return
     setSaving(true)
-    setLoading(true, 'Salvando...')
+    setLoading(true, t('loading.salvando'))
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await client.post(`/thinkanalise/connector/${connectorId}/source`, {
@@ -513,7 +506,7 @@ export function NewSourceCard({
     if (!title) return
     setSaving(true)
     setSaveConnectError(false)
-    setLoading(true, 'Salvando...')
+    setLoading(true, t('loading.salvando'))
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await startContaAzulOAuth(client, { connectorId, title })
@@ -531,13 +524,13 @@ export function NewSourceCard({
       <div className="px-4 pt-4 pb-3 flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-            Nome da Fonte
+            {t('campos.nomeFonte')}
           </label>
           <input
             type="text"
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="Ex: Clientes inadimplentes"
+            placeholder={t('campos.nomeFontePlaceholder')}
             className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
                        focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
                        hover:border-[#223f6e] transition-colors"
@@ -548,7 +541,7 @@ export function NewSourceCard({
           <>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                ID Cliente
+                {t('campos.idCliente')}
               </label>
               <input
                 type="text"
@@ -564,7 +557,7 @@ export function NewSourceCard({
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                Token
+                {t('campos.token')}
               </label>
               <input
                 type="password"
@@ -587,16 +580,16 @@ export function NewSourceCard({
                 className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
                            hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
               >
-                {testing ? 'testando...' : 'testar conexão'}
+                {testing ? t('botoes.testando') : t('botoes.testarConexao')}
               </button>
               {testStatus === 'ok' && (
                 <span className="text-xs font-mono text-[#4a7fd4]">
-                  conexão ok
+                  {t('status.conexaoOk')}
                 </span>
               )}
               {testStatus === 'erro' && (
                 <span className="text-xs font-mono text-red-600">
-                  credenciais inválidas
+                  {t('status.credenciaisInvalidas')}
                 </span>
               )}
             </div>
@@ -607,15 +600,13 @@ export function NewSourceCard({
           <>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                {CREDENTIAL_LABEL[provider] ?? 'API Key'}
+                {t('campos.apiKey')}
               </label>
               <input
                 type="password"
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
-                placeholder={
-                  CREDENTIAL_PLACEHOLDER[provider] ?? 'Cole sua chave aqui'
-                }
+                placeholder={t('campos.apiKeyPlaceholder')}
                 className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
                            focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
                            hover:border-[#223f6e] transition-colors"
@@ -629,16 +620,16 @@ export function NewSourceCard({
                 className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
                            hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
               >
-                {testing ? 'testando...' : 'testar conexão'}
+                {testing ? t('botoes.testando') : t('botoes.testarConexao')}
               </button>
               {testStatus === 'ok' && (
                 <span className="text-xs font-mono text-[#4a7fd4]">
-                  conexão ok
+                  {t('status.conexaoOk')}
                 </span>
               )}
               {testStatus === 'erro' && (
                 <span className="text-xs font-mono text-red-600">
-                  api key inválida
+                  {t('status.apiKeyInvalida')}
                 </span>
               )}
             </div>
@@ -651,7 +642,7 @@ export function NewSourceCard({
           onClick={onCancel}
           className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400 hover:bg-gray-50 transition-all cursor-pointer"
         >
-          cancelar
+          {t('botoes.cancelar')}
         </button>
         {isContaAzul ? (
           <>
@@ -661,12 +652,12 @@ export function NewSourceCard({
               className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
             >
               {saving
-                ? 'redirecionando...'
-                : 'salvar e conectar com Conta Azul'}
+                ? t('botoes.redirecionando')
+                : t('botoes.salvarConectarContaAzul')}
             </button>
             {saveConnectError && (
               <span className="text-xs font-mono text-red-600 mr-auto">
-                erro ao iniciar conexão
+                {t('botoes.erroConexao')}
               </span>
             )}
           </>
@@ -680,7 +671,7 @@ export function NewSourceCard({
             }
             className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
           >
-            {saving ? 'salvando...' : 'salvar fonte'}
+            {saving ? t('botoes.salvando') : t('botoes.salvarFonte')}
           </button>
         )}
       </div>

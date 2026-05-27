@@ -7,6 +7,7 @@ import { PROVIDERS } from './constants'
 import { useSession } from '@/providers/session-provider'
 import { LoadingProvider } from '@/providers/loading-provider'
 import { LoadingOverlay } from '@/components/ui/loading-overlay'
+import { useTranslation } from 'react-i18next'
 
 type BitrixConnector = {
   id: number
@@ -16,6 +17,7 @@ type BitrixConnector = {
 
 export default function ConfiguracoesLayout() {
   const { session, refreshSession } = useSession()
+  const { t } = useTranslation('thinkanalise/configuracoes/page')
   const refreshSessionRef = useRef(refreshSession)
   useEffect(() => {
     refreshSessionRef.current = refreshSession
@@ -154,8 +156,8 @@ export default function ConfiguracoesLayout() {
           >
             <span>
               {oauthBanner === 'success'
-                ? 'Conta Azul conectada com sucesso.'
-                : 'Não foi possível conectar com a Conta Azul. Tente novamente.'}
+                ? t('oauth.sucesso')
+                : t('oauth.erro')}
             </span>
             <button
               onClick={() => setOauthBanner(null)}
@@ -169,10 +171,8 @@ export default function ConfiguracoesLayout() {
         {/* header */}
         <div className="flex items-center justify-between w-full max-w-3xl mx-auto bg-white p-6 rounded-xl border border-[#e5e7eb]">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Configurações</h1>
-            <h2 className="text-sm text-gray-400 mt-1">
-              Crie e gerencie as conexões de API
-            </h2>
+            <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
+            <h2 className="text-sm text-gray-400 mt-1">{t('subtitle')}</h2>
           </div>
           <button
             onClick={addConnection}
@@ -182,7 +182,7 @@ export default function ConfiguracoesLayout() {
             <span className="w-4 h-4 rounded-full bg-[#223f6e] text-white flex items-center justify-center text-xs leading-none">
               +
             </span>
-            nova conexão
+            {t('novaConexao')}
           </button>
         </div>
 
@@ -190,7 +190,7 @@ export default function ConfiguracoesLayout() {
         <div className="w-full max-w-3xl mx-auto flex flex-col gap-6">
           {!hasAny && (
             <p className="text-sm text-gray-400 font-mono px-1">
-              nenhuma conexão ainda.
+              {t('nenhumaConexao')}
             </p>
           )}
 

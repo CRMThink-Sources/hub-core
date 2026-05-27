@@ -54,7 +54,7 @@ async function ensureFreshAccessToken(
 
 async function main() {
   const { domain, all } = parseArgs(process.argv.slice(2))
-
+  console.log('domain', domain)
   if (!domain && !all) {
     console.error(
       'Usage: yarn migrate:audio-im-textarea --domain=empresa.bitrix24.com.br',
@@ -65,7 +65,7 @@ async function main() {
 
   const apps = await prisma.app.findMany({
     where: {
-      appCode: { code: env.appCodes.thinkzap },
+      appCodeId: 'crmthink.thinkzap',
       ...(domain ? { domain: { name: domain } } : {}),
     },
     include: {
@@ -85,12 +85,12 @@ async function main() {
 
   for (const app of apps) {
     const portal = app.domain.name
-
+    console.log('portal', portal)
     if (!app.credential) {
       console.warn(`[skip] ${portal}: credential not found`)
       continue
     }
-
+    console.log('credential', app.credential)
     try {
       const accessToken = await ensureFreshAccessToken(
         {
@@ -103,12 +103,13 @@ async function main() {
         },
         credentialRepo,
       )
-
+      console.log('accessToken', accessToken)
       const client = new BitrixRestClient(portal, accessToken)
       await migration.execute(client)
+      console.log('migrated')
       console.log(`[ok] ${portal}: migrated audio widget to IM_TEXTAREA`)
     } catch (error) {
-      console.error(`[error] ${portal}:`, (error as Error).message ?? error)
+      console.error(`[error] ${portal}:`, (error as Error) ?? error)
     }
   }
 }

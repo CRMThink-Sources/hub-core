@@ -155,19 +155,6 @@ export const Aside = ({
                 e.currentTarget.style.backgroundColor = 'transparent'
             }}
           >
-            {isActive(link.href) && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: '4px',
-                  borderRadius: '0 4px 4px 0',
-                  backgroundColor: accentColor,
-                }}
-              />
-            )}
             <img
               src={link.icon}
               alt={link.label}

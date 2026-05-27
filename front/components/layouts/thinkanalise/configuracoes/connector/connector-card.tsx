@@ -8,30 +8,31 @@ import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
 import { SourceCard, NewSourceCard } from '../source/source-card'
 import { toast } from 'sonner'
 import { useLoading } from '@/providers/loading-provider'
+import { useTranslation } from 'react-i18next'
 
 const PROVIDER_COLORS: Record<
   string,
   { bg: string; text: string; border: string }
 > = {
   asaas: {
-    bg: 'bg-[#e8eef7]',
-    text: 'text-[#223f6e]',
-    border: 'border-[#e5e7eb]',
+    bg: 'bg-[#dbeafe]',
+    text: 'text-[#1e40af]',
+    border: 'border-[#93c5fd]',
   },
   conta_azul: {
-    bg: 'bg-[#e8eef7]',
-    text: 'text-[#223f6e]',
-    border: 'border-[#e5e7eb]',
+    bg: 'bg-[#e0f2fe]',
+    text: 'text-[#0369a1]',
+    border: 'border-[#bae6fd]',
   },
   omie: {
-    bg: 'bg-[#e8eef7]',
-    text: 'text-[#223f6e]',
-    border: 'border-[#e5e7eb]',
+    bg: 'bg-[#fff7ed]',
+    text: 'text-[#c2410c]',
+    border: 'border-[#fed7aa]',
   },
   sonax: {
-    bg: 'bg-[#e8eef7]',
-    text: 'text-[#223f6e]',
-    border: 'border-[#e5e7eb]',
+    bg: 'bg-[#ecfeff]',
+    text: 'text-[#0891b2]',
+    border: 'border-[#a5f3fc]',
   },
 }
 
@@ -55,6 +56,7 @@ export function ConnectorCard({
   onToggle,
 }: Props) {
   const { session } = useSession()
+  const { t } = useTranslation('thinkanalise/configuracoes/connector')
   const BLOCKED_DOMAIN_ID = '9c8d9dca-db2d-4978-93ca-fc28ba6017d7' // domainId do cliente https://bmd.bitrix24.com.br/
   const isBlocked = session?.app?.domainId === BLOCKED_DOMAIN_ID // bloquando para o cliente apenas usar connectores asaas
   const availableProviders = isBlocked
@@ -127,7 +129,7 @@ export function ConnectorCard({
 
   async function handleSave() {
     setSaving(true)
-    setLoading(true, 'Salvando...')
+    setLoading(true, t('loading.salvando'))
     try {
       const client = axiosThinkanalise()
       if (isSaved) {
@@ -138,7 +140,7 @@ export function ConnectorCard({
           },
         )
         await onSaved(connection.id)
-        toast.success('Conector atualizado com sucesso.')
+        toast.success(t('toast.atualizado'))
       } else {
         if (!connection.label) return
         await client.post('/thinkanalise/connector', {
@@ -146,10 +148,10 @@ export function ConnectorCard({
           provider: connection.provider,
         })
         await onSaved(connection.id)
-        toast.success('Conector criado com sucesso.')
+        toast.success(t('toast.criado'))
       }
     } catch {
-      toast.error('Erro ao salvar o conector.')
+      toast.error(t('toast.erroSalvar'))
       if (!isSaved) onChange({ ...connection, status: 'erro' })
     } finally {
       setSaving(false)
@@ -163,12 +165,12 @@ export function ConnectorCard({
       return
     }
     setDeleting(true)
-    setLoading(true, 'Removendo...')
+    setLoading(true, t('loading.removendo'))
     try {
       const client = axiosThinkanalise()
       await client.delete(`/thinkanalise/connector/${connection.biconnectorId}`)
       await onDeleted()
-      toast.success('Conector removido.')
+      toast.success(t('toast.removido'))
     } catch {
       await onDeleted()
     } finally {
@@ -205,14 +207,14 @@ export function ConnectorCard({
 
         <span className="text-sm font-semibold">
           {currentLabel || (
-            <span className="text-gray-300 font-normal">sem nome</span>
+            <span className="text-gray-300 font-normal">{t('semNome')}</span>
           )}
         </span>
 
         <div className="ml-auto flex items-center gap-2">
           <span className={`w-2 h-2 rounded-full ${statusColor}`} />
           <span className="text-xs text-gray-400 font-mono">
-            {connection.status}
+            {t(`statusLabel.${connection.status}`)}
           </span>
           <svg
             width="14"
@@ -239,13 +241,13 @@ export function ConnectorCard({
             {!isSaved && (
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                  Nome
+                  {t('campos.nome')}
                 </label>
                 <input
                   type="text"
                   value={connection.label}
                   onChange={e => updateNew({ label: e.target.value })}
-                  placeholder="Nome da conexão"
+                  placeholder={t('campos.nomeConexao')}
                   className="w-full font-mono text-sm px-3 py-2.5 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
                              focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
                              hover:border-[#223f6e] transition-colors"
@@ -257,7 +259,7 @@ export function ConnectorCard({
             {isSaved && isEditing && (
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                  Nome
+                  {t('campos.nome')}
                 </label>
                 <input
                   type="text"
@@ -275,7 +277,7 @@ export function ConnectorCard({
             {/* integração */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                Integração
+                {t('campos.integracao')}
               </label>
               <select
                 value={connection.provider}
@@ -303,7 +305,7 @@ export function ConnectorCard({
             <div className="px-5 pb-5 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                  Fontes ({sources.length})
+                  {t('fontes')} ({sources.length})
                 </span>
                 {!addingSource && (
                   <button
@@ -312,14 +314,14 @@ export function ConnectorCard({
                                hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all cursor-pointer"
                   >
                     <span className="text-base leading-none">+</span>
-                    nova fonte
+                    {t('novaFonte')}
                   </button>
                 )}
               </div>
 
               {sourcesLoading && (
                 <p className="text-xs font-mono text-gray-400 px-1">
-                  carregando...
+                  {t('carregando')}
                 </p>
               )}
               {sources.map(s => (
@@ -355,7 +357,7 @@ export function ConnectorCard({
               className="text-xs font-mono px-3.5 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
                          hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all disabled:opacity-50 cursor-pointer"
             >
-              {deleting ? 'removendo...' : 'remover'}
+              {deleting ? t('acoes.removendo') : t('acoes.remover')}
             </button>
 
             {isSaved && !isEditing && (
@@ -363,7 +365,7 @@ export function ConnectorCard({
                 onClick={() => setIsEditing(true)}
                 className="text-sm font-semibold px-5 py-2 rounded-lg border border-[#223f6e] text-[#223f6e] hover:bg-[#eef2f9] transition-colors cursor-pointer"
               >
-                editar
+                {t('acoes.editar')}
               </button>
             )}
 
@@ -374,14 +376,14 @@ export function ConnectorCard({
                   className="text-xs font-mono px-3.5 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
                              hover:bg-gray-50 transition-all cursor-pointer"
                 >
-                  cancelar
+                  {t('acoes.cancelar')}
                 </button>
                 <button
                   onClick={() => void handleSave()}
                   disabled={saving || !draft.label}
                   className="text-sm font-semibold px-5 py-2 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
                 >
-                  {saving ? 'salvando...' : 'salvar'}
+                  {saving ? t('acoes.salvando') : t('acoes.salvar')}
                 </button>
               </>
             )}
@@ -392,7 +394,7 @@ export function ConnectorCard({
                 disabled={saving || !connection.label}
                 className="text-sm font-semibold px-5 py-2 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
               >
-                {saving ? 'salvando...' : 'salvar'}
+                {saving ? t('acoes.salvando') : t('acoes.salvar')}
               </button>
             )}
           </div>

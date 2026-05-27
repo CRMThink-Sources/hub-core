@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
 import { toast } from 'sonner'
 import { useLoading } from '@/providers/loading-provider'
+import { useTranslation } from 'react-i18next'
 
 type SourceFormProps = {
   connectorId: number
@@ -24,6 +25,7 @@ export function SourceForm({
   const [testStatus, setTestStatus] = useState<'idle' | 'ok' | 'erro'>('idle')
   const [testing, setTesting] = useState(false)
   const { setLoading } = useLoading()
+  const { t } = useTranslation('thinkanalise/configuracoes/source')
 
   async function handleTest() {
     setTesting(true)
@@ -44,7 +46,7 @@ export function SourceForm({
   async function handleSave() {
     if (!title || !apiKey) return
     setSaving(true)
-    setLoading(true, 'Salvando...')
+    setLoading(true, t('loading.salvando'))
     try {
       const client = axiosThinkanalise()
       await client.post(`/thinkanalise/connector/${connectorId}/source`, {
@@ -53,9 +55,9 @@ export function SourceForm({
         active: true,
       })
       await onSaved()
-      toast.success('Fonte criada com sucesso.')
+      toast.success(t('toast.fonteCriada'))
     } catch {
-      toast.error('Erro ao criar a fonte.')
+      toast.error(t('toast.erroCriarFonte'))
     } finally {
       setSaving(false)
       setLoading(false)
@@ -67,13 +69,13 @@ export function SourceForm({
       <div className="px-4 pt-4 pb-3 flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-            Nome da Fonte
+            {t('campos.nomeFonte')}
           </label>
           <input
             type="text"
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="Ex: Clientes inadimplentes"
+            placeholder={t('campos.nomeFontePlaceholder')}
             className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
                        focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
                        hover:border-[#223f6e] transition-colors"
@@ -81,13 +83,13 @@ export function SourceForm({
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-            API Key
+            {t('campos.apiKey')}
           </label>
           <input
             type="password"
             value={apiKey}
             onChange={e => setApiKey(e.target.value)}
-            placeholder="Cole sua chave aqui"
+            placeholder={t('campos.apiKeyPlaceholder')}
             className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
                        focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
                        hover:border-[#223f6e] transition-colors"
@@ -101,7 +103,7 @@ export function SourceForm({
             className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
                        hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
           >
-            {testing ? 'testando...' : 'testar conexão'}
+            {testing ? t('botoes.testando') : t('botoes.testarConexao')}
           </button>
           {testStatus === 'ok' && (
             <span className="flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold">
@@ -115,7 +117,7 @@ export function SourceForm({
                   strokeLinejoin="round"
                 />
               </svg>
-              conexão autenticada
+              {t('status.conexaoAutenticada')}
             </span>
           )}
           {testStatus === 'erro' && (
@@ -129,7 +131,7 @@ export function SourceForm({
                   strokeLinecap="round"
                 />
               </svg>
-              api key inválida
+              {t('status.apiKeyInvalida')}
             </span>
           )}
         </div>
@@ -140,14 +142,14 @@ export function SourceForm({
           onClick={onCancel}
           className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400 hover:bg-gray-50 transition-all cursor-pointer"
         >
-          cancelar
+          {t('botoes.cancelar')}
         </button>
         <button
           onClick={() => void handleSave()}
           disabled={saving || !title || !apiKey}
           className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
         >
-          {saving ? 'salvando...' : 'salvar fonte'}
+          {saving ? t('botoes.salvando') : t('botoes.salvarFonte')}
         </button>
       </div>
     </div>

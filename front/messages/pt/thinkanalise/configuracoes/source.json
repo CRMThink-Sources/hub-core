@@ -1,0 +1,49 @@
+{
+  "loading": {
+    "salvando": "Salvando...",
+    "atualizando": "Atualizando...",
+    "removendo": "Removendo..."
+  },
+  "status": {
+    "ativo": "ativo",
+    "inativo": "inativo",
+    "conectado": "conectado",
+    "naoConectado": "não conectado",
+    "conexaoOk": "conexão ok",
+    "credenciaisInvalidas": "credenciais inválidas",
+    "apiKeyInvalida": "api key inválida",
+    "conexaoAutenticada": "conexão autenticada"
+  },
+  "toast": {
+    "fonteCriada": "Fonte criada com sucesso.",
+    "erroCriarFonte": "Erro ao criar a fonte."
+  },
+  "botoes": {
+    "desativar": "Desativar",
+    "ativar": "Ativar",
+    "redirecionando": "redirecionando...",
+    "reconectarContaAzul": "reconectar com Conta Azul",
+    "erroConexao": "erro ao iniciar conexão",
+    "testarConexao": "testar conexão",
+    "testando": "testando...",
+    "cancelar": "cancelar",
+    "remover": "remover",
+    "removendo": "removendo...",
+    "editar": "editar",
+    "salvar": "salvar",
+    "salvando": "salvando...",
+    "salvarFonte": "salvar fonte",
+    "salvarConectarContaAzul": "salvar e conectar com Conta Azul"
+  },
+  "campos": {
+    "nomeFonte": "Nome da Fonte",
+    "nomeFontePlaceholder": "Ex: Clientes inadimplentes",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Cole sua chave aqui",
+    "idCliente": "ID Cliente",
+    "token": "Token",
+    "manterPlaceholder": "Deixe em branco para manter"
+  },
+  "datasets": "Datasets",
+  "novoDataset": "novo dataset"
+}

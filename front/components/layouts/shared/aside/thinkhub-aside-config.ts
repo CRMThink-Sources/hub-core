@@ -16,9 +16,9 @@ export const THINKHUB_ASIDE_CONFIG = {
     { code: 'es', flag: '/images/i18n-icon/4x3/es.svg' },
   ],
   bgColor: '#F9F9FB', // cor de fundo, branco
-  activeColor: '#4a7fd4', // cor de botao ativo -> azul
-  hoverColor: '#223f6e', // cor que fica ao mouse passar pela opcao
+  activeColor: '#dbeafe', // cor de botao ativo -> azul claro
+  hoverColor: '#eff6ff', // cor que fica ao mouse passar pela opcao
   borderColor: '#e5e7eb', // cor da borda das caixas
-  accentColor: '#5A997E', // cor das sobreposicoes
+  accentColor: '#3b82f6', // cor das sobreposicoes
   betaMode: true,
 }

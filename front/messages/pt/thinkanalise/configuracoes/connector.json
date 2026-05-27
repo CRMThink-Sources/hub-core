@@ -1,0 +1,34 @@
+{
+  "loading": {
+    "salvando": "Salvando...",
+    "removendo": "Removendo..."
+  },
+  "toast": {
+    "atualizado": "Conector atualizado com sucesso.",
+    "criado": "Conector criado com sucesso.",
+    "erroSalvar": "Erro ao salvar o conector.",
+    "removido": "Conector removido."
+  },
+  "semNome": "sem nome",
+  "campos": {
+    "nome": "Nome",
+    "nomeConexao": "Nome da conexão",
+    "integracao": "Integração"
+  },
+  "fontes": "Fontes",
+  "carregando": "carregando...",
+  "novaFonte": "nova fonte",
+  "statusLabel": {
+    "conectado": "conectado",
+    "pendente": "pendente",
+    "erro": "erro"
+  },
+  "acoes": {
+    "remover": "remover",
+    "removendo": "removendo...",
+    "editar": "editar",
+    "cancelar": "cancelar",
+    "salvar": "salvar",
+    "salvando": "salvando..."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "title": "Configurações",
+  "subtitle": "Crie e gerencie as conexões de API",
+  "novaConexao": "nova conexão",
+  "nenhumaConexao": "nenhuma conexão ainda.",
+  "oauth": {
+    "sucesso": "Conta Azul conectada com sucesso.",
+    "erro": "Não foi possível conectar com a Conta Azul. Tente novamente."
+  }
+}

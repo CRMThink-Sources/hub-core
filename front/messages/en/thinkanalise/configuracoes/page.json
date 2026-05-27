@@ -1,0 +1,10 @@
+{
+  "title": "Settings",
+  "subtitle": "Create and manage API connections",
+  "novaConexao": "new connection",
+  "nenhumaConexao": "no connections yet.",
+  "oauth": {
+    "sucesso": "Conta Azul connected successfully.",
+    "erro": "Could not connect to Conta Azul. Please try again."
+  }
+}

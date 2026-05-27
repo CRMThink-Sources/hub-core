@@ -26,14 +26,6 @@ export class SessionController extends Controller {
     }
 
     for (const handler of handlers) {
-      if (
-        this.thinkzapAccess &&
-        !this.thinkzapAccess.canAccess &&
-        this.sessionHandler.appCode === 'crmthink.thinkzap'
-      ) {
-        continue
-      }
-
       const result = await handler.perform({
         appId: this.app.id,
         thinkzapAccess: this.thinkzapAccess,
