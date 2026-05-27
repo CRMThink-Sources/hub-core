@@ -10,6 +10,20 @@ import {
 import type { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { BitrixError } from '@/shared/infra/clients/errors/bitrix-client.error'
 import { createHash } from 'node:crypto'
+import {
+  toMp3FileName,
+  type ConvertedRecordedAudio,
+} from '@/modules/audio/application/convert-recorded-audio-to-mp3'
+
+function mockConvertRecordedAudio(
+  inputBuffer: Buffer,
+  originalFileName?: string,
+): Promise<ConvertedRecordedAudio> {
+  return Promise.resolve({
+    buffer: Buffer.from(`mp3:${inputBuffer.toString()}`),
+    fileName: toMp3FileName(originalFileName),
+  })
+}
 
 describe('UploadAudioController', () => {
   const iframeHash = '0e9c40cee01d6f182e9261b38b30b5c3'
@@ -29,10 +43,7 @@ describe('UploadAudioController', () => {
   const resolveOperatorAccessToken: ResolveOperatorBitrixAccessToken = vi.fn()
 
   const convertRecordedAudio: ConvertRecordedAudio = vi.fn(
-    async (inputBuffer, originalFileName) => ({
-      buffer: Buffer.from(`mp3:${inputBuffer.toString()}`),
-      fileName: (originalFileName ?? 'audio').replace(/\.[^.]+$/, '') + '.mp3',
-    }),
+    mockConvertRecordedAudio,
   )
 
   const controller = new UploadAudioController(
@@ -63,12 +74,7 @@ describe('UploadAudioController', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(convertRecordedAudio).mockImplementation(
-      async (inputBuffer, originalFileName) => ({
-        buffer: Buffer.from(`mp3:${inputBuffer.toString()}`),
-        fileName: (originalFileName ?? 'audio').replace(/\.[^.]+$/, '') + '.mp3',
-      }),
-    )
+    vi.mocked(convertRecordedAudio).mockImplementation(mockConvertRecordedAudio)
     getDomain.mockResolvedValue({
       id: 'domain-1',
       name: domain,
