@@ -155,9 +155,7 @@ export default function ConfiguracoesLayout() {
             ${oauthBanner === 'success' ? 'bg-[#eef2f9] text-[#223f6e] border border-[#223f6e]/20' : 'bg-red-50 text-red-700 border border-red-200'}`}
           >
             <span>
-              {oauthBanner === 'success'
-                ? t('oauth.sucesso')
-                : t('oauth.erro')}
+              {oauthBanner === 'success' ? t('oauth.sucesso') : t('oauth.erro')}
             </span>
             <button
               onClick={() => setOauthBanner(null)}

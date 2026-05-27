@@ -124,7 +124,9 @@ export function DatasetForm({
               {t('form.selecioneTabela')}
             </p>
             {loadingTables ? (
-              <p className="text-xs text-gray-400 font-mono">{t('form.carregando')}</p>
+              <p className="text-xs text-gray-400 font-mono">
+                {t('form.carregando')}
+              </p>
             ) : (
               <div className="flex flex-col gap-1">
                 {tables.map(t_ => (
