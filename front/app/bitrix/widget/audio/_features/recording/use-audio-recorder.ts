@@ -2,6 +2,35 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+const RECORDING_TIMESLICE_MS = 1000
+
+const MIME_CANDIDATES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/mp4',
+  'audio/ogg;codecs=opus',
+] as const
+
+function resolveRecorderMimeType(): string | undefined {
+  if (typeof MediaRecorder === 'undefined') return undefined
+  for (const mime of MIME_CANDIDATES) {
+    if (MediaRecorder.isTypeSupported(mime)) return mime
+  }
+  return undefined
+}
+
+function resolveMicrophoneError(err: unknown): string {
+  if (err instanceof DOMException) {
+    if (err.name === 'NotAllowedError') {
+      return 'Permissao de microfone negada. Autorize no navegador ou nas configuracoes do Bitrix24.'
+    }
+    if (err.name === 'NotFoundError') {
+      return 'Nenhum microfone encontrado.'
+    }
+  }
+  return 'Nao foi possivel acessar o microfone.'
+}
+
 export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false)
   const [buttonScale, setButtonScale] = useState(1)
@@ -14,6 +43,8 @@ export function useAudioRecorder() {
   const audioChunksRef = useRef<Blob[]>([])
   const audioContextRef = useRef<AudioContext | null>(null)
   const animationFrameRef = useRef<number | null>(null)
+  const audioUrlRef = useRef<string | null>(null)
+  const recorderMimeTypeRef = useRef<string>('audio/webm')
 
   const stopVolumeAnimation = useCallback(() => {
     if (animationFrameRef.current) {
@@ -29,14 +60,18 @@ export function useAudioRecorder() {
     setButtonScale(1)
   }, [])
 
-  const clearRecording = useCallback(() => {
-    if (audioUrl) {
-      URL.revokeObjectURL(audioUrl)
+  const revokeAudioUrl = useCallback(() => {
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current)
+      audioUrlRef.current = null
     }
+  }, [])
 
+  const clearRecording = useCallback(() => {
+    revokeAudioUrl()
     setAudioUrl(null)
     setAudioBlob(null)
-  }, [audioUrl])
+  }, [revokeAudioUrl])
 
   const startRecording = useCallback(async () => {
     try {
@@ -50,7 +85,13 @@ export function useAudioRecorder() {
       clearRecording()
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
+      const mimeType = resolveRecorderMimeType()
+      recorderMimeTypeRef.current = mimeType ?? 'audio/webm'
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream)
+
       const audioContext = new AudioContext()
       const source = audioContext.createMediaStreamSource(stream)
       const analyser = audioContext.createAnalyser()
@@ -92,10 +133,13 @@ export function useAudioRecorder() {
       }
 
       recorder.onstop = () => {
+        const blobType =
+          recorder.mimeType || recorderMimeTypeRef.current || 'audio/webm'
         const recordedAudioBlob = new Blob(audioChunksRef.current, {
-          type: 'audio/webm',
+          type: blobType,
         })
         const url = URL.createObjectURL(recordedAudioBlob)
+        audioUrlRef.current = url
         setAudioBlob(recordedAudioBlob)
         setAudioUrl(url)
 
@@ -105,11 +149,11 @@ export function useAudioRecorder() {
         stopVolumeAnimation()
       }
 
-      recorder.start()
+      recorder.start(RECORDING_TIMESLICE_MS)
       setIsRecording(true)
     } catch (err) {
       console.error(err)
-      setError('Nao foi possivel acessar o microfone.')
+      setError(resolveMicrophoneError(err))
       setIsRecording(false)
     }
   }, [clearRecording, stopVolumeAnimation])
@@ -134,9 +178,20 @@ export function useAudioRecorder() {
   useEffect(() => {
     return () => {
       stopVolumeAnimation()
-      clearRecording()
+      revokeAudioUrl()
+      mediaStreamRef.current?.getTracks().forEach(track => track.stop())
+      mediaStreamRef.current = null
+      const recorder = mediaRecorderRef.current
+      if (recorder && recorder.state !== 'inactive') {
+        try {
+          recorder.stop()
+        } catch {
+          // ignore if already stopped
+        }
+      }
+      mediaRecorderRef.current = null
     }
-  }, [clearRecording, stopVolumeAnimation])
+  }, [revokeAudioUrl, stopVolumeAnimation])
 
   return {
     isRecording,
