@@ -1,0 +1,19 @@
+{
+  "back": "Voltar para clientes",
+  "title": "Detalhe do cliente",
+  "domain": "Domínio",
+  "memberId": "Member ID",
+  "createdAt": "Cadastro",
+  "updatedAt": "Atualizado em",
+  "appsTitle": "Aplicações instaladas",
+  "appsEmpty": "Nenhuma aplicação instalada neste domínio.",
+  "table": {
+    "appName": "Aplicação",
+    "appCode": "Código",
+    "status": "Status",
+    "email": "E-mail",
+    "installedAt": "Instalada em"
+  },
+  "errorTitle": "Cliente não encontrado",
+  "errorDescription": "O domínio solicitado não existe ou foi removido."
+}

@@ -5,6 +5,10 @@ export {
   getBitrixAppInfoFromUrl,
   type BitrixCurrentUserResult,
 } from './app-info'
+export {
+  authenticateBitrixWithBackend,
+  type BitrixBackendAuthResult,
+} from './authenticate-with-backend'
 export { BX24Script } from './bx24-script'
 export {
   BITRIX_EULA_URL,

@@ -1,0 +1,13 @@
+{
+  "title": "Portal Hubthink",
+  "subtitle": "Inicia sesión con tus credenciales de administrador",
+  "emailLabel": "Correo electrónico",
+  "emailPlaceholder": "tu@email.com",
+  "passwordLabel": "Contraseña",
+  "passwordPlaceholder": "••••••••",
+  "showPassword": "Mostrar contraseña",
+  "hidePassword": "Ocultar contraseña",
+  "submit": "Entrar",
+  "submitting": "Entrando...",
+  "errorGeneric": "No se pudo iniciar sesión. Verifica tus credenciales."
+}

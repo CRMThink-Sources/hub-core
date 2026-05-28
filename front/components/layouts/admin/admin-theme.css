@@ -1,0 +1,21 @@
+.admin-theme {
+  --admin-accent: #2563eb;
+  --admin-accent-foreground: #ffffff;
+  --admin-surface: #ffffff;
+  --admin-muted: #64748b;
+  --admin-border: #e2e8f0;
+}
+
+.admin-login-bg {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  min-height: 100dvh;
+}
+
+.admin-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 1px 3px rgb(15 23 42 / 0.06),
+    0 8px 24px rgb(15 23 42 / 0.06);
+}

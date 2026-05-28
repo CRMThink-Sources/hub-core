@@ -1,0 +1,13 @@
+{
+  "title": "Hubthink Portal",
+  "subtitle": "Sign in with your administrator credentials",
+  "emailLabel": "Email",
+  "emailPlaceholder": "you@email.com",
+  "passwordLabel": "Password",
+  "passwordPlaceholder": "••••••••",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password",
+  "submit": "Sign in",
+  "submitting": "Signing in...",
+  "errorGeneric": "Could not sign in. Check your credentials."
+}
