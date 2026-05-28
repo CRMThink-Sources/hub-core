@@ -26,6 +26,7 @@ describe('LoginPortalUser', () => {
     const portalUserRepository: PortalUserRepository = {
       findByEmail: vi.fn().mockResolvedValue(activeUser),
       findById: vi.fn(),
+      create: vi.fn(),
     }
 
     const generateTokenSpy = vi.fn().mockReturnValue({ token: 'jwt-token' })
@@ -51,6 +52,7 @@ describe('LoginPortalUser', () => {
     const portalUserRepository: PortalUserRepository = {
       findByEmail: vi.fn().mockResolvedValue(null),
       findById: vi.fn(),
+      create: vi.fn(),
     }
 
     const generateToken: GenerateTokenRepository = {
@@ -70,6 +72,7 @@ describe('LoginPortalUser', () => {
     const portalUserRepository: PortalUserRepository = {
       findByEmail: vi.fn().mockResolvedValue(activeUser),
       findById: vi.fn(),
+      create: vi.fn(),
     }
 
     const generateToken: GenerateTokenRepository = {
@@ -92,6 +95,7 @@ describe('LoginPortalUser', () => {
         isActive: false,
       }),
       findById: vi.fn(),
+      create: vi.fn(),
     }
 
     const generateToken: GenerateTokenRepository = {

@@ -1,11 +1,14 @@
 export type PortalDomainApp = {
   id: string
+  appCodeId: string
   appCode: string
   appName: string
   status: string
   email: string
   installedAt: string
 }
+
+export const THINKZAP_APP_CODE_ID = 'crmthink.thinkzap'
 
 export type PortalDomainDetail = {
   id: string

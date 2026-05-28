@@ -18,3 +18,10 @@ export class PortalUserNotFoundError extends Error {
     this.name = 'PortalUserNotFoundError'
   }
 }
+
+export class PortalUserAlreadyExistsError extends Error {
+  constructor() {
+    super('Portal user already exists')
+    this.name = 'PortalUserAlreadyExistsError'
+  }
+}

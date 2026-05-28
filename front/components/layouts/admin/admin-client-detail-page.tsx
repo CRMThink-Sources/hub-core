@@ -3,12 +3,15 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Settings } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { axiosPortal } from '@/infra/client/axios-portal'
 import { formatPortalDate } from '@/lib/format-date'
-import type { PortalDomainDetail } from '@/lib/portal-domains'
+import {
+  type PortalDomainDetail,
+  THINKZAP_APP_CODE_ID,
+} from '@/lib/portal-domains'
 
 type Props = {
   domainId: string
@@ -170,6 +173,9 @@ export function AdminClientDetailPage({ domainId }: Props) {
                   <th className="px-4 py-3 font-medium">
                     {t('table.installedAt')}
                   </th>
+                  <th className="px-4 py-3 text-right font-medium">
+                    {t('table.actions')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -190,6 +196,19 @@ export function AdminClientDetailPage({ domainId }: Props) {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {formatPortalDate(app.installedAt, locale)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {app.appCodeId === THINKZAP_APP_CODE_ID ? (
+                        <Link
+                          href={`/admin/clientes/${domainId}/apps/${app.id}`}
+                          className={cn(
+                            buttonVariants({ variant: 'outline', size: 'sm' }),
+                          )}
+                        >
+                          <Settings className="size-3.5" />
+                          {t('table.settings')}
+                        </Link>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

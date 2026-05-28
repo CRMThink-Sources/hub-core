@@ -12,8 +12,26 @@
     "appCode": "Código",
     "status": "Status",
     "email": "E-mail",
-    "installedAt": "Instalada em"
+    "installedAt": "Instalada em",
+    "actions": "Ações",
+    "settings": "Configurações"
   },
   "errorTitle": "Cliente não encontrado",
-  "errorDescription": "O domínio solicitado não existe ou foi removido."
+  "errorDescription": "O domínio solicitado não existe ou foi removido.",
+  "imbotTitle": "ThinkZap Audio Imbot",
+  "imbotDescription": "Registra ou remove o app de áudio no canal aberto Bitrix24.",
+  "imbotRegister": "Registrar",
+  "imbotDelete": "Excluir",
+  "imbotDeleteConfirm": "Confirmar exclusão",
+  "imbotDeleteCancel": "Cancelar",
+  "imbotRegistering": "Registrando...",
+  "imbotDeleting": "Excluindo...",
+  "imbotResultCreated": "App de áudio registrado com sucesso.",
+  "imbotResultUpdated": "App de áudio já existia — parâmetros atualizados.",
+  "imbotResultSkipped": "Nenhuma alteração necessária.",
+  "imbotResultDeleted": "App de áudio removido.",
+  "imbotResultNotFound": "App de áudio não encontrado no Bitrix.",
+  "imbotErrorNotInstalled": "ThinkZap não está instalado neste domínio.",
+  "imbotErrorCredential": "Credencial ausente ou inválida para este domínio.",
+  "imbotErrorGeneric": "Erro ao comunicar com o Bitrix24. Tente novamente."
 }

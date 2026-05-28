@@ -9,6 +9,10 @@ export type PortalHttpClient = {
     data?: unknown,
     config?: Parameters<AxiosInstance['post']>[2],
   ): Promise<T>
+  delete<T>(
+    url: string,
+    config?: Parameters<AxiosInstance['delete']>[1],
+  ): Promise<T>
 }
 
 export const axiosPortal = (): PortalHttpClient => {

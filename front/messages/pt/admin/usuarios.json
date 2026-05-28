@@ -1,0 +1,22 @@
+{
+  "title": "Usuários",
+  "description": "Crie usuários administradores do portal Hubthink.",
+  "formTitle": "Novo usuário",
+  "emailLabel": "E-mail",
+  "emailPlaceholder": "usuario@email.com",
+  "nameLabel": "Nome",
+  "namePlaceholder": "Nome completo",
+  "passwordLabel": "Senha",
+  "passwordPlaceholder": "Mínimo 8 caracteres",
+  "confirmPasswordLabel": "Confirmar senha",
+  "confirmPasswordPlaceholder": "Repita a senha",
+  "submit": "Criar usuário",
+  "submitting": "Criando...",
+  "successTitle": "Usuário criado",
+  "successDescription": "O usuário {{email}} foi criado com sucesso.",
+  "errorEmailTaken": "Este e-mail já está cadastrado.",
+  "errorPasswordMismatch": "As senhas não coincidem.",
+  "errorGeneric": "Não foi possível criar o usuário. Tente novamente.",
+  "showPassword": "Mostrar senha",
+  "hidePassword": "Ocultar senha"
+}

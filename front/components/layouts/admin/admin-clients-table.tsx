@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -14,6 +15,7 @@ type Props = {
 export function AdminClientsTable({ domains }: Props) {
   const { t, i18n } = useTranslation('admin/clients')
   const locale = i18n.language
+  const router = useRouter()
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-background">
@@ -33,7 +35,8 @@ export function AdminClientsTable({ domains }: Props) {
           {domains.map(domain => (
             <tr
               key={domain.id}
-              className="border-b border-border last:border-b-0 hover:bg-muted/30"
+              className="cursor-pointer border-b border-border last:border-b-0 hover:bg-muted/30"
+              onClick={() => router.push(`/admin/clientes/${domain.id}`)}
             >
               <td className="px-4 py-3 font-medium text-foreground">
                 {domain.name}
