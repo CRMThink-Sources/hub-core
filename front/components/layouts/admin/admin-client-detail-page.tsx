@@ -139,7 +139,9 @@ export function AdminClientDetailPage({ domainId }: Props) {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-medium text-foreground">{t('appsTitle')}</h2>
+        <h2 className="text-lg font-medium text-foreground">
+          {t('appsTitle')}
+        </h2>
 
         {domain.apps.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('appsEmpty')}</p>
@@ -154,12 +156,8 @@ export function AdminClientDetailPage({ domainId }: Props) {
                   <th className="px-4 py-3 font-medium">
                     {t('table.appCode')}
                   </th>
-                  <th className="px-4 py-3 font-medium">
-                    {t('table.status')}
-                  </th>
-                  <th className="px-4 py-3 font-medium">
-                    {t('table.email')}
-                  </th>
+                  <th className="px-4 py-3 font-medium">{t('table.status')}</th>
+                  <th className="px-4 py-3 font-medium">{t('table.email')}</th>
                   <th className="px-4 py-3 font-medium">
                     {t('table.installedAt')}
                   </th>

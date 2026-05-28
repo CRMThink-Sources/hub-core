@@ -40,10 +40,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <div className="flex size-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
                 H
               </div>
-              <span className="font-semibold text-foreground">{t('brand')}</span>
+              <span className="font-semibold text-foreground">
+                {t('brand')}
+              </span>
             </div>
 
-            <nav className="hidden items-center gap-1 sm:flex" aria-label="Admin">
+            <nav
+              className="hidden items-center gap-1 sm:flex"
+              aria-label="Admin"
+            >
               {navItems.map(item => (
                 <Link
                   key={item.href}

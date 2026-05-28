@@ -37,7 +37,9 @@ export function AdminHomeContent() {
       </div>
 
       <div className="admin-card p-6">
-        <h2 className="text-lg font-medium text-foreground">{t('comingSoonTitle')}</h2>
+        <h2 className="text-lg font-medium text-foreground">
+          {t('comingSoonTitle')}
+        </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           {t('comingSoonDescription')}
         </p>

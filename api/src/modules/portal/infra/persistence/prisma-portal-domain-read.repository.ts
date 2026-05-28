@@ -44,9 +44,7 @@ function toPortalDomainDetail(row: DomainRow): PortalDomainDetail {
   }
 }
 
-export class PrismaPortalDomainReadRepository
-  implements PortalDomainReadRepository
-{
+export class PrismaPortalDomainReadRepository implements PortalDomainReadRepository {
   async listAll(): Promise<PortalDomainDetail[]> {
     const rows = await prisma.domain.findMany({
       orderBy: { createdAt: 'desc' },
