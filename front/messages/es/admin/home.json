@@ -2,6 +2,7 @@
   "brand": "Portal Hubthink",
   "navHome": "Inicio",
   "navClients": "Clientes",
+  "navUsers": "Usuarios",
   "greeting": "Hola, {{name}}",
   "description": "Gestiona clientes, aplicaciones y configuraciones de Hubthink.",
   "clientsCardDescription": "Consulta portales Bitrix24 y las aplicaciones instaladas en cada dominio.",

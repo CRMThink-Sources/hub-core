@@ -5,7 +5,7 @@ import type { PortalDomainReadRepository } from '../../domain/repositories/porta
 const domainInclude = {
   apps: {
     include: {
-      appCode: { select: { code: true, name: true } },
+      appCode: { select: { id: true, code: true, name: true } },
     },
     orderBy: { installedAt: 'desc' as const },
   },
@@ -22,7 +22,7 @@ type DomainRow = {
     email: string
     status: string
     installedAt: Date
-    appCode: { code: string; name: string }
+    appCode: { id: string; code: string; name: string }
   }>
 }
 
@@ -35,6 +35,7 @@ function toPortalDomainDetail(row: DomainRow): PortalDomainDetail {
     updatedAt: row.updatedAt.toISOString(),
     apps: row.apps.map(app => ({
       id: app.id,
+      appCodeId: app.appCode.id,
       appCode: app.appCode.code,
       appName: app.appCode.name,
       status: app.status,
