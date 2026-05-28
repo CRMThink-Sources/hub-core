@@ -10,6 +10,8 @@ declare global {
       bitrixDepartmentIds?: string[]
       thinkzapInstalledAppId?: string
       thinkzapAccess?: ThinkzapAccessResult
+      portalUserId?: string
+      portalUserRole?: string
     }
   }
 }

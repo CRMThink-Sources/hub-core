@@ -1,0 +1,196 @@
+'use client'
+
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ArrowLeft } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { axiosPortal } from '@/infra/client/axios-portal'
+import { formatPortalDate } from '@/lib/format-date'
+import type { PortalDomainDetail } from '@/lib/portal-domains'
+
+type Props = {
+  domainId: string
+}
+
+export function AdminClientDetailPage({ domainId }: Props) {
+  const { t, i18n } = useTranslation('admin/client-detail')
+  const { t: tCommon } = useTranslation('common')
+  const locale = i18n.language
+  const [domain, setDomain] = useState<PortalDomainDetail | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
+  const [hasError, setHasError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      setIsLoading(true)
+      setNotFound(false)
+      setHasError(false)
+
+      try {
+        const result = await axiosPortal().get<PortalDomainDetail>(
+          `/portal/domains/${domainId}`,
+        )
+        if (!cancelled) {
+          setDomain(result)
+        }
+      } catch (error: unknown) {
+        if (!cancelled) {
+          const status = (error as { response?: { status?: number } })?.response
+            ?.status
+          if (status === 404) {
+            setNotFound(true)
+          } else {
+            setHasError(true)
+          }
+          setDomain(null)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [domainId])
+
+  if (isLoading) {
+    return (
+      <p className="text-sm text-muted-foreground">{tCommon('carregando')}</p>
+    )
+  }
+
+  if (notFound || hasError || !domain) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" size="sm" asChild className="min-h-11">
+          <Link href="/admin/clientes">
+            <ArrowLeft className="size-4" />
+            {t('back')}
+          </Link>
+        </Button>
+        <div className="admin-card p-6">
+          <h2 className="text-lg font-medium text-foreground">
+            {t('errorTitle')}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t('errorDescription')}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <Button variant="ghost" size="sm" asChild className="min-h-11">
+        <Link href="/admin/clientes">
+          <ArrowLeft className="size-4" />
+          {t('back')}
+        </Link>
+      </Button>
+
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          {t('title')}
+        </h1>
+        <p className="mt-1 text-lg text-foreground">{domain.name}</p>
+      </div>
+
+      <div className="admin-card grid gap-4 p-6 sm:grid-cols-2">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t('domain')}
+          </p>
+          <p className="mt-1 font-medium text-foreground">{domain.name}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t('memberId')}
+          </p>
+          <p className="mt-1 font-mono text-sm text-foreground">
+            {domain.memberId}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t('createdAt')}
+          </p>
+          <p className="mt-1 text-foreground">
+            {formatPortalDate(domain.createdAt, locale)}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            {t('updatedAt')}
+          </p>
+          <p className="mt-1 text-foreground">
+            {formatPortalDate(domain.updatedAt, locale)}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-lg font-medium text-foreground">{t('appsTitle')}</h2>
+
+        {domain.apps.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('appsEmpty')}</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-border bg-background">
+            <table className="min-w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="px-4 py-3 font-medium">
+                    {t('table.appName')}
+                  </th>
+                  <th className="px-4 py-3 font-medium">
+                    {t('table.appCode')}
+                  </th>
+                  <th className="px-4 py-3 font-medium">
+                    {t('table.status')}
+                  </th>
+                  <th className="px-4 py-3 font-medium">
+                    {t('table.email')}
+                  </th>
+                  <th className="px-4 py-3 font-medium">
+                    {t('table.installedAt')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {domain.apps.map(app => (
+                  <tr
+                    key={app.id}
+                    className="border-b border-border last:border-b-0"
+                  >
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {app.appName}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                      {app.appCode}
+                    </td>
+                    <td className="px-4 py-3 text-foreground">{app.status}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {app.email}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatPortalDate(app.installedAt, locale)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

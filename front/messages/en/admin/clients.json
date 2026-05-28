@@ -1,0 +1,17 @@
+{
+  "title": "Clients",
+  "description": "Bitrix24 portals registered in Hubthink.",
+  "table": {
+    "domain": "Domain",
+    "memberId": "Member ID",
+    "apps": "Applications",
+    "createdAt": "Registered",
+    "actions": "Actions",
+    "view": "View"
+  },
+  "noApps": "No apps",
+  "emptyTitle": "No clients found",
+  "emptyDescription": "There are no Bitrix24 domains registered yet.",
+  "errorTitle": "Could not load clients",
+  "errorDescription": "Please try again in a moment."
+}
