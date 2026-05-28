@@ -1,5 +1,6 @@
 export type PortalDomainApp = {
   id: string
+  appCodeId: string
   appCode: string
   appName: string
   status: string

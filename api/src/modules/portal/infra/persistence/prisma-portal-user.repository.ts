@@ -1,6 +1,10 @@
+import { randomUUID } from 'node:crypto'
 import { prisma } from '@/config/prisma.js'
 import type { PortalUser } from '../../domain/entities/portal-user'
-import type { PortalUserRepository } from '../../domain/repositories/portal-user.repository'
+import type {
+  CreatePortalUserInput,
+  PortalUserRepository,
+} from '../../domain/repositories/portal-user.repository'
 
 function toPortalUser(row: {
   id: string
@@ -45,6 +49,21 @@ export class PrismaPortalUserRepository implements PortalUserRepository {
     if (!user) {
       return null
     }
+
+    return toPortalUser(user)
+  }
+
+  async create(input: CreatePortalUserInput): Promise<PortalUser> {
+    const user = await prisma.portalUser.create({
+      data: {
+        id: randomUUID(),
+        email: input.email,
+        name: input.name,
+        passwordHash: input.passwordHash,
+        role: input.role,
+        isActive: input.isActive,
+      },
+    })
 
     return toPortalUser(user)
   }

@@ -34,6 +34,7 @@ export class GetOrCreateThinkzapBot {
       const existingBot = Object.values(bots ?? {}).find(
         bot => bot?.CODE === botCode,
       )
+
       if (existingBot?.ID) {
         if (existingBot.OPENLINE === 'N') {
           console.warn(
