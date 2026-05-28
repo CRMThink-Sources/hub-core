@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { axiosPortal } from '@/infra/client/axios-portal'
 import { formatPortalDate } from '@/lib/format-date'
 import type { PortalDomainDetail } from '@/lib/portal-domains'
@@ -71,12 +72,16 @@ export function AdminClientDetailPage({ domainId }: Props) {
   if (notFound || hasError || !domain) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" asChild className="min-h-11">
-          <Link href="/admin/clientes">
-            <ArrowLeft className="size-4" />
-            {t('back')}
-          </Link>
-        </Button>
+        <Link
+          href="/admin/clientes"
+          className={cn(
+            buttonVariants({ variant: 'ghost', size: 'sm' }),
+            'min-h-11',
+          )}
+        >
+          <ArrowLeft className="size-4" />
+          {t('back')}
+        </Link>
         <div className="admin-card p-6">
           <h2 className="text-lg font-medium text-foreground">
             {t('errorTitle')}
@@ -91,12 +96,16 @@ export function AdminClientDetailPage({ domainId }: Props) {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" asChild className="min-h-11">
-        <Link href="/admin/clientes">
-          <ArrowLeft className="size-4" />
-          {t('back')}
-        </Link>
-      </Button>
+      <Link
+        href="/admin/clientes"
+        className={cn(
+          buttonVariants({ variant: 'ghost', size: 'sm' }),
+          'min-h-11',
+        )}
+      >
+        <ArrowLeft className="size-4" />
+        {t('back')}
+      </Link>
 
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
