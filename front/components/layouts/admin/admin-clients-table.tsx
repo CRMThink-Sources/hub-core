@@ -66,7 +66,9 @@ export function AdminClientsTable({ domains }: Props) {
               <td className="px-4 py-3 text-right">
                 <Link
                   href={`/admin/clientes/${domain.id}`}
-                  className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+                  className={cn(
+                    buttonVariants({ variant: 'outline', size: 'sm' }),
+                  )}
                 >
                   {t('table.view')}
                 </Link>
