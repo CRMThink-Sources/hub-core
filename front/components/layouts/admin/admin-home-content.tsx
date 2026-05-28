@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { usePortalSession } from '@/providers/portal-session-provider'
 
 export function AdminHomeContent() {
@@ -28,12 +29,13 @@ export function AdminHomeContent() {
             {t('clientsCardDescription')}
           </p>
         </div>
-        <Button asChild className="min-h-11 shrink-0">
-          <Link href="/admin/clientes">
-            {t('clientsCardAction')}
-            <ArrowRight className="size-4" />
-          </Link>
-        </Button>
+        <Link
+          href="/admin/clientes"
+          className={cn(buttonVariants(), 'min-h-11 shrink-0')}
+        >
+          {t('clientsCardAction')}
+          <ArrowRight className="size-4" />
+        </Link>
       </div>
 
       <div className="admin-card p-6">
