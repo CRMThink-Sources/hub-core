@@ -12,7 +12,8 @@
     "test": "node node_modules/vitest/vitest.mjs run",
     "test:watch": "node node_modules/vitest/vitest.mjs",
     "worker:thinkzap": "tsx src/workers/thinkzap-inbound.worker.ts",
-    "register:audio-imbot": "tsx src/scripts/register-audio-imbot.ts"
+    "register:audio-imbot": "tsx src/scripts/register-audio-imbot.ts",
+    "create:portal-user": "tsx src/scripts/create-portal-user.ts"
   },
   "dependencies": {
     "@bull-board/api": "^7.0.0",
@@ -21,6 +22,7 @@
     "@prisma/client": "^7.4.2",
     "@types/multer": "^2.1.0",
     "axios": "^1.13.4",
+    "bcryptjs": "^3.0.3",
     "bullmq": "^5.76.6",
     "cors": "^2.8.6",
     "dotenv": "^16.4.7",
@@ -38,6 +40,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
+    "@types/bcryptjs": "^3.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.10",
@@ -52,7 +55,7 @@
     "tsc-alias": "^1.8.16",
     "tsx": "^4.19.2",
     "typescript": "5.9.2",
-    "vitest": "^4.1.7",
-    "typescript-eslint": "^8.32.0"
+    "typescript-eslint": "^8.32.0",
+    "vitest": "^4.1.7"
   }
 }

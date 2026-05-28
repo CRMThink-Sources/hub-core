@@ -1,0 +1,17 @@
+{
+  "title": "Clientes",
+  "description": "Portais Bitrix24 cadastrados no Hubthink.",
+  "table": {
+    "domain": "Domínio",
+    "memberId": "Member ID",
+    "apps": "Aplicações",
+    "createdAt": "Cadastro",
+    "actions": "Ações",
+    "view": "Ver"
+  },
+  "noApps": "Nenhuma app",
+  "emptyTitle": "Nenhum cliente encontrado",
+  "emptyDescription": "Ainda não há domínios Bitrix24 cadastrados.",
+  "errorTitle": "Não foi possível carregar os clientes",
+  "errorDescription": "Tente novamente em instantes."
+}

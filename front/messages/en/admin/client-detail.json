@@ -1,0 +1,19 @@
+{
+  "back": "Back to clients",
+  "title": "Client details",
+  "domain": "Domain",
+  "memberId": "Member ID",
+  "createdAt": "Registered",
+  "updatedAt": "Updated at",
+  "appsTitle": "Installed applications",
+  "appsEmpty": "No applications installed on this domain.",
+  "table": {
+    "appName": "Application",
+    "appCode": "Code",
+    "status": "Status",
+    "email": "Email",
+    "installedAt": "Installed at"
+  },
+  "errorTitle": "Client not found",
+  "errorDescription": "The requested domain does not exist or was removed."
+}

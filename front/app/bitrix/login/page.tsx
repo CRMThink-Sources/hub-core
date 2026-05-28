@@ -1,27 +1,22 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
+  authenticateBitrixWithBackend,
   BX24Script,
-  useBX24,
-  fetchAppInfoFromCallMethod,
-  fetchCurrentUserFromCallMethod,
   getBitrixAppInfoFromUrl,
+  useBX24,
 } from '@/bitrix'
 import { getAppRedirectUrl } from '@/app/config/app-redirects'
-import axios from 'axios'
-import { envConfig } from '@/shared/infra/env-config'
 
 export default function Home() {
-  const [loading, setLoading] = useState(true)
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const { ready: bx24Ready } = useBX24(scriptLoaded)
   const [authRedirecting, setAuthRedirecting] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const router = useRouter()
 
-  // 2) Se estamos no Bitrix (DOMAIN na URL), autenticar e redirecionar conforme appCode
   useEffect(() => {
     if (!scriptLoaded || !bx24Ready || typeof window === 'undefined') return
 
@@ -33,121 +28,34 @@ export default function Home() {
     async function runAuthAndRedirect() {
       setAuthRedirecting(true)
       setAuthError(null)
-      try {
-        const appInfoData = await fetchAppInfoFromCallMethod()
-        const appCode = appInfoData?.CODE ?? ''
-        if (!appCode) {
-          setAuthError('Não foi possível obter o código do app (app.info).')
-          setAuthRedirecting(false)
-          return
-        }
-        console.log('url api:', { apiUrl: envConfig.apiUrl, env: process.env })
 
-        const auth = window.BX24?.getAuth?.()
-        if (!auth || typeof auth === 'boolean') {
-          setAuthError(
-            'Não foi possível obter o token de autenticação do Bitrix24.',
-          )
-          setAuthRedirecting(false)
-          return
-        }
+      const result = await authenticateBitrixWithBackend()
+      if (cancelled) return
 
-        let currentUser
-        try {
-          currentUser = await fetchCurrentUserFromCallMethod()
-        } catch (err) {
-          console.warn('Falha ao obter user.current via BX24:', err)
-          currentUser = undefined
-        }
-
-        const bitrixUserId =
-          (currentUser?.ID != null ? String(currentUser.ID) : undefined) ??
-          urlInfo.urlParams?.USER_ID
-
-        if (!bitrixUserId) {
-          setAuthError('Não foi possível identificar o usuário do Bitrix24.')
-          setAuthRedirecting(false)
-          return
-        }
-
-        const isBitrixAdmin = Boolean(window.BX24?.isAdmin?.())
-
-        const displayName =
-          [currentUser?.NAME, currentUser?.LAST_NAME]
-            .filter(Boolean)
-            .join(' ') || undefined
-
-        const rawDepts = currentUser?.UF_DEPARTMENT
-        const bitrixDepartmentIds = Array.isArray(rawDepts)
-          ? rawDepts.map(String).filter(Boolean)
-          : []
-
-        const response = await axios.post(`${envConfig.apiUrl}/auth`, {
-          domain: urlInfo.domain,
-          member_id: urlInfo.member_id ?? auth.member_id ?? '',
-          app_code: appCode,
-          access_token: auth.access_token,
-          bitrix_user_id: bitrixUserId,
-          is_bitrix_admin: isBitrixAdmin,
-          bitrix_user_name: displayName,
-          bitrix_user_email: currentUser?.EMAIL ?? undefined,
-          bitrix_department_ids: bitrixDepartmentIds,
-        })
-
-        const thinkzapCodes = [
-          envConfig.appCodes.thinkzap,
-          'crmthink.thinkzap',
-        ].filter(Boolean)
-        if (thinkzapCodes.includes(appCode) && auth.refresh_token) {
-          try {
-            await axios.post(`${envConfig.apiUrl}/auth/bitrix-oauth`, {
-              domain: urlInfo.domain,
-              app_code: appCode,
-              bitrix_user_id: bitrixUserId,
-              access_token: auth.access_token,
-              refresh_token: auth.refresh_token,
-              expires_in: auth.expires_in,
-            })
-          } catch (oauthErr) {
-            console.warn('Falha ao salvar OAuth do operador:', oauthErr)
-          }
-        }
-
-        const dataRedirect = getAppRedirectUrl(appCode)
-
-        if (!dataRedirect) {
-          setAuthError('Aplicação não configurada para o app: ' + appCode)
-          setAuthRedirecting(false)
-          return
-        }
-
-        const authToken = response.data?.result?.token
-        sessionStorage.setItem(dataRedirect.storageAuthTokenKey, authToken)
-
-        const errorMessage = response.data?.error?.message
-        if (!response.data || !authToken) {
-          setAuthError(errorMessage ?? 'Falha ao autenticar no backend.')
-          setAuthRedirecting(false)
-          return
-        }
-
-        if (cancelled) return
-
-        router.push(dataRedirect.baseRedirectUrl)
-      } catch (e) {
-        if (!cancelled) {
-          setAuthError(e instanceof Error ? e.message : 'Erro ao autenticar.')
-        }
-      } finally {
-        if (!cancelled) setAuthRedirecting(false)
+      if (!result.ok) {
+        setAuthError(result.error)
+        setAuthRedirecting(false)
+        return
       }
+
+      sessionStorage.setItem(result.storageAuthTokenKey, result.token)
+
+      const dataRedirect = getAppRedirectUrl(result.appCode)
+      if (!dataRedirect) {
+        setAuthError(`Aplicação não configurada para o app: ${result.appCode}`)
+        setAuthRedirecting(false)
+        return
+      }
+
+      router.push(dataRedirect.baseRedirectUrl)
+      setAuthRedirecting(false)
     }
 
     void runAuthAndRedirect()
     return () => {
       cancelled = true
     }
-  }, [scriptLoaded, bx24Ready])
+  }, [scriptLoaded, bx24Ready, router])
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50/40 p-4 sm:p-8">

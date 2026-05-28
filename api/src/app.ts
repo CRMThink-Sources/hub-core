@@ -4,6 +4,7 @@ import {
   authRoutes,
   thinkanaliseRoutes,
   thinkerszapRoutes,
+  portalRoutes,
 } from './composition-root.js'
 import cors from 'cors'
 import multer from 'multer'
@@ -96,6 +97,7 @@ if (isBullBoardEnabled) {
 }
 
 app.use('/api/auth', authRoutes)
+app.use('/api/portal', portalRoutes)
 
 // Callback público do OAuth Conta Azul (sem auth — redirect do browser vindo da Conta Azul)
 app.get(
