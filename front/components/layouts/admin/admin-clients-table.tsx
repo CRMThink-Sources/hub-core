@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { formatPortalDate } from '@/lib/format-date'
 import type { PortalDomainDetail } from '@/lib/portal-domains'
 
@@ -63,11 +64,12 @@ export function AdminClientsTable({ domains }: Props) {
                 {formatPortalDate(domain.createdAt, locale)}
               </td>
               <td className="px-4 py-3 text-right">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={`/admin/clientes/${domain.id}`}>
-                    {t('table.view')}
-                  </Link>
-                </Button>
+                <Link
+                  href={`/admin/clientes/${domain.id}`}
+                  className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+                >
+                  {t('table.view')}
+                </Link>
               </td>
             </tr>
           ))}
