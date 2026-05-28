@@ -14,16 +14,17 @@ const sampleDomain = {
 
 describe('GetPortalDomainDetail', () => {
   it('returns domain when found', async () => {
+    const findById = vi.fn().mockResolvedValue(sampleDomain)
     const portalDomainReadRepository: PortalDomainReadRepository = {
       listAll: vi.fn(),
-      findById: vi.fn().mockResolvedValue(sampleDomain),
+      findById,
     }
 
     const useCase = new GetPortalDomainDetail(portalDomainReadRepository)
     const result = await useCase.execute('domain-1')
 
     expect(result).toEqual(sampleDomain)
-    expect(portalDomainReadRepository.findById).toHaveBeenCalledWith('domain-1')
+    expect(findById).toHaveBeenCalledWith('domain-1')
   })
 
   it('throws when domain is not found', async () => {

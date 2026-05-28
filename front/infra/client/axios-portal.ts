@@ -27,7 +27,10 @@ export const axiosPortal = (): PortalHttpClient => {
 
   axiosInstance.interceptors.response.use(
     response => response.data.result,
-    error => Promise.reject(error),
+    error =>
+      Promise.reject(
+        error instanceof Error ? error : new Error('Request failed'),
+      ),
   )
 
   return axiosInstance

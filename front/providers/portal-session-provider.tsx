@@ -53,7 +53,7 @@ export function PortalSessionProvider({
       const client = axiosPortal()
       const data = await client.get<PortalSession>('/portal/auth/session', {
         signal,
-      } as Parameters<typeof client.get>[1])
+      })
       setSession(data)
     } catch (error) {
       if (!axios.isCancel(error)) {

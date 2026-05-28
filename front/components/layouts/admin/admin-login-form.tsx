@@ -50,7 +50,12 @@ export function AdminLoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form
+      onSubmit={event => {
+        void handleSubmit(event)
+      }}
+      className="space-y-6"
+    >
       <div className="space-y-1 text-center">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {t('title')}
