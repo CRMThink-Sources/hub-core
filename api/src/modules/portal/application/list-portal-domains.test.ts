@@ -22,8 +22,9 @@ const sampleDomain = {
 
 describe('ListPortalDomains', () => {
   it('returns domains and total', async () => {
+    const listAll = vi.fn().mockResolvedValue([sampleDomain])
     const portalDomainReadRepository: PortalDomainReadRepository = {
-      listAll: vi.fn().mockResolvedValue([sampleDomain]),
+      listAll,
       findById: vi.fn(),
     }
 
@@ -32,7 +33,7 @@ describe('ListPortalDomains', () => {
 
     expect(result.domains).toEqual([sampleDomain])
     expect(result.total).toBe(1)
-    expect(portalDomainReadRepository.listAll).toHaveBeenCalledOnce()
+    expect(listAll).toHaveBeenCalledOnce()
   })
 
   it('returns empty list when no domains exist', async () => {

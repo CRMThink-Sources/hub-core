@@ -21,9 +21,8 @@ export function AdminClientsPage() {
       setHasError(false)
 
       try {
-        const result = await axiosPortal().get<ListPortalDomainsResponse>(
-          '/portal/domains',
-        )
+        const result =
+          await axiosPortal().get<ListPortalDomainsResponse>('/portal/domains')
         if (!cancelled) {
           setDomains(result)
         }
