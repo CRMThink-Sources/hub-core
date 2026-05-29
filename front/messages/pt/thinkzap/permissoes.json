@@ -1,6 +1,36 @@
 {
   "pageTitle": "Permissões de acesso",
   "pageDescription": "Defina o que cada usuário ou departamento pode visualizar, criar, alterar ou excluir em Conectores e Financeiro.",
+  "quickGuide": "Ver guia rápido",
+  "tabs": {
+    "byUser": "Por usuário",
+    "byUserDescription": "Gerencie permissões individuais de cada usuário",
+    "byDepartment": "Por departamento",
+    "byDepartmentDescription": "Gerencie permissões para todos os usuários de um departamento"
+  },
+  "manageByUser": "Gerenciar permissões por usuário",
+  "manageByDepartment": "Gerenciar permissões por departamento",
+  "searchTablePlaceholder": "Buscar usuário por nome ou e-mail...",
+  "searchTablePlaceholderDepartment": "Buscar departamento por nome...",
+  "saveChanges": "Salvar alterações",
+  "saveHint": "As permissões são aplicadas imediatamente após salvar",
+  "usersCount": "{{count}} usuários cadastrados",
+  "departmentsCount": "{{count}} departamentos cadastrados",
+  "legendTitle": "Legenda",
+  "legend": {
+    "read": "Visualizar",
+    "create": "Criar",
+    "update": "Alterar",
+    "delete": "Excluir"
+  },
+  "addUserDialogTitle": "Adicionar usuário",
+  "addDepartmentDialogTitle": "Adicionar departamento",
+  "closeDialog": "Fechar",
+  "editPermissions": "Editar permissões",
+  "pagination": {
+    "previous": "Página anterior",
+    "next": "Próxima página"
+  },
   "users": {
     "sectionTitle": "Permissões por usuário",
     "sectionDescription": "Usuários individuais adicionados aqui têm prioridade sobre as permissões de departamento."
@@ -10,7 +40,7 @@
     "sectionDescription": "Todos os usuários do departamento herdam essas permissões, exceto os que possuem permissão individual.",
     "addDepartment": "Adicionar departamento",
     "searchPlaceholder": "Buscar departamento...",
-    "defaultPermissionsForNewDepartment": "Permissões padrão para o novo departamento",
+    "defaultPermissionsForNewDepartment": "Permissões padrão para novos departamentos",
     "emptyList": "Nenhum departamento autorizado ainda. Adicione departamentos e configure as permissões.",
     "alreadyOnList": "Este departamento já está na lista.",
     "added": "Departamento adicionado com sucesso.",
@@ -36,7 +66,6 @@
   "loadError": "Não foi possível carregar a lista de permissões.",
   "saveError": "Não foi possível salvar a permissão.",
   "adminOnly": "Apenas administradores do Bitrix24 podem gerenciar permissões.",
-  "legend": "V = Visualizar · C = Criar · A = Alterar · E = Excluir. Salve apenas quando houver alterações.",
   "table": {
     "user": "Usuário",
     "actions": "Ações"
@@ -58,10 +87,10 @@
       "delete": "Excluir"
     },
     "actionsShort": {
-      "read": "V",
-      "create": "C",
-      "update": "A",
-      "delete": "E"
+      "read": "Visualizar",
+      "create": "Criar",
+      "update": "Alterar",
+      "delete": "Excluir"
     }
   }
 }

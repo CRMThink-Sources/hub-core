@@ -1,6 +1,36 @@
 {
   "pageTitle": "Access permissions",
   "pageDescription": "Define what each user or department can view, create, update, or delete in Connectors and Billing.",
+  "quickGuide": "Quick guide",
+  "tabs": {
+    "byUser": "By user",
+    "byUserDescription": "Manage individual permissions for each user",
+    "byDepartment": "By department",
+    "byDepartmentDescription": "Manage permissions for all users in a department"
+  },
+  "manageByUser": "Manage permissions by user",
+  "manageByDepartment": "Manage permissions by department",
+  "searchTablePlaceholder": "Search user by name or email...",
+  "searchTablePlaceholderDepartment": "Search department by name...",
+  "saveChanges": "Save changes",
+  "saveHint": "Permissions are applied immediately after saving",
+  "usersCount": "{{count}} registered users",
+  "departmentsCount": "{{count}} registered departments",
+  "legendTitle": "Legend",
+  "legend": {
+    "read": "View",
+    "create": "Create",
+    "update": "Update",
+    "delete": "Delete"
+  },
+  "addUserDialogTitle": "Add user",
+  "addDepartmentDialogTitle": "Add department",
+  "closeDialog": "Close",
+  "editPermissions": "Edit permissions",
+  "pagination": {
+    "previous": "Previous page",
+    "next": "Next page"
+  },
   "users": {
     "sectionTitle": "User permissions",
     "sectionDescription": "Individual users added here take priority over department permissions."
@@ -10,7 +40,7 @@
     "sectionDescription": "All users in the department inherit these permissions, except those with individual permissions.",
     "addDepartment": "Add department",
     "searchPlaceholder": "Search department...",
-    "defaultPermissionsForNewDepartment": "Default permissions for the new department",
+    "defaultPermissionsForNewDepartment": "Default permissions for new departments",
     "emptyList": "No authorized departments yet. Add departments and configure permissions.",
     "alreadyOnList": "This department is already on the list.",
     "added": "Department added successfully.",
@@ -36,7 +66,6 @@
   "loadError": "Could not load the permission list.",
   "saveError": "Could not save the permission.",
   "adminOnly": "Only Bitrix24 administrators can manage permissions.",
-  "legend": "V = View · C = Create · U = Update · D = Delete. Save only when there are changes.",
   "table": {
     "user": "User",
     "actions": "Actions"
@@ -58,10 +87,10 @@
       "delete": "Delete"
     },
     "actionsShort": {
-      "read": "V",
-      "create": "C",
-      "update": "U",
-      "delete": "D"
+      "read": "View",
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete"
     }
   }
 }

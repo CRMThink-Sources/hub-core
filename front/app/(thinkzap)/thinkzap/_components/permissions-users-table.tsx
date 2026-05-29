@@ -1,5 +1,6 @@
 'use client'
 
+import { ChevronLeft, ChevronRight, Pencil, Trash2, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   THINKZAP_PERMISSION_ACTIONS,
@@ -7,6 +8,8 @@ import {
   type ThinkzapPermissionAction,
   type ThinkzapUserPermissions,
 } from '@/shared/thinkzap-permissions'
+import { PermissionCheckbox } from './permission-checkbox'
+import { PermissionsUserAvatar } from './permissions-user-avatar'
 
 type UserRow = {
   bitrixUserId: string
@@ -17,101 +20,117 @@ type UserRow = {
 
 type Props = {
   users: UserRow[]
+  totalCount: number
+  page: number
+  pageSize: number
+  onPageChange: (page: number) => void
   draftPermissions: Record<string, ThinkzapUserPermissions>
   onPermissionChange: (
     bitrixUserId: string,
     category: (typeof THINKZAP_PERMISSION_CATEGORIES)[number],
     action: ThinkzapPermissionAction,
   ) => void
-  onSave: (bitrixUserId: string) => void
   onRemove: (bitrixUserId: string) => void
-  savingId: string | null
   removingId: string | null
 }
 
-function isDirty(
-  user: UserRow,
-  draft: Record<string, ThinkzapUserPermissions>,
-): boolean {
-  const current = draft[user.bitrixUserId]
-  if (!current) return false
-  return JSON.stringify(current) !== JSON.stringify(user.permissions)
+const CATEGORY_HEADER: Record<
+  (typeof THINKZAP_PERMISSION_CATEGORIES)[number],
+  string
+> = {
+  connectors: 'bg-blue-600 text-white',
+  finance: 'bg-[#5A997E] text-white',
 }
 
 export function PermissionsUsersTable({
   users,
+  totalCount,
+  page,
+  pageSize,
+  onPageChange,
   draftPermissions,
   onPermissionChange,
-  onSave,
   onRemove,
-  savingId,
   removingId,
 }: Props) {
   const { t } = useTranslation('thinkzap/permissoes')
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-100 bg-white">
-      <table className="min-w-full text-left text-xs">
-        <thead>
-          <tr className="border-b border-gray-100 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
-            <th className="sticky left-0 z-10 min-w-[180px] bg-slate-50 px-3 py-2 font-medium">
-              {t('table.user')}
-            </th>
-            {THINKZAP_PERMISSION_CATEGORIES.map(category => (
+    <div className="overflow-hidden rounded-lg border border-gray-100 bg-white">
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-left text-xs">
+          <thead>
+            <tr className="border-b border-gray-100 text-[10px] uppercase tracking-wide">
               <th
-                key={category}
-                colSpan={THINKZAP_PERMISSION_ACTIONS.length}
-                className="border-l border-gray-100 px-2 py-2 text-center font-medium"
+                rowSpan={2}
+                className="sticky left-0 z-10 min-w-[220px] bg-slate-50 px-4 py-3 font-semibold text-slate-600"
               >
-                {t(`matrix.categoriesShort.${category}`)}
+                {t('table.user')}
               </th>
-            ))}
-            <th className="min-w-[72px] border-l border-gray-100 px-2 py-2 text-center font-medium">
-              {t('table.actions')}
-            </th>
-          </tr>
-          <tr className="border-b border-gray-100 bg-slate-50/80 text-[10px] text-slate-400">
-            <th className="sticky left-0 z-10 bg-slate-50/80 px-3 py-1" />
-            {THINKZAP_PERMISSION_CATEGORIES.map(category =>
-              THINKZAP_PERMISSION_ACTIONS.map(action => (
-                <th
-                  key={`${category}-${action}`}
-                  className="border-l border-gray-50 px-0 py-1 text-center font-normal first:border-l-gray-100"
-                  title={t(`matrix.actions.${action}`)}
-                >
-                  {t(`matrix.actionsShort.${action}`)}
-                </th>
-              )),
-            )}
-            <th className="border-l border-gray-100" />
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-50">
-          {users.map(user => {
-            const permissions =
-              draftPermissions[user.bitrixUserId] ?? user.permissions
-            const dirty = isDirty(user, draftPermissions)
 
-            return (
-              <tr key={user.bitrixUserId} className="hover:bg-slate-50/50">
-                <td className="sticky left-0 z-10 bg-white px-3 py-2 hover:bg-slate-50/50">
-                  <p className="truncate font-medium text-slate-800">
-                    {user.displayName ?? `Usuário #${user.bitrixUserId}`}
-                  </p>
-                  <p className="truncate text-[10px] text-slate-400">
-                    {user.email ?? '—'}
-                  </p>
-                </td>
-                {THINKZAP_PERMISSION_CATEGORIES.map(category =>
-                  THINKZAP_PERMISSION_ACTIONS.map(action => (
-                    <td
-                      key={`${user.bitrixUserId}-${category}-${action}`}
-                      className="border-l border-gray-50 px-0 py-2 text-center first:border-l-gray-100"
-                    >
-                      <label className="cursor-pointer">
-                        <input
-                          type="checkbox"
+              {THINKZAP_PERMISSION_CATEGORIES.map(category => (
+                <th
+                  key={category}
+                  colSpan={THINKZAP_PERMISSION_ACTIONS.length}
+                  className={`border-l border-white/20 px-2 py-2 text-center font-semibold ${CATEGORY_HEADER[category]}`}
+                >
+                  {t(`matrix.categoriesShort.${category}`)}
+                </th>
+              ))}
+              <th
+                rowSpan={2}
+                className="min-w-[80px] border-l border-gray-100 bg-slate-50 px-2 py-3 text-center font-semibold text-slate-600"
+              >
+                {t('table.actions')}
+              </th>
+            </tr>
+            <tr className="border-b border-gray-100 bg-slate-50/80 text-[10px] text-slate-500">
+              {THINKZAP_PERMISSION_CATEGORIES.map(category =>
+                THINKZAP_PERMISSION_ACTIONS.map(action => (
+                  <th
+                    key={`${category}-${action}`}
+                    className="border-l border-gray-100 px-0 py-1.5 text-center font-medium"
+                    title={t(`matrix.actions.${action}`)}
+                  >
+                    {t(`matrix.actionsShort.${action}`)}
+                  </th>
+                )),
+              )}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {users.map(user => {
+              const permissions =
+                draftPermissions[user.bitrixUserId] ?? user.permissions
+              const displayName =
+                user.displayName ?? `Usuário #${user.bitrixUserId}`
+
+              return (
+                <tr key={user.bitrixUserId} className="hover:bg-slate-50/50">
+                  <td className="sticky left-0 z-10 bg-white px-4 py-3 hover:bg-slate-50/50">
+                    <div className="flex items-center gap-3">
+                      <PermissionsUserAvatar label={displayName} />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-800">
+                          {displayName}
+                        </p>
+                        <p className="truncate text-[11px] text-slate-400">
+                          {user.email ?? '—'}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  {THINKZAP_PERMISSION_CATEGORIES.map(category =>
+                    THINKZAP_PERMISSION_ACTIONS.map(action => (
+                      <td
+                        key={`${user.bitrixUserId}-${category}-${action}`}
+                        className="border-l border-gray-50 px-0 py-3 text-center"
+                      >
+                        <PermissionCheckbox
                           checked={permissions[category][action]}
+                          label={t(`matrix.actions.${action}`)}
+                          category={category}
                           onChange={() =>
                             onPermissionChange(
                               user.bitrixUserId,
@@ -119,61 +138,65 @@ export function PermissionsUsersTable({
                               action,
                             )
                           }
-                          className="h-3.5 w-3.5 rounded border-gray-300 text-[#5A997E] focus:ring-[#5A997E]"
                         />
-                      </label>
-                    </td>
-                  )),
-                )}
-                <td className="border-l border-gray-100 px-2 py-2">
-                  <div className="flex items-center justify-center gap-1">
-                    <button
-                      type="button"
-                      title={t('savePermissions')}
-                      disabled={!dirty || savingId === user.bitrixUserId}
-                      onClick={() => onSave(user.bitrixUserId)}
-                      className="rounded p-1 text-[#5A997E] hover:bg-[#5A997E]/10 disabled:opacity-30"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="h-4 w-4"
+                      </td>
+                    )),
+                  )}
+                  <td className="border-l border-gray-100 px-2 py-3">
+                    <div className="flex items-center justify-center gap-1">
+                      <span
+                        className="rounded p-1 text-slate-400"
+                        title={t('editPermissions')}
                       >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      title={t('remove')}
-                      disabled={removingId === user.bitrixUserId}
-                      onClick={() => onRemove(user.bitrixUserId)}
-                      className="rounded p-1 text-red-600 hover:bg-red-50 disabled:opacity-30"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="h-4 w-4"
+                        <Pencil className="h-4 w-4" />
+                      </span>
+                      <button
+                        type="button"
+                        title={t('remove')}
+                        disabled={removingId === user.bitrixUserId}
+                        onClick={() => onRemove(user.bitrixUserId)}
+                        className="rounded p-1 text-red-500 hover:bg-red-50 disabled:opacity-30"
                       >
-                        <path
-                          fillRule="evenodd"
-                          d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <Users className="h-4 w-4" />
+          {t('usersCount', { count: totalCount })}
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => onPageChange(page - 1)}
+            className="rounded-md border border-gray-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+            aria-label={t('pagination.previous')}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="min-w-8 rounded-md bg-blue-600 px-2 py-1 text-center text-xs font-medium text-white">
+            {page}
+          </span>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => onPageChange(page + 1)}
+            className="rounded-md border border-gray-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+            aria-label={t('pagination.next')}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

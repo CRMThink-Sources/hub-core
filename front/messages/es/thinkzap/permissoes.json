@@ -1,6 +1,36 @@
 {
   "pageTitle": "Permisos de acceso",
   "pageDescription": "Defina qué puede ver, crear, modificar o eliminar cada usuario o departamento en Conectores y Finanzas.",
+  "quickGuide": "Ver guía rápida",
+  "tabs": {
+    "byUser": "Por usuario",
+    "byUserDescription": "Gestione permisos individuales de cada usuario",
+    "byDepartment": "Por departamento",
+    "byDepartmentDescription": "Gestione permisos para todos los usuarios de un departamento"
+  },
+  "manageByUser": "Gestionar permisos por usuario",
+  "manageByDepartment": "Gestionar permisos por departamento",
+  "searchTablePlaceholder": "Buscar usuario por nombre o correo...",
+  "searchTablePlaceholderDepartment": "Buscar departamento por nombre...",
+  "saveChanges": "Guardar cambios",
+  "saveHint": "Los permisos se aplican inmediatamente después de guardar",
+  "usersCount": "{{count}} usuarios registrados",
+  "departmentsCount": "{{count}} departamentos registrados",
+  "legendTitle": "Leyenda",
+  "legend": {
+    "read": "Ver",
+    "create": "Crear",
+    "update": "Modificar",
+    "delete": "Eliminar"
+  },
+  "addUserDialogTitle": "Agregar usuario",
+  "addDepartmentDialogTitle": "Agregar departamento",
+  "closeDialog": "Cerrar",
+  "editPermissions": "Editar permisos",
+  "pagination": {
+    "previous": "Página anterior",
+    "next": "Página siguiente"
+  },
   "users": {
     "sectionTitle": "Permisos por usuario",
     "sectionDescription": "Los usuarios individuales agregados aquí tienen prioridad sobre los permisos del departamento."
@@ -10,7 +40,7 @@
     "sectionDescription": "Todos los usuarios del departamento heredan estos permisos, excepto los que tienen permisos individuales.",
     "addDepartment": "Agregar departamento",
     "searchPlaceholder": "Buscar departamento...",
-    "defaultPermissionsForNewDepartment": "Permisos predeterminados para el nuevo departamento",
+    "defaultPermissionsForNewDepartment": "Permisos predeterminados para nuevos departamentos",
     "emptyList": "Aún no hay departamentos autorizados. Agregue departamentos y configure los permisos.",
     "alreadyOnList": "Este departamento ya está en la lista.",
     "added": "Departamento agregado correctamente.",
@@ -36,7 +66,6 @@
   "loadError": "No se pudo cargar la lista de permisos.",
   "saveError": "No se pudo guardar el permiso.",
   "adminOnly": "Solo los administradores de Bitrix24 pueden gestionar permisos.",
-  "legend": "V = Ver · C = Crear · M = Modificar · E = Eliminar. Guarde solo cuando haya cambios.",
   "table": {
     "user": "Usuario",
     "actions": "Acciones"
@@ -58,10 +87,10 @@
       "delete": "Eliminar"
     },
     "actionsShort": {
-      "read": "V",
-      "create": "C",
-      "update": "M",
-      "delete": "E"
+      "read": "Ver",
+      "create": "Crear",
+      "update": "Modificar",
+      "delete": "Eliminar"
     }
   }
 }

@@ -8,55 +8,27 @@ import {
   type ThinkzapPermissionCategory,
   type ThinkzapUserPermissions,
 } from '@/shared/thinkzap-permissions'
+import { PermissionCheckbox } from './permission-checkbox'
 
 type Props = {
   value: ThinkzapUserPermissions
   onChange: (next: ThinkzapUserPermissions) => void
   disabled?: boolean
-  /** layout inline em uma linha (ex.: defaults ao adicionar) */
-  inline?: boolean
-}
-
-function PermissionToggle({
-  checked,
-  disabled,
-  label,
-  onToggle,
-}: {
-  checked: boolean
-  disabled?: boolean
-  label: string
-  onToggle: () => void
-}) {
-  return (
-    <label
-      title={label}
-      className={`inline-flex cursor-pointer items-center gap-0.5 ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={onToggle}
-        className="h-3.5 w-3.5 rounded border-gray-300 text-[#5A997E] focus:ring-[#5A997E]"
-      />
-      <span className="text-[10px] font-medium uppercase text-slate-500">
-        {label}
-      </span>
-    </label>
-  )
+  variant?: 'defaults' | 'table'
 }
 
 function CategoryToggles({
   category,
   value,
   disabled,
+  variant,
   onChange,
   t,
 }: {
   category: ThinkzapPermissionCategory
   value: ThinkzapUserPermissions
   disabled?: boolean
+  variant: 'defaults' | 'table'
   onChange: (next: ThinkzapUserPermissions) => void
   t: (key: string) => string
 }) {
@@ -71,19 +43,27 @@ function CategoryToggles({
     })
   }
 
+  const categoryLabelClass =
+    category === 'connectors' ? 'text-blue-700' : 'text-[#5A997E]'
+
   return (
-    <div className="flex items-center gap-2">
-      <span className="w-16 shrink-0 text-[11px] font-medium text-slate-600">
+    <div className="flex flex-wrap items-center gap-3">
+      <span
+        className={`w-20 shrink-0 text-xs font-semibold ${categoryLabelClass}`}
+      >
         {t(`matrix.categoriesShort.${category}`)}
       </span>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         {THINKZAP_PERMISSION_ACTIONS.map(action => (
-          <PermissionToggle
+          <PermissionCheckbox
             key={action}
             checked={value[category][action]}
             disabled={disabled}
             label={t(`matrix.actionsShort.${action}`)}
-            onToggle={() => toggle(action)}
+            category={category}
+            action={action}
+            variant={variant}
+            onChange={() => toggle(action)}
           />
         ))}
       </div>
@@ -95,35 +75,19 @@ export function PermissionsMatrix({
   value,
   onChange,
   disabled,
-  inline,
+  variant = 'table',
 }: Props) {
   const { t } = useTranslation('thinkzap/permissoes')
 
-  if (inline) {
-    return (
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        {THINKZAP_PERMISSION_CATEGORIES.map(category => (
-          <CategoryToggles
-            key={category}
-            category={category}
-            value={value}
-            disabled={disabled}
-            onChange={onChange}
-            t={t}
-          />
-        ))}
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-1.5">
+    <div className="flex flex-wrap items-center gap-x-8 gap-y-3 w-full justify-between">
       {THINKZAP_PERMISSION_CATEGORIES.map(category => (
         <CategoryToggles
           key={category}
           category={category}
           value={value}
           disabled={disabled}
+          variant={variant}
           onChange={onChange}
           t={t}
         />

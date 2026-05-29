@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -16,7 +16,15 @@ import {
 } from '@/bitrix'
 import { useThinkzapApi } from '@/app/hooks/use-thinkzap-api'
 import { useSession } from '@/providers/session-provider'
-import { PermissionsMatrix } from '../_components/permissions-matrix'
+import { PermissionsHeader } from '../_components/permissions-header'
+import {
+  PermissionsModeTabs,
+  type PermissionsTabMode,
+} from '../_components/permissions-mode-tabs'
+import { PermissionsToolbar } from '../_components/permissions-toolbar'
+import { PermissionsAddDialog } from '../_components/permissions-add-dialog'
+import { PermissionsDefaultsCard } from '../_components/permissions-defaults-card'
+import { PermissionsFooterBar } from '../_components/permissions-footer-bar'
 import { PermissionsUsersTable } from '../_components/permissions-users-table'
 import { PermissionsDepartmentsTable } from '../_components/permissions-departments-table'
 import {
@@ -25,6 +33,8 @@ import {
   type ThinkzapPermissionAction,
   type ThinkzapUserPermissions,
 } from '@/shared/thinkzap-permissions'
+
+const PAGE_SIZE = 10
 
 type AllowedUser = {
   id: string
@@ -41,6 +51,24 @@ type AllowedDepartment = {
   permissions: ThinkzapUserPermissions
 }
 
+function isUserDirty(
+  user: AllowedUser,
+  draft: Record<string, ThinkzapUserPermissions>,
+): boolean {
+  const current = draft[user.bitrixUserId]
+  if (!current) return false
+  return JSON.stringify(current) !== JSON.stringify(user.permissions)
+}
+
+function isDeptDirty(
+  dept: AllowedDepartment,
+  draft: Record<string, ThinkzapUserPermissions>,
+): boolean {
+  const current = draft[dept.bitrixDepartmentId]
+  if (!current) return false
+  return JSON.stringify(current) !== JSON.stringify(dept.permissions)
+}
+
 export default function PermissoesPage() {
   const { t } = useTranslation('thinkzap/permissoes')
   const { session } = useSession()
@@ -48,10 +76,15 @@ export default function PermissoesPage() {
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const { ready: bx24Ready } = useBX24(scriptLoaded)
 
-  // --- Users state ---
+  const [activeTab, setActiveTab] = useState<PermissionsTabMode>('users')
+  const [tableFilter, setTableFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [savingAll, setSavingAll] = useState(false)
+
   const [users, setUsers] = useState<AllowedUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(true)
-  const [userQuery, setUserQuery] = useState('')
+  const [addUserQuery, setAddUserQuery] = useState('')
   const [searchingUsers, setSearchingUsers] = useState(false)
   const [userHits, setUserHits] = useState<BitrixUserSearchHit[]>([])
   const [removingUserId, setRemovingUserId] = useState<string | null>(null)
@@ -60,12 +93,10 @@ export default function PermissoesPage() {
   const [draftUserPermissions, setDraftUserPermissions] = useState<
     Record<string, ThinkzapUserPermissions>
   >({})
-  const [savingUserId, setSavingUserId] = useState<string | null>(null)
 
-  // --- Departments state ---
   const [departments, setDepartments] = useState<AllowedDepartment[]>([])
   const [loadingDepts, setLoadingDepts] = useState(true)
-  const [deptQuery, setDeptQuery] = useState('')
+  const [addDeptQuery, setAddDeptQuery] = useState('')
   const [searchingDepts, setSearchingDepts] = useState(false)
   const [deptHits, setDeptHits] = useState<BitrixDepartmentHit[]>([])
   const [removingDeptId, setRemovingDeptId] = useState<string | null>(null)
@@ -74,12 +105,10 @@ export default function PermissoesPage() {
   const [draftDeptPermissions, setDraftDeptPermissions] = useState<
     Record<string, ThinkzapUserPermissions>
   >({})
-  const [savingDeptId, setSavingDeptId] = useState<string | null>(null)
 
   const canManage =
     session?.thinkzapAccess?.canManageAccess === true || isBitrixAdmin()
 
-  // --- Load users ---
   const loadUsers = useCallback(async () => {
     setLoadingUsers(true)
     try {
@@ -98,7 +127,6 @@ export default function PermissoesPage() {
     }
   }, [api, t])
 
-  // --- Load departments ---
   const loadDepartments = useCallback(async () => {
     setLoadingDepts(true)
     try {
@@ -129,29 +157,35 @@ export default function PermissoesPage() {
     }
   }, [canManage, loadUsers, loadDepartments])
 
-  // --- User search ---
   useEffect(() => {
-    if (!bx24Ready || userQuery.trim().length < 2) {
+    setPage(1)
+  }, [activeTab, tableFilter])
+
+  useEffect(() => {
+    if (!addDialogOpen || !bx24Ready || activeTab !== 'users') {
+      if (!addDialogOpen) setUserHits([])
+      return
+    }
+    if (addUserQuery.trim().length < 2) {
       setUserHits([])
       return
     }
     const handle = window.setTimeout(() => {
       setSearchingUsers(true)
-      searchBitrixUsers(userQuery.trim())
+      searchBitrixUsers(addUserQuery.trim())
         .then(hits => setUserHits(hits.slice(0, 6)))
         .catch(() => setUserHits([]))
         .finally(() => setSearchingUsers(false))
     }, 350)
     return () => window.clearTimeout(handle)
-  }, [bx24Ready, userQuery])
+  }, [addDialogOpen, bx24Ready, activeTab, addUserQuery])
 
-  // --- Department search ---
   useEffect(() => {
-    if (!bx24Ready) {
-      setDeptHits([])
+    if (!addDialogOpen || !bx24Ready || activeTab !== 'departments') {
+      if (!addDialogOpen) setDeptHits([])
       return
     }
-    const trimmed = deptQuery.trim()
+    const trimmed = addDeptQuery.trim()
     const handle = window.setTimeout(() => {
       setSearchingDepts(true)
       searchBitrixDepartments(trimmed.length > 0 ? trimmed : undefined)
@@ -160,9 +194,74 @@ export default function PermissoesPage() {
         .finally(() => setSearchingDepts(false))
     }, 350)
     return () => window.clearTimeout(handle)
-  }, [bx24Ready, deptQuery])
+  }, [addDialogOpen, bx24Ready, activeTab, addDeptQuery])
 
-  // --- User actions ---
+  const filteredUsers = useMemo(() => {
+    const q = tableFilter.trim().toLowerCase()
+    if (!q) return users
+    return users.filter(u => {
+      const name = (u.displayName ?? '').toLowerCase()
+      const email = (u.email ?? '').toLowerCase()
+      return name.includes(q) || email.includes(q)
+    })
+  }, [users, tableFilter])
+
+  const filteredDepartments = useMemo(() => {
+    const q = tableFilter.trim().toLowerCase()
+    if (!q) return departments
+    return departments.filter(d =>
+      (d.displayName ?? '').toLowerCase().includes(q),
+    )
+  }, [departments, tableFilter])
+
+  const paginatedUsers = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filteredUsers.slice(start, start + PAGE_SIZE)
+  }, [filteredUsers, page])
+
+  const paginatedDepartments = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filteredDepartments.slice(start, start + PAGE_SIZE)
+  }, [filteredDepartments, page])
+
+  const dirtyUserIds = useMemo(
+    () =>
+      users
+        .filter(u => isUserDirty(u, draftUserPermissions))
+        .map(u => u.bitrixUserId),
+    [users, draftUserPermissions],
+  )
+
+  const dirtyDeptIds = useMemo(
+    () =>
+      departments
+        .filter(d => isDeptDirty(d, draftDeptPermissions))
+        .map(d => d.bitrixDepartmentId),
+    [departments, draftDeptPermissions],
+  )
+
+  const dirtyCount =
+    activeTab === 'users' ? dirtyUserIds.length : dirtyDeptIds.length
+
+  function openAddDialog() {
+    setAddDialogOpen(true)
+    if (activeTab === 'users') {
+      setAddUserQuery('')
+      setUserHits([])
+    } else {
+      setAddDeptQuery('')
+      setDeptHits([])
+    }
+  }
+
+  function closeAddDialog() {
+    setAddDialogOpen(false)
+    setAddUserQuery('')
+    setAddDeptQuery('')
+    setUserHits([])
+    setDeptHits([])
+  }
+
   async function handleAddUser(hit: BitrixUserSearchHit) {
     const bitrixUserId = String(hit.ID)
     if (users.some(u => u.bitrixUserId === bitrixUserId)) {
@@ -177,10 +276,28 @@ export default function PermissoesPage() {
         permissions: newUserPermissions,
       })
       toast.success(t('added'))
-      setUserQuery('')
-      setUserHits([])
-      setNewUserPermissions(DEFAULT_ALLOWED_USER_PERMISSIONS)
+      closeAddDialog()
       await loadUsers()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('saveError'))
+    }
+  }
+
+  async function handleAddDepartment(hit: BitrixDepartmentHit) {
+    const bitrixDepartmentId = String(hit.ID)
+    if (departments.some(d => d.bitrixDepartmentId === bitrixDepartmentId)) {
+      toast.error(t('departments.alreadyOnList'))
+      return
+    }
+    try {
+      await api.post('/thinkzap/access/allowed-departments', {
+        bitrixDepartmentId,
+        displayName: formatBitrixDepartmentName(hit),
+        permissions: newDeptPermissions,
+      })
+      toast.success(t('departments.added'))
+      closeAddDialog()
+      await loadDepartments()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('saveError'))
     }
@@ -207,60 +324,6 @@ export default function PermissoesPage() {
     })
   }
 
-  async function handleSaveUserPermissions(bitrixUserId: string) {
-    const permissions = draftUserPermissions[bitrixUserId]
-    if (!permissions) return
-    setSavingUserId(bitrixUserId)
-    try {
-      await api.patch(`/thinkzap/access/allowed-users/${bitrixUserId}`, {
-        permissions,
-      })
-      toast.success(t('permissionsSaved'))
-      await loadUsers()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('saveError'))
-    } finally {
-      setSavingUserId(null)
-    }
-  }
-
-  async function handleRemoveUser(bitrixUserId: string) {
-    if (!window.confirm(t('removeConfirm'))) return
-    setRemovingUserId(bitrixUserId)
-    try {
-      await api.delete(`/thinkzap/access/allowed-users/${bitrixUserId}`)
-      toast.success(t('removed'))
-      await loadUsers()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('saveError'))
-    } finally {
-      setRemovingUserId(null)
-    }
-  }
-
-  // --- Department actions ---
-  async function handleAddDepartment(hit: BitrixDepartmentHit) {
-    const bitrixDepartmentId = String(hit.ID)
-    if (departments.some(d => d.bitrixDepartmentId === bitrixDepartmentId)) {
-      toast.error(t('departments.alreadyOnList'))
-      return
-    }
-    try {
-      await api.post('/thinkzap/access/allowed-departments', {
-        bitrixDepartmentId,
-        displayName: formatBitrixDepartmentName(hit),
-        permissions: newDeptPermissions,
-      })
-      toast.success(t('departments.added'))
-      setDeptQuery('')
-      setDeptHits([])
-      setNewDeptPermissions(DEFAULT_ALLOWED_USER_PERMISSIONS)
-      await loadDepartments()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('saveError'))
-    }
-  }
-
   function handleDeptPermissionChange(
     bitrixDepartmentId: string,
     category: (typeof THINKZAP_PERMISSION_CATEGORIES)[number],
@@ -282,21 +345,48 @@ export default function PermissoesPage() {
     })
   }
 
-  async function handleSaveDeptPermissions(bitrixDepartmentId: string) {
-    const permissions = draftDeptPermissions[bitrixDepartmentId]
-    if (!permissions) return
-    setSavingDeptId(bitrixDepartmentId)
+  async function handleSaveAll() {
+    setSavingAll(true)
     try {
-      await api.patch(
-        `/thinkzap/access/allowed-departments/${bitrixDepartmentId}`,
-        { permissions },
-      )
+      if (activeTab === 'users') {
+        await Promise.all(
+          dirtyUserIds.map(bitrixUserId =>
+            api.patch(`/thinkzap/access/allowed-users/${bitrixUserId}`, {
+              permissions: draftUserPermissions[bitrixUserId],
+            }),
+          ),
+        )
+        await loadUsers()
+      } else {
+        await Promise.all(
+          dirtyDeptIds.map(bitrixDepartmentId =>
+            api.patch(
+              `/thinkzap/access/allowed-departments/${bitrixDepartmentId}`,
+              { permissions: draftDeptPermissions[bitrixDepartmentId] },
+            ),
+          ),
+        )
+        await loadDepartments()
+      }
       toast.success(t('permissionsSaved'))
-      await loadDepartments()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('saveError'))
     } finally {
-      setSavingDeptId(null)
+      setSavingAll(false)
+    }
+  }
+
+  async function handleRemoveUser(bitrixUserId: string) {
+    if (!window.confirm(t('removeConfirm'))) return
+    setRemovingUserId(bitrixUserId)
+    try {
+      await api.delete(`/thinkzap/access/allowed-users/${bitrixUserId}`)
+      toast.success(t('removed'))
+      await loadUsers()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : t('saveError'))
+    } finally {
+      setRemovingUserId(null)
     }
   }
 
@@ -316,6 +406,19 @@ export default function PermissoesPage() {
     }
   }
 
+  const addDialogHits =
+    activeTab === 'users'
+      ? userHits.map(hit => ({
+          id: hit.ID,
+          primary: formatBitrixUserName(hit),
+          secondary: hit.EMAIL ?? `ID ${hit.ID}`,
+        }))
+      : deptHits.map(hit => ({
+          id: hit.ID,
+          primary: formatBitrixDepartmentName(hit),
+          secondary: `ID ${hit.ID}`,
+        }))
+
   if (!canManage) {
     return (
       <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4 px-4 py-8 sm:px-6 lg:px-8">
@@ -326,198 +429,102 @@ export default function PermissoesPage() {
     )
   }
 
+  const isLoading = activeTab === 'users' ? loadingUsers : loadingDepts
+  const isEmpty =
+    activeTab === 'users'
+      ? filteredUsers.length === 0
+      : filteredDepartments.length === 0
+
   return (
-    <div className="relative mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4 px-4 pb-10 pt-6 sm:px-6 lg:px-8">
+    <div className="relative mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 pb-4 pt-6 sm:px-6 lg:px-8">
       <BX24Script onLoad={() => setScriptLoaded(true)} />
 
-      <div className="flex flex-col gap-1 rounded-lg border border-gray-100 bg-white px-4 py-3">
-        <h1 className="page-title text-lg">{t('pageTitle')}</h1>
-        <p className="text-xs text-slate-500">{t('pageDescription')}</p>
-      </div>
+      <PermissionsHeader />
+      <PermissionsModeTabs activeTab={activeTab} onChange={setActiveTab} />
 
-      {/* ---- USERS SECTION ---- */}
-      <div className="flex flex-col gap-1 rounded-lg border border-gray-100 bg-white px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-700">
-          {t('users.sectionTitle')}
-        </h2>
-        <p className="text-xs text-slate-400">
-          {t('users.sectionDescription')}
-        </p>
-      </div>
-
-      <div className="rounded-lg border border-gray-100 bg-white p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="min-w-0 flex-1">
-            <label className="mb-1 block text-xs font-medium text-slate-600">
-              {t('addUser')}
-            </label>
-            <input
-              type="search"
-              value={userQuery}
-              onChange={e => setUserQuery(e.target.value)}
-              placeholder={t('searchPlaceholder')}
-              className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-[#5A997E] focus:ring-1 focus:ring-[#5A997E]"
-            />
-          </div>
-        </div>
-
-        {(searchingUsers || userHits.length > 0) && (
-          <ul className="mt-2 divide-y divide-gray-50 rounded-md border border-gray-100">
-            {searchingUsers && (
-              <li className="px-3 py-2 text-xs text-slate-400">
-                {t('searching')}
-              </li>
-            )}
-            {!searchingUsers &&
-              userHits.map(hit => (
-                <li
-                  key={hit.ID}
-                  className="flex items-center justify-between gap-2 px-3 py-1.5"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-800">
-                      {formatBitrixUserName(hit)}
-                    </p>
-                    <p className="truncate text-[10px] text-slate-400">
-                      {hit.EMAIL ?? `ID ${hit.ID}`}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleAddUser(hit)}
-                    className="shrink-0 rounded-md bg-[#5A997E] px-2.5 py-1 text-xs font-medium text-white hover:opacity-90"
-                  >
-                    +
-                  </button>
-                </li>
-              ))}
-          </ul>
-        )}
-
-        <div className="mt-3 border-t border-gray-50 pt-3">
-          <p className="mb-2 text-[11px] font-medium text-slate-500">
-            {t('defaultPermissionsForNewUser')}
-          </p>
-          <PermissionsMatrix
-            inline
-            value={newUserPermissions}
-            onChange={setNewUserPermissions}
-          />
-        </div>
-      </div>
-
-      {loadingUsers ? (
-        <div className="flex items-center justify-center rounded-lg border border-gray-100 bg-white py-10">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#5A997E]" />
-        </div>
-      ) : users.length === 0 ? (
-        <p className="rounded-lg border border-gray-100 bg-white px-4 py-8 text-center text-xs text-slate-500">
-          {t('emptyList')}
-        </p>
-      ) : (
-        <PermissionsUsersTable
-          users={users}
-          draftPermissions={draftUserPermissions}
-          onPermissionChange={handleUserPermissionChange}
-          onSave={bitrixUserId => void handleSaveUserPermissions(bitrixUserId)}
-          onRemove={bitrixUserId => void handleRemoveUser(bitrixUserId)}
-          savingId={savingUserId}
-          removingId={removingUserId}
+      <div className="flex flex-col gap-5 rounded-lg border border-gray-100 bg-white p-5">
+        <PermissionsToolbar
+          mode={activeTab}
+          filter={tableFilter}
+          onFilterChange={setTableFilter}
+          onAddClick={openAddDialog}
         />
-      )}
 
-      {/* ---- DEPARTMENTS SECTION ---- */}
-      <div className="flex flex-col gap-1 rounded-lg border border-gray-100 bg-white px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-700">
-          {t('departments.sectionTitle')}
-        </h2>
-        <p className="text-xs text-slate-400">
-          {t('departments.sectionDescription')}
-        </p>
-      </div>
-
-      <div className="rounded-lg border border-gray-100 bg-white p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="min-w-0 flex-1">
-            <label className="mb-1 block text-xs font-medium text-slate-600">
-              {t('departments.addDepartment')}
-            </label>
-            <input
-              type="search"
-              value={deptQuery}
-              onChange={e => setDeptQuery(e.target.value)}
-              placeholder={t('departments.searchPlaceholder')}
-              className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-[#5A997E] focus:ring-1 focus:ring-[#5A997E]"
-            />
-          </div>
-        </div>
-
-        {(searchingDepts || deptHits.length > 0) && (
-          <ul className="mt-2 divide-y divide-gray-50 rounded-md border border-gray-100">
-            {searchingDepts && (
-              <li className="px-3 py-2 text-xs text-slate-400">
-                {t('searching')}
-              </li>
-            )}
-            {!searchingDepts &&
-              deptHits.map(hit => (
-                <li
-                  key={hit.ID}
-                  className="flex items-center justify-between gap-2 px-3 py-1.5"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-800">
-                      {formatBitrixDepartmentName(hit)}
-                    </p>
-                    <p className="truncate text-[10px] text-slate-400">
-                      ID {hit.ID}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleAddDepartment(hit)}
-                    className="shrink-0 rounded-md bg-[#5A997E] px-2.5 py-1 text-xs font-medium text-white hover:opacity-90"
-                  >
-                    +
-                  </button>
-                </li>
-              ))}
-          </ul>
-        )}
-
-        <div className="mt-3 border-t border-gray-50 pt-3">
-          <p className="mb-2 text-[11px] font-medium text-slate-500">
-            {t('departments.defaultPermissionsForNewDepartment')}
-          </p>
-          <PermissionsMatrix
-            inline
-            value={newDeptPermissions}
-            onChange={setNewDeptPermissions}
-          />
-        </div>
-      </div>
-
-      {loadingDepts ? (
-        <div className="flex items-center justify-center rounded-lg border border-gray-100 bg-white py-10">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#5A997E]" />
-        </div>
-      ) : departments.length === 0 ? (
-        <p className="rounded-lg border border-gray-100 bg-white px-4 py-8 text-center text-xs text-slate-500">
-          {t('departments.emptyList')}
-        </p>
-      ) : (
-        <PermissionsDepartmentsTable
-          departments={departments}
-          draftPermissions={draftDeptPermissions}
-          onPermissionChange={handleDeptPermissionChange}
-          onSave={id => void handleSaveDeptPermissions(id)}
-          onRemove={id => void handleRemoveDepartment(id)}
-          savingId={savingDeptId}
-          removingId={removingDeptId}
+        <PermissionsDefaultsCard
+          mode={activeTab}
+          value={
+            activeTab === 'users' ? newUserPermissions : newDeptPermissions
+          }
+          onChange={
+            activeTab === 'users'
+              ? setNewUserPermissions
+              : setNewDeptPermissions
+          }
         />
-      )}
 
-      <p className="text-[10px] text-slate-400">{t('legend')}</p>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+          </div>
+        ) : isEmpty ? (
+          <p className="rounded-lg border border-dashed border-gray-200 px-4 py-12 text-center text-sm text-slate-500">
+            {activeTab === 'users'
+              ? t('emptyList')
+              : t('departments.emptyList')}
+          </p>
+        ) : activeTab === 'users' ? (
+          <PermissionsUsersTable
+            users={paginatedUsers}
+            totalCount={filteredUsers.length}
+            page={page}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+            draftPermissions={draftUserPermissions}
+            onPermissionChange={handleUserPermissionChange}
+            onRemove={bitrixUserId => void handleRemoveUser(bitrixUserId)}
+            removingId={removingUserId}
+          />
+        ) : (
+          <PermissionsDepartmentsTable
+            departments={paginatedDepartments}
+            totalCount={filteredDepartments.length}
+            page={page}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+            draftPermissions={draftDeptPermissions}
+            onPermissionChange={handleDeptPermissionChange}
+            onRemove={id => void handleRemoveDepartment(id)}
+            removingId={removingDeptId}
+          />
+        )}
+      </div>
+
+      <PermissionsFooterBar
+        dirtyCount={dirtyCount}
+        saving={savingAll}
+        onSave={() => void handleSaveAll()}
+      />
+
+      <PermissionsAddDialog
+        mode={activeTab}
+        isOpen={addDialogOpen}
+        query={activeTab === 'users' ? addUserQuery : addDeptQuery}
+        searching={activeTab === 'users' ? searchingUsers : searchingDepts}
+        hits={addDialogHits}
+        onClose={closeAddDialog}
+        onQueryChange={
+          activeTab === 'users' ? setAddUserQuery : setAddDeptQuery
+        }
+        onSelect={hit => {
+          if (activeTab === 'users') {
+            const userHit = userHits.find(h => String(h.ID) === String(hit.id))
+            if (userHit) void handleAddUser(userHit)
+          } else {
+            const deptHit = deptHits.find(h => String(h.ID) === String(hit.id))
+            if (deptHit) void handleAddDepartment(deptHit)
+          }
+        }}
+      />
     </div>
   )
 }
