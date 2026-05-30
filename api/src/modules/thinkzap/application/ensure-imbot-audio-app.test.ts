@@ -52,9 +52,11 @@ describe('EnsureImbotAudioApp', () => {
       'placement.bind',
       expect.objectContaining({
         PLACEMENT: 'IM_TEXTAREA',
-        OPTIONS: expect.objectContaining({ context: 'LINES' }),
       }),
     )
+    expect(callMethod.mock.calls[1]?.[1]).toMatchObject({
+      OPTIONS: { context: 'LINES' },
+    })
   })
 
   it('returns updated when handler already exists', async () => {
