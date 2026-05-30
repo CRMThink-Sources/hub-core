@@ -2,16 +2,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 
 const executeBot = vi.hoisted(() => vi.fn())
-const ensureImbotAudioApp = vi.hoisted(() => vi.fn())
+
+vi.mock('../application/build-audio-im-textarea-placement-params', () => ({
+  buildAudioImTextareaPlacementBindParams: () => ({
+    PLACEMENT: 'IM_TEXTAREA',
+    HANDLER: 'https://app.example/bitrix/widget/audio',
+    TITLE: 'ThinkZap Audio',
+    LANG_ALL: { pt: { TITLE: 'ThinkZap Audio' } },
+    OPTIONS: { iconName: 'chat-compose', context: 'LINES' },
+  }),
+}))
 
 vi.mock('../application/get-or-create-thinkzap-bot', () => ({
   GetOrCreateThinkzapBot: class {
     execute = executeBot
   },
-}))
-
-vi.mock('../application/ensure-imbot-audio-app', () => ({
-  ensureImbotAudioApp,
 }))
 
 import { ThinkersZapInstallBindHandler } from './thinkerszap-install-bind.handler'
@@ -23,10 +28,9 @@ describe('ThinkersZapInstallBindHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     executeBot.mockResolvedValue(42)
-    ensureImbotAudioApp.mockResolvedValue('updated')
   })
 
-  it('does not include IM_TEXTAREA in static binds', () => {
+  it('includes IM_TEXTAREA placement bind in static binds', () => {
     const binds = handler.getBinds()
     const audioBind = binds.find(
       bind =>
@@ -34,21 +38,25 @@ describe('ThinkersZapInstallBindHandler', () => {
         bind.params.PLACEMENT === 'IM_TEXTAREA',
     )
 
-    expect(audioBind).toBeUndefined()
+    expect(audioBind).toBeDefined()
+    expect(audioBind?.params).toMatchObject({
+      PLACEMENT: 'IM_TEXTAREA',
+      OPTIONS: expect.objectContaining({
+        iconName: 'chat-compose',
+        context: 'LINES',
+      }),
+    })
   })
 
-  it('onInstall ensures Open Lines bot and imbot audio app', async () => {
+  it('onInstall ensures Open Lines bot only', async () => {
     await handler.onInstall(client)
 
     expect(executeBot).toHaveBeenCalledWith(client)
-    expect(ensureImbotAudioApp).toHaveBeenCalledWith(client, 42)
   })
 
-  it('skips imbot app when bot is not available', async () => {
+  it('skips bot creation failure gracefully', async () => {
     executeBot.mockResolvedValue(null)
 
-    await handler.onInstall(client)
-
-    expect(ensureImbotAudioApp).not.toHaveBeenCalled()
+    await expect(handler.onInstall(client)).resolves.toBeUndefined()
   })
 })

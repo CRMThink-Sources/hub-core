@@ -1,9 +1,9 @@
 import 'dotenv/config'
 
 import { env } from '@/config/env'
+import { buildAudioImTextareaPlacementBindParams } from '@/modules/thinkzap/application/build-audio-im-textarea-placement-params'
 import { ensureImbotAudioApp } from '@/modules/thinkzap/application/ensure-imbot-audio-app'
-import { GetOrCreateThinkzapBot } from '@/modules/thinkzap/application/get-or-create-thinkzap-bot'
-import { buildImbotAudioAppParams } from '@/modules/thinkzap/application/build-imbot-audio-app-params'
+import { findThinkzapBotId } from '@/modules/thinkzap/application/get-or-create-thinkzap-bot'
 import { BitrixOAuthClient } from '@/shared/infra/clients/bitrix-oauth.client'
 import { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositories/prisma-credential.repository'
@@ -71,6 +71,12 @@ async function main() {
     process.exit(1)
   }
 
+  if (/ngrok-free\.(app|dev)/i.test(env.bitrix.iframeAudio.url)) {
+    console.warn(
+      '[register:audio-imbot] BITRIX_IFRAME_AUDIO_URL usa ngrok free; o iframe do Bitrix pode falhar nos chunks /_next (Unexpected token "<"). Use cloudflared ou homolog — docs/DEV-BITRIX.md',
+    )
+  }
+
   const domainRow = await prisma.domain.findFirst({ where: { name: domain } })
   if (!domainRow) {
     console.error(`Domain nao encontrado: ${domain}`)
@@ -123,30 +129,19 @@ async function main() {
 
   const client = new BitrixRestClient(domain, accessToken)
 
-  const getBot = new GetOrCreateThinkzapBot()
-  const botId = await getBot.execute(client)
-  if (!botId) {
-    console.error('Bot ThinkZap nao encontrado/criado')
-    process.exit(1)
-  }
+  const botId = await findThinkzapBotId(client)
 
   if (check) {
-    const params = buildImbotAudioAppParams(botId)
-    console.log('[check] imbot.app.register params:', {
-      BOT_ID: params.BOT_ID,
-      CODE: params.CODE,
-      CONTEXT: params.CONTEXT,
-      IFRAME: params.IFRAME,
-      IFRAME_WIDTH: params.IFRAME_WIDTH,
-      IFRAME_HEIGHT: params.IFRAME_HEIGHT,
-    })
+    const params = buildAudioImTextareaPlacementBindParams()
+    console.log('[check] placement.bind params:', params)
     console.log(
-      '[check] UI: area do textarea no Open Lines -> icone ThinkZap Audio',
+      '[check] UI: painel acima do campo de mensagem no chat -> ThinkZap Audio',
     )
     process.exit(0)
   }
+
   const result = await ensureImbotAudioApp(client, botId)
-  console.log(`[register:audio-imbot] botId=${botId} result=${result}`)
+  console.log(`[register:audio-imbot] result=${result}`)
 }
 
 main()

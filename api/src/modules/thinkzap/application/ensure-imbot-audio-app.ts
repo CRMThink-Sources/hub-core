@@ -1,38 +1,80 @@
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
-import {
-  buildImbotAudioAppParams,
-  buildImbotAudioAppUpdateParams,
-} from './build-imbot-audio-app-params'
+import { buildAudioImTextareaPlacementBindParams } from './build-audio-im-textarea-placement-params'
+import { cleanupLegacyImbotAudioApp } from './cleanup-legacy-imbot-audio-app'
 
 export type EnsureImbotAudioAppResult = 'created' | 'updated' | 'skipped'
+
+type PlacementHandlerEntry = {
+  placement?: string
+  handler?: string
+  PLACEMENT?: string
+  HANDLER?: string
+}
+
+function normalizeHandlerEntry(entry: PlacementHandlerEntry) {
+  return {
+    placement: entry.placement ?? entry.PLACEMENT ?? '',
+    handler: entry.handler ?? entry.HANDLER ?? '',
+  }
+}
+
+async function hasExistingAudioPlacement(
+  client: BitrixRestClient,
+  handler: string,
+): Promise<boolean> {
+  try {
+    const list = (await client.callMethod('placement.get', {})) as
+      | PlacementHandlerEntry[]
+      | { result?: PlacementHandlerEntry[] }
+
+    const handlers = Array.isArray(list)
+      ? list
+      : Array.isArray(list?.result)
+        ? list.result
+        : []
+
+    return handlers.some(entry => {
+      const { placement, handler: h } = normalizeHandlerEntry(entry)
+      return placement === 'IM_TEXTAREA' && h === handler
+    })
+  } catch {
+    return false
+  }
+}
 
 export class EnsureImbotAudioApp {
   async execute(
     client: BitrixRestClient,
-    botId: number,
+    options?: { botIdForLegacyCleanup?: number | null },
   ): Promise<EnsureImbotAudioAppResult> {
-    const registerParams = buildImbotAudioAppParams(botId)
-    const appId = Number(
-      await client.callMethod('imbot.app.register', registerParams),
-    )
+    const params = buildAudioImTextareaPlacementBindParams()
 
-    if (!appId) {
+    if (!params.HANDLER) {
       return 'skipped'
     }
-    console.log('appId', appId)
-    await client.callMethod(
-      'imbot.app.update',
 
-      buildImbotAudioAppUpdateParams(appId),
-    )
+    const botId = options?.botIdForLegacyCleanup
+    if (botId) {
+      await cleanupLegacyImbotAudioApp(client, botId)
+    }
 
-    return 'updated'
+    const existed = await hasExistingAudioPlacement(client, params.HANDLER)
+
+    const bound = await client.callMethod('placement.bind', params)
+
+    if (!bound) {
+      return 'skipped'
+    }
+
+    return existed ? 'updated' : 'created'
   }
 }
 
 export async function ensureImbotAudioApp(
   client: BitrixRestClient,
-  botId: number,
+  botIdForLegacyCleanup?: number | null,
 ): Promise<EnsureImbotAudioAppResult> {
-  return new EnsureImbotAudioApp().execute(client, botId)
+  return new EnsureImbotAudioApp().execute(client, {
+    botIdForLegacyCleanup,
+  })
 }

@@ -22,9 +22,26 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
       messageId: event.messageId,
       phone: event.phone,
       isGroup: event.isGroup,
+      isEdit: event.isEdit,
+      referenceMessageId: event.referenceMessageId,
     },
     'Processing received Z-API message',
   )
+
+  if (event.isEdit && !event.referenceMessageId) {
+    log.warn(
+      {
+        instanceId: event.instanceId,
+        messageId: event.messageId,
+      },
+      'isEdit=true but referenceMessageId missing — skipping',
+    )
+    return
+  }
+
+  const outgoingMessageId = event.isEdit
+    ? event.referenceMessageId
+    : event.messageId
 
   const connectorRepo = new PrismaConnectorRepository()
   const instanceRepo = new PrismaInstanceRepository()
@@ -151,7 +168,7 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
           },
         },
         message: {
-          id: event.messageId,
+          id: outgoingMessageId,
           date: new Date(event.momment).toISOString(),
           text: event.image
             ? event.image.caption
@@ -166,6 +183,8 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
   log.debug(
     {
       messageId: event.messageId,
+      outgoingMessageId,
+      isEdit: event.isEdit,
       connectorCode: params.CONNECTOR,
       channel: params.LINE,
       filesCount: files?.length ?? 0,
@@ -183,14 +202,18 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
     return
   }
 
-  const result: unknown = await bitrixClient.sendMessage(params)
+  const result: unknown = event.isEdit
+    ? await bitrixClient.updateMessage(params)
+    : await bitrixClient.sendMessage(params)
 
   log.info(
     {
       messageId: event.messageId,
+      outgoingMessageId,
+      isEdit: event.isEdit,
       result: JSON.stringify(result),
     },
-    'Message sent to Bitrix',
+    event.isEdit ? 'Message updated in Bitrix' : 'Message sent to Bitrix',
   )
 }
 
@@ -207,6 +230,8 @@ async function sendMessageFromGroup(
       messageId: event.messageId,
       phone: event.phone,
       senderName: event.senderName,
+      isEdit: event.isEdit,
+      referenceMessageId: event.referenceMessageId,
     },
     'Processing group message for Bitrix',
   )
@@ -215,6 +240,10 @@ async function sendMessageFromGroup(
   if (!chatId) {
     throw new Error('Chat ID not found')
   }
+
+  const outgoingMessageId = event.isEdit
+    ? event.referenceMessageId
+    : event.messageId
 
   const getNotificationMessage = {
     GROUP_CHANGE_ICON: 'The group icon has been changed',
@@ -253,7 +282,7 @@ async function sendMessageFromGroup(
           },
         },
         message: {
-          id: event.messageId,
+          id: outgoingMessageId,
           date: new Date(event.momment).toISOString(),
           text,
           files,
@@ -266,5 +295,9 @@ async function sendMessageFromGroup(
     domain: domain?.name,
   })
 
-  await bitrixClient.sendMessage(params)
+  if (event.isEdit) {
+    await bitrixClient.updateMessage(params)
+  } else {
+    await bitrixClient.sendMessage(params)
+  }
 }

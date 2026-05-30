@@ -12,7 +12,8 @@ export type UploadAudioParams = {
   audioBlob: Blob
   dialogId: string
   domain: string
-  imbotAuth: ImbotAuth
+  imbotAuth?: ImbotAuth | null
+  accessToken?: string | null
 }
 
 export async function uploadAudioToChat({
@@ -21,14 +22,20 @@ export async function uploadAudioToChat({
   dialogId,
   domain,
   imbotAuth,
+  accessToken,
 }: UploadAudioParams): Promise<void> {
   const formData = new FormData()
   formData.append('audio', audioBlob, `audio-${Date.now()}.mp3`)
   formData.append('dialogId', dialogId)
   formData.append('domain', domain)
-  formData.append('userId', imbotAuth.userId)
-  formData.append('userHash', imbotAuth.userHash)
-  formData.append('domainHash', imbotAuth.domainHash)
+
+  if (accessToken) {
+    formData.append('accessToken', accessToken)
+  } else if (imbotAuth) {
+    formData.append('userId', imbotAuth.userId)
+    formData.append('userHash', imbotAuth.userHash)
+    formData.append('domainHash', imbotAuth.domainHash)
+  }
 
   const response = await fetch(endpoint, {
     method: 'POST',

@@ -1,6 +1,27 @@
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { env } from '@/config/env'
 
+export async function findThinkzapBotId(
+  client: BitrixRestClient,
+): Promise<number | null> {
+  const botCode = env.bitrix.bot.code
+
+  try {
+    const bots = (await client.callMethod('imbot.bot.list', {})) as Record<
+      string,
+      { ID?: number; CODE?: string }
+    >
+
+    const existingBot = Object.values(bots ?? {}).find(
+      bot => bot?.CODE === botCode,
+    )
+
+    return existingBot?.ID ? Number(existingBot.ID) : null
+  } catch {
+    return null
+  }
+}
+
 export class GetOrCreateThinkzapBot {
   async execute(client: BitrixRestClient): Promise<number | null> {
     const webhookUrl = env.bitrix.webhookUrl
@@ -12,45 +33,12 @@ export class GetOrCreateThinkzapBot {
       return null
     }
 
-    const existingBotId = await this.findExistingBot(client)
+    const existingBotId = await findThinkzapBotId(client)
     if (existingBotId) {
       return existingBotId
     }
 
     return this.registerNewBot(client, webhookUrl)
-  }
-
-  private async findExistingBot(
-    client: BitrixRestClient,
-  ): Promise<number | null> {
-    const botCode = env.bitrix.bot.code
-
-    try {
-      const bots = (await client.callMethod('imbot.bot.list', {})) as Record<
-        string,
-        { ID?: number; CODE?: string; OPENLINE?: string }
-      >
-
-      const existingBot = Object.values(bots ?? {}).find(
-        bot => bot?.CODE === botCode,
-      )
-
-      if (existingBot?.ID) {
-        if (existingBot.OPENLINE === 'N') {
-          console.warn(
-            `Bot ${existingBot.ID} tem OPENLINE=N. Para Canais Abertos use um bot de Open Lines (TYPE O) ou outro CODE/BOT_ID.`,
-          )
-        }
-        return existingBot.ID
-      }
-    } catch (error) {
-      console.error(
-        'Error listing bots with imbot.bot.list:',
-        (error as Error).message,
-      )
-    }
-
-    return null
   }
 
   private async registerNewBot(

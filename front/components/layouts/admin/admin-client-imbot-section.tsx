@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { axiosPortal } from '@/infra/client/axios-portal'
 
 type ImbotActionResult = {
-  botId: number
   result: string
 }
 
