@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { env } from '@/config/env'
 
 export function formatBitrixApiError(
   method: string,
@@ -30,8 +31,13 @@ export function extractTlsError(method: string, error: unknown): Error | null {
   const cause = error.cause as { code?: string } | undefined
 
   if (cause?.code && TLS_ERROR_CODES.has(cause.code)) {
+    const hint =
+      env.nodeEnv === 'production'
+        ? 'Verifique se a imagem Docker inclui ca-certificates atualizados ou se o portal Bitrix usa certificado valido.'
+        : 'Em dev local atras de proxy/antivirus, defina BITRIX_TLS_REJECT_UNAUTHORIZED=false.'
+
     return new Error(
-      `Bitrix ${method}: falha na verificacao TLS (${cause.code}). Em dev local atras de proxy/antivirus, defina BITRIX_TLS_REJECT_UNAUTHORIZED=false.`,
+      `Bitrix ${method}: falha na verificacao TLS (${cause.code}). ${hint}`,
     )
   }
 

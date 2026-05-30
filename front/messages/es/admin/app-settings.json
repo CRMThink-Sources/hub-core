@@ -14,7 +14,7 @@
   "placementsErrorNotInstalled": "ThinkZap no está instalado en este dominio.",
   "placementsErrorCredential": "Credencial ausente o inválida para este dominio.",
   "placementsErrorGeneric": "Error al comunicarse con Bitrix24. Inténtelo de nuevo.",
-  "placementsErrorTls": "Error de certificado SSL al conectar con Bitrix24. En dev local, defina BITRIX_TLS_REJECT_UNAUTHORIZED=false en el .env de la API.",
+  "placementsErrorTls": "Error de certificado SSL al conectar con Bitrix24. En producción, vuelva a desplegar la API con ca-certificates en el contenedor. En dev local, defina BITRIX_TLS_REJECT_UNAUTHORIZED=false en el .env de la API.",
   "placementsColumnPlacement": "Placement",
   "placementsColumnTitle": "Título",
   "placementsColumnHandler": "Handler",

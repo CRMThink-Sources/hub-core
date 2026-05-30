@@ -14,7 +14,7 @@
   "placementsErrorNotInstalled": "ThinkZap is not installed on this domain.",
   "placementsErrorCredential": "Missing or invalid credential for this domain.",
   "placementsErrorGeneric": "Failed to communicate with Bitrix24. Please try again.",
-  "placementsErrorTls": "SSL certificate verification failed when connecting to Bitrix24. For local dev, set BITRIX_TLS_REJECT_UNAUTHORIZED=false in the API .env.",
+  "placementsErrorTls": "SSL certificate verification failed when connecting to Bitrix24. In production, redeploy the API with ca-certificates in the container. For local dev, set BITRIX_TLS_REJECT_UNAUTHORIZED=false in the API .env.",
   "placementsColumnPlacement": "Placement",
   "placementsColumnTitle": "Title",
   "placementsColumnHandler": "Handler",
