@@ -4,6 +4,7 @@ import {
   formatBitrixApiError,
   wrapBitrixRequestError,
 } from './bitrix-http-errors'
+import { normalizeBitrixDomain } from './normalize-bitrix-domain'
 import type { PlacementHandlerEntry } from '@/modules/thinkzap/application/normalize-placement-get-response'
 
 /**
@@ -15,7 +16,7 @@ export class BitrixRestClient {
 
   constructor(domain: string, accessToken: string) {
     this.client = axios.create({
-      baseURL: `https://${domain}/rest/`,
+      baseURL: `https://${normalizeBitrixDomain(domain)}/rest/`,
       params: { auth: accessToken },
       ...getBitrixAxiosDefaults(),
     })
