@@ -13,6 +13,30 @@ export async function bitrixFetch(
   return fetch(url, init)
 }
 
+function appendAxiosHeader(
+  headers: Headers,
+  key: string,
+  value: unknown,
+): void {
+  if (value == null) return
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      appendAxiosHeader(headers, key, item)
+    }
+    return
+  }
+
+  if (typeof value === 'string') {
+    headers.set(key, value)
+    return
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    headers.set(key, String(value))
+  }
+}
+
 async function readResponseBody(
   response: Response,
   responseType?: InternalAxiosRequestConfig['responseType'],
@@ -40,9 +64,7 @@ async function readResponseBody(
  * Keeps axios API for BitrixDisk/BiConnector while using the TLS stack that works in prod.
  */
 export function createBitrixFetchAdapter(): AxiosAdapter {
-  return async (
-    config: InternalAxiosRequestConfig,
-  ): Promise<AxiosResponse> => {
+  return async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
     const url = axios.getUri(config)
     const method = (config.method ?? 'get').toUpperCase()
 
@@ -51,17 +73,13 @@ export function createBitrixFetchAdapter(): AxiosAdapter {
       for (const [key, value] of Object.entries(
         config.headers as Record<string, unknown>,
       )) {
-        if (value == null) continue
-        headers.set(key, String(value))
+        appendAxiosHeader(headers, key, value)
       }
     }
 
     let body: BodyInit | undefined
     if (method !== 'GET' && method !== 'HEAD' && config.data != null) {
-      if (
-        typeof FormData !== 'undefined' &&
-        config.data instanceof FormData
-      ) {
+      if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
         body = config.data
       } else if (typeof config.data === 'string') {
         body = config.data

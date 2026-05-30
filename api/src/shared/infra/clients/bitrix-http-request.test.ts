@@ -8,9 +8,11 @@ describe('bitrix-http-request', () => {
   })
 
   it('uses global fetch via custom axios adapter', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ result: true }), { status: 200 }),
-    )
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ result: true }), { status: 200 }),
+      )
     vi.stubGlobal('fetch', fetchMock)
 
     const { createBitrixFetchAdapter } = await import('./bitrix-http-request')
@@ -31,10 +33,7 @@ describe('bitrix-http-request', () => {
     const tlsCause = Object.assign(new Error('tls failed'), {
       code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
     })
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockRejectedValue(tlsCause),
-    )
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(tlsCause))
 
     const { createBitrixFetchAdapter } = await import('./bitrix-http-request')
     const adapter = createBitrixFetchAdapter()
