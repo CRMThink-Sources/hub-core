@@ -1,11 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { BitrixClient } from './bitrix.client'
 
-const mockAxiosDefaults = { adapter: 'fetch' as const }
+const mockAdapter = vi.fn()
 
-const { axiosCreate, getBitrixAxiosDefaults } = vi.hoisted(() => ({
+vi.mock('./bitrix-axios-config', () => ({
+  getBitrixAxiosDefaults: () => ({ adapter: mockAdapter }),
+}))
+
+const { axiosCreate } = vi.hoisted(() => ({
   axiosCreate: vi.fn(() => ({ post: vi.fn(), get: vi.fn() })),
-  getBitrixAxiosDefaults: vi.fn(() => mockAxiosDefaults),
 }))
 
 vi.mock('axios', () => ({
@@ -15,17 +18,8 @@ vi.mock('axios', () => ({
   },
 }))
 
-vi.mock('./bitrix-axios-config', () => ({
-  getBitrixAxiosDefaults,
-}))
-
 describe('BitrixClient.withUserToken', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    getBitrixAxiosDefaults.mockReturnValue(mockAxiosDefaults)
-  })
-
-  it('creates axios client with baseURL, user access token and Bitrix TLS defaults', () => {
+  it('creates axios client with native-fetch adapter', () => {
     const client = BitrixClient.withUserToken(
       'crmthink.bitrix24.com.br',
       'operator-token-123',
@@ -33,11 +27,10 @@ describe('BitrixClient.withUserToken', () => {
 
     client.getClient()
 
-    expect(getBitrixAxiosDefaults).toHaveBeenCalled()
     expect(axiosCreate).toHaveBeenCalledWith({
       baseURL: 'https://crmthink.bitrix24.com.br/rest/',
       params: { auth: 'operator-token-123' },
-      adapter: 'fetch',
+      adapter: mockAdapter,
     })
   })
 
