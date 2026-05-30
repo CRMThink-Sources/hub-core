@@ -13,6 +13,8 @@ type UseAudioUploadParams = {
   dialogId: string | null
   domain: string | null
   imbotAuth: ImbotAuth | null
+  accessToken: string | null
+  canUpload: boolean
   onSuccess: () => void
 }
 
@@ -21,6 +23,8 @@ export function useAudioUpload({
   dialogId,
   domain,
   imbotAuth,
+  accessToken,
+  canUpload,
   onSuccess,
 }: UseAudioUploadParams) {
   const [isSending, setIsSending] = useState(false)
@@ -32,9 +36,9 @@ export function useAudioUpload({
     async (audioBlob: Blob | null) => {
       if (!audioBlob) return
 
-      if (!imbotAuth) {
+      if (!canUpload) {
         setError(
-          'Abra o widget pelo chat do Bitrix24 (imbot) para enviar audio.',
+          'Abra o widget pelo painel do chat no Bitrix24 para enviar audio.',
         )
         return
       }
@@ -60,6 +64,7 @@ export function useAudioUpload({
           dialogId,
           domain,
           imbotAuth,
+          accessToken,
         })
 
         onSuccess()
@@ -77,7 +82,15 @@ export function useAudioUpload({
         setIsSending(false)
       }
     },
-    [dialogId, domain, endpoint, imbotAuth, onSuccess],
+    [
+      canUpload,
+      dialogId,
+      domain,
+      endpoint,
+      imbotAuth,
+      accessToken,
+      onSuccess,
+    ],
   )
 
   const resetSent = useCallback(() => {

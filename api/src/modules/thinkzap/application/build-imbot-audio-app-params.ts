@@ -10,7 +10,7 @@ export type ImbotAudioLangEntry = {
 export type ImbotAudioAppFields = {
   IFRAME: string
   HASH: string
-  CONTEXT: 'LINES'
+  CONTEXT: 'LINES' | 'ALL'
   ICON_FILE: string
   IFRAME_WIDTH: string
   IFRAME_HEIGHT: string

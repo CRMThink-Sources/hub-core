@@ -27,6 +27,8 @@ export function AudioWidgetView() {
     dialogId,
     domain,
     imbotAuth,
+    accessToken,
+    canUpload,
     thinkzapAppCode,
     uploadEndpoint,
   } = useAudioWidgetContext()
@@ -39,6 +41,8 @@ export function AudioWidgetView() {
     dialogId,
     domain,
     imbotAuth,
+    accessToken,
+    canUpload,
     onSuccess: () => {
       recorder.clearRecording()
       playback.resetPlayback()
@@ -52,8 +56,8 @@ export function AudioWidgetView() {
   const displayError =
     recorder.error ??
     upload.error ??
-    (!imbotAuth
-      ? 'Abra o widget pelo iframe imbot do Bitrix24 (Open Lines).'
+    (!canUpload
+      ? 'Abra o widget pelo painel do chat no Bitrix24 (Canais Abertos).'
       : null)
 
   const handleToggleRecording = () => {

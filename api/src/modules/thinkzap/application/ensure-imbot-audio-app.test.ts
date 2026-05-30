@@ -2,6 +2,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { EnsureImbotAudioApp } from './ensure-imbot-audio-app'
 
+vi.mock('./cleanup-legacy-imbot-audio-app', () => ({
+  cleanupLegacyImbotAudioApp: vi.fn(),
+}))
+
+vi.mock('./build-audio-im-textarea-placement-params', () => ({
+  buildAudioImTextareaPlacementBindParams: () => ({
+    PLACEMENT: 'IM_TEXTAREA' as const,
+    HANDLER: 'https://app.example/bitrix/widget/audio',
+    TITLE: 'ThinkZap Audio',
+    LANG_ALL: { pt: { TITLE: 'ThinkZap Audio' } },
+    OPTIONS: {
+      iconName: 'chat-compose',
+      context: 'LINES',
+      role: 'USER',
+      extranet: 'N',
+      color: 'GREEN',
+      width: '400',
+      height: '320',
+    },
+  }),
+}))
+
+import { cleanupLegacyImbotAudioApp } from './cleanup-legacy-imbot-audio-app'
+
 describe('EnsureImbotAudioApp', () => {
   const callMethod = vi.fn()
   const client = { callMethod } as unknown as BitrixRestClient
@@ -9,34 +33,58 @@ describe('EnsureImbotAudioApp', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(cleanupLegacyImbotAudioApp).mockResolvedValue(undefined)
   })
 
-  it('registers then updates icon via imbot.app.update', async () => {
-    callMethod.mockResolvedValueOnce(55).mockResolvedValueOnce(true)
+  it('binds IM_TEXTAREA placement when not registered yet', async () => {
+    callMethod.mockResolvedValueOnce([]).mockResolvedValueOnce(true)
 
-    const result = await service.execute(client, 12)
+    const result = await service.execute(client)
 
-    expect(result).toBe('updated')
+    expect(result).toBe('created')
     expect(callMethod).toHaveBeenNthCalledWith(
       1,
-      'imbot.app.register',
-      expect.objectContaining({ BOT_ID: 12, CONTEXT: 'LINES' }),
+      'placement.get',
+      expect.anything(),
     )
-    const updateCall = callMethod.mock.calls[1] as [
-      string,
-      { APP_ID: number; ICON_FILE: string },
-    ]
-    expect(updateCall[0]).toBe('imbot.app.update')
-    expect(updateCall[1].APP_ID).toBe(55)
-    expect(updateCall[1].ICON_FILE.length).toBeGreaterThan(100)
+    expect(callMethod).toHaveBeenNthCalledWith(
+      2,
+      'placement.bind',
+      expect.objectContaining({
+        PLACEMENT: 'IM_TEXTAREA',
+        OPTIONS: expect.objectContaining({ context: 'LINES' }),
+      }),
+    )
   })
 
-  it('returns skipped when register does not return app id', async () => {
-    callMethod.mockResolvedValue(0)
+  it('returns updated when handler already exists', async () => {
+    callMethod
+      .mockResolvedValueOnce([
+        {
+          placement: 'IM_TEXTAREA',
+          handler: 'https://app.example/bitrix/widget/audio',
+        },
+      ])
+      .mockResolvedValueOnce(true)
 
-    const result = await service.execute(client, 12)
+    const result = await service.execute(client)
+
+    expect(result).toBe('updated')
+  })
+
+  it('returns skipped when bind returns false', async () => {
+    callMethod.mockResolvedValueOnce([]).mockResolvedValueOnce(false)
+
+    const result = await service.execute(client)
 
     expect(result).toBe('skipped')
-    expect(callMethod).toHaveBeenCalledTimes(1)
+  })
+
+  it('cleans up legacy imbot app when botId provided', async () => {
+    callMethod.mockResolvedValueOnce([]).mockResolvedValueOnce(true)
+
+    await service.execute(client, { botIdForLegacyCleanup: 12 })
+
+    expect(cleanupLegacyImbotAudioApp).toHaveBeenCalledWith(client, 12)
   })
 })
