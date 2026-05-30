@@ -7,7 +7,12 @@ import { createGetPortalDomainController } from './main/factories/create-get-por
 import { createCreatePortalUserController } from './main/factories/create-create-portal-user-controller'
 import { createRegisterAudioImbotAppController } from './main/factories/create-register-audio-imbot-app-controller'
 import { createDeleteAudioImbotAppController } from './main/factories/create-delete-audio-imbot-app-controller'
+import { createRegisterConversationWidgetAppController } from './main/factories/create-register-conversation-widget-app-controller'
+import { createDeleteConversationWidgetAppController } from './main/factories/create-delete-conversation-widget-app-controller'
+import { createRegisterBizprocRobotAppController } from './main/factories/create-register-bizproc-robot-app-controller'
+import { createDeleteBizprocRobotAppController } from './main/factories/create-delete-bizproc-robot-app-controller'
 import { createListPlacementsAppController } from './main/factories/create-list-placements-app-controller'
+import { createListBizprocRobotsAppController } from './main/factories/create-list-bizproc-robots-app-controller'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -49,10 +54,35 @@ export const createPortalRoutes = (
     portalAuthMiddleware,
     adaptControllerFactory(createDeleteAudioImbotAppController),
   )
+  router.post(
+    '/apps/:appId/conversation-widget',
+    portalAuthMiddleware,
+    adaptControllerFactory(createRegisterConversationWidgetAppController),
+  )
+  router.delete(
+    '/apps/:appId/conversation-widget',
+    portalAuthMiddleware,
+    adaptControllerFactory(createDeleteConversationWidgetAppController),
+  )
+  router.post(
+    '/apps/:appId/bizproc-robot',
+    portalAuthMiddleware,
+    adaptControllerFactory(createRegisterBizprocRobotAppController),
+  )
+  router.delete(
+    '/apps/:appId/bizproc-robot',
+    portalAuthMiddleware,
+    adaptControllerFactory(createDeleteBizprocRobotAppController),
+  )
   router.get(
     '/apps/:appId/placements',
     portalAuthMiddleware,
     adaptControllerFactory(createListPlacementsAppController),
+  )
+  router.get(
+    '/apps/:appId/bizproc-robots',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListBizprocRobotsAppController),
   )
 
   return router

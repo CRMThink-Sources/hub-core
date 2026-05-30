@@ -10,6 +10,28 @@ vi.mock('../application/build-audio-im-textarea-placement-params', () => ({
   }),
 }))
 
+vi.mock('../application/build-crm-detail-placement-bind-params', () => ({
+  buildCrmDetailPlacementBindParams: () => [
+    {
+      PLACEMENT: 'CRM_CONTACT_DETAIL_TAB',
+      HANDLER: 'https://app.example/widgets/conversations',
+      TITLE: 'ThinkZap',
+      LANG_ALL: { pt: { TITLE: 'ThinkZap' } },
+    },
+  ],
+}))
+
+vi.mock('../application/build-thinkzap-robot-add-params', () => ({
+  buildThinkzapRobotAddParams: () => ({
+    CODE: 'thinkzap_robot',
+    HANDLER: 'https://app.example/robot',
+    USE_SUBSCRIPTION: 'N',
+    NAME: 'ThinkZap Robot',
+    PROPERTIES: {},
+    FILTER: { INCLUDE: [] },
+  }),
+}))
+
 import { ThinkersZapInstallBindHandler } from './thinkerszap-install-bind.handler'
 
 describe('ThinkersZapInstallBindHandler', () => {
@@ -34,6 +56,29 @@ describe('ThinkersZapInstallBindHandler', () => {
         iconName: 'chat-compose',
         context: 'LINES',
       },
+    })
+  })
+
+  it('includes CRM detail placement binds from builder', () => {
+    const binds = handler.getBinds()
+    const crmBind = binds.find(
+      bind =>
+        bind.method === 'placement.bind' &&
+        bind.params.PLACEMENT === 'CRM_CONTACT_DETAIL_TAB',
+    )
+
+    expect(crmBind?.params).toMatchObject({
+      HANDLER: 'https://app.example/widgets/conversations',
+    })
+  })
+
+  it('includes bizproc robot bind from builder', () => {
+    const binds = handler.getBinds()
+    const robotBind = binds.find(bind => bind.method === 'bizproc.robot.add')
+
+    expect(robotBind?.params).toMatchObject({
+      CODE: 'thinkzap_robot',
+      HANDLER: 'https://app.example/robot',
     })
   })
 })
