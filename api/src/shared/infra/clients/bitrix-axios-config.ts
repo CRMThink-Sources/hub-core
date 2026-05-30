@@ -1,15 +1,32 @@
 import https from 'node:https'
 import { env } from '@/config/env'
 
-export function createBitrixHttpsAgent(): https.Agent | undefined {
-  if (env.bitrix.tlsRejectUnauthorized) {
-    return undefined
+let verifiedAgent: https.Agent | undefined
+let devBypassAgent: https.Agent | undefined
+
+/**
+ * Shared HTTPS agent for all Bitrix axios clients.
+ * Always explicit — avoids axios falling back to a misconfigured global agent in Alpine containers.
+ */
+export function createBitrixHttpsAgent(): https.Agent {
+  if (!env.bitrix.tlsRejectUnauthorized) {
+    devBypassAgent ??= new https.Agent({
+      rejectUnauthorized: false,
+      keepAlive: true,
+    })
+    return devBypassAgent
   }
 
-  return new https.Agent({ rejectUnauthorized: false })
+  verifiedAgent ??= new https.Agent({ keepAlive: true })
+  return verifiedAgent
 }
 
-export function getBitrixAxiosDefaults(): { httpsAgent?: https.Agent } {
-  const httpsAgent = createBitrixHttpsAgent()
-  return httpsAgent ? { httpsAgent } : {}
+export function getBitrixAxiosDefaults(): { httpsAgent: https.Agent } {
+  return { httpsAgent: createBitrixHttpsAgent() }
+}
+
+/** @internal vitest only */
+export function resetBitrixHttpsAgentsForTests(): void {
+  verifiedAgent = undefined
+  devBypassAgent = undefined
 }

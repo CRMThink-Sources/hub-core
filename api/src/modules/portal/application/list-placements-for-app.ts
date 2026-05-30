@@ -1,8 +1,6 @@
 import { listInstalledPlacements } from '@/modules/thinkzap/application/list-installed-placements.service'
 import type { InstalledPlacement } from '@/modules/thinkzap/application/list-installed-placements.service'
 import { resolveBitrixClientForApp } from './resolve-bitrix-client-for-app'
-import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
-
 export type ListPlacementsForAppOutput = {
   placements: InstalledPlacement[]
 }
