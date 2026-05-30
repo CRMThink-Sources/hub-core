@@ -16,6 +16,7 @@ export class ZApiWebhookHandlerController extends Controller {
   async perform(req: Request, res: Response): Promise<httpResponse> {
     const headers = req.headers
     const data = req.body
+
     const params = z
       .object({
         type: z.string(),

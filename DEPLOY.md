@@ -88,3 +88,7 @@ docker compose restart api
 # Deploy manual (pull + recreate)
 docker compose pull && docker compose up -d
 ```
+
+## Bitrix24 — widget de áudio (dev local)
+
+Ver [docs/DEV-BITRIX.md](docs/DEV-BITRIX.md): túneis, `BITRIX_IFRAME_AUDIO_URL`, erro `Unexpected token '<'` e proxy `/api` no `next dev`.
