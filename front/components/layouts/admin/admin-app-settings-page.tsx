@@ -6,8 +6,9 @@ import { ArrowLeft } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import { AdminClientImbotSection } from './admin-client-imbot-section'
+import { AdminClientDeploymentSection } from './admin-client-deployment-section'
 import { AdminClientPlacementsSection } from './admin-client-placements-section'
+import { AdminClientBizprocRobotsSection } from './admin-client-bizproc-robots-section'
 
 type Props = {
   domainId: string
@@ -37,18 +38,23 @@ export function AdminAppSettingsPage({ domainId, appId }: Props) {
         <p className="mt-2 text-muted-foreground">{t('description')}</p>
       </div>
 
-      <Tabs defaultValue="imbot">
+      <Tabs defaultValue="deployment">
         <TabsList>
-          <TabsTrigger value="imbot">{t('tabs.imbot')}</TabsTrigger>
+          <TabsTrigger value="deployment">{t('tabs.deployment')}</TabsTrigger>
           <TabsTrigger value="placements">{t('tabs.placements')}</TabsTrigger>
+          <TabsTrigger value="bizproc">{t('tabs.bizproc')}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="imbot" className="mt-4">
-          <AdminClientImbotSection appId={appId} />
+        <TabsContent value="deployment" className="mt-4">
+          <AdminClientDeploymentSection appId={appId} />
         </TabsContent>
 
         <TabsContent value="placements" className="mt-4">
           <AdminClientPlacementsSection appId={appId} />
+        </TabsContent>
+
+        <TabsContent value="bizproc" className="mt-4">
+          <AdminClientBizprocRobotsSection appId={appId} />
         </TabsContent>
       </Tabs>
     </div>

@@ -22,36 +22,7 @@ type SectionState =
   | { kind: 'ready'; placements: InstalledPlacement[] }
   | { kind: 'error'; message: string }
 
-function resolveApiError(err: unknown, t: (key: string) => string): string {
-  const data = (
-    err as {
-      response?: { data?: { error?: string; result?: { error?: string } } }
-    }
-  )?.response?.data
-
-  const apiError =
-    (typeof data?.result?.error === 'string' ? data.result.error : undefined) ??
-    (typeof data?.error === 'string' ? data.error : undefined)
-
-  if (typeof apiError === 'string') {
-    const lower = apiError.toLowerCase()
-    if (lower.includes('not installed')) {
-      return t('placementsErrorNotInstalled')
-    }
-    if (lower.includes('credential')) {
-      return t('placementsErrorCredential')
-    }
-    if (
-      lower.includes('tls') ||
-      lower.includes('certificate') ||
-      lower.includes('bitrix_tls_reject_unauthorized')
-    ) {
-      return t('placementsErrorTls')
-    }
-  }
-
-  return t('placementsErrorGeneric')
-}
+import { resolveListApiError } from './admin-deployment.helpers'
 
 function truncateHandler(handler: string, max = 48): string {
   if (handler.length <= max) return handler
@@ -74,7 +45,10 @@ export function AdminClientPlacementsSection({ appId }: Props) {
       )
       setState({ kind: 'ready', placements: output.placements })
     } catch (err) {
-      setState({ kind: 'error', message: resolveApiError(err, t) })
+      setState({
+        kind: 'error',
+        message: resolveListApiError(err, t, 'placements'),
+      })
     }
   }, [appId, t])
 
@@ -92,7 +66,10 @@ export function AdminClientPlacementsSection({ appId }: Props) {
         }
       } catch (err) {
         if (!cancelled) {
-          setState({ kind: 'error', message: resolveApiError(err, t) })
+          setState({
+            kind: 'error',
+            message: resolveListApiError(err, t, 'placements'),
+          })
         }
       }
     }
