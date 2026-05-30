@@ -2,10 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { EnsureImbotAudioApp } from './ensure-imbot-audio-app'
 
-vi.mock('./cleanup-legacy-imbot-audio-app', () => ({
-  cleanupLegacyImbotAudioApp: vi.fn(),
-}))
-
 vi.mock('./build-audio-im-textarea-placement-params', () => ({
   buildAudioImTextareaPlacementBindParams: () => ({
     PLACEMENT: 'IM_TEXTAREA' as const,
@@ -24,8 +20,6 @@ vi.mock('./build-audio-im-textarea-placement-params', () => ({
   }),
 }))
 
-import { cleanupLegacyImbotAudioApp } from './cleanup-legacy-imbot-audio-app'
-
 describe('EnsureImbotAudioApp', () => {
   const callMethod = vi.fn()
   const client = { callMethod } as unknown as BitrixRestClient
@@ -33,7 +27,6 @@ describe('EnsureImbotAudioApp', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(cleanupLegacyImbotAudioApp).mockResolvedValue(undefined)
   })
 
   it('binds IM_TEXTAREA placement when not registered yet', async () => {
@@ -80,13 +73,5 @@ describe('EnsureImbotAudioApp', () => {
     const result = await service.execute(client)
 
     expect(result).toBe('skipped')
-  })
-
-  it('cleans up legacy imbot app when botId provided', async () => {
-    callMethod.mockResolvedValueOnce([]).mockResolvedValueOnce(true)
-
-    await service.execute(client, { botIdForLegacyCleanup: 12 })
-
-    expect(cleanupLegacyImbotAudioApp).toHaveBeenCalledWith(client, 12)
   })
 })

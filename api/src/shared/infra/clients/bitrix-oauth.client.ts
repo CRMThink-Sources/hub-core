@@ -1,5 +1,6 @@
 import { resolveBitrixTokenExpiresAt } from '@/modules/thinkzap/application/resolve-bitrix-token-expires-at'
 import axios from 'axios'
+import { getBitrixAxiosDefaults } from '@/shared/infra/clients/bitrix-axios-config'
 import {
   RefreshTokenGateway,
   RefreshTokenResult,
@@ -20,7 +21,6 @@ export class BitrixOAuthClient implements RefreshTokenGateway {
     refreshToken: string
   }): Promise<RefreshTokenResult> {
     try {
-      console.log('params', params)
       const { data } = await axios.get<BitrixOAuthResponse>(
         BitrixOAuthClient.OAUTH_URL,
         {
@@ -30,6 +30,7 @@ export class BitrixOAuthClient implements RefreshTokenGateway {
             client_secret: params.clientSecret,
             refresh_token: params.refreshToken,
           },
+          ...getBitrixAxiosDefaults(),
         },
       )
 

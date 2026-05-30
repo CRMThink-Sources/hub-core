@@ -31,4 +31,24 @@ describe('BitrixRestClient', () => {
       /scope im/i,
     )
   })
+
+  it('formats TLS certificate errors with env hint', async () => {
+    const tlsError = new axios.AxiosError(
+      'unable to verify the first certificate',
+      'ERR_BAD_REQUEST',
+    )
+    tlsError.cause = {
+      code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+    } as unknown as Error
+
+    const post = vi.fn().mockRejectedValue(tlsError)
+
+    vi.spyOn(axios, 'create').mockReturnValue({ post } as never)
+
+    const client = new BitrixRestClient('portal.bitrix24.com.br', 'token')
+
+    await expect(client.callMethod('placement.get', {})).rejects.toThrow(
+      /BITRIX_TLS_REJECT_UNAUTHORIZED=false/i,
+    )
+  })
 })

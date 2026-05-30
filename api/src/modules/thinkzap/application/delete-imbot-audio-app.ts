@@ -1,21 +1,15 @@
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { env } from '@/config/env'
-import { cleanupLegacyImbotAudioApp } from './cleanup-legacy-imbot-audio-app'
 
 export type DeleteImbotAudioAppResult = 'deleted' | 'not_found'
 
 export async function deleteImbotAudioApp(
   client: BitrixRestClient,
-  botIdForLegacyCleanup?: number | null,
 ): Promise<DeleteImbotAudioAppResult> {
   const handler = env.bitrix.iframeAudio.url
 
   if (!handler) {
     return 'not_found'
-  }
-
-  if (botIdForLegacyCleanup) {
-    await cleanupLegacyImbotAudioApp(client, botIdForLegacyCleanup)
   }
 
   try {

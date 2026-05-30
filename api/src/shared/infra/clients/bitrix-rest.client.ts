@@ -1,39 +1,10 @@
 import axios, { type AxiosInstance } from 'axios'
-
-function formatBitrixApiError(
-  method: string,
-  error: string,
-  description?: string,
-): string {
-  const base = `Bitrix ${method}: ${description ?? error}`
-  const lower = `${error} ${description ?? ''}`.toLowerCase()
-
-  if (lower.includes('access_denied') || lower.includes('insufficient_scope')) {
-    return `${base}. Verifique scope im no app Bitrix24 e reinstale o app no portal.`
-  }
-
-  return base
-}
-
-function extractBitrixErrorFromAxios(
-  method: string,
-  error: unknown,
-): Error | null {
-  if (!axios.isAxiosError(error) || !error.response?.data) {
-    return null
-  }
-
-  const data = error.response.data as {
-    error?: string
-    error_description?: string
-  }
-
-  if (!data.error) return null
-
-  return new Error(
-    formatBitrixApiError(method, data.error, data.error_description),
-  )
-}
+import { getBitrixAxiosDefaults } from './bitrix-axios-config'
+import {
+  formatBitrixApiError,
+  wrapBitrixRequestError,
+} from './bitrix-http-errors'
+import type { PlacementHandlerEntry } from '@/modules/thinkzap/application/normalize-placement-get-response'
 
 /**
  * Cliente para chamadas REST do Bitrix24.
@@ -46,6 +17,7 @@ export class BitrixRestClient {
     this.client = axios.create({
       baseURL: `https://${domain}/rest/`,
       params: { auth: accessToken },
+      ...getBitrixAxiosDefaults(),
     })
   }
 
@@ -71,9 +43,15 @@ export class BitrixRestClient {
       }
       return data.result ?? data
     } catch (error) {
-      const bitrixError = extractBitrixErrorFromAxios(method, error)
-      if (bitrixError) throw bitrixError
-      throw error
+      throw wrapBitrixRequestError(method, error)
     }
+  }
+
+  async getPlacementHandlers(): Promise<
+    PlacementHandlerEntry[] | { result?: PlacementHandlerEntry[] }
+  > {
+    return (await this.callMethod('placement.get', {})) as
+      | PlacementHandlerEntry[]
+      | { result?: PlacementHandlerEntry[] }
   }
 }
