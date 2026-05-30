@@ -31,10 +31,9 @@ export function extractTlsError(method: string, error: unknown): Error | null {
   const cause = error.cause as { code?: string } | undefined
 
   if (cause?.code && TLS_ERROR_CODES.has(cause.code)) {
-    const hint =
-      env.nodeEnv === 'production'
-        ? 'Verifique se a imagem Docker inclui ca-certificates atualizados ou se o portal Bitrix usa certificado valido.'
-        : 'Em dev local atras de proxy/antivirus, defina BITRIX_TLS_REJECT_UNAUTHORIZED=false.'
+    const hint = env.bitrix.tlsRejectUnauthorized
+      ? 'Verifique ca-certificates no container da API e o dominio Bitrix salvo no banco.'
+      : 'BITRIX_TLS_REJECT_UNAUTHORIZED=false so deve ser usado apenas em dev local.'
 
     return new Error(
       `Bitrix ${method}: falha na verificacao TLS (${cause.code}). ${hint}`,
