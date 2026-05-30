@@ -1,5 +1,6 @@
 import https from 'node:https'
 import { env } from '@/config/env'
+import { createBitrixFetchAdapter } from './bitrix-http-request'
 
 let devBypassAgent: https.Agent | undefined
 
@@ -11,15 +12,9 @@ function createDevBypassAgent(): https.Agent {
   return devBypassAgent
 }
 
-/**
- * Axios defaults for Bitrix outbound HTTPS.
- *
- * Production: native fetch adapter (undici) — same stack that works in Docker for oauth.bitrix.info.
- * Dev bypass: http adapter + https.Agent with rejectUnauthorized=false (proxy/antivirus).
- */
 export function getBitrixAxiosDefaults(): {
   httpsAgent?: https.Agent
-  adapter?: 'fetch' | 'http'
+  adapter: ReturnType<typeof createBitrixFetchAdapter> | 'http'
 } {
   if (!env.bitrix.tlsRejectUnauthorized) {
     return {
@@ -28,15 +23,10 @@ export function getBitrixAxiosDefaults(): {
     }
   }
 
-  return { adapter: 'fetch' }
+  return { adapter: createBitrixFetchAdapter() }
 }
 
 /** @internal vitest only */
 export function resetBitrixHttpsAgentsForTests(): void {
   devBypassAgent = undefined
-}
-
-/** @internal vitest only — kept for backward compat in tests */
-export function createBitrixHttpsAgent(): https.Agent {
-  return createDevBypassAgent()
 }

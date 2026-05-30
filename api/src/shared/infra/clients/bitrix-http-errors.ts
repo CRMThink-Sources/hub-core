@@ -24,15 +24,17 @@ const TLS_ERROR_CODES = new Set([
 ])
 
 export function extractTlsError(method: string, error: unknown): Error | null {
-  if (!axios.isAxiosError(error)) {
-    return null
-  }
-
-  const cause = error.cause as { code?: string } | undefined
+  const cause = (
+    axios.isAxiosError(error)
+      ? error.cause
+      : error instanceof Error
+        ? error.cause
+        : undefined
+  ) as { code?: string } | undefined
 
   if (cause?.code && TLS_ERROR_CODES.has(cause.code)) {
     const hint = env.bitrix.tlsRejectUnauthorized
-      ? 'Em producao usamos fetch nativo; teste HTTPS ao dominio do portal no container.'
+      ? 'Verifique HTTPS ao dominio do portal Bitrix no container (nao apenas oauth.bitrix.info).'
       : 'BITRIX_TLS_REJECT_UNAUTHORIZED=false so deve ser usado apenas em dev local.'
 
     return new Error(
