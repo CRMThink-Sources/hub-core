@@ -32,7 +32,7 @@ export function extractTlsError(method: string, error: unknown): Error | null {
 
   if (cause?.code && TLS_ERROR_CODES.has(cause.code)) {
     const hint = env.bitrix.tlsRejectUnauthorized
-      ? 'Verifique ca-certificates no container da API e o dominio Bitrix salvo no banco.'
+      ? 'Em producao usamos fetch nativo; teste HTTPS ao dominio do portal no container.'
       : 'BITRIX_TLS_REJECT_UNAUTHORIZED=false so deve ser usado apenas em dev local.'
 
     return new Error(

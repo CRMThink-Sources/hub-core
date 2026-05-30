@@ -21,7 +21,15 @@ describe('bitrix-axios-config', () => {
     vi.resetModules()
   })
 
-  it('returns a shared verified agent in production mode', async () => {
+  it('uses fetch adapter in production mode', async () => {
+    const { getBitrixAxiosDefaults } = await import('./bitrix-axios-config')
+
+    expect(getBitrixAxiosDefaults()).toEqual({ adapter: 'fetch' })
+  })
+
+  it('uses http agent bypass when TLS verification is disabled', async () => {
+    envMock.bitrix.tlsRejectUnauthorized = false
+
     const { createBitrixHttpsAgent, getBitrixAxiosDefaults } =
       await import('./bitrix-axios-config')
 
@@ -29,20 +37,8 @@ describe('bitrix-axios-config', () => {
     const defaults = getBitrixAxiosDefaults()
 
     expect(agent).toBeInstanceOf(https.Agent)
+    expect(defaults.adapter).toBe('http')
     expect(defaults.httpsAgent).toBe(agent)
     expect(createBitrixHttpsAgent()).toBe(agent)
-  })
-
-  it('returns a dev bypass agent when TLS verification is disabled', async () => {
-    envMock.bitrix.tlsRejectUnauthorized = false
-
-    const { createBitrixHttpsAgent } = await import('./bitrix-axios-config')
-    const agent = createBitrixHttpsAgent()
-
-    expect(agent).toBeInstanceOf(https.Agent)
-    expect(
-      (agent as https.Agent & { options: { rejectUnauthorized: boolean } })
-        .options.rejectUnauthorized,
-    ).toBe(false)
   })
 })

@@ -1,32 +1,42 @@
 import https from 'node:https'
 import { env } from '@/config/env'
 
-let verifiedAgent: https.Agent | undefined
 let devBypassAgent: https.Agent | undefined
 
-/**
- * Shared HTTPS agent for all Bitrix axios clients.
- * Always explicit — avoids axios falling back to a misconfigured global agent in Alpine containers.
- */
-export function createBitrixHttpsAgent(): https.Agent {
-  if (!env.bitrix.tlsRejectUnauthorized) {
-    devBypassAgent ??= new https.Agent({
-      rejectUnauthorized: false,
-      keepAlive: true,
-    })
-    return devBypassAgent
-  }
-
-  verifiedAgent ??= new https.Agent({ keepAlive: true })
-  return verifiedAgent
+function createDevBypassAgent(): https.Agent {
+  devBypassAgent ??= new https.Agent({
+    rejectUnauthorized: false,
+    keepAlive: true,
+  })
+  return devBypassAgent
 }
 
-export function getBitrixAxiosDefaults(): { httpsAgent: https.Agent } {
-  return { httpsAgent: createBitrixHttpsAgent() }
+/**
+ * Axios defaults for Bitrix outbound HTTPS.
+ *
+ * Production: native fetch adapter (undici) — same stack that works in Docker for oauth.bitrix.info.
+ * Dev bypass: http adapter + https.Agent with rejectUnauthorized=false (proxy/antivirus).
+ */
+export function getBitrixAxiosDefaults(): {
+  httpsAgent?: https.Agent
+  adapter?: 'fetch' | 'http'
+} {
+  if (!env.bitrix.tlsRejectUnauthorized) {
+    return {
+      adapter: 'http',
+      httpsAgent: createDevBypassAgent(),
+    }
+  }
+
+  return { adapter: 'fetch' }
 }
 
 /** @internal vitest only */
 export function resetBitrixHttpsAgentsForTests(): void {
-  verifiedAgent = undefined
   devBypassAgent = undefined
+}
+
+/** @internal vitest only — kept for backward compat in tests */
+export function createBitrixHttpsAgent(): https.Agent {
+  return createDevBypassAgent()
 }
