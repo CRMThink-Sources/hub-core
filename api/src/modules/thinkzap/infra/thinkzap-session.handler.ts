@@ -68,12 +68,21 @@ export class ThinkzapSessionHandler implements SessionHandler {
             }
 
             if (connector.instance?.vinculatedChannel) {
-              const openChannel = await bx.getOpenChannel(
-                connector.instance?.vinculatedChannel,
-              )
-              if (openChannel?.LINE_NAME) {
-                data.instance.vinculatedChannelName = openChannel.LINE_NAME
-                return data
+              try {
+                const openChannel = await bx.getOpenChannel(
+                  connector.instance.vinculatedChannel,
+                )
+                if (openChannel?.LINE_NAME) {
+                  data.instance.vinculatedChannelName = openChannel.LINE_NAME
+                }
+              } catch (error) {
+                console.error(
+                  '[ThinkzapSessionHandler] getOpenChannel failed',
+                  {
+                    channelId: connector.instance.vinculatedChannel,
+                    error,
+                  },
+                )
               }
             }
             return data
