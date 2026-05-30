@@ -3,7 +3,6 @@ import 'dotenv/config'
 import { env } from '@/config/env'
 import { buildAudioImTextareaPlacementBindParams } from '@/modules/thinkzap/application/build-audio-im-textarea-placement-params'
 import { ensureImbotAudioApp } from '@/modules/thinkzap/application/ensure-imbot-audio-app'
-import { findThinkzapBotId } from '@/modules/thinkzap/application/get-or-create-thinkzap-bot'
 import { BitrixOAuthClient } from '@/shared/infra/clients/bitrix-oauth.client'
 import { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositories/prisma-credential.repository'
@@ -129,8 +128,6 @@ async function main() {
 
   const client = new BitrixRestClient(domain, accessToken)
 
-  const botId = await findThinkzapBotId(client)
-
   if (check) {
     const params = buildAudioImTextareaPlacementBindParams()
     console.log('[check] placement.bind params:', params)
@@ -140,7 +137,7 @@ async function main() {
     process.exit(0)
   }
 
-  const result = await ensureImbotAudioApp(client, botId)
+  const result = await ensureImbotAudioApp(client)
   console.log(`[register:audio-imbot] result=${result}`)
 }
 
