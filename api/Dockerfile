@@ -19,6 +19,9 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Alpine minimal image may ship without a complete CA bundle — outbound HTTPS to Bitrix24 fails with UNABLE_TO_VERIFY_LEAF_SIGNATURE
+RUN apk add --no-cache ca-certificates && update-ca-certificates
+
 COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile --production && yarn cache clean
 
