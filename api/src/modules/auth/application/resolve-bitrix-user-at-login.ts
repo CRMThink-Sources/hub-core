@@ -1,4 +1,5 @@
 import { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
+import { normalizeBitrixDomain } from '@/shared/infra/clients/normalize-bitrix-domain'
 
 export type ResolvedBitrixUser = {
   bitrixUserId: string
@@ -7,17 +8,12 @@ export type ResolvedBitrixUser = {
   isBitrixAdmin: boolean
   bitrixDepartmentIds: string[]
 }
-
 type BitrixCurrentUser = {
   ID?: string | number
   NAME?: string
   LAST_NAME?: string
   EMAIL?: string
   UF_DEPARTMENT?: unknown
-}
-
-function normalizeBitrixDomain(domain: string): string {
-  return domain.replace(/^https?:\/\//i, '').replace(/\/+$/, '')
 }
 
 /**

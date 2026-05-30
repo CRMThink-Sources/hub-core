@@ -8,6 +8,7 @@ import {
   formatBitrixApiError,
   wrapBitrixRequestError,
 } from './bitrix-http-errors'
+import { normalizeBitrixDomain } from './normalize-bitrix-domain'
 import { PlacementHandlerEntry } from '@/modules/thinkzap/application/normalize-placement-get-response'
 
 interface IBitrixClientParams {
@@ -26,6 +27,8 @@ export class BitrixClient {
   constructor(params: IBitrixClientParams) {
     this.bitrixCredential = params.bitrixCredential
     this.domain = params.domain
+      ? normalizeBitrixDomain(params.domain)
+      : params.domain
     this.webhook = params.webhook
     this.accessToken = params.accessToken
   }
@@ -158,22 +161,27 @@ export class BitrixClient {
   async getOpenChannel(id: string): Promise<IGetOpenChannelResponse> {
     const client = this.getClient()
     try {
-      const response = await client.get(
-        `/imopenlines.config.get?CONFIG_ID=${id}`,
-      )
+      const response = await client.post('/imopenlines.config.get', {
+        CONFIG_ID: id,
+      })
       return response.data.result
     } catch (error) {
-      throw new BitrixError('Failed to get open channel')
+      const wrapped = wrapBitrixRequestError('imopenlines.config.get', error)
+      throw new BitrixError(wrapped.message)
     }
   }
 
   async getOpenChannels(): Promise<IGetOpenChannelsResponse> {
     const client = this.getClient()
     try {
-      const response = await client.get('/imopenlines.config.list.get')
+      const response = await client.post('/imopenlines.config.list.get', {})
       return response.data
     } catch (error) {
-      throw new BitrixError('Failed to get open channels')
+      const wrapped = wrapBitrixRequestError(
+        'imopenlines.config.list.get',
+        error,
+      )
+      throw new BitrixError(wrapped.message)
     }
   }
 
