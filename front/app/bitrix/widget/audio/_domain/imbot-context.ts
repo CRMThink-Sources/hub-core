@@ -21,7 +21,13 @@ export function parsePlacementOptions(
 
     for (const [key, value] of Object.entries(parsed)) {
       if (value == null) continue
-      normalized[key] = String(value)
+      if (typeof value === 'string') {
+        normalized[key] = value
+        continue
+      }
+      if (typeof value === 'number' || typeof value === 'boolean') {
+        normalized[key] = String(value)
+      }
     }
 
     return normalized
@@ -45,12 +51,7 @@ export function resolveImbotAuth(
 export function resolveDialogIdFromPlacementOptions(
   options: Record<string, string>,
 ): string | null {
-  return (
-    options.dialogId ??
-    options.DIALOG_ID ??
-    options.dialog_id ??
-    null
-  )
+  return options.dialogId ?? options.DIALOG_ID ?? options.dialog_id ?? null
 }
 
 export function resolveDialogId(
@@ -86,8 +87,7 @@ export function resolveBitrixDomain(
   urlDomain: string | null | undefined,
   authDomain?: string | null,
 ): string | null {
-  const raw =
-    searchParams.get('DOMAIN') ?? urlDomain ?? authDomain ?? null
+  const raw = searchParams.get('DOMAIN') ?? urlDomain ?? authDomain ?? null
   return raw ? parseBitrixDomain(raw) : null
 }
 
