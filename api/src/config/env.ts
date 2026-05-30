@@ -54,10 +54,6 @@ export const env = {
       url: process.env.BITRIX_IFRAME_AUDIO_URL ?? '',
       hash: process.env.BITRIX_IFRAME_AUDIO_HASH ?? '',
     },
-    bot: {
-      code: process.env.BITRIX_BOT_CODE ?? 'thinkzap_bot',
-      name: process.env.BITRIX_BOT_NAME ?? 'ThinkZap Bot',
-    },
     placement: {
       name: process.env.BITRIX_PLACEMENT_NAME ?? 'ThinkZap',
       url: process.env.BITRIX_PLACEMENT_URL ?? '',
@@ -67,6 +63,9 @@ export const env = {
       name: process.env.BITRIX_ROBOT_NAME ?? 'ThinkZap Robot',
       handlerUrl: process.env.BITRIX_ROBOT_HANDLER_URL ?? '',
     },
+    /** false only in local dev (e.g. SSL-inspecting proxy). Set BITRIX_TLS_REJECT_UNAUTHORIZED=false */
+    tlsRejectUnauthorized:
+      process.env.BITRIX_TLS_REJECT_UNAUTHORIZED !== 'false',
   },
   appCodes: {
     thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',

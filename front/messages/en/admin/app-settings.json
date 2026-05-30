@@ -1,5 +1,24 @@
 {
   "back": "Back to client",
   "title": "Application settings",
-  "description": "Manage the settings and integrations for this application."
+  "description": "Manage the settings and integrations for this application.",
+  "tabs": {
+    "imbot": "Audio Imbot",
+    "placements": "Placements"
+  },
+  "placementsTitle": "Installed placements",
+  "placementsDescription": "All placements registered in this environment's Bitrix24.",
+  "placementsRefresh": "Refresh",
+  "placementsEmpty": "No placements registered in this environment.",
+  "placementsLoading": "Loading placements...",
+  "placementsErrorNotInstalled": "ThinkZap is not installed on this domain.",
+  "placementsErrorCredential": "Missing or invalid credential for this domain.",
+  "placementsErrorGeneric": "Failed to communicate with Bitrix24. Please try again.",
+  "placementsErrorTls": "SSL certificate verification failed when connecting to Bitrix24. For local dev, set BITRIX_TLS_REJECT_UNAUTHORIZED=false in the API .env.",
+  "placementsColumnPlacement": "Placement",
+  "placementsColumnTitle": "Title",
+  "placementsColumnHandler": "Handler",
+  "placementsColumnApp": "App",
+  "placementsBadgeThinkzap": "Thinkzap",
+  "placementsBadgeOther": "Other"
 }

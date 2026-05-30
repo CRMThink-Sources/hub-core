@@ -7,6 +7,7 @@ import { createGetPortalDomainController } from './main/factories/create-get-por
 import { createCreatePortalUserController } from './main/factories/create-create-portal-user-controller'
 import { createRegisterAudioImbotAppController } from './main/factories/create-register-audio-imbot-app-controller'
 import { createDeleteAudioImbotAppController } from './main/factories/create-delete-audio-imbot-app-controller'
+import { createListPlacementsAppController } from './main/factories/create-list-placements-app-controller'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -47,6 +48,11 @@ export const createPortalRoutes = (
     '/apps/:appId/audio-imbot',
     portalAuthMiddleware,
     adaptControllerFactory(createDeleteAudioImbotAppController),
+  )
+  router.get(
+    '/apps/:appId/placements',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListPlacementsAppController),
   )
 
   return router

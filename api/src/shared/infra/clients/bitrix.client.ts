@@ -2,7 +2,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Credential } from '@/shared/domain/entities/credential'
 import axios from 'axios'
+import { getBitrixAxiosDefaults } from './bitrix-axios-config'
 import { BitrixError } from './errors/bitrix-client.error'
+import {
+  formatBitrixApiError,
+  wrapBitrixRequestError,
+} from './bitrix-http-errors'
+import { PlacementHandlerEntry } from '@/modules/thinkzap/application/normalize-placement-get-response'
 
 interface IBitrixClientParams {
   bitrixCredential?: Credential
@@ -29,9 +35,12 @@ export class BitrixClient {
   }
 
   getClient() {
+    const axiosDefaults = getBitrixAxiosDefaults()
+
     if (this.webhook) {
       return axios.create({
         baseURL: this.webhook,
+        ...axiosDefaults,
       })
     }
     if (this.accessToken && this.domain) {
@@ -40,6 +49,7 @@ export class BitrixClient {
         params: {
           auth: this.accessToken,
         },
+        ...axiosDefaults,
       })
     }
     if (!this.bitrixCredential || !this.domain) {
@@ -50,6 +60,7 @@ export class BitrixClient {
       params: {
         auth: this.bitrixCredential.accessToken,
       },
+      ...axiosDefaults,
     })
   }
 
@@ -233,6 +244,40 @@ export class BitrixClient {
     } catch (error) {
       console.error('[BitrixClient] updateCrmItem error:', error)
       throw new BitrixError('Failed to update CRM item')
+    }
+  }
+
+  async getPlacementHandlers(): Promise<
+    PlacementHandlerEntry[] | { result?: PlacementHandlerEntry[] }
+  > {
+    const client = this.getClient()
+    try {
+      const response = await client.post('/placement.get', {})
+      const data = response.data as {
+        error?: string
+        error_description?: string
+        result?: PlacementHandlerEntry[]
+      }
+
+      if (data.error) {
+        throw new BitrixError(
+          formatBitrixApiError(
+            'placement.get',
+            data.error,
+            data.error_description,
+          ),
+        )
+      }
+
+      return data.result ?? data
+    } catch (error) {
+      console.error('[BitrixClient] getPlacementHandlers error:', error)
+      if (error instanceof BitrixError) {
+        throw error
+      }
+
+      const wrapped = wrapBitrixRequestError('placement.get', error)
+      throw new BitrixError(wrapped.message)
     }
   }
 }
