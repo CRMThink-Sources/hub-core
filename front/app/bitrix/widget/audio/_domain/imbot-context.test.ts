@@ -37,9 +37,9 @@ describe('imbot-context', () => {
   })
 
   it('resolves dialog id from placement options', () => {
-    expect(
-      resolveDialogIdFromPlacementOptions({ dialogId: 'line42' }),
-    ).toBe('line42')
+    expect(resolveDialogIdFromPlacementOptions({ dialogId: 'line42' })).toBe(
+      'line42',
+    )
   })
 
   it('resolves dialog id from query, url params or placement info', () => {
@@ -64,10 +64,7 @@ describe('imbot-context', () => {
   it('detects upload auth from imbot or access token', () => {
     expect(hasUploadAuth(null, null)).toBe(false)
     expect(
-      hasUploadAuth(
-        { userId: '1', userHash: 'a', domainHash: 'b' },
-        null,
-      ),
+      hasUploadAuth({ userId: '1', userHash: 'a', domainHash: 'b' }, null),
     ).toBe(true)
     expect(hasUploadAuth(null, 'token')).toBe(true)
   })

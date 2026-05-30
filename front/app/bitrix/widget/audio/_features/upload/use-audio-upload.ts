@@ -82,15 +82,7 @@ export function useAudioUpload({
         setIsSending(false)
       }
     },
-    [
-      canUpload,
-      dialogId,
-      domain,
-      endpoint,
-      imbotAuth,
-      accessToken,
-      onSuccess,
-    ],
+    [canUpload, dialogId, domain, endpoint, imbotAuth, accessToken, onSuccess],
   )
 
   const resetSent = useCallback(() => {
