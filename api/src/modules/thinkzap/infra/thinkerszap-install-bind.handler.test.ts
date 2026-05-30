@@ -41,10 +41,10 @@ describe('ThinkersZapInstallBindHandler', () => {
     expect(audioBind).toBeDefined()
     expect(audioBind?.params).toMatchObject({
       PLACEMENT: 'IM_TEXTAREA',
-      OPTIONS: expect.objectContaining({
+      OPTIONS: {
         iconName: 'chat-compose',
         context: 'LINES',
-      }),
+      },
     })
   })
 
