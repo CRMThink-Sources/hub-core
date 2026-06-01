@@ -1,6 +1,8 @@
 {
   "title": "Users",
-  "description": "Create administrator users for the Hubthink portal.",
+  "description": "Manage the administrator users of the Hubthink portal.",
+  "addUser": "Add user",
+  "cancelCreate": "Cancel",
   "formTitle": "New user",
   "emailLabel": "Email",
   "emailPlaceholder": "user@email.com",
@@ -18,5 +20,28 @@
   "errorPasswordMismatch": "Passwords do not match.",
   "errorGeneric": "Could not create user. Please try again.",
   "showPassword": "Show password",
-  "hidePassword": "Hide password"
+  "hidePassword": "Hide password",
+  "search": "Search by name or email",
+  "table": {
+    "name": "Name",
+    "email": "Email",
+    "role": "Role",
+    "status": "Status",
+    "createdAt": "Created at",
+    "actions": "Actions"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "roleAdmin": "Administrator",
+  "emptyTitle": "No users found",
+  "emptyDescription": "No users match your search.",
+  "emptyDefault": "No users have been created yet.",
+  "errorTitle": "Error loading users",
+  "errorDescription": "Could not load the user list. Please try again.",
+  "retry": "Try again",
+  "page": "Page {{current}} of {{total}}",
+  "previous": "Previous",
+  "next": "Next"
 }

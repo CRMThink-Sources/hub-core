@@ -5,6 +5,7 @@ import { createPortalSessionController } from './main/factories/create-portal-se
 import { createListPortalDomainsController } from './main/factories/create-list-portal-domains-controller'
 import { createGetPortalDomainController } from './main/factories/create-get-portal-domain-controller'
 import { createCreatePortalUserController } from './main/factories/create-create-portal-user-controller'
+import { createListPortalUsersController } from './main/factories/create-list-portal-users-controller'
 import { createRegisterAudioImbotAppController } from './main/factories/create-register-audio-imbot-app-controller'
 import { createDeleteAudioImbotAppController } from './main/factories/create-delete-audio-imbot-app-controller'
 import { createRegisterConversationWidgetAppController } from './main/factories/create-register-conversation-widget-app-controller'
@@ -38,6 +39,11 @@ export const createPortalRoutes = (
     '/domains/:id',
     portalAuthMiddleware,
     adaptControllerFactory(createGetPortalDomainController),
+  )
+  router.get(
+    '/users',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListPortalUsersController),
   )
   router.post(
     '/users',
