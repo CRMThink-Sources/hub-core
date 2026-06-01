@@ -70,6 +70,7 @@ export const env = {
   appCodes: {
     thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',
     thinkanalise: process.env.THINKANALISE_APP_CODE ?? 'crmthink.thinkanalise',
+    importsheet: process.env.IMPORTSHEET_APP_CODE ?? 'crmthink.importsheet',
   },
   thinkzapMockZApiProvisioning:
     process.env.THINKZAP_MOCK_ZAPI_PROVISIONING === 'true' ||

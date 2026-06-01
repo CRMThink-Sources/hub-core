@@ -16,6 +16,10 @@ const DEFAULT_APP_REDIRECTS: Record<
     baseRedirectUrl: '/thinkanalise',
     storageAuthTokenKey: 'hubthink_auth_token',
   },
+  [envConfig.appCodes.importsheet]: {
+    baseRedirectUrl: '/importsheet',
+    storageAuthTokenKey: 'hubthink_auth_token',
+  },
 }
 
 export function getAppRedirectUrl(
