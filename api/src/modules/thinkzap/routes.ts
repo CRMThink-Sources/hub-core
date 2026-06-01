@@ -41,11 +41,25 @@ import {
   thinkzapAccessMiddleware,
   requireThinkzapAdmin,
   requireThinkzapPermission,
-  requireThinkzapWidgetMessaging,
 } from './infra/middleware/thinkzap-access.middleware'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
+
+  // Widget CRM: any Bitrix user with valid JWT (authMiddleware on /api/thinkzap).
+  router.get(
+    '/destinations',
+    adaptControllerFactory(makeListDestinationsController),
+  )
+  router.post(
+    '/messages/send-widget',
+    adaptControllerFactory(makeSendWidgetMessageController),
+  )
+  router.post(
+    '/messages/send-widget-multipart',
+    widgetMessageUploadParser.array('files', 10),
+    adaptControllerFactory(makeSendWidgetMessageMultipartController),
+  )
 
   router.use(thinkzapAccessMiddleware)
 
@@ -166,22 +180,6 @@ export const createThinkerszapRoutes = (): Router => {
     '/openchannels',
     requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeListOpenChannelsController),
-  )
-  router.get(
-    '/destinations',
-    requireThinkzapWidgetMessaging,
-    adaptControllerFactory(makeListDestinationsController),
-  )
-  router.post(
-    '/messages/send-widget',
-    requireThinkzapWidgetMessaging,
-    adaptControllerFactory(makeSendWidgetMessageController),
-  )
-  router.post(
-    '/messages/send-widget-multipart',
-    requireThinkzapWidgetMessaging,
-    widgetMessageUploadParser.array('files', 10),
-    adaptControllerFactory(makeSendWidgetMessageMultipartController),
   )
   router.get(
     '/contacts',

@@ -87,19 +87,6 @@ export function requireThinkzapAdmin(
   next()
 }
 
-/** Widget CRM: allow-listed users may message without connectors CRUD. */
-export function requireThinkzapWidgetMessaging(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void {
-  if (!req.thinkzapAccess) {
-    res.status(403).json({ error: THINKZAP_ACCESS_DENIED })
-    return
-  }
-  next()
-}
-
 export function requireThinkzapPermission(
   category: ThinkzapPermissionCategory,
   action: ThinkzapPermissionAction,
