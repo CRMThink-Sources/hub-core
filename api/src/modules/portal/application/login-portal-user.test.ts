@@ -19,15 +19,25 @@ const activeUser = {
   updatedAt: new Date(),
 }
 
+function createPortalUserRepositoryMock(
+  overrides: Partial<PortalUserRepository> = {},
+): PortalUserRepository {
+  return {
+    findByEmail: vi.fn(),
+    findById: vi.fn(),
+    create: vi.fn(),
+    listWithPagination: vi.fn().mockResolvedValue({ users: [], total: 0 }),
+    ...overrides,
+  }
+}
+
 describe('LoginPortalUser', () => {
   it('returns token for valid credentials', async () => {
     activeUser.passwordHash = await hashPassword('secret123')
 
-    const portalUserRepository: PortalUserRepository = {
+    const portalUserRepository = createPortalUserRepositoryMock({
       findByEmail: vi.fn().mockResolvedValue(activeUser),
-      findById: vi.fn(),
-      create: vi.fn(),
-    }
+    })
 
     const generateTokenSpy = vi.fn().mockReturnValue({ token: 'jwt-token' })
     const generateToken: GenerateTokenRepository = {
@@ -49,11 +59,9 @@ describe('LoginPortalUser', () => {
   })
 
   it('throws for unknown email', async () => {
-    const portalUserRepository: PortalUserRepository = {
+    const portalUserRepository = createPortalUserRepositoryMock({
       findByEmail: vi.fn().mockResolvedValue(null),
-      findById: vi.fn(),
-      create: vi.fn(),
-    }
+    })
 
     const generateToken: GenerateTokenRepository = {
       generateToken: vi.fn(),
@@ -69,11 +77,9 @@ describe('LoginPortalUser', () => {
   it('throws for wrong password', async () => {
     activeUser.passwordHash = await hashPassword('secret123')
 
-    const portalUserRepository: PortalUserRepository = {
+    const portalUserRepository = createPortalUserRepositoryMock({
       findByEmail: vi.fn().mockResolvedValue(activeUser),
-      findById: vi.fn(),
-      create: vi.fn(),
-    }
+    })
 
     const generateToken: GenerateTokenRepository = {
       generateToken: vi.fn(),
@@ -89,14 +95,12 @@ describe('LoginPortalUser', () => {
   it('throws for inactive user', async () => {
     activeUser.passwordHash = await hashPassword('secret123')
 
-    const portalUserRepository: PortalUserRepository = {
+    const portalUserRepository = createPortalUserRepositoryMock({
       findByEmail: vi.fn().mockResolvedValue({
         ...activeUser,
         isActive: false,
       }),
-      findById: vi.fn(),
-      create: vi.fn(),
-    }
+    })
 
     const generateToken: GenerateTokenRepository = {
       generateToken: vi.fn(),
