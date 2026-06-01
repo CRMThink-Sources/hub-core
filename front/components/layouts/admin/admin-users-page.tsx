@@ -289,9 +289,7 @@ export function AdminUsersPage() {
                 </div>
               </Field>
 
-              {createError ? (
-                <FieldError>{createError}</FieldError>
-              ) : null}
+              {createError ? <FieldError>{createError}</FieldError> : null}
 
               {createSuccess ? (
                 <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
