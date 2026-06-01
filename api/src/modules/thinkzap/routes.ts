@@ -41,6 +41,7 @@ import {
   thinkzapAccessMiddleware,
   requireThinkzapAdmin,
   requireThinkzapPermission,
+  requireThinkzapWidgetMessaging,
 } from './infra/middleware/thinkzap-access.middleware'
 
 export const createThinkerszapRoutes = (): Router => {
@@ -168,17 +169,17 @@ export const createThinkerszapRoutes = (): Router => {
   )
   router.get(
     '/destinations',
-    requireThinkzapPermission('connectors', 'read'),
+    requireThinkzapWidgetMessaging,
     adaptControllerFactory(makeListDestinationsController),
   )
   router.post(
     '/messages/send-widget',
-    requireThinkzapPermission('connectors', 'update'),
+    requireThinkzapWidgetMessaging,
     adaptControllerFactory(makeSendWidgetMessageController),
   )
   router.post(
     '/messages/send-widget-multipart',
-    requireThinkzapPermission('connectors', 'update'),
+    requireThinkzapWidgetMessaging,
     widgetMessageUploadParser.array('files', 10),
     adaptControllerFactory(makeSendWidgetMessageMultipartController),
   )

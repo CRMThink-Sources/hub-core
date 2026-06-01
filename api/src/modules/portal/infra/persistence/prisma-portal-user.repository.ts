@@ -3,6 +3,8 @@ import { prisma } from '@/config/prisma.js'
 import type { PortalUser } from '../../domain/entities/portal-user'
 import type {
   CreatePortalUserInput,
+  ListPortalUsersInput,
+  ListPortalUsersRepositoryResult,
   PortalUserRepository,
 } from '../../domain/repositories/portal-user.repository'
 
@@ -66,5 +68,36 @@ export class PrismaPortalUserRepository implements PortalUserRepository {
     })
 
     return toPortalUser(user)
+  }
+
+  async listWithPagination(
+    input: ListPortalUsersInput,
+  ): Promise<ListPortalUsersRepositoryResult> {
+    const { page, limit, search } = input
+    const skip = (page - 1) * limit
+
+    const where = search
+      ? {
+          OR: [
+            { name: { contains: search } },
+            { email: { contains: search } },
+          ],
+        }
+      : {}
+
+    const [total, rows] = await Promise.all([
+      prisma.portalUser.count({ where }),
+      prisma.portalUser.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ])
+
+    return {
+      users: rows.map(toPortalUser),
+      total,
+    }
   }
 }

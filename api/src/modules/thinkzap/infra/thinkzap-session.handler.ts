@@ -17,13 +17,7 @@ export class ThinkzapSessionHandler implements SessionHandler {
 
   handlers: SessionHanderPerformer[] = [
     {
-      perform: async <T>(params: {
-        appId: string
-        thinkzapAccess?: { canAccess: boolean }
-      }): Promise<T> => {
-        if (params.thinkzapAccess && !params.thinkzapAccess.canAccess) {
-          return { key: 'connectors', data: [] } as T
-        }
+      perform: async <T>(params: { appId: string }): Promise<T> => {
         const connectorRepository = new PrismaConnectorRepository()
         const bx = await makeBitrixClientByAppId(params.appId)
 
