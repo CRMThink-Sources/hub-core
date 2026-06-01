@@ -1,6 +1,8 @@
 {
   "title": "Usuários",
-  "description": "Crie usuários administradores do portal Hubthink.",
+  "description": "Gerencie os usuários administradores do portal Hubthink.",
+  "addUser": "Adicionar usuário",
+  "cancelCreate": "Cancelar",
   "formTitle": "Novo usuário",
   "emailLabel": "E-mail",
   "emailPlaceholder": "usuario@email.com",
@@ -18,5 +20,28 @@
   "errorPasswordMismatch": "As senhas não coincidem.",
   "errorGeneric": "Não foi possível criar o usuário. Tente novamente.",
   "showPassword": "Mostrar senha",
-  "hidePassword": "Ocultar senha"
+  "hidePassword": "Ocultar senha",
+  "search": "Buscar por nome ou e-mail",
+  "table": {
+    "name": "Nome",
+    "email": "E-mail",
+    "role": "Perfil",
+    "status": "Status",
+    "createdAt": "Criado em",
+    "actions": "Ações"
+  },
+  "status": {
+    "active": "Ativo",
+    "inactive": "Inativo"
+  },
+  "roleAdmin": "Administrador",
+  "emptyTitle": "Nenhum usuário encontrado",
+  "emptyDescription": "Nenhum usuário corresponde à sua busca.",
+  "emptyDefault": "Ainda não há usuários cadastrados.",
+  "errorTitle": "Erro ao carregar usuários",
+  "errorDescription": "Não foi possível carregar a lista. Tente novamente.",
+  "retry": "Tentar novamente",
+  "page": "Página {{current}} de {{total}}",
+  "previous": "Anterior",
+  "next": "Próxima"
 }
