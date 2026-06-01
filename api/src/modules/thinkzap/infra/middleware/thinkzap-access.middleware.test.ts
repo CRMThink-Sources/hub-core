@@ -13,10 +13,7 @@ vi.mock(
   () => ({ PrismaAllowedDepartmentRepository: vi.fn() }),
 )
 
-import {
-  requireThinkzapPermission,
-  requireThinkzapWidgetMessaging,
-} from './thinkzap-access.middleware'
+import { requireThinkzapPermission } from './thinkzap-access.middleware'
 import type { ThinkzapAccessResult } from '../../application/check-thinkzap-access'
 
 function mockRes() {
@@ -36,32 +33,7 @@ const accessNoConnectors: ThinkzapAccessResult = {
   },
 }
 
-describe('requireThinkzapWidgetMessaging', () => {
-  it('calls next when thinkzapAccess is set', () => {
-    const req = { thinkzapAccess: accessNoConnectors } as Request
-    const { res, status } = mockRes()
-    const next = vi.fn()
-
-    requireThinkzapWidgetMessaging(req, res, next)
-
-    expect(next).toHaveBeenCalledOnce()
-    expect(status).not.toHaveBeenCalled()
-  })
-
-  it('returns 403 when thinkzapAccess is missing', () => {
-    const req = {} as Request
-    const { res, status, json } = mockRes()
-    const next = vi.fn()
-
-    requireThinkzapWidgetMessaging(req, res, next)
-
-    expect(next).not.toHaveBeenCalled()
-    expect(status).toHaveBeenCalledWith(403)
-    expect(json).toHaveBeenCalledWith({ error: 'thinkzap_access_denied' })
-  })
-})
-
-describe('requireThinkzapPermission vs widget guard', () => {
+describe('requireThinkzapPermission', () => {
   it('denies connectors.read when user has no connector permissions', () => {
     const req = { thinkzapAccess: accessNoConnectors } as Request
     const { res, status, json } = mockRes()
@@ -74,5 +46,16 @@ describe('requireThinkzapPermission vs widget guard', () => {
     expect(json).toHaveBeenCalledWith({
       error: 'thinkzap_permission_denied',
     })
+  })
+
+  it('allows finance.read when user has finance read permission', () => {
+    const req = { thinkzapAccess: accessNoConnectors } as Request
+    const { res, status } = mockRes()
+    const next = vi.fn()
+
+    requireThinkzapPermission('finance', 'read')(req, res, next)
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(status).not.toHaveBeenCalled()
   })
 })
