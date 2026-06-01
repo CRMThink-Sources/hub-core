@@ -78,10 +78,7 @@ export class PrismaPortalUserRepository implements PortalUserRepository {
 
     const where = search
       ? {
-          OR: [
-            { name: { contains: search } },
-            { email: { contains: search } },
-          ],
+          OR: [{ name: { contains: search } }, { email: { contains: search } }],
         }
       : {}
 
