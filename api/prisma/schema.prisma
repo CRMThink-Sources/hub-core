@@ -55,6 +55,7 @@ model App {
   thinkzapAllowedUsers       ThinkzapAllowedUser[]
   thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
   thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
+  importSheetAuthToken       ImportSheetAuthToken?
 
   @@unique([domainId, appCodeId])
   @@index([domainId])
@@ -340,6 +341,28 @@ model ThinkzapMessage {
   @@unique([instanceId, bitrixMessageId], name: "uq_msg_instance_bitrix")
   @@index([instanceId])
   @@map("core_thinkerszap_messages")
+}
+
+// ============================================
+// ImportSheet
+// ============================================
+
+model ImportSheetAuthToken {
+  id                   String    @id @default(uuid())
+  appId                String    @unique @map("app_id")
+  provider             String    @default("google")
+  googleSub            String?   @map("google_sub")
+  email                String?
+  scope                String?   @db.Text
+  refreshToken         String    @map("refresh_token") @db.Text
+  accessToken          String?   @map("access_token") @db.Text
+  accessTokenExpiresAt DateTime? @map("access_token_expires_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id])
+
+  @@map("core_importsheets_auth_token")
 }
 
 // ============================================

@@ -3,9 +3,11 @@ import {
   authMiddleware,
   authRoutes,
   thinkanaliseRoutes,
+  importsheetRoutes,
   thinkerszapRoutes,
   portalRoutes,
 } from './composition-root.js'
+import { makeGoogleOAuthCallbackController } from './modules/importsheet/main/make-google-oauth-controllers.js'
 import cors from 'cors'
 import multer from 'multer'
 import { makeStripeWebhookHandlerController } from './modules/thinkzap/main/stripe-webhook.handler.js'
@@ -117,9 +119,16 @@ app.post(
 )
 app.post('/api/thinkanalise/data', adaptControllerFactory(makeDataController))
 
+// Callback público do OAuth Google (sem auth — redirect do browser vindo do Google)
+app.get(
+  '/api/importsheet/oauth/google/callback',
+  adaptControllerFactory(makeGoogleOAuthCallbackController),
+)
+
 // Rotas por aplicação (com auth)
 app.use('/api/thinkzap', authMiddleware, thinkerszapRoutes)
 app.use('/api/thinkanalise', authMiddleware, thinkanaliseRoutes)
+app.use('/api/importsheet', authMiddleware, importsheetRoutes)
 
 const audioUploadParser = multer({
   storage: multer.memoryStorage(),
