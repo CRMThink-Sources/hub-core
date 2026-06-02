@@ -22,15 +22,17 @@ type Props = {
 }
 
 function normalizePhoneInput(value: string): string {
+  const hasInternationalPrefix = value.startsWith('+') || value.startsWith('00')
   let digits = value.replace(/\D/g, '')
   if (digits.startsWith('00')) digits = digits.slice(2)
   digits = digits.replace(/^0+/, '')
-  if (digits.length === 10 || digits.length === 11) return `55${digits}`
+  if (!hasInternationalPrefix && (digits.length === 10 || digits.length === 11))
+    return `55${digits}`
   return digits
 }
 
 function isValidPhone(value: string): boolean {
-  return /^55\d{10,11}$/.test(normalizePhoneInput(value))
+  return /^\d{8,15}$/.test(normalizePhoneInput(value))
 }
 
 export function CriarGrupoTab({
