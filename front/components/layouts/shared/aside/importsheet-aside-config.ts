@@ -8,6 +8,11 @@ export const IMPORTSHEET_ASIDE_CONFIG = {
       label: 'Importações',
       icon: '/images/importsheet/connection.png',
     },
+    {
+      href: '/importsheet/configuracoes',
+      label: 'Configurações',
+      icon: '/images/importsheet/config.png',
+    },
   ],
   languages: [
     { code: 'pt', flag: '/images/i18n-icon/4x3/br.svg' },
