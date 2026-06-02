@@ -40,6 +40,8 @@ export const env = {
     userInfoUrl:
       process.env.GOOGLE_USERINFO_URL ??
       'https://www.googleapis.com/oauth2/v3/userinfo',
+    sheetsApiUrl:
+      process.env.GOOGLE_SHEETS_API_URL ?? 'https://sheets.googleapis.com/v4',
   },
   contaAzul: {
     ClientId: process.env.CONTA_AZUL_CLIENT_ID ?? '',

@@ -156,7 +156,7 @@ export default function ConfiguracoesLayout() {
 
           {loading ? null : connection.connected ? (
             <button
-              onClick={handleDisconnect}
+              onClick={() => void handleDisconnect}
               disabled={disconnecting}
               className="text-sm font-semibold px-4 py-2 rounded-lg border border-red-200 text-red-600 bg-white
                        hover:bg-red-50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
@@ -165,7 +165,7 @@ export default function ConfiguracoesLayout() {
             </button>
           ) : (
             <button
-              onClick={handleConnect}
+              onClick={() => void handleConnect}
               disabled={connecting}
               className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg border border-[#e5e7eb] bg-white
                        hover:bg-gray-50 hover:border-gray-900 hover:text-gray-900 transition-all cursor-pointer

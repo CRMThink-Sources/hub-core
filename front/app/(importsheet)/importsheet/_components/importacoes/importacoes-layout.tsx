@@ -1,13 +1,25 @@
 'use client'
 
+import { useState } from 'react'
 import { useSession } from '@/providers/session-provider'
 import { ConexaoPendenteBanner } from '../banners/conexao-pendente-banner'
-import type { GoogleConnection } from '../types'
+import { NovaImportacaoModal } from './nova-importacao-modal'
+import type { GoogleConnection, ImportSelection } from '../types'
 
 export default function ImportacoesLayout() {
   const { session } = useSession()
   const connection = session?.googleConnection as GoogleConnection | undefined
   const googlePendente = connection ? !connection.connected : false
+  // Enquanto a sessão não carrega, não dá pra saber se há conexão — mantém desabilitado.
+  const podeImportar = !!session && !googlePendente
+
+  const [modalOpen, setModalOpen] = useState(false)
+
+  function handleSelect(selection: ImportSelection) {
+    // TODO(etapa 2): iniciar o de-para de colunas da aba selecionada.
+    console.log('seleção', selection)
+    setModalOpen(false)
+  }
 
   return (
     <div className="w-full flex flex-col pt-20 px-6 space-y-4">
@@ -19,7 +31,25 @@ export default function ImportacoesLayout() {
             Área de trabalho de importações
           </h2>
         </div>
+        <button
+          onClick={() => setModalOpen(true)}
+          disabled={!podeImportar}
+          title={
+            googlePendente ? 'Conecte uma conta Google primeiro' : undefined
+          }
+          className="text-sm font-semibold px-4 py-2 rounded-lg border border-[#e5e7eb] bg-white text-gray-900
+                   hover:bg-gray-50 hover:border-gray-900 transition-all cursor-pointer whitespace-nowrap
+                   disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          + Nova importação
+        </button>
       </div>
+
+      <NovaImportacaoModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSelect={handleSelect}
+      />
 
       {/* banner de conexão pendente */}
       {googlePendente && (

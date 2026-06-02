@@ -25,10 +25,18 @@ export const axiosImportsheet = (authTokenKey = AUTH_TOKEN_KEY) => {
       }
       return result
     },
-    error =>
-      Promise.reject(
+    error => {
+      // Em respostas não-2xx, surfaca a mensagem de erro do servidor (ex.: 401 "Reconecte…").
+      const serverError = error?.response?.data?.result?.error
+      const description =
+        typeof serverError === 'string'
+          ? serverError
+          : (serverError?.error_description ?? serverError?.message)
+      if (description) return Promise.reject(new Error(description))
+      return Promise.reject(
         error instanceof Error ? error : new Error('Request failed'),
-      ),
+      )
+    },
   )
   return axiosInstance
 }
