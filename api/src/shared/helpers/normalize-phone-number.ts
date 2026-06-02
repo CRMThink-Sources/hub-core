@@ -1,4 +1,5 @@
 export const normalizePhoneNumber = (value: string): string => {
+  const hasInternationalPrefix = value.startsWith('+') || value.startsWith('00')
   let digits = value.replace(/\D/g, '')
 
   if (digits.startsWith('00')) {
@@ -7,7 +8,10 @@ export const normalizePhoneNumber = (value: string): string => {
 
   digits = digits.replace(/^0+/, '')
 
-  if (digits.length === 10 || digits.length === 11) {
+  if (
+    !hasInternationalPrefix &&
+    (digits.length === 10 || digits.length === 11)
+  ) {
     return `55${digits}`
   }
 
@@ -15,5 +19,5 @@ export const normalizePhoneNumber = (value: string): string => {
 }
 
 export const isValidZApiPhoneNumber = (value: string): boolean => {
-  return /^55\d{10,11}$/.test(value)
+  return /^\d{8,15}$/.test(value)
 }
