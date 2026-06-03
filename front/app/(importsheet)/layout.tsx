@@ -1,11 +1,14 @@
 'use client'
 
+import { useEffect } from 'react'
 import { SessionProvider } from '@/providers/session-provider'
 import { envConfig } from '@/shared/infra/env-config'
 import { Montserrat } from 'next/font/google'
 import { Aside } from '@/components/layouts/shared/aside/aside'
 import { IMPORTSHEET_ASIDE_CONFIG } from '@/components/layouts/shared/aside/importsheet-aside-config'
 import { setLocale } from '@/i18n/provider'
+
+const IMPORTSHEET_THEME_CLASS = 'theme-importsheet'
 
 const montSerrat = Montserrat({
   subsets: ['latin'],
@@ -17,6 +20,11 @@ export default function ImportSheetLayout({
 }: {
   children: React.ReactNode
 }) {
+  useEffect(() => {
+    document.body.classList.add(IMPORTSHEET_THEME_CLASS)
+    return () => document.body.classList.remove(IMPORTSHEET_THEME_CLASS)
+  }, [])
+
   function handleLanguageChange(code: string) {
     setLocale(code)
   }

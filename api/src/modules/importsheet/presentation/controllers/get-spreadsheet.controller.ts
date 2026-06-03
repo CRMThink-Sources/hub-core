@@ -4,6 +4,7 @@ import { Controller } from '@/shared/presentation/controller'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { GetSpreadsheetService } from '../../application/get-spreadsheet.service'
 import { GoogleAuthRequiredError } from '../../domain/errors/google-auth-required.error'
+import { GoogleUnavailableError } from '../../domain/errors/google-unavailable.error'
 
 export class GetSpreadsheetController extends Controller {
   constructor(
@@ -48,6 +49,9 @@ export class GetSpreadsheetController extends Controller {
     } catch (error) {
       if (error instanceof GoogleAuthRequiredError) {
         return this.unauthorized(error)
+      }
+      if (error instanceof GoogleUnavailableError) {
+        return this.gatewayTimeout(error)
       }
       throw error
     }

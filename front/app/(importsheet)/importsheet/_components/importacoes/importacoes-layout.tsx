@@ -1,48 +1,49 @@
 'use client'
 
 import { useState } from 'react'
+import { PlusIcon } from 'lucide-react'
 import { useSession } from '@/providers/session-provider'
+import { Button } from '@/components/ui/button'
 import { ConexaoPendenteBanner } from '../banners/conexao-pendente-banner'
 import { NovaImportacaoModal } from './nova-importacao-modal'
+import { ConfigurarImportacaoModal } from './configurar-importacao/configurar-importacao-modal'
 import type { GoogleConnection, ImportSelection } from '../types'
 
 export default function ImportacoesLayout() {
   const { session } = useSession()
   const connection = session?.googleConnection as GoogleConnection | undefined
   const googlePendente = connection ? !connection.connected : false
-  // Enquanto a sessão não carrega, não dá pra saber se há conexão — mantém desabilitado.
   const podeImportar = !!session && !googlePendente
 
   const [modalOpen, setModalOpen] = useState(false)
+  const [selection, setSelection] = useState<ImportSelection | null>(null)
 
-  function handleSelect(selection: ImportSelection) {
-    // TODO(etapa 2): iniciar o de-para de colunas da aba selecionada.
-    console.log('seleção', selection)
+  function handleSelect(next: ImportSelection) {
+    setSelection(next)
     setModalOpen(false)
   }
 
   return (
-    <div className="w-full flex flex-col pt-20 px-6 space-y-4">
-      {/* header */}
-      <div className="flex items-center justify-between w-full max-w-3xl mx-auto bg-white p-6 rounded-xl border border-[#e5e7eb]">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 pt-20">
+      <div className="flex items-center justify-between rounded-xl border border-border bg-card p-6">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Importações</h1>
-          <h2 className="text-sm text-gray-400 mt-1">
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
+            Importações
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Área de trabalho de importações
-          </h2>
+          </p>
         </div>
-        <button
+        <Button
           onClick={() => setModalOpen(true)}
           disabled={!podeImportar}
           title={
             googlePendente ? 'Conecte uma conta Google primeiro' : undefined
           }
-          className="text-sm font-semibold px-4 py-2 rounded-lg border border-[#e5e7eb] bg-white text-gray-900
-                   hover:bg-gray-50 hover:border-gray-900 transition-all cursor-pointer whitespace-nowrap
-                   disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          + Nova importação
-        </button>
+          <PlusIcon />
+          Nova importação
+        </Button>
       </div>
 
       <NovaImportacaoModal
@@ -51,7 +52,18 @@ export default function ImportacoesLayout() {
         onSelect={handleSelect}
       />
 
-      {/* banner de conexão pendente */}
+      {selection && (
+        <ConfigurarImportacaoModal
+          open={selection !== null}
+          selection={selection}
+          onClose={() => setSelection(null)}
+          onBack={() => {
+            setSelection(null)
+            setModalOpen(true)
+          }}
+        />
+      )}
+
       {googlePendente && (
         <ConexaoPendenteBanner
           message="Conexão com o Google pendente."
@@ -60,12 +72,19 @@ export default function ImportacoesLayout() {
         />
       )}
 
-      {/* conteúdo */}
-      <div className="w-full max-w-3xl mx-auto flex flex-col gap-6">
-        <p className="text-sm text-gray-400 font-mono px-1">
-          criar aqui a tela de importações
-        </p>
-      </div>
+      {!session ? (
+        <div className="rounded-xl border border-border bg-card p-10 text-center">
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        </div>
+      ) : podeImportar ? (
+        <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            Nenhuma importação ainda. Clique em{' '}
+            <span className="font-medium text-foreground">Nova importação</span>{' '}
+            para começar.
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }

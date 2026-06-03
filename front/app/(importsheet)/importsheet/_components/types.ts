@@ -25,3 +25,134 @@ export type ImportSelection = {
   spreadsheet: SpreadsheetDetails
   tab: SpreadsheetTab
 }
+
+/** Coluna do cabeçalho (1ª linha) de uma aba. */
+export type SpreadsheetColumn = {
+  index: number
+  letter: string
+  label: string
+}
+
+/** Cabeçalho lido da 1ª linha da aba, base pro de-para. */
+export type SpreadsheetHeader = {
+  spreadsheetId: string
+  tabTitle: string
+  columns: SpreadsheetColumn[]
+}
+
+/** Entidade-alvo do Bitrix24 (CRM). */
+export type BitrixEntity = {
+  entityTypeId: number
+  code?: string
+  label: string
+  hasCategories?: boolean
+  isSpa?: boolean
+}
+
+/** Pipeline/funil de uma entidade (ex.: Negócio). */
+export type BitrixCategory = {
+  id: number
+  name: string
+}
+
+/** Campo da entidade no Bitrix24. */
+export type BitrixField = {
+  name: string
+  title: string
+  type: string
+  isRequired: boolean
+  isReadOnly: boolean
+}
+
+/** Mapeamento de uma coluna da planilha → campo do Bitrix (ou null = ignorar). */
+export type ColumnMapping = {
+  columnIndex: number
+  fieldName: string | null
+  /** Marca a coluna como identificador — usada pra dedup contra o Bitrix do cliente. */
+  isIdentifier: boolean
+}
+
+/** Código da entidade-alvo exibida na seleção. */
+export type EntityCode =
+  | 'LEAD'
+  | 'DEAL'
+  | 'CONTACT'
+  | 'COMPANY'
+  | 'SPA'
+  | 'TASK'
+  | 'FEED'
+
+/** Forma de casar o valor da coluna "Responsável" com um usuário do Bitrix. */
+export type ResponsibleMatchBy = 'id' | 'email' | 'phone'
+
+/** Frequência do agendamento (UI). O DTO de envio usa `ImportScheduleInput`. */
+export type ScheduleType = 'hours' | 'days'
+
+/**
+ * Agendamento normalizado pro backend. União discriminada por `mode` — só
+ * carrega o campo relevante (sem ruído). `manual` = roda sob demanda.
+ */
+export type ImportScheduleInput =
+  | { mode: 'manual' }
+  | { mode: 'hours'; everyHours: number }
+  | { mode: 'days'; weekdays: number[] }
+
+/** Planilha + aba de origem (refs estáveis; sem metadados voláteis). */
+export type ImportSourceInput = {
+  spreadsheetId: string
+  /** Snapshot do nome da planilha — exibido na lista de importações. */
+  spreadsheetName: string
+  tab: {
+    /** ID estável da aba (sobrevive a rename). */
+    sheetId: number
+    /** Título da aba — usado pela Sheets API (`values.get`) e exibição. */
+    title: string
+  }
+}
+
+/** Destino no Bitrix24. */
+export type ImportTargetInput = {
+  entityCode: EntityCode
+  /** Resolvido: CRM base = fixo; SPA = o próprio; Tarefas/Livefeed = null. */
+  entityTypeId: number | null
+  /** Pipeline/funil — só Negócio; demais = null. */
+  categoryId: number | null
+}
+
+/** Responsável a casar com um usuário do Bitrix; null = sem responsável. */
+export type ImportResponsibleInput = {
+  columnIndex: number
+  matchBy: ResponsibleMatchBy
+}
+
+/** Coluna mapeada pro Bitrix (só colunas com campo escolhido). */
+export type ColumnMappingInput = {
+  columnIndex: number
+  /** Snapshot do cabeçalho — facilita exibição/diagnóstico no backend. */
+  columnLabel: string
+  fieldName: string
+  /** Identificador → dedup contra o Bitrix (exige `fieldName`). */
+  isIdentifier: boolean
+}
+
+/**
+ * Configuração da importação — bloco salvo na coluna JSON `config` da tabela
+ * `core_importsheets_imports`. Sem `title` (vira coluna própria).
+ */
+export type ImportConfig = {
+  source: ImportSourceInput
+  target: ImportTargetInput
+  responsible: ImportResponsibleInput | null
+  options: { createContact: boolean; createCompany: boolean }
+  schedule: ImportScheduleInput
+  mappings: ColumnMappingInput[]
+}
+
+/**
+ * Payload enviado ao backend (POST /importsheet/imports). Espelha a tabela
+ * dedicada: `title` = coluna; `config` = JSON.
+ */
+export type CreateImportInput = {
+  title: string
+  config: ImportConfig
+}

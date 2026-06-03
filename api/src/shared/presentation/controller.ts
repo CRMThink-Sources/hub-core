@@ -22,6 +22,10 @@ export abstract class Controller {
     return { status: 404, result: { error: error.message } }
   }
 
+  protected gatewayTimeout(error: Error): httpResponse {
+    return { status: 504, result: { error: error.message } }
+  }
+
   protected ok(data: unknown): httpResponse {
     return { status: 200, result: data }
   }

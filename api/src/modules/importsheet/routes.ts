@@ -5,6 +5,12 @@ import {
   makeGoogleDisconnectController,
   makeGetSpreadsheetController,
 } from './main/make-google-oauth-controllers'
+import {
+  makeGetSheetHeaderController,
+  makeListBitrixEntitiesController,
+  makeListBitrixCategoriesController,
+  makeListBitrixFieldsController,
+} from './main/make-importsheet-controllers'
 import { requireImportSheetApp } from './infra/middleware/require-importsheet-app'
 
 export const createImportSheetRoutes = (): Router => {
@@ -27,6 +33,25 @@ export const createImportSheetRoutes = (): Router => {
   router.get(
     '/sheets/:spreadsheetId',
     adaptControllerFactory(makeGetSpreadsheetController),
+  )
+  // Cabeçalho (1ª linha) de uma aba — base pro de-para
+  router.get(
+    '/sheets/:spreadsheetId/header',
+    adaptControllerFactory(makeGetSheetHeaderController),
+  )
+
+  // Metadados de CRM do Bitrix24 (entidade-alvo + pipelines + campos do de-para)
+  router.get(
+    '/bitrix/entities',
+    adaptControllerFactory(makeListBitrixEntitiesController),
+  )
+  router.get(
+    '/bitrix/categories',
+    adaptControllerFactory(makeListBitrixCategoriesController),
+  )
+  router.get(
+    '/bitrix/fields',
+    adaptControllerFactory(makeListBitrixFieldsController),
   )
 
   return router

@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { XIcon } from 'lucide-react'
 import { useSession } from '@/providers/session-provider'
 import { axiosImportsheet } from '@/infra/client/axios-importsheet'
 import { envConfig } from '@/shared/infra/env-config'
+import { Button } from '@/components/ui/button'
 import type { GoogleConnection } from '../types'
 
 export default function ConfiguracoesLayout() {
@@ -23,7 +25,6 @@ export default function ConfiguracoesLayout() {
   const [banner, setBanner] = useState<'success' | 'error' | null>(null)
   const popupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Limpa o poll do popup ao desmontar.
   useEffect(() => {
     return () => {
       if (popupTimerRef.current) clearInterval(popupTimerRef.current)
@@ -33,8 +34,6 @@ export default function ConfiguracoesLayout() {
   const loading = isFetching && !session
 
   useEffect(() => {
-    // O callback do OAuth roda no domínio da API, não no do front — a origem
-    // esperada é a da apiUrl. Se não der pra resolver, não filtra por origem.
     let apiOrigin: string | null = null
     try {
       apiOrigin = new URL(envConfig.apiUrl).origin
@@ -69,7 +68,6 @@ export default function ConfiguracoesLayout() {
         'google-oauth',
         'width=500,height=700',
       )
-      // Popup fechado sem concluir (sem postMessage) → destrava o botão.
       if (popupTimerRef.current) clearInterval(popupTimerRef.current)
       popupTimerRef.current = setInterval(() => {
         if (!win || win.closed) {
@@ -97,26 +95,25 @@ export default function ConfiguracoesLayout() {
   }
 
   return (
-    <div className="w-full flex flex-col pt-20 px-6 space-y-4">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 pt-20">
       {/* header */}
-      <div className="flex items-center justify-between w-full max-w-3xl mx-auto bg-white p-6 rounded-xl border border-[#e5e7eb]">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Configurações</h1>
-          <h2 className="text-sm text-gray-400 mt-1">
-            Integrações e conexões do app
-          </h2>
-        </div>
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h1 className="text-xl font-bold tracking-tight text-foreground">
+          Configurações
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Integrações e conexões do app
+        </p>
       </div>
 
-      {/* feedback */}
       {banner && (
         <div
           role="status"
           aria-live="polite"
-          className={`w-full max-w-3xl mx-auto px-4 py-3 rounded-lg text-sm flex items-center justify-between border ${
+          className={`flex items-center justify-between gap-4 rounded-xl border px-4 py-3 text-sm ${
             banner === 'success'
-              ? 'bg-gray-50 text-gray-800 border-gray-300'
-              : 'bg-red-50 text-red-700 border-red-200'
+              ? 'border-border bg-muted/40 text-foreground'
+              : 'border-destructive/20 bg-destructive/10 text-destructive'
           }`}
         >
           <span>
@@ -124,55 +121,48 @@ export default function ConfiguracoesLayout() {
               ? 'Conta Google conectada com sucesso.'
               : 'Algo deu errado. Tente novamente.'}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setBanner(null)}
             aria-label="Fechar aviso"
-            className="ml-4 text-xs opacity-60 hover:opacity-100 cursor-pointer"
           >
-            ✕
-          </button>
+            <XIcon />
+          </Button>
         </div>
       )}
 
-      {/* card conexão Google */}
-      <div className="w-full max-w-3xl mx-auto bg-white p-6 rounded-xl border border-[#e5e7eb]">
+      <div className="rounded-xl border border-border bg-card p-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-base font-semibold tracking-tight">
+            <h3 className="text-base font-semibold tracking-tight text-foreground">
               Conexão Google
             </h3>
             {loading ? (
-              <p className="text-sm text-gray-400 mt-1">Carregando…</p>
+              <p className="mt-1 text-sm text-muted-foreground">Carregando…</p>
             ) : connection.connected ? (
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Conectado{connection.email ? ` · ${connection.email}` : ''}
               </p>
             ) : (
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Nenhuma conta Google conectada.
               </p>
             )}
           </div>
 
           {loading ? null : connection.connected ? (
-            <button
-              onClick={() => void handleDisconnect}
+            <Button
+              variant="destructive"
+              onClick={() => void handleDisconnect()}
               disabled={disconnecting}
-              className="text-sm font-semibold px-4 py-2 rounded-lg border border-red-200 text-red-600 bg-white
-                       hover:bg-red-50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {disconnecting ? 'Desconectando…' : 'Desconectar'}
-            </button>
+            </Button>
           ) : (
-            <button
-              onClick={() => void handleConnect}
-              disabled={connecting}
-              className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg border border-[#e5e7eb] bg-white
-                       hover:bg-gray-50 hover:border-gray-900 hover:text-gray-900 transition-all cursor-pointer
-                       disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <Button onClick={() => void handleConnect()} disabled={connecting}>
               {connecting ? 'Conectando…' : 'Conectar com Google'}
-            </button>
+            </Button>
           )}
         </div>
       </div>

@@ -22,6 +22,7 @@ export class GoogleOAuthStateStore {
   }
 
   consume(state: string): GoogleOAuthStatePayload | null {
+    this.sweepExpired()
     const entry = this.store.get(state)
     this.store.delete(state)
     if (!entry || Date.now() > entry.expiresAt) return null

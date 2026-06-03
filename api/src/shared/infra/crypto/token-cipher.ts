@@ -18,8 +18,10 @@ const IV_BYTES = 12 // recomendado para GCM
 const AUTH_TAG_BYTES = 16
 const KEY_BYTES = 32 // AES-256
 
-/** Chave de 32 bytes derivada de TOKEN_ENCRYPTION_KEY (base64). Lança se ausente/inválida. */
+let cachedKey: Buffer | null = null
+
 function getKey(): Buffer {
+  if (cachedKey) return cachedKey
   const raw = env.tokenEncryptionKey
   if (!raw) {
     throw new Error(
@@ -32,6 +34,7 @@ function getKey(): Buffer {
       `TOKEN_ENCRYPTION_KEY inválida: esperado ${KEY_BYTES} bytes (base64), recebido ${key.length}`,
     )
   }
+  cachedKey = key
   return key
 }
 

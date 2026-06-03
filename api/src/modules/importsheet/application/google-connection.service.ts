@@ -65,7 +65,16 @@ export class GoogleConnectionService {
     const existing = refreshLocks.get(appId)
     if (existing) return existing
 
-    const refreshPromise = (async (): Promise<string> => {
+    // Lock registrado antes do primeiro await — nenhum caller concorrente passa pelo get() acima.
+    let resolve!: (token: string) => void
+    let reject!: (err: unknown) => void
+    const lockPromise = new Promise<string>((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    refreshLocks.set(appId, lockPromise)
+
+    ;(async () => {
       try {
         const tokens = await this.gateway.refresh(record.refreshToken)
         await this.repository.save({
@@ -78,13 +87,14 @@ export class GoogleConnectionService {
           accessToken: tokens.accessToken,
           accessTokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
         })
-        return tokens.accessToken
+        resolve(tokens.accessToken)
+      } catch (err) {
+        reject(err)
       } finally {
         refreshLocks.delete(appId)
       }
     })()
 
-    refreshLocks.set(appId, refreshPromise)
-    return refreshPromise
+    return lockPromise
   }
 }
