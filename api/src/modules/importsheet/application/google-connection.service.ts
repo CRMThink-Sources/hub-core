@@ -1,4 +1,4 @@
-import { GoogleConnection } from '../domain/entities/google-connection'
+import { GoogleConnection, ImportSheetAuthToken } from '../domain/entities/google-connection'
 import { GoogleOAuthGateway } from '../domain/gateways/google-oauth.gateway'
 import { ImportSheetAuthTokenRepository } from '../domain/repositories/importsheet-auth-token.repository'
 
@@ -65,36 +65,28 @@ export class GoogleConnectionService {
     const existing = refreshLocks.get(appId)
     if (existing) return existing
 
-    // Lock registrado antes do primeiro await — nenhum caller concorrente passa pelo get() acima.
-    let resolve!: (token: string) => void
-    let reject!: (err: unknown) => void
-    const lockPromise = new Promise<string>((res, rej) => {
-      resolve = res
-      reject = rej
-    })
+    const lockPromise = this.doRefresh(appId, record).finally(() =>
+      refreshLocks.delete(appId),
+    )
     refreshLocks.set(appId, lockPromise)
-
-    ;(async () => {
-      try {
-        const tokens = await this.gateway.refresh(record.refreshToken)
-        await this.repository.save({
-          appId,
-          provider: record.provider,
-          googleSub: record.googleSub,
-          email: record.email,
-          scope: tokens.scope ?? record.scope,
-          refreshToken: tokens.refreshToken ?? record.refreshToken,
-          accessToken: tokens.accessToken,
-          accessTokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
-        })
-        resolve(tokens.accessToken)
-      } catch (err) {
-        reject(err)
-      } finally {
-        refreshLocks.delete(appId)
-      }
-    })()
-
     return lockPromise
+  }
+
+  private async doRefresh(
+    appId: string,
+    record: ImportSheetAuthToken,
+  ): Promise<string> {
+    const tokens = await this.gateway.refresh(record.refreshToken)
+    await this.repository.save({
+      appId,
+      provider: record.provider,
+      googleSub: record.googleSub,
+      email: record.email,
+      scope: tokens.scope ?? record.scope,
+      refreshToken: tokens.refreshToken ?? record.refreshToken,
+      accessToken: tokens.accessToken,
+      accessTokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
+    })
+    return tokens.accessToken
   }
 }

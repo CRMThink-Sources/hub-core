@@ -5,13 +5,16 @@ import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/reposit
 import { GoogleOAuthClient } from '../infra/clients/google-oauth.client'
 import { GoogleSheetsClient } from '../infra/clients/google-sheets.client'
 import { PrismaImportSheetAuthTokenRepository } from '../infra/persistence/repositories/prisma-importsheet-auth-token.repository'
+import { PrismaImportSheetImportRepository } from '../infra/persistence/repositories/prisma-importsheet-import.repository'
 import { GoogleConnectionService } from '../application/google-connection.service'
 import { GetSheetHeaderService } from '../application/get-sheet-header.service'
 import { BitrixCrmMetaService } from '../application/bitrix-crm-meta.service'
+import { CreateImportService } from '../application/create-import.service'
 import { GetSheetHeaderController } from '../presentation/controllers/get-sheet-header.controller'
 import { ListBitrixEntitiesController } from '../presentation/controllers/list-bitrix-entities.controller'
 import { ListBitrixCategoriesController } from '../presentation/controllers/list-bitrix-categories.controller'
 import { ListBitrixFieldsController } from '../presentation/controllers/list-bitrix-fields.controller'
+import { CreateImportController } from '../presentation/controllers/create-import.controller'
 
 const makeConnectionService = (): GoogleConnectionService =>
   new GoogleConnectionService(
@@ -47,3 +50,9 @@ export const makeListBitrixFieldsController = async (
   req: Request,
 ): Promise<Controller> =>
   new ListBitrixFieldsController(await makeMetaService(req))
+
+export const makeCreateImportController = (_req: Request): Controller =>
+  new CreateImportController(
+    new PrismaInstalledAppRepository(),
+    new CreateImportService(new PrismaImportSheetImportRepository()),
+  )

@@ -23,6 +23,7 @@ type Props = {
   open: boolean
   selection: ImportSelection
   onClose: () => void
+  onSaved: () => void
   onBack: () => void
 }
 
@@ -30,14 +31,19 @@ export function ConfigurarImportacaoModal({
   open,
   selection,
   onClose,
+  onSaved,
   onBack,
 }: Props) {
   const s = useConfigurarImportacao(open, selection)
   const { flags } = s
 
-  function handleSave() {
-    s.handleSave()
-    onClose()
+  async function handleSave() {
+    try {
+      await s.handleSave()
+      onSaved()
+    } catch {
+      // erro exibido via s.saveError
+    }
   }
 
   return (
@@ -110,9 +116,9 @@ export function ConfigurarImportacaoModal({
             toggleWeekday={s.toggleWeekday}
           />
 
-          {s.error && (
+          {(s.error ?? s.saveError) && (
             <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {s.error}
+              {s.saveError ?? s.error}
             </div>
           )}
 
@@ -143,7 +149,10 @@ export function ConfigurarImportacaoModal({
             <Button variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={!s.canSave}>
+            <Button
+              onClick={() => void handleSave()}
+              disabled={!s.canSave || s.isSaving}
+            >
               Salvar
             </Button>
           </div>

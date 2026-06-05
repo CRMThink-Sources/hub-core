@@ -56,6 +56,7 @@ model App {
   thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
   thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
   importSheetAuthToken       ImportSheetAuthToken?
+  importSheetImports         ImportSheetImport[]
 
   @@unique([domainId, appCodeId])
   @@index([domainId])
@@ -365,9 +366,43 @@ model ImportSheetAuthToken {
   @@map("core_importsheets_auth_token")
 }
 
+model ImportSheetImport {
+  id    Int    @id @default(autoincrement())
+  appId String @map("app_id")
+  title String
+
+  /// { source, target, responsible, options, mappings } — schedule em colunas dedicadas
+  config Json @map("config")
+
+  scheduleMode ImportSheetScheduleMode @default(MANUAL) @map("schedule_mode")
+  everyHours   Int?                    @map("every_hours")
+  weekdays     Json?                   @map("weekdays")
+  nextRunAt    DateTime?               @map("next_run_at")
+
+  enabled       Boolean   @default(true)  @map("enabled")
+  lastRunAt     DateTime?                 @map("last_run_at")
+  lastRunStatus String?                   @map("last_run_status")
+  lastError     String?   @db.Text        @map("last_error")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@index([appId])
+  @@index([nextRunAt])
+  @@map("core_importsheets_imports")
+}
+
 // ============================================
 // ENUMS
 // ============================================
+
+enum ImportSheetScheduleMode {
+  MANUAL
+  HOURS
+  DAYS
+}
 
 enum AppStatus {
   ACTIVE

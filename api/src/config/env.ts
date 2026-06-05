@@ -16,6 +16,7 @@ export const env = {
     process.env.API_URL && process.env.API_URL !== 'undefined'
       ? process.env.API_URL
       : 'https://homolog-hubthink.crmthink.com.br/api',
+  frontUrl: process.env.FRONT_URL ?? '',
   crmthinkWebhookUrl: process.env.CRMTHINK_WEBHOOK_URL ?? '',
   tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY ?? '',
   stripe: {

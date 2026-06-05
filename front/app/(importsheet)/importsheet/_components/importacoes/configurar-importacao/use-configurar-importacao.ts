@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { axiosImportsheet } from '@/infra/client/axios-importsheet'
 import type { ComboboxOption } from '@/components/ui/combobox'
 import type {
   ColumnMapping,
@@ -47,6 +48,9 @@ export function useConfigurarImportacao(
 
   const [mappings, setMappings] = useState<ColumnMapping[]>([])
   const [excluded, setExcluded] = useState<number[]>([])
+
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const flags = deriveEntity(entityCode, spaTypeId)
   const {
@@ -101,19 +105,17 @@ export function useConfigurarImportacao(
     setWeekdays([])
     setMappings([])
     setExcluded([])
+    setSaveError(null)
   }, [open, spreadsheet.name, tab.sheetId])
 
-  useEffect(() => {
-    if (!needsPipeline) setCategoryId(null)
-  }, [needsPipeline])
-
-  // Limpa o campo escolhido ao trocar a entidade-alvo.
+  // Limpa o campo escolhido ao trocar a entidade-alvo; limpa pipeline se não aplicável.
   useEffect(() => {
     if (!open) return
+    if (!needsPipeline) setCategoryId(null)
     setMappings(prev =>
       prev.map(m => ({ ...m, fieldName: null, isIdentifier: false })),
     )
-  }, [open, entityCode, resolvedEntityTypeId])
+  }, [open, entityCode, resolvedEntityTypeId, needsPipeline])
 
   // (Re)constrói o de-para quando um novo cabeçalho é lido.
   useEffect(() => {
@@ -240,36 +242,47 @@ export function useConfigurarImportacao(
       }))
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!canSave || !entityCode) return
-    const config: ImportConfig = {
-      source: {
-        spreadsheetId: spreadsheet.id,
-        spreadsheetName: spreadsheet.name,
-        tab: { sheetId: selectedTab.sheetId, title: selectedTab.title },
-      },
-      target: {
-        entityCode,
-        entityTypeId: resolvedEntityTypeId,
-        categoryId: needsPipeline ? categoryId : null,
-      },
-      responsible:
-        responsibleColumnIndex === null
-          ? null
-          : {
-              columnIndex: responsibleColumnIndex,
-              matchBy: responsibleMatchBy,
-            },
-      options: {
-        createContact: showCreateContact ? createContact : false,
-        createCompany: showCreateCompany ? createCompany : false,
-      },
-      schedule: buildSchedule(),
-      mappings: buildMappings(),
+    setSaveError(null)
+    setIsSaving(true)
+    try {
+      const config: ImportConfig = {
+        source: {
+          spreadsheetId: spreadsheet.id,
+          spreadsheetName: spreadsheet.name,
+          tab: { sheetId: selectedTab.sheetId, title: selectedTab.title },
+        },
+        target: {
+          entityCode,
+          entityTypeId: resolvedEntityTypeId,
+          categoryId: needsPipeline ? categoryId : null,
+        },
+        responsible:
+          responsibleColumnIndex === null
+            ? null
+            : {
+                columnIndex: responsibleColumnIndex,
+                matchBy: responsibleMatchBy,
+              },
+        options: {
+          createContact: showCreateContact ? createContact : false,
+          createCompany: showCreateCompany ? createCompany : false,
+        },
+        mappings: buildMappings(),
+      }
+      const payload: CreateImportInput = {
+        title: title.trim(),
+        schedule: buildSchedule(),
+        config,
+      }
+      await axiosImportsheet().post('/importsheet/imports', payload)
+    } catch (e) {
+      setSaveError('Erro ao salvar a importação. Tente novamente.')
+      throw e
+    } finally {
+      setIsSaving(false)
     }
-    const payload: CreateImportInput = { title: title.trim(), config }
-    // TODO(etapa 2.3): trocar por POST /importsheet/imports.
-    console.log('create import payload', JSON.stringify(payload, null, 2))
   }
 
   return {
@@ -330,6 +343,8 @@ export function useConfigurarImportacao(
 
     canSave,
     handleSave,
+    isSaving,
+    saveError,
   }
 }
 

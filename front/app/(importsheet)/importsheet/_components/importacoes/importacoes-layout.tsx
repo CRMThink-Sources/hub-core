@@ -7,13 +7,20 @@ import { Button } from '@/components/ui/button'
 import { ConexaoPendenteBanner } from '../banners/conexao-pendente-banner'
 import { NovaImportacaoModal } from './nova-importacao-modal'
 import { ConfigurarImportacaoModal } from './configurar-importacao/configurar-importacao-modal'
-import type { GoogleConnection, ImportSelection } from '../types'
+import { ImportacoesLista } from './importacoes-lista'
+import type {
+  GoogleConnection,
+  ImportListItem,
+  ImportSelection,
+} from '../types'
 
 export default function ImportacoesLayout() {
-  const { session } = useSession()
+  const { session, refreshSession } = useSession()
   const connection = session?.googleConnection as GoogleConnection | undefined
   const googlePendente = connection ? !connection.connected : false
   const podeImportar = !!session && !googlePendente
+
+  const imports = (session?.imports as ImportListItem[] | undefined) ?? []
 
   const [modalOpen, setModalOpen] = useState(false)
   const [selection, setSelection] = useState<ImportSelection | null>(null)
@@ -57,6 +64,10 @@ export default function ImportacoesLayout() {
           open={selection !== null}
           selection={selection}
           onClose={() => setSelection(null)}
+          onSaved={() => {
+            setSelection(null)
+            void refreshSession()
+          }}
           onBack={() => {
             setSelection(null)
             setModalOpen(true)
@@ -76,6 +87,8 @@ export default function ImportacoesLayout() {
         <div className="rounded-xl border border-border bg-card p-10 text-center">
           <p className="text-sm text-muted-foreground">Carregando…</p>
         </div>
+      ) : podeImportar && imports.length > 0 ? (
+        <ImportacoesLista imports={imports} />
       ) : podeImportar ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
           <p className="text-sm text-muted-foreground">

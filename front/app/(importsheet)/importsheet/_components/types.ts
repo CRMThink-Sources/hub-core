@@ -137,22 +137,43 @@ export type ColumnMappingInput = {
 
 /**
  * Configuração da importação — bloco salvo na coluna JSON `config` da tabela
- * `core_importsheets_imports`. Sem `title` (vira coluna própria).
+ * `core_importsheets_imports`. Schedule em colunas dedicadas, não aqui.
  */
 export type ImportConfig = {
   source: ImportSourceInput
   target: ImportTargetInput
   responsible: ImportResponsibleInput | null
   options: { createContact: boolean; createCompany: boolean }
-  schedule: ImportScheduleInput
   mappings: ColumnMappingInput[]
 }
 
 /**
- * Payload enviado ao backend (POST /importsheet/imports). Espelha a tabela
- * dedicada: `title` = coluna; `config` = JSON.
+ * Payload enviado ao backend (POST /importsheet/imports).
+ * `title` e `schedule` viram colunas; `config` é o JSON.
  */
 export type CreateImportInput = {
   title: string
+  schedule: ImportScheduleInput
   config: ImportConfig
+}
+
+/** Modo de agendamento persistido (coluna `schedule_mode`). */
+export type ImportScheduleMode = 'MANUAL' | 'HOURS' | 'DAYS'
+
+/**
+ * Resumo de uma importação salva (GET /importsheet/imports). Sem o `config`
+ * completo — só o que a lista exibe. Datas chegam como ISO string.
+ */
+export type ImportListItem = {
+  id: number
+  title: string
+  spreadsheetName: string
+  entityCode: EntityCode
+  scheduleMode: ImportScheduleMode
+  everyHours: number | null
+  weekdays: number[] | null
+  nextRunAt: string | null
+  enabled: boolean
+  lastRunAt: string | null
+  lastRunStatus: string | null
 }

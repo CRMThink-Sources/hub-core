@@ -1,4 +1,5 @@
 import { Request, Response } from 'express'
+import { env } from '@/config/env'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
@@ -6,8 +7,9 @@ import { GoogleConnectionService } from '../../application/google-connection.ser
 import { GoogleOAuthStateStore } from '../../infra/google-oauth-state.store'
 
 function oauthPopupHtml(status: 'success' | 'error'): string {
+  const origin = env.frontUrl || env.appUrl || '*'
   return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><script>
-    try { window.opener.postMessage({ type: 'google-oauth', status: '${status}' }, '*') } catch(_) {}
+    try { window.opener.postMessage({ type: 'google-oauth', status: '${status}' }, '${origin}') } catch(_) {}
     window.close()
   </script></body></html>`
 }
