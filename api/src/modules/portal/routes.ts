@@ -14,6 +14,8 @@ import { createRegisterBizprocRobotAppController } from './main/factories/create
 import { createDeleteBizprocRobotAppController } from './main/factories/create-delete-bizproc-robot-app-controller'
 import { createListPlacementsAppController } from './main/factories/create-list-placements-app-controller'
 import { createListBizprocRobotsAppController } from './main/factories/create-list-bizproc-robots-app-controller'
+import { createRegisterSpaWidgetAppController } from './main/factories/create-register-spa-widget-app-controller'
+import { createDeleteSpaWidgetAppController } from './main/factories/create-delete-spa-widget-app-controller'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -89,6 +91,16 @@ export const createPortalRoutes = (
     '/apps/:appId/bizproc-robots',
     portalAuthMiddleware,
     adaptControllerFactory(createListBizprocRobotsAppController),
+  )
+  router.post(
+    '/apps/:appId/spa-placements',
+    portalAuthMiddleware,
+    adaptControllerFactory(createRegisterSpaWidgetAppController),
+  )
+  router.delete(
+    '/apps/:appId/spa-placements',
+    portalAuthMiddleware,
+    adaptControllerFactory(createDeleteSpaWidgetAppController),
   )
 
   return router
