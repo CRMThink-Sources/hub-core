@@ -1,5 +1,6 @@
 import { deleteConversationWidgetPlacements } from '@/modules/thinkzap/application/delete-conversation-widget-placements'
 import type { DeleteConversationWidgetPlacementsResult } from '@/modules/thinkzap/application/delete-conversation-widget-placements'
+import { deleteSpaPlacements } from '@/modules/thinkzap/application/delete-spa-conversation-widget-placements'
 import { resolveBitrixClientForApp } from './resolve-bitrix-client-for-app'
 
 export type DeleteConversationWidgetForAppOutput = {
@@ -11,6 +12,7 @@ export async function deleteConversationWidgetForApp(
 ): Promise<DeleteConversationWidgetForAppOutput> {
   const { client } = await resolveBitrixClientForApp(appId)
   const result = await deleteConversationWidgetPlacements(client)
+  await deleteSpaPlacements(client)
 
   return { result }
 }
