@@ -29,7 +29,10 @@ export async function deleteSpaPlacements(
       })
       deleted++
     } catch (error) {
-      console.error(`Failed to unbind SPA placement CRM_DYNAMIC_${id}_DETAIL_TAB:`, error)
+      console.error(
+        `Failed to unbind SPA placement CRM_DYNAMIC_${id}_DETAIL_TAB:`,
+        error,
+      )
       failed++
     }
   }
