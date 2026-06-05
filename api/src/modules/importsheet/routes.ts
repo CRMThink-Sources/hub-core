@@ -11,6 +11,9 @@ import {
   makeListBitrixCategoriesController,
   makeListBitrixFieldsController,
   makeCreateImportController,
+  makeGetImportController,
+  makeUpdateImportController,
+  makeDeleteImportController,
 } from './main/make-importsheet-controllers'
 import { requireImportSheetApp } from './infra/middleware/require-importsheet-app'
 
@@ -55,8 +58,12 @@ export const createImportSheetRoutes = (): Router => {
     adaptControllerFactory(makeListBitrixFieldsController),
   )
 
-  // Salvar Importações (listagem vem na sessão — ImportSheetSessionHandler)
+  // Importações — listagem vem na sessão (ImportSheetSessionHandler).
+  // Detalhe completo + criar/editar aqui.
   router.post('/imports', adaptControllerFactory(makeCreateImportController))
+  router.get('/imports/:id', adaptControllerFactory(makeGetImportController))
+  router.put('/imports/:id', adaptControllerFactory(makeUpdateImportController))
+  router.delete('/imports/:id', adaptControllerFactory(makeDeleteImportController))
 
   return router
 }

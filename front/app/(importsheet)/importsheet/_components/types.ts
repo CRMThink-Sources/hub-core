@@ -145,6 +145,7 @@ export type ImportConfig = {
   responsible: ImportResponsibleInput | null
   options: { createContact: boolean; createCompany: boolean }
   mappings: ColumnMappingInput[]
+  excludedColumns: number[]
 }
 
 /**
@@ -159,6 +160,33 @@ export type CreateImportInput = {
 
 /** Modo de agendamento persistido (coluna `schedule_mode`). */
 export type ImportScheduleMode = 'MANUAL' | 'HOURS' | 'DAYS'
+
+/** Detalhe completo de uma importação (GET /importsheet/imports/:id) — base do prefill na edição. */
+export type ImportDetail = {
+  id: number
+  title: string
+  config: ImportConfig
+  scheduleMode: ImportScheduleMode
+  everyHours: number | null
+  weekdays: number[] | null
+}
+
+/** Valores iniciais pra prefill do modal em modo edição. */
+export type ImportInitial = {
+  importId: number
+  title: string
+  entityCode: EntityCode
+  spaTypeId: number | null
+  categoryId: number | null
+  responsible: ImportResponsibleInput | null
+  options: { createContact: boolean; createCompany: boolean }
+  scheduleManual: boolean
+  scheduleType: ScheduleType
+  everyHours: number
+  weekdays: number[]
+  mappings: ColumnMappingInput[]
+  excludedColumns: number[]
+}
 
 /**
  * Resumo de uma importação salva (GET /importsheet/imports). Sem o `config`

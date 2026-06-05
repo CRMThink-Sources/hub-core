@@ -39,6 +39,7 @@ export type ImportConfig = {
   responsible: ImportConfigResponsible | null
   options: { createContact: boolean; createCompany: boolean }
   mappings: ImportConfigMapping[]
+  excludedColumns: number[]
 }
 
 export type ImportSheetImport = {

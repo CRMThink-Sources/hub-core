@@ -3,11 +3,15 @@
 import { useState } from 'react'
 import { PlusIcon } from 'lucide-react'
 import { useSession } from '@/providers/session-provider'
+import { axiosImportsheet } from '@/infra/client/axios-importsheet'
+import { LoadingProvider, useLoading } from '@/providers/loading-provider'
+import { LoadingOverlay } from '@/components/ui/loading-overlay'
 import { Button } from '@/components/ui/button'
 import { ConexaoPendenteBanner } from '../banners/conexao-pendente-banner'
 import { NovaImportacaoModal } from './nova-importacao-modal'
 import { ConfigurarImportacaoModal } from './configurar-importacao/configurar-importacao-modal'
 import { ImportacoesLista } from './importacoes-lista'
+import { useImportForEdit } from './use-import-for-edit'
 import type {
   GoogleConnection,
   ImportListItem,
@@ -15,7 +19,17 @@ import type {
 } from '../types'
 
 export default function ImportacoesLayout() {
+  return (
+    <LoadingProvider>
+      <LoadingOverlay />
+      <ImportacoesContent />
+    </LoadingProvider>
+  )
+}
+
+function ImportacoesContent() {
   const { session, refreshSession } = useSession()
+  const { setLoading } = useLoading()
   const connection = session?.googleConnection as GoogleConnection | undefined
   const googlePendente = connection ? !connection.connected : false
   const podeImportar = !!session && !googlePendente
@@ -24,6 +38,25 @@ export default function ImportacoesLayout() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [selection, setSelection] = useState<ImportSelection | null>(null)
+
+  const [editId, setEditId] = useState<number | null>(null)
+  const { data: editData } = useImportForEdit(editId)
+
+  function handleSaved() {
+    setSelection(null)
+    setEditId(null)
+    void refreshSession()
+  }
+
+  async function handleDelete(id: number) {
+    setLoading(true, 'Excluindo importação…')
+    try {
+      await axiosImportsheet().delete(`/importsheet/imports/${id}`)
+      await refreshSession()
+    } finally {
+      setLoading(false)
+    }
+  }
 
   function handleSelect(next: ImportSelection) {
     setSelection(next)
@@ -64,14 +97,22 @@ export default function ImportacoesLayout() {
           open={selection !== null}
           selection={selection}
           onClose={() => setSelection(null)}
-          onSaved={() => {
-            setSelection(null)
-            void refreshSession()
-          }}
+          onSaved={handleSaved}
           onBack={() => {
             setSelection(null)
             setModalOpen(true)
           }}
+        />
+      )}
+
+      {editData && (
+        <ConfigurarImportacaoModal
+          open
+          selection={editData.selection}
+          initial={editData.initial}
+          onClose={() => setEditId(null)}
+          onSaved={handleSaved}
+          onBack={() => setEditId(null)}
         />
       )}
 
@@ -88,7 +129,11 @@ export default function ImportacoesLayout() {
           <p className="text-sm text-muted-foreground">Carregando…</p>
         </div>
       ) : podeImportar && imports.length > 0 ? (
-        <ImportacoesLista imports={imports} />
+        <ImportacoesLista
+          imports={imports}
+          onEdit={setEditId}
+          onDelete={handleDelete}
+        />
       ) : podeImportar ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
           <p className="text-sm text-muted-foreground">

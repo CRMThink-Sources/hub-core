@@ -1,4 +1,7 @@
-import { GoogleConnection, ImportSheetAuthToken } from '../domain/entities/google-connection'
+import {
+  GoogleConnection,
+  ImportSheetAuthToken,
+} from '../domain/entities/google-connection'
 import { GoogleOAuthGateway } from '../domain/gateways/google-oauth.gateway'
 import { ImportSheetAuthTokenRepository } from '../domain/repositories/importsheet-auth-token.repository'
 

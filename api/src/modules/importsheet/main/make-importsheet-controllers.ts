@@ -10,11 +10,15 @@ import { GoogleConnectionService } from '../application/google-connection.servic
 import { GetSheetHeaderService } from '../application/get-sheet-header.service'
 import { BitrixCrmMetaService } from '../application/bitrix-crm-meta.service'
 import { CreateImportService } from '../application/create-import.service'
+import { UpdateImportService } from '../application/update-import.service'
 import { GetSheetHeaderController } from '../presentation/controllers/get-sheet-header.controller'
 import { ListBitrixEntitiesController } from '../presentation/controllers/list-bitrix-entities.controller'
 import { ListBitrixCategoriesController } from '../presentation/controllers/list-bitrix-categories.controller'
 import { ListBitrixFieldsController } from '../presentation/controllers/list-bitrix-fields.controller'
 import { CreateImportController } from '../presentation/controllers/create-import.controller'
+import { GetImportController } from '../presentation/controllers/get-import.controller'
+import { UpdateImportController } from '../presentation/controllers/update-import.controller'
+import { DeleteImportController } from '../presentation/controllers/delete-import.controller'
 
 const makeConnectionService = (): GoogleConnectionService =>
   new GoogleConnectionService(
@@ -55,4 +59,22 @@ export const makeCreateImportController = (_req: Request): Controller =>
   new CreateImportController(
     new PrismaInstalledAppRepository(),
     new CreateImportService(new PrismaImportSheetImportRepository()),
+  )
+
+export const makeGetImportController = (_req: Request): Controller =>
+  new GetImportController(
+    new PrismaInstalledAppRepository(),
+    new PrismaImportSheetImportRepository(),
+  )
+
+export const makeUpdateImportController = (_req: Request): Controller =>
+  new UpdateImportController(
+    new PrismaInstalledAppRepository(),
+    new UpdateImportService(new PrismaImportSheetImportRepository()),
+  )
+
+export const makeDeleteImportController = (_req: Request): Controller =>
+  new DeleteImportController(
+    new PrismaInstalledAppRepository(),
+    new PrismaImportSheetImportRepository(),
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { axiosImportsheet } from '@/infra/client/axios-importsheet'
 import type { ComboboxOption } from '@/components/ui/combobox'
 import type {
@@ -9,6 +9,7 @@ import type {
   CreateImportInput,
   EntityCode,
   ImportConfig,
+  ImportInitial,
   ImportScheduleInput,
   ImportSelection,
   ResponsibleMatchBy,
@@ -24,8 +25,20 @@ import { useSheetHeader } from './data/use-sheet-header'
 export function useConfigurarImportacao(
   open: boolean,
   selection: ImportSelection,
+  initial?: ImportInitial | null,
 ) {
   const { spreadsheet, tab } = selection
+  const isEdit = !!initial
+
+  // Garante que os mappings salvos sejam aplicados só na 1ª leitura do cabeçalho.
+  const mappingsSeededRef = useRef(false)
+
+  // Rastreia o último (entityCode, resolvedEntityTypeId) processado pelo cleanup effect,
+  // para distinguir inicialização de mudança feita pelo usuário.
+  const cleanupEntityRef = useRef<{ code: EntityCode | ''; typeId: number | null }>({
+    code: '',
+    typeId: null,
+  })
 
   const [title, setTitle] = useState(spreadsheet.name)
   const [selectedTabId, setSelectedTabId] = useState(tab.sheetId)
@@ -50,7 +63,6 @@ export function useConfigurarImportacao(
   const [excluded, setExcluded] = useState<number[]>([])
 
   const [isSaving, setIsSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
 
   const flags = deriveEntity(entityCode, spaTypeId)
   const {
@@ -87,11 +99,33 @@ export function useConfigurarImportacao(
 
   const error = headerError ?? fieldsError ?? categoriesError ?? spasError
 
-  // Reseta o formulário a cada abertura.
+  // (Re)inicializa o formulário a cada abertura — defaults (criação) ou prefill (edição).
   useEffect(() => {
     if (!open) return
-    setTitle(spreadsheet.name)
+    mappingsSeededRef.current = false
+    cleanupEntityRef.current = { code: '', typeId: null }
     setSelectedTabId(tab.sheetId)
+    setExcluded([])
+    setMappings([])
+
+    if (initial) {
+      setTitle(initial.title)
+      setEntityCode(initial.entityCode)
+      setSpaTypeId(initial.spaTypeId)
+      setCategoryId(initial.categoryId)
+      setResponsibleColumnIndex(initial.responsible?.columnIndex ?? null)
+      setResponsibleMatchBy(initial.responsible?.matchBy ?? 'id')
+      setCreateContact(initial.options.createContact)
+      setCreateCompany(initial.options.createCompany)
+      setScheduleManual(initial.scheduleManual)
+      setScheduleType(initial.scheduleType)
+      setEveryHours(initial.everyHours)
+      setWeekdays(initial.weekdays)
+      setExcluded(initial.excludedColumns)
+      return
+    }
+
+    setTitle(spreadsheet.name)
     setEntityCode('')
     setSpaTypeId(null)
     setCategoryId(null)
@@ -103,33 +137,58 @@ export function useConfigurarImportacao(
     setScheduleType('hours')
     setEveryHours(1)
     setWeekdays([])
-    setMappings([])
-    setExcluded([])
-    setSaveError(null)
-  }, [open, spreadsheet.name, tab.sheetId])
+  }, [open, initial, spreadsheet.name, tab.sheetId])
 
-  // Limpa o campo escolhido ao trocar a entidade-alvo; limpa pipeline se não aplicável.
+  // Limpa campos ao trocar entidade-alvo. Ignora a inicialização (ref em branco = primeiro
+  // disparo após abertura do modal) para não sobrescrever o prefill de edição.
   useEffect(() => {
     if (!open) return
-    if (!needsPipeline) setCategoryId(null)
+    const prev = cleanupEntityRef.current
+    const next = { code: entityCode, typeId: resolvedEntityTypeId }
+
+    // Primeiro disparo após abertura: registra estado atual, não limpa nada.
+    if (prev.code === '') {
+      cleanupEntityRef.current = next
+      return
+    }
+
+    const codeChanged = prev.code !== next.code
+    const typeChanged = prev.typeId !== next.typeId
+
+    // Nenhuma mudança relevante (e.g. apenas needsPipeline recalculado).
+    if (!codeChanged && !typeChanged) return
+
+    cleanupEntityRef.current = next
+
+    if (codeChanged && !needsPipeline) setCategoryId(null)
     setMappings(prev =>
       prev.map(m => ({ ...m, fieldName: null, isIdentifier: false })),
     )
   }, [open, entityCode, resolvedEntityTypeId, needsPipeline])
 
-  // (Re)constrói o de-para quando um novo cabeçalho é lido.
+  // (Re)constrói o de-para quando um novo cabeçalho é lido. Na edição, aplica os
+  // mappings salvos (por columnIndex) na 1ª leitura.
   useEffect(() => {
     if (!header) return
+    const applyInitial = !!initial && !mappingsSeededRef.current
     setMappings(
-      header.columns.map(c => ({
-        columnIndex: c.index,
-        fieldName: null,
-        isIdentifier: false,
-      })),
+      header.columns.map(c => {
+        const saved = applyInitial
+          ? initial!.mappings.find(m => m.columnIndex === c.index)
+          : undefined
+        return {
+          columnIndex: c.index,
+          fieldName: saved?.fieldName ?? null,
+          isIdentifier: saved?.isIdentifier ?? false,
+        }
+      }),
     )
-    setExcluded([])
-    setResponsibleColumnIndex(null)
-  }, [header])
+    setExcluded(applyInitial ? (initial!.excludedColumns ?? []) : [])
+    setResponsibleColumnIndex(
+      applyInitial ? (initial!.responsible?.columnIndex ?? null) : null,
+    )
+    if (applyInitial) mappingsSeededRef.current = true
+  }, [header, initial])
 
   const fieldOptions = useMemo<ComboboxOption[]>(() => {
     const base: ComboboxOption[] = [{ value: UNSET, label: 'Selecione…' }]
@@ -173,6 +232,10 @@ export function useConfigurarImportacao(
       prev.includes(columnIndex) ? prev : [...prev, columnIndex],
     )
     if (responsibleColumnIndex === columnIndex) setResponsibleColumnIndex(null)
+  }
+
+  function restoreColumn(columnIndex: number) {
+    setExcluded(prev => prev.filter(c => c !== columnIndex))
   }
 
   function toggleWeekday(day: number) {
@@ -244,7 +307,6 @@ export function useConfigurarImportacao(
 
   async function handleSave() {
     if (!canSave || !entityCode) return
-    setSaveError(null)
     setIsSaving(true)
     try {
       const config: ImportConfig = {
@@ -270,16 +332,21 @@ export function useConfigurarImportacao(
           createCompany: showCreateCompany ? createCompany : false,
         },
         mappings: buildMappings(),
+        excludedColumns: excluded,
       }
       const payload: CreateImportInput = {
         title: title.trim(),
         schedule: buildSchedule(),
         config,
       }
-      await axiosImportsheet().post('/importsheet/imports', payload)
-    } catch (e) {
-      setSaveError('Erro ao salvar a importação. Tente novamente.')
-      throw e
+      if (initial) {
+        await axiosImportsheet().put(
+          `/importsheet/imports/${initial.importId}`,
+          payload,
+        )
+      } else {
+        await axiosImportsheet().post('/importsheet/imports', payload)
+      }
     } finally {
       setIsSaving(false)
     }
@@ -289,6 +356,7 @@ export function useConfigurarImportacao(
     spreadsheet,
     flags,
     error,
+    isEdit,
 
     title,
     setTitle,
@@ -336,15 +404,16 @@ export function useConfigurarImportacao(
     mappedCount,
     feedMappedCount,
 
+    excluded,
     setMapping,
     toggleIdentifier,
     excludeColumn,
+    restoreColumn,
     setFeedColumn,
 
     canSave,
     handleSave,
     isSaving,
-    saveError,
   }
 }
 

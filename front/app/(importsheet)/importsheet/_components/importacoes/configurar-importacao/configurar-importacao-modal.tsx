@@ -9,8 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import type { ImportSelection } from '../../types'
+import { useLoading } from '@/providers/loading-provider'
+import type { ImportInitial, ImportSelection } from '../../types'
 import { useConfigurarImportacao } from './use-configurar-importacao'
 import { IdentidadeSection } from './sections/identidade-section'
 import { DestinoSection } from './sections/destino-section'
@@ -22,6 +24,7 @@ import { DeParaSection } from './sections/de-para-section'
 type Props = {
   open: boolean
   selection: ImportSelection
+  initial?: ImportInitial | null
   onClose: () => void
   onSaved: () => void
   onBack: () => void
@@ -30,19 +33,27 @@ type Props = {
 export function ConfigurarImportacaoModal({
   open,
   selection,
+  initial,
   onClose,
   onSaved,
   onBack,
 }: Props) {
-  const s = useConfigurarImportacao(open, selection)
+  const s = useConfigurarImportacao(open, selection, initial)
   const { flags } = s
+  const { setLoading } = useLoading()
 
   async function handleSave() {
+    setLoading(true, s.isEdit ? 'Salvando importação…' : 'Criando importação…')
     try {
       await s.handleSave()
+      toast.success(
+        s.isEdit ? 'Importação atualizada.' : 'Importação criada.',
+      )
       onSaved()
     } catch {
-      // erro exibido via s.saveError
+      toast.error('Erro ao salvar a importação. Tente novamente.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -57,7 +68,9 @@ export function ConfigurarImportacaoModal({
     >
       <DialogContent className="max-w-5xl">
         <DialogHeader>
-          <DialogTitle>Configurar importação</DialogTitle>
+          <DialogTitle>
+            {s.isEdit ? 'Editar importação' : 'Configurar importação'}
+          </DialogTitle>
           <DialogDescription>
             Defina o destino no Bitrix24 e o de-para de colunas
           </DialogDescription>
@@ -116,9 +129,9 @@ export function ConfigurarImportacaoModal({
             toggleWeekday={s.toggleWeekday}
           />
 
-          {(s.error ?? s.saveError) && (
+          {s.error && (
             <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-              {s.saveError ?? s.error}
+              {s.error}
             </div>
           )}
 
@@ -134,17 +147,23 @@ export function ConfigurarImportacaoModal({
             feedMappedCount={s.feedMappedCount}
             mappings={s.mappings}
             fieldOptions={s.fieldOptions}
+            excluded={s.excluded}
             setMapping={s.setMapping}
             toggleIdentifier={s.toggleIdentifier}
             excludeColumn={s.excludeColumn}
+            restoreColumn={s.restoreColumn}
             setFeedColumn={s.setFeedColumn}
           />
         </DialogBody>
 
         <DialogFooter className="justify-between">
-          <Button variant="ghost" onClick={onBack}>
-            Voltar
-          </Button>
+          {s.isEdit ? (
+            <span />
+          ) : (
+            <Button variant="ghost" onClick={onBack}>
+              Voltar
+            </Button>
+          )}
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={onClose}>
               Cancelar

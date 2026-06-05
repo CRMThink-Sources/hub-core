@@ -7,6 +7,7 @@ import type {
 } from '@/modules/importsheet/domain/entities/import'
 import type {
   CreateImportSheetImportParams,
+  UpdateImportSheetImportParams,
   ImportSheetImportRepository,
 } from '@/modules/importsheet/domain/repositories/importsheet-import.repository'
 
@@ -34,6 +35,46 @@ export class PrismaImportSheetImportRepository implements ImportSheetImportRepos
       orderBy: { createdAt: 'desc' },
     })
     return records.map(record => this.toDomain(record))
+  }
+
+  async findById(id: number, appId: string): Promise<ImportSheetImport | null> {
+    const record = await prisma.importSheetImport.findFirst({
+      where: { id, appId },
+    })
+    return record ? this.toDomain(record) : null
+  }
+
+  async update(
+    id: number,
+    appId: string,
+    params: UpdateImportSheetImportParams,
+  ): Promise<ImportSheetImport | null> {
+    // Escopo por appId — só atualiza se a importação pertence ao app.
+    const owned = await prisma.importSheetImport.findFirst({
+      where: { id, appId },
+      select: { id: true },
+    })
+    if (!owned) return null
+
+    const record = await prisma.importSheetImport.update({
+      where: { id },
+      data: {
+        title: params.title,
+        config: params.config as object,
+        scheduleMode: params.scheduleMode,
+        everyHours: params.everyHours,
+        weekdays: params.weekdays ?? Prisma.JsonNull,
+        nextRunAt: params.nextRunAt,
+      },
+    })
+    return this.toDomain(record)
+  }
+
+  async delete(id: number, appId: string): Promise<boolean> {
+    const deleted = await prisma.importSheetImport.deleteMany({
+      where: { id, appId },
+    })
+    return deleted.count > 0
   }
 
   private toDomain(record: PrismaImportSheetImport): ImportSheetImport {
