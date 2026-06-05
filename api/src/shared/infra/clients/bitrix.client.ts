@@ -131,6 +131,20 @@ export class BitrixClient {
     }
   }
 
+  async deleteMessage(data: ISendMessageData) {
+    const client = this.getClient()
+    try {
+      const response = await client.post('/imconnector.delete.messages', data)
+      return response.data
+    } catch (error) {
+      const message =
+        axios.isAxiosError(error) && error.response
+          ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+          : 'Failed to delete message'
+      throw new BitrixError(message)
+    }
+  }
+
   async getChat(chatId: string) {
     const client = this.getClient()
     try {

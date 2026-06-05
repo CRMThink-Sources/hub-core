@@ -5,8 +5,18 @@ import { apiLogger } from '@/shared/infra/logger'
 export const THINKZAP_INBOUND = 'thinkzap-inbound'
 
 export type ThinkzapInboundJob =
-  | { source: 'z-api'; type: string; body: Record<string, unknown> }
-  | { source: 'bitrix'; type: string; body: Record<string, unknown> }
+  | {
+      source: 'z-api'
+      type: string
+      body: Record<string, unknown>
+      traceKey: string
+    }
+  | {
+      source: 'bitrix'
+      type: string
+      body: Record<string, unknown>
+      traceKey: string
+    }
 
 export const thinkzapInboundQueue = new Queue<ThinkzapInboundJob>(
   THINKZAP_INBOUND,
@@ -31,6 +41,7 @@ export async function enqueueThinkzapInboundJob(job: ThinkzapInboundJob) {
       jobId: createdJob.id,
       source: job.source,
       type: job.type,
+      traceKey: job.traceKey,
     },
     'Inbound job enqueued',
   )
