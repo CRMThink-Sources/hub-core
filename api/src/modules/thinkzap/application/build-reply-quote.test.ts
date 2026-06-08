@@ -143,7 +143,9 @@ describe('buildReplyQuote', () => {
       bitrixMessageId: '456',
       bitrixChatId: '1767',
     }
-    expect(buildReplyQuote(cached)).toBe('>>[context=chat1767/456]Olá[/context]')
+    expect(buildReplyQuote(cached)).toBe(
+      '>>[context=chat1767/456]Olá[/context]',
+    )
   })
 
   it('builds plain quote when only bitrixMessageId present (no chatId)', () => {
@@ -171,7 +173,9 @@ describe('buildReplyQuote', () => {
       bitrixMessageId: '789',
       bitrixChatId: '42',
     }
-    expect(buildReplyQuote(cached)).toBe('>>[context=chat42/789]📷 Imagem: foto[/context]')
+    expect(buildReplyQuote(cached)).toBe(
+      '>>[context=chat42/789]📷 Imagem: foto[/context]',
+    )
   })
 })
 
