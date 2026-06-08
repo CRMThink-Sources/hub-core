@@ -21,6 +21,7 @@ export type ReceivedMessageEvent = {
   participantPhone: string
   participantLid: string | null
   editMessageId: string
+  referenceMessageId?: string
   messageExpirationSeconds: number
   forwarded: boolean
   type: string
