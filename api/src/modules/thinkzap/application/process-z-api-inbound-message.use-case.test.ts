@@ -1,0 +1,285 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const sendMessageMock = vi.fn().mockResolvedValue({ ok: true })
+const updateMessageMock = vi.fn().mockResolvedValue({ ok: true })
+const deleteMessageMock = vi.fn().mockResolvedValue({ ok: true })
+
+vi.mock('@/shared/infra/clients/bitrix.client', () => {
+  class BitrixClient {
+    sendMessage = sendMessageMock
+    updateMessage = updateMessageMock
+    deleteMessage = deleteMessageMock
+  }
+  return { BitrixClient }
+})
+
+vi.mock('@/config/env', () => ({
+  env: {
+    bitrix: { connector: { code: 'thinkzap' } },
+    logLevel: 'silent',
+    nodeEnv: 'test',
+  },
+}))
+
+vi.mock(
+  '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository',
+  () => ({
+    PrismaThinkzapMessageRepository: vi.fn(),
+    toQuoteInput: (record: {
+      type: string
+      text: string | null
+      fileName: string | null
+    }) => ({
+      type: record.type,
+      text: record.text ?? undefined,
+      fileName: record.fileName ?? undefined,
+    }),
+  }),
+)
+
+import { ProcessZApiInboundMessageUseCase } from './process-z-api-inbound-message.use-case'
+import { ReceivedMessageEvent } from '@/shared/infra/handlers/z-api/z-api'
+import { ISendMessageData } from '@/shared/infra/clients/bitrix.client'
+
+const baseInstance = {
+  id: 'instance-db-1',
+  instanceId: 'INST-A',
+  vinculatedChannel: '10',
+  domainId: 'domain-1',
+}
+
+const baseConnector = {
+  id: 'connector-1',
+  instanceId: 'instance-db-1',
+  appId: 'app-1',
+}
+
+function makeEvent(
+  overrides: Partial<ReceivedMessageEvent> = {},
+): ReceivedMessageEvent {
+  return {
+    notification: '',
+    isStatusReply: false,
+    chatLid: 'chat-lid',
+    connectedPhone: '',
+    waitingMessage: false,
+    isEdit: false,
+    isGroup: false,
+    isNewsletter: false,
+    instanceId: 'INST-A',
+    messageId: 'MSG-1',
+    phone: '5511999999999',
+    fromMe: false,
+    momment: 1700000000000,
+    status: '',
+    chatName: 'João',
+    senderPhoto: '',
+    senderName: 'João',
+    photo: '',
+    broadcast: false,
+    participantPhone: '',
+    participantLid: null,
+    editMessageId: '',
+    messageExpirationSeconds: 0,
+    forwarded: false,
+    type: 'ReceivedCallback',
+    fromApi: false,
+    _traceContext: { traceId: '', spanId: '' },
+    text: { message: 'mensagem' },
+    ...overrides,
+  } as ReceivedMessageEvent
+}
+
+function buildUseCase({
+  repoFind,
+  repoCreate,
+}: {
+  repoFind?: ReturnType<typeof vi.fn>
+  repoCreate?: ReturnType<typeof vi.fn>
+} = {}) {
+  const messageRepo = {
+    findByZApiMessageId: repoFind ?? vi.fn().mockResolvedValue(null),
+    create: repoCreate ?? vi.fn().mockResolvedValue(undefined),
+  }
+
+  const useCase = new ProcessZApiInboundMessageUseCase(
+    {
+      getConnectorByInstanceId: vi.fn().mockResolvedValue(baseConnector),
+    } as never,
+    {
+      getInstanceByInstanceId: vi.fn().mockResolvedValue(baseInstance),
+    } as never,
+    {
+      getDomainById: vi
+        .fn()
+        .mockResolvedValue({ id: 'domain-1', name: 'acme' }),
+    } as never,
+    {
+      getById: vi.fn().mockResolvedValue({ id: 'app-1' }),
+    } as never,
+    {
+      get: vi.fn().mockResolvedValue({ id: 'cred-1' }),
+    } as never,
+    messageRepo as never,
+  )
+
+  return { useCase, messageRepo }
+}
+
+describe('ProcessZApiInboundMessageUseCase reply handling', () => {
+  beforeEach(() => {
+    sendMessageMock.mockClear()
+    updateMessageMock.mockClear()
+    deleteMessageMock.mockClear()
+  })
+
+  it('sends message without prefix when referenceMessageId absent', async () => {
+    const { useCase, messageRepo } = buildUseCase()
+    await useCase.execute(makeEvent())
+
+    expect(messageRepo.findByZApiMessageId).not.toHaveBeenCalled()
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe('mensagem')
+  })
+
+  it('prefixes BBCode quote when reference DB hit', async () => {
+    const { useCase, messageRepo } = buildUseCase({
+      repoFind: vi.fn().mockResolvedValue({
+        id: 'rec-1',
+        instanceId: 'INST-A',
+        source: 'ZAPI',
+        zApiMessageId: 'PREV',
+        bitrixMessageId: null,
+        type: 'TEXT',
+        text: 'Bom dia',
+        fileName: null,
+        chatId: null,
+        createdAt: new Date(),
+      }),
+    })
+
+    await useCase.execute(
+      makeEvent({
+        referenceMessageId: 'PREV',
+        text: { message: 'tudo bem?' },
+      }),
+    )
+
+    expect(messageRepo.findByZApiMessageId).toHaveBeenCalledWith(
+      'instance-db-1',
+      'PREV',
+    )
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe('>>Bom dia\ntudo bem?')
+  })
+
+  it('uses generic fallback when reference DB miss', async () => {
+    const { useCase } = buildUseCase({
+      repoFind: vi.fn().mockResolvedValue(null),
+    })
+
+    await useCase.execute(
+      makeEvent({
+        referenceMessageId: 'PREV',
+        text: { message: 'tudo bem?' },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe(
+      '>>↩ Resposta a mensagem anterior\ntudo bem?',
+    )
+  })
+
+  it('uses generic fallback when DB findByZApiMessageId throws', async () => {
+    const { useCase } = buildUseCase({
+      repoFind: vi.fn().mockRejectedValue(new Error('db down')),
+    })
+
+    await useCase.execute(
+      makeEvent({
+        referenceMessageId: 'PREV',
+        text: { message: 'tudo bem?' },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe(
+      '>>↩ Resposta a mensagem anterior\ntudo bem?',
+    )
+  })
+
+  it('does not throw when DB create fails after Bitrix send', async () => {
+    const { useCase, messageRepo } = buildUseCase({
+      repoCreate: vi.fn().mockRejectedValue(new Error('db write failed')),
+    })
+
+    await expect(useCase.execute(makeEvent())).resolves.toBeUndefined()
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+    expect(messageRepo.create).toHaveBeenCalled()
+  })
+
+  it('persists inbound text snapshot after successful send', async () => {
+    const { useCase, messageRepo } = buildUseCase()
+    await useCase.execute(makeEvent({ text: { message: 'hello' } }))
+
+    expect(messageRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instanceId: 'instance-db-1',
+        source: 'ZAPI',
+        zApiMessageId: 'MSG-1',
+        type: 'TEXT',
+        text: 'hello',
+      }),
+    )
+  })
+
+  it('skips DB write on REVOKE notifications', async () => {
+    const { useCase, messageRepo } = buildUseCase()
+    await useCase.execute(makeEvent({ notification: 'REVOKE' }))
+
+    expect(deleteMessageMock).toHaveBeenCalledTimes(1)
+    expect(messageRepo.create).not.toHaveBeenCalled()
+  })
+
+  it('skips DB write on edits', async () => {
+    const { useCase, messageRepo } = buildUseCase()
+    await useCase.execute(makeEvent({ isEdit: true, editMessageId: 'OLD-MSG' }))
+
+    expect(updateMessageMock).toHaveBeenCalledTimes(1)
+    expect(messageRepo.create).not.toHaveBeenCalled()
+  })
+
+  it('builds group reply preserving sender prefix order', async () => {
+    const { useCase } = buildUseCase({
+      repoFind: vi.fn().mockResolvedValue({
+        id: 'rec-2',
+        instanceId: 'INST-A',
+        source: 'ZAPI',
+        zApiMessageId: 'PREV',
+        bitrixMessageId: null,
+        type: 'TEXT',
+        text: 'Bom dia',
+        fileName: null,
+        chatId: null,
+        createdAt: new Date(),
+      }),
+    })
+
+    await useCase.execute(
+      makeEvent({
+        isGroup: true,
+        phone: '5511999999999-group',
+        referenceMessageId: 'PREV',
+        senderName: 'Maria',
+        text: { message: 'OK' },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe(
+      '>>Bom dia\n[b]Maria[/b]:\nOK',
+    )
+  })
+})

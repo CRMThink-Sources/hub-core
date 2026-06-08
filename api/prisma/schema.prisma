@@ -207,9 +207,10 @@ model Instance {
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
 
-  domain        Domain         @relation(fields: [domainId], references: [id])
+  domain        Domain               @relation(fields: [domainId], references: [id])
   connector     Connector?
   conversations Conversation[]
+  messages      ThinkzapMessage[]
 
   @@map("core_thinkerszap_instances")
 }
@@ -319,6 +320,28 @@ model ThinkAnaliseAuthToken {
   @@map("core_thinkanalise_auth_tokens")
 }
 
+model ThinkzapMessage {
+  id              String                  @id @default(uuid())
+  instanceId      String                  @map("instance_id")
+  source          ThinkzapMessageSource
+  zApiMessageId   String?                 @map("z_api_message_id")
+  bitrixMessageId String?                 @map("bitrix_message_id")
+  bitrixChatId    String?                 @map("bitrix_chat_id")
+  type            ThinkzapMessageType
+  text            String?                 @db.Text
+  fileName        String?                 @map("file_name")
+  chatId          String?                 @map("chat_id")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+
+  instance Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@unique([instanceId, zApiMessageId], name: "uq_msg_instance_zapi")
+  @@unique([instanceId, bitrixMessageId], name: "uq_msg_instance_bitrix")
+  @@index([instanceId])
+  @@map("core_thinkerszap_messages")
+}
+
 // ============================================
 // ENUMS
 // ============================================
@@ -364,6 +387,19 @@ enum InstanceStatus {
   DISCONNECTED
   CONNECTING
   ERROR
+}
+
+enum ThinkzapMessageSource {
+  ZAPI
+  BITRIX
+}
+
+enum ThinkzapMessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
 }
 
 enum BiAnalyseProvider {

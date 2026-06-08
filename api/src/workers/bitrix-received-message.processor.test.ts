@@ -1,173 +1,262 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
-import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 
-const mocks = vi.hoisted(() => ({
-  getContext: vi.fn(),
-  sendMessage: vi.fn(),
-  setMessageDelivered: vi.fn(),
-  prepareOpenLineOutboundText: vi.fn(),
+const {
+  createMock,
+  sendMessageZApiMock,
+  sendImageMock,
+  sendVideoMock,
+  sendAudioMock,
+  sendDocumentMock,
+  setMessageDeliveredMock,
+  getContextMock,
+} = vi.hoisted(() => ({
+  createMock: vi.fn().mockResolvedValue(undefined),
+  sendMessageZApiMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-1' }),
+  sendImageMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-IMG' }),
+  sendVideoMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-VID' }),
+  sendAudioMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-AUD' }),
+  sendDocumentMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-DOC' }),
+  setMessageDeliveredMock: vi.fn().mockResolvedValue(undefined),
+  getContextMock: vi.fn(),
 }))
 
 vi.mock(
-  '@/modules/thinkzap/infra/persistence/repositories/prisma-bitrix-webhook-context.repository',
+  '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository',
   () => ({
-    PrismaBitrixWebhookContextRepository: class {
-      getContext = mocks.getContext
+    PrismaThinkzapMessageRepository: class {
+      create = createMock
     },
   }),
 )
 
 vi.mock('@/modules/thinkzap/infra/clients/z-api.client', () => ({
   ZApiClient: class {
-    sendMessage = mocks.sendMessage
+    sendMessage = sendMessageZApiMock
+    sendImage = sendImageMock
+    sendVideo = sendVideoMock
+    sendAudio = sendAudioMock
+    sendDocument = sendDocumentMock
   },
 }))
 
 vi.mock('@/shared/infra/clients/bitrix.client', () => ({
   BitrixClient: class {
-    setMessageDelivered = mocks.setMessageDelivered
+    setMessageDelivered = setMessageDeliveredMock
   },
 }))
 
 vi.mock(
+  '@/modules/thinkzap/infra/persistence/repositories/prisma-bitrix-webhook-context.repository',
+  () => ({
+    PrismaBitrixWebhookContextRepository: class {
+      getContext = getContextMock
+    },
+  }),
+)
+
+vi.mock(
   '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter',
   () => ({
-    BitrixGetUserDisplayNameAdapter: vi.fn(),
+    BitrixGetUserDisplayNameAdapter: class {},
   }),
 )
 
 vi.mock(
   '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository',
   () => ({
-    PrismaAllowedUserRepository: vi.fn(),
+    PrismaAllowedUserRepository: class {},
   }),
 )
 
 vi.mock(
   '@/modules/thinkzap/application/prepare-open-line-outbound-text',
   () => ({
-    prepareOpenLineOutboundText: mocks.prepareOpenLineOutboundText,
+    prepareOpenLineOutboundText: vi.fn().mockResolvedValue('texto enviado'),
   }),
 )
 
-import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
+vi.mock(
+  '@/modules/auth/presentation/controllers/helpers/app-id-resolver',
+  () => ({
+    appIdResolver: { thinkzap: 'app-code-thinkzap' },
+  }),
+)
 
-const baseEvent: IBX24MessageEvent = {
-  event: 'ONIMCONNECTORMESSAGEADD',
-  event_handler_id: '1',
-  data: {
-    CONNECTOR: 'thinkzap',
-    LINE: '10',
-    MESSAGES: [
-      {
-        im: { chat_id: 'chat-1', message_id: 'msg-1' },
-        message: {
-          user_id: '42',
-          text: 'Olá',
-        },
-        chat: { id: '5511999999999' },
-      },
-    ],
+vi.mock('@/config/env', () => ({
+  env: {
+    bitrix: { connector: { code: 'thinkzap' } },
+    zApi: { partnerToken: 'pt', clientToken: 'ct' },
+    appCodes: { thinkzap: 'thinkzap' },
+    logLevel: 'silent',
+    nodeEnv: 'test',
   },
-  ts: '1',
-  auth: {
-    access_token: 'token',
-    expires: '1',
-    expires_in: '3600',
-    scope: 'im',
-    domain: 'acme.bitrix24.com.br',
-    server_endpoint: 'https://acme.bitrix24.com.br/rest/',
-    status: 'L',
-    client_endpoint: 'https://acme.bitrix24.com.br/rest/',
-    member_id: 'member',
-    user_id: '42',
-    application_token: 'app-token',
+}))
+
+vi.mock('axios', () => ({
+  default: {
+    get: vi.fn().mockResolvedValue({ data: Buffer.from('audio') }),
+    isAxiosError: vi.fn().mockReturnValue(false),
+  },
+}))
+
+vi.mock('@/shared/helpers/convert-to-mp3', () => ({
+  convertToMp3: vi.fn().mockResolvedValue(Buffer.from('mp3')),
+}))
+
+import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
+import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
+
+const baseContext = {
+  name: 'acme.bitrix24.com',
+  app: { id: 'app-1', credential: { id: 'cred-1' } },
+  instance: {
+    id: 'inst-db-1',
+    instanceId: 'INST-A',
+    zApiToken: 'token',
+    settings: {},
   },
 }
 
-describe('processBitrixReceivedMessage', () => {
+function makeEvent(
+  messageOverride: Partial<IBX24MessageEvent['data']['MESSAGES'][number]> = {},
+): IBX24MessageEvent {
+  return {
+    event: 'ONIMCONNECTORMESSAGEADD',
+    event_handler_id: '1',
+    ts: '1700000000',
+    auth: {
+      access_token: 'tok',
+      expires: '',
+      expires_in: '',
+      scope: '',
+      domain: 'acme.bitrix24.com',
+      server_endpoint: '',
+      status: '',
+      client_endpoint: '',
+      member_id: '',
+      user_id: '1',
+      application_token: '',
+    },
+    data: {
+      CONNECTOR: 'thinkzap',
+      LINE: '10',
+      MESSAGES: [
+        {
+          im: { chat_id: '100', message_id: 'BITRIX-MSG-1' },
+          message: { user_id: '1', text: 'Ola', files: undefined },
+          chat: { id: '5511999999999' },
+          ...messageOverride,
+        } as IBX24MessageEvent['data']['MESSAGES'][number],
+      ],
+    },
+  }
+}
+
+describe('processBitrixReceivedMessage DB persistence', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    mocks.getContext.mockResolvedValue({
-      id: 'domain-1',
-      name: 'acme.bitrix24.com.br',
-      memberId: 'member',
-      app: {
-        id: 'app-1',
-        domainId: 'domain-1',
-        appCodeId: 'crmthink.thinkzap',
-        status: 'ACTIVE',
-        credential: {},
-      },
-      instance: {
-        id: 'instance-db-1',
-        instanceId: 'z-api-1',
-        zApiToken: 'z-token',
-        settings: DEFAULT_CONNECTOR_SETTINGS,
-        vinculatedChannel: '10',
-        domainId: 'domain-1',
-        status: 'CONNECTED',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    })
-    mocks.prepareOpenLineOutboundText.mockResolvedValue('Olá')
-    mocks.sendMessage.mockResolvedValue({ messageId: 'z-msg-1' })
-    mocks.setMessageDelivered.mockResolvedValue(undefined)
+    createMock.mockClear()
+    createMock.mockResolvedValue(undefined)
+    sendMessageZApiMock.mockClear()
+    sendImageMock.mockClear()
+    sendVideoMock.mockClear()
+    sendAudioMock.mockClear()
+    sendDocumentMock.mockClear()
+    getContextMock.mockResolvedValue(baseContext)
   })
 
-  it('sends raw text when prefix setting is disabled', async () => {
-    await processBitrixReceivedMessage(baseEvent)
+  it('persists text message with correct IDs', async () => {
+    await processBitrixReceivedMessage(makeEvent())
 
-    expect(mocks.prepareOpenLineOutboundText).toHaveBeenCalledWith(
+    expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
+    expect(createMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: 'Olá',
-        settings: DEFAULT_CONNECTOR_SETTINGS,
-        operatorUserId: '42',
+        instanceId: 'inst-db-1',
+        source: 'BITRIX',
+        zApiMessageId: 'ZAPI-1',
+        bitrixMessageId: 'BITRIX-MSG-1',
+        type: 'TEXT',
+        chatId: '5511999999999',
       }),
     )
-    expect(mocks.sendMessage).toHaveBeenCalledWith(
-      'z-api-1',
-      'z-token',
-      'Olá',
-      '5511999999999',
+  })
+
+  it('persists image message with correct type', async () => {
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: '',
+          files: [
+            {
+              name: 'photo.jpg',
+              type: 'image',
+              mime: 'image/jpeg',
+              link: 'http://x/photo.jpg',
+              downloadLink: 'http://x/photo.jpg',
+              size: '1000',
+              sizef: '1KB',
+              width: 100,
+              height: 100,
+            },
+          ],
+        },
+      }),
+    )
+
+    expect(sendImageMock).toHaveBeenCalledTimes(1)
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'BITRIX',
+        zApiMessageId: 'ZAPI-IMG',
+        bitrixMessageId: 'BITRIX-MSG-1',
+        type: 'IMAGE',
+      }),
     )
   })
 
-  it('sends prefixed text when prepare helper returns prefixed message', async () => {
-    mocks.getContext.mockResolvedValue({
-      id: 'domain-1',
-      name: 'acme.bitrix24.com.br',
-      memberId: 'member',
-      app: {
-        id: 'app-1',
-        domainId: 'domain-1',
-        appCodeId: 'crmthink.thinkzap',
-        status: 'ACTIVE',
-        credential: {},
-      },
-      instance: {
-        id: 'instance-db-1',
-        instanceId: 'z-api-1',
-        zApiToken: 'z-token',
-        settings: { prefixOperatorNameEnabled: true },
-        vinculatedChannel: '10',
-        domainId: 'domain-1',
-        status: 'CONNECTED',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    })
-    mocks.prepareOpenLineOutboundText.mockResolvedValue('João Silva: Olá')
-
-    await processBitrixReceivedMessage(baseEvent)
-
-    expect(mocks.sendMessage).toHaveBeenCalledWith(
-      'z-api-1',
-      'z-token',
-      'João Silva: Olá',
-      '5511999999999',
+  it('persists document message with fileName', async () => {
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: '',
+          files: [
+            {
+              name: 'contrato.pdf',
+              type: 'file',
+              mime: 'application/pdf',
+              link: 'http://x/contrato.pdf',
+              downloadLink: 'http://x/contrato.pdf',
+              size: '5000',
+              sizef: '5KB',
+              width: 0,
+              height: 0,
+            },
+          ],
+        },
+      }),
     )
+
+    expect(sendDocumentMock).toHaveBeenCalledTimes(1)
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'BITRIX',
+        zApiMessageId: 'ZAPI-DOC',
+        bitrixMessageId: 'BITRIX-MSG-1',
+        type: 'DOCUMENT',
+        fileName: 'contrato.pdf',
+      }),
+    )
+  })
+
+  it('DB failure does not interrupt message send', async () => {
+    createMock.mockRejectedValueOnce(new Error('db down'))
+
+    await expect(
+      processBitrixReceivedMessage(makeEvent()),
+    ).resolves.toBeUndefined()
+
+    expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
+    expect(createMock).toHaveBeenCalledTimes(1)
   })
 })
