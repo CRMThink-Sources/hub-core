@@ -13,6 +13,16 @@ import { Domain } from '@/shared/domain/entities/domain'
 import { Credential } from '@/shared/domain/entities/credential'
 import { Instance } from '@/modules/thinkzap/domain/entities/instance'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
+import {
+  toQuoteInput,
+  PrismaThinkzapMessageRepository,
+} from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
+import {
+  ThinkzapMessageQuoteInput,
+  buildMessageTextWithReply,
+  extractQuoteInput,
+  getQuoteInputType,
+} from './build-reply-quote'
 
 const log = createWorkerSourceLogger('z-api')
 
@@ -23,9 +33,11 @@ export class ProcessZApiInboundMessageUseCase {
     private readonly domainRepo: GetDomainRepository,
     private readonly appRepo: GetInstalledAppRepository,
     private readonly credentialRepo: GetCredentialRepository,
+    private readonly messageRepo: PrismaThinkzapMessageRepository,
   ) {}
 
   async execute(event: ReceivedMessageEvent): Promise<void> {
+    console.log('event received', event)
     log.info(
       {
         instanceId: event.instanceId,
@@ -34,6 +46,7 @@ export class ProcessZApiInboundMessageUseCase {
         isGroup: event.isGroup,
         isEdit: event.isEdit,
         editMessageId: event.editMessageId,
+        referenceMessageId: event.referenceMessageId,
       },
       'Processing received Z-API message',
     )
@@ -128,6 +141,17 @@ export class ProcessZApiInboundMessageUseCase {
     }
 
     const outgoingMessageId = event.messageId
+    const baseText = event.image
+      ? event.image.caption
+      : event.video
+        ? event.video.caption
+        : event.text?.message || ''
+
+    const { text, cached, replyLookupFailed } = await this.applyReplyContext(
+      event,
+      baseText,
+      instance.id,
+    )
 
     const params: ISendMessageData = {
       CONNECTOR: env.bitrix.connector.code,
@@ -150,11 +174,7 @@ export class ProcessZApiInboundMessageUseCase {
           message: {
             id: outgoingMessageId,
             date: new Date(event.momment).toISOString(),
-            text: event.image
-              ? event.image.caption
-              : event.video
-                ? event.video.caption
-                : event.text?.message || '',
+            text,
             files,
           },
         },
@@ -169,6 +189,9 @@ export class ProcessZApiInboundMessageUseCase {
         connectorCode: params.CONNECTOR,
         channel: params.LINE,
         filesCount: files?.length ?? 0,
+        hasReplyContext: Boolean(cached),
+        replyLookupFailed,
+        replyOriginalType: getQuoteInputType(cached),
       },
       'Prepared message payload to send to Bitrix',
     )
@@ -185,8 +208,21 @@ export class ProcessZApiInboundMessageUseCase {
         outgoingMessageId,
         isEdit: event.isEdit,
         result: JSON.stringify(result),
+        hasReplyContext: Boolean(cached),
+        replyLookupFailed,
+        replyOriginalType: getQuoteInputType(cached),
       },
       event.isEdit ? 'Message updated in Bitrix' : 'Message sent to Bitrix',
+    )
+
+    const bitrixMessageId = extractBitrixMessageId(result)
+    const bitrixChatId = extractBitrixChatId(result)
+    await this.persistInboundSnapshot(
+      event,
+      instance.id,
+      bitrixMessageId,
+      bitrixChatId,
+      chatId,
     )
   }
 
@@ -205,6 +241,7 @@ export class ProcessZApiInboundMessageUseCase {
         senderName: event.senderName,
         isEdit: event.isEdit,
         editMessageId: event.editMessageId,
+        referenceMessageId: event.referenceMessageId,
       },
       'Processing group message for Bitrix',
     )
@@ -234,7 +271,7 @@ export class ProcessZApiInboundMessageUseCase {
       GROUP_CREATE: 'A new group has been created',
     }
 
-    const text: string = event?.notification
+    const baseText: string = event?.notification
       ? (getNotificationMessage[
           event.notification as keyof typeof getNotificationMessage
         ] ?? '')
@@ -246,6 +283,12 @@ export class ProcessZApiInboundMessageUseCase {
           : event.video
             ? event.video.caption
             : event.text?.message || '')
+
+    const { text, cached, replyLookupFailed } = await this.applyReplyContext(
+      event,
+      baseText,
+      instance.id,
+    )
 
     const params: ISendMessageData = {
       CONNECTOR: env.bitrix.connector.code,
@@ -280,11 +323,150 @@ export class ProcessZApiInboundMessageUseCase {
       domain: domain.name,
     })
 
+    let result: unknown
     if (event.isEdit) {
-      await bitrixClient.updateMessage(params)
+      result = await bitrixClient.updateMessage(params)
     } else {
-      await bitrixClient.sendMessage(params)
+      result = await bitrixClient.sendMessage(params)
     }
+
+    log.info(
+      {
+        instanceId: event.instanceId,
+        messageId: event.messageId,
+        isEdit: event.isEdit,
+        hasReplyContext: Boolean(cached),
+        replyLookupFailed,
+        replyOriginalType: getQuoteInputType(cached),
+      },
+      event.isEdit
+        ? 'Group message updated in Bitrix'
+        : 'Group message sent to Bitrix',
+    )
+
+    const bitrixMessageId = extractBitrixMessageId(result)
+    const bitrixChatId = extractBitrixChatId(result)
+    await this.persistInboundSnapshot(
+      event,
+      instance.id,
+      bitrixMessageId,
+      bitrixChatId,
+      chatId,
+    )
+  }
+
+  private async applyReplyContext(
+    event: ReceivedMessageEvent,
+    baseText: string,
+    instanceDbId: string,
+  ): Promise<{
+    text: string
+    cached: ThinkzapMessageQuoteInput | null
+    replyLookupFailed: boolean
+  }> {
+    if (!event.referenceMessageId) {
+      return { text: baseText, cached: null, replyLookupFailed: false }
+    }
+
+    let cached: ThinkzapMessageQuoteInput | null = null
+    let replyLookupFailed = false
+
+    try {
+      const record = await this.messageRepo.findByZApiMessageId(
+        instanceDbId,
+        event.referenceMessageId,
+      )
+      if (record) {
+        cached = toQuoteInput(record)
+      } else {
+        replyLookupFailed = true
+      }
+    } catch (err) {
+      replyLookupFailed = true
+      log.warn(
+        {
+          instanceId: event.instanceId,
+          referenceMessageId: event.referenceMessageId,
+          replyLookupFailed: true,
+          err,
+        },
+        'Reply lookup in DB failed',
+      )
+    }
+
+    try {
+      const text = buildMessageTextWithReply({ event, cached, baseText })
+      return { text, cached, replyLookupFailed }
+    } catch (err) {
+      log.warn(
+        {
+          instanceId: event.instanceId,
+          messageId: event.messageId,
+          referenceMessageId: event.referenceMessageId,
+          err,
+          quoteBuildFailed: true,
+        },
+        'Failed to build reply quote — sending message without quote prefix',
+      )
+      return { text: baseText, cached, replyLookupFailed }
+    }
+  }
+
+  private async persistInboundSnapshot(
+    event: ReceivedMessageEvent,
+    instanceDbId: string,
+    bitrixMessageId: string | null,
+    bitrixChatId: string | null,
+    chatId: string | null,
+  ): Promise<void> {
+    if (event.notification === 'REVOKE' || event.isEdit) return
+
+    try {
+      const quoteInput = extractQuoteInput(event)
+      await this.messageRepo.create({
+        instanceId: instanceDbId,
+        source: 'ZAPI',
+        zApiMessageId: event.messageId,
+        bitrixMessageId,
+        bitrixChatId,
+        type: quoteInput.type,
+        text: quoteInput.text ?? null,
+        fileName: quoteInput.fileName ?? null,
+        chatId,
+      })
+    } catch (err) {
+      log.warn(
+        {
+          instanceId: event.instanceId,
+          messageId: event.messageId,
+          err,
+          dbWriteFailed: true,
+        },
+        'Failed to persist inbound message snapshot',
+      )
+    }
+  }
+}
+
+function extractBitrixMessageId(result: unknown): string | null {
+  try {
+    const r = result as {
+      DATA?: { RESULT?: Array<{ message?: { id?: string } }> }
+    }
+    return r?.DATA?.RESULT?.[0]?.message?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+function extractBitrixChatId(result: unknown): string | null {
+  try {
+    const r = result as {
+      DATA?: { RESULT?: Array<{ session?: { CHAT_ID?: string } }> }
+    }
+    return r?.DATA?.RESULT?.[0]?.session?.CHAT_ID ?? null
+  } catch {
+    return null
   }
 }
 

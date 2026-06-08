@@ -12,8 +12,38 @@ import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
 import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
 import { prepareOpenLineOutboundText } from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
+import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 
 const log = createWorkerSourceLogger('bitrix')
+const messageRepo = new PrismaThinkzapMessageRepository()
+
+async function persistOutboundMessage(
+  instanceId: string,
+  zApiMessageId: string,
+  bitrixMessageId: string,
+  chatId: string,
+  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT',
+  text?: string,
+  fileName?: string,
+): Promise<void> {
+  try {
+    await messageRepo.create({
+      instanceId,
+      source: 'BITRIX',
+      zApiMessageId,
+      bitrixMessageId,
+      type,
+      text: text ?? null,
+      fileName: fileName ?? null,
+      chatId,
+    })
+  } catch (err) {
+    log.warn(
+      { instanceId, zApiMessageId, bitrixMessageId, err, dbWriteFailed: true },
+      'Failed to persist outbound message to DB',
+    )
+  }
+}
 
 export async function processBitrixReceivedMessage(
   event: IBX24MessageEvent,
@@ -105,6 +135,8 @@ export async function processBitrixReceivedMessage(
 
   const zApiClient = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
   const chatId = message.chat.id
+  const bitrixMessageId = message.im.message_id
+  const instanceDbId = context.instance.id
 
   for (const messageData of messages) {
     log.debug(
@@ -142,6 +174,14 @@ export async function processBitrixReceivedMessage(
         },
         'Text message sent via Z-API',
       )
+      await persistOutboundMessage(
+        instanceDbId,
+        result.messageId,
+        bitrixMessageId,
+        chatId,
+        'TEXT',
+        outboundText,
+      )
       await setDelivered(bitrixClient, event, message, chatId, result.messageId)
     } else if (messageData.type === 'image') {
       const result = await zApiClient.sendImage(
@@ -159,6 +199,13 @@ export async function processBitrixReceivedMessage(
         },
         'Image message sent via Z-API',
       )
+      await persistOutboundMessage(
+        instanceDbId,
+        result.messageId,
+        bitrixMessageId,
+        chatId,
+        'IMAGE',
+      )
       await setDelivered(bitrixClient, event, message, chatId, result.messageId)
     } else if (messageData.type === 'video') {
       const result = await zApiClient.sendVideo(
@@ -175,6 +222,13 @@ export async function processBitrixReceivedMessage(
           zApiMessageId: result.messageId,
         },
         'Video message sent via Z-API',
+      )
+      await persistOutboundMessage(
+        instanceDbId,
+        result.messageId,
+        bitrixMessageId,
+        chatId,
+        'VIDEO',
       )
       await setDelivered(bitrixClient, event, message, chatId, result.messageId)
     } else if (messageData.type === 'audio') {
@@ -200,6 +254,13 @@ export async function processBitrixReceivedMessage(
         },
         'Audio message sent via Z-API',
       )
+      await persistOutboundMessage(
+        instanceDbId,
+        result.messageId,
+        bitrixMessageId,
+        chatId,
+        'AUDIO',
+      )
       await setDelivered(bitrixClient, event, message, chatId, result.messageId)
     } else if (messageData.type === 'file') {
       const result = await zApiClient.sendDocument(
@@ -217,6 +278,15 @@ export async function processBitrixReceivedMessage(
           zApiMessageId: result.messageId,
         },
         'File message sent via Z-API',
+      )
+      await persistOutboundMessage(
+        instanceDbId,
+        result.messageId,
+        bitrixMessageId,
+        chatId,
+        'DOCUMENT',
+        undefined,
+        messageData.name,
       )
       await setDelivered(bitrixClient, event, message, chatId, result.messageId)
     } else {
