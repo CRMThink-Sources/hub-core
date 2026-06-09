@@ -1,12 +1,15 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import type { Connection } from '../../types/thinkanalise-types'
+import { ChevronDownIcon, PlusIcon, XIcon } from 'lucide-react'
+import type { Connection } from '../types'
 import { ConnectorCard } from './connector/connector-card'
 import { PROVIDERS } from './constants'
 import { useSession } from '@/providers/session-provider'
 import { LoadingProvider } from '@/providers/loading-provider'
 import { LoadingOverlay } from '@/components/ui/loading-overlay'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 
 type BitrixConnector = {
@@ -148,48 +151,56 @@ export default function ConfiguracoesLayout() {
     <LoadingProvider>
       <LoadingOverlay />
 
-      <div className="w-full flex flex-col pt-20 px-6 space-y-4">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 pt-20">
         {oauthBanner && (
           <div
-            className={`w-full max-w-3xl px-4 py-3 rounded-lg text-sm font-mono flex items-center justify-between
-            ${oauthBanner === 'success' ? 'bg-[#eef2f9] text-[#223f6e] border border-[#223f6e]/20' : 'bg-red-50 text-red-700 border border-red-200'}`}
+            role="status"
+            aria-live="polite"
+            className={cn(
+              'flex items-center justify-between gap-4 rounded-xl border px-4 py-3 text-sm',
+              oauthBanner === 'success'
+                ? 'border-border bg-accent text-accent-foreground'
+                : 'border-destructive/20 bg-destructive/10 text-destructive',
+            )}
           >
             <span>
               {oauthBanner === 'success' ? t('oauth.sucesso') : t('oauth.erro')}
             </span>
-            <button
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setOauthBanner(null)}
-              className="ml-4 text-xs opacity-60 hover:opacity-100 cursor-pointer"
+              aria-label="Fechar aviso"
             >
-              ✕
-            </button>
+              <XIcon />
+            </Button>
           </div>
         )}
 
         {/* header */}
-        <div className="flex items-center justify-between w-full max-w-3xl mx-auto bg-white p-6 rounded-xl border border-[#e5e7eb]">
+        <div className="flex items-center justify-between rounded-xl border border-border bg-card p-6">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
-            <h2 className="text-sm text-gray-400 mt-1">{t('subtitle')}</h2>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">
+              {t('title')}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t('subtitle')}
+            </p>
           </div>
-          <button
-            onClick={addConnection}
-            className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg border border-[#e5e7eb] bg-white
-                     hover:bg-[#eef2f9] hover:border-[#223f6e] hover:text-[#223f6e] transition-all cursor-pointer"
-          >
-            <span className="w-4 h-4 rounded-full bg-[#223f6e] text-white flex items-center justify-center text-xs leading-none">
-              +
-            </span>
+          <Button onClick={addConnection}>
+            <PlusIcon />
             {t('novaConexao')}
-          </button>
+          </Button>
         </div>
 
         {/* lista */}
-        <div className="w-full max-w-3xl mx-auto flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
           {!hasAny && (
-            <p className="text-sm text-gray-400 font-mono px-1">
-              {t('nenhumaConexao')}
-            </p>
+            <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
+              <p className="text-sm text-muted-foreground">
+                {t('nenhumaConexao')}
+              </p>
+            </div>
           )}
 
           {/* novos conectores no topo */}
@@ -206,30 +217,21 @@ export default function ConfiguracoesLayout() {
               <div key={p.value} className="flex flex-col gap-2">
                 <button
                   onClick={() => toggleProvider(p.value)}
-                  className="flex items-center gap-3 w-full group cursor-pointer"
+                  className="group flex w-full cursor-pointer items-center gap-3"
                 >
-                  <span className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest group-hover:text-[#223f6e] transition-colors">
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors group-hover:text-primary">
                     {p.label}
                   </span>
-                  <span className="text-[11px] font-mono text-gray-300">
+                  <span className="text-[11px] text-muted-foreground/60">
                     {groupedSaved[p.value].length}
                   </span>
-                  <div className="flex-1 h-px bg-[#e5e7eb]" />
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 12 12"
-                    fill="none"
-                    className={`text-gray-300 group-hover:text-[#223f6e] transition-all ${isCollapsed ? '-rotate-90' : ''}`}
-                  >
-                    <path
-                      d="M2 4l4 4 4-4"
-                      stroke="currentColor"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <div className="h-px flex-1 bg-border" />
+                  <ChevronDownIcon
+                    className={cn(
+                      'size-4 text-muted-foreground/60 transition-all group-hover:text-primary',
+                      isCollapsed && '-rotate-90',
+                    )}
+                  />
                 </button>
                 {!isCollapsed && (
                   <div className="flex flex-col gap-2">

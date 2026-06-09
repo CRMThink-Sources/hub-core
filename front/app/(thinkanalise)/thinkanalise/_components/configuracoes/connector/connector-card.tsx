@@ -1,39 +1,38 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { ChevronDownIcon, PlusIcon } from 'lucide-react'
 import { PROVIDERS } from '../constants'
 import { useSession } from '@/providers/session-provider'
-import type { Connection, Source } from '../../../types/thinkanalise-types'
-import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
+import type { Connection, Source } from '../../types'
+import { axiosThinkanalise } from '../../../_lib/thinkanalise-client'
 import { SourceCard, NewSourceCard } from '../source/source-card'
 import { toast } from 'sonner'
 import { useLoading } from '@/providers/loading-provider'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
-const PROVIDER_COLORS: Record<
-  string,
-  { bg: string; text: string; border: string }
-> = {
-  asaas: {
-    bg: 'bg-[#dbeafe]',
-    text: 'text-[#1e40af]',
-    border: 'border-[#93c5fd]',
-  },
-  conta_azul: {
-    bg: 'bg-[#e0f2fe]',
-    text: 'text-[#0369a1]',
-    border: 'border-[#bae6fd]',
-  },
-  omie: {
-    bg: 'bg-[#fff7ed]',
-    text: 'text-[#c2410c]',
-    border: 'border-[#fed7aa]',
-  },
-  sonax: {
-    bg: 'bg-[#ecfeff]',
-    text: 'text-[#0891b2]',
-    border: 'border-[#a5f3fc]',
-  },
+const PROVIDER_BADGE: Record<string, string> = {
+  asaas: 'bg-[#dbeafe] text-[#1e40af] border-[#93c5fd]',
+  conta_azul: 'bg-[#e0f2fe] text-[#0369a1] border-[#bae6fd]',
+  omie: 'bg-[#fff7ed] text-[#c2410c] border-[#fed7aa]',
+  sonax: 'bg-[#ecfeff] text-[#0891b2] border-[#a5f3fc]',
+}
+
+const STATUS_DOT: Record<Connection['status'], string> = {
+  conectado: 'bg-primary',
+  pendente: 'bg-amber-400',
+  erro: 'bg-destructive',
 }
 
 type Props = {
@@ -179,78 +178,65 @@ export function ConnectorCard({
     }
   }
 
-  const statusColor = {
-    conectado: 'bg-[#4a7fd4]',
-    pendente: 'bg-yellow-400',
-    erro: 'bg-red-400',
-  }[connection.status]
+  const providerLabel =
+    PROVIDERS.find(p => p.value === connection.provider)?.label ??
+    connection.provider
 
   return (
-    <div className="rounded-xl border border-[#e5e7eb] bg-white overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
       {/* cabeçalho */}
-      <div
-        className="flex items-center gap-3 px-5 py-4 border-b border-[#e5e7eb] bg-[#F9F9FB] cursor-pointer select-none"
+      <button
+        type="button"
         onClick={toggleExpanded}
+        className="flex w-full select-none items-center gap-3 border-b border-border bg-muted/40 px-5 py-4 text-left transition-colors hover:bg-muted/60"
       >
-        {(() => {
-          const colors =
-            PROVIDER_COLORS[connection.provider] ?? PROVIDER_COLORS['asaas']
-          return (
-            <span
-              className={`text-[11px] font-mono font-medium px-2.5 py-0.5 rounded border tracking-wide uppercase ${colors.bg} ${colors.text} ${colors.border}`}
-            >
-              {PROVIDERS.find(p => p.value === connection.provider)?.label ??
-                connection.provider}
-            </span>
-          )
-        })()}
+        <span
+          className={cn(
+            'rounded border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide',
+            PROVIDER_BADGE[connection.provider] ?? PROVIDER_BADGE.asaas,
+          )}
+        >
+          {providerLabel}
+        </span>
 
-        <span className="text-sm font-semibold">
+        <span className="text-sm font-semibold text-foreground">
           {currentLabel || (
-            <span className="text-gray-300 font-normal">{t('semNome')}</span>
+            <span className="font-normal text-muted-foreground/60">
+              {t('semNome')}
+            </span>
           )}
         </span>
 
         <div className="ml-auto flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${statusColor}`} />
-          <span className="text-xs text-gray-400 font-mono">
+          <span
+            className={cn('size-2 rounded-full', STATUS_DOT[connection.status])}
+          />
+          <span className="text-xs text-muted-foreground">
             {t(`statusLabel.${connection.status}`)}
           </span>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            className={`ml-1 text-gray-400 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
-          >
-            <path
-              d="M3 5l4 4 4-4"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <ChevronDownIcon
+            className={cn(
+              'ml-1 size-4 text-muted-foreground transition-transform duration-200',
+              expanded && 'rotate-180',
+            )}
+          />
         </div>
-      </div>
+      </button>
 
       {expanded && (
         <>
-          <div className="px-5 py-5 flex flex-col gap-5">
+          <div className="flex flex-col gap-5 px-5 py-5">
             {/* label — só para novos */}
             {!isSaved && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                <Label htmlFor={`connector-name-${connection.id}`}>
                   {t('campos.nome')}
-                </label>
-                <input
-                  type="text"
+                </Label>
+                <Input
+                  id={`connector-name-${connection.id}`}
                   value={connection.label}
                   onChange={e => updateNew({ label: e.target.value })}
                   placeholder={t('campos.nomeConexao')}
-                  className="w-full font-mono text-sm px-3 py-2.5 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
-                             focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
-                             hover:border-[#223f6e] transition-colors"
                 />
               </div>
             )}
@@ -258,69 +244,68 @@ export function ConnectorCard({
             {/* label — edição de conector salvo */}
             {isSaved && isEditing && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                <Label htmlFor={`connector-name-${connection.id}`}>
                   {t('campos.nome')}
-                </label>
-                <input
-                  type="text"
+                </Label>
+                <Input
+                  id={`connector-name-${connection.id}`}
                   value={draft.label}
                   onChange={e =>
                     setDraft(d => ({ ...d, label: e.target.value }))
                   }
-                  className="w-full font-mono text-sm px-3 py-2.5 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
-                             focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
-                             hover:border-[#223f6e] transition-colors"
                 />
               </div>
             )}
 
             {/* integração */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
-                {t('campos.integracao')}
-              </label>
-              <select
+              <Label>{t('campos.integracao')}</Label>
+              <Select
                 value={connection.provider}
-                onChange={e =>
-                  updateNew({
-                    provider: e.target.value as Connection['provider'],
-                  })
-                }
+                onValueChange={(value: Connection['provider'] | null) => {
+                  if (value) updateNew({ provider: value })
+                }}
                 disabled={isReadOnly || isSaved}
-                className="w-full font-mono text-sm px-3 py-2.5 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
-                           focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
-                           hover:border-[#223f6e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {availableProviders.map(p => (
-                  <option key={p.value} value={p.value} disabled={p.disabled}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableProviders.map(p => (
+                    <SelectItem
+                      key={p.value}
+                      value={p.value}
+                      disabled={p.disabled}
+                    >
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           {/* seção de fontes — só para conectores salvos */}
           {isSaved && (
-            <div className="px-5 pb-5 flex flex-col gap-3">
+            <div className="flex flex-col gap-3 px-5 pb-5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                   {t('fontes')} ({sources.length})
                 </span>
                 {!addingSource && (
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setAddingSource(true)}
-                    className="flex items-center gap-1 text-xs font-mono px-2.5 py-1 rounded-lg border border-[#e5e7eb] text-gray-400
-                               hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all cursor-pointer"
                   >
-                    <span className="text-base leading-none">+</span>
+                    <PlusIcon />
                     {t('novaFonte')}
-                  </button>
+                  </Button>
                 )}
               </div>
 
               {sourcesLoading && (
-                <p className="text-xs font-mono text-gray-400 px-1">
+                <p className="px-1 text-xs text-muted-foreground">
                   {t('carregando')}
                 </p>
               )}
@@ -350,52 +335,49 @@ export function ConnectorCard({
           )}
 
           {/* rodapé */}
-          <div className="flex items-center justify-end px-5 py-4 border-t border-[#e5e7eb] gap-2">
-            <button
+          <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-4">
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => void handleDelete()}
               disabled={deleting}
-              className="text-xs font-mono px-3.5 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
-                         hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all disabled:opacity-50 cursor-pointer"
             >
               {deleting ? t('acoes.removendo') : t('acoes.remover')}
-            </button>
+            </Button>
 
             {isSaved && !isEditing && (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setIsEditing(true)}
-                className="text-sm font-semibold px-5 py-2 rounded-lg border border-[#223f6e] text-[#223f6e] hover:bg-[#eef2f9] transition-colors cursor-pointer"
               >
                 {t('acoes.editar')}
-              </button>
+              </Button>
             )}
 
             {isSaved && isEditing && (
               <>
-                <button
-                  onClick={handleCancelEdit}
-                  className="text-xs font-mono px-3.5 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
-                             hover:bg-gray-50 transition-all cursor-pointer"
-                >
+                <Button variant="outline" size="sm" onClick={handleCancelEdit}>
                   {t('acoes.cancelar')}
-                </button>
-                <button
+                </Button>
+                <Button
+                  size="sm"
                   onClick={() => void handleSave()}
                   disabled={saving || !draft.label}
-                  className="text-sm font-semibold px-5 py-2 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {saving ? t('acoes.salvando') : t('acoes.salvar')}
-                </button>
+                </Button>
               </>
             )}
 
             {!isSaved && (
-              <button
+              <Button
+                size="sm"
                 onClick={() => void handleSave()}
                 disabled={saving || !connection.label}
-                className="text-sm font-semibold px-5 py-2 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {saving ? t('acoes.salvando') : t('acoes.salvar')}
-              </button>
+              </Button>
             )}
           </div>
         </>

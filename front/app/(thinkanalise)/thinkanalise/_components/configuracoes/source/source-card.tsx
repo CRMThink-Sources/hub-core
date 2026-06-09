@@ -1,18 +1,48 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type {
-  Dataset,
-  Source,
-  SourceSettings,
-} from '../../../types/thinkanalise-types'
-import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
+import { CheckCircle2Icon, PlusIcon, XCircleIcon } from 'lucide-react'
+import type { Dataset, Source, SourceSettings } from '../../types'
+import { axiosThinkanalise } from '../../../_lib/thinkanalise-client'
 import { DatasetCard } from '../dataset/dataset-card'
 import { DatasetForm } from '../dataset/dataset-form'
 import { useLoading } from '@/providers/loading-provider'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+// import { Switch } from '@/components/ui/switch' // toggle ativo/inativo desabilitado temporariamente
 
 const AUTH_TOKEN_KEY = 'hubthink_auth_token'
+
+/** Badge de resultado do teste de conexão — sucesso/erro, com ícone. */
+function TestStatusBadge({
+  status,
+  okLabel,
+  erroLabel,
+}: {
+  status: 'idle' | 'ok' | 'erro'
+  okLabel: string
+  erroLabel: string
+}) {
+  if (status === 'ok') {
+    return (
+      <span className="flex items-center gap-1.5 rounded-md border border-primary/20 bg-accent px-2.5 py-1 text-xs font-semibold text-primary">
+        <CheckCircle2Icon className="size-3.5" />
+        {okLabel}
+      </span>
+    )
+  }
+  if (status === 'erro') {
+    return (
+      <span className="flex items-center gap-1.5 rounded-md border border-destructive/20 bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
+        <XCircleIcon className="size-3.5" />
+        {erroLabel}
+      </span>
+    )
+  }
+  return null
+}
 
 type Props = {
   source: Source
@@ -167,18 +197,21 @@ export function SourceCard({
     }
   }
 
-  async function handleToggleActive() {
-    setLoading(true, t('loading.atualizando'))
-    try {
-      const client = axiosThinkanalise(AUTH_TOKEN_KEY)
-      await client.put(`/thinkanalise/source/${source.id}`, {
-        active: !source.active,
-      })
-      await onSaved()
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Toggle ativo/inativo desabilitado temporariamente: o Bitrix ignora
+  // `active` no source.update e sempre retorna active=true.
+  // async function handleToggleActive() {
+  //   setLoading(true, t('loading.atualizando'))
+  //   try {
+  //     const client = axiosThinkanalise(AUTH_TOKEN_KEY)
+  //     await client.put(`/thinkanalise/source/${source.id}`, {
+  //       title: source.title,
+  //       active: !source.active,
+  //     })
+  //     await onSaved()
+  //   } finally {
+  //     setLoading(false)
+  //   }
+  // }
 
   useEffect(() => {
     if (!isContaAzul) return
@@ -193,54 +226,61 @@ export function SourceCard({
   const isConnected = Boolean(source.settings.api_key)
 
   return (
-    <div className="rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-border bg-muted/40">
       {/* cabeçalho da fonte */}
       <div className="flex items-center gap-3 px-4 py-3">
-        <span className="text-sm font-medium text-gray-700 flex-1">
+        <span className="flex-1 text-sm font-medium text-foreground">
           {isEditing ? (
-            <input
-              type="text"
+            <Input
               value={draft.title}
               onChange={e => setDraft(d => ({ ...d, title: e.target.value }))}
-              className="w-full font-mono text-sm px-2 py-1 rounded border border-[#e5e7eb] bg-white outline-none focus:border-[#223f6e]"
+              className="h-8"
             />
           ) : (
             source.title
           )}
         </span>
 
-        <button
-          onClick={() => void handleToggleActive()}
-          title={source.active ? t('botoes.desativar') : t('botoes.ativar')}
-          className={`w-2 h-2 rounded-full transition-colors cursor-pointer ${source.active ? 'bg-[#4a7fd4]' : 'bg-gray-300'}`}
+        {/* Toggle ativo/inativo desabilitado temporariamente: Bitrix
+            ignora `active` no source.update e sempre retorna active=true. */}
+        {/* <Switch
+          checked={source.active}
+          onCheckedChange={() => void handleToggleActive()}
+          aria-label={
+            source.active ? t('botoes.desativar') : t('botoes.ativar')
+          }
         />
-        <span className="text-xs text-gray-400 font-mono">
+        <span className="text-xs text-muted-foreground">
           {source.active ? t('status.ativo') : t('status.inativo')}
-        </span>
+        </span> */}
       </div>
 
       {/* campos em edição */}
       {isEditing && (
-        <div className="px-4 pb-3 flex flex-col gap-2">
+        <div className="flex flex-col gap-2 px-4 pb-3">
           {isContaAzul ? (
             <div className="flex items-center gap-3">
               <span
-                className={`text-xs font-mono ${isConnected ? 'text-[#4a7fd4]' : 'text-gray-400'}`}
+                className={
+                  isConnected
+                    ? 'text-xs text-primary'
+                    : 'text-xs text-muted-foreground'
+                }
               >
                 {isConnected ? t('status.conectado') : t('status.naoConectado')}
               </span>
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => void handleConnectOAuth()}
                 disabled={connecting}
-                className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
-                           hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
               >
                 {connecting
                   ? t('botoes.redirecionando')
                   : t('botoes.reconectarContaAzul')}
-              </button>
+              </Button>
               {connectError && (
-                <span className="text-xs font-mono text-red-600">
+                <span className="text-xs text-destructive">
                   {t('botoes.erroConexao')}
                 </span>
               )}
@@ -248,98 +288,78 @@ export function SourceCard({
           ) : isSonax ? (
             <>
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
                   {t('campos.idCliente')}
-                </label>
-                <input
-                  type="text"
+                </Label>
+                <Input
                   value={sonaxDraft.id_cliente}
                   onChange={e =>
                     setSonaxDraft(d => ({ ...d, id_cliente: e.target.value }))
                   }
                   placeholder={t('campos.manterPlaceholder')}
-                  className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-white text-black outline-none
-                             focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20
-                             hover:border-[#223f6e] transition-colors"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
                   {t('campos.token')}
-                </label>
-                <input
+                </Label>
+                <Input
                   type="password"
                   value={sonaxDraft.token}
                   onChange={e =>
                     setSonaxDraft(d => ({ ...d, token: e.target.value }))
                   }
                   placeholder={t('campos.manterPlaceholder')}
-                  className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-white text-black outline-none
-                             focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20
-                             hover:border-[#223f6e] transition-colors"
                 />
               </div>
-              <div className="flex items-center gap-2 mt-1">
-                <button
+              <div className="mt-1 flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => void handleTest()}
                   disabled={
                     testing || (!sonaxDraft.id_cliente && !sonaxDraft.token)
                   }
-                  className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
-                             hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {testing ? t('botoes.testando') : t('botoes.testarConexao')}
-                </button>
-                {testStatus === 'ok' && (
-                  <span className="text-xs font-mono text-[#4a7fd4]">
-                    {t('status.conexaoOk')}
-                  </span>
-                )}
-                {testStatus === 'erro' && (
-                  <span className="text-xs font-mono text-red-600">
-                    {t('status.credenciaisInvalidas')}
-                  </span>
-                )}
+                </Button>
+                <TestStatusBadge
+                  status={testStatus}
+                  okLabel={t('status.conexaoOk')}
+                  erroLabel={t('status.credenciaisInvalidas')}
+                />
               </div>
             </>
           ) : (
             <>
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
                   {t('campos.apiKey')}
-                </label>
-                <input
+                </Label>
+                <Input
                   type="password"
                   value={draft.apiKey}
                   onChange={e =>
                     setDraft(d => ({ ...d, apiKey: e.target.value }))
                   }
                   placeholder={t('campos.manterPlaceholder')}
-                  className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-white text-black outline-none
-                             focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20
-                             hover:border-[#223f6e] transition-colors"
                 />
               </div>
 
-              <div className="flex items-center gap-2 mt-1">
-                <button
+              <div className="mt-1 flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => void handleTest()}
                   disabled={testing}
-                  className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
-                             hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {testing ? t('botoes.testando') : t('botoes.testarConexao')}
-                </button>
-                {testStatus === 'ok' && (
-                  <span className="text-xs font-mono text-[#4a7fd4]">
-                    {t('status.conexaoOk')}
-                  </span>
-                )}
-                {testStatus === 'erro' && (
-                  <span className="text-xs font-mono text-red-600">
-                    {t('status.apiKeyInvalida')}
-                  </span>
-                )}
+                </Button>
+                <TestStatusBadge
+                  status={testStatus}
+                  okLabel={t('status.conexaoOk')}
+                  erroLabel={t('status.apiKeyInvalida')}
+                />
               </div>
             </>
           )}
@@ -347,20 +367,20 @@ export function SourceCard({
       )}
 
       {/* seção de datasets */}
-      <div className="px-4 pb-4 flex flex-col gap-2">
+      <div className="flex flex-col gap-2 px-4 pb-4">
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
             {t('datasets')} ({datasets.length})
           </span>
           {!addingDataset && (
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setAddingDataset(true)}
-              className="flex items-center gap-1 text-xs font-mono px-2.5 py-1 rounded-lg border border-[#e5e7eb] text-gray-400
-                         hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all cursor-pointer"
             >
-              <span className="text-base leading-none">+</span>
+              <PlusIcon />
               {t('novoDataset')}
-            </button>
+            </Button>
           )}
         </div>
 
@@ -387,39 +407,37 @@ export function SourceCard({
       </div>
 
       {/* rodapé */}
-      <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-[#e5e7eb]">
+      <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-2.5">
         {isEditing ? (
           <>
-            <button
-              onClick={handleCancelEdit}
-              className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400 hover:bg-gray-50 transition-all cursor-pointer"
-            >
+            <Button variant="outline" size="sm" onClick={handleCancelEdit}>
               {t('botoes.cancelar')}
-            </button>
-            <button
+            </Button>
+            <Button
+              size="sm"
               onClick={() => void handleSave()}
               disabled={saving || !draft.title}
-              className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
             >
               {saving ? t('botoes.salvando') : t('botoes.salvar')}
-            </button>
+            </Button>
           </>
         ) : (
           <>
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => void handleDelete()}
               disabled={deleting}
-              className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
-                         hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all disabled:opacity-50 cursor-pointer"
             >
               {deleting ? t('botoes.removendo') : t('botoes.remover')}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setIsEditing(true)}
-              className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#223f6e] text-[#223f6e] hover:bg-[#eef2f9] transition-colors cursor-pointer"
             >
               {t('botoes.editar')}
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -522,78 +540,62 @@ export function NewSourceCard({
   }
 
   return (
-    <div className="rounded-lg border border-dashed border-[#223f6e]/40 bg-white overflow-hidden">
-      <div className="px-4 pt-4 pb-3 flex flex-col gap-3">
+    <div className="overflow-hidden rounded-lg border border-dashed border-primary/40 bg-card">
+      <div className="flex flex-col gap-3 px-4 pb-3 pt-4">
         <div className="flex flex-col gap-1">
-          <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
             {t('campos.nomeFonte')}
-          </label>
-          <input
-            type="text"
+          </Label>
+          <Input
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder={t('campos.nomeFontePlaceholder')}
-            className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
-                       focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
-                       hover:border-[#223f6e] transition-colors"
           />
         </div>
 
         {isSonax && (
           <>
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
                 {t('campos.idCliente')}
-              </label>
-              <input
-                type="text"
+              </Label>
+              <Input
                 value={sonaxCreds.id_cliente}
                 onChange={e =>
                   setSonaxCreds(d => ({ ...d, id_cliente: e.target.value }))
                 }
                 placeholder="Ex: 215"
-                className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
-                           focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
-                           hover:border-[#223f6e] transition-colors"
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
                 {t('campos.token')}
-              </label>
-              <input
+              </Label>
+              <Input
                 type="password"
                 value={sonaxCreds.token}
                 onChange={e =>
                   setSonaxCreds(d => ({ ...d, token: e.target.value }))
                 }
                 placeholder="Token de 20+ caracteres"
-                className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
-                           focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
-                           hover:border-[#223f6e] transition-colors"
               />
             </div>
             <div className="flex items-center gap-2">
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => void handleTest()}
                 disabled={
                   testing || !sonaxCreds.id_cliente || !sonaxCreds.token
                 }
-                className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
-                           hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
               >
                 {testing ? t('botoes.testando') : t('botoes.testarConexao')}
-              </button>
-              {testStatus === 'ok' && (
-                <span className="text-xs font-mono text-[#4a7fd4]">
-                  {t('status.conexaoOk')}
-                </span>
-              )}
-              {testStatus === 'erro' && (
-                <span className="text-xs font-mono text-red-600">
-                  {t('status.credenciaisInvalidas')}
-                </span>
-              )}
+              </Button>
+              <TestStatusBadge
+                status={testStatus}
+                okLabel={t('status.conexaoOk')}
+                erroLabel={t('status.credenciaisInvalidas')}
+              />
             </div>
           </>
         )}
@@ -601,80 +603,69 @@ export function NewSourceCard({
         {!isContaAzul && !isSonax && (
           <>
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
                 {t('campos.apiKey')}
-              </label>
-              <input
+              </Label>
+              <Input
                 type="password"
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
                 placeholder={t('campos.apiKeyPlaceholder')}
-                className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
-                           focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white
-                           hover:border-[#223f6e] transition-colors"
               />
             </div>
 
             <div className="flex items-center gap-2">
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => void handleTest()}
                 disabled={testing || !apiKey}
-                className="flex items-center gap-1.5 text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400
-                           hover:bg-[#eef2f9] hover:text-[#223f6e] hover:border-[#223f6e] transition-all disabled:opacity-50 cursor-pointer"
               >
                 {testing ? t('botoes.testando') : t('botoes.testarConexao')}
-              </button>
-              {testStatus === 'ok' && (
-                <span className="text-xs font-mono text-[#4a7fd4]">
-                  {t('status.conexaoOk')}
-                </span>
-              )}
-              {testStatus === 'erro' && (
-                <span className="text-xs font-mono text-red-600">
-                  {t('status.apiKeyInvalida')}
-                </span>
-              )}
+              </Button>
+              <TestStatusBadge
+                status={testStatus}
+                okLabel={t('status.conexaoOk')}
+                erroLabel={t('status.apiKeyInvalida')}
+              />
             </div>
           </>
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-[#e5e7eb]">
-        <button
-          onClick={onCancel}
-          className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400 hover:bg-gray-50 transition-all cursor-pointer"
-        >
+      <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-2.5">
+        <Button variant="outline" size="sm" onClick={onCancel}>
           {t('botoes.cancelar')}
-        </button>
+        </Button>
         {isContaAzul ? (
           <>
-            <button
+            {saveConnectError && (
+              <span className="mr-auto text-xs text-destructive">
+                {t('botoes.erroConexao')}
+              </span>
+            )}
+            <Button
+              size="sm"
               onClick={() => void handleSaveAndConnect()}
               disabled={saving || !title}
-              className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
             >
               {saving
                 ? t('botoes.redirecionando')
                 : t('botoes.salvarConectarContaAzul')}
-            </button>
-            {saveConnectError && (
-              <span className="text-xs font-mono text-red-600 mr-auto">
-                {t('botoes.erroConexao')}
-              </span>
-            )}
+            </Button>
           </>
         ) : (
-          <button
+          <Button
+            size="sm"
             onClick={() => void handleSave()}
             disabled={
               saving ||
               !title ||
               (isSonax ? !sonaxCreds.id_cliente || !sonaxCreds.token : !apiKey)
             }
-            className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] transition-colors disabled:opacity-50 cursor-pointer"
           >
             {saving ? t('botoes.salvando') : t('botoes.salvarFonte')}
-          </button>
+          </Button>
         )}
       </div>
     </div>
