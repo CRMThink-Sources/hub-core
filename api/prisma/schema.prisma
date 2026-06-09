@@ -400,6 +400,7 @@ enum ThinkzapMessageType {
   VIDEO
   AUDIO
   DOCUMENT
+  STICKER
 }
 
 enum BiAnalyseProvider {
