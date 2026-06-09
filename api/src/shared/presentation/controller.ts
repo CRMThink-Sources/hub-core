@@ -14,8 +14,16 @@ export abstract class Controller {
     return { status: 400, result: { error: error.message } }
   }
 
+  protected unauthorized(error: Error): httpResponse {
+    return { status: 401, result: { error: error.message } }
+  }
+
   protected notFound(error: Error): httpResponse {
     return { status: 404, result: { error: error.message } }
+  }
+
+  protected gatewayTimeout(error: Error): httpResponse {
+    return { status: 504, result: { error: error.message } }
   }
 
   protected ok(data: unknown): httpResponse {
