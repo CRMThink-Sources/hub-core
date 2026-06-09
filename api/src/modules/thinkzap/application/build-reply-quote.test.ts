@@ -136,6 +136,10 @@ describe('buildReplyQuote', () => {
     expect(buildReplyQuote({ type: 'DOCUMENT' })).toBe('>>📎 Documento')
   })
 
+  it('builds quote for sticker', () => {
+    expect(buildReplyQuote({ type: 'STICKER' })).toBe('>>🎭 Sticker')
+  })
+
   it('builds context link when bitrixMessageId and bitrixChatId present', () => {
     const cached: ThinkzapMessageQuoteInput = {
       type: 'TEXT',
@@ -303,6 +307,18 @@ describe('extractQuoteInput', () => {
       type: 'DOCUMENT',
       fileName: 'contrato.pdf',
     })
+  })
+
+  it('extracts sticker', () => {
+    const event = makeEvent({
+      sticker: {
+        stickerUrl: 'https://cdn.example.com/sticker.webp',
+        mimeType: 'image/webp',
+        width: 0,
+        height: 0,
+      },
+    })
+    expect(extractQuoteInput(event)).toEqual({ type: 'STICKER' })
   })
 
   it('falls back to empty text when nothing matches', () => {

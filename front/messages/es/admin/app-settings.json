@@ -5,7 +5,8 @@
   "tabs": {
     "deployment": "Implantación",
     "placements": "Placements",
-    "bizproc": "BizProc"
+    "bizproc": "BizProc",
+    "connectors": "Conectores"
   },
   "deploymentTitle": "Implantación manual",
   "deploymentDescription": "Registre o elimine manualmente los recursos implantados en el Bitrix24 de este cliente.",
@@ -85,5 +86,18 @@
   "bizprocRobotsColumnName": "Nombre",
   "bizprocRobotsColumnApp": "App",
   "bizprocRobotsBadgeThinkzap": "Thinkzap",
-  "bizprocRobotsBadgeOther": "Otro"
+  "bizprocRobotsBadgeOther": "Otro",
+  "connectorsTitle": "Conectores ThinkZap",
+  "connectorsDescription": "Administre la configuración de eventos de cada conector de WhatsApp vinculado a este entorno.",
+  "connectorsRefresh": "Actualizar",
+  "connectorsLoading": "Cargando conectores...",
+  "connectorsEmpty": "No se encontraron conectores activos en este entorno.",
+  "connectorsErrorGeneric": "Error al cargar los conectores. Inténtalo de nuevo.",
+  "connectorsErrorSave": "Error al guardar. Inténtalo de nuevo.",
+  "connectorsMessageUpdateEvent": "Sincronizar ediciones de mensajes",
+  "connectorsMessageUpdateEventHint": "Cuando un operador edite un mensaje en Bitrix, el mensaje correspondiente en WhatsApp será editado.",
+  "connectorsMessageDeleteEvent": "Sincronizar eliminaciones de mensajes",
+  "connectorsMessageDeleteEventHint": "Cuando un operador elimine un mensaje en Bitrix, el mensaje correspondiente en WhatsApp será eliminado.",
+  "connectorsSaving": "Guardando...",
+  "connectorsSaved": "Guardado con éxito"
 }

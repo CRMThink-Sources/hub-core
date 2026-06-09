@@ -481,6 +481,8 @@ function buildMessageFiles(
     return [{ url: event.video.videoUrl, name: 'Mensagem de vídeo.mp4' }]
   if (event.document)
     return [{ url: event.document.documentUrl, name: event.document.fileName }]
+  if (event.sticker)
+    return [{ url: event.sticker.stickerUrl, name: 'Sticker.webp' }]
   return undefined
 }
 

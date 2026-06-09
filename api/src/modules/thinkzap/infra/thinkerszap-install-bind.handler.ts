@@ -29,6 +29,24 @@ export class ThinkersZapInstallBindHandler implements BitrixInstallBindHandler {
           offline: 0,
         },
       })
+      binds.push({
+        method: 'event.bind',
+        params: {
+          event: 'ONIMCONNECTORMESSAGEUPDATE',
+          handler: webhookUrl,
+          auth_type: '0',
+          offline: 0,
+        },
+      })
+      binds.push({
+        method: 'event.bind',
+        params: {
+          event: 'ONIMCONNECTORMESSAGEDELETE',
+          handler: webhookUrl,
+          auth_type: '0',
+          offline: 0,
+        },
+      })
     }
 
     binds.push({

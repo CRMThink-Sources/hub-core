@@ -35,6 +35,7 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
   ] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     const connectorName = connector.instance.name ?? ''
@@ -56,14 +57,17 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
   const handleSave = async () => {
     setSaving(true)
     setSaved(false)
+    setSaveError(null)
     try {
       const client = axiosThinkzap(authTokenKey)
+
       await client.put(`/thinkzap/instance/${connector.id}`, {
         name,
         settings: {
           prefixOperatorNameEnabled,
         },
       })
+
       setInitialName(name)
       setInitialPrefixOperatorNameEnabled(prefixOperatorNameEnabled)
       setSaved(true)
@@ -71,6 +75,9 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
       setTimeout(() => setSaved(false), 3000)
     } catch (error) {
       console.error('Erro ao salvar:', error)
+      setSaveError(
+        error instanceof Error ? error.message : 'Erro ao salvar configurações',
+      )
     } finally {
       setSaving(false)
     }
@@ -126,6 +133,7 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
           {saving ? t('salvando') : t('salvar')}
         </button>
         {saved && <span className="text-sm text-[#5A997E]">{t('salvo')}</span>}
+        {saveError && <span className="text-sm text-red-600">{saveError}</span>}
       </div>
     </div>
   )

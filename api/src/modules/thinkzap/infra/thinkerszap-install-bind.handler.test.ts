@@ -81,4 +81,40 @@ describe('ThinkersZapInstallBindHandler', () => {
       HANDLER: 'https://app.example/robot',
     })
   })
+
+  it('includes ONIMCONNECTORMESSAGEUPDATE event bind when webhookUrl is set', () => {
+    vi.stubEnv('BITRIX_WEBHOOK_URL', 'https://app.example/webhook')
+    const binds = handler.getBinds()
+    const updateBind = binds.find(
+      bind =>
+        bind.method === 'event.bind' &&
+        bind.params.event === 'ONIMCONNECTORMESSAGEUPDATE',
+    )
+
+    expect(updateBind).toBeDefined()
+    expect(updateBind?.params).toMatchObject({
+      event: 'ONIMCONNECTORMESSAGEUPDATE',
+      auth_type: '0',
+      offline: 0,
+    })
+    vi.unstubAllEnvs()
+  })
+
+  it('includes ONIMCONNECTORMESSAGEDELETE event bind when webhookUrl is set', () => {
+    vi.stubEnv('BITRIX_WEBHOOK_URL', 'https://app.example/webhook')
+    const binds = handler.getBinds()
+    const deleteBind = binds.find(
+      bind =>
+        bind.method === 'event.bind' &&
+        bind.params.event === 'ONIMCONNECTORMESSAGEDELETE',
+    )
+
+    expect(deleteBind).toBeDefined()
+    expect(deleteBind?.params).toMatchObject({
+      event: 'ONIMCONNECTORMESSAGEDELETE',
+      auth_type: '0',
+      offline: 0,
+    })
+    vi.unstubAllEnvs()
+  })
 })
