@@ -6,6 +6,7 @@ import {
   CreateBiConnectorParams,
   CreateSourceParams,
   SourceResult,
+  SourceSettings,
   CreateDatasetParams,
   DatasetFieldInput,
   DatasetResult,
@@ -15,6 +16,15 @@ import axios from 'axios'
 type BitrixErrorResponse = {
   error: string
   error_description?: string
+}
+
+/**
+ * O Bitrix devolve `settings` como array de `{ code, name, type, value }`,
+ * mas o restante da aplicação trabalha com `Record<code, value>`. Esta forma
+ * representa o source cru, antes da normalização.
+ */
+type RawSourceResult = Omit<SourceResult, 'settings'> & {
+  settings: { code: string; value: string }[] | SourceSettings
 }
 
 export class BitrixBiConnectorClient extends BitrixClient {
@@ -31,6 +41,14 @@ export class BitrixBiConnectorClient extends BitrixClient {
     if ('error' in data && data.error) {
       throw new Error(data.error_description ?? data.error)
     }
+  }
+
+  /** Converte `settings` (array do Bitrix) em `Record<code, value>`. */
+  private normalizeSource(raw: RawSourceResult): SourceResult {
+    const settings: SourceSettings = Array.isArray(raw.settings)
+      ? Object.fromEntries(raw.settings.map(s => [s.code, s.value]))
+      : raw.settings
+    return { ...raw, settings }
   }
 
   private async withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
@@ -114,12 +132,12 @@ export class BitrixBiConnectorClient extends BitrixClient {
   async sourceAdd(fields: CreateSourceParams): Promise<SourceResult> {
     return this.withRetry(async () => {
       const client = this.getClient()
-      const response = await client.post<BitrixResponse<SourceResult>>(
+      const response = await client.post<BitrixResponse<RawSourceResult>>(
         '/biconnector.source.add',
         { fields },
       )
       this.checkError(response.data)
-      return response.data.result
+      return this.normalizeSource(response.data.result)
     })
   }
 
@@ -129,12 +147,12 @@ export class BitrixBiConnectorClient extends BitrixClient {
   ): Promise<SourceResult> {
     return this.withRetry(async () => {
       const client = this.getClient()
-      const response = await client.post<BitrixResponse<SourceResult>>(
+      const response = await client.post<BitrixResponse<RawSourceResult>>(
         '/biconnector.source.update',
         { id, fields },
       )
       this.checkError(response.data)
-      return response.data.result
+      return this.normalizeSource(response.data.result)
     })
   }
 
@@ -142,12 +160,12 @@ export class BitrixBiConnectorClient extends BitrixClient {
     return this.withRetry(async () => {
       const client = this.getClient()
       const body = connectorId ? { filter: { connectorId } } : {}
-      const response = await client.post<BitrixResponse<SourceResult[]>>(
+      const response = await client.post<BitrixResponse<RawSourceResult[]>>(
         '/biconnector.source.list',
         body,
       )
       this.checkError(response.data)
-      return response.data.result
+      return response.data.result.map(raw => this.normalizeSource(raw))
     })
   }
 

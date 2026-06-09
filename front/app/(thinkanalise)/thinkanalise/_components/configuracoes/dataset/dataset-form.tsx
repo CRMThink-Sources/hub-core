@@ -1,10 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
+import { axiosThinkanalise } from '../../../_lib/thinkanalise-client'
 import { toast } from 'sonner'
 import { useLoading } from '@/providers/loading-provider'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 function toFieldName(str: string): string {
   return str
@@ -116,15 +119,15 @@ export function DatasetForm({
   }, [])
 
   return (
-    <div className="rounded-lg border border-dashed border-[#223f6e]/40 bg-white overflow-hidden">
-      <div className="px-4 pt-4 pb-3 flex flex-col gap-3">
+    <div className="overflow-hidden rounded-lg border border-dashed border-primary/40 bg-card">
+      <div className="flex flex-col gap-3 px-4 pb-3 pt-4">
         {step === 'table' && (
           <>
-            <p className="text-[11px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
               {t('form.selecioneTabela')}
             </p>
             {loadingTables ? (
-              <p className="text-xs text-gray-400 font-mono">
+              <p className="text-xs text-muted-foreground">
                 {t('form.carregando')}
               </p>
             ) : (
@@ -133,15 +136,14 @@ export function DatasetForm({
                   <button
                     key={t_.code}
                     onClick={() => void selectTable(t_)}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB]
-                               hover:bg-[#eef2f9] hover:border-[#223f6e] transition-all text-left cursor-pointer"
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-left transition-all hover:border-primary hover:bg-accent"
                   >
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#e8eef7] text-[#223f6e] border border-[#e5e7eb] uppercase">
+                    <span className="rounded border border-border bg-accent px-2 py-0.5 text-[10px] uppercase text-accent-foreground">
                       {t_.code}
                     </span>
-                    <span className="text-sm text-gray-700">{t_.title}</span>
+                    <span className="text-sm text-foreground">{t_.title}</span>
                     {loadingFields && selectedTable?.code === t_.code && (
-                      <span className="ml-auto text-xs text-gray-400 font-mono">
+                      <span className="ml-auto text-xs text-muted-foreground">
                         {t('form.carregando')}
                       </span>
                     )}
@@ -155,35 +157,32 @@ export function DatasetForm({
         {step === 'fields' && selectedTable && (
           <>
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
                 {t('form.nomeDataset')}
-              </label>
-              <input
-                type="text"
+              </Label>
+              <Input
                 value={datasetName}
                 onChange={e => setDatasetName(e.target.value)}
                 placeholder={selectedTable.title}
-                className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
-                           focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white placeholder:text-gray-300"
               />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-mono font-semibold text-gray-400 uppercase tracking-widest">
+              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
                 {t('form.camposLabel')}
-              </label>
+              </Label>
               {describeFields.map(f => (
                 <div
                   key={f.code}
-                  className="flex items-center gap-3 py-1.5 border-b border-[#f3f4f6] last:border-0"
+                  className="flex items-center gap-3 border-b border-border/60 py-1.5 last:border-0"
                 >
-                  <span className="text-xs font-mono text-[#223f6e] w-32 truncate">
+                  <span className="w-32 truncate text-xs text-primary">
                     {toFieldName(f.name)}
                   </span>
-                  <span className="text-[10px] font-mono text-gray-400 flex-1">
+                  <span className="flex-1 text-[10px] text-muted-foreground">
                     {f.code}
                   </span>
-                  <span className="text-[10px] font-mono text-gray-400 w-16">
+                  <span className="w-16 text-[10px] text-muted-foreground">
                     {f.type}
                   </span>
                 </div>
@@ -193,22 +192,23 @@ export function DatasetForm({
         )}
       </div>
 
-      <div className="flex items-center justify-between px-4 py-2 border-t border-[#e5e7eb]">
-        <button
+      <div className="flex items-center justify-between border-t border-border px-4 py-2.5">
+        <Button
+          variant="outline"
+          size="sm"
           onClick={step === 'fields' ? () => setStep('table') : onCancel}
-          className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-400 hover:bg-gray-50 cursor-pointer"
         >
           {step === 'fields' ? t('acoes.voltar') : t('acoes.cancelar')}
-        </button>
+        </Button>
 
         {step === 'fields' && (
-          <button
+          <Button
+            size="sm"
             onClick={() => void handleSave()}
             disabled={saving || !datasetName}
-            className="text-xs font-semibold px-4 py-1.5 rounded-lg bg-[#223f6e] text-white hover:bg-[#1a3058] disabled:opacity-50 cursor-pointer"
           >
             {saving ? t('acoes.salvando') : t('acoes.criarDataset')}
-          </button>
+          </Button>
         )}
       </div>
     </div>

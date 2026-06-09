@@ -1,6 +1,6 @@
 'use client'
 
-import ConfiguracoesLayout from '@/components/layouts/thinkanalise/configuracoes/configuracoes-layout'
+import ConfiguracoesLayout from '../_components/configuracoes/configuracoes-layout'
 
 export default function ConexoesPage() {
   return <ConfiguracoesLayout />
