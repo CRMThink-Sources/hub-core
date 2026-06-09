@@ -1,10 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import type { Dataset } from '../../../types/thinkanalise-types'
-import { axiosThinkanalise } from '@/infra/client/axios-thinkanalise'
+import { ChevronDownIcon } from 'lucide-react'
+import type { Dataset } from '../../types'
+import { axiosThinkanalise } from '../../../_lib/thinkanalise-client'
 import { useLoading } from '@/providers/loading-provider'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 type Props = {
   dataset: Dataset
@@ -53,67 +57,53 @@ export function DatasetCard({ dataset, onChanged, onDeleted }: Props) {
   }
 
   return (
-    <div className="rounded-lg border border-[#e5e7eb] bg-white overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
       {/* cabeçalho */}
-      <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none"
+      <button
+        type="button"
         onClick={() => setExpanded(p => !p)}
+        className="flex w-full select-none items-center gap-3 px-4 py-3 text-left"
       >
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#e8eef7] text-[#223f6e] border border-[#e5e7eb] uppercase tracking-wide">
+        <span className="rounded border border-border bg-accent px-2 py-0.5 text-[10px] uppercase tracking-wide text-accent-foreground">
           {dataset.externalCode}
         </span>
-        <span className="text-sm font-medium text-gray-700 flex-1">
+        <span className="flex-1 text-sm font-medium text-foreground">
           {dataset.name}
         </span>
-        <span className="text-xs text-gray-400 font-mono">
+        <span className="text-xs text-muted-foreground">
           {(dataset.fields ?? []).length} {t('campos')}
         </span>
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          className={`text-gray-400 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
-        >
-          <path
-            d="M2 4l4 4 4-4"
-            stroke="currentColor"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
+        <ChevronDownIcon
+          className={cn(
+            'size-4 text-muted-foreground transition-transform duration-200',
+            expanded && 'rotate-180',
+          )}
+        />
+      </button>
 
       {expanded && (
         <>
           {/* nome editável */}
           {isEditing && (
             <div className="px-4 pb-3">
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                className="w-full font-mono text-sm px-3 py-2 rounded-lg border border-[#e5e7eb] bg-[#F9F9FB] text-black outline-none
-                           focus:border-[#223f6e] focus:ring-2 focus:ring-[#223f6e]/20 focus:bg-white"
-              />
+              <Input value={name} onChange={e => setName(e.target.value)} />
             </div>
           )}
 
           {/* lista de campos */}
-          <div className="px-4 pb-3 flex flex-col gap-1">
+          <div className="flex flex-col gap-1 px-4 pb-3">
             {(dataset.fields ?? []).map(f => (
               <div
                 key={f.externalCode}
-                className="flex items-center gap-3 py-1.5 border-b border-[#f3f4f6] last:border-0"
+                className="flex items-center gap-3 border-b border-border/60 py-1.5 last:border-0"
               >
-                <span className="text-xs font-mono text-gray-500 w-32 truncate">
+                <span className="w-32 truncate text-xs text-foreground">
                   {f.name}
                 </span>
-                <span className="text-[10px] font-mono text-gray-400 flex-1">
+                <span className="flex-1 text-[10px] text-muted-foreground">
                   {f.externalCode}
                 </span>
-                <span className="text-[10px] font-mono text-gray-400 w-16">
+                <span className="w-16 text-[10px] text-muted-foreground">
                   {f.type}
                 </span>
               </div>
@@ -123,27 +113,21 @@ export function DatasetCard({ dataset, onChanged, onDeleted }: Props) {
           {/* erro de deleção */}
           {deleteError && (
             <div className="px-4 pb-2">
-              <p className="text-xs font-mono text-red-500">{deleteError}</p>
+              <p className="text-xs text-destructive">{deleteError}</p>
             </div>
           )}
 
           {/* editar/excluir dataset — vai ser adicionado futuramente (API Bitrix não permite no momento) */}
-          <div className="flex items-center justify-end gap-2 px-4 py-2 border-t border-[#e5e7eb]">
+          <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-2.5">
             <span title={t('tooltip.desativado')}>
-              <button
-                disabled
-                className="text-xs font-mono px-3 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-300 cursor-not-allowed"
-              >
+              <Button variant="outline" size="sm" disabled>
                 {t('acoes.excluir')}
-              </button>
+              </Button>
             </span>
             <span title={t('tooltip.desativado')}>
-              <button
-                disabled
-                className="text-xs font-semibold px-4 py-1.5 rounded-lg border border-[#e5e7eb] text-gray-300 cursor-not-allowed"
-              >
+              <Button variant="outline" size="sm" disabled>
                 {t('acoes.editar')}
-              </button>
+              </Button>
             </span>
           </div>
         </>
