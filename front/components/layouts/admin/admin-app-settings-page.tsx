@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { AdminClientDeploymentSection } from './admin-client-deployment-section'
 import { AdminClientPlacementsSection } from './admin-client-placements-section'
 import { AdminClientBizprocRobotsSection } from './admin-client-bizproc-robots-section'
+import { AdminClientThinkzapConnectorsSection } from './admin-client-thinkzap-connectors-section'
 
 type Props = {
   domainId: string
@@ -43,6 +44,7 @@ export function AdminAppSettingsPage({ domainId, appId }: Props) {
           <TabsTrigger value="deployment">{t('tabs.deployment')}</TabsTrigger>
           <TabsTrigger value="placements">{t('tabs.placements')}</TabsTrigger>
           <TabsTrigger value="bizproc">{t('tabs.bizproc')}</TabsTrigger>
+          <TabsTrigger value="connectors">{t('tabs.connectors')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deployment" className="mt-4">
@@ -55,6 +57,10 @@ export function AdminAppSettingsPage({ domainId, appId }: Props) {
 
         <TabsContent value="bizproc" className="mt-4">
           <AdminClientBizprocRobotsSection appId={appId} />
+        </TabsContent>
+
+        <TabsContent value="connectors" className="mt-4">
+          <AdminClientThinkzapConnectorsSection appId={appId} />
         </TabsContent>
       </Tabs>
     </div>

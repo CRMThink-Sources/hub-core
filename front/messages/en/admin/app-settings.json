@@ -5,7 +5,8 @@
   "tabs": {
     "deployment": "Deployment",
     "placements": "Placements",
-    "bizproc": "BizProc"
+    "bizproc": "BizProc",
+    "connectors": "Connectors"
   },
   "deploymentTitle": "Manual deployment",
   "deploymentDescription": "Manually register or remove resources deployed to this client's Bitrix24.",
@@ -85,5 +86,18 @@
   "bizprocRobotsColumnName": "Name",
   "bizprocRobotsColumnApp": "App",
   "bizprocRobotsBadgeThinkzap": "Thinkzap",
-  "bizprocRobotsBadgeOther": "Other"
+  "bizprocRobotsBadgeOther": "Other",
+  "connectorsTitle": "ThinkZap Connectors",
+  "connectorsDescription": "Manage event settings for each WhatsApp connector linked to this environment.",
+  "connectorsRefresh": "Refresh",
+  "connectorsLoading": "Loading connectors...",
+  "connectorsEmpty": "No active connectors found in this environment.",
+  "connectorsErrorGeneric": "Failed to load connectors. Please try again.",
+  "connectorsErrorSave": "Failed to save. Please try again.",
+  "connectorsMessageUpdateEvent": "Sync message edits",
+  "connectorsMessageUpdateEventHint": "When an operator edits a message in Bitrix, the corresponding WhatsApp message will be edited.",
+  "connectorsMessageDeleteEvent": "Sync message deletions",
+  "connectorsMessageDeleteEventHint": "When an operator deletes a message in Bitrix, the corresponding WhatsApp message will be deleted.",
+  "connectorsSaving": "Saving...",
+  "connectorsSaved": "Saved successfully"
 }
