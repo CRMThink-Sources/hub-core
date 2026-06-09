@@ -14,6 +14,8 @@ import {
   makeGetImportController,
   makeUpdateImportController,
   makeDeleteImportController,
+  makeRunImportController,
+  makeSetImportEnabledController,
 } from './main/make-importsheet-controllers'
 import { requireImportSheetApp } from './infra/middleware/require-importsheet-app'
 
@@ -63,7 +65,18 @@ export const createImportSheetRoutes = (): Router => {
   router.post('/imports', adaptControllerFactory(makeCreateImportController))
   router.get('/imports/:id', adaptControllerFactory(makeGetImportController))
   router.put('/imports/:id', adaptControllerFactory(makeUpdateImportController))
-  router.delete('/imports/:id', adaptControllerFactory(makeDeleteImportController))
+  router.delete(
+    '/imports/:id',
+    adaptControllerFactory(makeDeleteImportController),
+  )
+  router.post(
+    '/imports/:id/run',
+    adaptControllerFactory(makeRunImportController),
+  )
+  router.patch(
+    '/imports/:id/enabled',
+    adaptControllerFactory(makeSetImportEnabledController),
+  )
 
   return router
 }

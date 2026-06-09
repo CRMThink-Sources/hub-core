@@ -6,6 +6,7 @@ export type CreateImportServiceInput = {
   appId: string
   title: string
   config: ImportConfig
+  startRow: number
   schedule: CreateImportSchedule
 }
 
@@ -17,7 +18,8 @@ export class CreateImportService {
       appId: input.appId,
       title: input.title,
       config: input.config,
-      ...resolveSchedule(input.schedule),
+      startRow: input.startRow,
+      ...resolveSchedule(input.schedule, { immediate: true }),
     })
   }
 }

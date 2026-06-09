@@ -374,6 +374,9 @@ model ImportSheetImport {
   /// { source, target, responsible, options, mappings } — schedule em colunas dedicadas
   config Json @map("config")
 
+  /// Cursor: próxima linha (1-based) a importar. Default 2 = pula o cabeçalho.
+  startRow Int @default(2) @map("start_row")
+
   scheduleMode ImportSheetScheduleMode @default(MANUAL) @map("schedule_mode")
   everyHours   Int?                    @map("every_hours")
   weekdays     Json?                   @map("weekdays")

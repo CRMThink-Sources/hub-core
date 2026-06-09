@@ -4,7 +4,10 @@ import {
   SpreadsheetDetails,
   SpreadsheetHeader,
 } from '@/modules/importsheet/domain/entities/spreadsheet'
-import { GoogleSheetsGateway } from '@/modules/importsheet/domain/gateways/google-sheets.gateway'
+import {
+  GoogleSheetsGateway,
+  SpreadsheetRow,
+} from '@/modules/importsheet/domain/gateways/google-sheets.gateway'
 import { GoogleUnavailableError } from '@/modules/importsheet/domain/errors/google-unavailable.error'
 
 const SHEETS_TIMEOUT_MS = 10000
@@ -45,6 +48,12 @@ function columnLetter(index: number): string {
 function headerRange(tabTitle: string): string {
   const escaped = tabTitle.replace(/'/g, "''")
   return `'${escaped}'!1:1`
+}
+
+function rowsRange(tabTitle: string, fromRow: number, limit: number): string {
+  const escaped = tabTitle.replace(/'/g, "''")
+  const toRow = fromRow + limit - 1
+  return `'${escaped}'!A${fromRow}:ZZ${toRow}`
 }
 
 export class GoogleSheetsClient implements GoogleSheetsGateway {
@@ -106,6 +115,47 @@ export class GoogleSheetsClient implements GoogleSheetsGateway {
         if (status === 400) {
           console.warn(
             `[GoogleSheetsClient] values.get 400 (aba "${tabTitle}"):`,
+            error.response?.data,
+          )
+          return null
+        }
+      }
+      if (isNetworkFailure(error)) throw new GoogleUnavailableError()
+      throw error
+    }
+  }
+
+  async getRows(
+    accessToken: string,
+    spreadsheetId: string,
+    tabTitle: string,
+    fromRow: number,
+    limit: number,
+  ): Promise<SpreadsheetRow[] | null> {
+    const range = encodeURIComponent(rowsRange(tabTitle, fromRow, limit))
+    try {
+      const response = await axios.get<ValuesGetResponse>(
+        `${env.google.sheetsApiUrl}/spreadsheets/${encodeURIComponent(spreadsheetId)}/values/${range}`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { majorDimension: 'ROWS', fields: 'values' },
+          timeout: SHEETS_TIMEOUT_MS,
+        },
+      )
+      const rows = response.data.values ?? []
+      // A API omite linhas vazias do FIM, mas pode devolver linhas curtas;
+      // o número absoluto é fromRow + índice no array retornado.
+      return rows.map((values, i) => ({
+        row: fromRow + i,
+        values: values ?? [],
+      }))
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status
+        if (status === 404 || status === 403) return null
+        if (status === 400) {
+          console.warn(
+            `[GoogleSheetsClient] values.get rows 400 (aba "${tabTitle}"):`,
             error.response?.data,
           )
           return null

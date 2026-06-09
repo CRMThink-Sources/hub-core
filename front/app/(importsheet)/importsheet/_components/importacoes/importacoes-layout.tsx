@@ -58,6 +58,17 @@ function ImportacoesContent() {
     }
   }
 
+  async function handleRun(id: number) {
+    await axiosImportsheet().post(`/importsheet/imports/${id}/run`)
+  }
+
+  async function handleToggleEnabled(id: number, enabled: boolean) {
+    await axiosImportsheet().patch(`/importsheet/imports/${id}/enabled`, {
+      enabled,
+    })
+    await refreshSession()
+  }
+
   function handleSelect(next: ImportSelection) {
     setSelection(next)
     setModalOpen(false)
@@ -133,6 +144,8 @@ function ImportacoesContent() {
           imports={imports}
           onEdit={setEditId}
           onDelete={handleDelete}
+          onRun={handleRun}
+          onToggleEnabled={handleToggleEnabled}
         />
       ) : podeImportar ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">

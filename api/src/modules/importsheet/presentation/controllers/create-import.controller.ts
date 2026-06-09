@@ -30,11 +30,12 @@ export class CreateImportController extends Controller {
     )
     if (!app) return this.notFound(new Error('App not found'))
 
-    const { title, schedule, config } = parsed.data
+    const { title, startRow, schedule, config } = parsed.data
 
     const created = await this.createImport.execute({
       appId: app.id,
       title,
+      startRow,
       schedule,
       config,
     })

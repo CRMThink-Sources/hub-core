@@ -10,6 +10,7 @@ const mappingSchema = z.object({
   columnLabel: z.string(),
   fieldName: z.string().min(1),
   isIdentifier: z.boolean(),
+  target: z.enum(['main', 'contact', 'company']).default('main'),
 })
 
 const configSchema = z
@@ -40,11 +41,25 @@ const configSchema = z
       createContact: z.boolean(),
       createCompany: z.boolean(),
     }),
-    mappings: z.array(mappingSchema),
+    mappings: z.array(mappingSchema).min(1, 'Mapeie ao menos uma coluna'),
     excludedColumns: z.array(z.number().int().nonnegative()),
   })
   .superRefine((config, ctx) => {
     const excluded = new Set(config.excludedColumns)
+
+    // CRM/SPA exigem entityTypeId — sem ele o worker cai em `?? 0` e a chamada
+    // Bitrix (crm.item.*) vai com entityTypeId=0, inválida.
+    const crmEntities = new Set(['LEAD', 'DEAL', 'CONTACT', 'COMPANY', 'SPA'])
+    if (
+      crmEntities.has(config.target.entityCode) &&
+      config.target.entityTypeId === null
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['target', 'entityTypeId'],
+        message: `entityTypeId é obrigatório para ${config.target.entityCode}`,
+      })
+    }
 
     // Coluna excluída não pode estar mapeada.
     for (const mapping of config.mappings) {
@@ -58,10 +73,7 @@ const configSchema = z
     }
 
     // Coluna excluída não pode ser o responsável.
-    if (
-      config.responsible &&
-      excluded.has(config.responsible.columnIndex)
-    ) {
+    if (config.responsible && excluded.has(config.responsible.columnIndex)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['responsible'],
@@ -84,6 +96,7 @@ const scheduleSchema = z.discriminatedUnion('mode', [
 
 export const importPayloadSchema = z.object({
   title: z.string().min(1).max(191),
+  startRow: z.number().int().min(2),
   schedule: scheduleSchema,
   config: configSchema,
 })

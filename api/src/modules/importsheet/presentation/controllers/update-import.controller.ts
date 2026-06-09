@@ -33,12 +33,13 @@ export class UpdateImportController extends Controller {
     )
     if (!app) return this.notFound(new Error('App not found'))
 
-    const { title, schedule, config } = parsed.data
+    const { title, startRow, schedule, config } = parsed.data
 
     const updated = await this.updateImport.execute({
       id,
       appId: app.id,
       title,
+      startRow,
       schedule,
       config,
     })

@@ -64,12 +64,17 @@ export type BitrixField = {
   isReadOnly: boolean
 }
 
+/** Entidade-destino do mapeamento de uma coluna. */
+export type MappingTarget = 'main' | 'contact' | 'company'
+
 /** Mapeamento de uma coluna da planilha → campo do Bitrix (ou null = ignorar). */
 export type ColumnMapping = {
   columnIndex: number
   fieldName: string | null
   /** Marca a coluna como identificador — usada pra dedup contra o Bitrix do cliente. */
   isIdentifier: boolean
+  /** Entidade-destino do campo. Default 'main'. */
+  target: MappingTarget
 }
 
 /** Código da entidade-alvo exibida na seleção. */
@@ -133,6 +138,8 @@ export type ColumnMappingInput = {
   fieldName: string
   /** Identificador → dedup contra o Bitrix (exige `fieldName`). */
   isIdentifier: boolean
+  /** Entidade-destino do campo. Default 'main'. */
+  target: MappingTarget
 }
 
 /**
@@ -154,6 +161,8 @@ export type ImportConfig = {
  */
 export type CreateImportInput = {
   title: string
+  /** Cursor: linha (1-based) por onde a importação começa. Default 2. */
+  startRow: number
   schedule: ImportScheduleInput
   config: ImportConfig
 }
@@ -166,6 +175,7 @@ export type ImportDetail = {
   id: number
   title: string
   config: ImportConfig
+  startRow: number
   scheduleMode: ImportScheduleMode
   everyHours: number | null
   weekdays: number[] | null
@@ -175,6 +185,7 @@ export type ImportDetail = {
 export type ImportInitial = {
   importId: number
   title: string
+  startRow: number
   entityCode: EntityCode
   spaTypeId: number | null
   categoryId: number | null

@@ -3,6 +3,27 @@ import type { EntityCode, ResponsibleMatchBy, ScheduleType } from '../../types'
 export const UNSET = '__unset__'
 export const NONE = '__none__'
 
+/** Rótulo curto do tipo do campo Bitrix, exibido no de-para. Texto/número = sem tag. */
+export function fieldTypeLabel(type: string): string | null {
+  switch (type) {
+    case 'enumeration':
+    case 'crm_status':
+      return 'lista'
+    case 'date':
+    case 'datetime':
+      return 'data'
+    case 'boolean':
+      return 'S/N'
+    case 'money':
+    case 'crm_currency':
+      return 'R$'
+    case 'crm_multifield':
+      return 'contato'
+    default:
+      return null
+  }
+}
+
 export type EntityKind = 'crm' | 'spa' | 'task' | 'feed'
 
 export type EntityDef = {
@@ -30,8 +51,8 @@ export const ENTITIES: EntityDef[] = [
 ]
 
 export const FEED_FIELDS: { code: string; label: string }[] = [
-  { code: 'ID', label: 'ID do registro' },
-  { code: 'ENTITY', label: 'Entidade (Deal/Company/Lead/Contact)' },
+  { code: 'ENTITY_ID', label: 'ID do registro' },
+  { code: 'ENTITY_TYPE', label: 'Entidade (Deal/Company/Lead/Contact)' },
   { code: 'COMMENT', label: 'Comentário' },
 ]
 

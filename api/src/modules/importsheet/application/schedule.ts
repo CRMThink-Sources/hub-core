@@ -12,8 +12,14 @@ export type ResolvedSchedule = {
   nextRunAt: Date | null
 }
 
+export type ResolveScheduleOptions = {
+  /** Primeira execução imediata (no create/update); o reagendamento usa o intervalo. */
+  immediate?: boolean
+}
+
 export function resolveSchedule(
   schedule: CreateImportSchedule,
+  options: ResolveScheduleOptions = {},
 ): ResolvedSchedule {
   if (schedule.mode === 'manual') {
     return {
@@ -25,9 +31,10 @@ export function resolveSchedule(
   }
 
   if (schedule.mode === 'hours') {
-    const nextRunAt = new Date(
-      Date.now() + schedule.everyHours * 60 * 60 * 1000,
-    )
+    // immediate → roda no próximo tick (≤60s); senão, daqui a `everyHours`.
+    const nextRunAt = options.immediate
+      ? new Date()
+      : new Date(Date.now() + schedule.everyHours * 60 * 60 * 1000)
     return {
       scheduleMode: 'HOURS',
       everyHours: schedule.everyHours,

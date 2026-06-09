@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { axiosImportsheet } from '@/infra/client/axios-importsheet'
 import type { ComboboxOption } from '@/components/ui/combobox'
 import type {
+  BitrixField,
   ColumnMapping,
   ColumnMappingInput,
   CreateImportInput,
@@ -12,10 +13,28 @@ import type {
   ImportInitial,
   ImportScheduleInput,
   ImportSelection,
+  MappingTarget,
   ResponsibleMatchBy,
   ScheduleType,
 } from '../../types'
-import { FEED_FIELDS, UNSET } from './constants'
+import { FEED_FIELDS, UNSET, fieldTypeLabel } from './constants'
+
+/** entityTypeId fixos do Bitrix p/ contato e empresa. */
+const CONTACT_ENTITY_TYPE_ID = 3
+const COMPANY_ENTITY_TYPE_ID = 4
+
+function buildFieldOptions(fields: BitrixField[] | null): ComboboxOption[] {
+  const base: ComboboxOption[] = [{ value: UNSET, label: 'Selecione…' }]
+  if (!fields) return base
+  return base.concat(
+    fields.map(f => {
+      const req = f.isRequired ? ' *' : ''
+      const typeTag = fieldTypeLabel(f.type)
+      const tag = typeTag ? ` · ${typeTag}` : ''
+      return { value: f.name, label: `${f.title}${req}${tag}` }
+    }),
+  )
+}
 import { deriveEntity } from './derive-entity'
 import { useBitrixCategories } from './data/use-bitrix-categories'
 import { useBitrixFields } from './data/use-bitrix-fields'
@@ -35,12 +54,16 @@ export function useConfigurarImportacao(
 
   // Rastreia o último (entityCode, resolvedEntityTypeId) processado pelo cleanup effect,
   // para distinguir inicialização de mudança feita pelo usuário.
-  const cleanupEntityRef = useRef<{ code: EntityCode | ''; typeId: number | null }>({
+  const cleanupEntityRef = useRef<{
+    code: EntityCode | ''
+    typeId: number | null
+  }>({
     code: '',
     typeId: null,
   })
 
   const [title, setTitle] = useState(spreadsheet.name)
+  const [startRow, setStartRow] = useState(2)
   const [selectedTabId, setSelectedTabId] = useState(tab.sheetId)
   const [entityCode, setEntityCode] = useState<EntityCode | ''>('')
   const [spaTypeId, setSpaTypeId] = useState<number | null>(null)
@@ -91,6 +114,17 @@ export function useConfigurarImportacao(
     loading: fieldsLoading,
     error: fieldsError,
   } = useBitrixFields(open, isTask, resolvedEntityTypeId)
+  // Campos de contato (3) / empresa (4) — só quando o respectivo toggle liga.
+  const { fields: contactFields } = useBitrixFields(
+    open && createContact,
+    false,
+    CONTACT_ENTITY_TYPE_ID,
+  )
+  const { fields: companyFields } = useBitrixFields(
+    open && createCompany,
+    false,
+    COMPANY_ENTITY_TYPE_ID,
+  )
   const {
     header,
     loading: headerLoading,
@@ -110,6 +144,7 @@ export function useConfigurarImportacao(
 
     if (initial) {
       setTitle(initial.title)
+      setStartRow(initial.startRow)
       setEntityCode(initial.entityCode)
       setSpaTypeId(initial.spaTypeId)
       setCategoryId(initial.categoryId)
@@ -126,6 +161,7 @@ export function useConfigurarImportacao(
     }
 
     setTitle(spreadsheet.name)
+    setStartRow(2)
     setEntityCode('')
     setSpaTypeId(null)
     setCategoryId(null)
@@ -161,8 +197,13 @@ export function useConfigurarImportacao(
     cleanupEntityRef.current = next
 
     if (codeChanged && !needsPipeline) setCategoryId(null)
+    // Só zera os campos do destino principal — contato/empresa são outras entidades.
     setMappings(prev =>
-      prev.map(m => ({ ...m, fieldName: null, isIdentifier: false })),
+      prev.map(m =>
+        m.target === 'main'
+          ? { ...m, fieldName: null, isIdentifier: false }
+          : m,
+      ),
     )
   }, [open, entityCode, resolvedEntityTypeId, needsPipeline])
 
@@ -174,36 +215,62 @@ export function useConfigurarImportacao(
     setMappings(
       header.columns.map(c => {
         const saved = applyInitial
-          ? initial!.mappings.find(m => m.columnIndex === c.index)
+          ? initial.mappings.find(m => m.columnIndex === c.index)
           : undefined
         return {
           columnIndex: c.index,
           fieldName: saved?.fieldName ?? null,
           isIdentifier: saved?.isIdentifier ?? false,
+          target: saved?.target ?? 'main',
         }
       }),
     )
-    setExcluded(applyInitial ? (initial!.excludedColumns ?? []) : [])
+    setExcluded(applyInitial ? (initial.excludedColumns ?? []) : [])
     setResponsibleColumnIndex(
-      applyInitial ? (initial!.responsible?.columnIndex ?? null) : null,
+      applyInitial ? (initial.responsible?.columnIndex ?? null) : null,
     )
     if (applyInitial) mappingsSeededRef.current = true
   }, [header, initial])
 
-  const fieldOptions = useMemo<ComboboxOption[]>(() => {
-    const base: ComboboxOption[] = [{ value: UNSET, label: 'Selecione…' }]
-    if (!fields) return base
-    return base.concat(
-      fields.map(f => ({
-        value: f.name,
-        label: f.isRequired ? `${f.title} *` : f.title,
-      })),
-    )
-  }, [fields])
+  const fieldOptions = useMemo<ComboboxOption[]>(
+    () => buildFieldOptions(fields),
+    [fields],
+  )
+  const contactFieldOptions = useMemo<ComboboxOption[]>(
+    () => buildFieldOptions(contactFields),
+    [contactFields],
+  )
+  const companyFieldOptions = useMemo<ComboboxOption[]>(
+    () => buildFieldOptions(companyFields),
+    [companyFields],
+  )
+  const fieldOptionsByTarget = useMemo<Record<MappingTarget, ComboboxOption[]>>(
+    () => ({
+      main: fieldOptions,
+      contact: contactFieldOptions,
+      company: companyFieldOptions,
+    }),
+    [fieldOptions, contactFieldOptions, companyFieldOptions],
+  )
+
+  // Destinos disponíveis no de-para: Principal sempre; Contato/Empresa se ligados.
+  const destinations = useMemo<
+    { value: MappingTarget; label: string }[]
+  >(() => {
+    const list: { value: MappingTarget; label: string }[] = [
+      { value: 'main', label: 'Principal' },
+    ]
+    if (createContact) list.push({ value: 'contact', label: 'Contato' })
+    if (createCompany) list.push({ value: 'company', label: 'Empresa' })
+    return list
+  }, [createContact, createCompany])
 
   function setMapping(columnIndex: number, fieldName: string | null) {
-    setMappings(prev =>
-      prev.map(m => {
+    setMappings(prev => {
+      // Dedup do mesmo campo só dentro do MESMO destino (main/contact/company).
+      const target =
+        prev.find(m => m.columnIndex === columnIndex)?.target ?? 'main'
+      return prev.map(m => {
         if (m.columnIndex === columnIndex) {
           return {
             ...m,
@@ -211,11 +278,26 @@ export function useConfigurarImportacao(
             isIdentifier: fieldName === null ? false : m.isIdentifier,
           }
         }
-        if (fieldName !== null && m.fieldName === fieldName) {
+        if (
+          fieldName !== null &&
+          m.fieldName === fieldName &&
+          m.target === target
+        ) {
           return { ...m, fieldName: null, isIdentifier: false }
         }
         return m
-      }),
+      })
+    })
+  }
+
+  function setMappingTarget(columnIndex: number, target: MappingTarget) {
+    // Troca de destino zera o campo (conjunto de campos é outro).
+    setMappings(prev =>
+      prev.map(m =>
+        m.columnIndex === columnIndex
+          ? { ...m, target, fieldName: null, isIdentifier: false }
+          : m,
+      ),
     )
   }
 
@@ -302,6 +384,7 @@ export function useConfigurarImportacao(
           header?.columns.find(c => c.index === m.columnIndex)?.label ?? '',
         fieldName: m.fieldName as string,
         isIdentifier: m.isIdentifier,
+        target: m.target,
       }))
   }
 
@@ -336,6 +419,7 @@ export function useConfigurarImportacao(
       }
       const payload: CreateImportInput = {
         title: title.trim(),
+        startRow,
         schedule: buildSchedule(),
         config,
       }
@@ -360,6 +444,8 @@ export function useConfigurarImportacao(
 
     title,
     setTitle,
+    startRow,
+    setStartRow,
     selectedTabId,
     setSelectedTabId,
     selectedTab,
@@ -399,6 +485,8 @@ export function useConfigurarImportacao(
     fields,
     fieldsLoading,
     fieldOptions,
+    fieldOptionsByTarget,
+    destinations,
     mappings,
     visibleColumns,
     mappedCount,
@@ -406,6 +494,7 @@ export function useConfigurarImportacao(
 
     excluded,
     setMapping,
+    setMappingTarget,
     toggleIdentifier,
     excludeColumn,
     restoreColumn,

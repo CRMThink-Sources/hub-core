@@ -26,11 +26,16 @@ export type ImportConfigResponsible = {
   matchBy: 'id' | 'email' | 'phone'
 }
 
+/** Entidade-destino do mapeamento de uma coluna. */
+export type MappingTarget = 'main' | 'contact' | 'company'
+
 export type ImportConfigMapping = {
   columnIndex: number
   columnLabel: string
   fieldName: string
   isIdentifier: boolean
+  /** Para qual entidade esse campo vai. Default 'main'. */
+  target: MappingTarget
 }
 
 export type ImportConfig = {
@@ -47,6 +52,7 @@ export type ImportSheetImport = {
   appId: string
   title: string
   config: ImportConfig
+  startRow: number
   scheduleMode: ImportScheduleMode
   everyHours: number | null
   weekdays: number[] | null

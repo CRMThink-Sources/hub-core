@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import type {
   ColumnMapping,
+  MappingTarget,
   SpreadsheetColumn,
   SpreadsheetHeader,
 } from '../../../types'
@@ -30,9 +31,11 @@ type Props = {
   mappedCount: number
   feedMappedCount: number
   mappings: ColumnMapping[]
-  fieldOptions: ComboboxOption[]
+  fieldOptionsByTarget: Record<MappingTarget, ComboboxOption[]>
+  destinations: { value: MappingTarget; label: string }[]
   excluded: number[]
   setMapping: (columnIndex: number, fieldName: string | null) => void
+  setMappingTarget: (columnIndex: number, target: MappingTarget) => void
   toggleIdentifier: (columnIndex: number, isIdentifier: boolean) => void
   excludeColumn: (columnIndex: number) => void
   restoreColumn: (columnIndex: number) => void
@@ -50,9 +53,11 @@ export function DeParaSection({
   mappedCount,
   feedMappedCount,
   mappings,
-  fieldOptions,
+  fieldOptionsByTarget,
+  destinations,
   excluded,
   setMapping,
+  setMappingTarget,
   toggleIdentifier,
   excludeColumn,
   restoreColumn,
@@ -153,8 +158,10 @@ export function DeParaSection({
         <ColumnMappingTable
           visibleColumns={visibleColumns}
           mappings={mappings}
-          fieldOptions={fieldOptions}
+          fieldOptionsByTarget={fieldOptionsByTarget}
+          destinations={destinations}
           setMapping={setMapping}
+          setMappingTarget={setMappingTarget}
           toggleIdentifier={toggleIdentifier}
           excludeColumn={excludeColumn}
         />

@@ -19,6 +19,8 @@ import { CreateImportController } from '../presentation/controllers/create-impor
 import { GetImportController } from '../presentation/controllers/get-import.controller'
 import { UpdateImportController } from '../presentation/controllers/update-import.controller'
 import { DeleteImportController } from '../presentation/controllers/delete-import.controller'
+import { RunImportController } from '../presentation/controllers/run-import.controller'
+import { SetImportEnabledController } from '../presentation/controllers/set-import-enabled.controller'
 
 const makeConnectionService = (): GoogleConnectionService =>
   new GoogleConnectionService(
@@ -75,6 +77,18 @@ export const makeUpdateImportController = (_req: Request): Controller =>
 
 export const makeDeleteImportController = (_req: Request): Controller =>
   new DeleteImportController(
+    new PrismaInstalledAppRepository(),
+    new PrismaImportSheetImportRepository(),
+  )
+
+export const makeRunImportController = (_req: Request): Controller =>
+  new RunImportController(
+    new PrismaInstalledAppRepository(),
+    new PrismaImportSheetImportRepository(),
+  )
+
+export const makeSetImportEnabledController = (_req: Request): Controller =>
+  new SetImportEnabledController(
     new PrismaInstalledAppRepository(),
     new PrismaImportSheetImportRepository(),
   )

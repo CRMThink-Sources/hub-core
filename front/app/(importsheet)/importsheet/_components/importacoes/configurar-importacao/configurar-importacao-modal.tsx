@@ -46,9 +46,7 @@ export function ConfigurarImportacaoModal({
     setLoading(true, s.isEdit ? 'Salvando importação…' : 'Criando importação…')
     try {
       await s.handleSave()
-      toast.success(
-        s.isEdit ? 'Importação atualizada.' : 'Importação criada.',
-      )
+      toast.success(s.isEdit ? 'Importação atualizada.' : 'Importação criada.')
       onSaved()
     } catch {
       toast.error('Erro ao salvar a importação. Tente novamente.')
@@ -81,6 +79,8 @@ export function ConfigurarImportacaoModal({
             spreadsheet={s.spreadsheet}
             title={s.title}
             setTitle={s.setTitle}
+            startRow={s.startRow}
+            setStartRow={s.setStartRow}
             selectedTabId={s.selectedTabId}
             setSelectedTabId={s.setSelectedTabId}
           />
@@ -146,9 +146,11 @@ export function ConfigurarImportacaoModal({
             mappedCount={s.mappedCount}
             feedMappedCount={s.feedMappedCount}
             mappings={s.mappings}
-            fieldOptions={s.fieldOptions}
+            fieldOptionsByTarget={s.fieldOptionsByTarget}
+            destinations={s.destinations}
             excluded={s.excluded}
             setMapping={s.setMapping}
+            setMappingTarget={s.setMappingTarget}
             toggleIdentifier={s.toggleIdentifier}
             excludeColumn={s.excludeColumn}
             restoreColumn={s.restoreColumn}

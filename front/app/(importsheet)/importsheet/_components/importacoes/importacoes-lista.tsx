@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { PencilIcon, Trash2Icon } from 'lucide-react'
+import { PencilIcon, PlayIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import type { ImportListItem } from '../types'
 import { ENTITIES, WEEKDAYS } from './configurar-importacao/constants'
 
@@ -24,11 +25,45 @@ type Props = {
   imports: ImportListItem[]
   onEdit: (id: number) => void
   onDelete: (id: number) => Promise<void>
+  onRun: (id: number) => Promise<void>
+  onToggleEnabled: (id: number, enabled: boolean) => Promise<void>
 }
 
-export function ImportacoesLista({ imports, onEdit, onDelete }: Props) {
+export function ImportacoesLista({
+  imports,
+  onEdit,
+  onDelete,
+  onRun,
+  onToggleEnabled,
+}: Props) {
   const [confirmId, setConfirmId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [runningId, setRunningId] = useState<number | null>(null)
+  const [togglingId, setTogglingId] = useState<number | null>(null)
+
+  async function handleRun(id: number) {
+    setRunningId(id)
+    try {
+      await onRun(id)
+      toast.success('Importação enfileirada para execução.')
+    } catch {
+      toast.error('Falha ao executar a importação. Tente novamente.')
+    } finally {
+      setRunningId(null)
+    }
+  }
+
+  async function handleToggle(id: number, enabled: boolean) {
+    setTogglingId(id)
+    try {
+      await onToggleEnabled(id, enabled)
+      toast.success(enabled ? 'Importação ativada.' : 'Importação pausada.')
+    } catch {
+      toast.error('Falha ao alterar o status. Tente novamente.')
+    } finally {
+      setTogglingId(null)
+    }
+  }
 
   async function handleConfirmDelete() {
     if (confirmId === null) return
@@ -62,15 +97,40 @@ export function ImportacoesLista({ imports, onEdit, onDelete }: Props) {
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            <span
-              className={
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={runningId === item.id || !item.enabled}
+              onClick={() => void handleRun(item.id)}
+              title={
                 item.enabled
-                  ? 'rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600'
-                  : 'rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground'
+                  ? 'Executar agora'
+                  : 'Ative a importação para executar'
               }
             >
-              {item.enabled ? 'Ativa' : 'Pausada'}
-            </span>
+              <PlayIcon />
+              Executar
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={item.enabled}
+                disabled={togglingId === item.id}
+                onCheckedChange={checked => void handleToggle(item.id, checked)}
+                aria-label={
+                  item.enabled ? 'Pausar importação' : 'Ativar importação'
+                }
+              />
+              <span
+                className={
+                  item.enabled
+                    ? 'text-xs font-medium text-emerald-600'
+                    : 'text-xs font-medium text-muted-foreground'
+                }
+              >
+                {item.enabled ? 'Ativa' : 'Pausada'}
+              </span>
+            </div>
 
             {confirmId === item.id ? (
               <div className="flex items-center gap-2">

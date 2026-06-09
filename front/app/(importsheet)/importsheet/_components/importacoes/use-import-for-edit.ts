@@ -16,6 +16,7 @@ function toInitial(detail: ImportDetail): ImportInitial {
   return {
     importId: detail.id,
     title: detail.title,
+    startRow: detail.startRow ?? 2,
     entityCode: config.target.entityCode,
     spaTypeId:
       config.target.entityCode === 'SPA' ? config.target.entityTypeId : null,
@@ -45,7 +46,7 @@ export function useImportForEdit(id: number | null) {
     let active = true
     setLoading(true)
     setError(null)
-    ;(async () => {
+    void (async () => {
       try {
         const { import: detail } = (await axiosImportsheet().get(
           `/importsheet/imports/${id}`,
@@ -56,14 +57,13 @@ export function useImportForEdit(id: number | null) {
         )) as unknown as { spreadsheet: SpreadsheetDetails }
 
         const saved = detail.config.source.tab
-        const tab =
-          spreadsheet.tabs.find(t => t.sheetId === saved.sheetId) ?? {
-            sheetId: saved.sheetId,
-            title: saved.title,
-            index: 0,
-            rowCount: null,
-            columnCount: null,
-          }
+        const tab = spreadsheet.tabs.find(t => t.sheetId === saved.sheetId) ?? {
+          sheetId: saved.sheetId,
+          title: saved.title,
+          index: 0,
+          rowCount: null,
+          columnCount: null,
+        }
 
         if (!active) return
         setData({ selection: { spreadsheet, tab }, initial: toInitial(detail) })

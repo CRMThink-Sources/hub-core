@@ -33,6 +33,7 @@ export class GetImportController extends Controller {
         id: found.id,
         title: found.title,
         config: found.config,
+        startRow: found.startRow,
         scheduleMode: found.scheduleMode,
         everyHours: found.everyHours,
         weekdays: found.weekdays,

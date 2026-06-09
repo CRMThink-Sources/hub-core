@@ -13,6 +13,8 @@ type Props = {
   spreadsheet: SpreadsheetDetails
   title: string
   setTitle: (value: string) => void
+  startRow: number
+  setStartRow: (value: number) => void
   selectedTabId: number
   setSelectedTabId: (value: number) => void
 }
@@ -21,6 +23,8 @@ export function IdentidadeSection({
   spreadsheet,
   title,
   setTitle,
+  startRow,
+  setStartRow,
   selectedTabId,
   setSelectedTabId,
 }: Props) {
@@ -69,6 +73,21 @@ export function IdentidadeSection({
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="import-start-row">Importar a partir da linha</Label>
+        <Input
+          id="import-start-row"
+          type="number"
+          min={2}
+          value={startRow}
+          onChange={e => setStartRow(Math.max(2, Number(e.target.value) || 2))}
+        />
+        <p className="text-xs text-muted-foreground">
+          Linha 1 = cabeçalho. Importa a partir desta linha; reduza para
+          reprocessar.
+        </p>
       </div>
     </div>
   )
