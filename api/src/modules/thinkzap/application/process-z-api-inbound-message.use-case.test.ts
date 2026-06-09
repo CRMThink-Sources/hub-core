@@ -251,6 +251,27 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
     expect(messageRepo.create).not.toHaveBeenCalled()
   })
 
+  it('forwards sticker as Sticker.webp file attachment', async () => {
+    const { useCase } = buildUseCase()
+    await useCase.execute(
+      makeEvent({
+        text: undefined,
+        sticker: {
+          stickerUrl: 'https://cdn.example.com/sticker.webp',
+          mimeType: 'image/webp',
+          width: 0,
+          height: 0,
+        },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.files).toEqual([
+      { url: 'https://cdn.example.com/sticker.webp', name: 'Sticker.webp' },
+    ])
+    expect(payload.MESSAGES[0]!.message.text).toBe('')
+  })
+
   it('builds group reply preserving sender prefix order', async () => {
     const { useCase } = buildUseCase({
       repoFind: vi.fn().mockResolvedValue({

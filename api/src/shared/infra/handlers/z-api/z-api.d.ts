@@ -60,6 +60,12 @@ export type ReceivedMessageEvent = {
     fileName: string
     mimeType: string
   }
+  sticker?: {
+    stickerUrl: string
+    mimeType: string
+    width: number
+    height: number
+  }
   _traceContext: {
     traceId: string
     spanId: string

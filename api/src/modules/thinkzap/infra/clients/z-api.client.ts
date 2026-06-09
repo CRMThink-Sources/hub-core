@@ -566,6 +566,42 @@ export class ZApiClient {
     }
   }
 
+  async editMessage(
+    instanceId: string,
+    instanceToken: string,
+    phone: string,
+    messageId: string,
+    newText: string,
+  ): Promise<void> {
+    try {
+      await axios.post(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/send-message-edit`,
+        { messageId, phone, message: newText },
+        { headers: this.instanceHeaders() },
+      )
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to edit message')
+    }
+  }
+
+  async deleteMessage(
+    instanceId: string,
+    instanceToken: string,
+    phone: string,
+    messageId: string,
+  ): Promise<void> {
+    try {
+      await axios.delete(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/messages/${encodeURIComponent(phone)}/${encodeURIComponent(messageId)}`,
+        { headers: this.instanceHeaders() },
+      )
+    } catch (error) {
+      console.log(error)
+      throw new Error('Failed to delete message')
+    }
+  }
+
   async sendDocument(
     instanceId: string,
     instanceToken: string,

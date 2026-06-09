@@ -6,8 +6,14 @@ import {
 } from '@/queue/thinkzap-inbound.queue'
 import { processZApiReceivedMessage } from './z-api-received-message.processor'
 import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
+import { processBitrixMessageUpdate } from './bitrix-message-update.processor'
+import { processBitrixMessageDelete } from './bitrix-message-delete.processor'
 import { ReceivedMessageEvent } from '@/shared/infra/handlers/z-api/z-api'
-import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
+import {
+  IBX24MessageEvent,
+  IBX24MessageUpdateEvent,
+  IBX24MessageDeleteEvent,
+} from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import { workerLogger } from '@/shared/infra/logger'
 
 async function processJob(data: ThinkzapInboundJob) {
@@ -22,9 +28,19 @@ async function processJob(data: ThinkzapInboundJob) {
       { app: 'thinkzap', source: data.source, type: data.type },
       'Processing inbound job',
     )
-    await processBitrixReceivedMessage(
-      data.body as unknown as IBX24MessageEvent,
-    )
+    if (data.type === 'ONIMCONNECTORMESSAGEUPDATE') {
+      await processBitrixMessageUpdate(
+        data.body as unknown as IBX24MessageUpdateEvent,
+      )
+    } else if (data.type === 'ONIMCONNECTORMESSAGEDELETE') {
+      await processBitrixMessageDelete(
+        data.body as unknown as IBX24MessageDeleteEvent,
+      )
+    } else {
+      await processBitrixReceivedMessage(
+        data.body as unknown as IBX24MessageEvent,
+      )
+    }
   }
 }
 
