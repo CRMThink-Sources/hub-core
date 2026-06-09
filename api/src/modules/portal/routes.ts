@@ -16,6 +16,8 @@ import { createListPlacementsAppController } from './main/factories/create-list-
 import { createListBizprocRobotsAppController } from './main/factories/create-list-bizproc-robots-app-controller'
 import { createRegisterSpaWidgetAppController } from './main/factories/create-register-spa-widget-app-controller'
 import { createDeleteSpaWidgetAppController } from './main/factories/create-delete-spa-widget-app-controller'
+import { createListThinkzapConnectorsAppController } from './main/factories/create-list-thinkzap-connectors-app-controller'
+import { createUpdateThinkzapConnectorEventBindsAppController } from './main/factories/create-update-thinkzap-connector-event-binds-app-controller'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -101,6 +103,18 @@ export const createPortalRoutes = (
     '/apps/:appId/spa-placements',
     portalAuthMiddleware,
     adaptControllerFactory(createDeleteSpaWidgetAppController),
+  )
+  router.get(
+    '/apps/:appId/thinkzap-connectors',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListThinkzapConnectorsAppController),
+  )
+  router.patch(
+    '/apps/:appId/thinkzap-connectors/:connectorId/event-binds',
+    portalAuthMiddleware,
+    adaptControllerFactory(
+      createUpdateThinkzapConnectorEventBindsAppController,
+    ),
   )
 
   return router

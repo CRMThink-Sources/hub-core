@@ -42,6 +42,7 @@ import {
   requireThinkzapAdmin,
   requireThinkzapPermission,
 } from './infra/middleware/thinkzap-access.middleware'
+import { makeUpdateConnectorEventBindsController } from './main/make-update-connector-event-binds-controller'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
@@ -175,6 +176,11 @@ export const createThinkerszapRoutes = (): Router => {
     '/instance/:id',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeUpdateInstanceController),
+  )
+  router.patch(
+    '/instance/:connectorId/event-binds',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeUpdateConnectorEventBindsController),
   )
   router.get(
     '/openchannels',
