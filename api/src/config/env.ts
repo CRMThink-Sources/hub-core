@@ -16,7 +16,9 @@ export const env = {
     process.env.API_URL && process.env.API_URL !== 'undefined'
       ? process.env.API_URL
       : 'https://homolog-hubthink.crmthink.com.br/api',
+  frontUrl: process.env.FRONT_URL ?? '',
   crmthinkWebhookUrl: process.env.CRMTHINK_WEBHOOK_URL ?? '',
+  tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY ?? '',
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY ?? '',
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
@@ -27,6 +29,20 @@ export const env = {
     partnerToken: process.env.Z_API_PARTNER_TOKEN ?? '',
     clientToken: process.env.Z_API_CLIENT_TOKEN ?? '',
     callbackUrl: process.env.Z_API_CALLBACK_URL ?? '',
+  },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID ?? '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+    authUrl:
+      process.env.GOOGLE_AUTH_URL ??
+      'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl:
+      process.env.GOOGLE_TOKEN_URL ?? 'https://oauth2.googleapis.com/token',
+    userInfoUrl:
+      process.env.GOOGLE_USERINFO_URL ??
+      'https://www.googleapis.com/oauth2/v3/userinfo',
+    sheetsApiUrl:
+      process.env.GOOGLE_SHEETS_API_URL ?? 'https://sheets.googleapis.com/v4',
   },
   contaAzul: {
     ClientId: process.env.CONTA_AZUL_CLIENT_ID ?? '',
@@ -70,6 +86,7 @@ export const env = {
   appCodes: {
     thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',
     thinkanalise: process.env.THINKANALISE_APP_CODE ?? 'crmthink.thinkanalise',
+    importsheet: process.env.IMPORTSHEET_APP_CODE ?? 'crmthink.importsheet',
   },
   thinkzapMockZApiProvisioning:
     process.env.THINKZAP_MOCK_ZAPI_PROVISIONING === 'true' ||
