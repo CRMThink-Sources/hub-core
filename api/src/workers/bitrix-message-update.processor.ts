@@ -40,7 +40,7 @@ export async function processBitrixMessageUpdate(
     return
   }
 
-  const message = event.data.MESSAGES[0]
+  const message = event.data.MESSAGES[0]!
   const bitrixMessageId = message.im.message_id
   const newText = message.message.text
 

@@ -26,7 +26,7 @@ export type CreateThinkzapMessageInput = {
   zApiMessageId?: string | null
   bitrixMessageId?: string | null
   bitrixChatId?: string | null
-  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT'
+  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'STICKER'
   text?: string | null
   fileName?: string | null
   chatId?: string | null
