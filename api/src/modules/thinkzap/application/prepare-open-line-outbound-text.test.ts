@@ -20,7 +20,11 @@ describe('prepareOpenLineOutboundText', () => {
   it('returns prefixed text when setting is enabled', async () => {
     const result = await prepareOpenLineOutboundText({
       text: 'Olá',
-      settings: { prefixOperatorNameEnabled: true, messageUpdateEventEnabled: false, messageDeleteEventEnabled: false },
+      settings: {
+        prefixOperatorNameEnabled: true,
+        messageUpdateEventEnabled: false,
+        messageDeleteEventEnabled: false,
+      },
       operatorUserId: '42',
       appId: 'app-1',
       getBitrixUserDisplayName: {
