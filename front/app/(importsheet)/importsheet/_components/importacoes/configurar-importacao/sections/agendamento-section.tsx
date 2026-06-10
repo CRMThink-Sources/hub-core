@@ -95,7 +95,7 @@ export function AgendamentoSection({
                     type="button"
                     disabled={scheduleManual}
                     onClick={() => toggleWeekday(d.value)}
-                    className={`h-9 w-11 cursor-pointer rounded-md border text-xs font-medium transition-colors ${
+                    className={`h-9 w-11 cursor-pointer rounded-md border text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                       on
                         ? 'border-primary bg-primary text-primary-foreground'
                         : 'border-border text-foreground hover:bg-accent'

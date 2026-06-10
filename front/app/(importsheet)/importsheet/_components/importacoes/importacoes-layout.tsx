@@ -75,7 +75,7 @@ function ImportacoesContent() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 pt-20">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-8 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between rounded-xl border border-border bg-card p-6">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">

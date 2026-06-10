@@ -1,5 +1,5 @@
-import ImportacoesLayout from './_components/importacoes/importacoes-layout'
+import { redirect } from 'next/navigation'
 
 export default function Home() {
-  return <ImportacoesLayout />
+  redirect('/importsheet/importacoes')
 }

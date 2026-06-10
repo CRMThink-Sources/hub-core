@@ -160,7 +160,7 @@
   --card-foreground: oklch(0.205 0.02 257);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.205 0.02 257);
-  --primary: oklch(0.37 0.094 257); /* #223f6e — azul-marinho da marca */
+  --primary: oklch(0.47 0.14 258); /* azul-marinho clareado da marca */
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0.008 257);
   --secondary-foreground: oklch(0.37 0.094 257);

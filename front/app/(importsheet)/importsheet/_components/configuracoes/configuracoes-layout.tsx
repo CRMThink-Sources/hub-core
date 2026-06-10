@@ -95,7 +95,7 @@ export default function ConfiguracoesLayout() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 pt-20">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-8 sm:px-6 lg:px-8">
       {/* header */}
       <div className="rounded-xl border border-border bg-card p-6">
         <h1 className="text-xl font-bold tracking-tight text-foreground">

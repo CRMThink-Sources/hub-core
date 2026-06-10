@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { PencilIcon, PlayIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
+import { isAxiosError } from 'axios'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import type { ImportListItem } from '../types'
@@ -46,8 +47,14 @@ export function ImportacoesLista({
     try {
       await onRun(id)
       toast.success('Importação enfileirada para execução.')
-    } catch {
-      toast.error('Falha ao executar a importação. Tente novamente.')
+    } catch (error) {
+      // Backend pode recusar (ex.: 409 importação pausada) com mensagem útil.
+      const serverMessage = isAxiosError(error)
+        ? (error.response?.data?.result?.error as string | undefined)
+        : undefined
+      toast.error(
+        serverMessage ?? 'Falha ao executar a importação. Tente novamente.',
+      )
     } finally {
       setRunningId(null)
     }
