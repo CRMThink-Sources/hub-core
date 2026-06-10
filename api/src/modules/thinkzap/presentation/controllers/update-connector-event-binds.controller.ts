@@ -15,7 +15,10 @@ export class UpdateConnectorEventBindsController extends Controller {
   }
 
   async perform(req: Request, res: Response): Promise<httpResponse> {
-    const { connectorId } = req.params
+    const connectorId = req.params['connectorId']
+    if (typeof connectorId !== 'string') {
+      return this.badRequest(new Error('connectorId is required'))
+    }
 
     const parsed = bodySchema.safeParse(req.body)
     if (!parsed.success) {
