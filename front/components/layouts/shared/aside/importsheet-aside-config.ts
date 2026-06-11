@@ -1,6 +1,7 @@
 export const IMPORTSHEET_ASIDE_CONFIG = {
   logo: '/images/importsheet/logo.png',
-  brandIcon: '/images/importsheet/brand-icon.png',
+  brandIcon:
+    'https://www.crmthink.com.br/wp-content/uploads/2020/06/favicon.png',
   brandName: 'CRMThink',
   links: [
     {
