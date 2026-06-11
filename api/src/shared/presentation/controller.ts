@@ -22,6 +22,10 @@ export abstract class Controller {
     return { status: 404, result: { error: error.message } }
   }
 
+  protected conflict(error: Error): httpResponse {
+    return { status: 409, result: { error: error.message } }
+  }
+
   protected gatewayTimeout(error: Error): httpResponse {
     return { status: 504, result: { error: error.message } }
   }

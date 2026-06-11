@@ -18,10 +18,12 @@ import {
 import { isRowEmpty, mapRow } from './import-row-mapper'
 import { BitrixImportWriter, type RowResult } from './bitrix-import-writer'
 import { BitrixThrottleError, type ThrottleSignal } from './bitrix-throttle'
-import { withLock } from '../infra/redis-lock'
+import { withRenewingLock } from '../infra/redis-lock'
+import { redisConnection } from '@/queue/redis-connection'
+import { env } from '@/config/env'
 
-/** Linhas por página (≤50 = limite de comandos do batch Bitrix). */
-const PAGE_SIZE = 50
+// Linhas por página (≤50 = teto do batch Bitrix). Default 20 via env.
+const PAGE_SIZE = env.importsheet.pageSize
 /** entityTypeId fixos do Bitrix p/ contato e empresa. */
 const CONTACT_ENTITY_TYPE_ID = 3
 const COMPANY_ENTITY_TYPE_ID = 4
@@ -29,6 +31,17 @@ const COMPANY_ENTITY_TYPE_ID = 4
 const PAUSE_RESCHEDULE_MS = 5 * 60 * 1000
 /** TTL do lock de execução por importação — uma página é rápida. */
 const RUN_LOCK_TTL_MS = 5 * 60 * 1000
+// Cache do título da aba: corta 1 `getSpreadsheet`/página. Invalida no rename.
+const TAB_TITLE_TTL_SECONDS = 10 * 60
+// Marcador de página escrita (idempotência): sobrevive a retry/restart, expira em 24h.
+const PAGE_MARKER_TTL_SECONDS = 24 * 60 * 60
+
+/** Estado de uma página já escrita, pra avançar o cursor sem reescrever. */
+type WrittenPageMarker = {
+  nextRow: number
+  hasMore: boolean
+  firstError: string | null
+}
 
 export type MakeBitrixClient = (appId: string) => Promise<BitrixClient>
 
@@ -63,8 +76,10 @@ export class RunImportService {
     importId: number,
     continuation = false,
   ): Promise<ImportRunOutcome> {
-    // Lock por importação: poller + run manual não rodam a mesma 2x ao mesmo tempo.
-    const outcome = await withLock(
+    // Lock por importação: poller + run manual não rodam a mesma 2x ao mesmo
+    // tempo. Auto-renova o TTL enquanto roda → página lenta não libera o lock no
+    // meio (evita 2º runner concorrente).
+    const outcome = await withRenewingLock(
       `importsheet:run:${importId}`,
       RUN_LOCK_TTL_MS,
       () => this.guardedRun(importId, continuation),
@@ -114,12 +129,18 @@ export class RunImportService {
       // Relê o cursor: cada página persiste startRow, então o erro não reverte
       // o progresso já feito (perderia/reimportaria páginas).
       const current = await this.repository.findByIdAny(imp.id)
+      // Erro em MANUAL não reagenda (manual = só sob demanda); agendado tenta
+      // de novo em PAUSE_RESCHEDULE_MS pra auto-recuperar de erro transitório.
+      const retryAt =
+        imp.scheduleMode === 'MANUAL'
+          ? null
+          : new Date(Date.now() + PAUSE_RESCHEDULE_MS)
       await this.repository.markRunResult(imp.id, {
         startRow: current?.startRow ?? imp.startRow,
         lastRunAt: new Date(),
         lastRunStatus: 'error',
         lastError: error instanceof Error ? error.message : 'Unknown error',
-        nextRunAt: new Date(Date.now() + PAUSE_RESCHEDULE_MS),
+        nextRunAt: retryAt,
       })
       return { status: 'done' }
     }
@@ -137,6 +158,11 @@ export class RunImportService {
     const { config } = imp
     const { entityCode, entityTypeId, categoryId } = config.target
 
+    // Idempotência: página já escrita num retry/crash anterior → só avança o
+    // cursor, sem reescrever (senão linhas add-only duplicariam).
+    const replay = await this.peekPageMarker(imp.id, imp.startRow)
+    if (replay) return this.replayPage(imp, replay)
+
     // Agrupa o de-para por entidade-destino.
     const mainMappings = config.mappings.filter(
       m => m.target !== 'contact' && m.target !== 'company',
@@ -145,12 +171,12 @@ export class RunImportService {
     const companyMappings = config.mappings.filter(m => m.target === 'company')
 
     const bitrix = await this.makeBitrix(imp.appId)
-    const meta = await this.loadMeta(bitrix, entityCode, entityTypeId)
+    const meta = await this.loadMeta(bitrix, imp.appId, entityCode, entityTypeId)
     const contactMeta = contactMappings.length
-      ? await loadCrmFieldMeta(bitrix, CONTACT_ENTITY_TYPE_ID)
+      ? await loadCrmFieldMeta(bitrix, imp.appId, CONTACT_ENTITY_TYPE_ID)
       : null
     const companyMeta = companyMappings.length
-      ? await loadCrmFieldMeta(bitrix, COMPANY_ENTITY_TYPE_ID)
+      ? await loadCrmFieldMeta(bitrix, imp.appId, COMPANY_ENTITY_TYPE_ID)
       : null
     const writer = new BitrixImportWriter(bitrix)
 
@@ -190,21 +216,22 @@ export class RunImportService {
         ),
     )
 
-    // Planilha inacessível (404/403/aba inválida).
+    // Planilha inacessível (404/403/aba inválida). Pode ser rename → invalida cache.
     if (rows === null) {
+      await this.invalidateTabTitleCache(imp.id)
       throw new Error('Planilha ou aba inacessível')
     }
 
-    // Para na 1ª linha vazia = fim dos dados (presença = entidade principal).
-    const dataRows: { row: number; values: string[] }[] = []
-    for (const r of rows) {
-      if (isRowEmpty(r.values, mainMappings)) break
-      dataRows.push(r)
-    }
-    const lastDataRow = dataRows[dataRows.length - 1]
+    // A API omite as linhas vazias do FIM do range, mas devolve as do MEIO
+    // como []. Pula as vazias (não escreve) e detecta o fim por página
+    // incompleta — não pela 1ª vazia, que truncaria o import num gap interno.
+    // Limitação aceita: gap contíguo ≥ PAGE_SIZE encerra (indistinguível do fim).
+    const dataRows = rows.filter(r => !isRowEmpty(r.values, mainMappings))
+    const hasMore = rows.length >= PAGE_SIZE
+    const nextRow = fromRow + rows.length
 
-    // Sem dados nesta página = importação terminou.
-    if (!lastDataRow) return this.finishImport(imp, fromRow, firstError)
+    // Sem dados úteis nesta página = importação terminou.
+    if (dataRows.length === 0) return this.finishImport(imp, nextRow, firstError)
 
     // 1) Contato e empresa primeiro → ids por linha pra vincular no principal.
     const contactIds = contactMeta
@@ -232,12 +259,15 @@ export class RunImportService {
         )
       : new Map<number, string>()
 
-    // 2) Entidade principal com contactId/companyId injetados.
+    // 2) Entidade principal com contactId/companyId injetados. COMPANY só aceita
+    // `contactIds[]` (singular `contactId` seria ignorado calado).
+    const contactLinkPath =
+      entityCode === 'COMPANY' ? ['contactIds', '0'] : ['contactId']
     const mainMapped = dataRows.map(r => {
       const m = mapRow(r.values, mainMappings, meta.metas, meta.statusLists)
       const contactId = contactIds.get(r.row)
       const companyId = companyIds.get(r.row)
-      if (contactId) m.params.push({ path: ['contactId'], value: contactId })
+      if (contactId) m.params.push({ path: contactLinkPath, value: contactId })
       if (companyId) m.params.push({ path: ['companyId'], value: companyId })
       return { row: r.row, ...m }
     })
@@ -251,8 +281,8 @@ export class RunImportService {
     accountError(write.results)
     accountThrottle(write.throttle)
 
-    const nextRow = lastDataRow.row + 1
-    const hasMore = dataRows.length >= PAGE_SIZE
+    // Marcador ANTES do cursor: crash/retry daqui pra frente vira replay.
+    await this.setPageMarker(imp.id, fromRow, { nextRow, hasMore, firstError })
 
     // Página incompleta = última → finaliza a importação.
     if (!hasMore) return this.finishImport(imp, nextRow, firstError)
@@ -265,6 +295,7 @@ export class RunImportService {
       lastError: firstError,
       nextRunAt: imp.nextRunAt,
     })
+    await this.clearPageMarker(imp.id, fromRow)
 
     apiLogger.info(
       {
@@ -293,7 +324,27 @@ export class RunImportService {
    * O `sheetId` é imutável: resolve o nome atual por ele. Persiste o novo título
    * pra config/UI ficarem coerentes. Aba inexistente (excluída) → erro claro.
    */
+  private tabTitleCacheKey(importId: number): string {
+    return `importsheet:tabtitle:${importId}`
+  }
+
+  private async invalidateTabTitleCache(importId: number): Promise<void> {
+    try {
+      await redisConnection.del(this.tabTitleCacheKey(importId))
+    } catch {
+      // Falha de cache não pode quebrar o run — re-resolve na próxima página.
+    }
+  }
+
   private async resolveTabTitle(imp: ImportSheetImport): Promise<string> {
+    // Cache evita 1 `getSpreadsheet`/página; rename invalida no path getRows null.
+    try {
+      const cached = await redisConnection.get(this.tabTitleCacheKey(imp.id))
+      if (cached) return cached
+    } catch {
+      // Miss → resolve normal.
+    }
+
     const { source } = imp.config
     const details = await runWithGoogleTokenRetry(
       this.connection,
@@ -320,6 +371,19 @@ export class RunImportService {
         'Tab renamed — updating stored title',
       )
       await this.repository.updateTabTitle(imp.id, tab.title)
+      // Título mudou → derruba qualquer cache obsoleto antes de regravar.
+      await this.invalidateTabTitleCache(imp.id)
+    }
+
+    try {
+      await redisConnection.set(
+        this.tabTitleCacheKey(imp.id),
+        tab.title,
+        'EX',
+        TAB_TITLE_TTL_SECONDS,
+      )
+    } catch {
+      // Falha de cache não quebra o run.
     }
     return tab.title
   }
@@ -341,11 +405,86 @@ export class RunImportService {
       nextRunAt,
     })
 
+    await this.clearPageMarker(imp.id, imp.startRow)
+
     apiLogger.info(
       { app: 'importsheet', importId: imp.id, status, startRow: finalRow },
       'Import run finished',
     )
     return { status: 'done' }
+  }
+
+  private pageMarkerKey(importId: number, fromRow: number): string {
+    return `importsheet:page:${importId}:${fromRow}`
+  }
+
+  private async peekPageMarker(
+    importId: number,
+    fromRow: number,
+  ): Promise<WrittenPageMarker | null> {
+    try {
+      const raw = await redisConnection.get(this.pageMarkerKey(importId, fromRow))
+      return raw ? (JSON.parse(raw) as WrittenPageMarker) : null
+    } catch {
+      // Cache ilegível → fluxo normal (reescreve), nunca pior que o antigo.
+      return null
+    }
+  }
+
+  private async setPageMarker(
+    importId: number,
+    fromRow: number,
+    marker: WrittenPageMarker,
+  ): Promise<void> {
+    try {
+      await redisConnection.set(
+        this.pageMarkerKey(importId, fromRow),
+        JSON.stringify(marker),
+        'EX',
+        PAGE_MARKER_TTL_SECONDS,
+      )
+    } catch (error) {
+      // Falha aqui só reabre a janela de duplicata em crash — não quebra o run.
+      apiLogger.warn(
+        { app: 'importsheet', importId, fromRow, error },
+        'Failed to persist written-page marker (idempotency degraded)',
+      )
+    }
+  }
+
+  private async clearPageMarker(
+    importId: number,
+    fromRow: number,
+  ): Promise<void> {
+    try {
+      await redisConnection.del(this.pageMarkerKey(importId, fromRow))
+    } catch {
+      // Marcador órfão expira pelo TTL; key do próximo cursor é diferente.
+    }
+  }
+
+  // Avança o cursor de uma página já escrita, sem reler/reescrever. Limpa o
+  // marcador só após persistir o cursor (persist falho → repete no próximo retry).
+  private async replayPage(
+    imp: ImportSheetImport,
+    marker: WrittenPageMarker,
+  ): Promise<ImportRunOutcome> {
+    apiLogger.warn(
+      { app: 'importsheet', importId: imp.id, fromRow: imp.startRow },
+      'Page already written in a prior attempt — advancing cursor (idempotency)',
+    )
+    if (!marker.hasMore) {
+      return this.finishImport(imp, marker.nextRow, marker.firstError)
+    }
+    await this.repository.markRunResult(imp.id, {
+      startRow: marker.nextRow,
+      lastRunAt: new Date(),
+      lastRunStatus: 'running',
+      lastError: marker.firstError,
+      nextRunAt: imp.nextRunAt,
+    })
+    await this.clearPageMarker(imp.id, imp.startRow)
+    return { status: 'continue' }
   }
 
   /**
@@ -383,12 +522,13 @@ export class RunImportService {
 
   private async loadMeta(
     bitrix: BitrixClient,
+    appId: string,
     entityCode: ImportSheetImport['config']['target']['entityCode'],
     entityTypeId: number | null,
   ): Promise<FieldMetaResult> {
-    if (entityCode === 'TASK') return loadTaskFieldMeta(bitrix)
+    if (entityCode === 'TASK') return loadTaskFieldMeta(bitrix, appId)
     if (entityCode === 'FEED') return { metas: new Map(), statusLists: {} }
-    return loadCrmFieldMeta(bitrix, entityTypeId ?? 0)
+    return loadCrmFieldMeta(bitrix, appId, entityTypeId ?? 0)
   }
 
   /** Reconstrói o agendamento a partir das colunas pra recalcular nextRunAt. */

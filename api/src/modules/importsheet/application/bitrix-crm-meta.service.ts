@@ -21,6 +21,18 @@ export type BitrixField = {
   isReadOnly: boolean
 }
 
+// PHONE/EMAIL são multifields (multivalor) suportados por LEAD(1)/CONTACT(3)/
+// COMPANY(4). crm.item.fields não os lista; o worker escreve via code 'phone'/'email'.
+const MULTIFIELD_ENTITY_TYPE_IDS = new Set([1, 3, 4])
+function multifieldsFor(entityTypeId: number): BitrixField[] {
+  if (!MULTIFIELD_ENTITY_TYPE_IDS.has(entityTypeId)) return []
+  const base = { type: 'crm_multifield', isRequired: false, isReadOnly: false }
+  return [
+    { name: 'PHONE', title: 'Telefone', ...base },
+    { name: 'EMAIL', title: 'E-mail', ...base },
+  ]
+}
+
 // Entidades CRM base (entityTypeId fixos do Bitrix24).
 const CORE_ENTITIES: BitrixEntity[] = [
   { entityTypeId: 1, code: 'LEAD', label: 'Lead' },
@@ -119,18 +131,24 @@ export class BitrixCrmMetaService {
       { entityTypeId },
     )
     const fields = data.result?.fields ?? {}
-    return Object.entries(fields)
-      .map<BitrixField>(([name, def]) => ({
-        name,
-        title: def.title ?? name,
-        type: def.type ?? 'string',
-        isRequired: def.isRequired ?? false,
-        isReadOnly: def.isReadOnly ?? false,
-      }))
-      .sort((a, b) => {
-        if (a.isRequired !== b.isRequired) return a.isRequired ? -1 : 1
-        return a.title.localeCompare(b.title)
-      })
+    const mapped = Object.entries(fields).map<BitrixField>(([name, def]) => ({
+      name,
+      title: def.title ?? name,
+      type: def.type ?? 'string',
+      isRequired: def.isRequired ?? false,
+      isReadOnly: def.isReadOnly ?? false,
+    }))
+
+    // Injeta PHONE/EMAIL (ver multifieldsFor); dedup caso a API passe a retorná-los.
+    const present = new Set(mapped.map(f => f.name))
+    for (const mf of multifieldsFor(entityTypeId)) {
+      if (!present.has(mf.name)) mapped.push(mf)
+    }
+
+    return mapped.sort((a, b) => {
+      if (a.isRequired !== b.isRequired) return a.isRequired ? -1 : 1
+      return a.title.localeCompare(b.title)
+    })
   }
 
   async listTaskFields(): Promise<BitrixField[]> {

@@ -15,6 +15,10 @@ export type CreateImportSheetImportParams = {
   nextRunAt: Date | null
 }
 
+// `startRow` é editável: o campo "Importar a partir da linha" do front pré-carrega
+// o valor atual (cursor) e reenvia. Regravar igual = no-op; o usuário só muda quando
+// quer reposicionar a linha inicial. (Editar durante um run ativo pode rebobinar o
+// cursor para o valor carregado no form — aceito; a edição normal é em import pausado.)
 export type UpdateImportSheetImportParams = Omit<
   CreateImportSheetImportParams,
   'appId'
@@ -37,6 +41,8 @@ export interface ImportSheetImportRepository {
   findByIdAny(id: number): Promise<ImportSheetImport | null>
   /** Importações agendadas vencidas: enabled && nextRunAt != null && nextRunAt <= now. */
   findDue(now: Date): Promise<ImportSheetImport[]>
+  /** Imports presas em `running` com `lastRunAt < olderThan` — órfãs de crash. */
+  findStaleRunning(olderThan: Date): Promise<ImportSheetImport[]>
   update(
     id: number,
     appId: string,

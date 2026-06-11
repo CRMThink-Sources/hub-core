@@ -63,6 +63,16 @@ export class PrismaImportSheetImportRepository implements ImportSheetImportRepos
     return records.map(record => this.toDomain(record))
   }
 
+  async findStaleRunning(olderThan: Date): Promise<ImportSheetImport[]> {
+    const records = await prisma.importSheetImport.findMany({
+      where: {
+        lastRunStatus: 'running',
+        lastRunAt: { lt: olderThan },
+      },
+    })
+    return records.map(record => this.toDomain(record))
+  }
+
   async update(
     id: number,
     appId: string,
@@ -79,8 +89,8 @@ export class PrismaImportSheetImportRepository implements ImportSheetImportRepos
       where: { id },
       data: {
         title: params.title,
-        config: params.config as object,
         startRow: params.startRow,
+        config: params.config as object,
         scheduleMode: params.scheduleMode,
         everyHours: params.everyHours,
         weekdays: params.weekdays ?? Prisma.JsonNull,

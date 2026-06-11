@@ -30,6 +30,13 @@ export class RunImportController extends Controller {
     const found = await this.importRepository.findById(id, app.id)
     if (!found) return this.notFound(new Error('Import not found'))
 
+    // Pausada: o worker faria `skipped` calado → barra aqui (UX não mente).
+    if (!found.enabled) {
+      return this.conflict(
+        new Error('Importação pausada — ative antes de rodar manualmente'),
+      )
+    }
+
     await enqueueImportRun({ importId: id, trigger: 'manual' })
 
     return this.ok({ enqueued: true })

@@ -6,8 +6,8 @@ export type UpdateImportServiceInput = {
   id: number
   appId: string
   title: string
-  config: ImportConfig
   startRow: number
+  config: ImportConfig
   schedule: CreateImportSchedule
 }
 
@@ -17,8 +17,8 @@ export class UpdateImportService {
   execute(input: UpdateImportServiceInput): Promise<ImportSheetImport | null> {
     return this.repository.update(input.id, input.appId, {
       title: input.title,
-      config: input.config,
       startRow: input.startRow,
+      config: input.config,
       ...resolveSchedule(input.schedule, { immediate: true }),
     })
   }
