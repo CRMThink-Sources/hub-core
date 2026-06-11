@@ -16,6 +16,7 @@ import {
   type FieldMetaResult,
 } from './bitrix-field-meta'
 import { isRowEmpty, mapRow } from './import-row-mapper'
+import { ResponsibleResolver } from './responsible-resolver'
 import { BitrixImportWriter, type RowResult } from './bitrix-import-writer'
 import { BitrixThrottleError, type ThrottleSignal } from './bitrix-throttle'
 import { withRenewingLock } from '../infra/redis-lock'
@@ -263,14 +264,27 @@ export class RunImportService {
     // `contactIds[]` (singular `contactId` seria ignorado calado).
     const contactLinkPath =
       entityCode === 'COMPANY' ? ['contactIds', '0'] : ['contactId']
-    const mainMapped = dataRows.map(r => {
-      const m = mapRow(r.values, mainMappings, meta.metas, meta.statusLists)
-      const contactId = contactIds.get(r.row)
-      const companyId = companyIds.get(r.row)
-      if (contactId) m.params.push({ path: contactLinkPath, value: contactId })
-      if (companyId) m.params.push({ path: ['companyId'], value: companyId })
-      return { row: r.row, ...m }
-    })
+    const responsibleResolver = new ResponsibleResolver(bitrix)
+    const responsiblePath =
+      entityCode === 'TASK' ? ['RESPONSIBLE_ID'] : ['assignedById']
+    const mainMapped = await Promise.all(
+      dataRows.map(async r => {
+        const m = mapRow(r.values, mainMappings, meta.metas, meta.statusLists)
+        const contactId = contactIds.get(r.row)
+        const companyId = companyIds.get(r.row)
+        if (contactId) m.params.push({ path: contactLinkPath, value: contactId })
+        if (companyId) m.params.push({ path: ['companyId'], value: companyId })
+        if (config.responsible) {
+          const raw = r.values[config.responsible.columnIndex] ?? ''
+          const userId = await responsibleResolver.resolve(
+            config.responsible.matchBy,
+            raw,
+          )
+          if (userId) m.params.push({ path: responsiblePath, value: userId })
+        }
+        return { row: r.row, ...m }
+      }),
+    )
 
     const write = await writer.writePage(
       entityCode,
