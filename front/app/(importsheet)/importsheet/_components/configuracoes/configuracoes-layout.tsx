@@ -73,6 +73,9 @@ export default function ConfiguracoesLayout() {
         if (!win || win.closed) {
           if (popupTimerRef.current) clearInterval(popupTimerRef.current)
           setConnecting(false)
+          // Fallback caso o postMessage do popup não chegue: o fechamento ainda
+          // atualiza a conexão sem reload manual.
+          void refreshSessionRef.current()
         }
       }, 500)
     } catch {

@@ -112,7 +112,10 @@ export function ColumnMappingTable({
                 </Select>
               )}
 
+              {/* key={target} remonta ao trocar destino: o Combobox não reflete a
+                  troca de `items` na mesma instância. */}
               <Combobox
+                key={target}
                 items={fieldOptions}
                 value={selected}
                 onValueChange={(value: ComboboxOption | null) =>
@@ -126,7 +129,12 @@ export function ColumnMappingTable({
                 <ComboboxContent searchPlaceholder="Buscar campo…">
                   {(item: ComboboxOption) => (
                     <ComboboxItem key={item.value} value={item}>
-                      {item.label}
+                      <span className="truncate">{item.label}</span>
+                      {item.description && (
+                        <span className="truncate font-mono text-xs text-muted-foreground">
+                          {item.description}
+                        </span>
+                      )}
                     </ComboboxItem>
                   )}
                 </ComboboxContent>

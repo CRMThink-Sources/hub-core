@@ -31,7 +31,12 @@ function buildFieldOptions(fields: BitrixField[] | null): ComboboxOption[] {
       const req = f.isRequired ? ' *' : ''
       const typeTag = fieldTypeLabel(f.type)
       const tag = typeTag ? ` · ${typeTag}` : ''
-      return { value: f.name, label: `${f.title}${req}${tag}` }
+      // subtítulo = nome técnico + type (ex. "UF_CRM_123 · enumeration").
+      return {
+        value: f.name,
+        label: `${f.title}${req}${tag}`,
+        description: `${f.name} · ${f.type}`,
+      }
     }),
   )
 }
@@ -197,13 +202,17 @@ export function useConfigurarImportacao(
     cleanupEntityRef.current = next
 
     if (codeChanged && !needsPipeline) setCategoryId(null)
-    // Só zera os campos do destino principal — contato/empresa são outras entidades.
+    // Troca de entidade reseta o de-para: desliga destinos contato/empresa e zera os
+    // mappings (campo, identificador e destino → main) — senão fica stale da anterior.
+    setCreateContact(false)
+    setCreateCompany(false)
     setMappings(prev =>
-      prev.map(m =>
-        m.target === 'main'
-          ? { ...m, fieldName: null, isIdentifier: false }
-          : m,
-      ),
+      prev.map(m => ({
+        ...m,
+        fieldName: null,
+        isIdentifier: false,
+        target: 'main' as MappingTarget,
+      })),
     )
   }, [open, entityCode, resolvedEntityTypeId, needsPipeline])
 
