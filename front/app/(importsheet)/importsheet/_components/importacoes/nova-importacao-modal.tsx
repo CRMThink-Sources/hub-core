@@ -116,7 +116,14 @@ export function NovaImportacaoModal({ open, onClose, onSelect }: Props) {
               <Input
                 id="spreadsheet-id"
                 value={rawInput}
-                onChange={e => setRawInput(e.target.value)}
+                onChange={e => {
+                  setRawInput(e.target.value)
+                  // Invalida o resultado anterior — evita manter o "OK" de outra planilha.
+                  setSheet(null)
+                  setSelectedTabId(null)
+                  setError(null)
+                  setAuthError(false)
+                }}
                 onKeyDown={e => {
                   if (e.key === 'Enter') void handleValidate()
                 }}
@@ -133,7 +140,10 @@ export function NovaImportacaoModal({ open, onClose, onSelect }: Props) {
             </div>
             <p className="text-xs text-muted-foreground">
               O ID fica na URL: docs.google.com/spreadsheets/d/
-              <span className="font-mono">ID</span>/edit
+              <span className="rounded bg-primary/10 px-1 font-mono font-bold text-primary">
+                ID
+              </span>
+              /edit
             </p>
           </div>
 
