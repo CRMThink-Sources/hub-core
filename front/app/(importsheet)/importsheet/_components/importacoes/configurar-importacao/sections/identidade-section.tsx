@@ -42,7 +42,9 @@ export function IdentidadeSection({
         />
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="import-spreadsheet-id">{t('identidade.idPlanilha')}</Label>
+        <Label htmlFor="import-spreadsheet-id">
+          {t('identidade.idPlanilha')}
+        </Label>
         <Input
           id="import-spreadsheet-id"
           value={spreadsheet.id}

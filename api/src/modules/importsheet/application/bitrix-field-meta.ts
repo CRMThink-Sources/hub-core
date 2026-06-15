@@ -45,7 +45,12 @@ async function cached(
   }
   const fresh = await loader()
   try {
-    await redisConnection.set(key, serialize(fresh), 'EX', FIELD_META_TTL_SECONDS)
+    await redisConnection.set(
+      key,
+      serialize(fresh),
+      'EX',
+      FIELD_META_TTL_SECONDS,
+    )
   } catch (error) {
     apiLogger.warn(
       { app: 'importsheet', key, error },
@@ -144,15 +149,18 @@ export async function loadCrmFieldMeta(
   appId: string,
   entityTypeId: number,
 ): Promise<FieldMetaResult> {
-  return cached(`importsheet:fieldmeta:${appId}:crm:${entityTypeId}`, async () => {
-    const res = await bitrix.callMethod<FieldsResponse>('crm.item.fields', {
-      entityTypeId,
-    })
-    const metas = toMetas(res.result?.fields ?? {})
-    await attachBaseCurrency(bitrix, metas)
-    const statusLists = await loadStatusLists(bitrix, metas)
-    return { metas, statusLists }
-  })
+  return cached(
+    `importsheet:fieldmeta:${appId}:crm:${entityTypeId}`,
+    async () => {
+      const res = await bitrix.callMethod<FieldsResponse>('crm.item.fields', {
+        entityTypeId,
+      })
+      const metas = toMetas(res.result?.fields ?? {})
+      await attachBaseCurrency(bitrix, metas)
+      const statusLists = await loadStatusLists(bitrix, metas)
+      return { metas, statusLists }
+    },
+  )
 }
 
 /** Metadados dos campos de Tarefa (tasks.task.getFields). */

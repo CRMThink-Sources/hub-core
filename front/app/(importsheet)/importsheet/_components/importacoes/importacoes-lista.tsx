@@ -158,7 +158,9 @@ export function ImportacoesLista({
                       : 'text-muted-foreground',
                   )}
                 >
-                  {item.enabled ? t('agendamentoAtivo') : t('agendamentoPausado')}
+                  {item.enabled
+                    ? t('agendamentoAtivo')
+                    : t('agendamentoPausado')}
                 </span>
               </label>
             )}

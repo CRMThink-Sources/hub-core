@@ -220,7 +220,7 @@ export function useConfigurarImportacao(
         ...m,
         fieldName: null,
         isIdentifier: false,
-        target: 'main' as MappingTarget,
+        target: 'main',
       })),
     )
   }, [open, entityCode, resolvedEntityTypeId, needsPipeline])

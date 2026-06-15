@@ -26,13 +26,17 @@ export function OpcoesCriacaoSection({
       {showCreateContact && (
         <label className="flex cursor-pointer items-center gap-2">
           <Switch checked={createContact} onCheckedChange={setCreateContact} />
-          <span className="text-sm text-foreground">{t('opcoes.criarContato')}</span>
+          <span className="text-sm text-foreground">
+            {t('opcoes.criarContato')}
+          </span>
         </label>
       )}
       {showCreateCompany && (
         <label className="flex cursor-pointer items-center gap-2">
           <Switch checked={createCompany} onCheckedChange={setCreateCompany} />
-          <span className="text-sm text-foreground">{t('opcoes.criarEmpresa')}</span>
+          <span className="text-sm text-foreground">
+            {t('opcoes.criarEmpresa')}
+          </span>
         </label>
       )}
     </div>

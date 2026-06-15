@@ -99,7 +99,10 @@ export const env = {
     // Linhas por ciclo (round-robin). Default 20, teto 50 (batch Bitrix).
     pageSize: parsePageSize(process.env.IMPORTSHEET_PAGE_SIZE),
     // Pausa entre páginas p/ ficar sob o limite do Bitrix. Default 500ms; 0 desliga.
-    pageDelayMs: Math.max(0, Number(process.env.IMPORTSHEET_PAGE_DELAY_MS ?? 500) || 0),
+    pageDelayMs: Math.max(
+      0,
+      Number(process.env.IMPORTSHEET_PAGE_DELAY_MS ?? 500) || 0,
+    ),
   },
   thinkzapMockZApiProvisioning:
     process.env.THINKZAP_MOCK_ZAPI_PROVISIONING === 'true' ||

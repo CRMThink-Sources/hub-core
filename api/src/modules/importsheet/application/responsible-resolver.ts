@@ -14,7 +14,10 @@ export class ResponsibleResolver {
 
   constructor(private readonly bitrix: BitrixClient) {}
 
-  resolve(matchBy: ResponsibleMatchBy, rawValue: string): Promise<string | null> {
+  resolve(
+    matchBy: ResponsibleMatchBy,
+    rawValue: string,
+  ): Promise<string | null> {
     const value = rawValue.trim()
     if (value === '') return Promise.resolve(null)
 
@@ -48,7 +51,9 @@ export class ResponsibleResolver {
     }
   }
 
-  private async userGet(filter: Record<string, string>): Promise<string | null> {
+  private async userGet(
+    filter: Record<string, string>,
+  ): Promise<string | null> {
     const res = await this.bitrix.callMethod<UserGetResponse>('user.get', {
       filter: { ...filter, ACTIVE: true },
     })

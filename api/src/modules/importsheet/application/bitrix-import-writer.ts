@@ -221,7 +221,13 @@ export class BitrixImportWriter {
       Object.keys(cmd).length > 0
         ? await this.batch(cmd)
         : { result: { result: {}, result_error: {} } }
-    const repResult = this.collectResults(adapter, reps, foundIds, ambiguous, res)
+    const repResult = this.collectResults(
+      adapter,
+      reps,
+      foundIds,
+      ambiguous,
+      res,
+    )
 
     // Espalha o resultado do rep pros membros, preservando a ordem original.
     const byRow = new Map<number, RowResult>()

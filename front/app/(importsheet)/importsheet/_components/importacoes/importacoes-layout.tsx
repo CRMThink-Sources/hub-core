@@ -83,9 +83,7 @@ function ImportacoesContent() {
           <h1 className="text-xl font-bold tracking-tight text-foreground">
             {t('titulo')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('subtitulo')}
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitulo')}</p>
         </div>
         <Button
           onClick={() => setModalOpen(true)}

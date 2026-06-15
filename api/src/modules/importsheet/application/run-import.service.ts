@@ -176,7 +176,12 @@ export class RunImportService {
     const companyMappings = config.mappings.filter(m => m.target === 'company')
 
     const bitrix = await this.makeBitrix(imp.appId)
-    const meta = await this.loadMeta(bitrix, imp.appId, entityCode, entityTypeId)
+    const meta = await this.loadMeta(
+      bitrix,
+      imp.appId,
+      entityCode,
+      entityTypeId,
+    )
     const contactMeta = contactMappings.length
       ? await loadCrmFieldMeta(bitrix, imp.appId, CONTACT_ENTITY_TYPE_ID)
       : null
@@ -236,7 +241,8 @@ export class RunImportService {
     const nextRow = fromRow + rows.length
 
     // Sem dados úteis nesta página = importação terminou.
-    if (dataRows.length === 0) return this.finishImport(imp, nextRow, firstError)
+    if (dataRows.length === 0)
+      return this.finishImport(imp, nextRow, firstError)
 
     // 1) Contato e empresa primeiro → ids por linha pra vincular no principal.
     const contactIds = contactMeta
@@ -276,7 +282,8 @@ export class RunImportService {
         const m = mapRow(r.values, mainMappings, meta.metas, meta.statusLists)
         const contactId = contactIds.get(r.row)
         const companyId = companyIds.get(r.row)
-        if (contactId) m.params.push({ path: contactLinkPath, value: contactId })
+        if (contactId)
+          m.params.push({ path: contactLinkPath, value: contactId })
         if (companyId) m.params.push({ path: ['companyId'], value: companyId })
         if (config.responsible) {
           const raw = r.values[config.responsible.columnIndex] ?? ''
@@ -441,7 +448,9 @@ export class RunImportService {
     fromRow: number,
   ): Promise<WrittenPageMarker | null> {
     try {
-      const raw = await redisConnection.get(this.pageMarkerKey(importId, fromRow))
+      const raw = await redisConnection.get(
+        this.pageMarkerKey(importId, fromRow),
+      )
       return raw ? (JSON.parse(raw) as WrittenPageMarker) : null
     } catch {
       // Cache ilegível → fluxo normal (reescreve), nunca pior que o antigo.

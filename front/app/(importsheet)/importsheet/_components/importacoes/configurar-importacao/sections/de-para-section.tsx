@@ -89,7 +89,9 @@ export function DeParaSection({
               >
                 <DialogContent className="max-w-sm">
                   <DialogHeader>
-                    <DialogTitle>{t('depara.camposExcluidosTitulo')}</DialogTitle>
+                    <DialogTitle>
+                      {t('depara.camposExcluidosTitulo')}
+                    </DialogTitle>
                     <DialogDescription>
                       {t('depara.camposExcluidosDescricao')}
                     </DialogDescription>
@@ -103,7 +105,8 @@ export function DeParaSection({
                           className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5"
                         >
                           <span className="truncate text-sm text-foreground">
-                            {col?.label ?? t('depara.coluna', { numero: idx + 1 })}
+                            {col?.label ??
+                              t('depara.coluna', { numero: idx + 1 })}
                           </span>
                           <Button
                             variant="outline"

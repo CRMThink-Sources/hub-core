@@ -57,7 +57,9 @@ export function startCredentialRefreshJob(): void {
         refreshExpiredCredentials.execute(),
       )
       if (!ran) {
-        console.log(`${defaultLogMessage} - Skipped (another process holds tick lock)`)
+        console.log(
+          `${defaultLogMessage} - Skipped (another process holds tick lock)`,
+        )
       }
     } catch (error) {
       console.error(`${defaultLogMessage} - Unexpected error:`, error)

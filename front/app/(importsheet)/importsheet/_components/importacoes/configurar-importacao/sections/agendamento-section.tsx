@@ -70,7 +70,9 @@ export function AgendamentoSection({
 
         {scheduleType === 'hours' ? (
           <div className="flex flex-col gap-2">
-            <Label htmlFor="schedule-hours">{t('agendamento.aCadaHoras')}</Label>
+            <Label htmlFor="schedule-hours">
+              {t('agendamento.aCadaHoras')}
+            </Label>
             <Input
               id="schedule-hours"
               type="number"
@@ -118,7 +120,9 @@ export function AgendamentoSection({
 
       <label className="flex w-fit cursor-pointer items-center gap-2">
         <Switch checked={scheduleManual} onCheckedChange={setScheduleManual} />
-        <span className="text-sm text-foreground">{t('agendamento.manual')}</span>
+        <span className="text-sm text-foreground">
+          {t('agendamento.manual')}
+        </span>
       </label>
       {scheduleManual && (
         <p className="text-xs text-muted-foreground">
