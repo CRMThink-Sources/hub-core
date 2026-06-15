@@ -6,17 +6,17 @@ export const IMPORTSHEET_ASIDE_CONFIG = {
   links: [
     {
       href: '/importsheet/importacoes',
-      label: 'Importações',
+      label: 'importacoes',
       icon: '/images/importsheet/connection.png',
     },
     {
       href: '/importsheet/configuracoes',
-      label: 'Configurações',
+      label: 'configuracoes',
       icon: '/images/importsheet/config.png',
     },
     {
       href: '/importsheet/ajuda',
-      label: 'Ajuda',
+      label: 'ajuda',
       icon: '/images/importsheet/ajuda.png',
     },
     // tela de pagamentos - Ainda precisa implementar
@@ -32,6 +32,7 @@ export const IMPORTSHEET_ASIDE_CONFIG = {
     //   icon: '/images/importsheet/logs.png',
     // },
   ],
+  linksNamespace: 'importsheet/aside',
   languages: [
     { code: 'pt', flag: '/images/i18n-icon/4x3/br.svg' },
     { code: 'en', flag: '/images/i18n-icon/4x3/us.svg' },

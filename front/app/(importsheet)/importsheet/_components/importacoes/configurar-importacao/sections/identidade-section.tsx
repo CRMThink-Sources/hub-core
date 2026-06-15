@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -28,19 +29,20 @@ export function IdentidadeSection({
   selectedTabId,
   setSelectedTabId,
 }: Props) {
+  const { t } = useTranslation('importsheet/configurar-importacao')
   return (
     <div className="grid grid-cols-3 gap-4">
       <div className="flex flex-col gap-2">
-        <Label htmlFor="import-title">Título da importação</Label>
+        <Label htmlFor="import-title">{t('identidade.titulo')}</Label>
         <Input
           id="import-title"
           value={title}
           onChange={e => setTitle(e.target.value)}
-          placeholder="ex.: Leads de junho"
+          placeholder={t('identidade.tituloPlaceholder')}
         />
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="import-spreadsheet-id">ID da planilha</Label>
+        <Label htmlFor="import-spreadsheet-id">{t('identidade.idPlanilha')}</Label>
         <Input
           id="import-spreadsheet-id"
           value={spreadsheet.id}
@@ -50,7 +52,7 @@ export function IdentidadeSection({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label>Aba para importar</Label>
+        <Label>{t('identidade.aba')}</Label>
         <Select
           value={String(selectedTabId)}
           onValueChange={(v: string | null) => {
@@ -76,7 +78,7 @@ export function IdentidadeSection({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="import-start-row">Importar a partir da linha</Label>
+        <Label htmlFor="import-start-row">{t('identidade.linhaInicial')}</Label>
         <Input
           id="import-start-row"
           type="number"
@@ -85,8 +87,7 @@ export function IdentidadeSection({
           onChange={e => setStartRow(Math.max(2, Number(e.target.value) || 2))}
         />
         <p className="text-xs text-muted-foreground">
-          Linha 1 = cabeçalho. Importa a partir desta linha; reduza para
-          reprocessar.
+          {t('identidade.linhaInicialDica')}
         </p>
       </div>
     </div>

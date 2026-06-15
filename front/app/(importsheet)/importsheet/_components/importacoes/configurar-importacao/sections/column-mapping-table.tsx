@@ -1,4 +1,5 @@
 import { XIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -43,6 +44,7 @@ export function ColumnMappingTable({
   toggleIdentifier,
   excludeColumn,
 }: Props) {
+  const { t } = useTranslation('importsheet/configurar-importacao')
   const showTarget = destinations.length > 1
   const grid = showTarget
     ? 'grid-cols-[1fr_1.25rem_7rem_1.4fr_6rem_2rem]'
@@ -53,11 +55,11 @@ export function ColumnMappingTable({
       <div
         className={`grid ${grid} items-center gap-3 border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground`}
       >
-        <span>Coluna</span>
+        <span>{t('tabela.coluna')}</span>
         <span aria-hidden />
-        {showTarget && <span>Destino</span>}
-        <span>Campo no Bitrix</span>
-        <span className="text-center">Identificador</span>
+        {showTarget && <span>{t('tabela.destino')}</span>}
+        <span>{t('tabela.campoBitrix')}</span>
+        <span className="text-center">{t('tabela.identificador')}</span>
         <span aria-hidden />
       </div>
 
@@ -80,7 +82,9 @@ export function ColumnMappingTable({
                 </span>
                 <span className="truncate">
                   {col.label || (
-                    <em className="text-muted-foreground">(sem título)</em>
+                    <em className="text-muted-foreground">
+                      {t('tabela.semTitulo')}
+                    </em>
                   )}
                 </span>
               </span>
@@ -125,8 +129,8 @@ export function ColumnMappingTable({
                   )
                 }
               >
-                <ComboboxTrigger placeholder="Selecione…" />
-                <ComboboxContent searchPlaceholder="Buscar campo…">
+                <ComboboxTrigger placeholder={t('tabela.selecione')} />
+                <ComboboxContent searchPlaceholder={t('tabela.buscarCampo')}>
                   {(item: ComboboxOption) => (
                     <ComboboxItem key={item.value} value={item}>
                       <span className="truncate">{item.label}</span>
@@ -146,8 +150,8 @@ export function ColumnMappingTable({
                   onCheckedChange={checked =>
                     toggleIdentifier(col.index, checked)
                   }
-                  aria-label="Usar como identificador"
-                  title="Usar como identificador (chave de deduplicação)"
+                  aria-label={t('tabela.usarIdentificador')}
+                  title={t('tabela.usarIdentificadorTitulo')}
                   className="size-5 rounded-md border-2 [&_svg]:size-3.5"
                 />
               </span>
@@ -155,7 +159,7 @@ export function ColumnMappingTable({
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => excludeColumn(col.index)}
-                aria-label="Remover coluna"
+                aria-label={t('tabela.removerColuna')}
                 className="text-muted-foreground hover:text-destructive"
               >
                 <XIcon />

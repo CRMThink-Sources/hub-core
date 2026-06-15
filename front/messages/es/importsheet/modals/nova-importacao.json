@@ -1,0 +1,16 @@
+{
+  "titulo": "Nueva importación",
+  "descricao": "Ingrese el ID (o enlace) de la hoja de cálculo de Google",
+  "idPlanilha": "ID de la hoja",
+  "placeholder": "ej.: 1AbC…XyZ o la URL de la hoja",
+  "validar": "Validar",
+  "validando": "Validando…",
+  "dicaUrl": "El ID está en la URL:",
+  "erroValidar": "Error al validar la hoja de cálculo.",
+  "irConfiguracoes": "Ir a Configuración",
+  "selecioneAba": "Seleccione la pestaña",
+  "aba": "Pestaña",
+  "linhasColunas": "{{linhas}} filas · {{colunas}} columnas",
+  "cancelar": "Cancelar",
+  "continuar": "Continuar"
+}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import Link from 'next/link'
 import { CheckCircle2Icon, Loader2Icon } from 'lucide-react'
 import { axiosImportsheet } from '@/infra/client/axios-importsheet'
@@ -37,6 +38,7 @@ function extractSpreadsheetId(input: string): string {
 }
 
 export function NovaImportacaoModal({ open, onClose, onSelect }: Props) {
+  const { t } = useTranslation('importsheet/modals/nova-importacao')
   const [rawInput, setRawInput] = useState('')
   const [validating, setValidating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,8 +75,7 @@ export function NovaImportacaoModal({ open, onClose, onSelect }: Props) {
       // Auto-seleciona quando há uma única aba.
       if (details.tabs.length === 1) setSelectedTabId(details.tabs[0].sheetId)
     } catch (e) {
-      const message =
-        e instanceof Error ? e.message : 'Falha ao validar a planilha.'
+      const message = e instanceof Error ? e.message : t('erroValidar')
       // Mensagem de reconexão vem do backend (401) — oferece atalho pras Configurações.
       setAuthError(/reconecte/i.test(message))
       setError(message)
@@ -103,15 +104,13 @@ export function NovaImportacaoModal({ open, onClose, onSelect }: Props) {
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nova importação</DialogTitle>
-          <DialogDescription>
-            Informe o ID (ou link) da planilha do Google
-          </DialogDescription>
+          <DialogTitle>{t('titulo')}</DialogTitle>
+          <DialogDescription>{t('descricao')}</DialogDescription>
         </DialogHeader>
 
         <DialogBody className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="spreadsheet-id">ID da planilha</Label>
+            <Label htmlFor="spreadsheet-id">{t('idPlanilha')}</Label>
             <div className="flex gap-2">
               <Input
                 id="spreadsheet-id"
@@ -127,7 +126,7 @@ export function NovaImportacaoModal({ open, onClose, onSelect }: Props) {
                 onKeyDown={e => {
                   if (e.key === 'Enter') void handleValidate()
                 }}
-                placeholder="ex.: 1AbC…XyZ ou a URL da planilha"
+                placeholder={t('placeholder')}
               />
               <Button
                 variant="outline"
@@ -135,11 +134,11 @@ export function NovaImportacaoModal({ open, onClose, onSelect }: Props) {
                 disabled={validating || rawInput.trim().length === 0}
               >
                 {validating && <Loader2Icon className="animate-spin" />}
-                {validating ? 'Validando…' : 'Validar'}
+                {validating ? t('validando') : t('validar')}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              O ID fica na URL: docs.google.com/spreadsheets/d/
+              {t('dicaUrl')} docs.google.com/spreadsheets/d/
               <span className="rounded bg-primary/10 px-1 font-mono font-bold text-primary">
                 ID
               </span>
@@ -155,7 +154,7 @@ export function NovaImportacaoModal({ open, onClose, onSelect }: Props) {
                   href="/importsheet/configuracoes"
                   className="self-start text-xs font-semibold underline underline-offset-2 hover:opacity-80"
                 >
-                  Ir para Configurações
+                  {t('irConfiguracoes')}
                 </Link>
               )}
             </div>
@@ -172,7 +171,7 @@ export function NovaImportacaoModal({ open, onClose, onSelect }: Props) {
 
               <div className="flex flex-col gap-1.5">
                 <span className="text-sm font-medium text-foreground">
-                  {sheet.tabs.length > 1 ? 'Selecione a aba' : 'Aba'}
+                  {sheet.tabs.length > 1 ? t('selecioneAba') : t('aba')}
                 </span>
                 <ul className="flex flex-col gap-1.5">
                   {sheet.tabs.map((tab: SpreadsheetTab) => {
@@ -195,8 +194,10 @@ export function NovaImportacaoModal({ open, onClose, onSelect }: Props) {
                           {tab.rowCount !== null &&
                             tab.columnCount !== null && (
                               <span className="mt-0.5 block text-xs text-muted-foreground">
-                                {tab.rowCount} linhas · {tab.columnCount}{' '}
-                                colunas
+                                {t('linhasColunas', {
+                                  linhas: tab.rowCount,
+                                  colunas: tab.columnCount,
+                                })}
                               </span>
                             )}
                         </button>
@@ -211,10 +212,10 @@ export function NovaImportacaoModal({ open, onClose, onSelect }: Props) {
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancelar
+            {t('cancelar')}
           </Button>
           <Button onClick={handleContinue} disabled={!canContinue}>
-            Continuar
+            {t('continuar')}
           </Button>
         </DialogFooter>
       </DialogContent>

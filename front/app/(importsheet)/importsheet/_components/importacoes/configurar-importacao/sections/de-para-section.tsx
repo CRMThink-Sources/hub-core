@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Loader2Icon } from 'lucide-react'
 import type { ComboboxOption } from '@/components/ui/combobox'
 import {
@@ -63,13 +64,14 @@ export function DeParaSection({
   restoreColumn,
   setFeedColumn,
 }: Props) {
+  const { t } = useTranslation('importsheet/configurar-importacao')
   const [excludedOpen, setExcludedOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-3 border-t border-border pt-5">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-foreground">
-          {isFeed ? 'Mapeamento do Livefeed' : 'De-para de colunas'}
+          {isFeed ? t('depara.tituloFeed') : t('depara.titulo')}
         </p>
         <div className="flex items-center gap-3">
           {!isFeed && excluded.length > 0 && (
@@ -79,7 +81,7 @@ export function DeParaSection({
                 onClick={() => setExcludedOpen(true)}
                 className="cursor-pointer text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
               >
-                Campos excluídos ({excluded.length})
+                {t('depara.camposExcluidos', { count: excluded.length })}
               </button>
               <Dialog
                 open={excludedOpen}
@@ -87,9 +89,9 @@ export function DeParaSection({
               >
                 <DialogContent className="max-w-sm">
                   <DialogHeader>
-                    <DialogTitle>Campos excluídos</DialogTitle>
+                    <DialogTitle>{t('depara.camposExcluidosTitulo')}</DialogTitle>
                     <DialogDescription>
-                      Restaure colunas para incluí-las no de-para.
+                      {t('depara.camposExcluidosDescricao')}
                     </DialogDescription>
                   </DialogHeader>
                   <DialogBody className="flex flex-col gap-2">
@@ -101,14 +103,14 @@ export function DeParaSection({
                           className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5"
                         >
                           <span className="truncate text-sm text-foreground">
-                            {col?.label ?? `Coluna ${idx + 1}`}
+                            {col?.label ?? t('depara.coluna', { numero: idx + 1 })}
                           </span>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => restoreColumn(idx)}
                           >
-                            Restaurar
+                            {t('depara.restaurar')}
                           </Button>
                         </div>
                       )
@@ -121,11 +123,17 @@ export function DeParaSection({
           {header &&
             (isFeed ? (
               <span className="text-xs text-muted-foreground">
-                {feedMappedCount} de {FEED_FIELDS.length} campos
+                {t('depara.contadorFeed', {
+                  mapeados: feedMappedCount,
+                  total: FEED_FIELDS.length,
+                })}
               </span>
             ) : (
               <span className="text-xs text-muted-foreground">
-                {mappedCount} de {visibleColumns.length} mapeadas
+                {t('depara.contadorColunas', {
+                  mapeados: mappedCount,
+                  total: visibleColumns.length,
+                })}
               </span>
             ))}
         </div>
@@ -133,16 +141,16 @@ export function DeParaSection({
 
       {!entitySelected ? (
         <p className="py-10 text-center text-sm text-muted-foreground">
-          Selecione uma entidade para mapear as colunas.
+          {t('depara.selecioneEntidade')}
         </p>
       ) : headerLoading || (perColumn && fieldsLoading) ? (
         <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground">
           <Loader2Icon className="size-4 animate-spin" />
-          Carregando colunas e campos…
+          {t('depara.carregandoColunas')}
         </div>
       ) : header && header.columns.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted-foreground">
-          A primeira linha da aba está vazia.
+          {t('depara.primeiraLinhaVazia')}
         </p>
       ) : isFeed ? (
         <FeedMappingTable
@@ -152,7 +160,7 @@ export function DeParaSection({
         />
       ) : visibleColumns.length === 0 ? (
         <p className="py-10 text-center text-sm text-muted-foreground">
-          Todas as colunas foram removidas.
+          {t('depara.todasRemovidas')}
         </p>
       ) : (
         <ColumnMappingTable

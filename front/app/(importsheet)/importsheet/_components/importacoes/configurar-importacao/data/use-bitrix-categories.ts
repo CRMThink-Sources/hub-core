@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { axiosImportsheet } from '@/infra/client/axios-importsheet'
 import type { BitrixCategory } from '../../../types'
 
 export function useBitrixCategories(open: boolean, needsPipeline: boolean) {
+  const { t } = useTranslation('importsheet/configurar-importacao')
   const [categories, setCategories] = useState<BitrixCategory[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -23,9 +25,7 @@ export function useBitrixCategories(open: boolean, needsPipeline: boolean) {
       })
       .catch((e: unknown) => {
         if (!active) return
-        setError(
-          e instanceof Error ? e.message : 'Falha ao carregar pipelines.',
-        )
+        setError(e instanceof Error ? e.message : t('erros.pipelines'))
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -33,7 +33,7 @@ export function useBitrixCategories(open: boolean, needsPipeline: boolean) {
     return () => {
       active = false
     }
-  }, [open, needsPipeline])
+  }, [open, needsPipeline, t])
 
   return { categories, loading, error }
 }

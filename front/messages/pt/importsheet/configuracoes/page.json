@@ -1,0 +1,16 @@
+{
+  "titulo": "Configurações",
+  "subtitulo": "Integrações e conexões do app",
+  "sucesso": "Conta Google conectada com sucesso.",
+  "erro": "Algo deu errado. Tente novamente.",
+  "fecharAviso": "Fechar aviso",
+  "conexaoGoogle": "Conexão Google",
+  "carregando": "Carregando…",
+  "conectado": "Conectado",
+  "nenhumaConta": "Nenhuma conta Google conectada.",
+  "desconectando": "Desconectando…",
+  "desconectar": "Desconectar",
+  "conectando": "Conectando…",
+  "conectarGoogle": "Conectar com Google",
+  "confirmarDesconectar": "Desconectar a conta Google deste app?"
+}

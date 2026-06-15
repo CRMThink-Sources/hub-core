@@ -1,0 +1,135 @@
+{
+  "modal": {
+    "tituloEditar": "Editar importação",
+    "tituloCriar": "Configurar importação",
+    "descricao": "Defina o destino no Bitrix24 e o mapeamento das colunas",
+    "voltar": "Voltar",
+    "cancelar": "Cancelar",
+    "salvar": "Salvar",
+    "salvando": "Salvando importação…",
+    "criando": "Criando importação…",
+    "atualizada": "Importação atualizada.",
+    "criada": "Importação criada.",
+    "erroSalvar": "Erro ao salvar a importação. Tente novamente."
+  },
+  "identidade": {
+    "titulo": "Título da importação",
+    "tituloPlaceholder": "ex.: Leads de junho",
+    "idPlanilha": "ID da planilha",
+    "aba": "Aba para importar",
+    "linhaInicial": "Importar a partir da linha",
+    "linhaInicialDica": "A linha 1 é o cabeçalho. A importação começa nesta linha; diminua o número para reimportar linhas anteriores."
+  },
+  "destino": {
+    "entidade": "Entidade",
+    "selecione": "Selecione…",
+    "pipeline": "Funil",
+    "spa": "SPA",
+    "selecioneSpa": "Selecione o SPA…",
+    "carregando": "Carregando…"
+  },
+  "entidades": {
+    "LEAD": "Lead",
+    "DEAL": "Negócio",
+    "CONTACT": "Contato",
+    "COMPANY": "Empresa",
+    "SPA": "SPA",
+    "TASK": "Tarefas",
+    "FEED": "Livefeed"
+  },
+  "responsavel": {
+    "autorColuna": "Autor (coluna)",
+    "responsavelColuna": "Responsável (coluna)",
+    "semAutor": "Sem autor",
+    "semResponsavel": "Sem responsável",
+    "casarAutor": "Identificar autor por",
+    "casarResponsavel": "Identificar responsável por",
+    "semTitulo": "(sem título)"
+  },
+  "match": {
+    "id": "ID",
+    "email": "E-mail",
+    "phone": "Telefone"
+  },
+  "opcoes": {
+    "criarContato": "Criar contato?",
+    "criarEmpresa": "Criar empresa?"
+  },
+  "agendamento": {
+    "titulo": "Agendamento",
+    "frequencia": "Frequência",
+    "aCadaHoras": "A cada (horas)",
+    "diasSemana": "Dias da semana",
+    "manual": "Manual?",
+    "manualDica": "Agendamento desativado — a importação roda sob demanda pela lista de importações criadas."
+  },
+  "frequencia": {
+    "hours": "Horas",
+    "days": "Dias da semana"
+  },
+  "weekdays": {
+    "0": "Dom",
+    "1": "Seg",
+    "2": "Ter",
+    "3": "Qua",
+    "4": "Qui",
+    "5": "Sex",
+    "6": "Sáb"
+  },
+  "depara": {
+    "tituloFeed": "Mapeamento do Livefeed",
+    "titulo": "Mapeamento de colunas",
+    "camposExcluidos": "Campos excluídos ({{count}})",
+    "camposExcluidosTitulo": "Campos excluídos",
+    "camposExcluidosDescricao": "Restaure colunas para incluí-las no mapeamento.",
+    "coluna": "Coluna {{numero}}",
+    "restaurar": "Restaurar",
+    "contadorFeed": "{{mapeados}} de {{total}} campos",
+    "contadorColunas": "{{mapeados}} de {{total}} mapeadas",
+    "selecioneEntidade": "Selecione uma entidade para mapear as colunas.",
+    "carregandoColunas": "Carregando colunas e campos…",
+    "primeiraLinhaVazia": "A primeira linha da aba está vazia.",
+    "todasRemovidas": "Todas as colunas foram removidas."
+  },
+  "tabela": {
+    "coluna": "Coluna",
+    "destino": "Destino",
+    "campoBitrix": "Campo no Bitrix",
+    "identificador": "Identificador",
+    "semTitulo": "(sem título)",
+    "selecione": "Selecione…",
+    "buscarCampo": "Buscar campo…",
+    "usarIdentificador": "Usar como identificador",
+    "usarIdentificadorTitulo": "Usar como identificador (evita registros duplicados)",
+    "removerColuna": "Remover coluna"
+  },
+  "feedTabela": {
+    "campoFeed": "Campo do Livefeed",
+    "colunaPlanilha": "Coluna da planilha",
+    "selecione": "Selecione…",
+    "semTitulo": "(sem título)"
+  },
+  "feedFields": {
+    "ENTITY_ID": "ID do registro",
+    "ENTITY_TYPE": "Tipo de registro (Deal/Company/Lead/Contact)",
+    "COMMENT": "Comentário"
+  },
+  "destinos": {
+    "main": "Principal",
+    "contact": "Contato",
+    "company": "Empresa"
+  },
+  "fieldTypes": {
+    "lista": "lista",
+    "data": "data",
+    "sn": "S/N",
+    "moeda": "R$",
+    "contato": "contato"
+  },
+  "erros": {
+    "cabecalho": "Falha ao ler o cabeçalho.",
+    "spas": "Falha ao carregar SPAs.",
+    "pipelines": "Falha ao carregar funis.",
+    "campos": "Falha ao carregar campos."
+  }
+}

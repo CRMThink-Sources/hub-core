@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { useLoading } from '@/providers/loading-provider'
 import type { ImportInitial, ImportSelection } from '../../types'
@@ -38,18 +39,19 @@ export function ConfigurarImportacaoModal({
   onSaved,
   onBack,
 }: Props) {
+  const { t } = useTranslation('importsheet/configurar-importacao')
   const s = useConfigurarImportacao(open, selection, initial)
   const { flags } = s
   const { setLoading } = useLoading()
 
   async function handleSave() {
-    setLoading(true, s.isEdit ? 'Salvando importação…' : 'Criando importação…')
+    setLoading(true, t(s.isEdit ? 'modal.salvando' : 'modal.criando'))
     try {
       await s.handleSave()
-      toast.success(s.isEdit ? 'Importação atualizada.' : 'Importação criada.')
+      toast.success(t(s.isEdit ? 'modal.atualizada' : 'modal.criada'))
       onSaved()
     } catch {
-      toast.error('Erro ao salvar a importação. Tente novamente.')
+      toast.error(t('modal.erroSalvar'))
     } finally {
       setLoading(false)
     }
@@ -67,11 +69,9 @@ export function ConfigurarImportacaoModal({
       <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>
-            {s.isEdit ? 'Editar importação' : 'Configurar importação'}
+            {t(s.isEdit ? 'modal.tituloEditar' : 'modal.tituloCriar')}
           </DialogTitle>
-          <DialogDescription>
-            Defina o destino no Bitrix24 e o de-para de colunas
-          </DialogDescription>
+          <DialogDescription>{t('modal.descricao')}</DialogDescription>
         </DialogHeader>
 
         <div className="flex shrink-0 flex-col gap-4 border-b border-border px-6 py-5">
@@ -163,18 +163,18 @@ export function ConfigurarImportacaoModal({
             <span />
           ) : (
             <Button variant="ghost" onClick={onBack}>
-              Voltar
+              {t('modal.voltar')}
             </Button>
           )}
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={onClose}>
-              Cancelar
+              {t('modal.cancelar')}
             </Button>
             <Button
               onClick={() => void handleSave()}
               disabled={!s.canSave || s.isSaving}
             >
-              Salvar
+              {t('modal.salvar')}
             </Button>
           </div>
         </DialogFooter>

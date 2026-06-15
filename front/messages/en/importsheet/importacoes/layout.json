@@ -1,0 +1,12 @@
+{
+  "titulo": "Imports",
+  "subtitulo": "Imports workspace",
+  "novaImportacao": "New import",
+  "conecteGoogle": "Connect a Google account first",
+  "excluindo": "Deleting import…",
+  "carregando": "Loading…",
+  "conexaoPendente": "Google connection pending.",
+  "conectar": "Connect",
+  "vazioAntes": "No imports yet. Click",
+  "vazioDepois": "to get started."
+}
