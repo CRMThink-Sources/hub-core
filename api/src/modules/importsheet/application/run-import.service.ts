@@ -107,7 +107,11 @@ export class RunImportService {
       )
       return { status: 'skipped' }
     }
-    if (!imp.enabled) return { status: 'skipped' }
+    // Manual = sob demanda: `enabled` não se aplica (sem toggle na UI). Só o
+    // agendado pode estar pausado e deve ser pulado pelo poller.
+    if (imp.scheduleMode !== 'MANUAL' && !imp.enabled) {
+      return { status: 'skipped' }
+    }
 
     try {
       return await this.runOnePage(imp, continuation)

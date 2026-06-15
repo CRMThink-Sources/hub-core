@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { isAxiosError } from 'axios'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
 import type { ImportListItem } from '../types'
 import { ENTITIES, WEEKDAYS } from './configurar-importacao/constants'
 
@@ -104,40 +105,57 @@ export function ImportacoesLista({
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={runningId === item.id || !item.enabled}
-              onClick={() => void handleRun(item.id)}
-              title={
-                item.enabled
-                  ? 'Executar agora'
-                  : 'Ative a importação para executar'
-              }
-            >
-              <PlayIcon />
-              Executar
-            </Button>
-
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={item.enabled}
-                disabled={togglingId === item.id}
-                onCheckedChange={checked => void handleToggle(item.id, checked)}
-                aria-label={
-                  item.enabled ? 'Pausar importação' : 'Ativar importação'
-                }
-              />
-              <span
-                className={
+            {item.scheduleMode === 'MANUAL' ? (
+              // Manual: só execução sob demanda — sem estado ativo/pausado.
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={runningId === item.id}
+                onClick={() => void handleRun(item.id)}
+                title="Executar agora"
+              >
+                <PlayIcon />
+                Executar
+              </Button>
+            ) : (
+              // Agendado: o toggle controla se o agendamento dispara — sem execução manual.
+              <label
+                className={cn(
+                  'flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 transition-colors',
                   item.enabled
-                    ? 'text-xs font-medium text-emerald-600'
-                    : 'text-xs font-medium text-muted-foreground'
+                    ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40'
+                    : 'border-border bg-muted',
+                )}
+                title={
+                  item.enabled
+                    ? 'Agendamento ativo — clique para pausar'
+                    : 'Agendamento pausado — clique para ativar'
                 }
               >
-                {item.enabled ? 'Ativa' : 'Pausada'}
-              </span>
-            </div>
+                <Switch
+                  checked={item.enabled}
+                  disabled={togglingId === item.id}
+                  onCheckedChange={checked =>
+                    void handleToggle(item.id, checked)
+                  }
+                  aria-label={
+                    item.enabled
+                      ? 'Pausar agendamento'
+                      : 'Ativar agendamento'
+                  }
+                />
+                <span
+                  className={cn(
+                    'text-xs font-medium',
+                    item.enabled
+                      ? 'text-emerald-700 dark:text-emerald-400'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {item.enabled ? 'Agendamento ativo' : 'Agendamento pausado'}
+                </span>
+              </label>
+            )}
 
             {confirmId === item.id ? (
               <div className="flex items-center gap-2">
