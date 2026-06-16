@@ -8,6 +8,7 @@ import { axiosPortal } from '@/infra/client/axios-portal'
 
 type ThinkzapConnectorItem = {
   id: string
+  status: string
   instanceId: string
   vinculatedChannel: string | null
   messageUpdateEventEnabled: boolean
@@ -22,6 +23,13 @@ type ConnectorSaveState =
   | { kind: 'idle' }
   | { kind: 'saving' }
   | { kind: 'saved' }
+  | { kind: 'error'; message: string }
+
+type ConnectorReactivateState =
+  | { kind: 'idle' }
+  | { kind: 'confirming' }
+  | { kind: 'loading' }
+  | { kind: 'success' }
   | { kind: 'error'; message: string }
 
 type SectionState =
@@ -39,6 +47,9 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [saveStates, setSaveStates] = useState<
     Record<string, ConnectorSaveState>
+  >({})
+  const [reactivateStates, setReactivateStates] = useState<
+    Record<string, ConnectorReactivateState>
   >({})
 
   const loadConnectors = useCallback(async () => {
@@ -85,6 +96,40 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
     setIsRefreshing(true)
     await loadConnectors()
     setIsRefreshing(false)
+  }
+
+  async function handleReactivate(connectorId: string) {
+    setReactivateStates(prev => ({
+      ...prev,
+      [connectorId]: { kind: 'loading' },
+    }))
+    try {
+      await axiosPortal().patch(
+        `/portal/apps/${appId}/thinkzap-connectors/${connectorId}/reactivate`,
+        {},
+      )
+      setState(prev => {
+        if (prev.kind !== 'ready') return prev
+        return {
+          kind: 'ready',
+          connectors: prev.connectors.map(c =>
+            c.id === connectorId ? { ...c, status: 'ACTIVE' } : c,
+          ),
+        }
+      })
+      setReactivateStates(prev => ({
+        ...prev,
+        [connectorId]: { kind: 'success' },
+      }))
+    } catch {
+      setReactivateStates(prev => ({
+        ...prev,
+        [connectorId]: {
+          kind: 'error',
+          message: t('connectorsReactivateError'),
+        },
+      }))
+    }
   }
 
   async function handleToggle(
@@ -185,19 +230,87 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
           <div className="space-y-6">
             {state.connectors.map(connector => {
               const save = saveStates[connector.id]
+              const reactivate = reactivateStates[connector.id]
               return (
                 <div
                   key={connector.id}
                   className="rounded-lg border border-border p-4"
                 >
                   <div className="mb-4">
-                    <p className="text-sm font-medium text-foreground">
-                      {connector.vinculatedChannel ?? connector.instanceId}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">
+                        {connector.vinculatedChannel ?? connector.instanceId}
+                      </p>
+                      {connector.status === 'INACTIVE' ? (
+                        <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
+                          {t('instancesStatusInactive')}
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="mt-0.5 font-mono text-xs text-muted-foreground">
                       {connector.instanceId}
                     </p>
                   </div>
+
+                  {connector.status === 'INACTIVE' ? (
+                    <div className="mb-4">
+                      {reactivate?.kind === 'success' ? (
+                        <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
+                          {t('connectorsReactivateSuccess')}
+                        </p>
+                      ) : reactivate?.kind === 'error' ? (
+                        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+                          {reactivate.message}
+                        </p>
+                      ) : reactivate?.kind === 'confirming' ? (
+                        <div className="space-y-2">
+                          <p className="text-sm text-foreground">
+                            {t('connectorsReactivateConfirm')}
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                void handleReactivate(connector.id)
+                              }}
+                            >
+                              {t('instanceModalConfirm')}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                setReactivateStates(prev => ({
+                                  ...prev,
+                                  [connector.id]: { kind: 'idle' },
+                                }))
+                              }
+                            >
+                              {t('instanceModalCancel')}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : reactivate?.kind === 'loading' ? (
+                        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Loader2 className="size-4 animate-spin" />
+                          {t('connectorsSaving')}
+                        </p>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setReactivateStates(prev => ({
+                              ...prev,
+                              [connector.id]: { kind: 'confirming' },
+                            }))
+                          }
+                        >
+                          {t('connectorsReactivate')}
+                        </Button>
+                      )}
+                    </div>
+                  ) : null}
 
                   <div className="space-y-3">
                     <label className="flex cursor-pointer items-start gap-3">
@@ -211,7 +324,10 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
                             e.target.checked,
                           )
                         }}
-                        disabled={save?.kind === 'saving'}
+                        disabled={
+                          save?.kind === 'saving' ||
+                          connector.status === 'INACTIVE'
+                        }
                         className="mt-0.5"
                       />
                       <span className="flex flex-col gap-0.5">
@@ -235,7 +351,10 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
                             e.target.checked,
                           )
                         }}
-                        disabled={save?.kind === 'saving'}
+                        disabled={
+                          save?.kind === 'saving' ||
+                          connector.status === 'INACTIVE'
+                        }
                         className="mt-0.5"
                       />
                       <span className="flex flex-col gap-0.5">

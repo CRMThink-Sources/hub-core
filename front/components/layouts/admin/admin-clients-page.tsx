@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { axiosPortal } from '@/infra/client/axios-portal'
+import { Input } from '@/components/ui/input'
 import type { ListPortalDomainsResponse } from '@/lib/portal-domains'
 import { AdminClientsTable } from './admin-clients-table'
 
@@ -12,6 +13,7 @@ export function AdminClientsPage() {
   const [domains, setDomains] = useState<ListPortalDomainsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -65,6 +67,9 @@ export function AdminClientsPage() {
   }
 
   const list = domains?.domains ?? []
+  const filteredList = list.filter(d =>
+    d.name.toLowerCase().includes(search.toLowerCase()),
+  )
 
   return (
     <div className="space-y-6">
@@ -85,7 +90,19 @@ export function AdminClientsPage() {
           </p>
         </div>
       ) : (
-        <AdminClientsTable domains={list} />
+        <>
+          <Input
+            type="search"
+            placeholder={t('searchPlaceholder')}
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+            className="max-w-sm"
+          />
+          <AdminClientsTable
+            domains={filteredList}
+            hasSearch={search.length > 0}
+          />
+        </>
       )}
     </div>
   )

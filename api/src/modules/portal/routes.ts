@@ -16,8 +16,18 @@ import { createListPlacementsAppController } from './main/factories/create-list-
 import { createListBizprocRobotsAppController } from './main/factories/create-list-bizproc-robots-app-controller'
 import { createRegisterSpaWidgetAppController } from './main/factories/create-register-spa-widget-app-controller'
 import { createDeleteSpaWidgetAppController } from './main/factories/create-delete-spa-widget-app-controller'
-import { createListThinkzapConnectorsAppController } from './main/factories/create-list-thinkzap-connectors-app-controller'
+import { createListThinkzapInstancesAppController } from './main/factories/create-list-thinkzap-instances-app-controller'
+import { createSubscribeThinkzapInstanceController } from './main/factories/create-subscribe-thinkzap-instance-controller'
+import { createUnsubscribeThinkzapInstanceController } from './main/factories/create-unsubscribe-thinkzap-instance-controller'
+import { createUpdateThinkzapInstanceNameController } from './main/factories/create-update-thinkzap-instance-name-controller'
 import { createUpdateThinkzapConnectorEventBindsAppController } from './main/factories/create-update-thinkzap-connector-event-binds-app-controller'
+import { createReactivateThinkzapConnectorController } from './main/factories/create-reactivate-thinkzap-connector-controller'
+import { createListSubscriptionsAppController } from './main/factories/create-list-subscriptions-app-controller'
+import { createExtendSubscriptionTrialController } from './main/factories/create-extend-subscription-trial-controller'
+import { createCancelSubscriptionTrialController } from './main/factories/create-cancel-subscription-trial-controller'
+import { createCreateTrialSubscriptionAppController } from './main/factories/create-create-trial-subscription-app-controller'
+import { createCreateSubscriptionAppController } from './main/factories/create-create-subscription-app-controller'
+import { createCancelSubscriptionController } from './main/factories/create-cancel-subscription-controller'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -105,9 +115,24 @@ export const createPortalRoutes = (
     adaptControllerFactory(createDeleteSpaWidgetAppController),
   )
   router.get(
-    '/apps/:appId/thinkzap-connectors',
+    '/apps/:appId/thinkzap-instances',
     portalAuthMiddleware,
-    adaptControllerFactory(createListThinkzapConnectorsAppController),
+    adaptControllerFactory(createListThinkzapInstancesAppController),
+  )
+  router.post(
+    '/apps/:appId/thinkzap-instances/:instanceDbId/subscribe',
+    portalAuthMiddleware,
+    adaptControllerFactory(createSubscribeThinkzapInstanceController),
+  )
+  router.post(
+    '/apps/:appId/thinkzap-instances/:instanceDbId/unsubscribe',
+    portalAuthMiddleware,
+    adaptControllerFactory(createUnsubscribeThinkzapInstanceController),
+  )
+  router.patch(
+    '/apps/:appId/thinkzap-instances/:instanceDbId/name',
+    portalAuthMiddleware,
+    adaptControllerFactory(createUpdateThinkzapInstanceNameController),
   )
   router.patch(
     '/apps/:appId/thinkzap-connectors/:connectorId/event-binds',
@@ -115,6 +140,41 @@ export const createPortalRoutes = (
     adaptControllerFactory(
       createUpdateThinkzapConnectorEventBindsAppController,
     ),
+  )
+  router.patch(
+    '/apps/:appId/thinkzap-connectors/:connectorId/reactivate',
+    portalAuthMiddleware,
+    adaptControllerFactory(createReactivateThinkzapConnectorController),
+  )
+  router.get(
+    '/apps/:appId/subscriptions',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListSubscriptionsAppController),
+  )
+  router.patch(
+    '/apps/:appId/subscriptions/:subscriptionId/trial-end-date',
+    portalAuthMiddleware,
+    adaptControllerFactory(createExtendSubscriptionTrialController),
+  )
+  router.delete(
+    '/apps/:appId/subscriptions/:subscriptionId/trial',
+    portalAuthMiddleware,
+    adaptControllerFactory(createCancelSubscriptionTrialController),
+  )
+  router.post(
+    '/apps/:appId/subscriptions/trial',
+    portalAuthMiddleware,
+    adaptControllerFactory(createCreateTrialSubscriptionAppController),
+  )
+  router.post(
+    '/apps/:appId/subscriptions',
+    portalAuthMiddleware,
+    adaptControllerFactory(createCreateSubscriptionAppController),
+  )
+  router.post(
+    '/apps/:appId/subscriptions/:subscriptionId/cancel',
+    portalAuthMiddleware,
+    adaptControllerFactory(createCancelSubscriptionController),
   )
 
   return router

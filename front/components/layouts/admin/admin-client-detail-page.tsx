@@ -185,7 +185,16 @@ export function AdminClientDetailPage({ domainId }: Props) {
                     className="border-b border-border last:border-b-0"
                   >
                     <td className="px-4 py-3 font-medium text-foreground">
-                      {app.appName}
+                      {app.appCodeId === THINKZAP_APP_CODE_ID ? (
+                        <Link
+                          href={`/admin/clientes/${domainId}/apps/${app.id}`}
+                          className="text-primary underline-offset-4 hover:underline"
+                        >
+                          {app.appName}
+                        </Link>
+                      ) : (
+                        app.appName
+                      )}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                       {app.appCode}
