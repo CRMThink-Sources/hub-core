@@ -86,6 +86,18 @@ function SubscriptionActionButtons({
     )
   }
 
+  if (sub.status === 'CANCELLED') {
+    return (
+      <Button
+        size="xs"
+        variant="destructive"
+        onClick={() => onAction({ kind: 'create-trial', appId: appId })}
+      >
+        {t('subscriptionActionsCreateTrial')}
+      </Button>
+    )
+  }
+
   return null
 }
 
