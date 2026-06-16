@@ -23,3 +23,17 @@ export type ListPortalDomainsResponse = {
   domains: PortalDomainDetail[]
   total: number
 }
+
+export type AppSubscription = {
+  id: string
+  status: string
+  stripeSubscriptionId: string
+  connectorQuantity: number
+  trialEndsAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type ListAppSubscriptionsResponse = {
+  subscriptions: AppSubscription[]
+}

@@ -41,6 +41,13 @@ export class PrismaBillingSubscriptionRepository
     return this.toEntity(record)
   }
 
+  async getById(id: string): Promise<BillingSubscription | null> {
+    const record = await prisma.billingSubscription.findUnique({
+      where: { id },
+    })
+    return record ? this.toEntity(record) : null
+  }
+
   async getByAppId(appId: string): Promise<BillingSubscription | null> {
     const record = await prisma.billingSubscription.findFirst({
       where: { appId },

@@ -10,12 +10,21 @@ import type { PortalDomainDetail } from '@/lib/portal-domains'
 
 type Props = {
   domains: PortalDomainDetail[]
+  hasSearch?: boolean
 }
 
-export function AdminClientsTable({ domains }: Props) {
+export function AdminClientsTable({ domains, hasSearch }: Props) {
   const { t, i18n } = useTranslation('admin/clients')
   const locale = i18n.language
   const router = useRouter()
+
+  if (domains.length === 0 && hasSearch) {
+    return (
+      <div className="admin-card p-6">
+        <p className="text-sm text-muted-foreground">{t('searchNoResults')}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-background">
