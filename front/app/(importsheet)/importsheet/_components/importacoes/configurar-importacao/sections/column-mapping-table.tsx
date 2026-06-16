@@ -1,4 +1,4 @@
-import { XIcon } from 'lucide-react'
+import { Trash2Icon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -60,7 +60,7 @@ export function ColumnMappingTable({
         {showTarget && <span>{t('tabela.destino')}</span>}
         <span>{t('tabela.campoBitrix')}</span>
         <span className="text-center">{t('tabela.identificador')}</span>
-        <span aria-hidden />
+        <span className="text-center">{t('tabela.acoes')}</span>
       </div>
 
       <ul className="flex flex-col divide-y divide-border">
@@ -162,7 +162,7 @@ export function ColumnMappingTable({
                 aria-label={t('tabela.removerColuna')}
                 className="text-muted-foreground hover:text-destructive"
               >
-                <XIcon />
+                <Trash2Icon />
               </Button>
             </li>
           )
