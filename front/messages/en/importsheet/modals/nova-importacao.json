@@ -1,0 +1,16 @@
+{
+  "titulo": "New import",
+  "descricao": "Enter the Google spreadsheet ID (or link)",
+  "idPlanilha": "Spreadsheet ID",
+  "placeholder": "e.g.: 1AbC…XyZ or the spreadsheet URL",
+  "validar": "Validate",
+  "validando": "Validating…",
+  "dicaUrl": "The ID is in the URL:",
+  "erroValidar": "Failed to validate the spreadsheet.",
+  "irConfiguracoes": "Go to Settings",
+  "selecioneAba": "Select the tab",
+  "aba": "Tab",
+  "linhasColunas": "{{linhas}} rows · {{colunas}} columns",
+  "cancelar": "Cancel",
+  "continuar": "Continue"
+}

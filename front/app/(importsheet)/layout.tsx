@@ -31,7 +31,7 @@ export default function ImportSheetLayout({
   return (
     <SessionProvider appCode={envConfig.appCodes.importsheet}>
       <div
-        className={`${montSerrat.variable} flex min-h-screen w-full`}
+        className={`${IMPORTSHEET_THEME_CLASS} ${montSerrat.variable} flex min-h-screen w-full`}
         style={{ fontFamily: 'var(--font-montserrat)' }}
       >
         <Aside

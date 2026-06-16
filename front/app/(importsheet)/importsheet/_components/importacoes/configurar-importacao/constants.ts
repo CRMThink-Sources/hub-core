@@ -3,8 +3,8 @@ import type { EntityCode, ResponsibleMatchBy, ScheduleType } from '../../types'
 export const UNSET = '__unset__'
 export const NONE = '__none__'
 
-/** Rótulo curto do tipo do campo Bitrix, exibido no de-para. Texto/número = sem tag. */
-export function fieldTypeLabel(type: string): string | null {
+/** Chave i18n do tipo do campo Bitrix, exibido no de-para. Texto/número = sem tag. */
+export function fieldTypeKey(type: string): string | null {
   switch (type) {
     case 'enumeration':
     case 'crm_status':
@@ -13,10 +13,10 @@ export function fieldTypeLabel(type: string): string | null {
     case 'datetime':
       return 'data'
     case 'boolean':
-      return 'S/N'
+      return 'sn'
     case 'money':
     case 'crm_currency':
-      return 'R$'
+      return 'moeda'
     case 'crm_multifield':
       return 'contato'
     default:

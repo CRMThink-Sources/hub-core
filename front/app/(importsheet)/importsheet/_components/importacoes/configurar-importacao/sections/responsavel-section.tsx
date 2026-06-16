@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -26,10 +27,16 @@ export function ResponsavelSection({
   responsibleMatchBy,
   setResponsibleMatchBy,
 }: Props) {
+  const { t } = useTranslation('importsheet/configurar-importacao')
+  const semTitulo = t('responsavel.semTitulo')
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="flex flex-col gap-2">
-        <Label>{isFeed ? 'Autor' : 'Responsável'} (coluna)</Label>
+        <Label>
+          {isFeed
+            ? t('responsavel.autorColuna')
+            : t('responsavel.responsavelColuna')}
+        </Label>
         <Select
           value={
             responsibleColumnIndex === null
@@ -45,10 +52,12 @@ export function ResponsavelSection({
               {(value: string) => {
                 const col = visibleColumns.find(c => String(c.index) === value)
                 return col ? (
-                  `${col.letter} · ${col.label || '(sem título)'}`
+                  `${col.letter} · ${col.label || semTitulo}`
                 ) : (
                   <span className="text-muted-foreground">
-                    {isFeed ? 'Sem autor' : 'Sem responsável'}
+                    {isFeed
+                      ? t('responsavel.semAutor')
+                      : t('responsavel.semResponsavel')}
                   </span>
                 )
               }}
@@ -56,11 +65,13 @@ export function ResponsavelSection({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={NONE}>
-              {isFeed ? 'Sem autor' : 'Sem responsável'}
+              {isFeed
+                ? t('responsavel.semAutor')
+                : t('responsavel.semResponsavel')}
             </SelectItem>
             {visibleColumns.map(c => (
               <SelectItem key={c.index} value={String(c.index)}>
-                {c.letter} · {c.label || '(sem título)'}
+                {c.letter} · {c.label || semTitulo}
               </SelectItem>
             ))}
           </SelectContent>
@@ -68,7 +79,11 @@ export function ResponsavelSection({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label>Casar {isFeed ? 'autor' : 'responsável'} por</Label>
+        <Label>
+          {isFeed
+            ? t('responsavel.casarAutor')
+            : t('responsavel.casarResponsavel')}
+        </Label>
         <Select
           value={responsibleMatchBy}
           onValueChange={(v: string | null) =>
@@ -78,14 +93,16 @@ export function ResponsavelSection({
           <SelectTrigger>
             <SelectValue>
               {(value: string) =>
-                MATCH_OPTIONS.find(o => o.value === value)?.label ?? value
+                MATCH_OPTIONS.find(o => o.value === value)
+                  ? t(`match.${value}`)
+                  : value
               }
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {MATCH_OPTIONS.map(o => (
               <SelectItem key={o.value} value={o.value}>
-                {o.label}
+                {t(`match.${o.value}`)}
               </SelectItem>
             ))}
           </SelectContent>

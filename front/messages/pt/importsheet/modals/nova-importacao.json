@@ -1,0 +1,16 @@
+{
+  "titulo": "Nova importação",
+  "descricao": "Informe o ID (ou link) da planilha do Google",
+  "idPlanilha": "ID da planilha",
+  "placeholder": "ex.: 1AbC…XyZ ou a URL da planilha",
+  "validar": "Validar",
+  "validando": "Validando…",
+  "dicaUrl": "O ID fica na URL:",
+  "erroValidar": "Falha ao validar a planilha.",
+  "irConfiguracoes": "Ir para Configurações",
+  "selecioneAba": "Selecione a aba",
+  "aba": "Aba",
+  "linhasColunas": "{{linhas}} linhas · {{colunas}} colunas",
+  "cancelar": "Cancelar",
+  "continuar": "Continuar"
+}

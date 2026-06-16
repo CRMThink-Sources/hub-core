@@ -72,6 +72,30 @@ const configSchema = z
       }
     }
 
+    // Campo (target+fieldName) ou coluna mapeados 2x → último ganha/duplica.
+    const seenFields = new Set<string>()
+    const seenColumns = new Set<number>()
+    for (const mapping of config.mappings) {
+      const fieldKey = `${mapping.target}:${mapping.fieldName}`
+      if (seenFields.has(fieldKey)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['mappings'],
+          message: `Campo "${mapping.fieldName}" (${mapping.target}) está mapeado mais de uma vez`,
+        })
+      }
+      seenFields.add(fieldKey)
+
+      if (seenColumns.has(mapping.columnIndex)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['mappings'],
+          message: `Coluna ${mapping.columnIndex} está mapeada mais de uma vez`,
+        })
+      }
+      seenColumns.add(mapping.columnIndex)
+    }
+
     // Coluna excluída não pode ser o responsável.
     if (config.responsible && excluded.has(config.responsible.columnIndex)) {
       ctx.addIssue({
@@ -86,7 +110,7 @@ const scheduleSchema = z.discriminatedUnion('mode', [
   z.object({ mode: z.literal('manual') }),
   z.object({
     mode: z.literal('hours'),
-    everyHours: z.number().int().min(1).max(23),
+    everyHours: z.number().int().min(1).max(24),
   }),
   z.object({
     mode: z.literal('days'),

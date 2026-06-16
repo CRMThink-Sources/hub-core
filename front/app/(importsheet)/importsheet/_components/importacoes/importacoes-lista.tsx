@@ -1,24 +1,32 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PencilIcon, PlayIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
+import { isAxiosError } from 'axios'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
 import type { ImportListItem } from '../types'
 import { ENTITIES, WEEKDAYS } from './configurar-importacao/constants'
 
-function entityLabel(code: ImportListItem['entityCode']): string {
-  return ENTITIES.find(e => e.code === code)?.label ?? code
+type TFn = (key: string, options?: Record<string, unknown>) => string
+
+function entityLabel(code: ImportListItem['entityCode'], tCfg: TFn): string {
+  return ENTITIES.find(e => e.code === code) ? tCfg(`entidades.${code}`) : code
 }
 
-function scheduleLabel(item: ImportListItem): string {
-  if (item.scheduleMode === 'MANUAL') return 'Manual'
-  if (item.scheduleMode === 'HOURS') return `A cada ${item.everyHours}h`
+function scheduleLabel(item: ImportListItem, t: TFn, tCfg: TFn): string {
+  if (item.scheduleMode === 'MANUAL') return t('manual')
+  if (item.scheduleMode === 'HOURS')
+    return t('aCadaHoras', { horas: item.everyHours })
   const days = (item.weekdays ?? [])
-    .map(d => WEEKDAYS.find(w => w.value === d)?.label ?? d)
+    .map(d =>
+      WEEKDAYS.find(w => w.value === d) ? tCfg(`weekdays.${d}`) : String(d),
+    )
     .join(', ')
-  return days ? `Semanal: ${days}` : 'Semanal'
+  return days ? t('semanalDias', { dias: days }) : t('semanal')
 }
 
 type Props = {
@@ -36,6 +44,8 @@ export function ImportacoesLista({
   onRun,
   onToggleEnabled,
 }: Props) {
+  const { t } = useTranslation('importsheet/importacoes/lista')
+  const { t: tCfg } = useTranslation('importsheet/configurar-importacao')
   const [confirmId, setConfirmId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [runningId, setRunningId] = useState<number | null>(null)
@@ -45,9 +55,13 @@ export function ImportacoesLista({
     setRunningId(id)
     try {
       await onRun(id)
-      toast.success('Importação enfileirada para execução.')
-    } catch {
-      toast.error('Falha ao executar a importação. Tente novamente.')
+      toast.success(t('toastEnfileirada'))
+    } catch (error) {
+      // Backend pode recusar (ex.: 409 importação pausada) com mensagem útil.
+      const serverMessage = isAxiosError(error)
+        ? (error.response?.data?.result?.error as string | undefined)
+        : undefined
+      toast.error(serverMessage ?? t('toastErroExecutar'))
     } finally {
       setRunningId(null)
     }
@@ -57,9 +71,9 @@ export function ImportacoesLista({
     setTogglingId(id)
     try {
       await onToggleEnabled(id, enabled)
-      toast.success(enabled ? 'Importação ativada.' : 'Importação pausada.')
+      toast.success(enabled ? t('toastAtivada') : t('toastPausada'))
     } catch {
-      toast.error('Falha ao alterar o status. Tente novamente.')
+      toast.error(t('toastErroStatus'))
     } finally {
       setTogglingId(null)
     }
@@ -71,9 +85,9 @@ export function ImportacoesLista({
     try {
       await onDelete(confirmId)
       setConfirmId(null)
-      toast.success('Importação excluída.')
+      toast.success(t('toastExcluida'))
     } catch {
-      toast.error('Falha ao excluir a importação. Tente novamente.')
+      toast.error(t('toastErroExcluir'))
     } finally {
       setDeleting(false)
     }
@@ -91,57 +105,76 @@ export function ImportacoesLista({
               {item.title}
             </p>
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
-              {entityLabel(item.entityCode)} · {item.spreadsheetName} ·{' '}
-              {scheduleLabel(item)}
+              {entityLabel(item.entityCode, tCfg)} · {item.spreadsheetName} ·{' '}
+              {scheduleLabel(item, t, tCfg)}
             </p>
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={runningId === item.id || !item.enabled}
-              onClick={() => void handleRun(item.id)}
-              title={
-                item.enabled
-                  ? 'Executar agora'
-                  : 'Ative a importação para executar'
-              }
-            >
-              <PlayIcon />
-              Executar
-            </Button>
-
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={item.enabled}
-                disabled={togglingId === item.id}
-                onCheckedChange={checked => void handleToggle(item.id, checked)}
-                aria-label={
-                  item.enabled ? 'Pausar importação' : 'Ativar importação'
-                }
-              />
-              <span
-                className={
+            {item.scheduleMode === 'MANUAL' ? (
+              // Manual: só execução sob demanda — sem estado ativo/pausado.
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={runningId === item.id}
+                onClick={() => void handleRun(item.id)}
+                title={t('executarAgora')}
+              >
+                <PlayIcon />
+                {t('executar')}
+              </Button>
+            ) : (
+              // Agendado: o toggle controla se o agendamento dispara — sem execução manual.
+              <label
+                className={cn(
+                  'flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 transition-colors',
                   item.enabled
-                    ? 'text-xs font-medium text-emerald-600'
-                    : 'text-xs font-medium text-muted-foreground'
+                    ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40'
+                    : 'border-border bg-muted',
+                )}
+                title={
+                  item.enabled
+                    ? t('agendamentoAtivoTitulo')
+                    : t('agendamentoPausadoTitulo')
                 }
               >
-                {item.enabled ? 'Ativa' : 'Pausada'}
-              </span>
-            </div>
+                <Switch
+                  checked={item.enabled}
+                  disabled={togglingId === item.id}
+                  onCheckedChange={checked =>
+                    void handleToggle(item.id, checked)
+                  }
+                  aria-label={
+                    item.enabled
+                      ? t('pausarAgendamento')
+                      : t('ativarAgendamento')
+                  }
+                />
+                <span
+                  className={cn(
+                    'text-xs font-medium',
+                    item.enabled
+                      ? 'text-emerald-700 dark:text-emerald-400'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {item.enabled
+                    ? t('agendamentoAtivo')
+                    : t('agendamentoPausado')}
+                </span>
+              </label>
+            )}
 
             {confirmId === item.id ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-destructive">Excluir?</span>
+                <span className="text-xs text-destructive">{t('excluir')}</span>
                 <Button
                   variant="destructive"
                   size="sm"
                   disabled={deleting}
                   onClick={() => void handleConfirmDelete()}
                 >
-                  Sim
+                  {t('sim')}
                 </Button>
                 <Button
                   variant="outline"
@@ -149,7 +182,7 @@ export function ImportacoesLista({
                   disabled={deleting}
                   onClick={() => setConfirmId(null)}
                 >
-                  Não
+                  {t('nao')}
                 </Button>
               </div>
             ) : (
@@ -158,16 +191,16 @@ export function ImportacoesLista({
                   variant="outline"
                   size="sm"
                   onClick={() => onEdit(item.id)}
-                  title="Editar importação"
+                  title={t('editarImportacao')}
                 >
                   <PencilIcon />
-                  Editar
+                  {t('editar')}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setConfirmId(item.id)}
-                  title="Excluir importação"
+                  title={t('excluirImportacao')}
                 >
                   <Trash2Icon />
                 </Button>

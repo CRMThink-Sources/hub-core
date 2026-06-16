@@ -1,7 +1,7 @@
 'use client'
 
-import ConexoesLayout from '@/app/(thinkzap)/thinkzap/_layout/conexoes-layout'
+import { redirect } from 'next/navigation'
 
 export default function Home() {
-  return <ConexoesLayout />
+  redirect('/thinkzap/conexoes')
 }

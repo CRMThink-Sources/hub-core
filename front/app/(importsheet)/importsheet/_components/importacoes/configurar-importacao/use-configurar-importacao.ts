@@ -17,21 +17,34 @@ import type {
   ResponsibleMatchBy,
   ScheduleType,
 } from '../../types'
-import { FEED_FIELDS, UNSET, fieldTypeLabel } from './constants'
+import { useTranslation } from 'react-i18next'
+import { FEED_FIELDS, UNSET, fieldTypeKey } from './constants'
+
+type TFn = (key: string, options?: Record<string, unknown>) => string
 
 /** entityTypeId fixos do Bitrix p/ contato e empresa. */
 const CONTACT_ENTITY_TYPE_ID = 3
 const COMPANY_ENTITY_TYPE_ID = 4
 
-function buildFieldOptions(fields: BitrixField[] | null): ComboboxOption[] {
-  const base: ComboboxOption[] = [{ value: UNSET, label: 'Selecione…' }]
+function buildFieldOptions(
+  fields: BitrixField[] | null,
+  t: TFn,
+): ComboboxOption[] {
+  const base: ComboboxOption[] = [
+    { value: UNSET, label: t('tabela.selecione') },
+  ]
   if (!fields) return base
   return base.concat(
     fields.map(f => {
       const req = f.isRequired ? ' *' : ''
-      const typeTag = fieldTypeLabel(f.type)
-      const tag = typeTag ? ` · ${typeTag}` : ''
-      return { value: f.name, label: `${f.title}${req}${tag}` }
+      const typeKey = fieldTypeKey(f.type)
+      const tag = typeKey ? ` · ${t(`fieldTypes.${typeKey}`)}` : ''
+      // subtítulo = nome técnico + type (ex. "UF_CRM_123 · enumeration").
+      return {
+        value: f.name,
+        label: `${f.title}${req}${tag}`,
+        description: `${f.name} · ${f.type}`,
+      }
     }),
   )
 }
@@ -46,6 +59,7 @@ export function useConfigurarImportacao(
   selection: ImportSelection,
   initial?: ImportInitial | null,
 ) {
+  const { t } = useTranslation('importsheet/configurar-importacao')
   const { spreadsheet, tab } = selection
   const isEdit = !!initial
 
@@ -197,13 +211,17 @@ export function useConfigurarImportacao(
     cleanupEntityRef.current = next
 
     if (codeChanged && !needsPipeline) setCategoryId(null)
-    // Só zera os campos do destino principal — contato/empresa são outras entidades.
+    // Troca de entidade reseta o de-para: desliga destinos contato/empresa e zera os
+    // mappings (campo, identificador e destino → main) — senão fica stale da anterior.
+    setCreateContact(false)
+    setCreateCompany(false)
     setMappings(prev =>
-      prev.map(m =>
-        m.target === 'main'
-          ? { ...m, fieldName: null, isIdentifier: false }
-          : m,
-      ),
+      prev.map(m => ({
+        ...m,
+        fieldName: null,
+        isIdentifier: false,
+        target: 'main',
+      })),
     )
   }, [open, entityCode, resolvedEntityTypeId, needsPipeline])
 
@@ -233,16 +251,16 @@ export function useConfigurarImportacao(
   }, [header, initial])
 
   const fieldOptions = useMemo<ComboboxOption[]>(
-    () => buildFieldOptions(fields),
-    [fields],
+    () => buildFieldOptions(fields, t),
+    [fields, t],
   )
   const contactFieldOptions = useMemo<ComboboxOption[]>(
-    () => buildFieldOptions(contactFields),
-    [contactFields],
+    () => buildFieldOptions(contactFields, t),
+    [contactFields, t],
   )
   const companyFieldOptions = useMemo<ComboboxOption[]>(
-    () => buildFieldOptions(companyFields),
-    [companyFields],
+    () => buildFieldOptions(companyFields, t),
+    [companyFields, t],
   )
   const fieldOptionsByTarget = useMemo<Record<MappingTarget, ComboboxOption[]>>(
     () => ({
@@ -258,12 +276,14 @@ export function useConfigurarImportacao(
     { value: MappingTarget; label: string }[]
   >(() => {
     const list: { value: MappingTarget; label: string }[] = [
-      { value: 'main', label: 'Principal' },
+      { value: 'main', label: t('destinos.main') },
     ]
-    if (createContact) list.push({ value: 'contact', label: 'Contato' })
-    if (createCompany) list.push({ value: 'company', label: 'Empresa' })
+    if (createContact)
+      list.push({ value: 'contact', label: t('destinos.contact') })
+    if (createCompany)
+      list.push({ value: 'company', label: t('destinos.company') })
     return list
-  }, [createContact, createCompany])
+  }, [createContact, createCompany, t])
 
   function setMapping(columnIndex: number, fieldName: string | null) {
     setMappings(prev => {

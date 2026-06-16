@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -36,6 +37,7 @@ export function DestinoSection({
   spaTypeId,
   spas,
 }: Props) {
+  const { t } = useTranslation('importsheet/configurar-importacao')
   return (
     <div
       className={`grid gap-4 ${
@@ -43,7 +45,7 @@ export function DestinoSection({
       }`}
     >
       <div className="flex flex-col gap-2">
-        <Label>Entidade</Label>
+        <Label>{t('destino.entidade')}</Label>
         <Select
           value={entityCode}
           onValueChange={(v: string | null) => {
@@ -54,10 +56,12 @@ export function DestinoSection({
           <SelectTrigger>
             <SelectValue>
               {(value: string) =>
-                value ? (
-                  (ENTITIES.find(en => en.code === value)?.label ?? value)
+                value && ENTITIES.find(en => en.code === value) ? (
+                  t(`entidades.${value}`)
                 ) : (
-                  <span className="text-muted-foreground">Selecione…</span>
+                  <span className="text-muted-foreground">
+                    {t('destino.selecione')}
+                  </span>
                 )
               }
             </SelectValue>
@@ -65,7 +69,7 @@ export function DestinoSection({
           <SelectContent>
             {ENTITIES.map(en => (
               <SelectItem key={en.code} value={en.code}>
-                {en.label}
+                {t(`entidades.${en.code}`)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -74,7 +78,7 @@ export function DestinoSection({
 
       {needsPipeline && (
         <div className="flex flex-col gap-2">
-          <Label>Pipeline</Label>
+          <Label>{t('destino.pipeline')}</Label>
           <Select
             value={categoryId === null ? '' : String(categoryId)}
             onValueChange={(v: string | null) =>
@@ -89,7 +93,9 @@ export function DestinoSection({
                     value)
                   ) : (
                     <span className="text-muted-foreground">
-                      {categoriesLoading ? 'Carregando…' : 'Selecione…'}
+                      {categoriesLoading
+                        ? t('destino.carregando')
+                        : t('destino.selecione')}
                     </span>
                   )
                 }
@@ -108,7 +114,7 @@ export function DestinoSection({
 
       {needsSpa && (
         <div className="flex flex-col gap-2">
-          <Label>SPA</Label>
+          <Label>{t('destino.spa')}</Label>
           <Select
             value={spaTypeId === null ? '' : String(spaTypeId)}
             onValueChange={(v: string | null) =>
@@ -123,7 +129,7 @@ export function DestinoSection({
                     value)
                   ) : (
                     <span className="text-muted-foreground">
-                      Selecione o SPA…
+                      {t('destino.selecioneSpa')}
                     </span>
                   )
                 }

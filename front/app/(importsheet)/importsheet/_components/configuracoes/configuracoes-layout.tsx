@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { XIcon } from 'lucide-react'
 import { useSession } from '@/providers/session-provider'
 import { axiosImportsheet } from '@/infra/client/axios-importsheet'
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import type { GoogleConnection } from '../types'
 
 export default function ConfiguracoesLayout() {
+  const { t } = useTranslation('importsheet/configuracoes/page')
   const { session, isFetching, refreshSession } = useSession()
   const refreshSessionRef = useRef(refreshSession)
   useEffect(() => {
@@ -73,6 +75,9 @@ export default function ConfiguracoesLayout() {
         if (!win || win.closed) {
           if (popupTimerRef.current) clearInterval(popupTimerRef.current)
           setConnecting(false)
+          // Fallback caso o postMessage do popup não chegue: o fechamento ainda
+          // atualiza a conexão sem reload manual.
+          void refreshSessionRef.current()
         }
       }, 500)
     } catch {
@@ -82,7 +87,7 @@ export default function ConfiguracoesLayout() {
   }
 
   async function handleDisconnect() {
-    if (!window.confirm('Desconectar a conta Google deste app?')) return
+    if (!window.confirm(t('confirmarDesconectar'))) return
     try {
       setDisconnecting(true)
       await axiosImportsheet().post('/importsheet/oauth/google/disconnect')
@@ -95,15 +100,13 @@ export default function ConfiguracoesLayout() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 pt-20">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-8 sm:px-6 lg:px-8">
       {/* header */}
       <div className="rounded-xl border border-border bg-card p-6">
         <h1 className="text-xl font-bold tracking-tight text-foreground">
-          Configurações
+          {t('titulo')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Integrações e conexões do app
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitulo')}</p>
       </div>
 
       {banner && (
@@ -116,16 +119,12 @@ export default function ConfiguracoesLayout() {
               : 'border-destructive/20 bg-destructive/10 text-destructive'
           }`}
         >
-          <span>
-            {banner === 'success'
-              ? 'Conta Google conectada com sucesso.'
-              : 'Algo deu errado. Tente novamente.'}
-          </span>
+          <span>{banner === 'success' ? t('sucesso') : t('erro')}</span>
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={() => setBanner(null)}
-            aria-label="Fechar aviso"
+            aria-label={t('fecharAviso')}
           >
             <XIcon />
           </Button>
@@ -136,17 +135,20 @@ export default function ConfiguracoesLayout() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h3 className="text-base font-semibold tracking-tight text-foreground">
-              Conexão Google
+              {t('conexaoGoogle')}
             </h3>
             {loading ? (
-              <p className="mt-1 text-sm text-muted-foreground">Carregando…</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t('carregando')}
+              </p>
             ) : connection.connected ? (
               <p className="mt-1 text-sm text-muted-foreground">
-                Conectado{connection.email ? ` · ${connection.email}` : ''}
+                {t('conectado')}
+                {connection.email ? ` · ${connection.email}` : ''}
               </p>
             ) : (
               <p className="mt-1 text-sm text-muted-foreground">
-                Nenhuma conta Google conectada.
+                {t('nenhumaConta')}
               </p>
             )}
           </div>
@@ -157,11 +159,11 @@ export default function ConfiguracoesLayout() {
               onClick={() => void handleDisconnect()}
               disabled={disconnecting}
             >
-              {disconnecting ? 'Desconectando…' : 'Desconectar'}
+              {disconnecting ? t('desconectando') : t('desconectar')}
             </Button>
           ) : (
             <Button onClick={() => void handleConnect()} disabled={connecting}>
-              {connecting ? 'Conectando…' : 'Conectar com Google'}
+              {connecting ? t('conectando') : t('conectarGoogle')}
             </Button>
           )}
         </div>

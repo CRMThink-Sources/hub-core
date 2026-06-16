@@ -36,16 +36,18 @@ export class BitrixThrottleError extends Error {
   }
 }
 
-/**
- * Detecta 503 `QUERY_LIMIT_EXCEEDED` a partir da `BitrixError` do client
- * compartilhado (que serializa status+corpo na mensagem). Match por marcador
- * pra não depender de tocar no client.
- */
-const INTENSITY_MARKERS = ['QUERY_LIMIT_EXCEEDED', 'Bitrix error: 503']
+// Limite de intensidade via `BitrixError.message` (sem status estruturado →
+// match por marcador). Códigos canônicos + status 503, case-insensitive.
+const INTENSITY_MARKERS = [
+  'query_limit_exceeded',
+  'overload_limit',
+  'bitrix error: 503',
+]
 
 export function isIntensityLimitError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
-  return INTENSITY_MARKERS.some(marker => error.message.includes(marker))
+  const message = error.message.toLowerCase()
+  return INTENSITY_MARKERS.some(marker => message.includes(marker))
 }
 
 /**
