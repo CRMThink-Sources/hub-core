@@ -1,3 +1,17 @@
+export class PortalSubscriptionNotFoundError extends Error {
+  constructor() {
+    super('Subscription not found')
+    this.name = 'PortalSubscriptionNotFoundError'
+  }
+}
+
+export class PortalAppNotFoundError extends Error {
+  constructor() {
+    super('App not found')
+    this.name = 'PortalAppNotFoundError'
+  }
+}
+
 export class PortalDomainNotFoundError extends Error {
   constructor() {
     super('Domain not found')

@@ -10,6 +10,8 @@
     "view": "View"
   },
   "noApps": "No apps",
+  "searchPlaceholder": "Search by name...",
+  "searchNoResults": "No clients match your search.",
   "emptyTitle": "No clients found",
   "emptyDescription": "There are no Bitrix24 domains registered yet.",
   "errorTitle": "Could not load clients",
