@@ -1,5 +1,6 @@
 import { Worker } from 'bullmq'
 import { redisConnection } from '@/queue/redis-connection'
+import { env } from '@/config/env'
 import { workerLogger } from '@/shared/infra/logger'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
@@ -13,7 +14,7 @@ import {
   type ImportRunOutcome,
 } from '../application/run-import.service'
 import { OPERATING_DEFAULT_DELAY_MS } from '../application/bitrix-throttle'
-import { withLock } from '../infra/redis-lock'
+import { withRenewingLock } from '../infra/redis-lock'
 import {
   IMPORTSHEET_RUN,
   enqueueImportRun,
@@ -68,9 +69,23 @@ const runWorker = new Worker<ImportSheetRunJob, ImportRunOutcome>(
 // continuação entra no FIM da fila → round-robin natural entre importações.
 runWorker.on('completed', (job, outcome) => {
   const importId = job.data.importId
+  // Enqueue da continuação não pode falhar calado: sem ela a importação trava
+  // em `running` (cursor parado no meio). Loga pra detectar o órfão.
+  const enqueueContinuation = (delay?: number): void => {
+    enqueueImportRun(
+      { importId, trigger: 'continuation' },
+      delay ? { delay } : undefined,
+    ).catch(error =>
+      workerLogger.error(
+        { app: 'importsheet', queue: IMPORTSHEET_RUN, importId, error },
+        'Failed to enqueue import continuation — import may be stuck',
+      ),
+    )
+  }
+
   if (outcome?.status === 'continue') {
-    // Continuação vai pro fim da fila (round-robin entre importações).
-    void enqueueImportRun({ importId, trigger: 'continuation' })
+    // Vai pro fim da fila (round-robin); delay opcional espalha sob o limite do Bitrix.
+    enqueueContinuation(env.importsheet.pageDelayMs || undefined)
     return
   }
   if (outcome?.status === 'throttled-operating') {
@@ -78,7 +93,7 @@ runWorker.on('completed', (job, outcome) => {
     const delay = outcome.resetAt
       ? Math.max(0, outcome.resetAt * 1000 - Date.now())
       : OPERATING_DEFAULT_DELAY_MS
-    void enqueueImportRun({ importId, trigger: 'continuation' }, { delay })
+    enqueueContinuation(delay)
   }
 })
 
@@ -96,12 +111,48 @@ runWorker.on('failed', (job, err) => {
   )
 })
 
+// Órfã de crash: `running` com `lastRunAt` velho. 20min dá folga acima do delay
+// legítimo do operating throttle (janela ~10min).
+const STALE_RUNNING_MS = 20 * 60 * 1000
+
+// Reclama imports presas em `running` (worker morto mid-página): marca `error` e
+// reenfileira (retoma do cursor; `jobId import-${id}` evita duplicar).
+async function reclaimStaleRunning(): Promise<void> {
+  const staleBefore = new Date(Date.now() - STALE_RUNNING_MS)
+  const orphans = await importRepository.findStaleRunning(staleBefore)
+  if (orphans.length === 0) return
+
+  for (const imp of orphans) {
+    await importRepository.markRunResult(imp.id, {
+      startRow: imp.startRow,
+      lastRunAt: new Date(),
+      lastRunStatus: 'error',
+      lastError:
+        'Execução interrompida (worker reiniciou) — retomada automática do cursor',
+      nextRunAt: imp.nextRunAt,
+    })
+    if (imp.enabled) {
+      await enqueueImportRun({ importId: imp.id, trigger: 'schedule' })
+    }
+  }
+
+  workerLogger.warn(
+    {
+      app: 'importsheet',
+      queue: IMPORTSHEET_SCHEDULER,
+      reclaimed: orphans.length,
+      importIds: orphans.map(o => o.id),
+    },
+    'Reclaimed stale running imports (worker crash recovery)',
+  )
+}
+
 // --- Worker do scheduler: tick do poller (busca vencidas e enfileira). ---
 const schedulerWorker = new Worker(
   IMPORTSHEET_SCHEDULER,
   async () => {
-    // Lock garante tick único mesmo com vários processos worker.
-    await withLock(
+    // Lock garante tick único entre workers; auto-renova p/ não expirar no meio.
+    await withRenewingLock(
       'importsheet:tick',
       SCHEDULER_TICK_EVERY_MS - 5000,
       async () => {
@@ -119,6 +170,8 @@ const schedulerWorker = new Worker(
             'Scheduler tick enqueued due imports',
           )
         }
+
+        await reclaimStaleRunning()
       },
     )
   },
@@ -139,6 +192,8 @@ schedulerWorker.on('failed', (job, err) => {
 
 async function bootstrap(): Promise<void> {
   await ensureSchedulerTick()
+  // Token Bitrix: a rota lê a credential fresca do banco por página; o refresh do
+  // access_token é responsabilidade da rotina central da API (cron + buffer).
   workerLogger.info(
     { app: 'importsheet' },
     'ImportSheet worker is ready (run + scheduler)',

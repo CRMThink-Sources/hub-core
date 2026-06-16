@@ -1,0 +1,16 @@
+{
+  "titulo": "Settings",
+  "subtitulo": "App integrations and connections",
+  "sucesso": "Google account connected successfully.",
+  "erro": "Something went wrong. Please try again.",
+  "fecharAviso": "Close notice",
+  "conexaoGoogle": "Google connection",
+  "carregando": "Loading…",
+  "conectado": "Connected",
+  "nenhumaConta": "No Google account connected.",
+  "desconectando": "Disconnecting…",
+  "desconectar": "Disconnect",
+  "conectando": "Connecting…",
+  "conectarGoogle": "Connect with Google",
+  "confirmarDesconectar": "Disconnect the Google account from this app?"
+}

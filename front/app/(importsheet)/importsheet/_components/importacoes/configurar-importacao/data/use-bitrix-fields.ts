@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { axiosImportsheet } from '@/infra/client/axios-importsheet'
 import type { BitrixField } from '../../../types'
 
@@ -7,6 +8,7 @@ export function useBitrixFields(
   isTask: boolean,
   resolvedEntityTypeId: number | null,
 ) {
+  const { t } = useTranslation('importsheet/configurar-importacao')
   const [fields, setFields] = useState<BitrixField[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,7 +35,7 @@ export function useBitrixFields(
       })
       .catch((e: unknown) => {
         if (!active) return
-        setError(e instanceof Error ? e.message : 'Falha ao carregar campos.')
+        setError(e instanceof Error ? e.message : t('erros.campos'))
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -41,7 +43,7 @@ export function useBitrixFields(
     return () => {
       active = false
     }
-  }, [open, isTask, resolvedEntityTypeId])
+  }, [open, isTask, resolvedEntityTypeId, t])
 
   return { fields, loading, error }
 }

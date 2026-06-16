@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PlusIcon } from 'lucide-react'
 import { useSession } from '@/providers/session-provider'
 import { axiosImportsheet } from '@/infra/client/axios-importsheet'
@@ -28,6 +29,7 @@ export default function ImportacoesLayout() {
 }
 
 function ImportacoesContent() {
+  const { t } = useTranslation('importsheet/importacoes/layout')
   const { session, refreshSession } = useSession()
   const { setLoading } = useLoading()
   const connection = session?.googleConnection as GoogleConnection | undefined
@@ -49,7 +51,7 @@ function ImportacoesContent() {
   }
 
   async function handleDelete(id: number) {
-    setLoading(true, 'Excluindo importação…')
+    setLoading(true, t('excluindo'))
     try {
       await axiosImportsheet().delete(`/importsheet/imports/${id}`)
       await refreshSession()
@@ -75,25 +77,21 @@ function ImportacoesContent() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 pt-20">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-8 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between rounded-xl border border-border bg-card p-6">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Importações
+            {t('titulo')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Área de trabalho de importações
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitulo')}</p>
         </div>
         <Button
           onClick={() => setModalOpen(true)}
           disabled={!podeImportar}
-          title={
-            googlePendente ? 'Conecte uma conta Google primeiro' : undefined
-          }
+          title={googlePendente ? t('conecteGoogle') : undefined}
         >
           <PlusIcon />
-          Nova importação
+          {t('novaImportacao')}
         </Button>
       </div>
 
@@ -129,15 +127,15 @@ function ImportacoesContent() {
 
       {googlePendente && (
         <ConexaoPendenteBanner
-          message="Conexão com o Google pendente."
-          ctaLabel="Conectar"
+          message={t('conexaoPendente')}
+          ctaLabel={t('conectar')}
           href="/importsheet/configuracoes"
         />
       )}
 
       {!session ? (
         <div className="rounded-xl border border-border bg-card p-10 text-center">
-          <p className="text-sm text-muted-foreground">Carregando…</p>
+          <p className="text-sm text-muted-foreground">{t('carregando')}</p>
         </div>
       ) : podeImportar && imports.length > 0 ? (
         <ImportacoesLista
@@ -150,9 +148,11 @@ function ImportacoesContent() {
       ) : podeImportar ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
           <p className="text-sm text-muted-foreground">
-            Nenhuma importação ainda. Clique em{' '}
-            <span className="font-medium text-foreground">Nova importação</span>{' '}
-            para começar.
+            {t('vazioAntes')}{' '}
+            <span className="font-medium text-foreground">
+              {t('novaImportacao')}
+            </span>{' '}
+            {t('vazioDepois')}
           </p>
         </div>
       ) : null}

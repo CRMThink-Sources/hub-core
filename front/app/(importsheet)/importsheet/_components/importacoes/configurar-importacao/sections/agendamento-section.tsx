@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -32,12 +33,15 @@ export function AgendamentoSection({
   weekdays,
   toggleWeekday,
 }: Props) {
+  const { t } = useTranslation('importsheet/configurar-importacao')
   return (
     <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
-      <span className="text-sm font-medium text-foreground">Agendamento</span>
+      <span className="text-sm font-medium text-foreground">
+        {t('agendamento.titulo')}
+      </span>
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-2">
-          <Label>Frequência</Label>
+          <Label>{t('agendamento.frequencia')}</Label>
           <Select
             value={scheduleType}
             disabled={scheduleManual}
@@ -48,14 +52,16 @@ export function AgendamentoSection({
             <SelectTrigger>
               <SelectValue>
                 {(value: string) =>
-                  SCHEDULE_OPTIONS.find(o => o.value === value)?.label ?? value
+                  SCHEDULE_OPTIONS.find(o => o.value === value)
+                    ? t(`frequencia.${value}`)
+                    : value
                 }
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {SCHEDULE_OPTIONS.map(o => (
                 <SelectItem key={o.value} value={o.value}>
-                  {o.label}
+                  {t(`frequencia.${o.value}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -64,7 +70,9 @@ export function AgendamentoSection({
 
         {scheduleType === 'hours' ? (
           <div className="flex flex-col gap-2">
-            <Label htmlFor="schedule-hours">A cada (horas)</Label>
+            <Label htmlFor="schedule-hours">
+              {t('agendamento.aCadaHoras')}
+            </Label>
             <Input
               id="schedule-hours"
               type="number"
@@ -81,7 +89,7 @@ export function AgendamentoSection({
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            <Label>Dias da semana</Label>
+            <Label>{t('agendamento.diasSemana')}</Label>
             <div
               className={`flex flex-wrap gap-1.5 ${
                 scheduleManual ? 'pointer-events-none opacity-50' : ''
@@ -95,13 +103,13 @@ export function AgendamentoSection({
                     type="button"
                     disabled={scheduleManual}
                     onClick={() => toggleWeekday(d.value)}
-                    className={`h-9 w-11 cursor-pointer rounded-md border text-xs font-medium transition-colors ${
+                    className={`h-9 w-11 cursor-pointer rounded-md border text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                       on
                         ? 'border-primary bg-primary text-primary-foreground'
                         : 'border-border text-foreground hover:bg-accent'
                     }`}
                   >
-                    {d.label}
+                    {t(`weekdays.${d.value}`)}
                   </button>
                 )
               })}
@@ -112,12 +120,13 @@ export function AgendamentoSection({
 
       <label className="flex w-fit cursor-pointer items-center gap-2">
         <Switch checked={scheduleManual} onCheckedChange={setScheduleManual} />
-        <span className="text-sm text-foreground">Manual?</span>
+        <span className="text-sm text-foreground">
+          {t('agendamento.manual')}
+        </span>
       </label>
       {scheduleManual && (
         <p className="text-xs text-muted-foreground">
-          Agendamento desativado — a importação roda sob demanda pela lista de
-          importações criadas.
+          {t('agendamento.manualDica')}
         </p>
       )}
     </div>

@@ -1,5 +1,12 @@
 import 'dotenv/config'
 
+/** Page size do worker: clamp [1,50] (50 = teto de comandos do batch Bitrix). */
+function parsePageSize(raw: string | undefined): number {
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return 20
+  return Math.min(50, Math.max(1, Math.trunc(n)))
+}
+
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   logLevel: process.env.LOG_LEVEL ?? 'info',
@@ -87,6 +94,15 @@ export const env = {
     thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',
     thinkanalise: process.env.THINKANALISE_APP_CODE ?? 'crmthink.thinkanalise',
     importsheet: process.env.IMPORTSHEET_APP_CODE ?? 'crmthink.importsheet',
+  },
+  importsheet: {
+    // Linhas por ciclo (round-robin). Default 20, teto 50 (batch Bitrix).
+    pageSize: parsePageSize(process.env.IMPORTSHEET_PAGE_SIZE),
+    // Pausa entre páginas p/ ficar sob o limite do Bitrix. Default 500ms; 0 desliga.
+    pageDelayMs: Math.max(
+      0,
+      Number(process.env.IMPORTSHEET_PAGE_DELAY_MS ?? 500) || 0,
+    ),
   },
   thinkzapMockZApiProvisioning:
     process.env.THINKZAP_MOCK_ZAPI_PROVISIONING === 'true' ||

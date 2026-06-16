@@ -1,0 +1,135 @@
+{
+  "modal": {
+    "tituloEditar": "Editar importación",
+    "tituloCriar": "Configurar importación",
+    "descricao": "Defina el destino en Bitrix24 y la asignación de columnas",
+    "voltar": "Volver",
+    "cancelar": "Cancelar",
+    "salvar": "Guardar",
+    "salvando": "Guardando importación…",
+    "criando": "Creando importación…",
+    "atualizada": "Importación actualizada.",
+    "criada": "Importación creada.",
+    "erroSalvar": "Error al guardar la importación. Inténtelo de nuevo."
+  },
+  "identidade": {
+    "titulo": "Título de la importación",
+    "tituloPlaceholder": "ej.: Leads de junio",
+    "idPlanilha": "ID de la hoja",
+    "aba": "Pestaña para importar",
+    "linhaInicial": "Importar a partir de la fila",
+    "linhaInicialDica": "La fila 1 es el encabezado. La importación comienza en esta fila; reduzca el número para reimportar filas anteriores."
+  },
+  "destino": {
+    "entidade": "Entidad",
+    "selecione": "Seleccione…",
+    "pipeline": "Embudo",
+    "spa": "SPA",
+    "selecioneSpa": "Seleccione el SPA…",
+    "carregando": "Cargando…"
+  },
+  "entidades": {
+    "LEAD": "Lead",
+    "DEAL": "Negocio",
+    "CONTACT": "Contacto",
+    "COMPANY": "Empresa",
+    "SPA": "SPA",
+    "TASK": "Tareas",
+    "FEED": "Livefeed"
+  },
+  "responsavel": {
+    "autorColuna": "Autor (columna)",
+    "responsavelColuna": "Responsable (columna)",
+    "semAutor": "Sin autor",
+    "semResponsavel": "Sin responsable",
+    "casarAutor": "Identificar autor por",
+    "casarResponsavel": "Identificar responsable por",
+    "semTitulo": "(sin título)"
+  },
+  "match": {
+    "id": "ID",
+    "email": "Correo",
+    "phone": "Teléfono"
+  },
+  "opcoes": {
+    "criarContato": "¿Crear contacto?",
+    "criarEmpresa": "¿Crear empresa?"
+  },
+  "agendamento": {
+    "titulo": "Programación",
+    "frequencia": "Frecuencia",
+    "aCadaHoras": "Cada (horas)",
+    "diasSemana": "Días de la semana",
+    "manual": "¿Manual?",
+    "manualDica": "Programación desactivada — la importación se ejecuta a demanda desde la lista de importaciones creadas."
+  },
+  "frequencia": {
+    "hours": "Horas",
+    "days": "Días de la semana"
+  },
+  "weekdays": {
+    "0": "Dom",
+    "1": "Lun",
+    "2": "Mar",
+    "3": "Mié",
+    "4": "Jue",
+    "5": "Vie",
+    "6": "Sáb"
+  },
+  "depara": {
+    "tituloFeed": "Mapeo del Livefeed",
+    "titulo": "Asignación de columnas",
+    "camposExcluidos": "Campos excluidos ({{count}})",
+    "camposExcluidosTitulo": "Campos excluidos",
+    "camposExcluidosDescricao": "Restaure columnas para incluirlas en la asignación.",
+    "coluna": "Columna {{numero}}",
+    "restaurar": "Restaurar",
+    "contadorFeed": "{{mapeados}} de {{total}} campos",
+    "contadorColunas": "{{mapeados}} de {{total}} asignadas",
+    "selecioneEntidade": "Seleccione una entidad para mapear las columnas.",
+    "carregandoColunas": "Cargando columnas y campos…",
+    "primeiraLinhaVazia": "La primera fila de la pestaña está vacía.",
+    "todasRemovidas": "Se eliminaron todas las columnas."
+  },
+  "tabela": {
+    "coluna": "Columna",
+    "destino": "Destino",
+    "campoBitrix": "Campo en Bitrix",
+    "identificador": "Identificador",
+    "semTitulo": "(sin título)",
+    "selecione": "Seleccione…",
+    "buscarCampo": "Buscar campo…",
+    "usarIdentificador": "Usar como identificador",
+    "usarIdentificadorTitulo": "Usar como identificador (evita registros duplicados)",
+    "removerColuna": "Eliminar columna"
+  },
+  "feedTabela": {
+    "campoFeed": "Campo del Livefeed",
+    "colunaPlanilha": "Columna de la hoja",
+    "selecione": "Seleccione…",
+    "semTitulo": "(sin título)"
+  },
+  "feedFields": {
+    "ENTITY_ID": "ID del registro",
+    "ENTITY_TYPE": "Tipo de registro (Deal/Company/Lead/Contact)",
+    "COMMENT": "Comentario"
+  },
+  "destinos": {
+    "main": "Principal",
+    "contact": "Contacto",
+    "company": "Empresa"
+  },
+  "fieldTypes": {
+    "lista": "lista",
+    "data": "fecha",
+    "sn": "S/N",
+    "moeda": "$",
+    "contato": "contacto"
+  },
+  "erros": {
+    "cabecalho": "Error al leer el encabezado.",
+    "spas": "Error al cargar SPAs.",
+    "pipelines": "Error al cargar embudos.",
+    "campos": "Error al cargar campos."
+  }
+}

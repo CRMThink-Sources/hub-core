@@ -1,0 +1,135 @@
+{
+  "modal": {
+    "tituloEditar": "Edit import",
+    "tituloCriar": "Configure import",
+    "descricao": "Set the Bitrix24 destination and the column mapping",
+    "voltar": "Back",
+    "cancelar": "Cancel",
+    "salvar": "Save",
+    "salvando": "Saving import…",
+    "criando": "Creating import…",
+    "atualizada": "Import updated.",
+    "criada": "Import created.",
+    "erroSalvar": "Error saving the import. Please try again."
+  },
+  "identidade": {
+    "titulo": "Import title",
+    "tituloPlaceholder": "e.g.: June leads",
+    "idPlanilha": "Spreadsheet ID",
+    "aba": "Tab to import",
+    "linhaInicial": "Import from row",
+    "linhaInicialDica": "Row 1 is the header. The import starts at this row; lower the number to re-import earlier rows."
+  },
+  "destino": {
+    "entidade": "Entity",
+    "selecione": "Select…",
+    "pipeline": "Pipeline",
+    "spa": "SPA",
+    "selecioneSpa": "Select the SPA…",
+    "carregando": "Loading…"
+  },
+  "entidades": {
+    "LEAD": "Lead",
+    "DEAL": "Deal",
+    "CONTACT": "Contact",
+    "COMPANY": "Company",
+    "SPA": "SPA",
+    "TASK": "Tasks",
+    "FEED": "Livefeed"
+  },
+  "responsavel": {
+    "autorColuna": "Author (column)",
+    "responsavelColuna": "Owner (column)",
+    "semAutor": "No author",
+    "semResponsavel": "No owner",
+    "casarAutor": "Identify author by",
+    "casarResponsavel": "Identify owner by",
+    "semTitulo": "(no title)"
+  },
+  "match": {
+    "id": "ID",
+    "email": "Email",
+    "phone": "Phone"
+  },
+  "opcoes": {
+    "criarContato": "Create contact?",
+    "criarEmpresa": "Create company?"
+  },
+  "agendamento": {
+    "titulo": "Schedule",
+    "frequencia": "Frequency",
+    "aCadaHoras": "Every (hours)",
+    "diasSemana": "Weekdays",
+    "manual": "Manual?",
+    "manualDica": "Schedule disabled — the import runs on demand from the created imports list."
+  },
+  "frequencia": {
+    "hours": "Hours",
+    "days": "Weekdays"
+  },
+  "weekdays": {
+    "0": "Sun",
+    "1": "Mon",
+    "2": "Tue",
+    "3": "Wed",
+    "4": "Thu",
+    "5": "Fri",
+    "6": "Sat"
+  },
+  "depara": {
+    "tituloFeed": "Livefeed mapping",
+    "titulo": "Column mapping",
+    "camposExcluidos": "Excluded fields ({{count}})",
+    "camposExcluidosTitulo": "Excluded fields",
+    "camposExcluidosDescricao": "Restore columns to include them in the mapping.",
+    "coluna": "Column {{numero}}",
+    "restaurar": "Restore",
+    "contadorFeed": "{{mapeados}} of {{total}} fields",
+    "contadorColunas": "{{mapeados}} of {{total}} mapped",
+    "selecioneEntidade": "Select an entity to map the columns.",
+    "carregandoColunas": "Loading columns and fields…",
+    "primeiraLinhaVazia": "The first row of the tab is empty.",
+    "todasRemovidas": "All columns were removed."
+  },
+  "tabela": {
+    "coluna": "Column",
+    "destino": "Destination",
+    "campoBitrix": "Bitrix field",
+    "identificador": "Identifier",
+    "semTitulo": "(no title)",
+    "selecione": "Select…",
+    "buscarCampo": "Search field…",
+    "usarIdentificador": "Use as identifier",
+    "usarIdentificadorTitulo": "Use as identifier (prevents duplicate records)",
+    "removerColuna": "Remove column"
+  },
+  "feedTabela": {
+    "campoFeed": "Livefeed field",
+    "colunaPlanilha": "Spreadsheet column",
+    "selecione": "Select…",
+    "semTitulo": "(no title)"
+  },
+  "feedFields": {
+    "ENTITY_ID": "Record ID",
+    "ENTITY_TYPE": "Record type (Deal/Company/Lead/Contact)",
+    "COMMENT": "Comment"
+  },
+  "destinos": {
+    "main": "Main",
+    "contact": "Contact",
+    "company": "Company"
+  },
+  "fieldTypes": {
+    "lista": "list",
+    "data": "date",
+    "sn": "Y/N",
+    "moeda": "$",
+    "contato": "contact"
+  },
+  "erros": {
+    "cabecalho": "Failed to read the header.",
+    "spas": "Failed to load SPAs.",
+    "pipelines": "Failed to load pipelines.",
+    "campos": "Failed to load fields."
+  }
+}

@@ -1,11 +1,34 @@
 import type { ImportConfigMapping } from '../domain/entities/import'
 import {
+  MULTIFIELD_SENTINEL,
   normalizeBrazilianDoc,
   transformFieldValue,
   type BitrixFieldMeta,
   type FieldParam,
   type StatusLists,
 } from './field-value-transform'
+
+/**
+ * Expande os params marcados como multifield (PHONE/EMAIL) para o formato do
+ * crm.item: `fields[fm][i][typeId|value|valueType]`, com índice `i` único na linha
+ * (sequencial entre todos os PHONE/EMAIL). Params não-multifield passam intactos.
+ */
+function expandMultifields(params: FieldParam[]): FieldParam[] {
+  const out: FieldParam[] = []
+  let fmIndex = 0
+  for (const p of params) {
+    if (p.path[0] !== MULTIFIELD_SENTINEL) {
+      out.push(p)
+      continue
+    }
+    const i = String(fmIndex++)
+    const typeId = p.path[1] ?? 'PHONE'
+    out.push({ path: ['fm', i, 'typeId'], value: typeId })
+    out.push({ path: ['fm', i, 'value'], value: p.value })
+    out.push({ path: ['fm', i, 'valueType'], value: 'WORK' })
+  }
+  return out
+}
 
 export type RowIdentifier = {
   fieldName: string
@@ -64,5 +87,5 @@ export function mapRow(
     )
   }
 
-  return { params, identifiers }
+  return { params: expandMultifields(params), identifiers }
 }

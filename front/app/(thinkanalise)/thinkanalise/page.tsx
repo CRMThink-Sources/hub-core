@@ -1,5 +1,5 @@
-import ConfiguracoesLayout from './_components/configuracoes/configuracoes-layout'
+import { redirect } from 'next/navigation'
 
 export default function Home() {
-  return <ConfiguracoesLayout />
+  redirect('/thinkanalise/configuracoes')
 }

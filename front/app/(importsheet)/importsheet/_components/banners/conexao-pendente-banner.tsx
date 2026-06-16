@@ -15,7 +15,7 @@ export function ConexaoPendenteBanner({ message, ctaLabel, href }: Props) {
     <div
       role="status"
       aria-live="polite"
-      className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 px-4 py-3 text-foreground"
+      className="flex w-full items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 px-4 py-3 text-foreground"
     >
       <div className="flex items-center gap-2">
         <TriangleAlertIcon className="size-4 shrink-0 text-muted-foreground" />

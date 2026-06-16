@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { axiosImportsheet } from '@/infra/client/axios-importsheet'
 import type { SpreadsheetHeader } from '../../../types'
 
@@ -7,6 +8,7 @@ export function useSheetHeader(
   spreadsheetId: string,
   tabTitle: string,
 ) {
+  const { t } = useTranslation('importsheet/configurar-importacao')
   const [header, setHeader] = useState<SpreadsheetHeader | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -26,7 +28,7 @@ export function useSheetHeader(
       })
       .catch((e: unknown) => {
         if (!active) return
-        setError(e instanceof Error ? e.message : 'Falha ao ler o cabeçalho.')
+        setError(e instanceof Error ? e.message : t('erros.cabecalho'))
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -34,7 +36,7 @@ export function useSheetHeader(
     return () => {
       active = false
     }
-  }, [open, spreadsheetId, tabTitle])
+  }, [open, spreadsheetId, tabTitle, t])
 
   return { header, loading, error }
 }

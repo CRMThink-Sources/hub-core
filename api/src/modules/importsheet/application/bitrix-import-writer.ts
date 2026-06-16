@@ -193,12 +193,23 @@ export class BitrixImportWriter {
   ): Promise<WriteResult> {
     const adapter = adapterFor(entityCode, entityTypeId, categoryId)
 
-    // 1) Busca existentes (batch list) — só linhas com identificador.
-    const foundIds = await this.lookupExisting(adapter, rows)
+    // Dedup intra-página: mesmo identificador → 1 grupo, escreve só o
+    // representante (última linha) e espalha o id pros membros. Evita 2 ADD do
+    // mesmo identificador no batch (= duplicata); em sub, 1 registro p/ N principais.
+    const groups = this.groupByIdentifier(rows)
+    const reps = groups.map(g => g.rep)
 
-    // 2) Escreve (batch add/update).
+    // 1) Busca existentes (batch list) — só representantes com identificador.
+    const { found: foundIds, ambiguous } = await this.lookupExisting(
+      adapter,
+      reps,
+    )
+
+    // 2) Escreve (batch add/update). Linha com match ambíguo (>1) NÃO é escrita:
+    // adicionar criaria duplicata e atualizar pegaria o registro errado.
     const cmd: Record<string, string> = {}
-    for (const [i, row] of rows.entries()) {
+    for (const [i, row] of reps.entries()) {
+      if (ambiguous.has(i)) continue
       const key = `row_${i}`
       const existingId = foundIds.get(i)
       cmd[key] = existingId
@@ -206,30 +217,83 @@ export class BitrixImportWriter {
         : adapter.addCommand(row.params)
     }
 
-    const res = await this.batch(cmd)
-    const result = this.collectResults(adapter, rows, foundIds, res)
+    const res =
+      Object.keys(cmd).length > 0
+        ? await this.batch(cmd)
+        : { result: { result: {}, result_error: {} } }
+    const repResult = this.collectResults(
+      adapter,
+      reps,
+      foundIds,
+      ambiguous,
+      res,
+    )
 
-    // Resumo por página (entidade + contagem + ids + erros).
-    const added = result.results.filter(r => r.status === 'added')
-    const updated = result.results.filter(r => r.status === 'updated')
-    const errors = result.results.filter(r => r.status === 'error')
+    // Espalha o resultado do rep pros membros, preservando a ordem original.
+    const byRow = new Map<number, RowResult>()
+    for (const [i, group] of groups.entries()) {
+      const rr = repResult.results[i] as RowResult
+      for (const member of group.members) {
+        byRow.set(member.row, { ...rr, row: member.row })
+      }
+    }
+    const results = rows.map(r => byRow.get(r.row) as RowResult)
+
+    const written = repResult.results
     console.log(`[writer] ${entityCode}`, {
-      added: added.length,
-      updated: updated.length,
-      errors: errors.length,
-      ids: result.results.map(r => r.id ?? '·').join(','),
-      ...(errors.length
-        ? { errorDetails: errors.map(r => `r${r.row}:${r.error}`) }
+      rows: rows.length,
+      written: written.length,
+      deduped: rows.length - reps.length,
+      added: written.filter(r => r.status === 'added').length,
+      updated: written.filter(r => r.status === 'updated').length,
+      errors: written.filter(r => r.status === 'error').length,
+      ids: written.map(r => r.id ?? '·').join(','),
+      ...(written.some(r => r.status === 'error')
+        ? {
+            errorDetails: written
+              .filter(r => r.status === 'error')
+              .map(r => `r${r.row}:${r.error}`),
+          }
         : {}),
     })
 
-    return result
+    return { results, throttle: repResult.throttle }
+  }
+
+  // Agrupa por assinatura de identificador. Sem identificador = grupo próprio
+  // (nunca colapsa). Representante = última linha (last wins).
+  private groupByIdentifier(
+    rows: RowToWrite[],
+  ): { rep: RowToWrite; members: RowToWrite[] }[] {
+    const order: string[] = []
+    const bySig = new Map<string, RowToWrite[]>()
+    let noIdentSeq = 0
+    for (const row of rows) {
+      const sig =
+        row.identifiers.length === 0
+          ? `__noident_${noIdentSeq++}`
+          : row.identifiers
+              .map(id => `${id.fieldName}=${id.value}`)
+              .sort()
+              .join('|')
+      const members = bySig.get(sig)
+      if (members) {
+        members.push(row)
+      } else {
+        bySig.set(sig, [row])
+        order.push(sig)
+      }
+    }
+    return order.map(sig => {
+      const members = bySig.get(sig) as RowToWrite[]
+      return { rep: members[members.length - 1] as RowToWrite, members }
+    })
   }
 
   private async lookupExisting(
     adapter: EntityAdapter,
     rows: RowToWrite[],
-  ): Promise<Map<number, string>> {
+  ): Promise<{ found: Map<number, string>; ambiguous: Set<number> }> {
     const cmd: Record<string, string> = {}
     const keyToIndex = new Map<string, number>()
     for (const [i, row] of rows.entries()) {
@@ -242,32 +306,48 @@ export class BitrixImportWriter {
     }
 
     const found = new Map<number, string>()
-    if (Object.keys(cmd).length === 0) return found
+    const ambiguous = new Set<number>()
+    if (Object.keys(cmd).length === 0) return { found, ambiguous }
 
     const res = await this.batch(cmd)
     const results = res.result?.result ?? {}
     const totals = res.result?.result_total ?? {}
 
     for (const [key, index] of keyToIndex) {
-      if ((totals[key] ?? 0) > 0) {
+      const total = totals[key] ?? 0
+      // >1 match = identificador não-único → não dá pra escolher com segurança.
+      if (total > 1) {
+        ambiguous.add(index)
+        continue
+      }
+      if (total === 1) {
         const id = adapter.extractId(results[key])
         if (id) found.set(index, id)
       }
     }
 
-    return found
+    return { found, ambiguous }
   }
 
   private collectResults(
     adapter: EntityAdapter,
     rows: RowToWrite[],
     foundIds: Map<number, string>,
+    ambiguous: Set<number>,
     res: BatchResponse,
   ): WriteResult {
     const results = res.result?.result ?? {}
     const errors = res.result?.result_error ?? {}
 
     const rowResults: RowResult[] = rows.map((r, i) => {
+      // Não escrita por match ambíguo → reporta como erro (vai pro last_error).
+      if (ambiguous.has(i)) {
+        return {
+          row: r.row,
+          status: 'error',
+          error: 'Match ambíguo: identificador casou com mais de um registro',
+        }
+      }
       const key = `row_${i}`
       const err = errors[key]
       if (err) {

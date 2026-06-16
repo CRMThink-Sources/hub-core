@@ -6,7 +6,12 @@ import { CheckIcon, ChevronsUpDownIcon, SearchIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-export type ComboboxOption = { value: string; label: string }
+export type ComboboxOption = {
+  value: string
+  label: string
+  /** Subtítulo opcional exibido em letra menor abaixo do label. */
+  description?: string
+}
 
 function Combobox(props: ComboboxPrimitive.Root.Props<ComboboxOption>) {
   return <ComboboxPrimitive.Root data-slot="combobox" {...props} />
@@ -108,7 +113,7 @@ function ComboboxItem({
       )}
       {...props}
     >
-      <span className="truncate">{children}</span>
+      <span className="flex min-w-0 flex-1 flex-col">{children}</span>
       <ComboboxPrimitive.ItemIndicator className="absolute right-2 flex items-center">
         <CheckIcon className="size-4" />
       </ComboboxPrimitive.ItemIndicator>
