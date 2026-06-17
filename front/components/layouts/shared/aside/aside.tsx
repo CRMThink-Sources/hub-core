@@ -155,11 +155,13 @@ export const Aside = ({
                 e.currentTarget.style.backgroundColor = 'transparent'
             }}
           >
-            <img
-              src={link.icon}
-              alt={link.label}
-              style={{ width: '20px', height: '20px' }}
-            />
+            {link.icon && (
+              <img
+                src={link.icon}
+                alt={link.label}
+                style={{ width: '20px', height: '20px' }}
+              />
+            )}
             <span>{linksNamespace ? tLinks(link.label) : link.label}</span>
           </Link>
         ))}

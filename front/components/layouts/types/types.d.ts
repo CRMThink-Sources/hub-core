@@ -1,7 +1,7 @@
 export interface NavLink {
   href: string
   label: string
-  icon: string
+  icon?: string
 }
 
 export interface Language {
