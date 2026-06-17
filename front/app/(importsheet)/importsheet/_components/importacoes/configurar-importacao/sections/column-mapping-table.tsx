@@ -47,8 +47,8 @@ export function ColumnMappingTable({
   const { t } = useTranslation('importsheet/configurar-importacao')
   const showTarget = destinations.length > 1
   const grid = showTarget
-    ? 'grid-cols-[1fr_1.25rem_7rem_1.4fr_6rem_2rem]'
-    : 'grid-cols-[1fr_1.25rem_1.4fr_6rem_2rem]'
+    ? 'grid-cols-[1fr_7rem_1.4fr_6rem_2rem]'
+    : 'grid-cols-[1fr_1.4fr_6rem_2rem]'
 
   return (
     <div className="overflow-hidden rounded-lg border border-border">
@@ -56,7 +56,6 @@ export function ColumnMappingTable({
         className={`grid ${grid} items-center gap-3 border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground`}
       >
         <span>{t('tabela.coluna')}</span>
-        <span aria-hidden />
         {showTarget && <span>{t('tabela.destino')}</span>}
         <span>{t('tabela.campoBitrix')}</span>
         <span className="text-center">{t('tabela.identificador')}</span>
@@ -88,7 +87,6 @@ export function ColumnMappingTable({
                   )}
                 </span>
               </span>
-              <span className="text-center text-muted-foreground">→</span>
 
               {showTarget && (
                 <Select
