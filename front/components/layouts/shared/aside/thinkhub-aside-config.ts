@@ -22,6 +22,8 @@ export const THINKHUB_ASIDE_CONFIG = {
   ],
   bgColor: '#F9F9FB', // cor de fundo, branco
   activeColor: '#dbeafe', // cor de botao ativo -> azul claro
+  activeTextColor: '#3b82f6', // texto do item selecionado -> azul da marca
+  inactiveTextColor: '#000000', // texto do item nao selecionado -> preto
   hoverColor: '#eff6ff', // cor que fica ao mouse passar pela opcao
   borderColor: '#e5e7eb', // cor da borda das caixas
   accentColor: '#3b82f6', // cor das sobreposicoes

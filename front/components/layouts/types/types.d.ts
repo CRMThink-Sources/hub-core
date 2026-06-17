@@ -20,6 +20,7 @@ export interface AsideProps {
   bgColor?: string
   activeColor?: string
   activeTextColor?: string
+  inactiveTextColor?: string
   hoverColor?: string
   borderColor?: string
   accentColor?: string
