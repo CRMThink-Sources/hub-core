@@ -8,10 +8,31 @@ import { isAxiosError } from 'axios'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
+import { formatPortalDate } from '@/lib/format-date'
 import type { ImportListItem } from '../types'
 import { ENTITIES, WEEKDAYS } from './configurar-importacao/constants'
 
 type TFn = (key: string, options?: Record<string, unknown>) => string
+
+/** Cor da bolinha de status do último run. */
+const STATUS_DOT: Record<string, string> = {
+  success: 'bg-emerald-500',
+  partial: 'bg-amber-500',
+  error: 'bg-red-500',
+  running: 'bg-blue-500',
+}
+
+function StatusDot({ status }: { status: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-block size-1.5 shrink-0 rounded-full',
+        STATUS_DOT[status] ?? 'bg-muted-foreground',
+        status === 'running' && 'animate-pulse',
+      )}
+    />
+  )
+}
 
 function entityLabel(code: ImportListItem['entityCode'], tCfg: TFn): string {
   return ENTITIES.find(e => e.code === code) ? tCfg(`entidades.${code}`) : code
@@ -44,7 +65,7 @@ export function ImportacoesLista({
   onRun,
   onToggleEnabled,
 }: Props) {
-  const { t } = useTranslation('importsheet/importacoes/lista')
+  const { t, i18n } = useTranslation('importsheet/importacoes/lista')
   const { t: tCfg } = useTranslation('importsheet/configurar-importacao')
   const [confirmId, setConfirmId] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -57,7 +78,12 @@ export function ImportacoesLista({
       await onRun(id)
       toast.success(t('toastEnfileirada'))
     } catch (error) {
-      // Backend pode recusar (ex.: 409 importação pausada) com mensagem útil.
+      // 409 = já na fila/rodando → aviso amigável (não é erro real).
+      if (isAxiosError(error) && error.response?.status === 409) {
+        toast.info(t('toastJaNaFila'))
+        return
+      }
+      // Demais recusas do backend trazem mensagem útil.
       const serverMessage = isAxiosError(error)
         ? (error.response?.data?.result?.error as string | undefined)
         : undefined
@@ -101,28 +127,44 @@ export function ImportacoesLista({
           className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-5 py-4"
         >
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">
+            <p className="truncate text-base font-semibold text-foreground">
               {item.title}
             </p>
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
               {entityLabel(item.entityCode, tCfg)} · {item.spreadsheetName} ·{' '}
               {scheduleLabel(item, t, tCfg)}
             </p>
+            <p className="mt-1 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+              {item.lastRunStatus && <StatusDot status={item.lastRunStatus} />}
+              {item.lastRunAt
+                ? t('ultimaExecucao', {
+                    quando: formatPortalDate(item.lastRunAt, i18n.language),
+                  })
+                : t('nuncaExecutada')}
+            </p>
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
             {item.scheduleMode === 'MANUAL' ? (
               // Manual: só execução sob demanda — sem estado ativo/pausado.
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={runningId === item.id}
-                onClick={() => void handleRun(item.id)}
-                title={t('executarAgora')}
-              >
-                <PlayIcon />
-                {t('executar')}
-              </Button>
+              // Bloqueia enquanto o run está na fila/rodando (polling reflete o
+              // status) — evita reenfileirar; backend também barra com 409.
+              (() => {
+                const isRunning = item.lastRunStatus === 'running'
+                const busy = runningId === item.id || isRunning
+                return (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void handleRun(item.id)}
+                    title={isRunning ? t('emExecucao') : t('executarAgora')}
+                  >
+                    <PlayIcon />
+                    {isRunning ? t('emExecucao') : t('executar')}
+                  </Button>
+                )
+              })()
             ) : (
               // Agendado: o toggle controla se o agendamento dispara — sem execução manual.
               <label

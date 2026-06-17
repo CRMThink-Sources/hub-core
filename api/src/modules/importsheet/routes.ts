@@ -11,6 +11,7 @@ import {
   makeListBitrixCategoriesController,
   makeListBitrixFieldsController,
   makeCreateImportController,
+  makeListImportsController,
   makeGetImportController,
   makeUpdateImportController,
   makeDeleteImportController,
@@ -60,9 +61,10 @@ export const createImportSheetRoutes = (): Router => {
     adaptControllerFactory(makeListBitrixFieldsController),
   )
 
-  // Importações — listagem vem na sessão (ImportSheetSessionHandler).
-  // Detalhe completo + criar/editar aqui.
+  // Importações — listagem inicial vem na sessão (ImportSheetSessionHandler);
+  // o GET abaixo serve o polling em tempo real (último run / status).
   router.post('/imports', adaptControllerFactory(makeCreateImportController))
+  router.get('/imports', adaptControllerFactory(makeListImportsController))
   router.get('/imports/:id', adaptControllerFactory(makeGetImportController))
   router.put('/imports/:id', adaptControllerFactory(makeUpdateImportController))
   router.delete(

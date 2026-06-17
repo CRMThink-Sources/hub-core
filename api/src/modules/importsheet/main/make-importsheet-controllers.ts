@@ -11,11 +11,13 @@ import { GetSheetHeaderService } from '../application/get-sheet-header.service'
 import { BitrixCrmMetaService } from '../application/bitrix-crm-meta.service'
 import { CreateImportService } from '../application/create-import.service'
 import { UpdateImportService } from '../application/update-import.service'
+import { ListImportsService } from '../application/list-imports.service'
 import { GetSheetHeaderController } from '../presentation/controllers/get-sheet-header.controller'
 import { ListBitrixEntitiesController } from '../presentation/controllers/list-bitrix-entities.controller'
 import { ListBitrixCategoriesController } from '../presentation/controllers/list-bitrix-categories.controller'
 import { ListBitrixFieldsController } from '../presentation/controllers/list-bitrix-fields.controller'
 import { CreateImportController } from '../presentation/controllers/create-import.controller'
+import { ListImportsController } from '../presentation/controllers/list-imports.controller'
 import { GetImportController } from '../presentation/controllers/get-import.controller'
 import { UpdateImportController } from '../presentation/controllers/update-import.controller'
 import { DeleteImportController } from '../presentation/controllers/delete-import.controller'
@@ -61,6 +63,12 @@ export const makeCreateImportController = (_req: Request): Controller =>
   new CreateImportController(
     new PrismaInstalledAppRepository(),
     new CreateImportService(new PrismaImportSheetImportRepository()),
+  )
+
+export const makeListImportsController = (_req: Request): Controller =>
+  new ListImportsController(
+    new PrismaInstalledAppRepository(),
+    new ListImportsService(new PrismaImportSheetImportRepository()),
   )
 
 export const makeGetImportController = (_req: Request): Controller =>

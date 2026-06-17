@@ -18,10 +18,20 @@
   "editarImportacao": "Edit import",
   "excluirImportacao": "Delete import",
   "toastEnfileirada": "Import queued for execution.",
+  "toastJaNaFila": "Import is already in the queue, please wait.",
   "toastErroExecutar": "Failed to run the import. Please try again.",
   "toastAtivada": "Import activated.",
   "toastPausada": "Import paused.",
   "toastErroStatus": "Failed to change the status. Please try again.",
   "toastExcluida": "Import deleted.",
-  "toastErroExcluir": "Failed to delete the import. Please try again."
+  "toastErroExcluir": "Failed to delete the import. Please try again.",
+  "ultimaExecucao": "Last run: {{quando}}",
+  "nuncaExecutada": "Never run",
+  "emExecucao": "Running",
+  "status": {
+    "success": "Completed",
+    "partial": "Completed with errors",
+    "error": "Failed",
+    "running": "Running"
+  }
 }

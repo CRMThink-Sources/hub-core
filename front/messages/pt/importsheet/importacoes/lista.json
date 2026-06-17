@@ -18,10 +18,20 @@
   "editarImportacao": "Editar importação",
   "excluirImportacao": "Excluir importação",
   "toastEnfileirada": "Importação enfileirada para execução.",
+  "toastJaNaFila": "Importação está na fila, por favor aguarde.",
   "toastErroExecutar": "Falha ao executar a importação. Tente novamente.",
   "toastAtivada": "Importação ativada.",
   "toastPausada": "Importação pausada.",
   "toastErroStatus": "Falha ao alterar o status. Tente novamente.",
   "toastExcluida": "Importação excluída.",
-  "toastErroExcluir": "Falha ao excluir a importação. Tente novamente."
+  "toastErroExcluir": "Falha ao excluir a importação. Tente novamente.",
+  "ultimaExecucao": "Última execução: {{quando}}",
+  "nuncaExecutada": "Nunca executada",
+  "emExecucao": "Em execução",
+  "status": {
+    "success": "Concluída",
+    "partial": "Concluída com erros",
+    "error": "Falhou",
+    "running": "Em execução"
+  }
 }

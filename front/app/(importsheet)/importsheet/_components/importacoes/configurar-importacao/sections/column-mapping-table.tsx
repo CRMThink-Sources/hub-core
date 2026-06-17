@@ -77,7 +77,7 @@ export function ColumnMappingTable({
               className={`grid ${grid} items-center gap-3 px-3 py-2.5`}
             >
               <span className="flex min-w-0 items-center gap-2 text-sm">
-                <span className="inline-flex size-5 shrink-0 items-center justify-center rounded bg-muted font-mono text-xs text-muted-foreground">
+                <span className="inline-flex size-5 shrink-0 items-center justify-center rounded bg-emerald-50 font-mono text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
                   {col.letter}
                 </span>
                 <span className="truncate">
