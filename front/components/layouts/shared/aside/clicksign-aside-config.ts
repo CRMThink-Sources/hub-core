@@ -5,8 +5,16 @@ export const CLICKSIGN_ASIDE_CONFIG = {
   brandName: 'CRMThink',
   links: [
     {
+      href: '/clicksign/configuracoes',
+      label: 'Configurações',
+    },
+    {
       href: '/clicksign/assinatura',
-      label: 'Assinatura',
+      label: 'Grupos de assinatura',
+    },
+    {
+      href: '/clicksign/ajuda',
+      label: 'Ajuda',
     },
   ],
   linksNamespace: 'clicksign/aside',
