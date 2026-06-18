@@ -13,18 +13,18 @@
     "erroSalvar": "Error al guardar la importación. Inténtelo de nuevo."
   },
   "identidade": {
-    "titulo": "Título de la importación",
+    "titulo": "Nombre de la importación",
     "tituloPlaceholder": "ej.: Leads de junio",
-    "idPlanilha": "ID de la hoja",
-    "aba": "Pestaña para importar",
+    "idPlanilha": "Hoja de cálculo",
+    "aba": "Seleccionar pestaña",
     "linhaInicial": "Importar a partir de la fila",
-    "linhaInicialDica": "La fila 1 es el encabezado. La importación comienza en esta fila; reduzca el número para reimportar filas anteriores."
+    "linhaInicialDica": "La fila 01 contiene los encabezados de la hoja."
   },
   "destino": {
     "entidade": "Entidad",
     "selecione": "Seleccione…",
     "pipeline": "Embudo",
-    "spa": "SPA",
+    "spa": "Embudo",
     "selecioneSpa": "Seleccione el SPA…",
     "carregando": "Cargando…"
   },
@@ -43,7 +43,7 @@
     "semAutor": "Sin autor",
     "semResponsavel": "Sin responsable",
     "casarAutor": "Identificar autor por",
-    "casarResponsavel": "Identificar responsable por",
+    "casarResponsavel": "Responsable identificado por",
     "semTitulo": "(sin título)"
   },
   "match": {
@@ -52,16 +52,16 @@
     "phone": "Teléfono"
   },
   "opcoes": {
-    "criarContato": "¿Crear contacto?",
-    "criarEmpresa": "¿Crear empresa?"
+    "criarContato": "Crear contacto",
+    "criarEmpresa": "Crear empresa"
   },
   "agendamento": {
     "titulo": "Programación",
     "frequencia": "Frecuencia",
     "aCadaHoras": "Cada (horas)",
     "diasSemana": "Días de la semana",
-    "manual": "¿Manual?",
-    "manualDica": "Programación desactivada — la importación se ejecuta a demanda desde la lista de importaciones creadas."
+    "manual": "Ejecutar importación manualmente",
+    "manualDica": "Programación desactivada. Ejecute la importación manualmente en la lista de importaciones."
   },
   "frequencia": {
     "hours": "Horas",
@@ -79,6 +79,7 @@
   "depara": {
     "tituloFeed": "Mapeo del Livefeed",
     "titulo": "Asignación de columnas",
+    "descricao": "Asocie las columnas de su hoja con los campos de Bitrix24.",
     "camposExcluidos": "Campos excluidos ({{count}})",
     "camposExcluidosTitulo": "Campos excluidos",
     "camposExcluidosDescricao": "Restaure columnas para incluirlas en la asignación.",
@@ -94,14 +95,15 @@
   "tabela": {
     "coluna": "Columna",
     "destino": "Destino",
-    "campoBitrix": "Campo en Bitrix",
+    "campoBitrix": "Campos en Bitrix",
     "identificador": "Identificador",
     "semTitulo": "(sin título)",
-    "selecione": "Seleccione…",
+    "selecione": "Seleccione un campo",
     "buscarCampo": "Buscar campo…",
     "usarIdentificador": "Usar como identificador",
     "usarIdentificadorTitulo": "Usar como identificador (evita registros duplicados)",
-    "removerColuna": "Eliminar columna"
+    "removerColuna": "Eliminar columna",
+    "acoes": "Acciones"
   },
   "feedTabela": {
     "campoFeed": "Campo del Livefeed",

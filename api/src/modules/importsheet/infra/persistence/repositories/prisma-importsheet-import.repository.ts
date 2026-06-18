@@ -139,6 +139,7 @@ export class PrismaImportSheetImportRepository implements ImportSheetImportRepos
         lastRunStatus: params.lastRunStatus,
         lastError: params.lastError,
         nextRunAt: params.nextRunAt,
+        ...(params.enabled !== undefined ? { enabled: params.enabled } : {}),
       },
     })
   }

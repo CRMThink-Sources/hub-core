@@ -11,11 +11,17 @@ import {
   makeListBitrixCategoriesController,
   makeListBitrixFieldsController,
   makeCreateImportController,
+  makeListImportsController,
   makeGetImportController,
   makeUpdateImportController,
   makeDeleteImportController,
   makeRunImportController,
   makeSetImportEnabledController,
+  makeGetImportErrorsController,
+  makeReprocessImportController,
+  makeListBitrixUsersController,
+  makeGetNotifySettingsController,
+  makeUpdateNotifySettingsController,
 } from './main/make-importsheet-controllers'
 import { requireImportSheetApp } from './infra/middleware/require-importsheet-app'
 
@@ -59,10 +65,26 @@ export const createImportSheetRoutes = (): Router => {
     '/bitrix/fields',
     adaptControllerFactory(makeListBitrixFieldsController),
   )
+  // Usuários ativos do portal — destinatários das notificações de erro
+  router.get(
+    '/bitrix/users',
+    adaptControllerFactory(makeListBitrixUsersController),
+  )
 
-  // Importações — listagem vem na sessão (ImportSheetSessionHandler).
-  // Detalhe completo + criar/editar aqui.
+  // Configurações de notificação (lista app-level de usuários a notificar)
+  router.get(
+    '/settings/notify',
+    adaptControllerFactory(makeGetNotifySettingsController),
+  )
+  router.put(
+    '/settings/notify',
+    adaptControllerFactory(makeUpdateNotifySettingsController),
+  )
+
+  // Importações — listagem inicial vem na sessão (ImportSheetSessionHandler);
+  // o GET abaixo serve o polling em tempo real (último run / status).
   router.post('/imports', adaptControllerFactory(makeCreateImportController))
+  router.get('/imports', adaptControllerFactory(makeListImportsController))
   router.get('/imports/:id', adaptControllerFactory(makeGetImportController))
   router.put('/imports/:id', adaptControllerFactory(makeUpdateImportController))
   router.delete(
@@ -76,6 +98,14 @@ export const createImportSheetRoutes = (): Router => {
   router.patch(
     '/imports/:id/enabled',
     adaptControllerFactory(makeSetImportEnabledController),
+  )
+  router.get(
+    '/imports/:id/errors',
+    adaptControllerFactory(makeGetImportErrorsController),
+  )
+  router.post(
+    '/imports/:id/reprocess',
+    adaptControllerFactory(makeReprocessImportController),
   )
 
   return router

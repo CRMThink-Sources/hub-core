@@ -22,6 +22,18 @@ export const importSheetRunQueue = new Queue<ImportSheetRunJob>(
   },
 )
 
+/**
+ * Há um run pendente/ativo pra essa importação? Estados waiting/active/delayed
+ * = job em voo (jobId fixo `import-<id>`). Usado pra barrar reenfileiramento
+ * manual antes de o run atual terminar.
+ */
+export async function isImportRunInFlight(importId: number): Promise<boolean> {
+  const job = await importSheetRunQueue.getJob(`import-${importId}`)
+  if (!job) return false
+  const state = await job.getState()
+  return state === 'waiting' || state === 'active' || state === 'delayed'
+}
+
 export async function enqueueImportRun(
   job: ImportSheetRunJob,
   options: EnqueueImportRunOptions = {},

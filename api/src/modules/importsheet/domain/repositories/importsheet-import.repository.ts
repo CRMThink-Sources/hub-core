@@ -31,6 +31,7 @@ export type MarkRunResultParams = {
   lastRunStatus: string
   lastError: string | null
   nextRunAt: Date | null
+  enabled?: boolean
 }
 
 export interface ImportSheetImportRepository {

@@ -13,18 +13,18 @@
     "erroSalvar": "Error saving the import. Please try again."
   },
   "identidade": {
-    "titulo": "Import title",
+    "titulo": "Import name",
     "tituloPlaceholder": "e.g.: June leads",
-    "idPlanilha": "Spreadsheet ID",
-    "aba": "Tab to import",
+    "idPlanilha": "Spreadsheet",
+    "aba": "Select tab",
     "linhaInicial": "Import from row",
-    "linhaInicialDica": "Row 1 is the header. The import starts at this row; lower the number to re-import earlier rows."
+    "linhaInicialDica": "Row 01 contains the spreadsheet headers."
   },
   "destino": {
     "entidade": "Entity",
     "selecione": "Select…",
     "pipeline": "Pipeline",
-    "spa": "SPA",
+    "spa": "Pipeline",
     "selecioneSpa": "Select the SPA…",
     "carregando": "Loading…"
   },
@@ -43,7 +43,7 @@
     "semAutor": "No author",
     "semResponsavel": "No owner",
     "casarAutor": "Identify author by",
-    "casarResponsavel": "Identify owner by",
+    "casarResponsavel": "Owner identified by",
     "semTitulo": "(no title)"
   },
   "match": {
@@ -52,16 +52,16 @@
     "phone": "Phone"
   },
   "opcoes": {
-    "criarContato": "Create contact?",
-    "criarEmpresa": "Create company?"
+    "criarContato": "Create contact",
+    "criarEmpresa": "Create company"
   },
   "agendamento": {
     "titulo": "Schedule",
     "frequencia": "Frequency",
     "aCadaHoras": "Every (hours)",
     "diasSemana": "Weekdays",
-    "manual": "Manual?",
-    "manualDica": "Schedule disabled — the import runs on demand from the created imports list."
+    "manual": "Run import manually",
+    "manualDica": "Scheduling disabled. Run the import manually from the imports list."
   },
   "frequencia": {
     "hours": "Hours",
@@ -79,6 +79,7 @@
   "depara": {
     "tituloFeed": "Livefeed mapping",
     "titulo": "Column mapping",
+    "descricao": "Map your spreadsheet columns to Bitrix24 fields.",
     "camposExcluidos": "Excluded fields ({{count}})",
     "camposExcluidosTitulo": "Excluded fields",
     "camposExcluidosDescricao": "Restore columns to include them in the mapping.",
@@ -94,14 +95,15 @@
   "tabela": {
     "coluna": "Column",
     "destino": "Destination",
-    "campoBitrix": "Bitrix field",
+    "campoBitrix": "Bitrix fields",
     "identificador": "Identifier",
     "semTitulo": "(no title)",
-    "selecione": "Select…",
+    "selecione": "Select a field",
     "buscarCampo": "Search field…",
     "usarIdentificador": "Use as identifier",
     "usarIdentificadorTitulo": "Use as identifier (prevents duplicate records)",
-    "removerColuna": "Remove column"
+    "removerColuna": "Remove column",
+    "acoes": "Actions"
   },
   "feedTabela": {
     "campoFeed": "Livefeed field",

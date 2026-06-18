@@ -12,5 +12,19 @@
   "desconectar": "Disconnect",
   "conectando": "Connecting…",
   "conectarGoogle": "Connect with Google",
-  "confirmarDesconectar": "Disconnect the Google account from this app?"
+  "confirmarDesconectar": "Disconnect the Google account from this app?",
+  "notificacoesErro": "Error notifications",
+  "notificacoesErroDescricao": "Users who will receive a notification when an import finishes with errors.",
+  "contagemSelecionados": "{{count}} selected",
+  "destinatarios": "Recipients",
+  "limparTodos": "Clear all",
+  "semSelecionados": "No recipients selected yet.",
+  "removerDestinatario": "Remove {{name}}",
+  "buscarUsuario": "Search user…",
+  "nenhumResultado": "No user found.",
+  "alteracoesNaoSalvas": "Unsaved changes",
+  "tudoSalvo": "All saved",
+  "salvar": "Save",
+  "salvando": "Saving…",
+  "nenhumUsuario": "No active users found."
 }

@@ -3,7 +3,10 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { ImportSheetImportRepository } from '../../domain/repositories/importsheet-import.repository'
-import { enqueueImportRun } from '../../queue/importsheet-run.queue'
+import {
+  enqueueImportRun,
+  isImportRunInFlight,
+} from '../../queue/importsheet-run.queue'
 
 export class RunImportController extends Controller {
   constructor(
@@ -30,10 +33,19 @@ export class RunImportController extends Controller {
     const found = await this.importRepository.findById(id, app.id)
     if (!found) return this.notFound(new Error('Import not found'))
 
-    // Pausada: o worker faria `skipped` calado → barra aqui (UX não mente).
-    if (!found.enabled) {
+    // `enabled` só vale pra agendada — manual roda sob demanda, ignora pausa.
+    // Agendada pausada: worker faria `skipped` calado → barra aqui (UX não mente).
+    if (found.scheduleMode !== 'MANUAL' && !found.enabled) {
       return this.conflict(
         new Error('Importação pausada — ative antes de rodar manualmente'),
+      )
+    }
+
+    // Já tem run pendente/ativo na fila → não reenfileira (jobId fixo dedupa,
+    // mas barramos antes pra UX não mentir um "enfileirada" falso).
+    if (await isImportRunInFlight(id)) {
+      return this.conflict(
+        new Error('Importação já está na fila ou em execução'),
       )
     }
 

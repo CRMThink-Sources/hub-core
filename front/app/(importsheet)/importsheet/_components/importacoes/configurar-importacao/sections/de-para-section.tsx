@@ -69,10 +69,17 @@ export function DeParaSection({
 
   return (
     <div className="flex flex-col gap-3 border-t border-border pt-5">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-foreground">
-          {isFeed ? t('depara.tituloFeed') : t('depara.titulo')}
-        </p>
+      <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-0.5">
+          <p className="text-sm font-medium text-foreground">
+            {isFeed ? t('depara.tituloFeed') : t('depara.titulo')}
+          </p>
+          {!isFeed && (
+            <p className="text-xs text-muted-foreground">
+              {t('depara.descricao')}
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           {!isFeed && excluded.length > 0 && (
             <>

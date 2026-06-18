@@ -42,6 +42,15 @@ function enc(value: string): string {
   return encodeURIComponent(value)
 }
 
+function errorMessage(err: unknown): string {
+  if (err && typeof err === 'object') {
+    const e = err as Record<string, unknown>
+    const desc = e.error_description ?? e.errorDescription ?? e.error
+    if (typeof desc === 'string' && desc.trim()) return desc
+  }
+  return JSON.stringify(err)
+}
+
 function serialize(params: FieldParam[]): string {
   return params
     .map(p => `fields[${p.path.map(enc).join('][')}]=${enc(p.value)}`)
@@ -351,7 +360,7 @@ export class BitrixImportWriter {
       const key = `row_${i}`
       const err = errors[key]
       if (err) {
-        return { row: r.row, status: 'error', error: JSON.stringify(err) }
+        return { row: r.row, status: 'error', error: errorMessage(err) }
       }
       const existing = foundIds.get(i)
       const id = existing ?? adapter.extractWriteId(results[key]) ?? undefined

@@ -1,4 +1,4 @@
-import { XIcon } from 'lucide-react'
+import { Trash2Icon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -47,8 +47,8 @@ export function ColumnMappingTable({
   const { t } = useTranslation('importsheet/configurar-importacao')
   const showTarget = destinations.length > 1
   const grid = showTarget
-    ? 'grid-cols-[1fr_1.25rem_7rem_1.4fr_6rem_2rem]'
-    : 'grid-cols-[1fr_1.25rem_1.4fr_6rem_2rem]'
+    ? 'grid-cols-[1fr_7rem_1.4fr_6rem_2rem]'
+    : 'grid-cols-[1fr_1.4fr_6rem_2rem]'
 
   return (
     <div className="overflow-hidden rounded-lg border border-border">
@@ -56,11 +56,10 @@ export function ColumnMappingTable({
         className={`grid ${grid} items-center gap-3 border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground`}
       >
         <span>{t('tabela.coluna')}</span>
-        <span aria-hidden />
         {showTarget && <span>{t('tabela.destino')}</span>}
         <span>{t('tabela.campoBitrix')}</span>
         <span className="text-center">{t('tabela.identificador')}</span>
-        <span aria-hidden />
+        <span className="text-center">{t('tabela.acoes')}</span>
       </div>
 
       <ul className="flex flex-col divide-y divide-border">
@@ -77,7 +76,7 @@ export function ColumnMappingTable({
               className={`grid ${grid} items-center gap-3 px-3 py-2.5`}
             >
               <span className="flex min-w-0 items-center gap-2 text-sm">
-                <span className="inline-flex size-5 shrink-0 items-center justify-center rounded bg-muted font-mono text-xs text-muted-foreground">
+                <span className="inline-flex size-5 shrink-0 items-center justify-center rounded bg-emerald-50 font-mono text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
                   {col.letter}
                 </span>
                 <span className="truncate">
@@ -88,7 +87,6 @@ export function ColumnMappingTable({
                   )}
                 </span>
               </span>
-              <span className="text-center text-muted-foreground">→</span>
 
               {showTarget && (
                 <Select
@@ -162,7 +160,7 @@ export function ColumnMappingTable({
                 aria-label={t('tabela.removerColuna')}
                 className="text-muted-foreground hover:text-destructive"
               >
-                <XIcon />
+                <Trash2Icon />
               </Button>
             </li>
           )

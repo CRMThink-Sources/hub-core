@@ -1,7 +1,7 @@
 export interface NavLink {
   href: string
   label: string
-  icon: string
+  icon?: string
 }
 
 export interface Language {
@@ -20,6 +20,7 @@ export interface AsideProps {
   bgColor?: string
   activeColor?: string
   activeTextColor?: string
+  inactiveTextColor?: string
   hoverColor?: string
   borderColor?: string
   accentColor?: string

@@ -12,7 +12,9 @@ import { ConexaoPendenteBanner } from '../banners/conexao-pendente-banner'
 import { NovaImportacaoModal } from './nova-importacao-modal'
 import { ConfigurarImportacaoModal } from './configurar-importacao/configurar-importacao-modal'
 import { ImportacoesLista } from './importacoes-lista'
+import { ImportErrorModal } from './import-error-modal'
 import { useImportForEdit } from './use-import-for-edit'
+import { useImportsList } from './use-imports-list'
 import type {
   GoogleConnection,
   ImportListItem,
@@ -36,7 +38,8 @@ function ImportacoesContent() {
   const googlePendente = connection ? !connection.connected : false
   const podeImportar = !!session && !googlePendente
 
-  const imports = (session?.imports as ImportListItem[] | undefined) ?? []
+  const seed = (session?.imports as ImportListItem[] | undefined) ?? []
+  const { imports, refetch } = useImportsList(seed)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [selection, setSelection] = useState<ImportSelection | null>(null)
@@ -44,9 +47,13 @@ function ImportacoesContent() {
   const [editId, setEditId] = useState<number | null>(null)
   const { data: editData } = useImportForEdit(editId)
 
+  const [errorId, setErrorId] = useState<number | null>(null)
+
   function handleSaved() {
     setSelection(null)
     setEditId(null)
+    // refetch atualiza a lista local na hora; refreshSession mantém o resto da sessão coerente.
+    void refetch()
     void refreshSession()
   }
 
@@ -54,7 +61,8 @@ function ImportacoesContent() {
     setLoading(true, t('excluindo'))
     try {
       await axiosImportsheet().delete(`/importsheet/imports/${id}`)
-      await refreshSession()
+      await refetch()
+      void refreshSession()
     } finally {
       setLoading(false)
     }
@@ -62,13 +70,15 @@ function ImportacoesContent() {
 
   async function handleRun(id: number) {
     await axiosImportsheet().post(`/importsheet/imports/${id}/run`)
+    // Enfileira async — o polling reflete o status; aqui só adianta um ciclo.
+    await refetch()
   }
 
   async function handleToggleEnabled(id: number, enabled: boolean) {
     await axiosImportsheet().patch(`/importsheet/imports/${id}/enabled`, {
       enabled,
     })
-    await refreshSession()
+    await refetch()
   }
 
   function handleSelect(next: ImportSelection) {
@@ -125,6 +135,14 @@ function ImportacoesContent() {
         />
       )}
 
+      {errorId !== null && (
+        <ImportErrorModal
+          importId={errorId}
+          onClose={() => setErrorId(null)}
+          onResolved={() => void refetch()}
+        />
+      )}
+
       {googlePendente && (
         <ConexaoPendenteBanner
           message={t('conexaoPendente')}
@@ -144,6 +162,7 @@ function ImportacoesContent() {
           onDelete={handleDelete}
           onRun={handleRun}
           onToggleEnabled={handleToggleEnabled}
+          onShowErrors={setErrorId}
         />
       ) : podeImportar ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">

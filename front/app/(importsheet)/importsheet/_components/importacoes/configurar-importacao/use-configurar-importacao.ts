@@ -275,15 +275,18 @@ export function useConfigurarImportacao(
   const destinations = useMemo<
     { value: MappingTarget; label: string }[]
   >(() => {
+    const mainLabel = entityCode
+      ? t(`entidades.${entityCode}`)
+      : t('destinos.main')
     const list: { value: MappingTarget; label: string }[] = [
-      { value: 'main', label: t('destinos.main') },
+      { value: 'main', label: mainLabel },
     ]
     if (createContact)
       list.push({ value: 'contact', label: t('destinos.contact') })
     if (createCompany)
       list.push({ value: 'company', label: t('destinos.company') })
     return list
-  }, [createContact, createCompany, t])
+  }, [entityCode, createContact, createCompany, t])
 
   function setMapping(columnIndex: number, fieldName: string | null) {
     setMappings(prev => {
