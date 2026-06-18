@@ -30,6 +30,10 @@ import { RunImportController } from '../presentation/controllers/run-import.cont
 import { SetImportEnabledController } from '../presentation/controllers/set-import-enabled.controller'
 import { GetImportErrorsController } from '../presentation/controllers/get-import-errors.controller'
 import { ReprocessImportController } from '../presentation/controllers/reprocess-import.controller'
+import { ListBitrixUsersController } from '../presentation/controllers/list-bitrix-users.controller'
+import { GetNotifySettingsController } from '../presentation/controllers/get-notify-settings.controller'
+import { UpdateNotifySettingsController } from '../presentation/controllers/update-notify-settings.controller'
+import { BitrixUserService } from '@/shared/application/bitrix-user.service'
 
 const makeConnectionService = (): GoogleConnectionService =>
   new GoogleConnectionService(
@@ -65,6 +69,27 @@ export const makeListBitrixFieldsController = async (
   req: Request,
 ): Promise<Controller> =>
   new ListBitrixFieldsController(await makeMetaService(req))
+
+export const makeListBitrixUsersController = async (
+  req: Request,
+): Promise<Controller> =>
+  new ListBitrixUsersController(new BitrixUserService(await makeBitrixClient(req)))
+
+export const makeGetNotifySettingsController = async (
+  req: Request,
+): Promise<Controller> =>
+  new GetNotifySettingsController(
+    new PrismaInstalledAppRepository(),
+    await makeBitrixClient(req),
+  )
+
+export const makeUpdateNotifySettingsController = async (
+  req: Request,
+): Promise<Controller> =>
+  new UpdateNotifySettingsController(
+    new PrismaInstalledAppRepository(),
+    await makeBitrixClient(req),
+  )
 
 export const makeCreateImportController = (_req: Request): Controller =>
   new CreateImportController(

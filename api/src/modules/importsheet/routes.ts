@@ -19,6 +19,9 @@ import {
   makeSetImportEnabledController,
   makeGetImportErrorsController,
   makeReprocessImportController,
+  makeListBitrixUsersController,
+  makeGetNotifySettingsController,
+  makeUpdateNotifySettingsController,
 } from './main/make-importsheet-controllers'
 import { requireImportSheetApp } from './infra/middleware/require-importsheet-app'
 
@@ -61,6 +64,21 @@ export const createImportSheetRoutes = (): Router => {
   router.get(
     '/bitrix/fields',
     adaptControllerFactory(makeListBitrixFieldsController),
+  )
+  // Usuários ativos do portal — destinatários das notificações de erro
+  router.get(
+    '/bitrix/users',
+    adaptControllerFactory(makeListBitrixUsersController),
+  )
+
+  // Configurações de notificação (lista app-level de usuários a notificar)
+  router.get(
+    '/settings/notify',
+    adaptControllerFactory(makeGetNotifySettingsController),
+  )
+  router.put(
+    '/settings/notify',
+    adaptControllerFactory(makeUpdateNotifySettingsController),
   )
 
   // Importações — listagem inicial vem na sessão (ImportSheetSessionHandler);

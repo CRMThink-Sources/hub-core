@@ -27,6 +27,9 @@ import {
 import { withRenewingLock } from '../infra/redis-lock'
 import { redisConnection } from '@/queue/redis-connection'
 import { env } from '@/config/env'
+import { BitrixAppOptionService } from '@/shared/application/bitrix-app-option.service'
+import { BitrixSystemNotificationService } from '@/shared/application/bitrix-system-notification.service'
+import { NotifySettingsService } from './notify-settings.service'
 
 // Linhas por página (≤50 = teto do batch Bitrix). Default 20 via env.
 const PAGE_SIZE = env.importsheet.pageSize
@@ -39,6 +42,8 @@ const PAGE_MARKER_TTL_SECONDS = 24 * 60 * 60
 const MAX_ERROR_ROWS = 50
 // TTL do marcador de reprocess: cobre retry pós-crash sem travar reprocess futuro.
 const REPROCESS_MARKER_TTL_SECONDS = 60 * 60
+// Janela anti-spam da notificação de erro: 1 por importação por janela.
+const NOTIFY_COOLDOWN_SECONDS = 6 * 60 * 60
 
 type WrittenPageMarker = {
   nextRow: number
@@ -342,6 +347,7 @@ export class RunImportService {
         nextRunAt: isScheduled ? imp.nextRunAt : null,
         ...(isScheduled ? { enabled: false } : {}),
       })
+      await this.notifyErrors(imp, prior.length, message)
       return { status: 'done' }
     }
   }
@@ -680,11 +686,87 @@ export class RunImportService {
 
     await this.clearPageMarker(imp.id, imp.startRow)
 
+    if (status === 'partial') {
+      await this.notifyErrors(imp, errorRows.length)
+    }
+
     apiLogger.info(
       { app: 'importsheet', importId: imp.id, status, startRow: finalRow },
       'Import run finished',
     )
     return { status: 'done' }
+  }
+
+  /**
+   * Notifica (best-effort) os usuários configurados quando a importação termina
+   * com erro. Lista app-level via app.option (com cache). Nunca quebra o run.
+   *
+   * Anti-spam: um import agendado que falha/erra a cada run (planilha sumida,
+   * token, 3 linhas ruins fixas) notificaria toda execução. Cooldown por import
+   * limita a 1 notificação por janela; erro novo após a janela volta a notificar.
+   */
+  private async notifyErrors(
+    imp: ImportSheetImport,
+    errorCount: number,
+    fatalMessage?: string,
+  ): Promise<void> {
+    if (errorCount === 0 && !fatalMessage) return
+    try {
+      if (await this.notifyOnCooldown(imp.id)) return
+
+      const bitrix = await this.makeBitrix(imp.appId)
+      const settings = new NotifySettingsService(
+        new BitrixAppOptionService(bitrix),
+        imp.appId,
+      )
+      const userIds = await settings.get()
+      if (userIds.length === 0) return
+
+      const notifier = new BitrixSystemNotificationService(bitrix)
+      const message = fatalMessage
+        ? `[B]ImportSheet — Falha na importação[/B]\nA importação "${imp.title}" falhou: ${fatalMessage}` +
+          (errorCount > 0 ? `\n${errorCount} linha(s) com erro.` : '')
+        : `[B]ImportSheet — Erros na importação[/B]\nA importação "${imp.title}" terminou com ${errorCount} linha(s) com erro.`
+      const tag = `importsheet_err_${imp.id}`
+
+      for (const userId of userIds) {
+        await notifier.notify({ userId, message, tag })
+      }
+      await this.markNotifyCooldown(imp.id)
+    } catch (error) {
+      apiLogger.warn(
+        { app: 'importsheet', importId: imp.id, error },
+        'Failed to notify import errors',
+      )
+    }
+  }
+
+  private notifyCooldownKey(importId: number): string {
+    return `importsheet:notify:cooldown:${importId}`
+  }
+
+  private async notifyOnCooldown(importId: number): Promise<boolean> {
+    try {
+      const exists = await redisConnection.exists(
+        this.notifyCooldownKey(importId),
+      )
+      return exists === 1
+    } catch {
+      return false // falha de cache não suprime a notificação
+    }
+  }
+
+  private async markNotifyCooldown(importId: number): Promise<void> {
+    try {
+      await redisConnection.set(
+        this.notifyCooldownKey(importId),
+        '1',
+        'EX',
+        NOTIFY_COOLDOWN_SECONDS,
+      )
+    } catch {
+      // sem cooldown persistido → pior caso re-notifica; aceitável
+    }
   }
 
   private pageMarkerKey(importId: number, fromRow: number): string {

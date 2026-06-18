@@ -4,6 +4,12 @@ export type GoogleConnection = {
   email: string | null
 }
 
+/** Usuário ativo do Bitrix24 (destinatário de notificação de erro). */
+export type BitrixUser = {
+  id: number
+  name: string
+}
+
 /** Aba (sheet) dentro de uma planilha Google. */
 export type SpreadsheetTab = {
   sheetId: number

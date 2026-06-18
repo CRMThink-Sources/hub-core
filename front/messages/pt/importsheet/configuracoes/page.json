@@ -12,5 +12,19 @@
   "desconectar": "Desconectar",
   "conectando": "Conectando…",
   "conectarGoogle": "Conectar com Google",
-  "confirmarDesconectar": "Desconectar a conta Google deste app?"
+  "confirmarDesconectar": "Desconectar a conta Google deste app?",
+  "notificacoesErro": "Notificações de erro",
+  "notificacoesErroDescricao": "Usuários que receberão uma notificação quando uma importação for concluída com erros.",
+  "contagemSelecionados": "{{count}} selecionado(s)",
+  "destinatarios": "Destinatários",
+  "limparTodos": "Limpar todos",
+  "semSelecionados": "Nenhum destinatário selecionado ainda.",
+  "removerDestinatario": "Remover {{name}}",
+  "buscarUsuario": "Buscar usuário…",
+  "nenhumResultado": "Nenhum usuário encontrado.",
+  "alteracoesNaoSalvas": "Alterações não salvas",
+  "tudoSalvo": "Tudo salvo",
+  "salvar": "Salvar",
+  "salvando": "Salvando…",
+  "nenhumUsuario": "Nenhum usuário ativo encontrado."
 }
