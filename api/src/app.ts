@@ -4,6 +4,7 @@ import {
   authRoutes,
   thinkanaliseRoutes,
   importsheetRoutes,
+  clicksignRoutes,
   thinkerszapRoutes,
   portalRoutes,
 } from './composition-root.js'
@@ -129,6 +130,7 @@ app.get(
 app.use('/api/thinkzap', authMiddleware, thinkerszapRoutes)
 app.use('/api/thinkanalise', authMiddleware, thinkanaliseRoutes)
 app.use('/api/importsheet', authMiddleware, importsheetRoutes)
+app.use('/api/clicksign', authMiddleware, clicksignRoutes)
 
 const audioUploadParser = multer({
   storage: multer.memoryStorage(),

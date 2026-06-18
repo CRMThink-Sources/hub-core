@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { OptionSelect } from '../option-select'
+import { useContactFields } from '../data/use-contact-fields'
 import type { Empresa, Option, VerifySettings, ContactSettings } from '../types'
 
 // Constantes de domínio Clicksign (não vêm do Bitrix)
@@ -26,9 +27,6 @@ const LEMBRETES: Option[] = [
   { code: '7', name: '7 dias' },
   { code: '14', name: '14 dias' },
 ]
-
-// TODO: carregar campos de contato do Bitrix (crm.contact.fields)
-const CONTACT_FIELDS: Option[] = []
 
 const EXTRA_CONFIGS: { key: keyof VerifySettings; label: string }[] = [
   { key: 'selfie_enabled', label: 'Utilizar Selfie como autenticação' },
@@ -81,6 +79,7 @@ export default function ConfiguracoesLayout() {
     has_document: null,
     part: { name: '[Clicksign] Assinar como', code: 'UF_CRM_SIGNER_PART' },
   })
+  const { fields: contactFields } = useContactFields()
 
   function updateEmpresa(index: number, patch: Partial<Empresa>) {
     setEmpresas(prev =>
@@ -250,7 +249,7 @@ export default function ConfiguracoesLayout() {
           <div className="flex flex-col gap-2">
             <Label>CPF</Label>
             <OptionSelect
-              options={CONTACT_FIELDS}
+              options={contactFields}
               value={contact.documentation}
               onChange={v =>
                 setContact(prev => ({ ...prev, documentation: v }))
@@ -260,7 +259,7 @@ export default function ConfiguracoesLayout() {
           <div className="flex flex-col gap-2">
             <Label>É estrangeiro?</Label>
             <OptionSelect
-              options={CONTACT_FIELDS}
+              options={contactFields}
               value={contact.has_document}
               onChange={v => setContact(prev => ({ ...prev, has_document: v }))}
             />

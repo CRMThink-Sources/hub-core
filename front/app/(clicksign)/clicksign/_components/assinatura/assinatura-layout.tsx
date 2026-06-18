@@ -3,19 +3,9 @@
 import { useState } from 'react'
 import { CheckIcon, PlusIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import type { Grupo, Option } from '../types'
-import { GrupoCard, type BitrixFields } from './grupo-card'
-
-// TODO: carregar campos do Bitrix (crm.deal.fields, user.get) e separar por tipo.
-const EMPTY: Option[] = []
-const FIELDS: BitrixFields = {
-  stringFields: EMPTY,
-  dateFields: EMPTY,
-  fileFields: EMPTY,
-  contactFields: EMPTY,
-  userFields: EMPTY,
-  users: EMPTY,
-}
+import type { Grupo } from '../types'
+import { GrupoCard } from './grupo-card'
+import { useAssinaturaData } from '../data/use-assinatura-data'
 
 function novoGrupo(): Grupo {
   return {
@@ -45,6 +35,7 @@ function novoGrupo(): Grupo {
 export default function AssinaturaLayout() {
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({})
+  const { fields, error } = useAssinaturaData()
 
   function updateGrupo(index: number, patch: Partial<Grupo>) {
     setGrupos(prev =>
@@ -97,6 +88,12 @@ export default function AssinaturaLayout() {
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       {grupos.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
           <p className="text-sm text-muted-foreground">
@@ -116,7 +113,7 @@ export default function AssinaturaLayout() {
               onChange={patch => updateGrupo(index, patch)}
               onRemove={() => removeGrupo(index)}
               onDuplicate={() => duplicateGrupo(index)}
-              fields={FIELDS}
+              fields={fields}
             />
           ))}
         </div>
