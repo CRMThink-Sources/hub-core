@@ -94,6 +94,7 @@ export const env = {
     thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',
     thinkanalise: process.env.THINKANALISE_APP_CODE ?? 'crmthink.thinkanalise',
     importsheet: process.env.IMPORTSHEET_APP_CODE ?? 'crmthink.importsheet',
+    clicksign: process.env.CLICKSIGN_APP_CODE ?? 'crmthink.clicksign',
   },
   importsheet: {
     // Linhas por ciclo (round-robin). Default 20, teto 50 (batch Bitrix).
