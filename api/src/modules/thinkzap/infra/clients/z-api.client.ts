@@ -215,6 +215,7 @@ export class ZApiClient {
     instanceToken: string,
     message: string,
     phone: string,
+    options?: { referencedMessageId?: string },
   ): Promise<SendMessageResponse> {
     try {
       const { data } = await axios.post<SendMessageResponse>(
@@ -222,6 +223,9 @@ export class ZApiClient {
         {
           message,
           phone,
+          ...(options?.referencedMessageId
+            ? { messageId: options.referencedMessageId }
+            : {}),
         },
         {
           headers: {
@@ -242,6 +246,7 @@ export class ZApiClient {
     instanceToken: string,
     image: string,
     phone: string,
+    options?: { referencedMessageId?: string },
   ): Promise<SendMessageResponse> {
     try {
       const { data } = await axios.post<SendMessageResponse>(
@@ -249,6 +254,9 @@ export class ZApiClient {
         {
           phone,
           image,
+          ...(options?.referencedMessageId
+            ? { messageId: options.referencedMessageId }
+            : {}),
         },
         {
           headers: {
@@ -269,6 +277,7 @@ export class ZApiClient {
     instanceToken: string,
     video: string,
     phone: string,
+    options?: { referencedMessageId?: string },
   ): Promise<SendMessageResponse> {
     try {
       const { data } = await axios.post<SendMessageResponse>(
@@ -276,6 +285,9 @@ export class ZApiClient {
         {
           phone,
           video,
+          ...(options?.referencedMessageId
+            ? { messageId: options.referencedMessageId }
+            : {}),
         },
         {
           headers: {
@@ -345,6 +357,7 @@ export class ZApiClient {
     instanceToken: string,
     audio: string,
     phone: string,
+    options?: { referencedMessageId?: string },
   ): Promise<SendMessageResponse> {
     try {
       const { data } = await axios.post<SendMessageResponse>(
@@ -353,6 +366,9 @@ export class ZApiClient {
           phone,
           audio,
           waveform: true,
+          ...(options?.referencedMessageId
+            ? { messageId: options.referencedMessageId }
+            : {}),
         },
         {
           headers: {
@@ -364,7 +380,7 @@ export class ZApiClient {
       return data
     } catch (error) {
       console.log(error)
-      throw new Error('Failed to send video')
+      throw new Error('Failed to send audio')
     }
   }
 
@@ -608,6 +624,7 @@ export class ZApiClient {
     document: string,
     phone: string,
     fileName?: string,
+    options?: { referencedMessageId?: string },
   ): Promise<SendMessageResponse> {
     try {
       const extension =
@@ -620,6 +637,9 @@ export class ZApiClient {
           phone,
           document,
           fileName,
+          ...(options?.referencedMessageId
+            ? { messageId: options.referencedMessageId }
+            : {}),
         },
         {
           headers: {

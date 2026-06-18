@@ -13,18 +13,18 @@
     "erroSalvar": "Erro ao salvar a importação. Tente novamente."
   },
   "identidade": {
-    "titulo": "Título da importação",
+    "titulo": "Nome da importação",
     "tituloPlaceholder": "ex.: Leads de junho",
-    "idPlanilha": "ID da planilha",
-    "aba": "Aba para importar",
+    "idPlanilha": "Planilha",
+    "aba": "Selecionar aba",
     "linhaInicial": "Importar a partir da linha",
-    "linhaInicialDica": "A linha 1 é o cabeçalho. A importação começa nesta linha; diminua o número para reimportar linhas anteriores."
+    "linhaInicialDica": "A linha 01 contém os cabeçalhos da planilha."
   },
   "destino": {
     "entidade": "Entidade",
     "selecione": "Selecione…",
-    "pipeline": "Funil",
-    "spa": "SPA",
+    "pipeline": "Pipeline",
+    "spa": "Pipeline",
     "selecioneSpa": "Selecione o SPA…",
     "carregando": "Carregando…"
   },
@@ -43,7 +43,7 @@
     "semAutor": "Sem autor",
     "semResponsavel": "Sem responsável",
     "casarAutor": "Identificar autor por",
-    "casarResponsavel": "Identificar responsável por",
+    "casarResponsavel": "Responsável identificado por",
     "semTitulo": "(sem título)"
   },
   "match": {
@@ -52,16 +52,16 @@
     "phone": "Telefone"
   },
   "opcoes": {
-    "criarContato": "Criar contato?",
-    "criarEmpresa": "Criar empresa?"
+    "criarContato": "Criar contato",
+    "criarEmpresa": "Criar empresa"
   },
   "agendamento": {
     "titulo": "Agendamento",
     "frequencia": "Frequência",
     "aCadaHoras": "A cada (horas)",
     "diasSemana": "Dias da semana",
-    "manual": "Manual?",
-    "manualDica": "Agendamento desativado — a importação roda sob demanda pela lista de importações criadas."
+    "manual": "Executar importação manualmente",
+    "manualDica": "Agendamento desativado, execute a importação manualmente na lista de importações."
   },
   "frequencia": {
     "hours": "Horas",
@@ -79,6 +79,7 @@
   "depara": {
     "tituloFeed": "Mapeamento do Livefeed",
     "titulo": "Mapeamento de colunas",
+    "descricao": "Associe as colunas da sua planilha aos campos do Bitrix24.",
     "camposExcluidos": "Campos excluídos ({{count}})",
     "camposExcluidosTitulo": "Campos excluídos",
     "camposExcluidosDescricao": "Restaure colunas para incluí-las no mapeamento.",
@@ -94,14 +95,15 @@
   "tabela": {
     "coluna": "Coluna",
     "destino": "Destino",
-    "campoBitrix": "Campo no Bitrix",
+    "campoBitrix": "Campos no Bitrix",
     "identificador": "Identificador",
     "semTitulo": "(sem título)",
-    "selecione": "Selecione…",
+    "selecione": "Selecione um campo",
     "buscarCampo": "Buscar campo…",
     "usarIdentificador": "Usar como identificador",
     "usarIdentificadorTitulo": "Usar como identificador (evita registros duplicados)",
-    "removerColuna": "Remover coluna"
+    "removerColuna": "Remover coluna",
+    "acoes": "Ações"
   },
   "feedTabela": {
     "campoFeed": "Campo do Livefeed",

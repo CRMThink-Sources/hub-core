@@ -1,6 +1,10 @@
 import { Request } from 'express'
 import { Controller } from '@/shared/presentation/controller'
-import { makeBitrixClient } from '@/shared/main/make-bitrix-client'
+import {
+  makeBitrixClient,
+  makeBitrixClientByAppId,
+} from '@/shared/main/make-bitrix-client'
+import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { GoogleOAuthClient } from '../infra/clients/google-oauth.client'
 import { GoogleSheetsClient } from '../infra/clients/google-sheets.client'
@@ -11,16 +15,25 @@ import { GetSheetHeaderService } from '../application/get-sheet-header.service'
 import { BitrixCrmMetaService } from '../application/bitrix-crm-meta.service'
 import { CreateImportService } from '../application/create-import.service'
 import { UpdateImportService } from '../application/update-import.service'
+import { ListImportsService } from '../application/list-imports.service'
+import { RunImportService } from '../application/run-import.service'
 import { GetSheetHeaderController } from '../presentation/controllers/get-sheet-header.controller'
 import { ListBitrixEntitiesController } from '../presentation/controllers/list-bitrix-entities.controller'
 import { ListBitrixCategoriesController } from '../presentation/controllers/list-bitrix-categories.controller'
 import { ListBitrixFieldsController } from '../presentation/controllers/list-bitrix-fields.controller'
 import { CreateImportController } from '../presentation/controllers/create-import.controller'
+import { ListImportsController } from '../presentation/controllers/list-imports.controller'
 import { GetImportController } from '../presentation/controllers/get-import.controller'
 import { UpdateImportController } from '../presentation/controllers/update-import.controller'
 import { DeleteImportController } from '../presentation/controllers/delete-import.controller'
 import { RunImportController } from '../presentation/controllers/run-import.controller'
 import { SetImportEnabledController } from '../presentation/controllers/set-import-enabled.controller'
+import { GetImportErrorsController } from '../presentation/controllers/get-import-errors.controller'
+import { ReprocessImportController } from '../presentation/controllers/reprocess-import.controller'
+import { ListBitrixUsersController } from '../presentation/controllers/list-bitrix-users.controller'
+import { GetNotifySettingsController } from '../presentation/controllers/get-notify-settings.controller'
+import { UpdateNotifySettingsController } from '../presentation/controllers/update-notify-settings.controller'
+import { BitrixUserService } from '@/shared/application/bitrix-user.service'
 
 const makeConnectionService = (): GoogleConnectionService =>
   new GoogleConnectionService(
@@ -57,10 +70,37 @@ export const makeListBitrixFieldsController = async (
 ): Promise<Controller> =>
   new ListBitrixFieldsController(await makeMetaService(req))
 
+export const makeListBitrixUsersController = async (
+  req: Request,
+): Promise<Controller> =>
+  new ListBitrixUsersController(new BitrixUserService(await makeBitrixClient(req)))
+
+export const makeGetNotifySettingsController = async (
+  req: Request,
+): Promise<Controller> =>
+  new GetNotifySettingsController(
+    new PrismaInstalledAppRepository(),
+    await makeBitrixClient(req),
+  )
+
+export const makeUpdateNotifySettingsController = async (
+  req: Request,
+): Promise<Controller> =>
+  new UpdateNotifySettingsController(
+    new PrismaInstalledAppRepository(),
+    await makeBitrixClient(req),
+  )
+
 export const makeCreateImportController = (_req: Request): Controller =>
   new CreateImportController(
     new PrismaInstalledAppRepository(),
     new CreateImportService(new PrismaImportSheetImportRepository()),
+  )
+
+export const makeListImportsController = (_req: Request): Controller =>
+  new ListImportsController(
+    new PrismaInstalledAppRepository(),
+    new ListImportsService(new PrismaImportSheetImportRepository()),
   )
 
 export const makeGetImportController = (_req: Request): Controller =>
@@ -91,4 +131,23 @@ export const makeSetImportEnabledController = (_req: Request): Controller =>
   new SetImportEnabledController(
     new PrismaInstalledAppRepository(),
     new PrismaImportSheetImportRepository(),
+  )
+
+export const makeGetImportErrorsController = (_req: Request): Controller =>
+  new GetImportErrorsController(
+    new PrismaInstalledAppRepository(),
+    new PrismaImportSheetImportRepository(),
+  )
+
+export const makeReprocessImportController = (_req: Request): Controller =>
+  new ReprocessImportController(
+    new PrismaInstalledAppRepository(),
+    new PrismaImportSheetImportRepository(),
+    new RunImportService(
+      new PrismaImportSheetImportRepository(),
+      makeConnectionService(),
+      new GoogleSheetsClient(),
+      async (appId: string) =>
+        (await makeBitrixClientByAppId(appId)) as BitrixClient,
+    ),
   )

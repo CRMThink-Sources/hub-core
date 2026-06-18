@@ -16,6 +16,7 @@ export const Aside = ({
   bgColor = '#F9F9FB',
   activeColor = '#d9fce6',
   activeTextColor = '#000000',
+  inactiveTextColor = '#000000',
   hoverColor = '#e8fdf0',
   borderColor = '#e5e7eb',
   accentColor = '#5A997E',
@@ -143,7 +144,7 @@ export const Aside = ({
               backgroundColor: isActive(link.href)
                 ? activeColor
                 : 'transparent',
-              color: activeTextColor,
+              color: isActive(link.href) ? activeTextColor : inactiveTextColor,
               fontWeight: isActive(link.href) ? 'bold' : 'normal',
             }}
             onMouseEnter={e => {
@@ -155,11 +156,13 @@ export const Aside = ({
                 e.currentTarget.style.backgroundColor = 'transparent'
             }}
           >
-            <img
-              src={link.icon}
-              alt={link.label}
-              style={{ width: '20px', height: '20px' }}
-            />
+            {link.icon && (
+              <img
+                src={link.icon}
+                alt={link.label}
+                style={{ width: '20px', height: '20px' }}
+              />
+            )}
             <span>{linksNamespace ? tLinks(link.label) : link.label}</span>
           </Link>
         ))}

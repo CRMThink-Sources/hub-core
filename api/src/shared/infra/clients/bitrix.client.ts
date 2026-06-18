@@ -95,6 +95,9 @@ export class BitrixClient {
       const response = await client.post(`/${method}`, params)
       return response.data as T
     } catch (error) {
+      if (error instanceof Error) {
+        console.log(error)
+      }
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`

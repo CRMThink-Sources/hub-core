@@ -18,10 +18,38 @@
   "editarImportacao": "Edit import",
   "excluirImportacao": "Delete import",
   "toastEnfileirada": "Import queued for execution.",
+  "toastJaNaFila": "Import is already in the queue, please wait.",
   "toastErroExecutar": "Failed to run the import. Please try again.",
   "toastAtivada": "Import activated.",
   "toastPausada": "Import paused.",
   "toastErroStatus": "Failed to change the status. Please try again.",
   "toastExcluida": "Import deleted.",
-  "toastErroExcluir": "Failed to delete the import. Please try again."
+  "toastErroExcluir": "Failed to delete the import. Please try again.",
+  "ultimaExecucao": "Last run: {{quando}}",
+  "nuncaExecutada": "Never run",
+  "emExecucao": "Running",
+  "status": {
+    "success": "Completed",
+    "partial": "Completed with errors",
+    "error": "Failed",
+    "running": "Running"
+  },
+  "erros": {
+    "verErros": "View errors",
+    "tituloPartial": "Import completed with errors",
+    "tituloFatal": "Import failed",
+    "descricaoPartial": "The rows below were rejected. Fix the spreadsheet and reprocess.",
+    "descricaoFatal": "The import could not continue.",
+    "semErro": "No errors recorded.",
+    "linha": "Row {{linha}}",
+    "retomada": "The import stopped at row {{linha}} and will resume from there.",
+    "reprocessar": "Reprocess",
+    "reprocessarTodas": "Reprocess all",
+    "fechar": "Close",
+    "toastResolvido": "All rows were reprocessed successfully.",
+    "toastReprocessado": "Rows reprocessed.",
+    "toastAindaFalhou": "The rows still have errors. Check the message and fix the spreadsheet or Bitrix.",
+    "toastErro": "Failed to reprocess. Please try again.",
+    "toastCarregar": "Failed to load the errors."
+  }
 }
