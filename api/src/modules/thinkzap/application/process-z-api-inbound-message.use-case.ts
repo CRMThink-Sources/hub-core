@@ -37,7 +37,6 @@ export class ProcessZApiInboundMessageUseCase {
   ) {}
 
   async execute(event: ReceivedMessageEvent): Promise<void> {
-    console.log('event received', event)
     log.info(
       {
         instanceId: event.instanceId,
@@ -216,6 +215,7 @@ export class ProcessZApiInboundMessageUseCase {
     )
 
     const bitrixMessageId = extractBitrixMessageId(result)
+    console.log({ bitrixMessageId })
     const bitrixChatId = extractBitrixChatId(result)
     await this.persistInboundSnapshot(
       event,
@@ -451,9 +451,10 @@ export class ProcessZApiInboundMessageUseCase {
 function extractBitrixMessageId(result: unknown): string | null {
   try {
     const r = result as {
-      DATA?: { RESULT?: Array<{ message?: { id?: string } }> }
+      result: { DATA?: { RESULT?: Array<{ message?: { id?: string } }> } }
     }
-    return r?.DATA?.RESULT?.[0]?.message?.id ?? null
+    console.log(r.result?.DATA?.RESULT?.[0])
+    return r.result?.DATA?.RESULT?.[0]?.message?.id ?? null
   } catch {
     return null
   }
