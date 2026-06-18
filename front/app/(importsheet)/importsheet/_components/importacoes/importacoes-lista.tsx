@@ -2,7 +2,12 @@
 
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { PencilIcon, PlayIcon, Trash2Icon } from 'lucide-react'
+import {
+  AlertTriangleIcon,
+  PencilIcon,
+  PlayIcon,
+  Trash2Icon,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { isAxiosError } from 'axios'
 import { Button } from '@/components/ui/button'
@@ -56,6 +61,7 @@ type Props = {
   onDelete: (id: number) => Promise<void>
   onRun: (id: number) => Promise<void>
   onToggleEnabled: (id: number, enabled: boolean) => Promise<void>
+  onShowErrors: (id: number) => void
 }
 
 export function ImportacoesLista({
@@ -64,6 +70,7 @@ export function ImportacoesLista({
   onDelete,
   onRun,
   onToggleEnabled,
+  onShowErrors,
 }: Props) {
   const { t, i18n } = useTranslation('importsheet/importacoes/lista')
   const { t: tCfg } = useTranslation('importsheet/configurar-importacao')
@@ -145,6 +152,24 @@ export function ImportacoesLista({
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
+            {(item.lastRunStatus === 'error' ||
+              item.lastRunStatus === 'partial') && (
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  item.lastRunStatus === 'error'
+                    ? 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40'
+                    : 'border-amber-300 text-amber-600 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-400 dark:hover:bg-amber-950/40',
+                )}
+                onClick={() => onShowErrors(item.id)}
+                title={t('erros.verErros')}
+              >
+                <AlertTriangleIcon />
+                {t('erros.verErros')}
+              </Button>
+            )}
+
             {item.scheduleMode === 'MANUAL' ? (
               // Manual: só execução sob demanda — sem estado ativo/pausado.
               // Bloqueia enquanto o run está na fila/rodando (polling reflete o

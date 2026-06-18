@@ -17,6 +17,8 @@ import {
   makeDeleteImportController,
   makeRunImportController,
   makeSetImportEnabledController,
+  makeGetImportErrorsController,
+  makeReprocessImportController,
 } from './main/make-importsheet-controllers'
 import { requireImportSheetApp } from './infra/middleware/require-importsheet-app'
 
@@ -78,6 +80,14 @@ export const createImportSheetRoutes = (): Router => {
   router.patch(
     '/imports/:id/enabled',
     adaptControllerFactory(makeSetImportEnabledController),
+  )
+  router.get(
+    '/imports/:id/errors',
+    adaptControllerFactory(makeGetImportErrorsController),
+  )
+  router.post(
+    '/imports/:id/reprocess',
+    adaptControllerFactory(makeReprocessImportController),
   )
 
   return router

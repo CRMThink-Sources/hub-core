@@ -33,5 +33,23 @@
     "partial": "Completada con errores",
     "error": "Falló",
     "running": "En ejecución"
+  },
+  "erros": {
+    "verErros": "Ver errores",
+    "tituloPartial": "Importación completada con errores",
+    "tituloFatal": "La importación falló",
+    "descricaoPartial": "Las filas a continuación fueron rechazadas. Corrija la hoja y reprocese.",
+    "descricaoFatal": "La importación no pudo continuar.",
+    "semErro": "Ningún error registrado.",
+    "linha": "Fila {{linha}}",
+    "retomada": "La importación se detuvo en la fila {{linha}} y se reanudará desde allí.",
+    "reprocessar": "Reprocesar",
+    "reprocessarTodas": "Reprocesar todas",
+    "fechar": "Cerrar",
+    "toastResolvido": "Todas las filas se reprocesaron correctamente.",
+    "toastReprocessado": "Filas reprocesadas.",
+    "toastAindaFalhou": "Las filas siguen con error. Revise el mensaje y corrija la planilla o Bitrix.",
+    "toastErro": "Error al reprocesar. Inténtelo de nuevo.",
+    "toastCarregar": "Error al cargar los errores."
   }
 }

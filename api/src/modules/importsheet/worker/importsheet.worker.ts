@@ -14,6 +14,10 @@ import {
   type ImportRunOutcome,
 } from '../application/run-import.service'
 import { OPERATING_DEFAULT_DELAY_MS } from '../application/bitrix-throttle'
+import {
+  parseImportError,
+  serializeImportError,
+} from '../application/import-error'
 import { withRenewingLock } from '../infra/redis-lock'
 import {
   IMPORTSHEET_RUN,
@@ -47,11 +51,7 @@ const runImportService = new RunImportService(
 const runWorker = new Worker<ImportSheetRunJob, ImportRunOutcome>(
   IMPORTSHEET_RUN,
   async job => {
-    const continuation = job.data.trigger === 'continuation'
-    const outcome = await runImportService.execute(
-      job.data.importId,
-      continuation,
-    )
+    const outcome = await runImportService.execute(job.data.importId)
 
     // 503 de intensidade (por IP): pausa a fila inteira por um instante e re-roda
     // o MESMO job sem contar como falha. `RateLimitError` é o mecanismo nativo.
@@ -123,12 +123,25 @@ async function reclaimStaleRunning(): Promise<void> {
   if (orphans.length === 0) return
 
   for (const imp of orphans) {
+    // Preserva os erros por-linha acumulados pra seguirem reprocessáveis.
+    const parsed = parseImportError(imp.lastError)
+    const prior =
+      parsed?.kind === 'partial'
+        ? parsed.rows
+        : parsed?.kind === 'fatal'
+          ? (parsed.rows ?? [])
+          : []
     await importRepository.markRunResult(imp.id, {
       startRow: imp.startRow,
       lastRunAt: new Date(),
       lastRunStatus: 'error',
-      lastError:
-        'Execução interrompida (worker reiniciou) — retomada automática do cursor',
+      lastError: serializeImportError({
+        kind: 'fatal',
+        cursorRow: imp.startRow,
+        message:
+          'Execução interrompida (worker reiniciou) — retomada automática do cursor',
+        ...(prior.length > 0 ? { rows: prior } : {}),
+      }),
       nextRunAt: imp.nextRunAt,
     })
     if (imp.enabled) {

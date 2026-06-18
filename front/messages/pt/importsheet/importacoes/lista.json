@@ -33,5 +33,23 @@
     "partial": "Concluída com erros",
     "error": "Falhou",
     "running": "Em execução"
+  },
+  "erros": {
+    "verErros": "Ver erros",
+    "tituloPartial": "Importação concluída com erros",
+    "tituloFatal": "Importação falhou",
+    "descricaoPartial": "As linhas abaixo foram rejeitadas. Corrija a planilha e reprocesse.",
+    "descricaoFatal": "A importação não pôde continuar.",
+    "semErro": "Nenhum erro registrado.",
+    "linha": "Linha {{linha}}",
+    "retomada": "A importação parou na linha {{linha}} e será retomada a partir daí.",
+    "reprocessar": "Reprocessar",
+    "reprocessarTodas": "Reprocessar todas",
+    "fechar": "Fechar",
+    "toastResolvido": "Todas as linhas foram reprocessadas com sucesso.",
+    "toastReprocessado": "Linhas reprocessadas.",
+    "toastAindaFalhou": "As linhas seguem com erro. Verifique a mensagem e corrija a planilha ou o Bitrix.",
+    "toastErro": "Falha ao reprocessar. Tente novamente.",
+    "toastCarregar": "Falha ao carregar os erros."
   }
 }

@@ -216,3 +216,28 @@ export type ImportListItem = {
   lastRunAt: string | null
   lastRunStatus: string | null
 }
+
+/** Uma linha rejeitada pelo Bitrix no último run. */
+export type ImportErrorRow = {
+  row: number
+  message: string
+  /** Sub-entidades já criadas — uso interno do backend no reprocess. */
+  contactId?: string
+  companyId?: string
+}
+
+/** Detalhe do erro do último run (GET /imports/:id/errors). */
+export type ImportRunErrorDetail =
+  | { kind: 'partial'; cursorRow: number; rows: ImportErrorRow[] }
+  | {
+      kind: 'fatal'
+      cursorRow: number
+      message: string
+      /** Erros por-linha acumulados antes do fatal — ainda reprocessáveis. */
+      rows?: ImportErrorRow[]
+    }
+
+export type ImportErrorsResponse = {
+  status: string | null
+  detail: ImportRunErrorDetail | null
+}

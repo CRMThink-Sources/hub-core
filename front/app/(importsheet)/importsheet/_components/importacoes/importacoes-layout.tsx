@@ -12,6 +12,7 @@ import { ConexaoPendenteBanner } from '../banners/conexao-pendente-banner'
 import { NovaImportacaoModal } from './nova-importacao-modal'
 import { ConfigurarImportacaoModal } from './configurar-importacao/configurar-importacao-modal'
 import { ImportacoesLista } from './importacoes-lista'
+import { ImportErrorModal } from './import-error-modal'
 import { useImportForEdit } from './use-import-for-edit'
 import { useImportsList } from './use-imports-list'
 import type {
@@ -45,6 +46,8 @@ function ImportacoesContent() {
 
   const [editId, setEditId] = useState<number | null>(null)
   const { data: editData } = useImportForEdit(editId)
+
+  const [errorId, setErrorId] = useState<number | null>(null)
 
   function handleSaved() {
     setSelection(null)
@@ -132,6 +135,14 @@ function ImportacoesContent() {
         />
       )}
 
+      {errorId !== null && (
+        <ImportErrorModal
+          importId={errorId}
+          onClose={() => setErrorId(null)}
+          onResolved={() => void refetch()}
+        />
+      )}
+
       {googlePendente && (
         <ConexaoPendenteBanner
           message={t('conexaoPendente')}
@@ -151,6 +162,7 @@ function ImportacoesContent() {
           onDelete={handleDelete}
           onRun={handleRun}
           onToggleEnabled={handleToggleEnabled}
+          onShowErrors={setErrorId}
         />
       ) : podeImportar ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
