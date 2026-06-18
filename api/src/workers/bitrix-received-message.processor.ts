@@ -13,9 +13,26 @@ import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapte
 import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
 import { prepareOpenLineOutboundText } from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
+import { ensureBitrixBotId } from '@/modules/thinkzap/application/ensure-bitrix-bot-id'
+import { resolveBitrixReplyContext } from '@/modules/thinkzap/application/resolve-bitrix-reply-context'
+import { redisConnection } from '@/queue/redis-connection'
 
 const log = createWorkerSourceLogger('bitrix')
 const messageRepo = new PrismaThinkzapMessageRepository()
+
+type BitrixMessageGetResult = {
+  result: {
+    message: {
+      id: number
+      chatId: number
+      authorId: number
+      text: string
+      params?: {
+        REPLY_ID?: string
+      }
+    }
+  }
+}
 
 async function persistOutboundMessage(
   instanceId: string,
@@ -56,7 +73,6 @@ export async function processBitrixReceivedMessage(
     },
     'Processing Bitrix outbound message',
   )
-
   if (!event.data.MESSAGES.length) {
     log.warn(
       { domain: event.auth.domain, line: event.data.LINE },
@@ -67,6 +83,7 @@ export async function processBitrixReceivedMessage(
 
   const message = event.data
     .MESSAGES[0] as IBX24MessageEvent['data']['MESSAGES'][number]
+
   const messages: Array<{
     type: string
     text?: string
@@ -128,6 +145,42 @@ export async function processBitrixReceivedMessage(
     bitrixCredential: context.app.credential,
     domain: context.name,
   })
+
+  const botId = await ensureBitrixBotId(
+    bitrixClient,
+    redisConnection,
+    context.name,
+    env.appCodes.thinkzap,
+  )
+  console.log({ botId })
+  const response = await bitrixClient.callMethod<BitrixMessageGetResult>(
+    'imbot.v2.Chat.Message.get',
+    {
+      botId,
+      messageId: message.im.message_id,
+    },
+  )
+
+  const replyId = response.result?.message?.params?.REPLY_ID
+  console.log({ replyId })
+  const referencedMessageId = await resolveBitrixReplyContext(
+    context.instance.id,
+    replyId,
+    messageRepo,
+  )
+  console.log({ referencedMessageId })
+  if (replyId) {
+    log.debug(
+      {
+        domain: event.auth.domain,
+        instanceId: context.instance.instanceId,
+        replyId,
+        replyResolved: !!referencedMessageId,
+      },
+      'Bitrix reply context resolved',
+    )
+  }
+
   const getBitrixUserDisplayName = new BitrixGetUserDisplayNameAdapter(
     bitrixClient,
   )
@@ -164,6 +217,7 @@ export async function processBitrixReceivedMessage(
         context.instance.zApiToken || '',
         outboundText,
         chatId,
+        { referencedMessageId },
       )
       log.info(
         {
