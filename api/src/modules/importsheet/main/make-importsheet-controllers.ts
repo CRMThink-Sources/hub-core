@@ -73,7 +73,9 @@ export const makeListBitrixFieldsController = async (
 export const makeListBitrixUsersController = async (
   req: Request,
 ): Promise<Controller> =>
-  new ListBitrixUsersController(new BitrixUserService(await makeBitrixClient(req)))
+  new ListBitrixUsersController(
+    new BitrixUserService(await makeBitrixClient(req)),
+  )
 
 export const makeGetNotifySettingsController = async (
   req: Request,
