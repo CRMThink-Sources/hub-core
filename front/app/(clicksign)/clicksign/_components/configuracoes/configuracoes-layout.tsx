@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { toast } from 'sonner'
 import { OptionSelect } from '../option-select'
 import { useContactFields } from '../data/use-contact-fields'
 import { useSettings } from '../data/use-settings'
@@ -114,13 +115,16 @@ export default function ConfiguracoesLayout() {
         verifySettings: verify,
         contactSettings: contact,
       })
+      toast.success('Configurações salvas')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Falha ao salvar')
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pt-8 sm:px-6 lg:px-8">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pt-8 pb-12 sm:px-6 lg:px-8">
       {/* Empresas */}
       <section className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between gap-4 border-b border-border p-6">
@@ -168,7 +172,7 @@ export default function ConfiguracoesLayout() {
               </div>
 
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                <div className="flex flex-col gap-2 sm:col-span-2">
+                <div className="flex flex-col gap-2">
                   <Label>Token de Acesso</Label>
                   <Input
                     value={empresa.token}

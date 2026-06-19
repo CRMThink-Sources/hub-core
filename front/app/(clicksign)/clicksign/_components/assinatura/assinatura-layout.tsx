@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { CheckIcon, PlusIcon } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import type { Grupo } from '../types'
 import { GrupoCard } from './grupo-card'
@@ -70,6 +71,9 @@ export default function AssinaturaLayout() {
     setSaving(true)
     try {
       await persist({ groups: grupos })
+      toast.success('Grupos de assinatura salvos')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Falha ao salvar')
     } finally {
       setSaving(false)
     }
