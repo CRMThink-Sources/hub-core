@@ -272,6 +272,41 @@ export class BitrixClient {
     }
   }
 
+  async getDealContactIds(dealId: string): Promise<string[]> {
+    const client = this.getClient()
+    try {
+      const response = await client.post(`/crm.deal.contact.items.get`, {
+        id: dealId,
+      })
+      const result = response.data?.result
+      if (!Array.isArray(result)) return []
+      return result.map((item: { CONTACT_ID: number | string }) =>
+        String(item.CONTACT_ID),
+      )
+    } catch (error) {
+      console.error('[BitrixClient] getDealContactIds error:', error)
+      throw new BitrixError('Failed to get deal contact ids')
+    }
+  }
+
+  async getCompanyContactIds(companyId: string): Promise<string[]> {
+    const client = this.getClient()
+    try {
+      const response = await client.post(`/crm.company.contact.list`, {
+        filter: { COMPANY_ID: companyId },
+        select: ['CONTACT_ID'],
+      })
+      const result = response.data?.result
+      if (!Array.isArray(result)) return []
+      return result.map((item: { CONTACT_ID: number | string }) =>
+        String(item.CONTACT_ID),
+      )
+    } catch (error) {
+      console.error('[BitrixClient] getCompanyContactIds error:', error)
+      throw new BitrixError('Failed to get company contact ids')
+    }
+  }
+
   async getPlacementHandlers(): Promise<
     PlacementHandlerEntry[] | { result?: PlacementHandlerEntry[] }
   > {
