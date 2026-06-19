@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CheckIcon, PlusIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Grupo } from '../types'
 import { GrupoCard } from './grupo-card'
 import { useAssinaturaData } from '../data/use-assinatura-data'
+import { useSettings } from '../data/use-settings'
 
 function novoGrupo(): Grupo {
   return {
@@ -36,6 +37,12 @@ export default function AssinaturaLayout() {
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({})
   const { fields, error } = useAssinaturaData()
+  const { settings, save: persist } = useSettings()
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (settings?.groups) setGrupos(settings.groups as Grupo[])
+  }, [settings])
 
   function updateGrupo(index: number, patch: Partial<Grupo>) {
     setGrupos(prev =>
@@ -59,14 +66,18 @@ export default function AssinaturaLayout() {
     })
   }
 
-  function save() {
-    // TODO: persistir via API. Por ora só console.log pra testes.
-    console.log('[clicksign] salvar grupos de assinatura', grupos)
+  async function save() {
+    setSaving(true)
+    try {
+      await persist({ groups: grupos })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pt-8 pb-12 sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-6">
+      <div className="sticky top-4 z-20 flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">
             Configuração de Assinaturas
@@ -77,9 +88,9 @@ export default function AssinaturaLayout() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={save}>
+          <Button variant="outline" onClick={() => void save()} disabled={saving}>
             <CheckIcon />
-            Salvar
+            {saving ? 'Salvando…' : 'Salvar'}
           </Button>
           <Button onClick={addGrupo}>
             <PlusIcon />

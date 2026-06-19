@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BuildingIcon, PlusIcon, Trash2Icon, CheckIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { OptionSelect } from '../option-select'
 import { useContactFields } from '../data/use-contact-fields'
+import { useSettings } from '../data/use-settings'
 import type { Empresa, Option, VerifySettings, ContactSettings } from '../types'
 
 // Constantes de domínio Clicksign (não vêm do Bitrix)
@@ -80,6 +81,18 @@ export default function ConfiguracoesLayout() {
     part: { name: '[Clicksign] Assinar como', code: 'UF_CRM_SIGNER_PART' },
   })
   const { fields: contactFields } = useContactFields()
+  const { settings, save: persist } = useSettings()
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!settings) return
+    const tokens = (settings.fields as { tokens?: Empresa[] } | null)?.tokens
+    if (tokens?.length) setEmpresas(tokens)
+    if (settings.verifySettings)
+      setVerify(settings.verifySettings as VerifySettings)
+    if (settings.contactSettings)
+      setContact(settings.contactSettings as ContactSettings)
+  }, [settings])
 
   function updateEmpresa(index: number, patch: Partial<Empresa>) {
     setEmpresas(prev =>
@@ -93,13 +106,17 @@ export default function ConfiguracoesLayout() {
     setEmpresas(prev => prev.filter((_, i) => i !== index))
   }
 
-  function save() {
-    // TODO: persistir via API. Por ora só console.log pra testes.
-    console.log('[clicksign] salvar configurações', {
-      empresas,
-      verify_settings: verify,
-      contact_settings: contact,
-    })
+  async function save() {
+    setSaving(true)
+    try {
+      await persist({
+        fields: { tokens: empresas },
+        verifySettings: verify,
+        contactSettings: contact,
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -275,9 +292,9 @@ export default function ConfiguracoesLayout() {
       </section>
 
       <div className="flex justify-end">
-        <Button onClick={save}>
+        <Button onClick={() => void save()} disabled={saving}>
           <CheckIcon />
-          Salvar Alterações
+          {saving ? 'Salvando…' : 'Salvar Alterações'}
         </Button>
       </div>
     </div>

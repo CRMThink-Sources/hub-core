@@ -1,12 +1,12 @@
 'use client'
 
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  Combobox,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxTrigger,
+  type ComboboxOption,
+} from '@/components/ui/combobox'
 import type { Option } from './types'
 
 type Props = {
@@ -22,33 +22,29 @@ export function OptionSelect({
   onChange,
   placeholder = 'Selecione…',
 }: Props) {
+  const items: ComboboxOption[] = options.map(o => ({
+    value: o.code,
+    label: o.name,
+  }))
+  const selected = items.find(i => i.value === value) ?? null
+
   return (
-    <Select value={value ?? ''} onValueChange={onChange}>
-      <SelectTrigger>
-        <SelectValue>
-          {(v: string) => {
-            const opt = options.find(o => o.code === v)
-            return opt ? (
-              opt.name
-            ) : (
-              <span className="text-muted-foreground">{placeholder}</span>
-            )
-          }}
-        </SelectValue>
-      </SelectTrigger>
-      <SelectContent>
-        {options.length === 0 ? (
-          <div className="px-2 py-1.5 text-sm text-muted-foreground">
-            Nenhuma opção
-          </div>
-        ) : (
-          options.map(o => (
-            <SelectItem key={o.code} value={o.code}>
-              {o.name}
-            </SelectItem>
-          ))
+    // key remonta quando a lista carrega: o Combobox não reflete troca de
+    // `items` na mesma instância.
+    <Combobox
+      key={`${items.length}:${items[0]?.value ?? ''}`}
+      items={items}
+      value={selected}
+      onValueChange={(v: ComboboxOption | null) => onChange(v?.value ?? null)}
+    >
+      <ComboboxTrigger placeholder={placeholder} />
+      <ComboboxContent>
+        {(item: ComboboxOption) => (
+          <ComboboxItem key={item.value} value={item}>
+            <span className="truncate">{item.label}</span>
+          </ComboboxItem>
         )}
-      </SelectContent>
-    </Select>
+      </ComboboxContent>
+    </Combobox>
   )
 }
