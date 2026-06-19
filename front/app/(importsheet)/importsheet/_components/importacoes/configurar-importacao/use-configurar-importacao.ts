@@ -122,7 +122,7 @@ export function useConfigurarImportacao(
     categories,
     loading: categoriesLoading,
     error: categoriesError,
-  } = useBitrixCategories(open, needsPipeline)
+  } = useBitrixCategories(open, needsPipeline, resolvedEntityTypeId)
   const {
     fields,
     loading: fieldsLoading,
@@ -210,7 +210,9 @@ export function useConfigurarImportacao(
 
     cleanupEntityRef.current = next
 
-    if (codeChanged && !needsPipeline) setCategoryId(null)
+    // Troca de tipo-alvo (entidade ou SPA) invalida o funil escolhido: o conjunto
+    // de funis pertence ao entityTypeId resolvido.
+    if (typeChanged || (codeChanged && !needsPipeline)) setCategoryId(null)
     // Troca de entidade reseta o de-para: desliga destinos contato/empresa e zera os
     // mappings (campo, identificador e destino → main) — senão fica stale da anterior.
     setCreateContact(false)
@@ -382,10 +384,17 @@ export function useConfigurarImportacao(
       ? everyHours >= 1 && everyHours <= 23
       : weekdays.length > 0)
 
+  // Funil exigido quando a entidade tem funis; mas SPA pode ter categorias
+  // desabilitadas (lista vazia) — nesse caso não bloqueia o salvar.
+  const pipelineSatisfied =
+    !needsPipeline ||
+    categoryId !== null ||
+    (!categoriesLoading && categories.length === 0)
+
   const canSave =
     title.trim().length > 0 &&
     entityCode !== '' &&
-    (!needsPipeline || categoryId !== null) &&
+    pipelineSatisfied &&
     (!needsSpa || spaTypeId !== null) &&
     header !== null &&
     (isFeed || fields !== null) &&

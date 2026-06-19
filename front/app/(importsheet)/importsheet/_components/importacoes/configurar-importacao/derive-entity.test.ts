@@ -28,6 +28,11 @@ describe('deriveEntity', () => {
     expect(deriveEntity('SPA', null).needsSpa).toBe(true)
   })
 
+  it('SPA só pede funil após escolher o tipo de SPA', () => {
+    expect(deriveEntity('SPA', null).needsPipeline).toBe(false)
+    expect(deriveEntity('SPA', 1056).needsPipeline).toBe(true)
+  })
+
   it('CONTACT não mostra criar contato', () => {
     expect(deriveEntity('CONTACT', null).showCreateContact).toBe(false)
     expect(deriveEntity('CONTACT', null).showCreateCompany).toBe(true)
