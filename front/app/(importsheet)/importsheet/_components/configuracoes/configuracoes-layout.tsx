@@ -43,17 +43,15 @@ export default function ConfiguracoesLayout() {
     void (async () => {
       try {
         const [usersRes, settingsRes] = await Promise.all([
-          axiosImportsheet().get('/importsheet/bitrix/users') as unknown as {
-            users: BitrixUser[]
-          },
-          axiosImportsheet().get('/importsheet/settings/notify') as unknown as {
-            userIds: number[]
-          },
+          axiosImportsheet().get('/importsheet/bitrix/users'),
+          axiosImportsheet().get('/importsheet/settings/notify'),
         ])
         if (!active) return
-        setUsers(usersRes.users ?? [])
-        setNotifyIds(settingsRes.userIds ?? [])
-        setSavedIds(settingsRes.userIds ?? [])
+        const usersData = usersRes.data as { users: BitrixUser[] }
+        const settingsData = settingsRes.data as { userIds: number[] }
+        setUsers(usersData.users ?? [])
+        setNotifyIds(settingsData.userIds ?? [])
+        setSavedIds(settingsData.userIds ?? [])
       } catch {
         // silencioso: o card mostra estado vazio; banner é só pro fluxo Google
       } finally {
@@ -80,9 +78,12 @@ export default function ConfiguracoesLayout() {
   async function handleSaveNotify() {
     try {
       setSavingNotify(true)
-      const res = (await axiosImportsheet().put('/importsheet/settings/notify', {
-        userIds: notifyIds,
-      })) as unknown as { userIds: number[] }
+      const res = (await axiosImportsheet().put(
+        '/importsheet/settings/notify',
+        {
+          userIds: notifyIds,
+        },
+      )) as unknown as { userIds: number[] }
       const saved = res.userIds ?? notifyIds
       setNotifyIds(saved)
       setSavedIds(saved)

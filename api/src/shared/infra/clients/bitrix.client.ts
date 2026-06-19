@@ -278,9 +278,9 @@ export class BitrixClient {
       const response = await client.post(`/crm.deal.contact.items.get`, {
         id: dealId,
       })
-      const result = response.data?.result
+      const result = (response.data as { result?: unknown })?.result
       if (!Array.isArray(result)) return []
-      return result.map((item: { CONTACT_ID: number | string }) =>
+      return (result as { CONTACT_ID: number | string }[]).map(item =>
         String(item.CONTACT_ID),
       )
     } catch (error) {
@@ -296,9 +296,9 @@ export class BitrixClient {
         filter: { COMPANY_ID: companyId },
         select: ['CONTACT_ID'],
       })
-      const result = response.data?.result
+      const result = (response.data as { result?: unknown })?.result
       if (!Array.isArray(result)) return []
-      return result.map((item: { CONTACT_ID: number | string }) =>
+      return (result as { CONTACT_ID: number | string }[]).map(item =>
         String(item.CONTACT_ID),
       )
     } catch (error) {
