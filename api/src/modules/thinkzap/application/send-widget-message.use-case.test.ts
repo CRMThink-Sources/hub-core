@@ -58,7 +58,13 @@ function makeUseCase() {
     bitrixClient,
   )
 
-  return { useCase, getConnectorRepository, getInstanceRepository, zApiClient, sendBitrixNotification }
+  return {
+    useCase,
+    getConnectorRepository,
+    getInstanceRepository,
+    zApiClient,
+    sendBitrixNotification,
+  }
 }
 
 const baseInput = {
