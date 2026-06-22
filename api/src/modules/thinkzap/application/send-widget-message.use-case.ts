@@ -97,7 +97,10 @@ export class SendWidgetMessageUseCase {
           openChannelText,
         )
       } catch (err) {
-        console.error('[SendWidgetMessageUseCase] sendToOpenChannel error:', err)
+        console.error(
+          '[SendWidgetMessageUseCase] sendToOpenChannel error:',
+          err,
+        )
       }
     }
 
