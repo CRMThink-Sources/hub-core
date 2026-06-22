@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import { OptionSelect } from '../option-select'
 import { useContactFields } from '../data/use-contact-fields'
@@ -83,7 +84,8 @@ export default function ConfiguracoesLayout() {
   })
   const { fields: contactFields } = useContactFields()
   const { settings, save: persist } = useSettings()
-  const [saving, setSaving] = useState(false)
+  const [savingMain, setSavingMain] = useState(false)
+  const [savingExtra, setSavingExtra] = useState(false)
 
   useEffect(() => {
     if (!settings) return
@@ -107,26 +109,47 @@ export default function ConfiguracoesLayout() {
     setEmpresas(prev => prev.filter((_, i) => i !== index))
   }
 
-  async function save() {
-    setSaving(true)
+  async function saveMain() {
+    setSavingMain(true)
     try {
-      await persist({
-        fields: { tokens: empresas },
-        verifySettings: verify,
-        contactSettings: contact,
-      })
+      await persist({ fields: { tokens: empresas } })
       toast.success('Configurações salvas')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Falha ao salvar')
     } finally {
-      setSaving(false)
+      setSavingMain(false)
+    }
+  }
+
+  async function saveExtra() {
+    setSavingExtra(true)
+    try {
+      await persist({ verifySettings: verify, contactSettings: contact })
+      toast.success('Configurações salvas')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Falha ao salvar')
+    } finally {
+      setSavingExtra(false)
     }
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pt-8 pb-12 sm:px-6 lg:px-8">
-      {/* Empresas */}
-      <section className="overflow-hidden rounded-xl border border-border bg-card">
+    <Tabs
+      defaultValue="principal"
+      className="mx-auto w-full max-w-5xl px-4 pt-8 pb-12 sm:px-6 lg:px-8"
+    >
+      <TabsList className="w-full max-w-sm group-data-horizontal/tabs:h-11">
+        <TabsTrigger value="principal" className="h-full text-base">
+          Principal
+        </TabsTrigger>
+        <TabsTrigger value="extra" className="h-full text-base">
+          Extra
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="principal" className="flex flex-col gap-6">
+        {/* Empresas */}
+        <section className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between gap-4 border-b border-border p-6">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-foreground">
@@ -231,10 +254,19 @@ export default function ConfiguracoesLayout() {
             </div>
           ))}
         </div>
-      </section>
+        </section>
 
-      {/* Configurações extras */}
-      <section className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="flex justify-end">
+          <Button onClick={() => void saveMain()} disabled={savingMain}>
+            <CheckIcon />
+            {savingMain ? 'Salvando…' : 'Salvar'}
+          </Button>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="extra" className="flex flex-col gap-6">
+        {/* Configurações extras */}
+        <section className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="border-b border-border p-6">
           <h2 className="text-base font-semibold tracking-tight text-foreground">
             Configurações Adicionais
@@ -293,14 +325,15 @@ export default function ConfiguracoesLayout() {
             </p>
           </div>
         </div>
-      </section>
+        </section>
 
-      <div className="flex justify-end">
-        <Button onClick={() => void save()} disabled={saving}>
-          <CheckIcon />
-          {saving ? 'Salvando…' : 'Salvar Alterações'}
-        </Button>
-      </div>
-    </div>
+        <div className="flex justify-end">
+          <Button onClick={() => void saveExtra()} disabled={savingExtra}>
+            <CheckIcon />
+            {savingExtra ? 'Salvando…' : 'Salvar'}
+          </Button>
+        </div>
+      </TabsContent>
+    </Tabs>
   )
 }
