@@ -38,12 +38,15 @@ export function DestinoSection({
   spas,
 }: Props) {
   const { t } = useTranslation('importsheet/configurar-importacao')
+  const extraCols = (needsSpa ? 1 : 0) + (needsPipeline ? 1 : 0)
+  const gridCols =
+    extraCols >= 2
+      ? 'grid-cols-3'
+      : extraCols === 1
+        ? 'grid-cols-2'
+        : 'grid-cols-1'
   return (
-    <div
-      className={`grid gap-4 ${
-        needsPipeline || needsSpa ? 'grid-cols-2' : 'grid-cols-1'
-      }`}
-    >
+    <div className={`grid gap-4 ${gridCols}`}>
       <div className="flex flex-col gap-2">
         <Label>{t('destino.entidade')}</Label>
         <Select
@@ -76,6 +79,40 @@ export function DestinoSection({
         </Select>
       </div>
 
+      {needsSpa && (
+        <div className="flex flex-col gap-2">
+          <Label>{t('destino.spa')}</Label>
+          <Select
+            value={spaTypeId === null ? '' : String(spaTypeId)}
+            onValueChange={(v: string | null) =>
+              setSpaTypeId(v ? Number(v) : null)
+            }
+          >
+            <SelectTrigger>
+              <SelectValue>
+                {(value: string) =>
+                  value ? (
+                    (spas.find(s => String(s.entityTypeId) === value)?.label ??
+                    value)
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {t('destino.selecioneSpa')}
+                    </span>
+                  )
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {spas.map(s => (
+                <SelectItem key={s.entityTypeId} value={String(s.entityTypeId)}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {needsPipeline && (
         <div className="flex flex-col gap-2">
           <Label>{t('destino.pipeline')}</Label>
@@ -105,40 +142,6 @@ export function DestinoSection({
               {categories.map(c => (
                 <SelectItem key={c.id} value={String(c.id)}>
                   {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {needsSpa && (
-        <div className="flex flex-col gap-2">
-          <Label>{t('destino.spa')}</Label>
-          <Select
-            value={spaTypeId === null ? '' : String(spaTypeId)}
-            onValueChange={(v: string | null) =>
-              setSpaTypeId(v ? Number(v) : null)
-            }
-          >
-            <SelectTrigger>
-              <SelectValue>
-                {(value: string) =>
-                  value ? (
-                    (spas.find(s => String(s.entityTypeId) === value)?.label ??
-                    value)
-                  ) : (
-                    <span className="text-muted-foreground">
-                      {t('destino.selecioneSpa')}
-                    </span>
-                  )
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {spas.map(s => (
-                <SelectItem key={s.entityTypeId} value={String(s.entityTypeId)}>
-                  {s.label}
                 </SelectItem>
               ))}
             </SelectContent>

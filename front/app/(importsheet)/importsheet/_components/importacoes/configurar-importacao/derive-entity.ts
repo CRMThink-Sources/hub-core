@@ -19,8 +19,11 @@ export function deriveEntity(
   spaTypeId: number | null,
 ): EntityFlags {
   const entity = ENTITIES.find(e => e.code === entityCode) ?? null
-  const needsPipeline = entity?.hasPipeline ?? false
   const needsSpa = entity?.kind === 'spa'
+  // SPA tem funis (categorias) no Bitrix igual ao Negócio; só dá pra buscá-los
+  // após escolher o tipo de SPA (entityTypeId).
+  const needsPipeline =
+    (entity?.hasPipeline ?? false) || (needsSpa && spaTypeId !== null)
   const isTask = entity?.kind === 'task'
   const isFeed = entity?.kind === 'feed'
   const isCrmLike = entity?.kind === 'crm' || needsSpa
