@@ -340,6 +340,47 @@ export class BitrixClient {
       throw new BitrixError(wrapped.message)
     }
   }
+
+  async sendToOpenChannel(
+    lineId: string,
+    connectorCode: string,
+    phone: string,
+    message: string,
+  ): Promise<void> {
+    const params: ISendMessageData = {
+      CONNECTOR: connectorCode,
+      LINE: Number(lineId),
+      MESSAGES: [
+        {
+          chat: {
+            id: phone,
+            name: phone,
+          },
+          user: {
+            id: phone,
+            name: phone,
+            last_name: '',
+            phone: phone,
+          },
+          message: {
+            id: `widget_${Date.now()}_${phone}`,
+            date: new Date().toISOString(),
+            text: message,
+          },
+        },
+      ],
+    }
+    const client = this.getClient()
+    try {
+      await client.post('/imconnector.send.messages', params)
+    } catch (error) {
+      const msg =
+        axios.isAxiosError(error) && error.response
+          ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+          : 'Failed to create open channel conversation'
+      throw new BitrixError(msg)
+    }
+  }
 }
 
 export interface ICrmItemResponse {
