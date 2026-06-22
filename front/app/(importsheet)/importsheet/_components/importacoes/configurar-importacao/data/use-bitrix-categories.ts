@@ -3,21 +3,25 @@ import { useTranslation } from 'react-i18next'
 import { axiosImportsheet } from '@/infra/client/axios-importsheet'
 import type { BitrixCategory } from '../../../types'
 
-export function useBitrixCategories(open: boolean, needsPipeline: boolean) {
+export function useBitrixCategories(
+  open: boolean,
+  needsPipeline: boolean,
+  entityTypeId: number | null,
+) {
   const { t } = useTranslation('importsheet/configurar-importacao')
   const [categories, setCategories] = useState<BitrixCategory[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!open || !needsPipeline) {
+    if (!open || !needsPipeline || entityTypeId === null) {
       setCategories([])
       return
     }
     let active = true
     setLoading(true)
     axiosImportsheet()
-      .get('/importsheet/bitrix/categories?entityTypeId=2')
+      .get(`/importsheet/bitrix/categories?entityTypeId=${entityTypeId}`)
       .then(res => {
         if (!active) return
         const data = res as unknown as { categories: BitrixCategory[] }
@@ -33,7 +37,7 @@ export function useBitrixCategories(open: boolean, needsPipeline: boolean) {
     return () => {
       active = false
     }
-  }, [open, needsPipeline, t])
+  }, [open, needsPipeline, entityTypeId, t])
 
   return { categories, loading, error }
 }
