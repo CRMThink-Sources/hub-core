@@ -21,5 +21,6 @@ export const makeSendWidgetMessageUseCase = async (
     instanceRepository,
     zApiClient,
     sendBitrixNotification,
+    bitrix,
   )
 }

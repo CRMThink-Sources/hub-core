@@ -81,9 +81,11 @@ export class ListDestinationsService {
     if (placement === 'CRM_DEAL_DETAIL_TAB')
       return this.getDealDestinations(entity, contextId)
     if (placement === 'CRM_CONTACT_DETAIL_TAB')
-      return this.getContactDestinations(entity)
+      return this.getContactDestinations(entity, contextId)
     if (placement === 'CRM_LEAD_DETAIL_TAB')
-      return this.getLeadDestinations(entity)
+      return this.getLeadDestinations(entity, contextId)
+    if (placement === 'CRM_COMPANY_DETAIL_TAB')
+      return this.getCompanyDestinations(contextId)
     return []
   }
 
@@ -116,8 +118,9 @@ export class ListDestinationsService {
 
   private async getContactDestinations(
     entity: Record<string, unknown>,
+    contextId: string,
   ): Promise<EntityId[]> {
-    const results: EntityId[] = []
+    const results: EntityId[] = [{ entityTypeId: 3, id: contextId }]
 
     const companyContactIds = await this.getCompanyContactIdsFromEntity(entity)
     for (const id of companyContactIds) {
@@ -132,12 +135,33 @@ export class ListDestinationsService {
 
   private async getLeadDestinations(
     entity: Record<string, unknown>,
+    contextId: string,
   ): Promise<EntityId[]> {
-    const results: EntityId[] = []
+    const results: EntityId[] = [{ entityTypeId: 1, id: contextId }]
     const companyContactIds = await this.getCompanyContactIdsFromEntity(entity)
     for (const id of companyContactIds) {
       results.push({ entityTypeId: 3, id })
     }
+    return results
+  }
+
+  private async getCompanyDestinations(contextId: string): Promise<EntityId[]> {
+    const results: EntityId[] = [{ entityTypeId: 4, id: contextId }]
+
+    const contactIds = await this.bitrix
+      .getCompanyContactIds(contextId)
+      .catch(err => {
+        console.error(
+          'error getting company contact ids:',
+          (err as Error).message,
+        )
+        return [] as string[]
+      })
+
+    for (const id of contactIds) {
+      results.push({ entityTypeId: 3, id })
+    }
+
     return results
   }
 

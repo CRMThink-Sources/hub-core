@@ -7,6 +7,8 @@ import {
   normalizePhoneNumber,
 } from '@/shared/helpers/normalize-phone-number'
 import { SendNotification } from '@/shared/data/contracts/send-notification'
+import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { env } from '@/config/env'
 import {
   SendWidgetMessageInput,
   SendWidgetMessageResult,
@@ -19,6 +21,7 @@ export class SendWidgetMessageUseCase {
     private readonly getInstanceRepository: GetInstanceRepository,
     private readonly zApiClient: ZApiClient,
     private readonly sendBitrixNotification: SendNotification,
+    private readonly bitrixClient: BitrixClient,
   ) {}
 
   async execute(
@@ -82,6 +85,20 @@ export class SendWidgetMessageUseCase {
         normalizedPhone,
       )
       sentMessageIds.push(messageId)
+    }
+
+    if (instance.vinculatedChannel) {
+      const openChannelText = message?.trim() || '[Arquivo enviado]'
+      try {
+        await this.bitrixClient.sendToOpenChannel(
+          instance.vinculatedChannel,
+          env.bitrix.connector.code,
+          normalizedPhone,
+          openChannelText,
+        )
+      } catch (err) {
+        console.error('[SendWidgetMessageUseCase] sendToOpenChannel error:', err)
+      }
     }
 
     await this.sendBitrixNotification.execute({
