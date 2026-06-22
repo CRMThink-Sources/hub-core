@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ListDestinationsService } from './list-destinations.service'
 
-const makeBitrix = (overrides: Partial<{
-  getCrmItem: ReturnType<typeof vi.fn>
-  getDealContactIds: ReturnType<typeof vi.fn>
-  getCompanyContactIds: ReturnType<typeof vi.fn>
-}> = {}) => ({
+const makeBitrix = (
+  overrides: Partial<{
+    getCrmItem: ReturnType<typeof vi.fn>
+    getDealContactIds: ReturnType<typeof vi.fn>
+    getCompanyContactIds: ReturnType<typeof vi.fn>
+  }> = {},
+) => ({
   getCrmItem: vi.fn(),
   getDealContactIds: vi.fn().mockResolvedValue([]),
   getCompanyContactIds: vi.fn().mockResolvedValue([]),
@@ -55,7 +57,10 @@ describe('ListDestinationsService — CRM_CONTACT_DETAIL_TAB', () => {
     })
 
     const service = new ListDestinationsService(bitrix as never)
-    await service.execute({ contextId: '42', placement: 'CRM_CONTACT_DETAIL_TAB' })
+    await service.execute({
+      contextId: '42',
+      placement: 'CRM_CONTACT_DETAIL_TAB',
+    })
 
     expect(getCompanyContactIds).not.toHaveBeenCalled()
   })
@@ -98,8 +103,9 @@ describe('ListDestinationsService — CRM_COMPANY_DETAIL_TAB', () => {
   it('returns destinations from linked contacts', async () => {
     const companyEntity = crmItem('5', 'Empresa A')
     const contactEntity = crmItem('100', 'Maria', '5511000000000')
-    const getCrmItem = vi.fn().mockImplementation(
-      (entityTypeId: number, id: string) => {
+    const getCrmItem = vi
+      .fn()
+      .mockImplementation((entityTypeId: number, id: string) => {
         if (entityTypeId === 4 && id === '5')
           return Promise.resolve(companyEntity)
         if (entityTypeId === 3 && id === '100')
@@ -107,8 +113,7 @@ describe('ListDestinationsService — CRM_COMPANY_DETAIL_TAB', () => {
         return Promise.reject(
           new Error(`unexpected getCrmItem(${entityTypeId}, ${id})`),
         )
-      },
-    )
+      })
     const getCompanyContactIds = vi.fn().mockResolvedValue(['100'])
     const bitrix = makeBitrix({ getCrmItem, getCompanyContactIds })
 
