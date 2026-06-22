@@ -90,12 +90,12 @@ export class SendWidgetMessageUseCase {
     if (instance.vinculatedChannel) {
       const openChannelText = message?.trim() || '[Arquivo enviado]'
       try {
-        await this.bitrixClient.sendToOpenChannel(
-          instance.vinculatedChannel,
-          env.bitrix.connector.code,
-          normalizedPhone,
-          openChannelText,
-        )
+        // await this.bitrixClient.sendToOpenChannel(
+        //   instance.vinculatedChannel,
+        //   env.bitrix.connector.code,
+        //   normalizedPhone,
+        //   openChannelText,
+        // )
       } catch (err) {
         console.error(
           '[SendWidgetMessageUseCase] sendToOpenChannel error:',
