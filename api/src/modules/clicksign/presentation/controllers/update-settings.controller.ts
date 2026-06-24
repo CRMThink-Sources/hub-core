@@ -2,13 +2,24 @@ import { Request } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
-import { ClickSignSettingsRepository } from '../../domain/repositories/clicksign-settings.repository'
+import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import {
+  ClickSignSettings,
+  ClickSignSettingsRepository,
+} from '../../domain/repositories/clicksign-settings.repository'
+import { buildClicksignRobotUpdateParams } from '../../application/build-robot-params'
+import {
+  ProvisionableToken,
+  WebhookProvisioningService,
+} from '../../application/webhook-provisioning.service'
 import { settingsPatchSchema } from './settings-payload.schema'
+import { apiLogger } from '@/shared/infra/logger'
 
 export class UpdateSettingsController extends Controller {
   constructor(
     private readonly installedAppRepository: GetInstalledAppRepository,
     private readonly settings: ClickSignSettingsRepository,
+    private readonly bitrix: BitrixClient,
   ) {
     super()
   }
@@ -30,7 +41,99 @@ export class UpdateSettingsController extends Controller {
     )
     if (!app) return this.notFound(new Error('App not found'))
 
-    const settings = await this.settings.upsertByAppId(app.id, parsed.data)
+    // Lê o estado anterior antes do upsert: o front salva tokens sem o campo
+    // `webhook` e o upsert sobrescreve o fields inteiro, então recuperamos o
+    // webhook já registrado (casado por token) para não re-registrar a cada save.
+    const previous = await this.settings.findByAppId(app.id)
+
+    let settings = await this.settings.upsertByAppId(app.id, parsed.data)
+
+    // Best-effort: falha aqui não invalida o save das settings.
+    await this.syncRobotOptions(settings)
+
+    settings = await this.syncWebhooks(app.id, settings, previous)
+
     return this.ok({ settings })
   }
+
+  private async syncWebhooks(
+    appId: string,
+    settings: ClickSignSettings,
+    previous: ClickSignSettings | null,
+  ): Promise<ClickSignSettings> {
+    try {
+      const fields = settings.fields as {
+        tokens?: ProvisionableToken[]
+        [key: string]: unknown
+      } | null
+      const tokens = Array.isArray(fields?.tokens) ? fields.tokens : []
+      if (tokens.length === 0) return settings
+
+      // Recupera o webhook já registrado (perdido no upsert) casando por token.
+      const prevByToken = webhookByToken(previous)
+      const merged = tokens.map(t =>
+        t.webhook ? t : { ...t, webhook: prevByToken.get(t.token) },
+      )
+
+      const result = await new WebhookProvisioningService(appId).sync(merged)
+
+      // Sempre re-persiste: o upsert derrubou o webhook, então mesmo em no-op
+      // gravamos o webhook (mesclado ou recém-criado) de volta.
+      return this.settings.upsertByAppId(appId, {
+        fields: { ...fields, tokens: result.tokens },
+      })
+    } catch (error) {
+      apiLogger.error(
+        { app: 'clicksign', err: error },
+        'Auto-registro de webhook falhou',
+      )
+      return settings
+    }
+  }
+
+  private async syncRobotOptions(settings: ClickSignSettings): Promise<void> {
+    try {
+      const groups = Array.isArray(settings.groups)
+        ? (settings.groups as Array<{ id?: string }>)
+        : []
+      const groupOptions: Record<string, string> = {}
+      for (const group of groups) {
+        if (typeof group?.id === 'string') {
+          groupOptions[group.id.replaceAll(' ', '')] = group.id
+        }
+      }
+
+      const fields = settings.fields as { tokens?: unknown } | null
+      const tokens = Array.isArray(fields?.tokens)
+        ? (fields.tokens as Array<{ token?: string; name?: string }>)
+        : []
+      const empresaOptions: Record<string, string> = {}
+      for (const entry of tokens) {
+        if (typeof entry?.token === 'string') {
+          empresaOptions[entry.token] = entry.name ?? entry.token
+        }
+      }
+
+      await this.bitrix.callMethod(
+        'bizproc.robot.update',
+        buildClicksignRobotUpdateParams(groupOptions, empresaOptions),
+      )
+    } catch (error) {
+      apiLogger.error(
+        { app: 'clicksign', err: error },
+        'bizproc.robot.update falhou',
+      )
+    }
+  }
+}
+
+function webhookByToken(
+  previous: ClickSignSettings | null,
+): Map<string, ProvisionableToken['webhook']> {
+  const map = new Map<string, ProvisionableToken['webhook']>()
+  const fields = previous?.fields as { tokens?: ProvisionableToken[] } | null
+  for (const token of fields?.tokens ?? []) {
+    if (token.webhook) map.set(token.token, token.webhook)
+  }
+  return map
 }

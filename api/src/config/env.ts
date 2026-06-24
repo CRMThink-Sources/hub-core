@@ -109,4 +109,10 @@ export const env = {
     process.env.THINKZAP_MOCK_ZAPI_PROVISIONING === 'true' ||
     (process.env.NODE_ENV === 'local' &&
       process.env.THINKZAP_MOCK_ZAPI_PROVISIONING !== 'false'),
+  clicksign: {
+    robot: {
+      code: process.env.CLICKSIGN_ROBOT_CODE ?? 'ENVIAR_DOCUMENTO',
+      name: process.env.CLICKSIGN_ROBOT_NAME ?? 'Enviar documento',
+    },
+  },
 } as const

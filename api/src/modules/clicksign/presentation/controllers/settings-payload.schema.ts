@@ -18,7 +18,6 @@ const verifySettingsSchema = z.object({
   facial_biometrics_enabled: z.boolean(),
   handwritten_enabled: z.boolean(),
   official_document_enabled: z.boolean(),
-  has_documentation: z.boolean(),
   rubrica: z.boolean(),
 })
 

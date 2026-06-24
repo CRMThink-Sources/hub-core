@@ -25,6 +25,16 @@ services:
       - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/modules/importsheet/worker/importsheet.worker.js"]
 
+  worker-clicksign:
+    image: ghcr.io/crmthink-sources/hub-core-api:latest
+    container_name: hubthink-worker-clicksign
+    restart: unless-stopped
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "dist/src/modules/clicksign/infra/worker/clicksign.worker.js"]
+
   # Host 3002 evita conflito com outro app na 3000 (ex.: PM2). Dentro do container o Next segue na 3000.
   front:
     ports:

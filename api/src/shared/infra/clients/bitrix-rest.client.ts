@@ -48,6 +48,33 @@ export class BitrixRestClient {
     }
   }
 
+  /**
+   * Executa várias chamadas REST num único request (`batch`, máx. 50 por lote).
+   * Recebe um mapa `chave → { method, params }` e devolve `chave → result`.
+   * Params só com valores escalares (suficiente p/ `*.get?id=`).
+   */
+  async callBatch(
+    commands: Record<
+      string,
+      { method: string; params: Record<string, string | number | boolean> }
+    >,
+  ): Promise<Record<string, unknown>> {
+    const cmd: Record<string, string> = {}
+    for (const [key, { method, params }] of Object.entries(commands)) {
+      const query = new URLSearchParams()
+      for (const [k, v] of Object.entries(params)) {
+        if (v != null) query.append(k, String(v))
+      }
+      const qs = query.toString()
+      cmd[key] = qs ? `${method}?${qs}` : method
+    }
+
+    const res = (await this.callMethod('batch', { halt: 0, cmd })) as {
+      result?: Record<string, unknown>
+    }
+    return res?.result ?? {}
+  }
+
   async getPlacementHandlers(): Promise<
     PlacementHandlerEntry[] | { result?: PlacementHandlerEntry[] }
   > {

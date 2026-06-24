@@ -5,7 +5,6 @@ export type ClickSignField = {
   name: string
   type: string
   isMultiple: boolean
-  /** true quando é campo de vínculo CRM apontando para Contato (type=crm, CONTACT=Y). */
   crmContact: boolean
 }
 
@@ -29,7 +28,6 @@ function normalize(fields: Record<string, RawField>): ClickSignField[] {
   }))
 }
 
-/** Campos de CRM (Deal/Contact) do Bitrix24. Front filtra por tipo. */
 export class ClickSignBitrixFieldsService {
   constructor(private readonly bitrix: BitrixClient) {}
 
