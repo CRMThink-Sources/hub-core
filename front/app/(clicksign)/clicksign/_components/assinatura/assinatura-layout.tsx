@@ -92,7 +92,11 @@ export default function AssinaturaLayout() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => void save()} disabled={saving}>
+          <Button
+            variant="outline"
+            onClick={() => void save()}
+            disabled={saving}
+          >
             <CheckIcon />
             {saving ? 'Salvando…' : 'Salvar'}
           </Button>

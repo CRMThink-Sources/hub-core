@@ -136,6 +136,9 @@ export function GrupoCard({
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label>Status de Assinatura</Label>
+                <p className="text-xs text-muted-foreground">
+                  Campo que indica se o documento foi assinado
+                </p>
                 <OptionSelect
                   options={stringFields}
                   value={grupo.contato_assinado}
@@ -144,6 +147,9 @@ export function GrupoCard({
               </div>
               <div className="flex flex-col gap-2">
                 <Label>Arquivo Assinado</Label>
+                <p className="text-xs text-muted-foreground">
+                  Campo onde será salvo o documento assinado
+                </p>
                 <OptionSelect
                   options={fileFields}
                   value={grupo.arquivo_assinado}
@@ -152,6 +158,9 @@ export function GrupoCard({
               </div>
               <div className="flex flex-col gap-2">
                 <Label>Data de Assinatura</Label>
+                <p className="text-xs text-muted-foreground">
+                  Data em que o documento foi assinado
+                </p>
                 <OptionSelect
                   options={dateFields}
                   value={grupo.data_assinatura}
@@ -160,6 +169,9 @@ export function GrupoCard({
               </div>
               <div className="flex flex-col gap-2">
                 <Label>ID do Documento</Label>
+                <p className="text-xs text-muted-foreground">
+                  Campo para armazenar o ID do documento na Clicksign
+                </p>
                 <OptionSelect
                   options={stringFields}
                   value={grupo.clicksign_id}
@@ -168,6 +180,9 @@ export function GrupoCard({
               </div>
               <div className="flex flex-col gap-2">
                 <Label>Arquivo para Assinatura</Label>
+                <p className="text-xs text-muted-foreground">
+                  Campo que contém o arquivo a ser assinado
+                </p>
                 <OptionSelect
                   options={fileFields}
                   value={grupo.arquivo}
@@ -176,6 +191,9 @@ export function GrupoCard({
               </div>
               <div className="flex flex-col gap-2">
                 <Label>Data Limite</Label>
+                <p className="text-xs text-muted-foreground">
+                  Data limite para assinatura do documento
+                </p>
                 <OptionSelect
                   options={dateFields}
                   value={grupo.data_limite}
@@ -184,6 +202,9 @@ export function GrupoCard({
               </div>
               <div className="flex flex-col gap-2">
                 <Label>Processo Finalizado</Label>
+                <p className="text-xs text-muted-foreground">
+                  Campo que indica se o processo de assinatura foi concluído
+                </p>
                 <OptionSelect
                   options={stringFields}
                   value={grupo.processo_finalizado}

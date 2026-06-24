@@ -27,7 +27,9 @@ function categorize(fields: ClickSignField[], users: Option[]): BitrixFields {
     fileFields: fields.filter(f => f.type === 'file').map(toOption),
     contactFields: fields.filter(f => f.crmContact).map(toOption),
     userFields: fields
-      .filter(f => f.type === 'user' || (f.type === 'employee' && !f.isMultiple))
+      .filter(
+        f => f.type === 'user' || (f.type === 'employee' && !f.isMultiple),
+      )
       .map(toOption),
     users,
   }
@@ -42,7 +44,9 @@ export function useAssinaturaData() {
     let active = true
     setLoading(true)
     Promise.all([
-      axiosClicksign().get('/clicksign/bitrix/fields?entity=deal') as unknown as Promise<{
+      axiosClicksign().get(
+        '/clicksign/bitrix/fields?entity=deal',
+      ) as unknown as Promise<{
         fields: ClickSignField[]
       }>,
       axiosClicksign().get('/clicksign/bitrix/users') as unknown as Promise<{

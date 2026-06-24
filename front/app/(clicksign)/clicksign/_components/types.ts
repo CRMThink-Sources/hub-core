@@ -15,7 +15,6 @@ export type VerifySettings = {
   facial_biometrics_enabled: boolean
   handwritten_enabled: boolean
   official_document_enabled: boolean
-  has_documentation: boolean
   rubrica: boolean
 }
 
