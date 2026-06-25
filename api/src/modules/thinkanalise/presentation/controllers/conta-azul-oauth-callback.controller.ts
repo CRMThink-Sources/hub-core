@@ -99,6 +99,11 @@ export class ContaAzulOAuthCallbackController extends Controller {
         bitrixSourceId,
       )
 
+      apiLogger.info(
+        { app: 'thinkanalise', appId: app.id, bitrixSourceId },
+        'Conta Azul conectada',
+      )
+
       res.send(oauthPopupHtml('success'))
     } catch (error) {
       apiLogger.error(

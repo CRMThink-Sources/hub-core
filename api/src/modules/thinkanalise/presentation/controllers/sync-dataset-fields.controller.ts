@@ -4,6 +4,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
 import { toDatasetFieldName } from '@/modules/thinkanalise/domain/utils/field-name'
+import { apiLogger } from '@/shared/infra/logger'
 
 const fieldSchema = z.object({
   name: z.string().min(1),
@@ -31,6 +32,12 @@ export class SyncDatasetFieldsController extends Controller {
     }))
 
     const result = await this.bitrix.datasetFieldsUpdate(id, normalized)
+
+    apiLogger.info(
+      { app: 'thinkanalise', datasetId: id, campos: normalized.length },
+      'Campos do dataset sincronizados',
+    )
+
     return this.ok(result)
   }
 }
