@@ -37,7 +37,9 @@ describe('buildSigners — participante', () => {
 
     const bitrix = makeBitrix({
       method: {
-        'user.get': () => [{ EMAIL: 'u@x.com', NAME: 'Ana', LAST_NAME: 'Lima' }],
+        'user.get': () => [
+          { EMAIL: 'u@x.com', NAME: 'Ana', LAST_NAME: 'Lima' },
+        ],
       },
     })
 

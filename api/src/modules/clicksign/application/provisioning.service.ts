@@ -81,6 +81,17 @@ export class ProvisioningService {
 
     await this.repairWebhooks()
 
+    apiLogger.info(
+      {
+        app: 'clicksign',
+        appId: this.webhookCtx?.appId,
+        robot: status.robot,
+        event: status.event,
+        signerField: status.signerField,
+      },
+      'Provisionamento reparado (status era o registrado)',
+    )
+
     return this.check()
   }
 
@@ -132,6 +143,10 @@ export class ProvisioningService {
       await settings.upsertByAppId(appId, {
         fields: { ...fields, tokens: result.tokens },
       })
+      apiLogger.info(
+        { app: 'clicksign', appId, tokens: result.tokens.length },
+        'Webhooks reparados',
+      )
     }
   }
 

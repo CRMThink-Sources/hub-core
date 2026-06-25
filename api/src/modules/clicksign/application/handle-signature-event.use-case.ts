@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { apiLogger } from '@/shared/infra/logger'
 import { withDocumentLock } from '../infra/document-lock'
 import { isProcessed, markProcessed } from '../infra/idempotency'
 import type { ClickSignSettings } from '../domain/repositories/clicksign-settings.repository'
@@ -37,6 +38,14 @@ export class HandleSignatureEventUseCase {
   ) {}
 
   async handle(payload: WebhookPayload): Promise<void> {
+    apiLogger.info(
+      {
+        app: 'clicksign',
+        event: payload.event.name,
+        documentKey: payload.document.key,
+      },
+      'Evento de assinatura recebido',
+    )
     switch (payload.event.name) {
       case 'sign':
         return this.handleSign(payload)
@@ -72,6 +81,17 @@ export class HandleSignatureEventUseCase {
         layout,
       })
 
+      const signer = payload.event.data?.signer
+      apiLogger.info(
+        {
+          app: 'clicksign',
+          documentKey: payload.document.key,
+          dealId: row.OWNER_ID,
+          signer: signer?.name ?? signer?.email ?? signerKey,
+        },
+        'Assinatura recebida',
+      )
+
       if (allSigned(originId)) {
         const group = this.findGroup(originId.group)
         const code = pickCode(group?.contato_assinado)
@@ -81,6 +101,14 @@ export class HandleSignatureEventUseCase {
             fields: { [code]: 'Sim' },
           })
         }
+        apiLogger.info(
+          {
+            app: 'clicksign',
+            documentKey: payload.document.key,
+            dealId: row.OWNER_ID,
+          },
+          'Documento totalmente assinado',
+        )
       }
     })
   }
@@ -125,6 +153,15 @@ export class HandleSignatureEventUseCase {
         iconCode: 'info',
       },
     })
+
+    apiLogger.info(
+      {
+        app: 'clicksign',
+        documentKey: payload.document.key,
+        dealId: row.OWNER_ID,
+      },
+      'Documento recusado',
+    )
   }
 
   async handleCancelOrDeadline(payload: WebhookPayload): Promise<void> {
@@ -142,6 +179,16 @@ export class HandleSignatureEventUseCase {
       fields: { completed: 'Y', status: '2' },
       layout,
     })
+
+    apiLogger.info(
+      {
+        app: 'clicksign',
+        event: payload.event.name,
+        documentKey: payload.document.key,
+        dealId: row.OWNER_ID,
+      },
+      `Documento ${title.toLowerCase()}`,
+    )
   }
 
   async handleDocumentClosed(payload: WebhookPayload): Promise<void> {
@@ -206,6 +253,16 @@ export class HandleSignatureEventUseCase {
       }
 
       await markProcessed('document_closed', documentKey)
+
+      apiLogger.info(
+        {
+          app: 'clicksign',
+          documentKey,
+          dealId: row.OWNER_ID,
+          camposAtualizados: Object.keys(fields).length,
+        },
+        'Documento finalizado processado',
+      )
     })
   }
 

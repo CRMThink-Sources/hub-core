@@ -11,6 +11,7 @@ import {
   SendEnvelopeUseCase,
 } from '../../application/send-envelope.use-case'
 import { safeErrorMessage } from '../../infra/clients/clicksign-error'
+import { setLogContext } from '@/shared/infra/log-context'
 import { apiLogger } from '@/shared/infra/logger'
 
 export class SendEnvelopeController extends Controller {
@@ -28,6 +29,8 @@ export class SendEnvelopeController extends Controller {
     if (!body?.auth?.access_token || !body?.auth?.domain) {
       return this.badRequest(new Error('Missing robot auth'))
     }
+
+    setLogContext({ domain: body.auth.domain })
 
     const documentId = body.document_id?.[2]
     const [entity, entityId] = documentId?.split('_') ?? []

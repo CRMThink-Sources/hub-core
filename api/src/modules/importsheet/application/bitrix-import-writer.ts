@@ -1,4 +1,5 @@
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { apiLogger } from '@/shared/infra/logger'
 import type { EntityCode } from '../domain/entities/import'
 import type { FieldParam } from './field-value-transform'
 import type { MappedRow } from './import-row-mapper'
@@ -249,7 +250,9 @@ export class BitrixImportWriter {
     const results = rows.map(r => byRow.get(r.row) as RowResult)
 
     const written = repResult.results
-    console.log(`[writer] ${entityCode}`, {
+    apiLogger.info({
+      app: 'importsheet',
+      entityCode,
       rows: rows.length,
       written: written.length,
       deduped: rows.length - reps.length,
@@ -264,7 +267,7 @@ export class BitrixImportWriter {
               .map(r => `r${r.row}:${r.error}`),
           }
         : {}),
-    })
+    }, 'Import gravado no Bitrix')
 
     return { results, throttle: repResult.throttle }
   }

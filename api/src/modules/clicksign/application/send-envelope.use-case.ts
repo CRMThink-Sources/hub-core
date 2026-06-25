@@ -3,7 +3,10 @@ import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client
 import type { ClickSignSettings } from '../domain/repositories/clicksign-settings.repository'
 import type { CommunicateBy } from '../domain/entities/signer'
 import { ClicksignClient } from '../infra/clients/clicksign.client'
-import { ClicksignApiError } from '../infra/clients/clicksign-error'
+import {
+  ClicksignApiError,
+  safeErrorMessage,
+} from '../infra/clients/clicksign-error'
 import { normalizeBitrixDomain } from '@/shared/infra/clients/normalize-bitrix-domain'
 import { apiLogger } from '@/shared/infra/logger'
 import {
@@ -111,6 +114,17 @@ export class SendEnvelopeUseCase {
       return
     }
 
+    apiLogger.info(
+      {
+        app: 'clicksign',
+        envelopeKey,
+        entity,
+        entityId,
+        signers: signers.length,
+      },
+      'Envelope criado na Clicksign',
+    )
+
     let file: { contentBase64: string; filename: string }
     try {
       file = await downloadFileBase64(deal, group, domain, token, title)
@@ -163,6 +177,11 @@ export class SendEnvelopeUseCase {
       return
     }
 
+    apiLogger.info(
+      { app: 'clicksign', envelopeKey, documentId, signers: created.length },
+      'Envelope ativado e documento enviado para assinatura',
+    )
+
     // Antes do notify: se a notificação falhar, o card de tracking/cancelamento
     // ainda precisa existir.
     await this.writeBack({
@@ -185,7 +204,7 @@ export class SendEnvelopeUseCase {
       await clicksign.notify(empresaToken, envelopeKey)
     } catch (error) {
       apiLogger.error(
-        { app: 'clicksign', err: error },
+        { app: 'clicksign', err: safeErrorMessage(error) },
         'Notificação do envelope falhou',
       )
     }

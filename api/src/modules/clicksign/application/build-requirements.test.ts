@@ -41,7 +41,10 @@ describe('buildRequirements', () => {
       signers: [{ ...signer, communicateBy: 'whatsapp' }],
       verifySettings: noFlags,
     })
-    expect(reqs[1]).toMatchObject({ action: 'provide_evidence', auth: 'whatsapp' })
+    expect(reqs[1]).toMatchObject({
+      action: 'provide_evidence',
+      auth: 'whatsapp',
+    })
   })
 
   it('adiciona cada evidência condicional à verify_settings', () => {

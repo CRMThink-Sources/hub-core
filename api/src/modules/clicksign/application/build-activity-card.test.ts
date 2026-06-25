@@ -64,11 +64,15 @@ describe('buildActivityCard', () => {
     const card = buildActivityCard({ ...base, activityId: 99 })
     expect(card.id).toBe(99)
     const layout = card.layout as {
-      footer: { buttons: { cancelButton: { action: { actionParams: { activityId?: number } } } } }
+      footer: {
+        buttons: {
+          cancelButton: { action: { actionParams: { activityId?: number } } }
+        }
+      }
     }
-    expect(layout.footer.buttons.cancelButton.action.actionParams.activityId).toBe(
-      99,
-    )
+    expect(
+      layout.footer.buttons.cancelButton.action.actionParams.activityId,
+    ).toBe(99)
   })
 
   it('omite o id do body sem activityId', () => {

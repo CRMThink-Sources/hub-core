@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { randomUUID } from 'crypto'
 import { BitrixError } from '../infra/clients/errors/bitrix-client.error'
+import { apiLogger } from '@/shared/infra/logger'
 
 export abstract class Controller {
   constructor() {
@@ -55,7 +56,10 @@ export abstract class Controller {
           time: Date.now() - initTime,
         })
       } else {
-        console.error('[Controller] Unexpected error:', { traceId, error })
+        apiLogger.error(
+          { err: error, traceId },
+          'Erro inesperado no controller',
+        )
         return res.status(500).json({
           error: 'Internal server error',
           traceId,

@@ -1,6 +1,7 @@
 import type { ClickSignSettings } from '../domain/repositories/clicksign-settings.repository'
 import { ClicksignClient } from '../infra/clients/clicksign.client'
 import { ClicksignApiError } from '../infra/clients/clicksign-error'
+import { apiLogger } from '@/shared/infra/logger'
 import { buildCancelActivityCard } from './build-activity-card'
 import {
   ClicksignFields,
@@ -71,6 +72,16 @@ export class CancelEnvelopeUseCase {
         originId: input.originId,
         logoUri: input.logoUri,
       }),
+    )
+
+    apiLogger.info(
+      {
+        app: 'clicksign',
+        envelopeKey,
+        documentKey: input.documentKey,
+        dealId,
+      },
+      'Documento cancelado na Clicksign',
     )
 
     await this.logCancellation(input)

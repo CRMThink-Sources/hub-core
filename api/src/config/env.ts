@@ -10,6 +10,8 @@ function parsePageSize(raw: string | undefined): number {
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   logLevel: process.env.LOG_LEVEL ?? 'info',
+  // Quando setado, pino envia direto pro Loki (dev local com yarn dev, sem promtail).
+  lokiUrl: process.env.LOKI_URL ?? '',
   appUrl: process.env.APP_URL ?? '',
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',

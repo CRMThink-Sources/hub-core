@@ -5,6 +5,9 @@ import { Controller } from '@/shared/presentation/controller'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { GoogleConnectionService } from '../../application/google-connection.service'
 import { GoogleOAuthStateStore } from '../../infra/google-oauth-state.store'
+import { apiLogger } from '@/shared/infra/logger'
+import { setLogContext } from '@/shared/infra/log-context'
+import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 
 function oauthPopupHtml(status: 'success' | 'error'): string {
   const origin = env.frontUrl || env.appUrl || '*'
@@ -35,6 +38,17 @@ export class GoogleOAuthCallbackController extends Controller {
         throw new Error('Invalid or expired state')
       }
 
+      // Rota pública (sem authMiddleware): resolve o tenant pro log manualmente.
+      setLogContext({ appId: payload.appId })
+      try {
+        const domain = await new PrismaDomainRepository().getDomainById(
+          payload.domainId,
+        )
+        if (domain) setLogContext({ domain: domain.name })
+      } catch {
+        // segue sem o domínio
+      }
+
       const app = await this.installedAppRepository.getByAppCodeAndDomainId(
         payload.appId,
         payload.domainId,
@@ -45,7 +59,10 @@ export class GoogleOAuthCallbackController extends Controller {
 
       res.send(oauthPopupHtml('success'))
     } catch (error) {
-      console.error('[GoogleOAuthCallback]', error)
+      apiLogger.error(
+        { app: 'importsheet', err: error },
+        'Google OAuth callback falhou',
+      )
       res.send(oauthPopupHtml('error'))
     }
     return this.ok(null)

@@ -13,6 +13,7 @@ import {
   WebhookProvisioningService,
 } from '../../application/webhook-provisioning.service'
 import { settingsPatchSchema } from './settings-payload.schema'
+import { safeErrorMessage } from '../../infra/clients/clicksign-error'
 import { apiLogger } from '@/shared/infra/logger'
 
 export class UpdateSettingsController extends Controller {
@@ -53,6 +54,21 @@ export class UpdateSettingsController extends Controller {
 
     settings = await this.syncWebhooks(app.id, settings, previous)
 
+    const tokensCount = Array.isArray(
+      (settings.fields as { tokens?: unknown[] } | null)?.tokens,
+    )
+      ? (settings.fields as { tokens: unknown[] }).tokens.length
+      : 0
+    apiLogger.info(
+      {
+        app: 'clicksign',
+        appId: app.id,
+        tokens: tokensCount,
+        groups: Array.isArray(settings.groups) ? settings.groups.length : 0,
+      },
+      'Configurações salvas',
+    )
+
     return this.ok({ settings })
   }
 
@@ -77,6 +93,13 @@ export class UpdateSettingsController extends Controller {
 
       const result = await new WebhookProvisioningService(appId).sync(merged)
 
+      if (result.changed) {
+        apiLogger.info(
+          { app: 'clicksign', appId, tokens: result.tokens.length },
+          'Webhooks sincronizados na Clicksign',
+        )
+      }
+
       // Sempre re-persiste: o upsert derrubou o webhook, então mesmo em no-op
       // gravamos o webhook (mesclado ou recém-criado) de volta.
       return this.settings.upsertByAppId(appId, {
@@ -84,7 +107,7 @@ export class UpdateSettingsController extends Controller {
       })
     } catch (error) {
       apiLogger.error(
-        { app: 'clicksign', err: error },
+        { app: 'clicksign', err: safeErrorMessage(error) },
         'Auto-registro de webhook falhou',
       )
       return settings
@@ -120,7 +143,7 @@ export class UpdateSettingsController extends Controller {
       )
     } catch (error) {
       apiLogger.error(
-        { app: 'clicksign', err: error },
+        { app: 'clicksign', err: safeErrorMessage(error) },
         'bizproc.robot.update falhou',
       )
     }

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { prisma } from '@/config/prisma'
 import { ContaAzulClient } from '@/shared/infra/clients/conta-azul.client'
+import { apiLogger } from '@/shared/infra/logger'
 
 export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
@@ -141,9 +142,9 @@ export class ThinkAnaliseAuthTokenService {
 
     const existing = refreshLocks.get(tokenKey)
     if (existing) {
-      console.log(
-        '[AuthTokenService] refresh in progress, waiting for lock:',
-        tokenKey,
+      apiLogger.info(
+        { app: 'thinkanalise', tokenKey },
+        'Refresh em andamento, aguardando lock',
       )
       return existing
     }

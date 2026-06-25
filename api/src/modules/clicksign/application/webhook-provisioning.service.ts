@@ -82,6 +82,11 @@ export class WebhookProvisioningService {
       events: CLICKSIGN_WEBHOOK_EVENTS,
     })
 
+    apiLogger.info(
+      { app: 'clicksign', appId: this.appId, ref, env: desiredEnv },
+      'Webhook registrado na Clicksign',
+    )
+
     return {
       token: {
         ...token,

@@ -1,6 +1,7 @@
 import { Queue } from 'bullmq'
 import { redisConnection } from '@/queue/redis-connection'
 import { apiLogger } from '@/shared/infra/logger'
+import { getLogContext } from '@/shared/infra/log-context'
 import type { WebhookPayload } from '../../application/handle-signature-event.use-case'
 
 export const CLICKSIGN_DOCUMENT_CLOSED = 'clicksign-document-closed'
@@ -11,6 +12,8 @@ export const DOCUMENT_CLOSED_DELAY_MS = 5_000
 export interface ClicksignDocumentClosedJob {
   appId: string
   payload: WebhookPayload
+  // Propaga o traceKey do request do webhook p/ o job — amarra os dois fluxos.
+  traceKey?: string
 }
 
 export const clicksignDocumentClosedQueue =
@@ -21,7 +24,11 @@ export const clicksignDocumentClosedQueue =
 export async function enqueueDocumentClosed(
   job: ClicksignDocumentClosedJob,
 ): Promise<void> {
-  await clicksignDocumentClosedQueue.add('document-closed', job, {
+  const enriched = {
+    ...job,
+    traceKey: job.traceKey ?? getLogContext().traceKey,
+  }
+  await clicksignDocumentClosedQueue.add('document-closed', enriched, {
     delay: DOCUMENT_CLOSED_DELAY_MS,
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },

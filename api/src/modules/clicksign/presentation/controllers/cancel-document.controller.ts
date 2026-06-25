@@ -8,6 +8,7 @@ import { CLICKSIGN_APP_CODE_ID } from '../../clicksign.constants'
 import { ClickSignSettingsRepository } from '../../domain/repositories/clicksign-settings.repository'
 import { CancelEnvelopeUseCase } from '../../application/cancel-envelope.use-case'
 import { safeErrorMessage } from '../../infra/clients/clicksign-error'
+import { setLogContext } from '@/shared/infra/log-context'
 import { apiLogger } from '@/shared/infra/logger'
 
 export class CancelDocumentController extends Controller {
@@ -28,6 +29,8 @@ export class CancelDocumentController extends Controller {
 
     const domainStr = body.auth?.domain
     if (!domainStr) return this.badRequest(new Error('Missing auth.domain'))
+
+    setLogContext({ domain: domainStr })
 
     try {
       const domain = await this.getDomain.getDomain(domainStr)

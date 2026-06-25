@@ -11,6 +11,7 @@ import {
   WebhookPayload,
 } from '../../application/handle-signature-event.use-case'
 import { enqueueDocumentClosed } from '../../infra/queue/clicksign-document-closed.queue'
+import { setTenantLogContext } from '@/shared/infra/log-tenant'
 
 // Usa raw body para validar o HMAC; resolve tenant por `:appId` e conta/secret
 // por `:ref`.
@@ -23,6 +24,8 @@ export class ClicksignWebhookController extends Controller {
     const appId = String(req.params.appId ?? '')
     const ref = String(req.params.ref ?? '')
     if (!appId || !ref) return this.badRequest(new Error('Missing appId/ref'))
+
+    await setTenantLogContext(appId)
 
     const settings = await this.settings.findByAppId(appId)
     if (!settings) return this.notFound(new Error('Settings not found'))

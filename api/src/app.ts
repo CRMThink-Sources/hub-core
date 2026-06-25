@@ -34,8 +34,16 @@ import {
   isBullBoardEnabled,
 } from './queue/bull-board.js'
 import { apiLogger, resolveLogApp } from './shared/infra/logger.js'
+import { runWithLogContext } from './shared/infra/log-context.js'
+import { randomUUID } from 'node:crypto'
 
 const app: Express = express()
+
+// Store de contexto por request; controllers/middlewares enriquecem com o tenant
+// (domain/appId) via setLogContext e o logger injeta em toda linha.
+app.use((_req, _res, next) =>
+  runWithLogContext({ traceKey: randomUUID() }, next),
+)
 
 app.use((req, res, next) => {
   const startedAt = Date.now()
