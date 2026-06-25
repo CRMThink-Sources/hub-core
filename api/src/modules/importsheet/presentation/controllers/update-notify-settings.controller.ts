@@ -6,6 +6,7 @@ import { BitrixError } from '@/shared/infra/clients/errors/bitrix-client.error'
 import { BitrixAppOptionService } from '@/shared/application/bitrix-app-option.service'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { NotifySettingsService } from '../../application/notify-settings.service'
+import { apiLogger } from '@/shared/infra/logger'
 
 export class UpdateNotifySettingsController extends Controller {
   constructor(
@@ -36,6 +37,10 @@ export class UpdateNotifySettingsController extends Controller {
         app.id,
       )
       const userIds = await service.set(raw.map(Number))
+      apiLogger.info(
+        { app: 'importsheet', appId: app.id, usuarios: userIds.length },
+        'Configurações de notificação salvas',
+      )
       return this.ok({ userIds })
     } catch (error) {
       if (error instanceof BitrixError) return this.badRequest(error)

@@ -4,6 +4,7 @@ import { Controller } from '@/shared/presentation/controller'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { CreateImportService } from '../../application/create-import.service'
 import { importPayloadSchema } from './import-payload.schema'
+import { apiLogger } from '@/shared/infra/logger'
 
 export class CreateImportController extends Controller {
   constructor(
@@ -39,6 +40,11 @@ export class CreateImportController extends Controller {
       schedule,
       config,
     })
+
+    apiLogger.info(
+      { app: 'importsheet', appId: app.id, importId: created.id },
+      'Importação criada',
+    )
 
     return this.ok({
       import: {

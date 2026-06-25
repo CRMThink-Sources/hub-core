@@ -3,6 +3,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { ImportSheetImportRepository } from '../../domain/repositories/importsheet-import.repository'
+import { apiLogger } from '@/shared/infra/logger'
 
 export class DeleteImportController extends Controller {
   constructor(
@@ -27,6 +28,11 @@ export class DeleteImportController extends Controller {
 
     const deleted = await this.importRepository.delete(id, app.id)
     if (!deleted) return this.notFound(new Error('Import not found'))
+
+    apiLogger.info(
+      { app: 'importsheet', appId: app.id, importId: id },
+      'Importação removida',
+    )
 
     return this.ok(null)
   }

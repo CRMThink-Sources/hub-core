@@ -19,9 +19,13 @@ const redactOptions = {
     'accessToken',
     'refreshToken',
     'access_token',
+    'refresh_token',
+    'client_secret',
     '*.password',
     '*.token',
     '*.access_token',
+    '*.refresh_token',
+    '*.client_secret',
   ],
   censor: '[REDACTED]',
 }
