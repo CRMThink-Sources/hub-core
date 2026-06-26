@@ -67,8 +67,8 @@ export const makeClicksignWebhookController = (_req: Request): Controller =>
 const makeWebhookCtx = async (
   req: Request,
 ): Promise<WebhookContext | undefined> => {
-  const appCodeId = req.appId as string | undefined
-  const domainId = req.domainId as string | undefined
+  const appCodeId = req.appId
+  const domainId = req.domainId
   if (!appCodeId || !domainId) return undefined
   const app = await new PrismaInstalledAppRepository().getByAppCodeAndDomainId(
     appCodeId,

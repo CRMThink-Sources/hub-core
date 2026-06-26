@@ -13,9 +13,10 @@ type Handlers = {
 
 function makeBitrix(h: Handlers): BitrixRestClient {
   return {
-    callMethod: async (method: string, params: Record<string, unknown>) =>
-      h.method?.[method]?.(params),
-    callBatch: async (cmds: Record<string, unknown>) => h.batch?.(cmds) ?? {},
+    callMethod: (method: string, params: Record<string, unknown>) =>
+      Promise.resolve(h.method?.[method]?.(params)),
+    callBatch: (cmds: Record<string, unknown>) =>
+      Promise.resolve(h.batch?.(cmds) ?? {}),
   } as unknown as BitrixRestClient
 }
 

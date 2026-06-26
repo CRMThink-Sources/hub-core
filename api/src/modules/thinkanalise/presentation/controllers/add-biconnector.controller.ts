@@ -75,7 +75,12 @@ export class AddBiconnectorController extends Controller {
     })
 
     apiLogger.info(
-      { app: 'thinkanalise', appId: app.id, biconnectorId: result.id, provider },
+      {
+        app: 'thinkanalise',
+        appId: app.id,
+        biconnectorId: result.id,
+        provider,
+      },
       'Conector criado',
     )
 

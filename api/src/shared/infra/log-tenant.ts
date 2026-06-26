@@ -9,7 +9,9 @@ export async function setTenantLogContext(appId: string): Promise<void> {
   try {
     const app = await new PrismaInstalledAppRepository().getById(appId)
     if (!app) return
-    const domain = await new PrismaDomainRepository().getDomainById(app.domainId)
+    const domain = await new PrismaDomainRepository().getDomainById(
+      app.domainId,
+    )
     if (domain) setLogContext({ domain: domain.name })
   } catch {
     // ignora — segue sem o domínio

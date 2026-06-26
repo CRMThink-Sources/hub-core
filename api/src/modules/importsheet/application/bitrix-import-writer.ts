@@ -250,24 +250,27 @@ export class BitrixImportWriter {
     const results = rows.map(r => byRow.get(r.row) as RowResult)
 
     const written = repResult.results
-    apiLogger.info({
-      app: 'importsheet',
-      entityCode,
-      rows: rows.length,
-      written: written.length,
-      deduped: rows.length - reps.length,
-      added: written.filter(r => r.status === 'added').length,
-      updated: written.filter(r => r.status === 'updated').length,
-      errors: written.filter(r => r.status === 'error').length,
-      ids: written.map(r => r.id ?? '·').join(','),
-      ...(written.some(r => r.status === 'error')
-        ? {
-            errorDetails: written
-              .filter(r => r.status === 'error')
-              .map(r => `r${r.row}:${r.error}`),
-          }
-        : {}),
-    }, 'Import gravado no Bitrix')
+    apiLogger.info(
+      {
+        app: 'importsheet',
+        entityCode,
+        rows: rows.length,
+        written: written.length,
+        deduped: rows.length - reps.length,
+        added: written.filter(r => r.status === 'added').length,
+        updated: written.filter(r => r.status === 'updated').length,
+        errors: written.filter(r => r.status === 'error').length,
+        ids: written.map(r => r.id ?? '·').join(','),
+        ...(written.some(r => r.status === 'error')
+          ? {
+              errorDetails: written
+                .filter(r => r.status === 'error')
+                .map(r => `r${r.row}:${r.error}`),
+            }
+          : {}),
+      },
+      'Import gravado no Bitrix',
+    )
 
     return { results, throttle: repResult.throttle }
   }

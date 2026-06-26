@@ -23,10 +23,7 @@ export class DeleteBiconnectorController extends Controller {
     await this.repository.deleteBiConnector(biconnectorId)
     await this.bitrix.biconnectorDelete(biconnectorId)
 
-    apiLogger.info(
-      { app: 'thinkanalise', biconnectorId },
-      'Conector removido',
-    )
+    apiLogger.info({ app: 'thinkanalise', biconnectorId }, 'Conector removido')
 
     return this.ok(true)
   }
