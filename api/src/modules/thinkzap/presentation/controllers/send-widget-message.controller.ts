@@ -34,7 +34,9 @@ export class SendWidgetMessageController extends Controller {
     }
 
     try {
-      const result = await this.sendWidgetMessage.execute(parsed.data)
+      const result = await this.sendWidgetMessage.execute({
+        ...parsed.data,
+      })
       return this.ok(result)
     } catch (error) {
       const message =

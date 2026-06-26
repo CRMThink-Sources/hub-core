@@ -4,6 +4,9 @@
   "semTelefone": "No connected phone",
   "prefixOperatorName": "Include operator name in messages",
   "prefixOperatorNameHint": "Adds the operator name at the start of messages sent from Bitrix to WhatsApp (e.g. John Smith: Hello).",
+  "widgetOpenChannel": "Send to open channel when using widget",
+  "widgetOpenChannelHint": "When sending messages from the CRM widget, automatically creates a conversation in the linked Bitrix24 open channel.",
+  "widgetOpenChannelNoChannel": "You must link an open channel before enabling this option.",
   "salvar": "Save",
   "salvando": "Saving...",
   "salvo": "Saved successfully"

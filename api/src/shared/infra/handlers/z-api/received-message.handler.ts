@@ -8,6 +8,8 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
   eventType = 'ReceivedCallback'
 
   async handle(event: ReceivedMessageEvent): Promise<void> {
+    if (event.fromMe) return
+
     const traceKey = randomUUID()
     apiLogger.info(
       {

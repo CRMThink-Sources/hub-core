@@ -6,6 +6,7 @@ import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 
 type ConnectorSettings = {
   prefixOperatorNameEnabled: boolean
+  widgetOpenChannelEnabled: boolean
 }
 
 type Connector = {
@@ -13,6 +14,7 @@ type Connector = {
   instance: {
     name: string
     phoneNumber?: string | null
+    vinculatedChannel?: string | null
     settings?: ConnectorSettings
   }
 }
@@ -28,10 +30,16 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
   const [name, setName] = useState('')
   const [prefixOperatorNameEnabled, setPrefixOperatorNameEnabled] =
     useState(false)
+  const [widgetOpenChannelEnabled, setWidgetOpenChannelEnabled] =
+    useState(false)
   const [initialName, setInitialName] = useState('')
   const [
     initialPrefixOperatorNameEnabled,
     setInitialPrefixOperatorNameEnabled,
+  ] = useState(false)
+  const [
+    initialWidgetOpenChannelEnabled,
+    setInitialWidgetOpenChannelEnabled,
   ] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -41,16 +49,21 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
     const connectorName = connector.instance.name ?? ''
     const connectorPrefixEnabled =
       connector.instance.settings?.prefixOperatorNameEnabled ?? false
+    const connectorWidgetOpenChannel =
+      connector.instance.settings?.widgetOpenChannelEnabled ?? false
 
     setName(connectorName)
     setPrefixOperatorNameEnabled(connectorPrefixEnabled)
+    setWidgetOpenChannelEnabled(connectorWidgetOpenChannel)
     setInitialName(connectorName)
     setInitialPrefixOperatorNameEnabled(connectorPrefixEnabled)
+    setInitialWidgetOpenChannelEnabled(connectorWidgetOpenChannel)
   }, [connector])
 
   const hasChanges =
     name !== initialName ||
-    prefixOperatorNameEnabled !== initialPrefixOperatorNameEnabled
+    prefixOperatorNameEnabled !== initialPrefixOperatorNameEnabled ||
+    widgetOpenChannelEnabled !== initialWidgetOpenChannelEnabled
 
   const canSave = hasChanges && name.trim().length > 0
 
@@ -65,11 +78,13 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
         name,
         settings: {
           prefixOperatorNameEnabled,
+          widgetOpenChannelEnabled,
         },
       })
 
       setInitialName(name)
       setInitialPrefixOperatorNameEnabled(prefixOperatorNameEnabled)
+      setInitialWidgetOpenChannelEnabled(widgetOpenChannelEnabled)
       setSaved(true)
       onSaved?.()
       setTimeout(() => setSaved(false), 3000)
@@ -119,6 +134,28 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
           </span>
           <span className="text-sm text-gray-600">
             {t('prefixOperatorNameHint')}
+          </span>
+        </span>
+      </label>
+
+      <label
+        className={`flex items-start gap-2 ${connector.instance.vinculatedChannel ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+      >
+        <input
+          type="checkbox"
+          checked={widgetOpenChannelEnabled}
+          onChange={e => setWidgetOpenChannelEnabled(e.target.checked)}
+          disabled={!connector.instance.vinculatedChannel}
+          className="mt-0.5"
+        />
+        <span className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-black">
+            {t('widgetOpenChannel')}
+          </span>
+          <span className="text-sm text-gray-600">
+            {connector.instance.vinculatedChannel
+              ? t('widgetOpenChannelHint')
+              : t('widgetOpenChannelNoChannel')}
           </span>
         </span>
       </label>

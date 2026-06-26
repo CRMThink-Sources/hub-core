@@ -120,21 +120,22 @@ export function ConexaoRow({
 
   return (
     <div
-      className={`p-4 transition-colors hover:bg-gray-50 ${
+      role="button"
+      tabIndex={0}
+      onClick={() => router.push(`/thinkzap/conexoes/${conn.id}/configuracoes`)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ')
+          router.push(`/thinkzap/conexoes/${conn.id}/configuracoes`)
+      }}
+      className={`cursor-pointer p-4 transition-colors hover:bg-gray-50 ${
         showBorderBottom ? 'border-b border-gray-100' : ''
       }`}
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <button
-            type="button"
-            onClick={() =>
-              router.push(`/thinkzap/conexoes/${conn.id}/configuracoes`)
-            }
-            className="cursor-pointer truncate text-left text-base font-semibold text-black transition-colors hover:text-[#5A997E]"
-          >
+          <span className="truncate text-left text-base font-semibold text-black transition-colors hover:text-[#5A997E]">
             {name || t('semNome')}
-          </button>
+          </span>
           <div className="mt-1 flex items-center gap-4 text-sm text-gray-600">
             <span className="truncate">
               {vinculatedChannelName || t('nenhumCanalVinculado')}
@@ -158,7 +159,10 @@ export function ConexaoRow({
         <div className="relative z-20 flex w-16 shrink-0 justify-end">
           <button
             type="button"
-            onClick={() => control.menu.toggle(conn.id)}
+            onClick={e => {
+              e.stopPropagation()
+              control.menu.toggle(conn.id)
+            }}
             className="cursor-pointer rounded-md border border-gray-200 p-1.5 transition-colors hover:bg-[#d9fce6]"
             title="Mais opções"
           >
@@ -172,7 +176,8 @@ export function ConexaoRow({
                   key={item.label}
                   type="button"
                   disabled={!isPaid}
-                  onClick={() => {
+                  onClick={e => {
+                    e.stopPropagation()
                     void item.onClick()
                     control.menu.close()
                   }}

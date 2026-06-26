@@ -5,6 +5,7 @@ import type { ZApiEventHandler } from '@/shared/infra/handlers/z-api-event-handl
 import { ReceivedMessageHandler } from '@/shared/infra/handlers/z-api/received-message.handler'
 import { ZApiConnectedHandler } from '@/shared/infra/handlers/z-api/connected.handler'
 import { ZApiDisconectedHandler } from '@/shared/infra/handlers/z-api/disconected.handler'
+import { StatusCallbackHandler } from '@/shared/infra/handlers/z-api/status-callback.handler'
 
 export const makeZApiWebhookHandlerController = (): Controller => {
   const zApiEventRegistry = new EventRegistry<ZApiEventHandler>()
@@ -12,6 +13,7 @@ export const makeZApiWebhookHandlerController = (): Controller => {
   zApiEventRegistry.register(new ReceivedMessageHandler())
   zApiEventRegistry.register(new ZApiConnectedHandler())
   zApiEventRegistry.register(new ZApiDisconectedHandler())
+  zApiEventRegistry.register(new StatusCallbackHandler())
 
   return new ZApiWebhookHandlerController(zApiEventRegistry)
 }
