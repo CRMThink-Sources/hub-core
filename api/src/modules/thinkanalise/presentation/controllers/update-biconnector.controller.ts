@@ -4,6 +4,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
 import { UpdateBiConnectorRepository } from '@/modules/thinkanalise/domain/repositories/update-bi-connector.repository'
+import { apiLogger } from '@/shared/infra/logger'
 
 const updateBiconnectorSchema = z.object({
   label: z.string().min(1).optional(),
@@ -32,6 +33,11 @@ export class UpdateBiconnectorController extends Controller {
     }
 
     await this.repository.updateBiConnector(biconnectorId, { label })
+
+    apiLogger.info(
+      { app: 'thinkanalise', biconnectorId },
+      'Conector atualizado',
+    )
 
     return this.ok(true)
   }

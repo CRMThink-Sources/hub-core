@@ -20,6 +20,10 @@ const DEFAULT_APP_REDIRECTS: Record<
     baseRedirectUrl: '/importsheet',
     storageAuthTokenKey: 'hubthink_auth_token',
   },
+  [envConfig.appCodes.clicksign]: {
+    baseRedirectUrl: '/clicksign',
+    storageAuthTokenKey: 'hubthink_auth_token',
+  },
 }
 
 export function getAppRedirectUrl(

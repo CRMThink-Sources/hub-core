@@ -8,6 +8,9 @@ function oauthPopupHtml(status: 'success' | 'error'): string {
 }
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
+import { apiLogger } from '@/shared/infra/logger'
+import { setLogContext } from '@/shared/infra/log-context'
+import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { ContaAzulClient } from '@/shared/infra/clients/conta-azul.client'
 import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
@@ -36,6 +39,17 @@ export class ContaAzulOAuthCallbackController extends Controller {
       const payload = this.stateStore.consume(state)
       if (!payload) {
         throw new Error('Invalid or expired state')
+      }
+
+      // Rota pública (sem authMiddleware): resolve o tenant pro log manualmente.
+      setLogContext({ appId: payload.appId })
+      try {
+        const domain = await new PrismaDomainRepository().getDomainById(
+          payload.domainId,
+        )
+        if (domain) setLogContext({ domain: domain.name })
+      } catch {
+        // segue sem o domínio
       }
 
       const tokens = await ContaAzulClient.exchangeCode(code)
@@ -85,9 +99,20 @@ export class ContaAzulOAuthCallbackController extends Controller {
         bitrixSourceId,
       )
 
+      apiLogger.info(
+        { app: 'thinkanalise', appId: app.id, bitrixSourceId },
+        'Conta Azul conectada',
+      )
+
       res.send(oauthPopupHtml('success'))
     } catch (error) {
-      console.error('[ContaAzulOAuthCallback]', error)
+      apiLogger.error(
+        {
+          app: 'thinkanalise',
+          err: error instanceof Error ? error.message : String(error),
+        },
+        'OAuth Conta Azul callback falhou',
+      )
       res.send(oauthPopupHtml('error'))
     }
     return this.ok(null)

@@ -4,6 +4,7 @@ import {
   authRoutes,
   thinkanaliseRoutes,
   importsheetRoutes,
+  clicksignRoutes,
   thinkerszapRoutes,
   portalRoutes,
 } from './composition-root.js'
@@ -14,6 +15,11 @@ import { makeStripeWebhookHandlerController } from './modules/thinkzap/main/stri
 import { makeZApiWebhookHandlerController } from './modules/thinkzap/main/z-api-webhook-handle-controller.js'
 import { startCredentialRefreshJob } from './shared/infra/scheduler/credential-refresh.job.js'
 import { adaptControllerFactory } from './shared/main/adapt-controller.js'
+import {
+  makeSendEnvelopeController,
+  makeCancelDocumentController,
+  makeClicksignWebhookController,
+} from './modules/clicksign/main/make-clicksign-controllers.js'
 import { makeBitrixWebhookHandlerController } from './modules/thinkzap/main/bitrix-webhook-handle-controller.js'
 import { makeUploadAudioController } from './modules/audio/main/make-upload-audio-controller.js'
 import { makeCheckController } from './modules/thinkanalise/main/callbacks/make-check-controller.js'
@@ -28,8 +34,16 @@ import {
   isBullBoardEnabled,
 } from './queue/bull-board.js'
 import { apiLogger, resolveLogApp } from './shared/infra/logger.js'
+import { runWithLogContext } from './shared/infra/log-context.js'
+import { randomUUID } from 'node:crypto'
 
 const app: Express = express()
+
+// Store de contexto por request; controllers/middlewares enriquecem com o tenant
+// (domain/appId) via setLogContext e o logger injeta em toda linha.
+app.use((_req, _res, next) =>
+  runWithLogContext({ traceKey: randomUUID() }, next),
+)
 
 app.use((req, res, next) => {
   const startedAt = Date.now()
@@ -72,6 +86,12 @@ app.post(
   express.raw({ type: 'application/json' }),
   adaptControllerFactory(makeStripeWebhookHandlerController),
 )
+// Webhook Clicksign ANTES do express.json() — raw body p/ validar HMAC.
+app.post(
+  '/api/clicksign/webhook/:appId/:ref',
+  express.raw({ type: '*/*' }),
+  adaptControllerFactory(makeClicksignWebhookController),
+)
 
 // JSON parser para as demais rotas (incluindo z-api webhook).
 // O widget envia anexos em base64 e pode ultrapassar o limite default do Express (~100kb).
@@ -88,6 +108,16 @@ app.post(
 app.post(
   '/api/thinkzap/webhooks/bitrix/robot',
   adaptControllerFactory(makeBitrixRobotWebhookHandlerController),
+)
+
+// Clicksign — rotas públicas (POST do robô + event do Bitrix), SEM authMiddleware.
+app.post(
+  '/api/clicksign/bitrix/enviar-documento',
+  adaptControllerFactory(makeSendEnvelopeController),
+)
+app.post(
+  '/api/clicksign/bitrix/cancelar-documento',
+  adaptControllerFactory(makeCancelDocumentController),
 )
 
 app.get('/health', (_req, res) => {
@@ -129,6 +159,7 @@ app.get(
 app.use('/api/thinkzap', authMiddleware, thinkerszapRoutes)
 app.use('/api/thinkanalise', authMiddleware, thinkanaliseRoutes)
 app.use('/api/importsheet', authMiddleware, importsheetRoutes)
+app.use('/api/clicksign', authMiddleware, clicksignRoutes)
 
 const audioUploadParser = multer({
   storage: multer.memoryStorage(),

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
+import { apiLogger } from '@/shared/infra/logger'
 
 const addSourceSchema = z.object({
   title: z.string().min(1),
@@ -29,6 +30,11 @@ export class AddSourceController extends Controller {
       settings,
       active,
     })
+
+    apiLogger.info(
+      { app: 'thinkanalise', connectorId, sourceId: result?.id },
+      'Fonte criada',
+    )
 
     return this.ok(result)
   }

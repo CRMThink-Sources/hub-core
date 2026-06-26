@@ -18,7 +18,9 @@ scrape_configs:
         regex: '/(.*)'
         target_label: 'container'
       - source_labels: ['__meta_docker_container_name']
-        regex: '/(hubthink-api|hubthink-api-staging|hubthink-worker|hubthink-worker-staging|hubthink-front|hubthink-front-staging)'
+        # Cobre api, front e TODOS os workers (thinkzap/importsheet/clicksign),
+        # com ou sem sufixo -staging.
+        regex: '/hubthink-(api|worker|front).*'
         action: keep
       - source_labels: ['container']
         target_label: 'service'

@@ -7,6 +7,7 @@ import {
   enqueueImportRun,
   isImportRunInFlight,
 } from '../../queue/importsheet-run.queue'
+import { apiLogger } from '@/shared/infra/logger'
 
 export class RunImportController extends Controller {
   constructor(
@@ -50,6 +51,11 @@ export class RunImportController extends Controller {
     }
 
     await enqueueImportRun({ importId: id, trigger: 'manual' })
+
+    apiLogger.info(
+      { app: 'importsheet', appId: app.id, importId: id },
+      'Execução manual enfileirada',
+    )
 
     return this.ok({ enqueued: true })
   }

@@ -4,6 +4,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
 import { toDatasetName } from '@/modules/thinkanalise/domain/utils/field-name'
+import { apiLogger } from '@/shared/infra/logger'
 
 const updateDatasetSchema = z.object({
   name: z.string().min(1).optional(),
@@ -22,6 +23,9 @@ export class UpdateDatasetController extends Controller {
       ...(name !== undefined && { name: toDatasetName(name) }),
       ...(description !== undefined && { description }),
     })
+
+    apiLogger.info({ app: 'thinkanalise', datasetId: id }, 'Dataset atualizado')
+
     return this.ok(result)
   }
 }

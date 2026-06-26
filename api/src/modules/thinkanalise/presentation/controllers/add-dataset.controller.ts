@@ -7,6 +7,7 @@ import {
   toDatasetFieldName,
   toDatasetName,
 } from '@/modules/thinkanalise/domain/utils/field-name'
+import { apiLogger } from '@/shared/infra/logger'
 
 const fieldSchema = z.object({
   name: z.string().min(1),
@@ -51,6 +52,11 @@ export class AddDatasetController extends Controller {
     }
 
     const result = await this.bitrix.datasetAdd(payload)
+
+    apiLogger.info(
+      { app: 'thinkanalise', sourceId, campos: fields.length },
+      'Dataset criado',
+    )
 
     return this.ok(result)
   }

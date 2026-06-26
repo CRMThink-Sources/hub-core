@@ -10,6 +10,8 @@ function parsePageSize(raw: string | undefined): number {
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   logLevel: process.env.LOG_LEVEL ?? 'info',
+  // Quando setado, pino envia direto pro Loki (dev local com yarn dev, sem promtail).
+  lokiUrl: process.env.LOKI_URL ?? '',
   appUrl: process.env.APP_URL ?? '',
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',
@@ -94,6 +96,7 @@ export const env = {
     thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',
     thinkanalise: process.env.THINKANALISE_APP_CODE ?? 'crmthink.thinkanalise',
     importsheet: process.env.IMPORTSHEET_APP_CODE ?? 'crmthink.importsheet',
+    clicksign: process.env.CLICKSIGN_APP_CODE ?? 'crmthink.clicksign',
   },
   importsheet: {
     // Linhas por ciclo (round-robin). Default 20, teto 50 (batch Bitrix).
@@ -108,4 +111,10 @@ export const env = {
     process.env.THINKZAP_MOCK_ZAPI_PROVISIONING === 'true' ||
     (process.env.NODE_ENV === 'local' &&
       process.env.THINKZAP_MOCK_ZAPI_PROVISIONING !== 'false'),
+  clicksign: {
+    robot: {
+      code: process.env.CLICKSIGN_ROBOT_CODE ?? 'ENVIAR_DOCUMENTO',
+      name: process.env.CLICKSIGN_ROBOT_NAME ?? 'Enviar documento',
+    },
+  },
 } as const
