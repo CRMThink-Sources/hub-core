@@ -346,33 +346,42 @@ export class BitrixClient {
     connectorCode: string,
     phone: string,
     message: string,
-  ): Promise<void> {
+  ): Promise<{ chatId: string | null; bitrixMessageId: string | null }> {
+    const messageId = `widget_${Date.now()}_${phone}`
+    console.log(phone)
     const params: ISendMessageData = {
       CONNECTOR: connectorCode,
       LINE: Number(lineId),
       MESSAGES: [
         {
-          chat: {
-            id: phone,
-            name: phone,
-          },
-          user: {
-            id: phone,
-            name: phone,
-            last_name: '',
-            phone: phone,
-          },
+          chat: { id: phone, name: phone },
+          user: { id: phone, name: phone, last_name: '', phone: phone },
           message: {
-            id: `widget_${Date.now()}_${phone}`,
+            id: messageId,
             date: new Date().toISOString(),
-            text: message,
+            text: '[Mensagem enviada a partir do CRM]\n' + message,
           },
         },
       ],
     }
     const client = this.getClient()
     try {
-      await client.post('/imconnector.send.messages', params)
+      const response = await client.post<{
+        result?: {
+          DATA?: {
+            RESULT?: Array<{
+              session?: { CHAT_ID?: string | number }
+              message?: { id?: string | number }
+            }>
+          }
+        }
+      }>('/imconnector.send.messages', params)
+      const result = response.data?.result?.DATA?.RESULT?.[0]
+      const rawChatId = result?.session?.CHAT_ID
+      const rawMsgId = result?.message?.id
+      const chatId = rawChatId != null ? String(rawChatId) : null
+      const bitrixMessageId = rawMsgId != null ? String(rawMsgId) : null
+      return { chatId, bitrixMessageId }
     } catch (error) {
       const msg =
         axios.isAxiosError(error) && error.response

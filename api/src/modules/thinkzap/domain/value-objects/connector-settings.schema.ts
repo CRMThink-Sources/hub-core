@@ -8,6 +8,7 @@ const connectorSettingsSchema = z.object({
   prefixOperatorNameEnabled: z.boolean().optional(),
   messageUpdateEventEnabled: z.boolean().optional(),
   messageDeleteEventEnabled: z.boolean().optional(),
+  widgetOpenChannelEnabled: z.boolean().optional(),
 })
 
 export function parseConnectorSettings(raw: unknown): ConnectorSettings {

@@ -91,3 +91,14 @@ export type ZApiDisconectedEvent = {
   lid: string
   isBusiness: boolean
 }
+
+export type StatusCallbackEvent = {
+  instanceId: string
+  status: string
+  ids: string[]
+  moment: number
+  phoneDevice: number
+  phone: string
+  type: string
+  isGroup: boolean
+}
