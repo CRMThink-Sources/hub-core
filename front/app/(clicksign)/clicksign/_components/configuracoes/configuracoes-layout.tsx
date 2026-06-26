@@ -1,7 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { BuildingIcon, PlusIcon, Trash2Icon, CheckIcon } from 'lucide-react'
+import {
+  BuildingIcon,
+  PlusIcon,
+  Trash2Icon,
+  CheckIcon,
+  InfoIcon,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -197,6 +203,9 @@ export default function ConfiguracoesLayout() {
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div className="flex flex-col gap-2">
                     <Label>Token de Acesso</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Token de autenticação da API Clicksign
+                    </p>
                     <Input
                       value={empresa.token}
                       onChange={e =>
@@ -204,13 +213,13 @@ export default function ConfiguracoesLayout() {
                       }
                       placeholder="Cole o token da Clicksign"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Token de autenticação da API Clicksign
-                    </p>
                   </div>
 
                   <div className="flex flex-col gap-2">
                     <Label>Ambiente</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Ambiente de integração com a Clicksign
+                    </p>
                     <OptionSelect
                       options={AMBIENTES}
                       value={empresa.ambiente}
@@ -220,13 +229,13 @@ export default function ConfiguracoesLayout() {
                         })
                       }
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Ambiente de integração com a Clicksign
-                    </p>
                   </div>
 
                   <div className="flex flex-col gap-2">
                     <Label>Formato da Pasta</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Como as pastas serão nomeadas na Clicksign
+                    </p>
                     <OptionSelect
                       options={PASTAS}
                       value={empresa.pasta}
@@ -234,13 +243,13 @@ export default function ConfiguracoesLayout() {
                         updateEmpresa(index, { pasta: v ?? '#title' })
                       }
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Como as pastas serão nomeadas na Clicksign
-                    </p>
                   </div>
 
                   <div className="flex flex-col gap-2">
                     <Label>Lembrete Automático</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Frequência dos lembretes de assinatura
+                    </p>
                     <OptionSelect
                       options={LEMBRETES}
                       value={empresa.lembrete}
@@ -248,9 +257,6 @@ export default function ConfiguracoesLayout() {
                         updateEmpresa(index, { lembrete: v ?? '1' })
                       }
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Frequência dos lembretes de assinatura
-                    </p>
                   </div>
                 </div>
               </div>
@@ -287,11 +293,14 @@ export default function ConfiguracoesLayout() {
                   }
                   className="mt-0.5"
                 />
-                <span>
+                <span className="inline-flex items-center gap-1.5">
                   {label}
                   {hint && (
-                    <span className="mt-0.5 block text-xs text-muted-foreground">
-                      {hint}
+                    <span className="group relative inline-flex">
+                      <InfoIcon className="size-4 shrink-0 cursor-help text-muted-foreground" />
+                      <span className="pointer-events-none invisible absolute bottom-full left-1/2 z-10 mb-2 w-64 -translate-x-1/2 rounded-md bg-popover px-3 py-2 text-xs text-popover-foreground opacity-0 shadow-md ring-1 ring-border transition-opacity group-hover:visible group-hover:opacity-100">
+                        {hint}
+                      </span>
                     </span>
                   )}
                 </span>
