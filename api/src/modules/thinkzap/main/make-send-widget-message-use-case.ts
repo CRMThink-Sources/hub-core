@@ -6,6 +6,7 @@ import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/r
 import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
 import { makeBitrixClient } from '@/shared/main/make-bitrix-client'
 import { Request } from 'express'
+import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositories/prisma-thinkzap-message.repository'
 
 export const makeSendWidgetMessageUseCase = async (
   req: Request,
@@ -15,12 +16,14 @@ export const makeSendWidgetMessageUseCase = async (
   const zApiClient = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
   const bitrix = await makeBitrixClient(req)
   const sendBitrixNotification = new BitrixLivefeedNotificationService(bitrix)
+  const messageRepo = new PrismaThinkzapMessageRepository()
 
   return new SendWidgetMessageUseCase(
     connectorRepository,
     instanceRepository,
     zApiClient,
     sendBitrixNotification,
+    messageRepo,
     bitrix,
   )
 }

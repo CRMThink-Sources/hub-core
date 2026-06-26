@@ -215,7 +215,7 @@ export class ProcessZApiInboundMessageUseCase {
     )
 
     const bitrixMessageId = extractBitrixMessageId(result)
-    console.log({ bitrixMessageId })
+
     const bitrixChatId = extractBitrixChatId(result)
     await this.persistInboundSnapshot(
       event,
@@ -453,7 +453,7 @@ function extractBitrixMessageId(result: unknown): string | null {
     const r = result as {
       result: { DATA?: { RESULT?: Array<{ message?: { id?: string } }> } }
     }
-    console.log(r.result?.DATA?.RESULT?.[0])
+
     return r.result?.DATA?.RESULT?.[0]?.message?.id ?? null
   } catch {
     return null
@@ -463,9 +463,9 @@ function extractBitrixMessageId(result: unknown): string | null {
 function extractBitrixChatId(result: unknown): string | null {
   try {
     const r = result as {
-      DATA?: { RESULT?: Array<{ session?: { CHAT_ID?: string } }> }
+      result?: { DATA?: { RESULT?: Array<{ session?: { CHAT_ID?: string } }> } }
     }
-    return r?.DATA?.RESULT?.[0]?.session?.CHAT_ID ?? null
+    return r?.result?.DATA?.RESULT?.[0]?.session?.CHAT_ID ?? null
   } catch {
     return null
   }
@@ -488,9 +488,7 @@ function buildMessageFiles(
 }
 
 function resolveChatId(event: ReceivedMessageEvent): string | null {
-  if (event.phone.includes('@lid') || event.phone.includes('-group')) {
-    return event.phone
-  }
+  if (event.phone.includes('@lid')) return event.phone
   return event.chatLid
 }
 

@@ -18,6 +18,7 @@ export class UpdateInstanceController extends Controller {
         settings: z
           .object({
             prefixOperatorNameEnabled: z.boolean().optional(),
+            widgetOpenChannelEnabled: z.boolean().optional(),
           })
           .optional(),
       })

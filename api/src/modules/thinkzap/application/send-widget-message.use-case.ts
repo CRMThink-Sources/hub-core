@@ -14,6 +14,7 @@ import {
   SendWidgetMessageResult,
   WidgetMessageAttachmentInput,
 } from './send-widget-message.types'
+import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositories/prisma-thinkzap-message.repository'
 
 export class SendWidgetMessageUseCase {
   constructor(
@@ -21,6 +22,7 @@ export class SendWidgetMessageUseCase {
     private readonly getInstanceRepository: GetInstanceRepository,
     private readonly zApiClient: ZApiClient,
     private readonly sendBitrixNotification: SendNotification,
+    private readonly messageRepository: PrismaThinkzapMessageRepository,
     private readonly bitrixClient: BitrixClient,
   ) {}
 
@@ -74,6 +76,7 @@ export class SendWidgetMessageUseCase {
         message.trim(),
         normalizedPhone,
       )
+
       sentMessageIds.push(result.messageId)
     }
 
@@ -87,22 +90,13 @@ export class SendWidgetMessageUseCase {
       sentMessageIds.push(messageId)
     }
 
-    if (instance.vinculatedChannel) {
-      const openChannelText = message?.trim() || '[Arquivo enviado]'
-      try {
-        // await this.bitrixClient.sendToOpenChannel(
-        //   instance.vinculatedChannel,
-        //   env.bitrix.connector.code,
-        //   normalizedPhone,
-        //   openChannelText,
-        // )
-      } catch (err) {
-        console.error(
-          '[SendWidgetMessageUseCase] sendToOpenChannel error:',
-          err,
-        )
-      }
-    }
+    await this.messageRepository.create({
+      instanceId: instance.id,
+      source: 'BITRIX',
+      zApiMessageId: sentMessageIds[0] as string,
+      type: 'TEXT',
+      text: message?.trim() || null,
+    })
 
     await this.sendBitrixNotification.execute({
       contextId: entityId,

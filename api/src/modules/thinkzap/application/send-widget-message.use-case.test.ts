@@ -20,6 +20,7 @@ vi.mock('@/config/env', () => ({
 
 import { SendWidgetMessageUseCase } from './send-widget-message.use-case'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositories/prisma-thinkzap-message.repository'
 
 const makeConnector = () => ({ id: 'conn-1', instanceId: 'inst-db-1' })
 
@@ -55,6 +56,7 @@ function makeUseCase() {
     getInstanceRepository as never,
     zApiClient as never,
     sendBitrixNotification as never,
+    new PrismaThinkzapMessageRepository(),
     bitrixClient,
   )
 

@@ -24,6 +24,7 @@ describe('prepareOpenLineOutboundText', () => {
         prefixOperatorNameEnabled: true,
         messageUpdateEventEnabled: false,
         messageDeleteEventEnabled: false,
+        widgetOpenChannelEnabled: false,
       },
       operatorUserId: '42',
       appId: 'app-1',
