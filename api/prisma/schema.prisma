@@ -462,6 +462,7 @@ enum ThinkzapMessageType {
   AUDIO
   DOCUMENT
   STICKER
+  CONTACT
 }
 
 enum BiAnalyseProvider {

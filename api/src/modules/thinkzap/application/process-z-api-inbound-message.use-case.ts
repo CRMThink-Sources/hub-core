@@ -37,6 +37,7 @@ export class ProcessZApiInboundMessageUseCase {
   ) {}
 
   async execute(event: ReceivedMessageEvent): Promise<void> {
+    console.log(event)
     log.info(
       {
         instanceId: event.instanceId,
@@ -140,11 +141,13 @@ export class ProcessZApiInboundMessageUseCase {
     }
 
     const outgoingMessageId = event.messageId
-    const baseText = event.image
-      ? event.image.caption
-      : event.video
-        ? event.video.caption
-        : event.text?.message || ''
+    const baseText = event.contact
+      ? buildContactText(event.contact)
+      : event.image
+        ? event.image.caption
+        : event.video
+          ? event.video.caption
+          : event.text?.message || ''
 
     const { text, cached, replyLookupFailed } = await this.applyReplyContext(
       event,
@@ -275,14 +278,16 @@ export class ProcessZApiInboundMessageUseCase {
       ? (getNotificationMessage[
           event.notification as keyof typeof getNotificationMessage
         ] ?? '')
-      : '[b]' +
-        event.senderName +
-        '[/b]:\n' +
-        (event.image
-          ? event.image.caption
-          : event.video
-            ? event.video.caption
-            : event.text?.message || '')
+      : event.contact
+        ? `[b]${event.senderName}[/b]:\n${buildContactText(event.contact)}`
+        : '[b]' +
+          event.senderName +
+          '[/b]:\n' +
+          (event.image
+            ? event.image.caption
+            : event.video
+              ? event.video.caption
+              : event.text?.message || '')
 
     const { text, cached, replyLookupFailed } = await this.applyReplyContext(
       event,
@@ -485,6 +490,13 @@ function buildMessageFiles(
   if (event.sticker)
     return [{ url: event.sticker.stickerUrl, name: 'Sticker.webp' }]
   return undefined
+}
+
+function buildContactText(
+  contact: NonNullable<ReceivedMessageEvent['contact']>,
+): string {
+  const phones = contact.phones.map(p => `📞 ${p}`).join('\n')
+  return `------------------------\n Contato encaminhado:\n 🛍️[b]${contact.displayName}[/b]\n${phones}`
 }
 
 function resolveChatId(event: ReceivedMessageEvent): string | null {
