@@ -13,7 +13,14 @@ export type ThinkzapMessageRecord = {
   zApiMessageId: string | null
   bitrixMessageId: string | null
   bitrixChatId: string | null
-  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'STICKER' | 'CONTACT'
+  type:
+    | 'TEXT'
+    | 'IMAGE'
+    | 'VIDEO'
+    | 'AUDIO'
+    | 'DOCUMENT'
+    | 'STICKER'
+    | 'CONTACT'
   text: string | null
   fileName: string | null
   chatId: string | null
@@ -26,7 +33,14 @@ export type CreateThinkzapMessageInput = {
   zApiMessageId?: string | null
   bitrixMessageId?: string | null
   bitrixChatId?: string | null
-  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'STICKER' | 'CONTACT'
+  type:
+    | 'TEXT'
+    | 'IMAGE'
+    | 'VIDEO'
+    | 'AUDIO'
+    | 'DOCUMENT'
+    | 'STICKER'
+    | 'CONTACT'
   text?: string | null
   fileName?: string | null
   chatId?: string | null
@@ -52,7 +66,14 @@ function mapRow(row: {
     zApiMessageId: row.zApiMessageId,
     bitrixMessageId: row.bitrixMessageId,
     bitrixChatId: row.bitrixChatId,
-    type: row.type as 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'STICKER' | 'CONTACT',
+    type: row.type as
+      | 'TEXT'
+      | 'IMAGE'
+      | 'VIDEO'
+      | 'AUDIO'
+      | 'DOCUMENT'
+      | 'STICKER'
+      | 'CONTACT',
     text: row.text,
     fileName: row.fileName,
     chatId: row.chatId,
