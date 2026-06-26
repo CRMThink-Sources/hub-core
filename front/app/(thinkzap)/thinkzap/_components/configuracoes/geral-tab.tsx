@@ -37,10 +37,8 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
     initialPrefixOperatorNameEnabled,
     setInitialPrefixOperatorNameEnabled,
   ] = useState(false)
-  const [
-    initialWidgetOpenChannelEnabled,
-    setInitialWidgetOpenChannelEnabled,
-  ] = useState(false)
+  const [initialWidgetOpenChannelEnabled, setInitialWidgetOpenChannelEnabled] =
+    useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
