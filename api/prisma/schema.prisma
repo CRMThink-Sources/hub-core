@@ -57,6 +57,7 @@ model App {
   thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
   importSheetAuthToken       ImportSheetAuthToken?
   importSheetImports         ImportSheetImport[]
+  clickSignSettings          ClickSignSettings?
 
   @@unique([domainId, appCodeId])
   @@index([domainId])
@@ -397,6 +398,24 @@ model ImportSheetImport {
   @@map("core_importsheets_imports")
 }
 
+model ClickSignSettings {
+  id              String   @id @default(uuid())
+  appId           String   @unique @map("app_id")
+
+  fields          Json?    @map("fields")
+  verifySettings  Json?    @map("verify_settings")
+  contactSettings Json?    @map("contact_settings")
+  dealSettings    Json?    @map("deal_settings")
+  groups          Json?    @map("groups")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt      @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@map("core_clicksign_settings")
+}
+
 // ============================================
 // ENUMS
 // ============================================
@@ -462,6 +481,7 @@ enum ThinkzapMessageType {
   AUDIO
   DOCUMENT
   STICKER
+  CONTACT
 }
 
 enum BiAnalyseProvider {

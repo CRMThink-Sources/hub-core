@@ -4,6 +4,7 @@ import { Controller } from '@/shared/presentation/controller'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { UpdateImportService } from '../../application/update-import.service'
 import { importPayloadSchema } from './import-payload.schema'
+import { apiLogger } from '@/shared/infra/logger'
 
 export class UpdateImportController extends Controller {
   constructor(
@@ -44,6 +45,11 @@ export class UpdateImportController extends Controller {
       config,
     })
     if (!updated) return this.notFound(new Error('Import not found'))
+
+    apiLogger.info(
+      { app: 'importsheet', appId: app.id, importId: updated.id },
+      'Importação atualizada',
+    )
 
     return this.ok({
       import: {

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
+import { apiLogger } from '@/shared/infra/logger'
 import axios from 'axios'
 
 export class DeleteDatasetController extends Controller {
@@ -14,13 +15,13 @@ export class DeleteDatasetController extends Controller {
     const id = z.coerce.number().int().positive().parse(req.params.id)
     try {
       const result = await this.bitrix.datasetDelete(id)
-      console.log('[DeleteDataset] id:', id, '| resultado Bitrix:', result)
+      apiLogger.info({ app: 'thinkanalise', id, result }, 'Dataset deletado')
       return this.ok(result)
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        console.error(
-          '[DeleteDataset] Erro no Bitrix:',
-          JSON.stringify(err.response?.data, null, 2),
+        apiLogger.error(
+          { app: 'thinkanalise', id, err: err.response?.data },
+          'datasetDelete falhou no Bitrix',
         )
       }
       throw err

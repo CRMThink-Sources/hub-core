@@ -10,6 +10,7 @@ export type ThinkzapMessageQuoteInputType =
   | 'AUDIO'
   | 'DOCUMENT'
   | 'STICKER'
+  | 'CONTACT'
 
 export type ThinkzapMessageQuoteInput = {
   type: ThinkzapMessageQuoteInputType
@@ -57,6 +58,8 @@ function renderQuoteBody(cached: ThinkzapMessageQuoteInput): string {
       return cached.fileName ? `📎 ${cached.fileName}` : '📎 Documento'
     case 'STICKER':
       return '🎭 Sticker'
+    case 'CONTACT':
+      return cached.text ? `📇 ${cached.text}` : '📇 Contato'
     default:
       return ''
   }
@@ -97,6 +100,9 @@ export function extractQuoteInput(
   }
   if (event.sticker) {
     return { type: 'STICKER' }
+  }
+  if (event.contact) {
+    return { type: 'CONTACT', text: event.contact.displayName || undefined }
   }
   return { type: 'TEXT', text: event.text?.message || '' }
 }

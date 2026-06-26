@@ -1,7 +1,10 @@
+import { randomUUID } from 'node:crypto'
 import { Worker } from 'bullmq'
 import { redisConnection } from '@/queue/redis-connection'
 import { env } from '@/config/env'
 import { workerLogger } from '@/shared/infra/logger'
+import { runWithLogContext } from '@/shared/infra/log-context'
+import { setTenantLogContext } from '@/shared/infra/log-tenant'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { GoogleOAuthClient } from '../infra/clients/google-oauth.client'
@@ -50,17 +53,21 @@ const runImportService = new RunImportService(
 // todas as contas a partir deste servidor), então paralelizar só antecipa o 503.
 const runWorker = new Worker<ImportSheetRunJob, ImportRunOutcome>(
   IMPORTSHEET_RUN,
-  async job => {
-    const outcome = await runImportService.execute(job.data.importId)
+  async job =>
+    runWithLogContext({ traceKey: randomUUID() }, async () => {
+      const imp = await importRepository.findByIdAny(job.data.importId)
+      if (imp) await setTenantLogContext(imp.appId)
 
-    // 503 de intensidade (por IP): pausa a fila inteira por um instante e re-roda
-    // o MESMO job sem contar como falha. `RateLimitError` é o mecanismo nativo.
-    if (outcome.status === 'throttled-intensity') {
-      await runWorker.rateLimit(outcome.pauseMs)
-      throw Worker.RateLimitError()
-    }
-    return outcome
-  },
+      const outcome = await runImportService.execute(job.data.importId)
+
+      // 503 de intensidade (por IP): pausa a fila inteira por um instante e re-roda
+      // o MESMO job sem contar como falha. `RateLimitError` é o mecanismo nativo.
+      if (outcome.status === 'throttled-intensity') {
+        await runWorker.rateLimit(outcome.pauseMs)
+        throw Worker.RateLimitError()
+      }
+      return outcome
+    }),
   { connection: redisConnection, concurrency: 1 },
 )
 
@@ -77,7 +84,7 @@ runWorker.on('completed', (job, outcome) => {
       delay ? { delay } : undefined,
     ).catch(error =>
       workerLogger.error(
-        { app: 'importsheet', queue: IMPORTSHEET_RUN, importId, error },
+        { app: 'importsheet', queue: IMPORTSHEET_RUN, importId, err: error },
         'Failed to enqueue import continuation — import may be stuck',
       ),
     )
@@ -105,7 +112,7 @@ runWorker.on('failed', (job, err) => {
       jobId: job?.id,
       importId: job?.data?.importId,
       attemptsMade: job?.attemptsMade,
-      error: err,
+      err,
     },
     'Import run job failed',
   )
@@ -163,31 +170,32 @@ async function reclaimStaleRunning(): Promise<void> {
 // --- Worker do scheduler: tick do poller (busca vencidas e enfileira). ---
 const schedulerWorker = new Worker(
   IMPORTSHEET_SCHEDULER,
-  async () => {
-    // Lock garante tick único entre workers; auto-renova p/ não expirar no meio.
-    await withRenewingLock(
-      'importsheet:tick',
-      SCHEDULER_TICK_EVERY_MS - 5000,
-      async () => {
-        const due = await importRepository.findDue(new Date())
-        for (const imp of due) {
-          await enqueueImportRun({ importId: imp.id, trigger: 'schedule' })
-        }
-        if (due.length > 0) {
-          workerLogger.info(
-            {
-              app: 'importsheet',
-              queue: IMPORTSHEET_SCHEDULER,
-              due: due.length,
-            },
-            'Scheduler tick enqueued due imports',
-          )
-        }
+  async () =>
+    runWithLogContext({ traceKey: randomUUID() }, async () => {
+      // Lock garante tick único entre workers; auto-renova p/ não expirar no meio.
+      await withRenewingLock(
+        'importsheet:tick',
+        SCHEDULER_TICK_EVERY_MS - 5000,
+        async () => {
+          const due = await importRepository.findDue(new Date())
+          for (const imp of due) {
+            await enqueueImportRun({ importId: imp.id, trigger: 'schedule' })
+          }
+          if (due.length > 0) {
+            workerLogger.info(
+              {
+                app: 'importsheet',
+                queue: IMPORTSHEET_SCHEDULER,
+                due: due.length,
+              },
+              'Scheduler tick enqueued due imports',
+            )
+          }
 
-        await reclaimStaleRunning()
-      },
-    )
-  },
+          await reclaimStaleRunning()
+        },
+      )
+    }),
   { connection: redisConnection, concurrency: 1 },
 )
 
@@ -197,7 +205,7 @@ schedulerWorker.on('failed', (job, err) => {
       app: 'importsheet',
       queue: IMPORTSHEET_SCHEDULER,
       jobId: job?.id,
-      error: err,
+      err,
     },
     'Scheduler tick failed',
   )

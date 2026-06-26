@@ -13,6 +13,7 @@
     "test:watch": "node node_modules/vitest/vitest.mjs",
     "worker:thinkzap": "tsx src/workers/thinkzap-inbound.worker.ts",
     "worker:importsheet": "tsx src/modules/importsheet/worker/importsheet.worker.ts",
+    "worker:clicksign": "tsx src/modules/clicksign/infra/worker/clicksign.worker.ts",
     "register:audio-imbot": "tsx src/scripts/register-audio-imbot.ts",
     "create:portal-user": "tsx src/scripts/create-portal-user.ts"
   },
@@ -34,6 +35,7 @@
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
     "pino": "^10.3.1",
+    "pino-loki": "^3.0.0",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "stripe": "^20.3.1",

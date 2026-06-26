@@ -117,6 +117,33 @@
 }
 
 /*
+ * Paleta POR APP — Clicksign.
+ * Aplicada no <body> enquanto o app clicksign está montado (ver
+ * app/(clicksign)/layout.tsx), alcançando também os portais (Dialog, Select,
+ * Combobox). Identidade caramelo (#C68346). Para rebrandear, edite SÓ este bloco.
+ */
+.theme-clicksign {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.25 0.03 60);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.25 0.03 60);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.25 0.03 60);
+  --primary: oklch(0.66 0.11 58); /* #C68346 — caramelo da marca */
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.97 0.02 60);
+  --secondary-foreground: oklch(0.45 0.09 58);
+  --muted: oklch(0.97 0.012 60);
+  --muted-foreground: oklch(0.556 0.03 60);
+  --accent: oklch(0.95 0.04 60); /* caramelo claro de hover/seleção */
+  --accent-foreground: oklch(0.45 0.09 58);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0.012 60);
+  --input: oklch(0.922 0.012 60);
+  --ring: oklch(0.66 0.11 58);
+}
+
+/*
  * Paleta POR APP — ImportSheet.
  * Aplicada no <body> enquanto o app importsheet está montado (ver
  * app/(importsheet)/layout.tsx), então alcança também os portais (Dialog,

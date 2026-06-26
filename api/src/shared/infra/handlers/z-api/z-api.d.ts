@@ -66,6 +66,22 @@ export type ReceivedMessageEvent = {
     width: number
     height: number
   }
+  contact?: {
+    displayName: string
+    vCard: string
+    phones: string[]
+  }
+  reaction: {
+    value: string
+    time: number
+    reactionBy: string
+    referencedMessage: {
+      messageId: string
+      fromMe: boolean
+      phone: string
+      participant: string
+    }
+  }
   _traceContext: {
     traceId: string
     spanId: string

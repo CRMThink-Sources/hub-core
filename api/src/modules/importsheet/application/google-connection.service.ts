@@ -5,6 +5,7 @@ import {
 import { GoogleOAuthGateway } from '../domain/gateways/google-oauth.gateway'
 import { ImportSheetAuthTokenRepository } from '../domain/repositories/importsheet-auth-token.repository'
 import { acquireLock, releaseLock } from '../infra/redis-lock'
+import { apiLogger } from '@/shared/infra/logger'
 
 /** Margem antes da expiração pra renovar proativamente. */
 const REFRESH_BUFFER_MS = 5 * 60 * 1000
@@ -47,6 +48,11 @@ export class GoogleConnectionService {
       accessToken: tokens.accessToken,
       accessTokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
     })
+
+    apiLogger.info(
+      { app: 'importsheet', appId, email: userInfo.email ?? null },
+      'Conexão Google estabelecida',
+    )
   }
 
   async getConnection(appId: string): Promise<GoogleConnection> {

@@ -6,6 +6,7 @@ import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled
 import { ImportSheetImportRepository } from '../../domain/repositories/importsheet-import.repository'
 import { RunImportService } from '../../application/run-import.service'
 import { isImportRunInFlight } from '../../queue/importsheet-run.queue'
+import { apiLogger } from '@/shared/infra/logger'
 
 const bodySchema = z.object({
   rows: z.array(z.number().int().positive()).min(1).max(50),
@@ -56,6 +57,17 @@ export class ReprocessImportController extends Controller {
     if (result.status === 'skipped') {
       return this.conflict(new Error('Importação está em execução — aguarde'))
     }
+
+    apiLogger.info(
+      {
+        app: 'importsheet',
+        appId: app.id,
+        importId: id,
+        linhas: parsed.data.rows.length,
+        errorRows: result.errorRows?.length ?? 0,
+      },
+      'Linhas reprocessadas',
+    )
 
     return this.ok({ errorRows: result.errorRows })
   }

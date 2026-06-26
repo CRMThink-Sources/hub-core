@@ -7,6 +7,7 @@ import { CreateBiConnectorParams } from '@/shared/infra/clients/types/biconnecto
 import { CreateBiConnectorRepository } from '@/modules/thinkanalise/domain/repositories/create-bi-connector.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { env } from '@/config/env'
+import { apiLogger } from '@/shared/infra/logger'
 
 const addBiconnectorSchema = z.object({
   label: z.string().min(1),
@@ -72,6 +73,16 @@ export class AddBiconnectorController extends Controller {
       provider,
       apiKey: '',
     })
+
+    apiLogger.info(
+      {
+        app: 'thinkanalise',
+        appId: app.id,
+        biconnectorId: result.id,
+        provider,
+      },
+      'Conector criado',
+    )
 
     return this.ok(result)
   }

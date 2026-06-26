@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { Controller } from '../presentation/controller'
 import { ZodError } from 'zod'
+import { apiLogger } from '@/shared/infra/logger'
 
 type ControllerHandler = (req: Request, res: Response) => Promise<void> | void
 type ControllerFactoryWithReq = (
@@ -20,7 +21,7 @@ export const adaptControllerFactory = (
     } catch (error: unknown) {
       // Verificar se a resposta já foi enviada
       if (response.headersSent) {
-        console.log('Resposta já enviada')
+        apiLogger.warn('Resposta já enviada antes do tratamento de erro')
         return
       }
 
@@ -28,7 +29,7 @@ export const adaptControllerFactory = (
 
       // Tratamento para erros de validação (400)
       if (error instanceof ZodError) {
-        console.log('Validation Error: ' + error?.message)
+        apiLogger.warn({ err: error }, 'Erro de validação no request')
         response.status(400).json({
           data: {
             error: error?.message,
@@ -38,7 +39,7 @@ export const adaptControllerFactory = (
       }
 
       // Tratamento para erros genéricos (500)
-      console.log('Erro não tratado no AdaptControllerFactory: ' + err.message)
+      apiLogger.error({ err }, 'Erro não tratado no adaptControllerFactory')
 
       response.status(500).json({
         error: 'Internal Server Error',
