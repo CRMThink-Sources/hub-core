@@ -54,20 +54,23 @@ const runImportService = new RunImportService(
 const runWorker = new Worker<ImportSheetRunJob, ImportRunOutcome>(
   IMPORTSHEET_RUN,
   async job =>
-    runWithLogContext({ traceKey: randomUUID() }, async () => {
-      const imp = await importRepository.findByIdAny(job.data.importId)
-      if (imp) await setTenantLogContext(imp.appId)
+    runWithLogContext(
+      { traceKey: job.data.traceKey ?? randomUUID() },
+      async () => {
+        const imp = await importRepository.findByIdAny(job.data.importId)
+        if (imp) await setTenantLogContext(imp.appId)
 
-      const outcome = await runImportService.execute(job.data.importId)
+        const outcome = await runImportService.execute(job.data.importId)
 
-      // 503 de intensidade (por IP): pausa a fila inteira por um instante e re-roda
-      // o MESMO job sem contar como falha. `RateLimitError` é o mecanismo nativo.
-      if (outcome.status === 'throttled-intensity') {
-        await runWorker.rateLimit(outcome.pauseMs)
-        throw Worker.RateLimitError()
-      }
-      return outcome
-    }),
+        // 503 de intensidade (por IP): pausa a fila inteira por um instante e re-roda
+        // o MESMO job sem contar como falha. `RateLimitError` é o mecanismo nativo.
+        if (outcome.status === 'throttled-intensity') {
+          await runWorker.rateLimit(outcome.pauseMs)
+          throw Worker.RateLimitError()
+        }
+        return outcome
+      },
+    ),
   { connection: redisConnection, concurrency: 1 },
 )
 
