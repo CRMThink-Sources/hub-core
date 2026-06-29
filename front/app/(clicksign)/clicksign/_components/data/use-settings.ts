@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { axiosClicksign } from '@/infra/client/axios-clicksign'
 
 export type ClicksignSettings = {
@@ -14,6 +15,7 @@ export type ClicksignSettings = {
 type GetResponse = { settings: ClicksignSettings }
 
 export function useSettings() {
+  const { t } = useTranslation('clicksign/common')
   const [settings, setSettings] = useState<ClicksignSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -30,8 +32,7 @@ export function useSettings() {
         if (active) setSettings(res.settings ?? null)
       })
       .catch((e: unknown) => {
-        if (active)
-          setError(e instanceof Error ? e.message : 'Falha ao carregar')
+        if (active) setError(e instanceof Error ? e.message : t('loadError'))
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -39,7 +40,7 @@ export function useSettings() {
     return () => {
       active = false
     }
-  }, [])
+  }, [t])
 
   const save = useCallback(async (patch: Partial<ClicksignSettings>) => {
     const res = (await axiosClicksign().patch(

@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { OptionSelect } from '../option-select'
 import { useContactFields } from '../data/use-contact-fields'
 import { useSettings } from '../data/use-settings'
@@ -39,29 +40,18 @@ const LEMBRETES: Option[] = [
 
 const EXTRA_CONFIGS: {
   key: keyof VerifySettings
-  label: string
-  hint?: string
+  labelKey: string
+  hintKey?: string
 }[] = [
-  { key: 'selfie_enabled', label: 'Utilizar Selfie como autenticação' },
+  { key: 'selfie_enabled', labelKey: 'selfie' },
   {
     key: 'facial_biometrics_enabled',
-    label:
-      'Utilizar biometria facial como ponto de autenticação adicional para o signatário',
-    hint: 'Custo adicional de R$ 1,50 por biometria facial realizada com sucesso (cobrado pela Clicksign).',
+    labelKey: 'facialBiometrics',
+    hintKey: 'facialBiometricsHint',
   },
-  {
-    key: 'handwritten_enabled',
-    label:
-      'Utilizar assinatura manuscrita como ponto de autenticação no momento da assinatura',
-  },
-  {
-    key: 'official_document_enabled',
-    label: 'Solicitar a foto (frente e verso) do documento oficial',
-  },
-  {
-    key: 'rubrica',
-    label: 'Solicitar rubrica (necessário ativar função de envelope)',
-  },
+  { key: 'handwritten_enabled', labelKey: 'handwritten' },
+  { key: 'official_document_enabled', labelKey: 'officialDocument' },
+  { key: 'rubrica', labelKey: 'rubrica' },
 ]
 
 function novaEmpresa(): Empresa {
@@ -75,6 +65,7 @@ function novaEmpresa(): Empresa {
 }
 
 export default function ConfiguracoesLayout() {
+  const { t } = useTranslation('clicksign/configuracoes')
   const [empresas, setEmpresas] = useState<Empresa[]>([novaEmpresa()])
   const [verify, setVerify] = useState<VerifySettings>({
     selfie_enabled: false,
@@ -119,9 +110,9 @@ export default function ConfiguracoesLayout() {
     setSavingMain(true)
     try {
       await persist({ fields: { tokens: empresas } })
-      toast.success('Configurações salvas')
+      toast.success(t('toastSaved'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Falha ao salvar')
+      toast.error(e instanceof Error ? e.message : t('toastError'))
     } finally {
       setSavingMain(false)
     }
@@ -131,9 +122,9 @@ export default function ConfiguracoesLayout() {
     setSavingExtra(true)
     try {
       await persist({ verifySettings: verify, contactSettings: contact })
-      toast.success('Configurações salvas')
+      toast.success(t('toastSaved'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Falha ao salvar')
+      toast.error(e instanceof Error ? e.message : t('toastError'))
     } finally {
       setSavingExtra(false)
     }
@@ -146,10 +137,10 @@ export default function ConfiguracoesLayout() {
     >
       <TabsList className="w-full max-w-sm group-data-horizontal/tabs:h-11">
         <TabsTrigger value="principal" className="h-full text-base">
-          Principal
+          {t('tabPrincipal')}
         </TabsTrigger>
         <TabsTrigger value="extra" className="h-full text-base">
-          Extra
+          {t('tabExtra')}
         </TabsTrigger>
       </TabsList>
 
@@ -159,15 +150,15 @@ export default function ConfiguracoesLayout() {
           <div className="flex items-center justify-between gap-4 border-b border-border p-6">
             <div>
               <h1 className="text-xl font-bold tracking-tight text-foreground">
-                Configurações de Empresas
+                {t('companiesTitle')}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Gerencie as configurações de integração com a Clicksign
+                {t('companiesDescription')}
               </p>
             </div>
             <Button onClick={addEmpresa}>
               <PlusIcon />
-              Nova Empresa
+              {t('newCompany')}
             </Button>
           </div>
 
@@ -184,7 +175,7 @@ export default function ConfiguracoesLayout() {
                       onChange={e =>
                         updateEmpresa(index, { name: e.target.value })
                       }
-                      placeholder="Nome da empresa"
+                      placeholder={t('companyNamePlaceholder')}
                       className="max-w-sm text-base font-medium"
                     />
                   </div>
@@ -193,7 +184,7 @@ export default function ConfiguracoesLayout() {
                       variant="destructive"
                       size="icon"
                       onClick={() => removeEmpresa(index)}
-                      aria-label="Remover empresa"
+                      aria-label={t('removeCompany')}
                     >
                       <Trash2Icon />
                     </Button>
@@ -202,23 +193,23 @@ export default function ConfiguracoesLayout() {
 
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                   <div className="flex flex-col gap-2">
-                    <Label>Token de Acesso</Label>
+                    <Label>{t('tokenLabel')}</Label>
                     <p className="text-xs text-muted-foreground">
-                      Token de autenticação da API Clicksign
+                      {t('tokenHint')}
                     </p>
                     <Input
                       value={empresa.token}
                       onChange={e =>
                         updateEmpresa(index, { token: e.target.value })
                       }
-                      placeholder="Cole o token da Clicksign"
+                      placeholder={t('tokenPlaceholder')}
                     />
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <Label>Ambiente</Label>
+                    <Label>{t('environmentLabel')}</Label>
                     <p className="text-xs text-muted-foreground">
-                      Ambiente de integração com a Clicksign
+                      {t('environmentHint')}
                     </p>
                     <OptionSelect
                       options={AMBIENTES}
@@ -232,9 +223,9 @@ export default function ConfiguracoesLayout() {
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <Label>Formato da Pasta</Label>
+                    <Label>{t('folderLabel')}</Label>
                     <p className="text-xs text-muted-foreground">
-                      Como as pastas serão nomeadas na Clicksign
+                      {t('folderHint')}
                     </p>
                     <OptionSelect
                       options={PASTAS}
@@ -246,9 +237,9 @@ export default function ConfiguracoesLayout() {
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <Label>Lembrete Automático</Label>
+                    <Label>{t('reminderLabel')}</Label>
                     <p className="text-xs text-muted-foreground">
-                      Frequência dos lembretes de assinatura
+                      {t('reminderHint')}
                     </p>
                     <OptionSelect
                       options={LEMBRETES}
@@ -267,7 +258,7 @@ export default function ConfiguracoesLayout() {
         <div className="flex justify-end">
           <Button onClick={() => void saveMain()} disabled={savingMain}>
             <CheckIcon />
-            {savingMain ? 'Salvando…' : 'Salvar'}
+            {savingMain ? t('saving') : t('save')}
           </Button>
         </div>
       </TabsContent>
@@ -277,11 +268,11 @@ export default function ConfiguracoesLayout() {
         <section className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="border-b border-border p-6">
             <h2 className="text-base font-semibold tracking-tight text-foreground">
-              Configurações Adicionais
+              {t('additionalTitle')}
             </h2>
           </div>
           <div className="flex flex-col gap-3 p-6">
-            {EXTRA_CONFIGS.map(({ key, label, hint }) => (
+            {EXTRA_CONFIGS.map(({ key, labelKey, hintKey }) => (
               <label
                 key={key}
                 className="flex cursor-pointer items-start gap-3 text-sm text-foreground"
@@ -294,12 +285,12 @@ export default function ConfiguracoesLayout() {
                   className="mt-0.5"
                 />
                 <span className="inline-flex items-center gap-1.5">
-                  {label}
-                  {hint && (
+                  {t(labelKey)}
+                  {hintKey && (
                     <span className="group relative inline-flex">
                       <InfoIcon className="size-4 shrink-0 cursor-help text-muted-foreground" />
                       <span className="pointer-events-none invisible absolute bottom-full left-1/2 z-10 mb-2 w-64 -translate-x-1/2 rounded-md bg-popover px-3 py-2 text-xs text-popover-foreground opacity-0 shadow-md ring-1 ring-border transition-opacity group-hover:visible group-hover:opacity-100">
-                        {hint}
+                        {t(hintKey)}
                       </span>
                     </span>
                   )}
@@ -313,16 +304,15 @@ export default function ConfiguracoesLayout() {
         <section className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="border-b border-border p-6">
             <h2 className="text-base font-semibold tracking-tight text-foreground">
-              Campos de Contato
+              {t('contactFieldsTitle')}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Este mapeamento é obrigatório quando o signatário do grupo de
-              assinatura for o &quot;Contato padrão&quot; do negócio.
+              {t('contactFieldsDescription')}
             </p>
           </div>
           <div className="grid grid-cols-1 gap-5 p-6 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label>CPF</Label>
+              <Label>{t('cpfLabel')}</Label>
               <OptionSelect
                 options={contactFields}
                 value={contact.documentation}
@@ -332,7 +322,7 @@ export default function ConfiguracoesLayout() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label>É estrangeiro?</Label>
+              <Label>{t('isForeignLabel')}</Label>
               <OptionSelect
                 options={contactFields}
                 value={contact.has_document}
@@ -342,11 +332,9 @@ export default function ConfiguracoesLayout() {
               />
             </div>
             <div className="flex flex-col gap-2 sm:col-span-2">
-              <Label>Assinar como</Label>
+              <Label>{t('signAsLabel')}</Label>
               <Input disabled value={contact.part.name} />
-              <p className="text-xs text-primary">
-                Campo criado na instalação do APP (não excluir)
-              </p>
+              <p className="text-xs text-primary">{t('signAsHint')}</p>
             </div>
           </div>
         </section>
@@ -354,7 +342,7 @@ export default function ConfiguracoesLayout() {
         <div className="flex justify-end">
           <Button onClick={() => void saveExtra()} disabled={savingExtra}>
             <CheckIcon />
-            {savingExtra ? 'Salvando…' : 'Salvar'}
+            {savingExtra ? t('saving') : t('save')}
           </Button>
         </div>
       </TabsContent>

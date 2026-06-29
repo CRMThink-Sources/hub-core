@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import {
   Combobox,
   ComboboxContent,
@@ -16,12 +17,8 @@ type Props = {
   placeholder?: string
 }
 
-export function OptionSelect({
-  options,
-  value,
-  onChange,
-  placeholder = 'Selecione…',
-}: Props) {
+export function OptionSelect({ options, value, onChange, placeholder }: Props) {
+  const { t } = useTranslation('clicksign/common')
   const items: ComboboxOption[] = options.map(o => ({
     value: o.code,
     label: o.name,
@@ -37,7 +34,7 @@ export function OptionSelect({
       value={selected}
       onValueChange={(v: ComboboxOption | null) => onChange(v?.value ?? null)}
     >
-      <ComboboxTrigger placeholder={placeholder} />
+      <ComboboxTrigger placeholder={placeholder ?? t('select')} />
       <ComboboxContent>
         {(item: ComboboxOption) => (
           <ComboboxItem key={item.value} value={item}>

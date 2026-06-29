@@ -6,15 +6,16 @@ export const THINKHUB_ASIDE_CONFIG = {
   links: [
     {
       href: '/thinkanalise/configuracoes',
-      label: 'Configurações',
+      label: 'configuracoes',
       // icon: '/images/thinkhub/config.png',
     },
     {
       href: '/thinkanalise/ajuda',
-      label: 'Ajuda',
+      label: 'ajuda',
       // icon: '/images/thinkhub/manual.png',
     },
   ],
+  linksNamespace: 'thinkhub/aside',
   languages: [
     { code: 'pt', flag: '/images/i18n-icon/4x3/br.svg' },
     { code: 'en', flag: '/images/i18n-icon/4x3/us.svg' },
