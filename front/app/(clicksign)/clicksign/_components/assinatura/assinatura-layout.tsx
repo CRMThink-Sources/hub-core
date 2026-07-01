@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { CheckIcon, PlusIcon } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import type { Grupo } from '../types'
 import { GrupoCard } from './grupo-card'
@@ -35,6 +36,7 @@ function novoGrupo(): Grupo {
 }
 
 export default function AssinaturaLayout() {
+  const { t } = useTranslation('clicksign/assinatura')
   const [grupos, setGrupos] = useState<Grupo[]>([])
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({})
   const { fields, error } = useAssinaturaData()
@@ -71,9 +73,9 @@ export default function AssinaturaLayout() {
     setSaving(true)
     try {
       await persist({ groups: grupos })
-      toast.success('Grupos de assinatura salvos')
+      toast.success(t('toastSaved'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Falha ao salvar')
+      toast.error(e instanceof Error ? e.message : t('toastError'))
     } finally {
       setSaving(false)
     }
@@ -84,11 +86,10 @@ export default function AssinaturaLayout() {
       <div className="sticky top-4 z-20 flex items-center justify-between gap-4 rounded-xl border border-border bg-card p-6 shadow-sm">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Configuração de Assinaturas
+            {t('title')}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configure os grupos de assinatura e seus respectivos campos no
-            Bitrix24
+            {t('description')}
           </p>
         </div>
         <div className="flex gap-2">
@@ -98,11 +99,11 @@ export default function AssinaturaLayout() {
             disabled={saving}
           >
             <CheckIcon />
-            {saving ? 'Salvando…' : 'Salvar'}
+            {saving ? t('saving') : t('save')}
           </Button>
           <Button onClick={addGrupo}>
             <PlusIcon />
-            Novo Grupo
+            {t('newGroup')}
           </Button>
         </div>
       </div>
@@ -115,9 +116,7 @@ export default function AssinaturaLayout() {
 
       {grupos.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            Nenhum grupo de assinatura. Clique em “Novo Grupo” para começar.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-4">

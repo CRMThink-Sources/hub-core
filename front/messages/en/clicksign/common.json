@@ -1,0 +1,6 @@
+{
+  "select": "Select…",
+  "loadDataError": "Failed to load data",
+  "loadFieldsError": "Failed to load fields",
+  "loadError": "Failed to load"
+}

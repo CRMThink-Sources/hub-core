@@ -1,6 +1,7 @@
 'use client'
 
 import { Trash2Icon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -23,6 +24,7 @@ export function ContatoRow({
   contactFields,
   stringFields,
 }: Props) {
+  const { t } = useTranslation('clicksign/assinatura')
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-4">
       <div className="flex items-start justify-between gap-4">
@@ -35,15 +37,15 @@ export function ContatoRow({
           />
           <div>
             <span className="text-sm font-medium text-foreground">
-              Usar contato padrão do negócio
+              {t('useDefaultContact')}
             </span>
             <p className="text-xs text-muted-foreground">
-              Se desativado, você pode selecionar campos personalizados
+              {t('useDefaultContactHint')}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Label className="text-xs">Grupo</Label>
+          <Label className="text-xs">{t('group')}</Label>
           <div className="w-24">
             <OptionSelect
               options={GRUPOS_NUMERO}
@@ -58,7 +60,7 @@ export function ContatoRow({
             variant="destructive"
             size="icon-sm"
             onClick={onRemove}
-            aria-label="Remover contato"
+            aria-label={t('removeContact')}
           >
             <Trash2Icon />
           </Button>
@@ -69,7 +71,7 @@ export function ContatoRow({
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {!contato.contato_nome && (
             <div className="flex flex-col gap-2 sm:col-span-2">
-              <Label>Campo de Contato</Label>
+              <Label>{t('contactFieldLabel')}</Label>
               <OptionSelect
                 options={contactFields}
                 value={contato.contato}
@@ -83,7 +85,7 @@ export function ContatoRow({
                 }
               />
               <p className="text-xs text-muted-foreground">
-                Campo personalizado que contém o contato para assinatura
+                {t('contactFieldHint')}
               </p>
             </div>
           )}
@@ -91,7 +93,7 @@ export function ContatoRow({
           {!contato.contato && (
             <>
               <div className="flex flex-col gap-2">
-                <Label>Campo de Nome</Label>
+                <Label>{t('nameFieldLabel')}</Label>
                 <OptionSelect
                   options={stringFields}
                   value={contato.contato_nome}
@@ -99,7 +101,7 @@ export function ContatoRow({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Campo de Email</Label>
+                <Label>{t('emailFieldLabel')}</Label>
                 <OptionSelect
                   options={stringFields}
                   value={contato.contato_email}
@@ -107,7 +109,7 @@ export function ContatoRow({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Campo de CPF</Label>
+                <Label>{t('cpfFieldLabel')}</Label>
                 <OptionSelect
                   options={stringFields}
                   value={contato.contato_cpf}

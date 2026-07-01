@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { axiosClicksign } from '@/infra/client/axios-clicksign'
 import type { Option } from '../types'
 import type { BitrixFields } from '../assinatura/grupo-card'
@@ -36,6 +37,7 @@ function categorize(fields: ClickSignField[], users: Option[]): BitrixFields {
 }
 
 export function useAssinaturaData() {
+  const { t } = useTranslation('clicksign/common')
   const [fields, setFields] = useState<BitrixFields>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -63,7 +65,7 @@ export function useAssinaturaData() {
       })
       .catch((e: unknown) => {
         if (!active) return
-        setError(e instanceof Error ? e.message : 'Falha ao carregar dados')
+        setError(e instanceof Error ? e.message : t('loadDataError'))
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -71,7 +73,7 @@ export function useAssinaturaData() {
     return () => {
       active = false
     }
-  }, [])
+  }, [t])
 
   return { fields, loading, error }
 }

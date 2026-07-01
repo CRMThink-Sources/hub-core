@@ -7,6 +7,7 @@ import {
   PlusIcon,
   XIcon,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -66,6 +67,7 @@ export function GrupoCard({
   onDuplicate,
   fields,
 }: Props) {
+  const { t } = useTranslation('clicksign/assinatura')
   const {
     stringFields,
     dateFields,
@@ -98,11 +100,11 @@ export function GrupoCard({
           <Button variant="ghost" size="icon-sm" onClick={onToggle}>
             {collapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
           </Button>
-          <span className="text-sm text-muted-foreground">Grupo</span>
+          <span className="text-sm text-muted-foreground">{t('group')}</span>
           <Input
             value={grupo.id ?? ''}
             onChange={e => onChange({ id: e.target.value })}
-            placeholder="Identificador do grupo"
+            placeholder={t('groupIdPlaceholder')}
             className="w-64"
           />
         </div>
@@ -111,7 +113,7 @@ export function GrupoCard({
             variant="ghost"
             size="icon-sm"
             onClick={onDuplicate}
-            aria-label="Duplicar grupo"
+            aria-label={t('duplicateGroup')}
           >
             <CopyIcon />
           </Button>
@@ -119,7 +121,7 @@ export function GrupoCard({
             variant="ghost"
             size="icon-sm"
             onClick={onRemove}
-            aria-label="Remover grupo"
+            aria-label={t('removeGroup')}
           >
             <XIcon />
           </Button>
@@ -131,13 +133,13 @@ export function GrupoCard({
           {/* Campos do Negócio */}
           <div className="p-6">
             <h3 className="mb-4 text-sm font-medium text-foreground">
-              Campos do Negócio
+              {t('dealFields')}
             </h3>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <Label>Status de Assinatura</Label>
+                <Label>{t('statusLabel')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Campo que indica se o documento foi assinado
+                  {t('statusHint')}
                 </p>
                 <OptionSelect
                   options={stringFields}
@@ -146,9 +148,9 @@ export function GrupoCard({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Arquivo Assinado</Label>
+                <Label>{t('signedFileLabel')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Campo onde será salvo o documento assinado
+                  {t('signedFileHint')}
                 </p>
                 <OptionSelect
                   options={fileFields}
@@ -157,9 +159,9 @@ export function GrupoCard({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Data de Assinatura</Label>
+                <Label>{t('signDateLabel')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Data em que o documento foi assinado
+                  {t('signDateHint')}
                 </p>
                 <OptionSelect
                   options={dateFields}
@@ -168,9 +170,9 @@ export function GrupoCard({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>ID do Documento</Label>
+                <Label>{t('docIdLabel')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Campo para armazenar o ID do documento na Clicksign
+                  {t('docIdHint')}
                 </p>
                 <OptionSelect
                   options={stringFields}
@@ -179,9 +181,9 @@ export function GrupoCard({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Arquivo para Assinatura</Label>
+                <Label>{t('fileToSignLabel')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Campo que contém o arquivo a ser assinado
+                  {t('fileToSignHint')}
                 </p>
                 <OptionSelect
                   options={fileFields}
@@ -190,9 +192,9 @@ export function GrupoCard({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Data Limite</Label>
+                <Label>{t('deadlineLabel')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Data limite para assinatura do documento
+                  {t('deadlineHint')}
                 </p>
                 <OptionSelect
                   options={dateFields}
@@ -201,9 +203,9 @@ export function GrupoCard({
                 />
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Processo Finalizado</Label>
+                <Label>{t('finishedLabel')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Campo que indica se o processo de assinatura foi concluído
+                  {t('finishedHint')}
                 </p>
                 <OptionSelect
                   options={stringFields}
@@ -218,7 +220,7 @@ export function GrupoCard({
           <div className="p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-medium text-foreground">
-                Configuração de Contatos
+                {t('contactsTitle')}
               </h3>
               <Button
                 variant="secondary"
@@ -228,7 +230,7 @@ export function GrupoCard({
                 }
               >
                 <PlusIcon />
-                Adicionar Contato
+                {t('addContact')}
               </Button>
             </div>
             <div className="flex flex-col gap-4">
@@ -253,7 +255,7 @@ export function GrupoCard({
           <div className="p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-medium text-foreground">
-                Participantes
+                {t('participantsTitle')}
               </h3>
               <Button
                 variant="secondary"
@@ -265,7 +267,7 @@ export function GrupoCard({
                 }
               >
                 <PlusIcon />
-                Adicionar
+                {t('add')}
               </Button>
             </div>
             <div className="flex flex-col gap-4">
