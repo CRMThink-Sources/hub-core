@@ -6,17 +6,17 @@ export const IMPORTSHEET_ASIDE_CONFIG = {
   links: [
     {
       href: '/importsheet/importacoes',
-      label: 'Importacoes',
+      label: 'importacoes',
       // icon: '/images/importsheet/connection.png',
     },
     {
       href: '/importsheet/configuracoes',
-      label: 'Configuracoes',
+      label: 'configuracoes',
       // icon: '/images/importsheet/config.png',
     },
     {
       href: '/importsheet/ajuda',
-      label: 'Ajuda',
+      label: 'ajuda',
       // icon: '/images/importsheet/ajuda.png',
     },
     // tela de pagamentos - Ainda precisa implementar

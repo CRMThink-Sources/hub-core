@@ -1,6 +1,7 @@
 import { Queue } from 'bullmq'
 import { redisConnection } from '@/queue/redis-connection'
 import { apiLogger } from '@/shared/infra/logger'
+import { getLogContext } from '@/shared/infra/log-context'
 
 export const IMPORTSHEET_RUN = 'importsheet-run'
 
@@ -8,6 +9,8 @@ export type ImportSheetRunJob = {
   importId: number
   /** Origem do gatilho — só pra log/telemetria. */
   trigger: 'manual' | 'schedule' | 'continuation'
+  // Propaga o traceKey do request/run anterior p/ o job — amarra API↔worker.
+  traceKey?: string
 }
 
 export type EnqueueImportRunOptions = {
@@ -43,7 +46,11 @@ export async function enqueueImportRun(
   // poller antes do run terminar, ou o poller durante uma cadeia de páginas).
   // removeOn* limpa após terminar pra liberar a próxima página/run. Histórico de
   // erro fica na coluna last_error, não na fila.
-  const createdJob = await importSheetRunQueue.add('run-import', job, {
+  const enriched = {
+    ...job,
+    traceKey: job.traceKey ?? getLogContext().traceKey,
+  }
+  const createdJob = await importSheetRunQueue.add('run-import', enriched, {
     jobId: `import-${job.importId}`,
     attempts: 3,
     backoff: { type: 'exponential', delay: 2000 },

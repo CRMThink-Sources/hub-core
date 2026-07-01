@@ -6,15 +6,15 @@ export const CLICKSIGN_ASIDE_CONFIG = {
   links: [
     {
       href: '/clicksign/configuracoes',
-      label: 'Configurações',
+      label: 'configuracoes',
     },
     {
       href: '/clicksign/assinatura',
-      label: 'Grupos de assinatura',
+      label: 'assinatura',
     },
     {
       href: '/clicksign/ajuda',
-      label: 'Ajuda',
+      label: 'ajuda',
     },
   ],
   linksNamespace: 'clicksign/aside',

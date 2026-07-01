@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { axiosClicksign } from '@/infra/client/axios-clicksign'
 import type { Option } from '../types'
 import type { ClickSignField } from './types'
 
 export function useContactFields() {
+  const { t } = useTranslation('clicksign/common')
   const [fields, setFields] = useState<Option[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -24,7 +26,7 @@ export function useContactFields() {
       })
       .catch((e: unknown) => {
         if (!active) return
-        setError(e instanceof Error ? e.message : 'Falha ao carregar campos')
+        setError(e instanceof Error ? e.message : t('loadFieldsError'))
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -32,7 +34,7 @@ export function useContactFields() {
     return () => {
       active = false
     }
-  }, [])
+  }, [t])
 
   return { fields, loading, error }
 }
