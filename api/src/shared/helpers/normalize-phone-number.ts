@@ -12,10 +12,26 @@ export const normalizePhoneNumber = (value: string): string => {
     !hasInternationalPrefix &&
     (digits.length === 10 || digits.length === 11)
   ) {
-    return `55${digits}`
+    digits = `55${digits}`
   }
 
-  return digits
+  return addBrazilianNinthDigit(digits)
+}
+
+const addBrazilianNinthDigit = (digits: string): string => {
+  if (!digits.startsWith('55') || digits.length !== 12) {
+    return digits
+  }
+
+  const ddd = digits.slice(2, 4)
+  const subscriber = digits.slice(4)
+  const isMobilePrefix = /^[6-9]/.test(subscriber)
+
+  if (!isMobilePrefix) {
+    return digits
+  }
+
+  return `55${ddd}9${subscriber}`
 }
 
 export const isValidZApiPhoneNumber = (value: string): boolean => {
