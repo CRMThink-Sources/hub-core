@@ -10,6 +10,7 @@ import { envConfig } from '@/shared/infra/env-config'
 import { useTranslation } from 'react-i18next'
 
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
+import { Button } from '@/components/ui/button'
 
 type Props = {
   className?: string
@@ -91,10 +92,6 @@ function apiErrorMessage(e: unknown, fallback: string): string {
   return fallback
 }
 
-/** Botões em linha alinhados à direita (ex.: header Conexões) — largura natural, sem esticar. */
-const actionBtnInline =
-  'inline-flex min-h-[42px] shrink-0 max-w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-
 export function AtivarAssinaturaButton({
   className = '',
   variant = 'primary',
@@ -156,36 +153,29 @@ export function AtivarAssinaturaButton({
     }
   }
 
-  const base =
-    variant === 'primary'
-      ? 'bg-[#5A997E] text-white hover:bg-[#4a8169] border border-transparent'
-      : 'bg-white text-[#5A997E] border border-[#5A997E] hover:bg-[#f0faf5]'
-
-  const outline =
-    'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-
+  const primaryVariant = variant === 'primary' ? 'default' : 'outline'
   const busy = loadingTrial || loadingPortal
 
   const primaryBtn = (
-    <button
+    <Button
       type="button"
+      variant={primaryVariant}
       onClick={() => void endTrial()}
       disabled={busy}
-      className={`cursor-pointer ${actionBtnInline} ${base}`}
     >
       {loadingTrial ? t('efetivando') : t('efetivarAgora')}
-    </button>
+    </Button>
   )
 
   const portalBtn = showPortalLink ? (
-    <button
+    <Button
       type="button"
+      variant="outline"
       onClick={() => void openPortal()}
       disabled={busy}
-      className={`cursor-pointer ${actionBtnInline} ${outline}`}
     >
       {loadingPortal ? t('abrindoPortal') : t('cartaoFaturas')}
-    </button>
+    </Button>
   ) : null
 
   if (layout === 'inline') {
@@ -199,24 +189,8 @@ export function AtivarAssinaturaButton({
 
   return (
     <div className={`flex w-full flex-col items-end gap-2 ${className}`}>
-      <button
-        type="button"
-        onClick={() => void endTrial()}
-        disabled={busy}
-        className={`font-medium cursor-pointer rounded-lg px-5 py-2.5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${base}`}
-      >
-        {loadingTrial ? t('efetivando') : t('efetivarAgora')}
-      </button>
-      {showPortalLink && (
-        <button
-          type="button"
-          onClick={() => void openPortal()}
-          disabled={busy}
-          className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${outline}`}
-        >
-          {loadingPortal ? t('abrindoPortal') : t('cartaoFaturas')}
-        </button>
-      )}
+      {primaryBtn}
+      {portalBtn}
     </div>
   )
 }

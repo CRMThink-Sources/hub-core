@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { resolveThinkzapClient } from '../../_lib/thinkzap-client'
 import { useTranslation } from 'react-i18next'
+import { MinusIcon, PlusIcon } from 'lucide-react'
+import { Button, buttonVariants } from '@/components/ui/button'
 
 export type ThinkzapPricingResponse = {
   currency: string
@@ -78,9 +80,6 @@ export function GestaoLinhasPricingCard({
   )
   const totalEstimado = computeEstimateAmount(pricing, linhasNaEstimativa)
 
-  const portalClassname =
-    'border border-orange-400 text-orange-500 px-4 text-sm py-2 rounded-md hover:bg-orange-500 transition-colors duration-300 hover:text-white'
-
   useEffect(() => {
     const fetchBillingPortalUrl = async () => {
       try {
@@ -101,18 +100,18 @@ export function GestaoLinhasPricingCard({
 
   if (isTrial) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-        <h3 className="text-base font-semibold text-black">
+      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <h3 className="text-base font-semibold text-foreground">
           {t('trial.titulo')}
         </h3>
-        <p className="mt-2 text-sm text-gray-600">{t('trial.info')}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t('trial.info')}</p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="mb-4 text-sm text-gray-700">
+    <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+      <p className="mb-4 text-sm text-foreground">
         {isCancelled
           ? t('descricaoReativando', { count: quantidade })
           : t('descricaoAjustavel', {
@@ -126,31 +125,33 @@ export function GestaoLinhasPricingCard({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
           <div className="flex items-center gap-3">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-sm"
               onClick={onDecrement}
               disabled={submitting}
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-gray-100 font-semibold text-gray-700 transition-colors hover:bg-gray-200 disabled:opacity-50"
             >
-              −
-            </button>
-            <span className="min-w-[40px] text-center text-lg font-semibold text-black">
+              <MinusIcon />
+            </Button>
+            <span className="min-w-[40px] text-center text-lg font-semibold text-foreground">
               {quantidade}
             </span>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-sm"
               onClick={onIncrement}
               disabled={submitting}
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-gray-200 bg-gray-100 font-semibold text-gray-700 transition-colors hover:bg-gray-200 disabled:opacity-50"
             >
-              +
-            </button>
+              <PlusIcon />
+            </Button>
           </div>
 
           <div className="space-y-1 text-left">
             {pricing?.billingScheme === 'tiered' &&
               pricing.tiers.length > 0 && (
-                <ul className="max-w-md space-y-0.5 text-xs text-gray-500">
+                <ul className="max-w-md space-y-0.5 text-xs text-muted-foreground">
                   {pricing.tiers.map((tier, index) => (
                     <li key={index}>
                       {t(
@@ -177,7 +178,7 @@ export function GestaoLinhasPricingCard({
               <p className="text-xs text-amber-700">{pricingErro}</p>
             )}
 
-            <p className="pt-1 text-sm text-gray-600">
+            <p className="pt-1 text-sm text-muted-foreground">
               {isCancelled
                 ? t('valorMensalReativar', { count: quantidade })
                 : temAssinaturaAjustavel
@@ -190,13 +191,13 @@ export function GestaoLinhasPricingCard({
                   : t('valorMensalNovo', { count: quantidade })}
             </p>
 
-            <p className="text-lg font-semibold text-[#5A997E]">
+            <p className="text-lg font-semibold text-primary">
               {pricingLoading ? (
-                <span className="text-gray-400">…</span>
+                <span className="text-muted-foreground">…</span>
               ) : totalEstimado != null ? (
                 <>R$ {formatCurrency(totalEstimado)}</>
               ) : (
-                <span className="text-gray-400">—</span>
+                <span className="text-muted-foreground">—</span>
               )}
             </p>
           </div>
@@ -204,25 +205,20 @@ export function GestaoLinhasPricingCard({
 
         <div className="flex gap-2">
           {!isCancelled && (
-            <button
-              type="button"
-              onClick={onContinue}
-              disabled={submitting}
-              className="cursor-pointer rounded-md bg-[#5A997E] px-5 py-2 text-sm font-medium text-white hover:bg-[#4a8169] disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <Button type="button" onClick={onContinue} disabled={submitting}>
               {t('contratar', { count: quantidade })}
-            </button>
+            </Button>
           )}
 
           {isCancelled && (
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={onReactivateSubscription}
               disabled={submitting}
-              className="cursor-pointer rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t('reativarAssinatura')}
-            </button>
+            </Button>
           )}
 
           {hasSubscription && (
@@ -230,7 +226,7 @@ export function GestaoLinhasPricingCard({
               href={billingPortalUrl ?? ''}
               target="_blank"
               rel="noopener noreferrer"
-              className={portalClassname}
+              className={buttonVariants({ variant: 'outline' })}
             >
               {t('alterarPagamento')}
             </Link>

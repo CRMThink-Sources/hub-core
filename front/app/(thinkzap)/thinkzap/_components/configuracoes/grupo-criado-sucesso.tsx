@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { CreatedGroup } from '@/app/hooks/use-create-group'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 type Props = {
   group: CreatedGroup
@@ -37,34 +40,32 @@ export function GrupoCriadoSucesso({
   }
 
   return (
-    <div className="flex flex-col gap-6 rounded-lg border border-[#5A997E]/30 bg-[#f0fdf4] p-6">
-      <h3 className="text-lg font-semibold text-[#144A1B]">
+    <div className="flex flex-col gap-6 rounded-lg border border-primary/30 bg-primary/5 p-6">
+      <h3 className="text-lg font-semibold text-primary">
         {t('sucesso.titulo')}
       </h3>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-black">
-          {t('sucesso.linkLabel')}
-        </label>
+        <Label>{t('sucesso.linkLabel')}</Label>
         <div className="flex gap-2">
-          <input
+          <Input
             id="invitation-link-input"
             readOnly
             value={group.invitationLink}
-            className="min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800"
+            className="min-w-0 flex-1 bg-card"
           />
-          <button
+          <Button
             type="button"
             onClick={() => void handleCopy()}
-            className="shrink-0 cursor-pointer rounded-md bg-[#5A997E] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4a8169]"
+            className="shrink-0"
           >
             {copied ? t('sucesso.copiado') : t('sucesso.copiar')}
-          </button>
+          </Button>
         </div>
       </div>
 
       {group.phone && (
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           <span className="font-medium">{t('sucesso.grupoId')}:</span>{' '}
           {group.phone}
         </p>
@@ -72,21 +73,18 @@ export function GrupoCriadoSucesso({
 
       <div className="flex flex-wrap gap-2">
         {onViewList && (
-          <button
-            type="button"
-            onClick={onViewList}
-            className="cursor-pointer rounded-md bg-[#5A997E] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4a8169]"
-          >
+          <Button type="button" onClick={onViewList}>
             {t('sucesso.verLista', { defaultValue: 'Ver na lista' })}
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={onCreateAnother}
-          className="w-fit cursor-pointer rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="w-fit"
         >
           {t('sucesso.criarOutro')}
-        </button>
+        </Button>
       </div>
     </div>
   )

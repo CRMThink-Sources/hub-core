@@ -33,14 +33,14 @@ export function GrupoAvatar({ src, label, size = 'md' }: Props) {
         src={src}
         alt={label}
         onError={() => setFailed(true)}
-        className={`${sizeClasses[size]} shrink-0 rounded-full object-cover bg-gray-100`}
+        className={`${sizeClasses[size]} shrink-0 rounded-full object-cover bg-muted`}
       />
     )
   }
 
   return (
     <div
-      className={`${sizeClasses[size]} flex shrink-0 items-center justify-center rounded-full bg-[#d9fce6] font-medium text-[#144A1B]`}
+      className={`${sizeClasses[size]} flex shrink-0 items-center justify-center rounded-full bg-primary/10 font-medium text-primary`}
     >
       {initials(label)}
     </div>

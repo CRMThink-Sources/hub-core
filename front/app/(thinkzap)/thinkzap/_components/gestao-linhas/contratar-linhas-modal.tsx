@@ -3,6 +3,16 @@
 import { useEffect, useState } from 'react'
 import { resolveThinkzapClient } from '../../_lib/thinkzap-client'
 import { useTranslation } from 'react-i18next'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 type PreviewData = {
   currentQuantity: number
@@ -82,122 +92,122 @@ export function ContratarLinhasModal({
     }
   }, [isOpen, quantidade])
 
-  if (!isOpen) return null
-
   const novasLinhas = quantidade
   const totalLinhas = linhasNaAssinatura + quantidade
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
-        <h3 className="text-base font-semibold text-gray-900">{t('titulo')}</h3>
-        <p className="mt-1 text-sm text-gray-500">{t('subtitulo')}</p>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(next, details) => {
+        if (next) return
+        if (details.reason === 'outside-press') return
+        onClose()
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t('titulo')}</DialogTitle>
+          <DialogDescription>{t('subtitulo')}</DialogDescription>
+        </DialogHeader>
 
-        {/* Resumo */}
-        <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-4 space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">{t('linhasAtuais')}</span>
-            <span className="font-medium text-gray-800">
-              {t('linha', { count: linhasNaAssinatura })}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">{t('adicionando')}</span>
-            <span className="font-medium text-[#5A997E]">
-              + {t('linha', { count: novasLinhas })}
-            </span>
-          </div>
-          <div className="border-t border-gray-200 pt-2 flex justify-between text-sm font-semibold">
-            <span className="text-gray-800">{t('totalAposConfirmacao')}</span>
-            <span className="text-gray-900">
-              {t('linha', { count: totalLinhas })}
-            </span>
-          </div>
-        </div>
-
-        {/* Estimativa de valor */}
-        <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-blue-700">
-            {t('valorMensalEstimado')}
-          </p>
-
-          {previewLoading && (
-            <p className="mt-2 text-sm text-blue-800">
-              {t('carregandoEstimativa')}
-            </p>
-          )}
-
-          {!previewLoading && previewErro && (
-            <p className="mt-2 text-sm text-amber-700">{previewErro}</p>
-          )}
-
-          {!previewLoading && preview && (
-            <div className="mt-2 space-y-1">
-              {preview.discount ? (
-                <>
-                  <p className="text-sm text-blue-900 line-through opacity-60">
-                    R$ {formatCurrency(preview.estimatedMonthlyAmount ?? 0)}
-                  </p>
-                  <p className="text-lg font-bold text-[#5A997E]">
-                    R${' '}
-                    {formatCurrency(
-                      preview.discount.estimatedAmountWithDiscount ?? 0,
-                    )}
-                  </p>
-                  <p className="text-xs text-blue-700">
-                    {t('cupomAplicado')}{' '}
-                    <span className="font-semibold">
-                      {preview.discount.name ?? t('descontoAtivo')}
-                    </span>{' '}
-                    {preview.discount.percentOff != null
-                      ? t('percentDesconto', {
-                          percent: preview.discount.percentOff,
-                        })
-                      : preview.discount.amountOff != null
-                        ? t('valorDesconto', {
-                            valor: formatCurrency(preview.discount.amountOff),
-                          })
-                        : ''}
-                  </p>
-                </>
-              ) : (
-                <p className="text-lg font-bold text-gray-800">
-                  {preview.estimatedMonthlyAmount != null
-                    ? `R$ ${formatCurrency(preview.estimatedMonthlyAmount)}`
-                    : '—'}
-                </p>
-              )}
-              <p className="text-xs text-blue-600">{t('proRata')}</p>
+        <DialogBody className="flex flex-col gap-4">
+          {/* Resumo */}
+          <div className="space-y-2 rounded-lg border border-border bg-muted p-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">{t('linhasAtuais')}</span>
+              <span className="font-medium text-foreground">
+                {t('linha', { count: linhasNaAssinatura })}
+              </span>
             </div>
-          )}
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">{t('adicionando')}</span>
+              <span className="font-medium text-primary">
+                + {t('linha', { count: novasLinhas })}
+              </span>
+            </div>
+            <div className="flex justify-between border-t border-border pt-2 text-sm font-semibold">
+              <span className="text-foreground">
+                {t('totalAposConfirmacao')}
+              </span>
+              <span className="text-foreground">
+                {t('linha', { count: totalLinhas })}
+              </span>
+            </div>
+          </div>
 
-          {!previewLoading && !preview && !previewErro && (
-            <p className="mt-2 text-sm text-blue-800">—</p>
-          )}
-        </div>
+          {/* Estimativa de valor */}
+          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-blue-700">
+              {t('valorMensalEstimado')}
+            </p>
 
-        {/* Ações */}
-        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
+            {previewLoading && (
+              <p className="mt-2 text-sm text-blue-800">
+                {t('carregandoEstimativa')}
+              </p>
+            )}
+
+            {!previewLoading && previewErro && (
+              <p className="mt-2 text-sm text-amber-700">{previewErro}</p>
+            )}
+
+            {!previewLoading && preview && (
+              <div className="mt-2 space-y-1">
+                {preview.discount ? (
+                  <>
+                    <p className="text-sm text-blue-900 line-through opacity-60">
+                      R$ {formatCurrency(preview.estimatedMonthlyAmount ?? 0)}
+                    </p>
+                    <p className="text-lg font-bold text-primary">
+                      R${' '}
+                      {formatCurrency(
+                        preview.discount.estimatedAmountWithDiscount ?? 0,
+                      )}
+                    </p>
+                    <p className="text-xs text-blue-700">
+                      {t('cupomAplicado')}{' '}
+                      <span className="font-semibold">
+                        {preview.discount.name ?? t('descontoAtivo')}
+                      </span>{' '}
+                      {preview.discount.percentOff != null
+                        ? t('percentDesconto', {
+                            percent: preview.discount.percentOff,
+                          })
+                        : preview.discount.amountOff != null
+                          ? t('valorDesconto', {
+                              valor: formatCurrency(preview.discount.amountOff),
+                            })
+                          : ''}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-lg font-bold text-foreground">
+                    {preview.estimatedMonthlyAmount != null
+                      ? `R$ ${formatCurrency(preview.estimatedMonthlyAmount)}`
+                      : '—'}
+                  </p>
+                )}
+                <p className="text-xs text-blue-600">{t('proRata')}</p>
+              </div>
+            )}
+
+            {!previewLoading && !preview && !previewErro && (
+              <p className="mt-2 text-sm text-blue-800">—</p>
+            )}
+          </div>
+        </DialogBody>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
             {t('acoes.cancelar')}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={submitting || previewLoading}
-            className="inline-flex items-center justify-center rounded-lg bg-[#5A997E] px-5 py-2 text-sm font-medium text-white hover:bg-[#4a8169] disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          </Button>
+          <Button onClick={onConfirm} disabled={submitting || previewLoading}>
             {submitting
               ? t('acoes.confirmando')
               : t('acoes.confirmar', { count: novasLinhas })}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

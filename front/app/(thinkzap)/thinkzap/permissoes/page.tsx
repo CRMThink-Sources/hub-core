@@ -23,7 +23,6 @@ import {
 } from '../_components/permissions-mode-tabs'
 import { PermissionsToolbar } from '../_components/permissions-toolbar'
 import { PermissionsAddDialog } from '../_components/permissions-add-dialog'
-import { PermissionsDefaultsCard } from '../_components/permissions-defaults-card'
 import { PermissionsFooterBar } from '../_components/permissions-footer-bar'
 import { PermissionsUsersTable } from '../_components/permissions-users-table'
 import { PermissionsDepartmentsTable } from '../_components/permissions-departments-table'
@@ -442,7 +441,7 @@ export default function PermissoesPage() {
       <PermissionsHeader />
       <PermissionsModeTabs activeTab={activeTab} onChange={setActiveTab} />
 
-      <div className="flex flex-col gap-5 rounded-lg border border-gray-100 bg-white p-5">
+      <div className="flex flex-col gap-5 rounded-xl border border-border bg-card p-5">
         <PermissionsToolbar
           mode={activeTab}
           filter={tableFilter}
@@ -450,24 +449,12 @@ export default function PermissoesPage() {
           onAddClick={openAddDialog}
         />
 
-        <PermissionsDefaultsCard
-          mode={activeTab}
-          value={
-            activeTab === 'users' ? newUserPermissions : newDeptPermissions
-          }
-          onChange={
-            activeTab === 'users'
-              ? setNewUserPermissions
-              : setNewDeptPermissions
-          }
-        />
-
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
           </div>
         ) : isEmpty ? (
-          <p className="rounded-lg border border-dashed border-gray-200 px-4 py-12 text-center text-sm text-slate-500">
+          <p className="rounded-lg border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">
             {activeTab === 'users'
               ? t('emptyList')
               : t('departments.emptyList')}

@@ -9,6 +9,10 @@ import { ConfirmModal } from './confirm-modal'
 import { GrupoAvatar } from './grupo-avatar'
 import { GrupoFotoUpload } from './grupo-foto-upload'
 import { ParticipantesPicker } from './participantes-picker'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 
 type Props = {
   connectorId: string
@@ -148,7 +152,9 @@ export function GrupoDetalhePanel({
   }
 
   if (loading && !metadata) {
-    return <p className="text-sm text-gray-500">{t('detalhe.carregando')}</p>
+    return (
+      <p className="text-sm text-muted-foreground">{t('detalhe.carregando')}</p>
+    )
   }
 
   return (
@@ -156,26 +162,28 @@ export function GrupoDetalhePanel({
       <button
         type="button"
         onClick={onBack}
-        className="w-fit cursor-pointer text-sm text-[#5A997E] hover:underline"
+        className="w-fit cursor-pointer text-sm text-primary hover:underline"
       >
         ← {t('detalhe.voltar')}
       </button>
 
-      {displayError && <p className="text-sm text-red-600">{displayError}</p>}
+      {displayError && (
+        <p className="text-sm text-destructive">{displayError}</p>
+      )}
 
       {metadata && (
-        <div className="flex items-center gap-4 rounded-lg border border-gray-100 bg-gray-50 p-4">
+        <div className="flex items-center gap-4 rounded-lg border border-border bg-muted p-4">
           <GrupoAvatar
             src={metadata.photoUrl}
             label={metadata.subject || metadata.phone}
             size="lg"
           />
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-lg font-semibold text-black">
+            <h3 className="truncate text-lg font-semibold text-foreground">
               {metadata.subject || metadata.phone}
             </h3>
-            <p className="text-xs text-gray-500">{metadata.phone}</p>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="text-xs text-muted-foreground">{metadata.phone}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
               {t('detalhe.totalParticipantes', {
                 count: metadata.participants?.length ?? 0,
               })}
@@ -185,54 +193,48 @@ export function GrupoDetalhePanel({
       )}
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-black">
-          {t('detalhe.nome')}
-        </label>
+        <Label>{t('detalhe.nome')}</Label>
         <div className="flex gap-2">
-          <input
-            className="min-w-0 flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm"
+          <Input
+            className="min-w-0 flex-1"
             value={groupName}
             onChange={e => setGroupName(e.target.value)}
           />
-          <button
+          <Button
             type="button"
             onClick={() => void handleSaveName()}
             disabled={mutations.loading}
-            className="shrink-0 cursor-pointer rounded-md bg-[#5A997E] px-3 py-2 text-sm text-white disabled:opacity-50"
+            className="shrink-0"
           >
             {mutations.loading
               ? t('detalhe.salvando')
               : t('detalhe.salvarNome')}
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-black">
-          {t('detalhe.descricao')}
-        </label>
+        <Label>{t('detalhe.descricao')}</Label>
         <textarea
-          className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+          className="rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           rows={3}
           value={description}
           onChange={e => setDescription(e.target.value)}
         />
-        <button
+        <Button
           type="button"
           onClick={() => void handleSaveDescription()}
           disabled={mutations.loading}
-          className="w-fit cursor-pointer rounded-md bg-[#5A997E] px-3 py-2 text-sm text-white disabled:opacity-50"
+          className="w-fit"
         >
           {mutations.loading
             ? t('detalhe.salvando')
             : t('detalhe.salvarDescricao')}
-        </button>
+        </Button>
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-black">
-          {t('detalhe.foto')}
-        </label>
+        <Label>{t('detalhe.foto')}</Label>
         <GrupoFotoUpload
           currentPhotoUrl={metadata?.photoUrl}
           label={metadata?.subject ?? groupId}
@@ -243,35 +245,35 @@ export function GrupoDetalhePanel({
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-black">
-          {t('detalhe.linkConvite')}
-        </label>
+        <Label>{t('detalhe.linkConvite')}</Label>
         {metadata?.invitationLink ? (
           <div className="flex gap-2">
-            <input
+            <Input
               readOnly
               value={metadata.invitationLink}
-              className="min-w-0 flex-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+              className="min-w-0 flex-1 bg-muted"
             />
-            <button
+            <Button
               type="button"
               onClick={() => void handleCopyLink()}
-              className="shrink-0 cursor-pointer rounded-md bg-[#5A997E] px-3 py-2 text-sm text-white"
+              className="shrink-0"
             >
               {copied ? t('detalhe.copiado') : t('detalhe.copiar')}
-            </button>
+            </Button>
           </div>
         ) : (
-          <p className="text-sm text-gray-500">{t('detalhe.semLink')}</p>
+          <p className="text-sm text-muted-foreground">
+            {t('detalhe.semLink')}
+          </p>
         )}
       </div>
 
       <div className="flex flex-col gap-3">
-        <h4 className="text-sm font-semibold text-black">
+        <h4 className="text-sm font-semibold text-foreground">
           {t('detalhe.participantes')} ({metadata?.participants?.length ?? 0})
         </h4>
         {!metadata?.participants?.length ? (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             {t('detalhe.semParticipantes')}
           </p>
         ) : (
@@ -281,19 +283,19 @@ export function GrupoDetalhePanel({
               return (
                 <li
                   key={p.phone}
-                  className="flex items-center justify-between gap-3 rounded-md border border-gray-100 px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <GrupoAvatar src={p.imgUrl} label={displayName} size="sm" />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-black">
+                      <p className="truncate text-sm font-medium text-foreground">
                         {displayName}
                       </p>
-                      <p className="truncate text-xs text-gray-500">
+                      <p className="truncate text-xs text-muted-foreground">
                         {p.phone}
                       </p>
                       {p.isAdmin && (
-                        <span className="text-xs text-[#5A997E]">
+                        <span className="text-xs text-primary">
                           {t('detalhe.admin')}
                         </span>
                       )}
@@ -302,7 +304,7 @@ export function GrupoDetalhePanel({
                   <button
                     type="button"
                     onClick={() => setRemoveModal({ phone: p.phone })}
-                    className="shrink-0 cursor-pointer text-xs text-red-600 hover:text-red-800"
+                    className="shrink-0 cursor-pointer text-xs text-destructive hover:underline"
                   >
                     {t('detalhe.remover')}
                   </button>
@@ -313,18 +315,17 @@ export function GrupoDetalhePanel({
         )}
       </div>
 
-      <div className="flex flex-col gap-3 rounded-md border border-gray-100 p-4">
-        <h4 className="text-sm font-semibold text-black">
+      <div className="flex flex-col gap-3 rounded-md border border-border p-4">
+        <h4 className="text-sm font-semibold text-foreground">
           {t('detalhe.adicionarParticipantes')}
         </h4>
         <label className="flex cursor-pointer items-start gap-2">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={autoInvite}
-            onChange={e => setAutoInvite(e.target.checked)}
+            onCheckedChange={(checked: boolean) => setAutoInvite(checked)}
             className="mt-0.5"
           />
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-foreground">
             {t('detalhe.autoInvite')}
           </span>
         </label>
@@ -334,7 +335,7 @@ export function GrupoDetalhePanel({
           onError={setSectionError}
         />
         {pendingPhones.length > 0 && (
-          <ul className="text-sm text-gray-700">
+          <ul className="text-sm text-foreground">
             {pendingPhones.map(phone => (
               <li key={phone} className="flex justify-between py-1">
                 {phone}
@@ -343,7 +344,7 @@ export function GrupoDetalhePanel({
                   onClick={() =>
                     setPendingPhones(prev => prev.filter(p => p !== phone))
                   }
-                  className="text-xs text-red-600"
+                  className="text-xs text-destructive"
                 >
                   ✕
                 </button>
@@ -351,23 +352,24 @@ export function GrupoDetalhePanel({
             ))}
           </ul>
         )}
-        <button
+        <Button
           type="button"
           onClick={() => void handleConfirmAddParticipants()}
           disabled={pendingPhones.length === 0 || mutations.loading}
-          className="w-fit cursor-pointer rounded-md bg-[#5A997E] px-4 py-2 text-sm text-white disabled:opacity-50"
+          className="w-fit"
         >
           {t('detalhe.confirmarAdicionar')}
-        </button>
+        </Button>
       </div>
 
-      <button
+      <Button
         type="button"
+        variant="destructive"
         onClick={() => setLeaveModalOpen(true)}
-        className="w-fit cursor-pointer rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+        className="w-fit"
       >
         {t('detalhe.sairGrupo')}
-      </button>
+      </Button>
 
       <ConfirmModal
         isOpen={leaveModalOpen}

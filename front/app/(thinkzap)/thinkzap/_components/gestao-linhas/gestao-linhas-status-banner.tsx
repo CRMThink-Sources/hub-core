@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
+import { buttonVariants } from '@/components/ui/button'
 
 type Props = {
   isTrial: boolean
@@ -25,14 +26,11 @@ export function GestaoLinhasStatusBanner({
       <div>
         <div className="flex items-center justify-between">
           <p>{t('semAssinatura')}</p>
-          <Link
-            href="/thinkzap/ativar-trial"
-            className="cursor-pointer rounded-md bg-yellow-500 px-5 py-2 text-sm font-medium text-white hover:bg-amber-500"
-          >
+          <Link href="/thinkzap/ativar-trial" className={buttonVariants()}>
             {t('ativarTrial')}
           </Link>
         </div>
-        <p className="text-sm text-gray-600">{t('aposTrialInfo')}</p>
+        <p className="text-sm text-muted-foreground">{t('aposTrialInfo')}</p>
       </div>
     )
   }
@@ -47,8 +45,8 @@ export function GestaoLinhasStatusBanner({
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-black">{t('titulo')}</h2>
-      <p className="mt-1 text-sm text-gray-600">{t('subtitulo')}</p>
+      <h2 className="text-lg font-semibold text-foreground">{t('titulo')}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t('subtitulo')}</p>
     </div>
   )
 }

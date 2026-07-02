@@ -5,6 +5,16 @@ import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 import { envConfig } from '@/shared/infra/env-config'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 interface Channel {
   id: string
@@ -131,68 +141,73 @@ export function VincularCanalModal({
     }
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 space-y-4">
-        <div>
-          <h2 className="text-base font-semibold text-black">{t('titulo')}</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(next, details) => {
+        if (next) return
+        if (details.reason === 'outside-press') return
+        onClose()
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t('titulo')}</DialogTitle>
+          <DialogDescription>
             {t('descricao')} <strong>{connector?.instance.name}</strong>
-          </p>
-        </div>
+          </DialogDescription>
+        </DialogHeader>
 
-        {loading && (
-          <p className="text-sm text-gray-400">{t('carregandoCanais')}</p>
-        )}
+        <DialogBody className="flex flex-col gap-3">
+          {loading && (
+            <p className="text-sm text-muted-foreground">
+              {t('carregandoCanais')}
+            </p>
+          )}
 
-        {!loading && channels.length === 0 && !error && (
-          <p className="text-sm text-gray-400">{t('nenhumCanal')}</p>
-        )}
+          {!loading && channels.length === 0 && !error && (
+            <p className="text-sm text-muted-foreground">{t('nenhumCanal')}</p>
+          )}
 
-        {!loading && channels.length > 0 && (
-          <ul className="border border-gray-200 rounded-md divide-y divide-gray-100 max-h-60 overflow-y-auto">
-            {channels.map(channel => (
-              <li key={channel.id}>
-                <button
-                  onClick={() => setSelectedId(channel.id)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors ${
-                    selectedId === channel.id
-                      ? 'bg-[#e8fdf0] text-[#144A1B] font-medium'
-                      : 'hover:bg-gray-50 text-black'
-                  }`}
-                >
-                  <span className="cursor-pointer">{channel.name}</span>
-                  {!channel.active && (
-                    <span className="text-xs text-gray-400">
-                      {t('inativo')}
-                    </span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+          {!loading && channels.length > 0 && (
+            <ul className="max-h-60 divide-y divide-border overflow-y-auto rounded-md border border-border">
+              {channels.map(channel => (
+                <li key={channel.id}>
+                  <button
+                    onClick={() => setSelectedId(channel.id)}
+                    className={`flex w-full cursor-pointer items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
+                      selectedId === channel.id
+                        ? 'bg-accent font-medium text-accent-foreground'
+                        : 'text-foreground hover:bg-accent'
+                    }`}
+                  >
+                    <span>{channel.name}</span>
+                    {!channel.active && (
+                      <span className="text-xs text-muted-foreground">
+                        {t('inativo')}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
-        {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
+        </DialogBody>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm rounded-md border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
-          >
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
             {t('acoes.cancelar')}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => void handleVincular()}
             disabled={!selectedId || saving}
-            className="px-4 py-2 text-sm rounded-md bg-[#5A997E] text-white font-medium hover:bg-[#4a8169] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {saving ? t('acoes.vinculando') : t('acoes.vincular')}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

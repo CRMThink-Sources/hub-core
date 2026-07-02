@@ -8,12 +8,10 @@ import {
 } from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
 import { envConfig } from '@/shared/infra/env-config'
 import { useTranslation } from 'react-i18next'
-
-const INPUT_CLASS =
-  'mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-800 placeholder-slate-400 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60'
-
-const BUTTON_CLASS =
-  'cursor-pointer w-full rounded-xl bg-indigo-600 px-4 py-3.5 font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60 disabled:shadow-none'
+import { Loader2Icon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export function AtivarTrialForm() {
   const { t } = useTranslation('thinkzap/ativar-trial')
@@ -56,21 +54,16 @@ export function AtivarTrialForm() {
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-sm backdrop-blur-sm sm:p-8">
+    <div className="rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
       <form
         onSubmit={e => {
           void handleSubmit(e)
         }}
         className="space-y-5"
       >
-        <div>
-          <label
-            htmlFor="trial-nome"
-            className="block text-sm font-semibold text-slate-700"
-          >
-            {t('campos.nome')}
-          </label>
-          <input
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="trial-nome">{t('campos.nome')}</Label>
+          <Input
             id="trial-nome"
             name="nome"
             type="text"
@@ -78,21 +71,15 @@ export function AtivarTrialForm() {
             value={nome}
             onChange={e => setNome(e.target.value)}
             placeholder={t('campos.nomePlaceholder')}
-            className={INPUT_CLASS}
             required
             minLength={2}
             disabled={submitting}
           />
         </div>
 
-        <div>
-          <label
-            htmlFor="trial-email"
-            className="block text-sm font-semibold text-slate-700"
-          >
-            {t('campos.email')}
-          </label>
-          <input
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="trial-email">{t('campos.email')}</Label>
+          <Input
             id="trial-email"
             name="email"
             type="email"
@@ -100,20 +87,14 @@ export function AtivarTrialForm() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder={t('campos.emailPlaceholder')}
-            className={INPUT_CLASS}
             required
             disabled={submitting}
           />
         </div>
 
-        <div>
-          <label
-            htmlFor="trial-telefone"
-            className="block text-sm font-semibold text-slate-700"
-          >
-            {t('campos.telefone')}
-          </label>
-          <input
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="trial-telefone">{t('campos.telefone')}</Label>
+          <Input
             id="trial-telefone"
             name="telefone"
             type="tel"
@@ -121,21 +102,15 @@ export function AtivarTrialForm() {
             value={telefone}
             onChange={e => setTelefone(e.target.value)}
             placeholder={t('campos.telefonePlaceholder')}
-            className={INPUT_CLASS}
             required
             minLength={8}
             disabled={submitting}
           />
         </div>
 
-        <div>
-          <label
-            htmlFor="trial-empresa"
-            className="block text-sm font-semibold text-slate-700"
-          >
-            {t('campos.empresa')}
-          </label>
-          <input
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="trial-empresa">{t('campos.empresa')}</Label>
+          <Input
             id="trial-empresa"
             name="empresa"
             type="text"
@@ -143,7 +118,6 @@ export function AtivarTrialForm() {
             value={empresa}
             onChange={e => setEmpresa(e.target.value)}
             placeholder={t('campos.empresaPlaceholder')}
-            className={INPUT_CLASS}
             required
             minLength={2}
             disabled={submitting}
@@ -152,26 +126,28 @@ export function AtivarTrialForm() {
 
         {erro && (
           <div
-            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive"
             role="alert"
           >
             {erro}
           </div>
         )}
 
-        <button type="submit" disabled={submitting} className={BUTTON_CLASS}>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={submitting}
+          className="w-full"
+        >
           {submitting ? (
-            <span className="flex items-center justify-center gap-2">
-              <span
-                className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
-                aria-hidden
-              />
+            <>
+              <Loader2Icon className="animate-spin" />
               {t('redirecionando')}
-            </span>
+            </>
           ) : (
             t('continuar')
           )}
-        </button>
+        </Button>
       </form>
     </div>
   )

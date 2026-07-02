@@ -26,7 +26,6 @@
   "addUserDialogTitle": "Agregar usuario",
   "addDepartmentDialogTitle": "Agregar departamento",
   "closeDialog": "Cerrar",
-  "editPermissions": "Editar permisos",
   "pagination": {
     "previous": "Página anterior",
     "next": "Página siguiente"
@@ -57,7 +56,7 @@
   "emptyList": "Aún no hay usuarios autorizados. Agregue colaboradores y configure permisos.",
   "defaultPermissionsForNewUser": "Permisos predeterminados para nuevos usuarios",
   "savePermissions": "Guardar permisos",
-  "permissionsSaved": "Permisos guardados correctamente.",
+  "permissionsSaved": "Permisos actualizados correctamente.",
   "remove": "Eliminar",
   "removeConfirm": "¿Eliminar este usuario de la lista de permisos?",
   "added": "Usuario agregado correctamente.",

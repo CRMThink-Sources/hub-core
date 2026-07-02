@@ -26,7 +26,6 @@
   "addUserDialogTitle": "Add user",
   "addDepartmentDialogTitle": "Add department",
   "closeDialog": "Close",
-  "editPermissions": "Edit permissions",
   "pagination": {
     "previous": "Previous page",
     "next": "Next page"
@@ -57,7 +56,7 @@
   "emptyList": "No authorized users yet. Add teammates and configure permissions.",
   "defaultPermissionsForNewUser": "Default permissions for new users",
   "savePermissions": "Save permissions",
-  "permissionsSaved": "Permissions saved successfully.",
+  "permissionsSaved": "Permissions updated successfully.",
   "remove": "Remove",
   "removeConfirm": "Remove this user from the permission list?",
   "added": "User added successfully.",

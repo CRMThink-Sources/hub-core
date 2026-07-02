@@ -5,6 +5,16 @@ import { useTranslation } from 'react-i18next'
 import { getAppRedirectUrl } from '@/app/config/app-redirects'
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 import { envConfig } from '@/shared/infra/env-config'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 type Props = {
   isOpen: boolean
@@ -100,60 +110,67 @@ export function CancelarConectorModal({
     }
   }
 
-  if (!isOpen || !connector) return null
+  if (!connector) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5 shadow-xl">
-        <h3 className="text-base font-semibold text-gray-900">{t('titulo')}</h3>
-        <p className="mt-2 text-sm text-gray-600">
-          {t('descricao')}{' '}
-          <span className="font-semibold text-gray-800">{connector.nome}</span>
-          {t('descricaoComplemento')}
-        </p>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(next, details) => {
+        if (next) return
+        if (details.reason === 'outside-press') return
+        onClose()
+      }}
+    >
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t('titulo')}</DialogTitle>
+          <DialogDescription>
+            {t('descricao')}{' '}
+            <span className="font-semibold text-foreground">
+              {connector.nome}
+            </span>
+            {t('descricaoComplemento')}
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-amber-800">
-            {t('novoValorMensal')}
-          </p>
-          <p className="mt-1 text-sm text-amber-900">
-            {estimativaLoading
-              ? t('carregandoEstimativa')
-              : estimativaNovoValor != null
-                ? t(
-                    quantityAposCancelamento === 1
-                      ? 'comLinhas_one'
-                      : 'comLinhas_other',
-                    {
-                      count: quantityAposCancelamento,
-                      valor: formatCurrency(estimativaNovoValor),
-                    },
-                  )
-                : t('estimativaIndisponivel')}
-          </p>
-        </div>
+        <DialogBody className="flex flex-col gap-3">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-amber-800">
+              {t('novoValorMensal')}
+            </p>
+            <p className="mt-1 text-sm text-amber-900">
+              {estimativaLoading
+                ? t('carregandoEstimativa')
+                : estimativaNovoValor != null
+                  ? t(
+                      quantityAposCancelamento === 1
+                        ? 'comLinhas_one'
+                        : 'comLinhas_other',
+                      {
+                        count: quantityAposCancelamento,
+                        valor: formatCurrency(estimativaNovoValor),
+                      },
+                    )
+                  : t('estimativaIndisponivel')}
+            </p>
+          </div>
 
-        {erro && <p className="mt-3 text-sm text-red-600">{erro}</p>}
+          {erro && <p className="text-sm text-destructive">{erro}</p>}
+        </DialogBody>
 
-        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            disabled={loading}
-          >
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={loading}>
             {t('acoes.voltar')}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="destructive"
             onClick={() => void handleConfirmar()}
-            className="inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
             disabled={loading}
           >
             {loading ? t('acoes.cancelando') : t('acoes.confirmar')}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -1,6 +1,5 @@
 'use client'
 
-import { Toaster } from 'sonner'
 import { Aside } from '@/components/layouts/shared/aside/aside'
 import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkzap-aside-config'
 import { SessionProvider, useSession } from '@/providers/session-provider'
@@ -13,6 +12,8 @@ import { usePathname } from 'next/navigation'
 import { isBitrixAdmin } from '@/bitrix'
 import { AccessDeniedPanel } from './thinkzap/_components/access-denied-panel'
 import type { ThinkzapAccess } from '@/shared/thinkzap-permissions'
+
+const THINKZAP_THEME_CLASS = 'theme-thinkzap'
 
 const montSerrat = Montserrat({
   subsets: ['latin'],
@@ -125,9 +126,14 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
     if (locale) setLocale(locale)
   }, [])
 
+  useEffect(() => {
+    document.body.classList.add(THINKZAP_THEME_CLASS)
+    return () => document.body.classList.remove(THINKZAP_THEME_CLASS)
+  }, [])
+
   return (
     <div
-      className={`${montSerrat.variable} min-h-screen min-w-0 w-full`}
+      className={`${THINKZAP_THEME_CLASS} ${montSerrat.variable} min-h-screen min-w-0 w-full`}
       style={{ fontFamily: 'var(--font-montserrat)' }}
     >
       <Aside
@@ -136,11 +142,10 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
         onLanguageChange={handleLanguageChange}
       />
       <div className="box-border min-h-screen min-w-0 w-full pl-64">
-        <Toaster richColors position="top-center" closeButton />
         {isFetching ? (
           <div className="flex min-h-[50vh] items-center justify-center gap-2 py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-500" />
-            <span className="animate-pulse text-sm font-medium text-slate-600">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+            <span className="animate-pulse text-sm font-medium text-muted-foreground">
               {tCommon('carregando')}
             </span>
           </div>
