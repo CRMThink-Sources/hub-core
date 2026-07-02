@@ -162,6 +162,22 @@ export class BitrixClient {
     }
   }
 
+  async getLastMessageId(chatId: string): Promise<string | null> {
+    const client = this.getClient()
+    try {
+      const response = await client.get<{ result?: IDialogGetResult }>(
+        '/im.dialog.get',
+        { params: { DIALOG_ID: `chat${chatId}` } },
+      )
+      const lastMessageId = response.data?.result?.last_message_id
+      return lastMessageId != null ? String(lastMessageId) : null
+    } catch (error) {
+      const wrapped = wrapBitrixRequestError('im.dialog.get', error)
+      console.error('[BitrixClient] getLastMessageId error:', wrapped.message)
+      return null
+    }
+  }
+
   async setMessageDelivered(data: ISetMessageDeliveredData) {
     const client = this.getClient()
     try {
@@ -464,6 +480,12 @@ interface ISetMessageDeliveredData {
       id: string
     }
   }[]
+}
+
+export interface IDialogGetResult {
+  last_message_id?: number
+  entity_type?: string
+  entity_id?: string
 }
 
 export interface IGetOpenChannelsResponse {

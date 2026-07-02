@@ -3,15 +3,27 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const sendMessageMock = vi.fn().mockResolvedValue({ ok: true })
 const updateMessageMock = vi.fn().mockResolvedValue({ ok: true })
 const deleteMessageMock = vi.fn().mockResolvedValue({ ok: true })
+const getLastMessageIdMock = vi.fn().mockResolvedValue(null)
 
 vi.mock('@/shared/infra/clients/bitrix.client', () => {
   class BitrixClient {
     sendMessage = sendMessageMock
     updateMessage = updateMessageMock
     deleteMessage = deleteMessageMock
+    getLastMessageId = getLastMessageIdMock
   }
   return { BitrixClient }
 })
+
+function withSession(chatId: string) {
+  return {
+    result: {
+      DATA: {
+        RESULT: [{ session: { CHAT_ID: chatId } }],
+      },
+    },
+  }
+}
 
 vi.mock('@/config/env', () => ({
   env: {
@@ -128,9 +140,10 @@ function buildUseCase({
 
 describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   beforeEach(() => {
-    sendMessageMock.mockClear()
+    sendMessageMock.mockClear().mockResolvedValue({ ok: true })
     updateMessageMock.mockClear()
     deleteMessageMock.mockClear()
+    getLastMessageIdMock.mockClear().mockResolvedValue(null)
   })
 
   it('sends message without prefix when referenceMessageId absent', async () => {
@@ -302,5 +315,101 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
     expect(payload.MESSAGES[0]!.message.text).toBe(
       '>>Bom dia\n[b]Maria[/b]:\nOK',
     )
+  })
+
+  it('persists real bitrixMessageId resolved via im.dialog.get', async () => {
+    sendMessageMock.mockResolvedValueOnce(withSession('1767'))
+    getLastMessageIdMock.mockResolvedValueOnce('456')
+    const { useCase, messageRepo } = buildUseCase()
+
+    await useCase.execute(makeEvent({ text: { message: 'hello' } }))
+
+    expect(getLastMessageIdMock).toHaveBeenCalledWith('1767')
+    expect(messageRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bitrixMessageId: '456',
+        bitrixChatId: '1767',
+      }),
+    )
+  })
+
+  it('persists bitrixMessageId=null when im.dialog.get fails', async () => {
+    sendMessageMock.mockResolvedValueOnce(withSession('1769'))
+    getLastMessageIdMock.mockResolvedValueOnce(null)
+    const { useCase, messageRepo } = buildUseCase()
+
+    await useCase.execute(makeEvent({ text: { message: 'hello' } }))
+
+    expect(getLastMessageIdMock).toHaveBeenCalledWith('1769')
+    expect(messageRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bitrixMessageId: null,
+        bitrixChatId: '1769',
+      }),
+    )
+  })
+
+  it('does not look up bitrixMessageId when session/CHAT_ID absent', async () => {
+    sendMessageMock.mockResolvedValueOnce({ ok: true })
+    const { useCase, messageRepo } = buildUseCase()
+
+    await useCase.execute(makeEvent({ text: { message: 'hello' } }))
+
+    expect(getLastMessageIdMock).not.toHaveBeenCalled()
+    expect(messageRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bitrixMessageId: null,
+        bitrixChatId: null,
+      }),
+    )
+  })
+
+  it('does not look up bitrixMessageId on REVOKE', async () => {
+    const { useCase } = buildUseCase()
+    await useCase.execute(makeEvent({ notification: 'REVOKE' }))
+
+    expect(getLastMessageIdMock).not.toHaveBeenCalled()
+  })
+
+  it('does not look up bitrixMessageId on edits', async () => {
+    const { useCase } = buildUseCase()
+    await useCase.execute(makeEvent({ isEdit: true, editMessageId: 'OLD-MSG' }))
+
+    expect(getLastMessageIdMock).not.toHaveBeenCalled()
+  })
+
+  it('forwards phone with ninth digit inserted for direct message missing it', async () => {
+    const { useCase } = buildUseCase()
+    await useCase.execute(
+      makeEvent({ phone: '551199999999', text: { message: 'hello' } }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.user.phone).toBe('5511999999999')
+    expect(payload.MESSAGES[0]!.chat.name).toContain('5511999999999')
+  })
+
+  it('forwards landline-shaped phone unmodified for direct message', async () => {
+    const { useCase } = buildUseCase()
+    await useCase.execute(
+      makeEvent({ phone: '551133334444', text: { message: 'hello' } }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.user.phone).toBe('551133334444')
+  })
+
+  it('forwards normalized phone for group message', async () => {
+    const { useCase } = buildUseCase()
+    await useCase.execute(
+      makeEvent({
+        isGroup: true,
+        phone: '5511999999999-group',
+        text: { message: 'hello' },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.user.phone).toBe('5511999999999')
   })
 })

@@ -9,6 +9,7 @@ import { ReceivedMessageEvent } from '@/shared/infra/handlers/z-api/z-api'
 import { GetCredentialRepository } from '@/shared/domain/repositories/credential/get-credential'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
+import { normalizePhoneNumber } from '@/shared/helpers/normalize-phone-number'
 import { Domain } from '@/shared/domain/entities/domain'
 import { Credential } from '@/shared/domain/entities/credential'
 import { Instance } from '@/modules/thinkzap/domain/entities/instance'
@@ -129,9 +130,17 @@ export class ProcessZApiInboundMessageUseCase {
     })
 
     const files = buildMessageFiles(event)
+    const normalizedPhone = normalizePhoneNumber(event.phone)
 
     if (event.isGroup) {
-      await this.sendGroupMessage(event, domain, credential, instance, files)
+      await this.sendGroupMessage(
+        event,
+        domain,
+        credential,
+        instance,
+        normalizedPhone,
+        files,
+      )
       return
     }
 
@@ -162,13 +171,13 @@ export class ProcessZApiInboundMessageUseCase {
         {
           chat: {
             id: chatId,
-            name: event.chatName + ' - ' + event.phone,
+            name: event.chatName + ' - ' + normalizedPhone,
           },
           user: {
             id: chatId,
             name: event.chatName ?? event.senderName,
             last_name: '',
-            phone: event.phone,
+            phone: normalizedPhone,
             picture: {
               url: event.photo,
             },
@@ -217,9 +226,12 @@ export class ProcessZApiInboundMessageUseCase {
       event.isEdit ? 'Message updated in Bitrix' : 'Message sent to Bitrix',
     )
 
-    const bitrixMessageId = extractBitrixMessageId(result)
-
     const bitrixChatId = extractBitrixChatId(result)
+    const bitrixMessageId = await resolveBitrixMessageId(
+      bitrixClient,
+      bitrixChatId,
+      event,
+    )
     await this.persistInboundSnapshot(
       event,
       instance.id,
@@ -234,6 +246,7 @@ export class ProcessZApiInboundMessageUseCase {
     domain: Domain,
     credential: Credential,
     instance: Instance,
+    normalizedPhone: string,
     files?: { url: string; name: string }[],
   ): Promise<void> {
     log.info(
@@ -306,9 +319,9 @@ export class ProcessZApiInboundMessageUseCase {
           },
           user: {
             id: chatId,
-            name: event.chatName ?? event.phone,
+            name: event.chatName ?? normalizedPhone,
             last_name: '',
-            phone: event.phone,
+            phone: normalizedPhone,
             picture: {
               url: event.photo,
             },
@@ -349,8 +362,12 @@ export class ProcessZApiInboundMessageUseCase {
         : 'Group message sent to Bitrix',
     )
 
-    const bitrixMessageId = extractBitrixMessageId(result)
     const bitrixChatId = extractBitrixChatId(result)
+    const bitrixMessageId = await resolveBitrixMessageId(
+      bitrixClient,
+      bitrixChatId,
+      event,
+    )
     await this.persistInboundSnapshot(
       event,
       instance.id,
@@ -453,16 +470,28 @@ export class ProcessZApiInboundMessageUseCase {
   }
 }
 
-function extractBitrixMessageId(result: unknown): string | null {
-  try {
-    const r = result as {
-      result: { DATA?: { RESULT?: Array<{ message?: { id?: string } }> } }
-    }
-
-    return r.result?.DATA?.RESULT?.[0]?.message?.id ?? null
-  } catch {
+async function resolveBitrixMessageId(
+  bitrixClient: BitrixClient,
+  bitrixChatId: string | null,
+  event: ReceivedMessageEvent,
+): Promise<string | null> {
+  if (event.notification === 'REVOKE' || event.isEdit || !bitrixChatId) {
     return null
   }
+
+  const bitrixMessageId = await bitrixClient.getLastMessageId(bitrixChatId)
+  if (!bitrixMessageId) {
+    log.warn(
+      {
+        instanceId: event.instanceId,
+        messageId: event.messageId,
+        bitrixChatId,
+        bitrixMessageIdLookupFailed: true,
+      },
+      'Failed to resolve real Bitrix message id via im.dialog.get',
+    )
+  }
+  return bitrixMessageId
 }
 
 function extractBitrixChatId(result: unknown): string | null {

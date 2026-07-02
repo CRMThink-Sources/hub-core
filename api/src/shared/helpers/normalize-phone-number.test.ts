@@ -32,6 +32,22 @@ describe('normalizePhoneNumber', () => {
   it('strips leading zeros for short numbers without international prefix', () => {
     expect(normalizePhoneNumber('011999999999')).toBe('5511999999999')
   })
+
+  it('inserts ninth digit for Brazilian mobile number missing it', () => {
+    expect(normalizePhoneNumber('551199999999')).toBe('5511999999999')
+  })
+
+  it('does not insert ninth digit for Brazilian landline number', () => {
+    expect(normalizePhoneNumber('551133334444')).toBe('551133334444')
+  })
+
+  it('does not modify Brazilian number that already has ninth digit', () => {
+    expect(normalizePhoneNumber('5511999999999')).toBe('5511999999999')
+  })
+
+  it('does not apply ninth-digit heuristic to non-Brazilian numbers', () => {
+    expect(normalizePhoneNumber('+14155551234')).toBe('14155551234')
+  })
 })
 
 describe('isValidZApiPhoneNumber', () => {
