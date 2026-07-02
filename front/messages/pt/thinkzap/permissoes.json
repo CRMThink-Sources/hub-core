@@ -1,12 +1,12 @@
 {
   "pageTitle": "Permissões de acesso",
-  "pageDescription": "Defina o que cada usuário ou departamento pode visualizar, criar, alterar ou excluir em Conectores e Financeiro.",
+  "pageDescription": "Defina as permissões de acesso para cada usuário ou departamento.",
   "quickGuide": "Ver guia rápido",
   "tabs": {
     "byUser": "Por usuário",
-    "byUserDescription": "Gerencie permissões individuais de cada usuário",
+    "byUserDescription": "Gerencie permissões individuais de cada usuário.",
     "byDepartment": "Por departamento",
-    "byDepartmentDescription": "Gerencie permissões para todos os usuários de um departamento"
+    "byDepartmentDescription": "Gerencie permissões para todos os usuários de um departamento."
   },
   "manageByUser": "Gerenciar permissões por usuário",
   "manageByDepartment": "Gerenciar permissões por departamento",

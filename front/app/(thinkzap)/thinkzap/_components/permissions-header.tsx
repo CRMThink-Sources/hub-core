@@ -1,9 +1,7 @@
 'use client'
 
-import Link from 'next/link'
-import { BookOpen, Shield } from 'lucide-react'
+import { Shield } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { buttonVariants } from '@/components/ui/button'
 
 export function PermissionsHeader() {
   const { t } = useTranslation('thinkzap/permissoes')
@@ -23,14 +21,6 @@ export function PermissionsHeader() {
           </p>
         </div>
       </div>
-
-      <Link
-        href="/thinkzap/ajuda"
-        className={buttonVariants({ variant: 'outline' })}
-      >
-        <BookOpen className="h-4 w-4" />
-        {t('quickGuide')}
-      </Link>
     </div>
   )
 }

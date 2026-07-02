@@ -145,7 +145,7 @@ export function ConexaoRow({
           </span>
         </div>
 
-        <div className="relative z-20 flex w-16 shrink-0 justify-end">
+        <div className="relative flex w-16 shrink-0 justify-end">
           <button
             type="button"
             onClick={e => {
