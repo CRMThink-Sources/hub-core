@@ -10,8 +10,8 @@
   },
   "manageByUser": "Manage permissions by user",
   "manageByDepartment": "Manage permissions by department",
-  "searchTablePlaceholder": "Search user by name or email...",
-  "searchTablePlaceholderDepartment": "Search department by name...",
+  "searchTablePlaceholder": "Search by name or email to filter or add users...",
+  "searchTablePlaceholderDepartment": "Search by name to filter or add departments...",
   "saveChanges": "Save changes",
   "saveHint": "Permissions are applied immediately after saving",
   "usersCount": "{{count}} registered users",
@@ -23,9 +23,6 @@
     "update": "Update",
     "delete": "Delete"
   },
-  "addUserDialogTitle": "Add user",
-  "addDepartmentDialogTitle": "Add department",
-  "closeDialog": "Close",
   "pagination": {
     "previous": "Previous page",
     "next": "Next page"
@@ -37,10 +34,9 @@
   "departments": {
     "sectionTitle": "Department permissions",
     "sectionDescription": "All users in the department inherit these permissions, except those with individual permissions.",
-    "addDepartment": "Add department",
-    "searchPlaceholder": "Search department...",
+    "noResults": "No departments found.",
     "defaultPermissionsForNewDepartment": "Default permissions for new departments",
-    "emptyList": "No authorized departments yet. Add departments and configure permissions.",
+    "emptyList": "No authorized departments yet. Search above to add departments and configure permissions.",
     "alreadyOnList": "This department is already on the list.",
     "added": "Department added successfully.",
     "removed": "Department removed successfully.",
@@ -49,11 +45,9 @@
       "department": "Department"
     }
   },
-  "addUser": "Add user",
-  "searchPlaceholder": "Search by name or email...",
   "searching": "Searching...",
   "noResults": "No users found.",
-  "emptyList": "No authorized users yet. Add teammates and configure permissions.",
+  "emptyList": "No authorized users yet. Search above to add teammates and configure permissions.",
   "defaultPermissionsForNewUser": "Default permissions for new users",
   "savePermissions": "Save permissions",
   "permissionsSaved": "Permissions updated successfully.",

@@ -10,8 +10,8 @@
   },
   "manageByUser": "Gerenciar permissões por usuário",
   "manageByDepartment": "Gerenciar permissões por departamento",
-  "searchTablePlaceholder": "Buscar usuário por nome ou e-mail...",
-  "searchTablePlaceholderDepartment": "Buscar departamento por nome...",
+  "searchTablePlaceholder": "Busque por nome ou e-mail para filtrar ou adicionar usuários...",
+  "searchTablePlaceholderDepartment": "Busque por nome para filtrar ou adicionar departamentos...",
   "saveChanges": "Salvar alterações",
   "saveHint": "As permissões são aplicadas imediatamente após salvar",
   "usersCount": "{{count}} usuários cadastrados",
@@ -23,9 +23,6 @@
     "update": "Alterar",
     "delete": "Excluir"
   },
-  "addUserDialogTitle": "Adicionar usuário",
-  "addDepartmentDialogTitle": "Adicionar departamento",
-  "closeDialog": "Fechar",
   "pagination": {
     "previous": "Página anterior",
     "next": "Próxima página"
@@ -37,10 +34,9 @@
   "departments": {
     "sectionTitle": "Permissões por departamento",
     "sectionDescription": "Todos os usuários do departamento herdam essas permissões, exceto os que possuem permissão individual.",
-    "addDepartment": "Adicionar departamento",
-    "searchPlaceholder": "Buscar departamento...",
+    "noResults": "Nenhum departamento encontrado.",
     "defaultPermissionsForNewDepartment": "Permissões padrão para novos departamentos",
-    "emptyList": "Nenhum departamento autorizado ainda. Adicione departamentos e configure as permissões.",
+    "emptyList": "Nenhum departamento autorizado ainda. Pesquise acima para adicionar departamentos e configurar as permissões.",
     "alreadyOnList": "Este departamento já está na lista.",
     "added": "Departamento adicionado com sucesso.",
     "removed": "Departamento removido com sucesso.",
@@ -49,11 +45,9 @@
       "department": "Departamento"
     }
   },
-  "addUser": "Adicionar usuário",
-  "searchPlaceholder": "Buscar por nome ou e-mail...",
   "searching": "Buscando...",
   "noResults": "Nenhum usuário encontrado.",
-  "emptyList": "Nenhum usuário autorizado ainda. Adicione colaboradores e configure as permissões.",
+  "emptyList": "Nenhum usuário autorizado ainda. Pesquise acima para adicionar colaboradores e configurar as permissões.",
   "defaultPermissionsForNewUser": "Permissões padrão para novos usuários",
   "savePermissions": "Salvar permissões",
   "permissionsSaved": "Permissões atualizadas com sucesso.",

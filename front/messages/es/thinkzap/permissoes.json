@@ -10,8 +10,8 @@
   },
   "manageByUser": "Gestionar permisos por usuario",
   "manageByDepartment": "Gestionar permisos por departamento",
-  "searchTablePlaceholder": "Buscar usuario por nombre o correo...",
-  "searchTablePlaceholderDepartment": "Buscar departamento por nombre...",
+  "searchTablePlaceholder": "Busque por nombre o correo para filtrar o agregar usuarios...",
+  "searchTablePlaceholderDepartment": "Busque por nombre para filtrar o agregar departamentos...",
   "saveChanges": "Guardar cambios",
   "saveHint": "Los permisos se aplican inmediatamente después de guardar",
   "usersCount": "{{count}} usuarios registrados",
@@ -23,9 +23,6 @@
     "update": "Modificar",
     "delete": "Eliminar"
   },
-  "addUserDialogTitle": "Agregar usuario",
-  "addDepartmentDialogTitle": "Agregar departamento",
-  "closeDialog": "Cerrar",
   "pagination": {
     "previous": "Página anterior",
     "next": "Página siguiente"
@@ -37,10 +34,9 @@
   "departments": {
     "sectionTitle": "Permisos por departamento",
     "sectionDescription": "Todos los usuarios del departamento heredan estos permisos, excepto los que tienen permisos individuales.",
-    "addDepartment": "Agregar departamento",
-    "searchPlaceholder": "Buscar departamento...",
+    "noResults": "No se encontraron departamentos.",
     "defaultPermissionsForNewDepartment": "Permisos predeterminados para nuevos departamentos",
-    "emptyList": "Aún no hay departamentos autorizados. Agregue departamentos y configure los permisos.",
+    "emptyList": "Aún no hay departamentos autorizados. Busque arriba para agregar departamentos y configurar los permisos.",
     "alreadyOnList": "Este departamento ya está en la lista.",
     "added": "Departamento agregado correctamente.",
     "removed": "Departamento eliminado correctamente.",
@@ -49,11 +45,9 @@
       "department": "Departamento"
     }
   },
-  "addUser": "Agregar usuario",
-  "searchPlaceholder": "Buscar por nombre o correo...",
   "searching": "Buscando...",
   "noResults": "No se encontraron usuarios.",
-  "emptyList": "Aún no hay usuarios autorizados. Agregue colaboradores y configure permisos.",
+  "emptyList": "Aún no hay usuarios autorizados. Busque arriba para agregar colaboradores y configurar permisos.",
   "defaultPermissionsForNewUser": "Permisos predeterminados para nuevos usuarios",
   "savePermissions": "Guardar permisos",
   "permissionsSaved": "Permisos actualizados correctamente.",
