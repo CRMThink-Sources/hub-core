@@ -44,7 +44,7 @@ function CategoryToggles({
   }
 
   const categoryLabelClass =
-    category === 'connectors' ? 'text-blue-700' : 'text-[#5A997E]'
+    category === 'connectors' ? 'text-violet-700' : 'text-primary'
 
   return (
     <div className="flex flex-wrap items-center gap-3">

@@ -1,12 +1,6 @@
 'use client'
 
-import {
-  Building2,
-  ChevronLeft,
-  ChevronRight,
-  Pencil,
-  Trash2,
-} from 'lucide-react'
+import { Building2, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   THINKZAP_PERMISSION_ACTIONS,
@@ -42,8 +36,8 @@ const CATEGORY_HEADER: Record<
   (typeof THINKZAP_PERMISSION_CATEGORIES)[number],
   string
 > = {
-  connectors: 'bg-blue-600 text-white',
-  finance: 'bg-[#5A997E] text-white',
+  connectors: 'bg-violet-500/10 text-violet-700',
+  finance: 'bg-primary/10 text-primary',
 }
 
 export function PermissionsDepartmentsTable({
@@ -61,14 +55,14 @@ export function PermissionsDepartmentsTable({
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-100 bg-white">
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-gray-100 text-[10px] uppercase tracking-wide">
+            <tr className="border-b border-border text-[10px] uppercase tracking-wide">
               <th
                 rowSpan={2}
-                className="sticky left-0 z-10 min-w-[220px] bg-slate-50 px-4 py-3 font-semibold text-slate-600"
+                className="sticky left-0 z-10 min-w-[220px] bg-muted px-4 py-3 font-semibold text-muted-foreground"
               >
                 {t('departments.table.department')}
               </th>
@@ -76,24 +70,24 @@ export function PermissionsDepartmentsTable({
                 <th
                   key={category}
                   colSpan={THINKZAP_PERMISSION_ACTIONS.length}
-                  className={`border-l border-white/20 px-2 py-2 text-center font-semibold ${CATEGORY_HEADER[category]}`}
+                  className={`border-l border-border px-2 py-2.5 text-center font-semibold ${CATEGORY_HEADER[category]}`}
                 >
                   {t(`matrix.categoriesShort.${category}`)}
                 </th>
               ))}
               <th
                 rowSpan={2}
-                className="min-w-[80px] border-l border-gray-100 bg-slate-50 px-2 py-3 text-center font-semibold text-slate-600"
+                className="min-w-[80px] border-l border-border bg-muted px-2 py-3 text-center font-semibold text-muted-foreground"
               >
                 {t('table.actions')}
               </th>
             </tr>
-            <tr className="border-b border-gray-100 bg-slate-50/80 text-[10px] text-slate-500">
+            <tr className="border-b border-border bg-muted/80 text-[10px] text-muted-foreground">
               {THINKZAP_PERMISSION_CATEGORIES.map(category =>
                 THINKZAP_PERMISSION_ACTIONS.map(action => (
                   <th
                     key={`${category}-${action}`}
-                    className="border-l border-gray-100 px-0 py-1.5 text-center font-medium"
+                    className="w-20 min-w-20 whitespace-nowrap border-l border-border px-1 py-1.5 text-center font-medium"
                     title={t(`matrix.actions.${action}`)}
                   >
                     {t(`matrix.actionsShort.${action}`)}
@@ -102,7 +96,7 @@ export function PermissionsDepartmentsTable({
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-border">
             {departments.map(dept => {
               const permissions =
                 draftPermissions[dept.bitrixDepartmentId] ?? dept.permissions
@@ -112,18 +106,18 @@ export function PermissionsDepartmentsTable({
               return (
                 <tr
                   key={dept.bitrixDepartmentId}
-                  className="hover:bg-slate-50/50"
+                  className="group transition-colors hover:bg-accent"
                 >
-                  <td className="sticky left-0 z-10 bg-white px-4 py-3 hover:bg-slate-50/50">
+                  <td className="sticky left-0 z-10 bg-card px-4 py-3 transition-colors group-hover:bg-accent">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#5A997E]/15 text-[#5A997E]">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
                         <Building2 className="h-5 w-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-slate-800">
+                        <p className="truncate font-medium text-foreground">
                           {displayName}
                         </p>
-                        <p className="truncate text-[11px] text-slate-400">
+                        <p className="truncate text-[11px] text-muted-foreground">
                           ID {dept.bitrixDepartmentId}
                         </p>
                       </div>
@@ -133,7 +127,7 @@ export function PermissionsDepartmentsTable({
                     THINKZAP_PERMISSION_ACTIONS.map(action => (
                       <td
                         key={`${dept.bitrixDepartmentId}-${category}-${action}`}
-                        className="border-l border-gray-50 px-0 py-3 text-center"
+                        className="w-20 min-w-20 border-l border-border px-1 py-3 text-center"
                       >
                         <PermissionCheckbox
                           checked={permissions[category][action]}
@@ -150,20 +144,14 @@ export function PermissionsDepartmentsTable({
                       </td>
                     )),
                   )}
-                  <td className="border-l border-gray-100 px-2 py-3">
+                  <td className="border-l border-border px-2 py-3">
                     <div className="flex items-center justify-center gap-1">
-                      <span
-                        className="rounded p-1 text-slate-400"
-                        title={t('editPermissions')}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </span>
                       <button
                         type="button"
                         title={t('remove')}
                         disabled={removingId === dept.bitrixDepartmentId}
                         onClick={() => onRemove(dept.bitrixDepartmentId)}
-                        className="rounded p-1 text-red-500 hover:bg-red-50 disabled:opacity-30"
+                        className="cursor-pointer rounded-md p-1.5 text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -176,8 +164,8 @@ export function PermissionsDepartmentsTable({
         </table>
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
+      <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Building2 className="h-4 w-4" />
           {t('departmentsCount', { count: totalCount })}
         </div>
@@ -186,19 +174,19 @@ export function PermissionsDepartmentsTable({
             type="button"
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
-            className="rounded-md border border-gray-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+            className="cursor-pointer rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-30"
             aria-label={t('pagination.previous')}
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="min-w-8 rounded-md bg-blue-600 px-2 py-1 text-center text-xs font-medium text-white">
+          <span className="min-w-8 rounded-md bg-primary px-2 py-1 text-center text-xs font-medium text-primary-foreground">
             {page}
           </span>
           <button
             type="button"
             disabled={page >= totalPages}
             onClick={() => onPageChange(page + 1)}
-            className="rounded-md border border-gray-200 p-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+            className="cursor-pointer rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-30"
             aria-label={t('pagination.next')}
           >
             <ChevronRight className="h-4 w-4" />

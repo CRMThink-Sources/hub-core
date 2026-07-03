@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
 
 type Connector = {
   id: string
@@ -33,26 +34,22 @@ function getConnectionStatus(
   switch (status) {
     case 'ACTIVE':
       return {
-        bgColor: '#DCFCE7',
-        textColor: '#144A1B',
+        className: 'bg-primary/10 text-primary',
         text: t('status.ativo'),
       }
     case 'PENDING_SETUP':
       return {
-        bgColor: '#FEF9C3',
-        textColor: '#854D0E',
+        className: 'bg-amber-100 text-amber-800',
         text: t('status.configuracaoPendente'),
       }
     case 'TRIAL':
       return {
-        bgColor: '#FEF9C3',
-        textColor: '#854D0E',
+        className: 'bg-amber-100 text-amber-800',
         text: t('status.trial'),
       }
     default:
       return {
-        bgColor: '#FEE2E2',
-        textColor: '#7A1818',
+        className: 'bg-destructive/10 text-destructive',
         text: t('status.inativo'),
       }
   }
@@ -74,19 +71,21 @@ export function GestaoLinhasContratadas({
     <>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-black">{t('titulo')}</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            {t('titulo')}
+          </h2>
         </div>
 
         <div className="flex flex-col gap-2">
           <table>
-            <thead className="bg-gray-50 text-left">
-              <tr className="text-xs font-semibold uppercase text-gray-600 h-10">
+            <thead className="bg-muted text-left">
+              <tr className="text-xs font-semibold uppercase text-muted-foreground h-10">
                 <th className="min-w-40 px-3 py-2">{t('colunas.telefone')}</th>
                 <th className="px-3 py-2">{t('colunas.nomeCanal')}</th>
                 <th className="px-3 py-2 min-w-40">{t('colunas.conexao')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {connectors.map(conn => {
                 const status = getConnectionStatus(conn.instance.paidStatus, t)
                 const showEfetivar =
@@ -101,19 +100,20 @@ export function GestaoLinhasContratadas({
                     </td>
                     <td className="flex items-center justify-between px-3 py-2">
                       <span
-                        className={`rounded-md px-2 py-1 text-xs font-medium ${status.textColor} ${status.bgColor}`}
+                        className={`rounded-md px-2 py-1 text-xs font-medium ${status.className}`}
                       >
                         {status.text}
                       </span>
                       {showEfetivar ? (
-                        <button
+                        <Button
                           type="button"
+                          size="sm"
                           onClick={onConfirmTrial}
                           disabled={submitting}
-                          className="shrink-0 cursor-pointer rounded-md bg-yellow-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:py-2 sm:text-sm"
+                          className="shrink-0"
                         >
                           {t('efetivarAssinatura')}
-                        </button>
+                        </Button>
                       ) : null}
                     </td>
                   </tr>
@@ -177,7 +177,7 @@ export function GestaoLinhasContratadas({
         </div>
       </div>
 
-      <h3 className="inline-flex items-center gap-2 rounded-md border border-[#E5E7EB] bg-[#F5F5F5] px-3 py-1.5 text-sm font-medium text-[#6B7280]">
+      <h3 className="inline-flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-1.5 text-sm font-medium text-muted-foreground">
         {t('totalLinhas', { total: totalLinhas })}
       </h3>
     </>

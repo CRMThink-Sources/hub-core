@@ -3,6 +3,7 @@
 import { useConnectors } from '@/app/hooks/use-connectors'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from 'next/navigation'
+import { MoreVerticalIcon } from 'lucide-react'
 
 type Connector = any
 
@@ -66,18 +67,6 @@ function buildConnectorMenuItems(
   ]
 }
 
-function MoreOptionsIcon() {
-  return (
-    <svg
-      className="h-4 w-4 text-gray-600"
-      fill="currentColor"
-      viewBox="0 0 20 20"
-    >
-      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
-    </svg>
-  )
-}
-
 type Props = {
   conn: Connector
   showBorderBottom: boolean
@@ -103,8 +92,9 @@ export function ConexaoRow({
   } = conn.instance
 
   const isPaid = paidStatus === 'PAID' || paidStatus === 'TRIAL'
-  const bgColor = isConnected ? '#DCFCE7' : '#FEE2E2'
-  const statusColor = isConnected ? '#144A1B' : '#7A1818'
+  const statusClass = isConnected
+    ? 'bg-primary/10 text-primary'
+    : 'bg-destructive/10 text-destructive'
   const statusText = isConnected ? t('status.ativo') : t('status.inativo')
 
   const menuItems = buildConnectorMenuItems(
@@ -127,16 +117,16 @@ export function ConexaoRow({
         if (e.key === 'Enter' || e.key === ' ')
           router.push(`/thinkzap/conexoes/${conn.id}/configuracoes`)
       }}
-      className={`cursor-pointer p-4 transition-colors hover:bg-gray-50 ${
-        showBorderBottom ? 'border-b border-gray-100' : ''
+      className={`cursor-pointer p-4 transition-colors hover:bg-accent ${
+        showBorderBottom ? 'border-b border-border' : ''
       }`}
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <span className="truncate text-left text-base font-semibold text-black transition-colors hover:text-[#5A997E]">
+          <span className="truncate text-left text-base font-semibold text-foreground transition-colors hover:text-primary">
             {name || t('semNome')}
           </span>
-          <div className="mt-1 flex items-center gap-4 text-sm text-gray-600">
+          <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
             <span className="truncate">
               {vinculatedChannelName || t('nenhumCanalVinculado')}
               {conn.instance.phoneNumber != null &&
@@ -149,28 +139,27 @@ export function ConexaoRow({
 
         <div className="flex flex-1 justify-center">
           <span
-            className="rounded px-2 py-0.5 text-xs font-medium"
-            style={{ color: statusColor, backgroundColor: bgColor }}
+            className={`rounded px-2 py-0.5 text-xs font-medium ${statusClass}`}
           >
             {statusText}
           </span>
         </div>
 
-        <div className="relative z-20 flex w-16 shrink-0 justify-end">
+        <div className="relative flex w-16 shrink-0 justify-end">
           <button
             type="button"
             onClick={e => {
               e.stopPropagation()
               control.menu.toggle(conn.id)
             }}
-            className="cursor-pointer rounded-md border border-gray-200 p-1.5 transition-colors hover:bg-[#d9fce6]"
+            className="cursor-pointer rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-accent"
             title="Mais opções"
           >
-            <MoreOptionsIcon />
+            <MoreVerticalIcon className="size-4" />
           </button>
 
           {control.menu.openConnectorId === conn.id && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border border-gray-200 bg-white py-0.5 shadow-md">
+            <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border border-border bg-popover py-0.5 shadow-md">
               {menuItems.map(item => (
                 <button
                   key={item.label}
@@ -181,7 +170,7 @@ export function ConexaoRow({
                     void item.onClick()
                     control.menu.close()
                   }}
-                  className={`flex w-full items-center gap-2 px-3 py-2 text-xs text-black transition-colors hover:bg-[#d9fce6] ${
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-xs text-popover-foreground transition-colors hover:bg-accent ${
                     !isPaid ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
                   } `}
                 >

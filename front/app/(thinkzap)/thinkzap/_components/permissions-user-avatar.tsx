@@ -23,7 +23,7 @@ const sizeClasses = {
 export function PermissionsUserAvatar({ label, size = 'md' }: Props) {
   return (
     <div
-      className={`${sizeClasses[size]} flex shrink-0 items-center justify-center rounded-full bg-blue-100 font-semibold text-blue-700`}
+      className={`${sizeClasses[size]} flex shrink-0 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary`}
     >
       {initials(label)}
     </div>

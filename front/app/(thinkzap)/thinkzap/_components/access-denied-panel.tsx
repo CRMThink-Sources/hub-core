@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
+import { buttonVariants } from '@/components/ui/button'
 
 export function AccessDeniedPanel() {
   const { t } = useTranslation('thinkzap/access-denied')
@@ -13,7 +14,7 @@ export function AccessDeniedPanel() {
         <p className="mt-2 text-sm text-amber-800">{t('description')}</p>
         <Link
           href="/thinkzap/ajuda"
-          className="mt-4 inline-flex rounded-md bg-[#5A997E] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          className={buttonVariants({ className: 'mt-4' })}
         >
           {t('backToHelp')}
         </Link>

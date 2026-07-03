@@ -28,15 +28,16 @@ export function searchBitrixUsers(
       return
     }
 
+    // user.get em vez de user.search: permite combinar busca com ACTIVE
     BX24.callMethod(
-      'user.search',
-      { FIND: find },
+      'user.get',
+      { ACTIVE: true, NAME_SEARCH: find },
       (result: BX24CallMethodResult) => {
         try {
           const rows = parseCallMethodData<BitrixUserSearchHit[]>(result)
           resolve(Array.isArray(rows) ? rows : [])
         } catch (e) {
-          reject(e instanceof Error ? e : new Error('user.search failed'))
+          reject(e instanceof Error ? e : new Error('user.get failed'))
         }
       },
     )

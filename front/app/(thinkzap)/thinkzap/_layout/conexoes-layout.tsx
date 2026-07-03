@@ -52,7 +52,7 @@ export default function ConexoesLayout() {
 
   return (
     <div className="relative mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 pb-10 pt-8 sm:px-6 lg:px-8">
-      <div className="flex w-full flex-col gap-4 rounded-lg border border-gray-100 bg-white p-6">
+      <div className="flex w-full flex-col gap-4 rounded-xl border border-border bg-card p-6">
         <ConexoesHeaderCard
           hasSubscription={Boolean(subscription)}
           subscriptionStatus={subscription?.status}

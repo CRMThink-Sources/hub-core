@@ -28,18 +28,18 @@ export function PermissionsModeTabs({ activeTab, onChange }: Props) {
       icon: Users,
       titleKey: 'tabs.byUser',
       descriptionKey: 'tabs.byUserDescription',
-      activeBorder: 'border-t-blue-600 ring-1 ring-blue-100',
-      iconBg: 'bg-blue-50',
-      iconColor: 'text-blue-600',
+      activeBorder: 'border-t-primary ring-1 ring-primary/20',
+      iconBg: 'bg-primary/10',
+      iconColor: 'text-primary',
     },
     {
       id: 'departments',
       icon: Building2,
       titleKey: 'tabs.byDepartment',
       descriptionKey: 'tabs.byDepartmentDescription',
-      activeBorder: 'border-t-[#5A997E] ring-1 ring-[#5A997E]/20',
-      iconBg: 'bg-[#5A997E]/10',
-      iconColor: 'text-[#5A997E]',
+      activeBorder: 'border-t-primary ring-1 ring-primary/20',
+      iconBg: 'bg-primary/10',
+      iconColor: 'text-primary',
     },
   ]
 
@@ -55,7 +55,7 @@ export function PermissionsModeTabs({ activeTab, onChange }: Props) {
             type="button"
             onClick={() => onChange(tab.id)}
             className={cn(
-              'flex cursor-pointer items-start gap-3 rounded-lg border border-gray-100 bg-white p-4 text-left transition-all hover:shadow-sm',
+              'flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:shadow-sm',
               'border-t-4',
               isActive
                 ? tab.activeBorder
@@ -71,10 +71,10 @@ export function PermissionsModeTabs({ activeTab, onChange }: Props) {
               <Icon className={cn('h-5 w-5', tab.iconColor)} />
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-800">
+              <p className="text-sm font-semibold text-foreground">
                 {t(tab.titleKey)}
               </p>
-              <p className="mt-0.5 text-xs text-slate-500">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {t(tab.descriptionKey)}
               </p>
             </div>
