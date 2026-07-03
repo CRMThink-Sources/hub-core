@@ -22,8 +22,7 @@ import {
   type PermissionsTabMode,
 } from '../_components/permissions-mode-tabs'
 import { PermissionsToolbar } from '../_components/permissions-toolbar'
-import { PermissionsAddDialog } from '../_components/permissions-add-dialog'
-import { PermissionsDefaultsCard } from '../_components/permissions-defaults-card'
+import { PermissionsAddResults } from '../_components/permissions-add-results'
 import { PermissionsFooterBar } from '../_components/permissions-footer-bar'
 import { PermissionsUsersTable } from '../_components/permissions-users-table'
 import { PermissionsDepartmentsTable } from '../_components/permissions-departments-table'
@@ -79,29 +78,28 @@ export default function PermissoesPage() {
   const [activeTab, setActiveTab] = useState<PermissionsTabMode>('users')
   const [tableFilter, setTableFilter] = useState('')
   const [page, setPage] = useState(1)
-  const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [savingAll, setSavingAll] = useState(false)
 
   const [users, setUsers] = useState<AllowedUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(true)
-  const [addUserQuery, setAddUserQuery] = useState('')
   const [searchingUsers, setSearchingUsers] = useState(false)
   const [userHits, setUserHits] = useState<BitrixUserSearchHit[]>([])
   const [removingUserId, setRemovingUserId] = useState<string | null>(null)
-  const [newUserPermissions, setNewUserPermissions] =
-    useState<ThinkzapUserPermissions>(DEFAULT_ALLOWED_USER_PERMISSIONS)
+  const [newUserPermissions] = useState<ThinkzapUserPermissions>(
+    DEFAULT_ALLOWED_USER_PERMISSIONS,
+  )
   const [draftUserPermissions, setDraftUserPermissions] = useState<
     Record<string, ThinkzapUserPermissions>
   >({})
 
   const [departments, setDepartments] = useState<AllowedDepartment[]>([])
   const [loadingDepts, setLoadingDepts] = useState(true)
-  const [addDeptQuery, setAddDeptQuery] = useState('')
   const [searchingDepts, setSearchingDepts] = useState(false)
   const [deptHits, setDeptHits] = useState<BitrixDepartmentHit[]>([])
   const [removingDeptId, setRemovingDeptId] = useState<string | null>(null)
-  const [newDeptPermissions, setNewDeptPermissions] =
-    useState<ThinkzapUserPermissions>(DEFAULT_ALLOWED_USER_PERMISSIONS)
+  const [newDeptPermissions] = useState<ThinkzapUserPermissions>(
+    DEFAULT_ALLOWED_USER_PERMISSIONS,
+  )
   const [draftDeptPermissions, setDraftDeptPermissions] = useState<
     Record<string, ThinkzapUserPermissions>
   >({})
@@ -162,39 +160,38 @@ export default function PermissoesPage() {
   }, [activeTab, tableFilter])
 
   useEffect(() => {
-    if (!addDialogOpen || !bx24Ready || activeTab !== 'users') {
-      if (!addDialogOpen) setUserHits([])
-      return
-    }
-    if (addUserQuery.trim().length < 2) {
+    const trimmed = tableFilter.trim()
+    if (!bx24Ready || activeTab !== 'users' || trimmed.length < 2) {
       setUserHits([])
+      setSearchingUsers(false)
       return
     }
+    setSearchingUsers(true)
     const handle = window.setTimeout(() => {
-      setSearchingUsers(true)
-      searchBitrixUsers(addUserQuery.trim())
-        .then(hits => setUserHits(hits.slice(0, 6)))
+      searchBitrixUsers(trimmed)
+        .then(setUserHits)
         .catch(() => setUserHits([]))
         .finally(() => setSearchingUsers(false))
     }, 350)
     return () => window.clearTimeout(handle)
-  }, [addDialogOpen, bx24Ready, activeTab, addUserQuery])
+  }, [bx24Ready, activeTab, tableFilter])
 
   useEffect(() => {
-    if (!addDialogOpen || !bx24Ready || activeTab !== 'departments') {
-      if (!addDialogOpen) setDeptHits([])
+    const trimmed = tableFilter.trim()
+    if (!bx24Ready || activeTab !== 'departments' || trimmed.length < 2) {
+      setDeptHits([])
+      setSearchingDepts(false)
       return
     }
-    const trimmed = addDeptQuery.trim()
+    setSearchingDepts(true)
     const handle = window.setTimeout(() => {
-      setSearchingDepts(true)
-      searchBitrixDepartments(trimmed.length > 0 ? trimmed : undefined)
-        .then(hits => setDeptHits(hits.slice(0, 8)))
+      searchBitrixDepartments(trimmed)
+        .then(setDeptHits)
         .catch(() => setDeptHits([]))
         .finally(() => setSearchingDepts(false))
     }, 350)
     return () => window.clearTimeout(handle)
-  }, [addDialogOpen, bx24Ready, activeTab, addDeptQuery])
+  }, [bx24Ready, activeTab, tableFilter])
 
   const filteredUsers = useMemo(() => {
     const q = tableFilter.trim().toLowerCase()
@@ -243,24 +240,15 @@ export default function PermissoesPage() {
   const dirtyCount =
     activeTab === 'users' ? dirtyUserIds.length : dirtyDeptIds.length
 
-  function openAddDialog() {
-    setAddDialogOpen(true)
-    if (activeTab === 'users') {
-      setAddUserQuery('')
-      setUserHits([])
-    } else {
-      setAddDeptQuery('')
-      setDeptHits([])
-    }
-  }
+  const candidateUsers = useMemo(() => {
+    const added = new Set(users.map(u => u.bitrixUserId))
+    return userHits.filter(h => !added.has(String(h.ID))).slice(0, 6)
+  }, [userHits, users])
 
-  function closeAddDialog() {
-    setAddDialogOpen(false)
-    setAddUserQuery('')
-    setAddDeptQuery('')
-    setUserHits([])
-    setDeptHits([])
-  }
+  const candidateDepartments = useMemo(() => {
+    const added = new Set(departments.map(d => String(d.bitrixDepartmentId)))
+    return deptHits.filter(h => !added.has(String(h.ID))).slice(0, 8)
+  }, [deptHits, departments])
 
   async function handleAddUser(hit: BitrixUserSearchHit) {
     const bitrixUserId = String(hit.ID)
@@ -276,7 +264,6 @@ export default function PermissoesPage() {
         permissions: newUserPermissions,
       })
       toast.success(t('added'))
-      closeAddDialog()
       await loadUsers()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('saveError'))
@@ -296,7 +283,6 @@ export default function PermissoesPage() {
         permissions: newDeptPermissions,
       })
       toast.success(t('departments.added'))
-      closeAddDialog()
       await loadDepartments()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('saveError'))
@@ -406,18 +392,22 @@ export default function PermissoesPage() {
     }
   }
 
-  const addDialogHits =
+  const addResultHits =
     activeTab === 'users'
-      ? userHits.map(hit => ({
+      ? candidateUsers.map(hit => ({
           id: hit.ID,
           primary: formatBitrixUserName(hit),
           secondary: hit.EMAIL ?? `ID ${hit.ID}`,
         }))
-      : deptHits.map(hit => ({
+      : candidateDepartments.map(hit => ({
           id: hit.ID,
           primary: formatBitrixDepartmentName(hit),
           secondary: `ID ${hit.ID}`,
         }))
+
+  const searchActive = tableFilter.trim().length >= 2
+  const searchingBitrix =
+    activeTab === 'users' ? searchingUsers : searchingDepts
 
   if (!canManage) {
     return (
@@ -442,32 +432,40 @@ export default function PermissoesPage() {
       <PermissionsHeader />
       <PermissionsModeTabs activeTab={activeTab} onChange={setActiveTab} />
 
-      <div className="flex flex-col gap-5 rounded-lg border border-gray-100 bg-white p-5">
+      <div className="flex flex-col gap-5 rounded-xl border border-border bg-card p-5">
         <PermissionsToolbar
           mode={activeTab}
           filter={tableFilter}
           onFilterChange={setTableFilter}
-          onAddClick={openAddDialog}
         />
 
-        <PermissionsDefaultsCard
-          mode={activeTab}
-          value={
-            activeTab === 'users' ? newUserPermissions : newDeptPermissions
-          }
-          onChange={
-            activeTab === 'users'
-              ? setNewUserPermissions
-              : setNewDeptPermissions
-          }
-        />
+        {searchActive && (
+          <PermissionsAddResults
+            mode={activeTab}
+            searching={searchingBitrix}
+            hits={addResultHits}
+            onAdd={hit => {
+              if (activeTab === 'users') {
+                const userHit = candidateUsers.find(
+                  h => String(h.ID) === String(hit.id),
+                )
+                if (userHit) void handleAddUser(userHit)
+              } else {
+                const deptHit = candidateDepartments.find(
+                  h => String(h.ID) === String(hit.id),
+                )
+                if (deptHit) void handleAddDepartment(deptHit)
+              }
+            }}
+          />
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
           </div>
         ) : isEmpty ? (
-          <p className="rounded-lg border border-dashed border-gray-200 px-4 py-12 text-center text-sm text-slate-500">
+          <p className="rounded-lg border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">
             {activeTab === 'users'
               ? t('emptyList')
               : t('departments.emptyList')}
@@ -503,27 +501,6 @@ export default function PermissoesPage() {
         dirtyCount={dirtyCount}
         saving={savingAll}
         onSave={() => void handleSaveAll()}
-      />
-
-      <PermissionsAddDialog
-        mode={activeTab}
-        isOpen={addDialogOpen}
-        query={activeTab === 'users' ? addUserQuery : addDeptQuery}
-        searching={activeTab === 'users' ? searchingUsers : searchingDepts}
-        hits={addDialogHits}
-        onClose={closeAddDialog}
-        onQueryChange={
-          activeTab === 'users' ? setAddUserQuery : setAddDeptQuery
-        }
-        onSelect={hit => {
-          if (activeTab === 'users') {
-            const userHit = userHits.find(h => String(h.ID) === String(hit.id))
-            if (userHit) void handleAddUser(userHit)
-          } else {
-            const deptHit = deptHits.find(h => String(h.ID) === String(hit.id))
-            if (deptHit) void handleAddDepartment(deptHit)
-          }
-        }}
       />
     </div>
   )

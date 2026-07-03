@@ -227,7 +227,7 @@ export default function GestaoLinhas() {
         onConfirm={() => void handleExecutarContratacao()}
       />
 
-      <div className="border-t border-gray-200" />
+      <div className="border-t border-border" />
 
       <div className="space-y-4">
         <GestaoLinhasStatusBanner

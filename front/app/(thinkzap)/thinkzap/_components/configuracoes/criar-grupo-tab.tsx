@@ -6,6 +6,10 @@ import { useCreateGroup, type CreatedGroup } from '@/app/hooks/use-create-group'
 import type { BitrixContact } from '@/app/hooks/use-bitrix-contacts'
 import { GrupoCriadoSucesso } from './grupo-criado-sucesso'
 import { ParticipantesPicker } from './participantes-picker'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 
 type Participant = {
   phone: string
@@ -127,18 +131,15 @@ export function CriarGrupoTab({
         <button
           type="button"
           onClick={onBack}
-          className="w-fit cursor-pointer text-sm text-[#5A997E] hover:underline"
+          className="w-fit cursor-pointer text-sm text-primary hover:underline"
         >
           ← {t('voltarLista', { defaultValue: 'Voltar' })}
         </button>
       )}
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-black">
-          {t('groupName')}
-        </label>
-        <input
-          className="rounded-md border border-gray-200 px-3 py-2 text-sm text-black focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A997E]"
+      <div className="flex flex-col gap-2">
+        <Label>{t('groupName')}</Label>
+        <Input
           type="text"
           value={groupName}
           onChange={e => setGroupName(e.target.value)}
@@ -147,17 +148,16 @@ export function CriarGrupoTab({
       </div>
 
       <label className="flex cursor-pointer items-start gap-2">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={autoInvite}
-          onChange={e => setAutoInvite(e.target.checked)}
+          onCheckedChange={(checked: boolean) => setAutoInvite(checked)}
           className="mt-0.5"
         />
-        <span className="text-sm text-gray-700">{t('autoInvite')}</span>
+        <span className="text-sm text-foreground">{t('autoInvite')}</span>
       </label>
 
       <div className="flex flex-col gap-3">
-        <h4 className="text-sm font-semibold text-black">
+        <h4 className="text-sm font-semibold text-foreground">
           {t('participantes')}
         </h4>
 
@@ -169,14 +169,14 @@ export function CriarGrupoTab({
 
         {participants.length > 0 && (
           <div className="flex flex-col gap-2">
-            <p className="text-xs font-medium text-gray-600">
+            <p className="text-xs font-medium text-muted-foreground">
               {t('participantesAdicionados')}
             </p>
             <ul className="flex flex-col gap-1">
               {participants.map((p, index) => (
                 <li
                   key={`${p.phone}-${index}`}
-                  className="flex items-center justify-between rounded-md border border-gray-100 bg-white px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-sm"
                 >
                   <span>
                     {p.contactName ? `${p.contactName} — ` : ''}
@@ -189,7 +189,7 @@ export function CriarGrupoTab({
                         prev.filter((_, i) => i !== index),
                       )
                     }
-                    className="cursor-pointer text-xs text-red-600 hover:text-red-800"
+                    className="cursor-pointer text-xs text-destructive hover:underline"
                   >
                     {t('remover')}
                   </button>
@@ -200,16 +200,17 @@ export function CriarGrupoTab({
         )}
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <button
+      <Button
         type="button"
+        size="lg"
         onClick={() => void handleSubmit()}
         disabled={creating}
-        className="w-fit cursor-pointer rounded-md bg-[#5A997E] px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4a8169] disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-fit"
       >
         {creating ? t('criando') : t('criarGrupo')}
-      </button>
+      </Button>
     </div>
   )
 }

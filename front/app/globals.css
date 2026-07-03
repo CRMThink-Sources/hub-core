@@ -201,6 +201,35 @@
   --ring: oklch(0.55 0.11 257);
 }
 
+/*
+ * Paleta POR APP — Thinkzap.
+ * Aplicada no <body> enquanto o app thinkzap está montado (ver
+ * app/(thinkzap)/layout.tsx), então alcança também os portais (Dialog,
+ * Select, Combobox). Mantém a identidade verde (#5A997E) da marca,
+ * remapeando os tokens do design-system para essa paleta — sem mexer no
+ * :root global. Para rebrandear o Thinkzap, edite SÓ este bloco.
+ */
+.theme-thinkzap {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.25 0.02 165); /* thinkzap */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.25 0.02 165);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.25 0.02 165);
+  --primary: oklch(0.632 0.078 165); /* #5A997E — verde da marca */
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.97 0.01 165);
+  --secondary-foreground: oklch(0.45 0.06 165);
+  --muted: oklch(0.97 0.006 165);
+  --muted-foreground: oklch(0.556 0.02 165);
+  --accent: oklch(0.95 0.035 165); /* verde claro de hover/seleção */
+  --accent-foreground: oklch(0.45 0.06 165);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0.006 165);
+  --input: oklch(0.922 0.006 165);
+  --ring: oklch(0.632 0.078 165);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

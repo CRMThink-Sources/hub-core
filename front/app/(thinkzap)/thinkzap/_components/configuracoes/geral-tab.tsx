@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 
 type ConnectorSettings = {
   prefixOperatorNameEnabled: boolean
@@ -98,39 +102,35 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
 
   return (
     <div className="flex max-w-md flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-black">
-          {t('nomeCanal')}
-        </label>
-        <input
-          className="rounded-md border border-gray-200 px-3 py-2 text-sm text-black focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A997E]"
+      <div className="flex flex-col gap-2">
+        <Label>{t('nomeCanal')}</Label>
+        <Input
           type="text"
           value={name}
           onChange={e => setName(e.target.value)}
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-black">
-          {t('telefone')}
-        </label>
-        <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+      <div className="flex flex-col gap-2">
+        <Label>{t('telefone')}</Label>
+        <p className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
           {connector.instance.phoneNumber || t('semTelefone')}
         </p>
       </div>
 
       <label className="flex cursor-pointer items-start gap-2">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={prefixOperatorNameEnabled}
-          onChange={e => setPrefixOperatorNameEnabled(e.target.checked)}
+          onCheckedChange={(checked: boolean) =>
+            setPrefixOperatorNameEnabled(checked)
+          }
           className="mt-0.5"
         />
         <span className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-black">
+          <span className="text-sm font-medium text-foreground">
             {t('prefixOperatorName')}
           </span>
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-muted-foreground">
             {t('prefixOperatorNameHint')}
           </span>
         </span>
@@ -139,18 +139,19 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
       <label
         className={`flex items-start gap-2 ${connector.instance.vinculatedChannel ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
       >
-        <input
-          type="checkbox"
+        <Checkbox
           checked={widgetOpenChannelEnabled}
-          onChange={e => setWidgetOpenChannelEnabled(e.target.checked)}
+          onCheckedChange={(checked: boolean) =>
+            setWidgetOpenChannelEnabled(checked)
+          }
           disabled={!connector.instance.vinculatedChannel}
           className="mt-0.5"
         />
         <span className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-black">
+          <span className="text-sm font-medium text-foreground">
             {t('widgetOpenChannel')}
           </span>
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-muted-foreground">
             {connector.instance.vinculatedChannel
               ? t('widgetOpenChannelHint')
               : t('widgetOpenChannelNoChannel')}
@@ -159,16 +160,17 @@ export function GeralTab({ connector, authTokenKey, onSaved }: Props) {
       </label>
 
       <div className="flex items-center gap-3">
-        <button
+        <Button
           type="button"
           onClick={() => void handleSave()}
           disabled={saving || !canSave}
-          className="cursor-pointer rounded-md bg-[#5A997E] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4a8169] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? t('salvando') : t('salvar')}
-        </button>
-        {saved && <span className="text-sm text-[#5A997E]">{t('salvo')}</span>}
-        {saveError && <span className="text-sm text-red-600">{saveError}</span>}
+        </Button>
+        {saved && <span className="text-sm text-primary">{t('salvo')}</span>}
+        {saveError && (
+          <span className="text-sm text-destructive">{saveError}</span>
+        )}
       </div>
     </div>
   )

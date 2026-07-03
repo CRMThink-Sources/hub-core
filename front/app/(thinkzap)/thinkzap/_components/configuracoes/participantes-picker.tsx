@@ -6,6 +6,10 @@ import {
   useBitrixContacts,
   type BitrixContact,
 } from '@/app/hooks/use-bitrix-contacts'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 
 type Props = {
   authTokenKey: string
@@ -111,12 +115,9 @@ export function ParticipantesPicker({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-gray-700">
-          {t('picker.buscarContato')}
-        </label>
-        <input
-          className="rounded-md border border-gray-200 px-3 py-2 text-sm text-black focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A997E]"
+      <div className="flex flex-col gap-2">
+        <Label>{t('picker.buscarContato')}</Label>
+        <Input
           type="text"
           value={searchQuery}
           onChange={e => handleSearchChange(e.target.value)}
@@ -125,25 +126,27 @@ export function ParticipantesPicker({
       </div>
 
       {searching && (
-        <p className="text-xs text-gray-500">{t('picker.buscando')}</p>
+        <p className="text-xs text-muted-foreground">{t('picker.buscando')}</p>
       )}
 
       {!searching && searchQuery.length >= 2 && contacts.length === 0 && (
-        <p className="text-xs text-gray-500">{t('picker.nenhumResultado')}</p>
+        <p className="text-xs text-muted-foreground">
+          {t('picker.nenhumResultado')}
+        </p>
       )}
 
       {contacts.length > 0 && !selectedContact && (
-        <ul className="max-h-40 overflow-y-auto rounded-md border border-gray-200">
+        <ul className="max-h-40 overflow-y-auto rounded-md border border-border">
           {contacts.map(contact => (
             <li key={contact.id}>
               <button
                 type="button"
                 onClick={() => handleSelectContact(contact)}
-                className="w-full cursor-pointer px-3 py-2 text-left text-sm text-black transition-colors hover:bg-[#d9fce6]"
+                className="w-full cursor-pointer px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent"
               >
                 {contact.name}
                 {contact.phones.length > 0 && (
-                  <span className="ml-2 text-xs text-gray-500">
+                  <span className="ml-2 text-xs text-muted-foreground">
                     ({contact.phones.length})
                   </span>
                 )}
@@ -154,8 +157,8 @@ export function ParticipantesPicker({
       )}
 
       {selectedContact && (
-        <div className="rounded-md border border-gray-200 bg-gray-50 p-4">
-          <p className="mb-2 text-sm font-medium text-black">
+        <div className="rounded-md border border-border bg-muted p-4">
+          <p className="mb-2 text-sm font-medium text-foreground">
             {selectedContact.name}
           </p>
 
@@ -165,7 +168,7 @@ export function ParticipantesPicker({
             </p>
           ) : (
             <div className="mb-3 flex flex-col gap-2">
-              <p className="text-xs font-medium text-gray-600">
+              <p className="text-xs font-medium text-muted-foreground">
                 {t('picker.selecionarTelefones')}
               </p>
               {selectedContact.phones.map(phone => (
@@ -173,10 +176,9 @@ export function ParticipantesPicker({
                   key={phone}
                   className="flex cursor-pointer items-center gap-2 text-sm"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selectedPhones.includes(phone)}
-                    onChange={() => togglePhone(phone)}
+                    onCheckedChange={() => togglePhone(phone)}
                   />
                   {phone}
                 </label>
@@ -185,31 +187,34 @@ export function ParticipantesPicker({
           )}
 
           {selectedContact.phones.length > 0 && (
-            <button
+            <Button
               type="button"
+              size="sm"
               onClick={handleAddSelectedPhones}
               disabled={selectedPhones.length === 0}
-              className="mb-3 cursor-pointer rounded-md bg-[#5A997E] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#4a8169] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mb-3"
             >
               {t('picker.adicionarSelecionados')}
-            </button>
+            </Button>
           )}
 
           <div className="flex gap-2">
-            <input
-              className="min-w-0 flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm"
+            <Input
+              className="min-w-0 flex-1"
               type="text"
               value={manualPhoneForContact}
               onChange={e => setManualPhoneForContact(e.target.value)}
               placeholder={t('picker.telefoneManualPlaceholder')}
             />
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={handleAddManualForContact}
-              className="shrink-0 cursor-pointer rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium hover:bg-gray-100"
+              className="shrink-0"
             >
               {t('picker.adicionar')}
-            </button>
+            </Button>
           </div>
 
           <button
@@ -218,32 +223,31 @@ export function ParticipantesPicker({
               setSelectedContact(null)
               setSelectedPhones([])
             }}
-            className="mt-2 cursor-pointer text-xs text-gray-500 hover:text-gray-700"
+            className="mt-2 cursor-pointer text-xs text-muted-foreground hover:text-foreground"
           >
             ✕
           </button>
         </div>
       )}
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-gray-700">
-          {t('picker.telefoneManual')}
-        </label>
+      <div className="flex flex-col gap-2">
+        <Label>{t('picker.telefoneManual')}</Label>
         <div className="flex gap-2">
-          <input
-            className="min-w-0 flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm text-black focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5A997E]"
+          <Input
+            className="min-w-0 flex-1"
             type="text"
             value={manualPhone}
             onChange={e => setManualPhone(e.target.value)}
             placeholder={t('picker.telefoneManualPlaceholder')}
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={handleAddManual}
-            className="shrink-0 cursor-pointer rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50"
+            className="shrink-0"
           >
             {t('picker.adicionar')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

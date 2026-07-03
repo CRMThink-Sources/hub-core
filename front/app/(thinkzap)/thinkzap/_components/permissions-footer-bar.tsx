@@ -25,7 +25,7 @@ export function PermissionsFooterBar({ dirtyCount, saving, onSave }: Props) {
   const { t } = useTranslation('thinkzap/permissoes')
 
   return (
-    <div className="sticky bottom-0 z-20 -mx-4 mt-2 border-t border-gray-200 bg-white/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+    <div className="sticky bottom-0 z-20 -mx-4 mt-2 border-t border-border bg-card/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -44,14 +44,13 @@ export function PermissionsFooterBar({ dirtyCount, saving, onSave }: Props) {
               </span>
             ))} */}
           </div>
-          <p className="text-xs text-slate-500">{t('saveHint')}</p>
         </div>
 
         <Button
           type="button"
           disabled={dirtyCount === 0 || saving}
           onClick={onSave}
-          className="w-full bg-blue-600 text-white hover:bg-blue-700 lg:w-auto lg:min-w-[180px]"
+          className="w-full lg:w-auto lg:min-w-[180px]"
         >
           {saving ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -59,7 +58,6 @@ export function PermissionsFooterBar({ dirtyCount, saving, onSave }: Props) {
             <Check className="h-4 w-4" />
           )}
           {t('saveChanges')}
-          {dirtyCount > 0 && !saving ? ` (${dirtyCount})` : ''}
         </Button>
       </div>
     </div>
