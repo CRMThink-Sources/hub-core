@@ -24,7 +24,7 @@ export class EnsureThinkzapRobot {
     if (!addParams.HANDLER) {
       return 'skipped'
     }
-
+    console.log('Ensuring Thinkzap robot with params:', addParams)
     try {
       const added = await client.callMethod('bizproc.robot.add', addParams)
 
