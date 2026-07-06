@@ -15,6 +15,11 @@ export type ThinkzapRobotAddParams = {
       Name: string
       Type: string
     }
+    sendToAllRelatedContacts: {
+      Name: string
+      Type: string
+      Default: string
+    }
     message: {
       Name: string
       Type: string
@@ -26,7 +31,7 @@ export type ThinkzapRobotAddParams = {
 }
 
 export function buildThinkzapRobotAddParams(): ThinkzapRobotAddParams {
-  return {
+  const params: ThinkzapRobotAddParams = {
     CODE: env.bitrix.robot.code,
     HANDLER: env.bitrix.robot.handlerUrl,
     USE_SUBSCRIPTION: 'N',
@@ -37,9 +42,15 @@ export function buildThinkzapRobotAddParams(): ThinkzapRobotAddParams {
         Type: 'select',
         Options: {},
       },
+      // destination is optional: when sendToAllRelatedContacts is on, it is ignored
       destination: {
         Name: 'Destination',
         Type: 'string',
+      },
+      sendToAllRelatedContacts: {
+        Name: 'Send to all related contacts',
+        Type: 'bool',
+        Default: 'N',
       },
       message: {
         Name: 'Message',
@@ -55,6 +66,8 @@ export function buildThinkzapRobotAddParams(): ThinkzapRobotAddParams {
       ],
     },
   }
+
+  return params
 }
 
 export function buildThinkzapRobotUpdateParams(): {

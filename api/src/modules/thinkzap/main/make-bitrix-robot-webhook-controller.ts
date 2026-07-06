@@ -39,5 +39,6 @@ export const makeBitrixRobotWebhookHandlerController = async (
     getConnector,
     getInstance,
     sendNotification,
+    bx,
   )
 }

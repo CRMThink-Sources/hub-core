@@ -20,10 +20,21 @@ describe('buildThinkzapRobotAddParams', () => {
           Type: 'select',
           Options: {},
         },
+        destination: {
+          Name: 'Destination',
+          Type: 'string',
+        },
+        sendToAllRelatedContacts: {
+          Name: 'Send to all related contacts',
+          Type: 'bool',
+          Default: 'N',
+        },
       },
       FILTER: {
         INCLUDE: [
           ['crm', 'CCrmDocumentDeal'],
+          ['crm', 'CCrmDocumentLead'],
+          ['crm', 'CCrmDocumentCompany'],
           ['crm', 'CCrmDocumentContact'],
         ] as string[][],
       },
