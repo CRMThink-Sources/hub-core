@@ -33,9 +33,8 @@ export class DescribeController extends CallbackController {
     }
 
     const integration = connection?.integration
-    const providerSchema = integration
-      ? (schemaByProvider[integration] ?? asaasSchema)
-      : asaasSchema
+    const providerSchema =
+      (integration ? schemaByProvider[integration] : undefined) ?? {}
     const fields = providerSchema[name] ?? []
     return Promise.resolve(this.ok(fields))
   }

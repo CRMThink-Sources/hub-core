@@ -64,6 +64,9 @@ export const env = {
       'https://auth.contaazul.com/oauth2/token',
     ApiUrl: process.env.CONTA_AZUL_API_URL ?? 'https://api-v2.contaazul.com/v1',
   },
+  omie: {
+    apiUrl: process.env.OMIE_API_URL ?? 'https://app.omie.com.br/api/v1',
+  },
   bitrix: {
     webhookUrl:
       process.env.BITRIX_WEBHOOK_URL ??

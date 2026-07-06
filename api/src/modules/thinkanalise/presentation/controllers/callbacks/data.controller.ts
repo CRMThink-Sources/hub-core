@@ -10,6 +10,11 @@ import {
   parseSonaxCredentials,
 } from '@/shared/infra/clients/sonax.client'
 import { SonaxDataService } from '@/modules/thinkanalise/infra/sonax-data.service'
+import {
+  OmieClient,
+  parseOmieCredentials,
+} from '@/shared/infra/clients/omie.client'
+import { OmieDataService } from '@/modules/thinkanalise/infra/omie-data.service'
 import { thinkAnaliseAuthTokenService } from '@/modules/thinkanalise/infra/auth-token.service'
 
 type DataBody = {
@@ -59,6 +64,9 @@ export class DataController extends CallbackController {
     } else if (integration === 'sonax') {
       const { idCliente, token } = parseSonaxCredentials(api_key)
       service = new SonaxDataService(new SonaxClient(idCliente, token))
+    } else if (integration === 'omie') {
+      const { appKey, appSecret } = parseOmieCredentials(api_key)
+      service = new OmieDataService(new OmieClient(appKey, appSecret))
     } else {
       return this.badRequest(
         new Error(`Provider '${integration}' not implemented`),

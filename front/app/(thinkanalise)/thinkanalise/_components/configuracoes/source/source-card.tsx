@@ -15,6 +15,81 @@ import { Label } from '@/components/ui/label'
 
 const AUTH_TOKEN_KEY = 'hubthink_auth_token'
 
+type CredentialField = {
+  key: string
+  labelKey: string
+  type?: 'password'
+  placeholder?: string
+}
+
+// Providers com credencial multi-campo: os valores são serializados
+// como JSON no api_key. Providers ausentes usam o campo único de API Key.
+const CREDENTIAL_FIELDS: Record<string, CredentialField[]> = {
+  sonax: [
+    { key: 'id_cliente', labelKey: 'campos.idCliente', placeholder: 'Ex: 215' },
+    {
+      key: 'token',
+      labelKey: 'campos.token',
+      type: 'password',
+      placeholder: 'Token de 20+ caracteres',
+    },
+  ],
+  omie: [
+    { key: 'app_key', labelKey: 'campos.appKey' },
+    { key: 'app_secret', labelKey: 'campos.appSecret', type: 'password' },
+  ],
+}
+
+// Providers cujos campos de credencial ficam lado a lado na mesma linha.
+const INLINE_CREDENTIAL_PROVIDERS = new Set(['omie'])
+
+function serializeCredentials(
+  fields: CredentialField[],
+  values: Record<string, string>,
+): string {
+  return JSON.stringify(
+    Object.fromEntries(fields.map(f => [f.key, values[f.key] ?? ''])),
+  )
+}
+
+function CredentialInputs({
+  fields,
+  values,
+  onChange,
+  placeholderOverride,
+  inline,
+}: {
+  fields: CredentialField[]
+  values: Record<string, string>
+  onChange: (key: string, value: string) => void
+  placeholderOverride?: string
+  inline?: boolean
+}) {
+  const { t } = useTranslation('thinkanalise/configuracoes/source')
+  return (
+    <div className={inline ? 'flex gap-2' : 'flex flex-col gap-2'}>
+      {fields.map(f => (
+        <div
+          key={f.key}
+          className={
+            inline ? 'flex min-w-0 flex-1 flex-col gap-1' : 'flex flex-col gap-1'
+          }
+        >
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            {t(f.labelKey)}
+          </Label>
+          <Input
+            type={f.type}
+            value={values[f.key] ?? ''}
+            onChange={e => onChange(f.key, e.target.value)}
+            placeholder={placeholderOverride ?? f.placeholder}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /** Badge de resultado do teste de conexão — sucesso/erro, com ícone. */
 function TestStatusBadge({
   status,
@@ -78,12 +153,12 @@ export function SourceCard({
   onDeleted,
 }: Props) {
   const isContaAzul = provider === 'conta_azul'
-  const isSonax = provider === 'sonax'
+  const credFields = CREDENTIAL_FIELDS[provider]
   const { t } = useTranslation('thinkanalise/configuracoes/source')
 
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState({ title: source.title, apiKey: '' })
-  const [sonaxDraft, setSonaxDraft] = useState({ id_cliente: '', token: '' })
+  const [creds, setCreds] = useState<Record<string, string>>({})
   const [addingDataset, setAddingDataset] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -93,6 +168,11 @@ export function SourceCard({
   const [connectError, setConnectError] = useState(false)
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const { setLoading } = useLoading()
+
+  const hasCredValue = credFields?.some(f => creds[f.key]) ?? false
+  // Credencial multi-campo é tudo-ou-nada na edição: salvar/testar com campo
+  // faltando gravaria/enviaria JSON com valor vazio (credencial quebrada).
+  const allCredsFilled = credFields?.every(f => creds[f.key]) ?? false
 
   async function loadDatasets() {
     const client = axiosThinkanalise(AUTH_TOKEN_KEY)
@@ -115,17 +195,14 @@ export function SourceCard({
 
   function handleCancelEdit() {
     setDraft({ title: source.title, apiKey: '' })
-    setSonaxDraft({ id_cliente: '', token: '' })
+    setCreds({})
     setIsEditing(false)
     setTestStatus('idle')
   }
 
   async function handleTest() {
-    const apiKey = isSonax
-      ? JSON.stringify({
-          id_cliente: sonaxDraft.id_cliente,
-          token: sonaxDraft.token,
-        })
+    const apiKey = credFields
+      ? serializeCredentials(credFields, creds)
       : draft.apiKey || source.settings.api_key
     setTesting(true)
     setTestStatus('idle')
@@ -149,15 +226,12 @@ export function SourceCard({
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       const fields: { title?: string; settings?: SourceSettings } = {}
       if (draft.title !== source.title) fields.title = draft.title
-      if (isSonax && (sonaxDraft.id_cliente || sonaxDraft.token)) {
+      if (credFields && hasCredValue) {
         fields.settings = {
           integration: provider,
-          api_key: JSON.stringify({
-            id_cliente: sonaxDraft.id_cliente,
-            token: sonaxDraft.token,
-          }),
+          api_key: serializeCredentials(credFields, creds),
         }
-      } else if (!isContaAzul && !isSonax && draft.apiKey) {
+      } else if (!isContaAzul && !credFields && draft.apiKey) {
         fields.settings = { integration: provider, api_key: draft.apiKey }
       }
       await client.put(`/thinkanalise/source/${source.id}`, fields)
@@ -285,41 +359,23 @@ export function SourceCard({
                 </span>
               )}
             </div>
-          ) : isSonax ? (
+          ) : credFields ? (
             <>
-              <div className="flex flex-col gap-1">
-                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {t('campos.idCliente')}
-                </Label>
-                <Input
-                  value={sonaxDraft.id_cliente}
-                  onChange={e =>
-                    setSonaxDraft(d => ({ ...d, id_cliente: e.target.value }))
-                  }
-                  placeholder={t('campos.manterPlaceholder')}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {t('campos.token')}
-                </Label>
-                <Input
-                  type="password"
-                  value={sonaxDraft.token}
-                  onChange={e =>
-                    setSonaxDraft(d => ({ ...d, token: e.target.value }))
-                  }
-                  placeholder={t('campos.manterPlaceholder')}
-                />
-              </div>
+              <CredentialInputs
+                fields={credFields}
+                values={creds}
+                onChange={(key, value) =>
+                  setCreds(c => ({ ...c, [key]: value }))
+                }
+                placeholderOverride={t('campos.manterPlaceholder')}
+                inline={INLINE_CREDENTIAL_PROVIDERS.has(provider)}
+              />
               <div className="mt-1 flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => void handleTest()}
-                  disabled={
-                    testing || (!sonaxDraft.id_cliente && !sonaxDraft.token)
-                  }
+                  disabled={testing || !allCredsFilled}
                 >
                   {testing ? t('botoes.testando') : t('botoes.testarConexao')}
                 </Button>
@@ -416,7 +472,9 @@ export function SourceCard({
             <Button
               size="sm"
               onClick={() => void handleSave()}
-              disabled={saving || !draft.title}
+              disabled={
+                saving || !draft.title || (hasCredValue && !allCredsFilled)
+              }
             >
               {saving ? t('botoes.salvando') : t('botoes.salvar')}
             </Button>
@@ -452,16 +510,18 @@ export function NewSourceCard({
   onCancel,
 }: NewSourceProps) {
   const isContaAzul = provider === 'conta_azul'
-  const isSonax = provider === 'sonax'
+  const credFields = CREDENTIAL_FIELDS[provider]
   const { t } = useTranslation('thinkanalise/configuracoes/source')
 
   const [title, setTitle] = useState('')
   const [apiKey, setApiKey] = useState('')
-  const [sonaxCreds, setSonaxCreds] = useState({ id_cliente: '', token: '' })
+  const [creds, setCreds] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [testStatus, setTestStatus] = useState<'idle' | 'ok' | 'erro'>('idle')
   const [testing, setTesting] = useState(false)
   const { setLoading } = useLoading()
+
+  const allCredsFilled = credFields?.every(f => creds[f.key]) ?? false
 
   useEffect(() => {
     if (!isContaAzul) return
@@ -474,19 +534,17 @@ export function NewSourceCard({
     return () => window.removeEventListener('message', handleMessage)
   }, [isContaAzul, onSaved])
 
+  function effectiveApiKey(): string {
+    return credFields ? serializeCredentials(credFields, creds) : apiKey
+  }
+
   async function handleTest() {
-    const testApiKey = isSonax
-      ? JSON.stringify({
-          id_cliente: sonaxCreds.id_cliente,
-          token: sonaxCreds.token,
-        })
-      : apiKey
     setTesting(true)
     setTestStatus('idle')
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await client.post('/thinkanalise/check', {
-        connection: { integration: provider, api_key: testApiKey },
+        connection: { integration: provider, api_key: effectiveApiKey() },
       })
       setTestStatus('ok')
     } catch {
@@ -497,20 +555,15 @@ export function NewSourceCard({
   }
 
   async function handleSave() {
-    const effectiveApiKey = isSonax
-      ? JSON.stringify({
-          id_cliente: sonaxCreds.id_cliente,
-          token: sonaxCreds.token,
-        })
-      : apiKey
-    if (!title || !effectiveApiKey) return
+    const key = effectiveApiKey()
+    if (!title || !key) return
     setSaving(true)
     setLoading(true, t('loading.salvando'))
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
       await client.post(`/thinkanalise/connector/${connectorId}/source`, {
         title,
-        settings: { integration: provider, api_key: effectiveApiKey },
+        settings: { integration: provider, api_key: key },
         active: true,
       })
       await onSaved()
@@ -553,41 +606,20 @@ export function NewSourceCard({
           />
         </div>
 
-        {isSonax && (
+        {credFields && (
           <>
-            <div className="flex flex-col gap-1">
-              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                {t('campos.idCliente')}
-              </Label>
-              <Input
-                value={sonaxCreds.id_cliente}
-                onChange={e =>
-                  setSonaxCreds(d => ({ ...d, id_cliente: e.target.value }))
-                }
-                placeholder="Ex: 215"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                {t('campos.token')}
-              </Label>
-              <Input
-                type="password"
-                value={sonaxCreds.token}
-                onChange={e =>
-                  setSonaxCreds(d => ({ ...d, token: e.target.value }))
-                }
-                placeholder="Token de 20+ caracteres"
-              />
-            </div>
+            <CredentialInputs
+              fields={credFields}
+              values={creds}
+              onChange={(key, value) => setCreds(c => ({ ...c, [key]: value }))}
+              inline={INLINE_CREDENTIAL_PROVIDERS.has(provider)}
+            />
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => void handleTest()}
-                disabled={
-                  testing || !sonaxCreds.id_cliente || !sonaxCreds.token
-                }
+                disabled={testing || !allCredsFilled}
               >
                 {testing ? t('botoes.testando') : t('botoes.testarConexao')}
               </Button>
@@ -600,7 +632,7 @@ export function NewSourceCard({
           </>
         )}
 
-        {!isContaAzul && !isSonax && (
+        {!isContaAzul && !credFields && (
           <>
             <div className="flex flex-col gap-1">
               <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -659,9 +691,7 @@ export function NewSourceCard({
             size="sm"
             onClick={() => void handleSave()}
             disabled={
-              saving ||
-              !title ||
-              (isSonax ? !sonaxCreds.id_cliente || !sonaxCreds.token : !apiKey)
+              saving || !title || (credFields ? !allCredsFilled : !apiKey)
             }
           >
             {saving ? t('botoes.salvando') : t('botoes.salvarFonte')}

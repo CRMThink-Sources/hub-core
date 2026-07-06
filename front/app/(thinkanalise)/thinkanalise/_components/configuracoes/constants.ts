@@ -8,5 +8,5 @@ export const PROVIDERS: {
   { value: 'asaas', label: 'Asaas' },
   { value: 'conta_azul', label: 'Conta Azul' },
   { value: 'sonax', label: 'Sonax' },
-  { value: 'omie', label: 'Omie (em breve)', disabled: true },
+  { value: 'omie', label: 'Omie' },
 ]

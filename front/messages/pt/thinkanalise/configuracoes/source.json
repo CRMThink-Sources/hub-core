@@ -42,6 +42,8 @@
     "apiKeyPlaceholder": "Cole sua chave aqui",
     "idCliente": "ID Cliente",
     "token": "Token",
+    "appKey": "App Key",
+    "appSecret": "App Secret",
     "manterPlaceholder": "Deixe em branco para manter"
   },
   "datasets": "Datasets",

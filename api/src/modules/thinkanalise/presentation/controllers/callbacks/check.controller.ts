@@ -7,6 +7,10 @@ import {
   SonaxClient,
   parseSonaxCredentials,
 } from '@/shared/infra/clients/sonax.client'
+import {
+  OmieClient,
+  parseOmieCredentials,
+} from '@/shared/infra/clients/omie.client'
 import { thinkAnaliseAuthTokenService } from '@/modules/thinkanalise/infra/auth-token.service'
 
 const CHECKERS: Record<string, (apiKey: string) => Promise<void>> = {
@@ -17,6 +21,10 @@ const CHECKERS: Record<string, (apiKey: string) => Promise<void>> = {
   sonax: async apiKey => {
     const { idCliente, token } = parseSonaxCredentials(apiKey)
     await new SonaxClient(idCliente, token).check()
+  },
+  omie: async apiKey => {
+    const { appKey, appSecret } = parseOmieCredentials(apiKey)
+    await new OmieClient(appKey, appSecret).check()
   },
 }
 
