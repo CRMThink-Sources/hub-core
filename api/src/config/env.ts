@@ -67,6 +67,17 @@ export const env = {
   omie: {
     apiUrl: process.env.OMIE_API_URL ?? 'https://app.omie.com.br/api/v1',
   },
+  bling: {
+    ClientId: process.env.BLING_CLIENT_ID ?? '',
+    ClientSecret: process.env.BLING_CLIENT_SECRET ?? '',
+    AuthUrl:
+      process.env.BLING_AUTH_URL ??
+      'https://www.bling.com.br/Api/v3/oauth/authorize',
+    TokenUrl:
+      process.env.BLING_TOKEN_URL ??
+      'https://www.bling.com.br/Api/v3/oauth/token',
+    ApiUrl: process.env.BLING_API_URL ?? 'https://api.bling.com.br/Api/v3',
+  },
   bitrix: {
     webhookUrl:
       process.env.BITRIX_WEBHOOK_URL ??

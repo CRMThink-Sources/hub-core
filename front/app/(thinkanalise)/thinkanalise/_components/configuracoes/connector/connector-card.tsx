@@ -24,6 +24,7 @@ import {
 
 const PROVIDER_BADGE: Record<string, string> = {
   asaas: 'bg-[#dbeafe] text-[#1e40af] border-[#93c5fd]',
+  bling: 'bg-[#dcfce7] text-[#15803d] border-[#86efac]',
   conta_azul: 'bg-[#e0f2fe] text-[#0369a1] border-[#bae6fd]',
   omie: 'bg-[#fff7ed] text-[#c2410c] border-[#fed7aa]',
   sonax: 'bg-[#ecfeff] text-[#0891b2] border-[#a5f3fc]',

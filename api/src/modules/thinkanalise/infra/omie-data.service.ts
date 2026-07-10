@@ -3,6 +3,7 @@ import {
   OmiePageStyle,
   omieToday,
 } from '@/shared/infra/clients/omie.client'
+import { getByPath } from '../domain/utils/get-by-path'
 
 type TableConfig = {
   resource: string
@@ -146,15 +147,6 @@ const TABLE_CONFIG: Record<string, TableConfig> = {
       dDtPrevisao: { de: 'dDataInicial', ate: 'dDataFinal' },
     },
   },
-}
-
-function getByPath(obj: unknown, path: string): unknown {
-  let cur: unknown = obj
-  for (const part of path.split('.')) {
-    if (cur === null || typeof cur !== 'object') return null
-    cur = (cur as Record<string, unknown>)[part]
-  }
-  return cur ?? null
 }
 
 // Filtro Bitrix "dd/mm/yyyy hh:mm:ss" → OMIE "dd/mm/yyyy"

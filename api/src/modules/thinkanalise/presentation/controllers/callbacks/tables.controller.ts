@@ -3,6 +3,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { CallbackController } from '@/shared/presentation/callback-controller'
 import { listOmieTables } from '@/modules/thinkanalise/infra/omie-capabilities'
 import { tables as asaasTables } from './schemas/asaas'
+import { tables as blingTables } from './schemas/bling'
 import { tables as contaAzulTables } from './schemas/conta-azul'
 import { tables as omieTables } from './schemas/omie'
 import { tables as sonaxTables } from './schemas/sonax'
@@ -17,6 +18,7 @@ type TablesBody = {
 
 const tablesByProvider: Record<string, { code: string; title: string }[]> = {
   asaas: asaasTables,
+  bling: blingTables,
   conta_azul: contaAzulTables,
   omie: omieTables,
   sonax: sonaxTables,

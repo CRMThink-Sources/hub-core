@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { CheckCircle2Icon, PlusIcon, XCircleIcon } from 'lucide-react'
-import type { Dataset, Source, SourceSettings } from '../../types'
+import type { Dataset, Provider, Source, SourceSettings } from '../../types'
+import { OAUTH_PROVIDERS, type OAuthProviderConfig } from '../constants'
 import { axiosThinkanalise } from '../../../_lib/thinkanalise-client'
 import { DatasetCard } from '../dataset/dataset-card'
 import { DatasetForm } from '../dataset/dataset-form'
@@ -72,7 +73,9 @@ function CredentialInputs({
         <div
           key={f.key}
           className={
-            inline ? 'flex min-w-0 flex-1 flex-col gap-1' : 'flex flex-col gap-1'
+            inline
+              ? 'flex min-w-0 flex-1 flex-col gap-1'
+              : 'flex flex-col gap-1'
           }
         >
           <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -134,15 +137,18 @@ type NewSourceProps = {
   onCancel: () => void
 }
 
-async function startContaAzulOAuth(
+async function startOAuth(
   client: ReturnType<typeof axiosThinkanalise>,
+  oauth: OAuthProviderConfig,
   params: { connectorId: number; title: string } | { sourceId: number },
 ): Promise<void> {
-  const result = (await client.get('/thinkanalise/oauth/conta-azul/start', {
+  const result = (await client.get(oauth.startPath, {
     params,
-  })) as unknown as { url: string; logoutUrl: string }
+  })) as unknown as { url: string; logoutUrl?: string }
 
-  window.open(result.logoutUrl, 'conta-azul-oauth', 'width=500,height=700')
+  const url =
+    oauth.preferLogoutUrl && result.logoutUrl ? result.logoutUrl : result.url
+  window.open(url, 'thinkanalise-oauth', 'width=500,height=700')
 }
 
 export function SourceCard({
@@ -152,7 +158,7 @@ export function SourceCard({
   onSaved,
   onDeleted,
 }: Props) {
-  const isContaAzul = provider === 'conta_azul'
+  const oauth = OAUTH_PROVIDERS[provider as Provider]
   const credFields = CREDENTIAL_FIELDS[provider]
   const { t } = useTranslation('thinkanalise/configuracoes/source')
 
@@ -231,7 +237,7 @@ export function SourceCard({
           integration: provider,
           api_key: serializeCredentials(credFields, creds),
         }
-      } else if (!isContaAzul && !credFields && draft.apiKey) {
+      } else if (!oauth && !credFields && draft.apiKey) {
         fields.settings = { integration: provider, api_key: draft.apiKey }
       }
       await client.put(`/thinkanalise/source/${source.id}`, fields)
@@ -245,13 +251,14 @@ export function SourceCard({
   }
 
   async function handleConnectOAuth() {
+    if (!oauth) return
     setConnecting(true)
     setConnectError(false)
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
-      await startContaAzulOAuth(client, { sourceId: source.id })
+      await startOAuth(client, oauth, { sourceId: source.id })
     } catch (err) {
-      console.error('[ContaAzulOAuth] erro ao iniciar conexão:', err)
+      console.error('[ThinkAnaliseOAuth] erro ao iniciar conexão:', err)
       setConnectError(true)
     } finally {
       setConnecting(false)
@@ -288,14 +295,14 @@ export function SourceCard({
   // }
 
   useEffect(() => {
-    if (!isContaAzul) return
+    if (!oauth) return
     function handleMessage(event: MessageEvent) {
-      if (!event.data || event.data.type !== 'conta-azul-oauth') return
+      if (!event.data || event.data.type !== oauth?.messageType) return
       if (event.data.status === 'success') void onSaved()
     }
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
-  }, [isContaAzul, onSaved])
+  }, [oauth, onSaved])
 
   const isConnected = Boolean(source.settings.api_key)
 
@@ -332,7 +339,7 @@ export function SourceCard({
       {/* campos em edição */}
       {isEditing && (
         <div className="flex flex-col gap-2 px-4 pb-3">
-          {isContaAzul ? (
+          {oauth ? (
             <div className="flex items-center gap-3">
               <span
                 className={
@@ -351,7 +358,7 @@ export function SourceCard({
               >
                 {connecting
                   ? t('botoes.redirecionando')
-                  : t('botoes.reconectarContaAzul')}
+                  : t(oauth.reconnectLabelKey)}
               </Button>
               {connectError && (
                 <span className="text-xs text-destructive">
@@ -509,7 +516,7 @@ export function NewSourceCard({
   onSaved,
   onCancel,
 }: NewSourceProps) {
-  const isContaAzul = provider === 'conta_azul'
+  const oauth = OAUTH_PROVIDERS[provider as Provider]
   const credFields = CREDENTIAL_FIELDS[provider]
   const { t } = useTranslation('thinkanalise/configuracoes/source')
 
@@ -524,15 +531,15 @@ export function NewSourceCard({
   const allCredsFilled = credFields?.every(f => creds[f.key]) ?? false
 
   useEffect(() => {
-    if (!isContaAzul) return
+    if (!oauth) return
     function handleMessage(event: MessageEvent) {
-      if (!event.data || event.data.type !== 'conta-azul-oauth') return
+      if (!event.data || event.data.type !== oauth?.messageType) return
       if (event.data.status === 'success') void onSaved()
       else setSaving(false)
     }
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
-  }, [isContaAzul, onSaved])
+  }, [oauth, onSaved])
 
   function effectiveApiKey(): string {
     return credFields ? serializeCredentials(credFields, creds) : apiKey
@@ -576,15 +583,15 @@ export function NewSourceCard({
   const [saveConnectError, setSaveConnectError] = useState(false)
 
   async function handleSaveAndConnect() {
-    if (!title) return
+    if (!title || !oauth) return
     setSaving(true)
     setSaveConnectError(false)
     setLoading(true, t('loading.salvando'))
     try {
       const client = axiosThinkanalise(AUTH_TOKEN_KEY)
-      await startContaAzulOAuth(client, { connectorId, title })
+      await startOAuth(client, oauth, { connectorId, title })
     } catch (err) {
-      console.error('[ContaAzulOAuth] erro ao iniciar OAuth:', err)
+      console.error('[ThinkAnaliseOAuth] erro ao iniciar OAuth:', err)
       setSaveConnectError(true)
     } finally {
       setSaving(false)
@@ -632,7 +639,7 @@ export function NewSourceCard({
           </>
         )}
 
-        {!isContaAzul && !credFields && (
+        {!oauth && !credFields && (
           <>
             <div className="flex flex-col gap-1">
               <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -669,7 +676,7 @@ export function NewSourceCard({
         <Button variant="outline" size="sm" onClick={onCancel}>
           {t('botoes.cancelar')}
         </Button>
-        {isContaAzul ? (
+        {oauth ? (
           <>
             {saveConnectError && (
               <span className="mr-auto text-xs text-destructive">
@@ -681,9 +688,7 @@ export function NewSourceCard({
               onClick={() => void handleSaveAndConnect()}
               disabled={saving || !title}
             >
-              {saving
-                ? t('botoes.redirecionando')
-                : t('botoes.salvarConectarContaAzul')}
+              {saving ? t('botoes.redirecionando') : t(oauth.connectLabelKey)}
             </Button>
           </>
         ) : (

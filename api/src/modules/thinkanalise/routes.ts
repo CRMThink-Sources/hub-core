@@ -15,6 +15,10 @@ import {
   makeContaAzulOAuthCallbackController,
 } from './main/make-conta-azul-oauth-controllers'
 import {
+  makeBlingOAuthStartController,
+  makeBlingOAuthCallbackController,
+} from './main/make-bling-oauth-controllers'
+import {
   makeAddDatasetController,
   makeListDatasetsController,
   makeUpdateDatasetController,
@@ -66,6 +70,14 @@ export const createThinkAnaliseRoutes = (): Router => {
   router.get(
     '/oauth/conta-azul/callback',
     adaptControllerFactory(makeContaAzulOAuthCallbackController),
+  )
+  router.get(
+    '/oauth/bling/start',
+    adaptControllerFactory(makeBlingOAuthStartController),
+  )
+  router.get(
+    '/oauth/bling/callback',
+    adaptControllerFactory(makeBlingOAuthCallbackController),
   )
 
   // Datasets

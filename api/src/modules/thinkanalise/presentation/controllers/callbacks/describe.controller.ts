@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { CallbackController } from '@/shared/presentation/callback-controller'
 import { schema as asaasSchema } from './schemas/asaas'
+import { schema as blingSchema } from './schemas/bling'
 import { schema as contaAzulSchema } from './schemas/conta-azul'
 import { schema as omieSchema } from './schemas/omie'
 import { schema as sonaxSchema } from './schemas/sonax'
@@ -19,6 +20,7 @@ const schemaByProvider: Record<
   Record<string, { code: string; name: string; type: string }[]>
 > = {
   asaas: asaasSchema,
+  bling: blingSchema,
   conta_azul: contaAzulSchema,
   omie: omieSchema,
   sonax: sonaxSchema,

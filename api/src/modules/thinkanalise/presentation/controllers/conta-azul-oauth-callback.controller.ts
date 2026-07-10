@@ -1,11 +1,5 @@
 import { Request, Response } from 'express'
-
-function oauthPopupHtml(status: 'success' | 'error'): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><script>
-    try { window.opener.postMessage({ type: 'conta-azul-oauth', status: '${status}' }, '*') } catch(_) {}
-    window.close()
-  </script></body></html>`
-}
+import { oauthPopupHtml } from './oauth-popup-html'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { apiLogger } from '@/shared/infra/logger'
@@ -15,14 +9,14 @@ import { ContaAzulClient } from '@/shared/infra/clients/conta-azul.client'
 import { BitrixBiConnectorClient } from '@/shared/infra/clients/bitrix-biconnector.client'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
-import { ContaAzulOAuthStateStore } from '../../infra/conta-azul-oauth-state.store'
+import { OAuthStateStore } from '../../infra/oauth-state.store'
 import { env } from '@/config/env'
 import { thinkAnaliseAuthTokenService } from '../../infra/auth-token.service'
 
 const installedAppRepo = new PrismaInstalledAppRepository()
 
 export class ContaAzulOAuthCallbackController extends Controller {
-  constructor(private readonly stateStore: ContaAzulOAuthStateStore) {
+  constructor(private readonly stateStore: OAuthStateStore) {
     super()
   }
 
@@ -104,7 +98,7 @@ export class ContaAzulOAuthCallbackController extends Controller {
         'Conta Azul conectada',
       )
 
-      res.send(oauthPopupHtml('success'))
+      res.send(oauthPopupHtml('conta-azul-oauth', 'success'))
     } catch (error) {
       apiLogger.error(
         {
@@ -113,7 +107,7 @@ export class ContaAzulOAuthCallbackController extends Controller {
         },
         'OAuth Conta Azul callback falhou',
       )
-      res.send(oauthPopupHtml('error'))
+      res.send(oauthPopupHtml('conta-azul-oauth', 'error'))
     }
     return this.ok(null)
   }

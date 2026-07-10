@@ -15,6 +15,8 @@ import {
   parseOmieCredentials,
 } from '@/shared/infra/clients/omie.client'
 import { OmieDataService } from '@/modules/thinkanalise/infra/omie-data.service'
+import { BlingClient } from '@/shared/infra/clients/bling.client'
+import { BlingDataService } from '@/modules/thinkanalise/infra/bling-data.service'
 import { thinkAnaliseAuthTokenService } from '@/modules/thinkanalise/infra/auth-token.service'
 
 type DataBody = {
@@ -67,6 +69,12 @@ export class DataController extends CallbackController {
     } else if (integration === 'omie') {
       const { appKey, appSecret } = parseOmieCredentials(api_key)
       service = new OmieDataService(new OmieClient(appKey, appSecret))
+    } else if (integration === 'bling') {
+      const { accessToken } = await thinkAnaliseAuthTokenService.getAccessToken(
+        'bling',
+        api_key,
+      )
+      service = new BlingDataService(new BlingClient(accessToken))
     } else {
       return this.badRequest(
         new Error(`Provider '${integration}' not implemented`),

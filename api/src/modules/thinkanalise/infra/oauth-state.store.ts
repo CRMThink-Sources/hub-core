@@ -16,7 +16,7 @@ export type StatePayload = NewSourcePayload | ReconnectPayload
 
 type StateEntry = { payload: StatePayload; expiresAt: number }
 
-export class ContaAzulOAuthStateStore {
+export class OAuthStateStore {
   private readonly store = new Map<string, StateEntry>()
   private readonly ttlMs = 10 * 60 * 1000
 
@@ -32,4 +32,5 @@ export class ContaAzulOAuthStateStore {
   }
 }
 
-export const contaAzulOAuthStateStore = new ContaAzulOAuthStateStore()
+export const contaAzulOAuthStateStore = new OAuthStateStore()
+export const blingOAuthStateStore = new OAuthStateStore()

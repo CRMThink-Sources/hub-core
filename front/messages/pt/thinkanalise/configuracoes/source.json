@@ -23,6 +23,7 @@
     "ativar": "Ativar",
     "redirecionando": "redirecionando...",
     "reconectarContaAzul": "reconectar com Conta Azul",
+    "reconectarBling": "reconectar com Bling",
     "erroConexao": "erro ao iniciar conexão",
     "testarConexao": "testar conexão",
     "testando": "testando...",
@@ -33,7 +34,8 @@
     "salvar": "salvar",
     "salvando": "salvando...",
     "salvarFonte": "salvar fonte",
-    "salvarConectarContaAzul": "salvar e conectar com Conta Azul"
+    "salvarConectarContaAzul": "salvar e conectar com Conta Azul",
+    "salvarConectarBling": "salvar e conectar com Bling"
   },
   "campos": {
     "nomeFonte": "Nome da Fonte",

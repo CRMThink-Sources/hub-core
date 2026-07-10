@@ -23,6 +23,7 @@
     "ativar": "Enable",
     "redirecionando": "redirecting...",
     "reconectarContaAzul": "reconnect with Conta Azul",
+    "reconectarBling": "reconnect with Bling",
     "erroConexao": "error starting connection",
     "testarConexao": "test connection",
     "testando": "testing...",
@@ -33,7 +34,8 @@
     "salvar": "save",
     "salvando": "saving...",
     "salvarFonte": "save source",
-    "salvarConectarContaAzul": "save and connect with Conta Azul"
+    "salvarConectarContaAzul": "save and connect with Conta Azul",
+    "salvarConectarBling": "save and connect with Bling"
   },
   "campos": {
     "nomeFonte": "Source Name",

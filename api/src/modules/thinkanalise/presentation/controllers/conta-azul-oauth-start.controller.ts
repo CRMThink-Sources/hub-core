@@ -3,11 +3,11 @@ import { Request, Response } from 'express'
 import { z } from 'zod'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
-import { ContaAzulOAuthStateStore } from '../../infra/conta-azul-oauth-state.store'
+import { OAuthStateStore } from '../../infra/oauth-state.store'
 import { env } from '@/config/env'
 
 export class ContaAzulOAuthStartController extends Controller {
-  constructor(private readonly stateStore: ContaAzulOAuthStateStore) {
+  constructor(private readonly stateStore: OAuthStateStore) {
     super()
   }
 
