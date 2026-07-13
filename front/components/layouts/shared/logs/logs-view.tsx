@@ -61,9 +61,11 @@ type Props = {
   client: LogsHttpClient
   // Base da rota do app, ex.: '/thinkzap' → GET '/thinkzap/logs'.
   basePath: string
+  // Cor de destaque do app (accentColor do aside-config). Aplicada no botão Buscar.
+  accentColor?: string
 }
 
-export function LogsView({ client, basePath }: Props) {
+export function LogsView({ client, basePath, accentColor }: Props) {
   const { t } = useTranslation('logs')
 
   const [preset, setPreset] = useState<Preset>('1h')
@@ -207,7 +209,12 @@ export function LogsView({ client, basePath }: Props) {
         </label>
 
         <div className="flex items-center gap-2">
-          <Button onClick={() => void load()} disabled={loading}>
+          <Button
+            onClick={() => void load()}
+            disabled={loading}
+            className={cn(accentColor && 'text-white hover:opacity-90')}
+            style={accentColor ? { backgroundColor: accentColor } : undefined}
+          >
             <Search className="size-4" />
             {t('apply')}
           </Button>

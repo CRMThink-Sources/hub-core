@@ -109,8 +109,11 @@ export class BlingClient {
       return null
     }
 
-    const header = err.response?.headers?.['retry-after']
-    const headerSec = header ? Number(header) : NaN
+    const header = err.response?.headers?.['retry-after'] as unknown
+    const headerSec =
+      typeof header === 'string' || typeof header === 'number'
+        ? Number(header)
+        : NaN
     const base =
       Number.isFinite(headerSec) && headerSec > 0
         ? headerSec * 1000

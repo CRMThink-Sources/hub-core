@@ -2,6 +2,7 @@
 
 import { LogsView } from '@/components/layouts/shared/logs/logs-view'
 import { useLogsClient } from '@/components/layouts/shared/logs/use-logs-client'
+import { THINKHUB_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkhub-aside-config'
 import { axiosThinkanalise } from '../_lib/thinkanalise-client'
 
 export default function ThinkanaliseLogsPage() {
@@ -18,7 +19,11 @@ export default function ThinkanaliseLogsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-      <LogsView client={state.client} basePath="/thinkanalise" />
+      <LogsView
+        client={state.client}
+        basePath="/thinkanalise"
+        accentColor={THINKHUB_ASIDE_CONFIG.accentColor}
+      />
     </div>
   )
 }

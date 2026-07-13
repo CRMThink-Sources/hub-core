@@ -120,7 +120,11 @@ export const schema: Record<string, FieldEntry[]> = {
   situacoes: [
     { code: 'id', name: 'ID da Situação', type: 'double' },
     { code: 'nome', name: 'Nome da Situação', type: 'string' },
-    { code: 'idHerdado', name: 'ID Herdado (0 = situação custom)', type: 'double' },
+    {
+      code: 'idHerdado',
+      name: 'ID Herdado (0 = situação custom)',
+      type: 'double',
+    },
     { code: 'cor', name: 'Cor', type: 'string' },
     { code: 'modulo.id', name: 'ID do Módulo', type: 'double' },
     { code: 'modulo.nome', name: 'Nome do Módulo', type: 'string' },

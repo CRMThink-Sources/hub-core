@@ -2,6 +2,7 @@
 
 import { LogsView } from '@/components/layouts/shared/logs/logs-view'
 import { useLogsClient } from '@/components/layouts/shared/logs/use-logs-client'
+import { IMPORTSHEET_ASIDE_CONFIG } from '@/components/layouts/shared/aside/importsheet-aside-config'
 import { axiosImportsheet } from '@/infra/client/axios-importsheet'
 
 export default function ImportsheetLogsPage() {
@@ -18,7 +19,11 @@ export default function ImportsheetLogsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-      <LogsView client={state.client} basePath="/importsheet" />
+      <LogsView
+        client={state.client}
+        basePath="/importsheet"
+        accentColor={IMPORTSHEET_ASIDE_CONFIG.accentColor}
+      />
     </div>
   )
 }

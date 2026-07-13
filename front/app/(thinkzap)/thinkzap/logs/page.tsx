@@ -2,6 +2,7 @@
 
 import { LogsView } from '@/components/layouts/shared/logs/logs-view'
 import { useLogsClient } from '@/components/layouts/shared/logs/use-logs-client'
+import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkzap-aside-config'
 import { resolveThinkzapClient } from '../_lib/thinkzap-client'
 
 export default function ThinkzapLogsPage() {
@@ -21,7 +22,11 @@ export default function ThinkzapLogsPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-      <LogsView client={state.client} basePath="/thinkzap" />
+      <LogsView
+        client={state.client}
+        basePath="/thinkzap"
+        accentColor={THINKZAP_ASIDE_CONFIG.accentColor}
+      />
     </div>
   )
 }
