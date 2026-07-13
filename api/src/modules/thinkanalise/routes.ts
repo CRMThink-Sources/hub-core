@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { adaptControllerFactory } from '@/shared/main/adapt-controller'
+import { makeGetLogsControllerFactory } from '@/shared/main/make-get-logs-controller'
 import { makeAddBiconnectorController } from './main/make-add-biconnector-controller'
 import { makeListBiconnectorsController } from './main/make-list-biconnectors-controller'
 import { makeDeleteBiconnectorController } from './main/make-delete-biconnector-controller'
@@ -100,6 +101,12 @@ export const createThinkAnaliseRoutes = (): Router => {
   router.delete(
     '/dataset/:id',
     adaptControllerFactory(makeDeleteDatasetController),
+  )
+
+  // Logs (Loki) — restrito ao app + domínio do token, resolvido no servidor.
+  router.get(
+    '/logs',
+    adaptControllerFactory(makeGetLogsControllerFactory('thinkanalise')),
   )
 
   return router

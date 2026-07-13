@@ -1,0 +1,34 @@
+{
+  "title": "Logs",
+  "subtitle": "Registros de atividades do aplicativo.",
+  "period": "Período",
+  "from": "De",
+  "to": "Até",
+  "search": "Buscar",
+  "searchPlaceholder": "Filtrar por texto...",
+  "apply": "Buscar",
+  "refresh": "Atualizar",
+  "empty": "Nenhum log encontrado no período.",
+  "truncated": "Exibindo os {{count}} registros mais recentes. Estreite o período para ver o restante.",
+  "perPage": "Por página",
+  "range": "{{from}}–{{to}} de {{total}}",
+  "pageOf": "Página {{page}} de {{total}}",
+  "first": "Primeira",
+  "prev": "Anterior",
+  "next": "Próxima",
+  "last": "Última",
+  "presets": {
+    "lastHour": "Última hora",
+    "last24h": "Últimas 24 horas",
+    "custom": "Personalizado"
+  },
+  "cols": {
+    "time": "Horário",
+    "level": "Tipo",
+    "message": "Mensagem"
+  },
+  "errors": {
+    "invalidRange": "Intervalo inválido: o fim deve ser maior que o início.",
+    "generic": "Falha ao carregar os logs."
+  }
+}

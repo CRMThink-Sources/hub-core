@@ -9,6 +9,7 @@ import {
   makeRepairProvisioningController,
 } from './main/make-clicksign-controllers'
 import { requireClickSignApp } from './infra/middleware/require-clicksign-app'
+import { makeGetLogsControllerFactory } from '@/shared/main/make-get-logs-controller'
 
 export const createClickSignRoutes = (): Router => {
   const router = Router()
@@ -31,6 +32,12 @@ export const createClickSignRoutes = (): Router => {
   router.post(
     '/provisioning/repair',
     adaptControllerFactory(makeRepairProvisioningController),
+  )
+
+  // Logs (Loki) — restrito ao app + domínio do token, resolvido no servidor.
+  router.get(
+    '/logs',
+    adaptControllerFactory(makeGetLogsControllerFactory('clicksign')),
   )
 
   return router
