@@ -43,6 +43,7 @@ import {
   requireThinkzapPermission,
 } from './infra/middleware/thinkzap-access.middleware'
 import { makeUpdateConnectorEventBindsController } from './main/make-update-connector-event-binds-controller'
+import { makeGetLogsControllerFactory } from '@/shared/main/make-get-logs-controller'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
@@ -63,6 +64,12 @@ export const createThinkerszapRoutes = (): Router => {
   )
 
   router.use(thinkzapAccessMiddleware)
+
+  // Logs (Loki) — qualquer usuário com acesso ao thinkzap do domínio.
+  router.get(
+    '/logs',
+    adaptControllerFactory(makeGetLogsControllerFactory('thinkzap')),
+  )
 
   router.get(
     '/access/allowed-users',

@@ -24,6 +24,7 @@ import {
   makeUpdateNotifySettingsController,
 } from './main/make-importsheet-controllers'
 import { requireImportSheetApp } from './infra/middleware/require-importsheet-app'
+import { makeGetLogsControllerFactory } from '@/shared/main/make-get-logs-controller'
 
 export const createImportSheetRoutes = (): Router => {
   const router = Router()
@@ -106,6 +107,12 @@ export const createImportSheetRoutes = (): Router => {
   router.post(
     '/imports/:id/reprocess',
     adaptControllerFactory(makeReprocessImportController),
+  )
+
+  // Logs (Loki) — restrito ao app + domínio do token, resolvido no servidor.
+  router.get(
+    '/logs',
+    adaptControllerFactory(makeGetLogsControllerFactory('importsheet')),
   )
 
   return router

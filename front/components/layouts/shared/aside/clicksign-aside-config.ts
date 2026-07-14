@@ -13,6 +13,10 @@ export const CLICKSIGN_ASIDE_CONFIG = {
       label: 'assinatura',
     },
     {
+      href: '/clicksign/logs',
+      label: 'logs',
+    },
+    {
       href: '/clicksign/ajuda',
       label: 'ajuda',
     },

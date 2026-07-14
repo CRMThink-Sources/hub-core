@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { prisma } from '@/config/prisma'
+import { BlingClient } from '@/shared/infra/clients/bling.client'
 import { ContaAzulClient } from '@/shared/infra/clients/conta-azul.client'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -22,6 +23,7 @@ const REFRESHERS: Record<
   }>
 > = {
   conta_azul: refreshToken => ContaAzulClient.refresh(refreshToken),
+  bling: refreshToken => BlingClient.refresh(refreshToken),
 }
 
 const refreshLocks = new Map<string, Promise<TokenData>>()

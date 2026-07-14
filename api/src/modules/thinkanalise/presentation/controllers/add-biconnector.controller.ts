@@ -11,11 +11,12 @@ import { apiLogger } from '@/shared/infra/logger'
 
 const addBiconnectorSchema = z.object({
   label: z.string().min(1),
-  provider: z.enum(['asaas', 'conta_azul', 'omie', 'sonax']),
+  provider: z.enum(['asaas', 'bling', 'conta_azul', 'omie', 'sonax']),
 })
 
 const providerDescription: Record<string, string> = {
   asaas: 'Asaas',
+  bling: 'Bling',
   conta_azul: 'Conta Azul',
   omie: 'Omie',
   sonax: 'Sonax',

@@ -10,6 +10,11 @@ export const THINKHUB_ASIDE_CONFIG = {
       // icon: '/images/thinkhub/config.png',
     },
     {
+      href: '/thinkanalise/logs',
+      label: 'logs',
+      // icon: '/images/thinkhub/logs.png',
+    },
+    {
       href: '/thinkanalise/ajuda',
       label: 'ajuda',
       // icon: '/images/thinkhub/manual.png',
