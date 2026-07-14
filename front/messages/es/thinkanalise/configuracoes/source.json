@@ -23,6 +23,7 @@
     "ativar": "Activar",
     "redirecionando": "redirigiendo...",
     "reconectarContaAzul": "reconectar con Conta Azul",
+    "reconectarBling": "reconectar con Bling",
     "erroConexao": "error al iniciar conexión",
     "testarConexao": "probar conexión",
     "testando": "probando...",
@@ -33,7 +34,8 @@
     "salvar": "guardar",
     "salvando": "guardando...",
     "salvarFonte": "guardar fuente",
-    "salvarConectarContaAzul": "guardar y conectar con Conta Azul"
+    "salvarConectarContaAzul": "guardar y conectar con Conta Azul",
+    "salvarConectarBling": "guardar y conectar con Bling"
   },
   "campos": {
     "nomeFonte": "Nombre de la Fuente",
@@ -42,6 +44,8 @@
     "apiKeyPlaceholder": "Pegue su clave aquí",
     "idCliente": "ID Cliente",
     "token": "Token",
+    "appKey": "App Key",
+    "appSecret": "App Secret",
     "manterPlaceholder": "Deje en blanco para mantener"
   },
   "datasets": "Datasets",

@@ -11,6 +11,7 @@ import {
 
 const providerMap = {
   asaas: 'ASAAS',
+  bling: 'BLING',
   conta_azul: 'CONTA_AZUL',
   omie: 'OMIE',
   sonax: 'SONAX',
@@ -18,6 +19,7 @@ const providerMap = {
 
 const reverseProviderMap = {
   ASAAS: 'asaas',
+  BLING: 'bling',
   CONTA_AZUL: 'conta_azul',
   OMIE: 'omie',
   SONAX: 'sonax',

@@ -1,6 +1,6 @@
 import { Request } from 'express'
 import { Controller } from '@/shared/presentation/controller'
-import { contaAzulOAuthStateStore } from '../infra/conta-azul-oauth-state.store'
+import { contaAzulOAuthStateStore } from '../infra/oauth-state.store'
 import { ContaAzulOAuthStartController } from '../presentation/controllers/conta-azul-oauth-start.controller'
 import { ContaAzulOAuthCallbackController } from '../presentation/controllers/conta-azul-oauth-callback.controller'
 

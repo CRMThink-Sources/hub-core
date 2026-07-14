@@ -15,6 +15,11 @@ export const IMPORTSHEET_ASIDE_CONFIG = {
       // icon: '/images/importsheet/config.png',
     },
     {
+      href: '/importsheet/logs',
+      label: 'logs',
+      // icon: '/images/importsheet/logs.png',
+    },
+    {
       href: '/importsheet/ajuda',
       label: 'ajuda',
       // icon: '/images/importsheet/ajuda.png',
@@ -24,12 +29,6 @@ export const IMPORTSHEET_ASIDE_CONFIG = {
     //   href: '/importsheet/pagamentos',
     //   label: 'Pagamentos',
     //   icon: '/images/importsheet/payments.png',
-    // },
-    // tela de logs - Ainda precisa definir escopo e demais funcionamentos.
-    // {
-    //   href: '/importsheet/logs',
-    //   label: 'Logs',
-    //   icon: '/images/importsheet/logs.png',
     // },
   ],
   linksNamespace: 'importsheet/aside',

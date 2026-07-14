@@ -489,6 +489,7 @@ enum BiAnalyseProvider {
   CONTA_AZUL
   OMIE
   SONAX
+  BLING
 }
 
 enum PortalUserRole {

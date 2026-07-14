@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { ChevronDownIcon, PlusIcon, XIcon } from 'lucide-react'
 import type { Connection } from '../types'
 import { ConnectorCard } from './connector/connector-card'
-import { PROVIDERS } from './constants'
+import { OAUTH_MESSAGE_TYPES, PROVIDERS } from './constants'
 import { useSession } from '@/providers/session-provider'
 import { LoadingProvider } from '@/providers/loading-provider'
 import { LoadingOverlay } from '@/components/ui/loading-overlay'
@@ -49,7 +49,7 @@ export default function ConfiguracoesLayout() {
     function handleMessage(event: MessageEvent) {
       if (
         !event.data ||
-        event.data.type !== 'conta-azul-oauth' ||
+        !OAUTH_MESSAGE_TYPES.includes(event.data.type) ||
         (event.data.status !== 'success' && event.data.status !== 'error')
       )
         return
