@@ -9,6 +9,7 @@ type Connector = {
     name?: string | null
     phoneNumber?: string | null
     paidStatus?: string | null
+    connected?: boolean | null
   }
 }
 
@@ -28,31 +29,18 @@ function formatPhoneNumber(phone: string) {
 }
 
 function getConnectionStatus(
-  status: string | null | undefined,
+  connected: boolean | null | undefined,
   t: (key: string) => string,
 ) {
-  switch (status) {
-    case 'ACTIVE':
-      return {
+  return connected
+    ? {
         className: 'bg-primary/10 text-primary',
         text: t('status.ativo'),
       }
-    case 'PENDING_SETUP':
-      return {
-        className: 'bg-amber-100 text-amber-800',
-        text: t('status.configuracaoPendente'),
-      }
-    case 'TRIAL':
-      return {
-        className: 'bg-amber-100 text-amber-800',
-        text: t('status.trial'),
-      }
-    default:
-      return {
+    : {
         className: 'bg-destructive/10 text-destructive',
         text: t('status.inativo'),
       }
-  }
 }
 
 export function GestaoLinhasContratadas({
@@ -63,9 +51,6 @@ export function GestaoLinhasContratadas({
   onConfirmTrial,
 }: Props) {
   const { t } = useTranslation('thinkzap/gestao-linhas/contratadas')
-  /** Três colunas no header e nas linhas; status + ação ficam na mesma célula "Conexão". */
-  const gridClass =
-    'grid-cols-1 gap-y-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(11rem,auto)] sm:items-center sm:gap-x-4 sm:gap-y-0'
 
   return (
     <>
@@ -87,7 +72,7 @@ export function GestaoLinhasContratadas({
             </thead>
             <tbody className="divide-y divide-border">
               {connectors.map(conn => {
-                const status = getConnectionStatus(conn.instance.paidStatus, t)
+                const status = getConnectionStatus(conn.instance.connected, t)
                 const showEfetivar =
                   isTrial && conn.instance.paidStatus === 'TRIAL'
                 return (

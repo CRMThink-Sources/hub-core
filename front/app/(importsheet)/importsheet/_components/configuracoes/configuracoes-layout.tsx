@@ -47,8 +47,8 @@ export default function ConfiguracoesLayout() {
           axiosImportsheet().get('/importsheet/settings/notify'),
         ])
         if (!active) return
-        const usersData = usersRes.data as { users: BitrixUser[] }
-        const settingsData = settingsRes.data as { userIds: number[] }
+        const usersData = usersRes as unknown as { users: BitrixUser[] }
+        const settingsData = settingsRes as unknown as { userIds: number[] }
         setUsers(usersData.users ?? [])
         setNotifyIds(settingsData.userIds ?? [])
         setSavedIds(settingsData.userIds ?? [])
