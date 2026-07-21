@@ -133,7 +133,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className={`${THINKZAP_THEME_CLASS} ${montSerrat.variable} min-h-screen min-w-0 w-full`}
+      className={`${THINKZAP_THEME_CLASS} ${montSerrat.variable} flex min-h-screen w-full`}
       style={{ fontFamily: 'var(--font-montserrat)' }}
     >
       <Aside
@@ -141,7 +141,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
         links={asideLinks}
         onLanguageChange={handleLanguageChange}
       />
-      <div className="box-border min-h-screen min-w-0 w-full pl-64">
+      <main className="ml-64 w-full flex flex-col bg-white min-h-screen relative">
         {isFetching ? (
           <div className="flex min-h-[50vh] items-center justify-center gap-2 py-12">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
@@ -161,7 +161,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
             {accessBlocked ? <AccessDeniedPanel /> : children}
           </>
         )}
-      </div>
+      </main>
     </div>
   )
 }
