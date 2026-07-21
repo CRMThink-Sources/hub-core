@@ -1,0 +1,65 @@
+{
+  "title": "Diretrizes de Uso",
+  "subtitle": "Boas práticas para evitar restrições e banimentos",
+  "disclaimer": "<b>Importante:</b> As recomendações reduzem riscos, mas não garantem que um número usado na API não oficial nunca será restringido.",
+  "baixarPdf": "Baixar diretrizes em PDF",
+  "diretrizes": [
+    {
+      "titulo": "Aquecimento do número",
+      "pontos": [
+        "<b>Se o número for novo ou estiver sem uso há mais de 30 dias,</b> utilize o número por pelo menos 7 dias antes da leitura do QRCode no app; o ideal é entre 2 e 4 semanas.",
+        "Troque mensagens reais, receba respostas, faça chamadas e participe de grupos.",
+        "<b>Evite grandes volumes de mensagens logo após a ativação no app.</b>"
+      ]
+    },
+    {
+      "titulo": "Perfil profissional",
+      "pontos": [
+        "Preencha foto, descrição, endereço, site e e-mail.",
+        "Mantenha informações consistentes com a empresa."
+      ]
+    },
+    {
+      "titulo": "Envio de mensagens",
+      "pontos": [
+        "Envie apenas para clientes com consentimento, para evitar denúncias.",
+        "Personalize mensagens.",
+        "Evite mensagens idênticas.",
+        "Evite excesso de links e imagens."
+      ]
+    },
+    {
+      "titulo": "Interação",
+      "pontos": [
+        "Incentive respostas.",
+        "Peça para adicionar o número aos contatos.",
+        "Sempre que possível, faça o cliente iniciar o primeiro contato."
+      ]
+    },
+    {
+      "titulo": "Automações",
+      "pontos": [
+        "Use automações com moderação.",
+        "Aumente o volume gradualmente.",
+        "Monitore bloqueios e denúncias."
+      ]
+    },
+    {
+      "titulo": "Evite",
+      "pontos": [
+        "Disparos em massa. Geralmente usadas em campanhas de marketing.",
+        "Conteúdo impróprio.",
+        "Mudanças frequentes de aparelho.",
+        "Centenas de mensagens em número recém-criado, principalmente mensagens padronizadas."
+      ]
+    },
+    {
+      "titulo": "Exemplo de crescimento de volume",
+      "pontos": [
+        "Dias 1–3: 20–30 conversas/dia",
+        "Dias 4–7: 50–100 conversas/dia",
+        "Após 2 semanas: aumentar gradualmente."
+      ]
+    }
+  ]
+}

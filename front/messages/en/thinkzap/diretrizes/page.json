@@ -1,0 +1,65 @@
+{
+  "title": "Usage Guidelines",
+  "subtitle": "Best practices to avoid restrictions and bans",
+  "disclaimer": "<b>Important:</b> These recommendations reduce risks, but do not guarantee that a number used on the unofficial API will never be restricted.",
+  "baixarPdf": "Download guidelines as PDF",
+  "diretrizes": [
+    {
+      "titulo": "Warming up the number",
+      "pontos": [
+        "<b>If the number is new or has been unused for more than 30 days,</b> use the number for at least 7 days before scanning the QR Code in the app; 2 to 4 weeks is ideal.",
+        "Exchange real messages, receive replies, make calls and join groups.",
+        "<b>Avoid large volumes of messages right after activating it in the app.</b>"
+      ]
+    },
+    {
+      "titulo": "Professional profile",
+      "pontos": [
+        "Fill in photo, description, address, website and email.",
+        "Keep the information consistent with the company."
+      ]
+    },
+    {
+      "titulo": "Sending messages",
+      "pontos": [
+        "Only send to customers who have given consent, to avoid reports.",
+        "Personalize messages.",
+        "Avoid identical messages.",
+        "Avoid excessive links and images."
+      ]
+    },
+    {
+      "titulo": "Interaction",
+      "pontos": [
+        "Encourage replies.",
+        "Ask customers to save the number to their contacts.",
+        "Whenever possible, let the customer start the first contact."
+      ]
+    },
+    {
+      "titulo": "Automations",
+      "pontos": [
+        "Use automations in moderation.",
+        "Increase the volume gradually.",
+        "Monitor blocks and reports."
+      ]
+    },
+    {
+      "titulo": "Avoid",
+      "pontos": [
+        "Mass messaging. Usually used in marketing campaigns.",
+        "Inappropriate content.",
+        "Frequent device changes.",
+        "Hundreds of messages from a newly created number, especially standardized messages."
+      ]
+    },
+    {
+      "titulo": "Volume growth example",
+      "pontos": [
+        "Days 1–3: 20–30 conversations/day",
+        "Days 4–7: 50–100 conversations/day",
+        "After 2 weeks: increase gradually."
+      ]
+    }
+  ]
+}
