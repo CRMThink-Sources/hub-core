@@ -14,7 +14,8 @@ import {
   type ThinkzapPricingResponse,
 } from '../_components/gestao-linhas/gestao-linhas-pricing-card'
 import { useTranslation } from 'react-i18next'
-import { GestaoLinhasStatusBanner } from '../_components/gestao-linhas/gestao-linhas-status-banner'
+// banner de assinatura - revisar depois
+// import { GestaoLinhasStatusBanner } from '../_components/gestao-linhas/gestao-linhas-status-banner'
 import { GestaoLinhasContratadas } from '../_components/gestao-linhas/gestao-linhas-contratadas'
 import { ContratarLinhasModal } from '../_components/gestao-linhas/contratar-linhas-modal'
 
@@ -230,11 +231,13 @@ export default function GestaoLinhas() {
       <div className="border-t border-border" />
 
       <div className="space-y-4">
+        {/* banner de assinatura - revisar depois
         <GestaoLinhasStatusBanner
           isTrial={isTrial}
           isCancelled={isCancelled}
           hasSubscription={hasSubscription}
         />
+        */}
 
         <GestaoLinhasPricingCard
           submitting={submitting}

@@ -10,6 +10,7 @@ type Props = {
   hasSubscription: boolean
 }
 
+// banner de assinatura - revisar depois
 export function GestaoLinhasStatusBanner({
   isTrial,
   isCancelled,

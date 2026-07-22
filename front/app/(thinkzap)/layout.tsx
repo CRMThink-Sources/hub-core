@@ -20,48 +20,50 @@ const montSerrat = Montserrat({
   variable: '--font-montserrat',
 })
 
-function getSubscriptionStatusBanner(
-  hasSubscription: boolean,
-  t: (key: string) => string,
-  subscriptionStatus?: string,
-): { text: string; className: string } {
-  if (!hasSubscription) {
-    return {
-      text: t('banner.semAssinatura'),
-      className: 'border-amber-200 bg-amber-50 text-amber-700',
-    }
-  }
-
-  if (subscriptionStatus === 'CANCELLED') {
-    return {
-      text: t('banner.cancelada'),
-      className: 'border-red-200 bg-red-50 text-red-700',
-    }
-  }
-
-  if (subscriptionStatus === 'TRIALING') {
-    return {
-      text: t('banner.trial'),
-      className: 'border-blue-200 bg-blue-50 text-blue-700',
-    }
-  }
-
-  if (subscriptionStatus === 'PAST_DUE') {
-    return {
-      text: t('banner.pastDue'),
-      className: 'border-amber-200 bg-amber-50 text-amber-700',
-    }
-  }
-
-  return {
-    text: t('banner.ativa'),
-    className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  }
-}
+// banner de assinatura - revisar depois
+// function getSubscriptionStatusBanner(
+//   hasSubscription: boolean,
+//   t: (key: string) => string,
+//   subscriptionStatus?: string,
+// ): { text: string; className: string } {
+//   if (!hasSubscription) {
+//     return {
+//       text: t('banner.semAssinatura'),
+//       className: 'border-amber-200 bg-amber-50 text-amber-700',
+//     }
+//   }
+//
+//   if (subscriptionStatus === 'CANCELLED') {
+//     return {
+//       text: t('banner.cancelada'),
+//       className: 'border-red-200 bg-red-50 text-red-700',
+//     }
+//   }
+//
+//   if (subscriptionStatus === 'TRIALING') {
+//     return {
+//       text: t('banner.trial'),
+//       className: 'border-blue-200 bg-blue-50 text-blue-700',
+//     }
+//   }
+//
+//   if (subscriptionStatus === 'PAST_DUE') {
+//     return {
+//       text: t('banner.pastDue'),
+//       className: 'border-amber-200 bg-amber-50 text-amber-700',
+//     }
+//   }
+//
+//   return {
+//     text: t('banner.ativa'),
+//     className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+//   }
+// }
 
 function ThinkzapContent({ children }: { children: React.ReactNode }) {
   const { t: tCommon } = useTranslation('common')
-  const { t: tGeneral } = useTranslation('thinkzap/general')
+  // banner de assinatura - revisar depois
+  // const { t: tGeneral } = useTranslation('thinkzap/general')
   const { isFetching, session } = useSession()
   const pathname = usePathname()
 
@@ -108,13 +110,14 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
     return false
   }, [pathname, thinkzapAccess, canManageAccess])
 
-  const hasSubscription = session?.subscription != null
-  const subscriptionStatus = session?.subscription?.status as string | undefined
-  const statusBanner = getSubscriptionStatusBanner(
-    hasSubscription,
-    tGeneral,
-    subscriptionStatus,
-  )
+  // banner de assinatura - revisar depois
+  // const hasSubscription = session?.subscription != null
+  // const subscriptionStatus = session?.subscription?.status as string | undefined
+  // const statusBanner = getSubscriptionStatusBanner(
+  //   hasSubscription,
+  //   tGeneral,
+  //   subscriptionStatus,
+  // )
 
   function handleLanguageChange(code: string) {
     setLocale(code)
@@ -151,6 +154,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
           </div>
         ) : (
           <>
+            {/* banner de assinatura - revisar depois
             <div className="mx-auto w-full max-w-6xl px-4 pb-0 pt-4 sm:px-6 lg:px-8">
               <p
                 className={`inline-flex rounded-md border px-3 py-1.5 text-xs font-medium ${statusBanner.className}`}
@@ -158,6 +162,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
                 {statusBanner.text}
               </p>
             </div>
+            */}
             {accessBlocked ? <AccessDeniedPanel /> : children}
           </>
         )}
