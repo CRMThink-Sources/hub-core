@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useSession } from '@/providers/session-provider'
@@ -16,6 +17,7 @@ import {
 import { useTranslation } from 'react-i18next'
 // banner de assinatura - revisar depois
 // import { GestaoLinhasStatusBanner } from '../_components/gestao-linhas/gestao-linhas-status-banner'
+import { buttonVariants } from '@/components/ui/button'
 import { GestaoLinhasContratadas } from '../_components/gestao-linhas/gestao-linhas-contratadas'
 import { ContratarLinhasModal } from '../_components/gestao-linhas/contratar-linhas-modal'
 
@@ -26,6 +28,7 @@ function podeAlterarAssinaturaExistente(status: string | undefined): boolean {
 
 export default function GestaoLinhas() {
   const { t } = useTranslation('thinkzap/gestao-linhas/layout')
+  const { t: tBanner } = useTranslation('thinkzap/gestao-linhas/status-banner')
   const { session, refreshSession } = useSession()
   const router = useRouter()
 
@@ -238,6 +241,15 @@ export default function GestaoLinhas() {
           hasSubscription={hasSubscription}
         />
         */}
+
+        {!isTrial && !hasSubscription && (
+          <div className="flex items-center justify-between">
+            <p>{tBanner('semAssinatura')}</p>
+            <Link href="/thinkzap/ativar-trial" className={buttonVariants()}>
+              {tBanner('ativarTrial')}
+            </Link>
+          </div>
+        )}
 
         <GestaoLinhasPricingCard
           submitting={submitting}
