@@ -1,0 +1,65 @@
+{
+  "title": "Directrices de Uso",
+  "subtitle": "Buenas prácticas para evitar restricciones y baneos",
+  "disclaimer": "<b>Importante:</b> Las recomendaciones reducen riesgos, pero no garantizan que un número usado en la API no oficial nunca sea restringido.",
+  "baixarPdf": "Descargar directrices en PDF",
+  "diretrizes": [
+    {
+      "titulo": "Calentamiento del número",
+      "pontos": [
+        "<b>Si el número es nuevo o ha estado sin uso por más de 30 días,</b> utilice el número durante al menos 7 días antes de escanear el Código QR en la app; lo ideal es entre 2 y 4 semanas.",
+        "Intercambie mensajes reales, reciba respuestas, haga llamadas y participe en grupos.",
+        "<b>Evite grandes volúmenes de mensajes justo después de la activación en la app.</b>"
+      ]
+    },
+    {
+      "titulo": "Perfil profesional",
+      "pontos": [
+        "Complete foto, descripción, dirección, sitio web y correo electrónico.",
+        "Mantenga la información coherente con la empresa."
+      ]
+    },
+    {
+      "titulo": "Envío de mensajes",
+      "pontos": [
+        "Envíe solo a clientes que hayan dado su consentimiento, para evitar denuncias.",
+        "Personalice los mensajes.",
+        "Evite mensajes idénticos.",
+        "Evite el exceso de enlaces e imágenes."
+      ]
+    },
+    {
+      "titulo": "Interacción",
+      "pontos": [
+        "Fomente las respuestas.",
+        "Pida que agreguen el número a los contactos.",
+        "Siempre que sea posible, haga que el cliente inicie el primer contacto."
+      ]
+    },
+    {
+      "titulo": "Automatizaciones",
+      "pontos": [
+        "Use las automatizaciones con moderación.",
+        "Aumente el volumen gradualmente.",
+        "Monitoree bloqueos y denuncias."
+      ]
+    },
+    {
+      "titulo": "Evite",
+      "pontos": [
+        "Envíos masivos. Generalmente usados en campañas de marketing.",
+        "Contenido inapropiado.",
+        "Cambios frecuentes de dispositivo.",
+        "Cientos de mensajes en un número recién creado, principalmente mensajes estandarizados."
+      ]
+    },
+    {
+      "titulo": "Ejemplo de crecimiento de volumen",
+      "pontos": [
+        "Días 1–3: 20–30 conversaciones/día",
+        "Días 4–7: 50–100 conversaciones/día",
+        "Después de 2 semanas: aumentar gradualmente."
+      ]
+    }
+  ]
+}

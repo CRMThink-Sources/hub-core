@@ -7,27 +7,32 @@ export const THINKZAP_ASIDE_CONFIG = {
     {
       href: '/thinkzap/conexoes',
       label: 'conexoes',
-      icon: '/images/thinkzap/connection.png',
+      // icon: '/images/thinkzap/connection.png',
     },
     {
       href: '/thinkzap/financeiro',
       label: 'financeiro',
-      icon: '/images/thinkzap/payment.png',
+      // icon: '/images/thinkzap/payment.png',
     },
     {
       href: '/thinkzap/permissoes',
       label: 'permissoes',
-      icon: '/images/thinkzap/manual.png',
+      // icon: '/images/thinkzap/manual.png',
     },
     {
       href: '/thinkzap/logs',
       label: 'logs',
-      icon: '/images/thinkzap/manual.png',
+      // icon: '/images/thinkzap/manual.png',
     },
     {
       href: '/thinkzap/ajuda',
       label: 'centralDeAjuda',
-      icon: '/images/thinkzap/manual.png',
+      // icon: '/images/thinkzap/manual.png',
+    },
+    {
+      href: '/thinkzap/diretrizes',
+      label: 'diretrizes',
+      // icon: '/images/thinkzap/diretrizes.png',
     },
   ],
   linksNamespace: 'thinkzap/aside',
