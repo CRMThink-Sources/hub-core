@@ -60,10 +60,11 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     if (!documentId) {
       return this.badRequest(new Error('Document ID not found'))
     }
-    const [entity, entityId] = documentId.split('_')
-    if (!entityId || !entity) {
+    const parsedDocument = parseBizprocDocumentId(documentId)
+    if (!parsedDocument) {
       return this.badRequest(new Error('Entity ID or entity not found'))
     }
+    const { entity, entityId } = parsedDocument
 
     const recipients = await this.resolveRecipients(data, entity, entityId)
 
@@ -143,6 +144,28 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     const destination = data.properties.destination?.trim()
     return destination ? [destination] : []
   }
+}
+
+/**
+ * Splits a Bizproc `document_id` token into the CRM owner type and element id.
+ *
+ * Standard entities look like `DEAL_10` (owner type `DEAL`). Smart Process
+ * items look like `DYNAMIC_183_9`, where the owner type Bitrix expects is the
+ * whole `DYNAMIC_183` prefix — splitting on the first `_` yields `DYNAMIC`,
+ * which `CCrmOwnerType::ResolveID` rejects with "Owner not found".
+ */
+export function parseBizprocDocumentId(
+  documentId: string,
+): { entity: string; entityId: string } | null {
+  const separatorIndex = documentId.lastIndexOf('_')
+  if (separatorIndex <= 0) return null
+
+  const entity = documentId.slice(0, separatorIndex)
+  const entityId = documentId.slice(separatorIndex + 1)
+
+  if (!entity || !/^\d+$/.test(entityId)) return null
+
+  return { entity, entityId }
 }
 
 function isToggleOn(value: unknown): boolean {
