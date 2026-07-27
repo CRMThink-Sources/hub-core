@@ -25,9 +25,6 @@ export type ThinkzapRobotAddParams = {
       Type: string
     }
   }
-  FILTER: {
-    INCLUDE: string[][]
-  }
 }
 
 export function buildThinkzapRobotAddParams(): ThinkzapRobotAddParams {
@@ -57,14 +54,6 @@ export function buildThinkzapRobotAddParams(): ThinkzapRobotAddParams {
         Type: 'text',
       },
     },
-    FILTER: {
-      INCLUDE: [
-        ['crm', 'CCrmDocumentDeal'],
-        ['crm', 'CCrmDocumentLead'],
-        ['crm', 'CCrmDocumentCompany'],
-        ['crm', 'CCrmDocumentContact'],
-      ],
-    },
   }
 
   return params
@@ -72,15 +61,14 @@ export function buildThinkzapRobotAddParams(): ThinkzapRobotAddParams {
 
 export function buildThinkzapRobotUpdateParams(): {
   CODE: string
-  FIELDS: Pick<ThinkzapRobotAddParams, 'PROPERTIES' | 'FILTER'>
+  FIELDS: Pick<ThinkzapRobotAddParams, 'PROPERTIES'>
 } {
   const addParams = buildThinkzapRobotAddParams()
-
+  console.log({ addParams })
   return {
     CODE: addParams.CODE,
     FIELDS: {
       PROPERTIES: addParams.PROPERTIES,
-      FILTER: addParams.FILTER,
     },
   }
 }
