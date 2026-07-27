@@ -13,7 +13,10 @@ vi.mock('../../infra/clients/z-api.client', () => ({
   },
 }))
 
-import { BitrixRobotWebhookHandlerController } from './bitrix-robot-webhook-handler.controller'
+import {
+  BitrixRobotWebhookHandlerController,
+  parseBizprocDocumentId,
+} from './bitrix-robot-webhook-handler.controller'
 
 const crmItem = (
   id: string,
@@ -76,10 +79,13 @@ const makeController = (deps: ReturnType<typeof makeDeps>) =>
     deps.bitrix as never,
   )
 
-const makeReq = (properties: Record<string, unknown>): Request =>
+const makeReq = (
+  properties: Record<string, unknown>,
+  documentId: string[] = ['crm', 'CCrmDocumentDeal', 'DEAL_10'],
+): Request =>
   ({
     body: {
-      document_id: ['crm', 'CCrmDocumentDeal', 'DEAL_10'],
+      document_id: documentId,
       properties,
       auth: { domain: 'test.bitrix24.com' },
     },
@@ -217,6 +223,67 @@ describe('BitrixRobotWebhookHandlerController', () => {
     expect((result.result as { sent: number }).sent).toBe(1)
   })
 
+  it('smart process item → notification targets the DYNAMIC_<typeId> owner', async () => {
+    const deps = makeDeps()
+    const controller = makeController(deps)
+
+    const result = await controller.perform(
+      makeReq({ connector: 'conn', destination: '5511999', message: 'oi' }, [
+        'crm',
+        'Bitrix\\Crm\\Integration\\BizProc\\Document\\Dynamic',
+        'DYNAMIC_183_9',
+      ]),
+      res,
+    )
+
+    expect(result.status).toBe(200)
+    expect(deps.sendNotification.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ entity: 'DYNAMIC_183', contextId: '9' }),
+    )
+  })
+
+  it('universal list workflow → still sends, no timeline comment', async () => {
+    const deps = makeDeps()
+    const controller = makeController(deps)
+
+    const result = await controller.perform(
+      makeReq({ connector: 'conn', destination: '5511999', message: 'oi' }, [
+        'lists',
+        'BizprocDocument',
+        '68082',
+      ]),
+      res,
+    )
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      'zapi-inst',
+      'tok',
+      'oi',
+      '5511999',
+    )
+    expect(deps.sendNotification.execute).not.toHaveBeenCalled()
+    expect(result.status).toBe(200)
+  })
+
+  it('universal list workflow with toggle ON → no recipients, no comment, no throw', async () => {
+    const deps = makeDeps()
+    const controller = makeController(deps)
+
+    const result = await controller.perform(
+      makeReq(
+        { connector: 'conn', sendToAllRelatedContacts: 'Y', message: 'oi' },
+        ['lists', 'BizprocDocument', '68082'],
+      ),
+      res,
+    )
+
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(deps.sendNotification.execute).not.toHaveBeenCalled()
+    expect(result.status).toBe(200)
+    expect((result.result as { sent: number }).sent).toBe(0)
+  })
+
   it('unknown entity / no phones → no send, no throw, notification recorded', async () => {
     const deps = makeDeps({
       bitrix: {
@@ -238,5 +305,41 @@ describe('BitrixRobotWebhookHandlerController', () => {
     expect(sendMessageMock).not.toHaveBeenCalled()
     expect(result.status).toBe(200)
     expect(deps.sendNotification.execute).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('parseBizprocDocumentId', () => {
+  it('parses standard CRM entities', () => {
+    expect(parseBizprocDocumentId('DEAL_10')).toEqual({
+      entity: 'DEAL',
+      entityId: '10',
+    })
+  })
+
+  it('keeps the full DYNAMIC_<typeId> owner type for smart process items', () => {
+    expect(parseBizprocDocumentId('DYNAMIC_183_9')).toEqual({
+      entity: 'DYNAMIC_183',
+      entityId: '9',
+    })
+  })
+
+  it('keeps multi-word owner types intact', () => {
+    expect(parseBizprocDocumentId('SMART_INVOICE_5')).toEqual({
+      entity: 'SMART_INVOICE',
+      entityId: '5',
+    })
+  })
+
+  it('rejects tokens without an id', () => {
+    expect(parseBizprocDocumentId('DEAL')).toBeNull()
+    expect(parseBizprocDocumentId('_10')).toBeNull()
+  })
+
+  it('returns null for universal list documents (bare element id)', () => {
+    expect(parseBizprocDocumentId('68082')).toBeNull()
+  })
+
+  it('rejects non-numeric ids', () => {
+    expect(parseBizprocDocumentId('DEAL_abc')).toBeNull()
   })
 })
