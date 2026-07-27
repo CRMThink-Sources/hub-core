@@ -242,6 +242,48 @@ describe('BitrixRobotWebhookHandlerController', () => {
     )
   })
 
+  it('universal list workflow → still sends, no timeline comment', async () => {
+    const deps = makeDeps()
+    const controller = makeController(deps)
+
+    const result = await controller.perform(
+      makeReq({ connector: 'conn', destination: '5511999', message: 'oi' }, [
+        'lists',
+        'BizprocDocument',
+        '68082',
+      ]),
+      res,
+    )
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      'zapi-inst',
+      'tok',
+      'oi',
+      '5511999',
+    )
+    expect(deps.sendNotification.execute).not.toHaveBeenCalled()
+    expect(result.status).toBe(200)
+  })
+
+  it('universal list workflow with toggle ON → no recipients, no comment, no throw', async () => {
+    const deps = makeDeps()
+    const controller = makeController(deps)
+
+    const result = await controller.perform(
+      makeReq(
+        { connector: 'conn', sendToAllRelatedContacts: 'Y', message: 'oi' },
+        ['lists', 'BizprocDocument', '68082'],
+      ),
+      res,
+    )
+
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(deps.sendNotification.execute).not.toHaveBeenCalled()
+    expect(result.status).toBe(200)
+    expect((result.result as { sent: number }).sent).toBe(0)
+  })
+
   it('unknown entity / no phones → no send, no throw, notification recorded', async () => {
     const deps = makeDeps({
       bitrix: {
@@ -291,6 +333,10 @@ describe('parseBizprocDocumentId', () => {
   it('rejects tokens without an id', () => {
     expect(parseBizprocDocumentId('DEAL')).toBeNull()
     expect(parseBizprocDocumentId('_10')).toBeNull()
+  })
+
+  it('returns null for universal list documents (bare element id)', () => {
+    expect(parseBizprocDocumentId('68082')).toBeNull()
   })
 
   it('rejects non-numeric ids', () => {

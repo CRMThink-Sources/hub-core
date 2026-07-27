@@ -32,7 +32,7 @@ export class BitrixRobotWebhookHandlerController extends Controller {
 
   async perform(req: Request, res: Response): Promise<httpResponse> {
     const data = req.body as BitrixRobotWebhookHandlerRequest
-
+    console.log(data)
     const domain = await this.getDomain.getDomain(data.auth.domain)
     if (!domain) {
       return this.notFound(new Error('Domain not found'))
@@ -60,13 +60,13 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     if (!documentId) {
       return this.badRequest(new Error('Document ID not found'))
     }
-    const parsedDocument = parseBizprocDocumentId(documentId)
-    if (!parsedDocument) {
-      return this.badRequest(new Error('Entity ID or entity not found'))
-    }
-    const { entity, entityId } = parsedDocument
 
-    const recipients = await this.resolveRecipients(data, entity, entityId)
+    // Null for workflows that are not attached to a CRM entity (universal
+    // lists, for instance). Those still send the message; they just have no
+    // CRM timeline to comment on.
+    const crmDocument = parseBizprocDocumentId(documentId)
+
+    const recipients = await this.resolveRecipients(data, crmDocument)
 
     const phoneData = await this.zApiClient.getPhoneData(
       instance.instanceId,
@@ -75,11 +75,10 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     const fromPhone = phoneData?.phone ?? 'desconhecido'
 
     if (recipients.length === 0) {
-      await this.sendNotification.execute({
-        contextId: entityId,
-        entity,
-        message: `De: ${fromPhone}\nNenhum destinatário encontrado para o envio.`,
-      })
+      await this.commentOnCrmTimeline(
+        crmDocument,
+        `De: ${fromPhone}\nNenhum destinatário encontrado para o envio.`,
+      )
       return this.ok({ received: true, sent: 0 })
     }
 
@@ -102,13 +101,29 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       }
     }
 
-    await this.sendNotification.execute({
-      contextId: entityId,
-      entity,
-      message: `De: ${fromPhone}\nPara: ${sent.join(', ')}\nMensagem: ${data.properties.message}`,
-    })
+    await this.commentOnCrmTimeline(
+      crmDocument,
+      `De: ${fromPhone}\nPara: ${sent.join(', ')}\nMensagem: ${data.properties.message}`,
+    )
 
     return this.ok({ received: true, sent: sent.length })
+  }
+
+  /**
+   * Records the run on the CRM entity timeline. No-op when the workflow does
+   * not run on a CRM entity — there is no owner to comment on.
+   */
+  private async commentOnCrmTimeline(
+    document: BizprocDocument | null,
+    message: string,
+  ): Promise<void> {
+    if (!document) return
+
+    await this.sendNotification.execute({
+      contextId: document.entityId,
+      entity: document.entity,
+      message,
+    })
   }
 
   /**
@@ -119,17 +134,17 @@ export class BitrixRobotWebhookHandlerController extends Controller {
    */
   private async resolveRecipients(
     data: BitrixRobotWebhookHandlerRequest,
-    entity: string,
-    entityId: string,
+    document: BizprocDocument | null,
   ): Promise<string[]> {
     if (isToggleOn(data.properties.sendToAllRelatedContacts)) {
-      const placement = bizprocEntityToPlacement(entity)
+      if (!document) return []
+      const placement = bizprocEntityToPlacement(document.entity)
       if (!placement) return []
       try {
         const { destinations } = await resolveRelatedDestinations(
           this.bitrix,
           placement,
-          entityId,
+          document.entityId,
         )
         return destinations.map(d => d.phone)
       } catch (error) {
@@ -146,6 +161,11 @@ export class BitrixRobotWebhookHandlerController extends Controller {
   }
 }
 
+export type BizprocDocument = {
+  entity: string
+  entityId: string
+}
+
 /**
  * Splits a Bizproc `document_id` token into the CRM owner type and element id.
  *
@@ -153,10 +173,14 @@ export class BitrixRobotWebhookHandlerController extends Controller {
  * items look like `DYNAMIC_183_9`, where the owner type Bitrix expects is the
  * whole `DYNAMIC_183` prefix — splitting on the first `_` yields `DYNAMIC`,
  * which `CCrmOwnerType::ResolveID` rejects with "Owner not found".
+ *
+ * Returns null when the token is not a CRM owner at all: universal list
+ * documents arrive as a bare element id (`68082`), and those workflows have no
+ * CRM timeline to write to.
  */
 export function parseBizprocDocumentId(
   documentId: string,
-): { entity: string; entityId: string } | null {
+): BizprocDocument | null {
   const separatorIndex = documentId.lastIndexOf('_')
   if (separatorIndex <= 0) return null
 
