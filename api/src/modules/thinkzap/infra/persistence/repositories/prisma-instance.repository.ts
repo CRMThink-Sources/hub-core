@@ -1,4 +1,7 @@
-import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
+import {
+  CreateInstanceInput,
+  CreateInstanceRepository,
+} from '@/modules/thinkzap/domain/repositories/create-instance.repository'
 import { randomUUID } from 'node:crypto'
 import { prisma } from '@/config/prisma.js'
 import {
@@ -16,9 +19,7 @@ export class PrismaInstanceRepository
     GetInstanceRepository,
     UpdateInstanceRepository
 {
-  async create(
-    instance: Omit<Instance, 'id' | 'createdAt' | 'updatedAt'>,
-  ): Promise<Instance> {
+  async create(instance: CreateInstanceInput): Promise<Instance> {
     const newInstance = await prisma.instance.create({
       data: {
         id: randomUUID(),
@@ -26,6 +27,10 @@ export class PrismaInstanceRepository
         instanceId: instance.instanceId,
         vinculatedChannel: instance.vinculatedChannel,
         zApiToken: instance.zApiToken,
+        channelId: instance.channelId ?? null,
+        webhookId: instance.webhookId ?? null,
+        wabaId: instance.wabaId ?? null,
+        phoneId: instance.phoneId ?? null,
         settings: instance.settings,
         status: instance.status,
         createdAt: new Date(),
@@ -39,6 +44,14 @@ export class PrismaInstanceRepository
   async getInstanceByInstanceId(instanceId: string): Promise<Instance | null> {
     const instance = await prisma.instance.findFirst({
       where: { instanceId },
+    })
+    if (!instance) return null
+    return toInstance(instance)
+  }
+
+  async getInstanceByChannelId(channelId: string): Promise<Instance | null> {
+    const instance = await prisma.instance.findFirst({
+      where: { channelId },
     })
     if (!instance) return null
     return toInstance(instance)
@@ -96,6 +109,23 @@ export class PrismaInstanceRepository
       data: {
         status: InstanceStatus.DISCONNECTED,
         vinculatedChannel: null,
+      },
+    })
+
+    return toInstance(updatedInstance)
+  }
+
+  async markAsConnected(
+    instanceId: string,
+    data: { wabaId: string; phoneId: string; webhookId?: string | null },
+  ): Promise<Instance> {
+    const updatedInstance = await prisma.instance.update({
+      where: { id: instanceId },
+      data: {
+        status: InstanceStatus.CONNECTED,
+        wabaId: data.wabaId,
+        phoneId: data.phoneId,
+        ...(data.webhookId ? { webhookId: data.webhookId } : {}),
       },
     })
 

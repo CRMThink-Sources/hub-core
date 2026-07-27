@@ -48,7 +48,7 @@ export async function processBitrixMessageDelete(
     bitrixMessageId,
   )
 
-  if (!record || !record.zApiMessageId) {
+  if (!record || !record.providerMessageId) {
     log.warn(
       {
         instanceId: context.instance.id,
@@ -67,13 +67,13 @@ export async function processBitrixMessageDelete(
       context.instance.instanceId,
       context.instance.zApiToken || '',
       record.chatId || '',
-      record.zApiMessageId,
+      record.providerMessageId,
     )
     log.info(
       {
         instanceId: context.instance.id,
         bitrixMessageId,
-        zApiMessageId: record.zApiMessageId,
+        zApiMessageId: record.providerMessageId,
         messageDeleted: true,
       },
       'Message deleted via Z-API',
@@ -83,7 +83,7 @@ export async function processBitrixMessageDelete(
       {
         instanceId: context.instance.id,
         bitrixMessageId,
-        zApiMessageId: record.zApiMessageId,
+        zApiMessageId: record.providerMessageId,
         zApiDeleteFailed: true,
         error,
       },

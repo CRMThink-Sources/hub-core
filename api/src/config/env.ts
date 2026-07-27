@@ -36,10 +36,18 @@ export const env = {
   },
   /** Price ID do produto ThinkZap (linhas) — mesmo valor que NEXT_PUBLIC_THINKZAP_PRICE_CONNECTORS no front */
   thinkzapStripePriceId: process.env.THINKZAP_PRICE_CONNECTORS ?? '',
+  /** Price ID do produto de conectores HubMessage (WhatsApp Oficial). */
+  hubmessageStripePriceId: process.env.HUBMESSAGE_PRICE_CONNECTORS ?? '',
   zApi: {
     partnerToken: process.env.Z_API_PARTNER_TOKEN ?? '',
     clientToken: process.env.Z_API_CLIENT_TOKEN ?? '',
     callbackUrl: process.env.Z_API_CALLBACK_URL ?? '',
+  },
+  hubMessage: {
+    publicKey: process.env.HUBMESSAGE_PUBLIC_KEY ?? '',
+    secretKey: process.env.HUBMESSAGE_SECRET_KEY ?? '',
+    baseUrl: process.env.HUBMESSAGE_BASE_URL ?? 'https://api.hubmessage.io',
+    webhookUrl: process.env.HUBMESSAGE_WEBHOOK_URL ?? '',
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
@@ -131,6 +139,12 @@ export const env = {
     robot: {
       code: process.env.CLICKSIGN_ROBOT_CODE ?? 'ENVIAR_DOCUMENTO',
       name: process.env.CLICKSIGN_ROBOT_NAME ?? 'Enviar documento',
+    },
+  },
+  payments: {
+    spa: {
+      productEntityType: 1134,
+      planEntityType: 1138,
     },
   },
 } as const

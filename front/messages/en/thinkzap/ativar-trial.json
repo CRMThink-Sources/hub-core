@@ -11,6 +11,13 @@
     "empresa": "Company",
     "empresaPlaceholder": "Company name"
   },
+  "conector": {
+    "label": "Connector type",
+    "oficial": "Official WhatsApp",
+    "oficialDesc": "Meta official API via HubMessage",
+    "naoOficial": "Unofficial WhatsApp",
+    "naoOficialDesc": "Z-API instance"
+  },
   "continuar": "Continue to start trial",
   "redirecionando": "Redirecting...",
   "erroIniciarTrial": "Could not start the trial. Please try again."

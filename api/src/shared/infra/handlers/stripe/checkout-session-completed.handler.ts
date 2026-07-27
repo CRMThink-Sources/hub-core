@@ -10,11 +10,14 @@ import {
 } from '@/shared/domain/entities/billing-subscription'
 
 import {
-  provisionMissingConnectorsForApp,
+  provisionMissingConnectorsForProvider,
   type ProvisionMissingConnectorsDeps,
 } from '@/modules/thinkzap/application/provision-missing-connectors'
-import { THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS } from '@/modules/thinkzap/domain/trial-connector-limit'
-import { getThinkzapConnectorQuantity } from '@/shared/infra/stripe/thinkzap-subscription-line'
+import {
+  resolveProviderQuantities,
+  type ProviderPriceMap,
+} from '@/shared/infra/stripe/thinkzap-subscription-line'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { StripeEventHandler } from '../stripe-event-handler'
 import { GetSpaRepository } from '@/shared/domain/repositories/spa/get-spa.repository'
 import { UpdateSpaRepository } from '@/shared/domain/repositories/spa/update-spa.repository'
@@ -25,6 +28,14 @@ interface IStripeMetadata {
   appId: string
   quantity: string
   trial_sub?: string | null
+  /** Provider escolhido no trial (default ZAPI para compat). */
+  provider?: string | null
+}
+
+function parseProvider(raw?: string | null): ConnectorProvider {
+  return raw === ConnectorProvider.HUBMESSAGE
+    ? ConnectorProvider.HUBMESSAGE
+    : ConnectorProvider.ZAPI
 }
 
 export class CheckoutSessionCompletedHandler implements StripeEventHandler {
@@ -42,7 +53,7 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
   async handle(event: Stripe.Event): Promise<void> {
     const session = event.data.object as Stripe.Checkout.Session
     const metadata = session.metadata as unknown as IStripeMetadata
-    const { domainId, appId, quantity } = metadata
+    const { domainId, appId } = metadata
 
     const domain = await this.getDomainRepository.getDomainById(domainId)
     if (!domain) throw new Error('Domain not found')
@@ -79,9 +90,10 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
         })
       }
 
-      await provisionMissingConnectorsForApp(
+      await provisionMissingConnectorsForProvider(
         this.provisionDeps,
         installedApp.id,
+        parseProvider(metadata.provider),
         1,
         { isTrialing: false },
       )
@@ -93,7 +105,6 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
     }
 
     const stripeSubscriptionId = session.subscription as string | null
-    let slots = Math.max(1, Math.floor(Number(quantity ?? 1)))
     let subscriptionObj: Stripe.Subscription | null = null
 
     if (stripeSubscriptionId) {
@@ -102,17 +113,17 @@ export class CheckoutSessionCompletedHandler implements StripeEventHandler {
         stripeSubscriptionId,
         { expand: ['items.data.price'] },
       )
-      const isTrialing = subscriptionObj.status === 'trialing'
-      if (isTrialing) {
-        slots = Math.min(slots, THINKZAP_TRIAL_MAX_CONNECTOR_SLOTS)
-      }
     }
 
     if (stripeSubscriptionId && subscriptionObj) {
-      const priceId = env.thinkzapStripePriceId
-      const connectorQty = priceId
-        ? getThinkzapConnectorQuantity(subscriptionObj, priceId)
-        : Number(quantity ?? 1)
+      const prices: ProviderPriceMap = {
+        [ConnectorProvider.ZAPI]: env.thinkzapStripePriceId,
+        [ConnectorProvider.HUBMESSAGE]: env.hubmessageStripePriceId,
+      }
+      const connectorQty = resolveProviderQuantities(
+        subscriptionObj,
+        prices,
+      ).reduce((sum, pq) => sum + pq.quantity, 0)
 
       await this.createSubscriptionRepo.create({
         appId: installedApp.id,

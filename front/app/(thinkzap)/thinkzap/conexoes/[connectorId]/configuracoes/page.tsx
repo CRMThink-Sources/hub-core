@@ -9,6 +9,7 @@ import { envConfig } from '@/shared/infra/env-config'
 import { getAppRedirectUrl } from '@/app/config/app-redirects'
 import { GeralTab } from '../../../_components/configuracoes/geral-tab'
 import { GruposTab } from '../../../_components/configuracoes/grupos-tab'
+import { ConfiguracoesOficial } from '../../../_components/configuracoes/oficial/configuracoes-oficial'
 
 type TabType = 'geral' | 'grupos'
 
@@ -42,6 +43,7 @@ export default function ConfiguracoesConectorPage() {
   }
 
   const isConnected = connector.instance?.connected === true
+  const isOficial = connector.provider === 'HUBMESSAGE'
 
   return (
     <div className="relative mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 pb-10 pt-8 sm:px-6 lg:px-8">
@@ -60,6 +62,12 @@ export default function ConfiguracoesConectorPage() {
         </p>
       </div>
 
+      {isOficial && authTokenKey ? (
+        <ConfiguracoesOficial
+          connector={connector}
+          authTokenKey={authTokenKey}
+        />
+      ) : (
       <div className="w-full">
         <div className="flex gap-1 border-b border-border">
           <button
@@ -109,6 +117,7 @@ export default function ConfiguracoesConectorPage() {
           )}
         </div>
       </div>
+      )}
     </div>
   )
 }

@@ -33,6 +33,8 @@ export default function GestaoLinhas() {
   const router = useRouter()
 
   const [quantidade, setQuantidade] = useState(1)
+  // Linhas adicionais do WhatsApp Oficial (HubMessage). 0 = não contratar.
+  const [quantidadeHub, setQuantidadeHub] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [pricing, setPricing] = useState<ThinkzapPricingResponse | null>(null)
   const [pricingLoading, setPricingLoading] = useState(true)
@@ -111,9 +113,12 @@ export default function GestaoLinhas() {
 
   const handleIncrement = () => setQuantidade(prev => prev + 1)
   const handleDecrement = () => setQuantidade(prev => (prev > 1 ? prev - 1 : 1))
+  const handleIncrementHub = () => setQuantidadeHub(prev => prev + 1)
+  const handleDecrementHub = () =>
+    setQuantidadeHub(prev => (prev > 0 ? prev - 1 : 0))
 
   function handleContinuar() {
-    if (quantidade < 1) return
+    if (quantidade < 1 && quantidadeHub < 1) return
 
     if (temAssinaturaAjustavel) {
       setModalContratarAberto(true)
@@ -124,7 +129,7 @@ export default function GestaoLinhas() {
   }
 
   async function handleExecutarContratacao() {
-    if (quantidade < 1) return
+    if (quantidade < 1 && quantidadeHub < 1) return
 
     setSubmitting(true)
     try {
@@ -135,13 +140,19 @@ export default function GestaoLinhas() {
       }
 
       if (hasSubscription) {
+        // Tela única: envia as quantidades por provider; backend ajusta os dois line items.
+        const additions: { ZAPI?: number; HUBMESSAGE?: number } = {}
+        if (quantidade > 0) additions.ZAPI = quantidade
+        if (quantidadeHub > 0) additions.HUBMESSAGE = quantidadeHub
+
         await resolved.client.post<{
           connectorQuantity?: number
-        }>('/thinkzap/subscription/add-quantity', {
-          additionalQuantity: quantidade,
-        })
+        }>('/thinkzap/subscription/add-quantity', { additions })
         setModalContratarAberto(false)
-        toast.success(t('linhasAdicionadas', { count: quantidade }))
+        toast.success(
+          t('linhasAdicionadas', { count: quantidade + quantidadeHub }),
+        )
+        setQuantidadeHub(0)
         await refreshSession()
       } else {
         const data = await resolved.client.post<{
@@ -225,6 +236,7 @@ export default function GestaoLinhas() {
       <ContratarLinhasModal
         isOpen={modalContratarAberto}
         quantidade={quantidade}
+        quantidadeHub={quantidadeHub}
         linhasNaAssinatura={linhasNaAssinatura}
         submitting={submitting}
         onClose={() => setModalContratarAberto(false)}
@@ -254,6 +266,7 @@ export default function GestaoLinhas() {
         <GestaoLinhasPricingCard
           submitting={submitting}
           quantidade={quantidade}
+          quantidadeHub={quantidadeHub}
           pricing={pricing}
           pricingLoading={pricingLoading}
           pricingErro={pricingErro}
@@ -265,6 +278,8 @@ export default function GestaoLinhas() {
           isCancelled={isCancelled}
           onIncrement={handleIncrement}
           onDecrement={handleDecrement}
+          onIncrementHub={handleIncrementHub}
+          onDecrementHub={handleDecrementHub}
           onContinue={handleContinuar}
           onReactivateSubscription={() => void handleReactivateSubscription()}
         />

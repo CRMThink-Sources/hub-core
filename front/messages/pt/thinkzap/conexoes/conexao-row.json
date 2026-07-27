@@ -3,7 +3,19 @@
   "nenhumCanalVinculado": "Nenhum canal vinculado",
   "status": {
     "ativo": "Ativo",
-    "inativo": "Inativo"
+    "inativo": "Inativo",
+    "aguardandoConexao": "Aguardando conexão"
+  },
+  "conexao": {
+    "sucesso": "Número conectado com sucesso",
+    "cancelada": "Conexão cancelada",
+    "incompleta": "A Meta não retornou os dados da conexão. Tente novamente.",
+    "semConfiguracao": "Integração WhatsApp Oficial não configurada. Contate o suporte.",
+    "origemNaoAutorizada": "O endereço desta aplicação não está autorizado na HubMessage. Contate o suporte."
+  },
+  "provider": {
+    "oficial": "Oficial",
+    "naoOficial": "Não oficial"
   },
   "menu": {
     "configuracoes": "Configurações",

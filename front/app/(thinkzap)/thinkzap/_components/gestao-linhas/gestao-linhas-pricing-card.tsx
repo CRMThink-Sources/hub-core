@@ -24,6 +24,7 @@ export type ThinkzapPricingResponse = {
 type Props = {
   submitting: boolean
   quantidade: number
+  quantidadeHub: number
   pricing: ThinkzapPricingResponse | null
   pricingLoading: boolean
   pricingErro: string | null
@@ -35,6 +36,8 @@ type Props = {
   isCancelled: boolean
   onIncrement: () => void
   onDecrement: () => void
+  onIncrementHub: () => void
+  onDecrementHub: () => void
   onContinue: () => void
   onReactivateSubscription: () => void
 }
@@ -55,6 +58,7 @@ function formatFaixaTiers(fromQ: number, toQ: number | null): string {
 export function GestaoLinhasPricingCard({
   submitting,
   quantidade,
+  quantidadeHub,
   pricing,
   pricingLoading,
   pricingErro,
@@ -66,6 +70,8 @@ export function GestaoLinhasPricingCard({
   isCancelled,
   onIncrement,
   onDecrement,
+  onIncrementHub,
+  onDecrementHub,
   onContinue,
   onReactivateSubscription,
 }: Props) {
@@ -124,28 +130,65 @@ export function GestaoLinhasPricingCard({
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={onDecrement}
-              disabled={submitting}
-            >
-              <MinusIcon />
-            </Button>
-            <span className="min-w-[40px] text-center text-lg font-semibold text-foreground">
-              {quantidade}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              onClick={onIncrement}
-              disabled={submitting}
-            >
-              <PlusIcon />
-            </Button>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              {temAssinaturaAjustavel && (
+                <span className="min-w-[92px] text-xs font-medium text-muted-foreground">
+                  {t('conector.naoOficial')}
+                </span>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                onClick={onDecrement}
+                disabled={submitting}
+              >
+                <MinusIcon />
+              </Button>
+              <span className="min-w-[40px] text-center text-lg font-semibold text-foreground">
+                {quantidade}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                onClick={onIncrement}
+                disabled={submitting}
+              >
+                <PlusIcon />
+              </Button>
+            </div>
+
+            {/* WhatsApp Oficial (HubMessage): só ao ajustar assinatura existente. */}
+            {temAssinaturaAjustavel && (
+              <div className="flex items-center gap-3">
+                <span className="min-w-[92px] text-xs font-medium text-muted-foreground">
+                  {t('conector.oficial')}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={onDecrementHub}
+                  disabled={submitting}
+                >
+                  <MinusIcon />
+                </Button>
+                <span className="min-w-[40px] text-center text-lg font-semibold text-foreground">
+                  {quantidadeHub}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  onClick={onIncrementHub}
+                  disabled={submitting}
+                >
+                  <PlusIcon />
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-1 text-left">
@@ -205,8 +248,12 @@ export function GestaoLinhasPricingCard({
 
         <div className="flex gap-2">
           {!isCancelled && (
-            <Button type="button" onClick={onContinue} disabled={submitting}>
-              {t('contratar', { count: quantidade })}
+            <Button
+              type="button"
+              onClick={onContinue}
+              disabled={submitting || quantidade + quantidadeHub < 1}
+            >
+              {t('contratar', { count: quantidade + quantidadeHub })}
             </Button>
           )}
 

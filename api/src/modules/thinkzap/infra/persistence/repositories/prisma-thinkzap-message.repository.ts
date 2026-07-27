@@ -9,8 +9,8 @@ import type { ThinkzapMessageQuoteInput } from '@/modules/thinkzap/application/b
 export type ThinkzapMessageRecord = {
   id: string
   instanceId: string
-  source: 'ZAPI' | 'BITRIX'
-  zApiMessageId: string | null
+  source: 'ZAPI' | 'BITRIX' | 'HUBMESSAGE'
+  providerMessageId: string | null
   bitrixMessageId: string | null
   bitrixChatId: string | null
   type:
@@ -29,8 +29,8 @@ export type ThinkzapMessageRecord = {
 
 export type CreateThinkzapMessageInput = {
   instanceId: string
-  source: 'ZAPI' | 'BITRIX'
-  zApiMessageId?: string | null
+  source: 'ZAPI' | 'BITRIX' | 'HUBMESSAGE'
+  providerMessageId?: string | null
   bitrixMessageId?: string | null
   bitrixChatId?: string | null
   type:
@@ -50,7 +50,7 @@ function mapRow(row: {
   id: string
   instanceId: string
   source: ThinkzapMessageSource
-  zApiMessageId: string | null
+  providerMessageId: string | null
   bitrixMessageId: string | null
   bitrixChatId: string | null
   type: ThinkzapMessageType
@@ -62,8 +62,8 @@ function mapRow(row: {
   return {
     id: row.id,
     instanceId: row.instanceId,
-    source: row.source as 'ZAPI' | 'BITRIX',
-    zApiMessageId: row.zApiMessageId,
+    source: row.source as 'ZAPI' | 'BITRIX' | 'HUBMESSAGE',
+    providerMessageId: row.providerMessageId,
     bitrixMessageId: row.bitrixMessageId,
     bitrixChatId: row.bitrixChatId,
     type: row.type as
@@ -100,7 +100,7 @@ export class PrismaThinkzapMessageRepository {
       id,
       instanceId: input.instanceId,
       source: input.source as ThinkzapMessageSource,
-      zApiMessageId: input.zApiMessageId ?? null,
+      providerMessageId: input.providerMessageId ?? null,
       bitrixMessageId: input.bitrixMessageId ?? null,
       bitrixChatId: input.bitrixChatId ?? null,
       type: input.type as ThinkzapMessageType,
@@ -109,12 +109,12 @@ export class PrismaThinkzapMessageRepository {
       chatId: input.chatId ?? null,
     }
 
-    if (input.zApiMessageId) {
+    if (input.providerMessageId) {
       await prisma.thinkzapMessage.upsert({
         where: {
-          uq_msg_instance_zapi: {
+          uq_msg_instance_provider: {
             instanceId: input.instanceId,
-            zApiMessageId: input.zApiMessageId,
+            providerMessageId: input.providerMessageId,
           },
         },
         create: data,
@@ -136,7 +136,7 @@ export class PrismaThinkzapMessageRepository {
         },
         create: data,
         update: {
-          zApiMessageId: input.zApiMessageId ?? null,
+          providerMessageId: input.providerMessageId ?? null,
           bitrixChatId: input.bitrixChatId ?? null,
           text: input.text ?? null,
           fileName: input.fileName ?? null,
@@ -148,13 +148,13 @@ export class PrismaThinkzapMessageRepository {
     }
   }
 
-  async findByZApiMessageId(
+  async findByProviderMessageId(
     instanceId: string,
-    zApiMessageId: string,
+    providerMessageId: string,
   ): Promise<ThinkzapMessageRecord | null> {
     const row = await prisma.thinkzapMessage.findUnique({
       where: {
-        uq_msg_instance_zapi: { instanceId, zApiMessageId },
+        uq_msg_instance_provider: { instanceId, providerMessageId },
       },
     })
     return row ? mapRow(row) : null

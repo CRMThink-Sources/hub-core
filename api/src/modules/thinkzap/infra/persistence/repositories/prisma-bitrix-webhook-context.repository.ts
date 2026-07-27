@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import {
   BitrixWebhookContext,
   GetBitrixWebhookContextRepository,
@@ -24,6 +25,7 @@ export class PrismaBitrixWebhookContextRepository implements GetBitrixWebhookCon
         },
         instances: {
           where: { vinculatedChannel: params.line },
+          include: { connector: true },
           take: 1,
         },
       },
@@ -51,9 +53,16 @@ const toBitrixWebhookContext = (context: any): BitrixWebhookContext => {
       status: app.status,
       credential: app.credential,
     },
+    connector: {
+      // Conector ausente ou sem provider persistido é Z-API (comportamento
+      // anterior ao multi-provider).
+      provider: (instance.connector?.provider ??
+        ConnectorProvider.ZAPI) as ConnectorProvider,
+    },
     instance: {
       instanceId: instance.instanceId,
       zApiToken: instance.zApiToken,
+      channelId: instance.channelId,
       id: instance.id,
       createdAt: instance.createdAt,
       updatedAt: instance.updatedAt,

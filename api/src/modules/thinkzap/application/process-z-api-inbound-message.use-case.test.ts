@@ -110,7 +110,7 @@ function buildUseCase({
   repoCreate?: ReturnType<typeof vi.fn>
 } = {}) {
   const messageRepo = {
-    findByZApiMessageId: repoFind ?? vi.fn().mockResolvedValue(null),
+    findByProviderMessageId: repoFind ?? vi.fn().mockResolvedValue(null),
     create: repoCreate ?? vi.fn().mockResolvedValue(undefined),
   }
 
@@ -150,7 +150,7 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
     const { useCase, messageRepo } = buildUseCase()
     await useCase.execute(makeEvent())
 
-    expect(messageRepo.findByZApiMessageId).not.toHaveBeenCalled()
+    expect(messageRepo.findByProviderMessageId).not.toHaveBeenCalled()
     expect(sendMessageMock).toHaveBeenCalledTimes(1)
     const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
     expect(payload.MESSAGES[0]!.message.text).toBe('mensagem')
@@ -162,7 +162,7 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
         id: 'rec-1',
         instanceId: 'INST-A',
         source: 'ZAPI',
-        zApiMessageId: 'PREV',
+        providerMessageId: 'PREV',
         bitrixMessageId: null,
         type: 'TEXT',
         text: 'Bom dia',
@@ -179,7 +179,7 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
       }),
     )
 
-    expect(messageRepo.findByZApiMessageId).toHaveBeenCalledWith(
+    expect(messageRepo.findByProviderMessageId).toHaveBeenCalledWith(
       'instance-db-1',
       'PREV',
     )
@@ -205,7 +205,7 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
     )
   })
 
-  it('uses generic fallback when DB findByZApiMessageId throws', async () => {
+  it('uses generic fallback when DB findByProviderMessageId throws', async () => {
     const { useCase } = buildUseCase({
       repoFind: vi.fn().mockRejectedValue(new Error('db down')),
     })
@@ -241,7 +241,7 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
       expect.objectContaining({
         instanceId: 'instance-db-1',
         source: 'ZAPI',
-        zApiMessageId: 'MSG-1',
+        providerMessageId: 'MSG-1',
         type: 'TEXT',
         text: 'hello',
       }),
@@ -291,7 +291,7 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
         id: 'rec-2',
         instanceId: 'INST-A',
         source: 'ZAPI',
-        zApiMessageId: 'PREV',
+        providerMessageId: 'PREV',
         bitrixMessageId: null,
         type: 'TEXT',
         text: 'Bom dia',

@@ -30,7 +30,7 @@ export class StatusCallbackHandler implements ZApiEventHandler {
     if (!instance?.vinculatedChannel) return
 
     const messageRepo = new PrismaThinkzapMessageRepository()
-    const message = await messageRepo.findByZApiMessageId(
+    const message = await messageRepo.findByProviderMessageId(
       instance.id,
       zApiMessageId,
     )
@@ -63,7 +63,7 @@ export class StatusCallbackHandler implements ZApiEventHandler {
       await messageRepo.create({
         instanceId: instance.id,
         source: 'BITRIX',
-        zApiMessageId,
+        providerMessageId: zApiMessageId,
         type: message.type,
       })
 

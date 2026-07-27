@@ -5,6 +5,8 @@ import {
   ThinkzapInboundJob,
 } from '@/queue/thinkzap-inbound.queue'
 import { processZApiReceivedMessage } from './z-api-received-message.processor'
+import { processHubMessageReceivedMessage } from './hubmessage-received-message.processor'
+import type { HubMessageWebhookMessage } from '@/modules/thinkzap/domain/interfaces/hubmessage-events.interface'
 import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
 import { processBitrixMessageUpdate } from './bitrix-message-update.processor'
 import { processBitrixMessageDelete } from './bitrix-message-delete.processor'
@@ -23,6 +25,14 @@ async function processJob(data: ThinkzapInboundJob) {
       'Processing inbound job',
     )
     await processZApiReceivedMessage(data.body as ReceivedMessageEvent)
+  } else if (data.source === 'hubmessage') {
+    workerLogger.debug(
+      { app: 'thinkzap', source: data.source, type: data.type },
+      'Processing inbound job',
+    )
+    await processHubMessageReceivedMessage(
+      data.body as unknown as HubMessageWebhookMessage,
+    )
   } else if (data.source === 'bitrix') {
     workerLogger.debug(
       { app: 'thinkzap', source: data.source, type: data.type },

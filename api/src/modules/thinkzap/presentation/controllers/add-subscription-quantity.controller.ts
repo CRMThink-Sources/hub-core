@@ -13,8 +13,12 @@ import {
   canAdjustSubscriptionQuantity,
   fromStripeStatus,
 } from '@/shared/domain/entities/billing-subscription'
-import { getThinkzapConnectorQuantity } from '@/shared/infra/stripe/thinkzap-subscription-line'
+import {
+  resolveProviderQuantities,
+  type ProviderPriceMap,
+} from '@/shared/infra/stripe/thinkzap-subscription-line'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 
 export class AddSubscriptionQuantityController extends Controller {
   private readonly stripe: Stripe
@@ -29,9 +33,16 @@ export class AddSubscriptionQuantityController extends Controller {
   }
 
   async perform(req: Request, res: Response): Promise<httpResponse> {
+    // Tela única: quantidades adicionais por provider. Compat: `additionalQuantity` → ZAPI.
     const parsed = z
       .object({
-        additionalQuantity: z.number().int().min(1).max(50),
+        additionalQuantity: z.number().int().min(1).max(50).optional(),
+        additions: z
+          .object({
+            ZAPI: z.number().int().min(0).max(50).optional(),
+            HUBMESSAGE: z.number().int().min(0).max(50).optional(),
+          })
+          .optional(),
       })
       .safeParse(req.body)
 
@@ -41,17 +52,41 @@ export class AddSubscriptionQuantityController extends Controller {
       )
     }
 
+    const additions: Partial<Record<ConnectorProvider, number>> = {}
+    if (parsed.data.additions?.ZAPI) {
+      additions[ConnectorProvider.ZAPI] = parsed.data.additions.ZAPI
+    }
+    if (parsed.data.additions?.HUBMESSAGE) {
+      additions[ConnectorProvider.HUBMESSAGE] = parsed.data.additions.HUBMESSAGE
+    }
+    if (parsed.data.additionalQuantity) {
+      additions[ConnectorProvider.ZAPI] =
+        (additions[ConnectorProvider.ZAPI] ?? 0) +
+        parsed.data.additionalQuantity
+    }
+
+    if (Object.keys(additions).length === 0) {
+      return this.badRequest(
+        new Error('Informe ao menos uma quantidade adicional'),
+      )
+    }
+
     const appId = req.appId
     const domainId = req.domainId
-    const priceId = env.thinkzapStripePriceId
+    const prices: ProviderPriceMap = {
+      [ConnectorProvider.ZAPI]: env.thinkzapStripePriceId,
+      [ConnectorProvider.HUBMESSAGE]: env.hubmessageStripePriceId,
+    }
 
     if (!appId || !domainId) {
       return this.badRequest(new Error('Invalid request'))
     }
-    if (!priceId) {
-      return this.badRequest(
-        new Error('THINKZAP_PRICE_CONNECTORS não configurado na API'),
-      )
+    for (const provider of Object.keys(additions) as ConnectorProvider[]) {
+      if (!prices[provider]) {
+        return this.badRequest(
+          new Error(`Price do provider ${provider} não configurado na API`),
+        )
+      }
     }
     const app = await this.getApp.getByAppCodeAndDomainId(appId, domainId)
     if (!app) {
@@ -83,10 +118,8 @@ export class AddSubscriptionQuantityController extends Controller {
       )
     }
 
-    const { additionalQuantity } = parsed.data
-
     logger.info(
-      { appId, domainId, additionalQuantity, billingId: billing.id },
+      { appId, domainId, additions, billingId: billing.id },
       'add-subscription-quantity: iniciando adição de linhas',
     )
 
@@ -95,27 +128,37 @@ export class AddSubscriptionQuantityController extends Controller {
       { expand: ['items.data.price'] },
     )
 
-    const line =
-      current.items.data.find(item => item.price.id === priceId) ??
-      current.items.data[0]
+    // Para cada provider: bump do line item existente ou criação de um novo produto.
+    const items: Stripe.SubscriptionUpdateParams.Item[] = []
+    for (const provider of Object.keys(additions) as ConnectorProvider[]) {
+      const priceId = prices[provider]
+      const add = additions[provider] ?? 0
+      if (add < 1) continue
 
-    if (!line) {
-      return this.badRequest(new Error('Item de assinatura não encontrado'))
+      const line = current.items.data.find(item => item.price.id === priceId)
+      if (line) {
+        items.push({ id: line.id, quantity: (line.quantity ?? 0) + add })
+      } else {
+        items.push({ price: priceId, quantity: add })
+      }
     }
 
-    const currentQty = line.quantity ?? 1
-
-    const newQuantity = currentQty + additionalQuantity
+    if (items.length === 0) {
+      return this.badRequest(new Error('Nenhuma linha a adicionar'))
+    }
 
     const updated = await this.stripe.subscriptions.update(
       billing.stripeSubscriptionId,
       {
-        items: [{ id: line.id, quantity: newQuantity }],
+        items,
         proration_behavior: 'create_prorations',
       },
     )
 
-    const connectorQuantity = getThinkzapConnectorQuantity(updated, priceId)
+    const connectorQuantity = resolveProviderQuantities(updated, prices).reduce(
+      (sum, pq) => sum + pq.quantity,
+      0,
+    )
 
     await this.updateBilling.syncFromStripe(updated.id, {
       status: fromStripeStatus(updated.status),
@@ -129,16 +172,15 @@ export class AddSubscriptionQuantityController extends Controller {
       {
         appId,
         domainId,
-        previousQuantity: currentQty,
-        additionalQuantity,
-        newQuantity,
+        additions,
+        connectorQuantity,
         stripeSubscriptionId: updated.id,
       },
       'add-subscription-quantity: linhas adicionadas com sucesso',
     )
 
     return this.ok({
-      connectorQuantity: newQuantity,
+      connectorQuantity,
       stripeSubscriptionId: updated.id,
       provisioning: 'pending_webhook_sync',
     })

@@ -13,20 +13,20 @@ export async function resolveBitrixReplyContext(
   try {
     const record = await messageRepo.findByBitrixMessageId(instanceId, replyId)
 
-    if (!record?.zApiMessageId) {
+    if (!record?.providerMessageId) {
       log.warn(
         {
           instanceId,
           replyId,
           replyResolutionFailed: true,
-          reason: record ? 'noZApiMessageId' : 'notFound',
+          reason: record ? 'noProviderMessageId' : 'notFound',
         },
         'Reply message not found in DB — sending without reply context',
       )
       return undefined
     }
 
-    return record.zApiMessageId
+    return record.providerMessageId
   } catch (err) {
     log.warn(
       { instanceId, replyId, err, replyResolutionFailed: true },

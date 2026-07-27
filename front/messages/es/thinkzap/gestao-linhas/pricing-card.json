@@ -3,6 +3,10 @@
     "titulo": "Pago y facturas",
     "info": "Para agregar más líneas, confirma tu suscripción."
   },
+  "conector": {
+    "naoOficial": "No oficial",
+    "oficial": "WhatsApp Oficial"
+  },
   "linhasPorTier_one": "{{faixa}} línea: R$ {{valor}}/línea",
   "linhasPorTier_other": "{{faixa}} líneas: R$ {{valor}}/línea",
   "fixo": " + R$ {{valor}} fijo",

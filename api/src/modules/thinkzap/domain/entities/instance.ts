@@ -5,7 +5,13 @@ export type Instance = {
   domainId: string
   instanceId: string
   vinculatedChannel: string | null
+  /** Provider-specific (Z-API). Nulo em conectores HubMessage. */
   zApiToken: string | null
+  /** Provider-specific (HubMessage). Nulos em conectores Z-API. */
+  channelId: string | null
+  webhookId: string | null
+  wabaId: string | null
+  phoneId: string | null
   settings: ConnectorSettings
   phoneNumber: string | null
   status: InstanceStatus

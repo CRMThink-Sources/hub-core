@@ -3,7 +3,19 @@
   "nenhumCanalVinculado": "No channel linked",
   "status": {
     "ativo": "Active",
-    "inativo": "Inactive"
+    "inativo": "Inactive",
+    "aguardandoConexao": "Awaiting connection"
+  },
+  "conexao": {
+    "sucesso": "Number connected successfully",
+    "cancelada": "Connection cancelled",
+    "incompleta": "Meta did not return the connection data. Try again.",
+    "semConfiguracao": "Official WhatsApp integration is not configured. Contact support.",
+    "origemNaoAutorizada": "This application's address is not authorized in HubMessage. Contact support."
+  },
+  "provider": {
+    "oficial": "Official",
+    "naoOficial": "Unofficial"
   },
   "menu": {
     "configuracoes": "Settings",

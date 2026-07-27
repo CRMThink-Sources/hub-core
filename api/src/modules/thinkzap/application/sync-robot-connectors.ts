@@ -1,4 +1,7 @@
 import { env } from '@/config/env'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import { Instance } from '@/modules/thinkzap/domain/entities/instance'
+import { hubMessageConnectorLabel } from '@/modules/thinkzap/domain/hubmessage-connector-label'
 import { PrismaConnectorRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-connector.repository'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
@@ -38,6 +41,28 @@ async function resolveInstanceName(
   }
 }
 
+/**
+ * Rótulo do conector no robô. Só Z-API tem nome remoto consultável — a HubMessage
+ * não expõe leitura de canal, então o rótulo sai do que está persistido.
+ */
+async function connectorLabel(
+  connector: Connector,
+  instance: Instance,
+  zApiClient: ZApiClient,
+): Promise<string> {
+  if (connector.provider === ConnectorProvider.HUBMESSAGE) {
+    return hubMessageConnectorLabel(instance)
+  }
+
+  const instanceName = await resolveInstanceName(zApiClient, connector)
+
+  return (
+    connectorLabelFromInstanceName(instanceName) ??
+    instance.phoneNumber ??
+    instance.instanceId
+  )
+}
+
 export async function syncThinkzapRobotConnectorOptions(
   appId: string,
 ): Promise<void> {
@@ -51,12 +76,11 @@ export async function syncThinkzapRobotConnectorOptions(
     if (!connector.instance) continue
     if (!connector.instanceId) continue
 
-    const instanceName = await resolveInstanceName(zApiClient, connector)
-
-    options[connector.id] =
-      connectorLabelFromInstanceName(instanceName) ??
-      connector.instance.phoneNumber ??
-      connector.instance.instanceId
+    options[connector.id] = await connectorLabel(
+      connector,
+      connector.instance,
+      zApiClient,
+    )
   }
 
   try {

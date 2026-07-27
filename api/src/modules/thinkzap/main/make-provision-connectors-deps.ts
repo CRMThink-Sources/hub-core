@@ -8,6 +8,7 @@ import { PrismaInstanceRepository } from '../infra/persistence/repositories/pris
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { PrismaBillingSubscriptionRepository } from '@/shared/infra/persistence/repositories/prisma-billing-subscription.repository'
+import { makeConnectorProviderResolver } from './make-connector-provider-resolver'
 
 export function makeProvisionMissingConnectorsDeps(): ProvisionMissingConnectorsDeps {
   const zApiClient = new ZApiClient(env.zApi.partnerToken)
@@ -26,7 +27,10 @@ export function makeProvisionMissingConnectorsDeps(): ProvisionMissingConnectors
   return {
     createConnectorRepo: connectorRepo,
     listConnectors: connectorRepo,
-    instanceGateway,
+    providerResolver: makeConnectorProviderResolver({
+      zApiClient,
+      instanceGateway,
+    }),
     createInstanceRepo: new PrismaInstanceRepository(),
     getApp: new PrismaInstalledAppRepository(),
     getDomainRepository: new PrismaDomainRepository(),

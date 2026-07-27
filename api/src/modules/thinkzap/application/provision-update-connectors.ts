@@ -3,7 +3,8 @@ import { ListConnectorsRepository } from '@/modules/thinkzap/domain/repositories
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
 import { UpdateConnectorRepository } from '@/modules/thinkzap/domain/repositories/update-connector.repository'
-import { UpdateInstanceGateway } from '@/modules/thinkzap/domain/repositories/update-instance.gateway'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { syncThinkzapRobotConnectorOptions } from './sync-robot-connectors'
 
 export type ProvisionUpdateConnectorsDeps = {
@@ -12,7 +13,7 @@ export type ProvisionUpdateConnectorsDeps = {
   getInstanceRepo: GetInstanceRepository
   updateInstanceRepo: UpdateInstanceRepository
   updateConnectorRepo: UpdateConnectorRepository
-  updateInstanceGateway: UpdateInstanceGateway
+  providerResolver: ConnectorProviderResolver
 }
 
 export async function deactivateConnectorsForApp(
@@ -30,10 +31,17 @@ export async function deactivateConnectorsForApp(
       continue
     }
 
-    if (instance.zApiToken) {
-      await deps.updateInstanceGateway.unsubscribe(
-        instance.instanceId,
-        instance.zApiToken,
+    const provider = connector.provider ?? ConnectorProvider.ZAPI
+    try {
+      await deps.providerResolver.resolve(provider).unsubscribe({
+        instanceId: instance.instanceId,
+        zApiToken: instance.zApiToken ?? null,
+        channelId: instance.channelId ?? null,
+      })
+    } catch (error) {
+      console.warn(
+        `[thinkzap] falha ao cancelar assinatura do conector (${provider}/${instance.instanceId})`,
+        error,
       )
     }
 

@@ -224,7 +224,7 @@ export class BitrixClient {
   ): Promise<ICrmItemResponse> {
     const client = this.getClient()
     try {
-      const response = await client.get(`/crm.item.get`, {
+      const response = await client.get<ICrmItemResponse>(`/crm.item.get`, {
         params: { entityTypeId, id },
       })
       return response.data

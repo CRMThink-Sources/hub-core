@@ -16,12 +16,11 @@ import Stripe from 'stripe'
 import z from 'zod'
 import {
   ProvisionMissingConnectorsDeps,
-  provisionMissingConnectorsForApp,
+  provisionMissingConnectorsForProvider,
 } from '../../application/provision-missing-connectors'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 
 export class ActivateTrialController extends Controller {
-  private readonly stripe: Stripe = new Stripe(env.stripe.secretKey)
-
   constructor(
     private readonly getApp: GetInstalledAppRepository,
     private readonly getDomain: GetDomainRepository,
@@ -29,6 +28,7 @@ export class ActivateTrialController extends Controller {
     private readonly createSubscriptionRepo: CreateBillingSubscriptionRepository,
     private readonly spaRepository: GetSpaRepository,
     private readonly provisionDeps: ProvisionMissingConnectorsDeps,
+    private readonly stripe: Stripe = new Stripe(env.stripe.secretKey),
   ) {
     super()
   }
@@ -47,6 +47,9 @@ export class ActivateTrialController extends Controller {
         email: z.string().email(),
         phone: z.string().min(1),
         company: z.string().min(1),
+        provider: z
+          .enum([ConnectorProvider.ZAPI, ConnectorProvider.HUBMESSAGE])
+          .default(ConnectorProvider.ZAPI),
       })
       .safeParse(req.body)
 
@@ -56,7 +59,17 @@ export class ActivateTrialController extends Controller {
       )
     }
 
-    const { name, email, phone, company } = params.data
+    const { name, email, phone, company, provider } = params.data
+    const priceId =
+      provider === ConnectorProvider.HUBMESSAGE
+        ? env.hubmessageStripePriceId
+        : env.thinkzapStripePriceId
+
+    if (!priceId) {
+      return this.badRequest(
+        new Error(`Price do provider ${provider} não configurado na API`),
+      )
+    }
 
     const app = await this.getApp.getByAppCodeAndDomainId(appId, domainId)
     const domain = await this.getDomain.getDomainById(domainId)
@@ -92,15 +105,17 @@ export class ActivateTrialController extends Controller {
 
     const subscription = await this.stripe.subscriptions.create({
       customer: customer.id,
-      items: [{ price: env.thinkzapStripePriceId, quantity: 1 }],
+      items: [{ price: priceId, quantity: 1 }],
       trial_period_days: 7,
       metadata: {
         appId,
         domainId,
         quantity: 1,
+        provider,
       },
       trial_settings: {
         end_behavior: {
+          // Trial vence (gera fatura) ao fim do prazo — não cancela.
           missing_payment_method: 'create_invoice',
         },
       },
@@ -121,9 +136,10 @@ export class ActivateTrialController extends Controller {
       trialEndsAt: new Date(subscription.trial_end ?? 0),
     })
 
-    const { created } = await provisionMissingConnectorsForApp(
+    const { created } = await provisionMissingConnectorsForProvider(
       this.provisionDeps,
       sub.appId,
+      provider,
       1,
       { isTrialing: true },
     )

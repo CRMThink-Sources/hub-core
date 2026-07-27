@@ -24,6 +24,7 @@ import {
   extractQuoteInput,
   getQuoteInputType,
 } from './build-reply-quote'
+import { extractBitrixChatId } from './helpers/extract-bitrix-chat-id'
 
 const log = createWorkerSourceLogger('z-api')
 
@@ -394,7 +395,7 @@ export class ProcessZApiInboundMessageUseCase {
     let replyLookupFailed = false
 
     try {
-      const record = await this.messageRepo.findByZApiMessageId(
+      const record = await this.messageRepo.findByProviderMessageId(
         instanceDbId,
         event.referenceMessageId,
       )
@@ -448,7 +449,7 @@ export class ProcessZApiInboundMessageUseCase {
       await this.messageRepo.create({
         instanceId: instanceDbId,
         source: 'ZAPI',
-        zApiMessageId: event.messageId,
+        providerMessageId: event.messageId,
         bitrixMessageId,
         bitrixChatId,
         type: quoteInput.type,
@@ -492,17 +493,6 @@ async function resolveBitrixMessageId(
     )
   }
   return bitrixMessageId
-}
-
-function extractBitrixChatId(result: unknown): string | null {
-  try {
-    const r = result as {
-      result?: { DATA?: { RESULT?: Array<{ session?: { CHAT_ID?: string } }> } }
-    }
-    return r?.result?.DATA?.RESULT?.[0]?.session?.CHAT_ID ?? null
-  } catch {
-    return null
-  }
 }
 
 function buildMessageFiles(

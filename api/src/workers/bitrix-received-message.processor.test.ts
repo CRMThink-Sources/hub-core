@@ -2,32 +2,67 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   createMock,
+  findByBitrixMessageIdMock,
   sendMessageZApiMock,
   sendImageMock,
   sendVideoMock,
   sendAudioMock,
   sendDocumentMock,
   setMessageDeliveredMock,
+  callMethodMock,
   getContextMock,
+  ensureBitrixBotIdMock,
+  sendHubMessageMock,
 } = vi.hoisted(() => ({
   createMock: vi.fn().mockResolvedValue(undefined),
+  findByBitrixMessageIdMock: vi.fn().mockResolvedValue(null),
   sendMessageZApiMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-1' }),
   sendImageMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-IMG' }),
   sendVideoMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-VID' }),
   sendAudioMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-AUD' }),
   sendDocumentMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-DOC' }),
   setMessageDeliveredMock: vi.fn().mockResolvedValue(undefined),
+  callMethodMock: vi
+    .fn()
+    .mockResolvedValue({ result: { message: { params: {} } } }),
   getContextMock: vi.fn(),
+  ensureBitrixBotIdMock: vi.fn().mockResolvedValue(1958),
+  sendHubMessageMock: vi.fn().mockResolvedValue({ messageId: 'HM-1' }),
 }))
+
+vi.mock('@/modules/thinkzap/infra/clients/hubmessage.client', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/modules/thinkzap/infra/clients/hubmessage.client')
+  >('@/modules/thinkzap/infra/clients/hubmessage.client')
+  return {
+    // `HubMessageApiError` é real: o classificador de janela fechada usa
+    // `instanceof`, então um mock de classe quebraria a detecção.
+    HubMessageApiError: actual.HubMessageApiError,
+    HubMessageClient: class {
+      sendMessage = sendHubMessageMock
+    },
+  }
+})
 
 vi.mock(
   '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository',
   () => ({
     PrismaThinkzapMessageRepository: class {
       create = createMock
+      findByBitrixMessageId = findByBitrixMessageIdMock
     },
   }),
 )
+
+// O processor importa `redisConnection` no topo, e o módulo lança
+// `REDIS_URL is required` no import quando a env não existe (caso do teste).
+vi.mock('@/queue/redis-connection', () => ({
+  redisConnection: { get: vi.fn(), set: vi.fn() },
+}))
+
+vi.mock('@/modules/thinkzap/application/ensure-bitrix-bot-id', () => ({
+  ensureBitrixBotId: ensureBitrixBotIdMock,
+}))
 
 vi.mock('@/modules/thinkzap/infra/clients/z-api.client', () => ({
   ZApiClient: class {
@@ -42,6 +77,7 @@ vi.mock('@/modules/thinkzap/infra/clients/z-api.client', () => ({
 vi.mock('@/shared/infra/clients/bitrix.client', () => ({
   BitrixClient: class {
     setMessageDelivered = setMessageDeliveredMock
+    callMethod = callMethodMock
   },
 }))
 
@@ -86,6 +122,11 @@ vi.mock('@/config/env', () => ({
   env: {
     bitrix: { connector: { code: 'thinkzap' } },
     zApi: { partnerToken: 'pt', clientToken: 'ct' },
+    hubMessage: {
+      baseUrl: 'https://api.hubmessage.io',
+      secretKey: 'sk-test',
+      webhookUrl: 'https://app.test/webhooks/hubmessage',
+    },
     appCodes: { thinkzap: 'thinkzap' },
     logLevel: 'silent',
     nodeEnv: 'test',
@@ -104,15 +145,18 @@ vi.mock('@/shared/helpers/convert-to-mp3', () => ({
 }))
 
 import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
+import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 
 const baseContext = {
   name: 'acme.bitrix24.com',
   app: { id: 'app-1', credential: { id: 'cred-1' } },
+  connector: { provider: 'ZAPI' },
   instance: {
     id: 'inst-db-1',
     instanceId: 'INST-A',
     zApiToken: 'token',
+    channelId: null,
     settings: {},
   },
 }
@@ -156,11 +200,17 @@ describe('processBitrixReceivedMessage DB persistence', () => {
   beforeEach(() => {
     createMock.mockClear()
     createMock.mockResolvedValue(undefined)
+    findByBitrixMessageIdMock.mockClear()
+    findByBitrixMessageIdMock.mockResolvedValue(null)
     sendMessageZApiMock.mockClear()
     sendImageMock.mockClear()
     sendVideoMock.mockClear()
     sendAudioMock.mockClear()
     sendDocumentMock.mockClear()
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockClear()
+    callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
+    ensureBitrixBotIdMock.mockClear()
     getContextMock.mockResolvedValue(baseContext)
   })
 
@@ -172,7 +222,7 @@ describe('processBitrixReceivedMessage DB persistence', () => {
       expect.objectContaining({
         instanceId: 'inst-db-1',
         source: 'BITRIX',
-        zApiMessageId: 'ZAPI-1',
+        providerMessageId: 'ZAPI-1',
         bitrixMessageId: 'BITRIX-MSG-1',
         type: 'TEXT',
         chatId: '5511999999999',
@@ -207,7 +257,7 @@ describe('processBitrixReceivedMessage DB persistence', () => {
     expect(createMock).toHaveBeenCalledWith(
       expect.objectContaining({
         source: 'BITRIX',
-        zApiMessageId: 'ZAPI-IMG',
+        providerMessageId: 'ZAPI-IMG',
         bitrixMessageId: 'BITRIX-MSG-1',
         type: 'IMAGE',
       }),
@@ -241,7 +291,7 @@ describe('processBitrixReceivedMessage DB persistence', () => {
     expect(createMock).toHaveBeenCalledWith(
       expect.objectContaining({
         source: 'BITRIX',
-        zApiMessageId: 'ZAPI-DOC',
+        providerMessageId: 'ZAPI-DOC',
         bitrixMessageId: 'BITRIX-MSG-1',
         type: 'DOCUMENT',
         fileName: 'contrato.pdf',
@@ -258,5 +308,154 @@ describe('processBitrixReceivedMessage DB persistence', () => {
 
     expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
     expect(createMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+const hubMessageContext = {
+  ...baseContext,
+  connector: { provider: 'HUBMESSAGE' },
+  instance: { ...baseContext.instance, zApiToken: null, channelId: 'CH-123' },
+}
+
+describe('processBitrixReceivedMessage provider routing', () => {
+  beforeEach(() => {
+    createMock.mockClear()
+    createMock.mockResolvedValue(undefined)
+    findByBitrixMessageIdMock.mockClear()
+    findByBitrixMessageIdMock.mockResolvedValue(null)
+    sendMessageZApiMock.mockClear()
+    sendHubMessageMock.mockClear()
+    sendHubMessageMock.mockResolvedValue({ messageId: 'HM-1' })
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockClear()
+    callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
+  })
+
+  it('conector HUBMESSAGE envia via HubMessage e não toca no Z-API', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(sendHubMessageMock).toHaveBeenCalledWith('CH-123', {
+      recipient: { identifier: '5511999999999' },
+      content: { type: 'TEXT', body: { message: 'texto enviado' } },
+    })
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+  })
+
+  it('conector HUBMESSAGE persiste providerMessageId e confirma entrega', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'BITRIX',
+        providerMessageId: 'HM-1',
+        bitrixMessageId: 'BITRIX-MSG-1',
+        type: 'TEXT',
+      }),
+    )
+    expect(setMessageDeliveredMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('conector sem provider explícito roteia para Z-API', async () => {
+    getContextMock.mockResolvedValue({
+      ...baseContext,
+      connector: { provider: 'ZAPI' },
+    })
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
+    expect(sendHubMessageMock).not.toHaveBeenCalled()
+  })
+
+  it('HUBMESSAGE não resolve reply — não consulta o banco por REPLY_ID', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+    callMethodMock.mockResolvedValue({
+      result: { message: { params: { REPLY_ID: 'BX-MSG-42' } } },
+    })
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(findByBitrixMessageIdMock).not.toHaveBeenCalled()
+    expect(sendHubMessageMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('ZAPI com REPLY_ID resolve a referência no banco', async () => {
+    getContextMock.mockResolvedValue(baseContext)
+    callMethodMock.mockResolvedValue({
+      result: { message: { params: { REPLY_ID: 'BX-MSG-42' } } },
+    })
+    findByBitrixMessageIdMock.mockResolvedValue({
+      providerMessageId: 'ZAPI-ANTERIOR',
+    })
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(findByBitrixMessageIdMock).toHaveBeenCalledWith(
+      'inst-db-1',
+      'BX-MSG-42',
+    )
+    expect(sendMessageZApiMock).toHaveBeenCalledWith(
+      'INST-A',
+      'token',
+      'texto enviado',
+      '5511999999999',
+      { referencedMessageId: 'ZAPI-ANTERIOR' },
+    )
+  })
+})
+
+describe('processBitrixReceivedMessage janela de 24h fechada', () => {
+  beforeEach(() => {
+    createMock.mockClear()
+    sendHubMessageMock.mockClear()
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockClear()
+    callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
+    getContextMock.mockResolvedValue(hubMessageContext)
+  })
+
+  function makeWindowClosedError() {
+    return new HubMessageApiError(
+      422,
+      'POST',
+      '/v1/channels/CH-123/messages',
+      { message: 'A janela de conversa de 24 horas está fechada' },
+      null,
+    )
+  }
+
+  it('não persiste, não confirma entrega e não relança', async () => {
+    sendHubMessageMock.mockRejectedValue(makeWindowClosedError())
+
+    await expect(
+      processBitrixReceivedMessage(makeEvent()),
+    ).resolves.toBeUndefined()
+
+    expect(createMock).not.toHaveBeenCalled()
+    expect(setMessageDeliveredMock).not.toHaveBeenCalled()
+  })
+
+  it('avisa o operador no chat via imbot.message.add', async () => {
+    sendHubMessageMock.mockRejectedValue(makeWindowClosedError())
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(callMethodMock).toHaveBeenCalledWith(
+      'imbot.message.add',
+      expect.objectContaining({ BOT_ID: 1958, DIALOG_ID: 'chat100' }),
+    )
+  })
+
+  it('falha por outro motivo relança para a fila retentar', async () => {
+    sendHubMessageMock.mockRejectedValue(
+      new HubMessageApiError(500, 'POST', '/x', { message: 'boom' }, null),
+    )
+
+    await expect(processBitrixReceivedMessage(makeEvent())).rejects.toThrow()
+    expect(createMock).not.toHaveBeenCalled()
   })
 })

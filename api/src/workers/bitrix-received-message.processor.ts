@@ -1,24 +1,28 @@
-import axios from 'axios'
-
 import { env } from '@/config/env'
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
-import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
+import {
+  OutboundMessageDescriptor,
+  OutboundSendResult,
+} from '@/modules/thinkzap/domain/ports/outbound-message-sender.port'
 import { appIdResolver } from '@/modules/auth/presentation/controllers/helpers/app-id-resolver'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
-import { convertToMp3 } from '@/shared/helpers/convert-to-mp3'
 import { GetBitrixWebhookContextRepository } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
 import { PrismaBitrixWebhookContextRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bitrix-webhook-context.repository'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
+import { isConversationWindowClosedError } from '@/modules/thinkzap/infra/adapters/is-conversation-window-closed-error'
 import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
 import { prepareOpenLineOutboundText } from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { ensureBitrixBotId } from '@/modules/thinkzap/application/ensure-bitrix-bot-id'
+import { notifyOperatorWindowClosed } from '@/modules/thinkzap/application/notify-operator-window-closed'
 import { resolveBitrixReplyContext } from '@/modules/thinkzap/application/resolve-bitrix-reply-context'
+import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
 import { redisConnection } from '@/queue/redis-connection'
 
 const log = createWorkerSourceLogger('bitrix')
 const messageRepo = new PrismaThinkzapMessageRepository()
+const outboundSenderResolver = makeOutboundSenderResolver()
 
 type BitrixMessageGetResult = {
   result: {
@@ -36,7 +40,7 @@ type BitrixMessageGetResult = {
 
 async function persistOutboundMessage(
   instanceId: string,
-  zApiMessageId: string,
+  providerMessageId: string,
   bitrixMessageId: string,
   chatId: string,
   type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT',
@@ -47,7 +51,7 @@ async function persistOutboundMessage(
     await messageRepo.create({
       instanceId,
       source: 'BITRIX',
-      zApiMessageId,
+      providerMessageId,
       bitrixMessageId,
       type,
       text: text ?? null,
@@ -56,9 +60,76 @@ async function persistOutboundMessage(
     })
   } catch (err) {
     log.warn(
-      { instanceId, zApiMessageId, bitrixMessageId, err, dbWriteFailed: true },
+      {
+        instanceId,
+        providerMessageId,
+        bitrixMessageId,
+        err,
+        dbWriteFailed: true,
+      },
       'Failed to persist outbound message to DB',
     )
+  }
+}
+
+/**
+ * Converte o evento do Bitrix em descritores neutros de envio. O provider
+ * concreto é decidido depois, no resolver — aqui nada sabe de Z-API ou
+ * HubMessage.
+ */
+function toOutboundDescriptors(
+  message: IBX24MessageEvent['data']['MESSAGES'][number],
+  logContext: { domain: string },
+): OutboundMessageDescriptor[] {
+  if (message.message.text) {
+    return [{ kind: 'text', text: message.message.text }]
+  }
+
+  if (!message.message.files) return []
+
+  const descriptors: OutboundMessageDescriptor[] = []
+
+  for (const file of message.message.files) {
+    const kind = toOutboundKind(file)
+
+    if (!kind) {
+      log.warn(
+        { domain: logContext.domain, messageType: file.type },
+        'Unknown message type — skipping',
+      )
+      continue
+    }
+
+    descriptors.push({
+      kind,
+      url: file.downloadLink,
+      fileName: file.name,
+      mime: file.mime,
+    })
+  }
+
+  return descriptors
+}
+
+/** `null` = tipo não suportado; o chamador loga e ignora sem derrubar o job. */
+function toOutboundKind(file: {
+  name: string
+  type: string
+}): OutboundMessageDescriptor['kind'] | null {
+  // Áudio gravado no Bitrix chega com o nome prefixado, não pelo `type`.
+  if (file.name.includes('audio-')) return 'audio'
+
+  switch (file.type) {
+    case 'image':
+      return 'image'
+    case 'video':
+      return 'video'
+    case 'audio':
+      return 'audio'
+    case 'file':
+      return 'document'
+    default:
+      return null
   }
 }
 
@@ -84,33 +155,15 @@ export async function processBitrixReceivedMessage(
   const message = event.data
     .MESSAGES[0] as IBX24MessageEvent['data']['MESSAGES'][number]
 
-  const messages: Array<{
-    type: string
-    text?: string
-    name?: string
-    mime?: string
-    link?: string
-  }> = []
-
-  if (message.message.text) {
-    messages.push({ type: 'text', text: message.message.text })
-  } else if (message.message.files) {
-    for (const file of message.message.files) {
-      const type = file.name.includes('audio-') ? 'audio' : file.type
-      messages.push({
-        type,
-        name: file.name,
-        mime: file.mime,
-        link: file.downloadLink,
-      })
-    }
-  }
+  const descriptors = toOutboundDescriptors(message, {
+    domain: event.auth.domain,
+  })
 
   log.debug(
     {
       domain: event.auth.domain,
       line: event.data.LINE,
-      parsedMessages: messages.map(m => ({ type: m.type })),
+      parsedMessages: descriptors.map(d => ({ type: d.kind })),
     },
     'Bitrix messages parsed',
   )
@@ -132,11 +185,15 @@ export async function processBitrixReceivedMessage(
     throw new Error('Context not found')
   }
 
+  const provider = context.connector.provider
+  const chatId = message.chat.id
+
   log.debug(
     {
       domain: event.auth.domain,
       instanceId: context.instance.instanceId,
       internalInstanceId: context.instance.id,
+      provider,
     },
     'Bitrix webhook context resolved',
   )
@@ -146,13 +203,19 @@ export async function processBitrixReceivedMessage(
     domain: context.name,
   })
 
+  const sender = outboundSenderResolver.resolve(provider, {
+    instanceId: context.instance.instanceId,
+    zApiToken: context.instance.zApiToken,
+    channelId: context.instance.channelId,
+    chatId,
+  })
+
   const botId = await ensureBitrixBotId(
     bitrixClient,
     redisConnection,
     context.name,
     env.appCodes.thinkzap,
   )
-  console.log({ botId })
   const response = await bitrixClient.callMethod<BitrixMessageGetResult>(
     'imbot.v2.Chat.Message.get',
     {
@@ -162,13 +225,23 @@ export async function processBitrixReceivedMessage(
   )
 
   const replyId = response.result?.message?.params?.REPLY_ID
-  console.log({ replyId })
-  const referencedMessageId = await resolveBitrixReplyContext(
-    context.instance.id,
-    replyId,
-    messageRepo,
-  )
-  console.log({ referencedMessageId })
+
+  // Provider sem suporte a citar mensagem não resolve a referência: evita uma
+  // consulta ao banco cujo resultado seria descartado no adapter.
+  let referencedMessageId: string | undefined
+  if (replyId && !sender.supportsReply) {
+    log.debug(
+      { domain: event.auth.domain, provider, replyId },
+      'Provider não suporta reply — enviando sem citação',
+    )
+  } else {
+    referencedMessageId = await resolveBitrixReplyContext(
+      context.instance.id,
+      replyId,
+      messageRepo,
+    )
+  }
+
   if (replyId) {
     log.debug(
       {
@@ -186,173 +259,90 @@ export async function processBitrixReceivedMessage(
   )
   const getAllowedUser = new PrismaAllowedUserRepository()
 
-  const zApiClient = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
-  const chatId = message.chat.id
   const bitrixMessageId = message.im.message_id
   const instanceDbId = context.instance.id
 
-  for (const messageData of messages) {
+  for (const descriptor of descriptors) {
     log.debug(
       {
         domain: event.auth.domain,
         instanceId: context.instance.instanceId,
         chatId,
-        messageType: messageData.type,
+        provider,
+        messageType: descriptor.kind,
       },
-      'Sending message via Z-API',
+      'Sending message to contact',
     )
 
-    if (messageData.type === 'text') {
-      const outboundText = await prepareOpenLineOutboundText({
-        text: messageData.text || '',
-        settings: context.instance.settings,
-        operatorUserId: message.message.user_id,
-        appId: context.app.id,
-        getBitrixUserDisplayName,
-        getAllowedUser,
-      })
+    // O texto do operador passa pelo preparo do canal aberto (assinatura etc.);
+    // midia e documento seguem com o link cru do Bitrix.
+    const toSend =
+      descriptor.kind === 'text'
+        ? {
+            ...descriptor,
+            text: await prepareOpenLineOutboundText({
+              text: descriptor.text || '',
+              settings: context.instance.settings,
+              operatorUserId: message.message.user_id,
+              appId: context.app.id,
+              getBitrixUserDisplayName,
+              getAllowedUser,
+            }),
+          }
+        : descriptor
 
-      const result = await zApiClient.sendMessage(
-        context.instance.instanceId,
-        context.instance.zApiToken || '',
-        outboundText,
-        chatId,
-        { referencedMessageId },
-      )
-      log.info(
-        {
-          domain: event.auth.domain,
-          instanceId: context.instance.instanceId,
-          chatId,
-          zApiMessageId: result.messageId,
-        },
-        'Text message sent via Z-API',
-      )
-      await persistOutboundMessage(
-        instanceDbId,
-        result.messageId,
-        bitrixMessageId,
-        chatId,
-        'TEXT',
-        outboundText,
-      )
-      await setDelivered(bitrixClient, event, message, chatId, result.messageId)
-    } else if (messageData.type === 'image') {
-      const result = await zApiClient.sendImage(
-        context.instance.instanceId,
-        context.instance.zApiToken || '',
-        messageData.link || '',
-        chatId,
-      )
-      log.info(
-        {
-          domain: event.auth.domain,
-          instanceId: context.instance.instanceId,
-          chatId,
-          zApiMessageId: result.messageId,
-        },
-        'Image message sent via Z-API',
-      )
-      await persistOutboundMessage(
-        instanceDbId,
-        result.messageId,
-        bitrixMessageId,
-        chatId,
-        'IMAGE',
-      )
-      await setDelivered(bitrixClient, event, message, chatId, result.messageId)
-    } else if (messageData.type === 'video') {
-      const result = await zApiClient.sendVideo(
-        context.instance.instanceId,
-        context.instance.zApiToken || '',
-        messageData.link || '',
-        chatId,
-      )
-      log.info(
-        {
-          domain: event.auth.domain,
-          instanceId: context.instance.instanceId,
-          chatId,
-          zApiMessageId: result.messageId,
-        },
-        'Video message sent via Z-API',
-      )
-      await persistOutboundMessage(
-        instanceDbId,
-        result.messageId,
-        bitrixMessageId,
-        chatId,
-        'VIDEO',
-      )
-      await setDelivered(bitrixClient, event, message, chatId, result.messageId)
-    } else if (messageData.type === 'audio') {
-      const audioResponse = await axios.get<ArrayBuffer>(
-        messageData.link || '',
-        { responseType: 'arraybuffer' },
-      )
-      const mp3Buffer = await convertToMp3(Buffer.from(audioResponse.data))
-      const base64Audio = `data:audio/mpeg;base64,${mp3Buffer.toString('base64')}`
-
-      const result = await zApiClient.sendAudio(
-        context.instance.instanceId,
-        context.instance.zApiToken || '',
-        base64Audio,
-        chatId,
-      )
-      log.info(
-        {
-          domain: event.auth.domain,
-          instanceId: context.instance.instanceId,
-          chatId,
-          zApiMessageId: result.messageId,
-        },
-        'Audio message sent via Z-API',
-      )
-      await persistOutboundMessage(
-        instanceDbId,
-        result.messageId,
-        bitrixMessageId,
-        chatId,
-        'AUDIO',
-      )
-      await setDelivered(bitrixClient, event, message, chatId, result.messageId)
-    } else if (messageData.type === 'file') {
-      const result = await zApiClient.sendDocument(
-        context.instance.instanceId,
-        context.instance.zApiToken || '',
-        messageData.link || '',
-        chatId,
-        messageData.name || '',
-      )
-      log.info(
-        {
-          domain: event.auth.domain,
-          instanceId: context.instance.instanceId,
-          chatId,
-          zApiMessageId: result.messageId,
-        },
-        'File message sent via Z-API',
-      )
-      await persistOutboundMessage(
-        instanceDbId,
-        result.messageId,
-        bitrixMessageId,
-        chatId,
-        'DOCUMENT',
-        undefined,
-        messageData.name,
-      )
-      await setDelivered(bitrixClient, event, message, chatId, result.messageId)
-    } else {
-      log.warn(
-        {
-          domain: event.auth.domain,
-          instanceId: context.instance.instanceId,
-          messageType: messageData.type,
-        },
-        'Unknown message type — skipping',
-      )
+    let result: OutboundSendResult
+    try {
+      result = await sender.send(toSend, { referencedMessageId })
+    } catch (err) {
+      // Janela de 24h fechada e uma falha permanente: nenhuma retentativa passa,
+      // so um template aprovado. Avisa o operador e encerra sem relancar, para o
+      // BullMQ nao retentar. Sem persistir e sem confirmar entrega.
+      if (isConversationWindowClosedError(err)) {
+        log.warn(
+          {
+            domain: event.auth.domain,
+            instanceId: context.instance.instanceId,
+            chatId,
+            bitrixMessageId,
+            conversationWindowClosed: true,
+          },
+          'HubMessage rejeitou o envio por janela de 24h fechada — avisando operador sem retentar',
+        )
+        await notifyOperatorWindowClosed(
+          bitrixClient,
+          botId,
+          message.im.chat_id,
+        )
+        return
+      }
+      throw err
     }
+
+    log.info(
+      {
+        domain: event.auth.domain,
+        instanceId: context.instance.instanceId,
+        chatId,
+        provider,
+        providerMessageId: result.messageId,
+        messageType: result.persistedType,
+      },
+      'Message sent to contact',
+    )
+
+    await persistOutboundMessage(
+      instanceDbId,
+      result.messageId,
+      bitrixMessageId,
+      chatId,
+      result.persistedType,
+      result.sentText,
+      // Só documento persiste `fileName` — imagem/vídeo/áudio nunca gravaram o
+      // nome do arquivo, e a extração do adapter não muda isso.
+      result.persistedType === 'DOCUMENT' ? descriptor.fileName : undefined,
+    )
+    await setDelivered(bitrixClient, event, message, chatId, result.messageId)
   }
 
   log.info(
@@ -361,7 +351,8 @@ export async function processBitrixReceivedMessage(
       line: event.data.LINE,
       instanceId: context.instance.instanceId,
       chatId,
-      messagesProcessed: messages.length,
+      provider,
+      messagesProcessed: descriptors.length,
     },
     'Bitrix outbound message processing completed',
   )

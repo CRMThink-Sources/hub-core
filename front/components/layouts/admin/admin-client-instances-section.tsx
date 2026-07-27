@@ -10,6 +10,7 @@ import { AdminInstanceConfigModal } from './admin-instance-config-modal'
 export type ThinkzapInstanceItem = {
   connectorId: string
   connectorStatus: string
+  provider: string
   instanceDbId: string
   instanceId: string
   vinculatedChannel: string | null
@@ -174,6 +175,9 @@ export function AdminClientInstancesSection({ appId }: Props) {
                     {t('instancesColumnInstance')}
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                    {t('instancesColumnProvider')}
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                     {t('instancesColumnPhone')}
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -210,6 +214,13 @@ export function AdminClientInstancesSection({ appId }: Props) {
                           </span>
                         ) : null}
                       </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
+                        {instance.provider === 'HUBMESSAGE'
+                          ? t('instancesProviderOfficial')
+                          : t('instancesProviderZapi')}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {instance.vinculatedChannel ?? '—'}

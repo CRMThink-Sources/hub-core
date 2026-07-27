@@ -8,7 +8,7 @@ export type LogApp =
   | 'importsheet'
   | 'clicksign'
   | 'shared'
-export type WorkerSource = 'z-api' | 'bitrix'
+export type WorkerSource = 'z-api' | 'bitrix' | 'hubmessage'
 
 const redactOptions = {
   paths: [

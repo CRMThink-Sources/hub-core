@@ -6,6 +6,10 @@ import { makeVinculateChannelController } from './main/connector/make-vinculate-
 import { adaptControllerFactory } from '@/shared/main/adapt-controller'
 import { makeListOpenChannelsController } from './main/make-list-open-channels-controller'
 import { makeDisconnectChannelController } from './main/connector/make-disconnect-channel'
+import { makeConnectChannelController } from './main/connector/make-connect-channel'
+import { makeListTemplatesController } from './main/connector/make-list-templates'
+import { makeCreateTemplateController } from './main/connector/make-create-template'
+import { makeSyncTemplatesController } from './main/connector/make-sync-templates'
 import { makeUpdateInstanceController } from './main/instance/make-update-instance-controller'
 import { makeDisconnectConnectorController } from './main/connector/make-disconnect-connector'
 import { makeCancelConnectorController } from './main/connector/make-cancel-connector'
@@ -178,6 +182,26 @@ export const createThinkerszapRoutes = (): Router => {
     '/connector/disconnect-channel',
     requireThinkzapPermission('connectors', 'delete'),
     adaptControllerFactory(makeDisconnectChannelController),
+  )
+  router.post(
+    '/connector/connect-channel',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeConnectChannelController),
+  )
+  router.get(
+    '/connector/:id/templates',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeListTemplatesController),
+  )
+  router.post(
+    '/connector/:id/templates',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeCreateTemplateController),
+  )
+  router.post(
+    '/connector/:id/templates/sync',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeSyncTemplatesController),
   )
   router.put(
     '/instance/:id',

@@ -3,6 +3,7 @@
   "subtitulo": "Revisa el resumen a continuación antes de confirmar.",
   "linhasAtuais": "Líneas actuales",
   "adicionando": "Agregando",
+  "detalheProvider": "{{zapi}} no oficial + {{hub}} WhatsApp Oficial",
   "totalAposConfirmacao": "Total tras confirmación",
   "linha_one": "{{count}} línea",
   "linha_other": "{{count}} líneas",

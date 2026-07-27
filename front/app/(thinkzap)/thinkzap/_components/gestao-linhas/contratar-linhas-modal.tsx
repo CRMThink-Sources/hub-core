@@ -32,6 +32,7 @@ type PreviewData = {
 type Props = {
   isOpen: boolean
   quantidade: number
+  quantidadeHub: number
   linhasNaAssinatura: number
   onClose: () => void
   onConfirm: () => void
@@ -48,6 +49,7 @@ function formatCurrency(value: number) {
 export function ContratarLinhasModal({
   isOpen,
   quantidade,
+  quantidadeHub,
   linhasNaAssinatura,
   onClose,
   onConfirm,
@@ -92,8 +94,8 @@ export function ContratarLinhasModal({
     }
   }, [isOpen, quantidade])
 
-  const novasLinhas = quantidade
-  const totalLinhas = linhasNaAssinatura + quantidade
+  const novasLinhas = quantidade + quantidadeHub
+  const totalLinhas = linhasNaAssinatura + quantidade + quantidadeHub
 
   return (
     <Dialog
@@ -125,6 +127,16 @@ export function ContratarLinhasModal({
                 + {t('linha', { count: novasLinhas })}
               </span>
             </div>
+            {quantidade > 0 && quantidadeHub > 0 && (
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>
+                  {t('detalheProvider', {
+                    zapi: quantidade,
+                    hub: quantidadeHub,
+                  })}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-border pt-2 text-sm font-semibold">
               <span className="text-foreground">
                 {t('totalAposConfirmacao')}

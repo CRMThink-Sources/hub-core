@@ -185,12 +185,13 @@ model Agent {
 // ============================================
 
 model Connector {
-  id         String          @id @default(uuid())
-  appId      String          @map("app_id")
-  instanceId String?         @unique @map("instance_id")
-  status     ConnectorStatus @default(PENDING_SETUP)
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
+  id         String            @id @default(uuid())
+  appId      String            @map("app_id")
+  instanceId String?           @unique @map("instance_id")
+  provider   ConnectorProvider @default(ZAPI)
+  status     ConnectorStatus   @default(PENDING_SETUP)
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
 
   app      App       @relation(fields: [appId], references: [id])
   instance Instance? @relation(fields: [instanceId], references: [id])
@@ -205,6 +206,11 @@ model Instance {
   instanceId        String         @unique @map("instance_id")
   vinculatedChannel String?        @map("vinculated_channel")
   zApiToken         String?        @map("z_api_token")
+  // Campos específicos do provider HubMessage (WhatsApp Oficial). Nulos em conectores Z-API.
+  channelId         String?        @map("channel_id")
+  webhookId         String?        @map("webhook_id")
+  wabaId            String?        @map("waba_id")
+  phoneId           String?        @map("phone_id")
   settings          Json           @default("{}") @map("settings")
   status            InstanceStatus @default(DISCONNECTED)
   createdAt         DateTime       @default(now()) @map("created_at")
@@ -326,8 +332,8 @@ model ThinkAnaliseAuthToken {
 model ThinkzapMessage {
   id              String                  @id @default(uuid())
   instanceId      String                  @map("instance_id")
-  source          ThinkzapMessageSource
-  zApiMessageId   String?                 @map("z_api_message_id")
+  source            ThinkzapMessageSource
+  providerMessageId String?               @map("provider_message_id")
   bitrixMessageId String?                 @map("bitrix_message_id")
   bitrixChatId    String?                 @map("bitrix_chat_id")
   type            ThinkzapMessageType
@@ -339,7 +345,7 @@ model ThinkzapMessage {
 
   instance Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
 
-  @@unique([instanceId, zApiMessageId], name: "uq_msg_instance_zapi")
+  @@unique([instanceId, providerMessageId], name: "uq_msg_instance_provider")
   @@unique([instanceId, bitrixMessageId], name: "uq_msg_instance_bitrix")
   @@index([instanceId])
   @@map("core_thinkerszap_messages")
@@ -456,6 +462,11 @@ enum SubscriptionStatus {
   INCOMPLETE_EXPIRED
 }
 
+enum ConnectorProvider {
+  ZAPI
+  HUBMESSAGE
+}
+
 enum ConnectorStatus {
   PENDING_SETUP
   ACTIVE
@@ -472,6 +483,7 @@ enum InstanceStatus {
 enum ThinkzapMessageSource {
   ZAPI
   BITRIX
+  HUBMESSAGE
 }
 
 enum ThinkzapMessageType {

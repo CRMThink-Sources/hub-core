@@ -93,7 +93,7 @@ export class SendWidgetMessageUseCase {
     await this.messageRepository.create({
       instanceId: instance.id,
       source: 'BITRIX',
-      zApiMessageId: sentMessageIds[0] as string,
+      providerMessageId: sentMessageIds[0] as string,
       type: 'TEXT',
       text: message?.trim() || null,
     })

@@ -3,6 +3,10 @@
     "titulo": "Payment and invoices",
     "info": "To add more lines, confirm your subscription."
   },
+  "conector": {
+    "naoOficial": "Unofficial",
+    "oficial": "Official WhatsApp"
+  },
   "linhasPorTier_one": "{{faixa}} line: R$ {{valor}}/line",
   "linhasPorTier_other": "{{faixa}} lines: R$ {{valor}}/line",
   "fixo": " + R$ {{valor}} flat fee",

@@ -1,0 +1,39 @@
+{
+  "tab": "Plantillas",
+  "descricao": "Plantillas de mensaje aprobadas por Meta para iniciar conversaciones fuera de la ventana de 24h.",
+  "novo": "Nueva plantilla",
+  "sincronizar": "Sincronizar",
+  "carregando": "Cargando plantillas...",
+  "status": {
+    "PENDING": "Pendiente",
+    "APPROVED": "Aprobada",
+    "REJECTED": "Rechazada"
+  },
+  "categoria": {
+    "UTILITY": "Utilidad",
+    "MARKETING": "Marketing",
+    "AUTHENTICATION": "Autenticación"
+  },
+  "lista": {
+    "vazio": "Aún no hay plantillas registradas."
+  },
+  "form": {
+    "nome": "Nombre de la plantilla",
+    "nomeHint": "Usa snake_case: solo minúsculas, números y _.",
+    "categoria": "Categoría",
+    "idioma": "Idioma",
+    "body": "Cuerpo del mensaje",
+    "bodyPlaceholder": "Hola {{1}}, tu pedido fue confirmado.",
+    "bodyHint": "Usa {{1}}, {{2}} para variables dinámicas.",
+    "exemplo": "Ejemplo para {{variavel}}",
+    "exemploPlaceholder": "Valor de ejemplo para {{variavel}}",
+    "exemploHint": "Meta exige un ejemplo por variable. Sin eso la plantilla es rechazada.",
+    "erroExemplo": "Completa un ejemplo para cada variable del cuerpo.",
+    "footer": "Pie (opcional)",
+    "enviar": "Enviar para aprobación",
+    "enviando": "Enviando...",
+    "cancelar": "Cancelar",
+    "erroNome": "Nombre inválido: usa snake_case (a-z, 0-9, _).",
+    "erroBody": "El cuerpo del mensaje es obligatorio."
+  }
+}

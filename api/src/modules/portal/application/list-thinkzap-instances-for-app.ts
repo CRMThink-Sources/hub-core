@@ -6,6 +6,7 @@ import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 export type ThinkzapInstanceItem = {
   connectorId: string
   connectorStatus: string
+  provider: string
   instanceDbId: string
   instanceId: string
   vinculatedChannel: string | null
@@ -37,7 +38,8 @@ export async function listThinkzapInstancesForApp(
   const zapiResults = await Promise.all(
     activeConnectors.map(async c => {
       const instance = c.instance!
-      if (!instance.zApiToken) return null
+      // Só consulta Z-API para conectores desse provider.
+      if (c.provider !== 'ZAPI' || !instance.zApiToken) return null
       try {
         return await client.getInstance(instance.instanceId, instance.zApiToken)
       } catch {
@@ -54,8 +56,9 @@ export async function listThinkzapInstancesForApp(
       return {
         connectorId: c.id,
         connectorStatus: c.status,
+        provider: c.provider,
         instanceDbId: instance.id,
-        instanceId: instance.instanceId,
+        instanceId: instance.channelId ?? instance.instanceId,
         vinculatedChannel: instance.vinculatedChannel,
         status: instance.status,
         messageUpdateEventEnabled: settings.messageUpdateEventEnabled,

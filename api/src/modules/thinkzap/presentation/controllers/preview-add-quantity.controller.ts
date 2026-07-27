@@ -16,6 +16,7 @@ import {
   normalizeTiers,
   type NormalizedTier,
 } from '@/modules/thinkzap/application/stripe-thinkzap-price-tiers'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 
 function centsToAmount(cents: number): number {
   return Math.round(cents) / 100
@@ -71,6 +72,9 @@ export class PreviewAddQuantityController extends Controller {
     const parsed = z
       .object({
         additionalQuantity: z.coerce.number().int().min(1).max(50),
+        provider: z
+          .enum([ConnectorProvider.ZAPI, ConnectorProvider.HUBMESSAGE])
+          .default(ConnectorProvider.ZAPI),
       })
       .safeParse(req.query)
 
@@ -82,14 +86,19 @@ export class PreviewAddQuantityController extends Controller {
 
     const appId = req.appId
     const domainId = req.domainId
-    const priceId = env.thinkzapStripePriceId
+    const priceId =
+      parsed.data.provider === ConnectorProvider.HUBMESSAGE
+        ? env.hubmessageStripePriceId
+        : env.thinkzapStripePriceId
 
     if (!appId || !domainId) {
       return this.badRequest(new Error('Invalid request'))
     }
     if (!priceId) {
       return this.badRequest(
-        new Error('THINKZAP_PRICE_CONNECTORS não configurado na API'),
+        new Error(
+          `Price do provider ${parsed.data.provider} não configurado na API`,
+        ),
       )
     }
 
@@ -139,15 +148,11 @@ export class PreviewAddQuantityController extends Controller {
       }),
     ])
 
-    const line =
-      stripeSubscription.items.data.find(item => item.price.id === priceId) ??
-      stripeSubscription.items.data[0]
-
-    if (!line) {
-      return this.badRequest(new Error('Item de assinatura não encontrado'))
-    }
-
-    const currentQuantity = line.quantity ?? 1
+    // Sem line item para esse provider = produto ainda não contratado (qty atual 0).
+    const line = stripeSubscription.items.data.find(
+      item => item.price.id === priceId,
+    )
+    const currentQuantity = line?.quantity ?? 0
     const newQuantity = currentQuantity + additionalQuantity
 
     const tiers = normalizeTiers(stripePrice)

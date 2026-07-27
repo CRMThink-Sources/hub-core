@@ -36,6 +36,7 @@ import {
 import { apiLogger, resolveLogApp } from './shared/infra/logger.js'
 import { runWithLogContext } from './shared/infra/log-context.js'
 import { randomUUID } from 'node:crypto'
+import { makeHubmessageWebhookHandlerController } from './modules/thinkzap/main/make-hubmessage-webhook-handler-controller.js'
 
 const app: Express = express()
 
@@ -104,6 +105,11 @@ app.post(
 app.post(
   '/api/webhooks/bitrix',
   adaptControllerFactory(makeBitrixWebhookHandlerController),
+)
+
+app.post(
+  '/api/webhooks/hubmessage',
+  adaptControllerFactory(makeHubmessageWebhookHandlerController),
 )
 app.post(
   '/api/thinkzap/webhooks/bitrix/robot',

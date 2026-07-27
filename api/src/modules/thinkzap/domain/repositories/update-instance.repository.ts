@@ -13,4 +13,14 @@ export interface UpdateInstanceRepository {
   ): Promise<Instance>
 
   markAsDisconnected(instanceId: string): Promise<Instance>
+
+  /**
+   * Marca o conector HubMessage como conectado, persistindo dados da conexão Meta.
+   * `webhookId` só vem quando o webhook foi criado agora (não existia no
+   * provisionamento).
+   */
+  markAsConnected(
+    instanceId: string,
+    data: { wabaId: string; phoneId: string; webhookId?: string | null },
+  ): Promise<Instance>
 }

@@ -4,6 +4,9 @@ import { useConnectors } from '@/app/hooks/use-connectors'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from 'next/navigation'
 import { MoreVerticalIcon } from 'lucide-react'
+import { toast } from 'sonner'
+import { useSession } from '@/providers/session-provider'
+import { connectHubMessageChannel } from '../../_lib/connect-hubmessage-channel'
 
 type Connector = any
 
@@ -21,9 +24,11 @@ function buildConnectorMenuItems(
   fetchQrCode: (connectorId: string) => Promise<void>,
   onSolicitarCancelamento: (payload: { id: string; nome: string }) => void,
   onOpenConfiguracoes: (connectorId: string) => void,
+  onConnectHubMessage: () => Promise<void>,
   t: (key: string) => string,
 ): MenuItem[] {
   const btnText = isConnected ? t('menu.desconectar') : t('menu.conectar')
+  const isHubMessage = conn.provider === 'HUBMESSAGE'
 
   return [
     {
@@ -35,11 +40,16 @@ function buildConnectorMenuItems(
     {
       label: btnText,
       onClick: async () => {
-        if (!isConnected) {
+        if (isConnected) {
+          control.disconnect.open(conn)
+          return
+        }
+        if (isHubMessage) {
+          // WhatsApp Oficial: conexão via SDK HubMessage (conta Meta do cliente).
+          await onConnectHubMessage()
+        } else {
           control.connect.open(conn)
           await fetchQrCode(conn.id)
-        } else {
-          control.disconnect.open(conn)
         }
       },
     },
@@ -84,6 +94,7 @@ export function ConexaoRow({
 }: Props) {
   const { t } = useTranslation('thinkzap/conexoes/conexao-row')
   const router = useRouter()
+  const { refreshSession } = useSession()
   const {
     name,
     vinculatedChannelName,
@@ -91,11 +102,61 @@ export function ConexaoRow({
     connected: isConnected,
   } = conn.instance
 
+  async function handleConnectHubMessage() {
+    try {
+      const result = await connectHubMessageChannel({
+        connectorId: conn.id,
+        channelId: conn.instance?.channelId ?? conn.instanceId,
+      })
+
+      switch (result.outcome) {
+        case 'connected':
+          toast.success(t('conexao.sucesso'))
+          await refreshSession()
+          return
+        case 'cancelled':
+          toast.info(t('conexao.cancelada'))
+          return
+        case 'missing-config':
+          toast.error(t('conexao.semConfiguracao'))
+          return
+        case 'origin-not-allowed':
+          toast.error(t('conexao.origemNaoAutorizada'))
+          return
+        case 'incomplete':
+          toast.error(t('conexao.incompleta'))
+          return
+      }
+    } catch (e: unknown) {
+      toast.error((e as Error).message)
+    }
+  }
+
   const isPaid = paidStatus === 'PAID' || paidStatus === 'TRIAL'
+  const isOficial = conn.provider === 'HUBMESSAGE'
+
+  // Canal oficial provisionado mas nunca autenticado na Meta: não é "inativo",
+  // é um passo pendente do usuário.
+  const isAwaitingConnection =
+    isOficial && !isConnected && conn.instance?.status === 'CONNECTING'
+
   const statusClass = isConnected
     ? 'bg-primary/10 text-primary'
-    : 'bg-destructive/10 text-destructive'
-  const statusText = isConnected ? t('status.ativo') : t('status.inativo')
+    : isAwaitingConnection
+      ? 'bg-muted text-muted-foreground'
+      : 'bg-destructive/10 text-destructive'
+  const statusText = isConnected
+    ? t('status.ativo')
+    : isAwaitingConnection
+      ? t('status.aguardandoConexao')
+      : t('status.inativo')
+
+  const providerClass = isOficial
+    ? 'border-primary/30 bg-primary/10 text-primary'
+    : 'border-border bg-muted text-muted-foreground'
+  const providerText = isOficial
+    ? t('provider.oficial')
+    : t('provider.naoOficial')
 
   const menuItems = buildConnectorMenuItems(
     conn,
@@ -105,6 +166,7 @@ export function ConexaoRow({
     onSolicitarCancelamento,
     connectorId =>
       router.push(`/thinkzap/conexoes/${connectorId}/configuracoes`),
+    handleConnectHubMessage,
     t,
   )
 
@@ -123,9 +185,16 @@ export function ConexaoRow({
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <span className="truncate text-left text-base font-semibold text-foreground transition-colors hover:text-primary">
-            {name || t('semNome')}
-          </span>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-left text-base font-semibold text-foreground transition-colors hover:text-primary">
+              {name || t('semNome')}
+            </span>
+            <span
+              className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${providerClass}`}
+            >
+              {providerText}
+            </span>
+          </div>
           <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
             <span className="truncate">
               {vinculatedChannelName || t('nenhumCanalVinculado')}

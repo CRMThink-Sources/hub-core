@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
+type ConnectorProvider = 'ZAPI' | 'HUBMESSAGE'
+
 export function AtivarTrialForm() {
   const { t } = useTranslation('thinkzap/ativar-trial')
   const router = useRouter()
@@ -20,6 +22,7 @@ export function AtivarTrialForm() {
   const [email, setEmail] = useState('')
   const [telefone, setTelefone] = useState('')
   const [empresa, setEmpresa] = useState('')
+  const [provider, setProvider] = useState<ConnectorProvider>('HUBMESSAGE')
   const [erro, setErro] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -42,6 +45,7 @@ export function AtivarTrialForm() {
           email: email.trim(),
           phone: telefone.trim(),
           company: empresa.trim(),
+          provider,
         },
       )
 
@@ -122,6 +126,47 @@ export function AtivarTrialForm() {
             minLength={2}
             disabled={submitting}
           />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label>{t('conector.label')}</Label>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {[
+              {
+                value: 'HUBMESSAGE' as const,
+                title: t('conector.oficial'),
+                desc: t('conector.oficialDesc'),
+              },
+              {
+                value: 'ZAPI' as const,
+                title: t('conector.naoOficial'),
+                desc: t('conector.naoOficialDesc'),
+              },
+            ].map(opt => {
+              const selected = provider === opt.value
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setProvider(opt.value)}
+                  disabled={submitting}
+                  aria-pressed={selected}
+                  className={`flex flex-col items-start gap-1 rounded-lg border p-4 text-left transition-colors ${
+                    selected
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                >
+                  <span className="text-sm font-medium text-foreground">
+                    {opt.title}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {opt.desc}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {erro && (

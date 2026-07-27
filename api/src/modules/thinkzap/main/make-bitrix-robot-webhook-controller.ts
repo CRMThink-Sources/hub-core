@@ -18,6 +18,7 @@ export const makeBitrixRobotWebhookHandlerController = async (
   const getApp = new PrismaInstalledAppRepository()
   const getConnector = new PrismaConnectorRepository()
   const getInstance = new PrismaInstanceRepository()
+  console.log(request.body)
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
   const domain = await getDomain.getDomain(request.body.auth.domain)
   if (!domain) {

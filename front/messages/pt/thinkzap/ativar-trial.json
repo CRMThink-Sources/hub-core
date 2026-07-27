@@ -11,6 +11,13 @@
     "empresa": "Empresa",
     "empresaPlaceholder": "Nome da empresa"
   },
+  "conector": {
+    "label": "Tipo de conector",
+    "oficial": "WhatsApp Oficial",
+    "oficialDesc": "API oficial da Meta via HubMessage",
+    "naoOficial": "WhatsApp não oficial",
+    "naoOficialDesc": "Instância Z-API"
+  },
   "continuar": "Continuar para ativar o trial",
   "redirecionando": "Redirecionando...",
   "erroIniciarTrial": "Não foi possível iniciar o trial. Tente novamente."

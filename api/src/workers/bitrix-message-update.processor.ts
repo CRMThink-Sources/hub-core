@@ -49,7 +49,7 @@ export async function processBitrixMessageUpdate(
     bitrixMessageId,
   )
 
-  if (!record || !record.zApiMessageId) {
+  if (!record || !record.providerMessageId) {
     log.warn(
       {
         instanceId: context.instance.id,
@@ -68,14 +68,14 @@ export async function processBitrixMessageUpdate(
       context.instance.instanceId,
       context.instance.zApiToken || '',
       record.chatId || '',
-      record.zApiMessageId,
+      record.providerMessageId,
       newText,
     )
     log.info(
       {
         instanceId: context.instance.id,
         bitrixMessageId,
-        zApiMessageId: record.zApiMessageId,
+        zApiMessageId: record.providerMessageId,
         messageUpdated: true,
       },
       'Message updated via Z-API',
@@ -85,7 +85,7 @@ export async function processBitrixMessageUpdate(
       {
         instanceId: context.instance.id,
         bitrixMessageId,
-        zApiMessageId: record.zApiMessageId,
+        zApiMessageId: record.providerMessageId,
         zApiUpdateFailed: true,
         error,
       },
