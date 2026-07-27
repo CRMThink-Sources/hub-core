@@ -2,8 +2,41 @@ import { env } from '@/config/env'
 import { PrismaConnectorRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-connector.repository'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { logger } from '@/shared/infra/logger'
 import { ZApiClient } from '../infra/clients/z-api.client'
 import { buildThinkzapRobotUpdateParams } from './build-thinkzap-robot-add-params'
+import type { Connector } from '../domain/entities/connector'
+
+function connectorLabelFromInstanceName(
+  name: string | undefined,
+): string | null {
+  if (typeof name !== 'string' || name.trim().length === 0) return null
+
+  return name.split(' | ')[1] ?? name
+}
+
+async function resolveInstanceName(
+  zApiClient: ZApiClient,
+  connector: Connector,
+): Promise<string | undefined> {
+  if (!connector.instance) return undefined
+
+  try {
+    const instance = await zApiClient.getInstance(
+      connector.instance.instanceId,
+      connector.instance.zApiToken ?? '',
+    )
+
+    return instance?.name
+  } catch (error) {
+    logger.warn(
+      { err: error, connectorId: connector.id },
+      '[thinkzap] failed to read z-api instance name while syncing robot options',
+    )
+
+    return undefined
+  }
+}
 
 export async function syncThinkzapRobotConnectorOptions(
   appId: string,
@@ -16,17 +49,14 @@ export async function syncThinkzapRobotConnectorOptions(
 
   for (const connector of connectors) {
     if (!connector.instance) continue
-
-    const instance = await zApiClient.getInstance(
-      connector.instance.instanceId,
-      connector.instance.zApiToken ?? '',
-    )
-
-    if (!instance) continue
     if (!connector.instanceId) continue
 
-    const connectorName = instance.name.split(' | ')[1] ?? instance.name
-    options[connector.id] = connectorName
+    const instanceName = await resolveInstanceName(zApiClient, connector)
+
+    options[connector.id] =
+      connectorLabelFromInstanceName(instanceName) ??
+      connector.instance.phoneNumber ??
+      connector.instance.instanceId
   }
 
   try {

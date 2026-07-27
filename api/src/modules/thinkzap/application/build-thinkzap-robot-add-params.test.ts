@@ -30,15 +30,13 @@ describe('buildThinkzapRobotAddParams', () => {
           Default: 'N',
         },
       },
-      FILTER: {
-        INCLUDE: [
-          ['crm', 'CCrmDocumentDeal'],
-          ['crm', 'CCrmDocumentLead'],
-          ['crm', 'CCrmDocumentCompany'],
-          ['crm', 'CCrmDocumentContact'],
-        ] as string[][],
-      },
     })
+  })
+
+  it('does not restrict the robot to specific document types', () => {
+    const params = buildThinkzapRobotAddParams()
+
+    expect(params).not.toHaveProperty('FILTER')
   })
 
   it('builds bizproc.robot.update params from add params', () => {
@@ -49,7 +47,6 @@ describe('buildThinkzapRobotAddParams', () => {
       CODE: addParams.CODE,
       FIELDS: {
         PROPERTIES: addParams.PROPERTIES,
-        FILTER: addParams.FILTER,
       },
     })
   })

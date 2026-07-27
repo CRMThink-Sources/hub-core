@@ -28,7 +28,6 @@ vi.mock('../application/build-thinkzap-robot-add-params', () => ({
     USE_SUBSCRIPTION: 'N',
     NAME: 'ThinkZap Robot',
     PROPERTIES: {},
-    FILTER: { INCLUDE: [] },
   }),
 }))
 
