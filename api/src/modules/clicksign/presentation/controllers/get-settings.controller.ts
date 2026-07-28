@@ -3,6 +3,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { ClickSignSettingsRepository } from '../../domain/repositories/clicksign-settings.repository'
+import { clicksignError } from '../../errors/catalog'
 
 const EMPTY = {
   fields: null,
@@ -28,7 +29,7 @@ export class GetSettingsController extends Controller {
       appCodeId,
       domainId,
     )
-    if (!app) return this.notFound(new Error('App not found'))
+    if (!app) throw clicksignError('clicksign.settings.app_not_found')
 
     const settings = await this.settings.findByAppId(app.id)
     return this.ok({ settings: settings ?? EMPTY })

@@ -1,8 +1,11 @@
 import { Request, Response } from 'express'
+import { ZodError } from 'zod'
 import { httpResponse } from '@/shared/helpers/http'
 import { randomUUID } from 'crypto'
 import { BitrixError } from '../infra/clients/errors/bitrix-client.error'
 import { apiLogger } from '@/shared/infra/logger'
+import { AppError } from '@/shared/domain/errors/app-error'
+import { appErrorLogFields } from '@/shared/infra/log-error'
 
 export abstract class Controller {
   constructor() {
@@ -61,6 +64,26 @@ export abstract class Controller {
       })
     } catch (error) {
       if (res.headersSent) return res
+      // Zod = validação de payload → 400 (antes caía no genérico → 500).
+      if (error instanceof ZodError) {
+        apiLogger.warn({ err: error, traceId }, 'Erro de validação no request')
+        return res.status(400).json({
+          result: { error: error.issues[0]?.message ?? 'Dados inválidos' },
+          traceId,
+          time: Date.now() - initTime,
+        })
+      }
+      // AppError: errorCode no log (casa com runbook), shape de resposta preservado.
+      if (error instanceof AppError) {
+        // <500 = erro do cliente → warn (não polui dashboard); >=500 = falha nossa.
+        const level = error.httpStatus >= 500 ? 'error' : 'warn'
+        apiLogger[level](appErrorLogFields(error, { traceId }), error.userCause)
+        return res.status(error.httpStatus).json({
+          result: { error: error.userCause },
+          traceId,
+          time: Date.now() - initTime,
+        })
+      }
       if (error instanceof BitrixError) {
         return res.status(400).json({
           error: error.message,
@@ -69,7 +92,7 @@ export abstract class Controller {
         })
       } else {
         apiLogger.error(
-          { err: error, traceId },
+          { err: error, errorCode: 'UNCLASSIFIED', traceId },
           'Erro inesperado no controller',
         )
         return res.status(500).json({

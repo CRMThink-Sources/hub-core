@@ -8,6 +8,7 @@ import { CLICKSIGN_APP_CODE_ID } from '../../clicksign.constants'
 import { ClickSignSettingsRepository } from '../../domain/repositories/clicksign-settings.repository'
 import { CancelEnvelopeUseCase } from '../../application/cancel-envelope.use-case'
 import { safeErrorMessage } from '../../infra/clients/clicksign-error'
+import { clicksignError } from '../../errors/catalog'
 import { setLogContext } from '@/shared/infra/log-context'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -28,26 +29,28 @@ export class CancelDocumentController extends Controller {
     }
 
     const domainStr = body.auth?.domain
-    if (!domainStr) return this.badRequest(new Error('Missing auth.domain'))
+    if (!domainStr) throw clicksignError('clicksign.cancel.domain_missing')
 
     setLogContext({ domain: domainStr })
 
+    // Guards fora do try → borbulham pro funil (Via A). O try cobre só o use-case,
+    // que degrada em comentário na timeline sem derrubar a resposta (200).
+    const domain = await this.getDomain.getDomain(domainStr)
+    if (!domain) throw clicksignError('clicksign.cancel.domain_not_found')
+
+    const app = await this.getApp.getByAppCodeAndDomainId(
+      CLICKSIGN_APP_CODE_ID,
+      domain.id,
+    )
+    if (!app) throw clicksignError('clicksign.cancel.app_not_found')
+
+    const settings = await this.settings.findByAppId(app.id)
+    if (!settings) throw clicksignError('clicksign.cancel.settings_not_found')
+
+    const bitrix = await makeBitrixClientByAppId(app.id)
+    const data = body.data
+
     try {
-      const domain = await this.getDomain.getDomain(domainStr)
-      if (!domain) return this.notFound(new Error('Domain not found'))
-
-      const app = await this.getApp.getByAppCodeAndDomainId(
-        CLICKSIGN_APP_CODE_ID,
-        domain.id,
-      )
-      if (!app) return this.notFound(new Error('App not found'))
-
-      const settings = await this.settings.findByAppId(app.id)
-      if (!settings) return this.notFound(new Error('Settings not found'))
-
-      const bitrix = await makeBitrixClientByAppId(app.id)
-      const data = body.data
-
       await new CancelEnvelopeUseCase().execute({
         settings,
         bitrix,

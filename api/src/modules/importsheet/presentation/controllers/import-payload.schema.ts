@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { ImportsheetErrorCode } from '../../errors/catalog'
 
 const responsibleSchema = z.object({
   columnIndex: z.number().int().nonnegative(),
@@ -41,11 +42,20 @@ const configSchema = z
       createContact: z.boolean(),
       createCompany: z.boolean(),
     }),
-    mappings: z.array(mappingSchema).min(1, 'Mapeie ao menos uma coluna'),
+    mappings: z.array(mappingSchema),
     excludedColumns: z.array(z.number().int().nonnegative()),
   })
   .superRefine((config, ctx) => {
     const excluded = new Set(config.excludedColumns)
+
+    if (config.mappings.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['mappings'],
+        message: 'Mapeie ao menos uma coluna',
+        params: { errorCode: 'importsheet.import.mapping_empty' },
+      })
+    }
 
     // CRM/SPA exigem entityTypeId — sem ele o worker cai em `?? 0` e a chamada
     // Bitrix (crm.item.*) vai com entityTypeId=0, inválida.
@@ -58,6 +68,7 @@ const configSchema = z
         code: z.ZodIssueCode.custom,
         path: ['target', 'entityTypeId'],
         message: `entityTypeId é obrigatório para ${config.target.entityCode}`,
+        params: { errorCode: 'importsheet.import.entity_type_required' },
       })
     }
 
@@ -68,6 +79,9 @@ const configSchema = z
           code: z.ZodIssueCode.custom,
           path: ['mappings'],
           message: `Coluna ${mapping.columnIndex} está mapeada e excluída ao mesmo tempo`,
+          params: {
+            errorCode: 'importsheet.import.column_mapped_and_excluded',
+          },
         })
       }
     }
@@ -82,6 +96,7 @@ const configSchema = z
           code: z.ZodIssueCode.custom,
           path: ['mappings'],
           message: `Campo "${mapping.fieldName}" (${mapping.target}) está mapeado mais de uma vez`,
+          params: { errorCode: 'importsheet.import.field_mapped_twice' },
         })
       }
       seenFields.add(fieldKey)
@@ -91,6 +106,7 @@ const configSchema = z
           code: z.ZodIssueCode.custom,
           path: ['mappings'],
           message: `Coluna ${mapping.columnIndex} está mapeada mais de uma vez`,
+          params: { errorCode: 'importsheet.import.column_mapped_twice' },
         })
       }
       seenColumns.add(mapping.columnIndex)
@@ -102,6 +118,7 @@ const configSchema = z
         code: z.ZodIssueCode.custom,
         path: ['responsible'],
         message: 'A coluna do responsável está excluída',
+        params: { errorCode: 'importsheet.import.responsible_column_excluded' },
       })
     }
   })
@@ -126,3 +143,17 @@ export const importPayloadSchema = z.object({
 })
 
 export type ImportPayload = z.infer<typeof importPayloadSchema>
+
+// Extrai o errorCode taggado no 1º issue (params.errorCode) + a mensagem, pro
+// controller logar o code no safeParse falho sem duplicar a validação.
+export function importPayloadIssue(error: z.ZodError): {
+  errorCode?: ImportsheetErrorCode
+  message: string
+} {
+  const issue = error.issues[0]
+  const params = (issue as { params?: { errorCode?: string } })?.params
+  return {
+    errorCode: params?.errorCode as ImportsheetErrorCode | undefined,
+    message: issue?.message ?? 'Invalid payload',
+  }
+}

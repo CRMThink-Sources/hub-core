@@ -9,6 +9,8 @@ import { HandleSignatureEventUseCase } from '../../application/handle-signature-
 import { runWithLogContext } from '@/shared/infra/log-context'
 import { setTenantLogContext } from '@/shared/infra/log-tenant'
 import { safeErrorMessage } from '../clients/clicksign-error'
+import { AppError } from '@/shared/domain/errors/app-error'
+import { appErrorLogFields } from '@/shared/infra/log-error'
 import {
   CLICKSIGN_DOCUMENT_CLOSED,
   type ClicksignDocumentClosedJob,
@@ -44,16 +46,17 @@ const worker = new Worker<ClicksignDocumentClosedJob>(
 )
 
 worker.on('failed', (job, err) => {
-  workerLogger.error(
-    {
-      app: 'clicksign',
-      queue: CLICKSIGN_DOCUMENT_CLOSED,
-      jobId: job?.id,
-      appId: job?.data?.appId,
-      err: safeErrorMessage(err),
-    },
-    'Clicksign document_closed job failed',
-  )
+  const base = {
+    app: 'clicksign',
+    queue: CLICKSIGN_DOCUMENT_CLOSED,
+    jobId: job?.id,
+    appId: job?.data?.appId,
+  }
+  const fields =
+    err instanceof AppError
+      ? appErrorLogFields(err, base)
+      : { ...base, errorCode: 'UNCLASSIFIED', err: safeErrorMessage(err) }
+  workerLogger.error(fields, 'Clicksign document_closed job failed')
 })
 
 workerLogger.info({ app: 'clicksign' }, 'Clicksign worker is ready')

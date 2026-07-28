@@ -9,6 +9,7 @@ import {
   SpreadsheetRow,
 } from '@/modules/importsheet/domain/gateways/google-sheets.gateway'
 import { GoogleUnavailableError } from '@/modules/importsheet/domain/errors/google-unavailable.error'
+import { importsheetError } from '@/modules/importsheet/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 
 const SHEETS_TIMEOUT_MS = 10000
@@ -115,13 +116,9 @@ export class GoogleSheetsClient implements GoogleSheetsGateway {
       if (axios.isAxiosError(error)) {
         const status = error.response?.status
         if (status === 404 || status === 403) return null
-        // 400 normalmente = range/aba inválida; loga para distinguir de bug real.
+        // 400 = range/aba inválida.
         if (status === 400) {
-          apiLogger.warn(
-            { app: 'importsheet', tabTitle, data: error.response?.data },
-            'Google Sheets values.get 400 (header)',
-          )
-          return null
+          throw importsheetError('importsheet.sheet.range_invalid', error)
         }
       }
       if (isNetworkFailure(error)) throw new GoogleUnavailableError()
@@ -158,11 +155,7 @@ export class GoogleSheetsClient implements GoogleSheetsGateway {
         const status = error.response?.status
         if (status === 404 || status === 403) return null
         if (status === 400) {
-          apiLogger.warn(
-            { app: 'importsheet', tabTitle, data: error.response?.data },
-            'Google Sheets values.get 400 (rows)',
-          )
-          return null
+          throw importsheetError('importsheet.sheet.range_invalid', error)
         }
       }
       if (isNetworkFailure(error)) throw new GoogleUnavailableError()

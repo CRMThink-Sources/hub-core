@@ -7,6 +7,7 @@ import {
   ClicksignApiError,
   safeErrorMessage,
 } from '../infra/clients/clicksign-error'
+import { logClicksignError } from '../errors/catalog'
 import { normalizeBitrixDomain } from '@/shared/infra/clients/normalize-bitrix-domain'
 import { apiLogger } from '@/shared/infra/logger'
 import {
@@ -48,17 +49,22 @@ export class SendEnvelopeUseCase {
       g => typeof g.id === 'string' && g.id.replaceAll(' ', '') === props.group,
     )
     if (!group) {
-      apiLogger.warn(
-        { app: 'clicksign', group: props.group },
-        'Grupo não encontrado',
-      )
+      logClicksignError(apiLogger, 'clicksign.envelope.group_not_found', {
+        group: props.group,
+      })
       return
     }
 
     const fields = settings.fields as ClicksignFields | null
     const company = (fields?.tokens ?? []).find(t => t.token === props.empresa)
     if (!company) {
-      apiLogger.warn({ app: 'clicksign' }, 'Empresa/token não encontrada')
+      logClicksignError(
+        apiLogger,
+        'clicksign.envelope.company_token_not_found',
+        {
+          empresa: props.empresa,
+        },
+      )
       return
     }
 
@@ -90,6 +96,10 @@ export class SendEnvelopeUseCase {
     // Aborta antes de criar envelope: sem signer a ativação falha com 422
     // "existem documentos sem requisitos".
     if (signers.length === 0) {
+      logClicksignError(apiLogger, 'clicksign.envelope.no_signers', {
+        entity,
+        entityId,
+      })
       await this.comment(
         bitrix,
         entity,
@@ -110,6 +120,11 @@ export class SendEnvelopeUseCase {
       envelopeKey = envelope.id
       envelopeSelfUrl = envelope.links?.self
     } catch (error) {
+      logClicksignError(apiLogger, 'clicksign.envelope.create_failed', {
+        entity,
+        entityId,
+        err: safeErrorMessage(error),
+      })
       await this.comment(bitrix, entity, entityId, error)
       return
     }
@@ -128,12 +143,23 @@ export class SendEnvelopeUseCase {
     let file: { contentBase64: string; filename: string }
     try {
       file = await downloadFileBase64(deal, group, domain, token, title)
-    } catch {
+    } catch (error) {
+      // axios = baixou e falhou; senão = não tinha arquivo anexado.
+      const failedDownload = axios.isAxiosError(error)
+      logClicksignError(
+        apiLogger,
+        failedDownload
+          ? 'clicksign.envelope.file_download_failed'
+          : 'clicksign.envelope.file_missing',
+        { entity, entityId },
+      )
       await this.comment(
         bitrix,
         entity,
         entityId,
-        'Documento não anexado ao negócio',
+        failedDownload
+          ? 'Não foi possível baixar o arquivo anexado'
+          : 'Documento não anexado ao negócio',
       )
       return
     }
@@ -173,6 +199,12 @@ export class SendEnvelopeUseCase {
 
       await clicksign.activateEnvelope(empresaToken, envelopeKey)
     } catch (error) {
+      logClicksignError(apiLogger, 'clicksign.envelope.activation_failed', {
+        entity,
+        entityId,
+        envelopeKey,
+        err: safeErrorMessage(error),
+      })
       await this.comment(bitrix, entity, entityId, error)
       return
     }
@@ -203,10 +235,11 @@ export class SendEnvelopeUseCase {
     try {
       await clicksign.notify(empresaToken, envelopeKey)
     } catch (error) {
-      apiLogger.error(
-        { app: 'clicksign', err: safeErrorMessage(error) },
-        'Notificação do envelope falhou',
-      )
+      // Documento já criado/ativado; aviso é o único que faltou → warn (não fatal).
+      logClicksignError(apiLogger, 'clicksign.envelope.notify_failed', {
+        envelopeKey,
+        err: safeErrorMessage(error),
+      })
     }
   }
 
@@ -283,7 +316,7 @@ export class SendEnvelopeUseCase {
   ): Promise<void> {
     const message =
       error instanceof ClicksignApiError
-        ? error.message
+        ? error.providerMessage
         : typeof error === 'string'
           ? error
           : 'Erro ao enviar documento'

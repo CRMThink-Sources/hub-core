@@ -1,6 +1,11 @@
 import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { CallbackController } from '@/shared/presentation/callback-controller'
+import { apiLogger } from '@/shared/infra/logger'
+import {
+  thinkanaliseError,
+  logThinkanaliseError,
+} from '@/modules/thinkanalise/errors/catalog'
 import { schema as asaasSchema } from './schemas/asaas'
 import { schema as blingSchema } from './schemas/bling'
 import { schema as contaAzulSchema } from './schemas/conta-azul'
@@ -30,14 +35,22 @@ export class DescribeController extends CallbackController {
   perform(req: Request, _res: Response): Promise<httpResponse> {
     const { name, connection } = req.body as DescribeBody
 
-    if (!name) {
-      return Promise.resolve(this.badRequest(new Error('Missing table name')))
-    }
+    if (!name) throw thinkanaliseError('thinkanalise.callback.name_missing')
 
     const integration = connection?.integration
-    const providerSchema =
-      (integration ? schemaByProvider[integration] : undefined) ?? {}
-    const fields = providerSchema[name] ?? []
+    const providerSchema = integration
+      ? schemaByProvider[integration]
+      : undefined
+    if (integration && !providerSchema) {
+      logThinkanaliseError(
+        apiLogger,
+        'thinkanalise.callback.provider_unsupported',
+        {
+          provider: integration,
+        },
+      )
+    }
+    const fields = (providerSchema ?? {})[name] ?? []
     return Promise.resolve(this.ok(fields))
   }
 }

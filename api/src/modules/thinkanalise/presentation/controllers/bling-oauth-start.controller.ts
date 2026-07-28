@@ -5,6 +5,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { OAuthStateStore } from '../../infra/oauth-state.store'
 import { env } from '@/config/env'
+import { thinkanaliseError } from '../../errors/catalog'
 
 export class BlingOAuthStartController extends Controller {
   constructor(private readonly stateStore: OAuthStateStore) {
@@ -15,7 +16,7 @@ export class BlingOAuthStartController extends Controller {
     const appId = req.appId
     const domainId = req.domainId
     if (!appId || !domainId)
-      return Promise.resolve(this.badRequest(new Error('Missing app context')))
+      throw thinkanaliseError('thinkanalise.request.app_context_missing')
 
     const clientId = env.bling.ClientId
     const authUrl = env.bling.AuthUrl
@@ -23,9 +24,7 @@ export class BlingOAuthStartController extends Controller {
     const redirectUri = `${env.apiUrl}/thinkanalise/oauth/bling/callback`
 
     if (!clientId || !authUrl) {
-      return Promise.resolve(
-        this.badRequest(new Error('Bling OAuth not configured')),
-      )
+      throw thinkanaliseError('thinkanalise.oauth.bling_not_configured')
     }
 
     const sourceIdParsed = z.coerce
@@ -58,11 +57,7 @@ export class BlingOAuthStartController extends Controller {
         title: titleParsed.data,
       })
     } else {
-      return Promise.resolve(
-        this.badRequest(
-          new Error('Provide either sourceId or connectorId+title'),
-        ),
-      )
+      throw thinkanaliseError('thinkanalise.oauth.params_invalid')
     }
 
     const url = new URL(authUrl)

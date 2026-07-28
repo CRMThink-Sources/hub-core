@@ -1,6 +1,8 @@
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { redisConnection } from '@/queue/redis-connection'
 import { apiLogger } from '@/shared/infra/logger'
+import { AppError } from '@/shared/domain/errors/app-error'
+import { importsheetError } from '../errors/catalog'
 import type { BitrixFieldMeta, StatusLists } from './field-value-transform'
 
 export type FieldMetaResult = {
@@ -43,7 +45,13 @@ async function cached(
       'Field meta cache read failed — reloading',
     )
   }
-  const fresh = await loader()
+  let fresh: FieldMetaResult
+  try {
+    fresh = await loader()
+  } catch (error) {
+    if (error instanceof AppError) throw error
+    throw importsheetError('importsheet.bitrix.field_meta_error', error)
+  }
   try {
     await redisConnection.set(
       key,

@@ -11,6 +11,7 @@ import {
   WebhookProvisioningService,
 } from './webhook-provisioning.service'
 import { safeErrorMessage } from '../infra/clients/clicksign-error'
+import { logClicksignError } from '../errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 import type { ClickSignSettingsRepository } from '../domain/repositories/clicksign-settings.repository'
 
@@ -117,9 +118,12 @@ export class ProvisioningService {
       )
       return hooks.some(h => h.endpoint === url) ? 'ok' : 'missing'
     } catch (error) {
-      apiLogger.warn(
-        { app: 'clicksign', err: safeErrorMessage(error) },
-        'Check de webhook falhou',
+      logClicksignError(
+        apiLogger,
+        'clicksign.provisioning.webhook_check_failed',
+        {
+          err: safeErrorMessage(error),
+        },
       )
       return 'missing'
     }
