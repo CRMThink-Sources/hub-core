@@ -6,6 +6,9 @@ import { createListPortalDomainsController } from './main/factories/create-list-
 import { createGetPortalDomainController } from './main/factories/create-get-portal-domain-controller'
 import { createCreatePortalUserController } from './main/factories/create-create-portal-user-controller'
 import { createListPortalUsersController } from './main/factories/create-list-portal-users-controller'
+import { createCreateMcpUserController } from './main/factories/create-create-mcp-user-controller'
+import { createListMcpUsersController } from './main/factories/create-list-mcp-users-controller'
+import { createUpdateMcpUserController } from './main/factories/create-update-mcp-user-controller'
 import { createRegisterAudioImbotAppController } from './main/factories/create-register-audio-imbot-app-controller'
 import { createDeleteAudioImbotAppController } from './main/factories/create-delete-audio-imbot-app-controller'
 import { createRegisterConversationWidgetAppController } from './main/factories/create-register-conversation-widget-app-controller'
@@ -57,6 +60,21 @@ export const createPortalRoutes = (
     '/users',
     portalAuthMiddleware,
     adaptControllerFactory(createCreatePortalUserController),
+  )
+  router.get(
+    '/mcp-users',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListMcpUsersController),
+  )
+  router.post(
+    '/mcp-users',
+    portalAuthMiddleware,
+    adaptControllerFactory(createCreateMcpUserController),
+  )
+  router.patch(
+    '/mcp-users/:id',
+    portalAuthMiddleware,
+    adaptControllerFactory(createUpdateMcpUserController),
   )
   router.post(
     '/apps/:appId/audio-imbot',

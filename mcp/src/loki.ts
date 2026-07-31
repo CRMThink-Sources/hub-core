@@ -129,11 +129,13 @@ const ALL_STREAMS = '{service=~"hubthink-.+"}'
 const EXCLUDE_ACCESS = '!= "HTTP request completed"'
 
 /**
- * Timeline de um traceKey nos dois entry points (HTTP + worker). NÃO exige domain
- * — é o caminho de busca exato que enxerga até erro pré-tenant. Retorna ascendente.
+ * Timeline de um traceKey nos dois entry points (HTTP + worker). Se `domain` vier
+ * (sessão não-admin), filtra por ele — isolamento por tenant, ao custo de esconder
+ * linhas pré-tenant sem domain. Admin passa sem domain e vê tudo. Retorna ascendente.
  */
 export async function queryByTrace(
   traceKey: string,
+  domain?: string,
   sinceHours?: number,
   limit?: number,
 ): Promise<LogEntry[]> {
@@ -141,22 +143,25 @@ export async function queryByTrace(
   const cap = clamp(limit, 200, MAX_LIMIT)
   const endMs = Date.now()
   const startMs = endMs - hours * 60 * 60 * 1000
-  const query = `${ALL_STREAMS} ${EXCLUDE_ACCESS} | json | traceKey="${escapeLogQL(traceKey)}"`
+  const domainFilter = domain ? ` | domain="${escapeLogQL(domain)}"` : ''
+  const query = `${ALL_STREAMS} ${EXCLUDE_ACCESS} | json | traceKey="${escapeLogQL(traceKey)}"${domainFilter}`
   const entries = await runQuery(query, startMs, endMs, cap)
   return entries.sort((a, b) => a.ts - b.ts) // cronológico pra leitura
 }
 
 export type ErrorQuery = {
+  // Domínio da sessão (não-admin). Ausente = sessão admin, sem filtro de tenant.
+  domain?: string
   errorCode?: string
   app?: string
-  domain?: string
   sinceHours?: number
   limit?: number
 }
 
 /**
- * Linhas classificadas (com errorCode) no período, opcionalmente estreitadas por
- * errorCode / app / domain. Sem errorCode → traz qualquer linha classificada.
+ * Linhas classificadas (com errorCode) no período, estreitadas por errorCode / app
+ * e, quando a sessão é não-admin, pelo `domain` (isolamento por tenant). Admin não
+ * passa domain e vê todos. Sem errorCode → traz qualquer linha classificada.
  */
 export async function queryErrors(q: ErrorQuery): Promise<LogEntry[]> {
   const hours = clamp(q.sinceHours, 24, MAX_SINCE_HOURS)

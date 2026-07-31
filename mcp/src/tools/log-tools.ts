@@ -20,6 +20,30 @@ async function withLoki(
   }
 }
 
+// Sessão autenticada (claims do JWT propagados pelo bearer). `domain` = filtro de
+// tenant do não-admin; admin vê todos. Nunca vem do caller.
+type Session = { domain?: string; isAdmin: boolean }
+
+function session(extra: {
+  authInfo?: { extra?: Record<string, unknown> }
+}): Session {
+  const raw = extra.authInfo?.extra ?? {}
+  const domain = raw.domain
+  return {
+    domain:
+      typeof domain === 'string' && domain.length > 0 ? domain : undefined,
+    isAdmin: raw.isAdmin === true,
+  }
+}
+
+// Domínio efetivo do filtro: admin não filtra (undefined); não-admin exige domínio.
+// Retorna { error } quando falta domínio numa sessão não-admin (defense-in-depth).
+function scopeDomain(s: Session): { domain?: string; error?: string } {
+  if (s.isAdmin) return { domain: undefined }
+  if (!s.domain) return { error: 'Sessão sem domínio — refaça o login.' }
+  return { domain: s.domain }
+}
+
 // Tools de log (Camada 2A): normalizam o Loki. LogQL nunca é exposto ao suporte.
 export function registerLogTools(server: McpServer): void {
   server.registerTool(
@@ -38,10 +62,12 @@ export function registerLogTools(server: McpServer): void {
           .describe('Janela em horas (padrão 72)'),
       },
     },
-    async ({ traceKey, sinceHours }) =>
+    async ({ traceKey, sinceHours }, extra) =>
       withLoki(async () => {
+        const scope = scopeDomain(session(extra))
+        if (scope.error) return text(scope.error)
         const key = traceKey.trim()
-        const entries = await queryByTrace(key, sinceHours)
+        const entries = await queryByTrace(key, scope.domain, sinceHours)
         if (entries.length === 0) {
           return text(
             `Nenhum log para o traceKey "${key}" na janela. Confira o traceKey ou aumente sinceHours.`,
@@ -57,40 +83,38 @@ export function registerLogTools(server: McpServer): void {
       title: 'Erros classificados no período',
       description:
         'Lista os erros classificados (com errorCode) agregados por code. Filtra ' +
-        'por app, domínio e/ou errorCode. Use quando não há traceKey — devolve ' +
-        'traceKeys de exemplo pra investigar.',
+        'por app e/ou errorCode. O domínio é o da sessão autenticada (não se passa ' +
+        'por parâmetro). Use quando não há traceKey — devolve traceKeys de exemplo.',
       inputSchema: {
         errorCode: z.string().optional().describe('Filtra por um errorCode'),
         app: z.string().optional().describe('Filtra por app, ex: importsheet'),
-        domain: z
-          .string()
-          .optional()
-          .describe('Domínio real do parceiro, ex: cliente.bitrix24.com.br'),
         sinceHours: z
           .number()
           .optional()
           .describe('Janela em horas (padrão 24)'),
       },
     },
-    async ({ errorCode, app, domain, sinceHours }) =>
+    async ({ errorCode, app, sinceHours }, extra) =>
       withLoki(async () => {
+        const scope = scopeDomain(session(extra))
+        if (scope.error) return text(scope.error)
         const entries = await queryErrors({
           errorCode,
           app,
-          domain,
+          domain: scope.domain,
           sinceHours,
         })
         if (entries.length === 0) {
           return text('Nenhum erro classificado no período/filtro.')
         }
-        const scope = [
+        const scopeLabel = [
+          scope.domain ? `domínio=${scope.domain}` : 'domínio=todos (admin)',
           app ? `app=${app}` : '',
-          domain ? `domínio=${domain}` : '',
           errorCode ? `errorCode=${errorCode}` : '',
         ]
           .filter(Boolean)
           .join(', ')
-        return text(fmtErrorAggregation(entries, scope))
+        return text(fmtErrorAggregation(entries, scopeLabel))
       }),
   )
 }

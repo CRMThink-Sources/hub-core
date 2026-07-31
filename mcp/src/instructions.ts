@@ -20,8 +20,9 @@ ou a mensagem de erro do ticket.
 ## Fluxo de triagem
 1. Pegue do ticket o traceKey (o suporte copia da tela de Logs do app). Com ele,
    chame query_by_trace(traceKey) — devolve a timeline do fluxo e o(s) errorCode.
-2. Sem traceKey? Use query_errors({ app, domain, errorCode }) para achar os erros
-   classificados do período e o traceKey de exemplo.
+2. Sem traceKey? Use query_errors({ app, errorCode }) para achar os erros
+   classificados do período e o traceKey de exemplo. O domínio é o da sua sessão
+   autenticada — não peça nem passe domínio, o filtro é automático.
 3. Com o errorCode, chame get_runbook(errorCode) e siga a resolução. Se não souber o
    code, list_error_catalog lista os conhecidos do app.
 4. Para triar, se precisar do contexto de falha do app (modos de falha), use

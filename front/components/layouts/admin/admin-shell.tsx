@@ -12,6 +12,11 @@ const navItems = [
   { href: '/admin', labelKey: 'navHome' as const, exact: true },
   { href: '/admin/clientes', labelKey: 'navClients' as const, exact: false },
   { href: '/admin/usuarios', labelKey: 'navUsers' as const, exact: false },
+  {
+    href: '/admin/usuarios-mcp',
+    labelKey: 'navMcpUsers' as const,
+    exact: false,
+  },
 ]
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
