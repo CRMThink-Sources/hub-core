@@ -4,8 +4,7 @@ import {
   TemplateCategory,
   TemplateComponent,
 } from '@/modules/thinkzap/domain/ports/whatsapp-template-provider.port'
-import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
-import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
+import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { resolveTemplateContext } from './helpers/resolve-template-context'
 
 /** Erro de validação de dados do template antes de submeter ao provider. */
@@ -24,7 +23,10 @@ const VALID_CATEGORIES: TemplateCategory[] = [
 ]
 
 export type CreateConnectorTemplateInput = {
-  connectorId: string
+  /** Id do item de assinatura — a linha. */
+  subscriptionItemId: string
+  domainId: string
+  appCode: string
   name: string
   category: TemplateCategory
   language: string
@@ -34,24 +36,17 @@ export type CreateConnectorTemplateInput = {
 /** Cadastra um template de um conector oficial (submete à aprovação da Meta). */
 export class CreateConnectorTemplateUseCase {
   constructor(
-    private readonly getConnectorRepository: GetConnectorRepository,
-    private readonly getInstanceRepository: GetInstanceRepository,
+    private readonly getAplicationContext: GetAplicationContext,
     private readonly templateProviderResolver: TemplateProviderResolver,
   ) {}
 
-  async execute(
-    input: CreateConnectorTemplateInput,
-  ): Promise<CreatedTemplate> {
+  async execute(input: CreateConnectorTemplateInput): Promise<CreatedTemplate> {
     this.validate(input)
 
-    const { wabaId, provider } = await resolveTemplateContext(
-      input.connectorId,
-      {
-        getConnectorRepository: this.getConnectorRepository,
-        getInstanceRepository: this.getInstanceRepository,
-        templateProviderResolver: this.templateProviderResolver,
-      },
-    )
+    const { wabaId, provider } = await resolveTemplateContext(input, {
+      getAplicationContext: this.getAplicationContext,
+      templateProviderResolver: this.templateProviderResolver,
+    })
 
     return provider.createTemplate({
       wabaId,

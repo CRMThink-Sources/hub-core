@@ -12,7 +12,6 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 
 type Props = {
-  authTokenKey: string
   onAddParticipant: (phone: string, contact?: BitrixContact) => boolean
   onError?: (message: string) => void
 }
@@ -31,17 +30,9 @@ function isValidPhone(value: string): boolean {
   return /^\d{8,15}$/.test(normalizePhoneInput(value))
 }
 
-export function ParticipantesPicker({
-  authTokenKey,
-  onAddParticipant,
-  onError,
-}: Props) {
+export function ParticipantesPicker({ onAddParticipant, onError }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/grupos')
-  const {
-    contacts,
-    loading: searching,
-    search,
-  } = useBitrixContacts(authTokenKey)
+  const { contacts, loading: searching, search } = useBitrixContacts()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedContact, setSelectedContact] = useState<BitrixContact | null>(

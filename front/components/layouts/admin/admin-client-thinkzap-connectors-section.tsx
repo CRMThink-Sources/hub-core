@@ -6,9 +6,15 @@ import { Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { axiosPortal } from '@/infra/client/axios-portal'
 
+/**
+ * `id` é o id do **item de assinatura** — a chave estável da linha, a mesma da tela
+ * do tenant. `connectorId` é a row antiga, `null` para linha criada na SPA: só a
+ * reativação depende dela.
+ */
 type ThinkzapConnectorItem = {
   id: string
   status: string
+  connectorId: string | null
   instanceId: string
   vinculatedChannel: string | null
   messageUpdateEventEnabled: boolean
@@ -98,10 +104,15 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
     setIsRefreshing(false)
   }
 
-  async function handleReactivate(connectorId: string) {
+  /**
+   * `itemId` chaveia o estado da tela e `connectorId` vai na URL: reativar é
+   * operação na row antiga e não tem equivalente no item. Sem row a linha aparece na
+   * lista sem estado inativo, então o botão nem é oferecido.
+   */
+  async function handleReactivate(itemId: string, connectorId: string) {
     setReactivateStates(prev => ({
       ...prev,
-      [connectorId]: { kind: 'loading' },
+      [itemId]: { kind: 'loading' },
     }))
     try {
       await axiosPortal().patch(
@@ -113,18 +124,18 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
         return {
           kind: 'ready',
           connectors: prev.connectors.map(c =>
-            c.id === connectorId ? { ...c, status: 'ACTIVE' } : c,
+            c.id === itemId ? { ...c, status: 'ACTIVE' } : c,
           ),
         }
       })
       setReactivateStates(prev => ({
         ...prev,
-        [connectorId]: { kind: 'success' },
+        [itemId]: { kind: 'success' },
       }))
     } catch {
       setReactivateStates(prev => ({
         ...prev,
-        [connectorId]: {
+        [itemId]: {
           kind: 'error',
           message: t('connectorsReactivateError'),
         },
@@ -133,18 +144,19 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
   }
 
   async function handleToggle(
-    connectorId: string,
+    itemId: string,
     field: 'messageUpdateEventEnabled' | 'messageDeleteEventEnabled',
     value: boolean,
   ) {
     setSaveStates(prev => ({
       ...prev,
-      [connectorId]: { kind: 'saving' },
+      [itemId]: { kind: 'saving' },
     }))
 
     try {
+      // Keyed pelo item: os toggles vivem em `ufCrm93Settings`, não nas tabelas.
       await axiosPortal().patch(
-        `/portal/apps/${appId}/thinkzap-connectors/${connectorId}/event-binds`,
+        `/portal/apps/${appId}/thinkzap-lines/${itemId}/event-binds`,
         { [field]: value },
       )
 
@@ -153,17 +165,17 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
         return {
           kind: 'ready',
           connectors: prev.connectors.map(c =>
-            c.id === connectorId ? { ...c, [field]: value } : c,
+            c.id === itemId ? { ...c, [field]: value } : c,
           ),
         }
       })
 
-      setSaveStates(prev => ({ ...prev, [connectorId]: { kind: 'saved' } }))
+      setSaveStates(prev => ({ ...prev, [itemId]: { kind: 'saved' } }))
       setTimeout(() => {
         setSaveStates(prev => {
           const next = { ...prev }
-          if (next[connectorId]?.kind === 'saved') {
-            delete next[connectorId]
+          if (next[itemId]?.kind === 'saved') {
+            delete next[itemId]
           }
           return next
         })
@@ -171,7 +183,7 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
     } catch {
       setSaveStates(prev => ({
         ...prev,
-        [connectorId]: {
+        [itemId]: {
           kind: 'error',
           message: t('connectorsErrorSave'),
         },
@@ -231,6 +243,12 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
             {state.connectors.map(connector => {
               const save = saveStates[connector.id]
               const reactivate = reactivateStates[connector.id]
+              /**
+               * Extraído do `connector`: o narrowing do `&&` no JSX não atravessa o
+               * closure do `onClick`, então lá dentro `connectorId` voltaria a ser
+               * `string | null`.
+               */
+              const connectorId = connector.connectorId
               return (
                 <div
                   key={connector.id}
@@ -252,7 +270,10 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
                     </p>
                   </div>
 
-                  {connector.status === 'INACTIVE' ? (
+                  {/* `status` só é `INACTIVE` quando existe row de conector, então o
+                      `connectorId` aqui nunca é nulo — o `&&` é o que diz isso ao
+                      compilador sem um `!`. */}
+                  {connector.status === 'INACTIVE' && connectorId ? (
                     <div className="mb-4">
                       {reactivate?.kind === 'success' ? (
                         <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
@@ -271,7 +292,7 @@ export function AdminClientThinkzapConnectorsSection({ appId }: Props) {
                             <Button
                               size="sm"
                               onClick={() => {
-                                void handleReactivate(connector.id)
+                                void handleReactivate(connector.id, connectorId)
                               }}
                             >
                               {t('instanceModalConfirm')}

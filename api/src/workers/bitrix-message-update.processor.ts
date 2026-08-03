@@ -1,8 +1,8 @@
 import { env } from '@/config/env'
 import { IBX24MessageUpdateEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
-import { appIdResolver } from '@/modules/auth/presentation/controllers/helpers/app-id-resolver'
-import { PrismaBitrixWebhookContextRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bitrix-webhook-context.repository'
+import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
+import { makeBitrixWebhookContextRepository } from '@/modules/thinkzap/main/make-bitrix-webhook-context-repository'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 
@@ -25,10 +25,10 @@ export async function processBitrixMessageUpdate(
     return
   }
 
-  const bitrixWebhookContextRepo = new PrismaBitrixWebhookContextRepository()
+  const bitrixWebhookContextRepo = makeBitrixWebhookContextRepository()
   const context = await bitrixWebhookContextRepo.getContext({
     domainName: event.auth.domain,
-    appCode: appIdResolver[env.appCodes.thinkzap] || '',
+    appCode: resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId ?? '',
     line: event.data.LINE,
   })
 

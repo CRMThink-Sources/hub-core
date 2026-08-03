@@ -1,109 +1,120 @@
+import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 /* eslint-disable @typescript-eslint/unbound-method */
 import { describe, expect, it, vi } from 'vitest'
-import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
-import { TemplatesNotSupportedError } from '@/modules/thinkzap/domain/ports/template-errors'
+import {
+  ConnectorNotTemplateCapableError,
+  TemplatesNotSupportedError,
+} from '@/modules/thinkzap/domain/ports/template-errors'
 import { TemplateProviderResolver } from '@/modules/thinkzap/domain/ports/template-provider-resolver.port'
 import { WhatsAppTemplateProvider } from '@/modules/thinkzap/domain/ports/whatsapp-template-provider.port'
-import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
-import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
-import {
-  ConnectorNotFoundError,
-} from './helpers/resolve-template-context'
+import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
+import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { ListConnectorTemplatesUseCase } from './list-connector-templates'
 
-function build(opts: {
-  connector?: unknown
-  instance?: unknown
-  provider?: WhatsAppTemplateProvider
-}) {
-  const provider =
-    opts.provider ??
-    ({
-      supportsTemplates: true,
-      listTemplates: vi.fn().mockResolvedValue([{ id: 'tpl_1' }]),
-      createTemplate: vi.fn(),
-      syncTemplates: vi.fn(),
-    } as unknown as WhatsAppTemplateProvider)
-  const getConnectorRepository = {
-    get: vi.fn().mockResolvedValue(opts.connector ?? null),
-    getConnectorByInstanceId: vi.fn(),
-  } as unknown as GetConnectorRepository
-  const getInstanceRepository = {
-    getInstance: vi.fn().mockResolvedValue(opts.instance ?? null),
-    getInstanceByInstanceId: vi.fn(),
-    getInstanceByChannelId: vi.fn(),
-    getByDomainIdAndVinculatedChannel: vi.fn(),
-  } as unknown as GetInstanceRepository
+/** `wabaId` vem do item da SPA — nem `Connector` nem `Instance` participam. */
+const hubItem: SubscriptionItem = {
+  id: 'item_1',
+  name: 'Linha oficial',
+  subscription: 'sub_1',
+  status: 'active',
+  settings: { ...DEFAULT_CONNECTOR_SETTINGS },
+  vinculatedChannel: null,
+  metadata: {
+    provider: 'HUBMESSAGE',
+    hubmessageChannelId: 'chan_1',
+    wabaId: 'waba_1',
+  },
+}
+
+const zapiItem: SubscriptionItem = {
+  id: 'item_zapi',
+  name: 'Linha Z-API',
+  subscription: 'sub_1',
+  status: 'active',
+  settings: { ...DEFAULT_CONNECTOR_SETTINGS },
+  vinculatedChannel: null,
+  metadata: {
+    provider: 'ZAPI',
+    zApiInstanceId: 'Z-1',
+    zApiInstanceToken: 'tk',
+  },
+}
+
+const input = {
+  subscriptionItemId: 'item_1',
+  domainId: 'domain_1',
+  appCode: 'crmthink.thinkzap',
+}
+
+function build(
+  opts: {
+    items?: SubscriptionItem[]
+    resolve?: () => WhatsAppTemplateProvider
+  } = {},
+) {
+  const provider = {
+    supportsTemplates: true,
+    listTemplates: vi.fn().mockResolvedValue([{ id: 'tpl_1' }]),
+    createTemplate: vi.fn(),
+    syncTemplates: vi.fn(),
+  } as unknown as WhatsAppTemplateProvider
+
+  const getAplicationContext = {
+    execute: vi.fn().mockResolvedValue({
+      customer: { id: 'domain_1' },
+      aplication: { id: 'app_1', spaId: '42' },
+      subscriptions: [{ id: 'sub_1', items: opts.items ?? [hubItem] }],
+    }),
+  } as unknown as GetAplicationContext
+
   const templateProviderResolver = {
-    resolve: vi.fn().mockReturnValue(provider),
+    resolve: vi.fn().mockImplementation(opts.resolve ?? (() => provider)),
   } as unknown as TemplateProviderResolver
-  const useCase = new ListConnectorTemplatesUseCase(
-    getConnectorRepository,
-    getInstanceRepository,
-    templateProviderResolver,
-  )
-  return { useCase, provider }
+
+  return {
+    provider,
+    useCase: new ListConnectorTemplatesUseCase(
+      getAplicationContext,
+      templateProviderResolver,
+    ),
+  }
 }
 
 describe('ListConnectorTemplatesUseCase', () => {
-  it('retorna templates do provider quando conector apto', async () => {
-    const { useCase, provider } = build({
-      connector: {
-        id: 'con_1',
-        instanceId: 'inst_1',
-        provider: ConnectorProvider.HUBMESSAGE,
-      },
-      instance: { id: 'inst_1', wabaId: 'waba_1' },
-    })
+  it('lista templates usando o wabaId do item da linha', async () => {
+    const { useCase, provider } = build()
 
-    const result = await useCase.execute('con_1')
+    const result = await useCase.execute(input)
 
     expect(provider.listTemplates).toHaveBeenCalledWith('waba_1')
     expect(result).toEqual([{ id: 'tpl_1' }])
   })
 
-  it('erro quando conector não existe', async () => {
-    const { useCase } = build({ connector: null })
-    await expect(useCase.execute('con_x')).rejects.toBeInstanceOf(
-      ConnectorNotFoundError,
-    )
+  it('erro quando a linha não está na instalação do token', async () => {
+    const { useCase } = build()
+
+    await expect(
+      useCase.execute({ ...input, subscriptionItemId: 'de-outro' }),
+    ).rejects.toBeInstanceOf(LineNotFoundError)
+  })
+
+  it('erro quando a linha não é do WhatsApp Oficial', async () => {
+    const { useCase } = build({ items: [zapiItem] })
+
+    await expect(
+      useCase.execute({ ...input, subscriptionItemId: 'item_zapi' }),
+    ).rejects.toBeInstanceOf(ConnectorNotTemplateCapableError)
   })
 
   it('propaga TemplatesNotSupportedError do resolver', async () => {
-    const provider = {
-      supportsTemplates: false,
-      listTemplates: vi.fn(),
-      createTemplate: vi.fn(),
-      syncTemplates: vi.fn(),
-    } as unknown as WhatsAppTemplateProvider
-    const getConnectorRepository = {
-      get: vi.fn().mockResolvedValue({
-        id: 'con_1',
-        instanceId: 'inst_1',
-        provider: ConnectorProvider.ZAPI,
-      }),
-      getConnectorByInstanceId: vi.fn(),
-    } as unknown as GetConnectorRepository
-    const getInstanceRepository = {
-      getInstance: vi.fn().mockResolvedValue({ id: 'inst_1', wabaId: 'waba_1' }),
-      getInstanceByInstanceId: vi.fn(),
-      getInstanceByChannelId: vi.fn(),
-      getByDomainIdAndVinculatedChannel: vi.fn(),
-    } as unknown as GetInstanceRepository
-    const templateProviderResolver = {
-      resolve: vi.fn().mockImplementation(() => {
+    const { useCase } = build({
+      resolve: () => {
         throw new TemplatesNotSupportedError('ZAPI')
-      }),
-    } as unknown as TemplateProviderResolver
-    void provider
+      },
+    })
 
-    const useCase = new ListConnectorTemplatesUseCase(
-      getConnectorRepository,
-      getInstanceRepository,
-      templateProviderResolver,
-    )
-
-    await expect(useCase.execute('con_1')).rejects.toBeInstanceOf(
+    await expect(useCase.execute(input)).rejects.toBeInstanceOf(
       TemplatesNotSupportedError,
     )
   })

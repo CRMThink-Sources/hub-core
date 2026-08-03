@@ -14,6 +14,8 @@ vi.mock('@/shared/infra/clients/bitrix.client', () => {
 vi.mock('@/config/env', () => ({
   env: {
     bitrix: { connector: { code: 'thinkzap' } },
+    // A resolução da linha pelo item usa o appCode para escopar a instalação.
+    appCodes: { thinkzap: 'crmthink.thinkzap' },
     logLevel: 'silent',
     nodeEnv: 'test',
   },
@@ -39,11 +41,23 @@ const baseInstance = {
   domainId: 'domain-1',
 }
 
-const baseConnector = {
-  id: 'connector-1',
-  instanceId: 'instance-db-1',
-  appId: 'app-1',
-  provider: ConnectorProvider.HUBMESSAGE,
+/**
+ * A linha vem do item de assinatura. `Connector` saiu: servia para o guard de
+ * provider e para `appId`, e o item dá os dois — declarando o provider por qual
+ * par de credencial está preenchido.
+ */
+const baseItem = {
+  id: 'i1',
+  name: 'Linha oficial',
+  subscription: 'sub-1',
+  status: 'active' as const,
+  settings: {},
+  vinculatedChannel: '12',
+  metadata: {
+    provider: ConnectorProvider.HUBMESSAGE,
+    hubmessageChannelId: CHANNEL_ID,
+    wabaId: 'W-9',
+  },
 }
 
 function makeMessage(
@@ -66,12 +80,12 @@ function makeMessage(
 
 function buildUseCase({
   instance = baseInstance,
-  connector = baseConnector,
+  item = baseItem,
   repoFind,
   repoCreate,
 }: {
   instance?: unknown
-  connector?: unknown
+  item?: unknown
   repoFind?: ReturnType<typeof vi.fn>
   repoCreate?: ReturnType<typeof vi.fn>
 } = {}) {
@@ -82,15 +96,24 @@ function buildUseCase({
 
   const useCase = new ProcessHubMessageInboundMessageUseCase(
     {
-      getConnectorByInstanceId: vi.fn().mockResolvedValue(connector),
+      execute: vi.fn().mockResolvedValue({
+        customer: { id: 'domain-1', name: 'acme' },
+        aplication: { id: 'app-1', spaId: '42' },
+        subscriptions: [{ id: 'sub-1', items: item ? [item] : [] }],
+      }),
     } as never,
     {
       getInstanceByChannelId: vi.fn().mockResolvedValue(instance),
     } as never,
     {
-      getDomainById: vi.fn().mockResolvedValue({ id: 'domain-1', name: 'acme' }),
+      getDomainById: vi
+        .fn()
+        .mockResolvedValue({ id: 'domain-1', name: 'acme' }),
     } as never,
-    { getById: vi.fn().mockResolvedValue({ id: 'app-1' }) } as never,
+    {
+      getById: vi.fn().mockResolvedValue({ id: 'app-1' }),
+      getByAppCodeAndDomainId: vi.fn().mockResolvedValue({ id: 'app-1' }),
+    } as never,
     { get: vi.fn().mockResolvedValue({ id: 'cred-1' }) } as never,
     messageRepo as never,
   )
@@ -158,9 +181,21 @@ describe('ProcessHubMessageInboundMessageUseCase', () => {
     expect(sentPayload(1).MESSAGES[0]!.chat.id).toBe('5511999998888')
   })
 
-  it('refuses to process when the connector is not the official one', async () => {
+  /**
+   * O guard de provider virou consequência da busca: `findLineItemByChannelId`
+   * filtra por `HUBMESSAGE`, então uma linha Z-API que use esse id nunca
+   * corresponde. Mesma proteção, um caminho a menos.
+   */
+  it('refuses to process when no HUBMESSAGE line owns the channel', async () => {
     const { useCase } = buildUseCase({
-      connector: { ...baseConnector, provider: ConnectorProvider.ZAPI },
+      item: {
+        ...baseItem,
+        metadata: {
+          provider: ConnectorProvider.ZAPI,
+          zApiInstanceId: CHANNEL_ID,
+          zApiInstanceToken: 'tok',
+        },
+      },
     })
 
     await expect(useCase.execute(makeMessage())).rejects.toThrow(/HUBMESSAGE/)
@@ -195,7 +230,7 @@ describe('ProcessHubMessageInboundMessageUseCase', () => {
 
   it('throws when the instance has no vinculated channel', async () => {
     const { useCase } = buildUseCase({
-      instance: { ...baseInstance, vinculatedChannel: null },
+      item: { ...baseItem, vinculatedChannel: null },
     })
 
     await expect(useCase.execute(makeMessage())).rejects.toThrow(

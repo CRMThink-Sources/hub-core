@@ -1,9 +1,26 @@
 {
-  "pageTitle": "Configuración del conector",
+  "pageTitle": "Configuración de la línea",
   "voltar": "Volver a conexiones",
-  "conectorNaoEncontrado": "Conector no encontrado.",
+  "carregando": "Cargando...",
+  "erroContextoTitulo": "No se pudo cargar la línea",
+  "instalacaoNaoEncontrada": "Instalación no encontrada en este portal.",
+  "sessaoExpirada": "Sesión expirada. Vuelve a abrir la app desde Bitrix24.",
+  "linhaNaoEncontrada": "Línea no encontrada",
+  "linhaNaoEncontradaHint": "Esta línea no está entre las suscripciones de esta instalación.",
+  "semProviderTitulo": "Línea sin proveedor",
+  "semProviderHint": "Esta línea aún no tiene un proveedor de WhatsApp asociado.",
+  "tabsAriaLabel": "Secciones de configuración",
   "tabs": {
-    "geral": "General",
-    "grupos": "Grupos"
+    "conexao": "Conexión",
+    "grupos": "Grupos",
+    "ajustes": "Ajustes"
+  },
+  "provider": {
+    "oficial": "Oficial",
+    "naoOficial": "No oficial"
+  },
+  "status": {
+    "conectada": "Conectada",
+    "desconectada": "Desconectada"
   }
 }

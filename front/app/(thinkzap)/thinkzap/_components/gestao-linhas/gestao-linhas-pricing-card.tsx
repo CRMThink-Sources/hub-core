@@ -1,8 +1,8 @@
 'use client'
 
-import { useSession } from '@/providers/session-provider'
+import { useAplication } from '@/providers/aplication-provider'
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { resolveThinkzapClient } from '../../_lib/thinkzap-client'
 import { useTranslation } from 'react-i18next'
 import { MinusIcon, PlusIcon } from 'lucide-react'
@@ -76,14 +76,11 @@ export function GestaoLinhasPricingCard({
   onReactivateSubscription,
 }: Props) {
   const { t } = useTranslation('thinkzap/gestao-linhas/pricing-card')
-  const { session } = useSession()
+  const aplication = useAplication()
   const [billingPortalUrl, setBillingPortalUrl] = useState<string | undefined>(
     undefined,
   )
-  const hasSubscription = useMemo(
-    () => session?.subscription !== null,
-    [session?.subscription],
-  )
+  const hasSubscription = aplication?.billing.hasSubscription === true
   const totalEstimado = computeEstimateAmount(pricing, linhasNaEstimativa)
 
   useEffect(() => {

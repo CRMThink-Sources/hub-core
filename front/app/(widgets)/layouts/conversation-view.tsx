@@ -246,7 +246,8 @@ export const ConversationView = () => {
       const entityId = placementOptions.ID
 
       const payloadBase = {
-        connectorId: selectedConnectorId,
+        // Id do item de assinatura: o `id` que a sessão devolve para cada linha.
+        subscriptionItemId: selectedConnectorId,
         destination: normalizePhoneNumber(selectedDestination?.phone ?? ''),
         message: message.trim() || undefined,
         entity,

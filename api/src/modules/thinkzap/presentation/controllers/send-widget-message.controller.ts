@@ -18,7 +18,7 @@ export class SendWidgetMessageController extends Controller {
   async perform(req: Request, _res: Response): Promise<httpResponse> {
     const parsed = z
       .object({
-        connectorId: z.string().min(1),
+        subscriptionItemId: z.string().min(1),
         destination: z.string().min(1),
         message: z.string().trim().min(1).optional(),
         attachments: z.array(attachmentSchema).optional(),
@@ -36,6 +36,8 @@ export class SendWidgetMessageController extends Controller {
     try {
       const result = await this.sendWidgetMessage.execute({
         ...parsed.data,
+        domainId: (req as unknown as { domainId: string }).domainId,
+        appCode: (req as unknown as { appId: string }).appId,
       })
       return this.ok(result)
     } catch (error) {

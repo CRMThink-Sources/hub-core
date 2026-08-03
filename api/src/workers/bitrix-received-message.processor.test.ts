@@ -111,12 +111,35 @@ vi.mock(
   }),
 )
 
+/**
+ * A resolução de `settings` pelo item da SPA tem os próprios testes; aqui ela é
+ * dublada para o teste não montar a árvore de repositórios de billing (Prisma,
+ * Redis e Bitrix) só para preparar o texto de saída.
+ */
 vi.mock(
-  '@/modules/auth/presentation/controllers/helpers/app-id-resolver',
+  '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id',
   () => ({
-    appIdResolver: { thinkzap: 'app-code-thinkzap' },
+    resolveSettingsByInstanceId: vi.fn().mockResolvedValue({
+      prefixOperatorNameEnabled: false,
+      widgetOpenChannelEnabled: false,
+      messageUpdateEventEnabled: true,
+      messageDeleteEventEnabled: true,
+    }),
   }),
 )
+
+vi.mock('@/modules/application/main/make-get-aplication-context', () => ({
+  makeGetAplicationContext: vi.fn(() => ({ execute: vi.fn() })),
+}))
+
+vi.mock('@/shared/app-catalog/app-catalog', () => ({
+  resolveByMarketplaceCode: () => ({
+    appCode: 'app-code-thinkzap',
+    appCodeId: 'app-code-thinkzap',
+    slug: 'thinkzap',
+    requiresOperatorOAuth: true,
+  }),
+}))
 
 vi.mock('@/config/env', () => ({
   env: {
@@ -128,6 +151,18 @@ vi.mock('@/config/env', () => ({
       webhookUrl: 'https://app.test/webhooks/hubmessage',
     },
     appCodes: { thinkzap: 'thinkzap' },
+    // O preparo do texto resolve `settings` pelo contexto da aplicação, que lê as
+    // SPAs de billing — sem isso a árvore de repositórios não monta no import.
+    payments: {
+      spa: {
+        aplicationEntityType: 1060,
+        productEntityType: 1134,
+        planEntityType: 1138,
+        subscriptionEntityType: 1142,
+        subscriptionItemEntityType: 1146,
+      },
+    },
+    crmthinkWebhookUrl: 'https://crmthink.test/rest/1/token/',
     logLevel: 'silent',
     nodeEnv: 'test',
   },

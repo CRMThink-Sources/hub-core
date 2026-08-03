@@ -5,13 +5,22 @@
   "colunas": {
     "telefone": "Telefone",
     "nomeCanal": "Nome do canal",
-    "conexao": "Conexão"
+    "conexao": "Conexão",
+    "linha": "Linha",
+    "provider": "Tipo",
+    "status": "Status",
+    "plano": "Plano"
   },
   "status": {
     "ativo": "Ativo",
     "configuracaoPendente": "Configuração pendente",
     "trial": "Trial",
-    "inativo": "Inativo"
+    "inativo": "Inativo",
+    "cancelado": "Cancelado"
   },
-  "efetivarAssinatura": "Efetivar assinatura"
+  "efetivarAssinatura": "Efetivar assinatura",
+  "provider": {
+    "oficial": "Oficial",
+    "naoOficial": "Não oficial"
+  }
 }

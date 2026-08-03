@@ -15,7 +15,7 @@ import {
   type BitrixDepartmentHit,
 } from '@/bitrix'
 import { useThinkzapApi } from '@/app/hooks/use-thinkzap-api'
-import { useSession } from '@/providers/session-provider'
+import { useThinkzapAccess } from '@/app/hooks/use-thinkzap-permissions'
 import { PermissionsHeader } from '../_components/permissions-header'
 import {
   PermissionsModeTabs,
@@ -70,7 +70,7 @@ function isDeptDirty(
 
 export default function PermissoesPage() {
   const { t } = useTranslation('thinkzap/permissoes')
-  const { session } = useSession()
+  const thinkzapAccess = useThinkzapAccess()
   const api = useThinkzapApi()
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const { ready: bx24Ready } = useBX24(scriptLoaded)
@@ -104,8 +104,7 @@ export default function PermissoesPage() {
     Record<string, ThinkzapUserPermissions>
   >({})
 
-  const canManage =
-    session?.thinkzapAccess?.canManageAccess === true || isBitrixAdmin()
+  const canManage = thinkzapAccess?.canManageAccess === true || isBitrixAdmin()
 
   const loadUsers = useCallback(async () => {
     setLoadingUsers(true)

@@ -30,6 +30,13 @@ export interface BitrixWebhookContext {
     vinculatedChannel: string | null
     domainId: string
     status: string
+    /**
+     * Espelho da coluna, mantido só porque a row ainda a tem. **Não é fonte de
+     * verdade e não deve ser lido para decidir comportamento** — os toggles vivem
+     * em `ufCrm93Settings` no item de assinatura, e quem precisa deles resolve por
+     * `resolveSettingsByInstanceId`. Ler daqui devolve o valor congelado de antes
+     * da migração.
+     */
     settings: ConnectorSettings
   }
 }

@@ -26,6 +26,39 @@ const MESSAGES = {
   apiError: 'Falha ao registrar a instalação. Tente novamente.',
 } as const
 
+/** Nome de passo → o que o usuário precisa entender que falhou. */
+const STEP_LABELS: Record<string, string> = {
+  'resolve-app-code': 'identificar o aplicativo',
+  'upsert-domain': 'registrar o portal',
+  'upsert-app': 'registrar a instalação',
+  'upsert-credential': 'salvar as credenciais de acesso',
+  'resolve-spa-item': 'registrar o cliente no CRM',
+  'link-spa-item': 'vincular a instalação ao cliente',
+  'run-installer': 'configurar o aplicativo no portal',
+}
+
+/**
+ * A API devolve `{ result: { error: { step, message } } }` quando a instalação
+ * aborta. Sem ler o passo, toda falha vira a mesma mensagem genérica e o suporte
+ * precisa do log para saber onde parou.
+ */
+function installErrorMessage(err: unknown): string {
+  if (!axios.isAxiosError(err)) {
+    return err instanceof Error ? err.message : MESSAGES.installError
+  }
+
+  const payload = err.response?.data as
+    | { result?: { error?: { step?: string; message?: string } } }
+    | undefined
+  const failure = payload?.result?.error
+
+  if (!failure?.step) return MESSAGES.apiError
+
+  const label = STEP_LABELS[failure.step] ?? failure.step
+
+  return `Falha ao ${label}: ${failure.message ?? MESSAGES.apiError}`
+}
+
 export default function BitrixInstallPage() {
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const {
@@ -94,6 +127,9 @@ export default function BitrixInstallPage() {
         return
       }
 
+      // `finishInstall()` só depois de 2xx: a instalação é fail-fast no backend,
+      // e concluir no Bitrix depois de uma falha deixaria o app registrado no
+      // portal sem estar configurado.
       if (API_URL) {
         await axios.post(API_URL + '/auth/install', payload)
       }
@@ -102,9 +138,7 @@ export default function BitrixInstallPage() {
       setStatus('success')
     } catch (err) {
       setStatus('error')
-      setErrorMessage(
-        err instanceof Error ? err.message : MESSAGES.installError,
-      )
+      setErrorMessage(installErrorMessage(err))
     }
   }
 

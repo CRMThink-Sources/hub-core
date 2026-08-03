@@ -96,7 +96,8 @@ export class PrismaConnectorRepository
                 webhookId: el.instance.webhookId,
                 wabaId: el.instance.wabaId,
                 phoneId: el.instance.phoneId,
-                settings: el.instance.settings,
+                // `settings` fica fora: a coluna está deprecada e nenhum consumidor
+                // de `connector.instance` a lê. A fonte é `ufCrm93Settings` no item.
                 zApiToken: includeZapiToken ? el.instance.zApiToken : undefined,
               }
             : undefined,

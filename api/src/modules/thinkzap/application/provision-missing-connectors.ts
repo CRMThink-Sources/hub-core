@@ -4,7 +4,6 @@ import { CreateConnectorRepository } from '@/modules/thinkzap/domain/repositorie
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
 import { InstanceStatus } from '@/modules/thinkzap/domain/entities/instance'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
-import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { ListConnectorsRepository } from '@/modules/thinkzap/domain/repositories/list-connectors'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
@@ -111,8 +110,14 @@ export async function provisionMissingConnectorsForProvider(
       webhookId: resource.webhookId ?? null,
       wabaId: resource.wabaId ?? null,
       phoneId: resource.phoneId ?? null,
+      /**
+       * Sem `settings`: a coluna está deprecada e a configuração da linha vive em
+       * `ufCrm93Settings` no item da SPA. Um conector recém-provisionado não tem
+       * item ainda — quem o cria já grava `DEFAULT_CONNECTOR_SETTINGS` lá
+       * (`createSubscriptionItem` sem `settings` serializa os defaults), então não
+       * há nada a semear aqui.
+       */
       vinculatedChannel: null,
-      settings: { ...DEFAULT_CONNECTOR_SETTINGS },
     })
 
     await deps.createConnectorRepo.createConnector({

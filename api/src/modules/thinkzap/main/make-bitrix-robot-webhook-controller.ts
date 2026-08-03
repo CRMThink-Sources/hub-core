@@ -1,3 +1,4 @@
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixRobotWebhookHandlerController } from '../presentation/controllers/bitrix-robot-webhook-handler.controller'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
@@ -37,8 +38,7 @@ export const makeBitrixRobotWebhookHandlerController = async (
   return new BitrixRobotWebhookHandlerController(
     getDomain,
     getApp,
-    getConnector,
-    getInstance,
+    makeGetAplicationContext(),
     sendNotification,
     bx,
   )

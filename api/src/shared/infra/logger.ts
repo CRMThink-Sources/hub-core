@@ -105,6 +105,14 @@ export function resolveLogApp(path: string): LogApp {
   if (path.startsWith('/api/thinkanalise')) return 'thinkanalise'
   if (path.startsWith('/api/importsheet')) return 'importsheet'
   if (path.startsWith('/api/clicksign')) return 'clicksign'
+  /**
+   * `/api/application` é transversal: serve qualquer app instalado, então nenhum
+   * membro de `LogApp` descreve a rota. Cai em `'shared'` de propósito — criar
+   * `'payments'` mexeria num tipo usado por todo o logger, e o filtro que
+   * importa na prática é o `appId` do tenant, que o `authMiddleware` já injeta no
+   * contexto via `setLogContext`.
+   */
+  if (path.startsWith('/api/application')) return 'shared'
   if (
     path.startsWith('/api/webhooks/z-api') ||
     path.startsWith('/api/webhooks/bitrix') ||

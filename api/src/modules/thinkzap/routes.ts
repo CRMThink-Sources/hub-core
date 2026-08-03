@@ -1,17 +1,12 @@
 import { Router } from 'express'
 import { makeCreateSubscriptionCheckoutController } from './main/make-create-subscription-checkout-controller'
 import { makeListConnectorsController } from './main/list-connectors-controller'
-import { makeGetQrCodeController } from './main/get-qr-code-controller'
-import { makeVinculateChannelController } from './main/connector/make-vinculate-channel'
 import { adaptControllerFactory } from '@/shared/main/adapt-controller'
 import { makeListOpenChannelsController } from './main/make-list-open-channels-controller'
-import { makeDisconnectChannelController } from './main/connector/make-disconnect-channel'
 import { makeConnectChannelController } from './main/connector/make-connect-channel'
 import { makeListTemplatesController } from './main/connector/make-list-templates'
 import { makeCreateTemplateController } from './main/connector/make-create-template'
 import { makeSyncTemplatesController } from './main/connector/make-sync-templates'
-import { makeUpdateInstanceController } from './main/instance/make-update-instance-controller'
-import { makeDisconnectConnectorController } from './main/connector/make-disconnect-connector'
 import { makeCancelConnectorController } from './main/connector/make-cancel-connector'
 import { makeAddSubscriptionQuantityController } from './main/add-subscription-quantity-controller'
 import { makePreviewAddQuantityController } from './main/make-preview-add-quantity-controller'
@@ -46,8 +41,17 @@ import {
   requireThinkzapAdmin,
   requireThinkzapPermission,
 } from './infra/middleware/thinkzap-access.middleware'
-import { makeUpdateConnectorEventBindsController } from './main/make-update-connector-event-binds-controller'
 import { makeGetLogsControllerFactory } from '@/shared/main/make-get-logs-controller'
+import { makeGetThinkzapAccessController } from './main/make-get-thinkzap-access-controller'
+import {
+  makeDisconnectLineController,
+  makeGetLineConnectionController,
+  makeGetLineQrCodeController,
+  makeGetLineSettingsController,
+  makeLinkLineChannelController,
+  makeUnlinkLineChannelController,
+  makeUpdateLineSettingsController,
+} from './main/line/make-line-controllers'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
@@ -65,6 +69,17 @@ export const createThinkerszapRoutes = (): Router => {
     '/messages/send-widget-multipart',
     widgetMessageUploadParser.array('files', 10),
     adaptControllerFactory(makeSendWidgetMessageMultipartController),
+  )
+
+  /**
+   * Permissões do usuário do token. Fica **antes** do
+   * `thinkzapAccessMiddleware` de propósito: o middleware responde `403` quando
+   * o usuário não tem acesso, e esta rota precisa devolver `200` com o payload
+   * negado para o front conseguir esconder links e renderizar o bloqueio.
+   */
+  router.get(
+    '/access/me',
+    adaptControllerFactory(makeGetThinkzapAccessController),
   )
 
   router.use(thinkzapAccessMiddleware)
@@ -153,20 +168,57 @@ export const createThinkerszapRoutes = (): Router => {
     adaptControllerFactory(makeAddSubscriptionQuantityController),
   )
 
+  /**
+   * ## Linhas (`/lines/:itemId`)
+   *
+   * `itemId` é o id do **item de assinatura** — a linha, do ponto de vista do
+   * cliente. A credencial Z-API é resolvida no servidor a partir dele
+   * (`resolveLineBySubscriptionItem`), e o escopo sai do JWT: item que não está
+   * na árvore da instalação responde `404`.
+   *
+   * `connectorId` não é aceito aqui. Aceitar os dois manteria vivo o caminho de
+   * autorização antigo, em que o id vinha livre no corpo.
+   */
+  router.get(
+    '/lines/:itemId/connection',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetLineConnectionController),
+  )
+  router.get(
+    '/lines/:itemId/qr-code',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetLineQrCodeController),
+  )
+  router.post(
+    '/lines/:itemId/disconnect',
+    requireThinkzapPermission('connectors', 'delete'),
+    adaptControllerFactory(makeDisconnectLineController),
+  )
+  router.get(
+    '/lines/:itemId/settings',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetLineSettingsController),
+  )
+  router.patch(
+    '/lines/:itemId/settings',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeUpdateLineSettingsController),
+  )
+  router.post(
+    '/lines/:itemId/channel',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeLinkLineChannelController),
+  )
+  router.delete(
+    '/lines/:itemId/channel',
+    requireThinkzapPermission('connectors', 'delete'),
+    adaptControllerFactory(makeUnlinkLineChannelController),
+  )
+
   router.get(
     '/connector/list',
     requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeListConnectorsController),
-  )
-  router.get(
-    '/connector/:id/qr-code',
-    requireThinkzapPermission('connectors', 'read'),
-    adaptControllerFactory(makeGetQrCodeController),
-  )
-  router.post(
-    '/connector/disconnect',
-    requireThinkzapPermission('connectors', 'delete'),
-    adaptControllerFactory(makeDisconnectConnectorController),
   )
   router.post(
     '/connector/cancel',
@@ -174,44 +226,24 @@ export const createThinkerszapRoutes = (): Router => {
     adaptControllerFactory(makeCancelConnectorController),
   )
   router.post(
-    '/connector/vinculate-channel',
-    requireThinkzapPermission('connectors', 'update'),
-    adaptControllerFactory(makeVinculateChannelController),
-  )
-  router.post(
-    '/connector/disconnect-channel',
-    requireThinkzapPermission('connectors', 'delete'),
-    adaptControllerFactory(makeDisconnectChannelController),
-  )
-  router.post(
     '/connector/connect-channel',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeConnectChannelController),
   )
   router.get(
-    '/connector/:id/templates',
+    '/lines/:itemId/templates',
     requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeListTemplatesController),
   )
   router.post(
-    '/connector/:id/templates',
+    '/lines/:itemId/templates',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeCreateTemplateController),
   )
   router.post(
-    '/connector/:id/templates/sync',
+    '/lines/:itemId/templates/sync',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeSyncTemplatesController),
-  )
-  router.put(
-    '/instance/:id',
-    requireThinkzapPermission('connectors', 'update'),
-    adaptControllerFactory(makeUpdateInstanceController),
-  )
-  router.patch(
-    '/instance/:connectorId/event-binds',
-    requireThinkzapPermission('connectors', 'update'),
-    adaptControllerFactory(makeUpdateConnectorEventBindsController),
   )
   router.get(
     '/openchannels',
@@ -224,47 +256,47 @@ export const createThinkerszapRoutes = (): Router => {
     adaptControllerFactory(makeListContactsController),
   )
   router.get(
-    '/groups',
+    '/lines/:itemId/groups',
     requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeListGroupsController),
   )
   router.get(
-    '/groups/:groupId',
+    '/lines/:itemId/groups/:groupId',
     requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeGetGroupMetadataController),
   )
   router.post(
-    '/groups',
+    '/lines/:itemId/groups',
     requireThinkzapPermission('connectors', 'create'),
     adaptControllerFactory(makeCreateGroupController),
   )
   router.patch(
-    '/groups/:groupId/name',
+    '/lines/:itemId/groups/:groupId/name',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeUpdateGroupNameController),
   )
   router.patch(
-    '/groups/:groupId/description',
+    '/lines/:itemId/groups/:groupId/description',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeUpdateGroupDescriptionController),
   )
   router.patch(
-    '/groups/:groupId/photo',
+    '/lines/:itemId/groups/:groupId/photo',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeUpdateGroupPhotoController),
   )
   router.post(
-    '/groups/:groupId/participants',
+    '/lines/:itemId/groups/:groupId/participants',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeAddGroupParticipantsController),
   )
   router.delete(
-    '/groups/:groupId/participants',
+    '/lines/:itemId/groups/:groupId/participants',
     requireThinkzapPermission('connectors', 'delete'),
     adaptControllerFactory(makeRemoveGroupParticipantsController),
   )
   router.delete(
-    '/groups/:groupId',
+    '/lines/:itemId/groups/:groupId',
     requireThinkzapPermission('connectors', 'delete'),
     adaptControllerFactory(makeLeaveGroupController),
   )

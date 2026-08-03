@@ -5,13 +5,22 @@
   "colunas": {
     "telefone": "Phone",
     "nomeCanal": "Channel name",
-    "conexao": "Connection"
+    "conexao": "Connection",
+    "linha": "Line",
+    "provider": "Type",
+    "status": "Status",
+    "plano": "Plan"
   },
   "status": {
     "ativo": "Active",
     "configuracaoPendente": "Pending setup",
     "trial": "Trial",
-    "inativo": "Inactive"
+    "inativo": "Inactive",
+    "cancelado": "Cancelled"
   },
-  "efetivarAssinatura": "Confirm subscription"
+  "efetivarAssinatura": "Confirm subscription",
+  "provider": {
+    "oficial": "Official",
+    "naoOficial": "Unofficial"
+  }
 }

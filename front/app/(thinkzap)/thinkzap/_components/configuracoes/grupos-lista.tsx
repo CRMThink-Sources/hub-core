@@ -8,6 +8,7 @@ type Props = {
   loading: boolean
   error: string | null
   page: number
+  hasNextPage: boolean
   onEdit: (groupId: string) => void
   onLeave: (groupId: string, groupName: string) => void
   onCreateNew: () => void
@@ -40,6 +41,7 @@ export function GruposLista({
   loading,
   error,
   page,
+  hasNextPage,
   onEdit,
   onLeave,
   onCreateNew,
@@ -134,7 +136,7 @@ export function GruposLista({
           variant="outline"
           size="sm"
           onClick={onNextPage}
-          disabled={groups.length === 0 || loading}
+          disabled={!hasNextPage || loading}
         >
           {labels.proxima}
         </Button>

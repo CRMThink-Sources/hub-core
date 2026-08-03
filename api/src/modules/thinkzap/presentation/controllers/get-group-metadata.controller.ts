@@ -4,7 +4,7 @@ import { mapGroupServiceError } from '@/modules/thinkzap/presentation/helpers/ha
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
-import z from 'zod'
+import { parseLineRequest } from './line/line-request'
 
 export class GetGroupMetadataController extends Controller {
   constructor(
@@ -14,18 +14,6 @@ export class GetGroupMetadataController extends Controller {
   }
 
   async perform(req: Request, _res: Response): Promise<httpResponse> {
-    const parsed = z
-      .object({
-        connectorId: z.string().min(1),
-      })
-      .safeParse(req.query)
-
-    if (!parsed.success) {
-      return this.badRequest(
-        new Error('Invalid request: ' + parsed.error.message),
-      )
-    }
-
     const groupId = getGroupIdParam(req)
     if (!groupId) {
       return this.badRequest(new Error('groupId is required'))
@@ -33,7 +21,7 @@ export class GetGroupMetadataController extends Controller {
 
     try {
       const result = await this.getGroupMetadataService.execute({
-        connectorId: parsed.data.connectorId,
+        ...parseLineRequest(req),
         groupId,
       })
       return this.ok(result)

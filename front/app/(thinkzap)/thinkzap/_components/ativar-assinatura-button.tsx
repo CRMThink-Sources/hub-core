@@ -4,7 +4,8 @@ import { useState } from 'react'
 
 import axios from 'axios'
 
-import { getAppRedirectUrl } from '@/app/config/app-redirects'
+import { APP_CODES } from '@/shared/app/app-codes'
+import { appTokenKey } from '@/shared/auth/app-token-storage'
 
 import { envConfig } from '@/shared/infra/env-config'
 import { useTranslation } from 'react-i18next'
@@ -104,9 +105,7 @@ export function AtivarAssinaturaButton({
   const [loadingPortal, setLoadingPortal] = useState(false)
 
   const endTrial = async () => {
-    const key = getAppRedirectUrl(
-      envConfig.appCodes.thinkzap,
-    )?.storageAuthTokenKey
+    const key = appTokenKey(APP_CODES.thinkzap)
 
     if (!key) return
 
@@ -128,9 +127,7 @@ export function AtivarAssinaturaButton({
   }
 
   const openPortal = async () => {
-    const key = getAppRedirectUrl(
-      envConfig.appCodes.thinkzap,
-    )?.storageAuthTokenKey
+    const key = appTokenKey(APP_CODES.thinkzap)
 
     if (!key) return
 

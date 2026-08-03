@@ -5,6 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useSession } from '@/providers/session-provider'
+import { useAplicationContext } from '@/providers/aplication-provider'
+import { listSubscriptionLines } from '@/shared/aplication/subscription-items'
+import {
+  EMPTY_SUBSCRIPTION_STATE,
+  podeAlterarAssinaturaExistente,
+} from '@/shared/billing/derive-subscription-state'
 import {
   resolveThinkzapClient,
   thinkzapApiErrorMessage,
@@ -21,15 +27,12 @@ import { buttonVariants } from '@/components/ui/button'
 import { GestaoLinhasContratadas } from '../_components/gestao-linhas/gestao-linhas-contratadas'
 import { ContratarLinhasModal } from '../_components/gestao-linhas/contratar-linhas-modal'
 
-/** Alinhado ao backend: só ACTIVE e PAST_DUE permitem aumentar linhas (trial precisa efetivar antes). */
-function podeAlterarAssinaturaExistente(status: string | undefined): boolean {
-  return status === 'ACTIVE' || status === 'PAST_DUE'
-}
-
 export default function GestaoLinhas() {
   const { t } = useTranslation('thinkzap/gestao-linhas/layout')
   const { t: tBanner } = useTranslation('thinkzap/gestao-linhas/status-banner')
-  const { session, refreshSession } = useSession()
+  const { refreshSession } = useSession()
+  const { state: aplicationState, refresh: refreshAplication } =
+    useAplicationContext()
   const router = useRouter()
 
   const [quantidade, setQuantidade] = useState(1)
@@ -41,31 +44,31 @@ export default function GestaoLinhas() {
   const [pricingErro, setPricingErro] = useState<string | null>(null)
   const [modalContratarAberto, setModalContratarAberto] = useState(false)
 
-  const isTrial = useMemo(() => {
-    return session?.subscription?.status === 'TRIALING'
-  }, [session?.subscription?.status])
-  const isCancelled = useMemo(() => {
-    return session?.subscription?.status === 'CANCELLED'
-  }, [session?.subscription?.status])
+  /**
+   * Estado de assinatura derivado de `/api/application/me` (SPA), não mais de
+   * `session.subscription` (Prisma). Enquanto o contexto não carrega, o estado
+   * vazio mantém a tela no caminho "sem assinatura" — o mesmo que acontecia
+   * antes com `session.subscription` ainda `undefined`.
+   */
+  const billing =
+    aplicationState.status === 'ready'
+      ? aplicationState.billing
+      : EMPTY_SUBSCRIPTION_STATE
 
-  const hasSubscription = useMemo(() => {
-    return session?.subscription !== null
-  }, [session?.subscription])
+  const isTrial = billing.status === 'TRIALING'
+  const isCancelled = billing.status === 'CANCELLED'
+  const hasSubscription = billing.hasSubscription
 
-  const totalLinhas = session?.connectors?.length ?? 0
-  const subscription = session?.subscription as
-    | {
-        status: string
-        connectorQuantity: number
-        trialEndsAt: string | null
-      }
-    | null
-    | undefined
+  /** Linhas contratadas = itens das assinaturas, não conectores. */
+  const linhas = listSubscriptionLines(
+    aplicationState.status === 'ready' ? aplicationState.subscriptions : null,
+  )
+  const totalLinhas = linhas.length
 
   const temAssinaturaAjustavel =
-    subscription != null && podeAlterarAssinaturaExistente(subscription.status)
+    hasSubscription && podeAlterarAssinaturaExistente(billing.status)
 
-  const linhasNaAssinatura = subscription?.connectorQuantity ?? 0
+  const linhasNaAssinatura = billing.connectorQuantity
   const totalAposContratar = temAssinaturaAjustavel
     ? linhasNaAssinatura + quantidade
     : quantidade
@@ -153,7 +156,9 @@ export default function GestaoLinhas() {
           t('linhasAdicionadas', { count: quantidade + quantidadeHub }),
         )
         setQuantidadeHub(0)
-        await refreshSession()
+        // Assinatura mudou na SPA e conectores mudaram no banco: recarrega os
+        // dois contextos.
+        await Promise.all([refreshSession(), refreshAplication()])
       } else {
         const data = await resolved.client.post<{
           clientSecret?: string | null
@@ -289,16 +294,7 @@ export default function GestaoLinhas() {
         isTrial={isTrial}
         submitting={submitting}
         onConfirmTrial={() => void handleConfirmTrial()}
-        connectors={
-          (session?.connectors ?? []) as Array<{
-            id: string
-            instance: {
-              name?: string | null
-              phoneNumber?: string | null
-              paidStatus?: string | null
-            }
-          }>
-        }
+        linhas={linhas}
         totalLinhas={totalLinhas}
       />
     </div>

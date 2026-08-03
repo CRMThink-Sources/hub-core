@@ -11,8 +11,7 @@ const STATUS_CLASS: Record<TemplateStatus, string> = {
     'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   PENDING:
     'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  REJECTED:
-    'border-destructive/30 bg-destructive/10 text-destructive',
+  REJECTED: 'border-destructive/30 bg-destructive/10 text-destructive',
 }
 
 type Props = {

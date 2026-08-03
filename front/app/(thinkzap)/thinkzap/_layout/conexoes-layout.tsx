@@ -1,128 +1,76 @@
 'use client'
 
-import { useState } from 'react'
-import { useSession } from '@/providers/session-provider'
-import { ConectarModal } from '../_components/conectar-modal'
-import { useQrCode } from '@/app/hooks/use-qr-code'
-import { useConnectors } from '@/app/hooks/use-connectors'
-import { VincularCanalModal } from '../_components/vincular-canal-modal'
-import { DesvincularCanalModal } from '../_components/desvincular-canal-modal'
-import { DesconectarModal } from '../_components/desconectar-modal'
-import { CancelarConectorModal } from '../_components/cancelar-conector-modal'
-import { useConnectorsSocket } from '@/app/hooks/use-connectors-socket'
-import { THINKZAP_TRIAL_MAX_CONNECTORS } from '@/shared/constants/thinkzap-trial'
+import { useAplicationContext } from '@/providers/aplication-provider'
+import {
+  countActiveLines,
+  listSubscriptionLines,
+} from '@/shared/aplication/subscription-items'
+import { useTranslation } from 'react-i18next'
 import { ConexoesHeaderCard } from '../_components/conexoes/conexoes-header-card'
 import { ConexoesResumoConectados } from '../_components/conexoes/conexoes-resumo-conectados'
 import { ConexoesTabelaConectores } from '../_components/conexoes/conexoes-tabela-conectores'
 
+/**
+ * Lista de conexões a partir dos itens de assinatura de
+ * `GET /api/application/me`.
+ *
+ * Conector/instância saíram: a linha do cliente é o item da assinatura. Com isso
+ * saíram também da lista os fluxos que só existiam por causa do conector —
+ * conectar/QR code, vincular/desvincular canal, desconectar, cancelar conector e
+ * o link para a tela de configuração, que resolvia por `connectorId`. Esses
+ * fluxos e o status de conexão passam para a tela de configuração, a ser
+ * replanejada.
+ */
 export default function ConexoesLayout() {
-  const { session, refreshSession } = useSession()
-  const { qrCode, loading: qrLoading, fetchQrCode } = useQrCode()
-  const [modalCancelarConector, setModalCancelarConector] = useState<{
-    id: string
-    nome: string
-  } | null>(null)
+  const { t: tCommon } = useTranslation('common')
+  const { state: aplicationState } = useAplicationContext()
 
-  const connectors = useConnectors()
-
-  useConnectorsSocket({
-    appId: session?.app.id ?? '',
-    onDisconnected: () => {
-      console.log('connector disconnected')
-      void refreshSession()
-    },
-  })
-
-  const total = session?.connectors?.length ?? 0
-  const connected =
-    session?.connectors?.filter((c: any) => c.instance.connected === true)
-      .length ?? 0
-
-  const subscription = (session?.subscription ?? null) as {
-    status?: string
-    connectorQuantity?: number
-  } | null
-  const connectorQuantity = Number(subscription?.connectorQuantity ?? total)
-  const quantityAposCancelamento = Math.max(1, connectorQuantity - 1)
-
-  const handleCloseConectar = () => {
-    connectors.connect.close()
-    void refreshSession()
+  if (aplicationState.status === 'loading') {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center gap-2 py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+        <span className="animate-pulse text-sm font-medium text-muted-foreground">
+          {tCommon('carregando')}
+        </span>
+      </div>
+    )
   }
+
+  // Falha de leitura NÃO vira lista vazia: uma tela sem linhas convidaria a
+  // contratar de novo quem já paga.
+  if (aplicationState.status !== 'ready') {
+    return (
+      <div className="mx-auto mt-10 max-w-2xl rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
+        <p className="text-sm font-medium">
+          Não foi possível carregar suas linhas
+        </p>
+        <p className="mt-1 text-sm">
+          {aplicationState.status === 'error'
+            ? aplicationState.message
+            : aplicationState.status === 'not-found'
+              ? 'Instalação não encontrada neste portal.'
+              : 'Sessão expirada. Reabra a aplicação pelo Bitrix24.'}
+        </p>
+      </div>
+    )
+  }
+
+  const linhas = listSubscriptionLines(aplicationState.subscriptions)
+  const ativas = countActiveLines(linhas)
+  const billing = aplicationState.billing
 
   return (
     <div className="relative mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 pb-10 pt-8 sm:px-6 lg:px-8">
       <div className="flex w-full flex-col gap-4 rounded-xl border border-border bg-card p-6">
         <ConexoesHeaderCard
-          hasSubscription={Boolean(subscription)}
-          subscriptionStatus={subscription?.status}
+          hasSubscription={billing.hasSubscription}
+          subscriptionStatus={billing.status ?? undefined}
         />
       </div>
 
-      <ConexoesResumoConectados connected={connected} total={total} />
+      <ConexoesResumoConectados ativas={ativas} total={linhas.length} />
 
-      <ConexoesTabelaConectores
-        conectores={session?.connectors}
-        control={connectors}
-        fetchQrCode={fetchQrCode}
-        onSolicitarCancelamento={payload =>
-          setModalCancelarConector({
-            id: payload.id,
-            nome: payload.nome,
-          })
-        }
-      />
-
-      <ConectarModal
-        isOpen={connectors.connect.isOpen}
-        qrCode={qrCode}
-        instanceId={connectors.connect.connector?.instance?.instanceId ?? null}
-        loading={qrLoading}
-        onRefetch={() => {
-          const id = connectors.connect.connector?.id
-          if (id) void fetchQrCode(id)
-        }}
-        onClose={() => handleCloseConectar()}
-      />
-
-      <VincularCanalModal
-        isOpen={connectors.linkChannel.isOpen}
-        connector={connectors.linkChannel.connector}
-        onClose={connectors.linkChannel.close}
-        onSuccess={async () => {
-          await refreshSession()
-          connectors.linkChannel.close()
-        }}
-      />
-
-      <DesvincularCanalModal
-        isOpen={connectors.unlinkChannel.isOpen}
-        connector={connectors.unlinkChannel.connector}
-        onClose={connectors.unlinkChannel.close}
-        onSuccess={() => {
-          void refreshSession()
-          connectors.unlinkChannel.close()
-        }}
-      />
-
-      <DesconectarModal
-        isOpen={connectors.disconnect.isOpen}
-        connector={connectors.disconnect.connector}
-        onClose={connectors.disconnect.close}
-        onSuccess={() => {
-          void refreshSession()
-          connectors.disconnect.close()
-        }}
-      />
-      <CancelarConectorModal
-        isOpen={modalCancelarConector != null}
-        connector={modalCancelarConector}
-        quantityAposCancelamento={quantityAposCancelamento}
-        onClose={() => setModalCancelarConector(null)}
-        onSuccess={() => {
-          void refreshSession()
-        }}
-      />
+      <ConexoesTabelaConectores linhas={linhas} />
     </div>
   )
 }

@@ -4,7 +4,8 @@
   "status": {
     "ativo": "Active",
     "inativo": "Inactive",
-    "aguardandoConexao": "Awaiting connection"
+    "aguardandoConexao": "Awaiting connection",
+    "cancelado": "Cancelled"
   },
   "conexao": {
     "sucesso": "Number connected successfully",
@@ -25,5 +26,6 @@
     "vincularCanal": "Link channel",
     "desvincularCanal": "Unlink channel",
     "cancelarConector": "Cancel connector"
-  }
+  },
+  "semPlano": "No plan"
 }

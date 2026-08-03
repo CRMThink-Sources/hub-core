@@ -123,6 +123,7 @@
   "instanceModalNameSaving": "Saving...",
   "instanceModalNameSaved": "Name saved successfully",
   "instanceModalNameError": "Failed to save name. Please try again.",
+  "instanceModalSubscriptionUnavailable": "This line has no instance record in the database, so the Z-API on-demand subscription cannot be changed here.",
   "instanceModalSubscribe": "Activate Subscription",
   "instanceModalUnsubscribe": "Cancel Subscription",
   "instanceModalSubscribeConfirm": "Activate the on-demand subscription for this instance in Z-API?",

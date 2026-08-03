@@ -18,9 +18,8 @@ type Participant = {
 }
 
 type Props = {
-  connectorId: string
+  itemId: string
   isConnected: boolean
-  authTokenKey: string
   onBack?: () => void
   onViewList?: () => void
 }
@@ -40,19 +39,13 @@ function isValidPhone(value: string): boolean {
 }
 
 export function CriarGrupoTab({
-  connectorId,
+  itemId,
   isConnected,
-  authTokenKey,
   onBack,
   onViewList,
 }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/criar-grupo')
-  const {
-    createGroup,
-    loading: creating,
-    error,
-    setError,
-  } = useCreateGroup(authTokenKey)
+  const { createGroup, loading: creating, error, setError } = useCreateGroup()
 
   const [groupName, setGroupName] = useState('')
   const [autoInvite, setAutoInvite] = useState(true)
@@ -88,7 +81,7 @@ export function CriarGrupoTab({
     }
 
     const result = await createGroup({
-      connectorId,
+      itemId,
       groupName: groupName.trim(),
       autoInvite,
       phones: participants.map(p => p.phone),
@@ -162,7 +155,6 @@ export function CriarGrupoTab({
         </h4>
 
         <ParticipantesPicker
-          authTokenKey={authTokenKey}
           onAddParticipant={addParticipant}
           onError={setError}
         />

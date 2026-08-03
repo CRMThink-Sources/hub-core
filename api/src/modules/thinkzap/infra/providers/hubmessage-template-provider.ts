@@ -62,7 +62,9 @@ function toDomainTemplate(raw: HubMessageTemplate): Template {
   }
 }
 
-function toDomainComponent(raw: HubMessageTemplateComponent): TemplateComponent {
+function toDomainComponent(
+  raw: HubMessageTemplateComponent,
+): TemplateComponent {
   return { ...raw }
 }
 

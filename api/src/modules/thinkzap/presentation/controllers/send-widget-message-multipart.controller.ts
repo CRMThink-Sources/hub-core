@@ -18,7 +18,7 @@ const attachmentMetaSchema = z.object({
 })
 
 const multipartBodySchema = z.object({
-  connectorId: z.string().min(1),
+  subscriptionItemId: z.string().min(1),
   destination: z.string().min(1),
   message: z.string().optional(),
   entity: z.string().min(1),
@@ -106,7 +106,9 @@ export class SendWidgetMessageMultipartController extends Controller {
 
     try {
       const result = await this.sendWidgetMessage.execute({
-        connectorId: parsedBody.data.connectorId,
+        subscriptionItemId: parsedBody.data.subscriptionItemId,
+        domainId: (req as unknown as { domainId: string }).domainId,
+        appCode: (req as unknown as { appId: string }).appId,
         destination: parsedBody.data.destination,
         message: trimmedMessage || undefined,
         attachments,

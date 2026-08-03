@@ -35,9 +35,14 @@ model AppCode {
 }
 
 model App {
-  id          String    @id @default(uuid())
-  domainId    String    @map("domain_id")
-  appCodeId   String    @map("app_code_id")
+  id        String @id @default(uuid())
+  domainId  String @map("domain_id")
+  appCodeId String @map("app_code_id")
+  /// Id do item espelho desta instalacao na SPA 1060 do Bitrix.
+  /// `null` = instalacao sem espelho (instalada antes do backfill, ou falha na
+  /// criacao do item). Estado valido: so impede criar assinatura, que precisa
+  /// do id da SPA no campo parent.
+  spaId       String?   @unique @map("spa_id")
   email       String    @map("email")
   status      AppStatus @default(ACTIVE)
   installedAt DateTime  @default(now()) @map("installed_at")
@@ -211,6 +216,12 @@ model Instance {
   webhookId         String?        @map("webhook_id")
   wabaId            String?        @map("waba_id")
   phoneId           String?        @map("phone_id")
+  /// DEPRECADO por `move-connector-settings-to-spa`: `ConnectorSettings` vive em
+  /// `ufCrm93Settings` no item da SPA 1146, que é a fonte única. Nada escreve mais
+  /// nesta coluna e nenhum caminho de comportamento a lê — o que sobra é dado
+  /// congelado de antes da migração, mantido só até o backfill ser confirmado em
+  /// produção. Não voltar a ler daqui: mostraria ao cliente o valor antigo.
+  /// O drop é dívida registrada, fora desta change (ver `retire-instance-table`).
   settings          Json           @default("{}") @map("settings")
   status            InstanceStatus @default(DISCONNECTED)
   createdAt         DateTime       @default(now()) @map("created_at")

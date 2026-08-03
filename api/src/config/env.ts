@@ -145,6 +145,27 @@ export const env = {
     spa: {
       productEntityType: 1134,
       planEntityType: 1138,
+      subscriptionEntityType: 1142,
+      /**
+       * SPA de aplicação — o item por instalação de app (domínio + app code),
+       * espelho de `core_apps`. Existe para montar o nome do campo parent
+       * (`parentId1060`) num lugar só, em vez de espalhar a string literal pelo
+       * mapper e pelo repositório.
+       *
+       * Mesmo `entityTypeId` que o onboarding chama de `SPA_CLIENT`
+       * (`shared/domain/config/bitrix.env.ts`): o nome de lá é o vocabulário do
+       * fluxo de instalação e fica como está.
+       */
+      aplicationEntityType: 1060,
+      /**
+       * SPA de itens de assinatura — o que uma assinatura provisiona, na prática
+       * um conector. O vínculo com a assinatura é o campo parent
+       * (`parentId1142`), montado a partir de `subscriptionEntityType`.
+       *
+       * Não tem campo de provider: são dois pares de credenciais, e o
+       * preenchimento diz qual conector é (ver `subscription-item.mapper.ts`).
+       */
+      subscriptionItemEntityType: 1146,
     },
   },
 } as const

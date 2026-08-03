@@ -8,28 +8,26 @@ import { TemplatesLista } from './templates-lista'
 import { TemplateForm } from './template-form'
 
 type Props = {
-  connectorId: string
-  authTokenKey: string
+  itemId: string
 }
 
-export function TemplatesTab({ connectorId, authTokenKey }: Props) {
+export function TemplatesTab({ itemId }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/templates')
   const { templates, loading, error, fetchTemplates, syncTemplates } =
-    useConnectorTemplates(authTokenKey)
+    useConnectorTemplates()
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {
-    void fetchTemplates(connectorId)
-  }, [connectorId, fetchTemplates])
+    void fetchTemplates(itemId)
+  }, [itemId, fetchTemplates])
 
   if (creating) {
     return (
       <TemplateForm
-        connectorId={connectorId}
-        authTokenKey={authTokenKey}
+        itemId={itemId}
         onCreated={() => {
           setCreating(false)
-          void fetchTemplates(connectorId)
+          void fetchTemplates(itemId)
         }}
         onCancel={() => setCreating(false)}
       />
@@ -44,7 +42,7 @@ export function TemplatesTab({ connectorId, authTokenKey }: Props) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => void syncTemplates(connectorId)}
+            onClick={() => void syncTemplates(itemId)}
             disabled={loading}
           >
             {t('sincronizar')}

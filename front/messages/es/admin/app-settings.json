@@ -123,6 +123,7 @@
   "instanceModalNameSaving": "Guardando...",
   "instanceModalNameSaved": "Nombre guardado exitosamente",
   "instanceModalNameError": "Error al guardar el nombre. Inténtelo de nuevo.",
+  "instanceModalSubscriptionUnavailable": "Esta línea no tiene registro de instancia en la base de datos, por lo que la suscripción on-demand de Z-API no puede modificarse aquí.",
   "instanceModalSubscribe": "Activar Suscripción",
   "instanceModalUnsubscribe": "Cancelar Suscripción",
   "instanceModalSubscribeConfirm": "¿Activar la suscripción on-demand de esta instancia en Z-API?",

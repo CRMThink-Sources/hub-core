@@ -142,7 +142,9 @@ describe('HubMessageConnectorProvider', () => {
       const client = makeClient()
       const provider = new HubMessageConnectorProvider(client, config)
 
-      const status = await provider.getConnectionStatus({ instanceId: 'chan_1' })
+      const status = await provider.getConnectionStatus({
+        instanceId: 'chan_1',
+      })
 
       expect(status).toEqual({ connected: false, available: true })
       expect(client.listBusinesses).not.toHaveBeenCalled()

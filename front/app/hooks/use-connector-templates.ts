@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react'
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
+import { APP_CODES } from '@/shared/app/app-codes'
+import { appTokenKey } from '@/shared/auth/app-token-storage'
 import { extractThinkzapError } from './extract-thinkzap-error'
 
 export type TemplateCategory = 'UTILITY' | 'MARKETING' | 'AUTHENTICATION'
@@ -28,56 +30,50 @@ export type CreateTemplatePayload = {
 }
 
 /**
- * Operações de templates de um conector oficial. Os endpoints são
- * `/thinkzap/connector/:id/templates` (list/create) e `.../sync`.
+ * Operações de templates de uma linha oficial. Os endpoints são
+ * `/thinkzap/lines/:itemId/templates` (list/create) e `.../sync`.
  */
-export function useConnectorTemplates(authTokenKey: string) {
+export function useConnectorTemplates() {
   const [templates, setTemplates] = useState<ConnectorTemplate[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchTemplates = useCallback(
-    async (connectorId: string) => {
-      setLoading(true)
-      setError(null)
-      try {
-        const client = axiosThinkzap(authTokenKey)
-        const { templates: list } = await client.get<{
-          templates: ConnectorTemplate[]
-        }>(`/thinkzap/connector/${connectorId}/templates`)
-        setTemplates(list)
-        return list
-      } catch (err: unknown) {
-        setError(extractThinkzapError(err, 'Falha ao carregar templates'))
-        setTemplates([])
-        return []
-      } finally {
-        setLoading(false)
-      }
-    },
-    [authTokenKey],
-  )
+  const fetchTemplates = useCallback(async (itemId: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
+      const { templates: list } = await client.get<{
+        templates: ConnectorTemplate[]
+      }>(`/thinkzap/lines/${encodeURIComponent(itemId)}/templates`)
+      setTemplates(list)
+      return list
+    } catch (err: unknown) {
+      setError(extractThinkzapError(err, 'Falha ao carregar templates'))
+      setTemplates([])
+      return []
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
-  const syncTemplates = useCallback(
-    async (connectorId: string) => {
-      setLoading(true)
-      setError(null)
-      try {
-        const client = axiosThinkzap(authTokenKey)
-        const { templates: list } = await client.post<{
-          templates: ConnectorTemplate[]
-        }>(`/thinkzap/connector/${connectorId}/templates/sync`)
-        setTemplates(list)
-        return list
-      } catch (err: unknown) {
-        setError(extractThinkzapError(err, 'Falha ao sincronizar templates'))
-        return []
-      } finally {
-        setLoading(false)
-      }
-    },
-    [authTokenKey],
-  )
+  const syncTemplates = useCallback(async (itemId: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
+      const { templates: list } = await client.post<{
+        templates: ConnectorTemplate[]
+      }>(`/thinkzap/lines/${encodeURIComponent(itemId)}/templates/sync`)
+      setTemplates(list)
+      return list
+    } catch (err: unknown) {
+      setError(extractThinkzapError(err, 'Falha ao sincronizar templates'))
+      return []
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   return { templates, loading, error, fetchTemplates, syncTemplates, setError }
 }
@@ -86,18 +82,18 @@ export function useConnectorTemplates(authTokenKey: string) {
  * Cadastro de template isolado do estado da lista para permitir tratamento de
  * erro próprio (mantendo os dados do formulário ao falhar).
  */
-export function useCreateTemplate(authTokenKey: string) {
+export function useCreateTemplate() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const createTemplate = useCallback(
-    async (connectorId: string, payload: CreateTemplatePayload) => {
+    async (itemId: string, payload: CreateTemplatePayload) => {
       setSaving(true)
       setError(null)
       try {
-        const client = axiosThinkzap(authTokenKey)
+        const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
         await client.post(
-          `/thinkzap/connector/${connectorId}/templates`,
+          `/thinkzap/lines/${encodeURIComponent(itemId)}/templates`,
           payload,
         )
         return true
@@ -108,7 +104,7 @@ export function useCreateTemplate(authTokenKey: string) {
         setSaving(false)
       }
     },
-    [authTokenKey],
+    [],
   )
 
   return { createTemplate, saving, error, setError }

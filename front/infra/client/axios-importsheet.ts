@@ -1,7 +1,9 @@
 import { envConfig } from '@/shared/infra/env-config'
 import axios from 'axios'
+import { APP_CODES } from '@/shared/app/app-codes'
+import { appTokenKey } from '@/shared/auth/app-token-storage'
 
-export const AUTH_TOKEN_KEY = 'hubthink_auth_token'
+export const AUTH_TOKEN_KEY = appTokenKey(APP_CODES.importsheet)
 
 export const axiosImportsheet = (authTokenKey = AUTH_TOKEN_KEY) => {
   const token = sessionStorage.getItem(authTokenKey)

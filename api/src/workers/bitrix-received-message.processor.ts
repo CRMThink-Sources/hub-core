@@ -4,10 +4,10 @@ import {
   OutboundMessageDescriptor,
   OutboundSendResult,
 } from '@/modules/thinkzap/domain/ports/outbound-message-sender.port'
-import { appIdResolver } from '@/modules/auth/presentation/controllers/helpers/app-id-resolver'
+import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { GetBitrixWebhookContextRepository } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
-import { PrismaBitrixWebhookContextRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bitrix-webhook-context.repository'
+import { makeBitrixWebhookContextRepository } from '@/modules/thinkzap/main/make-bitrix-webhook-context-repository'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
 import { isConversationWindowClosedError } from '@/modules/thinkzap/infra/adapters/is-conversation-window-closed-error'
@@ -18,6 +18,8 @@ import { ensureBitrixBotId } from '@/modules/thinkzap/application/ensure-bitrix-
 import { notifyOperatorWindowClosed } from '@/modules/thinkzap/application/notify-operator-window-closed'
 import { resolveBitrixReplyContext } from '@/modules/thinkzap/application/resolve-bitrix-reply-context'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
+import { resolveSettingsByInstanceId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
 import { redisConnection } from '@/queue/redis-connection'
 
 const log = createWorkerSourceLogger('bitrix')
@@ -169,11 +171,11 @@ export async function processBitrixReceivedMessage(
   )
 
   const bitrixWebhookContextRepo: GetBitrixWebhookContextRepository =
-    new PrismaBitrixWebhookContextRepository()
+    makeBitrixWebhookContextRepository()
 
   const context = await bitrixWebhookContextRepo.getContext({
     domainName: event.auth.domain,
-    appCode: appIdResolver[env.appCodes.thinkzap] || '',
+    appCode: resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId ?? '',
     line: event.data.LINE,
   })
 
@@ -282,7 +284,27 @@ export async function processBitrixReceivedMessage(
             ...descriptor,
             text: await prepareOpenLineOutboundText({
               text: descriptor.text || '',
-              settings: context.instance.settings,
+              /**
+               * Do item da SPA, não de `context.instance.settings`: a coluna do
+               * banco não é mais escrita desde que a configuração passou para
+               * `ufCrm93Settings`, então ler dela devolveria o valor congelado de
+               * antes da migração — o prefixo de nome se comportaria ao contrário
+               * do que a tela mostra.
+               *
+               * Resolvido aqui, e não no repositório do contexto: aquele é infra
+               * de banco, e embutir a leitura do Bitrix nele arrastaria a árvore de
+               * casos de uso para dentro de uma query.
+               */
+              settings: await resolveSettingsByInstanceId(
+                {
+                  instanceId: context.instance.instanceId,
+                  domainId: context.id,
+                  appCode:
+                    resolveByMarketplaceCode(env.appCodes.thinkzap)
+                      ?.appCodeId ?? '',
+                },
+                makeGetAplicationContext(),
+              ),
               operatorUserId: message.message.user_id,
               appId: context.app.id,
               getBitrixUserDisplayName,

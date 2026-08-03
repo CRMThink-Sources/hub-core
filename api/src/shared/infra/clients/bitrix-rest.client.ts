@@ -1,7 +1,7 @@
 import axios, { type AxiosInstance } from 'axios'
 import { getBitrixAxiosDefaults } from './bitrix-axios-config'
 import {
-  formatBitrixApiError,
+  makeBitrixApiError,
   wrapBitrixRequestError,
 } from './bitrix-http-errors'
 import { normalizeBitrixDomain } from './normalize-bitrix-domain'
@@ -38,9 +38,7 @@ export class BitrixRestClient {
         result?: unknown
       }
       if (data.error) {
-        throw new Error(
-          formatBitrixApiError(method, data.error, data.error_description),
-        )
+        throw makeBitrixApiError(method, data.error, data.error_description)
       }
       return data.result ?? data
     } catch (error) {

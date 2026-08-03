@@ -1,3 +1,6 @@
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
+import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
+import { resolveSettingsByInstanceId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
 import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { ZApiEventHandler } from '../z-api-event-handler'
@@ -45,13 +48,28 @@ export class StatusCallbackHandler implements ZApiEventHandler {
     try {
       const bitrix = await makeBitrixClientByDomainAndAppCoode(
         domain.name,
-        'crmthink.thinkzap',
+        thinkzapAppCodeId(),
       )
 
-      if (
-        instance.settings.widgetOpenChannelEnabled &&
-        instance.vinculatedChannel
-      ) {
+      /**
+       * O toggle vem do item da SPA, não de `instance.settings` — a coluna do
+       * banco não é mais escrita por ninguém, então ler dela devolveria o valor
+       * congelado de antes da migração.
+       *
+       * Resolvido pelo `instanceId` do evento; item ausente cai no default
+       * (`false`), que é o comportamento conservador: não empurra mensagem para o
+       * canal aberto de uma linha que não se sabe configurar.
+       */
+      const settings = await resolveSettingsByInstanceId(
+        {
+          instanceId: event.instanceId,
+          domainId: instance.domainId,
+          appCode: thinkzapAppCodeId(),
+        },
+        makeGetAplicationContext(),
+      )
+
+      if (settings.widgetOpenChannelEnabled && instance.vinculatedChannel) {
         const { chatId, bitrixMessageId } = await bitrix.sendToOpenChannel(
           instance.vinculatedChannel,
           env.bitrix.connector.code,

@@ -3,8 +3,8 @@ import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
-import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
-import { GetInstanceRepository } from '../../domain/repositories/get-instance.repository'
+import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import { findLineInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { ZApiClient } from '../../infra/clients/z-api.client'
 import { env } from '@/config/env'
 import { SendNotification } from '@/shared/data/contracts/send-notification'
@@ -22,8 +22,7 @@ export class BitrixRobotWebhookHandlerController extends Controller {
   constructor(
     private readonly getDomain: GetDomainRepository,
     private readonly getApp: GetInstalledAppRepository,
-    private readonly getConnector: GetConnectorRepository,
-    private readonly getInstance: GetInstanceRepository,
+    private readonly getAplicationContext: GetAplicationContext,
     private readonly sendNotification: SendNotification,
     private readonly bitrix: BitrixClient,
   ) {
@@ -46,15 +45,17 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       return this.notFound(new Error('App not found'))
     }
 
-    const connector = await this.getConnector.get(data.properties.connector)
-    if (!connector) {
-      return this.notFound(new Error('Connector not found'))
-    }
-
-    const instance = await this.getInstance.getInstance(connector.instanceId)
-    if (!instance) {
-      return this.notFound(new Error('Instance not found'))
-    }
+    /**
+     * A opção do robô carrega o **id do item de assinatura**, não o do conector —
+     * ver `syncThinkzapRobotConnectorOptions`. `Connector` saiu do caminho: linha
+     * nascida na SPA não tem row naquela tabela, então o robô não conseguia enviar
+     * por ela.
+     */
+    const context = await this.getAplicationContext.execute({
+      domainId: domain.id,
+      appCode: app.appCodeId,
+    })
+    const line = findLineInContext(context, data.properties.connector)
 
     const documentId = data.document_id[2]
     if (!documentId) {
@@ -69,8 +70,8 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     const recipients = await this.resolveRecipients(data, crmDocument)
 
     const phoneData = await this.zApiClient.getPhoneData(
-      instance.instanceId,
-      instance.zApiToken || '',
+      line.zApiInstanceId,
+      line.zApiInstanceToken,
     )
     const fromPhone = phoneData?.phone ?? 'desconhecido'
 
@@ -86,8 +87,8 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     for (const phone of recipients) {
       try {
         await this.zApiClient.sendMessage(
-          instance.instanceId,
-          instance.zApiToken || '',
+          line.zApiInstanceId,
+          line.zApiInstanceToken,
           data.properties.message,
           phone,
         )

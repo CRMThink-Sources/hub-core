@@ -1,12 +1,20 @@
 import { env } from '@/config/env'
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { ZApiClient } from '../infra/clients/z-api.client'
-import { PrismaConnectorRepository } from '../infra/persistence/repositories/prisma-connector.repository'
-import { PrismaInstanceRepository } from '../infra/persistence/repositories/prisma-instance.repository'
 
+/**
+ * Dependências das operações de grupo.
+ *
+ * `connectorRepository` saiu: a linha é resolvida pelo item de assinatura, via
+ * contexto da aplicação. `Connector` não participa mais.
+ *
+ * `instanceRepository` também saiu: o estado de conexão vem de `getInstance` na
+ * Z-API, não de `Instance.status` — ver `resolveZApiInstance`. Grupos não leem
+ * nada persistido.
+ */
 export function makeGroupZApiDeps() {
   return {
-    connectorRepository: new PrismaConnectorRepository(),
-    instanceRepository: new PrismaInstanceRepository(),
+    getAplicationContext: makeGetAplicationContext(),
     zApiClient: new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken),
   }
 }

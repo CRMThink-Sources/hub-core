@@ -135,7 +135,9 @@ export const createPortalRoutes = (
     adaptControllerFactory(createUpdateThinkzapInstanceNameController),
   )
   router.patch(
-    '/apps/:appId/thinkzap-connectors/:connectorId/event-binds',
+    // Keyed pelo item de assinatura, não por `Connector.id`: a linha é o item, e a
+    // row de conector não existe para linha criada na SPA.
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/event-binds',
     portalAuthMiddleware,
     adaptControllerFactory(
       createUpdateThinkzapConnectorEventBindsAppController,

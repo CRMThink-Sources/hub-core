@@ -1,27 +1,27 @@
-import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
-import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
+import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { ZApiGroupMetadata } from '@/modules/thinkzap/infra/clients/types/z-api.types'
 import { enrichGroupMetadata } from './helpers/enrich-group-metadata'
 import { resolveZApiInstance } from './helpers/resolve-z-api-instance'
 
 export type GetGroupMetadataInput = {
-  connectorId: string
+  /** Id do item de assinatura — a linha. */
+  subscriptionItemId: string
+  domainId: string
+  appCode: string
   groupId: string
 }
 
 export class GetGroupMetadataService {
   constructor(
-    private readonly getConnectorRepository: GetConnectorRepository,
-    private readonly getInstanceRepository: GetInstanceRepository,
+    private readonly getAplicationContext: GetAplicationContext,
     private readonly zApiClient: ZApiClient,
   ) {}
 
   async execute(input: GetGroupMetadataInput): Promise<ZApiGroupMetadata> {
     const resolved = await resolveZApiInstance(
-      input.connectorId,
-      this.getConnectorRepository,
-      this.getInstanceRepository,
+      input,
+      this.getAplicationContext,
       this.zApiClient,
     )
 
@@ -36,6 +36,7 @@ export class GetGroupMetadataService {
       this.zApiClient,
       resolved.instanceId,
       resolved.zApiToken,
+      input.groupId,
     )
   }
 }

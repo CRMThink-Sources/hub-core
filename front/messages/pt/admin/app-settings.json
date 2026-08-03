@@ -123,6 +123,7 @@
   "instanceModalNameSaving": "Salvando...",
   "instanceModalNameSaved": "Nome salvo com sucesso",
   "instanceModalNameError": "Erro ao salvar o nome. Tente novamente.",
+  "instanceModalSubscriptionUnavailable": "Esta linha não tem registro de instância no banco, então a assinatura on-demand do Z-API não pode ser alterada por aqui.",
   "instanceModalSubscribe": "Ativar Assinatura",
   "instanceModalUnsubscribe": "Cancelar Assinatura",
   "instanceModalSubscribeConfirm": "Ativar a assinatura on-demand desta instância no Z-API?",

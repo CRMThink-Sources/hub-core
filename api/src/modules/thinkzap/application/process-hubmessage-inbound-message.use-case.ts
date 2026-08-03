@@ -1,7 +1,9 @@
 import { env } from '@/config/env'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import type { HubMessageWebhookMessage } from '@/modules/thinkzap/domain/interfaces/hubmessage-events.interface'
-import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
+import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import { findLineItemByChannelId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
+import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { GetCredentialRepository } from '@/shared/domain/repositories/credential/get-credential'
@@ -34,7 +36,7 @@ const log = createWorkerSourceLogger('hubmessage')
  */
 export class ProcessHubMessageInboundMessageUseCase {
   constructor(
-    private readonly connectorRepo: GetConnectorRepository,
+    private readonly getAplicationContext: GetAplicationContext,
     private readonly instanceRepo: GetInstanceRepository,
     private readonly domainRepo: GetDomainRepository,
     private readonly appRepo: GetInstalledAppRepository,
@@ -63,38 +65,54 @@ export class ProcessHubMessageInboundMessageUseCase {
       throw new Error('Instance not found for HubMessage channel')
     }
 
-    if (!instance.vinculatedChannel) {
-      log.warn(
-        { channelId, internalInstanceId: instance.id, messageId: message._id },
-        'Instance has no vinculated channel',
-      )
-      throw new Error('Instance has no vinculated channel')
-    }
-
-    const connector = await this.connectorRepo.getConnectorByInstanceId(
-      instance.id,
+    /**
+     * A linha vem do **item de assinatura**, não de `Connector`.
+     *
+     * `Connector` servia para o guard de provider e para `appId`; o item dá os dois
+     * — e de forma mais forte, porque ele declara o provider por qual par de
+     * credencial está preenchido. Exigir a row fazia toda linha nascida na SPA
+     * falhar com "Connector not found for instance".
+     *
+     * A row de `Instance` **continua** sendo o ponto de entrada: o webhook da
+     * HubMessage entrega só `channel_id`, e ela é o único índice de canal →
+     * instalação. Sem ela não há `domainId` para resolver o item.
+     */
+    const item = await findLineItemByChannelId(
+      {
+        channelId,
+        domainId: instance.domainId,
+        appCode: thinkzapAppCodeId(),
+      },
+      this.getAplicationContext,
     )
-    if (!connector) {
+
+    /**
+     * Item ausente cobre também o antigo guard de "conector não-oficial": a busca
+     * filtra por `provider === HUBMESSAGE`, então canal que resolve para uma linha
+     * Z-API simplesmente não corresponde. Uma checagem de provider depois disso
+     * seria inalcançável.
+     */
+    if (!item) {
       log.warn(
         { channelId, internalInstanceId: instance.id, messageId: message._id },
-        'Connector not found for instance',
-      )
-      throw new Error('Connector not found for instance')
-    }
-
-    if (connector.provider !== ConnectorProvider.HUBMESSAGE) {
-      log.error(
-        {
-          channelId,
-          internalInstanceId: instance.id,
-          messageId: message._id,
-          provider: connector.provider,
-        },
-        'HubMessage message on a non-official connector — refusing to process',
+        'Nenhuma linha HubMessage corresponde a este canal — recusando processar',
       )
       throw new Error(
-        `Mensagem HubMessage em conector ${connector.provider} — esperado HUBMESSAGE`,
+        `Nenhuma linha HUBMESSAGE vinculada ao canal "${channelId}"`,
       )
+    }
+
+    /**
+     * Vínculo do item: a coluna homônima da row deixou de ser escrita quando o
+     * canal aberto passou para `ufCrm93Conector`.
+     */
+    const { vinculatedChannel } = item
+    if (!vinculatedChannel) {
+      log.warn(
+        { channelId, subscriptionItemId: item.id, messageId: message._id },
+        'Linha sem canal aberto vinculado',
+      )
+      throw new Error('Instance has no vinculated channel')
     }
 
     const alreadyProcessed = await this.messageRepo.findByProviderMessageId(
@@ -130,14 +148,23 @@ export class ProcessHubMessageInboundMessageUseCase {
     }
 
     const { domainId } = instance
-    const { appId } = connector
+    if (!domainId) {
+      throw new Error('Domain ID is required')
+    }
 
-    if (!domainId || !appId) {
-      throw new Error('Domain ID and app ID are required')
+    // `appId` vinha de `Connector`; a instalação é alcançável pelo par canônico.
+    const installedApp = await this.appRepo.getByAppCodeAndDomainId(
+      thinkzapAppCodeId(),
+      domainId,
+    )
+    if (!installedApp) {
+      throw new Error(
+        `Instalação não encontrada: domínio "${domainId}", app "${thinkzapAppCodeId()}"`,
+      )
     }
 
     const domain = await this.domainRepo.getDomainById(domainId)
-    const app = await this.appRepo.getById(appId)
+    const app = await this.appRepo.getById(installedApp.id)
 
     if (!app) {
       throw new Error('App not found')
@@ -166,7 +193,7 @@ export class ProcessHubMessageInboundMessageUseCase {
 
     const params: ISendMessageData = {
       CONNECTOR: env.bitrix.connector.code,
-      LINE: Number(instance.vinculatedChannel),
+      LINE: Number(vinculatedChannel),
       MESSAGES: [
         {
           chat: {

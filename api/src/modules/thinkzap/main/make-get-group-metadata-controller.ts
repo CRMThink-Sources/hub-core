@@ -4,14 +4,9 @@ import { GetGroupMetadataController } from '../presentation/controllers/get-grou
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
 export const makeGetGroupMetadataController = (): Controller => {
-  const { connectorRepository, instanceRepository, zApiClient } =
-    makeGroupZApiDeps()
+  const { getAplicationContext, zApiClient } = makeGroupZApiDeps()
 
-  const service = new GetGroupMetadataService(
-    connectorRepository,
-    instanceRepository,
-    zApiClient,
-  )
+  const service = new GetGroupMetadataService(getAplicationContext, zApiClient)
 
   return new GetGroupMetadataController(service)
 }

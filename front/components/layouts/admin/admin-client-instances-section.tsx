@@ -7,11 +7,18 @@ import { Button } from '@/components/ui/button'
 import { axiosPortal } from '@/infra/client/axios-portal'
 import { AdminInstanceConfigModal } from './admin-instance-config-modal'
 
+/**
+ * A linha é o **item de assinatura**: `subscriptionItemId` é a chave estável, a
+ * mesma que a tela do tenant usa. `connectorId`, `connectorStatus` e `instanceDbId`
+ * vêm das tabelas antigas e são `null` para linha criada direto na SPA — as ações
+ * que dependem delas ficam indisponíveis, mas a linha aparece na lista.
+ */
 export type ThinkzapInstanceItem = {
-  connectorId: string
-  connectorStatus: string
+  subscriptionItemId: string
+  connectorId: string | null
+  connectorStatus: string | null
   provider: string
-  instanceDbId: string
+  instanceDbId: string | null
   instanceId: string
   vinculatedChannel: string | null
   status: string | null
@@ -91,13 +98,15 @@ export function AdminClientInstancesSection({ appId }: Props) {
       return {
         kind: 'ready',
         instances: prev.instances.map(i =>
-          i.instanceDbId === updated.instanceDbId ? { ...i, ...updated } : i,
+          i.subscriptionItemId === updated.subscriptionItemId
+            ? { ...i, ...updated }
+            : i,
         ),
       }
     })
     if (
       selectedInstance &&
-      updated.instanceDbId === selectedInstance.instanceDbId
+      updated.subscriptionItemId === selectedInstance.subscriptionItemId
     ) {
       setSelectedInstance(prev => (prev ? { ...prev, ...updated } : prev))
     }
@@ -191,7 +200,7 @@ export function AdminClientInstancesSection({ appId }: Props) {
               <tbody>
                 {state.instances.map(instance => (
                   <tr
-                    key={instance.instanceDbId}
+                    key={instance.subscriptionItemId}
                     className="border-b border-border last:border-0"
                   >
                     <td className="px-4 py-3">

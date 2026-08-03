@@ -15,7 +15,10 @@
     "worker:importsheet": "tsx src/modules/importsheet/worker/importsheet.worker.ts",
     "worker:clicksign": "tsx src/modules/clicksign/infra/worker/clicksign.worker.ts",
     "register:audio-imbot": "tsx src/scripts/register-audio-imbot.ts",
-    "create:portal-user": "tsx src/scripts/create-portal-user.ts"
+    "create:portal-user": "tsx src/scripts/create-portal-user.ts",
+    "backfill:aplication-spa-id": "tsx src/scripts/backfill-aplication-spa-id.ts",
+    "backfill:message-provider-instance-id": "tsx src/scripts/backfill-message-provider-instance-id.ts",
+    "backfill:connector-settings-to-spa": "tsx src/scripts/backfill-connector-settings-to-spa.ts"
   },
   "dependencies": {
     "@bull-board/api": "^7.0.0",

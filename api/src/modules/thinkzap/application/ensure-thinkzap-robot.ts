@@ -1,4 +1,5 @@
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
+import { logger } from '@/shared/infra/logger'
 import {
   buildThinkzapRobotAddParams,
   buildThinkzapRobotUpdateParams,
@@ -24,7 +25,9 @@ export class EnsureThinkzapRobot {
     if (!addParams.HANDLER) {
       return 'skipped'
     }
-    console.log('Ensuring Thinkzap robot with params:', addParams)
+
+    logger.info({ code: addParams.CODE }, 'ensuring thinkzap bizproc robot')
+
     try {
       const added = await client.callMethod('bizproc.robot.add', addParams)
 

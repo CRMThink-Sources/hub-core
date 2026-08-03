@@ -39,7 +39,12 @@ describe('HubmessageWebhookHandlerController', () => {
     expect(response.status).toBe(200)
     expect(enqueueMock).toHaveBeenCalledTimes(1)
 
-    const [job, opts] = enqueueMock.mock.calls[0]!
+    // Tipado na desestruturação: `mock.calls` é `any[]`, e sem isto o `opts.jobId`
+    // abaixo viraria acesso a `any`.
+    const [job, opts] = enqueueMock.mock.calls[0] as [
+      unknown,
+      { jobId: string },
+    ]
     expect(job).toMatchObject({
       source: 'hubmessage',
       type: 'NEW_MESSAGE',

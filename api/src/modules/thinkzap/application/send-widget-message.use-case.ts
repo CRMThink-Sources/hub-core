@@ -1,4 +1,7 @@
-import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
+import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
+import { ensureLineInstance } from './helpers/ensure-line-instance'
+import { findLineInContext } from './helpers/resolve-line-by-subscription-item'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { convertToMp3 } from '@/shared/helpers/convert-to-mp3'
@@ -18,8 +21,9 @@ import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositori
 
 export class SendWidgetMessageUseCase {
   constructor(
-    private readonly getConnectorRepository: GetConnectorRepository,
-    private readonly getInstanceRepository: GetInstanceRepository,
+    private readonly getAplicationContext: GetAplicationContext,
+    private readonly instances: GetInstanceRepository &
+      CreateInstanceRepository,
     private readonly zApiClient: ZApiClient,
     private readonly sendBitrixNotification: SendNotification,
     private readonly messageRepository: PrismaThinkzapMessageRepository,
@@ -30,7 +34,9 @@ export class SendWidgetMessageUseCase {
     input: SendWidgetMessageInput,
   ): Promise<SendWidgetMessageResult> {
     const {
-      connectorId,
+      subscriptionItemId,
+      domainId,
+      appCode,
       destination,
       message,
       attachments = [],
@@ -42,24 +48,33 @@ export class SendWidgetMessageUseCase {
       throw new Error('Message or at least one attachment is required')
     }
 
-    const connector = await this.getConnectorRepository.get(connectorId)
-    if (!connector) {
-      throw new Error('Connector not found')
-    }
+    /**
+     * A linha vem do item de assinatura. `Connector` saiu: linha nascida direto na
+     * SPA não tem row naquela tabela, e o widget passou a identificar a linha pelo
+     * id do item.
+     *
+     * A autorização sai de graça: o contexto é resolvido pelo par (`domainId`,
+     * `appCode`) do JWT, então item de outra instalação não está na árvore.
+     */
+    const context = await this.getAplicationContext.execute({
+      domainId,
+      appCode,
+    })
+    const line = findLineInContext(context, subscriptionItemId)
 
-    const instance = await this.getInstanceRepository.getInstance(
-      connector.instanceId,
+    /**
+     * A âncora de `Instance` existe porque a mensagem persistida tem chave
+     * estrangeira para `Instance.id`. Criada quando falta — ver `ensureLineInstance`.
+     */
+    const instance = await ensureLineInstance(
+      line.item,
+      domainId,
+      this.instances,
     )
-    if (!instance) {
-      throw new Error('Instance not found')
-    }
-    if (!instance.zApiToken) {
-      throw new Error('Instance token not found')
-    }
 
     const phoneData = await this.zApiClient.getPhoneData(
-      instance.instanceId,
-      instance.zApiToken,
+      line.zApiInstanceId,
+      line.zApiInstanceToken,
     )
 
     const normalizedPhone = normalizePhoneNumber(destination)
@@ -71,8 +86,8 @@ export class SendWidgetMessageUseCase {
 
     if (message?.trim()) {
       const result = await this.zApiClient.sendMessage(
-        instance.instanceId,
-        instance.zApiToken,
+        line.zApiInstanceId,
+        line.zApiInstanceToken,
         message.trim(),
         normalizedPhone,
       )
@@ -83,8 +98,8 @@ export class SendWidgetMessageUseCase {
     for (const attachment of attachments) {
       const messageId = await this.sendAttachment(
         attachment,
-        instance.instanceId,
-        instance.zApiToken,
+        line.zApiInstanceId,
+        line.zApiInstanceToken,
         normalizedPhone,
       )
       sentMessageIds.push(messageId)

@@ -66,9 +66,12 @@ describe('ZApiOutboundSender', () => {
     const client = makeClient()
     const sender = new ZApiOutboundSender(client as never, config)
 
-    await sender.send({ kind: 'text', text: 'Ola' }, {
-      referencedMessageId: 'ZAPI-ANTERIOR',
-    })
+    await sender.send(
+      { kind: 'text', text: 'Ola' },
+      {
+        referencedMessageId: 'ZAPI-ANTERIOR',
+      },
+    )
 
     expect(client.sendMessage).toHaveBeenCalledWith(
       'INST-A',

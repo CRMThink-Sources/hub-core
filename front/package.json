@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node ../api/node_modules/vitest/vitest.mjs run",
-    "test:watch": "node ../api/node_modules/vitest/vitest.mjs"
+    "test": "node node_modules/vitest/vitest.mjs run",
+    "test:watch": "node node_modules/vitest/vitest.mjs",
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@base-ui/react": "1.0.0",
@@ -49,6 +50,7 @@
     "prettier": "^3.5.3",
     "tailwindcss": "4.2.2",
     "typescript": "^5",
-    "typescript-eslint": "^8.32.0"
+    "typescript-eslint": "^8.32.0",
+    "vitest": "^4.1.7"
   }
 }

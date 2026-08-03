@@ -4,12 +4,10 @@ import { RemoveGroupParticipantsController } from '../presentation/controllers/r
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
 export const makeRemoveGroupParticipantsController = (): Controller => {
-  const { connectorRepository, instanceRepository, zApiClient } =
-    makeGroupZApiDeps()
+  const { getAplicationContext, zApiClient } = makeGroupZApiDeps()
 
   const service = new RemoveGroupParticipantsService(
-    connectorRepository,
-    instanceRepository,
+    getAplicationContext,
     zApiClient,
   )
 

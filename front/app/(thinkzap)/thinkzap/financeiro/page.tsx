@@ -3,13 +3,11 @@
 import GestaoLinhas from '@/app/(thinkzap)/thinkzap/_layout/gestao-linhas-layout'
 import HistoricoPagamentos from '@/app/(thinkzap)/thinkzap/_layout/historico-pagamentos-layout'
 import { useState } from 'react'
-import { useSession } from '@/providers/session-provider'
 import { useTranslation } from 'react-i18next'
 
 type TabType = 'gestao' | 'historico'
 
 export default function PagamentosPage() {
-  const { session } = useSession()
   const [activeTab, setActiveTab] = useState<TabType>('gestao')
   const { t } = useTranslation('thinkzap/financeiro')
 

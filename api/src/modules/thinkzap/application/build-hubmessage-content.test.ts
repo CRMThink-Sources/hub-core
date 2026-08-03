@@ -144,9 +144,7 @@ describe('buildHubMessageContent', () => {
         contents: [
           {
             type: 'CONTACT_ARRAY',
-            contacts: [
-              { name: 'Ryan Andrade', phones: ['5544997294496'] },
-            ],
+            contacts: [{ name: 'Ryan Andrade', phones: ['5544997294496'] }],
           },
         ],
       }),

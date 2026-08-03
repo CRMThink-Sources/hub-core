@@ -1,0 +1,109 @@
+import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { GetLineConnection } from './get-line-connection'
+import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
+import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+
+const zapiItem: SubscriptionItem = {
+  id: 'i1',
+  name: 'Linha comercial',
+  subscription: 'sub-1',
+  status: 'active',
+  settings: { ...DEFAULT_CONNECTOR_SETTINGS },
+  vinculatedChannel: null,
+  metadata: {
+    provider: 'ZAPI',
+    zApiInstanceId: 'Z-1',
+    zApiInstanceToken: 'TOKEN-SECRETO',
+  },
+}
+
+const input = {
+  subscriptionItemId: 'i1',
+  domainId: 'domain-1',
+  appCode: 'crmthink.thinkzap',
+}
+
+function makeSut() {
+  const execute = vi.fn().mockResolvedValue({
+    customer: { id: 'domain-1' },
+    aplication: { id: 'installed-1', spaId: '42' },
+    subscriptions: [{ id: 'sub-1', items: [zapiItem] }],
+  })
+  const getInstanceByInstanceId = vi.fn().mockResolvedValue(null)
+  const getInstance = vi
+    .fn()
+    .mockResolvedValue({ connected: true, name: 'Instancia', token: 'tk' })
+  const getPhoneData = vi.fn().mockResolvedValue({ phone: '5511999998888' })
+
+  return {
+    execute,
+    getInstance,
+    getPhoneData,
+    sut: new GetLineConnection(
+      { execute } as never,
+      { getInstance, getPhoneData } as never,
+    ),
+  }
+}
+
+describe('GetLineConnection', () => {
+  let ctx: ReturnType<typeof makeSut>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    ctx = makeSut()
+  })
+
+  it('lê o estado da instância com a credencial resolvida do item', async () => {
+    await ctx.sut.execute(input)
+
+    expect(ctx.getInstance).toHaveBeenCalledWith('Z-1', 'TOKEN-SECRETO')
+  })
+
+  it('lê os dados do aparelho quando conectada', async () => {
+    const reading = await ctx.sut.execute(input)
+
+    expect(ctx.getPhoneData).toHaveBeenCalledWith('Z-1', 'TOKEN-SECRETO')
+    expect(reading.phone).toMatchObject({ phone: '5511999998888' })
+  })
+
+  it('NÃO lê os dados do aparelho quando desconectada', async () => {
+    ctx.getInstance.mockResolvedValue({ connected: false, token: 'tk' })
+
+    const reading = await ctx.sut.execute(input)
+
+    expect(ctx.getPhoneData).not.toHaveBeenCalled()
+    expect(reading.phone).toBeNull()
+  })
+
+  it('degrada quando a leitura do aparelho devolve null', async () => {
+    ctx.getPhoneData.mockResolvedValue(null)
+
+    const reading = await ctx.sut.execute(input)
+
+    expect(reading.instance).toMatchObject({ connected: true })
+    expect(reading.phone).toBeNull()
+  })
+
+  it('propaga falha da leitura da instância em vez de dizer desconectada', async () => {
+    ctx.getInstance.mockRejectedValue(new Error('Failed to get instance data'))
+
+    await expect(ctx.sut.execute(input)).rejects.toThrow(
+      'Failed to get instance data',
+    )
+  })
+
+  it('propaga LineNotFoundError sem chamar a Z-API', async () => {
+    await expect(
+      ctx.sut.execute({ ...input, subscriptionItemId: 'de-outro' }),
+    ).rejects.toBeInstanceOf(LineNotFoundError)
+    expect(ctx.getInstance).not.toHaveBeenCalled()
+  })
+
+  it('funciona com linha não provisionada — a credencial vem do item', async () => {
+    const reading = await ctx.sut.execute(input)
+
+    expect(reading.instance).toMatchObject({ connected: true })
+  })
+})

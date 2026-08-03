@@ -4,7 +4,8 @@
   "status": {
     "ativo": "Activo",
     "inativo": "Inactivo",
-    "aguardandoConexao": "Esperando conexión"
+    "aguardandoConexao": "Esperando conexión",
+    "cancelado": "Cancelado"
   },
   "conexao": {
     "sucesso": "Número conectado con éxito",
@@ -25,5 +26,6 @@
     "vincularCanal": "Vincular canal",
     "desvincularCanal": "Desvincular canal",
     "cancelarConector": "Cancelar conector"
-  }
+  },
+  "semPlano": "Sin plan"
 }

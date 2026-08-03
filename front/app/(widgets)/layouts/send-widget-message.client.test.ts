@@ -8,7 +8,7 @@ describe('buildSendWidgetFormData', () => {
     })
 
     const formData = buildSendWidgetFormData({
-      connectorId: 'connector-1',
+      subscriptionItemId: 'i1',
       destination: '5511999999999',
       message: 'Ola',
       entity: 'deal',
@@ -22,7 +22,7 @@ describe('buildSendWidgetFormData', () => {
       ],
     })
 
-    expect(formData.get('connectorId')).toBe('connector-1')
+    expect(formData.get('subscriptionItemId')).toBe('i1')
     expect(formData.get('destination')).toBe('5511999999999')
     expect(formData.get('message')).toBe('Ola')
     expect(formData.get('entity')).toBe('deal')

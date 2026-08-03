@@ -1,28 +1,16 @@
 'use client'
 
-import { useConnectors } from '@/app/hooks/use-connectors'
+import type { SubscriptionLine } from '@/shared/aplication/subscription-items'
 import { ConexaoRow } from './conexao-row'
 import { useTranslation } from 'react-i18next'
 
-type Connector = any
-
-type ConnectorsControl = ReturnType<typeof useConnectors>
-
 type Props = {
-  conectores: Connector[] | undefined
-  control: ConnectorsControl
-  fetchQrCode: (connectorId: string) => Promise<void>
-  onSolicitarCancelamento: (payload: { id: string; nome: string }) => void
+  linhas: SubscriptionLine[] | undefined
 }
 
-export function ConexoesTabelaConectores({
-  conectores,
-  control,
-  fetchQrCode,
-  onSolicitarCancelamento,
-}: Props) {
+export function ConexoesTabelaConectores({ linhas }: Props) {
   const { t } = useTranslation('thinkzap/conexoes/tabela-conectores')
-  const lista = conectores ?? []
+  const lista = linhas ?? []
   const ultimoIndice = lista.length - 1
 
   return (
@@ -38,21 +26,13 @@ export function ConexoesTabelaConectores({
             {t('colunas.status')}
           </span>
         </div>
-        <div className="flex w-16 justify-end">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('colunas.acoes')}
-          </span>
-        </div>
       </div>
 
-      {lista.map((conn, index) => (
+      {lista.map((linha, index) => (
         <ConexaoRow
-          key={conn.id}
-          conn={conn}
+          key={linha.id}
+          linha={linha}
           showBorderBottom={index !== ultimoIndice}
-          control={control}
-          fetchQrCode={fetchQrCode}
-          onSolicitarCancelamento={onSolicitarCancelamento}
         />
       ))}
     </div>

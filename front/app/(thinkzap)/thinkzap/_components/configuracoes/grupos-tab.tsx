@@ -12,12 +12,11 @@ import { GruposLista } from './grupos-lista'
 type View = 'lista' | 'criar' | 'detalhe'
 
 type Props = {
-  connectorId: string
+  itemId: string
   isConnected: boolean
-  authTokenKey: string
 }
 
-export function GruposTab({ connectorId, isConnected, authTokenKey }: Props) {
+export function GruposTab({ itemId, isConnected }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/grupos')
   const [view, setView] = useState<View>('lista')
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
@@ -26,31 +25,31 @@ export function GruposTab({ connectorId, isConnected, authTokenKey }: Props) {
     groupName: string
   } | null>(null)
 
-  const { groups, loading, error, page, pageSize, fetchGroups } =
-    useListGroups(authTokenKey)
+  const { groups, loading, error, page, hasNextPage, fetchGroups } =
+    useListGroups()
   const {
     leaveGroup,
     loading: leaving,
     error: leaveError,
-  } = useGroupMutations(authTokenKey)
+  } = useGroupMutations()
 
   const loadList = useCallback(
     (targetPage = page) => {
-      void fetchGroups(connectorId, targetPage)
+      void fetchGroups(itemId, targetPage)
     },
-    [connectorId, fetchGroups, page],
+    [itemId, fetchGroups, page],
   )
 
   useEffect(() => {
     if (view === 'lista' && isConnected) {
-      void fetchGroups(connectorId, 1)
+      void fetchGroups(itemId, 1)
     }
-  }, [view, isConnected, connectorId, fetchGroups])
+  }, [view, isConnected, itemId, fetchGroups])
 
   const handleLeaveFromList = async () => {
     if (!leaveTarget) return
     const ok = await leaveGroup({
-      connectorId,
+      itemId,
       groupId: leaveTarget.groupId,
     })
     if (ok) {
@@ -70,9 +69,8 @@ export function GruposTab({ connectorId, isConnected, authTokenKey }: Props) {
   if (view === 'criar') {
     return (
       <CriarGrupoTab
-        connectorId={connectorId}
+        itemId={itemId}
         isConnected={isConnected}
-        authTokenKey={authTokenKey}
         onBack={() => {
           setView('lista')
           loadList(1)
@@ -88,9 +86,8 @@ export function GruposTab({ connectorId, isConnected, authTokenKey }: Props) {
   if (view === 'detalhe' && selectedGroupId) {
     return (
       <GrupoDetalhePanel
-        connectorId={connectorId}
+        itemId={itemId}
         groupId={selectedGroupId}
-        authTokenKey={authTokenKey}
         onBack={() => {
           setSelectedGroupId(null)
           setView('lista')
@@ -112,6 +109,7 @@ export function GruposTab({ connectorId, isConnected, authTokenKey }: Props) {
         loading={loading}
         error={error ?? leaveError}
         page={page}
+        hasNextPage={hasNextPage}
         onEdit={groupId => {
           setSelectedGroupId(groupId)
           setView('detalhe')
@@ -119,10 +117,10 @@ export function GruposTab({ connectorId, isConnected, authTokenKey }: Props) {
         onLeave={(groupId, groupName) => setLeaveTarget({ groupId, groupName })}
         onCreateNew={() => setView('criar')}
         onPrevPage={() => {
-          if (page > 1) void fetchGroups(connectorId, page - 1)
+          if (page > 1) void fetchGroups(itemId, page - 1)
         }}
         onNextPage={() => {
-          if (groups.length >= pageSize) void fetchGroups(connectorId, page + 1)
+          if (hasNextPage) void fetchGroups(itemId, page + 1)
         }}
         labels={{
           titulo: t('lista.titulo'),

@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react'
 import { SessionProvider } from '@/providers/session-provider'
-import { envConfig } from '@/shared/infra/env-config'
+import { AplicationProvider } from '@/providers/aplication-provider'
+import { APP_CODES } from '@/shared/app/app-codes'
 import { Montserrat } from 'next/font/google'
 import { Aside } from '@/components/layouts/shared/aside/aside'
 import { IMPORTSHEET_ASIDE_CONFIG } from '@/components/layouts/shared/aside/importsheet-aside-config'
@@ -29,19 +30,21 @@ export default function ImportSheetLayout({
     setLocale(code)
   }
   return (
-    <SessionProvider appCode={envConfig.appCodes.importsheet}>
-      <div
-        className={`${IMPORTSHEET_THEME_CLASS} ${montSerrat.variable} flex min-h-screen w-full`}
-        style={{ fontFamily: 'var(--font-montserrat)' }}
-      >
-        <Aside
-          {...IMPORTSHEET_ASIDE_CONFIG}
-          onLanguageChange={handleLanguageChange}
-        />
-        <main className="ml-64 w-full flex flex-col bg-white min-h-screen relative">
-          {children}
-        </main>
-      </div>
-    </SessionProvider>
+    <AplicationProvider appCode={APP_CODES.importsheet}>
+      <SessionProvider appCode={APP_CODES.importsheet}>
+        <div
+          className={`${IMPORTSHEET_THEME_CLASS} ${montSerrat.variable} flex min-h-screen w-full`}
+          style={{ fontFamily: 'var(--font-montserrat)' }}
+        >
+          <Aside
+            {...IMPORTSHEET_ASIDE_CONFIG}
+            onLanguageChange={handleLanguageChange}
+          />
+          <main className="ml-64 w-full flex flex-col bg-white min-h-screen relative">
+            {children}
+          </main>
+        </div>
+      </SessionProvider>
+    </AplicationProvider>
   )
 }

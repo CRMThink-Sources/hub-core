@@ -19,9 +19,11 @@ function rawTemplate(overrides: Partial<HubMessageTemplate> = {}) {
 function makeClient(overrides: Partial<HubMessageClient> = {}) {
   return {
     listTemplates: vi.fn().mockResolvedValue({ data: [rawTemplate()] }),
-    createTemplate: vi
-      .fn()
-      .mockResolvedValue({ id: 'tpl_1', status: 'PENDING', category: 'UTILITY' }),
+    createTemplate: vi.fn().mockResolvedValue({
+      id: 'tpl_1',
+      status: 'PENDING',
+      category: 'UTILITY',
+    }),
     syncTemplates: vi.fn().mockResolvedValue({ data: [rawTemplate()] }),
     ...overrides,
   } as unknown as HubMessageClient

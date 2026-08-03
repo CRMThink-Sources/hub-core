@@ -102,9 +102,12 @@ describe('HubMessageOutboundSender', () => {
   })
 
   it('referencedMessageId é ignorado e não vaza para o payload', async () => {
-    await sender.send({ kind: 'text', text: 'Ola' }, {
-      referencedMessageId: 'HM-ANTERIOR',
-    })
+    await sender.send(
+      { kind: 'text', text: 'Ola' },
+      {
+        referencedMessageId: 'HM-ANTERIOR',
+      },
+    )
 
     expect(client.sendMessage).toHaveBeenCalledWith('CH-123', {
       recipient: { identifier: '5511999999999' },

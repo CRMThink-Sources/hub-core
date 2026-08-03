@@ -29,7 +29,7 @@ describe('SendWidgetMessageMultipartController', () => {
   it('returns 400 when attachmentsMeta is invalid JSON', async () => {
     const req = {
       body: {
-        connectorId: 'c1',
+        subscriptionItemId: 'i1',
         destination: '5511999999999',
         entity: 'deal',
         entityId: '1',
@@ -53,7 +53,7 @@ describe('SendWidgetMessageMultipartController', () => {
   it('returns 400 when files count does not match attachmentsMeta', async () => {
     const req = {
       body: {
-        connectorId: 'c1',
+        subscriptionItemId: 'i1',
         destination: '5511999999999',
         entity: 'deal',
         entityId: '1',
@@ -71,7 +71,7 @@ describe('SendWidgetMessageMultipartController', () => {
   it('converts audio buffer to mp3 and sends message', async () => {
     const req = {
       body: {
-        connectorId: 'c1',
+        subscriptionItemId: 'i1',
         destination: '5511999999999',
         message: 'Oi',
         entity: 'deal',
@@ -95,7 +95,7 @@ describe('SendWidgetMessageMultipartController', () => {
     )
     expect(execute).toHaveBeenCalledWith(
       expect.objectContaining({
-        connectorId: 'c1',
+        subscriptionItemId: 'i1',
         attachments: [
           expect.objectContaining({
             kind: 'audio',

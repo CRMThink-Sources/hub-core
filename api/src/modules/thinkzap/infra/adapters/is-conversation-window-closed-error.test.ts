@@ -4,7 +4,13 @@ import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.
 import { isConversationWindowClosedError } from './is-conversation-window-closed-error'
 
 function makeApiError(status: number | undefined, body: unknown) {
-  return new HubMessageApiError(status, 'POST', '/v1/channels/CH/messages', body, null)
+  return new HubMessageApiError(
+    status,
+    'POST',
+    '/v1/channels/CH/messages',
+    body,
+    null,
+  )
 }
 
 describe('isConversationWindowClosedError', () => {

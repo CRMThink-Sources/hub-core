@@ -33,21 +33,14 @@ function extractVariables(text: string): number[] {
 }
 
 type Props = {
-  connectorId: string
-  authTokenKey: string
+  itemId: string
   onCreated: () => void
   onCancel: () => void
 }
 
-export function TemplateForm({
-  connectorId,
-  authTokenKey,
-  onCreated,
-  onCancel,
-}: Props) {
+export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/templates')
-  const { createTemplate, saving, error, setError } =
-    useCreateTemplate(authTokenKey)
+  const { createTemplate, saving, error, setError } = useCreateTemplate()
 
   const [name, setName] = useState('')
   const [category, setCategory] = useState<TemplateCategory>('UTILITY')
@@ -102,7 +95,7 @@ export function TemplateForm({
         : []),
     ]
 
-    const ok = await createTemplate(connectorId, {
+    const ok = await createTemplate(itemId, {
       name,
       category,
       language,

@@ -92,9 +92,8 @@ function findSupportedAttachment(
 ): HubMessageAttachment | null {
   if (!attachments?.length) return null
   return (
-    attachments.find(
-      item => item?.url && item.type in ATTACHMENT_DEFAULTS,
-    ) ?? null
+    attachments.find(item => item?.url && item.type in ATTACHMENT_DEFAULTS) ??
+    null
   )
 }
 

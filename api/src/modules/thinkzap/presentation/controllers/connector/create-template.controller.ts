@@ -9,6 +9,7 @@ import {
 } from '@/modules/thinkzap/application/create-connector-template'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { handleTemplateError } from './list-templates.controller'
+import { parseLineRequest } from '../line/line-request'
 
 const componentSchema = z
   .object({
@@ -24,20 +25,13 @@ const bodySchema = z.object({
   components: z.array(componentSchema).min(1),
 })
 
-/** `POST /thinkzap/connector/:id/templates` — cadastra template do conector. */
+/** `POST /thinkzap/lines/:itemId/templates` — cadastra template da linha. */
 export class CreateTemplateController extends Controller {
   constructor(private readonly useCase: CreateConnectorTemplateUseCase) {
     super()
   }
 
   async perform(req: Request): Promise<httpResponse> {
-    const idResult = z
-      .object({ id: z.string().min(1) })
-      .safeParse(req.params)
-    if (!idResult.success) {
-      return this.badRequest(new Error('Invalid request: connector id ausente'))
-    }
-
     const body = bodySchema.safeParse(req.body)
     if (!body.success) {
       return this.badRequest(
@@ -47,7 +41,7 @@ export class CreateTemplateController extends Controller {
 
     try {
       const created = await this.useCase.execute({
-        connectorId: idResult.data.id,
+        ...parseLineRequest(req),
         name: body.data.name,
         category: body.data.category,
         language: body.data.language,

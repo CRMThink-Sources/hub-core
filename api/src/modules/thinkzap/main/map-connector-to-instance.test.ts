@@ -8,6 +8,26 @@ import {
 } from '../domain/ports/whatsapp-connector-provider.port'
 import { MapConnectorToInstance } from './map-connector-to-instance'
 
+/**
+ * `MapConnectorToInstance` devolve `Promise<any>` — a serialização mistura o payload
+ * da Z-API com campos montados à mão e nunca teve tipo. Este é o contrato que os
+ * asserts abaixo dependem; sem ele, cada acesso vira `no-unsafe-member-access`.
+ */
+type MappedConnector = {
+  id: string
+  instanceId: string
+  appId: string
+  provider: ConnectorProvider
+  phoneData: unknown
+  instance: { connected: boolean; paidStatus: string; channelId: string | null }
+}
+
+const mapHub = (
+  connector: Connector,
+  resolver: ConnectorProviderResolver,
+): Promise<MappedConnector> =>
+  MapConnectorToInstance(connector, resolver) as Promise<MappedConnector>
+
 function fakeResolver(
   status: ConnectorConnectionStatus,
 ): ConnectorProviderResolver {
@@ -17,7 +37,9 @@ function fakeResolver(
   return { resolve: () => provider }
 }
 
-function hubConnector(overrides: Partial<Connector['instance']> = {}): Connector {
+function hubConnector(
+  overrides: Partial<Connector['instance']> = {},
+): Connector {
   return {
     id: 'conn_1',
     instanceId: 'chan_1',
@@ -38,7 +60,7 @@ describe('MapConnectorToInstance (HubMessage)', () => {
   it('usa o status ao vivo quando disponível', async () => {
     const resolver = fakeResolver({ connected: true, available: true })
 
-    const result = await MapConnectorToInstance(hubConnector(), resolver)
+    const result = await mapHub(hubConnector(), resolver)
 
     expect(result.provider).toBe(ConnectorProvider.HUBMESSAGE)
     expect(result.instance.connected).toBe(true)
@@ -47,7 +69,7 @@ describe('MapConnectorToInstance (HubMessage)', () => {
   it('vivo desconectado sobrepõe o status persistido CONNECTED', async () => {
     const resolver = fakeResolver({ connected: false, available: true })
 
-    const result = await MapConnectorToInstance(
+    const result = await mapHub(
       hubConnector({ status: InstanceStatus.CONNECTED } as never),
       resolver,
     )
@@ -58,11 +80,11 @@ describe('MapConnectorToInstance (HubMessage)', () => {
   it('fallback ao status persistido quando a consulta indisponível', async () => {
     const resolver = fakeResolver({ connected: false, available: false })
 
-    const connected = await MapConnectorToInstance(
+    const connected = await mapHub(
       hubConnector({ status: InstanceStatus.CONNECTED } as never),
       resolver,
     )
-    const disconnected = await MapConnectorToInstance(
+    const disconnected = await mapHub(
       hubConnector({ status: InstanceStatus.CONNECTING } as never),
       resolver,
     )
@@ -74,7 +96,7 @@ describe('MapConnectorToInstance (HubMessage)', () => {
   it('preserva o shape esperado pelo front', async () => {
     const resolver = fakeResolver({ connected: true, available: true })
 
-    const result = await MapConnectorToInstance(hubConnector(), resolver)
+    const result = await mapHub(hubConnector(), resolver)
 
     expect(result).toMatchObject({
       id: 'conn_1',

@@ -28,6 +28,8 @@ function withSession(chatId: string) {
 vi.mock('@/config/env', () => ({
   env: {
     bitrix: { connector: { code: 'thinkzap' } },
+    // A resolução da linha pelo item usa o appCode para escopar a instalação.
+    appCodes: { thinkzap: 'crmthink.thinkzap' },
     logLevel: 'silent',
     nodeEnv: 'test',
   },
@@ -115,8 +117,36 @@ function buildUseCase({
   }
 
   const useCase = new ProcessZApiInboundMessageUseCase(
+    /**
+     * A linha vem do item de assinatura. `GetConnectorRepository` saiu: só servia
+     * para descobrir `appId`, e exigia row de `Connector` que linha nascida na SPA
+     * não tem.
+     */
     {
-      getConnectorByInstanceId: vi.fn().mockResolvedValue(baseConnector),
+      execute: vi.fn().mockResolvedValue({
+        customer: { id: 'domain-1', name: 'acme' },
+        aplication: { id: 'app-1', spaId: '42' },
+        subscriptions: [
+          {
+            id: 'sub-1',
+            items: [
+              {
+                id: 'i1',
+                name: 'Linha',
+                subscription: 'sub-1',
+                status: 'active',
+                settings: {},
+                vinculatedChannel: '10',
+                metadata: {
+                  provider: 'ZAPI',
+                  zApiInstanceId: baseInstance.instanceId,
+                  zApiInstanceToken: 'tok',
+                },
+              },
+            ],
+          },
+        ],
+      }),
     } as never,
     {
       getInstanceByInstanceId: vi.fn().mockResolvedValue(baseInstance),
@@ -128,6 +158,7 @@ function buildUseCase({
     } as never,
     {
       getById: vi.fn().mockResolvedValue({ id: 'app-1' }),
+      getByAppCodeAndDomainId: vi.fn().mockResolvedValue({ id: 'app-1' }),
     } as never,
     {
       get: vi.fn().mockResolvedValue({ id: 'cred-1' }),
