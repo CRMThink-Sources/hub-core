@@ -1,5 +1,4 @@
 import { Router } from 'express'
-import { makeCreateSubscriptionCheckoutController } from './main/make-create-subscription-checkout-controller'
 import { makeListConnectorsController } from './main/list-connectors-controller'
 import { adaptControllerFactory } from '@/shared/main/adapt-controller'
 import { makeListOpenChannelsController } from './main/make-list-open-channels-controller'
@@ -7,13 +6,6 @@ import { makeConnectChannelController } from './main/connector/make-connect-chan
 import { makeListTemplatesController } from './main/connector/make-list-templates'
 import { makeCreateTemplateController } from './main/connector/make-create-template'
 import { makeSyncTemplatesController } from './main/connector/make-sync-templates'
-import { makeCancelConnectorController } from './main/connector/make-cancel-connector'
-import { makeAddSubscriptionQuantityController } from './main/add-subscription-quantity-controller'
-import { makePreviewAddQuantityController } from './main/make-preview-add-quantity-controller'
-import { makeGetThinkzapPricingController } from './main/get-thinkzap-pricing-controller'
-import { makeCreateBillingPortalSessionController } from './main/create-billing-portal-session-controller'
-import { makeEndTrialSubscriptionController } from './main/end-trial-subscription-controller'
-import { makeActivateTrialController } from './main/make-activate-trial-controller'
 import { makeListDestinationsController } from './main/make-list-destinations-controller'
 import { makeSendWidgetMessageController } from './main/make-send-widget-message-controller'
 import { makeSendWidgetMessageMultipartController } from './main/make-send-widget-message-multipart-controller'
@@ -132,41 +124,12 @@ export const createThinkerszapRoutes = (): Router => {
     adaptControllerFactory(makeRemoveAllowedDepartmentController),
   )
 
-  router.get(
-    '/pricing',
-    requireThinkzapPermission('finance', 'read'),
-    adaptControllerFactory(makeGetThinkzapPricingController),
-  )
-  router.post(
-    '/subscription/billing-portal',
-    requireThinkzapPermission('finance', 'update'),
-    adaptControllerFactory(makeCreateBillingPortalSessionController),
-  )
-  router.post(
-    '/subscription/end-trial',
-    requireThinkzapPermission('finance', 'update'),
-    adaptControllerFactory(makeEndTrialSubscriptionController),
-  )
-  router.post(
-    '/subscription/activate-trial',
-    requireThinkzapPermission('finance', 'create'),
-    adaptControllerFactory(makeActivateTrialController),
-  )
-  router.post(
-    '/subscription/checkout',
-    requireThinkzapPermission('finance', 'create'),
-    adaptControllerFactory(makeCreateSubscriptionCheckoutController),
-  )
-  router.get(
-    '/subscription/add-quantity-preview',
-    requireThinkzapPermission('finance', 'read'),
-    adaptControllerFactory(makePreviewAddQuantityController),
-  )
-  router.post(
-    '/subscription/add-quantity',
-    requireThinkzapPermission('finance', 'update'),
-    adaptControllerFactory(makeAddSubscriptionQuantityController),
-  )
+  /**
+   * Removidas com a cobrança antiga: `/pricing`, `/subscription/checkout`,
+   * `/subscription/billing-portal`, `/subscription/{activate,end}-trial` e
+   * `/subscription/add-quantity{,-preview}`. A permissão `finance` continua
+   * existindo no controle de acesso — o que saiu é a superfície que a consumia.
+   */
 
   /**
    * ## Linhas (`/lines/:itemId`)
@@ -220,11 +183,10 @@ export const createThinkerszapRoutes = (): Router => {
     requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeListConnectorsController),
   )
-  router.post(
-    '/connector/cancel',
-    requireThinkzapPermission('connectors', 'delete'),
-    adaptControllerFactory(makeCancelConnectorController),
-  )
+  /**
+   * `/connector/cancel` saiu com a cobrança antiga: cancelar uma linha era
+   * decrementar a quantidade do item no Stripe e desativar a row de `Connector`.
+   */
   router.post(
     '/connector/connect-channel',
     requireThinkzapPermission('connectors', 'update'),

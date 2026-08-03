@@ -1,7 +1,0 @@
-{
-  "erroCarregarPrecos": "No se pudieron cargar los precios. Inténtalo de nuevo.",
-  "erroAtualizarAssinatura": "No se pudo actualizar la suscripción.",
-  "erroReativarAssinatura": "No se pudo reactivar la suscripción. Inténtalo de nuevo.",
-  "linhasAdicionadas_one": "¡{{count}} línea añadida con éxito!",
-  "linhasAdicionadas_other": "¡{{count}} líneas añadidas con éxito!"
-}

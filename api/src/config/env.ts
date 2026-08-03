@@ -30,14 +30,6 @@ export const env = {
   frontUrl: process.env.FRONT_URL ?? '',
   crmthinkWebhookUrl: process.env.CRMTHINK_WEBHOOK_URL ?? '',
   tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY ?? '',
-  stripe: {
-    secretKey: process.env.STRIPE_SECRET_KEY ?? '',
-    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
-  },
-  /** Price ID do produto ThinkZap (linhas) — mesmo valor que NEXT_PUBLIC_THINKZAP_PRICE_CONNECTORS no front */
-  thinkzapStripePriceId: process.env.THINKZAP_PRICE_CONNECTORS ?? '',
-  /** Price ID do produto de conectores HubMessage (WhatsApp Oficial). */
-  hubmessageStripePriceId: process.env.HUBMESSAGE_PRICE_CONNECTORS ?? '',
   zApi: {
     partnerToken: process.env.Z_API_PARTNER_TOKEN ?? '',
     clientToken: process.env.Z_API_CLIENT_TOKEN ?? '',

@@ -115,8 +115,7 @@ export function resolveLogApp(path: string): LogApp {
   if (path.startsWith('/api/application')) return 'shared'
   if (
     path.startsWith('/api/webhooks/z-api') ||
-    path.startsWith('/api/webhooks/bitrix') ||
-    path.startsWith('/api/webhooks/stripe')
+    path.startsWith('/api/webhooks/bitrix')
   ) {
     return 'thinkzap'
   }

@@ -83,9 +83,6 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
   const asideLinks = useMemo(() => {
     return THINKZAP_ASIDE_CONFIG.links.filter(link => {
       if (link.href === '/thinkzap/permissoes') return canManageAccess
-      if (link.href === '/thinkzap/financeiro') {
-        return thinkzapAccess?.canAccessFinance === true
-      }
       if (link.href === '/thinkzap/conexoes') {
         return thinkzapAccess?.canAccess === true
       }
@@ -103,13 +100,11 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
     ) {
       return true
     }
-    if (
-      (pathname.startsWith('/thinkzap/financeiro') ||
-        pathname.startsWith('/thinkzap/ativar-trial')) &&
-      !thinkzapAccess.canAccessFinance
-    ) {
-      return true
-    }
+    /**
+     * Sem gate de `canAccessFinance`: as rotas que ele protegia — `/financeiro` e
+     * `/ativar-trial` — saíram com a cobrança antiga. A permissão continua existindo
+     * e volta a ser lida quando a cobrança nova tiver tela.
+     */
     if (pathname.startsWith('/thinkzap/permissoes') && !canManageAccess) {
       return true
     }

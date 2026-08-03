@@ -29,7 +29,6 @@ model AppCode {
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
   apps        App[]
-  plans       BillingPlan[]
 
   @@map("core_app_codes")
 }
@@ -56,7 +55,6 @@ model App {
   connectors          Connector[]
   biAnalyseConnectors   BiAnalyseConnector[]
   thinkAnaliseAuthTokens ThinkAnaliseAuthToken[]
-  subscriptions       BillingSubscription[]
   thinkzapAllowedUsers       ThinkzapAllowedUser[]
   thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
   thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
@@ -125,52 +123,9 @@ model BillingTransaction {
   @@map("billing_transactions")
 }
 
-/// Planos: CREDITS (pacotes de créditos, ex: GPT Maker) ou SUBSCRIPTION (valor fixo mensal, ex: ThinkersZap).
-model BillingPlan {
-  id           Int      @id @default(autoincrement())
-  appCodeId    String   @map("app_code_id")
-  type         PlanType @default(CREDITS)
-  name         String
-  description  String?  @db.Text
-  /// Apenas para type CREDITS.
-  credits      Int?
-  bonusCredits Int?     @map("bonus_credits")
-  price        Decimal  @db.Decimal(10, 2)
-
-  isRecurring   Boolean  @default(false) @map("is_recurring")
-  stripePriceId String?  @map("stripe_price_id")
-  active        Boolean  @default(true)
-  sortOrder     Int      @default(0) @map("sort_order")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  appCode       AppCode               @relation(fields: [appCodeId], references: [id])
-  subscriptions BillingSubscription[]
-
-  @@index([appCodeId])
-  @@index([type])
-  @@map("billing_plans")
-}
-
-/// Assinatura mensal — vínculo entre App e Stripe. Detalhes de período/cancelamento ficam no Stripe.
-model BillingSubscription {
-  id                   String             @id @default(uuid())
-  appId                String             @map("app_id")
-  planId               Int?               @map("plan_id") // opcional (GPT Maker pode ter plano, ThinkersZap não)
-  status               SubscriptionStatus @default(ACTIVE)
-  stripeSubscriptionId String             @unique @map("stripe_subscription_id")
-  connectorQuantity    Int                @default(0) @map("connector_quantity")
-  trialEndsAt          DateTime?          @map("trial_ends_at")
-  createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
-
-  app  App          @relation(fields: [appId], references: [id])
-  plan BillingPlan? @relation(fields: [planId], references: [id])
-
-  @@index([appId])
-  @@index([status])
-  @@map("billing_subscriptions")
-}
+// `BillingPlan` e `BillingSubscription` foram removidos junto com a cobrança
+// antiga (Stripe + tela de financeiro). A cobrança nova será modelada do zero;
+// enquanto isso não existe nenhuma fonte de estado de assinatura no banco.
 
 // ============================================
 // GPT MAKER
@@ -450,27 +405,12 @@ enum AppStatus {
   TRIAL
 }
 
-/// Tipo de plano: por créditos (GPT Maker) ou assinatura mensal fixa (ThinkersZap).
-enum PlanType {
-  CREDITS
-  SUBSCRIPTION
-}
-
 enum TransactionType {
   PURCHASE
   CONSUMPTION
   BONUS
   REFUND
   EXPIRATION
-}
-
-enum SubscriptionStatus {
-  ACTIVE
-  CANCELLED
-  PAST_DUE
-  TRIALING
-  INCOMPLETE
-  INCOMPLETE_EXPIRED
 }
 
 enum ConnectorProvider {

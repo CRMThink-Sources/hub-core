@@ -12,7 +12,6 @@ import {
 import { makeGoogleOAuthCallbackController } from './modules/importsheet/main/make-google-oauth-controllers.js'
 import cors from 'cors'
 import multer from 'multer'
-import { makeStripeWebhookHandlerController } from './modules/thinkzap/main/stripe-webhook.handler.js'
 import { makeZApiWebhookHandlerController } from './modules/thinkzap/main/z-api-webhook-handle-controller.js'
 import { startCredentialRefreshJob } from './shared/infra/scheduler/credential-refresh.job.js'
 import { adaptControllerFactory } from './shared/main/adapt-controller.js'
@@ -81,12 +80,6 @@ app.use(
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     maxAge: 86_400,
   }),
-)
-// Webhook do Stripe ANTES do express.json() — precisa do body raw (Buffer) para validar assinatura
-app.post(
-  '/api/webhooks/stripe',
-  express.raw({ type: 'application/json' }),
-  adaptControllerFactory(makeStripeWebhookHandlerController),
 )
 // Webhook Clicksign ANTES do express.json() — raw body p/ validar HMAC.
 app.post(

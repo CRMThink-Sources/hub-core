@@ -7,7 +7,6 @@ import { checkThinkzapAccess } from '@/modules/thinkzap/application/check-thinkz
 import { PrismaAllowedUserRepository } from './persistence/repositories/prisma-allowed-user.repository'
 import { PrismaAllowedDepartmentRepository } from './persistence/repositories/prisma-allowed-department.repository'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
-import { PrismaBillingSubscriptionRepository } from '@/shared/infra/persistence/repositories/prisma-billing-subscription.repository'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { listLinesForWidget } from '@/modules/thinkzap/application/list-lines-for-widget'
@@ -46,10 +45,16 @@ export class ThinkzapSessionHandler implements SessionHandler {
     },
     {
       /**
-       * Gate de finanças resolvido aqui dentro, não no controller de sessão: ele
-       * não conhece app nenhuma. O acesso vem do contexto de autenticação da
-       * request, pelo mesmo caminho completo (usuário + departamentos) que os
-       * guards de escrita usam.
+       * `subscription` continua na sessão, sempre `null`.
+       *
+       * A cobrança antiga saiu inteira e não há mais o que ler — `billing_subscriptions`
+       * foi removida. A chave sobrevive porque o front deriva o estado de acesso dela;
+       * removê-la do payload faria `undefined` significar "sessão velha" em vez de "sem
+       * assinatura", e é `null` que o front já sabe tratar.
+       *
+       * O gate de finanças ainda é resolvido aqui, e não no controller de sessão: ele
+       * não conhece app nenhuma. Quem substituir isto tem que devolver o estado real
+       * da assinatura nesta mesma chave.
        */
       perform: async <T>(params: SessionAuthContext): Promise<T> => {
         const access = await checkThinkzapAccess(
@@ -63,24 +68,8 @@ export class ThinkzapSessionHandler implements SessionHandler {
           new PrismaAllowedDepartmentRepository(),
         )
 
-        if (!access?.canAccessFinance) {
-          return { key: 'subscription', data: null } as T
-        }
-        const subscriptionRepository = new PrismaBillingSubscriptionRepository()
-        const subscription = await subscriptionRepository.getByAppId(
-          params.appId,
-        )
-        console.log('subscription', subscription)
-        return {
-          key: 'subscription',
-          data: subscription
-            ? {
-                status: subscription.status,
-                connectorQuantity: subscription.connectorQuantity,
-                trialEndsAt: subscription.trialEndsAt,
-              }
-            : null,
-        } as T
+        void access
+        return { key: 'subscription', data: null } as T
       },
     },
   ]

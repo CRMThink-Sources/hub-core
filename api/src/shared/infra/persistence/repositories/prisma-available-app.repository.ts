@@ -7,9 +7,6 @@ export class PrismaAvailableAppRepository implements GetAvailableAppRepository {
   async getById(id: string): Promise<AvailableApp> {
     const availableApp = await prisma.appCode.findFirstOrThrow({
       where: { id },
-      include: {
-        plans: true,
-      },
     })
     if (!availableApp) {
       throw new Error('Available app not found')
@@ -22,9 +19,6 @@ export class PrismaAvailableAppRepository implements GetAvailableAppRepository {
     const raw = await prisma.appCode.findFirstOrThrow({
       where: {
         code: appCode,
-      },
-      include: {
-        plans: true,
       },
     })
 

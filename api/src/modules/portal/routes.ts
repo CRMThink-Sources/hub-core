@@ -22,12 +22,6 @@ import { createUnsubscribeThinkzapInstanceController } from './main/factories/cr
 import { createUpdateThinkzapInstanceNameController } from './main/factories/create-update-thinkzap-instance-name-controller'
 import { createUpdateThinkzapConnectorEventBindsAppController } from './main/factories/create-update-thinkzap-connector-event-binds-app-controller'
 import { createReactivateThinkzapConnectorController } from './main/factories/create-reactivate-thinkzap-connector-controller'
-import { createListSubscriptionsAppController } from './main/factories/create-list-subscriptions-app-controller'
-import { createExtendSubscriptionTrialController } from './main/factories/create-extend-subscription-trial-controller'
-import { createCancelSubscriptionTrialController } from './main/factories/create-cancel-subscription-trial-controller'
-import { createCreateTrialSubscriptionAppController } from './main/factories/create-create-trial-subscription-app-controller'
-import { createCreateSubscriptionAppController } from './main/factories/create-create-subscription-app-controller'
-import { createCancelSubscriptionController } from './main/factories/create-cancel-subscription-controller'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -148,36 +142,11 @@ export const createPortalRoutes = (
     portalAuthMiddleware,
     adaptControllerFactory(createReactivateThinkzapConnectorController),
   )
-  router.get(
-    '/apps/:appId/subscriptions',
-    portalAuthMiddleware,
-    adaptControllerFactory(createListSubscriptionsAppController),
-  )
-  router.patch(
-    '/apps/:appId/subscriptions/:subscriptionId/trial-end-date',
-    portalAuthMiddleware,
-    adaptControllerFactory(createExtendSubscriptionTrialController),
-  )
-  router.delete(
-    '/apps/:appId/subscriptions/:subscriptionId/trial',
-    portalAuthMiddleware,
-    adaptControllerFactory(createCancelSubscriptionTrialController),
-  )
-  router.post(
-    '/apps/:appId/subscriptions/trial',
-    portalAuthMiddleware,
-    adaptControllerFactory(createCreateTrialSubscriptionAppController),
-  )
-  router.post(
-    '/apps/:appId/subscriptions',
-    portalAuthMiddleware,
-    adaptControllerFactory(createCreateSubscriptionAppController),
-  )
-  router.post(
-    '/apps/:appId/subscriptions/:subscriptionId/cancel',
-    portalAuthMiddleware,
-    adaptControllerFactory(createCancelSubscriptionController),
-  )
+  /**
+   * Removidas com a cobrança antiga: todo o `/apps/:appId/subscriptions*` —
+   * listar, criar, criar trial, estender e cancelar trial, cancelar assinatura.
+   * Liam e escreviam `billing_subscriptions`, que saiu junto.
+   */
 
   return router
 }
