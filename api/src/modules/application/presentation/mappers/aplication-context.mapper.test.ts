@@ -92,6 +92,7 @@ const subscription: SubscriptionWithItems = {
   currentPeriodEnd: new Date('2026-08-01T00:00:00.000Z'),
   aplication,
   gatewayId: 'sub_abc',
+  modality: 'stripe',
   items: [zApiItem, hubItem, noneItem],
 }
 

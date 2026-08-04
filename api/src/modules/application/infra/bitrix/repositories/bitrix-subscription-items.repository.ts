@@ -7,6 +7,7 @@ import {
 } from '@/modules/application/domain/repositories/subscription-item.repository'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { SubscriptionItemNotFoundError } from '@/modules/application/domain/errors/subscription-item-not-found.error'
+import { SubscriptionNotFoundError } from '@/modules/application/domain/errors/subscription-not-found.error'
 import { env } from '@/config/env'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import {
@@ -79,13 +80,70 @@ export class BitrixSubscriptionItemRepository implements SubscriptionItemReposit
     id: string,
     patch: UpdateSubscriptionItemInput,
   ): Promise<SubscriptionItem> {
+    const fields = mapSubscriptionItemInputToBitrixFields(patch)
+
+    /**
+     * O tipo do patch já omite `subscription`, e o mapper só emite o parent
+     * quando a chave está presente — que é o caminho de criação. Isto torna a
+     * regra verdadeira também em runtime, para o caso de a chave chegar por um
+     * cast ou por objeto montado dinamicamente: mover item é
+     * `reparentSubscriptionItem`, e essa é a **única** porta.
+     */
+    delete fields[SUBSCRIPTION_PARENT_FIELD]
+
     await this.bitrix.updateCrmItem(
       env.payments.spa.subscriptionItemEntityType,
       id,
-      mapSubscriptionItemInputToBitrixFields(patch),
+      fields,
     )
 
     return this.getSubscriptionItem(id)
+  }
+
+  async reparentSubscriptionItem(
+    itemId: string,
+    subscriptionId: string,
+  ): Promise<SubscriptionItem> {
+    /**
+     * **Antes** da escrita: parent apontando para assinatura inexistente deixaria
+     * o item fora da árvore de cobrança, e `resolveLineEntitlement` não acharia
+     * pai nenhum — a linha morreria sem que nada tivesse falhado.
+     *
+     * Verificado por `crm.item.get` cru, não pelo `SubscriptionRepository`: a
+     * pergunta é só "existe", e a hidratação do repositório lança por plano ou
+     * instalação ausente, o que faria uma inconsistência sem relação com o repai
+     * aparecer como destino inválido.
+     */
+    await this.ensureSubscriptionExists(subscriptionId)
+
+    /**
+     * Payload montado à mão, com **um** campo. De propósito fora do
+     * `mapSubscriptionItemInputToBitrixFields`: o mapper de patch não sabe emitir
+     * o campo parent, e é essa incapacidade que garante que ninguém move item ao
+     * montar um `updateSubscriptionItem`. Credencial, `settings` e
+     * `vinculatedChannel` são a linha do cliente — uma operação de cobrança não
+     * os toca.
+     */
+    await this.bitrix.updateCrmItem(
+      env.payments.spa.subscriptionItemEntityType,
+      itemId,
+      { [SUBSCRIPTION_PARENT_FIELD]: subscriptionId },
+    )
+
+    return this.getSubscriptionItem(itemId)
+  }
+
+  private async ensureSubscriptionExists(
+    subscriptionId: string,
+  ): Promise<void> {
+    const response = await this.bitrix.getCrmItem(
+      env.payments.spa.subscriptionEntityType,
+      subscriptionId,
+    )
+
+    if (!response.result?.item) {
+      throw new SubscriptionNotFoundError(subscriptionId)
+    }
   }
 
   /**

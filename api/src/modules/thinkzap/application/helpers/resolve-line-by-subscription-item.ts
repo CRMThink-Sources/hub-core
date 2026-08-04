@@ -1,8 +1,14 @@
 import {
   AplicationContext,
   GetAplicationContext,
+  SubscriptionWithItems,
 } from '@/modules/application/application/get-aplication-context'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import {
+  LineEntitlement,
+  resolveLineEntitlement,
+} from '@/modules/thinkzap/domain/connector-trial'
+import { LineBlockedError } from '@/modules/thinkzap/domain/errors/line-blocked.error'
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 
@@ -90,6 +96,76 @@ export function findConnectorLineInContext(
   }
 
   return item
+}
+
+/** A linha com a assinatura que a paga e a habilitação derivada das duas. */
+export type LineWithEntitlement = {
+  item: SubscriptionItem
+  /**
+   * `null` quando o item foi achado sem assinatura pai legível no contexto —
+   * estado que a travessia por assinaturas não produz, mas que o tipo admite para
+   * quem alcança o item por outro caminho.
+   */
+  subscription: SubscriptionWithItems | null
+  entitlement: LineEntitlement
+}
+
+/**
+ * A linha e a habilitação dela, numa passagem só.
+ *
+ * **A assinatura pai sai de graça.** A travessia já é
+ * `subscriptions.flatMap(s => s.items)`, então o pai está em mãos no momento em que
+ * o item é achado — resolver o entitlement aqui não custa leitura nenhuma. É o que
+ * permite bloquear no caminho quente de mensagem sem uma segunda ida ao contexto.
+ *
+ * Não lança por bloqueio: devolve o estado. Leitura precisa do item mesmo
+ * bloqueado — a tela tem que mostrar o que o cliente tinha e por que parou. Quem
+ * escreve usa `assertLineEnabled`.
+ */
+export function findLineWithEntitlement(
+  context: AplicationContext,
+  subscriptionItemId: string,
+  now: Date,
+): LineWithEntitlement {
+  const subscription =
+    context.subscriptions.find(candidate =>
+      candidate.items.some(item => item.id === subscriptionItemId),
+    ) ?? null
+
+  const item = subscription?.items.find(
+    candidate => candidate.id === subscriptionItemId,
+  )
+
+  if (!item) {
+    throw new LineNotFoundError(subscriptionItemId)
+  }
+
+  return {
+    item,
+    subscription,
+    entitlement: resolveLineEntitlement(subscription, now),
+  }
+}
+
+/**
+ * Igual, mas recusa linha bloqueada — a porta das rotas de escrita.
+ *
+ * `LineBlockedError` e não `LineNotFoundError`: "não existe" e "existe e está
+ * bloqueada" pedem respostas diferentes, e confundir os dois faria trial vencido
+ * parecer linha apagada.
+ */
+export function assertLineEnabled(
+  context: AplicationContext,
+  subscriptionItemId: string,
+  now: Date,
+): LineWithEntitlement {
+  const resolved = findLineWithEntitlement(context, subscriptionItemId, now)
+
+  if (resolved.entitlement !== 'active') {
+    throw new LineBlockedError(subscriptionItemId, resolved.entitlement)
+  }
+
+  return resolved
 }
 
 export function findLineInContext(

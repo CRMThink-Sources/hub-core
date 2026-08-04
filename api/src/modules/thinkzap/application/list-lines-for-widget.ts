@@ -1,6 +1,7 @@
 import { env } from '@/config/env'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import { resolveLineEntitlement } from '@/modules/thinkzap/domain/connector-trial'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
@@ -80,10 +81,22 @@ export async function listLinesForWidget(params: {
     appCode: params.appCode,
   })
 
-  // Item de cobrança sem conector (`NONE`) não é linha e não entra na lista.
-  const lines = context.subscriptions
-    .flatMap(subscription => subscription.items)
-    .filter(item => item.metadata.provider !== 'NONE')
+  /**
+   * Item de cobrança sem conector (`NONE`) não é linha e não entra na lista.
+   *
+   * Linha bloqueada também sai: **o widget existe para mandar mensagem**, e oferecer
+   * uma linha que o envio vai recusar só gera erro na cara do operador. Ela continua
+   * visível na tela de conexões, que é onde o estado é explicado.
+   *
+   * O entitlement vem da assinatura pai, que já está na travessia — por isso o
+   * filtro é feito aqui e não por item, que teria perdido o pai.
+   */
+  const now = new Date()
+  const lines = context.subscriptions.flatMap(subscription =>
+    resolveLineEntitlement(subscription, now) === 'active'
+      ? subscription.items.filter(item => item.metadata.provider !== 'NONE')
+      : [],
+  )
 
   return Promise.all(
     lines.map(async item => {

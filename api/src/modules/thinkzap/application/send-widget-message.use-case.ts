@@ -1,7 +1,10 @@
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
 import { ensureLineInstance } from './helpers/ensure-line-instance'
-import { findLineInContext } from './helpers/resolve-line-by-subscription-item'
+import {
+  assertLineEnabled,
+  findLineInContext,
+} from './helpers/resolve-line-by-subscription-item'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { convertToMp3 } from '@/shared/helpers/convert-to-mp3'
@@ -60,6 +63,13 @@ export class SendWidgetMessageUseCase {
       domainId,
       appCode,
     })
+
+    /**
+     * Recusa antes de resolver credencial: enviar é operação de linha habilitada, e
+     * `LineBlockedError` é o que o front distingue de falta de permissão.
+     */
+    assertLineEnabled(context, subscriptionItemId, new Date())
+
     const line = findLineInContext(context, subscriptionItemId)
 
     /**

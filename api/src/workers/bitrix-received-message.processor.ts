@@ -19,7 +19,11 @@ import { notifyOperatorWindowClosed } from '@/modules/thinkzap/application/notif
 import { resolveBitrixReplyContext } from '@/modules/thinkzap/application/resolve-bitrix-reply-context'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
-import { resolveSettingsByInstanceId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
+import {
+  findLineItemByChannelId,
+  findLineItemByInstanceId,
+} from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { redisConnection } from '@/queue/redis-connection'
 
 const log = createWorkerSourceLogger('bitrix')
@@ -200,6 +204,52 @@ export async function processBitrixReceivedMessage(
     'Bitrix webhook context resolved',
   )
 
+  /**
+   * Linha resolvida **uma vez**, no topo: dá o entitlement e os `settings` na mesma
+   * leitura. Antes os settings eram resolvidos lá embaixo, dentro do branch de
+   * texto, o que fazia uma segunda leitura do contexto por mensagem de texto.
+   */
+  const appCode =
+    resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId ?? ''
+  const line =
+    provider === ConnectorProvider.HUBMESSAGE
+      ? await findLineItemByChannelId(
+          {
+            channelId: context.instance.channelId ?? '',
+            domainId: context.id,
+            appCode,
+          },
+          makeGetAplicationContext(),
+        )
+      : await findLineItemByInstanceId(
+          {
+            instanceId: context.instance.instanceId,
+            domainId: context.id,
+            appCode,
+          },
+          makeGetAplicationContext(),
+        )
+
+  /**
+   * Recusa **visível**, não descarte silencioso: aqui existe um operador no Bitrix
+   * esperando que a mensagem saia. Lançar deixa o job falhar e o erro aparecer.
+   *
+   * Linha não resolvida cai no mesmo caminho: sem item não há assinatura que
+   * autorize o envio.
+   */
+  if (!line || line.entitlement !== 'active') {
+    log.error(
+      {
+        domain: event.auth.domain,
+        instanceId: context.instance.instanceId,
+        subscriptionItemId: line?.item.id ?? null,
+        entitlement: line?.entitlement ?? 'unresolved',
+      },
+      'Envio recusado: linha sem assinatura ativa',
+    )
+    throw new Error('Line is not enabled for outbound messages')
+  }
+
   const bitrixClient = new BitrixClient({
     bitrixCredential: context.app.credential,
     domain: context.name,
@@ -291,20 +341,10 @@ export async function processBitrixReceivedMessage(
                * antes da migração — o prefixo de nome se comportaria ao contrário
                * do que a tela mostra.
                *
-               * Resolvido aqui, e não no repositório do contexto: aquele é infra
-               * de banco, e embutir a leitura do Bitrix nele arrastaria a árvore de
-               * casos de uso para dentro de uma query.
+               * Vem da resolução do topo, que já leu o contexto para decidir o
+               * entitlement — não há segunda ida ao Bitrix por mensagem.
                */
-              settings: await resolveSettingsByInstanceId(
-                {
-                  instanceId: context.instance.instanceId,
-                  domainId: context.id,
-                  appCode:
-                    resolveByMarketplaceCode(env.appCodes.thinkzap)
-                      ?.appCodeId ?? '',
-                },
-                makeGetAplicationContext(),
-              ),
+              settings: line.settings,
               operatorUserId: message.message.user_id,
               appId: context.app.id,
               getBitrixUserDisplayName,

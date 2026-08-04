@@ -77,7 +77,7 @@ export class ProcessHubMessageInboundMessageUseCase {
      * HubMessage entrega só `channel_id`, e ela é o único índice de canal →
      * instalação. Sem ela não há `domainId` para resolver o item.
      */
-    const item = await findLineItemByChannelId(
+    const line = await findLineItemByChannelId(
       {
         channelId,
         domainId: instance.domainId,
@@ -92,7 +92,7 @@ export class ProcessHubMessageInboundMessageUseCase {
      * Z-API simplesmente não corresponde. Uma checagem de provider depois disso
      * seria inalcançável.
      */
-    if (!item) {
+    if (!line) {
       log.warn(
         { channelId, internalInstanceId: instance.id, messageId: message._id },
         'Nenhuma linha HubMessage corresponde a este canal — recusando processar',
@@ -100,6 +100,26 @@ export class ProcessHubMessageInboundMessageUseCase {
       throw new Error(
         `Nenhuma linha HUBMESSAGE vinculada ao canal "${channelId}"`,
       )
+    }
+
+    const { item } = line
+
+    /**
+     * Descarta antes de persistir, mesmo tratamento do caminho Z-API: retorna em
+     * vez de lançar, porque exceção aqui vira retry e o provider reentregaria uma
+     * mensagem que nunca vai ser aceita.
+     */
+    if (line.entitlement !== 'active') {
+      log.info(
+        {
+          channelId,
+          subscriptionItemId: item.id,
+          messageId: message._id,
+          entitlement: line.entitlement,
+        },
+        'Mensagem descartada: linha sem assinatura ativa',
+      )
+      return
     }
 
     /**

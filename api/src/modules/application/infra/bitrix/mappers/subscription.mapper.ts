@@ -1,10 +1,15 @@
 import z from 'zod'
-import { Subscription } from '@/modules/application/domain/entities/subscription'
+import {
+  Subscription,
+  SubscriptionModality,
+} from '@/modules/application/domain/entities/subscription'
 import {
   CreateSubscriptionInput,
   UpdateSubscriptionInput,
 } from '@/modules/application/domain/repositories/subscription.repository'
 import { env } from '@/config/env'
+import { apiLogger } from '@/shared/infra/logger'
+import { SUBSCRIPTION_MODALITY_FIELD } from '../ensure-subscription-modality-field'
 import { InvalidBitrixSubscriptionError } from '../errors/invalid-bitrix-subscription.error'
 
 /**
@@ -69,6 +74,47 @@ const bitrixStatus = z
     return status
   })
 
+const MODALITIES: readonly SubscriptionModality[] = ['stripe', 'manual']
+
+/**
+ * Modalidade da SPA → domínio, **tolerante de propósito**.
+ *
+ * Diferente de `ufCrm91Status`, valor ausente, vazio ou desconhecido não é erro:
+ * resolve `manual`. A modalidade diz como a assinatura é cobrada, não se ela
+ * vale — reprovar o item por causa dela derrubaria a leitura do contexto inteiro
+ * da instalação por um campo que nenhum caminho de habilitação consulta.
+ *
+ * Ausente e vazio são silenciosos: é o estado de toda assinatura criada antes do
+ * campo existir. Valor **desconhecido** é `warn`, porque aí alguém digitou algo
+ * no CRM que o produto não entende, e a consequência (cliente do gateway sem
+ * portal de faturamento) não aparece em nenhum outro lugar.
+ */
+const bitrixModality = z.unknown().transform((raw): SubscriptionModality => {
+  if (raw === undefined || raw === null || raw === '') return 'manual'
+
+  /**
+   * Só escalar vira texto. O campo é de texto na SPA, mas um campo de lista
+   * multivalorado devolveria array e um objeto viraria `[object Object]` no log —
+   * inútil justamente para o caso que este `warn` existe para diagnosticar.
+   * `JSON.stringify` preserva o que chegou de verdade.
+   */
+  const value =
+    typeof raw === 'string' || typeof raw === 'number'
+      ? String(raw)
+      : JSON.stringify(raw)
+
+  if ((MODALITIES as readonly string[]).includes(value)) {
+    return value as SubscriptionModality
+  }
+
+  apiLogger.warn(
+    { app: 'shared', field: SUBSCRIPTION_MODALITY_FIELD, value },
+    'Modalidade de assinatura desconhecida — resolvendo como manual',
+  )
+
+  return 'manual'
+})
+
 /**
  * Referência escalar obrigatória (campo parent, id de plano e id de produto). O
  * Bitrix devolve parent como número, então coage — mas `null`, `0` e string
@@ -120,6 +166,15 @@ const bitrixSubscriptionSchema = z.object({
     .string()
     .nullish()
     .transform(value => value || undefined),
+  /**
+   * Campo de **texto**, não de lista: campo de lista devolveria id de enum, e a
+   * leitura literal resolveria `manual` para toda assinatura Stripe.
+   * `ensureSubscriptionModalityField` reprova esse caso antes da primeira escrita.
+   *
+   * Sem `.optional()` no `z.unknown()`: chave ausente já chega como `undefined`,
+   * e o transform trata — é o caso de toda assinatura anterior a este campo.
+   */
+  [SUBSCRIPTION_MODALITY_FIELD]: bitrixModality,
 })
 
 export const mapBitrixSpaSubscriptionToRawSubscription = (
@@ -140,6 +195,7 @@ export const mapBitrixSpaSubscriptionToRawSubscription = (
     currentPeriodStart: parsed.data.ufCrm91CurrentPeriodStart,
     currentPeriodEnd: parsed.data.ufCrm91CurrentPeriodEnd,
     gatewayId: parsed.data.ufCrm91GatewayId,
+    modality: parsed.data[SUBSCRIPTION_MODALITY_FIELD],
   }
 }
 
@@ -172,6 +228,14 @@ export const mapSubscriptionInputToBitrixFields = (
   }
   if (input.gatewayId !== undefined) {
     fields.ufCrm91GatewayId = input.gatewayId
+  }
+  /**
+   * Escrita **explícita**, ao contrário da leitura tolerante: modalidade não
+   * informada é omitida do payload, nunca gravada como `'manual'`. Assumir aqui
+   * faria um patch de status reescrever a modalidade de uma assinatura Stripe.
+   */
+  if (input.modality !== undefined) {
+    fields[SUBSCRIPTION_MODALITY_FIELD] = input.modality
   }
   // Só o caminho de criação carrega `aplicationSpaId`: `UpdateSubscriptionInput`
   // omite o campo, e o mapper não o reintroduz.

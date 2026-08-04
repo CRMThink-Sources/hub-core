@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+﻿import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   createMock,
@@ -35,8 +35,8 @@ vi.mock('@/modules/thinkzap/infra/clients/hubmessage.client', async () => {
     typeof import('@/modules/thinkzap/infra/clients/hubmessage.client')
   >('@/modules/thinkzap/infra/clients/hubmessage.client')
   return {
-    // `HubMessageApiError` é real: o classificador de janela fechada usa
-    // `instanceof`, então um mock de classe quebraria a detecção.
+    // `HubMessageApiError` Ã© real: o classificador de janela fechada usa
+    // `instanceof`, entÃ£o um mock de classe quebraria a detecÃ§Ã£o.
     HubMessageApiError: actual.HubMessageApiError,
     HubMessageClient: class {
       sendMessage = sendHubMessageMock
@@ -54,8 +54,8 @@ vi.mock(
   }),
 )
 
-// O processor importa `redisConnection` no topo, e o módulo lança
-// `REDIS_URL is required` no import quando a env não existe (caso do teste).
+// O processor importa `redisConnection` no topo, e o mÃ³dulo lanÃ§a
+// `REDIS_URL is required` no import quando a env nÃ£o existe (caso do teste).
 vi.mock('@/queue/redis-connection', () => ({
   redisConnection: { get: vi.fn(), set: vi.fn() },
 }))
@@ -112,13 +112,21 @@ vi.mock(
 )
 
 /**
- * A resolução de `settings` pelo item da SPA tem os próprios testes; aqui ela é
- * dublada para o teste não montar a árvore de repositórios de billing (Prisma,
- * Redis e Bitrix) só para preparar o texto de saída.
+ * A resoluÃ§Ã£o da linha pelo id de provider tem os prÃ³prios testes; aqui ela Ã©
+ * dublada para o teste nÃ£o montar a Ã¡rvore de repositÃ³rios de billing (Prisma,
+ * Redis e Bitrix) sÃ³ para decidir habilitaÃ§Ã£o e preparar o texto de saÃ­da.
+ *
+ * `resolveLineMock` Ã© exposto para os testes que precisam de linha bloqueada.
  */
+const { resolveLineMock } = vi.hoisted(() => ({
+  resolveLineMock: vi.fn(),
+}))
+
 vi.mock(
   '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id',
   () => ({
+    findLineItemByInstanceId: resolveLineMock,
+    findLineItemByChannelId: resolveLineMock,
     resolveSettingsByInstanceId: vi.fn().mockResolvedValue({
       prefixOperatorNameEnabled: false,
       widgetOpenChannelEnabled: false,
@@ -127,6 +135,17 @@ vi.mock(
     }),
   }),
 )
+
+const ACTIVE_LINE = {
+  item: { id: 'i1' },
+  settings: {
+    prefixOperatorNameEnabled: false,
+    widgetOpenChannelEnabled: false,
+    messageUpdateEventEnabled: true,
+    messageDeleteEventEnabled: true,
+  },
+  entitlement: 'active' as const,
+}
 
 vi.mock('@/modules/application/main/make-get-aplication-context', () => ({
   makeGetAplicationContext: vi.fn(() => ({ execute: vi.fn() })),
@@ -151,8 +170,8 @@ vi.mock('@/config/env', () => ({
       webhookUrl: 'https://app.test/webhooks/hubmessage',
     },
     appCodes: { thinkzap: 'thinkzap' },
-    // O preparo do texto resolve `settings` pelo contexto da aplicação, que lê as
-    // SPAs de billing — sem isso a árvore de repositórios não monta no import.
+    // O preparo do texto resolve `settings` pelo contexto da aplicaÃ§Ã£o, que lÃª as
+    // SPAs de billing â€” sem isso a Ã¡rvore de repositÃ³rios nÃ£o monta no import.
     payments: {
       spa: {
         aplicationEntityType: 1060,
@@ -233,6 +252,7 @@ function makeEvent(
 
 describe('processBitrixReceivedMessage DB persistence', () => {
   beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
     createMock.mockClear()
     createMock.mockResolvedValue(undefined)
     findByBitrixMessageIdMock.mockClear()
@@ -247,6 +267,42 @@ describe('processBitrixReceivedMessage DB persistence', () => {
     callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
     ensureBitrixBotIdMock.mockClear()
     getContextMock.mockResolvedValue(baseContext)
+  })
+
+  /**
+   * Recusa **visível**, não descarte: aqui existe um operador no Bitrix esperando a
+   * mensagem sair. Lançar deixa o job falhar e o erro aparecer.
+   */
+  it('recusa o envio quando o trial venceu', async () => {
+    resolveLineMock.mockResolvedValue({
+      ...ACTIVE_LINE,
+      entitlement: 'trial-expired',
+    })
+
+    await expect(processBitrixReceivedMessage(makeEvent())).rejects.toThrow(
+      /not enabled/i,
+    )
+
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+    expect(createMock).not.toHaveBeenCalled()
+  })
+
+  it('recusa o envio quando a assinatura está cancelada', async () => {
+    resolveLineMock.mockResolvedValue({
+      ...ACTIVE_LINE,
+      entitlement: 'inactive',
+    })
+
+    await expect(processBitrixReceivedMessage(makeEvent())).rejects.toThrow()
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+  })
+
+  /** Sem item resolvido não há assinatura que autorize o envio. */
+  it('recusa o envio quando a linha não resolve item', async () => {
+    resolveLineMock.mockResolvedValue(null)
+
+    await expect(processBitrixReceivedMessage(makeEvent())).rejects.toThrow()
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
   })
 
   it('persists text message with correct IDs', async () => {
@@ -354,6 +410,7 @@ const hubMessageContext = {
 
 describe('processBitrixReceivedMessage provider routing', () => {
   beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
     createMock.mockClear()
     createMock.mockResolvedValue(undefined)
     findByBitrixMessageIdMock.mockClear()
@@ -366,7 +423,7 @@ describe('processBitrixReceivedMessage provider routing', () => {
     callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
   })
 
-  it('conector HUBMESSAGE envia via HubMessage e não toca no Z-API', async () => {
+  it('conector HUBMESSAGE envia via HubMessage e nÃ£o toca no Z-API', async () => {
     getContextMock.mockResolvedValue(hubMessageContext)
 
     await processBitrixReceivedMessage(makeEvent())
@@ -394,7 +451,7 @@ describe('processBitrixReceivedMessage provider routing', () => {
     expect(setMessageDeliveredMock).toHaveBeenCalledTimes(1)
   })
 
-  it('conector sem provider explícito roteia para Z-API', async () => {
+  it('conector sem provider explÃ­cito roteia para Z-API', async () => {
     getContextMock.mockResolvedValue({
       ...baseContext,
       connector: { provider: 'ZAPI' },
@@ -406,7 +463,7 @@ describe('processBitrixReceivedMessage provider routing', () => {
     expect(sendHubMessageMock).not.toHaveBeenCalled()
   })
 
-  it('HUBMESSAGE não resolve reply — não consulta o banco por REPLY_ID', async () => {
+  it('HUBMESSAGE nÃ£o resolve reply â€” nÃ£o consulta o banco por REPLY_ID', async () => {
     getContextMock.mockResolvedValue(hubMessageContext)
     callMethodMock.mockResolvedValue({
       result: { message: { params: { REPLY_ID: 'BX-MSG-42' } } },
@@ -418,7 +475,7 @@ describe('processBitrixReceivedMessage provider routing', () => {
     expect(sendHubMessageMock).toHaveBeenCalledTimes(1)
   })
 
-  it('ZAPI com REPLY_ID resolve a referência no banco', async () => {
+  it('ZAPI com REPLY_ID resolve a referÃªncia no banco', async () => {
     getContextMock.mockResolvedValue(baseContext)
     callMethodMock.mockResolvedValue({
       result: { message: { params: { REPLY_ID: 'BX-MSG-42' } } },
@@ -445,6 +502,7 @@ describe('processBitrixReceivedMessage provider routing', () => {
 
 describe('processBitrixReceivedMessage janela de 24h fechada', () => {
   beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
     createMock.mockClear()
     sendHubMessageMock.mockClear()
     setMessageDeliveredMock.mockClear()
@@ -458,12 +516,12 @@ describe('processBitrixReceivedMessage janela de 24h fechada', () => {
       422,
       'POST',
       '/v1/channels/CH-123/messages',
-      { message: 'A janela de conversa de 24 horas está fechada' },
+      { message: 'A janela de conversa de 24 horas estÃ¡ fechada' },
       null,
     )
   }
 
-  it('não persiste, não confirma entrega e não relança', async () => {
+  it('nÃ£o persiste, nÃ£o confirma entrega e nÃ£o relanÃ§a', async () => {
     sendHubMessageMock.mockRejectedValue(makeWindowClosedError())
 
     await expect(
@@ -485,7 +543,7 @@ describe('processBitrixReceivedMessage janela de 24h fechada', () => {
     )
   })
 
-  it('falha por outro motivo relança para a fila retentar', async () => {
+  it('falha por outro motivo relanÃ§a para a fila retentar', async () => {
     sendHubMessageMock.mockRejectedValue(
       new HubMessageApiError(500, 'POST', '/x', { message: 'boom' }, null),
     )

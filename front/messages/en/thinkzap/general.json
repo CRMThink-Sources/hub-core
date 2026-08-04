@@ -1,9 +1,0 @@
-{
-  "banner": {
-    "semAssinatura": "You don't have an active subscription. Start your trial or purchase connectors to begin using ThinkZap.",
-    "cancelada": "Your subscription is cancelled. Reactivate it to connect new numbers.",
-    "trial": "Your subscription is in the trial period.",
-    "pastDue": "Your payment is pending. Please resolve it to avoid interruptions.",
-    "ativa": "Subscription active and ready to connect your numbers."
-  }
-}

@@ -36,6 +36,10 @@ function makeInner(entity: SubscriptionItem = item) {
   )
   const createSubscriptionItem = vi.fn(() => Promise.resolve(entity))
   const updateSubscriptionItem = vi.fn(() => Promise.resolve(entity))
+  const reparentSubscriptionItem = vi.fn(
+    (_itemId: string, subscription: string) =>
+      Promise.resolve({ ...entity, subscription }),
+  )
 
   const repository: SubscriptionItemRepository = {
     getSubscriptionItem,
@@ -43,6 +47,7 @@ function makeInner(entity: SubscriptionItem = item) {
     getSubscriptionItemsBySubscription,
     createSubscriptionItem,
     updateSubscriptionItem,
+    reparentSubscriptionItem,
   }
 
   return {
@@ -52,6 +57,7 @@ function makeInner(entity: SubscriptionItem = item) {
     getSubscriptionItemsBySubscription,
     createSubscriptionItem,
     updateSubscriptionItem,
+    reparentSubscriptionItem,
   }
 }
 
@@ -293,6 +299,113 @@ describe('CachedSubscriptionItemRepository', () => {
           redis,
         ).createSubscriptionItem(createInput),
       ).resolves.toEqual(item)
+    })
+  })
+
+  describe('reparentSubscriptionItem', () => {
+    const DESTINATION_LIST_KEY =
+      'payments:subscription-items:v3:subscription:9999'
+
+    it('delega ao interno e devolve o item com o pai novo', async () => {
+      const inner = makeInner()
+      const { redis } = makeRedis()
+
+      const result = await new CachedSubscriptionItemRepository(
+        inner.repository,
+        redis,
+      ).reparentSubscriptionItem('77', '9999')
+
+      expect(inner.reparentSubscriptionItem).toHaveBeenCalledWith('77', '9999')
+      expect(result.subscription).toBe('9999')
+    })
+
+    /**
+     * As **quatro** chaves. Invalidar só a de destino deixaria o item aparecendo
+     * na listagem da origem até o TTL — duas assinaturas mostrando a mesma linha.
+     */
+    it('invalida as chaves das duas assinaturas, do item e da listagem global', async () => {
+      const inner = makeInner()
+      const { redis, del } = makeRedis()
+
+      await new CachedSubscriptionItemRepository(
+        inner.repository,
+        redis,
+      ).reparentSubscriptionItem('77', '9999')
+
+      expect(del).toHaveBeenCalledWith(
+        ITEM_KEY,
+        ITEM_LIST_KEY,
+        DESTINATION_LIST_KEY,
+        SUBSCRIPTION_LIST_KEY,
+      )
+    })
+
+    /**
+     * Origem lida do interno, não do cache: entrada velha apontaria para a
+     * assinatura errada, e a listagem que sobra suja é justamente a que ninguém
+     * invalidaria depois.
+     */
+    it('lê a origem do repositório interno, ignorando o cache', async () => {
+      const inner = makeInner()
+      const { redis, get } = makeRedis(
+        JSON.stringify({ ...item, subscription: '1' }),
+      )
+
+      await new CachedSubscriptionItemRepository(
+        inner.repository,
+        redis,
+      ).reparentSubscriptionItem('77', '9999')
+
+      expect(inner.getSubscriptionItem).toHaveBeenCalledWith('77')
+      expect(get).not.toHaveBeenCalled()
+    })
+
+    it('regrava a chave individual com TTL', async () => {
+      const inner = makeInner()
+      const { redis, set } = makeRedis()
+
+      await new CachedSubscriptionItemRepository(
+        inner.repository,
+        redis,
+      ).reparentSubscriptionItem('77', '9999')
+
+      expect(set).toHaveBeenCalledWith(
+        ITEM_KEY,
+        JSON.stringify({ ...item, subscription: '9999' }),
+        'EX',
+        300,
+      )
+    })
+
+    it('conclui o repai mesmo com o del do Redis falhando', async () => {
+      const inner = makeInner()
+      const { redis, set } = makeFailingRedis('del')
+
+      const result = await new CachedSubscriptionItemRepository(
+        inner.repository,
+        redis,
+      ).reparentSubscriptionItem('77', '9999')
+
+      expect(result.subscription).toBe('9999')
+      expect(set).toHaveBeenCalled()
+    })
+
+    /** Destino inválido falha antes de qualquer invalidação. */
+    it('não invalida nada quando o interno rejeita o destino', async () => {
+      const inner = makeInner()
+      inner.reparentSubscriptionItem.mockRejectedValueOnce(
+        new Error('assinatura 9999 não existe'),
+      )
+      const { redis, del } = makeRedis()
+
+      await expect(
+        new CachedSubscriptionItemRepository(
+          inner.repository,
+          redis,
+        ).reparentSubscriptionItem('77', '9999'),
+      ).rejects.toThrow()
+
+      expect(del).not.toHaveBeenCalled()
     })
   })
 })

@@ -119,6 +119,13 @@ export function resolveLogApp(path: string): LogApp {
   ) {
     return 'thinkzap'
   }
+  /**
+   * O webhook do gateway de pagamento é o que ativa a linha do ThinkZap: quando
+   * um cliente reclama que pagou e a linha não voltou, é neste app que se procura.
+   * Cair em `'shared'` misturaria esse rastro com o de todas as rotas
+   * transversais.
+   */
+  if (path.startsWith('/api/webhooks/stripe')) return 'thinkzap'
   return 'shared'
 }
 

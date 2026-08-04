@@ -1,10 +1,31 @@
-import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import {
+  GetAplicationContext,
+  SubscriptionWithItems,
+} from '@/modules/application/application/get-aplication-context'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import {
+  LineEntitlement,
+  resolveLineEntitlement,
+} from '@/modules/thinkzap/domain/connector-trial'
 import {
   ConnectorSettings,
   DEFAULT_CONNECTOR_SETTINGS,
 } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { apiLogger } from '@/shared/infra/logger'
+
+/**
+ * A linha resolvida por id de provider, com a habilitação derivada da assinatura
+ * pai — que vem na mesma travessia, sem leitura extra.
+ *
+ * Os `settings` dizem **como** a linha se comporta; o `entitlement` diz **se** ela
+ * se comporta. Resolver os dois juntos é o que permite bloquear no caminho quente
+ * de mensagem sem uma segunda ida ao contexto.
+ */
+export type ResolvedLineByProvider = {
+  item: SubscriptionItem
+  settings: ConnectorSettings
+  entitlement: LineEntitlement
+}
 
 export type ResolveSettingsInput = {
   /** `metadata.zApiInstanceId` do item — o id da instância na Z-API. */
@@ -32,22 +53,23 @@ export type ResolveSettingsInput = {
  *
  * É a resolução base: `resolveSettingsByInstanceId` é consumidor dela, não o
  * contrário. O roteamento de mensagem recebida precisa do item inteiro
- * (`vinculatedChannel`, id do item), não só dos toggles.
+ * (`vinculatedChannel`, id do item) e da habilitação, não só dos toggles.
  *
  * `null` = nenhum item corresponde. Falha de leitura do contexto **propaga**.
  */
 export async function findLineItemByInstanceId(
   input: ResolveSettingsInput,
   getAplicationContext: GetAplicationContext,
-): Promise<SubscriptionItem | null> {
+  now: Date = new Date(),
+): Promise<ResolvedLineByProvider | null> {
   const context = await getAplicationContext.execute({
     domainId: input.domainId,
     appCode: input.appCode,
   })
 
-  const matches = context.subscriptions
-    .flatMap(subscription => subscription.items)
-    .filter(item => hasZApiInstanceId(item, input.instanceId))
+  const matches = matchLines(context.subscriptions, item =>
+    hasZApiInstanceId(item, input.instanceId),
+  )
 
   if (matches.length === 0) return null
 
@@ -62,13 +84,40 @@ export async function findLineItemByInstanceId(
       {
         app: 'thinkzap',
         instanceId: input.instanceId,
-        itemIds: matches.map(item => item.id),
+        itemIds: matches.map(match => match.item.id),
       },
       'Mais de um item de assinatura com o mesmo zApiInstanceId — usando o primeiro',
     )
   }
 
-  return matches[0]!
+  return toResolvedLine(matches[0]!, now)
+}
+
+/**
+ * Percorre as assinaturas guardando **o pai de cada item**.
+ *
+ * A travessia antiga era `flatMap(s => s.items)`, que descartava a assinatura no
+ * caminho — e o entitlement precisa dela. Guardar o par não custa nada: é a mesma
+ * varredura, sobre os itens de uma instalação só.
+ */
+function matchLines(
+  subscriptions: SubscriptionWithItems[],
+  predicate: (item: SubscriptionItem) => boolean,
+): Array<{ item: SubscriptionItem; subscription: SubscriptionWithItems }> {
+  return subscriptions.flatMap(subscription =>
+    subscription.items.filter(predicate).map(item => ({ item, subscription })),
+  )
+}
+
+function toResolvedLine(
+  match: { item: SubscriptionItem; subscription: SubscriptionWithItems },
+  now: Date,
+): ResolvedLineByProvider {
+  return {
+    item: match.item,
+    settings: match.item.settings,
+    entitlement: resolveLineEntitlement(match.subscription, now),
+  }
 }
 
 /**
@@ -84,9 +133,9 @@ export async function resolveSettingsByInstanceId(
   input: ResolveSettingsInput,
   getAplicationContext: GetAplicationContext,
 ): Promise<ConnectorSettings> {
-  const item = await findLineItemByInstanceId(input, getAplicationContext)
+  const line = await findLineItemByInstanceId(input, getAplicationContext)
 
-  return item ? item.settings : { ...DEFAULT_CONNECTOR_SETTINGS }
+  return line ? line.settings : { ...DEFAULT_CONNECTOR_SETTINGS }
 }
 
 const hasZApiInstanceId = (
@@ -105,19 +154,19 @@ const hasZApiInstanceId = (
 export async function findLineItemByChannelId(
   input: { channelId: string; domainId: string; appCode: string },
   getAplicationContext: GetAplicationContext,
-): Promise<SubscriptionItem | null> {
+  now: Date = new Date(),
+): Promise<ResolvedLineByProvider | null> {
   const context = await getAplicationContext.execute({
     domainId: input.domainId,
     appCode: input.appCode,
   })
 
-  const matches = context.subscriptions
-    .flatMap(subscription => subscription.items)
-    .filter(
-      item =>
-        item.metadata.provider === 'HUBMESSAGE' &&
-        item.metadata.hubmessageChannelId === input.channelId,
-    )
+  const matches = matchLines(
+    context.subscriptions,
+    item =>
+      item.metadata.provider === 'HUBMESSAGE' &&
+      item.metadata.hubmessageChannelId === input.channelId,
+  )
 
   if (matches.length === 0) return null
 
@@ -126,11 +175,11 @@ export async function findLineItemByChannelId(
       {
         app: 'thinkzap',
         channelId: input.channelId,
-        itemIds: matches.map(item => item.id),
+        itemIds: matches.map(match => match.item.id),
       },
       'Mais de um item de assinatura com o mesmo canal HubMessage — usando o primeiro',
     )
   }
 
-  return matches[0]!
+  return toResolvedLine(matches[0]!, now)
 }

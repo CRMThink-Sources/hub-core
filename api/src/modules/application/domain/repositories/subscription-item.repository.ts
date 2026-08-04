@@ -31,7 +31,12 @@ export interface CreateSubscriptionItemInput {
 
 /**
  * Patch parcial. `subscription` fica fora de propósito — mover um item para
- * outra assinatura é operação de negócio, não edição de campo.
+ * outra assinatura é operação de negócio, não edição de campo, e tem operação
+ * própria: `reparentSubscriptionItem`.
+ *
+ * A regra continua valendo mesmo agora que a operação existe: ninguém move item
+ * por acidente ao montar um patch, e o grep pelo nome dela acha todos os lugares
+ * onde a árvore de cobrança é reescrita.
  */
 export type UpdateSubscriptionItemInput = Partial<
   Omit<CreateSubscriptionItemInput, 'subscription'>
@@ -63,5 +68,20 @@ export interface SubscriptionItemRepository {
   updateSubscriptionItem(
     id: string,
     patch: UpdateSubscriptionItemInput,
+  ): Promise<SubscriptionItem>
+  /**
+   * Move um item para outra assinatura, e devolve a entidade relida.
+   *
+   * Operação nomeada, não campo de patch: mover é reescrever a árvore de
+   * cobrança, e o nome próprio é o que torna isso auditável por grep. O payload
+   * enviado à SPA contém **apenas** o campo parent — credencial, `settings` e
+   * `vinculatedChannel` são a linha do cliente e não podem ser tocados por uma
+   * operação de cobrança.
+   *
+   * Assinatura destino inexistente falha, e o item permanece onde estava.
+   */
+  reparentSubscriptionItem(
+    itemId: string,
+    subscriptionId: string,
   ): Promise<SubscriptionItem>
 }

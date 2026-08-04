@@ -18,7 +18,11 @@
     "create:portal-user": "tsx src/scripts/create-portal-user.ts",
     "backfill:aplication-spa-id": "tsx src/scripts/backfill-aplication-spa-id.ts",
     "backfill:message-provider-instance-id": "tsx src/scripts/backfill-message-provider-instance-id.ts",
-    "backfill:connector-settings-to-spa": "tsx src/scripts/backfill-connector-settings-to-spa.ts"
+    "backfill:connector-settings-to-spa": "tsx src/scripts/backfill-connector-settings-to-spa.ts",
+    "list:payment-plans": "tsx src/scripts/list-payment-plans.ts",
+    "check:subscription-fields": "tsx src/scripts/check-subscription-fields.ts",
+    "check:plans-vs-gateway": "tsx src/scripts/check-plans-vs-gateway.ts",
+    "check:gateway-webhook": "tsx src/scripts/check-gateway-webhook.ts"
   },
   "dependencies": {
     "@bull-board/api": "^7.0.0",
@@ -41,6 +45,7 @@
     "pino-loki": "^3.0.0",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
+    "stripe": "^22.4.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

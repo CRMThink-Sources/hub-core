@@ -1,0 +1,26 @@
+{
+  "convite": {
+    "titulo": "Try ThinkZap for 3 days",
+    "descricao": "Pick a connector type to create your first line. The trial is one per installation and lasts 3 days.",
+    "escolher": "Start trial",
+    "ZAPI": {
+      "titulo": "WhatsApp Web",
+      "descricao": "Connects by scanning a QR code on your phone. Fastest to get started."
+    },
+    "HUBMESSAGE": {
+      "titulo": "Official WhatsApp",
+      "descricao": "Meta's official channel, with a verified number and templates."
+    }
+  },
+  "ativando": "Creating line...",
+  "ativado": "Trial activated. Your line was created.",
+  "emAndamentoTitulo": "Trial in progress",
+  "emAndamentoDescricao": "Your trial runs until {{data}}. After that the line stays visible but stops sending and receiving messages.",
+  "expiradoTitulo": "Trial period ended",
+  "expiradoDescricao": "Your trial ended on {{data}}. The line is still in the list below, but it neither sends nor receives messages and cannot be configured. Use the Subscribe button on the line to reactivate it — the credential, the settings and the linked channel stay as they are.",
+  "indisponivelTitulo": "Trial unavailable",
+  "indisponivelDescricao": "The trial plan is not configured in this environment. Contact support to enable it.",
+  "erroLeituraTitulo": "Could not check your trial period",
+  "erroLeitura": "Failed to load the trial. Please try again.",
+  "erroAtivar": "Could not activate the trial. Please try again."
+}

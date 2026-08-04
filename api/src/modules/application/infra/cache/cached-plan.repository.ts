@@ -10,8 +10,13 @@ const PLAN_TTL_SECONDS = 5 * 60
  * Versão do shape do `Plan`. Sobe junto com qualquer mudança na entidade
  * — inclusive no `Product` aninhado — para que entradas gravadas por um
  * deploy anterior sejam ignoradas.
+ *
+ * `v2`: `provider` entrou no shape. Entrada `v1` não tem o campo, e como ele é
+ * opcional o schema **aceitaria** a entrada velha — resolvendo `undefined` e
+ * tornando o plano pago não ofertável até o TTL vencer. Subir a versão é o que
+ * evita uma janela de 5 min em que o checkout fica vazio depois do deploy.
  */
-const CACHE_VERSION = 'v1'
+const CACHE_VERSION = 'v2'
 
 const planSchema = z.object({
   id: z.string(),
@@ -30,6 +35,7 @@ const planSchema = z.object({
     z.literal('yearly'),
   ]),
   gatewayId: z.string().optional(),
+  provider: z.union([z.literal('ZAPI'), z.literal('HUBMESSAGE')]).optional(),
   active: z.boolean(),
 })
 

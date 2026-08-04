@@ -68,7 +68,16 @@ function makeSut(items: SubscriptionItem[] = [zapiItem()]) {
   const execute = vi.fn().mockResolvedValue({
     customer: { id: 'domain-1', name: 'acme.bitrix24.com.br' },
     aplication: { id: 'installed-1', spaId: '42' },
-    subscriptions: [{ id: 'sub-1', items }],
+    // `status` e janela obrigatórios: sem eles o entitlement cai em `inactive` e o
+    // envio é recusado antes de resolver credencial.
+    subscriptions: [
+      {
+        id: 'sub-1',
+        status: 'active',
+        currentPeriodEnd: new Date('2099-01-01T00:00:00.000Z'),
+        items,
+      },
+    ],
   })
   const getInstanceByInstanceId = vi
     .fn()

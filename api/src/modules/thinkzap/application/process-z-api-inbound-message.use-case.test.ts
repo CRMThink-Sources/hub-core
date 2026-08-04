@@ -107,9 +107,13 @@ function makeEvent(
 function buildUseCase({
   repoFind,
   repoCreate,
+  subscriptionStatus = 'active',
+  currentPeriodEnd = new Date('2099-01-01T00:00:00.000Z'),
 }: {
   repoFind?: ReturnType<typeof vi.fn>
   repoCreate?: ReturnType<typeof vi.fn>
+  subscriptionStatus?: string
+  currentPeriodEnd?: Date
 } = {}) {
   const messageRepo = {
     findByProviderMessageId: repoFind ?? vi.fn().mockResolvedValue(null),
@@ -129,6 +133,10 @@ function buildUseCase({
         subscriptions: [
           {
             id: 'sub-1',
+            // Assinatura ativa por default: sem `status`, o entitlement cai em
+            // `inactive` e a mensagem é descartada antes de qualquer efeito.
+            status: subscriptionStatus,
+            currentPeriodEnd,
             items: [
               {
                 id: 'i1',
@@ -175,6 +183,58 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
     updateMessageMock.mockClear()
     deleteMessageMock.mockClear()
     getLastMessageIdMock.mockClear().mockResolvedValue(null)
+  })
+
+  /**
+   * Trial vencido: descarta **antes** de persistir. Mensagem de linha bloqueada não
+   * deve virar row em `messages` nem chegar ao canal aberto.
+   */
+  it('discards the message when the trial has expired', async () => {
+    const { useCase, messageRepo } = buildUseCase({
+      subscriptionStatus: 'trialing',
+      currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
+    })
+
+    await useCase.execute(makeEvent())
+
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(messageRepo.create).not.toHaveBeenCalled()
+  })
+
+  it('discards the message when the subscription is cancelled', async () => {
+    const { useCase, messageRepo } = buildUseCase({
+      subscriptionStatus: 'cancelled',
+    })
+
+    await useCase.execute(makeEvent())
+
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(messageRepo.create).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Descarte não é erro para o provider: exceção vira retry no worker, e a Z-API
+   * reentregaria indefinidamente uma mensagem que nunca vai ser aceita.
+   */
+  it('does not throw when discarding — the provider must not retry', async () => {
+    const { useCase } = buildUseCase({
+      subscriptionStatus: 'trialing',
+      currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
+    })
+
+    await expect(useCase.execute(makeEvent())).resolves.toBeUndefined()
+  })
+
+  /** Trial dentro da janela funciona igual a assinatura paga. */
+  it('processes normally while the trial window is open', async () => {
+    const { useCase } = buildUseCase({
+      subscriptionStatus: 'trialing',
+      currentPeriodEnd: new Date('2099-01-01T00:00:00.000Z'),
+    })
+
+    await useCase.execute(makeEvent())
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
   })
 
   it('sends message without prefix when referenceMessageId absent', async () => {

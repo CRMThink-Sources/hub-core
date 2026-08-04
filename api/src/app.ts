@@ -37,6 +37,7 @@ import { apiLogger, resolveLogApp } from './shared/infra/logger.js'
 import { runWithLogContext } from './shared/infra/log-context.js'
 import { randomUUID } from 'node:crypto'
 import { makeHubmessageWebhookHandlerController } from './modules/thinkzap/main/make-hubmessage-webhook-handler-controller.js'
+import { makeStripeWebhookController } from './modules/thinkzap/main/subscription/make-subscription-controllers.js'
 
 const app: Express = express()
 
@@ -86,6 +87,20 @@ app.post(
   '/api/clicksign/webhook/:appId/:ref',
   express.raw({ type: '*/*' }),
   adaptControllerFactory(makeClicksignWebhookController),
+)
+
+/**
+ * Webhook do Stripe, também ANTES do express.json().
+ *
+ * A validação da assinatura do evento é um HMAC sobre os bytes exatos que
+ * chegaram. Registrada depois do parser, o corpo já foi reserializado e a
+ * assinatura falha em **100%** dos eventos — o que aparece como "segredo errado" e
+ * manda procurar no lugar errado. A ordem aqui é a correção, não uma preferência.
+ */
+app.post(
+  '/api/webhooks/stripe',
+  express.raw({ type: '*/*' }),
+  adaptControllerFactory(makeStripeWebhookController),
 )
 
 // JSON parser para as demais rotas (incluindo z-api webhook).

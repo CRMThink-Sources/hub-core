@@ -1,4 +1,7 @@
-import { Subscription } from '@/modules/application/domain/entities/subscription'
+import {
+  Subscription,
+  SubscriptionModality,
+} from '@/modules/application/domain/entities/subscription'
 
 /**
  * Entrada de criação. Usa `planId` em vez da entidade: exigir o plano inteiro
@@ -20,6 +23,13 @@ export interface CreateSubscriptionInput {
   currentPeriodStart: Date
   currentPeriodEnd: Date
   gatewayId?: string
+  /**
+   * Opcional na entrada, obrigatório na entidade: ausente **omite** o campo do
+   * payload e a leitura resolve `manual`. Quem cria assinatura do gateway informa
+   * explicitamente — assumir na escrita faria um patch de status reescrever a
+   * modalidade.
+   */
+  modality?: SubscriptionModality
 }
 
 /**
@@ -44,6 +54,15 @@ export interface SubscriptionRepository {
    * `CustomerRepository.getCustomerProducts`.
    */
   getSubscriptionsByAplication(aplicationSpaId: string): Promise<Subscription[]>
+  /**
+   * Busca pelo id da assinatura no gateway de pagamento. `null` quando não existe.
+   *
+   * É a chave de idempotência do processamento de webhook: o gateway reentrega por
+   * design, e é por este id que uma reentrega encontra a assinatura já no estado
+   * final em vez de criar outra. Ausência é caso **normal** — um evento de ciclo
+   * de vida pode chegar antes do `checkout.session.completed` que cria o espelho.
+   */
+  getSubscriptionByGatewayId(gatewayId: string): Promise<Subscription | null>
   createSubscription(input: CreateSubscriptionInput): Promise<Subscription>
   updateSubscription(
     id: string,

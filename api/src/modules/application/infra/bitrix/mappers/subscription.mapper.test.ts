@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { apiLogger } from '@/shared/infra/logger'
+import { SUBSCRIPTION_MODALITY_FIELD } from '../ensure-subscription-modality-field'
 import {
   APLICATION_PARENT_FIELD,
   collectBitrixSpaSubscriptionToRawSubscription,
@@ -9,6 +11,10 @@ import { InvalidBitrixSubscriptionError } from '../errors/invalid-bitrix-subscri
 import { Subscription } from '@/modules/application/domain/entities/subscription'
 import { CreateSubscriptionInput } from '@/modules/application/domain/repositories/subscription.repository'
 
+vi.mock('@/shared/infra/logger', () => ({
+  apiLogger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
+}))
+
 const validItem = {
   id: 21,
   title: 'ThinkZap Pro — Acme',
@@ -18,11 +24,16 @@ const validItem = {
   ufCrm91CurrentPeriodStart: '2026-07-01T00:00:00+03:00',
   ufCrm91CurrentPeriodEnd: '2026-08-01T00:00:00+03:00',
   ufCrm91GatewayId: 'sub_abc',
+  [SUBSCRIPTION_MODALITY_FIELD]: 'stripe',
 }
 
 const itemWith = (overrides: Record<string, unknown>) => ({
   ...validItem,
   ...overrides,
+})
+
+beforeEach(() => {
+  vi.mocked(apiLogger.warn).mockClear()
 })
 
 describe('mapBitrixSpaSubscriptionToRawSubscription', () => {
@@ -36,6 +47,7 @@ describe('mapBitrixSpaSubscriptionToRawSubscription', () => {
       currentPeriodStart: new Date('2026-07-01T00:00:00+03:00'),
       currentPeriodEnd: new Date('2026-08-01T00:00:00+03:00'),
       gatewayId: 'sub_abc',
+      modality: 'stripe',
     })
   })
 
@@ -182,6 +194,70 @@ describe('mapBitrixSpaSubscriptionToRawSubscription', () => {
     })
   })
 
+  describe('modalidade', () => {
+    it.each<['stripe' | 'manual']>([['stripe'], ['manual']])(
+      'lê o valor gravado (%s)',
+      modality => {
+        expect(
+          mapBitrixSpaSubscriptionToRawSubscription(
+            itemWith({ [SUBSCRIPTION_MODALITY_FIELD]: modality }),
+          ).modality,
+        ).toBe(modality)
+      },
+    )
+
+    it.each([null, undefined, ''])(
+      'resolve manual quando o campo vem vazio (%s), sem warning',
+      raw => {
+        expect(
+          mapBitrixSpaSubscriptionToRawSubscription(
+            itemWith({ [SUBSCRIPTION_MODALITY_FIELD]: raw }),
+          ).modality,
+        ).toBe('manual')
+        expect(apiLogger.warn).not.toHaveBeenCalled()
+      },
+    )
+
+    /**
+     * O caso das assinaturas criadas antes do campo existir: a chave nem chega no
+     * item. Silencioso de propósito — não há nada a corrigir no CRM.
+     */
+    it('resolve manual quando a chave não existe no item, sem warning', () => {
+      const { [SUBSCRIPTION_MODALITY_FIELD]: _omitted, ...beforeTheField } =
+        validItem
+
+      expect(
+        mapBitrixSpaSubscriptionToRawSubscription(beforeTheField).modality,
+      ).toBe('manual')
+      expect(apiLogger.warn).not.toHaveBeenCalled()
+    })
+
+    /**
+     * Aí sim alguém digitou algo que o produto não entende — inclusive o id de
+     * enum que um campo de lista devolveria. `warn`, porque a consequência
+     * (cliente do gateway sem portal) não aparece em nenhum outro lugar.
+     */
+    it.each([['boleto'], ['13617'], ['STRIPE']])(
+      'resolve manual com warning para valor desconhecido (%s)',
+      raw => {
+        expect(
+          mapBitrixSpaSubscriptionToRawSubscription(
+            itemWith({ [SUBSCRIPTION_MODALITY_FIELD]: raw }),
+          ).modality,
+        ).toBe('manual')
+        expect(apiLogger.warn).toHaveBeenCalledTimes(1)
+      },
+    )
+
+    it('não reprova o item por causa da modalidade', () => {
+      expect(() =>
+        mapBitrixSpaSubscriptionToRawSubscription(
+          itemWith({ [SUBSCRIPTION_MODALITY_FIELD]: 'lixo' }),
+        ),
+      ).not.toThrow()
+    })
+  })
+
   it('lista os campos com problema na mensagem do erro', () => {
     let thrown: InvalidBitrixSubscriptionError | undefined
 
@@ -226,6 +302,7 @@ describe('mapSubscriptionInputToBitrixFields', () => {
     currentPeriodStart: new Date('2026-07-01T00:00:00.000Z'),
     currentPeriodEnd: new Date('2026-08-01T00:00:00.000Z'),
     gatewayId: 'sub_abc',
+    modality: 'stripe',
   }
 
   it('traduz o input completo para os campos da SPA', () => {
@@ -237,7 +314,30 @@ describe('mapSubscriptionInputToBitrixFields', () => {
       ufCrm91CurrentPeriodStart: '2026-07-01T00:00:00.000Z',
       ufCrm91CurrentPeriodEnd: '2026-08-01T00:00:00.000Z',
       ufCrm91GatewayId: 'sub_abc',
+      [SUBSCRIPTION_MODALITY_FIELD]: 'stripe',
     })
+  })
+
+  /**
+   * Escrita explícita, ao contrário da leitura tolerante: um patch de status não
+   * pode reescrever a modalidade de uma assinatura Stripe como `manual`.
+   */
+  it('omite a modalidade quando não informada', () => {
+    expect(
+      mapSubscriptionInputToBitrixFields({ status: 'cancelled' }),
+    ).not.toHaveProperty(SUBSCRIPTION_MODALITY_FIELD)
+  })
+
+  it('faz round-trip da modalidade', () => {
+    const fields = mapSubscriptionInputToBitrixFields({ modality: 'stripe' })
+
+    expect(
+      mapBitrixSpaSubscriptionToRawSubscription(
+        itemWith({
+          [SUBSCRIPTION_MODALITY_FIELD]: fields[SUBSCRIPTION_MODALITY_FIELD],
+        }),
+      ).modality,
+    ).toBe('stripe')
   })
 
   it('omite os campos ausentes no patch em vez de enviá-los como null', () => {

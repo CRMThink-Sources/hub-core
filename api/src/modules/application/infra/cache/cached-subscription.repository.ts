@@ -23,8 +23,12 @@ const SUBSCRIPTION_TTL_SECONDS = 5 * 60
  * produto cobrado é `plan.product`. Entradas `v2` têm `product` na raiz e
  * falhariam no schema; subir a versão as ignora em silêncio em vez de gerar
  * `warn` para cada uma.
+ *
+ * `v4`: `modality` entrou no shape. Entrada `v3` não tem o campo e reprovaria no
+ * schema; subir a versão descarta as antigas de forma determinística, ao custo de
+ * uma leitura ao Bitrix por instalação no primeiro acesso depois do deploy.
  */
-const CACHE_VERSION = 'v3'
+const CACHE_VERSION = 'v4'
 
 const productSchema = z.object({
   id: z.string(),
@@ -78,6 +82,12 @@ const subscriptionSchema = z.object({
   aplication: aplicationSchema,
   // Sem `product` na raiz: o produto cobrado é o de `plan.product`.
   gatewayId: z.string().optional(),
+  /**
+   * Obrigatória aqui, apesar de tolerante na leitura da SPA: a entidade sempre a
+   * resolve antes de virar cache, então entrada sem o campo é de um deploy
+   * anterior e tem que virar miss.
+   */
+  modality: z.union([z.literal('stripe'), z.literal('manual')]),
 })
 
 const subscriptionListSchema = z.array(subscriptionSchema)
@@ -151,6 +161,19 @@ export class CachedSubscriptionRepository implements SubscriptionRepository {
     await this.write(key, subscriptions)
 
     return subscriptions
+  }
+
+  /**
+   * **Sem cache, de propósito.** É a busca de idempotência do webhook, chamada
+   * poucas vezes por contratação e sempre para decidir uma escrita. Uma entrada
+   * velha aqui faria uma reentrega ver estado antigo e reprocessar — e cachear
+   * exigiria invalidar mais uma chave em cada escrita, para ganhar nada num
+   * caminho que não é quente.
+   */
+  async getSubscriptionByGatewayId(
+    gatewayId: string,
+  ): Promise<Subscription | null> {
+    return this.inner.getSubscriptionByGatewayId(gatewayId)
   }
 
   async createSubscription(

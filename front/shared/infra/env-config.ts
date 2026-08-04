@@ -1,5 +1,11 @@
 export const envConfig = {
   apiUrl: process.env.NEXT_PUBLIC_API_URL ?? '',
+  /**
+   * Publishable key do Stripe — exposta no frontend por desenho, é o par público da
+   * secret. Necessária para montar o checkout embedado: o SDK precisa dela junto do
+   * `client_secret` que o servidor devolve.
+   */
+  stripePublishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '',
   // Public Key do SDK @hubmessage/connect — pode ser exposta no frontend.
   hubMessagePublicKey: process.env.NEXT_PUBLIC_HUBMESSAGE_PUBLIC_KEY ?? '',
   hubMessageApiUrl:

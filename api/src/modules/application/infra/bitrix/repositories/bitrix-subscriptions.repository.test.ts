@@ -144,6 +144,9 @@ describe('BitrixSubscriptionRepository', () => {
         currentPeriodStart: new Date('2026-07-01T00:00:00.000Z'),
         currentPeriodEnd: new Date('2026-08-01T00:00:00.000Z'),
         gatewayId: 'sub_21',
+        // O item de teste não tem o campo de modalidade: leitura tolerante resolve
+        // `manual`, que é o estado de toda assinatura anterior ao campo existir.
+        modality: 'manual',
       })
     })
 

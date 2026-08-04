@@ -16,7 +16,7 @@
   },
   "provider": {
     "oficial": "Oficial",
-    "naoOficial": "Não oficial"
+    "naoOficial": "WhatsApp Web"
   },
   "menu": {
     "configuracoes": "Configurações",
@@ -27,5 +27,16 @@
     "desvincularCanal": "Desvincular canal",
     "cancelarConector": "Cancelar conector"
   },
-  "semPlano": "Sem plano"
+  "semPlano": "Sem plano",
+  "assinar": {
+    "acao": "Assinar",
+    "comValor": "Assinar · {{valor}}/{{intervalo}}",
+    "escolherPlano": "Escolher plano",
+    "intervalo": {
+      "monthly": "mês",
+      "quarterly": "trimestre",
+      "semiannual": "semestre",
+      "yearly": "ano"
+    }
+  }
 }

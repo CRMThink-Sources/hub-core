@@ -97,7 +97,7 @@ export class ProcessZApiInboundMessageUseCase {
      * direto na SPA falhar com "Connector not found for instance": a mensagem chegava
      * da Z-API e morria no worker, sem caminho de recuperação.
      */
-    const item = await findLineItemByInstanceId(
+    const line = await findLineItemByInstanceId(
       {
         instanceId: event.instanceId,
         domainId,
@@ -106,7 +106,7 @@ export class ProcessZApiInboundMessageUseCase {
       this.getAplicationContext,
     )
 
-    if (!item) {
+    if (!line) {
       log.warn(
         {
           instanceId: event.instanceId,
@@ -116,6 +116,28 @@ export class ProcessZApiInboundMessageUseCase {
         'Nenhum item de assinatura corresponde a esta instância',
       )
       throw new Error('Line not found for received message')
+    }
+
+    const { item } = line
+
+    /**
+     * Descarta **antes** de persistir mensagem ou criar conversa: mensagem de linha
+     * bloqueada não deve virar row em `messages` nem aparecer no CRM.
+     *
+     * Retorna em vez de lançar, porque o worker traduz exceção em retry — e o
+     * provider reentregaria indefinidamente uma mensagem que nunca vai ser aceita.
+     */
+    if (line.entitlement !== 'active') {
+      log.info(
+        {
+          instanceId: event.instanceId,
+          subscriptionItemId: item.id,
+          messageId: event.messageId,
+          entitlement: line.entitlement,
+        },
+        'Mensagem descartada: linha sem assinatura ativa',
+      )
+      return
     }
 
     /**

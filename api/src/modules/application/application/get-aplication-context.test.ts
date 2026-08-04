@@ -53,6 +53,7 @@ const subscriptionOf = (id: string): Subscription => ({
   currentPeriodEnd: new Date('2026-08-01T00:00:00.000Z'),
   aplication: aplicationOf('512'),
   gatewayId: `sub_${id}`,
+  modality: 'stripe',
 })
 
 const itemOf = (id: string, subscription: string): SubscriptionItem => ({

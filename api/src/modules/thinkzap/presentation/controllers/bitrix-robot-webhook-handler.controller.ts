@@ -4,7 +4,10 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
-import { findLineInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
+import {
+  assertLineEnabled,
+  findLineInContext,
+} from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { ZApiClient } from '../../infra/clients/z-api.client'
 import { env } from '@/config/env'
 import { SendNotification } from '@/shared/data/contracts/send-notification'
@@ -55,6 +58,14 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       domainId: domain.id,
       appCode: app.appCodeId,
     })
+
+    /**
+     * Recusa antes de resolver recipients e credencial: um robô apontando para linha
+     * bloqueada não deve disparar nada, e o erro tem que aparecer no log do workflow
+     * em vez de virar envio silenciosamente perdido.
+     */
+    assertLineEnabled(context, data.properties.connector, new Date())
+
     const line = findLineInContext(context, data.properties.connector)
 
     const documentId = data.document_id[2]

@@ -43,6 +43,7 @@ const subscription: Subscription = {
     updatedAt: new Date('2026-06-01T00:00:00.000Z'),
   },
   gatewayId: 'sub_abc',
+  modality: 'stripe',
 }
 
 /** Mesma assinatura, numa instalação que ainda não tem espelho na SPA. */
@@ -51,9 +52,9 @@ const withoutSpaId: Subscription = {
   aplication: { ...subscription.aplication, spaId: null },
 }
 
-const SUBSCRIPTION_KEY = 'payments:subscription:v3:21'
-const SUBSCRIPTION_LIST_KEY = 'payments:subscriptions:v3:all'
-const APLICATION_LIST_KEY = 'payments:subscriptions:v3:aplication:512'
+const SUBSCRIPTION_KEY = 'payments:subscription:v4:21'
+const SUBSCRIPTION_LIST_KEY = 'payments:subscriptions:v4:all'
+const APLICATION_LIST_KEY = 'payments:subscriptions:v4:aplication:512'
 
 function makeInner(entity: Subscription = subscription) {
   const getSubscription = vi.fn(() => Promise.resolve(entity))
@@ -61,11 +62,13 @@ function makeInner(entity: Subscription = subscription) {
   const getSubscriptionsByAplication = vi.fn(() => Promise.resolve([entity]))
   const createSubscription = vi.fn(() => Promise.resolve(entity))
   const updateSubscription = vi.fn(() => Promise.resolve(entity))
+  const getSubscriptionByGatewayId = vi.fn(() => Promise.resolve(entity))
 
   const repository: SubscriptionRepository = {
     getSubscription,
     getSubscriptions,
     getSubscriptionsByAplication,
+    getSubscriptionByGatewayId,
     createSubscription,
     updateSubscription,
   }
@@ -75,6 +78,7 @@ function makeInner(entity: Subscription = subscription) {
     getSubscription,
     getSubscriptions,
     getSubscriptionsByAplication,
+    getSubscriptionByGatewayId,
     createSubscription,
     updateSubscription,
   }
@@ -193,6 +197,44 @@ describe('CachedSubscriptionRepository', () => {
 
       expect(result).toEqual(subscription)
       expect(inner.getSubscription).toHaveBeenCalled()
+    })
+
+    /**
+     * A chave `v4` não alcança entradas `v3`, então na prática o descarte já
+     * aconteceu antes do schema. Este teste cobre o caso residual: entrada sem
+     * modalidade gravada sob a chave atual não pode virar `Subscription` com o
+     * campo `undefined` — o tipo promete sempre resolvido.
+     */
+    it('descarta entrada gravada antes da modalidade', async () => {
+      const inner = makeInner()
+      const { modality: _modality, ...beforeModality } = subscription
+      const { redis } = makeRedis(JSON.stringify(beforeModality))
+
+      const result = await new CachedSubscriptionRepository(
+        inner.repository,
+        redis,
+      ).getSubscription('21')
+
+      expect(result).toEqual(subscription)
+      expect(inner.getSubscription).toHaveBeenCalled()
+    })
+
+    /**
+     * A busca de idempotência do webhook não é cacheada: entrada velha faria uma
+     * reentrega ver estado antigo e reprocessar.
+     */
+    it('não cacheia a busca por id de gateway', async () => {
+      const inner = makeInner()
+      const { redis, get, set } = makeRedis(JSON.stringify(subscription))
+
+      await new CachedSubscriptionRepository(
+        inner.repository,
+        redis,
+      ).getSubscriptionByGatewayId('sub_abc')
+
+      expect(inner.getSubscriptionByGatewayId).toHaveBeenCalledWith('sub_abc')
+      expect(get).not.toHaveBeenCalled()
+      expect(set).not.toHaveBeenCalled()
     })
 
     it('descarta entrada do shape v1 (cliente como id, sem aplicação)', async () => {

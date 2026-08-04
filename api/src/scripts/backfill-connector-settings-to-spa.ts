@@ -93,7 +93,7 @@ async function resolveOutcome(
    * discriminador — e não depende de `Connector`, que pode não existir para linha
    * nascida na SPA.
    */
-  const item = row.channelId
+  const line = row.channelId
     ? await findLineItemByChannelId(
         {
           channelId: row.channelId,
@@ -111,7 +111,15 @@ async function resolveOutcome(
         deps.getAplicationContext,
       )
 
-  if (!item) return { kind: 'no-item' }
+  if (!line) return { kind: 'no-item' }
+
+  /**
+   * O `entitlement` da resolução é ignorado de propósito: o backfill migra
+   * configuração de linha bloqueada também. O dado da coluna é o que o cliente
+   * tinha, e não migrá-lo perderia a configuração de quem estiver com o trial
+   * vencido no momento do run.
+   */
+  const item = line.item
 
   const raw = await readRawSettingsField(deps.bitrix, item.id)
   if (hasPersistedSettings(raw)) {

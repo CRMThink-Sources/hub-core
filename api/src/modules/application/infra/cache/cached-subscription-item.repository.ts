@@ -145,6 +145,28 @@ export class CachedSubscriptionItemRepository implements SubscriptionItemReposit
     return item
   }
 
+  async reparentSubscriptionItem(
+    itemId: string,
+    subscriptionId: string,
+  ): Promise<SubscriptionItem> {
+    /**
+     * Origem lida do **interno**, não do cache: é a chave de listagem que precisa
+     * ser invalidada, e uma entrada velha apontaria para a assinatura errada —
+     * deixando o item aparecendo numa listagem que ele já não pertence, sem nada
+     * para corrigir isso antes do TTL.
+     */
+    const origin = (await this.inner.getSubscriptionItem(itemId)).subscription
+
+    const item = await this.inner.reparentSubscriptionItem(
+      itemId,
+      subscriptionId,
+    )
+
+    await this.refresh(item, origin)
+
+    return item
+  }
+
   /**
    * Invalida as três chaves afetadas e regrava a individual (write-through).
    * A assinatura sai da **entidade devolvida**, não do patch — que aliás nem
@@ -154,15 +176,28 @@ export class CachedSubscriptionItemRepository implements SubscriptionItemReposit
    * A escrita no Bitrix já aconteceu e é a fonte da verdade: falha de Redis aqui
    * é logada e engolida — derrubar a operação trocaria uma inconsistência de
    * 5 min por uma falha de escrita.
+   *
+   * @param originSubscriptionId Só no repai: a assinatura de **onde** o item
+   * saiu. Invalidar apenas a de destino deixaria o item aparecendo na listagem da
+   * origem até o TTL — duas assinaturas mostrando a mesma linha.
    */
-  private async refresh(item: SubscriptionItem): Promise<void> {
+  private async refresh(
+    item: SubscriptionItem,
+    originSubscriptionId?: string,
+  ): Promise<void> {
     const key = itemKey(item.id)
+
+    const originKeys =
+      originSubscriptionId && originSubscriptionId !== item.subscription
+        ? [subscriptionListKey(originSubscriptionId)]
+        : []
 
     try {
       await this.redis.del(
         key,
         itemListKey(),
         subscriptionListKey(item.subscription),
+        ...originKeys,
       )
     } catch (error) {
       apiLogger.warn(

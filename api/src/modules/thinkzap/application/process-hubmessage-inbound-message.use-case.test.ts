@@ -83,11 +83,15 @@ function buildUseCase({
   item = baseItem,
   repoFind,
   repoCreate,
+  subscriptionStatus = 'active',
+  currentPeriodEnd = new Date('2099-01-01T00:00:00.000Z'),
 }: {
   instance?: unknown
   item?: unknown
   repoFind?: ReturnType<typeof vi.fn>
   repoCreate?: ReturnType<typeof vi.fn>
+  subscriptionStatus?: string
+  currentPeriodEnd?: Date
 } = {}) {
   const messageRepo = {
     findByProviderMessageId: repoFind ?? vi.fn().mockResolvedValue(null),
@@ -99,7 +103,16 @@ function buildUseCase({
       execute: vi.fn().mockResolvedValue({
         customer: { id: 'domain-1', name: 'acme' },
         aplication: { id: 'app-1', spaId: '42' },
-        subscriptions: [{ id: 'sub-1', items: item ? [item] : [] }],
+        // Assinatura ativa: sem `status`, o entitlement cai em `inactive` e a
+        // mensagem é descartada antes de qualquer efeito.
+        subscriptions: [
+          {
+            id: 'sub-1',
+            status: subscriptionStatus,
+            currentPeriodEnd,
+            items: item ? [item] : [],
+          },
+        ],
       }),
     } as never,
     {
@@ -130,6 +143,58 @@ describe('ProcessHubMessageInboundMessageUseCase', () => {
     vi.clearAllMocks()
     sendMessageMock.mockResolvedValue({ ok: true })
     getLastMessageIdMock.mockResolvedValue(null)
+  })
+
+  /**
+   * Trial vencido: descarta **antes** de persistir. Mensagem de linha bloqueada não
+   * deve virar row em `messages` nem aparecer no CRM.
+   */
+  it('discards the message when the trial has expired', async () => {
+    const { useCase, messageRepo } = buildUseCase({
+      subscriptionStatus: 'trialing',
+      currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
+    })
+
+    await useCase.execute(makeMessage())
+
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(messageRepo.create).not.toHaveBeenCalled()
+  })
+
+  it('discards the message when the subscription is cancelled', async () => {
+    const { useCase, messageRepo } = buildUseCase({
+      subscriptionStatus: 'cancelled',
+    })
+
+    await useCase.execute(makeMessage())
+
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(messageRepo.create).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Descarte não é erro para o provider: exceção aqui vira retry no worker, e a
+   * HubMessage reentregaria indefinidamente uma mensagem que nunca vai ser aceita.
+   */
+  it('does not throw when discarding — the provider must not retry', async () => {
+    const { useCase } = buildUseCase({
+      subscriptionStatus: 'trialing',
+      currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
+    })
+
+    await expect(useCase.execute(makeMessage())).resolves.toBeUndefined()
+  })
+
+  /** Trial dentro da janela funciona igual a assinatura paga. */
+  it('processes normally while the trial window is open', async () => {
+    const { useCase } = buildUseCase({
+      subscriptionStatus: 'trialing',
+      currentPeriodEnd: new Date('2099-01-01T00:00:00.000Z'),
+    })
+
+    await useCase.execute(makeMessage())
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
   })
 
   it('sends text to the open channel keyed by the contact phone, not by chat_id', async () => {

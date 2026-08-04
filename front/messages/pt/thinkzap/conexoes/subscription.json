@@ -1,0 +1,48 @@
+{
+  "status": {
+    "active": "Ativa",
+    "past_due": "Pagamento pendente",
+    "cancelled": "Cancelada",
+    "trialing": "Em teste"
+  },
+  "modalidade": {
+    "stripe": "Cobrança por cartão",
+    "manual": "Cobrança por boleto"
+  },
+  "intervalo": {
+    "monthly": "mês",
+    "quarterly": "trimestre",
+    "semiannual": "semestre",
+    "yearly": "ano"
+  },
+  "valorPorIntervalo": "{{valor}} por {{intervalo}}",
+  "vigenteDescricao": "Sua assinatura está ativa e renova em {{data}}.",
+  "inadimplenteDescricao": "Não conseguimos concluir o pagamento. Suas linhas param de enviar e receber mensagens até a cobrança ser regularizada.",
+  "canceladaDescricao": "Sua assinatura foi cancelada e o período terminou em {{data}}. As linhas continuam aqui, mas não enviam nem recebem mensagens.",
+  "manualSemAutoatendimento": "A cobrança por boleto é gerenciada pela nossa equipe financeira. Para mudar plano, forma de pagamento ou cancelar, fale com o suporte.",
+  "gerenciarPagamento": "Gerenciar pagamento",
+  "abrindoPortal": "Abrindo...",
+  "contratar": {
+    "titulo": "Assine para continuar usando",
+    "descricao": "Sua linha volta a enviar e receber mensagens assim que o pagamento for confirmado. A credencial, os ajustes e o canal vinculado continuam como estão.",
+    "escolher": "Assinar",
+    "redirecionando": "Redirecionando..."
+  },
+  "processandoTitulo": "Confirmando seu pagamento",
+  "processandoDescricao": "Recebemos seu pagamento e estamos liberando sua linha. Isso costuma levar alguns segundos — você pode ficar nesta tela.",
+  "conector": {
+    "ZAPI": "Para WhatsApp Web",
+    "HUBMESSAGE": "Para WhatsApp Oficial"
+  },
+  "conectoresMistosTitulo": "Não há plano que cubra suas linhas",
+  "conectoresMistosDescricao": "Esta instalação tem linhas de WhatsApp Oficial e WhatsApp Web ao mesmo tempo, e uma assinatura cobre um tipo de conector só. Fale com o suporte para montar a cobrança certa.",
+  "erroLeituraTitulo": "Não foi possível verificar sua assinatura",
+  "erroLeitura": "Erro ao consultar a assinatura. Tente novamente.",
+  "erroCheckout": "Não foi possível iniciar a contratação. Tente novamente.",
+  "erroPortal": "Não foi possível abrir o portal de pagamento. Tente novamente.",
+  "checkoutTitulo": "Finalizar assinatura",
+  "checkoutDescricao": "Preencha os dados de pagamento abaixo. Sua linha volta a funcionar assim que o pagamento for confirmado.",
+  "checkoutFechar": "Fechar",
+  "checkoutErroTitulo": "Não foi possível abrir o pagamento",
+  "checkoutSemChave": "O pagamento por cartão não está configurado neste ambiente. Fale com o suporte."
+}

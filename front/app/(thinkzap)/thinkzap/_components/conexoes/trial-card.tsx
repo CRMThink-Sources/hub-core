@@ -1,0 +1,229 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
+import { APP_CODES } from '@/shared/app/app-codes'
+import { appTokenKey } from '@/shared/auth/app-token-storage'
+import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
+
+type TrialProvider = 'ZAPI' | 'HUBMESSAGE'
+
+/** Espelha `ConnectorTrialState` da api. */
+type TrialState =
+  | { status: 'available'; providers: TrialProvider[] }
+  | { status: 'active'; provider: TrialProvider; currentPeriodEnd: string }
+  | { status: 'expired'; provider: TrialProvider; currentPeriodEnd: string }
+  | { status: 'unavailable'; reason: string }
+  | { status: 'misconfigured' }
+
+type Fetch =
+  | { kind: 'loading' }
+  | { kind: 'ready'; trial: TrialState }
+  | { kind: 'error'; message: string }
+
+/**
+ * Convite ao teste, e o estado dele depois de ativado.
+ *
+ * Só aparece quando há algo a dizer: instalação que já é cliente pagante
+ * (`unavailable`) não rende card nenhum, para a tela de conexões não carregar um
+ * aviso permanente sobre um teste que nunca vai acontecer.
+ *
+ * `onActivated` recarrega o contexto da aplicação — a linha nova é um item de
+ * assinatura, e a lista de linhas vem de lá.
+ */
+export function TrialCard({ onActivated }: { onActivated: () => void }) {
+  const { t } = useTranslation('thinkzap/conexoes/trial')
+  const [state, setState] = useState<Fetch>({ kind: 'loading' })
+  const [activating, setActivating] = useState<TrialProvider | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
+      const res = await client.get<{ trial: TrialState }>('/thinkzap/trial')
+      setState({ kind: 'ready', trial: res.trial })
+    } catch (err: unknown) {
+      setState({
+        kind: 'error',
+        message: extractThinkzapError(err, t('erroLeitura')),
+      })
+    }
+  }, [t])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  async function handleActivate(provider: TrialProvider) {
+    setActivating(provider)
+    try {
+      const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
+      await client.post('/thinkzap/trial', { provider })
+      toast.success(t('ativado'))
+      await load()
+      onActivated()
+    } catch (err: unknown) {
+      toast.error(extractThinkzapError(err, t('erroAtivar')))
+    } finally {
+      setActivating(null)
+    }
+  }
+
+  if (state.kind === 'loading') return null
+
+  if (state.kind === 'error') {
+    return (
+      <Shell tone="amber">
+        <p className="text-sm font-medium">{t('erroLeituraTitulo')}</p>
+        <p className="mt-1 text-sm">{state.message}</p>
+      </Shell>
+    )
+  }
+
+  const { trial } = state
+
+  // Cliente pagante ou sem espelho na SPA: nada a oferecer, nada a explicar aqui.
+  if (trial.status === 'unavailable') return null
+
+  /**
+   * Configuração faltando é mostrada, e nomeada: sem isto o cliente veria uma tela
+   * sem convite e sem motivo, e o suporte não saberia que o plano de trial é o que
+   * está ausente.
+   */
+  if (trial.status === 'misconfigured') {
+    return (
+      <Shell tone="amber">
+        <p className="text-sm font-medium">{t('indisponivelTitulo')}</p>
+        <p className="mt-1 text-sm">{t('indisponivelDescricao')}</p>
+      </Shell>
+    )
+  }
+
+  if (trial.status === 'active') {
+    return (
+      <Shell tone="blue">
+        <p className="text-sm font-medium">{t('emAndamentoTitulo')}</p>
+        <p className="mt-1 text-sm">
+          {t('emAndamentoDescricao', {
+            data: formatDate(trial.currentPeriodEnd),
+          })}
+        </p>
+      </Shell>
+    )
+  }
+
+  if (trial.status === 'expired') {
+    return (
+      <Shell tone="amber">
+        <p className="text-sm font-medium">{t('expiradoTitulo')}</p>
+        <p className="mt-1 text-sm">
+          {t('expiradoDescricao', { data: formatDate(trial.currentPeriodEnd) })}
+        </p>
+      </Shell>
+    )
+  }
+
+  return (
+    <Shell tone="neutral">
+      <p className="text-base font-semibold text-foreground">
+        {t('convite.titulo')}
+      </p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {t('convite.descricao')}
+      </p>
+
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        {trial.providers.map(provider => (
+          <ProviderOption
+            key={provider}
+            provider={provider}
+            disabled={activating !== null}
+            loading={activating === provider}
+            onChoose={() => void handleActivate(provider)}
+            label={t(`convite.${provider}.titulo`)}
+            hint={t(`convite.${provider}.descricao`)}
+            cta={
+              activating === provider ? t('ativando') : t('convite.escolher')
+            }
+          />
+        ))}
+      </div>
+    </Shell>
+  )
+}
+
+function ProviderOption({
+  provider,
+  label,
+  hint,
+  cta,
+  disabled,
+  loading,
+  onChoose,
+}: {
+  provider: TrialProvider
+  label: string
+  hint: string
+  cta: string
+  disabled: boolean
+  loading: boolean
+  onChoose: () => void
+}) {
+  return (
+    <div className="flex flex-1 flex-col gap-3 rounded-lg border border-border p-4">
+      <div>
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{hint}</p>
+      </div>
+      <Button
+        type="button"
+        className="w-fit"
+        disabled={disabled}
+        onClick={onChoose}
+        data-provider={provider}
+      >
+        {loading ? (
+          <span className="mr-2 inline-block size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+        ) : null}
+        {cta}
+      </Button>
+    </div>
+  )
+}
+
+const TONES = {
+  neutral: 'border-border bg-card',
+  blue: 'border-blue-200 bg-blue-50 text-blue-900',
+  amber: 'border-amber-200 bg-amber-50 text-amber-800',
+} as const
+
+function Shell({
+  tone,
+  children,
+}: {
+  tone: keyof typeof TONES
+  children: React.ReactNode
+}) {
+  return (
+    <div className={`w-full rounded-xl border p-6 ${TONES[tone]}`}>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * A api devolve a data crua de propósito — fuso e formatação são da tela. `undefined`
+ * de locale usa o do navegador, que é o do operador.
+ */
+function formatDate(iso: string): string {
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleDateString(undefined, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+}

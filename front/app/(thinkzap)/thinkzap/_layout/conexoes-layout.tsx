@@ -2,6 +2,10 @@
 
 import { useAplicationContext } from '@/providers/aplication-provider'
 import {
+  needsSubscription,
+  useLineSubscription,
+} from '@/app/hooks/use-line-subscription'
+import {
   countActiveLines,
   listSubscriptionLines,
 } from '@/shared/aplication/subscription-items'
@@ -9,6 +13,9 @@ import { useTranslation } from 'react-i18next'
 import { ConexoesHeaderCard } from '../_components/conexoes/conexoes-header-card'
 import { ConexoesResumoConectados } from '../_components/conexoes/conexoes-resumo-conectados'
 import { ConexoesTabelaConectores } from '../_components/conexoes/conexoes-tabela-conectores'
+import { EmbeddedCheckout } from '../_components/conexoes/embedded-checkout'
+import { SubscriptionCard } from '../_components/conexoes/subscription-card'
+import { TrialCard } from '../_components/conexoes/trial-card'
 
 /**
  * Lista de conexões a partir dos itens de assinatura de
@@ -23,7 +30,21 @@ import { ConexoesTabelaConectores } from '../_components/conexoes/conexoes-tabel
  */
 export default function ConexoesLayout() {
   const { t: tCommon } = useTranslation('common')
-  const { state: aplicationState } = useAplicationContext()
+  const { state: aplicationState, refresh } = useAplicationContext()
+
+  /**
+   * Buscado aqui, uma vez: o card fala do contrato e cada linha oferece o plano
+   * compatível com ela. Buscando em cada componente, seriam duas requisições e dois
+   * estados capazes de discordar.
+   *
+   * Fica **antes** dos early returns porque hook não pode ser condicional.
+   */
+  const subscription = useLineSubscription()
+  const planos =
+    subscription.state.kind === 'ready' &&
+    needsSubscription(subscription.state.subscription)
+      ? subscription.state.plans
+      : []
 
   if (aplicationState.status === 'loading') {
     return (
@@ -68,9 +89,35 @@ export default function ConexoesLayout() {
         />
       </div>
 
+      {/* Acima do resumo: quando há convite ao teste, ele é a ação principal da
+          tela. O card se esconde sozinho quando não há nada a dizer. */}
+      <TrialCard onActivated={() => void refresh()} />
+
+      {/* Contrato vigente. Some sozinho quando a instalação só tem trial — quem
+          fala do teste é o card acima. Não oferece plano: isso é da linha. */}
+      <SubscriptionCard subscription={subscription} />
+
+      {/**
+       * Checkout embedado, **dentro** da tela: o app vive no iframe do Bitrix, e a
+       * página hospedada do gateway não monta emoldurada. Aparece só com sessão
+       * aberta, entre o card e a tabela — onde o cliente acabou de clicar.
+       */}
+      {subscription.checkoutSecret ? (
+        <EmbeddedCheckout
+          clientSecret={subscription.checkoutSecret}
+          onClose={() => subscription.closeCheckout(false)}
+          onComplete={() => subscription.closeCheckout(true)}
+        />
+      ) : null}
+
       <ConexoesResumoConectados ativas={ativas} total={linhas.length} />
 
-      <ConexoesTabelaConectores linhas={linhas} />
+      <ConexoesTabelaConectores
+        linhas={linhas}
+        planos={planos}
+        redirecting={subscription.redirecting}
+        onSubscribe={planId => void subscription.subscribe(planId)}
+      />
     </div>
   )
 }

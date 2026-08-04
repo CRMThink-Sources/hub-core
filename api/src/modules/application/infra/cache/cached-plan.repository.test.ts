@@ -23,8 +23,8 @@ const plan: Plan = {
   active: true,
 }
 
-const PLAN_KEY = 'payments:plan:v1:7'
-const PLAN_LIST_KEY = 'payments:plans:v1:all'
+const PLAN_KEY = 'payments:plan:v2:7'
+const PLAN_LIST_KEY = 'payments:plans:v2:all'
 
 function makeInner() {
   const getPlan = vi.fn(() => Promise.resolve(plan))

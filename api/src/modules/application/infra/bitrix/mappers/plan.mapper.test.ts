@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   collectBitrixSpaPlanToRawPlan,
   mapBitrixSpaPlanToRawPlan,
 } from './plan.mapper'
+import { apiLogger } from '@/shared/infra/logger'
+import { PLAN_PROVIDER_FIELD } from '../ensure-plan-provider-field'
 import { InvalidBitrixPlanError } from '../errors/invalid-bitrix-plan.error'
+
+vi.mock('@/shared/infra/logger', () => ({
+  apiLogger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
+}))
 
 const validItem = {
   id: 7,
@@ -14,11 +20,16 @@ const validItem = {
   ufCrm89Interval: '13609',
   ufCrm89GatewayId: 'price_abc',
   ufCrm89Active: true,
+  [PLAN_PROVIDER_FIELD]: 'ZAPI',
 }
 
 const itemWith = (overrides: Record<string, unknown>) => ({
   ...validItem,
   ...overrides,
+})
+
+beforeEach(() => {
+  vi.mocked(apiLogger.warn).mockClear()
 })
 
 describe('mapBitrixSpaPlanToRawPlan', () => {
@@ -30,7 +41,72 @@ describe('mapBitrixSpaPlanToRawPlan', () => {
       amount: 4990,
       interval: 'monthly',
       gatewayId: 'price_abc',
+      provider: 'ZAPI',
       active: true,
+    })
+  })
+
+  describe('provider', () => {
+    it.each([['ZAPI'], ['HUBMESSAGE']])('lê o valor gravado (%s)', raw => {
+      expect(
+        mapBitrixSpaPlanToRawPlan(itemWith({ [PLAN_PROVIDER_FIELD]: raw }))
+          .provider,
+      ).toBe(raw)
+    })
+
+    /** Tolerante no caso do dedo: o CRM é digitado à mão. */
+    it.each([['zapi'], [' hubmessage '], ['HubMessage']])(
+      'normaliza caixa e espaço (%s)',
+      raw => {
+        expect(
+          mapBitrixSpaPlanToRawPlan(itemWith({ [PLAN_PROVIDER_FIELD]: raw }))
+            .provider,
+        ).toMatch(/^(ZAPI|HUBMESSAGE)$/)
+      },
+    )
+
+    /** O plano de trial: não precifica conector nenhum. */
+    it.each([null, undefined, ''])(
+      'resolve undefined quando vem vazio (%s), sem warning',
+      raw => {
+        expect(
+          mapBitrixSpaPlanToRawPlan(itemWith({ [PLAN_PROVIDER_FIELD]: raw }))
+            .provider,
+        ).toBeUndefined()
+        expect(apiLogger.warn).not.toHaveBeenCalled()
+      },
+    )
+
+    it('resolve undefined quando a chave não existe no item', () => {
+      const { [PLAN_PROVIDER_FIELD]: _omitted, ...beforeTheField } = validItem
+
+      expect(mapBitrixSpaPlanToRawPlan(beforeTheField).provider).toBeUndefined()
+      expect(apiLogger.warn).not.toHaveBeenCalled()
+    })
+
+    /**
+     * Aí alguém digitou algo que o produto não entende. `warn`, porque o sintoma —
+     * plano sumido do checkout — não aponta para a causa.
+     */
+    it.each([['OFICIAL'], ['13609'], ['whatsapp']])(
+      'resolve undefined com warning para valor desconhecido (%s)',
+      raw => {
+        expect(
+          mapBitrixSpaPlanToRawPlan(itemWith({ [PLAN_PROVIDER_FIELD]: raw }))
+            .provider,
+        ).toBeUndefined()
+        expect(apiLogger.warn).toHaveBeenCalledTimes(1)
+      },
+    )
+
+    /**
+     * Reprovar o plano por causa deste campo derrubaria `getPlan`, e com ele a
+     * leitura do contexto inteiro da instalação — lista de linhas incluída.
+     */
+    it('não reprova o item por causa do provider', () => {
+      expect(() =>
+        mapBitrixSpaPlanToRawPlan(itemWith({ [PLAN_PROVIDER_FIELD]: 'lixo' })),
+      ).not.toThrow()
     })
   })
 

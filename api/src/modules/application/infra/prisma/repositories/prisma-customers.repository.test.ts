@@ -60,6 +60,7 @@ const subscriptionOf = (
   currentPeriodStart: new Date('2026-07-01T00:00:00.000Z'),
   currentPeriodEnd: new Date('2026-08-01T00:00:00.000Z'),
   aplication: aplicationOf('app-1', '512'),
+  modality: 'manual',
 })
 
 function makePrisma(row: typeof domainRow | null, all = [domainRow]) {

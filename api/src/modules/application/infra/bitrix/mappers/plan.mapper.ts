@@ -1,6 +1,8 @@
 import z from 'zod'
-import { Plan } from '@/modules/application/domain/entities/plan'
+import { Plan, PlanProvider } from '@/modules/application/domain/entities/plan'
 import { env } from '@/config/env'
+import { apiLogger } from '@/shared/infra/logger'
+import { PLAN_PROVIDER_FIELD } from '../ensure-plan-provider-field'
 import { InvalidBitrixPlanError } from '../errors/invalid-bitrix-plan.error'
 
 /**
@@ -78,6 +80,44 @@ const bitrixAmount = z
   .transform(Number)
   .pipe(z.number().int().nonnegative())
 
+const PLAN_PROVIDERS: readonly PlanProvider[] = ['ZAPI', 'HUBMESSAGE']
+
+/**
+ * Provider da SPA → domínio, **tolerante mas fechado**.
+ *
+ * Ausente, vazio e valor desconhecido resolvem `undefined`, e não reprovam o
+ * plano: reprovar derrubaria `getPlan`, que hidrata `Subscription.plan` — e uma
+ * assinatura apontando para plano inválido derruba a leitura do contexto inteiro
+ * da instalação, incluindo a lista de linhas.
+ *
+ * `undefined` num plano pago o torna **não ofertável** (ver `Plan.provider`), então
+ * a tolerância aqui não abre a porta que o campo veio fechar: ela só troca "a tela
+ * quebra" por "o plano não aparece". Valor desconhecido é `warn`, porque aí alguém
+ * digitou algo no CRM e o sintoma — plano sumido do checkout — não aponta para a
+ * causa.
+ */
+const bitrixPlanProvider = z
+  .unknown()
+  .transform((raw): PlanProvider | undefined => {
+    if (raw === undefined || raw === null || raw === '') return undefined
+
+    const value =
+      typeof raw === 'string' || typeof raw === 'number'
+        ? String(raw).trim().toUpperCase()
+        : JSON.stringify(raw)
+
+    if ((PLAN_PROVIDERS as readonly string[]).includes(value)) {
+      return value as PlanProvider
+    }
+
+    apiLogger.warn(
+      { app: 'shared', field: PLAN_PROVIDER_FIELD, value },
+      'Provider de plano desconhecido — o plano não será ofertável no checkout',
+    )
+
+    return undefined
+  })
+
 const bitrixPlanSchema = z.object({
   id: z.coerce.string(),
   title: z.string(),
@@ -91,6 +131,11 @@ const bitrixPlanSchema = z.object({
     .nullish()
     .transform(value => value || undefined),
   ufCrm89Active: bitrixBoolean,
+  /**
+   * Sem `.optional()` no `z.unknown()`: chave ausente já chega como `undefined`, e o
+   * transform trata — é o caso de todo plano anterior a este campo.
+   */
+  [PLAN_PROVIDER_FIELD]: bitrixPlanProvider,
 })
 
 export const mapBitrixSpaPlanToRawPlan = (raw: unknown): RawPlan => {
@@ -107,6 +152,7 @@ export const mapBitrixSpaPlanToRawPlan = (raw: unknown): RawPlan => {
     amount: parsed.data.ufCrm89Value,
     interval: parsed.data.ufCrm89Interval,
     gatewayId: parsed.data.ufCrm89GatewayId,
+    provider: parsed.data[PLAN_PROVIDER_FIELD],
     active: parsed.data.ufCrm89Active,
   }
 }

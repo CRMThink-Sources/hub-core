@@ -15,7 +15,7 @@ type Props = {
  * Configurações da linha oficial (HubMessage / WhatsApp Oficial), organizadas em
  * abas. Nesta entrega a única aba disponível é Templates.
  *
- * Identificada pelo item de assinatura, como a linha não oficial: o `wabaId` que
+ * Identificada pelo item de assinatura, como a linha do WhatsApp Web: o `wabaId` que
  * as operações de template precisam vive no `metadata` do item, então nem
  * `Connector` nem `Instance` participam.
  */

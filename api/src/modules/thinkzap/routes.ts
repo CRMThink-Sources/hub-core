@@ -36,6 +36,16 @@ import {
 import { makeGetLogsControllerFactory } from '@/shared/main/make-get-logs-controller'
 import { makeGetThinkzapAccessController } from './main/make-get-thinkzap-access-controller'
 import {
+  makeActivateTrialController,
+  makeGetTrialStateController,
+} from './main/trial/make-trial-controllers'
+import {
+  makeCreateBillingPortalController,
+  makeCreateCheckoutController,
+  makeGetSubscriptionStateController,
+  makeListPlansController,
+} from './main/subscription/make-subscription-controllers'
+import {
   makeDisconnectLineController,
   makeGetLineConnectionController,
   makeGetLineQrCodeController,
@@ -125,11 +135,60 @@ export const createThinkerszapRoutes = (): Router => {
   )
 
   /**
-   * Removidas com a cobrança antiga: `/pricing`, `/subscription/checkout`,
-   * `/subscription/billing-portal`, `/subscription/{activate,end}-trial` e
-   * `/subscription/add-quantity{,-preview}`. A permissão `finance` continua
-   * existindo no controle de acesso — o que saiu é a superfície que a consumia.
+   * ## Trial (`/trial`)
+   *
+   * Gateado por `finance`: era o que gateava o trial antigo, e admin do Bitrix passa
+   * de qualquer forma porque `canManageAccess` curto-circuita o guard — então numa
+   * instalação nova quem instalou vê o gatilho.
+   *
+   * A instalação vem do JWT nas duas rotas. `POST` não aceita período nem status:
+   * duração de trial é regra de negócio, não parâmetro.
    */
+  router.get(
+    '/trial',
+    requireThinkzapPermission('finance', 'read'),
+    adaptControllerFactory(makeGetTrialStateController),
+  )
+  router.post(
+    '/trial',
+    requireThinkzapPermission('finance', 'create'),
+    adaptControllerFactory(makeActivateTrialController),
+  )
+
+  /**
+   * ## Assinatura (`/subscription`)
+   *
+   * Mesma permissão do trial (`finance`): é a mesma pessoa decidindo sobre
+   * cobrança da instalação, e admin do Bitrix passa de qualquer forma porque
+   * `canManageAccess` curto-circuita o guard.
+   *
+   * Leitura apenas — o estado sai da SPA, nunca do gateway.
+   */
+  router.get(
+    '/subscription',
+    requireThinkzapPermission('finance', 'read'),
+    adaptControllerFactory(makeGetSubscriptionStateController),
+  )
+  router.get(
+    '/plans',
+    requireThinkzapPermission('finance', 'read'),
+    adaptControllerFactory(makeListPlansController),
+  )
+  /**
+   * `create` para contratar e `update` para o portal: contratar cria a assinatura,
+   * e o portal muda a existente. Nenhuma das duas aceita preço, quantidade ou
+   * período — os três são derivados no servidor.
+   */
+  router.post(
+    '/subscription/checkout',
+    requireThinkzapPermission('finance', 'create'),
+    adaptControllerFactory(makeCreateCheckoutController),
+  )
+  router.post(
+    '/subscription/billing-portal',
+    requireThinkzapPermission('finance', 'update'),
+    adaptControllerFactory(makeCreateBillingPortalController),
+  )
 
   /**
    * ## Linhas (`/lines/:itemId`)

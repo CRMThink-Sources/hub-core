@@ -56,6 +56,10 @@ const makeDeps = (
       subscriptions: [
         {
           id: 'sub-1',
+          // `status` e janela obrigatórios: sem eles o entitlement cai em
+          // `inactive` e o robô recusa antes de resolver recipients.
+          status: 'active',
+          currentPeriodEnd: new Date('2099-01-01T00:00:00.000Z'),
           items: [
             {
               id: 'conn',

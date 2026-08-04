@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { BitrixSubscriptionItemRepository } from './bitrix-subscription-items.repository'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { SubscriptionItemNotFoundError } from '@/modules/application/domain/errors/subscription-item-not-found.error'
+import { SubscriptionNotFoundError } from '@/modules/application/domain/errors/subscription-not-found.error'
 import { InvalidBitrixSubscriptionItemError } from '../errors/invalid-bitrix-subscription-item.error'
 import { SUBSCRIPTION_PARENT_FIELD } from '../mappers/subscription-item.mapper'
 import { env } from '@/config/env'
@@ -272,6 +273,114 @@ describe('BitrixSubscriptionItemRepository', () => {
       expect(updateCrmItem.mock.calls[0]?.[2]).not.toHaveProperty(
         SUBSCRIPTION_PARENT_FIELD,
       )
+    })
+
+    /**
+     * Verificação de **tipo**, não de runtime: é a incapacidade do patch de
+     * carregar `subscription` que garante que ninguém move item por acidente. Um
+     * `@ts-expect-error` que deixasse de errar reprovaria o typecheck, então esta
+     * linha é o teste.
+     */
+    it('não aceita subscription no tipo de patch, e descarta a chave em runtime', async () => {
+      const updateCrmItem = vi.fn(
+        (
+          _entityTypeId: number,
+          _id: string,
+          _fields: Record<string, unknown>,
+        ) => Promise.resolve({ result: {} }),
+      )
+      const getCrmItem = vi.fn(() =>
+        Promise.resolve({ result: { item: spaItem(77) } }),
+      )
+
+      await makeRepository(
+        makeBitrix({ updateCrmItem, getCrmItem }),
+      ).updateSubscriptionItem(
+        '77',
+        // @ts-expect-error mover item é `reparentSubscriptionItem`, não patch
+        { subscription: '9999' },
+      )
+
+      expect(updateCrmItem.mock.calls[0]?.[2]).not.toHaveProperty(
+        SUBSCRIPTION_PARENT_FIELD,
+      )
+    })
+  })
+
+  describe('reparentSubscriptionItem', () => {
+    /** `getCrmItem` que responde por SPA: 1142 é a assinatura, 1146 é o item. */
+    const makeGetCrmItem = (options: { subscriptionExists: boolean }) =>
+      vi.fn((entityTypeId: number, id: string) => {
+        if (entityTypeId === env.payments.spa.subscriptionEntityType) {
+          return Promise.resolve(
+            options.subscriptionExists
+              ? { result: { item: { id } } }
+              : { result: {} },
+          )
+        }
+        return Promise.resolve({
+          result: { item: spaItem(77, { [SUBSCRIPTION_PARENT_FIELD]: 9999 }) },
+        })
+      })
+
+    it('troca o pai e devolve a entidade relida', async () => {
+      const updateCrmItem = vi.fn(
+        (
+          _entityTypeId: number,
+          _id: string,
+          _fields: Record<string, unknown>,
+        ) => Promise.resolve({ result: {} }),
+      )
+      const getCrmItem = makeGetCrmItem({ subscriptionExists: true })
+
+      const item = await makeRepository(
+        makeBitrix({ updateCrmItem, getCrmItem }),
+      ).reparentSubscriptionItem('77', '9999')
+
+      expect(updateCrmItem).toHaveBeenCalledWith(
+        env.payments.spa.subscriptionItemEntityType,
+        '77',
+        { [SUBSCRIPTION_PARENT_FIELD]: '9999' },
+      )
+      expect(item.subscription).toBe('9999')
+    })
+
+    /**
+     * Credencial, `settings` e `vinculatedChannel` são a linha do cliente: uma
+     * operação de cobrança não os toca. Um campo a mais aqui é o que apagaria o
+     * conector de quem acabou de pagar.
+     */
+    it('envia apenas o campo parent, e nada mais', async () => {
+      const updateCrmItem = vi.fn(
+        (
+          _entityTypeId: number,
+          _id: string,
+          _fields: Record<string, unknown>,
+        ) => Promise.resolve({ result: {} }),
+      )
+      const getCrmItem = makeGetCrmItem({ subscriptionExists: true })
+
+      await makeRepository(
+        makeBitrix({ updateCrmItem, getCrmItem }),
+      ).reparentSubscriptionItem('77', '9999')
+
+      expect(Object.keys(updateCrmItem.mock.calls[0]?.[2] ?? {})).toEqual([
+        SUBSCRIPTION_PARENT_FIELD,
+      ])
+    })
+
+    it('verifica o destino antes de escrever', async () => {
+      const updateCrmItem = vi.fn(() => Promise.resolve({ result: {} }))
+      const getCrmItem = makeGetCrmItem({ subscriptionExists: false })
+
+      await expect(
+        makeRepository(
+          makeBitrix({ updateCrmItem, getCrmItem }),
+        ).reparentSubscriptionItem('77', '9999'),
+      ).rejects.toThrow(SubscriptionNotFoundError)
+
+      // O item permanece onde estava: nenhuma escrita aconteceu.
+      expect(updateCrmItem).not.toHaveBeenCalled()
     })
   })
 })
