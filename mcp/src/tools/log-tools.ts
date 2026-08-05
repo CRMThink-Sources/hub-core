@@ -1,16 +1,21 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
-import { lokiConfigured, queryByTrace, queryErrors } from '../loki.js'
-import { fmtTimeline, fmtErrorAggregation } from '../format.js'
+import {
+  logsConfigured,
+  queryByTrace,
+  queryErrors,
+  queryBySonaxCall,
+} from '../log/index.js'
+import { fmtTimeline, fmtErrorAggregation, fmtCallTimeline } from '../format.js'
 import { text, errMsg } from '../respond.js'
 
-// Guarda comum das tools de log: Loki configurado + captura de falha de rede.
-async function withLoki(
+// Guarda comum das tools de log: ao menos uma fonte configurada + captura de falha.
+async function withLogs(
   run: () => Promise<CallToolResult>,
 ): Promise<CallToolResult> {
-  if (!lokiConfigured())
-    return text('Busca de logs indisponível (Loki não configurado).')
+  if (!logsConfigured())
+    return text('Busca de logs indisponível (nenhuma fonte configurada).')
   try {
     return await run()
   } catch (err) {
@@ -44,7 +49,8 @@ function scopeDomain(s: Session): { domain?: string; error?: string } {
   return { domain: s.domain }
 }
 
-// Tools de log (Camada 2A): normalizam o Loki. LogQL nunca é exposto ao suporte.
+// Tools de log (Camada 2A): normalizam as fontes (Loki/BetterStack) via router.
+// Query crua (LogQL/SQL) nunca é exposta ao suporte.
 export function registerLogTools(server: McpServer): void {
   server.registerTool(
     'query_by_trace',
@@ -63,7 +69,7 @@ export function registerLogTools(server: McpServer): void {
       },
     },
     async ({ traceKey, sinceHours }, extra) =>
-      withLoki(async () => {
+      withLogs(async () => {
         const scope = scopeDomain(session(extra))
         if (scope.error) return text(scope.error)
         const key = traceKey.trim()
@@ -95,7 +101,7 @@ export function registerLogTools(server: McpServer): void {
       },
     },
     async ({ errorCode, app, sinceHours }, extra) =>
-      withLoki(async () => {
+      withLogs(async () => {
         const scope = scopeDomain(session(extra))
         if (scope.error) return text(scope.error)
         const entries = await queryErrors({
@@ -115,6 +121,43 @@ export function registerLogTools(server: McpServer): void {
           .filter(Boolean)
           .join(', ')
         return text(fmtErrorAggregation(entries, scopeLabel))
+      }),
+  )
+
+  // Específico do Sonax: uma chamada gera eventos separados (início/andamento/
+  // encerramento/áudio), cada um com traceKey próprio, mas o mesmo id de chamada.
+  // Junta as fases pelo id — o que aconteceu com a chamada inteira.
+  server.registerTool(
+    'query_sonax_call',
+    {
+      title: 'Linha do tempo da chamada Sonax (id da chamada)',
+      description:
+        'Para o app sonax: junta os eventos de uma mesma chamada (início, ' +
+        'andamento, encerramento e anexo de áudio) pelo id da chamada (id_chamada) ' +
+        'e devolve a timeline com os errorCodes e os traceKeys de cada fase. Use ' +
+        'quando o ticket traz o id da chamada em vez de um traceKey.',
+      inputSchema: {
+        callId: z
+          .string()
+          .describe('Id da chamada Sonax (id_chamada), só dígitos'),
+        sinceHours: z
+          .number()
+          .optional()
+          .describe('Janela em horas (padrão 72)'),
+      },
+    },
+    async ({ callId, sinceHours }, extra) =>
+      withLogs(async () => {
+        const scope = scopeDomain(session(extra))
+        if (scope.error) return text(scope.error)
+        const id = callId.trim()
+        const entries = await queryBySonaxCall(id, scope.domain, sinceHours)
+        if (entries.length === 0) {
+          return text(
+            `Nenhum evento para a chamada "${id}" na janela. Confira o id da chamada ou aumente sinceHours.`,
+          )
+        }
+        return text(fmtCallTimeline(id, entries))
       }),
   )
 }

@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
-import { join, resolve, dirname, relative, sep } from 'node:path'
+import { join, resolve, dirname, relative, sep, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -68,9 +68,12 @@ function loadRunbooks(): Map<string, Runbook> {
   if (!existsSync(RUNBOOKS_DIR)) return map
   for (const file of walkMarkdown(RUNBOOKS_DIR)) {
     const { meta, body } = parseFrontmatter(readFileSync(file, 'utf8'))
-    // errorCode = caminho relativo sem .md, com separador de path virando ponto.
+    // Caminho: <família>/<app>/<area>/<causa>.md. A família (hubcore/hubthink) é só
+    // organização de diretório — NÃO entra no errorCode (contrato = <app>.<area>.<causa>).
     const rel = relative(RUNBOOKS_DIR, file).replace(/\.md$/, '')
-    const parts = rel.split(sep)
+    const segments = rel.split(sep)
+    if (segments.length < 3) continue // fora do padrão família/app/area/causa
+    const parts = segments.slice(1) // descarta a família
     const errorCode = parts.join('.')
     const audience: Audience =
       meta.audience === 'suporte' ||
@@ -106,21 +109,28 @@ export function listCatalog(app?: string): Array<Omit<Runbook, 'body'>> {
     .sort((a, b) => a.errorCode.localeCompare(b.errorCode))
 }
 
-// Guard contra path traversal: `app` vira caminho de arquivo, então só aceita
-// nome simples (sem `/`, `..`, `\`, nulo). Fora do padrão → tratado como inexistente.
+// Guard contra path traversal: `app` casa por basename num índice pré-varrido, então
+// só aceita nome simples (sem `/`, `..`, `\`, nulo). Fora do padrão → inexistente.
 const SAFE_APP_NAME = /^[a-z0-9_-]+$/
+
+// Docs de app vivem em subpastas por família (apps/hubcore/, apps/thinkhub/). Acha
+// o <app>.md em qualquer nível — a subpasta é só organização, o nome do app é único.
+function findAppDoc(app: string): string | undefined {
+  if (!existsSync(APPS_DIR)) return undefined
+  const target = `${app}.md`
+  return walkMarkdown(APPS_DIR).find(f => basename(f) === target)
+}
 
 export function describeApp(app: string): string | undefined {
   if (!SAFE_APP_NAME.test(app)) return undefined
-  const file = join(APPS_DIR, `${app}.md`)
-  if (!existsSync(file)) return undefined
+  const file = findAppDoc(app)
+  if (!file) return undefined
   return readFileSync(file, 'utf8')
 }
 
 export function knownApps(): string[] {
   if (!existsSync(APPS_DIR)) return []
-  return readdirSync(APPS_DIR)
-    .filter(f => f.endsWith('.md'))
-    .map(f => f.replace(/\.md$/, ''))
+  return walkMarkdown(APPS_DIR)
+    .map(f => basename(f, '.md'))
     .sort()
 }

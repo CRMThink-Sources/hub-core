@@ -1,4 +1,4 @@
-import type { LogEntry } from './loki.js'
+import type { LogEntry } from './log/source.js'
 
 export function fmtTs(ms: number): string {
   return new Date(ms).toISOString().replace('T', ' ').replace('.000Z', 'Z')
@@ -32,6 +32,28 @@ export function fmtTimeline(traceKey: string, entries: LogEntry[]): string {
   const footer = codes.length
     ? `\n\nerrorCode(s): ${codes.join(', ')} → chame get_runbook para resolver.`
     : '\n\nNenhum errorCode classificado. Se há erro, pode estar sem classificar (UNCLASSIFIED) — escale pro dev.'
+  return `${header}\n\n${entries.map(fmtEntry).join('\n')}${footer}`
+}
+
+// Timeline de uma chamada (junta as fases pelo id da chamada). Realça errorCodes e
+// os traceKeys de cada fase, pra o suporte pivotar por fase se precisar.
+export function fmtCallTimeline(callId: string, entries: LogEntry[]): string {
+  const codes = [...new Set(entries.map(e => e.errorCode).filter(Boolean))]
+  const traces = [...new Set(entries.map(e => e.traceKey).filter(Boolean))]
+  const tenant = entries.find(e => e.domain)?.domain
+  const header = [
+    `Timeline da chamada ${callId} (${entries.length} evento(s))`,
+    tenant ? `domínio: ${tenant}` : '',
+  ]
+    .filter(Boolean)
+    .join(' | ')
+  const foot: string[] = []
+  if (codes.length)
+    foot.push(
+      `errorCode(s): ${codes.join(', ')} → chame get_runbook para resolver.`,
+    )
+  if (traces.length) foot.push(`traceKey(s) por fase: ${traces.join(', ')}.`)
+  const footer = foot.length ? `\n\n${foot.join('\n')}` : ''
   return `${header}\n\n${entries.map(fmtEntry).join('\n')}${footer}`
 }
 
