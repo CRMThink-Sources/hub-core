@@ -2,7 +2,7 @@
 category: validation
 audience: dev
 stub: true
-summary: Corpo do webhook não é JSON válido ou sem nome de evento.
+summary: O aviso automático recebido veio em formato inválido ou sem identificar o evento.
 ---
 # clicksign.webhook.payload_invalid
 

@@ -2,7 +2,7 @@
 category: internal
 audience: dev
 stub: true
-summary: Não conseguiu obter o lock do documento no Redis (timeout).
+summary: Não foi possível processar o documento porque ele estava travado por outra operação e o tempo de espera se esgotou.
 ---
 # clicksign.lock.acquire_failed
 

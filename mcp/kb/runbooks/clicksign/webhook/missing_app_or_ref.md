@@ -16,7 +16,7 @@ Esse erro quer dizer que o aviso chegou, mas o endereço veio sem esses dois ide
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.webhook.missing_app_or_ref`.
+2. Confirme `código de erro: clicksign.webhook.missing_app_or_ref`.
 3. Peça ao parceiro pra abrir a conta da Clicksign dele e mostrar o endereço de aviso (webhook) que está cadastrado — assim dá pra ver se ele está completo ou cortado.
 
 ## Como resolver
@@ -25,4 +25,4 @@ Esse erro quer dizer que o aviso chegou, mas o endereço veio sem esses dois ide
 3. Peça ao parceiro pra conferir na conta da Clicksign que o endereço de aviso ficou completo, e depois faça uma ação de teste pra validar que o próximo aviso é aceito.
 
 ## Quando escalar
-Se, mesmo depois de salvar de novo e refazer o registro, o endereço continua incompleto ou o erro persiste, o problema não é de configuração — acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.webhook.missing_app_or_ref`, domínio do parceiro, o horário do evento e o endereço de aviso (webhook) cadastrado na Clicksign.
+Se, mesmo depois de salvar de novo e refazer o registro, o endereço continua incompleto ou o erro persiste, o problema não é de configuração — acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.webhook.missing_app_or_ref`, domínio do parceiro, o horário do evento e o endereço de aviso (webhook) cadastrado na Clicksign.

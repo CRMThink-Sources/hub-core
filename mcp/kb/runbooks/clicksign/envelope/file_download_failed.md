@@ -15,7 +15,7 @@ O arquivo do documento existe no negócio do Bitrix24, mas na hora de baixá-lo 
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.envelope.file_download_failed`.
+2. Confirme `código de erro: clicksign.envelope.file_download_failed`.
 3. Peça ao parceiro para abrir o negócio no Bitrix24 e clicar no arquivo anexado, para ver se ele carrega normalmente. Se nem ele consegue abrir, o problema está no próprio arquivo.
 
 ## Como resolver
@@ -25,4 +25,4 @@ O arquivo do documento existe no negócio do Bitrix24, mas na hora de baixá-lo 
 4. Oriente o parceiro a reenviar o documento pela Clicksign.
 
 ## Quando escalar
-Se o arquivo abre normalmente no Bitrix24 e mesmo assim o erro continua após reenviar, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.envelope.file_download_failed`, domínio do parceiro, o horário do evento e o ID do negócio.
+Se o arquivo abre normalmente no Bitrix24 e mesmo assim o erro continua após reenviar, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.envelope.file_download_failed`, domínio do parceiro, o horário do evento e o ID do negócio.

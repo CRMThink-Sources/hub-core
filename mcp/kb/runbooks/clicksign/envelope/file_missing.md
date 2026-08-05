@@ -15,7 +15,7 @@ Para enviar algo para assinatura, o sistema precisa de um arquivo (o documento e
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.envelope.file_missing`.
+2. Confirme `código de erro: clicksign.envelope.file_missing`.
 3. Peça ao parceiro para abrir o negócio no Bitrix24 e conferir se existe de fato um arquivo anexado.
 
 ## Como resolver
@@ -24,4 +24,4 @@ Para enviar algo para assinatura, o sistema precisa de um arquivo (o documento e
 3. Confira nos Logs se, dessa vez, o envelope foi criado sem erro — é isso que confirma que o problema foi resolvido.
 
 ## Quando escalar
-Se já existe arquivo anexado no negócio e mesmo assim o erro se repete, pode ser uma falha na hora de baixar o arquivo. Acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.envelope.file_missing`, domínio do parceiro, o horário do evento e o ID do negócio.
+Se já existe arquivo anexado no negócio e mesmo assim o erro se repete, pode ser uma falha na hora de baixar o arquivo. Acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.envelope.file_missing`, domínio do parceiro, o horário do evento e o ID do negócio.

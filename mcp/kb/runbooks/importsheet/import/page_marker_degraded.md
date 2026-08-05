@@ -2,7 +2,7 @@
 category: internal
 audience: observabilidade
 stub: true
-summary: Falha ao gravar o marcador de página no Redis; idempotência degradada, com risco de reescrever a mesma página.
+summary: Falha ao registrar o controle de progresso da importação; há risco de reprocessar a mesma parte da planilha.
 ---
 # importsheet.import.page_marker_degraded
 

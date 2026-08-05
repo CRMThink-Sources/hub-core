@@ -2,7 +2,7 @@
 category: integration
 audience: observabilidade
 stub: true
-summary: Não foi possível obter o lock para renovar o token Google após cerca de 10 tentativas.
+summary: Não foi possível renovar o acesso ao Google após várias tentativas (outra renovação estava em andamento).
 ---
 # importsheet.google.refresh_lock_unavailable
 

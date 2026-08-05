@@ -14,7 +14,7 @@ No Bitrix24 existe uma automação que dispara o envio de documentos pra assinat
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.send.robot_auth_missing`.
+2. Confirme `código de erro: clicksign.send.robot_auth_missing`.
 3. Oriente o parceiro a abrir, no Bitrix24, a automação de envio e conferir se os dados de autenticação do portal estão preenchidos na ação. Se estiverem em branco, é a confirmação do problema.
 
 ## Como resolver
@@ -23,4 +23,4 @@ No Bitrix24 existe uma automação que dispara o envio de documentos pra assinat
 3. Se a ação veio de outro portal ou está inconsistente, oriente o parceiro a recriar a ação de envio do zero na automação e testar um envio. Recriar evita arrastar configurações erradas do portal antigo.
 
 ## Quando escalar
-Se a automação está com os dados de autenticação do portal atual preenchidos corretamente e o erro persiste, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.send.robot_auth_missing`, domínio do parceiro, o horário do evento e o negócio onde o envio foi disparado.
+Se a automação está com os dados de autenticação do portal atual preenchidos corretamente e o erro persiste, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.send.robot_auth_missing`, domínio do parceiro, o horário do evento e o negócio onde o envio foi disparado.

@@ -23,7 +23,7 @@ o Google não é aceito e a conta acaba não conectando.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.oauth.state_invalid_or_expired`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.oauth.state_invalid_or_expired`.
 3. Pergunte ao parceiro se a janela do Google ficou muito tempo aberta ou foi
    reaberta — isso costuma confirmar o caso.
 
@@ -36,5 +36,5 @@ o Google não é aceito e a conta acaba não conectando.
 
 ## Quando escalar
 Se o parceiro refez a conexão do começo, sem demora, e o erro continua, acione a
-equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.oauth.state_invalid_or_expired`, domínio do parceiro, id da importação
+equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.oauth.state_invalid_or_expired`, domínio do parceiro, id da importação
 e horário.

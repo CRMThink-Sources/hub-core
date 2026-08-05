@@ -2,7 +2,7 @@
 category: internal
 audience: observabilidade
 stub: true
-summary: Falha ao gravar o marcador de reprocess no Redis; idempotência degradada.
+summary: Falha ao registrar o controle do reprocessamento; há risco de repetir o mesmo trabalho.
 ---
 # importsheet.import.reprocess_marker_degraded
 

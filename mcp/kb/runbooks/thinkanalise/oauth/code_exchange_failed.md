@@ -16,7 +16,7 @@ Ao conectar uma conta do Conta Azul ou do Bling, o provedor devolve pro CRMThink
 
 ## Como verificar
 1. Na tela de Logs do app thinkanalise, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: thinkanalise.oauth.code_exchange_failed`.
+2. Confirme `código de erro: thinkanalise.oauth.code_exchange_failed`.
 3. Veja no log qual é o sistema externo (o provider) e, se houver, a mensagem que o provedor devolveu na troca.
 4. Pergunte ao parceiro se ele demorou pra concluir ou se atualizou/voltou a página de retorno da autorização. Isso ajuda a confirmar código expirado ou reutilizado.
 
@@ -27,4 +27,4 @@ Ao conectar uma conta do Conta Azul ou do Bling, o provedor devolve pro CRMThink
 4. Se falhar de novo, peça pra ele tentar mais uma vez após alguns minutos, pra descartar uma instabilidade momentânea do provedor.
 
 ## Quando escalar
-Se o parceiro concluiu a autorização de forma direta e a troca continua falhando, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: thinkanalise.oauth.code_exchange_failed`, o sistema externo (provider) envolvido, o domínio do parceiro, o horário do evento e a mensagem que o provedor retornou (se aparecer no log).
+Se o parceiro concluiu a autorização de forma direta e a troca continua falhando, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: thinkanalise.oauth.code_exchange_failed`, o sistema externo (provider) envolvido, o domínio do parceiro, o horário do evento e a mensagem que o provedor retornou (se aparecer no log).

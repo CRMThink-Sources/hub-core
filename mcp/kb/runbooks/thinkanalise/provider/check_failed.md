@@ -16,7 +16,7 @@ Antes de usar um conector, o BI faz um **teste de conexão** com o sistema exter
 
 ## Como verificar
 1. Na tela de Logs do app thinkanalise, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: thinkanalise.provider.check_failed`.
+2. Confirme `código de erro: thinkanalise.provider.check_failed`.
 3. Veja no log qual é o sistema externo (o provider) envolvido e a mensagem/status que ele devolveu no teste — é isso que separa erro do provedor de problema de credencial.
 4. Pergunte ao parceiro se, no painel do provedor, o sistema aparece funcionando normalmente naquele momento.
 
@@ -27,4 +27,4 @@ Antes de usar um conector, o BI faz um **teste de conexão** com o sistema exter
 4. Confirme na tela de Logs que o teste passou na nova tentativa.
 
 ## Quando escalar
-Se o provedor está no ar e o teste continua falhando após novas tentativas, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: thinkanalise.provider.check_failed`, o sistema externo (provider) envolvido, o domínio do parceiro, o horário do evento e a mensagem/status que o provedor retornou no teste.
+Se o provedor está no ar e o teste continua falhando após novas tentativas, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: thinkanalise.provider.check_failed`, o sistema externo (provider) envolvido, o domínio do parceiro, o horário do evento e a mensagem/status que o provedor retornou no teste.

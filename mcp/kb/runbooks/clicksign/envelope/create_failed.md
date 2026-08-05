@@ -15,7 +15,7 @@ O sistema montou tudo e mandou o pedido de criação do documento para a Clicksi
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.envelope.create_failed`.
+2. Confirme `código de erro: clicksign.envelope.create_failed`.
 3. Leia, na linha do log, a mensagem que a Clicksign devolveu — ela costuma dizer exatamente qual dado ou qual problema causou a recusa. É o seu ponto de partida.
 
 ## Como resolver
@@ -25,4 +25,4 @@ O sistema montou tudo e mandou o pedido de criação do documento para a Clicksi
 4. Peça que ele reenvie o documento após a correção.
 
 ## Quando escalar
-Se a mensagem da Clicksign não for clara, ou se o erro continuar mesmo depois de corrigir o dado apontado, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.envelope.create_failed`, domínio do parceiro, o horário do evento, o ID do negócio e a mensagem que a Clicksign retornou.
+Se a mensagem da Clicksign não for clara, ou se o erro continuar mesmo depois de corrigir o dado apontado, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.envelope.create_failed`, domínio do parceiro, o horário do evento, o ID do negócio e a mensagem que a Clicksign retornou.

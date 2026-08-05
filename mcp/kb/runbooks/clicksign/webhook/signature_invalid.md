@@ -26,7 +26,7 @@ passo no Bitrix24.
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: clicksign.webhook.signature_invalid`
+2. Confirme que a linha de erro tem `código de erro: clicksign.webhook.signature_invalid`
    — assim você tem certeza que é este caso, e não outro erro de webhook.
 3. Veja o campo `domain` na mesma linha pra saber de qual parceiro é o problema.
 
@@ -42,4 +42,4 @@ passo no Bitrix24.
 ## Quando escalar
 Se o parceiro confirmou que o segredo é o mesmo nos dois lados e o erro continua, o
 problema não é de configuração — acione a equipe de desenvolvimento. Anexe:
-`traceKey`, `errorCode: clicksign.webhook.signature_invalid`, domínio do parceiro e o horário do evento.
+`traceKey`, `código de erro: clicksign.webhook.signature_invalid`, domínio do parceiro e o horário do evento.

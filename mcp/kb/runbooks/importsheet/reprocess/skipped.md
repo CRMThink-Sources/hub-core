@@ -2,7 +2,7 @@
 category: internal
 audience: observabilidade
 stub: true
-summary: Reprocessamento pulado porque o lock de execução estava ocupado.
+summary: Reprocessamento pulado porque já havia outra execução em andamento.
 ---
 # importsheet.reprocess.skipped
 

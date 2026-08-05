@@ -20,7 +20,7 @@ registro gravar os dados, a operação é barrada até que o destino seja defini
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.import.entity_type_required`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.import.entity_type_required`.
 3. Abra a configuração da importação e veja o campo de destino: ele está sem
    entidade selecionada.
 
@@ -31,5 +31,5 @@ registro gravar os dados, a operação é barrada até que o destino seja defini
 
 ## Quando escalar
 Se a entidade de destino estiver selecionada na tela e o erro continuar, acione a
-equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.import.entity_type_required`, domínio do parceiro, id da importação
+equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.import.entity_type_required`, domínio do parceiro, id da importação
 e horário.

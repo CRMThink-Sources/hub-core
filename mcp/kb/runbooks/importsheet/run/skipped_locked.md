@@ -2,7 +2,7 @@
 category: internal
 audience: observabilidade
 stub: true
-summary: Rodada pulada porque o lock de execução já estava ocupado.
+summary: Execução pulada porque já havia outra rodada em andamento.
 ---
 # importsheet.run.skipped_locked
 

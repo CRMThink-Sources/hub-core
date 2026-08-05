@@ -26,7 +26,7 @@ cliente não consegue avançar.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.bitrix.field_meta_error`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.bitrix.field_meta_error`.
 3. Na mesma linha, veja a mensagem que o Bitrix24 devolveu — ela costuma indicar se
    foi falta de permissão, autorização inválida ou instabilidade.
 
@@ -44,5 +44,5 @@ cliente não consegue avançar.
 ## Quando escalar
 Se o parceiro confirmou que o app está instalado e com as permissões de CRM, já
 reautorizou o app, e o erro continua, acione a equipe de desenvolvimento. Anexe:
-`traceKey`, `errorCode: importsheet.bitrix.field_meta_error`, domínio do parceiro, id da importação, horário e a mensagem que o
+`traceKey`, `código de erro: importsheet.bitrix.field_meta_error`, domínio do parceiro, id da importação, horário e a mensagem que o
 Bitrix24 devolveu no log.

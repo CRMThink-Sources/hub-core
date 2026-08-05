@@ -20,7 +20,7 @@ barrada até que a duplicidade seja removida.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.import.column_mapped_twice`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.import.column_mapped_twice`.
 3. Abra o de-para e localize a coluna da planilha que aparece repetida.
 
 ## Como resolver
@@ -30,4 +30,4 @@ barrada até que a duplicidade seja removida.
 
 ## Quando escalar
 Se a coluna aparecer só uma vez na tela e o erro continuar, acione a equipe de
-desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.import.column_mapped_twice`, domínio do parceiro, id da importação e horário.
+desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.import.column_mapped_twice`, domínio do parceiro, id da importação e horário.

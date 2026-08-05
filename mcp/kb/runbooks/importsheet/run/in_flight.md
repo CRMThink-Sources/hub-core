@@ -19,7 +19,7 @@ duas vezes ao mesmo tempo e acabar duplicando registros no Bitrix24.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.run.in_flight`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.run.in_flight`.
 3. Na lista de importações, veja o status desta importação — ela deve aparecer como
    na fila ou em execução.
 
@@ -31,5 +31,5 @@ duas vezes ao mesmo tempo e acabar duplicando registros no Bitrix24.
 
 ## Quando escalar
 Se a importação fica travada como "na fila" ou "em execução" por muito tempo e nunca
-conclui, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.run.in_flight`, domínio do parceiro,
+conclui, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.run.in_flight`, domínio do parceiro,
 id da importação e horário.

@@ -2,7 +2,7 @@
 category: integration
 audience: observabilidade
 stub: true
-summary: O teste de módulos disponíveis do Omie falhou; usada a lista completa como fallback.
+summary: O teste de módulos disponíveis do Omie falhou; o sistema seguiu com a lista completa por segurança.
 ---
 # thinkanalise.omie.capability_probe_failed
 

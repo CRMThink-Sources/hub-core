@@ -14,7 +14,7 @@ Dentro do Bitrix24 existe uma automação que dispara o envio de documentos pra 
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.settings.robot_update_failed`.
+2. Confirme `código de erro: clicksign.settings.robot_update_failed`.
 3. Oriente o parceiro a abrir, no Bitrix24, a automação de assinatura e verificar se as opções estão realmente desatualizadas em relação ao que ele configurou. Isso confirma que a atualização não chegou.
 
 ## Como resolver
@@ -23,4 +23,4 @@ Dentro do Bitrix24 existe uma automação que dispara o envio de documentos pra 
 3. Oriente o parceiro a salvar as configurações de novo. Salvar faz o CRMThink repetir o envio das opções pro Bitrix24, agora com a autorização e as permissões em dia.
 
 ## Quando escalar
-Se a autorização foi renovada, as permissões estão confirmadas e o erro persiste após salvar de novo, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.settings.robot_update_failed`, domínio do parceiro e o horário do evento.
+Se a autorização foi renovada, as permissões estão confirmadas e o erro persiste após salvar de novo, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.settings.robot_update_failed`, domínio do parceiro e o horário do evento.

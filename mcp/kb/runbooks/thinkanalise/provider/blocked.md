@@ -16,7 +16,7 @@ Este erro quer dizer que o sistema externo (Asaas, Bling, Conta Azul, Omie ou So
 
 ## Como verificar
 1. Na tela de Logs do app thinkanalise, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: thinkanalise.provider.blocked`.
+2. Confirme `código de erro: thinkanalise.provider.blocked`.
 3. Veja no log qual é o sistema externo (o provider) e, se houver, a mensagem que o provedor devolveu explicando o bloqueio.
 4. Oriente o parceiro a olhar, no painel do provedor, o estado da conta e do plano: limite de uso, pendências e se o acesso por API está habilitado.
 
@@ -27,4 +27,4 @@ Este erro quer dizer que o sistema externo (Asaas, Bling, Conta Azul, Omie ou So
 4. Confirme na tela de Logs que o erro não se repete.
 
 ## Quando escalar
-Se o parceiro confirmou junto ao provedor que a conta está regular, o plano cobre o recurso e o acesso por API está ativo, mas o bloqueio continua, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: thinkanalise.provider.blocked`, o sistema externo (provider) envolvido, o domínio do parceiro, o horário do evento e a mensagem de bloqueio que o provedor retornou (se aparecer no log).
+Se o parceiro confirmou junto ao provedor que a conta está regular, o plano cobre o recurso e o acesso por API está ativo, mas o bloqueio continua, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: thinkanalise.provider.blocked`, o sistema externo (provider) envolvido, o domínio do parceiro, o horário do evento e a mensagem de bloqueio que o provedor retornou (se aparecer no log).

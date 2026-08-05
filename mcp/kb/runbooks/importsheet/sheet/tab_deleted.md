@@ -20,7 +20,7 @@ Sem a aba certa, o CRMThink não sabe de onde ler os dados, e a importação nã
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.sheet.tab_deleted`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.sheet.tab_deleted`.
 3. Peça ao parceiro para abrir a planilha e comparar as abas existentes com a que foi
    escolhida na configuração da importação.
 
@@ -34,4 +34,4 @@ Sem a aba certa, o CRMThink não sabe de onde ler os dados, e a importação nã
 
 ## Quando escalar
 Se a aba correta está selecionada e salva, mas o erro continua, acione a equipe de
-desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.sheet.tab_deleted`, domínio do parceiro, id da importação e horário.
+desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.sheet.tab_deleted`, domínio do parceiro, id da importação e horário.

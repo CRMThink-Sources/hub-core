@@ -20,7 +20,7 @@ no mesmo campo, o CRMThink não sabe qual usar e a operação é barrada.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.import.field_mapped_twice`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.import.field_mapped_twice`.
 3. Abra o de-para e localize o campo do Bitrix24 que aparece ligado a mais de uma
    coluna.
 
@@ -31,4 +31,4 @@ no mesmo campo, o CRMThink não sabe qual usar e a operação é barrada.
 
 ## Quando escalar
 Se houver apenas uma coluna por campo na tela e o erro continuar, acione a equipe de
-desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.import.field_mapped_twice`, domínio do parceiro, id da importação e horário.
+desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.import.field_mapped_twice`, domínio do parceiro, id da importação e horário.

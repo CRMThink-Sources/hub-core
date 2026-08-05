@@ -14,7 +14,7 @@ Dessa vez o pedido de cancelamento passou por todas as etapas internas do CRMThi
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.document.cancel_failed`.
+2. Confirme `código de erro: clicksign.document.cancel_failed`.
 3. Leia a mensagem que a Clicksign devolveu, registrada no log — é ela que diz o motivo real da recusa e guia o próximo passo.
 
 ## Como resolver
@@ -23,4 +23,4 @@ Dessa vez o pedido de cancelamento passou por todas as etapas internas do CRMThi
 3. Se a mensagem sugerir algo passageiro, peça ao parceiro pra refazer o cancelamento pela timeline do negócio, já que uma instabilidade momentânea costuma se resolver na nova tentativa.
 
 ## Quando escalar
-Se o erro repetir após nova tentativa e a mensagem da Clicksign não indicar um motivo tratável pelo parceiro, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.document.cancel_failed`, domínio do parceiro, o horário do evento e a mensagem devolvida pela Clicksign.
+Se o erro repetir após nova tentativa e a mensagem da Clicksign não indicar um motivo tratável pelo parceiro, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.document.cancel_failed`, domínio do parceiro, o horário do evento e a mensagem devolvida pela Clicksign.

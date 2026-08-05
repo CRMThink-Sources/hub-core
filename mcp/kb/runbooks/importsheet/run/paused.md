@@ -19,7 +19,7 @@ configurada, mas foi desligada e por isso não pode ser executada agora.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.run.paused`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.run.paused`.
 3. Na lista de importações, veja o status desta importação — ela deve aparecer como
    pausada.
 
@@ -33,5 +33,5 @@ configurada, mas foi desligada e por isso não pode ser executada agora.
 
 ## Quando escalar
 Se a importação está ativa mas o sistema continua recusando a execução como pausada,
-acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.run.paused`, domínio do parceiro, id da
+acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.run.paused`, domínio do parceiro, id da
 importação e horário.

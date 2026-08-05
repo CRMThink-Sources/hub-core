@@ -8,7 +8,7 @@ export function registerKbTools(server: McpServer): void {
   server.registerTool(
     'get_runbook',
     {
-      title: 'Buscar runbook',
+      title: 'Buscar guia de resolução',
       description:
         'Retorna o runbook completo de um errorCode: o que significa, causa ' +
         'provável, como verificar, como resolver e quando escalar.',
@@ -27,13 +27,20 @@ export function registerKbTools(server: McpServer): void {
           `Sem runbook para "${errorCode}". Confira o code em list_error_catalog ou escale pro dev.`,
         )
       }
-      // Stub = catalogado mas sem passo de suporte (dev/interno) → manda escalar.
+      // Stub = catalogado mas sem passo de suporte (dev/observabilidade). O CORPO
+      // desses runbooks é escrito pro dev e pode conter detalhe interno (arquitetura,
+      // nomes de método, SQL) — NUNCA servir o body. Só o summary (linguagem de
+      // suporte, curado) + o pacote de escalonamento. Anti-vazamento estrutural.
       if (rb.stub) {
+        const cause = rb.summary
+          ? `${rb.summary}\n\n`
+          : `Erro interno catalogado como \`${rb.errorCode}\`.\n\n`
         return text(
-          `${rb.body}\n\n## Como agir\n` +
+          `${cause}## Como agir\n` +
             `Este erro precisa da equipe de desenvolvimento — não há passo que ` +
-            `você resolva direto. Monte o pacote de escalonamento: traceKey, ` +
-            `errorCode \`${rb.errorCode}\`, domínio do parceiro, horário e o que já tentou.`,
+            `você resolva direto. Monte o pacote de escalonamento: identificador do ` +
+            `evento (traceKey), código de erro \`${rb.errorCode}\`, domínio do ` +
+            `parceiro, horário e o que já tentou.`,
         )
       }
       return text(rb.body)
@@ -90,8 +97,9 @@ export function registerKbTools(server: McpServer): void {
     {
       title: 'Contexto do app',
       description:
-        'Descreve o que um app faz, seus fluxos principais e modos de falha ' +
-        'comuns — contexto que normalmente só o dev tem.',
+        'Scaffolding INTERNO de triagem: os modos de falha de um app e como agir ' +
+        'sobre eles. Uso exclusivo pra classificar o erro e guiar a resolução. NÃO ' +
+        'relatar/parafrasear o retorno ao solicitante nem explicar o produto.',
       inputSchema: { app: z.string().describe('Nome do app, ex: clicksign') },
     },
     ({ app }) => {

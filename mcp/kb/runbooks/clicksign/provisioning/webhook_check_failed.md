@@ -14,7 +14,7 @@ Para o CRMThink ficar sabendo o que acontece com os documentos, a Clicksign mand
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.provisioning.webhook_check_failed`.
+2. Confirme `código de erro: clicksign.provisioning.webhook_check_failed`.
 3. Na linha do log, identifique de qual parceiro/credencial era a consulta que falhou e leia o status e a mensagem que a Clicksign devolveu, porque isso separa um problema de credencial de uma simples instabilidade.
 
 ## Como resolver
@@ -23,4 +23,4 @@ Para o CRMThink ficar sabendo o que acontece com os documentos, a Clicksign mand
 3. Confirme se o provisionamento deixou de aparecer como pendente/ausente, o que indica que a consulta voltou a funcionar.
 
 ## Quando escalar
-Se a credencial estiver correta e a consulta continuar falhando mesmo depois de rodar a verificação de novo, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.provisioning.webhook_check_failed`, domínio do parceiro, o horário do evento e o status/mensagem que a Clicksign retornou quando fizer sentido.
+Se a credencial estiver correta e a consulta continuar falhando mesmo depois de rodar a verificação de novo, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.provisioning.webhook_check_failed`, domínio do parceiro, o horário do evento e o status/mensagem que a Clicksign retornou quando fizer sentido.

@@ -16,7 +16,7 @@ O app thinkanalise leva pro BI do Bitrix24 os dados que ficam guardados em siste
 
 ## Como verificar
 1. Na tela de Logs do app thinkanalise, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: thinkanalise.credentials.invalid`.
+2. Confirme `código de erro: thinkanalise.credentials.invalid`.
 3. Na mesma linha do log, veja qual é o sistema externo (o provider) envolvido — Asaas, Bling, Conta Azul, Omie ou Sonax. É nesse sistema que a credencial precisa ser conferida.
 4. Peça ao parceiro pra confirmar, no painel daquele sistema externo, se a chave de API atual é a mesma que está salva na configuração do conector.
 
@@ -27,4 +27,4 @@ O app thinkanalise leva pro BI do Bitrix24 os dados que ficam guardados em siste
 4. Depois de atualizar, peça pra ele rodar de novo a atualização do BI e confirme na tela de Logs que o erro não se repete.
 
 ## Quando escalar
-Se o parceiro confirmou que a chave de API é a mesma e está ativa no painel do sistema externo, e o erro continua, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: thinkanalise.credentials.invalid`, o sistema externo (domínio/provider) envolvido, o domínio do parceiro e o horário do evento.
+Se o parceiro confirmou que a chave de API é a mesma e está ativa no painel do sistema externo, e o erro continua, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: thinkanalise.credentials.invalid`, o sistema externo (domínio/provider) envolvido, o domínio do parceiro e o horário do evento.

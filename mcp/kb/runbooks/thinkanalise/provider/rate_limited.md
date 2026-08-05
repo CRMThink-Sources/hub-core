@@ -16,7 +16,7 @@ Pra montar os relatórios do BI, o CRMThink faz várias chamadas ao sistema exte
 
 ## Como verificar
 1. Na tela de Logs do app thinkanalise, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: thinkanalise.provider.rate_limited`.
+2. Confirme `código de erro: thinkanalise.provider.rate_limited`.
 3. Veja no log qual é o sistema externo (o provider) envolvido e o horário do evento.
 4. Verifique se há vários eventos desse mesmo tipo em sequência, próximos no tempo — isso confirma que o limite foi atingido por excesso de chamadas.
 
@@ -27,4 +27,4 @@ Pra montar os relatórios do BI, o CRMThink faz várias chamadas ao sistema exte
 4. Confirme na tela de Logs que, após a espera, a atualização passou sem o erro.
 
 ## Quando escalar
-Se o erro persistir mesmo com poucas atualizações e depois de esperar, ou se o limite estourar de forma recorrente atrapalhando o uso normal, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: thinkanalise.provider.rate_limited`, o sistema externo (provider) envolvido, o domínio do parceiro e o horário dos eventos.
+Se o erro persistir mesmo com poucas atualizações e depois de esperar, ou se o limite estourar de forma recorrente atrapalhando o uso normal, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: thinkanalise.provider.rate_limited`, o sistema externo (provider) envolvido, o domínio do parceiro e o horário dos eventos.

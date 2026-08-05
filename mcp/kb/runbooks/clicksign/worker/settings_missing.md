@@ -2,7 +2,7 @@
 category: config
 audience: observabilidade
 stub: true
-summary: Job sem configurações para o app — pulado.
+summary: Processamento em segundo plano sem configurações do app — foi pulado.
 ---
 # clicksign.worker.settings_missing
 

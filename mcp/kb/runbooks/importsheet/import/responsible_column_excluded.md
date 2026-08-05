@@ -21,7 +21,7 @@ ignorar. Por isso a operação é barrada.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.import.responsible_column_excluded`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.import.responsible_column_excluded`.
 3. Abra a configuração e veja que a coluna indicada como responsável está também
    marcada como excluída.
 
@@ -34,5 +34,5 @@ ignorar. Por isso a operação é barrada.
 
 ## Quando escalar
 Se a coluna do responsável não estiver marcada como excluída na tela e o erro
-continuar, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.import.responsible_column_excluded`, domínio do
+continuar, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.import.responsible_column_excluded`, domínio do
 parceiro, id da importação e horário.

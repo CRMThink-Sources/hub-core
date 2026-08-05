@@ -24,7 +24,7 @@ alterado.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.reprocess.in_flight`
+2. Confirme que a linha de erro tem `código de erro: importsheet.reprocess.in_flight`
    — assim você tem certeza que é este caso, e não outro erro de reprocessamento.
 3. Veja o horário da linha e o domínio pra identificar o parceiro e cruzar com a
    execução que estava rodando naquele momento.
@@ -39,4 +39,4 @@ alterado.
 ## Quando escalar
 Se não havia nenhuma execução em andamento e o erro continua aparecendo ao tentar
 reprocessar, o problema não é de momento — acione a equipe de desenvolvimento.
-Anexe: `traceKey`, `errorCode: importsheet.reprocess.in_flight`, domínio do parceiro, id da importação e horário.
+Anexe: `traceKey`, `código de erro: importsheet.reprocess.in_flight`, domínio do parceiro, id da importação e horário.

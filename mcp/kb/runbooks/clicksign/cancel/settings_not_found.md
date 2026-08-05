@@ -14,7 +14,7 @@ O app Clicksign está instalado no portal, mas a tela de Configurações da inte
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.cancel.settings_not_found`.
+2. Confirme `código de erro: clicksign.cancel.settings_not_found`.
 3. Anote o domínio do parceiro que aparece no log — é a configuração desse portal que está faltando.
 
 ## Como resolver
@@ -24,4 +24,4 @@ O app Clicksign está instalado no portal, mas a tela de Configurações da inte
 4. Depois de salvar, peça ao parceiro pra refazer o cancelamento pela timeline do negócio, pra validar que agora as configurações estão sendo lidas.
 
 ## Quando escalar
-Se as configurações estiverem preenchidas e salvas e o erro continuar, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.cancel.settings_not_found`, domínio do parceiro e o horário do evento.
+Se as configurações estiverem preenchidas e salvas e o erro continuar, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.cancel.settings_not_found`, domínio do parceiro e o horário do evento.

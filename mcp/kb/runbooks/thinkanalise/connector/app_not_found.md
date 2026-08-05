@@ -15,7 +15,7 @@ A integração do thinkanalise com o BI do Bitrix24 funciona por meio de um apli
 
 ## Como verificar
 1. Na tela de Logs do app thinkanalise, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: thinkanalise.connector.app_not_found`.
+2. Confirme `código de erro: thinkanalise.connector.app_not_found`.
 3. Veja no log qual é o domínio (o endereço do portal) que gerou o erro e confirme com o parceiro se é exatamente o portal onde ele espera usar a integração. Isso descarta o caso de estar tentando de um portal diferente do que foi instalado.
 
 ## Como resolver
@@ -25,4 +25,4 @@ A integração do thinkanalise com o BI do Bitrix24 funciona por meio de um apli
 4. Confirme com o parceiro que o conector abre e pode ser salvo normalmente.
 
 ## Quando escalar
-Se o parceiro confirmou que o aplicativo thinkanalise consta como instalado naquele portal e o erro continua ao abrir ou salvar o conector, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: thinkanalise.connector.app_not_found`, o domínio do parceiro, o horário do evento e a confirmação de que o aplicativo aparece como instalado no Bitrix24.
+Se o parceiro confirmou que o aplicativo thinkanalise consta como instalado naquele portal e o erro continua ao abrir ou salvar o conector, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: thinkanalise.connector.app_not_found`, o domínio do parceiro, o horário do evento e a confirmação de que o aplicativo aparece como instalado no Bitrix24.

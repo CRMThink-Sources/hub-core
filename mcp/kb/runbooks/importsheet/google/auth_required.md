@@ -25,7 +25,7 @@ consegue nem abrir a planilha, então ela para antes de importar qualquer linha.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.google.auth_required`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.google.auth_required`.
 3. Abra as Configurações do ImportSheet do parceiro e veja o estado da conta
    Google — quando o sistema detecta esse caso, a própria tela mostra um atalho
    para reconectar.
@@ -41,5 +41,5 @@ consegue nem abrir a planilha, então ela para antes de importar qualquer linha.
 
 ## Quando escalar
 Se o parceiro reconectou a conta Google (com a conta correta) e o erro continua
-aparecendo, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.google.auth_required`, domínio do
+aparecendo, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.google.auth_required`, domínio do
 parceiro, id da importação e horário.

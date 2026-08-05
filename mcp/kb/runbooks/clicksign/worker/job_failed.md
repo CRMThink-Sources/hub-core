@@ -2,7 +2,7 @@
 category: internal
 audience: dev
 stub: true
-summary: Job da fila falhou após esgotar as tentativas.
+summary: O processamento em segundo plano falhou mesmo após esgotar todas as tentativas.
 ---
 # clicksign.worker.job_failed
 

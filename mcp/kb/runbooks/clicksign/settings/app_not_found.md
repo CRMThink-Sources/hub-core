@@ -15,7 +15,7 @@ A integração entre o Bitrix24 e a Clicksign funciona por meio de um aplicativo
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.settings.app_not_found`.
+2. Confirme `código de erro: clicksign.settings.app_not_found`.
 3. Veja no log qual é o domínio (o endereço do portal) que gerou o erro e confirme com o parceiro se é exatamente o portal onde ele espera usar a integração. Isso descarta o caso de estar tentando de um portal diferente do que foi instalado.
 
 ## Como resolver
@@ -25,4 +25,4 @@ A integração entre o Bitrix24 e a Clicksign funciona por meio de um aplicativo
 4. Confirme com o parceiro que as configurações abrem e podem ser salvas normalmente.
 
 ## Quando escalar
-Se o parceiro confirmou que o aplicativo Clicksign consta como instalado naquele portal e o erro continua ao abrir ou salvar as configurações, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.settings.app_not_found`, domínio do parceiro, o horário do evento e a confirmação de que o aplicativo aparece como instalado no marketplace do Bitrix24.
+Se o parceiro confirmou que o aplicativo Clicksign consta como instalado naquele portal e o erro continua ao abrir ou salvar as configurações, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.settings.app_not_found`, domínio do parceiro, o horário do evento e a confirmação de que o aplicativo aparece como instalado no marketplace do Bitrix24.

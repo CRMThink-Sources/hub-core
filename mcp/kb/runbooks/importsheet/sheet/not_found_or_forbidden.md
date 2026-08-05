@@ -27,7 +27,7 @@ importação não consegue ser salva nem executada.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.sheet.not_found_or_forbidden`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.sheet.not_found_or_forbidden`.
 3. Nas Configurações da integração, veja qual é o e-mail da conta Google que está
    conectada — é esse e-mail que precisa ter acesso à planilha.
 
@@ -47,4 +47,4 @@ importação não consegue ser salva nem executada.
 ## Quando escalar
 Se o parceiro confirmou que o link está correto e que a planilha está compartilhada
 com o e-mail da conta conectada, e o erro continua, acione a equipe de
-desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.sheet.not_found_or_forbidden`, domínio do parceiro, id da importação e horário.
+desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.sheet.not_found_or_forbidden`, domínio do parceiro, id da importação e horário.

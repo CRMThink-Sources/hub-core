@@ -15,7 +15,7 @@ Alguns sistemas externos (como Conta Azul e Bling) não usam uma chave fixa: o p
 
 ## Como verificar
 1. Na tela de Logs do app thinkanalise, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: thinkanalise.token.not_found`.
+2. Confirme `código de erro: thinkanalise.token.not_found`.
 3. Veja no log qual é o sistema externo (o provider) e a conexão envolvida.
 4. Peça ao parceiro pra confirmar, na configuração do conector no CRMThink, se aquela conta aparece como **conectada**. A expectativa aqui é que ela apareça como desconectada, o que confirma a causa.
 
@@ -26,4 +26,4 @@ Alguns sistemas externos (como Conta Azul e Bling) não usam uma chave fixa: o p
 4. Peça pra ele rodar de novo a atualização do BI e confirme na tela de Logs que o erro não se repete.
 
 ## Quando escalar
-Se o parceiro concluiu a conexão da conta e ela aparece como conectada, mas o erro de token não encontrado continua ao buscar os dados, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: thinkanalise.token.not_found`, o sistema externo (provider) envolvido, o domínio do parceiro e o horário do evento.
+Se o parceiro concluiu a conexão da conta e ela aparece como conectada, mas o erro de token não encontrado continua ao buscar os dados, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: thinkanalise.token.not_found`, o sistema externo (provider) envolvido, o domínio do parceiro e o horário do evento.

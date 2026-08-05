@@ -15,7 +15,7 @@ Quando o parceiro conecta uma conta do Conta Azul ou do Bling, o CRMThink abre u
 
 ## Como verificar
 1. Na tela de Logs do app thinkanalise, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: thinkanalise.oauth.state_invalid_or_expired`.
+2. Confirme `código de erro: thinkanalise.oauth.state_invalid_or_expired`.
 3. Veja no log qual é o sistema externo (o provider) que o parceiro tentava conectar.
 4. Pergunte ao parceiro como foi a tentativa: se demorou pra autorizar, se abriu mais de uma janela ou se fechou e reabriu no meio. Isso confirma que é um problema de fluxo, não de credencial.
 
@@ -26,4 +26,4 @@ Quando o parceiro conecta uma conta do Conta Azul ou do Bling, o CRMThink abre u
 4. Confirme com o parceiro que a conta passou a aparecer como conectada e peça pra rodar a atualização do BI.
 
 ## Quando escalar
-Se o parceiro seguiu o fluxo direto (uma janela só, sem demora) e a conexão continua falhando com esse erro, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: thinkanalise.oauth.state_invalid_or_expired`, o sistema externo (provider) envolvido, o domínio do parceiro e o horário do evento.
+Se o parceiro seguiu o fluxo direto (uma janela só, sem demora) e a conexão continua falhando com esse erro, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: thinkanalise.oauth.state_invalid_or_expired`, o sistema externo (provider) envolvido, o domínio do parceiro e o horário do evento.

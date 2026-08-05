@@ -14,7 +14,7 @@ Depois que todos assinam, o CRMThink busca na Clicksign o arquivo final assinado
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.document.signed_file_download_failed`.
+2. Confirme `código de erro: clicksign.document.signed_file_download_failed`.
 3. Peça ao parceiro pra ver no painel da Clicksign o tamanho do documento assinado — é isso que separa o caso de "arquivo grande demais" do caso de "instabilidade".
 
 ## Como resolver
@@ -23,4 +23,4 @@ Depois que todos assinam, o CRMThink busca na Clicksign o arquivo final assinado
 3. Como o documento assinado está íntegro na Clicksign, oriente o parceiro a baixá-lo manualmente pelo painel da Clicksign e anexar ao negócio, pra não deixar o cliente sem o arquivo final enquanto isso.
 
 ## Quando escalar
-Se o arquivo estiver abaixo de 25 MB e o download continuar falhando, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.document.signed_file_download_failed`, domínio do parceiro, o horário do evento e o identificador do envelope.
+Se o arquivo estiver abaixo de 25 MB e o download continuar falhando, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.document.signed_file_download_failed`, domínio do parceiro, o horário do evento e o identificador do envelope.

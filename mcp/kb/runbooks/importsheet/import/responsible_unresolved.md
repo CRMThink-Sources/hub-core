@@ -24,7 +24,7 @@ importada, mas o responsável não é o que estava indicado na planilha.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.import.responsible_unresolved`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.import.responsible_unresolved`.
 3. Anote o valor da coluna de responsável daquela linha e procure por esse usuário
    no Bitrix24 — verifique se ele existe e se está **ativo**.
 
@@ -40,4 +40,4 @@ importada, mas o responsável não é o que estava indicado na planilha.
 ## Quando escalar
 Se o valor da coluna corresponder a um usuário ativo e comprovadamente existente e o
 responsável ainda assim não for aplicado, acione a equipe de desenvolvimento.
-Anexe: `traceKey`, `errorCode: importsheet.import.responsible_unresolved`, domínio do parceiro, id da importação e horário.
+Anexe: `traceKey`, `código de erro: importsheet.import.responsible_unresolved`, domínio do parceiro, id da importação e horário.

@@ -14,7 +14,7 @@ Aqui o documento deu certo: foi enviado à Clicksign e o envelope foi criado nor
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.envelope.notify_failed`.
+2. Confirme `código de erro: clicksign.envelope.notify_failed`.
 3. Peça ao parceiro para abrir o painel da Clicksign, localizar o envelope e ver o status das notificações — assim você sabe quais assinantes ficaram sem aviso.
 
 ## Como resolver
@@ -23,4 +23,4 @@ Aqui o documento deu certo: foi enviado à Clicksign e o envelope foi criado nor
 3. Peça que ele confira se os e-mails dos assinantes estão corretos; um e-mail errado faz o aviso falhar de novo.
 
 ## Quando escalar
-Se a notificação continua falhando mesmo ao reenviar pelo painel da Clicksign, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.envelope.notify_failed`, domínio do parceiro, o horário do evento e o identificador do envelope.
+Se a notificação continua falhando mesmo ao reenviar pelo painel da Clicksign, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.envelope.notify_failed`, domínio do parceiro, o horário do evento e o identificador do envelope.

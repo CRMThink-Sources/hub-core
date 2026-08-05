@@ -25,7 +25,7 @@ ser reprocessada depois que a causa for corrigida.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.import.ambiguous_match`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.import.ambiguous_match`.
 3. Anote o valor do identificador daquela linha e procure por ele no Bitrix24:
    você deve encontrar dois ou mais registros com esse mesmo valor.
 
@@ -41,4 +41,4 @@ ser reprocessada depois que a causa for corrigida.
 ## Quando escalar
 Se não houver registros duplicados no Bitrix24 e o erro continuar mesmo com um
 identificador comprovadamente único, acione a equipe de desenvolvimento. Anexe:
-`traceKey`, `errorCode: importsheet.import.ambiguous_match`, domínio do parceiro, id da importação e horário.
+`traceKey`, `código de erro: importsheet.import.ambiguous_match`, domínio do parceiro, id da importação e horário.

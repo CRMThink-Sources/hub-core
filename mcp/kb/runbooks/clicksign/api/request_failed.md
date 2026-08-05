@@ -16,7 +16,7 @@ Sempre que o CRMThink precisa fazer algo na Clicksign (a plataforma que cria e a
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.api.request_failed`.
+2. Confirme `código de erro: clicksign.api.request_failed`.
 3. Na mesma linha do log, leia o status e a mensagem que a Clicksign devolveu. É esse texto que diz o motivo real (credencial, conta, dado ou instabilidade), então ele guia todo o resto. Aproveite para conferir a credencial da conta na tela de Configurações e o estado da conta no painel da Clicksign.
 
 ## Como resolver
@@ -26,4 +26,4 @@ Sempre que o CRMThink precisa fazer algo na Clicksign (a plataforma que cria e a
 4. Se a mensagem indicar dado inválido, oriente o parceiro a corrigir a informação usada na operação e tentar de novo, porque a Clicksign só aceita quando o dado está completo e correto.
 
 ## Quando escalar
-Se a credencial e a conta estiverem corretas e a operação continuar falhando, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.api.request_failed`, domínio do parceiro, o horário do evento e o status/mensagem que a Clicksign retornou.
+Se a credencial e a conta estiverem corretas e a operação continuar falhando, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.api.request_failed`, domínio do parceiro, o horário do evento e o status/mensagem que a Clicksign retornou.

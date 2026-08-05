@@ -14,7 +14,7 @@ Quando alguém pede pra cancelar um documento pela linha do tempo (a timeline) d
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.cancel.domain_missing`.
+2. Confirme `código de erro: clicksign.cancel.domain_missing`.
 3. Confirme no log que o cancelamento partiu mesmo de uma ação na timeline do negócio no Bitrix24, e não de outro caminho — assim você garante que o fluxo usado foi o correto.
 
 ## Como resolver
@@ -23,4 +23,4 @@ Quando alguém pede pra cancelar um documento pela linha do tempo (a timeline) d
 3. Se a segunda tentativa funcionou, o problema era momentâneo e está resolvido; não precisa fazer mais nada.
 
 ## Quando escalar
-Se o erro repetir mesmo depois de refazer o cancelamento pela timeline, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.cancel.domain_missing`, domínio do parceiro e o horário do evento.
+Se o erro repetir mesmo depois de refazer o cancelamento pela timeline, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.cancel.domain_missing`, domínio do parceiro e o horário do evento.

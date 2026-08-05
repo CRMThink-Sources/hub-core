@@ -21,7 +21,7 @@ CRMThink não encontra nenhuma coluna para mapear e a importação não avança.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.sheet.header_empty`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.sheet.header_empty`.
 3. Peça ao parceiro para abrir a planilha e olhar em qual linha estão os títulos das
    colunas (por exemplo, linha 1) e comparar com a "linha de início" salva na
    configuração.
@@ -38,5 +38,5 @@ CRMThink não encontra nenhuma coluna para mapear e a importação não avança.
 
 ## Quando escalar
 Se a aba e a linha de início estão corretas, os títulos existem na planilha e o erro
-continua, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.sheet.header_empty`, domínio do parceiro,
+continua, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.sheet.header_empty`, domínio do parceiro,
 id da importação e horário.

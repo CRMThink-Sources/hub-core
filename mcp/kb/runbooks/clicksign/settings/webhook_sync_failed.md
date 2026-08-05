@@ -14,7 +14,7 @@ Pra que o CRMThink saiba o que acontece com cada documento (foi assinado, foi re
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.settings.webhook_sync_failed`.
+2. Confirme `código de erro: clicksign.settings.webhook_sync_failed`.
 3. Confira no log se o erro aconteceu exatamente no momento em que o parceiro salvou as configurações. Isso confirma que a falha foi no pedido automático de ligar o canal de avisos, e não em outra etapa.
 
 ## Como resolver
@@ -24,4 +24,4 @@ Pra que o CRMThink saiba o que acontece com cada documento (foi assinado, foi re
 4. Se a tela tiver a opção de "reparar provisionamento", peça ao parceiro pra usá-la. Ela força um novo pedido de registro do canal, sem precisar mexer no resto do cadastro.
 
 ## Quando escalar
-Se a credencial da Clicksign está confirmada como correta e o erro continua depois de salvar de novo e de tentar o reparo de provisionamento, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.settings.webhook_sync_failed`, domínio do parceiro, o horário do evento e a confirmação de que a credencial foi conferida.
+Se a credencial da Clicksign está confirmada como correta e o erro continua depois de salvar de novo e de tentar o reparo de provisionamento, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.settings.webhook_sync_failed`, domínio do parceiro, o horário do evento e a confirmação de que a credencial foi conferida.

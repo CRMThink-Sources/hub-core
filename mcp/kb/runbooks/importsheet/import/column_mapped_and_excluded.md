@@ -21,7 +21,7 @@ o CRMThink não sabe se deve usar ou ignorar aquela coluna, e a operação é ba
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.import.column_mapped_and_excluded`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.import.column_mapped_and_excluded`.
 3. Abra o de-para e localize a coluna que aparece tanto ligada a um campo quanto
    marcada como excluída.
 
@@ -32,5 +32,5 @@ o CRMThink não sabe se deve usar ou ignorar aquela coluna, e a operação é ba
 
 ## Quando escalar
 Se a coluna estiver em apenas um dos estados na tela e o erro continuar, acione a
-equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.import.column_mapped_and_excluded`, domínio do parceiro, id da importação
+equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.import.column_mapped_and_excluded`, domínio do parceiro, id da importação
 e horário.

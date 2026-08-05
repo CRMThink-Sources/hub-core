@@ -14,7 +14,7 @@ Na hora de montar a lista de quem vai assinar, o sistema não encontrou nenhum a
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.envelope.no_signers`.
+2. Confirme `código de erro: clicksign.envelope.no_signers`.
 3. Peça ao parceiro para abrir o negócio no Bitrix24 e conferir se os campos de assinante (nome, e-mail, CPF) estão realmente preenchidos.
 
 ## Como resolver
@@ -23,4 +23,4 @@ Na hora de montar a lista de quem vai assinar, o sistema não encontrou nenhum a
 3. Peça que ele salve e reenvie o documento para confirmar que a lista de assinantes foi montada.
 
 ## Quando escalar
-Se os campos estão preenchidos e o mapeamento certo, mas ainda dá erro, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.envelope.no_signers`, domínio do parceiro, o horário do evento e o ID do negócio.
+Se os campos estão preenchidos e o mapeamento certo, mas ainda dá erro, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.envelope.no_signers`, domínio do parceiro, o horário do evento e o ID do negócio.

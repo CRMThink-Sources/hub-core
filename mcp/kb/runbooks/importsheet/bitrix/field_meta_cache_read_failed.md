@@ -2,7 +2,7 @@
 category: internal
 audience: observabilidade
 stub: true
-summary: Falha ao ler o cache de meta de campos no Redis; o app recarrega a meta direto do Bitrix24.
+summary: Falha ao ler os dados de campos guardados temporariamente; o app buscou direto no Bitrix24.
 ---
 # importsheet.bitrix.field_meta_cache_read_failed
 

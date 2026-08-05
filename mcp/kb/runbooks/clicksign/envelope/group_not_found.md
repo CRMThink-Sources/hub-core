@@ -14,7 +14,7 @@ Um "grupo de assinatura" é uma configuração salva na tela de Configurações 
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.envelope.group_not_found`.
+2. Confirme `código de erro: clicksign.envelope.group_not_found`.
 3. Peça ao parceiro para abrir Configurações > Assinatura e comparar os grupos que aparecem na lista com o grupo que o robô do Bitrix24 está usando. A diferença entre os dois é a causa do erro.
 
 ## Como resolver
@@ -24,4 +24,4 @@ Um "grupo de assinatura" é uma configuração salva na tela de Configurações 
 4. Peça que ele salve e reenvie o documento para confirmar que o envio passa.
 
 ## Quando escalar
-Se o grupo aparece corretamente tanto nas configurações quanto no robô, mas o erro continua, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.envelope.group_not_found`, domínio do parceiro, o horário do evento e o ID do negócio.
+Se o grupo aparece corretamente tanto nas configurações quanto no robô, mas o erro continua, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.envelope.group_not_found`, domínio do parceiro, o horário do evento e o ID do negócio.

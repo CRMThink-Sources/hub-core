@@ -14,7 +14,7 @@ Cada conta da Clicksign é identificada por um "token", uma espécie de senha qu
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.envelope.company_token_not_found`.
+2. Confirme `código de erro: clicksign.envelope.company_token_not_found`.
 3. Peça ao parceiro para abrir Configurações e comparar a lista de empresas/tokens cadastrados com a empresa que o robô do Bitrix24 está usando. A divergência entre as duas é a causa do erro.
 
 ## Como resolver
@@ -24,4 +24,4 @@ Cada conta da Clicksign é identificada por um "token", uma espécie de senha qu
 4. Peça que ele salve e reenvie o documento para confirmar que o envio passa.
 
 ## Quando escalar
-Se a empresa aparece corretamente tanto nas configurações quanto no robô, mas o erro continua, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.envelope.company_token_not_found`, domínio do parceiro, o horário do evento e o ID do negócio.
+Se a empresa aparece corretamente tanto nas configurações quanto no robô, mas o erro continua, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.envelope.company_token_not_found`, domínio do parceiro, o horário do evento e o ID do negócio.

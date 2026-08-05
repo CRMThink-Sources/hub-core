@@ -27,7 +27,7 @@ decidir o que fazer.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.run.fatal`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.run.fatal`.
 3. Abra o modal de erros da importação (ou a linha de log) e **leia a mensagem do erro
    fatal**. É ela que diz qual é o problema real desta rodada.
 
@@ -44,4 +44,4 @@ decidir o que fazer.
 ## Quando escalar
 Se a mensagem do erro fatal for técnica, genérica ou sem sentido para o cliente — ou
 seja, não aponta planilha/aba/conexão que o parceiro possa corrigir — acione a equipe
-de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.run.fatal`, domínio do parceiro, id da importação e horário.
+de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.run.fatal`, domínio do parceiro, id da importação e horário.

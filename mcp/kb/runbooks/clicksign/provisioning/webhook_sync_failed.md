@@ -14,7 +14,7 @@ Para o CRMThink ficar sabendo o que acontece com os documentos, a Clicksign prec
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.provisioning.webhook_sync_failed`.
+2. Confirme `código de erro: clicksign.provisioning.webhook_sync_failed`.
 3. Na linha do log, identifique de qual parceiro/credencial era o cadastro que falhou e leia o status e a mensagem que a Clicksign devolveu, porque isso separa um problema de credencial de uma simples instabilidade.
 
 ## Como resolver
@@ -23,4 +23,4 @@ Para o CRMThink ficar sabendo o que acontece com os documentos, a Clicksign prec
 3. Peça ao parceiro para salvar novamente a configuração da conta, o que dispara uma nova tentativa de cadastrar o aviso e costuma resolver quando a causa foi instabilidade passageira.
 
 ## Quando escalar
-Se a credencial estiver correta e o cadastro do aviso continuar falhando depois de repetir a tentativa, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.provisioning.webhook_sync_failed`, domínio do parceiro, o horário do evento e o status/mensagem que a Clicksign retornou quando fizer sentido.
+Se a credencial estiver correta e o cadastro do aviso continuar falhando depois de repetir a tentativa, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.provisioning.webhook_sync_failed`, domínio do parceiro, o horário do evento e o status/mensagem que a Clicksign retornou quando fizer sentido.

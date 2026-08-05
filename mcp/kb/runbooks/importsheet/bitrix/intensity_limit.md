@@ -2,7 +2,7 @@
 category: integration
 audience: observabilidade
 stub: true
-summary: O Bitrix24 retornou limite de intensidade de requisições e o worker pausou antes de retomar.
+summary: O Bitrix24 sinalizou excesso de requisições; o processo pausou e retomou sozinho depois.
 ---
 # importsheet.bitrix.intensity_limit
 

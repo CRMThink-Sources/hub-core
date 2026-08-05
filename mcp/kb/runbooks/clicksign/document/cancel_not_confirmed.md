@@ -14,7 +14,7 @@ Aqui o pedido de cancelamento foi até a Clicksign e ela aceitou sem devolver ne
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.document.cancel_not_confirmed`.
+2. Confirme `código de erro: clicksign.document.cancel_not_confirmed`.
 3. Peça ao parceiro pra conferir no painel da Clicksign qual é o estado real do envelope — é essa checagem que explica por que o cancelamento não foi confirmado.
 
 ## Como resolver
@@ -23,4 +23,4 @@ Aqui o pedido de cancelamento foi até a Clicksign e ela aceitou sem devolver ne
 3. Se o envelope já constar como cancelado, o objetivo já foi atingido: nada mais precisa ser feito, o aviso só refletiu que não havia o que cancelar.
 
 ## Quando escalar
-Se o estado do envelope na Clicksign estiver inconsistente (nem cancelado, nem assinado/finalizado), acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.document.cancel_not_confirmed`, domínio do parceiro e o horário do evento.
+Se o estado do envelope na Clicksign estiver inconsistente (nem cancelado, nem assinado/finalizado), acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.document.cancel_not_confirmed`, domínio do parceiro e o horário do evento.

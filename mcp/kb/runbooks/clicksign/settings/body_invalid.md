@@ -2,7 +2,7 @@
 category: validation
 audience: dev
 stub: true
-summary: Payload do salvamento de configurações inválido (schema).
+summary: Os dados enviados ao salvar as configurações estão inválidos ou incompletos.
 ---
 # clicksign.settings.body_invalid
 

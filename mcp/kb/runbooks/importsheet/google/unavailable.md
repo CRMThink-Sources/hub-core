@@ -2,7 +2,7 @@
 category: integration
 audience: observabilidade
 stub: true
-summary: Falha de rede ou timeout ao consultar o Google Sheets, retornada como HTTP 504.
+summary: Falha de rede ou demora excessiva ao consultar o Google Sheets (o serviço não respondeu a tempo).
 ---
 # importsheet.google.unavailable
 

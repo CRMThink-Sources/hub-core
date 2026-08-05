@@ -49,7 +49,7 @@ export function registerLogTools(server: McpServer): void {
   server.registerTool(
     'query_by_trace',
     {
-      title: 'Timeline por traceKey',
+      title: 'Linha do tempo do evento (traceKey)',
       description:
         'Busca a timeline de um traceKey nos logs (HTTP + worker) e destaca os ' +
         'errorCodes encontrados. Caminho preferido: o suporte copia o traceKey da ' +

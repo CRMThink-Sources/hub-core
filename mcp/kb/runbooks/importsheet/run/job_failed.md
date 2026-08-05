@@ -2,7 +2,7 @@
 category: internal
 audience: dev
 stub: true
-summary: O job de execução da importação falhou após esgotar as retentativas.
+summary: A execução da importação falhou mesmo após esgotar todas as tentativas.
 ---
 # importsheet.run.job_failed
 

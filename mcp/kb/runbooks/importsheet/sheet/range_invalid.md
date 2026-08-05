@@ -22,7 +22,7 @@ importação não roda.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.sheet.range_invalid`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.sheet.range_invalid`.
 3. Peça ao parceiro para abrir a planilha e conferir o nome exato da aba que deveria
    ser lida e se ela tem conteúdo.
 
@@ -38,5 +38,5 @@ importação não roda.
 
 ## Quando escalar
 Se a aba foi reconfigurada, tem conteúdo e nome simples, e o erro continua, acione a
-equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.sheet.range_invalid`, domínio do parceiro, id da importação e
+equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.sheet.range_invalid`, domínio do parceiro, id da importação e
 horário.

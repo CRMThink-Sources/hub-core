@@ -2,7 +2,7 @@
 category: integration
 audience: dev
 stub: true
-summary: Falha ao gravar o source no Bitrix24 (biconnector.source.*).
+summary: Falha ao gravar o source no Bitrix24.
 ---
 # thinkanalise.bitrix.source_write_failed
 

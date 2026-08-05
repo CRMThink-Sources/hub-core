@@ -2,7 +2,7 @@
 category: internal
 audience: observabilidade
 stub: true
-summary: Falha ao gravar o cache de meta de campos; o app segue sem cache.
+summary: Falha ao guardar temporariamente os dados de campos; o app seguiu buscando direto no Bitrix24.
 ---
 # importsheet.bitrix.field_meta_cache_write_failed
 

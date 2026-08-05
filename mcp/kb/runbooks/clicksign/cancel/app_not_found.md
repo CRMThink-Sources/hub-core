@@ -14,7 +14,7 @@ O CRMThink reconheceu de qual portal veio o pedido, mas ao procurar a instalaç�
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.cancel.app_not_found`.
+2. Confirme `código de erro: clicksign.cancel.app_not_found`.
 3. Anote o domínio do parceiro que aparece no log — é a instalação desse portal que está faltando.
 
 ## Como resolver
@@ -24,4 +24,4 @@ O CRMThink reconheceu de qual portal veio o pedido, mas ao procurar a instalaç�
 4. Depois, peça ao parceiro pra refazer o cancelamento pela timeline do negócio, pra confirmar que a instalação voltou a funcionar.
 
 ## Quando escalar
-Se depois de reinstalar o app o erro continuar, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.cancel.app_not_found`, domínio do parceiro e o horário do evento.
+Se depois de reinstalar o app o erro continuar, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.cancel.app_not_found`, domínio do parceiro e o horário do evento.

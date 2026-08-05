@@ -16,7 +16,7 @@ Quando o BI do Bitrix24 pede um relatório, o CRMThink vai até o sistema extern
 
 ## Como verificar
 1. Na tela de Logs do app thinkanalise, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: thinkanalise.provider.data_fetch_failed`.
+2. Confirme `código de erro: thinkanalise.provider.data_fetch_failed`.
 3. Veja no log qual é o sistema externo (o provider) envolvido e a mensagem/status que ele devolveu — é esse texto que aponta se foi instabilidade, tempo esgotado ou recusa do pedido.
 4. Verifique se o problema é só com aquele sistema externo ou se outros conectores do mesmo parceiro também falham, pra separar problema pontual de indisponibilidade geral.
 
@@ -27,4 +27,4 @@ Quando o BI do Bitrix24 pede um relatório, o CRMThink vai até o sistema extern
 4. Confirme na tela de Logs que a nova tentativa passou sem o erro.
 
 ## Quando escalar
-Se as tentativas continuam falhando mesmo com o provedor no ar e com consultas menores, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: thinkanalise.provider.data_fetch_failed`, o sistema externo (provider) envolvido, o domínio do parceiro, o horário do evento e a mensagem/status que o provedor retornou.
+Se as tentativas continuam falhando mesmo com o provedor no ar e com consultas menores, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: thinkanalise.provider.data_fetch_failed`, o sistema externo (provider) envolvido, o domínio do parceiro, o horário do evento e a mensagem/status que o provedor retornou.

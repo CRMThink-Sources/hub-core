@@ -2,7 +2,7 @@
 category: integration
 audience: dev
 stub: true
-summary: Falha ao gravar o dataset no Bitrix24 (biconnector.dataset.*).
+summary: Falha ao gravar o dataset no Bitrix24.
 ---
 # thinkanalise.bitrix.dataset_write_failed
 

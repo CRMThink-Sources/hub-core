@@ -14,7 +14,7 @@ O pedido de cancelamento chegou com o portal de origem, mas quando o CRMThink fo
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.cancel.domain_not_found`.
+2. Confirme `código de erro: clicksign.cancel.domain_not_found`.
 3. Anote o domínio do parceiro que aparece no log — é ele que precisamos localizar (ou não) na base.
 
 ## Como resolver
@@ -23,4 +23,4 @@ O pedido de cancelamento chegou com o portal de origem, mas quando o CRMThink fo
 3. Depois de instalar, peça ao parceiro pra refazer o cancelamento pela timeline do negócio, pra validar que agora o portal é reconhecido.
 
 ## Quando escalar
-Se o app já estiver instalado no portal e o erro continuar, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.cancel.domain_not_found`, domínio do parceiro e o horário do evento.
+Se o app já estiver instalado no portal e o erro continuar, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.cancel.domain_not_found`, domínio do parceiro e o horário do evento.

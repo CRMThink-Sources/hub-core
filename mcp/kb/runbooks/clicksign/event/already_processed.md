@@ -2,7 +2,7 @@
 category: internal
 audience: observabilidade
 stub: true
-summary: Evento de documento fechado já processado — ignorado (idempotência).
+summary: Aviso de documento já assinado que havia sido processado antes — ignorado para não duplicar.
 ---
 # clicksign.event.already_processed
 

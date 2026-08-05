@@ -21,7 +21,7 @@ não há o que importar, então a operação é barrada.
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.import.mapping_empty`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.import.mapping_empty`.
 3. Abra a configuração da importação e veja a área de de-para: ela está sem nenhuma
    coluna ligada a um campo.
 
@@ -32,5 +32,5 @@ não há o que importar, então a operação é barrada.
 
 ## Quando escalar
 Se houver colunas mapeadas na tela e o erro de de-para vazio continuar aparecendo,
-acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.import.mapping_empty`, domínio do parceiro, id da
+acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.import.mapping_empty`, domínio do parceiro, id da
 importação e horário.

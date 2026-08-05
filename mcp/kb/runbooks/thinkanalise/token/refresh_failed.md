@@ -16,7 +16,7 @@ O token de acesso que autoriza o CRMThink a buscar dados em sistemas como Conta 
 
 ## Como verificar
 1. Na tela de Logs do app thinkanalise, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: thinkanalise.token.refresh_failed`.
+2. Confirme `código de erro: thinkanalise.token.refresh_failed`.
 3. Veja no log qual é o sistema externo (o provider) e a conexão envolvida.
 4. Peça ao parceiro pra conferir, no painel do provedor, se a autorização do CRMThink (o app) ainda consta como ativa naquela conta.
 
@@ -27,4 +27,4 @@ O token de acesso que autoriza o CRMThink a buscar dados em sistemas como Conta 
 4. Peça pra ele rodar de novo a atualização do BI e confirme na tela de Logs que o erro não se repete.
 
 ## Quando escalar
-Se a renovação continuar falhando mesmo depois de o parceiro reconectar a conta, ou se o erro voltar logo após uma reconexão bem-sucedida, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: thinkanalise.token.refresh_failed`, o sistema externo (provider) envolvido, o domínio do parceiro e o horário do evento.
+Se a renovação continuar falhando mesmo depois de o parceiro reconectar a conta, ou se o erro voltar logo após uma reconexão bem-sucedida, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: thinkanalise.token.refresh_failed`, o sistema externo (provider) envolvido, o domínio do parceiro e o horário do evento.

@@ -2,7 +2,7 @@
 category: integration
 audience: dev
 stub: true
-summary: Falha ao gravar o conector no Bitrix24 (biconnector.connector.*).
+summary: Falha ao gravar o conector no Bitrix24.
 ---
 # thinkanalise.bitrix.connector_write_failed
 

@@ -1,27 +1,16 @@
 # App: ThinkAnalise
 
-## O que faz
-Integração de BI entre o **Bitrix24** do cliente e sistemas financeiros/ERP
-externos. O app registra **BI Connectors** no Bitrix24 e serve, pro BI Builder
-do portal, os dados que ficam nesses sistemas externos — **Asaas**, **Bling**,
-**Conta Azul**, **Omie** e **Sonax**. Quem executa as chamadas às APIs externas
-e ao Bitrix24 é o servidor **CRMThink**. Na prática: os relatórios do BI Builder
-são montados com dados que o CRMThink puxa dos ERPs em tempo de consulta.
+## O que é (nível suporte)
+Integração de BI: leva pro BI Builder do Bitrix24 dados que ficam em sistemas
+financeiros/ERP externos — **Asaas**, **Bling**, **Conta Azul**, **Omie** e
+**Sonax**. O cliente configura conectores no app e conecta a conta de cada
+provider; os relatórios do BI usam essas credenciais para buscar os dados.
 
-## Fluxos principais
-1. **Admin de connectors/sources/datasets**: o cliente cria e edita os conectores
-   pela tela do app; o CRMThink grava essas estruturas no Bitrix24 usando os
-   métodos `biconnector.connector.*`, `biconnector.source.*` e
-   `biconnector.dataset.*`, e persiste os dados do conector no seu próprio banco.
-2. **Conexão da conta (OAuth)**: pros providers que exigem conta conectada
-   (**Conta Azul** e **Bling**), o cliente autoriza o acesso numa janela popup
-   (fluxo OAuth). O CRMThink guarda o token de acesso e o renova sozinho antes de
-   vencer. Outros providers (ex.: Asaas) usam **chave de API**.
-3. **Callbacks do BI Builder**: quando o BI monta um relatório, o Bitrix24 chama
-   o CRMThink (check / data / tables / describe). O CRMThink usa a credencial ou o
-   token salvo, busca os dados no ERP correspondente e devolve pro BI.
+> Este contexto é apoio interno de triagem. Não descreva arquitetura, fluxo
+> interno ou "como funciona por dentro" para o solicitante — só use para
+> identificar o modo de falha e guiar a resolução do erro.
 
-## Modos de falha comuns
+## Modos de falha comuns (para triar)
 - **Credencial inválida/expirada do provider** → `thinkanalise.credentials.invalid`
   (mais comum; resolve conferindo a chave de API ou reconectando a conta).
 - **Conta do provider não conectada** → `thinkanalise.token.not_found`.
@@ -36,21 +25,19 @@ são montados com dados que o CRMThink puxa dos ERPs em tempo de consulta.
   (limite de requisições) e `thinkanalise.provider.blocked` (consumo/plano).
 - **Provider falhou ao entregar dados** → `thinkanalise.provider.data_fetch_failed`
   e, no teste de conexão, `thinkanalise.provider.check_failed`.
-- **Falhas internas de gravação** (para dev) → `thinkanalise.bitrix.connector_write_failed`,
-  `thinkanalise.bitrix.no_connector_id`, `thinkanalise.bitrix.source_write_failed`,
-  `thinkanalise.bitrix.dataset_write_failed` e `thinkanalise.connector.persist_failed`.
-- **Eventos de observabilidade** (não fatais) → `thinkanalise.omie.capability_probe_failed`,
-  `thinkanalise.sonax.campaigns_unavailable` e `thinkanalise.sonax.campaign_skipped`.
+- **Falhas técnicas internas** → há erros que são responsabilidade do
+  desenvolvimento. Não os enumere nem explique; se o log trouxer um code técnico,
+  escale com o `traceKey`.
 
 ## Dicas de triagem
-- A maioria dos tickets de suporte é **credencial/conexão do provider**
-  (chave de API errada, conta desconectada, acesso revogado), não bug.
+- A maioria dos tickets é **credencial/conexão do provider** (chave errada, conta
+  desconectada, acesso revogado), não bug.
 - Sempre identifique no log **qual provider** está envolvido (Asaas, Bling, Conta
   Azul, Omie, Sonax) — a ação de resolução muda conforme o sistema externo.
 - Diferencie **limite momentâneo** (`provider.rate_limited`, resolve esperando) de
   **bloqueio firme** (`provider.blocked`, resolve no painel do provider).
 - Erros de `app_not_found` são config do portal (instalar/reinstalar o app).
-- Erros `bitrix.*`, `request.*`, `callback.*` e `oauth.*_not_configured` são
-  técnicos — acione a equipe de desenvolvimento.
-- Sempre peça o `traceKey` da tela de Logs do app thinkanalise pra localizar o
+- Codes de prefixo técnico (ex.: `bitrix.*`, `request.*`, `callback.*`,
+  `oauth.*_not_configured`) são para o dev — escale, não tente resolver.
+- Sempre peça o `traceKey` da tela de Logs do app thinkanalise para localizar o
   evento exato e confirmar o `errorCode`.

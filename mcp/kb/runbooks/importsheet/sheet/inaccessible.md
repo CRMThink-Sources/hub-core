@@ -24,7 +24,7 @@ linhas pode ter sido processada antes da interrupção, e o restante fica penden
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.sheet.inaccessible`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.sheet.inaccessible`.
 3. Nas Configurações da integração, veja qual é o e-mail da conta Google conectada —
    é esse acesso que precisa continuar valendo durante toda a importação.
 
@@ -41,4 +41,4 @@ linhas pode ter sido processada antes da interrupção, e o restante fica penden
 ## Quando escalar
 Se a planilha existe, segue compartilhada com o e-mail da conta conectada e o erro
 volta a acontecer nas próximas execuções, acione a equipe de desenvolvimento. Anexe:
-`traceKey`, `errorCode: importsheet.sheet.inaccessible`, domínio do parceiro, id da importação e horário.
+`traceKey`, `código de erro: importsheet.sheet.inaccessible`, domínio do parceiro, id da importação e horário.

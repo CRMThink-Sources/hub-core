@@ -24,7 +24,7 @@ mas faltou preencher o campo X".
 
 ## Como verificar
 1. Na tela de Logs do app importsheet, filtre pelo `traceKey` do ticket.
-2. Confirme que a linha de erro tem `errorCode: importsheet.import.status_no_match`.
+2. Confirme que a linha de erro tem `código de erro: importsheet.import.status_no_match`.
 3. Abra o campo em questão no Bitrix24 e liste as opções aceitas. Compare, letra por
    letra, com o texto que está na célula da planilha — repare em acentos, espaços e
    maiúsculas.
@@ -39,5 +39,5 @@ mas faltou preencher o campo X".
 
 ## Quando escalar
 Se o texto da planilha estiver idêntico a uma opção existente e o campo continuar
-sem ser preenchido, acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: importsheet.import.status_no_match`, domínio
+sem ser preenchido, acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: importsheet.import.status_no_match`, domínio
 do parceiro, id da importação e horário.

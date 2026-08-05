@@ -2,7 +2,7 @@
 category: validation
 audience: dev
 stub: true
-summary: Payload da importação reprovado na validação (mensagem genérica de Zod).
+summary: Os dados da importação foram reprovados na validação.
 ---
 # importsheet.import.payload_invalid
 

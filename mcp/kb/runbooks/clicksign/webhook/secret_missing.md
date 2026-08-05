@@ -16,7 +16,7 @@ Esse erro quer dizer que essa senha nunca foi cadastrada no CRMThink. Sem ela, n
 
 ## Como verificar
 1. Na tela de Logs do app clicksign, filtre pelo `traceKey` do ticket.
-2. Confirme `errorCode: clicksign.webhook.secret_missing`.
+2. Confirme `código de erro: clicksign.webhook.secret_missing`.
 3. Peça ao parceiro pra abrir as Configurações da integração Clicksign no CRMThink e olhar o campo da senha de segurança do webhook — a expectativa é que ele esteja vazio, o que confirma a causa.
 
 ## Como resolver
@@ -25,4 +25,4 @@ Esse erro quer dizer que essa senha nunca foi cadastrada no CRMThink. Sem ela, n
 3. Peça ao parceiro pra fazer uma ação de teste (por exemplo, mover um documento) e confirme na tela de Logs que o aviso passou a ser aceito. Isso prova que os dois lados agora têm a senha certa.
 
 ## Quando escalar
-Se o campo da senha de segurança nem aparece na tela de configuração (não é só estar vazio, é não existir mesmo), pode ser um problema no próprio sistema — acione a equipe de desenvolvimento. Anexe: `traceKey`, `errorCode: clicksign.webhook.secret_missing`, domínio do parceiro e o horário do evento.
+Se o campo da senha de segurança nem aparece na tela de configuração (não é só estar vazio, é não existir mesmo), pode ser um problema no próprio sistema — acione a equipe de desenvolvimento. Anexe: `traceKey`, `código de erro: clicksign.webhook.secret_missing`, domínio do parceiro e o horário do evento.
