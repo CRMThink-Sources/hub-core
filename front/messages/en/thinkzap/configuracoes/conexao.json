@@ -29,5 +29,11 @@
     "contaBusiness": "Business",
     "contaPessoal": "Personal",
     "recado": "About"
+  },
+  "bloqueada": {
+    "trialTitulo": "Trial period ended",
+    "trialDescricao": "This line no longer connects: the trial is over. The number was disconnected from the provider, and reconnecting requires a subscription.",
+    "inativaTitulo": "No active subscription",
+    "inativaDescricao": "This line will not connect until there is an active subscription."
   }
 }

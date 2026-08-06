@@ -155,5 +155,12 @@
   "connectorsMessageDeleteEvent": "Sincronizar eliminaciones de mensajes",
   "connectorsMessageDeleteEventHint": "Cuando un operador elimine un mensaje en Bitrix, el mensaje correspondiente en WhatsApp será eliminado.",
   "connectorsSaving": "Guardando...",
-  "connectorsSaved": "Guardado con éxito"
+  "connectorsSaved": "Guardado con éxito",
+  "instancesColumnEntitlement": "Habilitación",
+  "instancesEntitlementActive": "Habilitada",
+  "instancesEntitlementTrialExpired": "Prueba finalizada",
+  "instancesEntitlementInactive": "Sin suscripción",
+  "instancesTrialNever": "Prueba nunca activada en esta instalación.",
+  "instancesTrialActive": "Prueba en curso ({{provider}}), termina el {{data}}.",
+  "instancesTrialExpired": "Prueba expirada el {{data}} ({{provider}}). Las líneas de abajo están bloqueadas."
 }

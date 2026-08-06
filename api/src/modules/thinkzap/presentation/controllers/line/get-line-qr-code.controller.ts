@@ -3,7 +3,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
-import { resolveLineBySubscriptionItem } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
+import { resolveEnabledLineBySubscriptionItem } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { mapLineError } from '@/modules/thinkzap/presentation/helpers/handle-line-error'
 import { parseLineRequest } from './line-request'
 
@@ -12,6 +12,11 @@ import { parseLineRequest } from './line-request'
  *
  * Só a imagem em base64 sai daqui; a credencial usada para obtê-la fica no
  * servidor.
+ *
+ * `GET`, mas não é leitura: o QR code existe para **abrir sessão**. Por isso é a
+ * única rota `GET` de linha que exige habilitação — sem ela o cliente de trial
+ * vencido pareia o telefone de novo e a linha volta a funcionar por fora do
+ * bloqueio.
  */
 export class GetLineQrCodeController extends Controller {
   constructor(
@@ -25,7 +30,7 @@ export class GetLineQrCodeController extends Controller {
     const input = parseLineRequest(req)
 
     try {
-      const line = await resolveLineBySubscriptionItem(
+      const line = await resolveEnabledLineBySubscriptionItem(
         input,
         this.getAplicationContext,
       )

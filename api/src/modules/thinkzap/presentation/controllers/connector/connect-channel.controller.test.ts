@@ -8,9 +8,41 @@ import { HubMessageClient } from '@/modules/thinkzap/infra/clients/hubmessage.cl
 import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
+import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
+import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import type { Subscription } from '@/modules/application/domain/entities/subscription'
+import type { SubscriptionItemRepository } from '@/modules/application/domain/repositories/subscription-item.repository'
 import { ConnectChannelController } from './connect-channel.controller'
 
 const WEBHOOK_URL = 'https://app.example/webhooks/hubmessage'
+
+/** Item HubMessage cujo canal é o mesmo que a instância resolve (`chan_1`). */
+const hubItem: SubscriptionItem = {
+  id: 'item-1',
+  name: 'Linha oficial',
+  subscription: 'sub-1',
+  status: 'active',
+  settings: { ...DEFAULT_CONNECTOR_SETTINGS },
+  vinculatedChannel: null,
+  metadata: {
+    provider: 'HUBMESSAGE',
+    hubmessageChannelId: 'chan_1',
+    wabaId: 'waba-antigo',
+  },
+}
+
+const DAY = 24 * 60 * 60 * 1000
+
+/** Assinatura ativa por default; os casos de bloqueio sobrescrevem. */
+const subscription = (
+  overrides: Partial<Subscription> = {},
+): Partial<Subscription> => ({
+  id: 'sub-1',
+  status: 'active',
+  currentPeriodStart: new Date(Date.now() - DAY),
+  currentPeriodEnd: new Date(Date.now() + DAY),
+  ...overrides,
+})
 
 const instance: {
   id: string
@@ -29,6 +61,9 @@ const instance: {
 function makeDeps(overrides?: {
   client?: Partial<HubMessageClient>
   instance?: Partial<typeof instance>
+  /** `null` = instalação sem item correspondente ao canal. */
+  items?: SubscriptionItem[]
+  subscription?: Partial<Subscription>
 }) {
   const client = {
     connectChannel: vi.fn().mockResolvedValue(undefined),
@@ -51,14 +86,50 @@ function makeDeps(overrides?: {
     markAsConnected: vi.fn().mockResolvedValue(undefined),
   } as unknown as GetInstanceRepository & UpdateInstanceRepository
 
+  const getAplicationContext = {
+    execute: vi.fn().mockResolvedValue({
+      customer: { id: 'domain-1', name: 'acme.bitrix24.com.br' },
+      aplication: { id: 'installed-1', spaId: '42' },
+      subscriptions: [
+        {
+          ...subscription(overrides?.subscription),
+          items: overrides?.items ?? [hubItem],
+        },
+      ],
+    }),
+  }
+
+  /**
+   * É aqui que a WABA passa a existir para o produto: o provisionamento cria só o
+   * canal, e o item da linha é a fonte que templates leem.
+   */
+  const updateSubscriptionItem = vi.fn().mockResolvedValue(hubItem)
+  const items = {
+    getSubscriptionItem: vi.fn(),
+    getSubscriptionItems: vi.fn(),
+    getSubscriptionItemsBySubscription: vi.fn(),
+    createSubscriptionItem: vi.fn(),
+    updateSubscriptionItem,
+    reparentSubscriptionItem: vi.fn(),
+  } as unknown as SubscriptionItemRepository
+
   const controller = new ConnectChannelController(
     client,
     getConnectorRepository,
     instanceRepository,
     WEBHOOK_URL,
+    getAplicationContext as never,
+    items,
   )
 
-  return { client, getConnectorRepository, instanceRepository, controller }
+  return {
+    client,
+    updateSubscriptionItem,
+    getConnectorRepository,
+    instanceRepository,
+    getAplicationContext,
+    controller,
+  }
 }
 
 const req = {
@@ -68,6 +139,8 @@ const req = {
     phoneId: 'phone-1',
     code: 'code-1',
   },
+  domainId: 'domain-1',
+  appId: 'crmthink.thinkzap',
 } as Request
 
 const res = {} as Response
@@ -144,5 +217,143 @@ describe('ConnectChannelController', () => {
 
     expect(result.status).toBe(400)
     expect(client.connectChannel).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Conectar é abrir sessão, então é o par oficial do QR code e recusa igual: sem
+   * isto o cliente de trial vencido reconecta o número e a linha volta a funcionar
+   * por fora do bloqueio.
+   */
+  describe('linha bloqueada', () => {
+    it('recusa trial vencido sem tocar a HubMessage', async () => {
+      const { client, instanceRepository, controller } = makeDeps({
+        subscription: {
+          status: 'trialing',
+          currentPeriodEnd: new Date(Date.now() - DAY),
+        },
+      })
+
+      const result = await controller.perform(req, res)
+
+      expect(result.status).toBe(402)
+      expect(result.result).toMatchObject({
+        code: 'line-blocked',
+        entitlement: 'trial-expired',
+      })
+      expect(client.connectChannel).not.toHaveBeenCalled()
+      expect(instanceRepository.markAsConnected).not.toHaveBeenCalled()
+    })
+
+    it('recusa assinatura cancelada', async () => {
+      const { client, controller } = makeDeps({
+        subscription: { status: 'cancelled' },
+      })
+
+      const result = await controller.perform(req, res)
+
+      expect(result.status).toBe(402)
+      expect(result.result).toMatchObject({ entitlement: 'inactive' })
+      expect(client.connectChannel).not.toHaveBeenCalled()
+    })
+
+    it('conecta quando o trial ainda está na janela', async () => {
+      const { client, controller } = makeDeps({
+        subscription: {
+          status: 'trialing',
+          currentPeriodEnd: new Date(Date.now() + DAY),
+        },
+      })
+
+      const result = await controller.perform(req, res)
+
+      expect(result.status).toBe(200)
+      expect(client.connectChannel).toHaveBeenCalled()
+    })
+
+    /**
+     * `Connector` ainda tem rows anteriores à SPA. Recusar todas elas trocaria um
+     * bloqueio de trial por quebra do caminho legado.
+     */
+    it('canal sem item correspondente segue conectando', async () => {
+      const { client, controller } = makeDeps({ items: [] })
+
+      const result = await controller.perform(req, res)
+
+      expect(result.status).toBe(200)
+      expect(client.connectChannel).toHaveBeenCalled()
+    })
+
+    it('exige a instalação no token', async () => {
+      const { client, controller } = makeDeps()
+
+      const result = await controller.perform(
+        { ...req, domainId: undefined } as Request,
+        res,
+      )
+
+      expect(result.status).toBe(400)
+      expect(client.connectChannel).not.toHaveBeenCalled()
+    })
+  })
+
+  /**
+   * É aqui que a WABA passa a existir para o produto: o provisionamento cria só o
+   * canal, e o item da linha é a fonte que templates leem. Antes disso ela ficava
+   * apenas na `Instance`, e o item nunca a recebia.
+   */
+  describe('WABA no item da linha', () => {
+    it('grava a WABA no item, sem tocar settings nem canal vinculado', async () => {
+      const { controller, updateSubscriptionItem } = makeDeps()
+
+      await controller.perform(req, res)
+
+      expect(updateSubscriptionItem).toHaveBeenCalledWith('item-1', {
+        metadata: {
+          provider: 'HUBMESSAGE',
+          hubmessageChannelId: 'chan_1',
+          wabaId: 'waba-1',
+        },
+      })
+    })
+
+    it('não reescreve quando a WABA do item já é a mesma', async () => {
+      const { controller, updateSubscriptionItem } = makeDeps({
+        items: [
+          {
+            ...hubItem,
+            metadata: {
+              provider: 'HUBMESSAGE',
+              hubmessageChannelId: 'chan_1',
+              wabaId: 'waba-1',
+            },
+          },
+        ],
+      })
+
+      await controller.perform(req, res)
+
+      expect(updateSubscriptionItem).not.toHaveBeenCalled()
+    })
+
+    it('canal sem item correspondente não grava nada', async () => {
+      const { controller, updateSubscriptionItem } = makeDeps({ items: [] })
+
+      await controller.perform(req, res)
+
+      expect(updateSubscriptionItem).not.toHaveBeenCalled()
+    })
+
+    /**
+     * O canal já está conectado no provider neste ponto: falhar aqui transformaria uma
+     * conexão bem-sucedida em erro na cara do cliente.
+     */
+    it('falha ao gravar não derruba a conexão', async () => {
+      const { controller, updateSubscriptionItem } = makeDeps()
+      updateSubscriptionItem.mockRejectedValue(new Error('bitrix fora'))
+
+      const result = await controller.perform(req, res)
+
+      expect(result.status).toBe(200)
+    })
   })
 })

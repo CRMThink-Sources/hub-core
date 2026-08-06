@@ -95,6 +95,70 @@ export type SendHubMessageResponse = {
 }
 
 /**
+ * Envio de **template aprovado**: mesma rota de mensagens do canal
+ * (`POST /v1/channels/{channelId}/messages`), com `content.type = 'TEMPLATE'`.
+ *
+ * FORMATO CONFIRMADO por envio real em 2026-08-06 — a doc pública
+ * (`https://developer.hubmessage.io/messages/introduction`) descreve só mensagem
+ * livre, então este shape saiu de tentativa contra a API.
+ *
+ * Três coisas que **nenhuma** documentação sugeria, e que é por isso que estão
+ * anotadas aqui:
+ *
+ * 1. O template vai dentro de `content.attachments[0].template` — a API reaproveita
+ *    o array de anexos da mensagem livre, e não aceita `content.template` direto.
+ *    Foi o que devolvia `502 {"error":"barling returned status 502"}`.
+ * 2. `language` é **objeto** (`{ policy, code }`), não string — e diverge das rotas
+ *    de catálogo (`/whatsapp/businesses/{wabaId}/templates`), onde o mesmo idioma é
+ *    string crua. `policy: 'deterministic'` é o que a Meta usa para "não faça
+ *    fallback de idioma".
+ * 3. `components[].type` é **MAIÚSCULO** (`BODY`), como no cadastro — apesar de a
+ *    Cloud API da Meta aceitar minúsculo no envio.
+ */
+export type HubMessageTemplateSendParameter = {
+  type: 'text'
+  text: string
+}
+
+export type HubMessageTemplateSendComponent = {
+  type: 'BODY'
+  parameters: HubMessageTemplateSendParameter[]
+}
+
+export type SendHubMessageTemplateParams = {
+  recipient: {
+    /** Telefone do destinatário (DDI + DDD + número). */
+    identifier: string
+  }
+  content: {
+    type: 'TEMPLATE'
+    /** Um item só: a API aceita o array, mas o template é um. */
+    attachments: Array<{
+      template: {
+        /** Nome do template aprovado, como cadastrado na Meta. */
+        name: string
+        language: {
+          /** `deterministic` = enviar exatamente neste idioma, sem fallback. */
+          policy: 'deterministic'
+          /** Ex.: `pt_BR`. */
+          code: string
+        }
+        /**
+         * Parâmetros do corpo, na ordem posicional. Omitido em template sem
+         * variável.
+         */
+        components?: HubMessageTemplateSendComponent[]
+      }
+    }>
+  }
+}
+
+/** Resposta do envio de template — igual à do envio livre. */
+export type SendHubMessageTemplateResponse = {
+  messageId: string
+}
+
+/**
  * Templates de mensagem (WhatsApp Oficial), escopados por WABA.
  * Ref.: https://developer.hubmessage.io/templates/introduction
  * Rotas: `/whatsapp/businesses/{wabaId}/templates` (list/create/sync).

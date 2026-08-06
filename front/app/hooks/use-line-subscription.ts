@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -26,6 +26,21 @@ export type OfferablePlan = {
   provider: LineProvider
 }
 
+/**
+ * Um plano do contrato e quantas linhas ele cobra. Espelha
+ * `LineSubscriptionPlan` da api.
+ *
+ * `provider` é opcional porque o plano de trial não precifica conector nenhum.
+ */
+export type ContractPlan = {
+  id: string
+  name: string
+  amount: number
+  interval: PlanInterval
+  provider?: LineProvider
+  lineCount: number
+}
+
 /** Espelha `LineSubscriptionState` da api. */
 export type SubscriptionState =
   | { status: 'none' }
@@ -35,10 +50,22 @@ export type SubscriptionState =
       isTrial: boolean
       currentPeriodStart: string
       currentPeriodEnd: string
-      plan: OfferablePlan
+      /**
+       * A composição do contrato: um item por plano cobrado. Lista, e não um plano
+       * só, porque a instalação pode ser cobrada por dois planos na mesma assinatura
+       * do gateway — mostrar um deles reportaria menos do que ela paga.
+       *
+       * **Opcional de propósito.** Front e api sobem em deploys separados, então
+       * front novo contra api antigo é estado alcançável — e ali o campo não existe.
+       * Obrigatório no tipo, o `undefined` chegaria de qualquer forma e derrubaria a
+       * tela inteira num `.reduce` de campo ausente. Quem consome trata a ausência.
+       */
+      plans?: ContractPlan[]
       entitlement: 'active' | 'trial-expired' | 'inactive'
       billingPortalAvailable: boolean
       canSubscribe: boolean
+      /** Vem do servidor: é a mesma regra que a rota de criação usa para recusar. */
+      canCreateLine: boolean
     }
 
 export type LineSubscription =
@@ -47,13 +74,12 @@ export type LineSubscription =
   | {
       kind: 'ready'
       subscription: SubscriptionState
-      plans: OfferablePlan[]
       /**
-       * A instalação tem linhas de conectores diferentes, e nenhum plano cobre isso.
-       * Distingue "não há plano cadastrado" de "não há plano possível" — as duas dão
-       * lista vazia, e só esta pede contato com o suporte.
+       * O catálogo ofertável inteiro, não o subconjunto do conector que a instalação
+       * usa: é dele que sai a escolha de conector na criação de linha, e filtrar pelo
+       * que já existe esconderia a opção que o cliente quer criar.
        */
-      mixedProviders: boolean
+      plans: OfferablePlan[]
       /** Pagou e o webhook ainda não chegou. */
       processing: boolean
     }
@@ -116,16 +142,13 @@ export function useLineSubscription() {
         client.get<{ subscription: SubscriptionState }>(
           '/thinkzap/subscription',
         ),
-        client.get<{ plans: OfferablePlan[]; mixedProviders: boolean }>(
-          '/thinkzap/plans',
-        ),
+        client.get<{ plans: OfferablePlan[] }>('/thinkzap/plans'),
       ])
 
       setState({
         kind: 'ready',
         subscription: subscription.subscription,
         plans: plans.plans,
-        mixedProviders: plans.mixedProviders,
         processing: false,
       })
 
@@ -213,6 +236,65 @@ export function useLineSubscription() {
     if (paid) setProcessing(true)
   }, [])
 
+  /** Criação de linha em curso, pelo conector escolhido — para o botão travar. */
+  const [creating, setCreating] = useState<LineProvider | null>(null)
+
+  /**
+   * Trava a segunda chamada enquanto a primeira está no ar.
+   *
+   * `useRef` e não o estado: `setCreating` só chega ao componente no render seguinte,
+   * então dois cliques no mesmo tick passariam os dois pelo botão desabilitado — e
+   * cada um criaria uma linha cobrada. O ref é lido e escrito no mesmo tick.
+   *
+   * O ajuste de `line_items` no gateway é idempotente por construção (estado
+   * desejado, não incremento), então a cobrança sobreviveria a isso. O item na SPA
+   * não: seriam duas linhas.
+   */
+  const creatingRef = useRef(false)
+
+  /**
+   * Cria uma linha adicional.
+   *
+   * Duas respostas possíveis, e o servidor escolhe qual: `clientSecret` quando falta
+   * pagar (aí o checkout embedado monta na própria tela, reaproveitando o mesmo
+   * estado do fluxo de contratação), e a linha criada quando o contrato já existia no
+   * gateway.
+   *
+   * Devolve `true` quando a linha nasceu agora, para a tela recarregar o contexto — a
+   * lista de linhas vem dos itens de assinatura, e sem o recarregamento a linha nova
+   * só apareceria no próximo render.
+   */
+  const createLine = useCallback(
+    async (provider: LineProvider, planId: string): Promise<boolean> => {
+      if (creatingRef.current) return false
+
+      creatingRef.current = true
+      setCreating(provider)
+      try {
+        const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
+        const res = await client.post<{
+          clientSecret?: string
+          line?: { id: string }
+        }>('/thinkzap/lines', { provider, planId })
+
+        if (res.clientSecret) {
+          setCheckoutSecret(res.clientSecret)
+          return false
+        }
+
+        toast.success(t('linhaCriada'))
+        return true
+      } catch (err: unknown) {
+        toast.error(extractThinkzapError(err, t('erroCriarLinha')))
+        return false
+      } finally {
+        creatingRef.current = false
+        setCreating(null)
+      }
+    },
+    [t],
+  )
+
   const openBillingPortal = useCallback(async () => {
     const tab = window.open('', '_blank')
 
@@ -236,6 +318,8 @@ export function useLineSubscription() {
     state: state.kind === 'ready' ? { ...state, processing } : state,
     redirecting,
     subscribe,
+    createLine,
+    creating,
     checkoutSecret,
     closeCheckout,
     openBillingPortal,

@@ -34,8 +34,6 @@
     "ZAPI": "For WhatsApp Web",
     "HUBMESSAGE": "For Official WhatsApp"
   },
-  "conectoresMistosTitulo": "No plan covers your lines",
-  "conectoresMistosDescricao": "This installation has both Official WhatsApp and WhatsApp Web lines, and one subscription covers a single connector type. Contact support to set up the right billing.",
   "erroLeituraTitulo": "We could not check your subscription",
   "erroLeitura": "Error loading the subscription. Please try again.",
   "erroCheckout": "We could not start the checkout. Please try again.",
@@ -44,5 +42,10 @@
   "checkoutDescricao": "Fill in your payment details below. Your line starts working again as soon as the payment is confirmed.",
   "checkoutFechar": "Close",
   "checkoutErroTitulo": "Could not open the payment form",
-  "checkoutSemChave": "Card payment is not configured in this environment. Contact support."
+  "checkoutSemChave": "Card payment is not configured in this environment. Contact support.",
+  "tituloContrato": "Your subscription",
+  "umaLinha": "1 line",
+  "variasLinhas": "{{quantidade}} lines",
+  "linhaCriada": "Line created.",
+  "erroCriarLinha": "We could not create the line. Try again."
 }

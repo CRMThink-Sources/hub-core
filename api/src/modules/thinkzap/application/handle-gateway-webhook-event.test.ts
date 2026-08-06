@@ -76,7 +76,14 @@ const paid = (overrides: Partial<Subscription> = {}): Subscription => ({
 })
 
 const makeHandler = (
-  options: { found?: Subscription | null; items?: SubscriptionItem[] } = {},
+  options: {
+    found?: Subscription | null
+    /** As assinaturas do contrato, quando o teste é sobre o conjunto. */
+    contract?: Subscription[]
+    items?: SubscriptionItem[]
+    /** Ids de assinatura cuja escrita falha, para testar a tolerância por irmã. */
+    failWriteOn?: string[]
+  } = {},
 ) => {
   const activateExecute = vi.fn(() =>
     Promise.resolve({ subscriptionId: '99', alreadyActive: false }),
@@ -85,18 +92,27 @@ const makeHandler = (
     execute: activateExecute,
   } as unknown as ActivateLineSubscription
 
-  const getSubscriptionByGatewayId = vi.fn(() =>
-    Promise.resolve('found' in options ? options.found! : paid()),
-  )
+  /**
+   * `found` continua existindo para os testes de uma assinatura só: `null` significa
+   * contrato ausente na SPA, que é o caso de evento fora de ordem.
+   */
+  const contract =
+    options.contract ??
+    ('found' in options ? (options.found ? [options.found] : []) : [paid()])
+
+  const listSubscriptionsByGatewayId = vi.fn(() => Promise.resolve(contract))
   const updateSubscription = vi.fn(
-    (_id: string, _patch: Record<string, unknown>) => Promise.resolve(paid()),
+    (id: string, _patch: Record<string, unknown>) =>
+      options.failWriteOn?.includes(id)
+        ? Promise.reject(new Error('bitrix fora'))
+        : Promise.resolve(paid({ id })),
   )
 
   const subscriptions = {
     getSubscription: vi.fn(),
     getSubscriptions: vi.fn(),
     getSubscriptionsByAplication: vi.fn(),
-    getSubscriptionByGatewayId,
+    listSubscriptionsByGatewayId,
     createSubscription: vi.fn(),
     updateSubscription,
   } as unknown as SubscriptionRepository
@@ -128,7 +144,7 @@ const makeHandler = (
       providerBilling,
     ),
     activateExecute,
-    getSubscriptionByGatewayId,
+    listSubscriptionsByGatewayId,
     updateSubscription,
     subscribe,
     unsubscribe,
@@ -143,16 +159,23 @@ const CHECKOUT = {
     appCode: 'crmthink.thinkzap',
     planId: '7',
   },
+  intent: { kind: 'convert' as const },
   currentPeriodStart: NOW,
   currentPeriodEnd: plusDays(30),
 }
 
-const updated = (status: Subscription['status']) => ({
+/**
+ * `totalLineQuantity` default 1 casa com a linha única do `lineItem`: divergência é
+ * o caso sob teste em um lugar só, e default divergente encheria os outros testes de
+ * `warn` que eles não estão afirmando.
+ */
+const updated = (status: Subscription['status'], totalLineQuantity = 1) => ({
   type: 'subscription.updated' as const,
   gatewaySubscriptionId: 'sub_1',
   status,
   currentPeriodStart: NOW,
   currentPeriodEnd: plusDays(30),
+  totalLineQuantity,
 })
 
 const DELETED = {
@@ -172,9 +195,29 @@ describe('HandleGatewayWebhookEvent', () => {
         appCode: 'crmthink.thinkzap',
         planId: '7',
         gatewaySubscriptionId: 'sub_1',
+        intent: { kind: 'convert' },
         currentPeriodStart: NOW,
         currentPeriodEnd: plusDays(30),
       })
+    })
+
+    /**
+     * A intenção atravessa sem interpretação: quem sabe o que fazer com ela é a
+     * ativação, e um handler que a traduzisse teria a regra em dois lugares.
+     */
+    it('repassa a intenção de acrescentar linha', async () => {
+      const deps = makeHandler()
+
+      await deps.handler.execute({
+        ...CHECKOUT,
+        intent: { kind: 'add-line', provider: 'HUBMESSAGE', planId: '8' },
+      })
+
+      expect(deps.activateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          intent: { kind: 'add-line', provider: 'HUBMESSAGE', planId: '8' },
+        }),
+      )
     })
   })
 
@@ -325,10 +368,114 @@ describe('HandleGatewayWebhookEvent', () => {
         deps.handler.execute({ type: 'ignored', name: 'invoice.paid' }),
       ).resolves.toBeUndefined()
 
-      expect(deps.getSubscriptionByGatewayId).not.toHaveBeenCalled()
+      expect(deps.listSubscriptionsByGatewayId).not.toHaveBeenCalled()
       expect(deps.updateSubscription).not.toHaveBeenCalled()
       expect(deps.activateExecute).not.toHaveBeenCalled()
       expect(apiLogger.info).toHaveBeenCalled()
+    })
+  })
+
+  /**
+   * O `gatewayId` identifica o contrato inteiro. Escrever numa irmã só deixaria
+   * metade das linhas do cliente com o status errado.
+   */
+  describe('contrato com mais de uma assinatura', () => {
+    const sibling = paid({ id: '100', status: 'active' })
+
+    it('escreve status e período em todas as assinaturas do contrato', async () => {
+      const deps = makeHandler({ contract: [paid(), sibling] })
+
+      await deps.handler.execute({
+        type: 'subscription.updated',
+        gatewaySubscriptionId: 'sub_1',
+        status: 'past_due',
+        currentPeriodStart: NOW,
+        currentPeriodEnd: plusDays(60),
+        totalLineQuantity: 2,
+      })
+
+      expect(deps.updateSubscription.mock.calls.map(call => call[0])).toEqual([
+        '99',
+        '100',
+      ])
+    })
+
+    it('falha numa irmã não impede a escrita nas outras', async () => {
+      const deps = makeHandler({
+        contract: [paid(), sibling],
+        failWriteOn: ['99'],
+      })
+
+      await expect(
+        deps.handler.execute({
+          type: 'subscription.updated',
+          gatewaySubscriptionId: 'sub_1',
+          status: 'past_due',
+          currentPeriodStart: NOW,
+          currentPeriodEnd: plusDays(60),
+          totalLineQuantity: 2,
+        }),
+      ).resolves.toBeUndefined()
+
+      expect(deps.updateSubscription.mock.calls.map(call => call[0])).toEqual([
+        '99',
+        '100',
+      ])
+      expect(apiLogger.error).toHaveBeenCalled()
+    })
+
+    it('cancela as duas e desassina as linhas de cada uma', async () => {
+      const deps = makeHandler({ contract: [paid(), sibling] })
+
+      await deps.handler.execute({
+        type: 'subscription.deleted',
+        gatewaySubscriptionId: 'sub_1',
+      })
+
+      expect(deps.updateSubscription.mock.calls.map(call => call[0])).toEqual([
+        '99',
+        '100',
+      ])
+      expect(deps.unsubscribe).toHaveBeenCalledTimes(2)
+    })
+
+    /**
+     * O caminho real da divergência é o portal de faturamento, onde o cliente edita
+     * quantidade. Criar ou cancelar linha por um número vindo do gateway apagaria a
+     * linha que ele usa — então o handler só registra.
+     */
+    it('registra quantidade divergente sem criar nem cancelar linha', async () => {
+      const deps = makeHandler({ contract: [paid()] })
+
+      await deps.handler.execute(updated('active', 5))
+
+      expect(apiLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ gatewayQuantity: 5, spaLineCount: 1 }),
+        expect.stringMatching(/diverge das linhas na SPA/),
+      )
+    })
+
+    it('não registra divergência quando a quantidade bate', async () => {
+      vi.mocked(apiLogger.warn).mockClear()
+      const deps = makeHandler({ contract: [paid()] })
+
+      await deps.handler.execute(updated('past_due', 1))
+
+      expect(apiLogger.warn).not.toHaveBeenCalled()
+    })
+
+    it('não desassina a linha da irmã cuja escrita falhou', async () => {
+      const deps = makeHandler({
+        contract: [paid(), sibling],
+        failWriteOn: ['99'],
+      })
+
+      await deps.handler.execute({
+        type: 'subscription.deleted',
+        gatewaySubscriptionId: 'sub_1',
+      })
+
+      expect(deps.unsubscribe).toHaveBeenCalledTimes(1)
     })
   })
 })

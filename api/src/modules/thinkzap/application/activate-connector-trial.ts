@@ -14,6 +14,7 @@ import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { apiLogger } from '@/shared/infra/logger'
 import { ensureTrialPlan } from './helpers/ensure-trial-plan'
+import { toLineMetadata } from './helpers/line-resource-metadata'
 
 export class TrialNotEligibleError extends Error {
   constructor(readonly reason: TrialIneligibilityReason) {
@@ -107,7 +108,13 @@ export class ActivateConnectorTrial {
         name: this.lineName(input.provider),
         subscription: subscription.id,
         status: 'active',
-        metadata: this.toMetadata(input.provider, resource),
+        /**
+         * Helper compartilhado com a criação de linha adicional, e não cópia local: a
+         * cópia que existia aqui exigia a WABA no provisionamento HubMessage — que o
+         * provider nunca devolve —, e por isso **nenhum trial oficial conseguia ser
+         * ativado**. Uma regra, um lugar.
+         */
+        metadata: toLineMetadata(input.provider, resource),
       })
 
       return {
@@ -140,47 +147,5 @@ export class ActivateConnectorTrial {
     return provider === ConnectorProvider.HUBMESSAGE
       ? 'WhatsApp Oficial (teste)'
       : 'WhatsApp (teste)'
-  }
-
-  /**
-   * Credencial do recurso recém-provisionado, no formato que o item da SPA espera.
-   *
-   * Falta de credencial é erro, não item `NONE`: um item de trial sem credencial
-   * seria uma linha que nunca conecta, e o cliente teria gastado o único teste dele.
-   */
-  private toMetadata(
-    provider: ConnectorProvider,
-    resource: {
-      instanceId: string
-      zApiToken?: string | null
-      channelId?: string | null
-      wabaId?: string | null
-    },
-  ): SubscriptionItem['metadata'] {
-    if (provider === ConnectorProvider.HUBMESSAGE) {
-      const channelId = resource.channelId ?? resource.instanceId
-      if (!channelId || !resource.wabaId) {
-        throw new Error(
-          'Provisionamento HubMessage não devolveu canal e WABA — trial não criado',
-        )
-      }
-      return {
-        provider: 'HUBMESSAGE',
-        hubmessageChannelId: channelId,
-        wabaId: resource.wabaId,
-      }
-    }
-
-    if (!resource.zApiToken) {
-      throw new Error(
-        'Provisionamento Z-API não devolveu token da instância — trial não criado',
-      )
-    }
-
-    return {
-      provider: 'ZAPI',
-      zApiInstanceId: resource.instanceId,
-      zApiInstanceToken: resource.zApiToken,
-    }
   }
 }

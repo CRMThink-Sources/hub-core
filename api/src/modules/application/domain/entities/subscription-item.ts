@@ -2,7 +2,24 @@ import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/conne
 
 export type SubscriptionItemMetadata =
   | { provider: 'ZAPI'; zApiInstanceId: string; zApiInstanceToken: string }
-  | { provider: 'HUBMESSAGE'; hubmessageChannelId: string; wabaId: string }
+  | {
+      provider: 'HUBMESSAGE'
+      hubmessageChannelId: string
+      /**
+       * WABA do canal. **Ausente até o cliente conectar o número na Meta.**
+       *
+       * O canal é criado no provisionamento; a WABA só existe depois do embedded
+       * signup, e chega em `POST /connector/connect-channel`. Exigi-la aqui tornava a
+       * linha do WhatsApp Oficial **impossível de criar** — o provisionamento nunca
+       * devolve WABA, então toda tentativa (trial ou linha adicional) morria antes de
+       * gravar o item.
+       *
+       * `hubmessageChannelId` continua obrigatório: sem canal não há recurso, e é ele
+       * que identifica a linha no provider. Quem precisa da WABA — templates — recusa
+       * nomeando que o canal ainda não foi conectado.
+       */
+      wabaId?: string
+    }
   | { provider: 'NONE' }
 
 export interface SubscriptionItem {

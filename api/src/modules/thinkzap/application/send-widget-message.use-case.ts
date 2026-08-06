@@ -1,5 +1,6 @@
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
+import { assertLineConnected } from './helpers/assert-line-connected'
 import { ensureLineInstance } from './helpers/ensure-line-instance'
 import {
   assertLineEnabled,
@@ -71,6 +72,22 @@ export class SendWidgetMessageUseCase {
     assertLineEnabled(context, subscriptionItemId, new Date())
 
     const line = findLineInContext(context, subscriptionItemId)
+
+    /**
+     * Ordem: **habilitação → conexão → provider.**
+     *
+     * Entitlement primeiro porque linha de trial vencido não envia mesmo conectada, e
+     * responder "não está conectada" descreveria errado o motivo. Conexão antes do
+     * provider porque, sem esta checagem, a desconexão só aparecia como falha de
+     * `sendMessage` — com o texto cru da Z-API na tela do operador, depois de ele ter
+     * digitado a mensagem e escolhido os anexos.
+     *
+     * E **antes** de `ensureLineInstance`: um envio recusado não pode deixar row de
+     * `Instance` para trás.
+     *
+     * Status ilegível não recusa — ver `assertLineConnected`.
+     */
+    await assertLineConnected(this.zApiClient, line, subscriptionItemId)
 
     /**
      * A âncora de `Instance` existe porque a mensagem persistida tem chave

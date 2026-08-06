@@ -127,16 +127,22 @@ type MetadataResolution =
  * issues do Zod, para que erro de shape e erro de credencial saiam no mesmo
  * `InvalidBitrixSubscriptionItemError`.
  *
- * Par incompleto e par duplo são **erro**, não caso a resolver: credencial
- * parcial não conecta nada, e escolher provider por precedência num item
+ * Par da Z-API incompleto e provider duplo são **erro**, não caso a resolver:
+ * credencial parcial não conecta nada, e escolher provider por precedência num item
  * ambíguo mandaria mensagem pelo canal errado.
+ *
+ * **A HubMessage não é um par.** O canal identifica a linha; a WABA só existe depois
+ * de o cliente conectar o número na Meta, e chega numa requisição posterior. Exigir
+ * os dois juntos tornava a linha do WhatsApp Oficial impossível de gravar — o
+ * provisionamento devolve canal e nada mais. WABA **sem** canal continua erro: é
+ * credencial órfã, e não identifica recurso nenhum.
  */
 const resolveMetadata = (fields: CredentialFields): MetadataResolution => {
   const zApi = [fields.zApiInstanceId, fields.zApiInstanceToken]
-  const hub = [fields.hubmessageChannelId, fields.wabaId]
 
   const zApiFilled = zApi.filter(Boolean).length
-  const hubFilled = hub.filter(Boolean).length
+  const hasChannel = Boolean(fields.hubmessageChannelId)
+  const hasWaba = Boolean(fields.wabaId)
 
   if (zApiFilled === 1) {
     return {
@@ -151,20 +157,20 @@ const resolveMetadata = (fields: CredentialFields): MetadataResolution => {
     }
   }
 
-  if (hubFilled === 1) {
+  if (hasWaba && !hasChannel) {
     return {
       ok: false,
       issues: [
         {
           path: ['ufCrm93HubChanelId', 'ufCrm93HubWabaId'],
           message:
-            'Par de credenciais da HubMessage incompleto: id do canal e WABA têm que vir juntos',
+            'Item com WABA e sem id do canal da HubMessage: a WABA não identifica recurso nenhum sem o canal',
         },
       ],
     }
   }
 
-  if (zApiFilled === 2 && hubFilled === 2) {
+  if (zApiFilled === 2 && hasChannel) {
     return {
       ok: false,
       issues: [
@@ -188,13 +194,17 @@ const resolveMetadata = (fields: CredentialFields): MetadataResolution => {
     }
   }
 
-  if (hubFilled === 2) {
+  if (hasChannel) {
     return {
       ok: true,
       metadata: {
         provider: 'HUBMESSAGE',
         hubmessageChannelId: fields.hubmessageChannelId!,
-        wabaId: fields.wabaId!,
+        /**
+         * Omitida quando vazia, em vez de string vazia: `''` no domínio passaria por
+         * toda checagem de presença e só falharia na chamada ao provider, longe daqui.
+         */
+        ...(fields.wabaId ? { wabaId: fields.wabaId } : {}),
       },
     }
   }
@@ -308,7 +318,11 @@ const metadataToBitrixFields = (
       return {
         ...empty,
         ufCrm93HubChanelId: metadata.hubmessageChannelId,
-        ufCrm93HubWabaId: metadata.wabaId,
+        /**
+         * String vazia, e não omissão: `metadata` é gravado como bloco, então omitir
+         * aqui deixaria a WABA de um canal anterior sobreviver a uma troca de canal.
+         */
+        ufCrm93HubWabaId: metadata.wabaId ?? '',
       }
     case 'NONE':
       return empty

@@ -21,6 +21,7 @@ vi.mock('@/shared/infra/logger', () => ({
 import { SendWidgetMessageUseCase } from './send-widget-message.use-case'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
+import { LineDisconnectedError } from '@/modules/thinkzap/domain/errors/line-disconnected.error'
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
@@ -85,8 +86,10 @@ function makeSut(items: SubscriptionItem[] = [zapiItem()]) {
   const create = vi.fn().mockResolvedValue({ id: 'inst-nova' })
 
   const zApiClient = {
+    getInstance: vi.fn().mockResolvedValue({ connected: true, token: 'tk' }),
     getPhoneData: vi.fn().mockResolvedValue({ phone: '5511911111111' }),
     sendMessage: vi.fn().mockResolvedValue({ messageId: 'msg-1' }),
+    sendImage: vi.fn().mockResolvedValue({ messageId: 'msg-img' }),
   }
   const messageRepository = { create: vi.fn().mockResolvedValue(undefined) }
   const sendBitrixNotification = {
@@ -108,6 +111,7 @@ function makeSut(items: SubscriptionItem[] = [zapiItem()]) {
     create,
     zApiClient,
     messageRepository,
+    sendBitrixNotification,
     send: (overrides: Partial<typeof baseInput> = {}) =>
       useCase.execute({ ...baseInput, ...overrides }),
   }
@@ -194,5 +198,83 @@ describe('SendWidgetMessageUseCase', () => {
       /Invalid destination phone number/,
     )
     expect(sut.zApiClient.sendMessage).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A ordem é habilitação → conexão → provider, e a checagem vem antes de
+   * `ensureLineInstance`: um envio recusado não pode deixar row de `Instance` para
+   * trás nem gastar requisição de envio no provider.
+   */
+  describe('linha desconectada', () => {
+    const disconnected = () => {
+      const sut = makeSut()
+      sut.zApiClient.getInstance.mockResolvedValue({ connected: false })
+      return sut
+    }
+
+    it('recusa com LineDisconnectedError sem enviar texto', async () => {
+      const sut = disconnected()
+
+      await expect(sut.send()).rejects.toBeInstanceOf(LineDisconnectedError)
+      expect(sut.zApiClient.sendMessage).not.toHaveBeenCalled()
+    })
+
+    it('recusa sem enviar anexo', async () => {
+      const sut = disconnected()
+
+      await expect(
+        sut.send({
+          message: undefined,
+          attachments: [{ kind: 'image', content: 'data:image/png;base64,aa' }],
+        } as never),
+      ).rejects.toBeInstanceOf(LineDisconnectedError)
+      expect(sut.zApiClient.sendImage).not.toHaveBeenCalled()
+    })
+
+    it('não grava mensagem nem notifica o Bitrix', async () => {
+      const sut = disconnected()
+
+      await expect(sut.send()).rejects.toBeInstanceOf(LineDisconnectedError)
+      expect(sut.messageRepository.create).not.toHaveBeenCalled()
+      expect(sut.sendBitrixNotification.execute).not.toHaveBeenCalled()
+    })
+
+    /** Antes de `ensureLineInstance` de propósito. */
+    it('não cria a âncora de Instance', async () => {
+      const sut = disconnected()
+      sut.getInstanceByInstanceId.mockResolvedValue(null)
+
+      await expect(sut.send()).rejects.toBeInstanceOf(LineDisconnectedError)
+      expect(sut.create).not.toHaveBeenCalled()
+    })
+  })
+
+  it('envia normalmente quando a linha está conectada', async () => {
+    const sut = makeSut()
+
+    await sut.send()
+
+    expect(sut.zApiClient.getInstance).toHaveBeenCalledWith(
+      'Z-1',
+      'TOKEN-SECRETO',
+    )
+    expect(sut.zApiClient.sendMessage).toHaveBeenCalled()
+    expect(sut.messageRepository.create).toHaveBeenCalled()
+  })
+
+  /**
+   * Status indisponível não é desconexão: recusar por um blip do provider impediria
+   * envio que teria funcionado.
+   */
+  it('prossegue quando a leitura de status falha', async () => {
+    const sut = makeSut()
+    sut.zApiClient.getInstance.mockRejectedValue(
+      new Error('Failed to get instance data'),
+    )
+
+    await expect(sut.send()).resolves.toMatchObject({
+      message: 'Message sent successfully',
+    })
+    expect(sut.zApiClient.sendMessage).toHaveBeenCalled()
   })
 })

@@ -29,5 +29,11 @@
     "contaBusiness": "Business",
     "contaPessoal": "Pessoal",
     "recado": "Recado"
+  },
+  "bloqueada": {
+    "trialTitulo": "Período de teste encerrado",
+    "trialDescricao": "Esta linha não conecta mais: o teste acabou. O número foi desconectado do provider, e reconectar exige uma assinatura.",
+    "inativaTitulo": "Sem assinatura ativa",
+    "inativaDescricao": "Esta linha não conecta enquanto não houver assinatura ativa."
   }
 }

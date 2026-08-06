@@ -55,14 +55,22 @@ export interface SubscriptionRepository {
    */
   getSubscriptionsByAplication(aplicationSpaId: string): Promise<Subscription[]>
   /**
-   * Busca pelo id da assinatura no gateway de pagamento. `null` quando não existe.
+   * Busca pelo id da assinatura no gateway de pagamento. Devolve **todas** as que
+   * carregam aquele id.
+   *
+   * O id identifica um **conjunto**, não uma assinatura: uma instalação cobrada por
+   * mais de um plano tem uma assinatura por plano na SPA, todas com o mesmo
+   * `gatewayId`. É o que mantém `Subscription.plan` descrevendo honestamente a
+   * cobrança do grupo de linhas dela, em vez de um plano parcial que a tela
+   * mostraria errado.
    *
    * É a chave de idempotência do processamento de webhook: o gateway reentrega por
-   * design, e é por este id que uma reentrega encontra a assinatura já no estado
-   * final em vez de criar outra. Ausência é caso **normal** — um evento de ciclo
-   * de vida pode chegar antes do `checkout.session.completed` que cria o espelho.
+   * design, e é por este id que uma reentrega encontra as assinaturas já no estado
+   * final em vez de criar outras. Lista vazia é caso **normal** — um evento de
+   * ciclo de vida pode chegar antes do `checkout.session.completed` que cria o
+   * espelho.
    */
-  getSubscriptionByGatewayId(gatewayId: string): Promise<Subscription | null>
+  listSubscriptionsByGatewayId(gatewayId: string): Promise<Subscription[]>
   createSubscription(input: CreateSubscriptionInput): Promise<Subscription>
   updateSubscription(
     id: string,

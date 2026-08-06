@@ -6,6 +6,7 @@ import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persis
 import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositories/prisma-credential.repository'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
+import { makeDisconnectExpiredLine } from '@/modules/thinkzap/main/make-disconnect-expired-line'
 
 export async function processHubMessageReceivedMessage(
   message: HubMessageWebhookMessage,
@@ -17,6 +18,7 @@ export async function processHubMessageReceivedMessage(
     new PrismaInstalledAppRepository(),
     new PrismaCredentialRepository(),
     new PrismaThinkzapMessageRepository(),
+    makeDisconnectExpiredLine(),
   )
 
   await useCase.execute(message)

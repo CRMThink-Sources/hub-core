@@ -192,15 +192,50 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
       expect(item.metadata).toEqual({ provider: 'NONE' })
     })
 
+    /**
+     * A WABA só existe depois de o cliente conectar o número na Meta, e o
+     * provisionamento devolve o canal e nada mais. Exigir o par tornava a linha do
+     * WhatsApp Oficial impossível de gravar — nem o trial conseguia.
+     */
+    it('deriva HUBMESSAGE do canal sozinho, sem a WABA', () => {
+      const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
+        validItem({ ufCrm93HubChanelId: 'chan-1', ufCrm93HubWabaId: '' }),
+      )
+
+      expect(item.metadata).toEqual({
+        provider: 'HUBMESSAGE',
+        hubmessageChannelId: 'chan-1',
+      })
+    })
+
+    /** `''` no domínio passaria por toda checagem de presença e falharia no provider. */
+    it('omite a WABA em vez de gravar string vazia', () => {
+      const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
+        validItem({ ufCrm93HubChanelId: 'chan-1', ufCrm93HubWabaId: '' }),
+      )
+
+      expect(item.metadata).not.toHaveProperty('wabaId')
+    })
+
     it.each([
       ['ufCrm93ZApiInstanceId', 'inst-1'],
       ['ufCrm93ZApiInstanceToken', 'tok-1'],
-      ['ufCrm93HubChanelId', 'chan-1'],
-      ['ufCrm93HubWabaId', 'waba-1'],
-    ])('rejeita par incompleto com só %s preenchido', (field, value) => {
-      const paths = expectInvalid(validItem({ [field]: value }))
+    ])(
+      'rejeita par incompleto da Z-API com só %s preenchido',
+      (field, value) => {
+        const paths = expectInvalid(validItem({ [field]: value }))
 
-      expect(paths).toContain(field)
+        expect(paths).toContain(field)
+      },
+    )
+
+    /** WABA sem canal é credencial órfã: não identifica recurso nenhum. */
+    it('rejeita WABA sem o id do canal', () => {
+      const paths = expectInvalid(
+        validItem({ ufCrm93HubChanelId: '', ufCrm93HubWabaId: 'waba-1' }),
+      )
+
+      expect(paths).toContain('ufCrm93HubWabaId')
     })
 
     it('rejeita dois pares preenchidos sem escolher por precedência', () => {

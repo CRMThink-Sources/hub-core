@@ -13,9 +13,15 @@ import type {
 import type { Plan } from '@/modules/application/domain/entities/plan'
 import type { Subscription } from '@/modules/application/domain/entities/subscription'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
-import type { SubscriptionRepository } from '@/modules/application/domain/repositories/subscription.repository'
+import type {
+  CreateSubscriptionInput,
+  SubscriptionRepository,
+} from '@/modules/application/domain/repositories/subscription.repository'
 import type { SubscriptionItemRepository } from '@/modules/application/domain/repositories/subscription-item.repository'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import type { PlanRepository } from '@/modules/application/domain/repositories/get-plan.repository'
+import type { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
+import { ListOfferablePlans } from './list-offerable-plans'
 import { SUBSCRIPTION_MODALITY_FIELD } from '@/modules/application/infra/bitrix/ensure-subscription-modality-field'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 
@@ -46,6 +52,30 @@ const PAID_PLAN: Plan = {
   name: 'Pro',
   amount: 4990,
   gatewayId: 'price_abc',
+  provider: 'ZAPI',
+}
+
+/** O plano do conector oficial, para a ativação que envolve os dois. */
+const PAID_OFFICIAL: Plan = {
+  ...PAID_PLAN,
+  id: '8',
+  name: 'Pro Oficial',
+  gatewayId: 'price_hub',
+  provider: 'HUBMESSAGE',
+}
+
+const officialLine: SubscriptionItem = {
+  id: '78',
+  name: 'WhatsApp Oficial',
+  subscription: '21',
+  status: 'active',
+  settings: { ...DEFAULT_CONNECTOR_SETTINGS },
+  vinculatedChannel: null,
+  metadata: {
+    provider: 'HUBMESSAGE',
+    hubmessageChannelId: 'chan-1',
+    wabaId: 'waba-1',
+  },
 }
 
 const aplication = {
@@ -106,6 +136,7 @@ const INPUT = {
   appCode: 'crmthink.thinkzap',
   planId: '7',
   gatewaySubscriptionId: 'sub_new',
+  intent: { kind: 'convert' as const },
   currentPeriodStart: NOW,
   currentPeriodEnd: plusDays(30),
 }
@@ -117,6 +148,10 @@ type Options = {
   modalityField?: Record<string, { type?: string }>
   failReparent?: boolean
   failEndTrial?: boolean
+  /** Catálogo ofertável. Um plano por conector é o ambiente real. */
+  catalog?: Plan[]
+  /** Provisionamento da linha nova falha — o caso de `add-line` mal-sucedido. */
+  failProvision?: boolean
 }
 
 const makeUseCase = (options: Options = {}) => {
@@ -135,10 +170,17 @@ const makeUseCase = (options: Options = {}) => {
     execute: vi.fn(() => Promise.resolve(context)),
   } as unknown as GetAplicationContext
 
-  const getSubscriptionByGatewayId = vi.fn(() =>
-    Promise.resolve(options.existing ?? null),
+  const listSubscriptionsByGatewayId = vi.fn(() =>
+    Promise.resolve(options.existing ? [options.existing] : []),
   )
-  const createSubscription = vi.fn(() => Promise.resolve(paidSubscription))
+  /**
+   * O input é declarado no dublê para o teste poder afirmar **o que** foi criado —
+   * `vi.fn(() => ...)` deixaria `mock.calls[0]` sem tipo, e as asserções sobre
+   * `planId` e `gatewayId` não compilariam.
+   */
+  const createSubscription = vi.fn((_input: CreateSubscriptionInput) =>
+    Promise.resolve(paidSubscription),
+  )
   const updateSubscription = vi.fn(
     (_id: string, _patch: Record<string, unknown>) =>
       options.failEndTrial
@@ -153,26 +195,50 @@ const makeUseCase = (options: Options = {}) => {
     getSubscription: vi.fn(),
     getSubscriptions: vi.fn(),
     getSubscriptionsByAplication: vi.fn(),
-    getSubscriptionByGatewayId,
+    listSubscriptionsByGatewayId,
     createSubscription,
     updateSubscription,
   } as unknown as SubscriptionRepository
 
-  const reparentSubscriptionItem = vi.fn(() =>
+  const reparentSubscriptionItem = vi.fn((itemId: string) =>
     options.failReparent
       ? Promise.reject(new Error('crm.item.update falhou'))
-      : Promise.resolve({ ...lineItem, subscription: '99' }),
+      : Promise.resolve({ ...lineItem, id: itemId, subscription: '99' }),
   )
   const updateSubscriptionItem = vi.fn(() => Promise.resolve(lineItem))
+  const createSubscriptionItem = vi.fn(() =>
+    Promise.resolve({ ...lineItem, id: '90', name: 'WhatsApp 2' }),
+  )
 
   const items = {
     getSubscriptionItem: vi.fn(),
     getSubscriptionItems: vi.fn(),
     getSubscriptionItemsBySubscription: vi.fn(),
-    createSubscriptionItem: vi.fn(),
+    createSubscriptionItem,
     updateSubscriptionItem,
     reparentSubscriptionItem,
   } as unknown as SubscriptionItemRepository
+
+  const provisionConnector = vi.fn(() =>
+    options.failProvision
+      ? Promise.reject(new Error('provider fora'))
+      : Promise.resolve({
+          instanceId: 'inst-2',
+          status: 'created',
+          zApiToken: 'tok-2',
+          channelId: 'chan-2',
+          wabaId: 'waba-2',
+        }),
+  )
+  const providerResolver = {
+    resolve: vi.fn(() => ({ provisionConnector })),
+  } as unknown as ConnectorProviderResolver
+
+  const getPlans = vi.fn(() => Promise.resolve(options.catalog ?? [PAID_PLAN]))
+  const plans = new ListOfferablePlans({
+    getPlan: vi.fn(),
+    getPlans,
+  } as unknown as PlanRepository)
 
   const subscribe = vi.fn(() => Promise.resolve())
   const unsubscribe = vi.fn(() => Promise.resolve())
@@ -202,12 +268,16 @@ const makeUseCase = (options: Options = {}) => {
       items,
       providerBilling,
       bitrix,
+      plans,
+      providerResolver,
     ),
-    getSubscriptionByGatewayId,
+    listSubscriptionsByGatewayId,
     createSubscription,
     updateSubscription,
     reparentSubscriptionItem,
     updateSubscriptionItem,
+    createSubscriptionItem,
+    provisionConnector,
     subscribe,
     unsubscribe,
     getCrmItemFields,
@@ -373,7 +443,7 @@ describe('ActivateLineSubscription', () => {
 
       await deps.useCase.execute(INPUT)
 
-      expect(deps.getSubscriptionByGatewayId).toHaveBeenCalledWith('sub_new')
+      expect(deps.listSubscriptionsByGatewayId).toHaveBeenCalledWith('sub_new')
       expect(deps.getCrmItemFields).not.toHaveBeenCalled()
     })
   })
@@ -451,6 +521,136 @@ describe('ActivateLineSubscription', () => {
       await deps.useCase.execute(INPUT)
 
       expect(deps.updateSubscription).not.toHaveBeenCalled()
+    })
+  })
+
+  /**
+   * Uma assinatura por plano na SPA, todas com o mesmo id no gateway. No gateway
+   * continua sendo uma assinatura, com um `line_item` por preço.
+   */
+  describe('contratação que cobre dois conectores', () => {
+    const mixedTrial: SubscriptionWithItems = {
+      ...trialSubscription,
+      items: [lineItem, officialLine],
+    }
+
+    it('cria uma assinatura por plano, com o mesmo gatewayId', async () => {
+      const deps = makeUseCase({
+        subscriptions: [mixedTrial],
+        catalog: [PAID_PLAN, PAID_OFFICIAL],
+      })
+
+      await deps.useCase.execute(INPUT)
+
+      expect(deps.createSubscription).toHaveBeenCalledTimes(2)
+      expect(
+        deps.createSubscription.mock.calls.map(call => [
+          call[0].planId,
+          call[0].gatewayId,
+        ]),
+      ).toEqual([
+        ['7', 'sub_new'],
+        ['8', 'sub_new'],
+      ])
+    })
+
+    it('move cada linha e assina os dois recursos no provider', async () => {
+      const deps = makeUseCase({
+        subscriptions: [mixedTrial],
+        catalog: [PAID_PLAN, PAID_OFFICIAL],
+      })
+
+      await deps.useCase.execute(INPUT)
+
+      expect(deps.reparentSubscriptionItem.mock.calls.map(c => c[0])).toEqual([
+        '77',
+        '78',
+      ])
+      expect(deps.subscribe).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  /**
+   * A contratação que veio de uma criação de linha: cobra o que já existia **e**
+   * cria a linha nova. Sem a intenção, ela cobraria duas e entregaria uma.
+   */
+  describe('intenção de acrescentar linha', () => {
+    const addLine = {
+      ...INPUT,
+      intent: {
+        kind: 'add-line' as const,
+        provider: 'HUBMESSAGE' as const,
+        planId: '8',
+      },
+    }
+
+    it('provisiona e cria a linha nova além de mover a que existia', async () => {
+      const deps = makeUseCase({ catalog: [PAID_PLAN, PAID_OFFICIAL] })
+
+      await deps.useCase.execute(addLine)
+
+      expect(deps.reparentSubscriptionItem).toHaveBeenCalledWith('77', '99')
+      expect(deps.provisionConnector).toHaveBeenCalled()
+      expect(deps.createSubscriptionItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'active',
+          metadata: {
+            provider: 'HUBMESSAGE',
+            hubmessageChannelId: 'chan-2',
+            wabaId: 'waba-2',
+          },
+        }),
+      )
+    })
+
+    /**
+     * O recurso do trial **nunca foi assinado** no provider — é o que impede 3 dias
+     * de teste de virar instância cobrada por mês. Converter sem assiná-lo deixaria
+     * o recurso rodando fora do nosso contrato com o provider.
+     */
+    it('assina as duas linhas: a que veio do trial e a nova', async () => {
+      const deps = makeUseCase({ catalog: [PAID_PLAN, PAID_OFFICIAL] })
+
+      await deps.useCase.execute(addLine)
+
+      expect(deps.subscribe).toHaveBeenCalledTimes(2)
+    })
+
+    /**
+     * A linha nova falha, e as que já existiam **seguem funcionando**: propagar
+     * faria o gateway reentregar, a reentrega bater na idempotência e o cliente
+     * perder o que já foi ativado.
+     */
+    it('falha ao provisionar a linha nova não derruba a ativação', async () => {
+      const deps = makeUseCase({
+        catalog: [PAID_PLAN, PAID_OFFICIAL],
+        failProvision: true,
+      })
+
+      await expect(deps.useCase.execute(addLine)).resolves.toMatchObject({
+        subscriptionId: '99',
+      })
+
+      expect(deps.createSubscriptionItem).not.toHaveBeenCalled()
+      expect(deps.subscribe).toHaveBeenCalledTimes(1)
+      expect(apiLogger.error).toHaveBeenCalled()
+    })
+
+    /** Reentrega não cria a linha de novo: a idempotência vem antes de tudo. */
+    it('reentrega não provisiona nem cria linha de novo', async () => {
+      const deps = makeUseCase({
+        catalog: [PAID_PLAN, PAID_OFFICIAL],
+        existing: paidSubscription,
+      })
+
+      await expect(deps.useCase.execute(addLine)).resolves.toEqual({
+        subscriptionId: '99',
+        alreadyActive: true,
+      })
+
+      expect(deps.provisionConnector).not.toHaveBeenCalled()
+      expect(deps.createSubscriptionItem).not.toHaveBeenCalled()
+      expect(deps.createSubscription).not.toHaveBeenCalled()
     })
   })
 })

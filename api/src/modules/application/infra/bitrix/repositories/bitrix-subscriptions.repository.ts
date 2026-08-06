@@ -14,7 +14,6 @@ import { SubscriptionNotFoundError } from '@/modules/application/domain/errors/s
 import { PlanNotFoundError } from '@/modules/application/domain/errors/plan-not-found.error'
 import { AplicationNotFoundError } from '@/modules/application/domain/errors/aplication-not-found.error'
 import { env } from '@/config/env'
-import { apiLogger } from '@/shared/infra/logger'
 import {
   APLICATION_PARENT_FIELD,
   RawSubscription,
@@ -69,27 +68,17 @@ export class BitrixSubscriptionRepository implements SubscriptionRepository {
   }
 
   /**
-   * Filtra pelo campo de id do gateway na SPA. Devolve a primeira e loga quando há
-   * mais de uma: duas assinaturas com o mesmo id no gateway é inconsistência de
-   * dados, não caso de negócio — e processar as duas duplicaria escrita de estado.
+   * Filtra pelo campo de id do gateway na SPA e devolve **todas** as que casam.
+   *
+   * Mais de uma é caso de negócio, não inconsistência: uma instalação cobrada por
+   * dois planos tem uma assinatura por plano, as duas com o mesmo id no gateway.
+   * Devolver a primeira faria o webhook escrever status em metade do contrato — e
+   * metade das linhas do cliente ficaria bloqueada por metade de um `past_due`.
    */
-  async getSubscriptionByGatewayId(
+  async listSubscriptionsByGatewayId(
     gatewayId: string,
-  ): Promise<Subscription | null> {
-    const found = await this.list({ ufCrm91GatewayId: gatewayId })
-
-    if (found.length > 1) {
-      apiLogger.warn(
-        {
-          app: 'thinkzap',
-          gatewayId,
-          subscriptionIds: found.map(subscription => subscription.id),
-        },
-        'Mais de uma assinatura na SPA com o mesmo id de gateway — usando a primeira',
-      )
-    }
-
-    return found[0] ?? null
+  ): Promise<Subscription[]> {
+    return this.list({ ufCrm91GatewayId: gatewayId })
   }
 
   async createSubscription(

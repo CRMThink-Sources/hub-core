@@ -41,5 +41,11 @@
     "messageUpdateEventHint": "Edits made in the CRM are reflected on WhatsApp.",
     "messageDeleteEvent": "Sync message deletions",
     "messageDeleteEventHint": "Deletions made in the CRM are reflected on WhatsApp."
+  },
+  "bloqueada": {
+    "trialTitulo": "Trial period ended",
+    "trialDescricao": "The line is still here and you can see everything you configured, but settings are read-only until there is a subscription.",
+    "inativaTitulo": "No active subscription",
+    "inativaDescricao": "This line has no active subscription. Settings are read-only until the subscription is sorted out."
   }
 }

@@ -1,22 +1,35 @@
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
-import { Plan } from '@/modules/application/domain/entities/plan'
+import { Plan, PlanProvider } from '@/modules/application/domain/entities/plan'
 import { SubscriptionModality } from '@/modules/application/domain/entities/subscription'
 import {
   LineEntitlement,
   resolveLineEntitlement,
 } from '@/modules/thinkzap/domain/connector-trial'
 import {
+  composeContractByPlan,
   isTrialSubscription,
-  resolveCurrentSubscription,
+  resolveCurrentContract,
 } from '@/modules/thinkzap/domain/line-subscription'
 
-/** O plano como a tela precisa dele. Sem `product`, que não diz nada ao cliente. */
+/**
+ * Um plano cobrado pelo contrato, e quantas linhas ele cobra.
+ *
+ * Sem `product`, que não diz nada ao cliente, e sem `gatewayId`: o price id não sai
+ * da aplicação.
+ */
 export type LineSubscriptionPlan = {
   id: string
   name: string
   /** Centavos, como no `unit_amount` do gateway. A tela formata. */
   amount: number
   interval: Plan['interval']
+  /**
+   * Conector que este plano precifica. Ausente no plano de trial, que não precifica
+   * nenhum.
+   */
+  provider?: PlanProvider
+  /** Linhas ativas cobradas por este plano. É o `quantity` do `line_item`. */
+  lineCount: number
 }
 
 /**
@@ -44,7 +57,16 @@ export type LineSubscriptionState =
       isTrial: boolean
       currentPeriodStart: Date
       currentPeriodEnd: Date
-      plan: LineSubscriptionPlan
+      /**
+       * A composição do contrato: um item por plano cobrado, com o número de linhas
+       * de cada um.
+       *
+       * Lista, e não um plano só: a instalação pode ser cobrada por mais de um plano
+       * na mesma assinatura do gateway — um `line_item` por conector —, e reportar um
+       * deles faria a tela mostrar menos do que o cliente paga. Status, período e
+       * modalidade continuam saindo uma vez, porque são do contrato e não do plano.
+       */
+      plans: LineSubscriptionPlan[]
       /**
        * Habilitação resolvida da assinatura vigente e do agora. É o que a tela usa
        * para dizer se a linha funciona, em vez de reinterpretar `status` e período
@@ -59,6 +81,14 @@ export type LineSubscriptionState =
       billingPortalAvailable: boolean
       /** A tela pode oferecer contratação — sem contrato pago vigente. */
       canSubscribe: boolean
+      /**
+       * A tela pode oferecer a criação de linha.
+       *
+       * Espelha as guardas de `CreateAdditionalLine`, e por isso vem do servidor: a
+       * regra é a mesma que a rota usa para recusar, e duplicá-la na tela deixaria as
+       * duas divergirem — com o cliente vendo um botão que responde `409`.
+       */
+      canCreateLine: boolean
     }
 
 /**
@@ -77,10 +107,26 @@ export class GetLineSubscriptionState {
   ): Promise<LineSubscriptionState> {
     const context = await this.getAplicationContext.execute(input)
 
-    const current = resolveCurrentSubscription(context.subscriptions)
+    /**
+     * O contrato, não a assinatura: as irmãs que compartilham `gatewayId` são o
+     * mesmo contrato no gateway, e status e período são delas todas.
+     */
+    const contract = resolveCurrentContract(context.subscriptions)
+    const current = contract[0]
     if (!current) return { status: 'none' }
 
     const isTrial = isTrialSubscription(current)
+
+    const plans = composeContractByPlan(contract).map(entry => ({
+      id: entry.plan.id,
+      name: entry.plan.name,
+      amount: entry.plan.amount,
+      interval: entry.plan.interval,
+      provider: entry.plan.provider,
+      lineCount: entry.lineCount,
+    }))
+
+    const lineCount = plans.reduce((total, plan) => total + plan.lineCount, 0)
 
     return {
       status: current.status,
@@ -88,12 +134,7 @@ export class GetLineSubscriptionState {
       isTrial,
       currentPeriodStart: current.currentPeriodStart,
       currentPeriodEnd: current.currentPeriodEnd,
-      plan: {
-        id: current.plan.id,
-        name: current.plan.name,
-        amount: current.plan.amount,
-        interval: current.plan.interval,
-      },
+      plans,
       entitlement: resolveLineEntitlement(current, now),
       /**
        * Portal só para assinatura do gateway **e** que ainda existe lá: uma paga
@@ -110,6 +151,14 @@ export class GetLineSubscriptionState {
        * fora de escopo, então quem tem paga viva não recebe a oferta.
        */
       canSubscribe: isTrial || current.status === 'cancelled',
+      /**
+       * Criar linha exige ter linha — a primeira nasce pelo trial — e um contrato que
+       * o produto saiba cobrar. Boleto é mantido por automação fora do produto, e o
+       * trial é a exceção esperada: ele lê `manual` porque nasce sem o campo, e quem
+       * está testando pode contratar uma segunda linha.
+       */
+      canCreateLine:
+        lineCount > 0 && (isTrial || current.modality === 'stripe'),
     }
   }
 }

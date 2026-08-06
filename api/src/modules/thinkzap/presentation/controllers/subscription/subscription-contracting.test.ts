@@ -149,14 +149,18 @@ const makeGateway = () => {
     Promise.resolve({ url: 'https://portal.example/session' }),
   )
 
+  const syncSubscriptionLineItems = vi.fn(() => Promise.resolve())
+
   return {
     gateway: {
       verifyWebhookEvent: vi.fn(),
       createCheckoutSession,
+      syncSubscriptionLineItems,
       createBillingPortalSession,
     } as unknown as PaymentGateway,
     createCheckoutSession,
     createBillingPortalSession,
+    syncSubscriptionLineItems,
   }
 }
 
@@ -168,17 +172,17 @@ const req = (body: unknown = {}) =>
   }) as unknown as Request
 
 describe('GET /thinkzap/plans', () => {
-  /** Por default a instalação tem uma linha Z-API (`line`). */
+  /**
+   * Sem contexto: a listagem deixou de ser filtrada pela instalação quando providers
+   * misturados passaram a ser precificáveis. O parâmetro de assinaturas segue no
+   * `makeController` só onde o teste ainda fala de instalação, e é ignorado aqui de
+   * propósito — é o que prova que a resposta não depende dela.
+   */
   const makeController = (
     plans: Plan[],
-    subscriptions: SubscriptionWithItems[] = [
-      subscriptionOf({ status: 'trialing', modality: 'manual', plan: TRIAL }),
-    ],
+    _subscriptions: SubscriptionWithItems[] = [],
   ) =>
-    new ListPlansController(
-      new ListOfferablePlans(makePlanRepository(plans)),
-      makeContext(subscriptions),
-    )
+    new ListPlansController(new ListOfferablePlans(makePlanRepository(plans)))
 
   it('devolve o plano pago compatível, com nome, valor, intervalo e provider', async () => {
     const response = await makeController([PAID]).perform(req())
@@ -194,44 +198,27 @@ describe('GET /thinkzap/plans', () => {
           provider: 'ZAPI',
         },
       ],
-      mixedProviders: false,
     })
   })
 
   /**
-   * O buraco que o campo de provider veio fechar: uma linha Z-API não pode ver o
-   * plano do Oficial, senão contrata o preço errado para o que consome.
+   * A listagem devolve o catálogo, e não o subconjunto que a instalação usa hoje: é
+   * dela que a tela tira as duas opções de conector do botão de nova linha, e
+   * filtrar pelo que já existe esconderia justamente a opção que o cliente quer
+   * criar.
+   *
+   * O casamento entre plano e conector não desapareceu — mudou de lugar: é
+   * verificado por linha, no checkout e na criação, onde há uma linha concreta a
+   * comparar (ver `recusa o plano do outro conector` abaixo).
    */
-  it('não oferta o plano do outro conector', async () => {
-    expect(
-      await makeController([PAID, PAID_OFFICIAL]).perform(req()),
-    ).toMatchObject({
-      result: { plans: [{ id: '7', provider: 'ZAPI' }] },
-    })
-  })
-
-  it('oferta o plano do oficial para linha oficial', async () => {
-    const official = subscriptionOf({
-      status: 'trialing',
-      modality: 'manual',
-      plan: TRIAL,
-      items: [
-        {
-          ...line,
-          metadata: {
-            provider: 'HUBMESSAGE',
-            hubmessageChannelId: 'chan-1',
-            wabaId: 'waba-1',
-          },
-        },
-      ],
-    })
+  it('oferta o plano dos dois conectores para uma instalação com linha Z-API', async () => {
+    const response = await makeController([PAID, PAID_OFFICIAL]).perform(req())
 
     expect(
-      await makeController([PAID, PAID_OFFICIAL], [official]).perform(req()),
-    ).toMatchObject({
-      result: { plans: [{ id: '8', provider: 'HUBMESSAGE' }] },
-    })
+      (response.result as { plans: Array<{ id: string }> }).plans.map(
+        p => p.id,
+      ),
+    ).toEqual(['7', '8'])
   })
 
   /** Plano sem price id não tem o que cobrar. */
@@ -254,7 +241,6 @@ describe('GET /thinkzap/plans', () => {
     ).toMatchObject({ result: { plans: [] } })
   })
 
-  /** Sem linha não há conector em uso: nada a proteger, oferta tudo. */
   it('oferta os dois planos quando a instalação não tem linha', async () => {
     const withoutLines = subscriptionOf({
       status: 'trialing',
@@ -276,10 +262,12 @@ describe('GET /thinkzap/plans', () => {
   })
 
   /**
-   * Providers misturados: nenhum plano cobre, e a tela precisa distinguir isso de
-   * "não há plano cadastrado" — só o primeiro pede contato com o suporte.
+   * Era o estado não precificável, e deixou de ser: com um `line_item` por plano na
+   * assinatura do gateway, a instalação com os dois conectores é cobrada pelos dois
+   * preços. Esconder metade do catálogo dela impediria justamente o caso que criar
+   * linha adicional existe para atender.
    */
-  it('não oferta nada e sinaliza quando a instalação mistura conectores', async () => {
+  it('oferta os dois planos quando a instalação mistura conectores', async () => {
     const mixed = subscriptionOf({
       status: 'trialing',
       modality: 'manual',
@@ -298,9 +286,17 @@ describe('GET /thinkzap/plans', () => {
       ],
     })
 
+    const response = await makeController(
+      [PAID, PAID_OFFICIAL],
+      [mixed],
+    ).perform(req())
+
     expect(
-      await makeController([PAID, PAID_OFFICIAL], [mixed]).perform(req()),
-    ).toMatchObject({ result: { plans: [], mixedProviders: true } })
+      (response.result as { plans: Array<{ id: string }> }).plans.map(
+        p => p.id,
+      ),
+    ).toEqual(['7', '8'])
+    expect(response.result).not.toHaveProperty('mixedProviders')
   })
 
   /** O price id não sai daqui: a tela manda o id do plano, não o preço. */
@@ -362,7 +358,7 @@ describe('POST /thinkzap/subscription/checkout', () => {
     }
   }
 
-  it('cria a sessão com o price id do plano e devolve a URL', async () => {
+  it('cria a sessão com o price id do plano e devolve o segredo', async () => {
     const { controller, createCheckoutSession } = makeController()
 
     const response = await controller.perform(req({ planId: '7' }))
@@ -371,22 +367,19 @@ describe('POST /thinkzap/subscription/checkout', () => {
     expect(response.result).toEqual({ clientSecret: 'cs_test_embedded_secret' })
     expect(createCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        priceId: 'price_paid',
-        quantity: 1,
+        lineItems: [{ priceId: 'price_paid', quantity: 1 }],
         installation: {
           domainId: 'domain-1',
           appCode: 'crmthink.thinkzap',
           planId: '7',
         },
+        /** Contratar é converter o que existe: quem acrescenta linha tem rota própria. */
+        intent: { kind: 'convert' },
       }),
     )
   })
 
-  /**
-   * `quantity` sai do número de linhas, não do corpo. Hoje sempre 1, e o cálculo
-   * existe para que "assinar" não precise ser reescrito quando a segunda linha
-   * entrar.
-   */
+  /** `quantity` sai do número de linhas do contrato, não do corpo. */
   it('deriva quantity do número de linhas ativas da instalação', async () => {
     const { controller, createCheckoutSession } = makeController({
       subscriptions: [
@@ -406,7 +399,9 @@ describe('POST /thinkzap/subscription/checkout', () => {
     await controller.perform(req({ planId: '7' }))
 
     expect(createCheckoutSession).toHaveBeenCalledWith(
-      expect.objectContaining({ quantity: 2 }),
+      expect.objectContaining({
+        lineItems: [{ priceId: 'price_paid', quantity: 2 }],
+      }),
     )
   })
 
@@ -425,7 +420,9 @@ describe('POST /thinkzap/subscription/checkout', () => {
     await controller.perform(req({ planId: '7' }))
 
     expect(createCheckoutSession).toHaveBeenCalledWith(
-      expect.objectContaining({ quantity: 1 }),
+      expect.objectContaining({
+        lineItems: [{ priceId: 'price_paid', quantity: 1 }],
+      }),
     )
   })
 
@@ -455,8 +452,12 @@ describe('POST /thinkzap/subscription/checkout', () => {
     expect(createCheckoutSession).not.toHaveBeenCalled()
   })
 
-  /** Nenhum preço cobre dois conectores numa assinatura de um plano só. */
-  it('recusa quando a instalação mistura conectores', async () => {
+  /**
+   * Dois conectores deixaram de ser estado não precificável: a sessão carrega um
+   * `line_item` por plano, e cada conector é cobrado pelo preço dele. Era o `409` que
+   * mandava falar com o suporte.
+   */
+  it('cobra os dois preços quando a instalação mistura conectores', async () => {
     const { controller, createCheckoutSession } = makeController({
       subscriptions: [
         subscriptionOf({
@@ -481,8 +482,15 @@ describe('POST /thinkzap/subscription/checkout', () => {
 
     const response = await controller.perform(req({ planId: '7' }))
 
-    expect(response.status).toBe(409)
-    expect(createCheckoutSession).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(createCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lineItems: [
+          { priceId: 'price_paid', quantity: 1 },
+          { priceId: 'price_official', quantity: 1 },
+        ],
+      }),
+    )
   })
 
   /**
@@ -681,7 +689,6 @@ describe('a superfície de contratação não vaza credencial do gateway', () =>
   it('nem na listagem de planos', async () => {
     const controller = new ListPlansController(
       new ListOfferablePlans(makePlanRepository([PAID])),
-      makeContext(trialOnly),
     )
 
     const serialized = JSON.stringify((await controller.perform(req())).result)

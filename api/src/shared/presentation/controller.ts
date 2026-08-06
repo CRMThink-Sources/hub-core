@@ -31,6 +31,18 @@ export abstract class Controller {
     return { status: 504, result: { error: error.message } }
   }
 
+  /**
+   * Falha de um terceiro que a requisição não pode corrigir — provider que respondeu
+   * sem o dado que a operação exige, por exemplo.
+   *
+   * Existe para não cair no `500` genérico do `handle`, que registra "erro inesperado"
+   * e responde `Internal server error`: as duas coisas mentem quando o erro é
+   * esperado, nomeado, e diz exatamente o que faltou.
+   */
+  protected badGateway(error: Error): httpResponse {
+    return { status: 502, result: { error: error.message } }
+  }
+
   protected ok(data: unknown): httpResponse {
     return { status: 200, result: data }
   }

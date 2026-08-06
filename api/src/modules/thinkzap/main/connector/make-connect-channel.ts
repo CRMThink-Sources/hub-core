@@ -5,6 +5,8 @@ import { ConnectChannelController } from '../../presentation/controllers/connect
 import { PrismaConnectorRepository } from '../../infra/persistence/repositories/prisma-connector.repository'
 import { PrismaInstanceRepository } from '../../infra/persistence/repositories/prisma-instance.repository'
 import { HubMessageClient } from '../../infra/clients/hubmessage.client'
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
+import { makeSubscriptionItemRepository } from '@/modules/application/main/make-subscription-item-repository'
 
 export const makeConnectChannelController = (
   _req: Request,
@@ -22,6 +24,12 @@ export const makeConnectChannelController = (
       getConnectorRepository,
       instanceRepository,
       env.hubMessage.webhookUrl,
+      makeGetAplicationContext(),
+      /**
+       * O repositório de itens entra porque é aqui que a WABA passa a existir para o
+       * produto: o provisionamento cria só o canal, e o item da linha precisa dela.
+       */
+      makeSubscriptionItemRepository(),
     ),
   )
 }

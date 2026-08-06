@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { listLineItemsForApp, providerLineId } from './list-line-items-for-app'
+import {
+  entitlementsByItemId,
+  listLineItemsForApp,
+  providerLineId,
+} from './list-line-items-for-app'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 
@@ -63,6 +67,7 @@ describe('listLineItemsForApp', () => {
       domainId: 'domain-1',
       appCode: 'crmthink.thinkzap',
       items: [zapi('i1'), hub('i2')],
+      subscriptions: [{ items: [zapi('i1'), hub('i2')] }],
     })
     expect(sut.execute).toHaveBeenCalledWith({
       domainId: 'domain-1',
@@ -111,6 +116,57 @@ describe('listLineItemsForApp', () => {
     })
 
     expect(result?.items.map(i => i.id)).toEqual(['i1', 'i2'])
+  })
+})
+
+/**
+ * O portal admin precisa do entitlement por linha, e a travessia que monta `items`
+ * descarta a assinatura pai. Este mapa é o que preserva o par.
+ */
+describe('entitlementsByItemId', () => {
+  const DAY = 24 * 60 * 60 * 1000
+  const now = new Date('2026-08-04T12:00:00.000Z')
+
+  it('aplica o entitlement da assinatura a todos os itens dela', () => {
+    const map = entitlementsByItemId(
+      [
+        {
+          id: 'sub-1',
+          status: 'trialing',
+          currentPeriodEnd: new Date(now.getTime() - DAY),
+          items: [zapi('i1'), hub('i2')],
+        },
+      ] as never,
+      now,
+    )
+
+    expect(map).toEqual({ i1: 'trial-expired', i2: 'trial-expired' })
+  })
+
+  it('resolve assinaturas diferentes de forma independente', () => {
+    const map = entitlementsByItemId(
+      [
+        {
+          id: 'sub-1',
+          status: 'active',
+          currentPeriodEnd: now,
+          items: [zapi('i1')],
+        },
+        {
+          id: 'sub-2',
+          status: 'cancelled',
+          currentPeriodEnd: now,
+          items: [hub('i2')],
+        },
+      ] as never,
+      now,
+    )
+
+    expect(map).toEqual({ i1: 'active', i2: 'inactive' })
+  })
+
+  it('devolve mapa vazio sem assinaturas', () => {
+    expect(entitlementsByItemId([], now)).toEqual({})
   })
 })
 

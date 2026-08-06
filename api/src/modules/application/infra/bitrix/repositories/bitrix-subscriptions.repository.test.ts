@@ -347,6 +347,52 @@ describe('BitrixSubscriptionRepository', () => {
     })
   })
 
+  describe('listSubscriptionsByGatewayId', () => {
+    it('filtra no Bitrix pelo campo de id do gateway', async () => {
+      const listCrmItems = vi.fn(() =>
+        Promise.resolve({ result: { items: [subscriptionItem(1, '7', 512)] } }),
+      )
+      const bitrix = makeBitrix({ listCrmItems })
+
+      await makeRepository(bitrix).listSubscriptionsByGatewayId('sub_1')
+
+      expect(listCrmItems).toHaveBeenCalledWith(
+        env.payments.spa.subscriptionEntityType,
+        { ufCrm91GatewayId: 'sub_1' },
+      )
+    })
+
+    /**
+     * Duas assinaturas com o mesmo id no gateway é caso de negócio: uma instalação
+     * cobrada por dois planos tem uma por plano. Cortar para a primeira faria o
+     * webhook escrever status em metade do contrato.
+     */
+    it('devolve todas as assinaturas do mesmo id de gateway', async () => {
+      const bitrix = respondingWithItems([
+        { ...subscriptionItem(1, '7', 512), ufCrm91GatewayId: 'sub_1' },
+        { ...subscriptionItem(2, '8', 512), ufCrm91GatewayId: 'sub_1' },
+      ])
+
+      const subscriptions = await makeRepository(bitrix, {
+        plans: makePlans([planOf('7'), planOf('8')]).repository,
+      }).listSubscriptionsByGatewayId('sub_1')
+
+      expect(subscriptions.map(subscription => subscription.id)).toEqual([
+        '1',
+        '2',
+      ])
+    })
+
+    it('devolve lista vazia quando nenhuma assinatura tem o id', async () => {
+      const bitrix = respondingWithItems([])
+
+      const subscriptions =
+        await makeRepository(bitrix).listSubscriptionsByGatewayId('sub_ausente')
+
+      expect(subscriptions).toEqual([])
+    })
+  })
+
   describe('createSubscription', () => {
     const input = {
       name: 'Assinatura 21',

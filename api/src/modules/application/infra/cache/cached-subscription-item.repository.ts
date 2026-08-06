@@ -21,8 +21,14 @@ const SUBSCRIPTION_ITEM_TTL_SECONDS = 5 * 60
  * `v2`: `settings` entrou na entidade. `v3`: `vinculatedChannel` também. Subir a
  * versão torna o descarte de entradas antigas determinístico, em vez de depender de
  * o schema reprová-las.
+ *
+ * `v4`: `wabaId` do HubMessage passou a ser opcional. Aqui a versão sobe por um motivo
+ * diferente dos anteriores — o schema novo **aceitaria** as entradas `v3`, porque
+ * opcional é mais permissivo. O problema é o inverso: um item gravado em `v3` só
+ * existia **com** WABA, e canal sem WABA era erro de leitura. Manter `v3` misturaria
+ * entradas de dois regimes de validação diferentes na mesma chave.
  */
-const CACHE_VERSION = 'v3'
+const CACHE_VERSION = 'v4'
 
 const metadataSchema = z.discriminatedUnion('provider', [
   z.object({
@@ -33,7 +39,8 @@ const metadataSchema = z.discriminatedUnion('provider', [
   z.object({
     provider: z.literal('HUBMESSAGE'),
     hubmessageChannelId: z.string(),
-    wabaId: z.string(),
+    /** Ausente até o canal ser conectado na Meta — ver a entidade. */
+    wabaId: z.string().optional(),
   }),
   z.object({ provider: z.literal('NONE') }),
 ])

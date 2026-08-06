@@ -155,5 +155,12 @@
   "connectorsMessageDeleteEvent": "Sync message deletions",
   "connectorsMessageDeleteEventHint": "When an operator deletes a message in Bitrix, the corresponding WhatsApp message will be deleted.",
   "connectorsSaving": "Saving...",
-  "connectorsSaved": "Saved successfully"
+  "connectorsSaved": "Saved successfully",
+  "instancesColumnEntitlement": "Entitlement",
+  "instancesEntitlementActive": "Enabled",
+  "instancesEntitlementTrialExpired": "Trial ended",
+  "instancesEntitlementInactive": "No subscription",
+  "instancesTrialNever": "Trial never activated for this installation.",
+  "instancesTrialActive": "Trial in progress ({{provider}}), ends on {{data}}.",
+  "instancesTrialExpired": "Trial expired on {{data}} ({{provider}}). The lines below are blocked."
 }

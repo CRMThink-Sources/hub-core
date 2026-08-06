@@ -55,18 +55,24 @@ export function makeSubscriptionDeps() {
 
   const zApiClient = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
 
+  /**
+   * Um resolver só, compartilhado: o `ProviderResourceBilling` assina o recurso e a
+   * criação de linha o provisiona — dois eixos do mesmo adapter, e duas instâncias
+   * seriam dois clientes HTTP para o mesmo provider.
+   */
+  const providerResolver = makeConnectorProviderResolver({
+    zApiClient,
+    instanceGateway: new ZApiInstanceGateway(zApiClient),
+  })
+
   return {
     bitrixClient,
     getAplicationContext: makeGetAplicationContext(),
     plans,
     subscriptions,
     items: makeSubscriptionItemRepository(),
-    providerBilling: new ProviderResourceBilling(
-      makeConnectorProviderResolver({
-        zApiClient,
-        instanceGateway: new ZApiInstanceGateway(zApiClient),
-      }),
-    ),
+    providerResolver,
+    providerBilling: new ProviderResourceBilling(providerResolver),
   }
 }
 

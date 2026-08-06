@@ -11,13 +11,16 @@ import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 import { APP_CODES } from '@/shared/app/app-codes'
 import { appTokenKey } from '@/shared/auth/app-token-storage'
 import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
+import { extractLineBlocked } from '@/app/hooks/extract-line-blocked'
 import {
   useLineApi,
+  type LineEntitlement,
   type LineSettings,
   type LineSettingsToggles,
 } from '@/app/hooks/use-line-api'
 import { ConfigCard } from './config-card'
 import { ConfirmModal } from './confirm-modal'
+import { LinhaBloqueadaAviso } from './linha-bloqueada-aviso'
 
 type Props = { itemId: string }
 
@@ -35,6 +38,12 @@ type State =
       name: string
       vinculatedChannel: string | null
       settings: LineSettingsToggles
+      /**
+       * Nunca `error` quando bloqueada: a leitura passa, e a aba abre mostrando o
+       * que o cliente configurou. Sumir com ela faria trial vencido parecer perda de
+       * dado.
+       */
+      entitlement: LineEntitlement
     }
 
 const TOGGLE_KEYS = [
@@ -74,9 +83,41 @@ export function AjustesTab({ itemId }: Props) {
       name: data.name,
       vinculatedChannel: data.vinculatedChannel,
       settings: data.settings,
+      entitlement: data.entitlement,
     })
     setInicial({ name: data.name, settings: data.settings })
   }, [])
+
+  /**
+   * Recusa que chegou da api, e não do estado lido.
+   *
+   * A linha pode ter expirado **entre** abrir a aba e clicar em salvar — o contexto
+   * tem cache de 5 minutos. Quando isso acontece, o aviso vem do erro e a aba se
+   * trava na hora, em vez de deixar o usuário insistir num botão que só devolve
+   * `402`.
+   */
+  const tratarRecusa = useCallback(
+    (err: unknown, fallback: string): void => {
+      const bloqueio = extractLineBlocked(err)
+
+      if (bloqueio === null) {
+        toast.error(extractThinkzapError(err, fallback))
+        return
+      }
+
+      setState(prev =>
+        prev.status === 'ready' ? { ...prev, entitlement: bloqueio } : prev,
+      )
+      toast.error(
+        t(
+          bloqueio === 'trial-expired'
+            ? 'bloqueada.trialTitulo'
+            : 'bloqueada.inativaTitulo',
+        ),
+      )
+    },
+    [t],
+  )
 
   const load = useCallback(async () => {
     setState({ status: 'loading' })
@@ -157,12 +198,14 @@ export function AjustesTab({ itemId }: Props) {
     )
   }
 
+  const bloqueada = state.entitlement !== 'active'
+
   const nomeMudou = inicial !== null && state.name !== inicial.name
   const togglesMudaram =
     inicial !== null &&
     TOGGLE_KEYS.some(key => state.settings[key] !== inicial.settings[key])
   const nomeValido = state.name.trim().length > 0
-  const podeSalvar = (nomeMudou || togglesMudaram) && nomeValido
+  const podeSalvar = (nomeMudou || togglesMudaram) && nomeValido && !bloqueada
 
   function setToggle(key: keyof LineSettingsToggles, value: boolean) {
     setState(prev =>
@@ -194,7 +237,7 @@ export function AjustesTab({ itemId }: Props) {
       toast.success(t('salvo'))
     } catch (err: unknown) {
       // O que o usuário digitou fica: nada é revertido em falha.
-      toast.error(extractThinkzapError(err, t('erroSalvar')))
+      tratarRecusa(err, t('erroSalvar'))
     } finally {
       setSalvando(false)
     }
@@ -215,7 +258,7 @@ export function AjustesTab({ itemId }: Props) {
       setCanalSelecionado('')
       toast.success(t('canalVinculado'))
     } catch (err: unknown) {
-      toast.error(extractThinkzapError(err, t('erroVincular')))
+      tratarRecusa(err, t('erroVincular'))
     } finally {
       setVinculando(false)
     }
@@ -231,7 +274,8 @@ export function AjustesTab({ itemId }: Props) {
       setConfirmarDesvincular(false)
       toast.success(t('canalDesvinculado'))
     } catch (err: unknown) {
-      toast.error(extractThinkzapError(err, t('erroDesvincular')))
+      setConfirmarDesvincular(false)
+      tratarRecusa(err, t('erroDesvincular'))
     } finally {
       setVinculando(false)
     }
@@ -262,12 +306,23 @@ export function AjustesTab({ itemId }: Props) {
   return (
     <>
       <div className="flex flex-col gap-6">
+        {/* Antes de tudo: o motivo do travamento vem antes dos campos travados. */}
+        {bloqueada && (
+          <LinhaBloqueadaAviso
+            entitlement={
+              state.entitlement as Exclude<LineEntitlement, 'active'>
+            }
+            namespace="thinkzap/configuracoes/ajustes"
+          />
+        )}
+
         <ConfigCard title={t('identificacao')} description={t('nomeHint')}>
           <div className="flex flex-col gap-2">
             <Label htmlFor="line-name">{t('nome')}</Label>
             <Input
               id="line-name"
               value={state.name}
+              disabled={bloqueada}
               onChange={e =>
                 setState(prev =>
                   prev.status === 'ready'
@@ -297,7 +352,7 @@ export function AjustesTab({ itemId }: Props) {
               <Button
                 type="button"
                 variant="outline"
-                disabled={vinculando}
+                disabled={vinculando || bloqueada}
                 onClick={() => setConfirmarDesvincular(true)}
               >
                 {t('desvincular')}
@@ -323,8 +378,9 @@ export function AjustesTab({ itemId }: Props) {
                 <div className="flex flex-wrap items-center gap-3">
                   <select
                     value={canalSelecionado}
+                    disabled={bloqueada}
                     onChange={e => setCanalSelecionado(e.target.value)}
-                    className="h-9 max-w-sm rounded-md border border-border bg-background px-3 text-sm"
+                    className="h-9 max-w-sm rounded-md border border-border bg-background px-3 text-sm disabled:opacity-50"
                   >
                     <option value="">{t('selecioneCanal')}</option>
                     {canais.map(canal => (
@@ -335,7 +391,7 @@ export function AjustesTab({ itemId }: Props) {
                   </select>
                   <Button
                     type="button"
-                    disabled={!canalSelecionado || vinculando}
+                    disabled={!canalSelecionado || vinculando || bloqueada}
                     onClick={() => void handleVincular()}
                   >
                     {t('vincular')}
@@ -354,6 +410,7 @@ export function AjustesTab({ itemId }: Props) {
               onChange={v => setToggle('prefixOperatorNameEnabled', v)}
               label={t('toggles.prefixOperatorName')}
               hint={t('toggles.prefixOperatorNameHint')}
+              disabled={bloqueada}
             />
 
             <Toggle
@@ -362,7 +419,7 @@ export function AjustesTab({ itemId }: Props) {
               onChange={v => setToggle('widgetOpenChannelEnabled', v)}
               label={t('toggles.widgetOpenChannel')}
               /* Sem canal vinculado não há para onde enviar. */
-              disabled={!temCanal}
+              disabled={!temCanal || bloqueada}
               hint={
                 temCanal
                   ? t('toggles.widgetOpenChannelHint')
@@ -376,6 +433,7 @@ export function AjustesTab({ itemId }: Props) {
               onChange={v => setToggle('messageUpdateEventEnabled', v)}
               label={t('toggles.messageUpdateEvent')}
               hint={t('toggles.messageUpdateEventHint')}
+              disabled={bloqueada}
             />
 
             <Toggle
@@ -384,6 +442,7 @@ export function AjustesTab({ itemId }: Props) {
               onChange={v => setToggle('messageDeleteEventEnabled', v)}
               label={t('toggles.messageDeleteEvent')}
               hint={t('toggles.messageDeleteEventHint')}
+              disabled={bloqueada}
             />
           </div>
 

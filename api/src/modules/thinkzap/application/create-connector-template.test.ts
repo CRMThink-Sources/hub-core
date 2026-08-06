@@ -62,7 +62,9 @@ function makeSut(opts: { items?: SubscriptionItem[] } = {}) {
     execute: vi.fn().mockResolvedValue({
       customer: { id: 'domain_1' },
       aplication: { id: 'app_1', spaId: '42' },
-      subscriptions: [{ id: 'sub_1', items: opts.items ?? [hubItem] }],
+      subscriptions: [
+        { id: 'sub_1', status: 'active', items: opts.items ?? [hubItem] },
+      ],
     }),
   } as unknown as GetAplicationContext
 

@@ -23,12 +23,24 @@ const THINKZAP_ROOT = join(__dirname, '..')
 /** Módulo que expõe as operações; os chamadores é que estão sob escrutínio. */
 const BILLING_MODULE = 'provider-resource-billing.ts'
 
-/** Único gatilho autorizado: o handler dos eventos do gateway. */
+/** Gatilhos autorizados. */
 const AUTHORIZED_CALLERS = new Set([
   'handle-gateway-webhook-event.ts',
   // A ativação chama `subscribe` — e é a mesma cadeia: ela só roda a partir do
   // `checkout.session.completed`.
   'activate-line-subscription.ts',
+  /**
+   * Criar linha num contrato que já existe no gateway chama `subscribe`, e este é o
+   * único gatilho **fora** da cadeia de eventos do gateway. Autorizado com a decisão
+   * explícita: a cobrança já foi ajustada no gateway no mesmo request, então o
+   * recurso passa a ser cobrado e precisa estar assinado no provider — deixar para o
+   * `customer.subscription.updated` que vem depois faria a linha nascer não assinada,
+   * e nada no evento diz **qual** recurso assinar.
+   *
+   * A regra da modalidade manual continua valendo: o caso de uso recusa antes de
+   * tocar provider ou gateway, travado em `create-additional-line.test.ts`.
+   */
+  'create-additional-line.ts',
 ])
 
 function collectSourceFiles(dir: string): string[] {

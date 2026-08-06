@@ -10,8 +10,22 @@ import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
  * da Z-API a partir dele — **nenhuma credencial trafega para cá**, e o front não
  * tem como pedir uma.
  */
+/**
+ * Habilitação da linha, como a api reporta.
+ *
+ * `trial-expired` é separado de `inactive` porque a tela diz coisas diferentes:
+ * teste acabado explica o que houve e oferece contratar; assinatura cancelada é
+ * outro assunto.
+ */
+export type LineEntitlement = 'active' | 'trial-expired' | 'inactive'
+
 export type LineConnection = {
   connected: boolean
+  /**
+   * Sempre presente. É o que faz a aba explicar o bloqueio em vez de oferecer um QR
+   * code que a rota recusa — as leituras passam mesmo com a linha bloqueada.
+   */
+  entitlement: LineEntitlement
   name?: string
   phone?: string
   imgUrl?: string
@@ -35,6 +49,8 @@ export type LineSettings = {
   name: string
   vinculatedChannel: string | null
   settings: LineSettingsToggles
+  /** Bloqueada abre a aba em só-leitura: a gravação recusaria com `402`. */
+  entitlement: LineEntitlement
 }
 
 export function useLineApi(itemId: string) {

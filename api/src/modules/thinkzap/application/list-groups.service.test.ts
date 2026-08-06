@@ -31,7 +31,7 @@ function makeSut(conversations: ReturnType<typeof conversation>[]) {
   const execute = vi.fn().mockResolvedValue({
     customer: { id: 'domain-1', name: 'acme.bitrix24.com.br' },
     aplication: { id: 'installed-1', spaId: '42' },
-    subscriptions: [{ id: 'sub-1', items: [zapiItem] }],
+    subscriptions: [{ id: 'sub-1', status: 'active', items: [zapiItem] }],
   })
 
   const zApiClient = {

@@ -1,5 +1,12 @@
-import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import {
+  GetAplicationContext,
+  SubscriptionWithItems,
+} from '@/modules/application/application/get-aplication-context'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import {
+  LineEntitlement,
+  resolveLineEntitlement,
+} from '@/modules/thinkzap/domain/connector-trial'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 
 export type LineItemsForApp = {
@@ -9,6 +16,14 @@ export type LineItemsForApp = {
   appCode: string
   /** Itens que **são** linha: provider `ZAPI` ou `HUBMESSAGE`. */
   items: SubscriptionItem[]
+  /**
+   * As assinaturas como vieram, **com o pai de cada item preservado**.
+   *
+   * `items` acha a linha; isto é o que diz se ela funciona. O `flatMap` que monta
+   * `items` descarta a assinatura no caminho, e sem ela não há como derivar
+   * entitlement nem estado de trial — o portal admin precisa dos dois.
+   */
+  subscriptions: SubscriptionWithItems[]
 }
 
 /**
@@ -46,7 +61,30 @@ export async function listLineItemsForApp(
     items: context.subscriptions
       .flatMap(subscription => subscription.items)
       .filter(item => item.metadata.provider !== 'NONE'),
+    subscriptions: context.subscriptions,
   }
+}
+
+/**
+ * Entitlement de cada item, indexado pelo id.
+ *
+ * Um mapa e não um campo no item: `SubscriptionItem` é a entidade da SPA, e
+ * habilitação não é dado dela — é derivada da assinatura pai e do agora.
+ */
+export function entitlementsByItemId(
+  subscriptions: SubscriptionWithItems[],
+  now: Date,
+): Record<string, LineEntitlement> {
+  const map: Record<string, LineEntitlement> = {}
+
+  for (const subscription of subscriptions) {
+    const entitlement = resolveLineEntitlement(subscription, now)
+    for (const item of subscription.items) {
+      map[item.id] = entitlement
+    }
+  }
+
+  return map
 }
 
 /**

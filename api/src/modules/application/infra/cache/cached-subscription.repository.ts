@@ -169,11 +169,15 @@ export class CachedSubscriptionRepository implements SubscriptionRepository {
    * velha aqui faria uma reentrega ver estado antigo e reprocessar — e cachear
    * exigiria invalidar mais uma chave em cada escrita, para ganhar nada num
    * caminho que não é quente.
+   *
+   * Sem chave também significa **sem `CACHE_VERSION` a subir** quando a leitura
+   * passou de uma assinatura para o conjunto: a entidade `Subscription` não mudou
+   * de shape, e nada gravado por deploy anterior descreve este método.
    */
-  async getSubscriptionByGatewayId(
+  async listSubscriptionsByGatewayId(
     gatewayId: string,
-  ): Promise<Subscription | null> {
-    return this.inner.getSubscriptionByGatewayId(gatewayId)
+  ): Promise<Subscription[]> {
+    return this.inner.listSubscriptionsByGatewayId(gatewayId)
   }
 
   async createSubscription(

@@ -10,6 +10,8 @@ import { ActivateLineSubscription } from '@/modules/thinkzap/application/activat
 import { HandleGatewayWebhookEvent } from '@/modules/thinkzap/application/handle-gateway-webhook-event'
 import { ListOfferablePlans } from '@/modules/thinkzap/application/list-offerable-plans'
 import { CreateSubscriptionCheckout } from '@/modules/thinkzap/application/create-subscription-checkout'
+import { CreateAdditionalLine } from '@/modules/thinkzap/application/create-additional-line'
+import { CreateLineController } from '@/modules/thinkzap/presentation/controllers/line/create-line.controller'
 import { CreateBillingPortalSession } from '@/modules/thinkzap/application/create-billing-portal-session'
 import {
   GatewaySignatureError,
@@ -34,12 +36,14 @@ export const makeGetSubscriptionStateController = (): Controller => {
 }
 
 export const makeListPlansController = (): Controller => {
-  const { plans, getAplicationContext } = makeSubscriptionDeps()
+  /**
+   * Só o catálogo: a listagem deixou de ser filtrada pela instalação quando
+   * providers misturados passaram a ser precificáveis, então o contexto não
+   * participa mais da resposta.
+   */
+  const { plans } = makeSubscriptionDeps()
 
-  return new ListPlansController(
-    new ListOfferablePlans(plans),
-    getAplicationContext,
-  )
+  return new ListPlansController(new ListOfferablePlans(plans))
 }
 
 /**
@@ -134,6 +138,8 @@ export const makeStripeWebhookController = (): Controller => {
           ),
         createCheckoutSession: () =>
           Promise.reject(new Error('gateway de pagamento não configurado')),
+        syncSubscriptionLineItems: () =>
+          Promise.reject(new Error('gateway de pagamento não configurado')),
         createBillingPortalSession: () =>
           Promise.reject(new Error('gateway de pagamento não configurado')),
       },
@@ -148,6 +154,8 @@ export const makeStripeWebhookController = (): Controller => {
     subscriptions,
     items,
     providerBilling,
+    plans,
+    providerResolver,
   } = makeSubscriptionDeps()
 
   return new StripeWebhookController(
@@ -159,9 +167,44 @@ export const makeStripeWebhookController = (): Controller => {
         items,
         providerBilling,
         bitrixClient,
+        /**
+         * O catálogo ofertável entra na ativação porque ela resolve o plano de cada
+         * conector: uma contratação pode cobrir linhas de dois conectores, e cada
+         * grupo nasce sob o plano que o precifica.
+         */
+        new ListOfferablePlans(plans),
+        /**
+         * O resolver de provider entra porque a ativação pode **criar** linha, quando
+         * a contratação veio de uma criação: aí o recurso é provisionado aqui, depois
+         * de o pagamento ser confirmado.
+         */
+        providerResolver,
       ),
       subscriptions,
       items,
+      providerBilling,
+    ),
+  )
+}
+
+export const makeCreateLineController = (): Controller => {
+  const {
+    getAplicationContext,
+    plans,
+    subscriptions,
+    items,
+    providerBilling,
+    providerResolver,
+  } = makeSubscriptionDeps()
+
+  return new CreateLineController(
+    new CreateAdditionalLine(
+      getAplicationContext,
+      new ListOfferablePlans(plans),
+      requireGateway(),
+      subscriptions,
+      items,
+      providerResolver,
       providerBilling,
     ),
   )

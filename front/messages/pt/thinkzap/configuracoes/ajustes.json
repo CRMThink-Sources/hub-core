@@ -41,5 +41,11 @@
     "messageUpdateEventHint": "Edição feita no CRM é refletida no WhatsApp.",
     "messageDeleteEvent": "Sincronizar exclusão de mensagem",
     "messageDeleteEventHint": "Exclusão feita no CRM é refletida no WhatsApp."
+  },
+  "bloqueada": {
+    "trialTitulo": "Período de teste encerrado",
+    "trialDescricao": "A linha continua aqui e você vê tudo que configurou, mas os ajustes ficam somente leitura até haver uma assinatura.",
+    "inativaTitulo": "Sem assinatura ativa",
+    "inativaDescricao": "Esta linha não tem assinatura ativa. Os ajustes ficam somente leitura até a assinatura ser regularizada."
   }
 }

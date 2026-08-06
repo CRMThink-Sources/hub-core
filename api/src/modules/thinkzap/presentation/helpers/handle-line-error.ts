@@ -6,6 +6,7 @@ import { InvalidBitrixSubscriptionError } from '@/modules/application/infra/bitr
 import { InvalidBitrixSubscriptionItemError } from '@/modules/application/infra/bitrix/errors/invalid-bitrix-subscription-item.error'
 import { InvalidBitrixPlanError } from '@/modules/application/infra/bitrix/errors/invalid-bitrix-plan.error'
 import { InvalidBitrixProductError } from '@/modules/application/infra/bitrix/errors/invalid-bitrix-product.error'
+import { LineBlockedError } from '@/modules/thinkzap/domain/errors/line-blocked.error'
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 
@@ -36,6 +37,33 @@ const isZApiFailure = (error: unknown): boolean =>
   error instanceof Error && ZAPI_FAILURES.includes(error.message)
 
 /**
+ * Linha bloqueada, em qualquer superfície: ajustes, canal, QR code, grupos,
+ * templates.
+ *
+ * **`402` e não `403`.** O `403` desta api significa "você não pode fazer isso" —
+ * é o que o guard de permissão devolve. Linha bloqueada é outra coisa: o usuário
+ * pode, a instalação é que não tem mais direito à linha. A tela precisa separar os
+ * dois para oferecer contratar em vez de mandar falar com o administrador.
+ *
+ * O corpo carrega `code` e `entitlement` porque a mensagem é interpolada com o id
+ * do item: comparar texto no front nunca casaria.
+ *
+ * Exportado e reusado pelas outras traduções de erro desta superfície — linha
+ * bloqueada é um caso só, e responder diferente por rota faria a tela ter que
+ * aprender cada uma.
+ */
+export function mapLineBlockedError(error: LineBlockedError): httpResponse {
+  return {
+    status: 402,
+    result: {
+      error: error.message,
+      code: 'line-blocked',
+      entitlement: error.entitlement,
+    },
+  }
+}
+
+/**
  * Tradução de erro para status nas rotas de linha (`/api/thinkzap/lines/*`).
  *
  * Compartilhado porque todas essas rotas passam pela mesma resolução e precisam
@@ -53,6 +81,14 @@ export function mapLineError(
    */
   if (error instanceof LineNotFoundError) {
     return { status: 404, result: { error: error.message } }
+  }
+
+  /**
+   * Antes do provider e do upstream: a linha existe e o escopo já foi conferido,
+   * então nada abaixo pode dar resposta melhor que "seu teste acabou".
+   */
+  if (error instanceof LineBlockedError) {
+    return mapLineBlockedError(error)
   }
 
   /** Token válido de instalação que não existe mais. */

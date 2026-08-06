@@ -9,6 +9,9 @@ import { makeSyncTemplatesController } from './main/connector/make-sync-template
 import { makeListDestinationsController } from './main/make-list-destinations-controller'
 import { makeSendWidgetMessageController } from './main/make-send-widget-message-controller'
 import { makeSendWidgetMessageMultipartController } from './main/make-send-widget-message-multipart-controller'
+import { makeGetLineStatusForWidgetController } from './main/make-get-line-status-for-widget-controller'
+import { makeListWidgetTemplatesController } from './main/make-list-widget-templates-controller'
+import { makeSendWidgetTemplateController } from './main/make-send-widget-template-controller'
 import { widgetMessageUploadParser } from './infra/http/widget-message-upload.multer'
 import { makeAddGroupParticipantsController } from './main/make-add-group-participants-controller'
 import { makeCreateGroupController } from './main/make-create-group-controller'
@@ -42,6 +45,7 @@ import {
 import {
   makeCreateBillingPortalController,
   makeCreateCheckoutController,
+  makeCreateLineController,
   makeGetSubscriptionStateController,
   makeListPlansController,
 } from './main/subscription/make-subscription-controllers'
@@ -71,6 +75,60 @@ export const createThinkerszapRoutes = (): Router => {
     '/messages/send-widget-multipart',
     widgetMessageUploadParser.array('files', 10),
     adaptControllerFactory(makeSendWidgetMessageMultipartController),
+  )
+  /**
+   * Envio de **template aprovado** pelo widget — o caminho da linha do WhatsApp
+   * Oficial, que `send-widget` não atende (aquele é Z-API-only).
+   *
+   * Rota separada e não uma variante de payload em `send-widget`: o use case é
+   * outro, as recusas são outras (capacidade de provider, canal não conectado) e o
+   * corpo não tem nada em comum além de linha, destino e entidade.
+   */
+  router.post(
+    '/messages/send-widget-template',
+    adaptControllerFactory(makeSendWidgetTemplateController),
+  )
+  /**
+   * Status da linha **selecionada**, para o widget avisar antes de o operador compor
+   * a mensagem.
+   *
+   * Fica no bloco do widget, **sem** `requireThinkzapPermission('connectors',
+   * 'read')`, como as demais rotas daqui: o operador do contact center manda mensagem
+   * sem administrar conectores, e exigir permissão de conector faria a checagem
+   * falhar exatamente para quem o widget existe para atender.
+   *
+   * O escopo continua saindo do JWT — item fora da árvore da instalação responde
+   * `404` — e a resposta são dois booleanos, sem credencial nem aparelho. Mesma
+   * superfície de risco que `/destinations`, que já é aberta.
+   *
+   * `/lines/:itemId/connection` não serve aqui: exige `connectors:read`, agenda
+   * `DisconnectExpiredLine` como efeito de leitura e devolve a instância crua da
+   * Z-API.
+   */
+  router.get(
+    '/messages/line-status/:subscriptionItemId',
+    adaptControllerFactory(makeGetLineStatusForWidgetController),
+  )
+  /**
+   * Templates **aprovados** da linha, para o widget compor quando a linha é do
+   * WhatsApp Oficial.
+   *
+   * Fica no bloco do widget, **sem** `requireThinkzapPermission('connectors',
+   * 'read')`, pelo mesmo motivo da rota de status acima: o operador do contact
+   * center compõe mensagem sem administrar conectores, e exigir permissão de
+   * conector faria a checagem falhar exatamente para quem o widget existe para
+   * atender.
+   *
+   * O escopo continua saindo do JWT — item fora da árvore da instalação responde
+   * `404` — e a resposta são três campos por template (`name`, `language`,
+   * `body`), sem credencial. Mesma superfície de risco de `/destinations`.
+   *
+   * `/lines/:itemId/templates` não serve aqui: exige `connectors:read`, devolve
+   * pendentes e reprovados junto e entrega os `components` crus do provider.
+   */
+  router.get(
+    '/messages/widget-templates/:subscriptionItemId',
+    adaptControllerFactory(makeListWidgetTemplatesController),
   )
 
   /**
@@ -188,6 +246,23 @@ export const createThinkerszapRoutes = (): Router => {
     '/subscription/billing-portal',
     requireThinkzapPermission('finance', 'update'),
     adaptControllerFactory(makeCreateBillingPortalController),
+  )
+
+  /**
+   * Criar linha adicional.
+   *
+   * `finance:create`, como contratar — e **não** `connectors:create`: criar linha é
+   * decisão de cobrança antes de ser decisão de conector, e quem administra conector
+   * não necessariamente pode gastar dinheiro da empresa. Fica junto do bloco de
+   * assinatura por isso, mesmo com o caminho `/lines`.
+   *
+   * Antes de `/lines/:itemId/...` de propósito: `POST /lines` não colide com as rotas
+   * de item, mas manter as duas famílias vizinhas esconderia que a permissão é outra.
+   */
+  router.post(
+    '/lines',
+    requireThinkzapPermission('finance', 'create'),
+    adaptControllerFactory(makeCreateLineController),
   )
 
   /**

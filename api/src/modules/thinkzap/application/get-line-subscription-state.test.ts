@@ -9,6 +9,8 @@ import type {
 } from '@/modules/application/application/get-aplication-context'
 import type { Plan } from '@/modules/application/domain/entities/plan'
 import type { Subscription } from '@/modules/application/domain/entities/subscription'
+import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 
 const NOW = new Date('2026-08-03T12:00:00.000Z')
 
@@ -27,16 +29,21 @@ const PAID_PLAN: Plan = {
   amount: 4990,
   interval: 'monthly' as const,
   gatewayId: 'price_abc',
+  provider: 'ZAPI',
   active: true,
 }
 
-/** Plano de trial: grátis por construção, porque não tem price id no gateway. */
+/**
+ * Plano de trial: grátis por construção, porque não tem price id no gateway. Sem
+ * provider também — ele não precifica conector nenhum.
+ */
 const TRIAL_PLAN: Plan = {
   ...PAID_PLAN,
   id: '1',
   name: 'Teste',
   amount: 0,
   gatewayId: undefined,
+  provider: undefined,
 }
 
 const aplication = {
@@ -60,6 +67,8 @@ const subscriptionOf = (overrides: {
   modality: Subscription['modality']
   plan?: Plan
   currentPeriodEnd?: Date
+  gatewayId?: string
+  items?: SubscriptionItem[]
 }): SubscriptionWithItems => ({
   id: overrides.id ?? '21',
   name: 'Assinatura',
@@ -69,7 +78,26 @@ const subscriptionOf = (overrides: {
   currentPeriodEnd: overrides.currentPeriodEnd ?? plusDays(20),
   aplication,
   modality: overrides.modality,
-  items: [],
+  gatewayId: overrides.gatewayId,
+  items: overrides.items ?? [],
+})
+
+/** Uma linha do conector pedido, para as contagens por plano. */
+const lineOf = (
+  id: string,
+  provider: 'ZAPI' | 'HUBMESSAGE',
+  status: 'active' | 'cancelled' = 'active',
+): SubscriptionItem => ({
+  id,
+  name: 'Linha',
+  subscription: '21',
+  status,
+  settings: { ...DEFAULT_CONNECTOR_SETTINGS },
+  vinculatedChannel: null,
+  metadata:
+    provider === 'ZAPI'
+      ? { provider, zApiInstanceId: 'i', zApiInstanceToken: 't' }
+      : { provider, hubmessageChannelId: 'c', wabaId: 'w' },
 })
 
 const makeUseCase = (subscriptions: SubscriptionWithItems[]) => {
@@ -292,6 +320,160 @@ describe('GetLineSubscriptionState', () => {
     expect(serialized).not.toContain('sub_')
     expect(serialized).not.toContain('sk_')
     expect(serialized).not.toContain('whsec_')
+  })
+
+  /**
+   * A instalação pode ser cobrada por mais de um plano na mesma assinatura do
+   * gateway. Reportar um deles faria a tela mostrar menos do que o cliente paga.
+   */
+  describe('composição do contrato', () => {
+    const OFFICIAL_PLAN: Plan = {
+      ...PAID_PLAN,
+      id: '8',
+      name: 'Pro Oficial',
+      amount: 9990,
+      provider: 'HUBMESSAGE',
+    }
+
+    it('reporta um item por plano, com o número de linhas de cada um', async () => {
+      const { useCase } = makeUseCase([
+        subscriptionOf({
+          id: '99',
+          status: 'active',
+          modality: 'stripe',
+          gatewayId: 'sub_1',
+          items: [lineOf('1', 'ZAPI'), lineOf('2', 'ZAPI')],
+        }),
+        subscriptionOf({
+          id: '100',
+          status: 'active',
+          modality: 'stripe',
+          gatewayId: 'sub_1',
+          plan: OFFICIAL_PLAN,
+          items: [lineOf('3', 'HUBMESSAGE')],
+        }),
+      ])
+
+      const state = await useCase.execute(INPUT, NOW)
+
+      expect(state).toMatchObject({
+        status: 'active',
+        modality: 'stripe',
+        plans: [
+          { id: '7', lineCount: 2, provider: 'ZAPI' },
+          { id: '8', lineCount: 1, provider: 'HUBMESSAGE' },
+        ],
+      })
+    })
+
+    /** Contrato de outro id no gateway não entra: são contratos diferentes. */
+    it('não soma assinatura de outro id de gateway', async () => {
+      const { useCase } = makeUseCase([
+        subscriptionOf({
+          id: '99',
+          status: 'active',
+          modality: 'stripe',
+          gatewayId: 'sub_1',
+          items: [lineOf('1', 'ZAPI')],
+        }),
+        subscriptionOf({
+          id: '50',
+          status: 'cancelled',
+          modality: 'stripe',
+          gatewayId: 'sub_0',
+          plan: OFFICIAL_PLAN,
+          items: [lineOf('9', 'HUBMESSAGE')],
+        }),
+      ])
+
+      const state = await useCase.execute(INPUT, NOW)
+
+      expect(
+        (state as { plans: Array<{ id: string }> }).plans.map(p => p.id),
+      ).toEqual(['7'])
+    })
+
+    it('linha cancelada não conta na cobrança', async () => {
+      const { useCase } = makeUseCase([
+        subscriptionOf({
+          status: 'active',
+          modality: 'stripe',
+          gatewayId: 'sub_1',
+          items: [lineOf('1', 'ZAPI'), lineOf('2', 'ZAPI', 'cancelled')],
+        }),
+      ])
+
+      expect(await useCase.execute(INPUT, NOW)).toMatchObject({
+        plans: [{ id: '7', lineCount: 1 }],
+      })
+    })
+  })
+
+  /**
+   * `canCreateLine` vem do servidor porque a regra é a mesma que a rota usa para
+   * recusar. Duplicada na tela, as duas divergiriam — e o cliente veria um botão que
+   * responde `409`.
+   */
+  describe('canCreateLine', () => {
+    it('é verdadeiro num contrato pago com linha', async () => {
+      const { useCase } = makeUseCase([
+        subscriptionOf({
+          status: 'active',
+          modality: 'stripe',
+          gatewayId: 'sub_1',
+          items: [lineOf('1', 'ZAPI')],
+        }),
+      ])
+
+      expect(await useCase.execute(INPUT, NOW)).toMatchObject({
+        canCreateLine: true,
+      })
+    })
+
+    /** A primeira linha nasce pelo trial, não por esta superfície. */
+    it('é falso sem nenhuma linha', async () => {
+      const { useCase } = makeUseCase([
+        subscriptionOf({ status: 'active', modality: 'stripe', items: [] }),
+      ])
+
+      expect(await useCase.execute(INPUT, NOW)).toMatchObject({
+        canCreateLine: false,
+      })
+    })
+
+    /** Boleto é mantido por automação fora do produto. */
+    it('é falso na modalidade manual paga', async () => {
+      const { useCase } = makeUseCase([
+        subscriptionOf({
+          status: 'active',
+          modality: 'manual',
+          items: [lineOf('1', 'ZAPI')],
+        }),
+      ])
+
+      expect(await useCase.execute(INPUT, NOW)).toMatchObject({
+        canCreateLine: false,
+      })
+    })
+
+    /**
+     * O trial lê `manual` porque nasce sem o campo. Quem está testando pode contratar
+     * a segunda linha — e a do teste entra na assinatura no mesmo ato.
+     */
+    it('é verdadeiro no trial, apesar de ele ler manual', async () => {
+      const { useCase } = makeUseCase([
+        subscriptionOf({
+          status: 'trialing',
+          modality: 'manual',
+          plan: TRIAL_PLAN,
+          items: [lineOf('1', 'ZAPI')],
+        }),
+      ])
+
+      expect(await useCase.execute(INPUT, NOW)).toMatchObject({
+        canCreateLine: true,
+      })
+    })
   })
 })
 

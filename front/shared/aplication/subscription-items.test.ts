@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { countActiveLines, listSubscriptionLines } from './subscription-items'
+import {
+  countActiveLines,
+  listSendableLines,
+  listSubscriptionLines,
+} from './subscription-items'
 import type {
   SubscriptionItemMetadataView,
   SubscriptionItemView,
@@ -134,6 +138,195 @@ describe('listSubscriptionLines', () => {
       ).toHaveLength(1)
     },
   )
+
+  /**
+   * Uma instalação cobrada por dois planos tem uma assinatura por plano na SPA, as
+   * duas com o mesmo id no gateway. A lista atravessa as irmãs: cada linha tem um pai
+   * só, então nada duplica, e cada uma carrega o nome do plano que a cobra.
+   */
+  it('lista as linhas das assinaturas irmãs do mesmo contrato', () => {
+    const linhas = listSubscriptionLines([
+      {
+        ...sub('s1', 'active', [item('i1', 'active', zapi)], 'Web'),
+        gatewayId: 'sub_1',
+      },
+      {
+        ...sub('s2', 'active', [item('i2', 'active', hub)], 'Oficial'),
+        gatewayId: 'sub_1',
+      },
+    ])
+
+    expect(
+      linhas.map(linha => [linha.id, linha.planName, linha.subscriptionId]),
+    ).toEqual([
+      ['i1', 'Web', 's1'],
+      ['i2', 'Oficial', 's2'],
+    ])
+  })
+})
+
+describe('listSendableLines', () => {
+  const now = new Date('2026-07-15T12:00:00.000Z')
+
+  /** Assinatura com janela explícita — os casos de trial dependem dela. */
+  const subUntil = (
+    id: string,
+    status: SpaSubscriptionStatus,
+    currentPeriodEnd: string,
+    items: SubscriptionItemView[],
+  ): SubscriptionView => ({ ...sub(id, status, items), currentPeriodEnd })
+
+  it('devolve lista vazia para payload ausente', () => {
+    expect(listSendableLines(undefined, now)).toEqual([])
+    expect(listSendableLines(null, now)).toEqual([])
+    expect(listSendableLines([], now)).toEqual([])
+  })
+
+  it('oferta a linha ativa de assinatura paga', () => {
+    const linhas = listSendableLines(
+      [sub('s1', 'active', [item('i1', 'active', zapi, 'Comercial')])],
+      now,
+    )
+
+    expect(linhas).toEqual([
+      {
+        id: 'i1',
+        name: 'Comercial',
+        status: 'active',
+        provider: 'ZAPI',
+        subscriptionId: 's1',
+        planName: 'Conector WhatsApp',
+        providerRef: 'Z-1',
+      },
+    ])
+  })
+
+  it('oferta a linha de trial dentro da janela', () => {
+    const linhas = listSendableLines(
+      [
+        subUntil('s1', 'trialing', '2026-07-20T00:00:00.000Z', [
+          item('i1', 'active', hub),
+        ]),
+      ],
+      now,
+    )
+
+    expect(linhas.map(l => l.id)).toEqual(['i1'])
+  })
+
+  it('não oferta a linha de trial fora da janela', () => {
+    const linhas = listSendableLines(
+      [
+        subUntil('s1', 'trialing', '2026-07-10T00:00:00.000Z', [
+          item('i1', 'active', zapi),
+        ]),
+      ],
+      now,
+    )
+
+    expect(linhas).toEqual([])
+  })
+
+  it('oferta no último instante da janela do trial', () => {
+    const fim = '2026-07-15T12:00:00.000Z'
+    const linhas = listSendableLines(
+      [subUntil('s1', 'trialing', fim, [item('i1', 'active', zapi)])],
+      new Date(fim),
+    )
+
+    expect(linhas.map(l => l.id)).toEqual(['i1'])
+  })
+
+  it.each(['cancelled', 'past_due'] as const)(
+    'não oferta linha de assinatura %s',
+    (status: SpaSubscriptionStatus) => {
+      expect(
+        listSendableLines(
+          [sub('s1', status, [item('i1', 'active', zapi)])],
+          now,
+        ),
+      ).toEqual([])
+    },
+  )
+
+  it('não oferta linha de assinatura com status desconhecido', () => {
+    const desconhecida = {
+      ...sub('s1', 'active', [item('i1', 'active', zapi)]),
+      status: 'paused' as unknown as SpaSubscriptionStatus,
+    }
+
+    expect(listSendableLines([desconhecida], now)).toEqual([])
+  })
+
+  it('não oferta item cancelado dentro de assinatura viva', () => {
+    const linhas = listSendableLines(
+      [
+        sub('s1', 'active', [
+          item('i1', 'active', zapi),
+          item('i2', 'cancelled', zapi),
+        ]),
+      ],
+      now,
+    )
+
+    expect(linhas.map(l => l.id)).toEqual(['i1'])
+  })
+
+  it('não oferta item de cobrança sem conector', () => {
+    const linhas = listSendableLines(
+      [
+        sub('s1', 'active', [
+          item('i1', 'active', none),
+          item('i2', 'active', hub),
+        ]),
+      ],
+      now,
+    )
+
+    expect(linhas.map(l => l.id)).toEqual(['i2'])
+  })
+
+  it('achata as linhas ofertáveis de várias assinaturas habilitadas', () => {
+    const linhas = listSendableLines(
+      [
+        sub('s1', 'active', [item('i1', 'active', zapi)]),
+        subUntil('s2', 'trialing', '2026-07-20T00:00:00.000Z', [
+          item('i2', 'active', hub),
+        ]),
+        sub('s3', 'cancelled', [item('i3', 'active', zapi)]),
+      ],
+      now,
+    )
+
+    expect(linhas.map(l => l.id)).toEqual(['i1', 'i2'])
+  })
+})
+
+describe('listSubscriptionLines mantém o que a tela de conexões precisa ver', () => {
+  const now = new Date('2026-07-15T12:00:00.000Z')
+
+  /**
+   * Regressão: `listSendableLines` não pode ter estreitado a lista da tela. Linha
+   * bloqueada e item cancelado continuam visíveis lá — o cliente tem que ver o que
+   * tinha e por que parou.
+   */
+  it('lista linha de trial vencido e item cancelado que o widget não oferta', () => {
+    const assinaturas: SubscriptionView[] = [
+      {
+        ...sub('s1', 'trialing', [
+          item('i1', 'active', zapi),
+          item('i2', 'cancelled', zapi),
+        ]),
+        currentPeriodEnd: '2026-07-10T00:00:00.000Z',
+      },
+    ]
+
+    expect(listSubscriptionLines(assinaturas).map(l => l.id)).toEqual([
+      'i1',
+      'i2',
+    ])
+    expect(listSendableLines(assinaturas, now)).toEqual([])
+  })
 })
 
 describe('countActiveLines', () => {

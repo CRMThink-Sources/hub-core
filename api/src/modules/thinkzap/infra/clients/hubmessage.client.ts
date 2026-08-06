@@ -12,6 +12,8 @@ import {
   ListTemplatesResponse,
   SendHubMessageParams,
   SendHubMessageResponse,
+  SendHubMessageTemplateParams,
+  SendHubMessageTemplateResponse,
   SyncTemplatesResponse,
 } from './types/hubmessage.types'
 
@@ -111,6 +113,26 @@ export class HubMessageClient {
     params: SendHubMessageParams,
   ): Promise<SendHubMessageResponse> {
     const { data } = await this.http.post<SendHubMessageResponse>(
+      `/v1/channels/${channelId}/messages`,
+      params,
+    )
+    return data
+  }
+
+  /**
+   * Envia um template aprovado ao contato. Diferente de `sendMessage`, **não**
+   * depende da janela de conversa de 24h — template é justamente o que reabre a
+   * conversa fora dela.
+   *
+   * Mesma rota do envio livre; o que muda é `content`. O shape tem três armadilhas
+   * não documentadas (template dentro de `attachments`, `language` como objeto,
+   * `type` maiúsculo) — ver `SendHubMessageTemplateParams`.
+   */
+  async sendTemplateMessage(
+    channelId: string,
+    params: SendHubMessageTemplateParams,
+  ): Promise<SendHubMessageTemplateResponse> {
+    const { data } = await this.http.post<SendHubMessageTemplateResponse>(
       `/v1/channels/${channelId}/messages`,
       params,
     )

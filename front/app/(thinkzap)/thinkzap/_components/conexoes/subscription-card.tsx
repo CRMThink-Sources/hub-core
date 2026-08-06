@@ -2,8 +2,10 @@
 
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import type { UseLineSubscription } from '@/app/hooks/use-line-subscription'
-import { needsSubscription } from '@/app/hooks/use-line-subscription'
+import type {
+  ContractPlan,
+  UseLineSubscription,
+} from '@/app/hooks/use-line-subscription'
 
 /**
  * O contrato vigente da instalação.
@@ -38,7 +40,7 @@ export function SubscriptionCard({
     )
   }
 
-  const { subscription, mixedProviders, processing } = state
+  const { subscription, processing } = state
 
   /**
    * Pagou e o webhook ainda não chegou. Vem **antes** de qualquer outro estado, de
@@ -58,20 +60,6 @@ export function SubscriptionCard({
   }
 
   /**
-   * Conectores misturados e sem plano possível: a tela **tem** que dizer isso. É o
-   * único caminho em que a ausência de oferta não significa "falta cadastrar plano",
-   * e calar deixaria o cliente esperando por uma oferta que nunca vai aparecer.
-   */
-  if (mixedProviders && needsSubscription(subscription)) {
-    return (
-      <Shell tone="amber">
-        <p className="text-sm font-medium">{t('conectoresMistosTitulo')}</p>
-        <p className="mt-1 text-sm">{t('conectoresMistosDescricao')}</p>
-      </Shell>
-    )
-  }
-
-  /**
    * O contrato **pago** vigente, ou nada a mostrar. Instalação que só tem trial não
    * rende card: quem fala do teste é o `TrialCard`.
    */
@@ -79,19 +67,42 @@ export function SubscriptionCard({
 
   const contract = subscription
 
+  /**
+   * A composição pode não vir: api mais antigo que este front não manda o campo. A
+   * ausência **não** é tratada como "contrato sem plano" — é "não sabemos o valor", e
+   * a tela cala em vez de mostrar `R$ 0,00`, que seria mentira sobre dinheiro.
+   */
+  const planos = contract.plans ?? []
+
+  /**
+   * O total do contrato: valor de cada plano vezes o número de linhas dele.
+   *
+   * A soma é da tela porque a moeda é de apresentação. Somar valores de intervalos
+   * diferentes seria errado — e não acontece: um contrato tem um ciclo, porque é uma
+   * assinatura só no gateway.
+   */
+  const total = planos.reduce(
+    (soma, plano) => soma + plano.amount * plano.lineCount,
+    0,
+  )
+  const intervalo = planos[0]?.interval
+
   return (
     <Shell tone={contract.entitlement !== 'active' ? 'amber' : 'neutral'}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-base font-semibold text-foreground">
-            {contract.plan.name}
+            {t('tituloContrato')}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('valorPorIntervalo', {
-              valor: formatAmount(contract.plan.amount),
-              intervalo: t(`intervalo.${contract.plan.interval}`),
-            })}
-          </p>
+          {/* Sem composição não há valor a afirmar: o card fala só do status. */}
+          {intervalo ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t('valorPorIntervalo', {
+                valor: formatAmount(total),
+                intervalo: t(`intervalo.${intervalo}`),
+              })}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-col items-end gap-1">
@@ -105,6 +116,31 @@ export function SubscriptionCard({
           </span>
         </div>
       </div>
+
+      {/**
+       * A composição, sempre que existir — inclusive com um plano só. Ela é o que
+       * torna a soma acima verificável pelo cliente: sem ela, um contrato de duas
+       * linhas mostraria um valor que não bate com nenhum plano do catálogo.
+       */}
+      {planos.length > 0 ? (
+        <ul className="mt-4 flex flex-col gap-1.5 border-t border-border pt-4">
+          {planos.map(plano => (
+            <ComposicaoItem
+              key={plano.id}
+              plano={plano}
+              /**
+               * Duas chaves em vez do plural do i18next: nenhuma mensagem do projeto usa
+               * `count` hoje, e um plural que não resolve some do texto em silêncio.
+               */
+              linhasLabel={
+                plano.lineCount === 1
+                  ? t('umaLinha')
+                  : t('variasLinhas', { quantidade: plano.lineCount })
+              }
+            />
+          ))}
+        </ul>
+      ) : null}
 
       <p className="mt-4 text-sm">
         {contract.status === 'cancelled'
@@ -149,6 +185,27 @@ export function SubscriptionCard({
         </p>
       ) : null}
     </Shell>
+  )
+}
+
+/** Um plano do contrato: o que ele custa e quantas linhas ele cobra. */
+function ComposicaoItem({
+  plano,
+  linhasLabel,
+}: {
+  plano: ContractPlan
+  linhasLabel: string
+}) {
+  return (
+    <li className="flex items-baseline justify-between gap-4 text-sm">
+      <span className="text-foreground">
+        {plano.name}
+        <span className="ml-2 text-muted-foreground">{linhasLabel}</span>
+      </span>
+      <span className="shrink-0 tabular-nums text-muted-foreground">
+        {formatAmount(plano.amount * plano.lineCount)}
+      </span>
+    </li>
   )
 }
 

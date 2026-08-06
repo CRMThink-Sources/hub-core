@@ -2,9 +2,12 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  composeContractByPlan,
+  countActiveLinesByProvider,
   isTrialSubscription,
+  resolveCurrentContract,
   resolveCurrentSubscription,
-  resolveLineProvider,
+  resolvePlanForProvider,
 } from './line-subscription'
 import type { Subscription } from '@/modules/application/domain/entities/subscription'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
@@ -109,77 +112,195 @@ describe('isTrialSubscription', () => {
   })
 })
 
-describe('resolveLineProvider', () => {
-  const item = (
-    provider: 'ZAPI' | 'HUBMESSAGE' | 'NONE',
-    status: 'active' | 'cancelled' = 'active',
+const item = (
+  provider: 'ZAPI' | 'HUBMESSAGE' | 'NONE',
+  status: 'active' | 'cancelled' = 'active',
+) =>
+  ({
+    status,
+    metadata:
+      provider === 'ZAPI'
+        ? { provider, zApiInstanceId: 'i', zApiInstanceToken: 't' }
+        : provider === 'HUBMESSAGE'
+          ? { provider, hubmessageChannelId: 'c', wabaId: 'w' }
+          : { provider },
+  }) as unknown as SubscriptionItem
+
+describe('resolveCurrentContract', () => {
+  const contractSub = (
+    id: string,
+    status: Subscription['status'],
+    gatewayId: string | undefined,
+    planId = 'p1',
   ) =>
     ({
+      id,
       status,
-      metadata:
-        provider === 'ZAPI'
-          ? { provider, zApiInstanceId: 'i', zApiInstanceToken: 't' }
-          : provider === 'HUBMESSAGE'
-            ? { provider, hubmessageChannelId: 'c', wabaId: 'w' }
-            : { provider },
-    }) as unknown as SubscriptionItem
+      currentPeriodEnd: plusDays(10),
+      gatewayId,
+      plan: { id: planId, gatewayId: 'price_abc' },
+      items: [],
+    }) as unknown as Subscription & { items: SubscriptionItem[] }
 
-  it('resolve NONE sem assinatura', () => {
-    expect(resolveLineProvider([])).toBe('NONE')
+  it('devolve lista vazia sem assinatura', () => {
+    expect(resolveCurrentContract([])).toEqual([])
   })
 
-  it('resolve NONE quando não há linha', () => {
-    expect(resolveLineProvider([{ items: [] }])).toBe('NONE')
+  /** Sem id no gateway não há o que agrupar: o trial é contrato de uma só. */
+  it('trial é contrato de uma assinatura', () => {
+    const trial = contractSub('t', 'trialing', undefined)
+
+    expect(resolveCurrentContract([trial]).map(s => s.id)).toEqual(['t'])
   })
 
-  /** Item de cobrança sem conector não consome nada. */
-  it('resolve NONE quando a linha não tem conector', () => {
-    expect(resolveLineProvider([{ items: [item('NONE')] }])).toBe('NONE')
-  })
+  it('agrupa as irmãs que compartilham o id do gateway, vigente primeiro', () => {
+    const contract = resolveCurrentContract([
+      contractSub('b', 'active', 'sub_1', 'p2'),
+      contractSub('a', 'active', 'sub_1', 'p1'),
+    ])
 
-  it.each([['ZAPI'], ['HUBMESSAGE']] as const)('resolve %s', provider => {
-    expect(resolveLineProvider([{ items: [item(provider)] }])).toBe(provider)
-  })
-
-  /** Linha cancelada não consome conector, então não restringe o plano. */
-  it('ignora linha cancelada', () => {
-    expect(
-      resolveLineProvider([
-        { items: [item('HUBMESSAGE', 'cancelled'), item('ZAPI')] },
-      ]),
-    ).toBe('ZAPI')
-  })
-
-  it('resolve o provider olhando todas as assinaturas', () => {
-    expect(
-      resolveLineProvider([{ items: [] }, { items: [item('HUBMESSAGE')] }]),
-    ).toBe('HUBMESSAGE')
-  })
-
-  it('não confunde duas linhas do mesmo provider com mistura', () => {
-    expect(resolveLineProvider([{ items: [item('ZAPI'), item('ZAPI')] }])).toBe(
-      'ZAPI',
-    )
+    expect(contract).toHaveLength(2)
+    expect(contract[0]?.status).toBe('active')
   })
 
   /**
-   * Providers diferentes na mesma instalação: nomeado, não escolhido. Uma assinatura
-   * carrega um plano só, e `quantity` multiplica um preço só — escolher um dos dois
-   * cobraria o preço de um provider pelo uso de dois.
+   * Contrato antigo não entra no vigente: agrupar por "tem gatewayId" juntaria a
+   * assinatura cancelada de um contrato anterior com a paga de agora.
    */
-  it('resolve MIXED com providers diferentes', () => {
-    expect(
-      resolveLineProvider([{ items: [item('ZAPI'), item('HUBMESSAGE')] }]),
-    ).toBe('MIXED')
+  it('não agrupa assinatura de outro id de gateway', () => {
+    const contract = resolveCurrentContract([
+      contractSub('velha', 'cancelled', 'sub_0'),
+      contractSub('nova', 'active', 'sub_1'),
+    ])
+
+    expect(contract.map(s => s.id)).toEqual(['nova'])
   })
 
-  it('resolve MIXED com os providers em assinaturas diferentes', () => {
+  it('não agrupa dois trials pela ausência de id', () => {
+    const contract = resolveCurrentContract([
+      contractSub('t1', 'trialing', undefined),
+      contractSub('t2', 'trialing', undefined),
+    ])
+
+    expect(contract).toHaveLength(1)
+  })
+})
+
+describe('composeContractByPlan', () => {
+  const withItems = (
+    planId: string,
+    items: SubscriptionItem[],
+  ): Subscription & { items: SubscriptionItem[] } =>
+    ({
+      id: `s-${planId}`,
+      plan: { id: planId, amount: 4990 },
+      items,
+    }) as unknown as Subscription & { items: SubscriptionItem[] }
+
+  it('conta as linhas ativas de cada plano', () => {
+    const composition = composeContractByPlan([
+      withItems('p1', [item('ZAPI'), item('ZAPI')]),
+      withItems('p2', [item('HUBMESSAGE')]),
+    ])
+
+    expect(composition.map(entry => [entry.plan.id, entry.lineCount])).toEqual([
+      ['p1', 2],
+      ['p2', 1],
+    ])
+  })
+
+  /** Linha cancelada não é serviço prestado, então não entra na contagem cobrada. */
+  it('ignora linha cancelada na contagem', () => {
+    const composition = composeContractByPlan([
+      withItems('p1', [item('ZAPI'), item('ZAPI', 'cancelled')]),
+    ])
+
+    expect(composition[0]?.lineCount).toBe(1)
+  })
+})
+
+describe('countActiveLinesByProvider', () => {
+  it('devolve mapa vazio sem linha', () => {
+    expect(countActiveLinesByProvider([{ items: [] }]).size).toBe(0)
+  })
+
+  /** Item de cobrança sem conector não é linha. */
+  it('ignora item sem conector', () => {
+    expect(countActiveLinesByProvider([{ items: [item('NONE')] }]).size).toBe(0)
+  })
+
+  it('conta por conector, somando todas as assinaturas', () => {
+    const counts = countActiveLinesByProvider([
+      { items: [item('ZAPI'), item('ZAPI')] },
+      { items: [item('HUBMESSAGE')] },
+    ])
+
+    expect(counts.get('ZAPI')).toBe(2)
+    expect(counts.get('HUBMESSAGE')).toBe(1)
+  })
+
+  it('ignora linha cancelada', () => {
+    const counts = countActiveLinesByProvider([
+      { items: [item('ZAPI'), item('ZAPI', 'cancelled')] },
+    ])
+
+    expect(counts.get('ZAPI')).toBe(1)
+  })
+
+  /**
+   * Providers misturados deixaram de ser estado especial: cada um tem a contagem
+   * dele, e cada contagem vira o `quantity` do `line_item` do plano dele.
+   */
+  it('não trata providers misturados como estado especial', () => {
+    const counts = countActiveLinesByProvider([
+      { items: [item('ZAPI'), item('HUBMESSAGE')] },
+    ])
+
+    expect([...counts.entries()].sort()).toEqual([
+      ['HUBMESSAGE', 1],
+      ['ZAPI', 1],
+    ])
+  })
+})
+
+describe('resolvePlanForProvider', () => {
+  const plan = (id: string, provider?: 'ZAPI' | 'HUBMESSAGE') => ({
+    id,
+    provider,
+  })
+
+  it('resolve quando há um plano do conector', () => {
+    const result = resolvePlanForProvider(
+      [plan('1', 'ZAPI'), plan('2', 'HUBMESSAGE')],
+      'ZAPI',
+    )
+
+    expect(result).toEqual({ kind: 'resolved', plan: plan('1', 'ZAPI') })
+  })
+
+  /** Configuração faltando na SPA de planos, nomeada como tal. */
+  it('devolve missing quando o conector não tem plano', () => {
+    expect(resolvePlanForProvider([plan('1', 'ZAPI')], 'HUBMESSAGE')).toEqual({
+      kind: 'missing',
+      provider: 'HUBMESSAGE',
+    })
+  })
+
+  /**
+   * Dois planos do mesmo conector: escolher cobraria o preço de um pelo uso do
+   * outro, em silêncio. O estado é nomeado e os candidatos vão no erro.
+   */
+  it('devolve ambiguous com dois planos do mesmo conector', () => {
     expect(
-      resolveLineProvider([
-        { items: [item('ZAPI')] },
-        { items: [item('HUBMESSAGE')] },
-      ]),
-    ).toBe('MIXED')
+      resolvePlanForProvider([plan('1', 'ZAPI'), plan('2', 'ZAPI')], 'ZAPI'),
+    ).toEqual({ kind: 'ambiguous', provider: 'ZAPI', planIds: ['1', '2'] })
+  })
+
+  it('ignora plano sem provider declarado', () => {
+    expect(resolvePlanForProvider([plan('1')], 'ZAPI')).toEqual({
+      kind: 'missing',
+      provider: 'ZAPI',
+    })
   })
 })
 

@@ -58,7 +58,9 @@ const context = {
   // `name` é o host do portal — é dele que sai o prefixo do nome na Z-API.
   customer: { id: 'domain-1', name: 'acme.bitrix24.com.br' },
   aplication: { id: 'installed-1', spaId: '42' },
-  subscriptions: [{ id: 'sub-1', items: [zapiItem, hubItem] }],
+  subscriptions: [
+    { id: 'sub-1', status: 'active', items: [zapiItem, hubItem] },
+  ],
 }
 
 function makeDeps() {
@@ -102,6 +104,7 @@ describe('GetLineConnectionController', () => {
           getInstance: deps.getInstance,
           getPhoneData: deps.getPhoneData,
         } as never,
+        { schedule: vi.fn() } as never,
       ),
     )
   })

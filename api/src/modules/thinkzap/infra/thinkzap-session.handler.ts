@@ -6,43 +6,22 @@ import {
 import { checkThinkzapAccess } from '@/modules/thinkzap/application/check-thinkzap-access'
 import { PrismaAllowedUserRepository } from './persistence/repositories/prisma-allowed-user.repository'
 import { PrismaAllowedDepartmentRepository } from './persistence/repositories/prisma-allowed-department.repository'
-import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
-import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
-import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
-import { listLinesForWidget } from '@/modules/thinkzap/application/list-lines-for-widget'
 
 export class ThinkzapSessionHandler implements SessionHandler {
   appCode = 'crmthink.thinkzap'
 
+  /**
+   * A chave `connectors` saiu daqui.
+   *
+   * O widget de conversa era o único consumidor e passou a ler as linhas de
+   * `GET /api/application/me` — mesma fonte da tela de conexões. Produzir a chave
+   * custava, **por linha**, `getInstance` + `getPhoneData` na Z-API,
+   * `getConnectionStatus` na HubMessage e `getOpenChannel` no Bitrix, para
+   * alimentar um sufixo de texto no `<option>`. Ver spec `widget-line-listing`.
+   *
+   * `listLinesForWidget` continua viva para `GET /thinkzap/connector/list`.
+   */
   handlers: SessionHanderPerformer[] = [
-    {
-      /**
-       * Lista as linhas da instalação para o widget do CRM.
-       *
-       * A origem é o **item de assinatura**, não `Connector`. Linha nascida direto
-       * na SPA não tem row naquela tabela, então `listConnectors` devolvia lista
-       * vazia e o widget não oferecia linha nenhuma — sem erro, sem log.
-       *
-       * O `id` de cada entrada é o id do item, mesma chave que a tela de ajustes e
-       * o envio pelo widget usam. Antes era o id do conector.
-       */
-      perform: async <T>(params: { appId: string }): Promise<T> => {
-        const installedApp = await new PrismaInstalledAppRepository().getById(
-          params.appId,
-        )
-        if (!installedApp) return { key: 'connectors', data: [] } as T
-
-        const lines = await listLinesForWidget({
-          appId: params.appId,
-          domainId: installedApp.domainId,
-          appCode: installedApp.appCodeId,
-          bitrix: await makeBitrixClientByAppId(params.appId),
-          getAplicationContext: makeGetAplicationContext(),
-        })
-
-        return { key: 'connectors', data: lines } as T
-      },
-    },
     {
       /**
        * `subscription` continua na sessão, sempre `null`.

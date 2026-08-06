@@ -32,7 +32,15 @@ export type AplicationView = {
  */
 export type SubscriptionItemMetadataView =
   | { provider: 'ZAPI'; zApiInstanceId: string }
-  | { provider: 'HUBMESSAGE'; hubmessageChannelId: string; wabaId: string }
+  | {
+      provider: 'HUBMESSAGE'
+      hubmessageChannelId: string
+      /**
+       * Ausente até o cliente conectar o número na Meta: o provisionamento cria o
+       * canal, e a WABA só existe depois do embedded signup.
+       */
+      wabaId?: string
+    }
   | { provider: 'NONE' }
 
 export type SubscriptionItemView = {

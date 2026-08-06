@@ -261,13 +261,34 @@ describe('ActivateConnectorTrial', () => {
     expect(sut.createSubscriptionItem).not.toHaveBeenCalled()
   })
 
-  it('falha quando o provisionamento HubMessage não devolve WABA', async () => {
+  /**
+   * **Era o teste que travava o bug.** O provisionamento HubMessage devolve o canal e
+   * nada mais — a WABA só existe depois de o cliente conectar o número na Meta, e
+   * chega em `POST /connector/connect-channel`. Exigi-la aqui fazia **todo** trial
+   * oficial falhar antes de gravar o item.
+   */
+  it('cria a linha HubMessage com o canal, sem exigir a WABA', async () => {
     const sut = makeSut({
       resource: { instanceId: 'C-NEW', channelId: 'C-NEW' },
     })
 
+    await sut.activate(ConnectorProvider.HUBMESSAGE)
+
+    expect(sut.createSubscriptionItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { provider: 'HUBMESSAGE', hubmessageChannelId: 'C-NEW' },
+      }),
+    )
+  })
+
+  /** Sem canal não há recurso: aí sim a linha nunca identificaria nada. */
+  it('falha quando o provisionamento HubMessage não devolve canal', async () => {
+    const sut = makeSut({
+      resource: { instanceId: '', channelId: null },
+    })
+
     await expect(sut.activate(ConnectorProvider.HUBMESSAGE)).rejects.toThrow(
-      /WABA/i,
+      /id do canal/i,
     )
     expect(sut.createSubscriptionItem).not.toHaveBeenCalled()
   })

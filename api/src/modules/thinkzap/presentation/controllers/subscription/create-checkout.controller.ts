@@ -5,9 +5,12 @@ import { Controller } from '@/shared/presentation/controller'
 import {
   AlreadySubscribedError,
   CreateSubscriptionCheckout,
-  MixedLineProvidersError,
   PlanNotOfferableError,
 } from '@/modules/thinkzap/application/create-subscription-checkout'
+import {
+  PlanForProviderAmbiguousError,
+  PlanForProviderMissingError,
+} from '@/modules/thinkzap/application/helpers/build-contract-line-items'
 
 /**
  * `strict()` e não `object()`: preço, quantidade e período são derivados no
@@ -64,13 +67,15 @@ export class CreateCheckoutController extends Controller {
         return this.badRequest(error)
       }
       /**
-       * `409` como o "já assina": os dois são conflito com o estado da instalação, e
-       * nenhum se resolve mandando outro corpo — que é o que um `400` sugeriria.
+       * `409` e não `400`: os três são conflito com o estado da instalação ou com a
+       * configuração do catálogo, e nenhum se resolve mandando outro corpo — que é o
+       * que um `400` sugeriria.
        */
-      if (error instanceof MixedLineProvidersError) {
-        return this.conflict(error)
-      }
-      if (error instanceof AlreadySubscribedError) {
+      if (
+        error instanceof AlreadySubscribedError ||
+        error instanceof PlanForProviderMissingError ||
+        error instanceof PlanForProviderAmbiguousError
+      ) {
         return this.conflict(error)
       }
       throw error

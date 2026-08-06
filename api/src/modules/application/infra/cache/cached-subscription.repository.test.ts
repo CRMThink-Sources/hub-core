@@ -62,13 +62,13 @@ function makeInner(entity: Subscription = subscription) {
   const getSubscriptionsByAplication = vi.fn(() => Promise.resolve([entity]))
   const createSubscription = vi.fn(() => Promise.resolve(entity))
   const updateSubscription = vi.fn(() => Promise.resolve(entity))
-  const getSubscriptionByGatewayId = vi.fn(() => Promise.resolve(entity))
+  const listSubscriptionsByGatewayId = vi.fn(() => Promise.resolve([entity]))
 
   const repository: SubscriptionRepository = {
     getSubscription,
     getSubscriptions,
     getSubscriptionsByAplication,
-    getSubscriptionByGatewayId,
+    listSubscriptionsByGatewayId,
     createSubscription,
     updateSubscription,
   }
@@ -78,7 +78,7 @@ function makeInner(entity: Subscription = subscription) {
     getSubscription,
     getSubscriptions,
     getSubscriptionsByAplication,
-    getSubscriptionByGatewayId,
+    listSubscriptionsByGatewayId,
     createSubscription,
     updateSubscription,
   }
@@ -230,11 +230,33 @@ describe('CachedSubscriptionRepository', () => {
       await new CachedSubscriptionRepository(
         inner.repository,
         redis,
-      ).getSubscriptionByGatewayId('sub_abc')
+      ).listSubscriptionsByGatewayId('sub_abc')
 
-      expect(inner.getSubscriptionByGatewayId).toHaveBeenCalledWith('sub_abc')
+      expect(inner.listSubscriptionsByGatewayId).toHaveBeenCalledWith('sub_abc')
       expect(get).not.toHaveBeenCalled()
       expect(set).not.toHaveBeenCalled()
+    })
+
+    /**
+     * O id do gateway identifica um conjunto: instalação cobrada por dois planos
+     * tem duas assinaturas irmãs. O decorator repassa a lista inteira — cortar
+     * para a primeira aqui esconderia metade do contrato do webhook.
+     */
+    it('repassa todas as assinaturas do mesmo id de gateway', async () => {
+      const sibling = { ...subscription, id: '22' }
+      const inner = makeInner()
+      inner.listSubscriptionsByGatewayId.mockResolvedValue([
+        subscription,
+        sibling,
+      ])
+      const { redis } = makeRedis()
+
+      const result = await new CachedSubscriptionRepository(
+        inner.repository,
+        redis,
+      ).listSubscriptionsByGatewayId('sub_abc')
+
+      expect(result).toEqual([subscription, sibling])
     })
 
     it('descarta entrada do shape v1 (cliente como id, sem aplicação)', async () => {

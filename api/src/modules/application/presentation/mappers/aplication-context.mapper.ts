@@ -63,7 +63,12 @@ export type PlanView = {
  */
 export type SubscriptionItemMetadataView =
   | { provider: 'ZAPI'; zApiInstanceId: string }
-  | { provider: 'HUBMESSAGE'; hubmessageChannelId: string; wabaId: string }
+  | {
+      provider: 'HUBMESSAGE'
+      hubmessageChannelId: string
+      /** Ausente até o número ser conectado na Meta — ver a entidade. */
+      wabaId?: string
+    }
   | { provider: 'NONE' }
 
 export type SubscriptionItemView = {
@@ -137,7 +142,9 @@ const metadataView = (
       return {
         provider: 'HUBMESSAGE',
         hubmessageChannelId: metadata.hubmessageChannelId,
-        wabaId: metadata.wabaId,
+        // Omitida quando ausente: a chave presente com `undefined` some no JSON igual,
+        // e o tipo do front fica dizendo a verdade em vez de prometer sempre vir.
+        ...(metadata.wabaId ? { wabaId: metadata.wabaId } : {}),
       }
     case 'NONE':
       return { provider: 'NONE' }

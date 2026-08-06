@@ -120,6 +120,13 @@ function buildUseCase({
     create: repoCreate ?? vi.fn().mockResolvedValue(undefined),
   }
 
+  /**
+   * Desconexão do recurso na expiração. Dublê aqui porque o que este arquivo mede é
+   * o **descarte**; que o `disconnect` de fato aconteça é assunto de
+   * `disconnect-expired-line.test.ts`.
+   */
+  const disconnectExpiredLine = { schedule: vi.fn() }
+
   const useCase = new ProcessZApiInboundMessageUseCase(
     /**
      * A linha vem do item de assinatura. `GetConnectorRepository` saiu: só servia
@@ -172,9 +179,10 @@ function buildUseCase({
       get: vi.fn().mockResolvedValue({ id: 'cred-1' }),
     } as never,
     messageRepo as never,
+    disconnectExpiredLine as never,
   )
 
-  return { useCase, messageRepo }
+  return { useCase, messageRepo, disconnectExpiredLine }
 }
 
 describe('ProcessZApiInboundMessageUseCase reply handling', () => {
@@ -199,6 +207,33 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
 
     expect(sendMessageMock).not.toHaveBeenCalled()
     expect(messageRepo.create).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Mensagem chegando de uma linha expirada é a prova de que o telefone do cliente
+   * ainda está pareado: se o app só descartasse, mensagem de cliente final entraria
+   * e desapareceria sem rastro.
+   */
+  it('agenda a desconexão do recurso quando o trial venceu', async () => {
+    const { useCase, disconnectExpiredLine } = buildUseCase({
+      subscriptionStatus: 'trialing',
+      currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
+    })
+
+    await useCase.execute(makeEvent())
+
+    expect(disconnectExpiredLine.schedule).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'i1' }),
+      'trial-expired',
+    )
+  })
+
+  it('não agenda desconexão para linha habilitada', async () => {
+    const { useCase, disconnectExpiredLine } = buildUseCase()
+
+    await useCase.execute(makeEvent())
+
+    expect(disconnectExpiredLine.schedule).not.toHaveBeenCalled()
   })
 
   it('discards the message when the subscription is cancelled', async () => {

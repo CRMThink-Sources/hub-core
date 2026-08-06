@@ -23,6 +23,35 @@ export type GatewayInstallationRef = {
 }
 
 /**
+ * O que a contratação **quer**, carregado no metadata da sessão.
+ *
+ * `convert`: cobrar as linhas que já existem. É o caminho de `add-line-subscription`
+ * — a ativação move os itens para a assinatura paga e encerra o trial.
+ *
+ * `add-line`: cobrar as linhas que já existem **mais uma nova**. A ativação faz o
+ * mesmo do `convert` e, além disso, provisiona e cria o item da linha nova. Sem
+ * distinguir os dois, uma contratação que acrescenta linha cobraria duas e
+ * entregaria uma.
+ */
+export type CheckoutIntent =
+  | { kind: 'convert' }
+  | {
+      kind: 'add-line'
+      /** Conector da linha nova. */
+      provider: 'ZAPI' | 'HUBMESSAGE'
+      /** Plano que precifica a linha nova, na SPA de planos. */
+      planId: string
+    }
+
+/** Um preço do contrato e quantas linhas ele cobra. */
+export type GatewayLineItem = {
+  /** Price id do gateway — o `gatewayId` do plano. */
+  priceId: string
+  /** Número de linhas daquele plano. Derivado da SPA, nunca do corpo. */
+  quantity: number
+}
+
+/**
  * Evento do gateway, normalizado.
  *
  * Três tipos tratados, e só três (decisão 5 do design). Qualquer outro chega como
@@ -36,6 +65,8 @@ export type GatewayEvent =
       /** Id da assinatura no gateway — a chave de idempotência de tudo. */
       gatewaySubscriptionId: string
       installation: GatewayInstallationRef
+      /** O que a contratação queria. `convert` quando a sessão não declarou. */
+      intent: CheckoutIntent
       currentPeriodStart: Date
       currentPeriodEnd: Date
     }
@@ -46,6 +77,16 @@ export type GatewayEvent =
       status: Subscription['status']
       currentPeriodStart: Date
       currentPeriodEnd: Date
+      /**
+       * Soma das quantidades dos `line_items` no gateway.
+       *
+       * Não provisiona nem cancela nada — a SPA é a fonte de verdade do que existe,
+       * e criar ou apagar linha a partir de um número vindo do gateway apagaria a
+       * linha que o cliente usa. Serve para **registrar divergência**: quantidade
+       * editada pelo portal de faturamento é o caminho pelo qual os dois lados se
+       * separam, e sem isso ninguém nota.
+       */
+      totalLineQuantity: number
     }
   /** Cancelamento definitivo. */
   | { type: 'subscription.deleted'; gatewaySubscriptionId: string }
@@ -53,11 +94,34 @@ export type GatewayEvent =
   | { type: 'ignored'; name: string }
 
 export type CreateCheckoutSessionInput = {
-  /** Price id do gateway — o `gatewayId` do plano. */
-  priceId: string
-  /** Número de linhas da instalação. Hoje sempre 1. */
-  quantity: number
+  /**
+   * Um item por plano a cobrar. Mais de um quando a instalação tem linhas de
+   * conectores diferentes: uma assinatura no gateway carrega um `line_item` por
+   * preço, e é isso que torna providers misturados precificáveis.
+   */
+  lineItems: GatewayLineItem[]
   installation: GatewayInstallationRef
+  /**
+   * O que a contratação quer. Ausente é lido como `convert` na normalização do
+   * evento, para sessão criada por deploy anterior continuar ativando.
+   */
+  intent: CheckoutIntent
+}
+
+/**
+ * Ajuste dos `line_items` de uma assinatura que **já existe** no gateway.
+ *
+ * `lineItems` é o **estado desejado**, não um delta: o chamador manda a quantidade
+ * final de cada preço, derivada da contagem de linhas na SPA. Estado desejado é
+ * idempotente — a mesma chamada repetida não muda nada, enquanto um incremento
+ * repetido cobra duas vezes.
+ *
+ * Preço ausente da lista **não é removido**: reduzir cobrança é cancelar linha, que
+ * é operação própria e não efeito colateral de acrescentar outra.
+ */
+export type SyncSubscriptionLineItemsInput = {
+  gatewaySubscriptionId: string
+  lineItems: GatewayLineItem[]
 }
 
 /**
@@ -110,6 +174,18 @@ export interface PaymentGateway {
   createCheckoutSession(
     input: CreateCheckoutSessionInput,
   ): Promise<CheckoutSession>
+
+  /**
+   * Leva os `line_items` de uma assinatura existente ao estado desejado.
+   *
+   * É o caminho da linha criada por quem **já paga**: o meio de pagamento está em
+   * arquivo, então não há checkout — o gateway cobra a diferença proporcional pelo
+   * comportamento default dele. Pedir cartão de novo a quem já autorizou cobrança
+   * recorrente seria atrito puro.
+   */
+  syncSubscriptionLineItems(
+    input: SyncSubscriptionLineItemsInput,
+  ): Promise<void>
 
   /**
    * Cria a sessão do portal de faturamento e devolve a URL.

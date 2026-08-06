@@ -24,11 +24,11 @@ const input = {
   appCode: 'crmthink.thinkzap',
 }
 
-function makeSut() {
+function makeSut(subscription: Record<string, unknown> = { status: 'active' }) {
   const execute = vi.fn().mockResolvedValue({
     customer: { id: 'domain-1' },
     aplication: { id: 'installed-1', spaId: '42' },
-    subscriptions: [{ id: 'sub-1', items: [zapiItem] }],
+    subscriptions: [{ id: 'sub-1', ...subscription, items: [zapiItem] }],
   })
   const getInstanceByInstanceId = vi.fn().mockResolvedValue(null)
   const getInstance = vi
@@ -36,13 +36,17 @@ function makeSut() {
     .mockResolvedValue({ connected: true, name: 'Instancia', token: 'tk' })
   const getPhoneData = vi.fn().mockResolvedValue({ phone: '5511999998888' })
 
+  const disconnectExpiredLine = { schedule: vi.fn() }
+
   return {
     execute,
     getInstance,
     getPhoneData,
+    disconnectExpiredLine,
     sut: new GetLineConnection(
       { execute } as never,
       { getInstance, getPhoneData } as never,
+      disconnectExpiredLine as never,
     ),
   }
 }
@@ -105,5 +109,56 @@ describe('GetLineConnection', () => {
     const reading = await ctx.sut.execute(input)
 
     expect(reading.instance).toMatchObject({ connected: true })
+  })
+
+  /**
+   * A leitura não recusa por bloqueio — devolve o estado — e é o primeiro caminho a
+   * perceber a expiração para quem abriu a tela em vez de receber mensagem.
+   */
+  describe('desconexão na expiração', () => {
+    const expired = {
+      status: 'trialing',
+      currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
+    }
+
+    it('agenda a desconexão e reporta o entitlement, sem recusar', async () => {
+      const sut = makeSut(expired)
+
+      const reading = await sut.sut.execute(input)
+
+      expect(reading.entitlement).toBe('trial-expired')
+      expect(sut.disconnectExpiredLine.schedule).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'i1' }),
+        'trial-expired',
+      )
+    })
+
+    /**
+     * `schedule` é síncrono e devolve `void`, então a resposta não tem o que
+     * esperar. É o que permite uma leitura tocar o provider sem pagar a latência.
+     */
+    it('não espera o disconnect para responder', async () => {
+      const sut = makeSut(expired)
+      let settled = false
+      sut.disconnectExpiredLine.schedule.mockImplementation(() => {
+        // Efeito que nunca termina: se a resposta o esperasse, o teste travaria.
+        void new Promise(() => {}).then(() => {
+          settled = true
+        })
+      })
+
+      await sut.sut.execute(input)
+
+      expect(settled).toBe(false)
+    })
+
+    it('não agenda nada para linha habilitada', async () => {
+      await ctx.sut.execute(input)
+
+      expect(ctx.disconnectExpiredLine.schedule).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'i1' }),
+        'active',
+      )
+    })
   })
 })

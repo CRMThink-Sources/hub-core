@@ -1,7 +1,8 @@
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import { LineEntitlement } from '@/modules/thinkzap/domain/connector-trial'
 import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
-import { findConnectorLineInContext } from './helpers/resolve-line-by-subscription-item'
+import { findConnectorLineWithEntitlement } from './helpers/resolve-line-by-subscription-item'
 
 export type LineSettingsReading = {
   /** Nome como o usuário digitou, já sem o prefixo do domínio. */
@@ -15,6 +16,14 @@ export type LineSettingsReading = {
    * estado em que a aba fique parcialmente indisponível por falta de registro.
    */
   vinculatedChannel: string | null
+  /**
+   * Habilitação da linha. A leitura **não** recusa por bloqueio — devolve o estado,
+   * e é a tela que trava os campos.
+   *
+   * Sem isto a aba abriria editável para uma linha que recusa gravar, e o usuário
+   * só descobriria o bloqueio ao clicar em salvar.
+   */
+  entitlement: LineEntitlement
 }
 
 /**
@@ -49,7 +58,11 @@ export class GetLineSettings {
      * Aceita os dois providers: ajustes e vínculo de canal valem para linha Z-API e
      * oficial. Antes a resolução era Z-API-only e a aba não abria para HubMessage.
      */
-    const item = findConnectorLineInContext(context, input.subscriptionItemId)
+    const { item, entitlement } = findConnectorLineWithEntitlement(
+      context,
+      input.subscriptionItemId,
+      new Date(),
+    )
 
     /**
      * O nome remoto só existe na Z-API — a HubMessage não expõe leitura de canal,
@@ -75,6 +88,7 @@ export class GetLineSettings {
       name,
       settings: item.settings,
       vinculatedChannel: item.vinculatedChannel,
+      entitlement,
     }
   }
 }

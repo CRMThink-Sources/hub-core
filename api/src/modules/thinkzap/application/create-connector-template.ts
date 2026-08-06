@@ -43,10 +43,18 @@ export class CreateConnectorTemplateUseCase {
   async execute(input: CreateConnectorTemplateInput): Promise<CreatedTemplate> {
     this.validate(input)
 
-    const { wabaId, provider } = await resolveTemplateContext(input, {
-      getAplicationContext: this.getAplicationContext,
-      templateProviderResolver: this.templateProviderResolver,
-    })
+    /**
+     * `requireEnabled`: cadastrar template é escrita no provider, e a linha
+     * bloqueada recusa antes de submeter qualquer coisa à Meta.
+     */
+    const { wabaId, provider } = await resolveTemplateContext(
+      input,
+      {
+        getAplicationContext: this.getAplicationContext,
+        templateProviderResolver: this.templateProviderResolver,
+      },
+      { requireEnabled: true },
+    )
 
     return provider.createTemplate({
       wabaId,

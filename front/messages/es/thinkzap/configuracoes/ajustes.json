@@ -41,5 +41,11 @@
     "messageUpdateEventHint": "La edición hecha en el CRM se refleja en WhatsApp.",
     "messageDeleteEvent": "Sincronizar eliminación de mensajes",
     "messageDeleteEventHint": "La eliminación hecha en el CRM se refleja en WhatsApp."
+  },
+  "bloqueada": {
+    "trialTitulo": "Período de prueba finalizado",
+    "trialDescricao": "La línea sigue aquí y puedes ver todo lo que configuraste, pero los ajustes quedan de solo lectura hasta que haya una suscripción.",
+    "inativaTitulo": "Sin suscripción activa",
+    "inativaDescricao": "Esta línea no tiene suscripción activa. Los ajustes quedan de solo lectura hasta regularizar la suscripción."
   }
 }

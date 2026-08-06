@@ -1,9 +1,15 @@
 import { env } from '@/config/env'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import {
+  entitlementsByItemId,
   listLineItemsForApp,
   providerLineId,
 } from '@/modules/thinkzap/application/helpers/list-line-items-for-app'
+import {
+  LineEntitlement,
+  resolveLineEntitlement,
+} from '@/modules/thinkzap/domain/connector-trial'
+import { SubscriptionWithItems } from '@/modules/application/application/get-aplication-context'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { resolveLegacyLineRows } from './resolve-legacy-line-rows'
@@ -26,10 +32,31 @@ export type ThinkzapInstanceItem = {
   zapiName: string | null
   zapiConnected: boolean | null
   zapiPaymentStatus: string | null
+  /**
+   * Habilitação da linha, derivada da assinatura pai — a mesma função que o tenant
+   * usa. É o que faz admin e cliente não discordarem sobre se a linha funciona.
+   */
+  entitlement: LineEntitlement
 }
+
+/**
+ * Estado de trial da **instalação**, não da linha.
+ *
+ * É a primeira informação que o suporte precisa ao abrir uma instalação: sem ela,
+ * "o cliente diz que não recebe mensagem" e "o trial dele venceu" são
+ * indistinguíveis na tela.
+ *
+ * `never` é ausência de assinatura de trial, e cobre também o cliente pagante — que
+ * do ponto de vista do trial nunca ativou um.
+ */
+export type AppTrialState =
+  | { status: 'never' }
+  | { status: 'active'; provider: string; currentPeriodEnd: Date }
+  | { status: 'expired'; provider: string; currentPeriodEnd: Date }
 
 export type ListThinkzapInstancesForAppOutput = {
   instances: ThinkzapInstanceItem[]
+  trial: AppTrialState
 }
 
 /**
@@ -49,14 +76,16 @@ export type ListThinkzapInstancesForAppOutput = {
  */
 export async function listThinkzapInstancesForApp(
   appId: string,
+  now: Date = new Date(),
 ): Promise<ListThinkzapInstancesForAppOutput> {
   const lines = await listLineItemsForApp(appId, {
     getApp: new PrismaInstalledAppRepository(),
     getAplicationContext: makeGetAplicationContext(),
   })
 
-  if (!lines) return { instances: [] }
+  if (!lines) return { instances: [], trial: { status: 'never' } }
 
+  const entitlements = entitlementsByItemId(lines.subscriptions, now)
   const client = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
 
   const instances = await Promise.all(
@@ -89,9 +118,43 @@ export async function listThinkzapInstancesForApp(
         zapiName: zapi?.name ?? null,
         zapiConnected: zapi?.connected ?? null,
         zapiPaymentStatus: zapi?.paymentStatus ?? null,
+        /**
+         * `inactive` para item sem assinatura pai no mapa — não acontece pela
+         * travessia, e o default conservador é não funcionar.
+         */
+        entitlement: entitlements[item.id] ?? 'inactive',
       }
     }),
   )
 
-  return { instances }
+  return { instances, trial: resolveTrialState(lines.subscriptions, now) }
+}
+
+/**
+ * Estado de trial da instalação, a partir da assinatura `trialing`.
+ *
+ * A busca é por `status === 'trialing'` **cru** — o único lugar desta change em que
+ * isso é correto, porque a pergunta aqui é "existe um trial?", não "a linha
+ * funciona?". Quem decide se funciona é `resolveLineEntitlement`, e é ele que separa
+ * `active` de `expired` abaixo.
+ */
+function resolveTrialState(
+  subscriptions: SubscriptionWithItems[],
+  now: Date,
+): AppTrialState {
+  const trial = subscriptions.find(
+    subscription => subscription.status === 'trialing',
+  )
+
+  if (!trial) return { status: 'never' }
+
+  /** O provider é o da linha do trial; sem item, o trial nasceu incompleto. */
+  const provider = trial.items[0]?.metadata.provider ?? 'NONE'
+
+  return {
+    status:
+      resolveLineEntitlement(trial, now) === 'active' ? 'active' : 'expired',
+    provider,
+    currentPeriodEnd: trial.currentPeriodEnd,
+  }
 }

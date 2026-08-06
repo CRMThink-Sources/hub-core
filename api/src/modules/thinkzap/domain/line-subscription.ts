@@ -64,37 +64,113 @@ export function isTrialSubscription(
 }
 
 /**
- * O conector que a instalação consome, para casar com o provider do plano.
+ * O **contrato** vigente da instalação: as assinaturas que compartilham o mesmo id
+ * no gateway.
  *
- * `'NONE'`: nenhuma linha com conector. Ausência de restrição — não há conector em
- * uso, então nenhum plano pode cobrar de menos por um.
+ * Uma instalação cobrada por dois planos tem uma assinatura por plano na SPA, as
+ * duas com o mesmo `gatewayId` — é o que mantém `Subscription.plan` descrevendo
+ * honestamente a cobrança do grupo de linhas dela. A vigente vem primeiro na
+ * lista, para quem só precisa de status e período não escolher entre irmãs
+ * equivalentes.
  *
- * `'MIXED'`: linhas de providers diferentes na mesma instalação. **Não é
- * precificável hoje** e é tratado como tal, em vez de escolher um dos dois: uma
- * assinatura carrega um plano só, e `quantity` multiplica um preço só, então
- * qualquer escolha cobraria o preço de um provider pelo uso de dois. Alcançável só
- * quando criar linha adicional entrar (dívida 2), e nomeado desde já para o dia em
- * que for — o alternativo é o checkout cobrar errado sem ninguém perceber.
+ * Assinatura sem `gatewayId` (o trial, e a de boleto sem espelho) é contrato de uma
+ * só: sem id no gateway não há o que agrupar, e agrupar por ausência juntaria dois
+ * trials de instalações diferentes.
  */
-export type LineProviderResolution = PlanProvider | 'NONE' | 'MIXED'
+export function resolveCurrentContract<T extends Subscription>(
+  subscriptions: readonly T[],
+): T[] {
+  const primary = resolveCurrentSubscription(subscriptions)
+  if (!primary) return []
+  if (!primary.gatewayId) return [primary]
 
-export function resolveLineProvider(
+  return [
+    primary,
+    ...subscriptions.filter(
+      subscription =>
+        subscription.id !== primary.id &&
+        subscription.gatewayId === primary.gatewayId,
+    ),
+  ]
+}
+
+/** Um plano do contrato e quantas linhas ele cobra. */
+export type ContractPlanLines<T extends Subscription = Subscription> = {
+  subscription: T
+  plan: T['plan']
+  /** Linhas ativas cobradas por este plano. É o `quantity` do `line_item`. */
+  lineCount: number
+}
+
+/**
+ * A composição do contrato por plano, na ordem em que as assinaturas vieram.
+ *
+ * A tela soma os valores daqui em vez de ler um plano só: com dois planos no mesmo
+ * contrato, mostrar um deles reportaria menos do que o cliente paga.
+ */
+export function composeContractByPlan<
+  T extends Subscription & { items: SubscriptionItem[] },
+>(contract: readonly T[]): ContractPlanLines<T>[] {
+  return contract.map(subscription => ({
+    subscription,
+    plan: subscription.plan,
+    lineCount: subscription.items.filter(item => item.status === 'active')
+      .length,
+  }))
+}
+
+/**
+ * Quantas linhas ativas de cada conector a instalação tem.
+ *
+ * É o que monta o estado desejado dos `line_items`: um `line_item` por plano, com
+ * `quantity` igual à contagem do conector que aquele plano precifica. Linha
+ * cancelada não conta — não é serviço prestado — e item de cobrança sem conector
+ * (`provider: 'NONE'`) também não, porque não é linha.
+ */
+export function countActiveLinesByProvider(
   subscriptions: readonly { items: SubscriptionItem[] }[],
-): LineProviderResolution {
-  const providers = new Set<PlanProvider>()
+): Map<PlanProvider, number> {
+  const counts = new Map<PlanProvider, number>()
 
   for (const subscription of subscriptions) {
     for (const item of subscription.items) {
-      // Linha cancelada não consome conector, então não restringe o plano.
       if (item.status !== 'active') continue
       if (item.metadata.provider === 'NONE') continue
 
-      providers.add(item.metadata.provider)
+      const provider = item.metadata.provider
+      counts.set(provider, (counts.get(provider) ?? 0) + 1)
     }
   }
 
-  if (providers.size === 0) return 'NONE'
-  if (providers.size > 1) return 'MIXED'
+  return counts
+}
 
-  return [...providers][0]!
+/**
+ * O plano que precifica um conector, ou o motivo de não haver um.
+ *
+ * Os dois motivos são **estados nomeados**, e não `null`, porque significam coisas
+ * diferentes para quem chama: `missing` é configuração faltando na SPA de planos, e
+ * `ambiguous` é decisão que o produto não pode tomar sozinho — escolher entre dois
+ * planos do mesmo conector cobraria o preço de um pelo uso do outro, em silêncio.
+ */
+export type PlanForProvider<T> =
+  | { kind: 'resolved'; plan: T }
+  | { kind: 'missing'; provider: PlanProvider }
+  | { kind: 'ambiguous'; provider: PlanProvider; planIds: string[] }
+
+export function resolvePlanForProvider<
+  T extends { id: string; provider?: PlanProvider },
+>(offerablePlans: readonly T[], provider: PlanProvider): PlanForProvider<T> {
+  const candidates = offerablePlans.filter(plan => plan.provider === provider)
+
+  if (candidates.length === 0) return { kind: 'missing', provider }
+  if (candidates.length > 1) {
+    return {
+      kind: 'ambiguous',
+      provider,
+      planIds: candidates.map(plan => plan.id),
+    }
+  }
+
+  return { kind: 'resolved', plan: candidates[0]! }
 }

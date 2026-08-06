@@ -155,5 +155,12 @@
   "connectorsMessageDeleteEvent": "Sincronizar exclusões de mensagens",
   "connectorsMessageDeleteEventHint": "Quando um operador excluir uma mensagem no Bitrix, a mensagem correspondente no WhatsApp será excluída.",
   "connectorsSaving": "Salvando...",
-  "connectorsSaved": "Salvo com sucesso"
+  "connectorsSaved": "Salvo com sucesso",
+  "instancesColumnEntitlement": "Habilitação",
+  "instancesEntitlementActive": "Habilitada",
+  "instancesEntitlementTrialExpired": "Teste vencido",
+  "instancesEntitlementInactive": "Sem assinatura",
+  "instancesTrialNever": "Trial nunca ativado nesta instalação.",
+  "instancesTrialActive": "Trial em andamento ({{provider}}), termina em {{data}}.",
+  "instancesTrialExpired": "Trial expirado em {{data}} ({{provider}}). As linhas abaixo estão bloqueadas."
 }

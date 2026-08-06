@@ -98,6 +98,9 @@ function buildUseCase({
     create: repoCreate ?? vi.fn().mockResolvedValue(undefined),
   }
 
+  /** Ver a nota equivalente no teste do caminho Z-API. */
+  const disconnectExpiredLine = { schedule: vi.fn() }
+
   const useCase = new ProcessHubMessageInboundMessageUseCase(
     {
       execute: vi.fn().mockResolvedValue({
@@ -129,9 +132,10 @@ function buildUseCase({
     } as never,
     { get: vi.fn().mockResolvedValue({ id: 'cred-1' }) } as never,
     messageRepo as never,
+    disconnectExpiredLine as never,
   )
 
-  return { useCase, messageRepo }
+  return { useCase, messageRepo, disconnectExpiredLine }
 }
 
 function sentPayload(callIndex = 0): ISendMessageData {
@@ -170,6 +174,29 @@ describe('ProcessHubMessageInboundMessageUseCase', () => {
 
     expect(sendMessageMock).not.toHaveBeenCalled()
     expect(messageRepo.create).not.toHaveBeenCalled()
+  })
+
+  /** Mesmo papel do caminho Z-API: mensagem chegando prova canal ainda vivo. */
+  it('agenda a desconexão do canal quando o trial venceu', async () => {
+    const { useCase, disconnectExpiredLine } = buildUseCase({
+      subscriptionStatus: 'trialing',
+      currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
+    })
+
+    await useCase.execute(makeMessage())
+
+    expect(disconnectExpiredLine.schedule).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'i1' }),
+      'trial-expired',
+    )
+  })
+
+  it('não agenda desconexão para linha habilitada', async () => {
+    const { useCase, disconnectExpiredLine } = buildUseCase()
+
+    await useCase.execute(makeMessage())
+
+    expect(disconnectExpiredLine.schedule).not.toHaveBeenCalled()
   })
 
   /**

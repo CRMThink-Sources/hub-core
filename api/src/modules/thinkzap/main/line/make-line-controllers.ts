@@ -15,12 +15,17 @@ import { UpdateLineSettingsController } from '@/modules/thinkzap/presentation/co
 import { LinkLineChannelController } from '@/modules/thinkzap/presentation/controllers/line/link-line-channel.controller'
 import { UnlinkLineChannelController } from '@/modules/thinkzap/presentation/controllers/line/unlink-line-channel.controller'
 import { makeLineDeps } from './make-line-deps'
+import { makeDisconnectExpiredLine } from '../make-disconnect-expired-line'
 
 export const makeGetLineConnectionController = (): Controller => {
   const { getAplicationContext, zApiClient } = makeLineDeps()
 
   return new GetLineConnectionController(
-    new GetLineConnection(getAplicationContext, zApiClient),
+    new GetLineConnection(
+      getAplicationContext,
+      zApiClient,
+      makeDisconnectExpiredLine(),
+    ),
   )
 }
 

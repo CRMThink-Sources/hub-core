@@ -1,7 +1,20 @@
-import type { Request } from 'express'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+// `Controller` arrasta o logger, que lê `logLevel`/`nodeEnv` do mesmo módulo.
+vi.mock('@/config/env', () => ({
+  env: {
+    logLevel: 'silent',
+    nodeEnv: 'test',
+    lokiUrl: '',
+    bitrix: { connector: { code: 'thinkzap' } },
+  },
+}))
+
+import type { Request } from 'express'
 import { SendWidgetMessageMultipartController } from './send-widget-message-multipart.controller'
 import { SendWidgetMessageUseCase } from '@/modules/thinkzap/application/send-widget-message.use-case'
+import { LineBlockedError } from '@/modules/thinkzap/domain/errors/line-blocked.error'
+import { LineDisconnectedError } from '@/modules/thinkzap/domain/errors/line-disconnected.error'
 
 describe('SendWidgetMessageMultipartController', () => {
   const execute = vi.fn()
@@ -104,5 +117,50 @@ describe('SendWidgetMessageMultipartController', () => {
         ],
       }),
     )
+  })
+
+  /**
+   * Mesma tradução do envio de texto: os dois controllers compartilham
+   * `mapWidgetSendError` porque responder diferente por rota faria o widget ter que
+   * aprender cada uma.
+   */
+  describe('tradução de erro', () => {
+    const validReq = {
+      body: {
+        subscriptionItemId: 'i1',
+        destination: '5511999999999',
+        entity: 'deal',
+        entityId: '1',
+        attachmentsMeta: JSON.stringify([{ kind: 'image', name: 'a.png' }]),
+      },
+      files: [
+        {
+          buffer: Buffer.from('png'),
+          originalname: 'a.png',
+          mimetype: 'image/png',
+        },
+      ],
+    } as unknown as Request
+
+    it('traduz linha desconectada para 409 com code line-disconnected', async () => {
+      execute.mockRejectedValue(new LineDisconnectedError('i1'))
+
+      const response = await controller.perform(validReq, {} as never)
+
+      expect(response.status).toBe(409)
+      expect(response.result).toMatchObject({ code: 'line-disconnected' })
+    })
+
+    it('traduz linha bloqueada para 402 com code line-blocked', async () => {
+      execute.mockRejectedValue(new LineBlockedError('i1', 'inactive'))
+
+      const response = await controller.perform(validReq, {} as never)
+
+      expect(response.status).toBe(402)
+      expect(response.result).toMatchObject({
+        code: 'line-blocked',
+        entitlement: 'inactive',
+      })
+    })
   })
 })

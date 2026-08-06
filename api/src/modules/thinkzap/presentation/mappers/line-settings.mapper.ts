@@ -1,4 +1,5 @@
 import type { LineSettingsReading } from '@/modules/thinkzap/application/get-line-settings'
+import type { LineEntitlement } from '@/modules/thinkzap/domain/connector-trial'
 import type { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 
 /**
@@ -15,6 +16,11 @@ export type LineSettingsView = {
   /** `null` = nenhum canal aberto do Bitrix vinculado. */
   vinculatedChannel: string | null
   settings: ConnectorSettings
+  /**
+   * `active` | `trial-expired` | `inactive`. A aba abre em qualquer um deles; nos
+   * dois últimos ela renderiza só-leitura, porque a gravação recusa com `402`.
+   */
+  entitlement: LineEntitlement
 }
 
 export const mapLineSettingsToView = (
@@ -22,6 +28,7 @@ export const mapLineSettingsToView = (
 ): LineSettingsView => ({
   name: reading.name,
   vinculatedChannel: reading.vinculatedChannel,
+  entitlement: reading.entitlement,
   settings: {
     prefixOperatorNameEnabled:
       reading.settings.prefixOperatorNameEnabled === true,

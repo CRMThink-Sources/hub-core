@@ -47,6 +47,15 @@ export type LineCredential = {
   zApiInstanceId: string
   zApiInstanceToken: string
   item: SubscriptionItem
+  /**
+   * Habilitação derivada da assinatura pai, resolvida na mesma travessia que acha o
+   * item — ver `findLineWithEntitlement`.
+   *
+   * Vem junto porque a leitura precisa **reportá-la** sem recusar: a aba de ajustes
+   * e a de conexão respondem `200` para linha de trial vencido e mostram o estado
+   * travado. Quem escreve não olha este campo, usa `assertLineEnabled`.
+   */
+  entitlement: LineEntitlement
 }
 
 /**
@@ -168,11 +177,53 @@ export function assertLineEnabled(
   return resolved
 }
 
+/**
+ * A linha de qualquer provider, recusando bloqueada — a porta das rotas de
+ * **escrita de configuração**: ajustes, vínculo e desvínculo de canal.
+ *
+ * O provider é checado antes da habilitação de propósito: item `NONE` não é linha
+ * nenhuma, e responder "seu teste acabou" sobre algo que nunca foi linha
+ * descreveria errado o estado.
+ */
+export function assertConnectorLineEnabled(
+  context: AplicationContext,
+  subscriptionItemId: string,
+  now: Date,
+): SubscriptionItem {
+  const item = findConnectorLineInContext(context, subscriptionItemId)
+
+  assertLineEnabled(context, subscriptionItemId, now)
+
+  return item
+}
+
+/**
+ * A linha de qualquer provider com a habilitação, **sem** recusar — a porta das
+ * rotas de leitura de configuração.
+ *
+ * O `entitlement` sai no payload para a tela renderizar o travamento: sumir com a
+ * aba faria trial vencido parecer perda de dado.
+ */
+export function findConnectorLineWithEntitlement(
+  context: AplicationContext,
+  subscriptionItemId: string,
+  now: Date,
+): LineWithEntitlement {
+  findConnectorLineInContext(context, subscriptionItemId)
+
+  return findLineWithEntitlement(context, subscriptionItemId, now)
+}
+
 export function findLineInContext(
   context: AplicationContext,
   subscriptionItemId: string,
+  now: Date = new Date(),
 ): LineCredential {
-  const item = findItemInContext(context, subscriptionItemId)
+  const { item, entitlement } = findLineWithEntitlement(
+    context,
+    subscriptionItemId,
+    now,
+  )
 
   if (item.metadata.provider !== 'ZAPI') {
     throw new LineProviderNotSupportedError(item.metadata.provider)
@@ -182,12 +233,14 @@ export function findLineInContext(
     zApiInstanceId: item.metadata.zApiInstanceId,
     zApiInstanceToken: item.metadata.zApiInstanceToken,
     item,
+    entitlement,
   }
 }
 
 export async function resolveLineBySubscriptionItem(
   input: ResolveLineInput,
   getAplicationContext: GetAplicationContext,
+  now: Date = new Date(),
 ): Promise<ResolvedLine> {
   /**
    * Erro de leitura do contexto (Bitrix fora, por exemplo) **não** é capturado:
@@ -199,5 +252,31 @@ export async function resolveLineBySubscriptionItem(
     appCode: input.appCode,
   })
 
-  return findLineInContext(context, input.subscriptionItemId)
+  return findLineInContext(context, input.subscriptionItemId, now)
+}
+
+/**
+ * Igual, mas recusa linha bloqueada **antes** de devolver a credencial.
+ *
+ * Para as operações que usam a credencial para reabrir a sessão — QR code é a
+ * principal. Sem isto o cliente de trial vencido lê um QR code, pareia o telefone
+ * de novo, e a linha volta a funcionar por fora do bloqueio: a mensagem entra no
+ * provider e é descartada na entrada, o que é pior que a linha não conectar.
+ *
+ * A habilitação é conferida antes de qualquer chamada ao provider, então a rota
+ * recusada não gasta requisição na Z-API.
+ */
+export async function resolveEnabledLineBySubscriptionItem(
+  input: ResolveLineInput,
+  getAplicationContext: GetAplicationContext,
+  now: Date = new Date(),
+): Promise<ResolvedLine> {
+  const context = await getAplicationContext.execute({
+    domainId: input.domainId,
+    appCode: input.appCode,
+  })
+
+  assertLineEnabled(context, input.subscriptionItemId, now)
+
+  return findLineInContext(context, input.subscriptionItemId, now)
 }

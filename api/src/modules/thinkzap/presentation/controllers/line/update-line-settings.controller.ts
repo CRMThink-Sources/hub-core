@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
-import { findConnectorLineInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
+import { assertConnectorLineEnabled } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { UpdateLineSettings } from '@/modules/thinkzap/application/update-line-settings'
 import { mapLineError } from '@/modules/thinkzap/presentation/helpers/handle-line-error'
 import { parseLineRequest } from './line-request'
@@ -73,7 +73,14 @@ export class UpdateLineSettingsController extends Controller {
       // O contexto já foi lido acima (precisa do `aplication.id` para os binds e
       // do host em `customer.name` para o prefixo do nome), então a parte pura
       // reaproveita em vez de pagar outra leitura do Bitrix.
-      const item = findConnectorLineInContext(context, input.subscriptionItemId)
+      //
+      // Gravar ajuste é escrita: linha de trial vencido recusa aqui, antes de o
+      // caso de uso tocar a SPA ou renomear no provider.
+      const item = assertConnectorLineEnabled(
+        context,
+        input.subscriptionItemId,
+        new Date(),
+      )
 
       await this.updateLineSettings.execute({
         item,

@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { useAplicationContext } from '@/providers/aplication-provider'
 import {
   needsSubscription,
@@ -14,6 +16,7 @@ import { ConexoesHeaderCard } from '../_components/conexoes/conexoes-header-card
 import { ConexoesResumoConectados } from '../_components/conexoes/conexoes-resumo-conectados'
 import { ConexoesTabelaConectores } from '../_components/conexoes/conexoes-tabela-conectores'
 import { EmbeddedCheckout } from '../_components/conexoes/embedded-checkout'
+import { NovaLinhaModal } from '../_components/conexoes/nova-linha-modal'
 import { SubscriptionCard } from '../_components/conexoes/subscription-card'
 import { TrialCard } from '../_components/conexoes/trial-card'
 
@@ -30,7 +33,10 @@ import { TrialCard } from '../_components/conexoes/trial-card'
  */
 export default function ConexoesLayout() {
   const { t: tCommon } = useTranslation('common')
+  const { t } = useTranslation('thinkzap/conexoes/nova-linha')
   const { state: aplicationState, refresh } = useAplicationContext()
+
+  const [novaLinhaAberta, setNovaLinhaAberta] = useState(false)
 
   /**
    * Buscado aqui, uma vez: o card fala do contrato e cada linha oferece o plano
@@ -45,6 +51,25 @@ export default function ConexoesLayout() {
     needsSubscription(subscription.state.subscription)
       ? subscription.state.plans
       : []
+
+  /**
+   * O catálogo para criar linha é **outro** conjunto: `planos` acima são os que a
+   * tabela oferece para reativar uma linha bloqueada, e só existem quando a
+   * instalação está sem direito de uso. Criar linha é oferecido justamente para quem
+   * já paga, então a oferta aqui não pode depender daquela condição.
+   */
+  const catalogo =
+    subscription.state.kind === 'ready' ? subscription.state.plans : []
+
+  /**
+   * Quem decide se a criação é possível é o servidor: é a mesma regra que a rota usa
+   * para recusar, e reimplementá-la aqui deixaria as duas divergirem — com o cliente
+   * vendo um botão que responde `409`.
+   */
+  const podeCriarLinha =
+    subscription.state.kind === 'ready' &&
+    subscription.state.subscription.status !== 'none' &&
+    subscription.state.subscription.canCreateLine
 
   if (aplicationState.status === 'loading') {
     return (
@@ -110,7 +135,42 @@ export default function ConexoesLayout() {
         />
       ) : null}
 
-      <ConexoesResumoConectados ativas={ativas} total={linhas.length} />
+      <div className="flex items-center justify-between gap-4">
+        <ConexoesResumoConectados ativas={ativas} total={linhas.length} />
+
+        {/**
+         * A ação fica no cabeçalho da lista, e não numa linha: criar linha é da
+         * instalação, não de uma linha específica — diferente de "assinar", que mora
+         * na linha porque é ela que se assina.
+         */}
+        {podeCriarLinha ? (
+          <Button type="button" onClick={() => setNovaLinhaAberta(true)}>
+            {t('acao')}
+          </Button>
+        ) : null}
+      </div>
+
+      <NovaLinhaModal
+        isOpen={novaLinhaAberta}
+        planos={catalogo}
+        criando={subscription.creating}
+        onClose={() => setNovaLinhaAberta(false)}
+        onCreate={(provider, planId) => {
+          void subscription.createLine(provider, planId).then(criada => {
+            /**
+             * Fecha só quando terminou de verdade. O caminho de checkout mantém o
+             * modal fora do caminho — o segredo abre a sessão embedada logo acima — e
+             * o caminho sem checkout recarrega o contexto, porque a lista de linhas
+             * vem dos itens de assinatura.
+             */
+            setNovaLinhaAberta(false)
+            if (criada) {
+              void refresh()
+              void subscription.reload()
+            }
+          })
+        }}
+      />
 
       <ConexoesTabelaConectores
         linhas={linhas}

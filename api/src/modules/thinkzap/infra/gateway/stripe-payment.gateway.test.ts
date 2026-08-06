@@ -1,13 +1,62 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   StripeNotConfiguredError,
   StripePaymentGateway,
   StripeWrongKeyTypeError,
 } from './stripe-payment.gateway'
 
+/**
+ * Só o que o teste inspeciona dos parâmetros da sessão. Declarar o shape em vez de
+ * dublar com `any` é o que permite afirmar `line_items` e `metadata` sem que cada
+ * asserção passe a ser acesso a `any`.
+ */
+type SessionParams = {
+  line_items: Array<{ price: string; quantity: number }>
+  metadata: Record<string, string | undefined>
+  subscription_data: { metadata: Record<string, string | undefined> }
+}
+
+type GatewaySubscriptionFake = {
+  id: string
+  status: string
+  current_period_start: number
+  current_period_end: number
+  items: {
+    data: Array<{ id: string; price: { id: string }; quantity: number }>
+  }
+}
+
+type UpdateParams = {
+  items: Array<{ id?: string; price?: string; quantity: number }>
+}
+
+/**
+ * Dublê do SDK com as três superfícies que o adapter usa. `vi.hoisted` porque o
+ * `vi.mock` sobe para o topo do módulo e não veria um `const` declarado depois — os
+ * tipos acima não precisam disso, porque TS os iça por conta própria.
+ */
+const stripeFake = vi.hoisted(() => ({
+  createSession:
+    vi.fn<
+      (params: SessionParams) => Promise<{ client_secret: string | null }>
+    >(),
+  retrieveSubscription:
+    vi.fn<(id: string) => Promise<GatewaySubscriptionFake>>(),
+  updateSubscription:
+    vi.fn<(id: string, params: UpdateParams) => Promise<unknown>>(),
+  constructEvent: vi.fn<() => { type: string; data: { object: unknown } }>(),
+}))
+
 vi.mock('stripe', () => ({
   default: class {
     constructor(readonly key: string) {}
+
+    checkout = { sessions: { create: stripeFake.createSession } }
+    subscriptions = {
+      retrieve: stripeFake.retrieveSubscription,
+      update: stripeFake.updateSubscription,
+    }
+    webhooks = { constructEvent: stripeFake.constructEvent }
   },
 }))
 
@@ -70,5 +119,255 @@ describe('StripePaymentGateway — chave do servidor', () => {
     expect(() => new StripePaymentGateway('', 'whsec_1')).toThrow(
       StripeNotConfiguredError,
     )
+  })
+})
+
+const INSTALLATION = {
+  domainId: 'domain-1',
+  appCode: 'crmthink.thinkzap',
+  planId: '7',
+}
+
+const makeGateway = () => new StripePaymentGateway('sk_test_123', 'whsec_1')
+
+/** Assinatura do gateway com os itens que o teste precisa. */
+const gatewaySubscription = (
+  items: Array<{ id: string; priceId: string; quantity: number }>,
+) => ({
+  id: 'sub_1',
+  status: 'active',
+  current_period_start: 1_760_000_000,
+  current_period_end: 1_762_000_000,
+  items: {
+    data: items.map(item => ({
+      id: item.id,
+      price: { id: item.priceId },
+      quantity: item.quantity,
+    })),
+  },
+})
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  stripeFake.createSession.mockResolvedValue({ client_secret: 'cs_secret' })
+})
+
+describe('createCheckoutSession', () => {
+  it('manda um line_item por plano a cobrar', async () => {
+    await makeGateway().createCheckoutSession({
+      lineItems: [
+        { priceId: 'price_zapi', quantity: 2 },
+        { priceId: 'price_hub', quantity: 1 },
+      ],
+      installation: INSTALLATION,
+      intent: { kind: 'convert' },
+    })
+
+    expect(stripeFake.createSession.mock.calls[0]![0].line_items).toEqual([
+      { price: 'price_zapi', quantity: 2 },
+      { price: 'price_hub', quantity: 1 },
+    ])
+  })
+
+  /** Sessão sem preço não teria o que faturar, e o gateway recusaria mais longe. */
+  it('recusa checkout sem nenhum preço', async () => {
+    await expect(
+      makeGateway().createCheckoutSession({
+        lineItems: [],
+        installation: INSTALLATION,
+        intent: { kind: 'convert' },
+      }),
+    ).rejects.toThrow(/sem nenhum preço/)
+
+    expect(stripeFake.createSession).not.toHaveBeenCalled()
+  })
+
+  it('carrega a intenção de acrescentar linha nos dois metadata', async () => {
+    await makeGateway().createCheckoutSession({
+      lineItems: [{ priceId: 'price_zapi', quantity: 1 }],
+      installation: INSTALLATION,
+      intent: { kind: 'add-line', provider: 'HUBMESSAGE', planId: '9' },
+    })
+
+    const params = stripeFake.createSession.mock.calls[0]![0]
+    const expected = {
+      domainId: 'domain-1',
+      appCode: 'crmthink.thinkzap',
+      planId: '7',
+      intent: 'add-line',
+      newLineProvider: 'HUBMESSAGE',
+      newLinePlanId: '9',
+    }
+
+    expect(params.metadata).toEqual(expected)
+    expect(params.subscription_data.metadata).toEqual(expected)
+  })
+
+  /**
+   * Metadata é mapa plano de strings: gravar as chaves da linha nova numa
+   * contratação comum deixaria a leitura sem como distinguir "não é add-line" de
+   * "é add-line com campo vazio".
+   */
+  it('não grava campos de linha nova numa contratação comum', async () => {
+    await makeGateway().createCheckoutSession({
+      lineItems: [{ priceId: 'price_zapi', quantity: 1 }],
+      installation: INSTALLATION,
+      intent: { kind: 'convert' },
+    })
+
+    const { metadata } = stripeFake.createSession.mock.calls[0]![0]
+
+    expect(metadata.intent).toBe('convert')
+    expect(metadata).not.toHaveProperty('newLineProvider')
+    expect(metadata).not.toHaveProperty('newLinePlanId')
+  })
+})
+
+describe('syncSubscriptionLineItems', () => {
+  it('atualiza a quantidade do item que já existe, pelo id dele', async () => {
+    stripeFake.retrieveSubscription.mockResolvedValue(
+      gatewaySubscription([{ id: 'si_1', priceId: 'price_zapi', quantity: 1 }]),
+    )
+
+    await makeGateway().syncSubscriptionLineItems({
+      gatewaySubscriptionId: 'sub_1',
+      lineItems: [{ priceId: 'price_zapi', quantity: 2 }],
+    })
+
+    expect(stripeFake.updateSubscription).toHaveBeenCalledWith('sub_1', {
+      items: [{ id: 'si_1', quantity: 2 }],
+    })
+  })
+
+  it('acrescenta item para preço que ainda não está na assinatura', async () => {
+    stripeFake.retrieveSubscription.mockResolvedValue(
+      gatewaySubscription([{ id: 'si_1', priceId: 'price_zapi', quantity: 1 }]),
+    )
+
+    await makeGateway().syncSubscriptionLineItems({
+      gatewaySubscriptionId: 'sub_1',
+      lineItems: [
+        { priceId: 'price_zapi', quantity: 1 },
+        { priceId: 'price_hub', quantity: 1 },
+      ],
+    })
+
+    expect(stripeFake.updateSubscription).toHaveBeenCalledWith('sub_1', {
+      items: [
+        { id: 'si_1', quantity: 1 },
+        { price: 'price_hub', quantity: 1 },
+      ],
+    })
+  })
+
+  /**
+   * Estado desejado, não incremento: a mesma chamada repetida não muda nada. É o
+   * que torna duplo clique inofensivo do lado da cobrança.
+   */
+  it('não vai à rede quando a quantidade desejada já é a atual', async () => {
+    stripeFake.retrieveSubscription.mockResolvedValue(
+      gatewaySubscription([{ id: 'si_1', priceId: 'price_zapi', quantity: 2 }]),
+    )
+
+    await makeGateway().syncSubscriptionLineItems({
+      gatewaySubscriptionId: 'sub_1',
+      lineItems: [{ priceId: 'price_zapi', quantity: 2 }],
+    })
+
+    expect(stripeFake.updateSubscription).not.toHaveBeenCalled()
+  })
+
+  /** Reduzir cobrança é cancelar linha, não efeito colateral de acrescentar outra. */
+  it('não remove o item do preço ausente da lista', async () => {
+    stripeFake.retrieveSubscription.mockResolvedValue(
+      gatewaySubscription([
+        { id: 'si_1', priceId: 'price_zapi', quantity: 1 },
+        { id: 'si_2', priceId: 'price_hub', quantity: 1 },
+      ]),
+    )
+
+    await makeGateway().syncSubscriptionLineItems({
+      gatewaySubscriptionId: 'sub_1',
+      lineItems: [{ priceId: 'price_zapi', quantity: 2 }],
+    })
+
+    const { items } = stripeFake.updateSubscription.mock.calls[0]![1]
+
+    expect(items).toEqual([{ id: 'si_1', quantity: 2 }])
+    expect(JSON.stringify(items)).not.toContain('deleted')
+  })
+})
+
+describe('normalização do evento', () => {
+  const event = (type: string, object: unknown) => {
+    stripeFake.constructEvent.mockReturnValue({ type, data: { object } })
+    return makeGateway().verifyWebhookEvent(Buffer.from('{}'), 'sig')
+  }
+
+  const session = (metadata: Record<string, string>) => ({
+    subscription: 'sub_1',
+    metadata,
+  })
+
+  it('lê a intenção de acrescentar linha do metadata da sessão', async () => {
+    stripeFake.retrieveSubscription.mockResolvedValue(gatewaySubscription([]))
+
+    const result = await event(
+      'checkout.session.completed',
+      session({
+        ...INSTALLATION,
+        intent: 'add-line',
+        newLineProvider: 'ZAPI',
+        newLinePlanId: '9',
+      }),
+    )
+
+    expect(result).toMatchObject({
+      type: 'checkout.completed',
+      intent: { kind: 'add-line', provider: 'ZAPI', planId: '9' },
+    })
+  })
+
+  /**
+   * Sessão de um deploy anterior não tem o campo. Ler ausência como `add-line`
+   * faria uma contratação comum criar linha que ninguém pediu.
+   */
+  it('sessão sem intenção é lida como contratação comum', async () => {
+    stripeFake.retrieveSubscription.mockResolvedValue(gatewaySubscription([]))
+
+    const result = await event(
+      'checkout.session.completed',
+      session(INSTALLATION),
+    )
+
+    expect(result).toMatchObject({ intent: { kind: 'convert' } })
+  })
+
+  /** Metadata pela metade não autoriza provisionar recurso. */
+  it('intenção de acrescentar sem conector cai em contratação comum', async () => {
+    stripeFake.retrieveSubscription.mockResolvedValue(gatewaySubscription([]))
+
+    const result = await event(
+      'checkout.session.completed',
+      session({ ...INSTALLATION, intent: 'add-line', newLinePlanId: '9' }),
+    )
+
+    expect(result).toMatchObject({ intent: { kind: 'convert' } })
+  })
+
+  it('soma as quantidades dos line_items no evento de atualização', async () => {
+    const result = await event(
+      'customer.subscription.updated',
+      gatewaySubscription([
+        { id: 'si_1', priceId: 'price_zapi', quantity: 2 },
+        { id: 'si_2', priceId: 'price_hub', quantity: 1 },
+      ]),
+    )
+
+    expect(result).toMatchObject({
+      type: 'subscription.updated',
+      status: 'active',
+      totalLineQuantity: 3,
+    })
   })
 })

@@ -5,9 +5,14 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
-import { useLineApi, type LineConnection } from '@/app/hooks/use-line-api'
+import {
+  useLineApi,
+  type LineConnection,
+  type LineEntitlement,
+} from '@/app/hooks/use-line-api'
 import { ConfirmModal } from './confirm-modal'
 import { ConfigCard } from './config-card'
+import { LinhaBloqueadaAviso } from './linha-bloqueada-aviso'
 
 type Props = {
   itemId: string
@@ -76,9 +81,19 @@ export function ConexaoTab({ itemId, onConnectionChange }: Props) {
     void loadConnection()
   }, [loadConnection])
 
-  // QR só quando desconectado: buscar conectado gastaria chamada sem uso.
+  /**
+   * QR só quando desconectado **e habilitado**.
+   *
+   * Buscar conectado gastaria chamada sem uso; buscar bloqueado gastaria uma chamada
+   * que a api recusa com `402` — e o `qrError` resultante diria "não foi possível
+   * gerar o QR code", que descreve errado o que aconteceu.
+   */
   useEffect(() => {
-    if (state.status === 'ready' && !state.connection.connected) {
+    if (
+      state.status === 'ready' &&
+      !state.connection.connected &&
+      state.connection.entitlement === 'active'
+    ) {
       void loadQrCode()
     }
   }, [state, loadQrCode])
@@ -131,6 +146,27 @@ export function ConexaoTab({ itemId, onConnectionChange }: Props) {
   }
 
   const { connection } = state
+  const bloqueada = connection.entitlement !== 'active'
+
+  /**
+   * Bloqueada e desconectada: explica, e não oferece o QR code.
+   *
+   * O `disconnect` na expiração é o que traz a linha para cá — o número foi
+   * desconectado no provider de propósito. Mostrar o QR aqui convidaria a reconectar,
+   * que é justamente o que o bloqueio impede.
+   */
+  if (bloqueada && !connection.connected) {
+    return (
+      <ConfigCard title={t('titulo')} description={t('descricaoDesconectado')}>
+        <LinhaBloqueadaAviso
+          entitlement={
+            connection.entitlement as Exclude<LineEntitlement, 'active'>
+          }
+          namespace="thinkzap/configuracoes/conexao"
+        />
+      </ConfigCard>
+    )
+  }
 
   if (!connection.connected) {
     return (
@@ -183,6 +219,22 @@ export function ConexaoTab({ itemId, onConnectionChange }: Props) {
   return (
     <>
       <ConfigCard title={t('titulo')} description={t('descricaoConectado')}>
+        {/**
+         * Conectada e bloqueada existe: o `disconnect` da expiração é tolerante a
+         * falha, então a sessão pode sobreviver alguns minutos. A tela diz a verdade
+         * das duas coisas em vez de escolher uma.
+         */}
+        {bloqueada && (
+          <div className="mb-6">
+            <LinhaBloqueadaAviso
+              entitlement={
+                connection.entitlement as Exclude<LineEntitlement, 'active'>
+              }
+              namespace="thinkzap/configuracoes/conexao"
+            />
+          </div>
+        )}
+
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
           {connection.imgUrl && !imgFailed && (
             <img

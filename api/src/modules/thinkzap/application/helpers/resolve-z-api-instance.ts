@@ -1,6 +1,9 @@
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
-import { findLineInContext } from './resolve-line-by-subscription-item'
+import {
+  assertLineEnabled,
+  findLineInContext,
+} from './resolve-line-by-subscription-item'
 
 export type ResolvedZApiInstance = {
   instanceId: string
@@ -34,11 +37,17 @@ export type ResolveZApiInstanceInput = {
  *
  * Consequência deliberada: `Instance` não participa mais desta resolução. Grupos
  * não precisam de `settings` nem de `vinculatedChannel` — só de credencial e sessão.
+ *
+ * **É também a porta única do bloqueio de grupos.** Toda rota de grupo passa por
+ * aqui, inclusive as de leitura: listar grupo e ler metadata são leitura no
+ * WhatsApp, não no nosso dado, e usam a sessão do cliente — recusar as escritas e
+ * liberar as leituras deixaria a linha bloqueada consumindo a Z-API.
  */
 export async function resolveZApiInstance(
   input: ResolveZApiInstanceInput,
   getAplicationContext: GetAplicationContext,
   zApiClient: ZApiClient,
+  now: Date = new Date(),
 ): Promise<ResolvedZApiInstance> {
   /**
    * Erro de leitura do contexto não é capturado: tem que subir para o controller.
@@ -49,6 +58,9 @@ export async function resolveZApiInstance(
     domainId: input.domainId,
     appCode: input.appCode,
   })
+
+  /** Antes de qualquer chamada à Z-API: recusada não gasta requisição no provider. */
+  assertLineEnabled(context, input.subscriptionItemId, now)
 
   const line = findLineInContext(context, input.subscriptionItemId)
 

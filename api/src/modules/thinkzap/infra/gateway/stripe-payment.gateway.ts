@@ -3,12 +3,14 @@ import { env } from '@/config/env'
 import { Subscription } from '@/modules/application/domain/entities/subscription'
 import {
   CreateBillingPortalSessionInput,
+  CheckoutIntent,
   CheckoutSession,
   CreateCheckoutSessionInput,
   GatewayEvent,
   GatewayInstallationRef,
   GatewaySignatureError,
   PaymentGateway,
+  SyncSubscriptionLineItemsInput,
 } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -140,7 +142,13 @@ export class StripePaymentGateway implements PaymentGateway {
   async createCheckoutSession(
     input: CreateCheckoutSessionInput,
   ): Promise<CheckoutSession> {
-    const metadata = this.toMetadata(input.installation)
+    if (input.lineItems.length === 0) {
+      throw new Error(
+        'Checkout sem nenhum preço a cobrar: a sessão não teria o que faturar',
+      )
+    }
+
+    const metadata = this.toMetadata(input.installation, input.intent)
 
     const session = await this.stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -164,7 +172,15 @@ export class StripePaymentGateway implements PaymentGateway {
        * `return_url` **não** pode ser enviada junto: a API recusa as duas.
        */
       redirect_on_completion: 'never',
-      line_items: [{ price: input.priceId, quantity: input.quantity }],
+      /**
+       * Um item por plano a cobrar. Com linhas de conectores diferentes são dois,
+       * cada um com a quantidade do conector dele — é o que permite cobrar os dois
+       * preços na mesma assinatura, em vez de multiplicar um só.
+       */
+      line_items: input.lineItems.map(item => ({
+        price: item.priceId,
+        quantity: item.quantity,
+      })),
       /**
        * O mesmo metadata nos dois lugares: a sessão o carrega para o
        * `checkout.session.completed`, e a assinatura o carrega para os eventos de
@@ -182,6 +198,56 @@ export class StripePaymentGateway implements PaymentGateway {
     }
 
     return { clientSecret: session.client_secret }
+  }
+
+  /**
+   * Leva os itens da assinatura ao estado desejado, sem checkout.
+   *
+   * Preço que já tem item **atualiza a quantidade**; preço novo **entra como item
+   * novo**. Preço ausente da lista não é tocado: reduzir cobrança é cancelar linha,
+   * operação própria — e um `items` completo com `deleted: true` implícito apagaria
+   * a cobrança de linhas que continuam existindo.
+   *
+   * Uma chamada só, com todos os itens: duas chamadas gerariam duas faturas
+   * proporcionais para uma única mudança do cliente.
+   *
+   * `proration_behavior` fica no default do gateway. A política própria de crédito
+   * proporcional é decisão que o produto ainda não tomou, e inventá-la aqui
+   * esconderia isso.
+   */
+  async syncSubscriptionLineItems(
+    input: SyncSubscriptionLineItemsInput,
+  ): Promise<void> {
+    const subscription = await this.stripe.subscriptions.retrieve(
+      input.gatewaySubscriptionId,
+    )
+
+    const itemByPrice = new Map(
+      subscription.items.data.map(item => [item.price.id, item]),
+    )
+
+    const items = input.lineItems.map(desired => {
+      const existing = itemByPrice.get(desired.priceId)
+
+      return existing
+        ? { id: existing.id, quantity: desired.quantity }
+        : { price: desired.priceId, quantity: desired.quantity }
+    })
+
+    /**
+     * Nada a mudar: toda quantidade desejada já é a atual. Devolver sem ir à rede
+     * é o que faz a operação ser segura de repetir — o gateway aceitaria a chamada,
+     * mas cada uma dessas idas gera avaliação de proration por nada.
+     */
+    const unchanged = input.lineItems.every(
+      desired =>
+        itemByPrice.get(desired.priceId)?.quantity === desired.quantity,
+    )
+    if (unchanged) return
+
+    await this.stripe.subscriptions.update(input.gatewaySubscriptionId, {
+      items,
+    })
   }
 
   async createBillingPortalSession(
@@ -252,6 +318,7 @@ export class StripePaymentGateway implements PaymentGateway {
         type: 'checkout.completed',
         gatewaySubscriptionId,
         installation,
+        intent: this.readIntent(session.metadata),
         ...period,
       }
     }
@@ -283,6 +350,10 @@ export class StripePaymentGateway implements PaymentGateway {
       type: 'subscription.updated',
       gatewaySubscriptionId: subscription.id,
       status,
+      totalLineQuantity: (subscription.items?.data ?? []).reduce(
+        (total, item) => total + (item.quantity ?? 0),
+        0,
+      ),
       ...this.readPeriod(subscription),
     }
   }
@@ -305,13 +376,49 @@ export class StripePaymentGateway implements PaymentGateway {
     return { domainId, appCode, planId }
   }
 
+  /**
+   * A intenção da sessão, ou `convert`.
+   *
+   * O default **preserva o comportamento anterior**: sessão criada antes deste
+   * deploy não tem o campo, e ler ausência como `add-line` faria uma contratação
+   * comum criar uma linha que ninguém pediu. Intenção `add-line` sem provider ou
+   * sem plano também cai em `convert`, pelo mesmo motivo — metadata pela metade não
+   * autoriza provisionar recurso.
+   */
+  private readIntent(metadata: Stripe.Metadata | null): CheckoutIntent {
+    if (metadata?.intent !== 'add-line') return { kind: 'convert' }
+
+    const provider = metadata.newLineProvider
+    const planId = metadata.newLinePlanId
+
+    if ((provider !== 'ZAPI' && provider !== 'HUBMESSAGE') || !planId) {
+      apiLogger.warn(
+        { app: 'thinkzap', provider, hasPlanId: Boolean(planId) },
+        'Sessão declarou intenção de acrescentar linha sem conector ou sem plano — tratada como contratação comum',
+      )
+      return { kind: 'convert' }
+    }
+
+    return { kind: 'add-line', provider, planId }
+  }
+
   private toMetadata(
     installation: GatewayInstallationRef,
+    intent: CheckoutIntent,
   ): Stripe.MetadataParam {
     return {
       domainId: installation.domainId,
       appCode: installation.appCode,
       planId: installation.planId,
+      intent: intent.kind,
+      /**
+       * Chaves só no caminho que as usa: o metadata do gateway é um mapa plano de
+       * strings, e gravar `null` deixaria a leitura sem como distinguir "não é
+       * add-line" de "é add-line com campo vazio".
+       */
+      ...(intent.kind === 'add-line'
+        ? { newLineProvider: intent.provider, newLinePlanId: intent.planId }
+        : {}),
     }
   }
 

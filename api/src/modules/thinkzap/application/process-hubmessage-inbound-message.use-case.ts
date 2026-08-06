@@ -3,6 +3,7 @@ import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import type { HubMessageWebhookMessage } from '@/modules/thinkzap/domain/interfaces/hubmessage-events.interface'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { findLineItemByChannelId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
+import { DisconnectExpiredLine } from '@/modules/thinkzap/application/disconnect-expired-line'
 import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
@@ -42,6 +43,8 @@ export class ProcessHubMessageInboundMessageUseCase {
     private readonly appRepo: GetInstalledAppRepository,
     private readonly credentialRepo: GetCredentialRepository,
     private readonly messageRepo: PrismaThinkzapMessageRepository,
+    /** Mesmo papel do caminho Z-API: mensagem chegando prova canal ainda vivo. */
+    private readonly disconnectExpiredLine: DisconnectExpiredLine,
   ) {}
 
   async execute(message: HubMessageWebhookMessage): Promise<void> {
@@ -119,6 +122,9 @@ export class ProcessHubMessageInboundMessageUseCase {
         },
         'Mensagem descartada: linha sem assinatura ativa',
       )
+
+      /** Sem `await`: o descarte já aconteceu e o worker não espera o provider. */
+      this.disconnectExpiredLine.schedule(item, line.entitlement)
       return
     }
 

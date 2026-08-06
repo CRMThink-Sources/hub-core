@@ -1,6 +1,8 @@
+import { LineBlockedError } from '@/modules/thinkzap/domain/errors/line-blocked.error'
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import { httpResponse } from '@/shared/helpers/http'
+import { mapLineBlockedError } from './handle-line-error'
 
 /**
  * Traduz a falha de uma operação de grupo em resposta HTTP.
@@ -19,6 +21,15 @@ export function mapGroupServiceError(
   /** Id fora da instalação do token é indistinguível de id inexistente. */
   if (error instanceof LineNotFoundError) {
     return { status: 404, result: { error: message } }
+  }
+
+  /**
+   * Mesma resposta das rotas de linha, de propósito: operação de grupo recusada
+   * por linha bloqueada é o mesmo caso, e o `400` genérico deste mapper faria a
+   * tela tratá-la como entrada inválida.
+   */
+  if (error instanceof LineBlockedError) {
+    return mapLineBlockedError(error)
   }
 
   /**

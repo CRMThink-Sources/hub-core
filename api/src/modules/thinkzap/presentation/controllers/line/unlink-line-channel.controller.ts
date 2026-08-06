@@ -7,7 +7,7 @@ import { GetAplicationContext } from '@/modules/application/application/get-apli
 import { SubscriptionItemRepository } from '@/modules/application/domain/repositories/subscription-item.repository'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
-import { findConnectorLineInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
+import { assertConnectorLineEnabled } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { mapLineError } from '@/modules/thinkzap/presentation/helpers/handle-line-error'
 import { parseLineRequest } from './line-request'
 
@@ -37,7 +37,17 @@ export class UnlinkLineChannelController extends Controller {
         appCode: input.appCode,
       })
 
-      const item = findConnectorLineInContext(context, input.subscriptionItemId)
+      /**
+       * Desvincular também é escrita, e também recusa. Parece contraintuitivo —
+       * desligar o canal de uma linha morta é inofensivo — mas o vínculo é
+       * configuração do cliente, e deixar apagar o que ele não consegue refazer
+       * transformaria o bloqueio em perda de dado.
+       */
+      const item = assertConnectorLineEnabled(
+        context,
+        input.subscriptionItemId,
+        new Date(),
+      )
       const { vinculatedChannel } = item
 
       // Já sem canal: nada a desativar no Bitrix, e o resultado desejado já vale.

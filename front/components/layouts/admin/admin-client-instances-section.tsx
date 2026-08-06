@@ -27,15 +27,28 @@ export type ThinkzapInstanceItem = {
   zapiName: string | null
   zapiConnected: boolean | null
   zapiPaymentStatus: string | null
+  /** Mesma derivação que o tenant vê — admin e cliente não podem discordar. */
+  entitlement: 'active' | 'trial-expired' | 'inactive'
 }
+
+/**
+ * Estado de trial da **instalação**. É a primeira coisa que o suporte precisa saber
+ * ao abrir a aba: sem isso, "não recebe mensagem" e "o trial venceu" são
+ * indistinguíveis na tela.
+ */
+type AppTrialState =
+  | { status: 'never' }
+  | { status: 'active'; provider: string; currentPeriodEnd: string }
+  | { status: 'expired'; provider: string; currentPeriodEnd: string }
 
 type InstancesResponse = {
   instances: ThinkzapInstanceItem[]
+  trial: AppTrialState
 }
 
 type SectionState =
   | { kind: 'loading' }
-  | { kind: 'ready'; instances: ThinkzapInstanceItem[] }
+  | { kind: 'ready'; instances: ThinkzapInstanceItem[]; trial: AppTrialState }
   | { kind: 'error'; message: string }
 
 type Props = {
@@ -54,7 +67,11 @@ export function AdminClientInstancesSection({ appId }: Props) {
       const output = await axiosPortal().get<InstancesResponse>(
         `/portal/apps/${appId}/thinkzap-instances`,
       )
-      setState({ kind: 'ready', instances: output.instances })
+      setState({
+        kind: 'ready',
+        instances: output.instances,
+        trial: output.trial,
+      })
     } catch {
       setState({ kind: 'error', message: t('instancesErrorGeneric') })
     }
@@ -70,7 +87,11 @@ export function AdminClientInstancesSection({ appId }: Props) {
           `/portal/apps/${appId}/thinkzap-instances`,
         )
         if (!cancelled) {
-          setState({ kind: 'ready', instances: output.instances })
+          setState({
+            kind: 'ready',
+            instances: output.instances,
+            trial: output.trial,
+          })
         }
       } catch {
         if (!cancelled) {
@@ -96,7 +117,7 @@ export function AdminClientInstancesSection({ appId }: Props) {
     setState(prev => {
       if (prev.kind !== 'ready') return prev
       return {
-        kind: 'ready',
+        ...prev,
         instances: prev.instances.map(i =>
           i.subscriptionItemId === updated.subscriptionItemId
             ? { ...i, ...updated }
@@ -128,6 +149,84 @@ export function AdminClientInstancesSection({ appId }: Props) {
     )
   }
 
+  /**
+   * A data vem crua da api de propósito: fuso e formatação são da tela. `undefined`
+   * de locale usa o do navegador, que é o do operador de suporte.
+   */
+  function formatDate(iso: string) {
+    const date = new Date(iso)
+    return Number.isNaN(date.getTime())
+      ? iso
+      : date.toLocaleDateString(undefined, {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        })
+  }
+
+  function providerLabel(provider: string) {
+    return provider === 'HUBMESSAGE'
+      ? t('instancesProviderOfficial')
+      : t('instancesProviderZapi')
+  }
+
+  /**
+   * Faixa de trial da instalação. `never` também aparece — "nunca ativou" é
+   * informação, e esconder o aviso deixaria o suporte sem saber se olhou ou não.
+   */
+  function trialBanner(trial: AppTrialState) {
+    if (trial.status === 'never') {
+      return (
+        <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+          {t('instancesTrialNever')}
+        </p>
+      )
+    }
+
+    const message =
+      trial.status === 'active'
+        ? t('instancesTrialActive', {
+            provider: providerLabel(trial.provider),
+            data: formatDate(trial.currentPeriodEnd),
+          })
+        : t('instancesTrialExpired', {
+            provider: providerLabel(trial.provider),
+            data: formatDate(trial.currentPeriodEnd),
+          })
+
+    return (
+      <p
+        className={
+          trial.status === 'active'
+            ? 'rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+            : 'rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+        }
+      >
+        {message}
+      </p>
+    )
+  }
+
+  function entitlementBadge(entitlement: ThinkzapInstanceItem['entitlement']) {
+    if (entitlement === 'active') {
+      return (
+        <span className="text-muted-foreground">
+          {t('instancesEntitlementActive')}
+        </span>
+      )
+    }
+
+    return (
+      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        {t(
+          entitlement === 'trial-expired'
+            ? 'instancesEntitlementTrialExpired'
+            : 'instancesEntitlementInactive',
+        )}
+      </span>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -155,6 +254,8 @@ export function AdminClientInstancesSection({ appId }: Props) {
           {t('instancesRefresh')}
         </Button>
       </div>
+
+      {state.kind === 'ready' ? trialBanner(state.trial) : null}
 
       <div className="admin-card overflow-hidden">
         {state.kind === 'loading' ? (
@@ -194,6 +295,9 @@ export function AdminClientInstancesSection({ appId }: Props) {
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                     {t('instancesColumnSubscription')}
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                    {t('instancesColumnEntitlement')}
                   </th>
                 </tr>
               </thead>
@@ -239,6 +343,9 @@ export function AdminClientInstancesSection({ appId }: Props) {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {instance.zapiPaymentStatus ?? '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      {entitlementBadge(instance.entitlement)}
                     </td>
                   </tr>
                 ))}

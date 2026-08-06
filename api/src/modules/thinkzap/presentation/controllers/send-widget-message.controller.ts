@@ -1,4 +1,5 @@
 import { SendWidgetMessageUseCase } from '@/modules/thinkzap/application/send-widget-message.use-case'
+import { mapWidgetSendError } from '@/modules/thinkzap/presentation/helpers/handle-widget-send-error'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
@@ -41,17 +42,7 @@ export class SendWidgetMessageController extends Controller {
       })
       return this.ok(result)
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to send message'
-
-      if (
-        message === 'Connector not found' ||
-        message === 'Instance not found'
-      ) {
-        return this.notFound(new Error(message))
-      }
-
-      return this.badRequest(new Error(message))
+      return mapWidgetSendError(error)
     }
   }
 }

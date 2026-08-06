@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { mapLineConnectionToView } from './line-connection.mapper'
+import type { LineConnectionReading } from '@/modules/thinkzap/application/get-line-connection'
+import type { LineEntitlement } from '@/modules/thinkzap/domain/connector-trial'
 import type {
   InstanceDataResponse,
   PhoneDataResponse,
@@ -34,12 +36,24 @@ const phone = (overrides: Partial<PhoneDataResponse> = {}): PhoneDataResponse =>
     ...overrides,
   }) as PhoneDataResponse
 
+/**
+ * `active` por default: o entitlement é ortogonal a tudo que estes testes medem, e
+ * repeti-lo em cada caso esconderia o que cada um afirma.
+ */
+const reading = (
+  overrides: Partial<LineConnectionReading> = {},
+): LineConnectionReading => ({
+  instance: instance(),
+  phone: phone(),
+  entitlement: 'active',
+  ...overrides,
+})
+
 describe('mapLineConnectionToView', () => {
   it('emite o payload completo da linha conectada', () => {
-    expect(
-      mapLineConnectionToView({ instance: instance(), phone: phone() }),
-    ).toEqual({
+    expect(mapLineConnectionToView(reading())).toEqual({
       connected: true,
+      entitlement: 'active',
       name: 'Acme Suporte',
       phone: '5511999998888',
       imgUrl: 'https://provider.test/foto.jpg',
@@ -49,40 +63,71 @@ describe('mapLineConnectionToView', () => {
     })
   })
 
-  it('emite só connected quando desconectada', () => {
+  it('emite só connected e entitlement quando desconectada', () => {
     expect(
-      mapLineConnectionToView({
-        instance: instance({ connected: false }),
-        phone: null,
-      }),
-    ).toEqual({ connected: false })
+      mapLineConnectionToView(
+        reading({ instance: instance({ connected: false }), phone: null }),
+      ),
+    ).toEqual({ connected: false, entitlement: 'active' })
   })
 
   it('trata connected ausente como false', () => {
     expect(
-      mapLineConnectionToView({
-        instance: instance({ connected: undefined as never }),
-        phone: null,
-      }),
-    ).toEqual({ connected: false })
+      mapLineConnectionToView(
+        reading({
+          instance: instance({ connected: undefined as never }),
+          phone: null,
+        }),
+      ),
+    ).toEqual({ connected: false, entitlement: 'active' })
+  })
+
+  /**
+   * A leitura de conexão **não** recusa linha bloqueada: ela reporta o estado, e é
+   * a tela que troca o QR code pela explicação. Por isso o entitlement sai no
+   * payload em qualquer valor, inclusive com a linha desconectada.
+   */
+  describe('entitlement sai no payload', () => {
+    const cases: LineEntitlement[] = ['active', 'trial-expired', 'inactive']
+
+    it.each(cases)('repassa %s sem alterar', entitlement => {
+      expect(
+        mapLineConnectionToView(reading({ entitlement })).entitlement,
+      ).toBe(entitlement)
+    })
+
+    it('sai também quando a linha está desconectada', () => {
+      const view = mapLineConnectionToView(
+        reading({
+          instance: instance({ connected: false }),
+          phone: null,
+          entitlement: 'trial-expired',
+        }),
+      )
+
+      expect(view).toEqual({ connected: false, entitlement: 'trial-expired' })
+    })
   })
 
   describe('degradação dos dados do aparelho', () => {
     it('emite connected true sem campos de aparelho quando phone é null', () => {
-      expect(
-        mapLineConnectionToView({ instance: instance(), phone: null }),
-      ).toEqual({ connected: true, name: 'Instancia Comercial' })
+      expect(mapLineConnectionToView(reading({ phone: null }))).toEqual({
+        connected: true,
+        entitlement: 'active',
+        name: 'Instancia Comercial',
+      })
     })
 
     it('omite campo por campo o que vier vazio', () => {
-      const view = mapLineConnectionToView({
-        instance: instance(),
-        phone: phone({
-          imgUrl: '',
-          about: '   ',
-          device: undefined as never,
+      const view = mapLineConnectionToView(
+        reading({
+          phone: phone({
+            imgUrl: '',
+            about: '   ',
+            device: undefined as never,
+          }),
         }),
-      })
+      )
 
       expect(view).not.toHaveProperty('imgUrl')
       expect(view).not.toHaveProperty('about')
@@ -91,28 +136,31 @@ describe('mapLineConnectionToView', () => {
     })
 
     it('omite isBusiness quando não vem booleano', () => {
-      const view = mapLineConnectionToView({
-        instance: instance(),
-        phone: phone({ isBusiness: undefined as never }),
-      })
+      const view = mapLineConnectionToView(
+        reading({ phone: phone({ isBusiness: undefined as never }) }),
+      )
 
       expect(view).not.toHaveProperty('isBusiness')
     })
 
     it('cai para o nome da instância quando o perfil não tem nome', () => {
-      const view = mapLineConnectionToView({
-        instance: instance({ name: 'Instancia Comercial' }),
-        phone: phone({ name: '' }),
-      })
+      const view = mapLineConnectionToView(
+        reading({
+          instance: instance({ name: 'Instancia Comercial' }),
+          phone: phone({ name: '' }),
+        }),
+      )
 
       expect(view.name).toBe('Instancia Comercial')
     })
 
     it('omite name quando nem o perfil nem a instância têm nome', () => {
-      const view = mapLineConnectionToView({
-        instance: instance({ name: '' }),
-        phone: phone({ name: '' }),
-      })
+      const view = mapLineConnectionToView(
+        reading({
+          instance: instance({ name: '' }),
+          phone: phone({ name: '' }),
+        }),
+      )
 
       expect(view).not.toHaveProperty('name')
     })
@@ -120,10 +168,7 @@ describe('mapLineConnectionToView', () => {
 
   describe('credencial não sai no payload', () => {
     it('NÃO emite o token da instância em nenhum lugar do payload', () => {
-      const view = mapLineConnectionToView({
-        instance: instance(),
-        phone: phone(),
-      })
+      const view = mapLineConnectionToView(reading())
 
       expect(view).not.toHaveProperty('token')
       expect(JSON.stringify(view)).not.toContain('TOKEN-SUPER-SECRETO')
@@ -131,21 +176,28 @@ describe('mapLineConnectionToView', () => {
     })
 
     it('não repassa campo novo do provider por spread', () => {
-      const view = mapLineConnectionToView({
-        instance: instance({
-          campoNovoDoProvider: 'vazou',
-        } as never),
-        phone: phone({ outroCampoNovo: 'vazou' } as never),
-      })
+      const view = mapLineConnectionToView(
+        reading({
+          instance: instance({ campoNovoDoProvider: 'vazou' } as never),
+          phone: phone({ outroCampoNovo: 'vazou' } as never),
+        }),
+      )
 
       expect(JSON.stringify(view)).not.toContain('vazou')
     })
 
     it('também não emite token quando desconectada', () => {
-      const view = mapLineConnectionToView({
-        instance: instance({ connected: false }),
-        phone: null,
-      })
+      const view = mapLineConnectionToView(
+        reading({ instance: instance({ connected: false }), phone: null }),
+      )
+
+      expect(JSON.stringify(view)).not.toContain('TOKEN-SUPER-SECRETO')
+    })
+
+    it('também não emite token quando a linha está bloqueada', () => {
+      const view = mapLineConnectionToView(
+        reading({ entitlement: 'trial-expired' }),
+      )
 
       expect(JSON.stringify(view)).not.toContain('TOKEN-SUPER-SECRETO')
     })

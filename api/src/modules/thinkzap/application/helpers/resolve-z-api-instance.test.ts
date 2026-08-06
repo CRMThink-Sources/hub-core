@@ -57,7 +57,9 @@ function makeSut(
   const execute = vi.fn().mockResolvedValue({
     customer: { id: 'domain-1', name: 'acme.bitrix24.com.br' },
     aplication: { id: 'installed-1', spaId: '42' },
-    subscriptions: [{ id: 'sub-1', items }],
+    // `status` é obrigatório para a resolução: o entitlement sai dele, e
+    // assinatura sem status resolve `inactive` — linha bloqueada.
+    subscriptions: [{ id: 'sub-1', status: 'active', items }],
   })
 
   const getInstance = vi.fn().mockResolvedValue({ connected })

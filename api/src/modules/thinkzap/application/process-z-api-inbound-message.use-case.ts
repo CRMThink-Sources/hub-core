@@ -2,6 +2,7 @@ import { env } from '@/config/env'
 import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { findLineItemByInstanceId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
+import { DisconnectExpiredLine } from '@/modules/thinkzap/application/disconnect-expired-line'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import {
   BitrixClient,
@@ -42,6 +43,12 @@ export class ProcessZApiInboundMessageUseCase {
     private readonly appRepo: GetInstalledAppRepository,
     private readonly credentialRepo: GetCredentialRepository,
     private readonly messageRepo: PrismaThinkzapMessageRepository,
+    /**
+     * Desconecta o recurso remoto quando o trial venceu. É o caminho que **mais**
+     * precisa disso: uma mensagem chegando aqui prova que o telefone do cliente
+     * ainda está pareado com uma linha que o app descarta.
+     */
+    private readonly disconnectExpiredLine: DisconnectExpiredLine,
   ) {}
 
   async execute(event: ReceivedMessageEvent): Promise<void> {
@@ -137,6 +144,12 @@ export class ProcessZApiInboundMessageUseCase {
         },
         'Mensagem descartada: linha sem assinatura ativa',
       )
+
+      /**
+       * Sem `await`: o descarte já aconteceu, e o worker não pode esperar o provider
+       * para confirmar uma mensagem que ele vai jogar fora.
+       */
+      this.disconnectExpiredLine.schedule(item, line.entitlement)
       return
     }
 

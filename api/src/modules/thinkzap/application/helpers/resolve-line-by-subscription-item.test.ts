@@ -55,6 +55,7 @@ function makeSut(items: SubscriptionItem[][] = [[zapiItem('i1')]]) {
     aplication: { id: 'installed-1', spaId: '42' },
     subscriptions: items.map((list, index) => ({
       id: `sub-${index + 1}`,
+      status: 'active',
       items: list,
     })),
   })
@@ -109,10 +110,15 @@ describe('resolveLineBySubscriptionItem', () => {
     const resolved = await sut.resolve()
 
     expect(Object.keys(resolved).sort()).toEqual([
+      'entitlement',
       'item',
       'zApiInstanceId',
       'zApiInstanceToken',
     ])
+    /**
+     * **Uma** leitura de contexto, com o entitlement incluído: ele sai da mesma
+     * travessia que acha o item, e a assinatura pai já está em mãos ali.
+     */
     expect(sut.execute).toHaveBeenCalledTimes(1)
   })
 

@@ -34,8 +34,6 @@
     "ZAPI": "Para WhatsApp Web",
     "HUBMESSAGE": "Para WhatsApp Oficial"
   },
-  "conectoresMistosTitulo": "No hay plan que cubra tus líneas",
-  "conectoresMistosDescricao": "Esta instalación tiene líneas de WhatsApp Oficial y WhatsApp Web al mismo tiempo, y una suscripción cubre un solo tipo de conector. Contacta al soporte para armar el cobro correcto.",
   "erroLeituraTitulo": "No pudimos verificar tu suscripción",
   "erroLeitura": "Error al consultar la suscripción. Inténtalo de nuevo.",
   "erroCheckout": "No pudimos iniciar la contratación. Inténtalo de nuevo.",
@@ -44,5 +42,10 @@
   "checkoutDescricao": "Complete los datos de pago abajo. Su línea vuelve a funcionar en cuanto se confirme el pago.",
   "checkoutFechar": "Cerrar",
   "checkoutErroTitulo": "No se pudo abrir el pago",
-  "checkoutSemChave": "El pago con tarjeta no está configurado en este entorno. Contacte al soporte."
+  "checkoutSemChave": "El pago con tarjeta no está configurado en este entorno. Contacte al soporte.",
+  "tituloContrato": "Tu suscripción",
+  "umaLinha": "1 línea",
+  "variasLinhas": "{{quantidade}} líneas",
+  "linhaCriada": "Línea creada.",
+  "erroCriarLinha": "No se pudo crear la línea. Inténtalo de nuevo."
 }

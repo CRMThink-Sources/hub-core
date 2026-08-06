@@ -1,6 +1,5 @@
 import { Plan, PlanProvider } from '@/modules/application/domain/entities/plan'
 import { PlanRepository } from '@/modules/application/domain/repositories/get-plan.repository'
-import { LineProviderResolution } from '@/modules/thinkzap/domain/line-subscription'
 
 /** O plano como a tela de contratação precisa dele. */
 export type OfferablePlan = {
@@ -18,8 +17,8 @@ export type OfferablePlan = {
 }
 
 /**
- * Os planos que podem ser contratados: `active`, com id no gateway, **e** com o
- * provider que a linha da instalação consome.
+ * Os planos que podem ser contratados: `active`, com id no gateway, **e** com
+ * provider declarado.
  *
  * Três filtros, três motivos distintos:
  *
@@ -27,14 +26,19 @@ export type OfferablePlan = {
  * - **`gatewayId`**: plano sem price id não tem o que cobrar; ofertá-lo levaria a um
  *   checkout que falha **depois** de o cliente escolher. É também o que separa o
  *   plano de trial (grátis) dos pagos, sem precisar de uma flag "é trial".
- * - **`provider`**: conector oficial e não oficial custam diferente. Sem este filtro
- *   uma linha Z-API poderia contratar o plano do Oficial e pagar menos do que
- *   consome — em silêncio, porque nada mais na cadeia compara os dois.
+ * - **`provider`**: sem saber o que o plano precifica não há como impedir a linha
+ *   errada de contratá-lo. Falhar fechado esconde o plano — visível em
+ *   `yarn list:payment-plans`; falhar aberto perde dinheiro sem sintoma.
  *
- * Plano pago **sem** provider é não ofertável, de propósito: sem saber o que ele
- * precifica não há como impedir a linha errada de contratá-lo. Falhar fechado
- * esconde o plano — visível em `yarn list:payment-plans`; falhar aberto perde
- * dinheiro sem sintoma.
+ * **A listagem não é filtrada pelo conector que a instalação consome.** Era, e
+ * deixou de ser: com um `line_item` por plano na assinatura do gateway, uma
+ * instalação com os dois conectores é precificável, e esconder metade do catálogo
+ * dela impediria justamente o caso que criar linha adicional existe para atender.
+ *
+ * O casamento entre plano e conector continua existindo, e é verificado **por
+ * linha** — `findOfferable(planId, provider)` no ato da contratação ou da criação.
+ * Sem isso, uma linha Z-API contrataria o plano do Oficial e pagaria menos do que
+ * consome, em silêncio.
  *
  * **O `gatewayId` não sai daqui.** A tela manda o id do plano no checkout, e o
  * price id é resolvido no servidor — se viesse na resposta, mandar outro no corpo
@@ -43,20 +47,32 @@ export type OfferablePlan = {
 export class ListOfferablePlans {
   constructor(private readonly plans: PlanRepository) {}
 
-  async execute(
-    lineProvider: LineProviderResolution,
-  ): Promise<OfferablePlan[]> {
+  async execute(): Promise<OfferablePlan[]> {
+    const plans = await this.listOfferable()
+
+    return plans.map(plan => ({
+      id: plan.id,
+      name: plan.name,
+      amount: plan.amount,
+      interval: plan.interval,
+      provider: plan.provider!,
+    }))
+  }
+
+  /**
+   * Os mesmos planos, como **entidades** — com `gatewayId`.
+   *
+   * Existe porque o servidor precisa do price id para montar a cobrança, e a tela
+   * não: `execute` é a projeção que sai na resposta, e esta é a que fica dentro. Duas
+   * leituras do mesmo predicado, e não dois predicados — `isOfferable` é o único.
+   *
+   * **Não é exposta por nenhuma rota.** O dia em que for, mandar outro price id no
+   * corpo passa a ser escolher quanto pagar.
+   */
+  async listOfferable(): Promise<Plan[]> {
     const plans = await this.plans.getPlans()
 
-    return plans
-      .filter(plan => this.isOfferable(plan, lineProvider))
-      .map(plan => ({
-        id: plan.id,
-        name: plan.name,
-        amount: plan.amount,
-        interval: plan.interval,
-        provider: plan.provider!,
-      }))
+    return plans.filter(plan => this.isOfferable(plan))
   }
 
   /**
@@ -66,35 +82,28 @@ export class ListOfferablePlans {
    * poderia ter oferecido não pode ser contratado por corpo montado à mão. Duas
    * regras separadas divergiriam, e a divergência abriria exatamente o caminho que
    * o filtro fecha.
+   *
+   * `provider` é o conector da **linha** que vai ser cobrada por este plano, e não
+   * o da instalação: é o que impede contratar o plano do conector errado agora que
+   * uma instalação pode ter os dois.
    */
   async findOfferable(
     planId: string,
-    lineProvider: LineProviderResolution,
+    provider: PlanProvider,
   ): Promise<Plan | null> {
     const plans = await this.plans.getPlans()
 
     return (
       plans.find(
-        plan => plan.id === planId && this.isOfferable(plan, lineProvider),
+        plan =>
+          plan.id === planId &&
+          this.isOfferable(plan) &&
+          plan.provider === provider,
       ) ?? null
     )
   }
 
-  private isOfferable(
-    plan: Plan,
-    lineProvider: LineProviderResolution,
-  ): boolean {
-    if (!plan.active || !plan.gatewayId || !plan.provider) return false
-
-    /**
-     * Providers misturados: nada é ofertável. Uma assinatura carrega um plano só, e
-     * `quantity` multiplica um preço só — qualquer escolha cobraria o preço de um
-     * provider pelo uso de dois.
-     */
-    if (lineProvider === 'MIXED') return false
-
-    // Sem linha não há provider a respeitar: ofertar tudo não cobra de menos por
-    // conector nenhum, porque não há conector em uso.
-    return lineProvider === 'NONE' || plan.provider === lineProvider
+  private isOfferable(plan: Plan): boolean {
+    return Boolean(plan.active && plan.gatewayId && plan.provider)
   }
 }

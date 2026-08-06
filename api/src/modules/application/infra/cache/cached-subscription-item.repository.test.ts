@@ -24,9 +24,9 @@ const item: SubscriptionItem = {
   gatewayId: 'si_abc',
 }
 
-const ITEM_KEY = 'payments:subscription-item:v3:77'
-const ITEM_LIST_KEY = 'payments:subscription-items:v3:all'
-const SUBSCRIPTION_LIST_KEY = 'payments:subscription-items:v3:subscription:4242'
+const ITEM_KEY = 'payments:subscription-item:v4:77'
+const ITEM_LIST_KEY = 'payments:subscription-items:v4:all'
+const SUBSCRIPTION_LIST_KEY = 'payments:subscription-items:v4:subscription:4242'
 
 function makeInner(entity: SubscriptionItem = item) {
   const getSubscriptionItem = vi.fn(() => Promise.resolve(entity))
@@ -272,7 +272,7 @@ describe('CachedSubscriptionItemRepository', () => {
       expect(del).toHaveBeenCalledWith(
         ITEM_KEY,
         ITEM_LIST_KEY,
-        'payments:subscription-items:v3:subscription:9999',
+        'payments:subscription-items:v4:subscription:9999',
       )
     })
 
@@ -304,7 +304,7 @@ describe('CachedSubscriptionItemRepository', () => {
 
   describe('reparentSubscriptionItem', () => {
     const DESTINATION_LIST_KEY =
-      'payments:subscription-items:v3:subscription:9999'
+      'payments:subscription-items:v4:subscription:9999'
 
     it('delega ao interno e devolve o item com o pai novo', async () => {
       const inner = makeInner()

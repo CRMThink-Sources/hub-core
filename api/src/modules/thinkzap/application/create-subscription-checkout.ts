@@ -1,4 +1,5 @@
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import { PlanProvider } from '@/modules/application/domain/entities/plan'
 import { ensurePlanProviderField } from '@/modules/application/infra/bitrix/ensure-plan-provider-field'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import {
@@ -7,9 +8,9 @@ import {
 } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 import {
   isTrialSubscription,
-  resolveCurrentSubscription,
-  resolveLineProvider,
+  resolveCurrentContract,
 } from '@/modules/thinkzap/domain/line-subscription'
+import { buildContractLineItems } from './helpers/build-contract-line-items'
 import { ListOfferablePlans } from './list-offerable-plans'
 
 export class PlanNotOfferableError extends Error {
@@ -19,16 +20,6 @@ export class PlanNotOfferableError extends Error {
         'ter id no gateway de pagamento, e precificar o mesmo conector que a linha usa.',
     )
     this.name = 'PlanNotOfferableError'
-  }
-}
-
-export class MixedLineProvidersError extends Error {
-  constructor() {
-    super(
-      'Esta instalação tem linhas de conectores diferentes, e uma assinatura carrega ' +
-        'um plano só — não há preço que cubra os dois. Fale com o suporte.',
-    )
-    this.name = 'MixedLineProvidersError'
   }
 }
 
@@ -56,6 +47,12 @@ export type CreateSubscriptionCheckoutInput = {
  * **Preço, quantidade e período são derivados no servidor.** O corpo da requisição
  * carrega só o id do plano — aceitar qualquer um dos três deixaria o cliente
  * escolher quanto paga.
+ *
+ * A cobrança montada aqui é o **estado desejado do contrato**: um `line_item` por
+ * plano, com a quantidade de linhas de cada um. É a mesma montagem que a criação de
+ * linha usa, e é compartilhada de propósito — duas montagens divergiriam, e a
+ * divergência apareceria como cliente cobrado por uma linha a mais ou a menos
+ * dependendo de por onde entrou.
  */
 export class CreateSubscriptionCheckout {
   constructor(
@@ -74,16 +71,6 @@ export class CreateSubscriptionCheckout {
     })
 
     /**
-     * O conector que a instalação consome vem **antes** da validação do plano: é ele
-     * que define o que é ofertável aqui. Sem isso, o plano do conector mais barato
-     * seria aceito para uma linha do mais caro, e a diferença sairia do nosso bolso
-     * sem aparecer em lugar nenhum.
-     */
-    const lineProvider = resolveLineProvider(context.subscriptions)
-
-    if (lineProvider === 'MIXED') throw new MixedLineProvidersError()
-
-    /**
      * O campo de provider na SPA de planos, verificado **antes** de criar sessão no
      * gateway. Sem ele todo plano pago resolve provider `undefined` e deixa de ser
      * ofertável — e o sintoma seria "nenhum plano disponível", que não aponta para a
@@ -91,21 +78,25 @@ export class CreateSubscriptionCheckout {
      */
     await ensurePlanProviderField(this.bitrix)
 
-    /**
-     * O plano passa pelo **mesmo** predicado da listagem: inativo, sem price id, sem
-     * provider, ou de provider incompatível é recusado **antes** de criar sessão no
-     * gateway. Criar primeiro deixaria sessão órfã lá a cada tentativa.
-     */
-    const plan = await this.plans.findOfferable(input.planId, lineProvider)
-    if (!plan?.gatewayId) throw new PlanNotOfferableError(input.planId)
+    const contract = resolveCurrentContract(context.subscriptions)
+    const current = contract[0] ?? null
 
-    const current = resolveCurrentSubscription(context.subscriptions)
+    /**
+     * O conector que o plano escolhido tem que precificar é o da linha que ele vai
+     * cobrar — e a instalação pode ter linhas de dois conectores. O plano é validado
+     * contra o **conector dele mesmo**, e a cobrança do contrato inteiro é montada
+     * depois: cada conector é precificado pelo plano dele, e nenhum é cobrado pelo
+     * preço do outro.
+     */
+    const chosen = await this.findChosenPlan(input.planId)
+    if (!chosen) throw new PlanNotOfferableError(input.planId)
 
     /**
      * Instalação com assinatura paga do gateway **viva** não contrata de novo:
      * seria troca de plano, que está fora de escopo e exigiria proration. Trial e
      * paga cancelada podem — é justamente o caso que esta superfície existe para
-     * resolver.
+     * resolver. Acrescentar linha a um contrato vivo tem superfície própria, e não
+     * passa por aqui.
      */
     if (
       current &&
@@ -117,30 +108,66 @@ export class CreateSubscriptionCheckout {
     }
 
     /**
-     * `quantity` é o número de linhas da instalação, não um campo de entrada. Hoje
-     * é sempre 1, porque criar linha adicional está fora de escopo — o cálculo
-     * existe desde já para que "assinar" não precise ser reescrito quando a
-     * segunda linha entrar: o que muda lá é quem incrementa, não a forma.
+     * `quantity` sai da contagem de linhas do contrato, nunca de um campo de
+     * entrada. Um `line_item` por plano: a instalação que tem os dois conectores é
+     * cobrada pelos dois preços na mesma assinatura do gateway.
      */
-    const quantity = Math.max(1, this.countLines(context))
+    const { lineItems, plansByProvider } = buildContractLineItems({
+      contract,
+      offerablePlans: await this.plans.listOfferable(),
+    })
+
+    /**
+     * O plano escolhido tem que precificar um conector que a instalação **usa**.
+     *
+     * É a mesma proteção que o filtro por provider dava antes de ele sair: sem ela,
+     * contratar o plano do Oficial numa instalação que só tem linha Z-API criaria
+     * uma sessão que cobra o preço da linha Z-API mas registra o plano do Oficial no
+     * metadata — cobrança certa, contrato mentiroso.
+     *
+     * Instalação sem linha não tem conector a respeitar, e aí qualquer plano
+     * ofertável serve.
+     */
+    if (plansByProvider.size > 0 && !plansByProvider.has(chosen.provider!)) {
+      throw new PlanNotOfferableError(input.planId)
+    }
+
+    /**
+     * Instalação sem linha ainda pode contratar: o `line_item` é o do plano
+     * escolhido, com quantidade 1. Sem isso a sessão nasceria sem preço, e o gateway
+     * recusaria longe daqui.
+     */
+    const items =
+      lineItems.length > 0
+        ? lineItems
+        : [{ priceId: chosen.gatewayId!, quantity: 1 }]
 
     return this.gateway.createCheckoutSession({
-      priceId: plan.gatewayId,
-      quantity,
+      lineItems: items,
       installation: {
         domainId: input.domainId,
         appCode: input.appCode,
-        planId: plan.id,
+        planId: chosen.id,
       },
+      intent: { kind: 'convert' },
     })
   }
 
-  /** Linhas ativas da instalação, somando todas as assinaturas dela. */
-  private countLines(context: {
-    subscriptions: Array<{ items: Array<{ status: string }> }>
-  }): number {
-    return context.subscriptions
-      .flatMap(subscription => subscription.items)
-      .filter(item => item.status === 'active').length
+  /**
+   * O plano escolhido, validado pelo predicado de ofertável **e** pelo conector que
+   * ele declara.
+   *
+   * O provider vem do próprio plano em vez da instalação: com os dois conectores
+   * possíveis na mesma instalação, comparar com "o conector da instalação" não tem
+   * resposta única. O que precisa continuar valendo é que o plano seja ofertável, e
+   * `findOfferable` é o mesmo predicado da listagem.
+   */
+  private async findChosenPlan(planId: string) {
+    for (const provider of ['ZAPI', 'HUBMESSAGE'] as PlanProvider[]) {
+      const plan = await this.plans.findOfferable(planId, provider)
+      if (plan) return plan
+    }
+
+    return null
   }
 }

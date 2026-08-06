@@ -1,4 +1,5 @@
 import type { LineConnectionReading } from '@/modules/thinkzap/application/get-line-connection'
+import type { LineEntitlement } from '@/modules/thinkzap/domain/connector-trial'
 
 /**
  * **Fronteira pública da API.** Nada sai daqui por spread da resposta do
@@ -11,6 +12,12 @@ import type { LineConnectionReading } from '@/modules/thinkzap/application/get-l
  */
 export type LineConnectionView = {
   connected: boolean
+  /**
+   * `active` | `trial-expired` | `inactive`. Sempre presente, inclusive quando
+   * desconectada: é o que diz à tela para explicar o bloqueio em vez de oferecer o
+   * QR code, que a rota recusa.
+   */
+  entitlement: LineEntitlement
   /** Nome da linha no provider. */
   name?: string
   phone?: string
@@ -28,8 +35,12 @@ const text = (value: string | undefined | null): string | undefined =>
 export const mapLineConnectionToView = ({
   instance,
   phone,
+  entitlement,
 }: LineConnectionReading): LineConnectionView => {
-  const view: LineConnectionView = { connected: instance.connected === true }
+  const view: LineConnectionView = {
+    connected: instance.connected === true,
+    entitlement,
+  }
 
   if (!view.connected) {
     // Desconectada: nada de aparelho a mostrar, e o `name` da instância não

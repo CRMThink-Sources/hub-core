@@ -10,7 +10,7 @@ import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
 import { ensureLineInstance } from '@/modules/thinkzap/application/helpers/ensure-line-instance'
-import { findConnectorLineInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
+import { assertConnectorLineEnabled } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { mapLineError } from '@/modules/thinkzap/presentation/helpers/handle-line-error'
 import { parseLineRequest } from './line-request'
 
@@ -56,8 +56,13 @@ export class LinkLineChannelController extends Controller {
         appCode: input.appCode,
       })
 
-      // Valida que o item é desta instalação e tem conector antes de tocar o Bitrix.
-      const item = findConnectorLineInContext(context, input.subscriptionItemId)
+      // Valida que o item é desta instalação, tem conector e está habilitado antes
+      // de tocar o Bitrix: linha bloqueada não ativa canal aberto nenhum.
+      const item = assertConnectorLineEnabled(
+        context,
+        input.subscriptionItemId,
+        new Date(),
+      )
 
       /**
        * Ativar no Bitrix **antes** de persistir: se a ativação falhar, o vínculo
