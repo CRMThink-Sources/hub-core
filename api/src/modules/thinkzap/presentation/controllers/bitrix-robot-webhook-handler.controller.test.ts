@@ -41,15 +41,43 @@ const makeDeps = (
 ) => {
   const getDomain = { getDomain: vi.fn().mockResolvedValue({ id: 'domain-1' }) }
   const getApp = {
-    getByAppCodeAndDomainId: vi.fn().mockResolvedValue({ id: 'app-1' }),
-  }
-  const getConnector = {
-    get: vi.fn().mockResolvedValue({ instanceId: 'inst-1' }),
-  }
-  const getInstance = {
-    getInstance: vi
+    getByAppCodeAndDomainId: vi
       .fn()
-      .mockResolvedValue({ instanceId: 'zapi-inst', zApiToken: 'tok' }),
+      .mockResolvedValue({ id: 'app-1', appCodeId: 'crmthink.thinkzap' }),
+  }
+  /**
+   * A linha vem do item de assinatura: a opção do robô carrega o id do item, não o
+   * do conector.
+   */
+  const getAplicationContext = {
+    execute: vi.fn().mockResolvedValue({
+      customer: { id: 'domain-1', name: 'test.bitrix24.com' },
+      aplication: { id: 'app-1', spaId: '42' },
+      subscriptions: [
+        {
+          id: 'sub-1',
+          // `status` e janela obrigatórios: sem eles o entitlement cai em
+          // `inactive` e o robô recusa antes de resolver recipients.
+          status: 'active',
+          currentPeriodEnd: new Date('2099-01-01T00:00:00.000Z'),
+          items: [
+            {
+              id: 'conn',
+              name: 'Linha',
+              subscription: 'sub-1',
+              status: 'active',
+              settings: {},
+              vinculatedChannel: null,
+              metadata: {
+                provider: 'ZAPI',
+                zApiInstanceId: 'zapi-inst',
+                zApiInstanceToken: 'tok',
+              },
+            },
+          ],
+        },
+      ],
+    }),
   }
   const sendNotification = { execute: vi.fn().mockResolvedValue(undefined) }
   const bitrix = {
@@ -62,8 +90,7 @@ const makeDeps = (
   return {
     getDomain,
     getApp,
-    getConnector,
-    getInstance,
+    getAplicationContext,
     sendNotification,
     bitrix,
   }
@@ -73,8 +100,7 @@ const makeController = (deps: ReturnType<typeof makeDeps>) =>
   new BitrixRobotWebhookHandlerController(
     deps.getDomain as never,
     deps.getApp as never,
-    deps.getConnector as never,
-    deps.getInstance as never,
+    deps.getAplicationContext as never,
     deps.sendNotification as never,
     deps.bitrix as never,
   )

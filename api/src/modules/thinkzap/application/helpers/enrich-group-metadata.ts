@@ -74,21 +74,38 @@ async function enrichParticipantPhotos(
   return enriched
 }
 
+/**
+ * @param groupId Id pedido pelo chamador. É o fallback de `phone`: a resposta da
+ * Z-API nem sempre traz o campo, e sem ele a busca da foto ia com `undefined` na
+ * URL e o front quebrava ao montar as iniciais do avatar.
+ */
 export async function enrichGroupMetadata(
   metadata: ZApiGroupMetadata,
   zApiClient: ZApiClient,
   instanceId: string,
   zApiToken: string,
+  groupId: string,
 ): Promise<ZApiGroupMetadata> {
   const participants = normalizeParticipants(metadata.participants)
 
+  /**
+   * `subject` e `phone` são tipados como `string` mas vêm de JSON de provider:
+   * o tipo é promessa, não garantia. Coagir aqui é o que impede um campo ausente
+   * de virar `undefined` no payload e derrubar o render lá na frente.
+   */
+  const phone = coerceString(metadata.phone) || groupId
+  const subject = coerceString(metadata.subject)
+
   const [photoUrl, participantsWithPhotos] = await Promise.all([
-    zApiClient.getProfilePicture(instanceId, zApiToken, metadata.phone),
+    zApiClient.getProfilePicture(instanceId, zApiToken, phone),
     enrichParticipantPhotos(zApiClient, instanceId, zApiToken, participants),
   ])
 
   return {
     ...metadata,
+    phone,
+    subject,
+    description: coerceString(metadata.description),
     adminOnlyMessage: parseBool(metadata.adminOnlyMessage),
     adminOnlySettings: parseBool(metadata.adminOnlySettings),
     requireAdminApproval: parseBool(metadata.requireAdminApproval),

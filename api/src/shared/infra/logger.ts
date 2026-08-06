@@ -8,7 +8,7 @@ export type LogApp =
   | 'importsheet'
   | 'clicksign'
   | 'shared'
-export type WorkerSource = 'z-api' | 'bitrix'
+export type WorkerSource = 'z-api' | 'bitrix' | 'hubmessage'
 
 const redactOptions = {
   paths: [
@@ -105,13 +105,27 @@ export function resolveLogApp(path: string): LogApp {
   if (path.startsWith('/api/thinkanalise')) return 'thinkanalise'
   if (path.startsWith('/api/importsheet')) return 'importsheet'
   if (path.startsWith('/api/clicksign')) return 'clicksign'
+  /**
+   * `/api/application` é transversal: serve qualquer app instalado, então nenhum
+   * membro de `LogApp` descreve a rota. Cai em `'shared'` de propósito — criar
+   * `'payments'` mexeria num tipo usado por todo o logger, e o filtro que
+   * importa na prática é o `appId` do tenant, que o `authMiddleware` já injeta no
+   * contexto via `setLogContext`.
+   */
+  if (path.startsWith('/api/application')) return 'shared'
   if (
     path.startsWith('/api/webhooks/z-api') ||
-    path.startsWith('/api/webhooks/bitrix') ||
-    path.startsWith('/api/webhooks/stripe')
+    path.startsWith('/api/webhooks/bitrix')
   ) {
     return 'thinkzap'
   }
+  /**
+   * O webhook do gateway de pagamento é o que ativa a linha do ThinkZap: quando
+   * um cliente reclama que pagou e a linha não voltou, é neste app que se procura.
+   * Cair em `'shared'` misturaria esse rastro com o de todas as rotas
+   * transversais.
+   */
+  if (path.startsWith('/api/webhooks/stripe')) return 'thinkzap'
   return 'shared'
 }
 

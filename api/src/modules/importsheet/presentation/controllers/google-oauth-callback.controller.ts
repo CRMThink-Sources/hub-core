@@ -10,7 +10,8 @@ import { setLogContext } from '@/shared/infra/log-context'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 
 function oauthPopupHtml(status: 'success' | 'error'): string {
-  const origin = env.frontUrl || env.appUrl || '*'
+  // `env.frontUrl` já cai em `APP_URL`; repetir o fallback aqui sugeriria que não.
+  const origin = env.frontUrl || '*'
   return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><script>
     try { window.opener.postMessage({ type: 'google-oauth', status: '${status}' }, '${origin}') } catch(_) {}
     window.close()

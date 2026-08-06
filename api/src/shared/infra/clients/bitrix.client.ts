@@ -224,12 +224,33 @@ export class BitrixClient {
   ): Promise<ICrmItemResponse> {
     const client = this.getClient()
     try {
-      const response = await client.get(`/crm.item.get`, {
+      const response = await client.get<ICrmItemResponse>(`/crm.item.get`, {
         params: { entityTypeId, id },
       })
       return response.data
     } catch (error) {
       throw new BitrixError('Failed to get CRM item')
+    }
+  }
+
+  /**
+   * Descreve os campos de uma SPA. Serve para verificar que um campo custom
+   * existe **antes** de escrever nele: `crm.item.update` ignora campo desconhecido
+   * sem devolver erro, então gravar num campo inexistente é perda silenciosa.
+   */
+  async getCrmItemFields(
+    entityTypeId: number,
+  ): Promise<ICrmItemFieldsResponse> {
+    const client = this.getClient()
+    try {
+      const response = await client.get<ICrmItemFieldsResponse>(
+        `/crm.item.fields`,
+        { params: { entityTypeId } },
+      )
+      return response.data
+    } catch (error) {
+      console.error('[BitrixClient] getCrmItemFields error:', error)
+      throw new BitrixError('Failed to describe CRM item fields')
     }
   }
 
@@ -411,6 +432,12 @@ export class BitrixClient {
 export interface ICrmItemResponse {
   result: {
     item: Record<string, unknown>
+  }
+}
+
+export interface ICrmItemFieldsResponse {
+  result: {
+    fields: Record<string, { type?: string; isReadOnly?: boolean }>
   }
 }
 

@@ -1,40 +1,36 @@
 import { Request } from 'express'
+import z from 'zod'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
-import { GetAvailableAppRepository } from '@/shared/domain/repositories/get-available-app.repository'
-import { GetOrCreateDomain } from '@/shared/application/get-or-create-domain'
-import { GetOrCreateInstalledApp } from '@/shared/application/get-or-create-installed-app'
-import { GetOrCreateCredential } from '@/shared/application/get-or-create-credential'
-import { bitrixInstallBindRegistry } from '@/shared/infra/setup-bitrix-install-binds'
-import { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
-import z from 'zod'
-import { appIdResolver } from './helpers/app-id-resolver'
-import { GetOrCreateSpa } from '@/shared/application/get-or-create-spa'
-import { syncThinkzapRobotConnectorOptions } from '@/modules/thinkzap/application/sync-robot-connectors'
+import {
+  AppCodeNotFoundError,
+  InstallApp,
+  InstallStepError,
+} from '@/shared/application/install-app'
+import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
 
+/** Mesmos campos que o formulário de instalação já envia. Nada de contato novo. */
+const installSchema = z.object({
+  domain: z.string().min(1),
+  member_id: z.string().min(1),
+  app_code: z.string().min(1),
+  email: z.string().min(1),
+  access_token: z.string().min(1),
+  refresh_token: z.string().min(1),
+  expires_in: z.number(),
+})
+
+/**
+ * Valida o payload e delega. Toda a orquestração vive em `InstallApp` — este
+ * controller não conhece passo, ordem, nem app específico.
+ */
 export class InstallController extends Controller {
-  constructor(
-    private readonly getAvailableAppRepository: GetAvailableAppRepository,
-    private readonly getOrCreateDomain: GetOrCreateDomain,
-    private readonly getOrCreateInstalledApp: GetOrCreateInstalledApp,
-    private readonly getOrCreateCredential: GetOrCreateCredential,
-    private readonly getOrCreateSpa: GetOrCreateSpa,
-  ) {
+  constructor(private readonly installApp: InstallApp) {
     super()
   }
 
   async perform(req: Request): Promise<httpResponse> {
-    const params = z
-      .object({
-        domain: z.string(),
-        member_id: z.string(),
-        app_code: z.string(),
-        email: z.string(),
-        access_token: z.string(),
-        refresh_token: z.string(),
-        expires_in: z.number(),
-      })
-      .safeParse(req.body)
+    const params = installSchema.safeParse(req.body)
 
     if (!params.success) {
       return this.badRequest(
@@ -42,86 +38,54 @@ export class InstallController extends Controller {
       )
     }
 
-    const {
-      domain,
-      member_id,
-      app_code,
-      access_token,
-      refresh_token,
-      email,
-      expires_in,
-    } = params.data
+    const body = params.data
+    const catalogEntry = resolveByMarketplaceCode(body.app_code)
 
-    const appId = appIdResolver[app_code]
-
-    if (!appId) {
+    // Antes de qualquer escrita: `app_code` desconhecido não chega no caso de uso.
+    if (!catalogEntry) {
       return this.notFound(new Error('App ID not found'))
     }
 
-    const availableApp = await this.getAvailableAppRepository.getById(appId)
+    const appCode = catalogEntry.appCodeId
 
-    if (!availableApp) {
-      return this.notFound(new Error('Available app not found'))
-    }
+    try {
+      const result = await this.installApp.execute({
+        domain: body.domain,
+        memberId: body.member_id,
+        appCode,
+        email: body.email,
+        accessToken: body.access_token,
+        refreshToken: body.refresh_token,
+        expiresIn: body.expires_in,
+      })
 
-    const domainEntity = await this.getOrCreateDomain.execute({
-      name: domain,
-      memberId: member_id,
-    })
-
-    const installedApp = await this.getOrCreateInstalledApp.execute({
-      domainId: domainEntity.id,
-      appCodeId: availableApp.id,
-      email: email,
-    })
-
-    await this.getOrCreateCredential.execute({
-      appId: installedApp.id,
-      clientId: availableApp.code,
-      clientSecret: availableApp.secret,
-      accessToken: access_token,
-      refreshToken: refresh_token,
-      expiresAt: new Date(expires_in),
-    })
-
-    const bitrixClient = new BitrixRestClient(domain, access_token)
-
-    const bitrixBinds = bitrixInstallBindRegistry.getBindsForApp(appId)
-
-    if (bitrixBinds.length > 0) {
-      for (const bind of bitrixBinds) {
-        try {
-          await bitrixClient.callMethod(bind.method, bind.params)
-        } catch (error: any) {
-          console.error(
-            `Error binding ${bind.method} to Bitrix:`,
-            error as Error,
-          )
-        }
-      }
-    }
-
-    await bitrixInstallBindRegistry.runOnInstall(appId, bitrixClient)
-    console.log('appId', appId)
-    if (appId === 'crmthink.thinkzap') {
-      await syncThinkzapRobotConnectorOptions(installedApp.id)
-    }
-    await this.getOrCreateSpa.execute({
-      appId: installedApp.appCodeId,
-      domain: domain,
-      company: '',
-      email: email,
-      memberId: member_id,
-      name: '',
-      phone: '',
-    })
-
-    return {
-      result: {
-        ...domainEntity,
-        app: installedApp,
-      },
-      status: 200,
+      return this.ok({
+        ...result.domain,
+        app: result.app,
+        spaItemId: result.spaItemId,
+      })
+    } catch (error) {
+      if (error instanceof InstallStepError) return this.installFailed(error)
+      throw error
     }
   }
+
+  /**
+   * O passo que quebrou vai no corpo: sem isso o frontend só consegue dizer
+   * "falhou", e o suporte tem que abrir o log para saber onde.
+   */
+  private installFailed(error: InstallStepError): httpResponse {
+    return {
+      status: statusFor(error),
+      result: { error: { step: error.step, message: error.message } },
+    }
+  }
+}
+
+function statusFor(error: InstallStepError): number {
+  if (error.cause instanceof AppCodeNotFoundError) return 404
+
+  // 502 quando a origem é o Bitrix — falha de terceiro, o cliente pode tentar de
+  // novo. 500 quando é o banco.
+  return error.isUpstream ? 502 : 500
 }

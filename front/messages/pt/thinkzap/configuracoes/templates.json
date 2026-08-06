@@ -1,0 +1,39 @@
+{
+  "tab": "Templates",
+  "descricao": "Modelos de mensagem aprovados pela Meta para iniciar conversas fora da janela de 24h.",
+  "novo": "Novo template",
+  "sincronizar": "Sincronizar",
+  "carregando": "Carregando templates...",
+  "status": {
+    "PENDING": "Pendente",
+    "APPROVED": "Aprovado",
+    "REJECTED": "Reprovado"
+  },
+  "categoria": {
+    "UTILITY": "Utilidade",
+    "MARKETING": "Marketing",
+    "AUTHENTICATION": "Autenticação"
+  },
+  "lista": {
+    "vazio": "Nenhum template cadastrado ainda."
+  },
+  "form": {
+    "nome": "Nome do template",
+    "nomeHint": "Use snake_case: apenas letras minúsculas, números e _.",
+    "categoria": "Categoria",
+    "idioma": "Idioma",
+    "body": "Corpo da mensagem",
+    "bodyPlaceholder": "Olá {{1}}, seu pedido foi confirmado.",
+    "bodyHint": "Use {{1}}, {{2}} para variáveis dinâmicas.",
+    "exemplo": "Exemplo para {{variavel}}",
+    "exemploPlaceholder": "Valor de exemplo para {{variavel}}",
+    "exemploHint": "A Meta exige um exemplo por variável. Sem isso o template é reprovado.",
+    "erroExemplo": "Preencha um exemplo para cada variável do corpo.",
+    "footer": "Rodapé (opcional)",
+    "enviar": "Enviar para aprovação",
+    "enviando": "Enviando...",
+    "cancelar": "Cancelar",
+    "erroNome": "Nome inválido: use snake_case (a-z, 0-9, _).",
+    "erroBody": "O corpo da mensagem é obrigatório."
+  }
+}

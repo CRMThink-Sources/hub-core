@@ -17,6 +17,12 @@ export type ThinkzapInboundJob =
       body: Record<string, unknown>
       traceKey: string
     }
+  | {
+      source: 'hubmessage'
+      type: string
+      body: Record<string, unknown>
+      traceKey: string
+    }
 
 export const thinkzapInboundQueue = new Queue<ThinkzapInboundJob>(
   THINKZAP_INBOUND,
@@ -25,13 +31,18 @@ export const thinkzapInboundQueue = new Queue<ThinkzapInboundJob>(
   },
 )
 
-export async function enqueueThinkzapInboundJob(job: ThinkzapInboundJob) {
+export async function enqueueThinkzapInboundJob(
+  job: ThinkzapInboundJob,
+  opts?: { jobId?: string },
+) {
   const createdJob = await thinkzapInboundQueue.add('process-inbound', job, {
     attempts: 3,
     backoff: {
       type: 'exponential',
       delay: 1000,
     },
+    // Chave determinística: reentrega do mesmo evento é colapsada pelo BullMQ.
+    ...(opts?.jobId ? { jobId: opts.jobId } : {}),
   })
 
   apiLogger.info(

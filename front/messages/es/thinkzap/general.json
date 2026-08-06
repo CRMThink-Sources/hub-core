@@ -1,9 +1,0 @@
-{
-  "banner": {
-    "semAssinatura": "No tienes una suscripción activa. Inicia tu prueba o contrata conectores para comenzar a usar ThinkZap.",
-    "cancelada": "Tu suscripción está cancelada. Reactívala para volver a conectar nuevos números.",
-    "trial": "Tu suscripción está en período de prueba.",
-    "pastDue": "Tu pago está pendiente. Regularízalo para evitar interrupciones.",
-    "ativa": "Suscripción activa y lista para conectar tus números."
-  }
-}

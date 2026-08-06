@@ -1,0 +1,51 @@
+{
+  "status": {
+    "active": "Activa",
+    "past_due": "Pago pendiente",
+    "cancelled": "Cancelada",
+    "trialing": "En prueba"
+  },
+  "modalidade": {
+    "stripe": "Cobro con tarjeta",
+    "manual": "Cobro por boleto"
+  },
+  "intervalo": {
+    "monthly": "mes",
+    "quarterly": "trimestre",
+    "semiannual": "semestre",
+    "yearly": "año"
+  },
+  "valorPorIntervalo": "{{valor}} por {{intervalo}}",
+  "vigenteDescricao": "Tu suscripción está activa y se renueva el {{data}}.",
+  "inadimplenteDescricao": "No pudimos completar el pago. Tus líneas dejan de enviar y recibir mensajes hasta que se regularice el cobro.",
+  "canceladaDescricao": "Tu suscripción fue cancelada y el período terminó el {{data}}. Las líneas siguen aquí, pero no envían ni reciben mensajes.",
+  "manualSemAutoatendimento": "El cobro por boleto lo gestiona nuestro equipo financiero. Para cambiar de plan, forma de pago o cancelar, contacta al soporte.",
+  "gerenciarPagamento": "Gestionar pago",
+  "abrindoPortal": "Abriendo...",
+  "contratar": {
+    "titulo": "Suscríbete para seguir usando",
+    "descricao": "Tu línea vuelve a enviar y recibir mensajes en cuanto se confirme el pago. La credencial, los ajustes y el canal vinculado siguen como están.",
+    "escolher": "Suscribirse",
+    "redirecionando": "Redirigiendo..."
+  },
+  "processandoTitulo": "Confirmando tu pago",
+  "processandoDescricao": "Recibimos tu pago y estamos liberando tu línea. Suele tardar unos segundos — puedes quedarte en esta pantalla.",
+  "conector": {
+    "ZAPI": "Para WhatsApp Web",
+    "HUBMESSAGE": "Para WhatsApp Oficial"
+  },
+  "erroLeituraTitulo": "No pudimos verificar tu suscripción",
+  "erroLeitura": "Error al consultar la suscripción. Inténtalo de nuevo.",
+  "erroCheckout": "No pudimos iniciar la contratación. Inténtalo de nuevo.",
+  "erroPortal": "No pudimos abrir el portal de pago. Inténtalo de nuevo.",
+  "checkoutTitulo": "Finalizar suscripción",
+  "checkoutDescricao": "Complete los datos de pago abajo. Su línea vuelve a funcionar en cuanto se confirme el pago.",
+  "checkoutFechar": "Cerrar",
+  "checkoutErroTitulo": "No se pudo abrir el pago",
+  "checkoutSemChave": "El pago con tarjeta no está configurado en este entorno. Contacte al soporte.",
+  "tituloContrato": "Tu suscripción",
+  "umaLinha": "1 línea",
+  "variasLinhas": "{{quantidade}} líneas",
+  "linhaCriada": "Línea creada.",
+  "erroCriarLinha": "No se pudo crear la línea. Inténtalo de nuevo."
+}

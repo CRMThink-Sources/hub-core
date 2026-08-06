@@ -64,7 +64,7 @@ export function buildThinkzapRobotUpdateParams(): {
   FIELDS: Pick<ThinkzapRobotAddParams, 'PROPERTIES'>
 } {
   const addParams = buildThinkzapRobotAddParams()
-  console.log({ addParams })
+
   return {
     CODE: addParams.CODE,
     FIELDS: {

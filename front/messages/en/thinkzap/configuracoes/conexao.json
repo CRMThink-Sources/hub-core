@@ -1,0 +1,39 @@
+{
+  "titulo": "Connection",
+  "descricao": "This line WhatsApp connection state.",
+  "descricaoConectado": "This line is connected to WhatsApp.",
+  "descricaoDesconectado": "Scan the QR code with the WhatsApp of this line number.",
+  "carregando": "Loading state...",
+  "erroEstado": "Could not read the connection state.",
+  "erroEstadoTitulo": "Connection state unavailable",
+  "tentarNovamente": "Try again",
+  "erroQrCode": "Could not generate the QR code.",
+  "erroQrCodeTitulo": "QR code unavailable",
+  "qrCodeAlt": "QR code to connect WhatsApp",
+  "qrCodeIndisponivel": "QR code unavailable",
+  "instrucaoQrCode": "In WhatsApp: Linked devices → Link a device, then point at the code.",
+  "atualizarQrCode": "Refresh QR code",
+  "semNome": "No name",
+  "desconectar": "Disconnect",
+  "cancelar": "Cancel",
+  "desconectarHint": "Disconnecting ends this line WhatsApp session. The subscription is not affected.",
+  "desconectado": "Line disconnected.",
+  "erroDesconectar": "Could not disconnect the line.",
+  "confirmarDesconectarTitulo": "Disconnect this line?",
+  "confirmarDesconectarDescricao": "The line stops sending and receiving messages until it is connected again via QR code.",
+  "campos": {
+    "nome": "Name",
+    "telefone": "Phone",
+    "aparelho": "Device",
+    "conta": "Account",
+    "contaBusiness": "Business",
+    "contaPessoal": "Personal",
+    "recado": "About"
+  },
+  "bloqueada": {
+    "trialTitulo": "Trial period ended",
+    "trialDescricao": "This line no longer connects: the trial is over. The number was disconnected from the provider, and reconnecting requires a subscription.",
+    "inativaTitulo": "No active subscription",
+    "inativaDescricao": "This line will not connect until there is an active subscription."
+  }
+}

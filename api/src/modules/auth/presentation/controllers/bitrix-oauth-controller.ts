@@ -1,4 +1,3 @@
-import { env } from '@/config/env'
 import { UpsertOperatorBitrixOAuth } from '@/modules/thinkzap/application/upsert-operator-bitrix-oauth'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
@@ -7,7 +6,7 @@ import type { GetDomainRepository } from '@/shared/domain/repositories/domain/ge
 import type { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import type { Request } from 'express'
 import z from 'zod'
-import { appIdResolver } from './helpers/app-id-resolver'
+import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
 
 export class BitrixOAuthController extends Controller {
   constructor(
@@ -46,12 +45,13 @@ export class BitrixOAuthController extends Controller {
       expires_in,
     } = params.data
 
-    if (
-      app_code !== env.appCodes.thinkzap &&
-      appIdResolver[app_code] !== 'crmthink.thinkzap'
-    ) {
+    // A app precisa existir no catálogo e declarar que usa OAuth de operador.
+    // A flag substitui a comparação com o code do thinkzap: quem decide é o
+    // catálogo, não um literal espalhado por controller.
+    const catalogEntry = resolveByMarketplaceCode(app_code)
+    if (!catalogEntry?.requiresOperatorOAuth) {
       return this.badRequest(
-        new Error('Operator OAuth is only supported for ThinkZap'),
+        new Error('Operator OAuth is not supported for this app'),
       )
     }
 
@@ -61,9 +61,9 @@ export class BitrixOAuthController extends Controller {
       return this.notFound(new Error('Domain not found'))
     }
 
-    const resolvedAppId = appIdResolver[app_code] ?? app_code
-    const availableApp =
-      await this.getAvailableAppRepository.getById(resolvedAppId)
+    const availableApp = await this.getAvailableAppRepository.getById(
+      catalogEntry.appCodeId,
+    )
     if (!availableApp) {
       return this.notFound(new Error('ThinkZap app not found'))
     }

@@ -1,4 +1,6 @@
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
+import { callBitrixIdempotent } from '@/shared/infra/clients/call-bitrix-idempotent'
+import { logger } from '@/shared/infra/logger'
 import { listSpaEntityTypes } from './list-spa-entity-types'
 import { buildSpaPlacementBindParams } from './build-spa-placement-bind-params'
 
@@ -7,8 +9,19 @@ export type EnsureSpaPlacements = {
   failed: number
 }
 
+export type EnsureSpaPlacementsOptions = {
+  /**
+   * `true` no fluxo de instalação, que é fail-fast: a primeira SPA que falhar
+   * por motivo diferente de "já vinculado" derruba a instalação, nomeando o
+   * placement. `false` no sync sob demanda, que percorre todas as SPAs e reporta
+   * quantas falharam — ali derrubar a rota por causa de uma SPA seria pior.
+   */
+  failFast?: boolean
+}
+
 export async function ensureSpaPlacements(
   client: BitrixRestClient,
+  options: EnsureSpaPlacementsOptions = {},
 ): Promise<EnsureSpaPlacements> {
   const entityTypeIds = await listSpaEntityTypes(client)
   const paramsList = buildSpaPlacementBindParams(entityTypeIds)
@@ -18,10 +31,24 @@ export async function ensureSpaPlacements(
 
   for (const params of paramsList) {
     try {
-      await client.callMethod('placement.bind', params)
+      // Placement já vinculado conta como registrado: reinstalar num portal já
+      // configurado não é falha.
+      await callBitrixIdempotent(client, 'placement.bind', params)
       registered++
     } catch (error) {
-      console.error(`Failed to bind SPA placement ${params.PLACEMENT}:`, error)
+      if (options.failFast) {
+        throw new Error(
+          `Falha ao vincular placement da SPA ${String(params.PLACEMENT)}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          { cause: error },
+        )
+      }
+
+      logger.error(
+        { err: error, placement: params.PLACEMENT },
+        'failed to bind SPA placement',
+      )
       failed++
     }
   }

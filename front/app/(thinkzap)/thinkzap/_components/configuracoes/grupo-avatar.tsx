@@ -4,18 +4,26 @@ import { useState } from 'react'
 
 type Props = {
   src?: string | null
-  label: string
+  /**
+   * Aceita ausente de propósito: o rótulo é derivado de campos de provider
+   * (`subject`, `phone`, `name`) que o tipo promete como `string` mas a resposta
+   * nem sempre traz. Tratar aqui evita que um campo vazio derrube o render.
+   */
+  label?: string | null
   size?: 'sm' | 'md' | 'lg'
 }
 
-function initials(label: string): string {
-  const parts = label.trim().split(/\s+/).filter(Boolean)
+function initials(label?: string | null): string {
+  const text = (label ?? '').trim()
+  if (!text) return '?'
+
+  const parts = text.split(/\s+/).filter(Boolean)
   if (parts.length >= 2) {
     return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase()
   }
-  const digits = label.replace(/\D/g, '')
+  const digits = text.replace(/\D/g, '')
   if (digits.length >= 2) return digits.slice(-2)
-  return (label[0] ?? '?').toUpperCase()
+  return (text[0] ?? '?').toUpperCase()
 }
 
 const sizeClasses = {
@@ -31,7 +39,7 @@ export function GrupoAvatar({ src, label, size = 'md' }: Props) {
     return (
       <img
         src={src}
-        alt={label}
+        alt={label ?? ''}
         onError={() => setFailed(true)}
         className={`${sizeClasses[size]} shrink-0 rounded-full object-cover bg-muted`}
       />

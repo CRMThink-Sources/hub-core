@@ -1,0 +1,39 @@
+{
+  "tab": "Templates",
+  "descricao": "Meta-approved message templates to start conversations outside the 24h window.",
+  "novo": "New template",
+  "sincronizar": "Sync",
+  "carregando": "Loading templates...",
+  "status": {
+    "PENDING": "Pending",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected"
+  },
+  "categoria": {
+    "UTILITY": "Utility",
+    "MARKETING": "Marketing",
+    "AUTHENTICATION": "Authentication"
+  },
+  "lista": {
+    "vazio": "No templates registered yet."
+  },
+  "form": {
+    "nome": "Template name",
+    "nomeHint": "Use snake_case: lowercase letters, numbers and _ only.",
+    "categoria": "Category",
+    "idioma": "Language",
+    "body": "Message body",
+    "bodyPlaceholder": "Hi {{1}}, your order is confirmed.",
+    "bodyHint": "Use {{1}}, {{2}} for dynamic variables.",
+    "exemplo": "Example for {{variavel}}",
+    "exemploPlaceholder": "Sample value for {{variavel}}",
+    "exemploHint": "Meta requires one example per variable. Without it the template is rejected.",
+    "erroExemplo": "Fill in an example for every variable in the body.",
+    "footer": "Footer (optional)",
+    "enviar": "Submit for approval",
+    "enviando": "Submitting...",
+    "cancelar": "Cancel",
+    "erroNome": "Invalid name: use snake_case (a-z, 0-9, _).",
+    "erroBody": "Message body is required."
+  }
+}

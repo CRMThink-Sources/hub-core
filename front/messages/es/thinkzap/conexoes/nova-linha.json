@@ -1,0 +1,27 @@
+{
+  "acao": "Nueva línea",
+  "titulo": "Crear una nueva línea",
+  "descricao": "Elige el tipo de conector de la nueva línea. El cobro se ajusta en tu suscripción actual, y el importe proporcional a los días restantes entra en la próxima factura.",
+  "conector": {
+    "ZAPI": {
+      "titulo": "WhatsApp Web",
+      "descricao": "Se conecta leyendo el código QR en tu celular. Más rápido de empezar."
+    },
+    "HUBMESSAGE": {
+      "titulo": "WhatsApp Oficial",
+      "descricao": "Canal oficial de Meta, con número verificado y plantillas."
+    }
+  },
+  "intervalo": {
+    "monthly": "mes",
+    "quarterly": "trimestre",
+    "semiannual": "semestre",
+    "yearly": "año"
+  },
+  "escolherPlano": "Elegir plan",
+  "criar": "Crear línea",
+  "criando": "Creando...",
+  "cancelar": "Cancelar",
+  "semPlanoTitulo": "Ningún tipo de conector disponible",
+  "semPlanoDescricao": "No hay ningún plan registrado para los conectores en este entorno. Habla con el soporte para habilitarlo."
+}

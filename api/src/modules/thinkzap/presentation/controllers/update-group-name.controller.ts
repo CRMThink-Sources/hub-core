@@ -4,6 +4,7 @@ import { mapGroupServiceError } from '@/modules/thinkzap/presentation/helpers/ha
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
+import { parseLineRequest } from './line/line-request'
 import z from 'zod'
 
 export class UpdateGroupNameController extends Controller {
@@ -19,7 +20,6 @@ export class UpdateGroupNameController extends Controller {
 
     const parsed = z
       .object({
-        connectorId: z.string().min(1),
         groupName: z.string().trim().min(1),
       })
       .safeParse(req.body)
@@ -32,7 +32,7 @@ export class UpdateGroupNameController extends Controller {
 
     try {
       const result = await this.updateGroupNameService.execute({
-        connectorId: parsed.data.connectorId,
+        ...parseLineRequest(req),
         groupId,
         groupName: parsed.data.groupName,
       })

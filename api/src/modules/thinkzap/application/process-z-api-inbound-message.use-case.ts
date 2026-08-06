@@ -1,5 +1,8 @@
 import { env } from '@/config/env'
-import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
+import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
+import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import { findLineItemByInstanceId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
+import { DisconnectExpiredLine } from '@/modules/thinkzap/application/disconnect-expired-line'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import {
   BitrixClient,
@@ -24,17 +27,28 @@ import {
   extractQuoteInput,
   getQuoteInputType,
 } from './build-reply-quote'
+import { extractBitrixChatId } from './helpers/extract-bitrix-chat-id'
 
 const log = createWorkerSourceLogger('z-api')
 
 export class ProcessZApiInboundMessageUseCase {
   constructor(
-    private readonly connectorRepo: GetConnectorRepository,
+    /**
+     * Resolve a linha pelo item de assinatura. Substituiu `GetConnectorRepository`,
+     * que só servia para descobrir `appId` e obrigava a existir row de `Connector`.
+     */
+    private readonly getAplicationContext: GetAplicationContext,
     private readonly instanceRepo: GetInstanceRepository,
     private readonly domainRepo: GetDomainRepository,
     private readonly appRepo: GetInstalledAppRepository,
     private readonly credentialRepo: GetCredentialRepository,
     private readonly messageRepo: PrismaThinkzapMessageRepository,
+    /**
+     * Desconecta o recurso remoto quando o trial venceu. É o caminho que **mais**
+     * precisa disso: uma mensagem chegando aqui prova que o telefone do cliente
+     * ainda está pareado com uma linha que o app descarta.
+     */
+    private readonly disconnectExpiredLine: DisconnectExpiredLine,
   ) {}
 
   async execute(event: ReceivedMessageEvent): Promise<void> {
@@ -77,42 +91,98 @@ export class ProcessZApiInboundMessageUseCase {
       )
       throw new Error('Instance not found for received message')
     }
-    if (!instance.vinculatedChannel) {
+    const { domainId } = instance
+    if (!domainId) {
+      throw new Error('Domain ID is required')
+    }
+
+    /**
+     * A linha é resolvida pelo **item de assinatura**, não por `Connector`.
+     *
+     * `Connector` entrava aqui só para fornecer `appId`, e a instalação já é
+     * alcançável por (`appCodeId`, `domainId`). Exigir a row fazia toda linha nascida
+     * direto na SPA falhar com "Connector not found for instance": a mensagem chegava
+     * da Z-API e morria no worker, sem caminho de recuperação.
+     */
+    const line = await findLineItemByInstanceId(
+      {
+        instanceId: event.instanceId,
+        domainId,
+        appCode: thinkzapAppCodeId(),
+      },
+      this.getAplicationContext,
+    )
+
+    if (!line) {
       log.warn(
         {
           instanceId: event.instanceId,
           internalInstanceId: instance.id,
           messageId: event.messageId,
         },
-        'Instance has no vinculated channel',
+        'Nenhum item de assinatura corresponde a esta instância',
+      )
+      throw new Error('Line not found for received message')
+    }
+
+    const { item } = line
+
+    /**
+     * Descarta **antes** de persistir mensagem ou criar conversa: mensagem de linha
+     * bloqueada não deve virar row em `messages` nem aparecer no CRM.
+     *
+     * Retorna em vez de lançar, porque o worker traduz exceção em retry — e o
+     * provider reentregaria indefinidamente uma mensagem que nunca vai ser aceita.
+     */
+    if (line.entitlement !== 'active') {
+      log.info(
+        {
+          instanceId: event.instanceId,
+          subscriptionItemId: item.id,
+          messageId: event.messageId,
+          entitlement: line.entitlement,
+        },
+        'Mensagem descartada: linha sem assinatura ativa',
+      )
+
+      /**
+       * Sem `await`: o descarte já aconteceu, e o worker não pode esperar o provider
+       * para confirmar uma mensagem que ele vai jogar fora.
+       */
+      this.disconnectExpiredLine.schedule(item, line.entitlement)
+      return
+    }
+
+    /**
+     * Vínculo do **item**, não da coluna da row: aquela deixou de ser escrita
+     * quando o canal passou para `ufCrm93Conector`, e devolveria o valor de antes
+     * da migração.
+     */
+    const { vinculatedChannel } = item
+    if (!vinculatedChannel) {
+      log.warn(
+        {
+          instanceId: event.instanceId,
+          subscriptionItemId: item.id,
+          messageId: event.messageId,
+        },
+        'Linha sem canal aberto vinculado',
       )
       throw new Error('Instance has no vinculated channel')
     }
 
-    const connector = await this.connectorRepo.getConnectorByInstanceId(
-      instance.id,
+    const installedApp = await this.appRepo.getByAppCodeAndDomainId(
+      thinkzapAppCodeId(),
+      domainId,
     )
-    if (!connector) {
-      log.warn(
-        {
-          instanceId: event.instanceId,
-          internalInstanceId: instance.id,
-          messageId: event.messageId,
-        },
-        'Connector not found for instance',
+    if (!installedApp) {
+      throw new Error(
+        `Instalação não encontrada: domínio "${domainId}", app "${thinkzapAppCodeId()}"`,
       )
-      throw new Error('Connector not found for instance')
-    }
-
-    const { domainId } = instance
-    const { appId } = connector
-
-    if (!domainId || !appId) {
-      throw new Error('Domain ID and app ID are required')
     }
 
     const domain = await this.domainRepo.getDomainById(domainId)
-    const app = await this.appRepo.getById(appId)
+    const app = await this.appRepo.getById(installedApp.id)
 
     if (!app) {
       throw new Error('App not found')
@@ -138,6 +208,7 @@ export class ProcessZApiInboundMessageUseCase {
         domain,
         credential,
         instance,
+        vinculatedChannel,
         normalizedPhone,
         files,
       )
@@ -166,7 +237,7 @@ export class ProcessZApiInboundMessageUseCase {
 
     const params: ISendMessageData = {
       CONNECTOR: env.bitrix.connector.code,
-      LINE: Number(instance.vinculatedChannel),
+      LINE: Number(vinculatedChannel),
       MESSAGES: [
         {
           chat: {
@@ -246,6 +317,8 @@ export class ProcessZApiInboundMessageUseCase {
     domain: Domain,
     credential: Credential,
     instance: Instance,
+    /** Do item de assinatura, não de `instance.vinculatedChannel`. */
+    vinculatedChannel: string,
     normalizedPhone: string,
     files?: { url: string; name: string }[],
   ): Promise<void> {
@@ -310,7 +383,7 @@ export class ProcessZApiInboundMessageUseCase {
 
     const params: ISendMessageData = {
       CONNECTOR: env.bitrix.connector.code,
-      LINE: Number(instance.vinculatedChannel),
+      LINE: Number(vinculatedChannel),
       MESSAGES: [
         {
           chat: {
@@ -394,7 +467,7 @@ export class ProcessZApiInboundMessageUseCase {
     let replyLookupFailed = false
 
     try {
-      const record = await this.messageRepo.findByZApiMessageId(
+      const record = await this.messageRepo.findByProviderMessageId(
         instanceDbId,
         event.referenceMessageId,
       )
@@ -448,7 +521,7 @@ export class ProcessZApiInboundMessageUseCase {
       await this.messageRepo.create({
         instanceId: instanceDbId,
         source: 'ZAPI',
-        zApiMessageId: event.messageId,
+        providerMessageId: event.messageId,
         bitrixMessageId,
         bitrixChatId,
         type: quoteInput.type,
@@ -492,17 +565,6 @@ async function resolveBitrixMessageId(
     )
   }
   return bitrixMessageId
-}
-
-function extractBitrixChatId(result: unknown): string | null {
-  try {
-    const r = result as {
-      result?: { DATA?: { RESULT?: Array<{ session?: { CHAT_ID?: string } }> } }
-    }
-    return r?.result?.DATA?.RESULT?.[0]?.session?.CHAT_ID ?? null
-  } catch {
-    return null
-  }
 }
 
 function buildMessageFiles(

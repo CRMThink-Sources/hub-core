@@ -29,15 +29,19 @@ model AppCode {
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
   apps        App[]
-  plans       BillingPlan[]
 
   @@map("core_app_codes")
 }
 
 model App {
-  id          String    @id @default(uuid())
-  domainId    String    @map("domain_id")
-  appCodeId   String    @map("app_code_id")
+  id        String @id @default(uuid())
+  domainId  String @map("domain_id")
+  appCodeId String @map("app_code_id")
+  /// Id do item espelho desta instalacao na SPA 1060 do Bitrix.
+  /// `null` = instalacao sem espelho (instalada antes do backfill, ou falha na
+  /// criacao do item). Estado valido: so impede criar assinatura, que precisa
+  /// do id da SPA no campo parent.
+  spaId       String?   @unique @map("spa_id")
   email       String    @map("email")
   status      AppStatus @default(ACTIVE)
   installedAt DateTime  @default(now()) @map("installed_at")
@@ -51,7 +55,6 @@ model App {
   connectors          Connector[]
   biAnalyseConnectors   BiAnalyseConnector[]
   thinkAnaliseAuthTokens ThinkAnaliseAuthToken[]
-  subscriptions       BillingSubscription[]
   thinkzapAllowedUsers       ThinkzapAllowedUser[]
   thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
   thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
@@ -120,52 +123,9 @@ model BillingTransaction {
   @@map("billing_transactions")
 }
 
-/// Planos: CREDITS (pacotes de créditos, ex: GPT Maker) ou SUBSCRIPTION (valor fixo mensal, ex: ThinkersZap).
-model BillingPlan {
-  id           Int      @id @default(autoincrement())
-  appCodeId    String   @map("app_code_id")
-  type         PlanType @default(CREDITS)
-  name         String
-  description  String?  @db.Text
-  /// Apenas para type CREDITS.
-  credits      Int?
-  bonusCredits Int?     @map("bonus_credits")
-  price        Decimal  @db.Decimal(10, 2)
-
-  isRecurring   Boolean  @default(false) @map("is_recurring")
-  stripePriceId String?  @map("stripe_price_id")
-  active        Boolean  @default(true)
-  sortOrder     Int      @default(0) @map("sort_order")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  appCode       AppCode               @relation(fields: [appCodeId], references: [id])
-  subscriptions BillingSubscription[]
-
-  @@index([appCodeId])
-  @@index([type])
-  @@map("billing_plans")
-}
-
-/// Assinatura mensal — vínculo entre App e Stripe. Detalhes de período/cancelamento ficam no Stripe.
-model BillingSubscription {
-  id                   String             @id @default(uuid())
-  appId                String             @map("app_id")
-  planId               Int?               @map("plan_id") // opcional (GPT Maker pode ter plano, ThinkersZap não)
-  status               SubscriptionStatus @default(ACTIVE)
-  stripeSubscriptionId String             @unique @map("stripe_subscription_id")
-  connectorQuantity    Int                @default(0) @map("connector_quantity")
-  trialEndsAt          DateTime?          @map("trial_ends_at")
-  createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
-
-  app  App          @relation(fields: [appId], references: [id])
-  plan BillingPlan? @relation(fields: [planId], references: [id])
-
-  @@index([appId])
-  @@index([status])
-  @@map("billing_subscriptions")
-}
+// `BillingPlan` e `BillingSubscription` foram removidos junto com a cobrança
+// antiga (Stripe + tela de financeiro). A cobrança nova será modelada do zero;
+// enquanto isso não existe nenhuma fonte de estado de assinatura no banco.
 
 // ============================================
 // GPT MAKER
@@ -185,12 +145,13 @@ model Agent {
 // ============================================
 
 model Connector {
-  id         String          @id @default(uuid())
-  appId      String          @map("app_id")
-  instanceId String?         @unique @map("instance_id")
-  status     ConnectorStatus @default(PENDING_SETUP)
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
+  id         String            @id @default(uuid())
+  appId      String            @map("app_id")
+  instanceId String?           @unique @map("instance_id")
+  provider   ConnectorProvider @default(ZAPI)
+  status     ConnectorStatus   @default(PENDING_SETUP)
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
 
   app      App       @relation(fields: [appId], references: [id])
   instance Instance? @relation(fields: [instanceId], references: [id])
@@ -205,6 +166,17 @@ model Instance {
   instanceId        String         @unique @map("instance_id")
   vinculatedChannel String?        @map("vinculated_channel")
   zApiToken         String?        @map("z_api_token")
+  // Campos específicos do provider HubMessage (WhatsApp Oficial). Nulos em conectores Z-API.
+  channelId         String?        @map("channel_id")
+  webhookId         String?        @map("webhook_id")
+  wabaId            String?        @map("waba_id")
+  phoneId           String?        @map("phone_id")
+  /// DEPRECADO por `move-connector-settings-to-spa`: `ConnectorSettings` vive em
+  /// `ufCrm93Settings` no item da SPA 1146, que é a fonte única. Nada escreve mais
+  /// nesta coluna e nenhum caminho de comportamento a lê — o que sobra é dado
+  /// congelado de antes da migração, mantido só até o backfill ser confirmado em
+  /// produção. Não voltar a ler daqui: mostraria ao cliente o valor antigo.
+  /// O drop é dívida registrada, fora desta change (ver `retire-instance-table`).
   settings          Json           @default("{}") @map("settings")
   status            InstanceStatus @default(DISCONNECTED)
   createdAt         DateTime       @default(now()) @map("created_at")
@@ -326,8 +298,8 @@ model ThinkAnaliseAuthToken {
 model ThinkzapMessage {
   id              String                  @id @default(uuid())
   instanceId      String                  @map("instance_id")
-  source          ThinkzapMessageSource
-  zApiMessageId   String?                 @map("z_api_message_id")
+  source            ThinkzapMessageSource
+  providerMessageId String?               @map("provider_message_id")
   bitrixMessageId String?                 @map("bitrix_message_id")
   bitrixChatId    String?                 @map("bitrix_chat_id")
   type            ThinkzapMessageType
@@ -339,7 +311,7 @@ model ThinkzapMessage {
 
   instance Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
 
-  @@unique([instanceId, zApiMessageId], name: "uq_msg_instance_zapi")
+  @@unique([instanceId, providerMessageId], name: "uq_msg_instance_provider")
   @@unique([instanceId, bitrixMessageId], name: "uq_msg_instance_bitrix")
   @@index([instanceId])
   @@map("core_thinkerszap_messages")
@@ -433,12 +405,6 @@ enum AppStatus {
   TRIAL
 }
 
-/// Tipo de plano: por créditos (GPT Maker) ou assinatura mensal fixa (ThinkersZap).
-enum PlanType {
-  CREDITS
-  SUBSCRIPTION
-}
-
 enum TransactionType {
   PURCHASE
   CONSUMPTION
@@ -447,13 +413,9 @@ enum TransactionType {
   EXPIRATION
 }
 
-enum SubscriptionStatus {
-  ACTIVE
-  CANCELLED
-  PAST_DUE
-  TRIALING
-  INCOMPLETE
-  INCOMPLETE_EXPIRED
+enum ConnectorProvider {
+  ZAPI
+  HUBMESSAGE
 }
 
 enum ConnectorStatus {
@@ -472,6 +434,7 @@ enum InstanceStatus {
 enum ThinkzapMessageSource {
   ZAPI
   BITRIX
+  HUBMESSAGE
 }
 
 enum ThinkzapMessageType {

@@ -14,9 +14,16 @@ describe('parseConnectorSettings', () => {
     expect(parseConnectorSettings(null)).toEqual(DEFAULT_CONNECTOR_SETTINGS)
   })
 
+  /**
+   * O parse **completa** com os defaults em vez de devolver só o que veio: o
+   * consumidor recebe sempre os quatro toggles resolvidos, e nenhum precisa de
+   * `?? false`. A expectativa antiga só passava quando `ConnectorSettings` tinha
+   * um campo.
+   */
   it('parses known settings', () => {
     expect(parseConnectorSettings({ prefixOperatorNameEnabled: true })).toEqual(
       {
+        ...DEFAULT_CONNECTOR_SETTINGS,
         prefixOperatorNameEnabled: true,
       },
     )
@@ -36,8 +43,21 @@ describe('mergeConnectorSettings', () => {
         prefixOperatorNameEnabled: true,
       }),
     ).toEqual({
+      ...DEFAULT_CONNECTOR_SETTINGS,
       prefixOperatorNameEnabled: true,
     })
+  })
+
+  it('preserva os toggles que o patch não menciona', () => {
+    const current = {
+      ...DEFAULT_CONNECTOR_SETTINGS,
+      widgetOpenChannelEnabled: true,
+      messageDeleteEventEnabled: false,
+    }
+
+    expect(
+      mergeConnectorSettings(current, { prefixOperatorNameEnabled: true }),
+    ).toEqual({ ...current, prefixOperatorNameEnabled: true })
   })
 
   it('ignores invalid partial values', () => {

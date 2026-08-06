@@ -6,7 +6,8 @@ import {
   getBitrixAppInfoFromUrl,
   useBX24,
 } from '@/bitrix'
-import { SessionProvider } from '@/providers/session-provider'
+import { AplicationProvider } from '@/providers/aplication-provider'
+import { writeAppToken } from '@/shared/auth/app-token-storage'
 import { useEffect, useState } from 'react'
 import { ConversationView } from '../../layouts/conversation-view'
 
@@ -39,8 +40,11 @@ export default function ConversationsPage() {
         return
       }
 
-      sessionStorage.setItem(result.storageAuthTokenKey, result.token)
-      setAppCode(result.appCode)
+      // O widget não redireciona, então `app.slug` é ignorado aqui — só o
+      // `appCode` importa, para a chave do token e para o `AplicationProvider`,
+      // que lê esse mesmo token por `readAppToken(appCode)`.
+      writeAppToken(result.app.appCode, result.token)
+      setAppCode(result.app.appCode)
       setIsAuthenticated(true)
       setIsAuthenticating(false)
     }
@@ -74,9 +78,9 @@ export default function ConversationsPage() {
         </div>
       )}
       {isAuthenticated && appCode && (
-        <SessionProvider appCode={appCode}>
+        <AplicationProvider appCode={appCode}>
           <ConversationView />
-        </SessionProvider>
+        </AplicationProvider>
       )}
     </div>
   )

@@ -1,4 +1,5 @@
 import { SendWidgetMessageUseCase } from '@/modules/thinkzap/application/send-widget-message.use-case'
+import { mapWidgetSendError } from '@/modules/thinkzap/presentation/helpers/handle-widget-send-error'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
@@ -18,7 +19,7 @@ export class SendWidgetMessageController extends Controller {
   async perform(req: Request, _res: Response): Promise<httpResponse> {
     const parsed = z
       .object({
-        connectorId: z.string().min(1),
+        subscriptionItemId: z.string().min(1),
         destination: z.string().min(1),
         message: z.string().trim().min(1).optional(),
         attachments: z.array(attachmentSchema).optional(),
@@ -36,20 +37,12 @@ export class SendWidgetMessageController extends Controller {
     try {
       const result = await this.sendWidgetMessage.execute({
         ...parsed.data,
+        domainId: (req as unknown as { domainId: string }).domainId,
+        appCode: (req as unknown as { appId: string }).appId,
       })
       return this.ok(result)
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to send message'
-
-      if (
-        message === 'Connector not found' ||
-        message === 'Instance not found'
-      ) {
-        return this.notFound(new Error(message))
-      }
-
-      return this.badRequest(new Error(message))
+      return mapWidgetSendError(error)
     }
   }
 }

@@ -1,0 +1,27 @@
+{
+  "acao": "New line",
+  "titulo": "Create a new line",
+  "descricao": "Choose the connector type for the new line. Billing is adjusted on your current subscription, and the amount prorated for the remaining days goes into your next invoice.",
+  "conector": {
+    "ZAPI": {
+      "titulo": "WhatsApp Web",
+      "descricao": "Connects by scanning a QR code on your phone. Fastest to start."
+    },
+    "HUBMESSAGE": {
+      "titulo": "Official WhatsApp",
+      "descricao": "Meta's official channel, with a verified number and templates."
+    }
+  },
+  "intervalo": {
+    "monthly": "month",
+    "quarterly": "quarter",
+    "semiannual": "half-year",
+    "yearly": "year"
+  },
+  "escolherPlano": "Choose a plan",
+  "criar": "Create line",
+  "criando": "Creating...",
+  "cancelar": "Cancel",
+  "semPlanoTitulo": "No connector type available",
+  "semPlanoDescricao": "There is no plan registered for either connector in this environment. Contact support to enable it."
+}

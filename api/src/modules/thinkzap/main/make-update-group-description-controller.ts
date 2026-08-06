@@ -4,12 +4,10 @@ import { UpdateGroupDescriptionController } from '../presentation/controllers/up
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
 export const makeUpdateGroupDescriptionController = (): Controller => {
-  const { connectorRepository, instanceRepository, zApiClient } =
-    makeGroupZApiDeps()
+  const { getAplicationContext, zApiClient } = makeGroupZApiDeps()
 
   const service = new UpdateGroupDescriptionService(
-    connectorRepository,
-    instanceRepository,
+    getAplicationContext,
     zApiClient,
   )
 

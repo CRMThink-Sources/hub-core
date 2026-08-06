@@ -1,4 +1,4 @@
-import { resolveBitrixTokenExpiresAt } from '@/modules/thinkzap/application/resolve-bitrix-token-expires-at'
+import { resolveBitrixTokenExpiresAt } from '@/shared/application/resolve-bitrix-token-expires-at'
 import axios from 'axios'
 import { getBitrixAxiosDefaults } from '@/shared/infra/clients/bitrix-axios-config'
 import {

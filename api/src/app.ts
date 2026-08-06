@@ -7,11 +7,11 @@ import {
   clicksignRoutes,
   thinkerszapRoutes,
   portalRoutes,
+  aplicationRoutes,
 } from './composition-root.js'
 import { makeGoogleOAuthCallbackController } from './modules/importsheet/main/make-google-oauth-controllers.js'
 import cors from 'cors'
 import multer from 'multer'
-import { makeStripeWebhookHandlerController } from './modules/thinkzap/main/stripe-webhook.handler.js'
 import { makeZApiWebhookHandlerController } from './modules/thinkzap/main/z-api-webhook-handle-controller.js'
 import { startCredentialRefreshJob } from './shared/infra/scheduler/credential-refresh.job.js'
 import { adaptControllerFactory } from './shared/main/adapt-controller.js'
@@ -36,6 +36,8 @@ import {
 import { apiLogger, resolveLogApp } from './shared/infra/logger.js'
 import { runWithLogContext } from './shared/infra/log-context.js'
 import { randomUUID } from 'node:crypto'
+import { makeHubmessageWebhookHandlerController } from './modules/thinkzap/main/make-hubmessage-webhook-handler-controller.js'
+import { makeStripeWebhookController } from './modules/thinkzap/main/subscription/make-subscription-controllers.js'
 
 const app: Express = express()
 
@@ -80,17 +82,25 @@ app.use(
     maxAge: 86_400,
   }),
 )
-// Webhook do Stripe ANTES do express.json() — precisa do body raw (Buffer) para validar assinatura
-app.post(
-  '/api/webhooks/stripe',
-  express.raw({ type: 'application/json' }),
-  adaptControllerFactory(makeStripeWebhookHandlerController),
-)
 // Webhook Clicksign ANTES do express.json() — raw body p/ validar HMAC.
 app.post(
   '/api/clicksign/webhook/:appId/:ref',
   express.raw({ type: '*/*' }),
   adaptControllerFactory(makeClicksignWebhookController),
+)
+
+/**
+ * Webhook do Stripe, também ANTES do express.json().
+ *
+ * A validação da assinatura do evento é um HMAC sobre os bytes exatos que
+ * chegaram. Registrada depois do parser, o corpo já foi reserializado e a
+ * assinatura falha em **100%** dos eventos — o que aparece como "segredo errado" e
+ * manda procurar no lugar errado. A ordem aqui é a correção, não uma preferência.
+ */
+app.post(
+  '/api/webhooks/stripe',
+  express.raw({ type: '*/*' }),
+  adaptControllerFactory(makeStripeWebhookController),
 )
 
 // JSON parser para as demais rotas (incluindo z-api webhook).
@@ -104,6 +114,11 @@ app.post(
 app.post(
   '/api/webhooks/bitrix',
   adaptControllerFactory(makeBitrixWebhookHandlerController),
+)
+
+app.post(
+  '/api/webhooks/hubmessage',
+  adaptControllerFactory(makeHubmessageWebhookHandlerController),
 )
 app.post(
   '/api/thinkzap/webhooks/bitrix/robot',
@@ -160,6 +175,10 @@ app.use('/api/thinkzap', authMiddleware, thinkerszapRoutes)
 app.use('/api/thinkanalise', authMiddleware, thinkanaliseRoutes)
 app.use('/api/importsheet', authMiddleware, importsheetRoutes)
 app.use('/api/clicksign', authMiddleware, clicksignRoutes)
+
+// Transversal, não por app: qualquer instalação com JWT válido consulta o próprio
+// contexto de billing aqui. Quem é a instalação sai do token, não do prefixo.
+app.use('/api/application', authMiddleware, aplicationRoutes)
 
 const audioUploadParser = multer({
   storage: multer.memoryStorage(),

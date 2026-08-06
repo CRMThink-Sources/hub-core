@@ -3,6 +3,7 @@ import { mapGroupServiceError } from '@/modules/thinkzap/presentation/helpers/ha
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
+import { parseLineRequest } from './line/line-request'
 import z from 'zod'
 
 export class ListGroupsController extends Controller {
@@ -13,7 +14,6 @@ export class ListGroupsController extends Controller {
   async perform(req: Request, _res: Response): Promise<httpResponse> {
     const parsed = z
       .object({
-        connectorId: z.string().min(1),
         page: z.coerce.number().int().min(1).optional(),
         pageSize: z.coerce.number().int().min(1).max(100).optional(),
       })
@@ -26,7 +26,10 @@ export class ListGroupsController extends Controller {
     }
 
     try {
-      const result = await this.listGroupsService.execute(parsed.data)
+      const result = await this.listGroupsService.execute({
+        ...parseLineRequest(req),
+        ...parsed.data,
+      })
       return this.ok(result)
     } catch (error) {
       return mapGroupServiceError(error, 'Failed to list groups')

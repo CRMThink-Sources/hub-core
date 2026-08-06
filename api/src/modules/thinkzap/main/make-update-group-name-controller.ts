@@ -4,14 +4,9 @@ import { UpdateGroupNameController } from '../presentation/controllers/update-gr
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
 export const makeUpdateGroupNameController = (): Controller => {
-  const { connectorRepository, instanceRepository, zApiClient } =
-    makeGroupZApiDeps()
+  const { getAplicationContext, zApiClient } = makeGroupZApiDeps()
 
-  const service = new UpdateGroupNameService(
-    connectorRepository,
-    instanceRepository,
-    zApiClient,
-  )
+  const service = new UpdateGroupNameService(getAplicationContext, zApiClient)
 
   return new UpdateGroupNameController(service)
 }

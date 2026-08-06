@@ -3,14 +3,28 @@ import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { buildThinkzapRobotUpdateParams } from './build-thinkzap-robot-add-params'
 import { syncThinkzapRobotConnectorOptions } from './sync-robot-connectors'
 
-const listConnectors = vi.fn()
+const execute = vi.fn()
 const getInstance = vi.fn()
 
+/**
+ * As opções do robô passaram a ser montadas pelos **itens de assinatura**, keyed
+ * pelo id do item. Era `listConnectors`, que devolvia vazio para linha nascida na
+ * SPA — o robô ficava sem opção de linha e o usuário não conseguia configurar o
+ * envio.
+ */
+vi.mock('@/modules/application/main/make-get-aplication-context', () => ({
+  makeGetAplicationContext: () => ({ execute }),
+}))
+
 vi.mock(
-  '@/modules/thinkzap/infra/persistence/repositories/prisma-connector.repository',
+  '@/shared/infra/persistence/repositories/prisma-installed-app.repository',
   () => ({
-    PrismaConnectorRepository: class {
-      listConnectors = listConnectors
+    PrismaInstalledAppRepository: class {
+      getById = vi.fn().mockResolvedValue({
+        id: 'app-1',
+        domainId: 'domain-1',
+        appCodeId: 'crmthink.thinkzap',
+      })
     },
   }),
 )
@@ -25,117 +39,30 @@ vi.mock('@/shared/main/make-bitrix-client', () => ({
   makeBitrixClientByAppId: vi.fn(),
 }))
 
+const zapiItem = (id: string, name = 'Linha') => ({
+  id,
+  name,
+  subscription: 'sub-1',
+  status: 'active' as const,
+  settings: {},
+  vinculatedChannel: null,
+  metadata: {
+    provider: 'ZAPI' as const,
+    zApiInstanceId: `z-${id}`,
+    zApiInstanceToken: 'token',
+  },
+})
+
+const contextWith = (items: unknown[]) => ({
+  customer: { id: 'domain-1', name: 'acme' },
+  aplication: { id: 'app-1', spaId: '42' },
+  subscriptions: [{ id: 'sub-1', items }],
+})
+
 describe('syncThinkzapRobotConnectorOptions', () => {
   const callMethod = vi.fn()
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(makeBitrixClientByAppId).mockResolvedValue({
-      callMethod,
-    } as never)
-    listConnectors.mockResolvedValue([
-      {
-        id: 'connector-1',
-        instanceId: 'instance-1',
-        instance: { instanceId: 'z-instance-1', zApiToken: 'token' },
-      },
-    ])
-    getInstance.mockResolvedValue({ name: 'ThinkZap | Comercial' })
-  })
-
-  it('updates the robot with connector options and no document-type filter', async () => {
-    await syncThinkzapRobotConnectorOptions('app-1')
-
-    const expected = buildThinkzapRobotUpdateParams()
-    expected.FIELDS.PROPERTIES.connector.Options = {
-      'connector-1': 'Comercial',
-    }
-
-    expect(callMethod).toHaveBeenCalledWith('bizproc.robot.update', expected)
-
-    const params = callMethod.mock.calls[0]?.[1] as
-      | { FIELDS: Record<string, unknown> }
-      | undefined
-    expect(params?.FIELDS).not.toHaveProperty('FILTER')
-  })
-
-  it('falls back to the phone number when z-api returns no instance name', async () => {
-    listConnectors.mockResolvedValue([
-      {
-        id: 'connector-1',
-        instanceId: 'instance-1',
-        instance: {
-          instanceId: 'z-instance-1',
-          zApiToken: 'token',
-          phoneNumber: '5511999999999',
-        },
-      },
-    ])
-    getInstance.mockResolvedValue({ connected: false })
-
-    await syncThinkzapRobotConnectorOptions('app-1')
-
-    expect(optionsFromLastCall()).toEqual({
-      'connector-1': '5511999999999',
-    })
-  })
-
-  it('falls back to the instance id when z-api fails and there is no phone number', async () => {
-    listConnectors.mockResolvedValue([
-      {
-        id: 'connector-1',
-        instanceId: 'instance-1',
-        instance: {
-          instanceId: 'z-instance-1',
-          zApiToken: null,
-          phoneNumber: null,
-        },
-      },
-    ])
-    getInstance.mockRejectedValue(new Error('Failed to get instance data'))
-
-    await syncThinkzapRobotConnectorOptions('app-1')
-
-    expect(callMethod).toHaveBeenCalledTimes(1)
-    expect(optionsFromLastCall()).toEqual({
-      'connector-1': 'z-instance-1',
-    })
-  })
-
-  it('keeps syncing the remaining connectors when one instance fails', async () => {
-    listConnectors.mockResolvedValue([
-      {
-        id: 'connector-broken',
-        instanceId: 'instance-1',
-        instance: {
-          instanceId: 'z-instance-1',
-          zApiToken: 'token',
-          phoneNumber: null,
-        },
-      },
-      {
-        id: 'connector-ok',
-        instanceId: 'instance-2',
-        instance: {
-          instanceId: 'z-instance-2',
-          zApiToken: 'token',
-          phoneNumber: null,
-        },
-      },
-    ])
-    getInstance
-      .mockRejectedValueOnce(new Error('Failed to get instance data'))
-      .mockResolvedValueOnce({ name: 'ThinkZap | Suporte' })
-
-    await syncThinkzapRobotConnectorOptions('app-1')
-
-    expect(optionsFromLastCall()).toEqual({
-      'connector-broken': 'z-instance-1',
-      'connector-ok': 'Suporte',
-    })
-  })
-
-  function optionsFromLastCall(): Record<string, string> | undefined {
+  const optionsFromLastCall = (): Record<string, string> | undefined => {
     const params = callMethod.mock.calls.at(-1)?.[1] as
       | {
           FIELDS: {
@@ -146,4 +73,82 @@ describe('syncThinkzapRobotConnectorOptions', () => {
 
     return params?.FIELDS.PROPERTIES.connector.Options
   }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(makeBitrixClientByAppId).mockResolvedValue({
+      callMethod,
+    } as never)
+    execute.mockResolvedValue(contextWith([zapiItem('i1')]))
+    getInstance.mockResolvedValue({ name: 'ThinkZap | Comercial' })
+  })
+
+  it('monta as opções pelo id do item, sem filtro de tipo de documento', async () => {
+    await syncThinkzapRobotConnectorOptions('app-1')
+
+    const expected = buildThinkzapRobotUpdateParams()
+    expected.FIELDS.PROPERTIES.connector.Options = { i1: 'Comercial' }
+
+    expect(callMethod).toHaveBeenCalledWith('bizproc.robot.update', expected)
+
+    const params = callMethod.mock.calls[0]?.[1] as
+      | { FIELDS: Record<string, unknown> }
+      | undefined
+    expect(params?.FIELDS).not.toHaveProperty('FILTER')
+  })
+
+  /** O nome do item é o fallback: é o que o cliente reconhece na lista. */
+  it('usa o nome do item quando a Z-API não devolve nome', async () => {
+    execute.mockResolvedValue(contextWith([zapiItem('i1', 'Comercial SP')]))
+    getInstance.mockResolvedValue({ connected: false })
+
+    await syncThinkzapRobotConnectorOptions('app-1')
+
+    expect(optionsFromLastCall()).toEqual({ i1: 'Comercial SP' })
+  })
+
+  it('usa o nome do item quando a leitura da Z-API falha', async () => {
+    execute.mockResolvedValue(contextWith([zapiItem('i1', 'Suporte')]))
+    getInstance.mockRejectedValue(new Error('Failed to get instance data'))
+
+    await syncThinkzapRobotConnectorOptions('app-1')
+
+    expect(callMethod).toHaveBeenCalledTimes(1)
+    expect(optionsFromLastCall()).toEqual({ i1: 'Suporte' })
+  })
+
+  it('segue sincronizando as demais linhas quando uma falha', async () => {
+    execute.mockResolvedValue(
+      contextWith([zapiItem('quebrada', 'Quebrada'), zapiItem('ok', 'OK')]),
+    )
+    getInstance
+      .mockRejectedValueOnce(new Error('Failed to get instance data'))
+      .mockResolvedValue({ name: 'ThinkZap | Viva' })
+
+    await syncThinkzapRobotConnectorOptions('app-1')
+
+    expect(optionsFromLastCall()).toEqual({ quebrada: 'Quebrada', ok: 'Viva' })
+  })
+
+  /** Item de cobrança sem conector não é linha e não pode virar opção do robô. */
+  it('ignora item sem provider', async () => {
+    execute.mockResolvedValue(
+      contextWith([
+        { ...zapiItem('cobranca'), metadata: { provider: 'NONE' as const } },
+        zapiItem('i1'),
+      ]),
+    )
+
+    await syncThinkzapRobotConnectorOptions('app-1')
+
+    expect(optionsFromLastCall()).toEqual({ i1: 'Comercial' })
+  })
+
+  it('devolve opções vazias quando a instalação não tem linha', async () => {
+    execute.mockResolvedValue(contextWith([]))
+
+    await syncThinkzapRobotConnectorOptions('app-1')
+
+    expect(optionsFromLastCall()).toEqual({})
+  })
 })

@@ -1,0 +1,26 @@
+{
+  "convite": {
+    "titulo": "Prueba ThinkZap por 3 días",
+    "descricao": "Elija un tipo de conector para crear su primera línea. La prueba es única por instalación y dura 3 días.",
+    "escolher": "Comenzar prueba",
+    "ZAPI": {
+      "titulo": "WhatsApp Web",
+      "descricao": "Se conecta leyendo el código QR en su celular. Más rápido para empezar."
+    },
+    "HUBMESSAGE": {
+      "titulo": "WhatsApp Oficial",
+      "descricao": "Canal oficial de Meta, con número verificado y plantillas."
+    }
+  },
+  "ativando": "Creando línea...",
+  "ativado": "Prueba activada. Su línea fue creada.",
+  "emAndamentoTitulo": "Prueba en curso",
+  "emAndamentoDescricao": "Su período de prueba va hasta {{data}}. Después la línea sigue visible, pero deja de enviar y recibir mensajes.",
+  "expiradoTitulo": "Período de prueba finalizado",
+  "expiradoDescricao": "Su prueba terminó el {{data}}. La línea sigue en la lista de abajo, pero no envía ni recibe mensajes y no puede configurarse. Use el botón Suscribir en la línea para reactivarla — la credencial, los ajustes y el canal vinculado quedan como están.",
+  "indisponivelTitulo": "Prueba no disponible",
+  "indisponivelDescricao": "El plan de prueba no está configurado en este entorno. Contacte al soporte para habilitarlo.",
+  "erroLeituraTitulo": "No se pudo verificar su período de prueba",
+  "erroLeitura": "Error al consultar la prueba. Inténtelo de nuevo.",
+  "erroAtivar": "No se pudo activar la prueba. Inténtelo de nuevo."
+}

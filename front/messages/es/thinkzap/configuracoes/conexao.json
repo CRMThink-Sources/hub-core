@@ -1,0 +1,39 @@
+{
+  "titulo": "Conexión",
+  "descricao": "Estado de la conexión de esta línea con WhatsApp.",
+  "descricaoConectado": "Esta línea está conectada a WhatsApp.",
+  "descricaoDesconectado": "Escanea el código QR con el WhatsApp del número de esta línea.",
+  "carregando": "Cargando estado...",
+  "erroEstado": "No se pudo leer el estado de la conexión.",
+  "erroEstadoTitulo": "Estado de conexión no disponible",
+  "tentarNovamente": "Intentar de nuevo",
+  "erroQrCode": "No se pudo generar el código QR.",
+  "erroQrCodeTitulo": "Código QR no disponible",
+  "qrCodeAlt": "Código QR para conectar WhatsApp",
+  "qrCodeIndisponivel": "Código QR no disponible",
+  "instrucaoQrCode": "En WhatsApp: Dispositivos vinculados → Vincular dispositivo, y apunta al código.",
+  "atualizarQrCode": "Actualizar código QR",
+  "semNome": "Sin nombre",
+  "desconectar": "Desconectar",
+  "cancelar": "Cancelar",
+  "desconectarHint": "Desconectar cierra la sesión de WhatsApp de esta línea. La suscripción no se afecta.",
+  "desconectado": "Línea desconectada.",
+  "erroDesconectar": "No se pudo desconectar la línea.",
+  "confirmarDesconectarTitulo": "¿Desconectar esta línea?",
+  "confirmarDesconectarDescricao": "La línea deja de enviar y recibir mensajes hasta conectarse de nuevo con el código QR.",
+  "campos": {
+    "nome": "Nombre",
+    "telefone": "Teléfono",
+    "aparelho": "Dispositivo",
+    "conta": "Cuenta",
+    "contaBusiness": "Business",
+    "contaPessoal": "Personal",
+    "recado": "Info"
+  },
+  "bloqueada": {
+    "trialTitulo": "Período de prueba finalizado",
+    "trialDescricao": "Esta línea ya no conecta: la prueba terminó. El número fue desconectado del proveedor, y reconectar exige una suscripción.",
+    "inativaTitulo": "Sin suscripción activa",
+    "inativaDescricao": "Esta línea no conecta mientras no haya una suscripción activa."
+  }
+}

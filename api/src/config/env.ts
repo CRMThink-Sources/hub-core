@@ -27,19 +27,31 @@ export const env = {
     process.env.API_URL && process.env.API_URL !== 'undefined'
       ? process.env.API_URL
       : 'https://homolog-hubthink.crmthink.com.br/api',
-  frontUrl: process.env.FRONT_URL ?? '',
+  /**
+   * URL pública do front, para onde serviços externos devolvem o navegador —
+   * retorno de checkout, portal de faturamento e callbacks de OAuth.
+   *
+   * Cai em `APP_URL` quando não definida: no deploy padrão front e api saem do mesmo
+   * host, com `/api/*` roteado para a api, então `APP_URL` já é o endereço do front.
+   * `FRONT_URL` existe para o caso de estarem separados.
+   *
+   * O fallback vive aqui, e não em cada consumidor, porque estava sendo repetido
+   * como `env.frontUrl || env.appUrl` em uns lugares e esquecido em outros — e
+   * esquecer produzia URL relativa, que o gateway recusa longe da causa.
+   */
+  frontUrl: process.env.FRONT_URL ?? process.env.APP_URL ?? '',
   crmthinkWebhookUrl: process.env.CRMTHINK_WEBHOOK_URL ?? '',
   tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY ?? '',
-  stripe: {
-    secretKey: process.env.STRIPE_SECRET_KEY ?? '',
-    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
-  },
-  /** Price ID do produto ThinkZap (linhas) — mesmo valor que NEXT_PUBLIC_THINKZAP_PRICE_CONNECTORS no front */
-  thinkzapStripePriceId: process.env.THINKZAP_PRICE_CONNECTORS ?? '',
   zApi: {
     partnerToken: process.env.Z_API_PARTNER_TOKEN ?? '',
     clientToken: process.env.Z_API_CLIENT_TOKEN ?? '',
     callbackUrl: process.env.Z_API_CALLBACK_URL ?? '',
+  },
+  hubMessage: {
+    publicKey: process.env.HUBMESSAGE_PUBLIC_KEY ?? '',
+    secretKey: process.env.HUBMESSAGE_SECRET_KEY ?? '',
+    baseUrl: process.env.HUBMESSAGE_BASE_URL ?? 'https://api.hubmessage.io',
+    webhookUrl: process.env.HUBMESSAGE_WEBHOOK_URL ?? '',
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
@@ -131,6 +143,64 @@ export const env = {
     robot: {
       code: process.env.CLICKSIGN_ROBOT_CODE ?? 'ENVIAR_DOCUMENTO',
       name: process.env.CLICKSIGN_ROBOT_NAME ?? 'Enviar documento',
+    },
+  },
+  payments: {
+    spa: {
+      productEntityType: 1134,
+      planEntityType: 1138,
+      subscriptionEntityType: 1142,
+      /**
+       * SPA de aplicação — o item por instalação de app (domínio + app code),
+       * espelho de `core_apps`. Existe para montar o nome do campo parent
+       * (`parentId1060`) num lugar só, em vez de espalhar a string literal pelo
+       * mapper e pelo repositório.
+       *
+       * Mesmo `entityTypeId` que o onboarding chama de `SPA_CLIENT`
+       * (`shared/domain/config/bitrix.env.ts`): o nome de lá é o vocabulário do
+       * fluxo de instalação e fica como está.
+       */
+      aplicationEntityType: 1060,
+      /**
+       * SPA de itens de assinatura — o que uma assinatura provisiona, na prática
+       * um conector. O vínculo com a assinatura é o campo parent
+       * (`parentId1142`), montado a partir de `subscriptionEntityType`.
+       *
+       * Não tem campo de provider: são dois pares de credenciais, e o
+       * preenchimento diz qual conector é (ver `subscription-item.mapper.ts`).
+       */
+      subscriptionItemEntityType: 1146,
+    },
+    /**
+     * Id do item de plano na SPA de planos (1138) que as assinaturas de trial
+     * referenciam.
+     *
+     * `Subscription.plan` é obrigatório e hidratado por `getPlan`, que lança quando
+     * o item não existe — e essa exceção sobe pela leitura do contexto, derrubando a
+     * lista de linhas da instalação inteira. Por isso é configuração verificada, não
+     * dado criado em runtime: `PlanRepository` é só leitura, e criar plano
+     * automaticamente exigiria abrir escrita de plano **e** de produto.
+     *
+     * Vazio = trial indisponível. A rota de estado reporta isso como motivo próprio,
+     * em vez de deixar a ativação falhar com erro de hidratação.
+     */
+    trialPlanId: process.env.THINKZAP_TRIAL_PLAN_ID ?? '',
+    /**
+     * Credenciais do gateway de pagamento.
+     *
+     * Vazio = contratação self-service indisponível. A modalidade manual
+     * continua funcionando inteira sem isto: ela é criada na SPA por automação
+     * externa, e o runtime lê a SPA. Por isso a ausência não derruba nada — só
+     * fecha o checkout e o portal de faturamento.
+     *
+     * `webhookSecret` é usado para validar a assinatura do evento sobre o corpo
+     * **cru**. Sem ele qualquer um poderia postar um `checkout.session.completed`
+     * forjado e destravar uma linha sem pagar, então o handler recusa o evento
+     * quando o segredo não está configurado.
+     */
+    stripe: {
+      secretKey: process.env.STRIPE_SECRET_KEY ?? '',
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
     },
   },
 } as const

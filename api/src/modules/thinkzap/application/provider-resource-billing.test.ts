@@ -1,0 +1,210 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { describe, expect, it, vi } from 'vitest'
+import { ProviderResourceBilling } from './provider-resource-billing'
+import { apiLogger } from '@/shared/infra/logger'
+import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
+import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
+
+vi.mock('@/shared/infra/logger', () => ({
+  apiLogger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
+}))
+
+const itemWith = (
+  metadata: SubscriptionItem['metadata'],
+): SubscriptionItem => ({
+  id: '77',
+  name: 'Linha',
+  subscription: '4242',
+  status: 'active',
+  settings: { ...DEFAULT_CONNECTOR_SETTINGS },
+  vinculatedChannel: null,
+  metadata,
+})
+
+const zApiItem = itemWith({
+  provider: 'ZAPI',
+  zApiInstanceId: 'inst-1',
+  zApiInstanceToken: 'tok-1',
+})
+
+const hubItem = itemWith({
+  provider: 'HUBMESSAGE',
+  hubmessageChannelId: 'chan-1',
+  wabaId: 'waba-1',
+})
+
+const noneItem = itemWith({ provider: 'NONE' })
+
+const makeResolver = (options: { failing?: boolean } = {}) => {
+  const failure = () => Promise.reject(new Error('provider fora'))
+
+  const adapter = {
+    provisionConnector: vi.fn(),
+    subscribe: vi.fn(options.failing ? failure : () => Promise.resolve()),
+    unsubscribe: vi.fn(options.failing ? failure : () => Promise.resolve()),
+    disconnect: vi.fn(() => Promise.resolve()),
+    getConnectionStatus: vi.fn(),
+  }
+
+  const resolve = vi.fn(() => adapter)
+
+  return {
+    resolver: { resolve } as unknown as ConnectorProviderResolver,
+    resolve,
+    adapter,
+  }
+}
+
+describe('ProviderResourceBilling', () => {
+  describe('subscribe', () => {
+    it('resolve o adapter pelo provider da linha Z-API, com instância e token', async () => {
+      const { resolver, resolve, adapter } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).subscribe(zApiItem)
+
+      expect(resolve).toHaveBeenCalledWith(ConnectorProvider.ZAPI)
+      expect(adapter.subscribe).toHaveBeenCalledWith({
+        instanceId: 'inst-1',
+        zApiToken: 'tok-1',
+      })
+    })
+
+    it('resolve o adapter pelo provider da linha HubMessage, com o canal', async () => {
+      const { resolver, resolve, adapter } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).subscribe(hubItem)
+
+      expect(resolve).toHaveBeenCalledWith(ConnectorProvider.HUBMESSAGE)
+      expect(adapter.subscribe).toHaveBeenCalledWith({
+        instanceId: 'chan-1',
+        channelId: 'chan-1',
+      })
+    })
+
+    /**
+     * Nunca lança: nesse ponto o cliente pagou e a linha funciona. Propagar
+     * trocaria um chamado interno por um cliente sem serviço.
+     */
+    it('não lança quando o provider falha, e registra erro', async () => {
+      const { resolver } = makeResolver({ failing: true })
+
+      await expect(
+        new ProviderResourceBilling(resolver).subscribe(zApiItem),
+      ).resolves.toBeUndefined()
+
+      expect(apiLogger.error).toHaveBeenCalled()
+      const [payload] = vi.mocked(apiLogger.error).mock.calls.at(-1) ?? []
+      expect(payload).toMatchObject({
+        operation: 'subscribe',
+        subscriptionItemId: '77',
+        provider: ConnectorProvider.ZAPI,
+        resourceId: 'inst-1',
+      })
+    })
+
+    /** Item de cobrança sem conector: não há recurso a assinar. */
+    it('não tenta nada em item sem credencial, e registra o caso', async () => {
+      const { resolver, resolve } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).subscribe(noneItem)
+
+      expect(resolve).not.toHaveBeenCalled()
+      expect(apiLogger.warn).toHaveBeenCalled()
+    })
+
+    /** Assinar é cobrança; desconectar é sessão. Nunca a mesma operação. */
+    it('não desconecta a sessão do cliente', async () => {
+      const { resolver, adapter } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).subscribe(zApiItem)
+
+      expect(adapter.disconnect).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('unsubscribe', () => {
+    it('desassina a linha Z-API com motivo fixo', async () => {
+      const { resolver, adapter } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).unsubscribe(zApiItem)
+
+      expect(adapter.unsubscribe).toHaveBeenCalledWith(
+        { instanceId: 'inst-1', zApiToken: 'tok-1' },
+        expect.any(String),
+      )
+    })
+
+    it('desassina a linha HubMessage com o canal', async () => {
+      const { resolver, adapter } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).unsubscribe(hubItem)
+
+      expect(adapter.unsubscribe).toHaveBeenCalledWith(
+        { instanceId: 'chan-1', channelId: 'chan-1' },
+        expect.any(String),
+      )
+    })
+
+    /**
+     * `error`, não `warn`: recurso não desassinado é continuar pagando ao provider
+     * por cliente que saiu. Ninguém abre chamado por isso, então o log é o único
+     * lugar onde aparece.
+     */
+    it('registra erro quando falha, sem lançar', async () => {
+      const { resolver } = makeResolver({ failing: true })
+
+      await expect(
+        new ProviderResourceBilling(resolver).unsubscribe(hubItem),
+      ).resolves.toBeUndefined()
+
+      expect(apiLogger.error).toHaveBeenCalled()
+      const [payload] = vi.mocked(apiLogger.error).mock.calls.at(-1) ?? []
+      expect(payload).toMatchObject({
+        operation: 'unsubscribe',
+        provider: ConnectorProvider.HUBMESSAGE,
+        resourceId: 'chan-1',
+      })
+    })
+
+    /**
+     * Desassinar **não** é desconectar: o recurso continua vivo e conectado até o
+     * fim do período. Quem desconecta é o bloqueio terminal do entitlement, e
+     * confundir os dois custa ao cliente uma releitura de QR code.
+     */
+    it('não chama disconnect como parte da operação', async () => {
+      const { resolver, adapter } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).unsubscribe(zApiItem)
+
+      expect(adapter.disconnect).not.toHaveBeenCalled()
+    })
+
+    it('não tenta nada em item sem credencial', async () => {
+      const { resolver, resolve } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).unsubscribe(noneItem)
+
+      expect(resolve).not.toHaveBeenCalled()
+    })
+  })
+})
+
+/**
+ * A separação dos eixos, verificada sobre o texto: este módulo é o do ciclo de
+ * **cobrança**, e nada nele chama `disconnect`. É a confusão mais fácil de cometer
+ * na área, porque os três métodos vivem no mesmo adapter.
+ */
+describe('provider-resource-billing (estrutura)', () => {
+  const source = readFileSync(
+    join(__dirname, 'provider-resource-billing.ts'),
+    'utf8',
+  )
+  const code = source.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
+
+  it('não chama disconnect em nenhum caminho', () => {
+    expect(code).not.toMatch(/\.disconnect\(/)
+  })
+})

@@ -10,7 +10,12 @@ export default {
     },
   },
   test: {
-    include: ['app/**/*.test.ts'],
+    include: [
+      'app/**/*.test.ts',
+      'shared/**/*.test.ts',
+      'bitrix/**/*.test.ts',
+      'providers/**/*.test.ts',
+    ],
     environment: 'node',
   },
 }

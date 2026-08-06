@@ -67,8 +67,17 @@ export function AdminInstanceConfigModal({
   const [localInstance, setLocalInstance] =
     useState<ThinkzapInstanceItem>(instance)
 
+  /**
+   * Três ações ainda são keyed pelas tabelas antigas — renomear e assinar por
+   * `Instance.id`, reativar por `Connector.id`. Linha criada direto na SPA não tem
+   * essas rows, então o id vem `null` e a ação fica indisponível em vez de bater
+   * numa URL com `null` no path. Só os event binds já são keyed pelo item.
+   */
+  const hasInstanceRow = instance.instanceDbId !== null
+  const hasConnectorRow = instance.connectorId !== null
+
   async function handleSaveName() {
-    if (!name.trim()) return
+    if (!name.trim() || !hasInstanceRow) return
     setNameSave({ kind: 'saving' })
     try {
       await axiosPortal().patch(
@@ -83,6 +92,7 @@ export function AdminInstanceConfigModal({
   }
 
   async function handleReactivate() {
+    if (!hasConnectorRow) return
     setReactivateState({ kind: 'loading' })
     try {
       await axiosPortal().patch(
@@ -92,7 +102,7 @@ export function AdminInstanceConfigModal({
       setReactivateState({ kind: 'success' })
       setLocalInstance(prev => ({ ...prev, connectorStatus: 'ACTIVE' }))
       onUpdate({
-        instanceDbId: instance.instanceDbId,
+        subscriptionItemId: instance.subscriptionItemId,
         connectorStatus: 'ACTIVE',
       })
     } catch {
@@ -104,6 +114,7 @@ export function AdminInstanceConfigModal({
   }
 
   async function handleSubscriptionAction(action: 'subscribe' | 'unsubscribe') {
+    if (!hasInstanceRow) return
     setSubscriptionState({ kind: 'loading' })
     try {
       await axiosPortal().post(
@@ -130,13 +141,17 @@ export function AdminInstanceConfigModal({
   ) {
     setEventSave(prev => ({ ...prev, [field]: { kind: 'saving' } }))
     try {
+      // Keyed pelo item: os toggles vivem em `ufCrm93Settings`, não nas tabelas.
       await axiosPortal().patch(
-        `/portal/apps/${appId}/thinkzap-connectors/${instance.connectorId}/event-binds`,
+        `/portal/apps/${appId}/thinkzap-lines/${instance.subscriptionItemId}/event-binds`,
         { [field]: value },
       )
       const updated = { ...localInstance, [field]: value }
       setLocalInstance(updated)
-      onUpdate({ instanceDbId: instance.instanceDbId, [field]: value })
+      onUpdate({
+        subscriptionItemId: instance.subscriptionItemId,
+        [field]: value,
+      })
       setEventSave(prev => ({ ...prev, [field]: { kind: 'saved' } }))
       setTimeout(() => {
         setEventSave(prev => {
@@ -257,7 +272,12 @@ export function AdminInstanceConfigModal({
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={!name.trim() || nameSave.kind === 'saving'}
+                  disabled={
+                    !name.trim() ||
+                    nameSave.kind === 'saving' ||
+                    /* Renomear é operação na row antiga; linha da SPA não tem. */
+                    !hasInstanceRow
+                  }
                   onClick={() => {
                     void handleSaveName()
                   }}
@@ -416,9 +436,19 @@ export function AdminInstanceConfigModal({
               {t('instanceModalSectionSubscription')}
             </h3>
 
-            {subscriptionState.kind === 'idle' ||
-            subscriptionState.kind === 'success' ||
-            subscriptionState.kind === 'error' ? (
+            {/* Assinar e desassinar são operações na row antiga, keyed por
+                `Instance.id`. Linha criada na SPA não tem, e a seção fica fora em vez
+                de oferecer um botão que bateria numa URL com `null` no path. */}
+            {!hasInstanceRow ? (
+              <p className="text-sm text-muted-foreground">
+                {t('instanceModalSubscriptionUnavailable')}
+              </p>
+            ) : null}
+
+            {hasInstanceRow &&
+            (subscriptionState.kind === 'idle' ||
+              subscriptionState.kind === 'success' ||
+              subscriptionState.kind === 'error') ? (
               <div className="space-y-3">
                 {subscriptionState.kind === 'success' ? (
                   <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">

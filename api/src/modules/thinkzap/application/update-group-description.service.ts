@@ -1,18 +1,19 @@
-import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
-import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
+import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { resolveZApiInstance } from './helpers/resolve-z-api-instance'
 
 export type UpdateGroupDescriptionInput = {
-  connectorId: string
+  /** Id do item de assinatura — a linha. */
+  subscriptionItemId: string
+  domainId: string
+  appCode: string
   groupId: string
   groupDescription: string
 }
 
 export class UpdateGroupDescriptionService {
   constructor(
-    private readonly getConnectorRepository: GetConnectorRepository,
-    private readonly getInstanceRepository: GetInstanceRepository,
+    private readonly getAplicationContext: GetAplicationContext,
     private readonly zApiClient: ZApiClient,
   ) {}
 
@@ -20,9 +21,8 @@ export class UpdateGroupDescriptionService {
     input: UpdateGroupDescriptionInput,
   ): Promise<{ value: boolean }> {
     const resolved = await resolveZApiInstance(
-      input.connectorId,
-      this.getConnectorRepository,
-      this.getInstanceRepository,
+      input,
+      this.getAplicationContext,
       this.zApiClient,
     )
 

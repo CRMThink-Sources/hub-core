@@ -1,3 +1,4 @@
 {
-  "numerosConectados": "Connected numbers: {{connected}}/{{total}}"
+  "numerosConectados": "Connected numbers: {{connected}}/{{total}}",
+  "linhasAtivas": "Active lines: {{ativas}}/{{total}}"
 }

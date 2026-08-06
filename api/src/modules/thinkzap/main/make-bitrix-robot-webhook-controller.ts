@@ -1,3 +1,4 @@
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixRobotWebhookHandlerController } from '../presentation/controllers/bitrix-robot-webhook-handler.controller'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
@@ -18,6 +19,7 @@ export const makeBitrixRobotWebhookHandlerController = async (
   const getApp = new PrismaInstalledAppRepository()
   const getConnector = new PrismaConnectorRepository()
   const getInstance = new PrismaInstanceRepository()
+  console.log(request.body)
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
   const domain = await getDomain.getDomain(request.body.auth.domain)
   if (!domain) {
@@ -36,8 +38,7 @@ export const makeBitrixRobotWebhookHandlerController = async (
   return new BitrixRobotWebhookHandlerController(
     getDomain,
     getApp,
-    getConnector,
-    getInstance,
+    makeGetAplicationContext(),
     sendNotification,
     bx,
   )

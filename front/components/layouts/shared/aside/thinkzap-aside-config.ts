@@ -9,11 +9,7 @@ export const THINKZAP_ASIDE_CONFIG = {
       label: 'conexoes',
       // icon: '/images/thinkzap/connection.png',
     },
-    {
-      href: '/thinkzap/financeiro',
-      label: 'financeiro',
-      // icon: '/images/thinkzap/payment.png',
-    },
+    // `/thinkzap/financeiro` saiu com a cobrança antiga; a tela nova entra aqui.
     {
       href: '/thinkzap/permissoes',
       label: 'permissoes',

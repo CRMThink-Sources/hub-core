@@ -1,7 +1,0 @@
-{
-  "erroCarregarPrecos": "Could not load prices. Please try again.",
-  "erroAtualizarAssinatura": "Could not update the subscription.",
-  "erroReativarAssinatura": "Could not reactivate the subscription. Please try again.",
-  "linhasAdicionadas_one": "{{count}} line added successfully!",
-  "linhasAdicionadas_other": "{{count}} lines added successfully!"
-}
