@@ -153,7 +153,11 @@ export type SendHubMessageTemplateParams = {
   }
 }
 
-/** Resposta do envio de template — igual à do envio livre. */
+/**
+ * Resposta do envio de template — igual à do envio livre, e `messageId` é o
+ * **único** campo que vem (confirmado em 2026-08-06). É ele que vira
+ * `providerMessageId` e correlaciona o webhook de status.
+ */
 export type SendHubMessageTemplateResponse = {
   messageId: string
 }
