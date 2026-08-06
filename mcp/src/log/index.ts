@@ -5,6 +5,7 @@ import { lokiSource } from './loki-source.js'
 import {
   betterStackSource,
   queryBySonaxCall as bsQueryBySonaxCall,
+  queryBySonaxPhone as bsQueryBySonaxPhone,
 } from './betterstack-source.js'
 
 // Produtos que emitem pro BetterStack (HubThink). Todo o resto = Loki (casa).
@@ -77,4 +78,16 @@ export async function queryBySonaxCall(
 ): Promise<LogEntry[]> {
   if (!betterStackSource.configured()) return []
   return bsQueryBySonaxCall(callId, domain, sinceHours, limit)
+}
+
+// Busca eventos Sonax pelo telefone do cliente. Mesma regra: Sonax vive no
+// BetterStack; sem ele configurado, devolve vazio.
+export async function queryBySonaxPhone(
+  phone: string,
+  domain?: string,
+  sinceHours?: number,
+  limit?: number,
+): Promise<LogEntry[]> {
+  if (!betterStackSource.configured()) return []
+  return bsQueryBySonaxPhone(phone, domain, sinceHours, limit)
 }

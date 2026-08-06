@@ -6,8 +6,14 @@ import {
   queryByTrace,
   queryErrors,
   queryBySonaxCall,
+  queryBySonaxPhone,
 } from '../log/index.js'
-import { fmtTimeline, fmtErrorAggregation, fmtCallTimeline } from '../format.js'
+import {
+  fmtTimeline,
+  fmtErrorAggregation,
+  fmtCallTimeline,
+  fmtPhoneTimeline,
+} from '../format.js'
 import { text, errMsg } from '../respond.js'
 
 // Guarda comum das tools de log: ao menos uma fonte configurada + captura de falha.
@@ -158,6 +164,43 @@ export function registerLogTools(server: McpServer): void {
           )
         }
         return text(fmtCallTimeline(id, entries))
+      }),
+  )
+
+  // Específico do Sonax: busca eventos pelo telefone do cliente. Casa o sufixo local
+  // do número (sem DDI/DDD) em qualquer campo — o mesmo telefone aparece com prefixos
+  // e chaves variadas conforme a fase. Pode trazer várias chamadas do mesmo número.
+  server.registerTool(
+    'query_sonax_phone',
+    {
+      title: 'Eventos da chamada Sonax por telefone',
+      description:
+        'Para o app sonax: busca os eventos de chamada pelo número de telefone do ' +
+        'cliente e devolve a timeline com os errorCodes e traceKeys. Pode retornar ' +
+        'mais de uma chamada do mesmo número. Use quando o ticket traz o telefone ' +
+        'em vez de um traceKey ou id de chamada.',
+      inputSchema: {
+        phone: z
+          .string()
+          .describe('Telefone do cliente (com ou sem DDI/DDD, pontuação ignorada)'),
+        sinceHours: z
+          .number()
+          .optional()
+          .describe('Janela em horas (padrão 72)'),
+      },
+    },
+    async ({ phone, sinceHours }, extra) =>
+      withLogs(async () => {
+        const scope = scopeDomain(session(extra))
+        if (scope.error) return text(scope.error)
+        const p = phone.trim()
+        const entries = await queryBySonaxPhone(p, scope.domain, sinceHours)
+        if (entries.length === 0) {
+          return text(
+            `Nenhum evento para o telefone "${p}" na janela. Confira o número ou aumente sinceHours.`,
+          )
+        }
+        return text(fmtPhoneTimeline(p, entries))
       }),
   )
 }

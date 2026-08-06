@@ -154,6 +154,18 @@ export const betterStackSource: LogSource = {
   },
 }
 
+// Telefone: reduz a dígitos e casa pelo SUFIXO local (número sem DDI/DDD). O mesmo
+// telefone aparece com prefixos variados conforme o fluxo (numero_cli cru vs
+// normalizePhoneNumber com "55" vs PHONE_NUMBER do Bitrix, às vezes internacional),
+// então igualdade não serve. Sufixo casa independente do prefixo. Needle = últimos 9
+// dígitos (9 = mobile BR sem DDD); telefone mais curto usa o que tem. Mín 6 dígitos
+// pra não casar o mundo. Só dígitos → seguro pro SQL.
+function phoneNeedle(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length < 6) return null
+  return digits.length > 9 ? digits.slice(-9) : digits
+}
+
 // Id da chamada = só dígitos. Guard antes de injetar no SQL (defense-in-depth).
 const SAFE_CALL_ID = /^\d{1,20}$/
 
@@ -179,6 +191,35 @@ export async function queryBySonaxCall(
   const where = [
     `dt >= now() - INTERVAL ${hours} HOUR`,
     idMatch,
+    domainClause(domain),
+  ]
+    .filter(Boolean)
+    .join(' AND ')
+  const sql =
+    `SELECT dt, raw FROM ${table()} WHERE ${where} ` +
+    `ORDER BY dt DESC LIMIT ${cap} FORMAT JSONEachRow`
+  const entries = await runSql(sql)
+  return entries.sort((a, b) => a.ts - b.ts) // cronológico p/ leitura
+}
+
+// Específico do Sonax: busca eventos por telefone do cliente. O telefone não é campo
+// estruturado — vive dentro de `extra` sob chaves variadas (numeroCliente/phone) e em
+// formatos diferentes → casa o sufixo local em qualquer lugar do `raw` (position).
+// Pode abranger MAIS de uma chamada (o mesmo número liga várias vezes); o suporte
+// pivota pelo traceKey/id da chamada retornados.
+export async function queryBySonaxPhone(
+  phone: string,
+  domain?: string,
+  sinceHours?: number,
+  limit?: number,
+): Promise<LogEntry[]> {
+  const needle = phoneNeedle(phone)
+  if (!needle) return []
+  const hours = clamp(sinceHours, 72, MAX_SINCE_HOURS)
+  const cap = clamp(limit, 200, MAX_LIMIT)
+  const where = [
+    `dt >= now() - INTERVAL ${hours} HOUR`,
+    contains(needle),
     domainClause(domain),
   ]
     .filter(Boolean)
