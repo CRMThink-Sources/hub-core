@@ -5,7 +5,10 @@ import { IMPORTSHEET_ERRORS, IMPORTSHEET_THROWN_CODES } from './catalog'
 
 // Guardrail do casamento log ↔ runbook (ver tasks/geral/log-frame-importsheet.md).
 // errorCode espelha o caminho do runbook (dots → pastas).
-const RUNBOOKS_ROOT = path.resolve(__dirname, '../../../../../mcp/kb/runbooks')
+const RUNBOOKS_ROOT = path.resolve(
+  __dirname,
+  '../../../../../mcp/kb/runbooks/hubcore',
+)
 const IMPORTSHEET_DIR = path.join(RUNBOOKS_ROOT, 'importsheet')
 
 const EMITTED = new Set<string>([

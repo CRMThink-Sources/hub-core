@@ -4,7 +4,10 @@ import { describe, expect, it } from 'vitest'
 import { CLICKSIGN_ERRORS } from './catalog'
 
 // Guardrail do casamento log ↔ runbook (ver tasks/geral/suporte.md).
-const RUNBOOKS_ROOT = path.resolve(__dirname, '../../../../../mcp/kb/runbooks')
+const RUNBOOKS_ROOT = path.resolve(
+  __dirname,
+  '../../../../../mcp/kb/runbooks/hubcore',
+)
 const CLICKSIGN_DIR = path.join(RUNBOOKS_ROOT, 'clicksign')
 
 const EMITTED = new Set<string>(Object.keys(CLICKSIGN_ERRORS))
