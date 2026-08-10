@@ -182,7 +182,9 @@ export function registerLogTools(server: McpServer): void {
       inputSchema: {
         phone: z
           .string()
-          .describe('Telefone do cliente (com ou sem DDI/DDD, pontuação ignorada)'),
+          .describe(
+            'Telefone do cliente (com ou sem DDI/DDD, pontuação ignorada)',
+          ),
         sinceHours: z
           .number()
           .optional()
