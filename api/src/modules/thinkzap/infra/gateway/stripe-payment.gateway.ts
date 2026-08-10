@@ -13,6 +13,7 @@ import {
   SyncSubscriptionLineItemsInput,
 } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '../../errors/catalog'
 
 /**
  * Status do Stripe → status da SPA.
@@ -293,14 +294,19 @@ export class StripePaymentGateway implements PaymentGateway {
        * backoff por algo que nunca vai completar.
        */
       if (!gatewaySubscriptionId || !installation) {
-        apiLogger.warn(
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.gateway.event_ignored',
           {
             app: 'thinkzap',
             event: event.type,
             gatewaySubscriptionId,
             hasInstallation: Boolean(installation),
           },
-          'checkout.session.completed sem assinatura ou sem metadata de instalação — ignorando',
+          {
+            level: 'warn',
+            msg: 'checkout.session.completed sem assinatura ou sem metadata de instalação — ignorando',
+          },
         )
         return { type: 'ignored', name: event.type }
       }
@@ -334,14 +340,19 @@ export class StripePaymentGateway implements PaymentGateway {
     const status = STATUS_BY_STRIPE_STATUS[subscription.status]
 
     if (!status) {
-      apiLogger.warn(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.gateway.event_ignored',
         {
           app: 'thinkzap',
           event: event.type,
           gatewaySubscriptionId: subscription.id,
           gatewayStatus: subscription.status,
         },
-        'Status de assinatura do gateway desconhecido — ignorando o evento',
+        {
+          level: 'warn',
+          msg: 'Status de assinatura do gateway desconhecido — ignorando o evento',
+        },
       )
       return { type: 'ignored', name: event.type }
     }
@@ -392,9 +403,14 @@ export class StripePaymentGateway implements PaymentGateway {
     const planId = metadata.newLinePlanId
 
     if ((provider !== 'ZAPI' && provider !== 'HUBMESSAGE') || !planId) {
-      apiLogger.warn(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.gateway.event_ignored',
         { app: 'thinkzap', provider, hasPlanId: Boolean(planId) },
-        'Sessão declarou intenção de acrescentar linha sem conector ou sem plano — tratada como contratação comum',
+        {
+          level: 'warn',
+          msg: 'Sessão declarou intenção de acrescentar linha sem conector ou sem plano — tratada como contratação comum',
+        },
       )
       return { kind: 'convert' }
     }
@@ -448,6 +464,12 @@ export class StripePaymentGateway implements PaymentGateway {
     const end = legacy.current_period_end ?? item?.current_period_end
 
     if (!start || !end) {
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.gateway.period_missing',
+        { app: 'thinkzap', gatewaySubscriptionId: subscription.id },
+        { level: 'warn' },
+      )
       throw new Error(
         `Assinatura ${subscription.id} do gateway não trouxe período de cobrança`,
       )

@@ -16,6 +16,8 @@ import {
   bizprocEntityToPlacement,
   resolveRelatedDestinations,
 } from '../../application/related-destinations.resolver'
+import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '../../errors/catalog'
 
 export class BitrixRobotWebhookHandlerController extends Controller {
   private readonly zApiClient: ZApiClient = new ZApiClient(
@@ -34,9 +36,13 @@ export class BitrixRobotWebhookHandlerController extends Controller {
 
   async perform(req: Request, res: Response): Promise<httpResponse> {
     const data = req.body as BitrixRobotWebhookHandlerRequest
-    console.log(data)
     const domain = await this.getDomain.getDomain(data.auth.domain)
     if (!domain) {
+      logThinkzapError(apiLogger, 'thinkzap.app.not_found', {
+        app: 'thinkzap',
+        source: 'bitrix',
+        reason: 'domain',
+      })
       return this.notFound(new Error('Domain not found'))
     }
 
@@ -45,6 +51,11 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       domain.id,
     )
     if (!app) {
+      logThinkzapError(apiLogger, 'thinkzap.app.not_found', {
+        app: 'thinkzap',
+        source: 'bitrix',
+        reason: 'app',
+      })
       return this.notFound(new Error('App not found'))
     }
 
@@ -105,11 +116,12 @@ export class BitrixRobotWebhookHandlerController extends Controller {
         )
         sent.push(phone)
       } catch (error) {
-        console.error(
-          '[BitrixRobotWebhookHandler] failed to send to',
+        logThinkzapError(apiLogger, 'thinkzap.bitrix.robot_webhook_failed', {
+          app: 'thinkzap',
+          source: 'bitrix',
           phone,
-          (error as Error).message,
-        )
+          err: (error as Error).message,
+        })
       }
     }
 
@@ -160,9 +172,10 @@ export class BitrixRobotWebhookHandlerController extends Controller {
         )
         return destinations.map(d => d.phone)
       } catch (error) {
-        console.error(
-          '[BitrixRobotWebhookHandler] failed to resolve related contacts:',
-          (error as Error).message,
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.message.related_destinations_failed',
+          { app: 'thinkzap', source: 'bitrix', err: (error as Error).message },
         )
         return []
       }

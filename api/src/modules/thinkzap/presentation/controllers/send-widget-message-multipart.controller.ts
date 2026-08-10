@@ -8,6 +8,8 @@ import {
   WidgetMessageAttachmentInput,
 } from '@/modules/thinkzap/application/send-widget-message.types'
 import { mapWidgetSendError } from '@/modules/thinkzap/presentation/helpers/handle-widget-send-error'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
@@ -118,6 +120,12 @@ export class SendWidgetMessageMultipartController extends Controller {
       })
       return this.ok(result)
     } catch (error) {
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.message.widget_send_failed',
+        { app: 'thinkzap', err: error },
+        { level: 'error' },
+      )
       return mapWidgetSendError(error)
     }
   }

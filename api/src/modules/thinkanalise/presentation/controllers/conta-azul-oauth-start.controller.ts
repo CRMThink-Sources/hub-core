@@ -5,6 +5,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { OAuthStateStore } from '../../infra/oauth-state.store'
 import { env } from '@/config/env'
+import { thinkanaliseError } from '../../errors/catalog'
 
 export class ContaAzulOAuthStartController extends Controller {
   constructor(private readonly stateStore: OAuthStateStore) {
@@ -15,7 +16,7 @@ export class ContaAzulOAuthStartController extends Controller {
     const appId = req.appId
     const domainId = req.domainId
     if (!appId || !domainId)
-      return Promise.resolve(this.badRequest(new Error('Missing app context')))
+      throw thinkanaliseError('thinkanalise.request.app_context_missing')
 
     const apiUrl = env.apiUrl
 
@@ -24,7 +25,7 @@ export class ContaAzulOAuthStartController extends Controller {
     const authUrl = env.contaAzul.AuthUrl
 
     if (!clientId || !redirectUri || !authUrl) {
-      throw new Error('Conta Azul OAuth not configured')
+      throw thinkanaliseError('thinkanalise.oauth.conta_azul_not_configured')
     }
 
     const sourceIdParsed = z.coerce
@@ -57,11 +58,7 @@ export class ContaAzulOAuthStartController extends Controller {
         title: titleParsed.data,
       })
     } else {
-      return Promise.resolve(
-        this.badRequest(
-          new Error('Provide either sourceId or connectorId+title'),
-        ),
-      )
+      throw thinkanaliseError('thinkanalise.oauth.params_invalid')
     }
 
     const url = new URL(authUrl)

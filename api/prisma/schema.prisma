@@ -16,6 +16,7 @@ model Domain {
 
   apps      App[]
   instances Instance[]
+  mcpUsers  McpUser[]
 
   @@map("core_domains")
 }
@@ -470,4 +471,103 @@ model PortalUser {
   updatedAt    DateTime       @updatedAt @map("updated_at")
 
   @@map("portal_users")
+}
+
+// ============================================
+// MCP OAUTH — Authorization Server do MCP de suporte
+// Base de credencial isolada do portal: acesso ao portal não concede acesso a
+// log de cliente. O MCP não fala com o banco; só valida o JWT emitido aqui.
+// ============================================
+
+/// Usuário do MCP de suporte. `isAdmin` = suporte interno CRMThink (escolhe
+/// qualquer domínio no login); não-admin fica travado no `domainId` do cadastro.
+model McpUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  domainId     String   @map("domain_id")
+  isAdmin      Boolean  @default(false) @map("is_admin")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  domain        Domain            @relation(fields: [domainId], references: [id])
+  authCodes     McpAuthCode[]
+  refreshTokens McpRefreshToken[]
+
+  @@index([domainId])
+  @@map("core_mcp_users")
+}
+
+/// Client registrado via Dynamic Client Registration (RFC 7591) pelo claude.ai.
+/// Public client: `token_endpoint_auth_method="none"`, sem secret — PKCE é a prova.
+model McpOauthClient {
+  id                      String   @id @default(uuid())
+  clientId                String   @unique @map("client_id")
+  clientName              String?  @map("client_name")
+  redirectUris            Json     @map("redirect_uris")
+  grantTypes              Json     @map("grant_types")
+  responseTypes           Json     @map("response_types")
+  scope                   String?
+  tokenEndpointAuthMethod String   @default("none") @map("token_endpoint_auth_method")
+  clientUri               String?  @map("client_uri")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  authCodes     McpAuthCode[]
+  refreshTokens McpRefreshToken[]
+
+  @@map("core_mcp_oauth_clients")
+}
+
+/// Authorization code de uso único (TTL ~60s). Guarda o `domainId` escolhido na
+/// tela de login — é ele que vira o claim `domain` do access token.
+model McpAuthCode {
+  id                  String    @id @default(uuid())
+  code                String    @unique
+  userId              String    @map("user_id")
+  clientId            String    @map("client_id")
+  domainId            String    @map("domain_id")
+  codeChallenge       String    @map("code_challenge")
+  codeChallengeMethod String    @default("S256") @map("code_challenge_method")
+  redirectUri         String    @map("redirect_uri") @db.Text
+  resource            String?   @db.Text
+  scopes              Json
+  expiresAt           DateTime  @map("expires_at")
+  consumedAt          DateTime? @map("consumed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  user   McpUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client McpOauthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([expiresAt])
+  @@map("core_mcp_auth_codes")
+}
+
+/// Refresh token opaco, persistido só como hash. Rotação de uso único: o
+/// `/token` revoga o atual e aponta `rotatedToId` pro novo. Reuso de um token já
+/// rotacionado = sinal de vazamento → revogar a cadeia inteira.
+model McpRefreshToken {
+  id          String    @id @default(uuid())
+  tokenHash   String    @unique @map("token_hash")
+  userId      String    @map("user_id")
+  clientId    String    @map("client_id")
+  domainId    String    @map("domain_id")
+  scopes      Json
+  resource    String?   @db.Text
+  expiresAt   DateTime  @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  rotatedToId String?   @map("rotated_to_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user   McpUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client McpOauthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([expiresAt])
+  @@map("core_mcp_refresh_tokens")
 }

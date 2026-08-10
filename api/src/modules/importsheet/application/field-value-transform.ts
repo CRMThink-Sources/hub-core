@@ -7,8 +7,6 @@
  * querystring do batch fica no writer.
  */
 
-import { apiLogger } from '@/shared/infra/logger'
-
 export type BitrixFieldMeta = {
   type: string
   isMultiple: boolean
@@ -32,6 +30,11 @@ export type FieldParam = {
 // Multifield (PHONE/EMAIL): transform emite path [MULTIFIELD_SENTINEL, typeId];
 // o mapRow expande no formato `fm` do crm.item com índice único por linha.
 export const MULTIFIELD_SENTINEL = '__multifield__'
+
+// Pulo silencioso de campo (valor não bate com a lista do Bitrix). Reportado pra
+// cima em vez de logado inline → o run agrega 1 linha por code/página.
+export type FieldSkipCode = 'status_no_match' | 'enum_no_match'
+export type OnFieldSkip = (skip: FieldSkipCode) => void
 
 /** Máscara de CPF: 000.000.000-00. */
 const CPF_MASK = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/
@@ -118,6 +121,7 @@ export function transformFieldValue(
   meta: BitrixFieldMeta | undefined,
   raw: string,
   statusLists: StatusLists,
+  onSkip?: OnFieldSkip,
 ): FieldParam[] {
   // Normaliza CPF/CNPJ por máscara antes de qualquer transform (formato bate
   // com o armazenado no Bitrix → grava limpo e casa o dedup).
@@ -132,12 +136,9 @@ export function transformFieldValue(
   if (type === 'crm_status' && meta?.statusType) {
     const list = statusLists[meta.statusType] ?? []
     const status = list.find(s => s.NAME === value)
-    // Sem match → ignora (não manda texto cru como STATUS_ID).
+    // Sem match → ignora (não manda texto cru como STATUS_ID). Reporta pra agregar.
     if (!status) {
-      apiLogger.warn(
-        { app: 'importsheet', code, value, statusType: meta.statusType },
-        'crm_status sem match na lista — campo ignorado',
-      )
+      onSkip?.('status_no_match')
       return []
     }
     return [{ path: [code], value: status.STATUS_ID }]
@@ -146,10 +147,7 @@ export function transformFieldValue(
   if (type === 'enumeration') {
     const item = meta?.enumItems?.find(e => e.VALUE === value)
     if (!item) {
-      apiLogger.warn(
-        { app: 'importsheet', code, value },
-        'enumeration sem match nos itens — campo ignorado',
-      )
+      onSkip?.('enum_no_match')
       return []
     }
     return meta?.isMultiple

@@ -166,6 +166,6 @@ describe('HubMessageClient', () => {
           baseUrl: 'https://api.hubmessage.io',
           token: '',
         }),
-    ).toThrow('token de autenticação ausente')
+    ).toThrow('A integração com o WhatsApp Oficial não está configurada.')
   })
 })

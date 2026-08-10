@@ -14,6 +14,7 @@ import {
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { PaymentGateway } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '../errors/catalog'
 import { buildContractLineItems } from './helpers/build-contract-line-items'
 import {
   lineNameFor,
@@ -233,7 +234,9 @@ export class CreateAdditionalLine {
         lineItems: args.lineItems,
       })
     } catch (error) {
-      apiLogger.error(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.subscription.additional_line_failed',
         {
           app: 'thinkzap',
           domainId: args.input.domainId,
@@ -242,7 +245,10 @@ export class CreateAdditionalLine {
           orphanRemoteId: resourceRefOf(provider, resource),
           err: error,
         },
-        'Recurso provisionado no provider e a cobrança não foi ajustada — recurso órfão, e nós pagamos por ele',
+        {
+          level: 'error',
+          msg: 'Recurso provisionado no provider e a cobrança não foi ajustada — recurso órfão, e nós pagamos por ele',
+        },
       )
       throw error
     }
@@ -259,7 +265,9 @@ export class CreateAdditionalLine {
         metadata,
       })
     } catch (error) {
-      apiLogger.error(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.subscription.additional_line_failed',
         {
           app: 'thinkzap',
           domainId: args.input.domainId,
@@ -270,7 +278,10 @@ export class CreateAdditionalLine {
           remoteId: resourceRefOf(provider, resource),
           err: error,
         },
-        'Cobrança ajustada e a linha não foi criada na SPA — cliente pagou e não tem a linha; criar o item à mão no CRM com esta credencial',
+        {
+          level: 'error',
+          msg: 'Cobrança ajustada e a linha não foi criada na SPA — cliente pagou e não tem a linha; criar o item à mão no CRM com esta credencial',
+        },
       )
       throw error
     }

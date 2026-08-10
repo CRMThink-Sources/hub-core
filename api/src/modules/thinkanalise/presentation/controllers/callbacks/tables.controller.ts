@@ -1,6 +1,11 @@
 import { Request, Response } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { CallbackController } from '@/shared/presentation/callback-controller'
+import { apiLogger } from '@/shared/infra/logger'
+import {
+  thinkanaliseError,
+  logThinkanaliseError,
+} from '@/modules/thinkanalise/errors/catalog'
 import { listOmieTables } from '@/modules/thinkanalise/infra/omie-capabilities'
 import { tables as asaasTables } from './schemas/asaas'
 import { tables as blingTables } from './schemas/bling'
@@ -29,18 +34,36 @@ export class TablesController extends CallbackController {
     const { connection, searchString } = req.body as TablesBody
 
     if (!connection?.integration) {
-      return this.badRequest(new Error('Missing integration'))
+      throw thinkanaliseError('thinkanalise.callback.connection_missing')
     }
 
     let tables: { code: string; title: string }[]
 
     if (connection.integration === 'omie' && connection.api_key) {
       // Tabelas de estoque/compras dependem do plano — probe com cache decide o que expor
-      tables = await listOmieTables(connection.api_key).catch(
-        () => omieTables, // probe falhou → lista completa; /data devolve só header p/ módulo off
-      )
+      tables = await listOmieTables(connection.api_key).catch(error => {
+        // Probe falhou → lista completa (via C); /data devolve só header p/ módulo off.
+        logThinkanaliseError(
+          apiLogger,
+          'thinkanalise.omie.capability_probe_failed',
+          {
+            err: error instanceof Error ? error.message : String(error),
+          },
+        )
+        return omieTables
+      })
     } else {
-      tables = tablesByProvider[connection.integration] ?? []
+      const known = tablesByProvider[connection.integration]
+      if (!known) {
+        logThinkanaliseError(
+          apiLogger,
+          'thinkanalise.callback.provider_unsupported',
+          {
+            provider: connection.integration,
+          },
+        )
+      }
+      tables = known ?? []
     }
 
     const filtered = searchString

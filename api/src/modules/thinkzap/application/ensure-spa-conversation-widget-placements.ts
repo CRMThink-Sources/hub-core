@@ -1,6 +1,7 @@
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { callBitrixIdempotent } from '@/shared/infra/clients/call-bitrix-idempotent'
-import { logger } from '@/shared/infra/logger'
+import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '../errors/catalog'
 import { listSpaEntityTypes } from './list-spa-entity-types'
 import { buildSpaPlacementBindParams } from './build-spa-placement-bind-params'
 
@@ -37,6 +38,16 @@ export async function ensureSpaPlacements(
       registered++
     } catch (error) {
       if (options.failFast) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.install.placement_bind_failed',
+          {
+            app: 'thinkzap',
+            placement: params.PLACEMENT,
+            err: error instanceof Error ? error.message : String(error),
+          },
+          { level: 'error' },
+        )
         throw new Error(
           `Falha ao vincular placement da SPA ${String(params.PLACEMENT)}: ${
             error instanceof Error ? error.message : String(error)
@@ -45,7 +56,7 @@ export async function ensureSpaPlacements(
         )
       }
 
-      logger.error(
+      apiLogger.error(
         { err: error, placement: params.PLACEMENT },
         'failed to bind SPA placement',
       )

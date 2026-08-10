@@ -1,4 +1,6 @@
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 
 const entityLabel = {
   4: 'Empresa',
@@ -81,7 +83,12 @@ export async function resolveRelatedDestinations(
           ...buildDestinationsFromEntity(item, id.id, id.entityTypeId),
         )
       } catch (error) {
-        console.error('error getting destination:', (error as Error).message)
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.message.related_destinations_failed',
+          { app: 'thinkzap', subQuery: 'destination', err: error },
+          { level: 'error', msg: 'error getting destination' },
+        )
       }
     }),
   )
@@ -117,7 +124,12 @@ async function getDealDestinations(
 
   const [contactIds, companyContactIds] = await Promise.all([
     bitrix.getDealContactIds(dealId).catch(err => {
-      console.error('error getting deal contact ids:', (err as Error).message)
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.message.related_destinations_failed',
+        { app: 'thinkzap', subQuery: 'deal-contact-ids', err },
+        { level: 'error', msg: 'error getting deal contact ids' },
+      )
       return [] as string[]
     }),
     getCompanyContactIdsFromEntity(bitrix, entity),
@@ -174,7 +186,12 @@ async function getCompanyDestinations(
   const results: EntityId[] = [{ entityTypeId: 4, id: contextId }]
 
   const contactIds = await bitrix.getCompanyContactIds(contextId).catch(err => {
-    console.error('error getting company contact ids:', (err as Error).message)
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.message.related_destinations_failed',
+      { app: 'thinkzap', subQuery: 'company-contact-ids', err },
+      { level: 'error', msg: 'error getting company contact ids' },
+    )
     return [] as string[]
   })
 
@@ -199,7 +216,12 @@ async function getCompanyContactIdsFromEntity(
   if (!companyId) return []
 
   return bitrix.getCompanyContactIds(companyId).catch(err => {
-    console.error('error getting company contact ids:', (err as Error).message)
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.message.related_destinations_failed',
+      { app: 'thinkzap', subQuery: 'company-contact-ids', err },
+      { level: 'error', msg: 'error getting company contact ids' },
+    )
     return [] as string[]
   })
 }

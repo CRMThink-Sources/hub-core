@@ -13,6 +13,8 @@ import {
 } from '@/shared/infra/clients/omie.client'
 import { BlingClient } from '@/shared/infra/clients/bling.client'
 import { thinkAnaliseAuthTokenService } from '@/modules/thinkanalise/infra/auth-token.service'
+import { AppError } from '@/shared/domain/errors/app-error'
+import { thinkanaliseError } from '@/modules/thinkanalise/errors/catalog'
 
 const CHECKERS: Record<string, (apiKey: string) => Promise<void>> = {
   asaas: apiKey => new AsaasClient(apiKey).check(),
@@ -45,28 +47,29 @@ export class CheckController extends CallbackController {
       (body as Record<string, string>)
 
     if (!settings?.api_key || !settings?.integration) {
-      return this.badRequest(new Error('Missing connection parameters'))
+      throw thinkanaliseError('thinkanalise.callback.connection_missing')
     }
 
     const check = CHECKERS[settings.integration]
     if (!check) {
-      return this.badRequest(
-        new Error(`Provider '${settings.integration}' not supported`),
-      )
+      throw thinkanaliseError('thinkanalise.callback.provider_unsupported')
     }
 
     try {
       await check(settings.api_key)
     } catch (error) {
-      if (
+      if (error instanceof AppError) throw error // token.* já classificado
+      const isCredential =
         (axios.isAxiosError(error) &&
           error.response &&
           error.response.status < 500) ||
         (error instanceof Error && error.message === 'Invalid credentials')
-      ) {
-        return this.badRequest(new Error('Invalid credentials'))
-      }
-      throw error
+      throw thinkanaliseError(
+        isCredential
+          ? 'thinkanalise.credentials.invalid'
+          : 'thinkanalise.provider.check_failed',
+        error,
+      )
     }
 
     return this.ok({ ok: true })

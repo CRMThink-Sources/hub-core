@@ -3,7 +3,11 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { UpdateImportService } from '../../application/update-import.service'
-import { importPayloadSchema } from './import-payload.schema'
+import {
+  importPayloadSchema,
+  importPayloadIssue,
+} from './import-payload.schema'
+import { logImportsheetError } from '../../errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 
 export class UpdateImportController extends Controller {
@@ -23,9 +27,9 @@ export class UpdateImportController extends Controller {
 
     const parsed = importPayloadSchema.safeParse(req.body)
     if (!parsed.success) {
-      return this.badRequest(
-        new Error(parsed.error.issues[0]?.message ?? 'Invalid payload'),
-      )
+      const { errorCode, message } = importPayloadIssue(parsed.error)
+      if (errorCode) logImportsheetError(apiLogger, errorCode, { appId })
+      return this.badRequest(new Error(message))
     }
 
     const app = await this.installedAppRepository.getByAppCodeAndDomainId(

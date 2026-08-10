@@ -13,6 +13,7 @@ import { resolveCurrentContract } from '@/modules/thinkzap/domain/line-subscript
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { CheckoutIntent } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 import { apiLogger } from '@/shared/infra/logger'
+import { thinkzapError, logThinkzapError } from '../errors/catalog'
 import { lineNameFor, toLineMetadata } from './helpers/line-resource-metadata'
 import { resolvePlanForProvider } from '@/modules/thinkzap/domain/line-subscription'
 import { ListOfferablePlans } from './list-offerable-plans'
@@ -201,7 +202,9 @@ export class ActivateLineSubscription {
          * mover o item à mão no CRM, e sem os três ids ninguém sabe qual mover para
          * onde.
          */
-        apiLogger.error(
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.subscription.line_blocked_after_payment',
           {
             app: 'thinkzap',
             domainId: input.domainId,
@@ -212,7 +215,10 @@ export class ActivateLineSubscription {
             gatewaySubscriptionId: input.gatewaySubscriptionId,
             err: error,
           },
-          'Pagamento aprovado e o item não foi movido para a assinatura paga — linha bloqueada, mover o item à mão no CRM',
+          {
+            level: 'error',
+            msg: 'Pagamento aprovado e o item não foi movido para a assinatura paga — linha bloqueada, mover o item à mão no CRM',
+          },
         )
         throw error
       }
@@ -304,9 +310,12 @@ export class ActivateLineSubscription {
       const resolved = resolvePlanForProvider(offerable, provider)
 
       if (resolved.kind !== 'resolved') {
-        throw new Error(
-          `Não há um plano ofertável único para o conector ${provider} ` +
-            `(${resolved.kind}) — pagamento aprovado e a assinatura não pode ser montada`,
+        throw thinkzapError(
+          'thinkzap.subscription.activation_failed',
+          new Error(
+            `Não há um plano ofertável único para o conector ${provider} ` +
+              `(${resolved.kind}) — pagamento aprovado e a assinatura não pode ser montada`,
+          ),
         )
       }
 
@@ -404,7 +413,9 @@ export class ActivateLineSubscription {
         metadata,
       })
     } catch (error) {
-      apiLogger.error(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.subscription.new_line_not_created',
         {
           app: 'thinkzap',
           domainId: args.input.domainId,
@@ -414,7 +425,10 @@ export class ActivateLineSubscription {
           provider: args.provider,
           err: error,
         },
-        'Pagamento aprovado e a linha nova não foi criada — as linhas que já existiam seguem funcionando; criar o item à mão no CRM',
+        {
+          level: 'error',
+          msg: 'Pagamento aprovado e a linha nova não foi criada — as linhas que já existiam seguem funcionando; criar o item à mão no CRM',
+        },
       )
       return null
     }

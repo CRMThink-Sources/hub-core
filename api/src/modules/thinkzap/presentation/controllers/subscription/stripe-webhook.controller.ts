@@ -7,6 +7,7 @@ import {
   PaymentGateway,
 } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 /** Cabeçalho de assinatura do evento. */
 export const STRIPE_SIGNATURE_HEADER = 'stripe-signature'
@@ -36,9 +37,14 @@ export class StripeWebhookController extends Controller {
        * Nomeado no log porque a alternativa (assinatura inválida em 100% dos
        * eventos) manda procurar no lugar errado: parece problema de segredo.
        */
-      apiLogger.error(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.gateway.webhook_payload_invalid',
         { app: 'thinkzap' },
-        'Webhook do gateway recebeu corpo já parseado — a rota tem que ser registrada antes do express.json()',
+        {
+          level: 'error',
+          msg: 'Webhook do gateway recebeu corpo já parseado — a rota tem que ser registrada antes do express.json()',
+        },
       )
       return this.badRequest(
         new Error('Corpo do webhook precisa chegar cru (Buffer)'),
@@ -52,9 +58,14 @@ export class StripeWebhookController extends Controller {
       event = await this.gateway.verifyWebhookEvent(req.body, signature)
     } catch (error) {
       if (error instanceof GatewaySignatureError) {
-        apiLogger.warn(
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.gateway.webhook_signature_invalid',
           { app: 'thinkzap', reason: error.message },
-          'Evento do gateway recusado: assinatura inválida — nada foi processado',
+          {
+            level: 'warn',
+            msg: 'Evento do gateway recusado: assinatura inválida — nada foi processado',
+          },
         )
         return this.unauthorized(error)
       }

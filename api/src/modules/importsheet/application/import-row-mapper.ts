@@ -5,6 +5,7 @@ import {
   transformFieldValue,
   type BitrixFieldMeta,
   type FieldParam,
+  type OnFieldSkip,
   type StatusLists,
 } from './field-value-transform'
 
@@ -64,6 +65,7 @@ export function mapRow(
   mappings: ImportConfigMapping[],
   metas: Map<string, BitrixFieldMeta>,
   statusLists: StatusLists,
+  onSkip?: OnFieldSkip,
 ): MappedRow {
   const params: FieldParam[] = []
   const identifiers: RowIdentifier[] = []
@@ -83,6 +85,7 @@ export function mapRow(
         metas.get(mapping.fieldName),
         raw,
         statusLists,
+        onSkip,
       ),
     )
   }

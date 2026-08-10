@@ -3,6 +3,7 @@
   "navHome": "Inicio",
   "navClients": "Clientes",
   "navUsers": "Usuarios",
+  "navMcpUsers": "Usuarios MCP",
   "greeting": "Hola, {{name}}",
   "description": "Gestiona clientes, aplicaciones y configuraciones de Hubthink.",
   "clientsCardDescription": "Consulta portales Bitrix24 y las aplicaciones instaladas en cada dominio.",

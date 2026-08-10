@@ -4,6 +4,7 @@ import { withDocumentLock } from '../infra/document-lock'
 import { isProcessed, markProcessed } from '../infra/idempotency'
 import type { ClickSignSettings } from '../domain/repositories/clicksign-settings.repository'
 import { ClicksignGroup, pickCode } from './clicksign-settings.types'
+import { clicksignError, logClicksignError } from '../errors/catalog'
 import type { BitrixCaller } from './provisioning.service'
 
 export interface WebhookEvent {
@@ -61,16 +62,41 @@ export class HandleSignatureEventUseCase {
 
   async handleSign(payload: WebhookPayload): Promise<void> {
     const signerKey = payload.event.data?.signer?.key
-    if (!signerKey) return
+    if (!signerKey) {
+      logClicksignError(apiLogger, 'clicksign.event.signer_key_missing', {
+        app: 'clicksign',
+        event: 'sign',
+        documentKey: payload.document.key,
+      })
+      return
+    }
 
     // Lock: signs concorrentes não podem sobrescrever o originId (last-write-wins).
     await withDocumentLock(payload.document.key, async () => {
       const row = await this.findActivity(payload.document.key)
-      if (!row) return
+      if (!row) {
+        logClicksignError(apiLogger, 'clicksign.event.activity_not_found', {
+          app: 'clicksign',
+          event: 'sign',
+          documentKey: payload.document.key,
+        })
+        return
+      }
 
       const originId = parseJson(row.ORIGIN_ID)
       const layout = parseJson(row.PROVIDER_DATA)
-      if (!originId || !layout) return
+      if (!originId || !layout) {
+        logClicksignError(
+          apiLogger,
+          'clicksign.event.layout_or_origin_unparseable',
+          {
+            app: 'clicksign',
+            event: 'sign',
+            documentKey: payload.document.key,
+          },
+        )
+        return
+      }
 
       setBlockStatus(layout, signerKey, 'Assinado')
       originId[signerKey] = true
@@ -115,12 +141,37 @@ export class HandleSignatureEventUseCase {
 
   async handleRefusal(payload: WebhookPayload): Promise<void> {
     const row = await this.findActivity(payload.document.key)
-    if (!row) return
+    if (!row) {
+      logClicksignError(apiLogger, 'clicksign.event.activity_not_found', {
+        app: 'clicksign',
+        event: 'refusal',
+        documentKey: payload.document.key,
+      })
+      return
+    }
     const signerKey = payload.event.data?.signer?.key
-    if (!signerKey) return
+    if (!signerKey) {
+      logClicksignError(apiLogger, 'clicksign.event.signer_key_missing', {
+        app: 'clicksign',
+        event: 'refusal',
+        documentKey: payload.document.key,
+      })
+      return
+    }
 
     const layout = parseJson(row.PROVIDER_DATA)
-    if (!layout) return
+    if (!layout) {
+      logClicksignError(
+        apiLogger,
+        'clicksign.event.layout_or_origin_unparseable',
+        {
+          app: 'clicksign',
+          event: 'refusal',
+          documentKey: payload.document.key,
+        },
+      )
+      return
+    }
 
     // Recusa é terminal (block_after_refusal): fecha a activity.
     setBlockStatus(layout, signerKey, 'Recusado')
@@ -166,9 +217,27 @@ export class HandleSignatureEventUseCase {
 
   async handleCancelOrDeadline(payload: WebhookPayload): Promise<void> {
     const row = await this.findActivity(payload.document.key)
-    if (!row) return
+    if (!row) {
+      logClicksignError(apiLogger, 'clicksign.event.activity_not_found', {
+        app: 'clicksign',
+        event: payload.event.name,
+        documentKey: payload.document.key,
+      })
+      return
+    }
     const layout = parseJson(row.PROVIDER_DATA)
-    if (!layout) return
+    if (!layout) {
+      logClicksignError(
+        apiLogger,
+        'clicksign.event.layout_or_origin_unparseable',
+        {
+          app: 'clicksign',
+          event: payload.event.name,
+          documentKey: payload.document.key,
+        },
+      )
+      return
+    }
 
     const title = payload.event.name === 'cancel' ? 'Cancelado' : 'Expirado'
     setHeaderStatus(layout, title, 'failure')
@@ -197,10 +266,24 @@ export class HandleSignatureEventUseCase {
     // Lock + idempotência: reentregas não podem reanexar o PDF nem reescrever
     // os campos do deal.
     await withDocumentLock(documentKey, async () => {
-      if (await isProcessed('document_closed', documentKey)) return
+      if (await isProcessed('document_closed', documentKey)) {
+        logClicksignError(apiLogger, 'clicksign.event.already_processed', {
+          app: 'clicksign',
+          event: 'document_closed',
+          documentKey,
+        })
+        return
+      }
 
       const row = await this.findActivity(documentKey)
-      if (!row) return
+      if (!row) {
+        logClicksignError(apiLogger, 'clicksign.event.activity_not_found', {
+          app: 'clicksign',
+          event: 'document_closed',
+          documentKey,
+        })
+        return
+      }
 
       const layout = parseJson(row.PROVIDER_DATA)
       const originId = parseJson(row.ORIGIN_ID)
@@ -238,7 +321,16 @@ export class HandleSignatureEventUseCase {
         dealFields?.[arquivoCode]?.type === 'file' &&
         signedUrl
       ) {
-        const base64 = await downloadBase64(signedUrl)
+        let base64: string
+        try {
+          base64 = await downloadBase64(signedUrl)
+        } catch (error) {
+          // Sobe pro funil do worker (loga o errorCode); job falha e re-tenta.
+          throw clicksignError(
+            'clicksign.document.signed_file_download_failed',
+            error,
+          )
+        }
         fields[arquivoCode] = {
           fileData: [payload.document.filename ?? 'documento.pdf', base64],
         }

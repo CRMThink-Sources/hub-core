@@ -203,4 +203,24 @@ export const env = {
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
     },
   },
+  /**
+   * Authorization Server OAuth 2.1 do MCP de suporte.
+   * `jwtSecret` é DEDICADO: distinto de JWT_SECRET porque o token do portal é
+   * assinado sem `expiresIn` (nunca expira) — reusar o segredo deixaria um token
+   * de portal eterno ser aceito no /mcp.
+   * URLs sempre de env explícita, nunca de req.host: o issuer entra no `aud` e no
+   * redirect_uri, e host errado faz o claude.ai rejeitar.
+   */
+  mcpOauth: {
+    jwtSecret: process.env.MCP_JWT_SECRET ?? '',
+    /** URL pública do api = issuer OAuth. Ex: https://host/api */
+    issuerUrl: process.env.MCP_OAUTH_ISSUER_URL ?? '',
+    /** URL pública do MCP server (resource). Ex: https://mcp.host */
+    mcpServerUrl: process.env.MCP_SERVER_URL ?? '',
+    accessTokenTtlSeconds: Number(process.env.MCP_ACCESS_TOKEN_TTL ?? 3600),
+    refreshTokenTtlSeconds: Number(
+      process.env.MCP_REFRESH_TOKEN_TTL ?? 60 * 60 * 24 * 30,
+    ),
+    authCodeTtlSeconds: Number(process.env.MCP_AUTH_CODE_TTL ?? 60),
+  },
 } as const

@@ -11,6 +11,7 @@ import {
   SendEnvelopeUseCase,
 } from '../../application/send-envelope.use-case'
 import { safeErrorMessage } from '../../infra/clients/clicksign-error'
+import { clicksignError, logClicksignError } from '../../errors/catalog'
 import { setLogContext } from '@/shared/infra/log-context'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -27,7 +28,7 @@ export class SendEnvelopeController extends Controller {
     const body = req.body as RobotWebhookBody
 
     if (!body?.auth?.access_token || !body?.auth?.domain) {
-      return this.badRequest(new Error('Missing robot auth'))
+      throw clicksignError('clicksign.send.robot_auth_missing')
     }
 
     setLogContext({ domain: body.auth.domain })
@@ -35,7 +36,7 @@ export class SendEnvelopeController extends Controller {
     const documentId = body.document_id?.[2]
     const [entity, entityId] = documentId?.split('_') ?? []
     if (!entity || !entityId) {
-      return this.badRequest(new Error('Invalid document_id'))
+      throw clicksignError('clicksign.send.document_id_invalid')
     }
 
     const bitrix = new BitrixRestClient(
@@ -60,9 +61,11 @@ export class SendEnvelopeController extends Controller {
         })
       }
     } catch (error) {
-      apiLogger.error(
+      logClicksignError(
+        apiLogger,
+        'clicksign.send.execution_failed',
         { app: 'clicksign', err: safeErrorMessage(error) },
-        'Envio do documento falhou',
+        { level: 'error' },
       )
     }
 
@@ -90,9 +93,11 @@ export class SendEnvelopeController extends Controller {
         event_token: body.event_token,
       })
     } catch (error) {
-      apiLogger.error(
+      logClicksignError(
+        apiLogger,
+        'clicksign.send.bizproc_release_failed',
         { app: 'clicksign', err: safeErrorMessage(error) },
-        'bizproc.event.send falhou',
+        { level: 'error' },
       )
     }
   }

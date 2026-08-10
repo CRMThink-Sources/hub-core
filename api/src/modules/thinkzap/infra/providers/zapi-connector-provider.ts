@@ -10,6 +10,11 @@ import {
   WhatsAppConnectorProvider,
 } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
+import { apiLogger } from '@/shared/infra/logger'
+import {
+  logThinkzapError,
+  thinkzapError,
+} from '@/modules/thinkzap/errors/catalog'
 
 /**
  * Adapter Z-API do contrato `WhatsAppConnectorProvider`. Envolve o gateway
@@ -61,9 +66,14 @@ export class ZApiConnectorProvider implements WhatsAppConnectorProvider {
       )
       return { connected: status.connected === true, available: true }
     } catch (error) {
-      console.warn(
-        `[thinkzap] Z-API: falha ao consultar status do conector ${ref.instanceId}`,
-        error,
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.zapi.instance_status_failed',
+        { app: 'thinkzap', instanceId: ref.instanceId, err: error },
+        {
+          level: 'warn',
+          msg: 'Z-API: falha ao consultar status do conector — status ao vivo indisponível',
+        },
       )
       return { connected: false, available: false }
     }
@@ -71,7 +81,7 @@ export class ZApiConnectorProvider implements WhatsAppConnectorProvider {
 
   private requireToken(ref: ConnectorResourceRef): string {
     if (!ref.zApiToken) {
-      throw new Error(`Conector Z-API ${ref.instanceId} sem token configurado`)
+      throw thinkzapError('thinkzap.provisioning.credential_missing')
     }
     return ref.zApiToken
   }

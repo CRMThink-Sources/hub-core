@@ -18,8 +18,6 @@ const resolveHubMessageConnected = async (
 ): Promise<boolean> => {
   const inst = connector.instance
   const persisted = inst?.status === InstanceStatus.CONNECTED
-  console.log('persisted', persisted)
-  console.log('inst', inst)
   try {
     const provider = resolver.resolve(ConnectorProvider.HUBMESSAGE)
     const status = await provider.getConnectionStatus({
@@ -28,11 +26,9 @@ const resolveHubMessageConnected = async (
       wabaId: inst?.wabaId ?? null,
     })
     return status.available ? status.connected : persisted
-  } catch (error) {
-    console.warn(
-      `[thinkzap] HubMessage: status ao vivo indisponível para o conector ${connector.id}, usando status persistido`,
-      error,
-    )
+  } catch {
+    // Status ao vivo indisponível: o provider já registrou a falha; aqui só
+    // degradamos para o status persistido.
     return persisted
   }
 }

@@ -22,11 +22,13 @@
     "list:payment-plans": "tsx src/scripts/list-payment-plans.ts",
     "check:subscription-fields": "tsx src/scripts/check-subscription-fields.ts",
     "check:plans-vs-gateway": "tsx src/scripts/check-plans-vs-gateway.ts",
-    "check:gateway-webhook": "tsx src/scripts/check-gateway-webhook.ts"
+    "check:gateway-webhook": "tsx src/scripts/check-gateway-webhook.ts",
+    "create:mcp-user": "tsx src/scripts/create-mcp-user.ts"
   },
   "dependencies": {
     "@bull-board/api": "^7.0.0",
     "@bull-board/express": "^7.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@prisma/adapter-mariadb": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "@types/multer": "^2.1.0",

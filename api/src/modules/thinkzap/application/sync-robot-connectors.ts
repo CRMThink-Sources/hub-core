@@ -8,7 +8,7 @@ import { hubMessageConnectorLabel } from '@/modules/thinkzap/domain/hubmessage-c
 import { PrismaConnectorRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-connector.repository'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
-import { logger } from '@/shared/infra/logger'
+import { apiLogger } from '@/shared/infra/logger'
 import { ZApiClient } from '../infra/clients/z-api.client'
 import { buildThinkzapRobotUpdateParams } from './build-thinkzap-robot-add-params'
 import type { Connector } from '../domain/entities/connector'
@@ -40,9 +40,9 @@ async function lineLabel(
 
     return labelFromInstanceName(remote?.name) ?? item.name
   } catch (error) {
-    logger.warn(
-      { err: error, subscriptionItemId: item.id },
-      '[thinkzap] failed to read z-api instance name while syncing robot options',
+    apiLogger.warn(
+      { app: 'thinkzap', err: error, subscriptionItemId: item.id },
+      'failed to read z-api instance name while syncing robot options',
     )
 
     return item.name
@@ -87,9 +87,9 @@ export async function syncThinkzapRobotConnectorOptions(
 
     await bitrixClient.callMethod('bizproc.robot.update', params)
   } catch (error) {
-    console.warn(
-      `[thinkzap] failed to sync robot connector options for app ${appId}`,
-      error,
+    apiLogger.warn(
+      { app: 'thinkzap', err: error, appId },
+      'failed to sync robot connector options',
     )
   }
 }

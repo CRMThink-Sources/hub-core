@@ -11,6 +11,8 @@ import {
   PlanForProviderAmbiguousError,
   PlanForProviderMissingError,
 } from '@/modules/thinkzap/application/helpers/build-contract-line-items'
+import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 /**
  * `strict()` e não `object()`: preço, quantidade e período são derivados no
@@ -64,6 +66,12 @@ export class CreateCheckoutController extends Controller {
       return this.ok(session)
     } catch (error) {
       if (error instanceof PlanNotOfferableError) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.subscription.plan_not_offerable',
+          { app: 'thinkzap', err: error },
+          { level: 'warn' },
+        )
         return this.badRequest(error)
       }
       /**
@@ -76,8 +84,24 @@ export class CreateCheckoutController extends Controller {
         error instanceof PlanForProviderMissingError ||
         error instanceof PlanForProviderAmbiguousError
       ) {
+        logThinkzapError(
+          apiLogger,
+          error instanceof AlreadySubscribedError
+            ? 'thinkzap.subscription.already_subscribed'
+            : error instanceof PlanForProviderMissingError
+              ? 'thinkzap.subscription.plan_for_provider_missing'
+              : 'thinkzap.subscription.plan_for_provider_ambiguous',
+          { app: 'thinkzap', err: error },
+          { level: 'warn' },
+        )
         return this.conflict(error)
       }
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.gateway.checkout_create_failed',
+        { app: 'thinkzap', err: error },
+        { level: 'error' },
+      )
       throw error
     }
   }

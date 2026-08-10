@@ -114,7 +114,9 @@ describe('resolveZApiInstance', () => {
   it('recusa quando a Z-API diz que a linha não está conectada', async () => {
     const sut = makeSut({ connected: false })
 
-    await expect(sut.resolve()).rejects.toThrow('Instance is not connected')
+    await expect(sut.resolve()).rejects.toMatchObject({
+      errorCode: 'thinkzap.provisioning.instance_resolve_failed',
+    })
     expect(sut.getPhoneData).not.toHaveBeenCalled()
   })
 

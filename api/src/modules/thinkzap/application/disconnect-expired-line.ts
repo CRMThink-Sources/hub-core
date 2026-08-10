@@ -3,6 +3,7 @@ import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { LineEntitlement } from '@/modules/thinkzap/domain/connector-trial'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 /**
  * Desconecta no provider a linha cujo trial venceu.
@@ -87,14 +88,19 @@ export class DisconnectExpiredLine {
        * é a limpeza no provider. Subir a exceção derrubaria a leitura que a
        * detectou — uma consulta de ajustes falhando porque a Z-API está fora.
        */
-      apiLogger.warn(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.provisioning.disconnect_expired_failed',
         {
           app: 'thinkzap',
           subscriptionItemId: item.id,
           provider: ref.provider,
           err: error,
         },
-        'Falha ao desconectar recurso remoto de trial expirado — nova tentativa na próxima resolução',
+        {
+          level: 'warn',
+          msg: 'Falha ao desconectar recurso remoto de trial expirado — nova tentativa na próxima resolução',
+        },
       )
     }
   }

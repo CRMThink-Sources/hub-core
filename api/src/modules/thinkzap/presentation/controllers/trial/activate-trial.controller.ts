@@ -11,6 +11,8 @@ import {
   TrialPlanNotConfiguredError,
 } from '@/modules/thinkzap/application/helpers/ensure-trial-plan'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 
 /**
  * Só o provider. `strict()` porque período e status são regra de negócio derivada no
@@ -71,6 +73,12 @@ export class ActivateTrialController extends Controller {
        * entre "seu teste acabou" e "você já é cliente".
        */
       if (error instanceof TrialNotEligibleError) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.subscription.trial_not_eligible',
+          { app: 'thinkzap', reason: error.reason, err: error },
+          { level: 'warn' },
+        )
         return {
           status: 409,
           result: { error: error.message, reason: error.reason },
@@ -86,6 +94,12 @@ export class ActivateTrialController extends Controller {
         error instanceof TrialPlanNotConfiguredError ||
         error instanceof TrialPlanMissingError
       ) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.subscription.trial_plan_missing',
+          { app: 'thinkzap', err: error },
+          { level: 'error' },
+        )
         return { status: 503, result: { error: error.message } }
       }
 

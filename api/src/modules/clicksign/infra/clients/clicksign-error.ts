@@ -1,12 +1,25 @@
 import axios from 'axios'
+import { AppError } from '@/shared/domain/errors/app-error'
+import { CLICKSIGN_ERRORS } from '../../errors/catalog'
 
-export class ClicksignApiError extends Error {
+// Erro da API Clicksign. É AppError → carrega errorCode clicksign.api.request_failed;
+// se bubblar até a borda, o funil loga o code + a mensagem/status da Clicksign (no cause).
+export class ClicksignApiError extends AppError {
   constructor(
-    message: string,
+    readonly providerMessage: string,
     readonly status?: number,
     readonly raw?: unknown,
   ) {
-    super(message)
+    const m = CLICKSIGN_ERRORS['clicksign.api.request_failed']
+    super(
+      'clicksign.api.request_failed',
+      m.category,
+      m.userCause,
+      m.remediation,
+      m.httpStatus,
+      m.retriable,
+      { providerMessage, status },
+    )
     this.name = 'ClicksignApiError'
   }
 }
@@ -29,6 +42,13 @@ export function parseClicksignError(error: unknown): ClicksignApiError {
 
 // Nunca logar o objeto axios cru: `config.params` carrega o access_token.
 export function safeErrorMessage(error: unknown): string {
+  // ClicksignApiError.message = userCause genérico; o detalhe útil (msg/status da
+  // Clicksign) está em providerMessage — o runbook manda ler justamente isso.
+  if (error instanceof ClicksignApiError) {
+    return error.status
+      ? `${error.providerMessage} (status ${error.status})`
+      : error.providerMessage
+  }
   if (axios.isAxiosError(error)) {
     const status = error.response?.status
     return status ? `${error.message} (status ${status})` : error.message

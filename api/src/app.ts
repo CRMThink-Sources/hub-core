@@ -38,6 +38,11 @@ import { runWithLogContext } from './shared/infra/log-context.js'
 import { randomUUID } from 'node:crypto'
 import { makeHubmessageWebhookHandlerController } from './modules/thinkzap/main/make-hubmessage-webhook-handler-controller.js'
 import { makeStripeWebhookController } from './modules/thinkzap/main/subscription/make-subscription-controllers.js'
+import {
+  buildMcpOAuthRouter,
+  isMcpOAuthConfigured,
+  mcpLoginHandler,
+} from './modules/mcp-oauth/main/mcp-oauth.router.js'
 
 const app: Express = express()
 
@@ -138,6 +143,16 @@ app.post(
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
+
+// Authorization Server OAuth 2.1 do MCP de suporte. Na RAIZ (não sob /api): o
+// claude.ai descobre /.well-known/* e chama /authorize, /token, /register, /revoke
+// direto na origin do issuer. Só monta se as envs (segredo + URLs) existirem.
+if (isMcpOAuthConfigured()) {
+  app.use(buildMcpOAuthRouter())
+  app.post('/mcp-oauth/login', mcpLoginHandler)
+} else {
+  apiLogger.warn('MCP OAuth desabilitado: MCP_JWT_SECRET/URLs não configurados')
+}
 
 if (isBullBoardEnabled) {
   app.use('/api/admin/queues', bullBoardAuthMiddleware, bullBoardRouter)

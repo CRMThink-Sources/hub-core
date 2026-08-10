@@ -11,6 +11,7 @@ import {
 } from '@/shared/main/make-bitrix-client'
 import { Request } from 'express'
 import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
+import { thinkzapError } from '../errors/catalog'
 
 export const makeBitrixRobotWebhookHandlerController = async (
   request: Request,
@@ -19,18 +20,17 @@ export const makeBitrixRobotWebhookHandlerController = async (
   const getApp = new PrismaInstalledAppRepository()
   const getConnector = new PrismaConnectorRepository()
   const getInstance = new PrismaInstanceRepository()
-  console.log(request.body)
   // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
   const domain = await getDomain.getDomain(request.body.auth.domain)
   if (!domain) {
-    throw new Error('Domain not found')
+    throw thinkzapError('thinkzap.app.not_found')
   }
   const app = await getApp.getByAppCodeAndDomainId(
     'crmthink.thinkzap',
     domain.id,
   )
   if (!app) {
-    throw new Error('App not found')
+    throw thinkzapError('thinkzap.app.not_found')
   }
   const bx = await makeBitrixClientByAppId(app.id)
   const sendNotification = new BitrixLivefeedNotificationService(bx)

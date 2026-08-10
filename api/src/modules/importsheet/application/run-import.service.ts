@@ -16,6 +16,14 @@ import {
   type FieldMetaResult,
 } from './bitrix-field-meta'
 import { isRowEmpty, mapRow } from './import-row-mapper'
+import type { FieldSkipCode, OnFieldSkip } from './field-value-transform'
+import {
+  importsheetError,
+  logImportsheetError,
+  type ImportsheetErrorCode,
+} from '../errors/catalog'
+import { AppError } from '@/shared/domain/errors/app-error'
+import { appErrorLogFields } from '@/shared/infra/log-error'
 import { ResponsibleResolver } from './responsible-resolver'
 import { BitrixImportWriter, type RowResult } from './bitrix-import-writer'
 import { BitrixThrottleError, type ThrottleSignal } from './bitrix-throttle'
@@ -64,6 +72,13 @@ type WriteContext = {
 }
 
 type ResolvedSub = { contactId?: string; companyId?: string }
+
+// Via C: pulos por-linha acumulados por code na página → 1 warn agregada, não 1 por célula.
+type SkipCounts = Map<ImportsheetErrorCode, number>
+const FIELD_SKIP_TO_CODE: Record<FieldSkipCode, ImportsheetErrorCode> = {
+  status_no_match: 'importsheet.import.status_no_match',
+  enum_no_match: 'importsheet.import.enum_no_match',
+}
 
 type WritePageResult = {
   results: RowResult[]
@@ -321,13 +336,29 @@ export class RunImportService {
         )
         return { status: 'throttled-intensity', pauseMs: error.signal.pauseMs }
       }
-      apiLogger.error(
-        { app: 'importsheet', importId, error },
-        'Import run failed',
-      )
       const current = await this.repository.findByIdAny(imp.id)
       const cursorRow = current?.startRow ?? imp.startRow
       const message = error instanceof Error ? error.message : 'Unknown error'
+      // Parceiro vê pt-br; o detalhe cru (pode ser inglês/técnico) fica só no log/lastError.
+      const partnerMessage =
+        error instanceof AppError
+          ? error.userCause
+          : 'Erro inesperado durante a importação.'
+      // AppError (ex: sheet.*, google.*) loga o próprio code; senão run.fatal genérico.
+      if (error instanceof AppError) {
+        const level = error.httpStatus >= 500 ? 'error' : 'warn'
+        apiLogger[level](
+          appErrorLogFields(error, { app: 'importsheet', importId }),
+          error.userCause,
+        )
+      } else {
+        logImportsheetError(
+          apiLogger,
+          'importsheet.run.fatal',
+          { app: 'importsheet', importId, err: error },
+          { level: 'error', msg: message },
+        )
+      }
       const isScheduled = imp.scheduleMode !== 'MANUAL'
       // Preserva os erros por-linha já acumulados pra seguirem reprocessáveis.
       const prior = this.existingErrorRows(current ?? imp)
@@ -347,7 +378,7 @@ export class RunImportService {
         nextRunAt: isScheduled ? imp.nextRunAt : null,
         ...(isScheduled ? { enabled: false } : {}),
       })
-      await this.notifyErrors(imp, prior.length, message)
+      await this.notifyErrors(imp, prior.length, partnerMessage)
       return { status: 'done' }
     }
   }
@@ -399,10 +430,10 @@ export class RunImportService {
         ),
     )
 
-    // Planilha inacessível (404/403/aba inválida). Pode ser rename → invalida cache.
+    // Planilha/aba inacessível (404/403). Pode ser rename → invalida cache.
     if (rows === null) {
       await this.invalidateTabTitleCache(imp.id)
-      throw new Error('Planilha ou aba inacessível')
+      throw importsheetError('importsheet.sheet.inaccessible')
     }
 
     // A API omite as linhas vazias do FIM do range, mas devolve as do MEIO
@@ -413,9 +444,30 @@ export class RunImportService {
 
     if (dataRows.length === 0) return this.finishImport(imp, nextRow, errorRows)
 
-    const written = await this.writeDataRows(imp, ctx, dataRows)
+    const skips: SkipCounts = new Map()
+    const written = await this.writeDataRows(
+      imp,
+      ctx,
+      dataRows,
+      undefined,
+      skips,
+    )
     accountErrors(written.results, written.subIds)
     throttleSignals.push(...written.throttle)
+
+    // Match ambíguo (linha não escrita) entra na agregação junto dos pulos.
+    const ambiguousRows = new Set<number>()
+    for (const r of written.results) {
+      if (r.errorCode === 'importsheet.import.ambiguous_match')
+        ambiguousRows.add(r.row)
+    }
+    if (ambiguousRows.size > 0) {
+      skips.set('importsheet.import.ambiguous_match', ambiguousRows.size)
+    }
+
+    for (const [code, count] of skips) {
+      logImportsheetError(apiLogger, code, { importId: imp.id, count })
+    }
 
     // Marcador ANTES do cursor: crash/retry daqui pra frente vira replay.
     await this.setPageMarker(imp.id, fromRow, { nextRow, hasMore, errorRows })
@@ -496,11 +548,17 @@ export class RunImportService {
     ctx: WriteContext,
     dataRows: { row: number; values: string[] }[],
     resolved?: Map<number, ResolvedSub>,
+    skips?: SkipCounts,
   ): Promise<WritePageResult> {
     const { config } = imp
     const { entityCode, entityTypeId, categoryId } = config.target
     const results: RowResult[] = []
     const throttle: ThrottleSignal[] = []
+
+    const bump = (code: ImportsheetErrorCode): void => {
+      if (skips) skips.set(code, (skips.get(code) ?? 0) + 1)
+    }
+    const onFieldSkip: OnFieldSkip = s => bump(FIELD_SKIP_TO_CODE[s])
 
     // Sub-entidade já criada num run/tentativa anterior → reusa o id (não reescreve).
     const resolvedContact = new Map<number, string>()
@@ -521,6 +579,7 @@ export class RunImportService {
           dataRows,
           ctx.writer,
           resolvedContact,
+          onFieldSkip,
         )
       : { ids: resolvedContact, results: [], throttle: null }
     results.push(...contact.results)
@@ -535,6 +594,7 @@ export class RunImportService {
           dataRows,
           ctx.writer,
           resolvedCompany,
+          onFieldSkip,
         )
       : { ids: resolvedCompany, results: [], throttle: null }
     results.push(...company.results)
@@ -554,6 +614,7 @@ export class RunImportService {
           ctx.mainMappings,
           ctx.meta.metas,
           ctx.meta.statusLists,
+          onFieldSkip,
         )
         const contactId = contact.ids.get(r.row)
         const companyId = company.ids.get(r.row)
@@ -567,6 +628,9 @@ export class RunImportService {
             raw,
           )
           if (userId) m.params.push({ path: responsiblePath, value: userId })
+          // Responsável indicado mas não resolvido → cai no default (via C).
+          else if (raw.trim() !== '')
+            bump('importsheet.import.responsible_unresolved')
         }
         return { row: r.row, ...m }
       }),
@@ -632,14 +696,10 @@ export class RunImportService {
       imp.appId,
       token => this.sheets.getSpreadsheet(token, source.spreadsheetId),
     )
-    if (!details) throw new Error('Planilha inacessível')
+    if (!details) throw importsheetError('importsheet.sheet.inaccessible')
 
     const tab = details.tabs.find(t => t.sheetId === source.tab.sheetId)
-    if (!tab) {
-      throw new Error(
-        `Aba não encontrada (sheetId ${source.tab.sheetId}) — pode ter sido excluída`,
-      )
-    }
+    if (!tab) throw importsheetError('importsheet.sheet.tab_deleted')
 
     if (tab.title !== source.tab.title) {
       apiLogger.info(
@@ -856,6 +916,7 @@ export class RunImportService {
     dataRows: { row: number; values: string[] }[],
     writer: BitrixImportWriter,
     resolvedIds: Map<number, string>,
+    onSkip?: OnFieldSkip,
   ): Promise<{
     ids: Map<number, string>
     results: RowResult[]
@@ -867,7 +928,7 @@ export class RunImportService {
       .filter(r => !resolvedIds.has(r.row))
       .map(r => ({
         row: r.row,
-        ...mapRow(r.values, mappings, meta.metas, meta.statusLists),
+        ...mapRow(r.values, mappings, meta.metas, meta.statusLists, onSkip),
       }))
       .filter(m => m.params.length > 0)
 

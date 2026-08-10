@@ -7,6 +7,7 @@ import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 /**
  * Garante que existe row de `Instance` para a linha, criando quando falta.
@@ -80,6 +81,17 @@ export async function ensureLineInstance(
      */
     const raced = await repository.getInstanceByInstanceId(zApiInstanceId)
     if (raced) return raced
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.provisioning.instance_ensure_failed',
+      {
+        app: 'thinkzap',
+        domainId,
+        instanceId: zApiInstanceId,
+        err: (error as Error).message,
+      },
+      { level: 'error' },
+    )
     throw error
   }
 }
@@ -140,6 +152,17 @@ async function ensureHubMessageInstance(
   } catch (error) {
     const raced = await repository.getInstanceByChannelId(hubmessageChannelId)
     if (raced) return raced
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.provisioning.instance_ensure_failed',
+      {
+        app: 'thinkzap',
+        domainId,
+        channelId: hubmessageChannelId,
+        err: (error as Error).message,
+      },
+      { level: 'error' },
+    )
     throw error
   }
 }

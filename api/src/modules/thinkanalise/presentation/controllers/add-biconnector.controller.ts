@@ -8,6 +8,7 @@ import { CreateBiConnectorRepository } from '@/modules/thinkanalise/domain/repos
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { env } from '@/config/env'
 import { apiLogger } from '@/shared/infra/logger'
+import { thinkanaliseError } from '@/modules/thinkanalise/errors/catalog'
 
 const addBiconnectorSchema = z.object({
   label: z.string().min(1),
@@ -39,13 +40,11 @@ export class AddBiconnectorController extends Controller {
     const domainId = req.domainId
 
     if (!appCodeId || !domainId) {
-      return this.badRequest(new Error('Invalid request'))
+      throw thinkanaliseError('thinkanalise.request.app_context_missing')
     }
 
     const app = await this.getApp.getByAppCodeAndDomainId(appCodeId, domainId)
-    if (!app) {
-      return this.badRequest(new Error('App not found'))
-    }
+    if (!app) throw thinkanaliseError('thinkanalise.connector.app_not_found')
 
     const params: CreateBiConnectorParams = {
       title: `[Think Hub] ${label}`,
@@ -61,19 +60,30 @@ export class AddBiconnectorController extends Controller {
       ],
     }
 
-    const result = await this.bitrix.biconnectorAdd(params)
-
-    if (!result?.id) {
-      return this.badRequest(new Error('Bitrix did not return a connector ID'))
+    let result
+    try {
+      result = await this.bitrix.biconnectorAdd(params)
+    } catch (error) {
+      throw thinkanaliseError(
+        'thinkanalise.bitrix.connector_write_failed',
+        error,
+      )
     }
 
-    await this.biConnectorRepository.createBiConnector({
-      appId: app.id,
-      biconnectorId: result.id,
-      label,
-      provider,
-      apiKey: '',
-    })
+    if (!result?.id)
+      throw thinkanaliseError('thinkanalise.bitrix.no_connector_id')
+
+    try {
+      await this.biConnectorRepository.createBiConnector({
+        appId: app.id,
+        biconnectorId: result.id,
+        label,
+        provider,
+        apiKey: '',
+      })
+    } catch (error) {
+      throw thinkanaliseError('thinkanalise.connector.persist_failed', error)
+    }
 
     apiLogger.info(
       {

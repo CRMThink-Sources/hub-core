@@ -9,6 +9,11 @@ import {
 } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
 import { HubMessageClient } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { ListBusinessesResponse } from '@/modules/thinkzap/infra/clients/types/hubmessage.types'
+import { apiLogger } from '@/shared/infra/logger'
+import {
+  logThinkzapError,
+  thinkzapError,
+} from '@/modules/thinkzap/errors/catalog'
 
 export type HubMessageProviderConfig = {
   webhookUrl: string
@@ -56,9 +61,14 @@ export class HubMessageConnectorProvider implements WhatsAppConnectorProvider {
       })
       webhookId = webhook.id
     } catch (error) {
-      console.warn(
-        `[thinkzap] HubMessage: canal ${channelId} criado, mas webhook falhou — conector segue sem webhook`,
-        error,
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.hubmessage.request_failed',
+        { app: 'thinkzap', channelId, err: error },
+        {
+          level: 'warn',
+          msg: 'HubMessage: canal criado, mas webhook falhou — conector segue sem webhook',
+        },
       )
     }
 
@@ -100,9 +110,14 @@ export class HubMessageConnectorProvider implements WhatsAppConnectorProvider {
       const connected = business ? business.connectedCount > 0 : false
       return { connected, available: true }
     } catch (error) {
-      console.warn(
-        `[thinkzap] HubMessage: falha ao consultar status do canal (waba ${ref.wabaId})`,
-        error,
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.hubmessage.request_failed',
+        { app: 'thinkzap', wabaId: ref.wabaId, err: error },
+        {
+          level: 'warn',
+          msg: 'HubMessage: falha ao consultar status do canal — status ao vivo indisponível',
+        },
       )
       return { connected: false, available: false }
     }
@@ -122,7 +137,7 @@ export class HubMessageConnectorProvider implements WhatsAppConnectorProvider {
   private requireChannelId(ref: ConnectorResourceRef): string {
     const channelId = ref.channelId ?? ref.instanceId
     if (!channelId) {
-      throw new Error('Conector HubMessage sem channelId')
+      throw thinkzapError('thinkzap.provisioning.credential_missing')
     }
     return channelId
   }

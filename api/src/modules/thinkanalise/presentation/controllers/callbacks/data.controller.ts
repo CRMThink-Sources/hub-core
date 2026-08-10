@@ -18,6 +18,8 @@ import { OmieDataService } from '@/modules/thinkanalise/infra/omie-data.service'
 import { BlingClient } from '@/shared/infra/clients/bling.client'
 import { BlingDataService } from '@/modules/thinkanalise/infra/bling-data.service'
 import { thinkAnaliseAuthTokenService } from '@/modules/thinkanalise/infra/auth-token.service'
+import { thinkanaliseError } from '@/modules/thinkanalise/errors/catalog'
+import { classifyProviderError } from '@/modules/thinkanalise/errors/classify-provider-error'
 
 type DataBody = {
   table: string
@@ -39,7 +41,7 @@ export class DataController extends CallbackController {
       req.body as DataBody
 
     if (!table || !connection?.api_key || !connection?.integration) {
-      return this.badRequest(new Error('Missing required parameters'))
+      throw thinkanaliseError('thinkanalise.callback.connection_missing')
     }
 
     const maxRows = Number(limit) || 1000
@@ -76,19 +78,20 @@ export class DataController extends CallbackController {
       )
       service = new BlingDataService(new BlingClient(accessToken))
     } else {
-      return this.badRequest(
-        new Error(`Provider '${integration}' not implemented`),
-      )
+      throw thinkanaliseError('thinkanalise.callback.provider_unsupported')
     }
 
-    const data = await service.fetch(
-      table,
-      select ?? [],
-      mapFields ?? {},
-      maxRows,
-      filter ?? {},
-    )
-
-    return this.ok(data)
+    try {
+      const data = await service.fetch(
+        table,
+        select ?? [],
+        mapFields ?? {},
+        maxRows,
+        filter ?? {},
+      )
+      return this.ok(data)
+    } catch (error) {
+      throw classifyProviderError(error)
+    }
   }
 }

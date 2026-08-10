@@ -9,6 +9,8 @@ import { InvalidBitrixProductError } from '@/modules/application/infra/bitrix/er
 import { LineBlockedError } from '@/modules/thinkzap/domain/errors/line-blocked.error'
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 
 /**
  * Leitura de billing falhou: o Bitrix não respondeu, ou respondeu com shape que o
@@ -53,6 +55,12 @@ const isZApiFailure = (error: unknown): boolean =>
  * aprender cada uma.
  */
 export function mapLineBlockedError(error: LineBlockedError): httpResponse {
+  logThinkzapError(
+    apiLogger,
+    'thinkzap.line.blocked',
+    { app: 'thinkzap', entitlement: error.entitlement, err: error },
+    { level: 'warn' },
+  )
   return {
     status: 402,
     result: {
@@ -80,6 +88,12 @@ export function mapLineError(
    * a existência de recurso alheio.
    */
   if (error instanceof LineNotFoundError) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.subscription.line_not_found_for_item',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
     return { status: 404, result: { error: error.message } }
   }
 
@@ -101,6 +115,12 @@ export function mapLineError(
 
   /** Recurso existe, operação não se aplica. */
   if (error instanceof LineProviderNotSupportedError) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.line.provider_unsupported',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
     return { status: 400, result: { error: error.message } }
   }
 

@@ -28,7 +28,6 @@ export class ZApiWebhookHandlerController extends Controller {
       )
     }
     const { type } = params.data
-    console.log(type)
     const handler = this.zApiEventRegistry.get(type)
 
     if (!handler) {

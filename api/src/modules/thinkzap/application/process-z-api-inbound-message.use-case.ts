@@ -17,6 +17,7 @@ import { Domain } from '@/shared/domain/entities/domain'
 import { Credential } from '@/shared/domain/entities/credential'
 import { Instance } from '@/modules/thinkzap/domain/entities/instance'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import {
   toQuoteInput,
   PrismaThinkzapMessageRepository,
@@ -52,7 +53,6 @@ export class ProcessZApiInboundMessageUseCase {
   ) {}
 
   async execute(event: ReceivedMessageEvent): Promise<void> {
-    console.log(event)
     log.info(
       {
         instanceId: event.instanceId,
@@ -81,13 +81,15 @@ export class ProcessZApiInboundMessageUseCase {
       event.instanceId,
     )
     if (!instance) {
-      log.warn(
+      logThinkzapError(
+        log,
+        'thinkzap.message.inbound_zapi_failed',
         {
           instanceId: event.instanceId,
           messageId: event.messageId,
           instance: JSON.stringify(instance),
         },
-        'Instance not found for received message',
+        { level: 'warn', msg: 'Instance not found for received message' },
       )
       throw new Error('Instance not found for received message')
     }
@@ -114,13 +116,18 @@ export class ProcessZApiInboundMessageUseCase {
     )
 
     if (!line) {
-      log.warn(
+      logThinkzapError(
+        log,
+        'thinkzap.message.inbound_zapi_failed',
         {
           instanceId: event.instanceId,
           internalInstanceId: instance.id,
           messageId: event.messageId,
         },
-        'Nenhum item de assinatura corresponde a esta instância',
+        {
+          level: 'warn',
+          msg: 'Nenhum item de assinatura corresponde a esta instância',
+        },
       )
       throw new Error('Line not found for received message')
     }
@@ -160,13 +167,15 @@ export class ProcessZApiInboundMessageUseCase {
      */
     const { vinculatedChannel } = item
     if (!vinculatedChannel) {
-      log.warn(
+      logThinkzapError(
+        log,
+        'thinkzap.message.inbound_zapi_failed',
         {
           instanceId: event.instanceId,
           subscriptionItemId: item.id,
           messageId: event.messageId,
         },
-        'Linha sem canal aberto vinculado',
+        { level: 'warn', msg: 'Linha sem canal aberto vinculado' },
       )
       throw new Error('Instance has no vinculated channel')
     }
@@ -176,6 +185,15 @@ export class ProcessZApiInboundMessageUseCase {
       domainId,
     )
     if (!installedApp) {
+      logThinkzapError(
+        log,
+        'thinkzap.app.not_found',
+        { instanceId: event.instanceId, domainId, messageId: event.messageId },
+        {
+          level: 'error',
+          msg: `Instalação não encontrada: domínio "${domainId}", app "${thinkzapAppCodeId()}"`,
+        },
+      )
       throw new Error(
         `Instalação não encontrada: domínio "${domainId}", app "${thinkzapAppCodeId()}"`,
       )
@@ -185,6 +203,12 @@ export class ProcessZApiInboundMessageUseCase {
     const app = await this.appRepo.getById(installedApp.id)
 
     if (!app) {
+      logThinkzapError(
+        log,
+        'thinkzap.app.not_found',
+        { instanceId: event.instanceId, domainId, messageId: event.messageId },
+        { level: 'error', msg: 'App not found' },
+      )
       throw new Error('App not found')
     }
 

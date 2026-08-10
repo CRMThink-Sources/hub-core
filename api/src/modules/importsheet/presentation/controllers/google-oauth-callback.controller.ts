@@ -8,6 +8,7 @@ import { GoogleOAuthStateStore } from '../../infra/google-oauth-state.store'
 import { apiLogger } from '@/shared/infra/logger'
 import { setLogContext } from '@/shared/infra/log-context'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
+import { logImportsheetError } from '../../errors/catalog'
 
 function oauthPopupHtml(status: 'success' | 'error'): string {
   // `env.frontUrl` já cai em `APP_URL`; repetir o fallback aqui sugeriria que não.
@@ -36,7 +37,15 @@ export class GoogleOAuthCallbackController extends Controller {
 
       const payload = this.stateStore.consume(state)
       if (!payload) {
-        throw new Error('Invalid or expired state')
+        // Rota de popup responde 200 HTML por design → via B (log), não funil.
+        logImportsheetError(
+          apiLogger,
+          'importsheet.oauth.state_invalid_or_expired',
+          {},
+          { level: 'warn' },
+        )
+        res.send(oauthPopupHtml('error'))
+        return this.ok(null)
       }
 
       // Rota pública (sem authMiddleware): resolve o tenant pro log manualmente.
@@ -60,9 +69,11 @@ export class GoogleOAuthCallbackController extends Controller {
 
       res.send(oauthPopupHtml('success'))
     } catch (error) {
-      apiLogger.error(
-        { app: 'importsheet', err: error },
-        'Google OAuth callback falhou',
+      logImportsheetError(
+        apiLogger,
+        'importsheet.oauth.callback_failed',
+        { err: error },
+        { level: 'error' },
       )
       res.send(oauthPopupHtml('error'))
     }

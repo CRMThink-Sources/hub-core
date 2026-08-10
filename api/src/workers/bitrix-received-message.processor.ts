@@ -24,6 +24,7 @@ import {
   findLineItemByInstanceId,
 } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { redisConnection } from '@/queue/redis-connection'
 
 const log = createWorkerSourceLogger('bitrix')
@@ -361,7 +362,9 @@ export async function processBitrixReceivedMessage(
       // so um template aprovado. Avisa o operador e encerra sem relancar, para o
       // BullMQ nao retentar. Sem persistir e sem confirmar entrega.
       if (isConversationWindowClosedError(err)) {
-        log.warn(
+        logThinkzapError(
+          log,
+          'thinkzap.hubmessage.window_closed',
           {
             domain: event.auth.domain,
             instanceId: context.instance.instanceId,
@@ -369,7 +372,10 @@ export async function processBitrixReceivedMessage(
             bitrixMessageId,
             conversationWindowClosed: true,
           },
-          'HubMessage rejeitou o envio por janela de 24h fechada — avisando operador sem retentar',
+          {
+            level: 'warn',
+            msg: 'HubMessage rejeitou o envio por janela de 24h fechada — avisando operador sem retentar',
+          },
         )
         await notifyOperatorWindowClosed(
           bitrixClient,
@@ -378,6 +384,19 @@ export async function processBitrixReceivedMessage(
         )
         return
       }
+      logThinkzapError(
+        log,
+        'thinkzap.hubmessage.send_failed',
+        {
+          domain: event.auth.domain,
+          instanceId: context.instance.instanceId,
+          chatId,
+          bitrixMessageId,
+          provider,
+          err,
+        },
+        { level: 'error' },
+      )
       throw err
     }
 

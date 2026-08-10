@@ -4,6 +4,8 @@ import { LineDisconnectedError } from '@/modules/thinkzap/domain/errors/line-dis
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import { mapLineBlockedError } from './handle-line-error'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 
 /**
  * Tradução de erro do envio pelo widget (`send-widget` e `send-widget-multipart`).
@@ -36,6 +38,12 @@ export function mapWidgetSendError(error: unknown): httpResponse {
    * texto no front nunca casaria.
    */
   if (error instanceof LineDisconnectedError) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.line.disconnected',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
     return {
       status: 409,
       result: {
@@ -47,11 +55,23 @@ export function mapWidgetSendError(error: unknown): httpResponse {
 
   /** Item fora da árvore da instalação do token — indistinguível de inexistente. */
   if (error instanceof LineNotFoundError) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.subscription.line_not_found_for_item',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
     return { status: 404, result: { error: message } }
   }
 
   /** Linha HubMessage: `send-widget` continua Z-API-only. */
   if (error instanceof LineProviderNotSupportedError) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.line.provider_unsupported',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
     return { status: 400, result: { error: message } }
   }
 

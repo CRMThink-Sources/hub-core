@@ -13,6 +13,7 @@ import {
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '../errors/catalog'
 import { ensureTrialPlan } from './helpers/ensure-trial-plan'
 import { toLineMetadata } from './helpers/line-resource-metadata'
 
@@ -129,7 +130,9 @@ export class ActivateConnectorTrial {
        * para reconciliação manual — compensação transacional automática é escopo
        * próprio, e apagar recurso aqui poderia apagar o de outra tentativa.
        */
-      apiLogger.error(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.subscription.trial_activation_failed',
         {
           app: 'thinkzap',
           domainId: input.domainId,
@@ -137,7 +140,10 @@ export class ActivateConnectorTrial {
           orphanRemoteId: resource.instanceId,
           err: error,
         },
-        'Recurso provisionado no provider mas o trial não foi criado — recurso órfão',
+        {
+          level: 'error',
+          msg: 'Recurso provisionado no provider mas o trial não foi criado — recurso órfão',
+        },
       )
       throw error
     }

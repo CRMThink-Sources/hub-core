@@ -23,6 +23,7 @@ import {
   makePaymentGateway,
   makeSubscriptionDeps,
 } from './make-subscription-deps'
+import { thinkzapError } from '../../errors/catalog'
 
 export const makeGetSubscriptionStateController = (): Controller => {
   /**
@@ -58,10 +59,7 @@ function requireGateway(): PaymentGateway {
   const gateway = makePaymentGateway()
 
   if (!gateway) {
-    throw new Error(
-      'Gateway de pagamento não configurado: defina STRIPE_SECRET_KEY para habilitar ' +
-        'checkout e portal de faturamento. A modalidade boleto não depende disto.',
-    )
+    throw thinkzapError('thinkzap.gateway.not_configured')
   }
 
   return gateway
