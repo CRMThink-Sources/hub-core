@@ -1,5 +1,6 @@
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { env } from '@/config/env'
+import { apiLogger } from '@/shared/infra/logger'
 import { listSpaEntityTypes } from './list-spa-entity-types'
 
 export type DeleteSpaPlacementsResult = {
@@ -29,9 +30,13 @@ export async function deleteSpaPlacements(
       })
       deleted++
     } catch (error) {
-      console.error(
-        `Failed to unbind SPA placement CRM_DYNAMIC_${id}_DETAIL_TAB:`,
-        error,
+      apiLogger.error(
+        {
+          app: 'thinkzap',
+          err: error,
+          placement: `CRM_DYNAMIC_${id}_DETAIL_TAB`,
+        },
+        'Failed to unbind SPA placement',
       )
       failed++
     }

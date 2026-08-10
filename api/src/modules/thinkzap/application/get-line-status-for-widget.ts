@@ -4,6 +4,7 @@ import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { ConnectorStatusRef } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
 import { apiLogger } from '@/shared/infra/logger'
+import { thinkzapError } from '../errors/catalog'
 import {
   assertLineEnabled,
   findConnectorLineInContext,
@@ -119,5 +120,5 @@ function statusRef(item: SubscriptionItem): ConnectorStatusRef {
   }
 
   // `findConnectorLineInContext` já recusou `NONE` antes de chegar aqui.
-  throw new Error('Linha sem provider para leitura de status')
+  throw thinkzapError('thinkzap.line.provider_unsupported')
 }

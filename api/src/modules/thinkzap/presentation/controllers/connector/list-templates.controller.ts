@@ -12,6 +12,8 @@ import {
   ConnectorNotTemplateCapableError,
   TemplatesNotSupportedError,
 } from '@/modules/thinkzap/domain/ports/template-errors'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 
 /** `GET /thinkzap/lines/:itemId/templates` — templates da linha. */
 export class ListTemplatesController extends Controller {
@@ -38,6 +40,12 @@ export function handleTemplateError(
   error: unknown,
 ): httpResponse {
   if (error instanceof LineNotFoundError) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.subscription.line_not_found_for_item',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
     return this.notFound(error)
   }
   /**
@@ -57,6 +65,14 @@ export function handleTemplateError(
     error instanceof ChannelNotConnectedError ||
     error instanceof TemplatesNotSupportedError
   ) {
+    logThinkzapError(
+      apiLogger,
+      error instanceof TemplatesNotSupportedError
+        ? 'thinkzap.template.provider_unsupported'
+        : 'thinkzap.template.channel_not_connected',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
     return this.badRequest(error)
   }
   throw error

@@ -9,6 +9,7 @@ import { PhoneDataResponse } from '@/modules/thinkzap/infra/clients/types/z-api.
 import { ZApiInstanceGateway } from '@/modules/thinkzap/infra/persistence/gateway/instance.gateway'
 import { makeConnectorProviderResolver } from '@/modules/thinkzap/main/make-connector-provider-resolver'
 import { apiLogger } from '@/shared/infra/logger'
+import { thinkzapError } from '../errors/catalog'
 
 /** O mínimo do cliente Bitrix que a resolução de nome de canal precisa. */
 export type OpenChannelNameReader = {
@@ -140,7 +141,7 @@ async function zApiInstance(
   zApiClient: ZApiClient,
 ): Promise<ResolvedLine> {
   if (item.metadata.provider !== 'ZAPI') {
-    throw new Error(`Linha Z-API esperada, recebido ${item.metadata.provider}`)
+    throw thinkzapError('thinkzap.line.provider_unsupported')
   }
 
   const { zApiInstanceId, zApiInstanceToken } = item.metadata
@@ -182,9 +183,7 @@ async function hubMessageInstance(
   providerResolver: ProviderResolver,
 ): Promise<ResolvedLine> {
   if (item.metadata.provider !== 'HUBMESSAGE') {
-    throw new Error(
-      `Linha HubMessage esperada, recebido ${item.metadata.provider}`,
-    )
+    throw thinkzapError('thinkzap.line.provider_unsupported')
   }
 
   const { hubmessageChannelId, wabaId } = item.metadata

@@ -10,6 +10,8 @@ import {
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { handleTemplateError } from './list-templates.controller'
 import { parseLineRequest } from '../line/line-request'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 
 const componentSchema = z
   .object({
@@ -50,10 +52,22 @@ export class CreateTemplateController extends Controller {
       return this.ok({ template: created })
     } catch (error) {
       if (error instanceof InvalidTemplateError) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.template.invalid_definition',
+          { app: 'thinkzap', err: error },
+          { level: 'warn' },
+        )
         return this.badRequest(error)
       }
       // Rejeição de negócio da Meta: propaga a mensagem legível sem mascarar.
       if (error instanceof HubMessageApiError) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.template.provider_rejected',
+          { app: 'thinkzap', err: error },
+          { level: 'warn' },
+        )
         return this.badRequest(new Error(error.message))
       }
       return handleTemplateError.call(this, error)

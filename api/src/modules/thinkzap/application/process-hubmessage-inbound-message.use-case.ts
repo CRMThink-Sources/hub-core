@@ -16,6 +16,7 @@ import {
   ISendMessageData,
 } from '@/shared/infra/clients/bitrix.client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { buildHubMessageContent } from './build-hubmessage-content'
 import { extractBitrixChatId } from './helpers/extract-bitrix-chat-id'
 
@@ -61,9 +62,11 @@ export class ProcessHubMessageInboundMessageUseCase {
 
     const instance = await this.instanceRepo.getInstanceByChannelId(channelId)
     if (!instance) {
-      log.warn(
+      logThinkzapError(
+        log,
+        'thinkzap.message.inbound_hubmessage_failed',
         { channelId, messageId: message._id },
-        'Instance not found for HubMessage channel',
+        { level: 'warn', msg: 'Instance not found for HubMessage channel' },
       )
       throw new Error('Instance not found for HubMessage channel')
     }
@@ -96,9 +99,14 @@ export class ProcessHubMessageInboundMessageUseCase {
      * seria inalcançável.
      */
     if (!line) {
-      log.warn(
+      logThinkzapError(
+        log,
+        'thinkzap.message.inbound_hubmessage_failed',
         { channelId, internalInstanceId: instance.id, messageId: message._id },
-        'Nenhuma linha HubMessage corresponde a este canal — recusando processar',
+        {
+          level: 'warn',
+          msg: 'Nenhuma linha HubMessage corresponde a este canal — recusando processar',
+        },
       )
       throw new Error(
         `Nenhuma linha HUBMESSAGE vinculada ao canal "${channelId}"`,
@@ -134,9 +142,11 @@ export class ProcessHubMessageInboundMessageUseCase {
      */
     const { vinculatedChannel } = item
     if (!vinculatedChannel) {
-      log.warn(
+      logThinkzapError(
+        log,
+        'thinkzap.message.inbound_hubmessage_failed',
         { channelId, subscriptionItemId: item.id, messageId: message._id },
-        'Linha sem canal aberto vinculado',
+        { level: 'warn', msg: 'Linha sem canal aberto vinculado' },
       )
       throw new Error('Instance has no vinculated channel')
     }
@@ -184,6 +194,15 @@ export class ProcessHubMessageInboundMessageUseCase {
       domainId,
     )
     if (!installedApp) {
+      logThinkzapError(
+        log,
+        'thinkzap.app.not_found',
+        { channelId, domainId, messageId: message._id },
+        {
+          level: 'error',
+          msg: `Instalação não encontrada: domínio "${domainId}", app "${thinkzapAppCodeId()}"`,
+        },
+      )
       throw new Error(
         `Instalação não encontrada: domínio "${domainId}", app "${thinkzapAppCodeId()}"`,
       )
@@ -193,6 +212,12 @@ export class ProcessHubMessageInboundMessageUseCase {
     const app = await this.appRepo.getById(installedApp.id)
 
     if (!app) {
+      logThinkzapError(
+        log,
+        'thinkzap.app.not_found',
+        { channelId, domainId, messageId: message._id },
+        { level: 'error', msg: 'App not found' },
+      )
       throw new Error('App not found')
     }
 

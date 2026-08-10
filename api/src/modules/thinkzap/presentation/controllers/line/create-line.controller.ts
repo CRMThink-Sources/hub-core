@@ -13,6 +13,8 @@ import {
   PlanForProviderMissingError,
 } from '@/modules/thinkzap/application/helpers/build-contract-line-items'
 import { ProvisionedResourceWithoutCredentialError } from '@/modules/thinkzap/application/helpers/line-resource-metadata'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 
 /**
  * `strict()` e não `object()`: preço, quantidade, período e credencial são derivados
@@ -93,6 +95,12 @@ export class CreateLineController extends Controller {
       })
     } catch (error) {
       if (error instanceof PlanDoesNotPriceProviderError) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.subscription.plan_not_offerable',
+          { app: 'thinkzap', err: error },
+          { level: 'warn' },
+        )
         return this.badRequest(error)
       }
       /**
@@ -106,6 +114,18 @@ export class CreateLineController extends Controller {
         error instanceof PlanForProviderMissingError ||
         error instanceof PlanForProviderAmbiguousError
       ) {
+        logThinkzapError(
+          apiLogger,
+          error instanceof NoLineToExtendError
+            ? 'thinkzap.subscription.no_line_to_extend'
+            : error instanceof ManualModalityCannotCreateLineError
+              ? 'thinkzap.subscription.manual_modality_cannot_add_line'
+              : error instanceof PlanForProviderMissingError
+                ? 'thinkzap.subscription.plan_for_provider_missing'
+                : 'thinkzap.subscription.plan_for_provider_ambiguous',
+          { app: 'thinkzap', err: error },
+          { level: 'warn' },
+        )
         return this.conflict(error)
       }
       /**
@@ -115,6 +135,12 @@ export class CreateLineController extends Controller {
        * cliente a única informação que importa aqui: **nada foi cobrado**.
        */
       if (error instanceof ProvisionedResourceWithoutCredentialError) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.provisioning.credential_missing',
+          { app: 'thinkzap', err: error },
+          { level: 'error' },
+        )
         return this.badGateway(error)
       }
       throw error

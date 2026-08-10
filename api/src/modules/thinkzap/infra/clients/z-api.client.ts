@@ -21,6 +21,7 @@ import {
   ZApiListResponse,
 } from './types/z-api.types'
 import { UpdateInstanceGateway } from '../../domain/repositories/update-instance.gateway'
+import { thinkzapError } from '../../errors/catalog'
 
 export class ZApiClient {
   private readonly zApiToken: string
@@ -48,7 +49,7 @@ export class ZApiClient {
 
       return data
     } catch (error) {
-      throw new Error('Failed to create instance')
+      throw thinkzapError('thinkzap.zapi.instance_create_failed', error)
     }
   }
 
@@ -65,7 +66,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      throw new Error('Failed to subscribe')
+      throw thinkzapError('thinkzap.zapi.instance_subscribe_failed', error)
     }
   }
 
@@ -82,7 +83,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      throw new Error('Failed to unsubscribe')
+      throw thinkzapError('thinkzap.zapi.instance_subscribe_failed', error)
     }
   }
 
@@ -105,8 +106,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to update instance')
+      throw thinkzapError('thinkzap.zapi.instance_update_failed', error)
     }
   }
 
@@ -124,7 +124,7 @@ export class ZApiClient {
 
       return data
     } catch (error) {
-      throw new Error('Failed to list instances')
+      throw thinkzapError('thinkzap.zapi.instance_list_failed', error)
     }
   }
 
@@ -145,8 +145,7 @@ export class ZApiClient {
 
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to get instance data')
+      throw thinkzapError('thinkzap.zapi.instance_get_failed', error)
     }
   }
 
@@ -167,7 +166,7 @@ export class ZApiClient {
 
       return data
     } catch (error) {
-      throw new Error('Failed to get instance status')
+      throw thinkzapError('thinkzap.zapi.instance_status_failed', error)
     }
   }
 
@@ -187,8 +186,7 @@ export class ZApiClient {
       )
 
       return data
-    } catch (error) {
-      console.log(error)
+    } catch {
       return null
     }
   }
@@ -206,7 +204,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      throw new Error('Failed to get QR code')
+      throw thinkzapError('thinkzap.zapi.qrcode_failed', error)
     }
   }
 
@@ -236,8 +234,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to send message')
+      throw thinkzapError('thinkzap.zapi.message_send_failed', error)
     }
   }
 
@@ -267,8 +264,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to send image')
+      throw thinkzapError('thinkzap.zapi.message_send_failed', error)
     }
   }
 
@@ -298,8 +294,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to send video')
+      throw thinkzapError('thinkzap.zapi.message_send_failed', error)
     }
   }
 
@@ -318,8 +313,7 @@ export class ZApiClient {
         },
       )
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to disconnect instance')
+      throw thinkzapError('thinkzap.zapi.instance_disconnect_failed', error)
     }
   }
 
@@ -328,7 +322,7 @@ export class ZApiClient {
     instanceToken: string,
   ): Promise<void> {
     try {
-      const response = await axios.post(
+      await axios.post(
         `https://api.z-api.io/integrator/on-demand/cancel`,
         {
           instanceId,
@@ -340,13 +334,9 @@ export class ZApiClient {
           },
         },
       )
-      console.log({ data: response, instanceId })
       return
-    } catch (error) {
-      console.log(
-        '[z-api] cancel endpoint failed, fallback to disconnect',
-        instanceId,
-      )
+    } catch {
+      // endpoint de cancel falhou → fallback pra disconnect abaixo
     }
 
     await this.disconnectInstance(instanceId, instanceToken)
@@ -379,8 +369,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to send audio')
+      throw thinkzapError('thinkzap.zapi.message_send_failed', error)
     }
   }
 
@@ -408,8 +397,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to create group')
+      throw thinkzapError('thinkzap.zapi.group_op_failed', error)
     }
   }
 
@@ -429,8 +417,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to list groups')
+      throw thinkzapError('thinkzap.zapi.group_op_failed', error)
     }
   }
 
@@ -446,8 +433,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to get group metadata')
+      throw thinkzapError('thinkzap.zapi.group_op_failed', error)
     }
   }
 
@@ -487,8 +473,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to add group participants')
+      throw thinkzapError('thinkzap.zapi.group_op_failed', error)
     }
   }
 
@@ -505,8 +490,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to remove group participants')
+      throw thinkzapError('thinkzap.zapi.group_op_failed', error)
     }
   }
 
@@ -523,8 +507,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to update group name')
+      throw thinkzapError('thinkzap.zapi.group_op_failed', error)
     }
   }
 
@@ -541,8 +524,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to update group description')
+      throw thinkzapError('thinkzap.zapi.group_op_failed', error)
     }
   }
 
@@ -559,8 +541,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to update group photo')
+      throw thinkzapError('thinkzap.zapi.group_op_failed', error)
     }
   }
 
@@ -577,8 +558,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to leave group')
+      throw thinkzapError('thinkzap.zapi.group_op_failed', error)
     }
   }
 
@@ -596,8 +576,7 @@ export class ZApiClient {
         { headers: this.instanceHeaders() },
       )
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to edit message')
+      throw thinkzapError('thinkzap.zapi.message_edit_failed', error)
     }
   }
 
@@ -613,8 +592,7 @@ export class ZApiClient {
         { headers: this.instanceHeaders() },
       )
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to delete message')
+      throw thinkzapError('thinkzap.zapi.message_delete_failed', error)
     }
   }
 
@@ -650,8 +628,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      console.log(error)
-      throw new Error('Failed to send document')
+      throw thinkzapError('thinkzap.zapi.message_send_failed', error)
     }
   }
 }

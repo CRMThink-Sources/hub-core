@@ -14,6 +14,7 @@ import { findLineItemByChannelId } from '@/modules/thinkzap/application/helpers/
 import { LineBlockedError } from '@/modules/thinkzap/domain/errors/line-blocked.error'
 import { mapLineBlockedError } from '@/modules/thinkzap/presentation/helpers/handle-line-error'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 /**
  * Conclui a conexão de um canal HubMessage (WhatsApp Oficial). O SDK roda no
@@ -131,9 +132,14 @@ export class ConnectChannelController extends Controller {
       })
       return webhook.id
     } catch (error) {
-      console.warn(
-        `[thinkzap] HubMessage: falha ao criar webhook do canal ${channelId} após conexão`,
-        error,
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.hubmessage.request_failed',
+        { app: 'thinkzap', channelId, err: error },
+        {
+          level: 'warn',
+          msg: 'HubMessage: falha ao criar webhook do canal após conexão — conector segue sem webhook',
+        },
       )
       return null
     }

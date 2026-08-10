@@ -1,5 +1,6 @@
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 const log = createWorkerSourceLogger('hubmessage')
 
@@ -35,9 +36,14 @@ export async function notifyOperatorWindowClosed(
       'Operator notified about closed 24h window',
     )
   } catch (err) {
-    log.warn(
+    logThinkzapError(
+      log,
+      'thinkzap.hubmessage.notify_failed',
       { bitrixChatId, err, windowClosedNoticeFailed: true },
-      'Failed to notify operator about closed 24h window',
+      {
+        level: 'warn',
+        msg: 'Failed to notify operator about closed 24h window',
+      },
     )
   }
 }

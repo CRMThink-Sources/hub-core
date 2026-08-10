@@ -4,6 +4,7 @@ import {
   assertLineEnabled,
   findLineInContext,
 } from './resolve-line-by-subscription-item'
+import { thinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 export type ResolvedZApiInstance = {
   instanceId: string
@@ -70,7 +71,7 @@ export async function resolveZApiInstance(
   )
 
   if (!instance.connected) {
-    throw new Error('Instance is not connected')
+    throw thinkzapError('thinkzap.provisioning.instance_resolve_failed')
   }
 
   /**

@@ -1,6 +1,7 @@
 import { prisma } from '@/config/prisma'
 import { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { env } from '@/config/env'
+import { thinkzapError } from '../errors/catalog'
 
 /**
  * Faz `event.bind` / `event.unbind` no portal do cliente.
@@ -37,7 +38,7 @@ export class UpdateConnectorEventBindsUseCase {
 
     const webhookUrl = env.bitrix.webhookUrl
     if (!webhookUrl) {
-      throw new Error('Webhook URL not configured')
+      throw thinkzapError('thinkzap.config.missing_env')
     }
 
     if (input.messageUpdateEventEnabled !== undefined) {

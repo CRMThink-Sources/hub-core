@@ -3,6 +3,7 @@ import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { ConnectorResourceRef } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '../errors/catalog'
 
 /**
  * Ciclo de **cobrança do recurso no provider** — eixo separado da sessão do
@@ -85,14 +86,19 @@ export class ProviderResourceBilling {
        * estado que alguém precisa ver — ou é linha nunca provisionada, ou é
        * credencial perdida.
        */
-      apiLogger.warn(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.subscription.provider_billing_failed',
         {
           app: 'thinkzap',
           operation,
           subscriptionItemId: item.id,
           reason: resolved.skip,
         },
-        'Operação de cobrança no provider não tentada: item sem credencial de provider',
+        {
+          level: 'warn',
+          msg: 'Operação de cobrança no provider não tentada: item sem credencial de provider',
+        },
       )
       return
     }
@@ -108,7 +114,9 @@ export class ProviderResourceBilling {
         await adapter.unsubscribe(ref, CANCELLATION_REASON)
       }
     } catch (error) {
-      apiLogger.error(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.subscription.provider_billing_failed',
         {
           app: 'thinkzap',
           operation,
@@ -117,9 +125,13 @@ export class ProviderResourceBilling {
           resourceId,
           err: error,
         },
-        operation === 'subscribe'
-          ? 'Falha ao assinar o recurso no provider — a ativação segue válida e o recurso fica não assinado'
-          : 'Falha ao desassinar o recurso no provider — continuamos sendo cobrados por cliente que saiu',
+        {
+          level: 'error',
+          msg:
+            operation === 'subscribe'
+              ? 'Falha ao assinar o recurso no provider — a ativação segue válida e o recurso fica não assinado'
+              : 'Falha ao desassinar o recurso no provider — continuamos sendo cobrados por cliente que saiu',
+        },
       )
     }
   }

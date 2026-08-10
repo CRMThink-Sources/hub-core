@@ -12,6 +12,7 @@ import {
   DEFAULT_CONNECTOR_SETTINGS,
 } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 /**
  * A linha resolvida por id de provider, com a habilitação derivada da assinatura
@@ -80,13 +81,18 @@ export async function findLineItemByInstanceId(
    * problema aparecer em vez de virar comportamento aleatório.
    */
   if (matches.length > 1) {
-    apiLogger.warn(
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.provisioning.settings_not_found',
       {
         app: 'thinkzap',
         instanceId: input.instanceId,
         itemIds: matches.map(match => match.item.id),
       },
-      'Mais de um item de assinatura com o mesmo zApiInstanceId — usando o primeiro',
+      {
+        level: 'warn',
+        msg: 'Mais de um item de assinatura com o mesmo zApiInstanceId — usando o primeiro',
+      },
     )
   }
 
@@ -171,13 +177,18 @@ export async function findLineItemByChannelId(
   if (matches.length === 0) return null
 
   if (matches.length > 1) {
-    apiLogger.warn(
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.provisioning.settings_not_found',
       {
         app: 'thinkzap',
         channelId: input.channelId,
         itemIds: matches.map(match => match.item.id),
       },
-      'Mais de um item de assinatura com o mesmo canal HubMessage — usando o primeiro',
+      {
+        level: 'warn',
+        msg: 'Mais de um item de assinatura com o mesmo canal HubMessage — usando o primeiro',
+      },
     )
   }
 

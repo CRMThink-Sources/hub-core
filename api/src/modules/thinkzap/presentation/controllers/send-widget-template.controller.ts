@@ -9,6 +9,8 @@ import {
   TemplatesNotSupportedError,
 } from '@/modules/thinkzap/domain/ports/template-errors'
 import { mapWidgetSendError } from '@/modules/thinkzap/presentation/helpers/handle-widget-send-error'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 
@@ -54,6 +56,13 @@ export class SendWidgetTemplateController extends Controller {
       })
       return this.ok(result)
     } catch (error) {
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.message.widget_template_failed',
+        { app: 'thinkzap', err: error },
+        { level: 'error' },
+      )
+
       /**
        * `503` e não `400`: a requisição estava correta e o provider é que está fora.
        * `400` aqui mandaria o operador revisar dados que não têm problema, e ainda
@@ -63,6 +72,12 @@ export class SendWidgetTemplateController extends Controller {
        * valor inventado é pior que nenhum.
        */
       if (error instanceof TemplateProviderUnavailableError) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.template.provider_unavailable',
+          { app: 'thinkzap', err: error },
+          { level: 'error' },
+        )
         return {
           status: 503,
           result: {
@@ -84,6 +99,15 @@ export class SendWidgetTemplateController extends Controller {
         error instanceof TemplateSendNotSupportedError ||
         error instanceof TemplatesNotSupportedError
       ) {
+        logThinkzapError(
+          apiLogger,
+          error instanceof TemplateSendNotSupportedError ||
+            error instanceof TemplatesNotSupportedError
+            ? 'thinkzap.template.provider_unsupported'
+            : 'thinkzap.template.channel_not_connected',
+          { app: 'thinkzap', err: error },
+          { level: 'warn' },
+        )
         return this.badRequest(error)
       }
 

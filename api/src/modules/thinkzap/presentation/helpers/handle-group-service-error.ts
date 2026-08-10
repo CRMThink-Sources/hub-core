@@ -3,6 +3,8 @@ import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-fou
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import { httpResponse } from '@/shared/helpers/http'
 import { mapLineBlockedError } from './handle-line-error'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 
 /**
  * Traduz a falha de uma operação de grupo em resposta HTTP.
@@ -20,6 +22,12 @@ export function mapGroupServiceError(
 
   /** Id fora da instalação do token é indistinguível de id inexistente. */
   if (error instanceof LineNotFoundError) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.subscription.line_not_found_for_item',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
     return { status: 404, result: { error: message } }
   }
 
@@ -37,6 +45,12 @@ export function mapGroupServiceError(
    * aplica é a operação de grupo. Mesma regra vale para linha desconectada.
    */
   if (error instanceof LineProviderNotSupportedError) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.line.provider_unsupported',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
     return { status: 400, result: { error: message } }
   }
 

@@ -1,5 +1,9 @@
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import { GetBitrixUserDisplayNamePort } from '@/modules/thinkzap/domain/ports/get-bitrix-user-display-name.port'
+import { logThinkzapError } from '../../errors/catalog'
+
+const log = createWorkerSourceLogger('bitrix')
 
 type BitrixUserGetResult = Array<{
   NAME?: string
@@ -33,7 +37,13 @@ export class BitrixGetUserDisplayNameAdapter implements GetBitrixUserDisplayName
       }
 
       return formatBitrixUserName(users[0] ?? {})
-    } catch {
+    } catch (err) {
+      logThinkzapError(
+        log,
+        'thinkzap.bitrix.user_name_failed',
+        { userId, err },
+        { level: 'warn' },
+      )
       return null
     }
   }

@@ -6,6 +6,8 @@ import {
   BillingPortalNotAvailableError,
   CreateBillingPortalSession,
 } from '@/modules/thinkzap/application/create-billing-portal-session'
+import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 /** A instalação vem do JWT. O corpo não carrega nada. */
 const schema = z.object({
@@ -37,8 +39,20 @@ export class CreateBillingPortalController extends Controller {
        * ela. `404` faria a tela dizer "não encontrado" para um boleto ativo.
        */
       if (error instanceof BillingPortalNotAvailableError) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.subscription.billing_portal_unavailable',
+          { app: 'thinkzap', err: error },
+          { level: 'warn' },
+        )
         return this.badRequest(error)
       }
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.gateway.portal_create_failed',
+        { app: 'thinkzap', err: error },
+        { level: 'error' },
+      )
       throw error
     }
   }

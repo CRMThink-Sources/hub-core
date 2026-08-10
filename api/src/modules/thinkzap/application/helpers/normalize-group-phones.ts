@@ -2,6 +2,7 @@ import {
   isValidZApiPhoneNumber,
   normalizePhoneNumber,
 } from '@/shared/helpers/normalize-phone-number'
+import { thinkzapError } from '../../errors/catalog'
 
 export function normalizeGroupPhones(
   phones: string[],
@@ -16,7 +17,7 @@ export function normalizeGroupPhones(
   for (const raw of phones) {
     const normalized = normalizePhoneNumber(raw)
     if (!isValidZApiPhoneNumber(normalized)) {
-      throw new Error(`Invalid phone number: ${raw}`)
+      throw thinkzapError('thinkzap.message.invalid_phone')
     }
     if (normalizedInstancePhone && normalized === normalizedInstancePhone) {
       continue
@@ -28,7 +29,7 @@ export function normalizeGroupPhones(
 
   const minCount = options?.minCount ?? 0
   if (normalizedPhones.length < minCount) {
-    throw new Error('At least one valid participant phone is required')
+    throw thinkzapError('thinkzap.message.invalid_phone')
   }
 
   return normalizedPhones

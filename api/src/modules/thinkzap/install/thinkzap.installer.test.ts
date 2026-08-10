@@ -15,6 +15,7 @@ vi.mock('../application/list-spa-entity-types', () => ({
 
 vi.mock('@/shared/infra/logger', () => ({
   logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
+  apiLogger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
 }))
 
 vi.mock('@/config/env', () => ({

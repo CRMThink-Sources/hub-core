@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios'
+import { thinkzapError } from '@/modules/thinkzap/errors/catalog'
 import {
   ConnectHubMessageChannelParams,
   CreateHubMessageChannelParams,
@@ -51,9 +52,7 @@ export class HubMessageClient {
 
   constructor(config: HubMessageClientConfig) {
     if (!config.token) {
-      throw new Error(
-        'HubMessage: token de autenticação ausente na configuração',
-      )
+      throw thinkzapError('thinkzap.hubmessage.not_configured')
     }
     this.http = axios.create({
       baseURL: config.baseUrl.replace(/\/$/, ''),

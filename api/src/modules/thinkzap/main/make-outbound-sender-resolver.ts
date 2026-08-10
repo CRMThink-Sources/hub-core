@@ -9,6 +9,7 @@ import { HubMessageOutboundSender } from '../infra/adapters/hubmessage-outbound-
 import { ZApiOutboundSender } from '../infra/adapters/z-api-outbound-sender.adapter'
 import { HubMessageClient } from '../infra/clients/hubmessage.client'
 import { ZApiClient } from '../infra/clients/z-api.client'
+import { thinkzapError } from '../errors/catalog'
 
 /**
  * Resolve o adapter de envio a partir do provider do conector. Espelha
@@ -34,9 +35,7 @@ export class DefaultOutboundSenderResolver implements OutboundSenderResolver {
 
       case ConnectorProvider.HUBMESSAGE: {
         if (!env.hubMessage.secretKey) {
-          throw new Error(
-            'HubMessage: token de autenticação ausente na configuração',
-          )
+          throw thinkzapError('thinkzap.config.missing_env')
         }
 
         // Mesmo fallback do adapter de ciclo de vida: o provisionamento grava o
