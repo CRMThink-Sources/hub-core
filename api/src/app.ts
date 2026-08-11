@@ -38,6 +38,7 @@ import { runWithLogContext } from './shared/infra/log-context.js'
 import { randomUUID } from 'node:crypto'
 import { makeHubmessageWebhookHandlerController } from './modules/thinkzap/main/make-hubmessage-webhook-handler-controller.js'
 import { makeStripeWebhookController } from './modules/thinkzap/main/subscription/make-subscription-controllers.js'
+import { makeSpaWebhookController } from './modules/application/main/make-spa-webhook-controller.js'
 import {
   buildMcpOAuthRouter,
   isMcpOAuthConfigured,
@@ -129,6 +130,17 @@ app.post(
   '/api/thinkzap/webhooks/bitrix/robot',
   adaptControllerFactory(makeBitrixRobotWebhookHandlerController),
 )
+
+/**
+ * Webhook de saída das SPAs de billing do portal interno — invalida o cache Redis
+ * do módulo `payments` quando um item é editado à mão no CRM.
+ *
+ * Registrado **depois** do `express.urlencoded({ extended: true })`, ao contrário do
+ * Stripe e do Clicksign: o Bitrix manda formulário com chaves aninhadas
+ * (`data[FIELDS][ID]`), e é o parser que as transforma em objeto. Não há HMAC sobre
+ * o corpo cru a preservar aqui — a autenticação é o `application_token` do payload.
+ */
+app.post('/api/webhooks/spa', adaptControllerFactory(makeSpaWebhookController))
 
 // Clicksign — rotas públicas (POST do robô + event do Bitrix), SEM authMiddleware.
 app.post(

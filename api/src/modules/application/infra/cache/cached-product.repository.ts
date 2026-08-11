@@ -3,14 +3,9 @@ import z from 'zod'
 import { Product } from '@/modules/application/domain/entities/product'
 import { ProductRepository } from '@/modules/application/domain/repositories/get-product.repository'
 import { apiLogger } from '@/shared/infra/logger'
+import { productKey, productListKey } from './keys'
 
 const PRODUCT_TTL_SECONDS = 5 * 60
-
-/**
- * Versão do shape do `Product`. Sobe junto com qualquer mudança na entidade
- * para que entradas gravadas por um deploy anterior sejam ignoradas.
- */
-const CACHE_VERSION = 'v1'
 
 const productSchema = z.object({
   id: z.string(),
@@ -29,9 +24,6 @@ function safeJsonParse(raw: string): unknown {
     return null
   }
 }
-
-const productKey = (id: string) => `payments:product:${CACHE_VERSION}:${id}`
-const productListKey = () => `payments:products:${CACHE_VERSION}:all`
 
 /**
  * Decorator de cache sobre qualquer `ProductRepository`.

@@ -157,6 +157,24 @@ describe('InstallApp', () => {
     )
   })
 
+  it('não manda contato ao resolver o item da SPA', async () => {
+    await makeSut(deps).execute(input)
+
+    const payload = firstArg<Record<string, unknown>>(
+      deps.getOrCreateSpa.execute,
+    )
+
+    /**
+     * Nome, telefone e empresa não vêm no payload de instalação — são capturados na
+     * ativação do trial. Mandá-los como `''` fazia uma reinstalação **apagar** o
+     * contato comercial no item da SPA, sem erro e sem sintoma.
+     */
+    expect(payload).not.toHaveProperty('name')
+    expect(payload).not.toHaveProperty('phone')
+    expect(payload).not.toHaveProperty('company')
+    expect(payload).toMatchObject({ email: input.email })
+  })
+
   it('converte expires_in como TTL em segundos, não como epoch em ms', async () => {
     await makeSut(deps).execute(input)
 

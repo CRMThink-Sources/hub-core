@@ -4,6 +4,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import {
   ActivateConnectorTrial,
+  TrialContactWriteFailedError,
   TrialNotEligibleError,
 } from '@/modules/thinkzap/application/activate-connector-trial'
 import {
@@ -11,17 +12,29 @@ import {
   TrialPlanNotConfiguredError,
 } from '@/modules/thinkzap/application/helpers/ensure-trial-plan'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import {
+  InvalidTrialContactError,
+  parseTrialContact,
+} from '@/modules/thinkzap/domain/value-objects/trial-contact'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 
 /**
- * Só o provider. `strict()` porque período e status são regra de negócio derivada no
- * servidor — aceitar qualquer um dos dois no corpo deixaria o cliente escolher a
- * duração do próprio teste.
+ * Provider e contato, e nada mais. `strict()` porque período e status são regra de
+ * negócio derivada no servidor — aceitar qualquer um dos dois no corpo deixaria o
+ * cliente escolher a duração do próprio teste.
+ *
+ * Os campos de contato entram como `string` crua: quem valida forma e normaliza o
+ * telefone é `parseTrialContact`, e duplicar a regra aqui daria duas fontes que
+ * divergem.
  */
 const bodySchema = z
   .object({
     provider: z.enum([ConnectorProvider.ZAPI, ConnectorProvider.HUBMESSAGE]),
+    name: z.string(),
+    email: z.string(),
+    phone: z.string(),
+    company: z.string(),
   })
   .strict()
 
@@ -53,10 +66,29 @@ export class ActivateTrialController extends Controller {
       )
     }
 
+    /**
+     * Contato validado **antes** do caso de uso, e não dentro dele: entrada malformada
+     * é `400` e não deve consumir leitura de contexto nem chamada ao CRM. O erro
+     * nomeia o campo para a tela apontar o que corrigir.
+     */
+    let contact
+    try {
+      contact = parseTrialContact(body.data)
+    } catch (error) {
+      if (error instanceof InvalidTrialContactError) {
+        return {
+          status: 400,
+          result: { error: error.message, field: error.field },
+        }
+      }
+      throw error
+    }
+
     try {
       const result = await this.activate.execute({
         ...install.data,
         provider: body.data.provider,
+        contact,
       })
 
       return this.ok({
@@ -83,6 +115,15 @@ export class ActivateTrialController extends Controller {
           status: 409,
           result: { error: error.message, reason: error.reason },
         }
+      }
+
+      /**
+       * Contato não gravado é `502`: a requisição está correta e o CRM interno é que
+       * não respondeu. Retentável, e nada foi provisionado — a instalação continua
+       * elegível. O log já saiu no caso de uso, com o code do runbook.
+       */
+      if (error instanceof TrialContactWriteFailedError) {
+        return this.badGateway(error)
       }
 
       /**

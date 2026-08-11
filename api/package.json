@@ -23,6 +23,7 @@
     "check:subscription-fields": "tsx src/scripts/check-subscription-fields.ts",
     "check:plans-vs-gateway": "tsx src/scripts/check-plans-vs-gateway.ts",
     "check:gateway-webhook": "tsx src/scripts/check-gateway-webhook.ts",
+    "check:spa-client-contact-fields": "tsx src/scripts/check-spa-client-contact-fields.ts",
     "create:mcp-user": "tsx src/scripts/create-mcp-user.ts"
   },
   "dependencies": {

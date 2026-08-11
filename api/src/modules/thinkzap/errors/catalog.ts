@@ -319,6 +319,15 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 500,
   },
+  'thinkzap.subscription.trial_contact_failed': {
+    category: 'integration',
+    userCause:
+      'Não foi possível registrar seus dados de contato para iniciar o teste.',
+    remediation:
+      'Tentar de novo em instantes; se persistir, verificar a disponibilidade do CRM interno.',
+    retriable: true,
+    httpStatus: 502,
+  },
   'thinkzap.subscription.trial_not_eligible': {
     category: 'validation',
     userCause:

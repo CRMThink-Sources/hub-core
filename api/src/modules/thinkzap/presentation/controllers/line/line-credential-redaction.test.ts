@@ -140,6 +140,15 @@ function makeSurface(entitlement: Case) {
 
   const disconnectExpiredLine = { schedule: vi.fn() } as never
 
+  const contacts = {
+    getContact: vi.fn().mockResolvedValue({
+      name: 'Joana Silva',
+      email: 'joana@acme.com',
+      phone: '5511999998888',
+      company: 'Acme LTDA',
+    }),
+  } as never
+
   const calls: Array<{ route: string; perform: () => Promise<httpResponse> }> =
     [
       {
@@ -188,7 +197,7 @@ function makeSurface(entitlement: Case) {
         route: 'GET /trial',
         perform: () =>
           new GetTrialStateController(
-            new GetConnectorTrialState(ctx, plans),
+            new GetConnectorTrialState(ctx, plans, contacts),
           ).perform(req('i1')),
       },
     ]

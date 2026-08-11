@@ -6,6 +6,8 @@ import {
   resolveLineEntitlement,
 } from '@/modules/thinkzap/domain/connector-trial'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import { SpaClientContact } from '@/shared/domain/entities/spa-client-contact'
+import { GetSpaClientContactRepository } from '@/shared/domain/repositories/spa/spa-client-contact.repository'
 import { isTrialPlanAvailable } from './helpers/ensure-trial-plan'
 
 /**
@@ -16,8 +18,18 @@ import { isTrialPlanAvailable } from './helpers/ensure-trial-plan'
  * assim que o cliente virasse a meia-noite dele.
  */
 export type ConnectorTrialState =
-  /** Pode ativar. `providers` é o que a tela oferece de escolha. */
-  | { status: 'available'; providers: ConnectorProvider[] }
+  /**
+   * Pode ativar. `providers` é o que a tela oferece de escolha, e `contact` é o
+   * que ela usa para pré-preencher o formulário.
+   *
+   * `contact` só existe aqui: é a única variante que rende formulário, e expor
+   * contato nas outras seria superfície sem uso.
+   */
+  | {
+      status: 'available'
+      providers: ConnectorProvider[]
+      contact: SpaClientContact
+    }
   /** Trial em andamento. */
   | { status: 'active'; provider: ConnectorProvider; currentPeriodEnd: Date }
   /** Trial acabou. A linha continua visível, travada. */
@@ -41,6 +53,7 @@ export class GetConnectorTrialState {
   constructor(
     private readonly getAplicationContext: GetAplicationContext,
     private readonly plans: PlanRepository,
+    private readonly contacts: GetSpaClientContactRepository,
   ) {}
 
   async execute(
@@ -52,9 +65,20 @@ export class GetConnectorTrialState {
     const eligibility = checkTrialEligibility(context)
 
     if (eligibility.eligible) {
-      return (await isTrialPlanAvailable(this.plans))
-        ? { status: 'available', providers: TRIAL_PROVIDERS }
-        : { status: 'misconfigured' }
+      if (!(await isTrialPlanAvailable(this.plans))) {
+        return { status: 'misconfigured' }
+      }
+
+      /**
+       * A leitura do contato só acontece aqui: instalação já ativada — o caso
+       * comum em regime — não paga a chamada extra ao CRM. `spaId` é garantido
+       * pela elegibilidade, que barra `no-spa-mirror` antes.
+       */
+      return {
+        status: 'available',
+        providers: TRIAL_PROVIDERS,
+        contact: await this.contacts.getContact(context.aplication.spaId!),
+      }
     }
 
     /**

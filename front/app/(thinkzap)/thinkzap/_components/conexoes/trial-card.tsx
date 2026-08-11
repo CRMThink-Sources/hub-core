@@ -8,12 +8,14 @@ import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 import { APP_CODES } from '@/shared/app/app-codes'
 import { appTokenKey } from '@/shared/auth/app-token-storage'
 import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
+import { TrialContactDialog, type TrialContact } from './trial-contact-dialog'
 
 type TrialProvider = 'ZAPI' | 'HUBMESSAGE'
 
 /** Espelha `ConnectorTrialState` da api. */
 type TrialState =
-  | { status: 'available'; providers: TrialProvider[] }
+  /** `contact` só existe aqui: é a única variante que rende formulário. */
+  | { status: 'available'; providers: TrialProvider[]; contact: TrialContact }
   | { status: 'active'; provider: TrialProvider; currentPeriodEnd: string }
   | { status: 'expired'; provider: TrialProvider; currentPeriodEnd: string }
   | { status: 'unavailable'; reason: string }
@@ -37,7 +39,12 @@ type Fetch =
 export function TrialCard({ onActivated }: { onActivated: () => void }) {
   const { t } = useTranslation('thinkzap/conexoes/trial')
   const [state, setState] = useState<Fetch>({ kind: 'loading' })
-  const [activating, setActivating] = useState<TrialProvider | null>(null)
+  const [activating, setActivating] = useState(false)
+  /** Provider escolhido, aguardando a confirmação do contato. `null` = sem dialog. */
+  const [chosen, setChosen] = useState<TrialProvider | null>(null)
+  const [serverField, setServerField] = useState<keyof TrialContact | null>(
+    null,
+  )
 
   const load = useCallback(async () => {
     try {
@@ -56,18 +63,28 @@ export function TrialCard({ onActivated }: { onActivated: () => void }) {
     void load()
   }, [load])
 
-  async function handleActivate(provider: TrialProvider) {
-    setActivating(provider)
+  /**
+   * O dialog só fecha em sucesso: erro da api mantém o que foi digitado, e o campo
+   * que a api nomeou fica marcado no input.
+   */
+  async function handleActivate(
+    provider: TrialProvider,
+    contact: TrialContact,
+  ) {
+    setActivating(true)
+    setServerField(null)
     try {
       const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
-      await client.post('/thinkzap/trial', { provider })
+      await client.post('/thinkzap/trial', { provider, ...contact })
       toast.success(t('ativado'))
+      setChosen(null)
       await load()
       onActivated()
     } catch (err: unknown) {
+      setServerField(extractContactField(err))
       toast.error(extractThinkzapError(err, t('erroAtivar')))
     } finally {
-      setActivating(null)
+      setActivating(false)
     }
   }
 
@@ -139,19 +156,52 @@ export function TrialCard({ onActivated }: { onActivated: () => void }) {
           <ProviderOption
             key={provider}
             provider={provider}
-            disabled={activating !== null}
-            loading={activating === provider}
-            onChoose={() => void handleActivate(provider)}
+            disabled={activating}
+            loading={activating && chosen === provider}
+            onChoose={() => {
+              setServerField(null)
+              setChosen(provider)
+            }}
             label={t(`convite.${provider}.titulo`)}
             hint={t(`convite.${provider}.descricao`)}
-            cta={
-              activating === provider ? t('ativando') : t('convite.escolher')
-            }
+            cta={t('convite.escolher')}
           />
         ))}
       </div>
+
+      {chosen ? (
+        <TrialContactDialog
+          // Remonta ao trocar de provider: o formulário volta ao contato do CRM.
+          key={chosen}
+          open
+          initial={trial.contact}
+          submitting={activating}
+          serverField={serverField}
+          onCancel={() => setChosen(null)}
+          onSubmit={contact => void handleActivate(chosen, contact)}
+        />
+      ) : null}
     </Shell>
   )
+}
+
+/**
+ * O campo que a api recusou, quando ela nomeia um.
+ *
+ * `400` de contato inválido devolve `{ error, field }` — o `field` marca o input
+ * certo em vez de deixar o cliente adivinhar qual dos quatro corrigir.
+ */
+function extractContactField(err: unknown): keyof TrialContact | null {
+  const field = (
+    err as { response?: { data?: { result?: { field?: unknown } } } }
+  )?.response?.data?.result?.field
+
+  return field === 'name' ||
+    field === 'email' ||
+    field === 'phone' ||
+    field === 'company'
+    ? field
+    : null
 }
 
 function ProviderOption({

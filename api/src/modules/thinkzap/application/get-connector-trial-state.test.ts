@@ -22,10 +22,26 @@ const NOW = new Date('2026-08-03T12:00:00.000Z')
 const zapiItem = { metadata: { provider: 'ZAPI' } }
 const hubItem = { metadata: { provider: 'HUBMESSAGE' } }
 
+/** Item recém-instalado: só o e-mail da instalação, o resto por preencher. */
+const EMPTY_CONTACT = {
+  name: '',
+  email: 'admin@acme.com',
+  phone: '',
+  company: '',
+}
+
+const FILLED_CONTACT = {
+  name: 'Joana Silva',
+  email: 'joana@acme.com',
+  phone: '5511999998888',
+  company: 'Acme LTDA',
+}
+
 function makeSut(options?: {
   subscriptions?: unknown[]
   spaId?: string | null
   planRejects?: Error
+  contact?: typeof EMPTY_CONTACT
 }) {
   const execute = vi.fn().mockResolvedValue({
     customer: { id: 'domain-1', name: 'acme' },
@@ -39,14 +55,20 @@ function makeSut(options?: {
     ? vi.fn().mockRejectedValue(options.planRejects)
     : vi.fn().mockResolvedValue({ id: 'plan-1' })
 
+  const getContact = vi
+    .fn()
+    .mockResolvedValue(options?.contact ?? EMPTY_CONTACT)
+
   const sut = new GetConnectorTrialState(
     { execute } as never,
     {
       getPlan,
     } as never,
+    { getContact } as never,
   )
 
   return {
+    getContact,
     state: () =>
       sut.execute({ domainId: 'domain-1', appCode: 'crmthink.thinkzap' }, NOW),
   }
@@ -57,13 +79,30 @@ describe('GetConnectorTrialState', () => {
     trialPlanId.value = 'plan-1'
   })
 
-  it('instalação nova pode ativar, com os dois providers', async () => {
+  it('instalação nova pode ativar, com os dois providers e o contato conhecido', async () => {
     const sut = makeSut()
 
     await expect(sut.state()).resolves.toEqual({
       status: 'available',
       providers: [ConnectorProvider.ZAPI, ConnectorProvider.HUBMESSAGE],
+      contact: EMPTY_CONTACT,
     })
+  })
+
+  it('traz o contato já preenchido para a tela confirmar', async () => {
+    const sut = makeSut({ contact: FILLED_CONTACT })
+
+    await expect(sut.state()).resolves.toMatchObject({
+      contact: FILLED_CONTACT,
+    })
+  })
+
+  it('lê o contato pelo id do item da instalação', async () => {
+    const sut = makeSut()
+
+    await sut.state()
+
+    expect(sut.getContact).toHaveBeenCalledWith('1060-1')
   })
 
   /**
@@ -148,6 +187,51 @@ describe('GetConnectorTrialState', () => {
     await expect(sut.state()).resolves.toEqual({
       status: 'unavailable',
       reason: 'no-spa-mirror',
+    })
+  })
+
+  /**
+   * Contato só rende formulário no estado que permite ativar. Nos outros seria
+   * superfície sem uso — e uma chamada ao CRM que a instalação já ativada, o caso
+   * comum em regime, pagaria a cada leitura de tela.
+   */
+  describe('contato só existe no estado available', () => {
+    const cases: Array<[string, Parameters<typeof makeSut>[0]]> = [
+      [
+        'trial ativo',
+        {
+          subscriptions: [
+            {
+              status: 'trialing',
+              currentPeriodEnd: new Date('2026-08-06T12:00:00.000Z'),
+              items: [zapiItem],
+            },
+          ],
+        },
+      ],
+      [
+        'trial expirado',
+        {
+          subscriptions: [
+            {
+              status: 'trialing',
+              currentPeriodEnd: new Date('2026-07-01T12:00:00.000Z'),
+              items: [hubItem],
+            },
+          ],
+        },
+      ],
+      ['cliente pagante', { subscriptions: [{ status: 'active', items: [] }] }],
+      ['sem espelho na SPA', { spaId: null }],
+      ['plano não configurado', {}],
+    ]
+
+    it.each(cases)('%s não traz contato nem o lê', async (label, options) => {
+      if (label === 'plano não configurado') trialPlanId.value = ''
+      const sut = makeSut(options)
+
+      await expect(sut.state()).resolves.not.toHaveProperty('contact')
+      expect(sut.getContact).not.toHaveBeenCalled()
     })
   })
 })

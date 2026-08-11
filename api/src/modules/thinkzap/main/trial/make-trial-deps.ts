@@ -15,6 +15,7 @@ import { ZApiInstanceGateway } from '@/modules/thinkzap/infra/persistence/gatewa
 import { makeConnectorProviderResolver } from '@/modules/thinkzap/main/make-connector-provider-resolver'
 import { redisConnection } from '@/queue/redis-connection'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { BitrixSpaRepository } from '@/shared/infra/persistence/repositories/bitrix-spa.repository'
 
 /**
  * Dependências das rotas de trial.
@@ -56,6 +57,12 @@ export function makeTrialDeps() {
     getAplicationContext: makeGetAplicationContext(),
     plans,
     subscriptions,
+    /**
+     * Contato do item de cliente na SPA 1060. Sem cache de propósito: é lido uma
+     * vez por instalação elegível e escrito uma vez na vida dela, e cache aqui só
+     * criaria a chance de a tela pré-preencher com valor que o CRM já não tem.
+     */
+    contacts: new BitrixSpaRepository(bitrixClient),
     items: makeSubscriptionItemRepository(),
     providerResolver: makeConnectorProviderResolver({
       zApiClient,
