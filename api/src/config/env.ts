@@ -41,6 +41,16 @@ export const env = {
    */
   frontUrl: process.env.FRONT_URL ?? process.env.APP_URL ?? '',
   crmthinkWebhookUrl: process.env.CRMTHINK_WEBHOOK_URL ?? '',
+  /**
+   * Application token do webhook de saída das SPAs de billing, copiado da tela do
+   * webhook no portal interno. É o **único** fator de autenticação de
+   * `POST /api/webhooks/spa`: o webhook de saída do Bitrix não assina o corpo, então
+   * não há HMAC a validar como no Stripe.
+   *
+   * Vazio **desabilita** a rota (503). Aceitar o POST por falta de configuração
+   * transformaria a rota num botão público de esvaziar o cache do módulo `payments`.
+   */
+  bitrixSpaWebhookToken: process.env.BITRIX_SPA_WEBHOOK_TOKEN ?? '',
   tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY ?? '',
   zApi: {
     partnerToken: process.env.Z_API_PARTNER_TOKEN ?? '',

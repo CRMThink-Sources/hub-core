@@ -3,20 +3,9 @@ import z from 'zod'
 import { Plan } from '@/modules/application/domain/entities/plan'
 import { PlanRepository } from '@/modules/application/domain/repositories/get-plan.repository'
 import { apiLogger } from '@/shared/infra/logger'
+import { planKey, planListKey } from './keys'
 
 const PLAN_TTL_SECONDS = 5 * 60
-
-/**
- * Versão do shape do `Plan`. Sobe junto com qualquer mudança na entidade
- * — inclusive no `Product` aninhado — para que entradas gravadas por um
- * deploy anterior sejam ignoradas.
- *
- * `v2`: `provider` entrou no shape. Entrada `v1` não tem o campo, e como ele é
- * opcional o schema **aceitaria** a entrada velha — resolvendo `undefined` e
- * tornando o plano pago não ofertável até o TTL vencer. Subir a versão é o que
- * evita uma janela de 5 min em que o checkout fica vazio depois do deploy.
- */
-const CACHE_VERSION = 'v2'
 
 const planSchema = z.object({
   id: z.string(),
@@ -49,9 +38,6 @@ function safeJsonParse(raw: string): unknown {
     return null
   }
 }
-
-const planKey = (id: string) => `payments:plan:${CACHE_VERSION}:${id}`
-const planListKey = () => `payments:plans:${CACHE_VERSION}:all`
 
 /**
  * Decorator de cache sobre qualquer `PlanRepository`.

@@ -7,28 +7,13 @@ import {
   UpdateSubscriptionInput,
 } from '@/modules/application/domain/repositories/subscription.repository'
 import { apiLogger } from '@/shared/infra/logger'
+import {
+  subscriptionKey,
+  subscriptionListKey,
+  subscriptionsByAplicationKey,
+} from './keys'
 
 const SUBSCRIPTION_TTL_SECONDS = 5 * 60
-
-/**
- * Versão do shape do `Subscription`. Sobe junto com qualquer mudança na
- * entidade — inclusive no `Plan`, no `Product` e na `Aplication` aninhados —
- * para que entradas gravadas por um deploy anterior sejam ignoradas.
- *
- * `v2`: `customer: string` deu lugar a `aplication` hidratada e a assinatura
- * ganhou `product` próprio. Sem subir a versão, toda entrada do deploy anterior
- * viraria `warn` de shape velho em massa.
- *
- * `v3`: `product` próprio removido — a SPA 1142 não tem campo de produto, e o
- * produto cobrado é `plan.product`. Entradas `v2` têm `product` na raiz e
- * falhariam no schema; subir a versão as ignora em silêncio em vez de gerar
- * `warn` para cada uma.
- *
- * `v4`: `modality` entrou no shape. Entrada `v3` não tem o campo e reprovaria no
- * schema; subir a versão descarta as antigas de forma determinística, ao custo de
- * uma leitura ao Bitrix por instalação no primeiro acesso depois do deploy.
- */
-const CACHE_VERSION = 'v4'
 
 const productSchema = z.object({
   id: z.string(),
@@ -101,12 +86,6 @@ function safeJsonParse(raw: string): unknown {
   }
 }
 
-const subscriptionKey = (id: string) =>
-  `payments:subscription:${CACHE_VERSION}:${id}`
-const subscriptionListKey = () => `payments:subscriptions:${CACHE_VERSION}:all`
-const aplicationListKey = (aplicationSpaId: string) =>
-  `payments:subscriptions:${CACHE_VERSION}:aplication:${aplicationSpaId}`
-
 /**
  * Decorator de cache sobre qualquer `SubscriptionRepository`.
  * Não conhece a origem dos dados — falha de Redis nunca derruba a operação.
@@ -151,7 +130,7 @@ export class CachedSubscriptionRepository implements SubscriptionRepository {
   async getSubscriptionsByAplication(
     aplicationSpaId: string,
   ): Promise<Subscription[]> {
-    const key = aplicationListKey(aplicationSpaId)
+    const key = subscriptionsByAplicationKey(aplicationSpaId)
 
     const cached = await this.read(key, subscriptionListSchema)
     if (cached) return cached
@@ -219,7 +198,7 @@ export class CachedSubscriptionRepository implements SubscriptionRepository {
       await this.redis.del(
         key,
         subscriptionListKey(),
-        ...(spaId ? [aplicationListKey(spaId)] : []),
+        ...(spaId ? [subscriptionsByAplicationKey(spaId)] : []),
       )
     } catch (error) {
       apiLogger.warn(

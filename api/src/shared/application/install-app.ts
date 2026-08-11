@@ -138,15 +138,16 @@ export class InstallApp {
     // Portal **interno** (SPA 1060). Vem antes do installer, que fala com o
     // portal do cliente: uma indisponibilidade nossa não deve deixar o portal
     // do cliente meio configurado.
+    //
+    // Nome, telefone e empresa **não** vão: o payload de instalação não os tem, e
+    // são capturados na ativação do trial. Mandá-los como `''` — como esta chamada
+    // fazia — apagaria numa reinstalação o contato que o comercial usa.
     const spa = await this.runStep(log, 'resolve-spa-item', () =>
       this.getOrCreateSpa.execute({
         appId: app.appCodeId,
         domain: input.domain,
         memberId: input.memberId,
         email: input.email,
-        name: '',
-        phone: '',
-        company: '',
       }),
     )
 

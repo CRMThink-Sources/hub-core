@@ -6,10 +6,10 @@ import { GetTrialStateController } from '@/modules/thinkzap/presentation/control
 import { makeTrialDeps } from './make-trial-deps'
 
 export const makeGetTrialStateController = (): Controller => {
-  const { getAplicationContext, plans } = makeTrialDeps()
+  const { getAplicationContext, plans, contacts } = makeTrialDeps()
 
   return new GetTrialStateController(
-    new GetConnectorTrialState(getAplicationContext, plans),
+    new GetConnectorTrialState(getAplicationContext, plans, contacts),
   )
 }
 
@@ -20,6 +20,7 @@ export const makeActivateTrialController = (): Controller => {
     subscriptions,
     items,
     providerResolver,
+    contacts,
   } = makeTrialDeps()
 
   return new ActivateTrialController(
@@ -29,6 +30,7 @@ export const makeActivateTrialController = (): Controller => {
       subscriptions,
       items,
       providerResolver,
+      contacts,
     ),
   )
 }

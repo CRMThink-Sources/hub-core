@@ -12,6 +12,32 @@
       "descricao": "Canal oficial de Meta, con número verificado y plantillas."
     }
   },
+  "formulario": {
+    "titulo": "Confirme sus datos de contacto",
+    "descricao": "Usamos estos datos para hablar con usted durante la prueba. Revíselos y corríjalos si es necesario.",
+    "confirmar": "Activar prueba",
+    "cancelar": "Cancelar",
+    "name": {
+      "rotulo": "Su nombre",
+      "exemplo": "Juana Silva",
+      "erro": "Informe su nombre completo."
+    },
+    "email": {
+      "rotulo": "Correo electrónico",
+      "exemplo": "juana@empresa.com",
+      "erro": "Informe un correo electrónico válido."
+    },
+    "phone": {
+      "rotulo": "Teléfono",
+      "exemplo": "+54 11 5555 1234",
+      "erro": "Informe un teléfono válido, con código de área."
+    },
+    "company": {
+      "rotulo": "Empresa",
+      "exemplo": "Acme S.A.",
+      "erro": "Informe el nombre de la empresa."
+    }
+  },
   "ativando": "Creando línea...",
   "ativado": "Prueba activada. Su línea fue creada.",
   "emAndamentoTitulo": "Prueba en curso",

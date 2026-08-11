@@ -12,6 +12,32 @@
       "descricao": "Meta's official channel, with a verified number and templates."
     }
   },
+  "formulario": {
+    "titulo": "Confirm your contact details",
+    "descricao": "We use these details to reach you during the trial. Review and correct them if needed.",
+    "confirmar": "Start trial",
+    "cancelar": "Cancel",
+    "name": {
+      "rotulo": "Your name",
+      "exemplo": "Jane Miller",
+      "erro": "Enter your full name."
+    },
+    "email": {
+      "rotulo": "Email",
+      "exemplo": "jane@company.com",
+      "erro": "Enter a valid email address."
+    },
+    "phone": {
+      "rotulo": "Phone",
+      "exemplo": "+1 415 555 1234",
+      "erro": "Enter a valid phone number, including the area code."
+    },
+    "company": {
+      "rotulo": "Company",
+      "exemplo": "Acme Inc.",
+      "erro": "Enter the company name."
+    }
+  },
   "ativando": "Creating line...",
   "ativado": "Trial activated. Your line was created.",
   "emAndamentoTitulo": "Trial in progress",

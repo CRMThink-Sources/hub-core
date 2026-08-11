@@ -7,28 +7,13 @@ import {
   UpdateSubscriptionItemInput,
 } from '@/modules/application/domain/repositories/subscription-item.repository'
 import { apiLogger } from '@/shared/infra/logger'
+import {
+  subscriptionItemKey,
+  subscriptionItemListKey,
+  subscriptionItemsBySubscriptionKey,
+} from './keys'
 
 const SUBSCRIPTION_ITEM_TTL_SECONDS = 5 * 60
-
-/**
- * Versão do shape do `SubscriptionItem`. Sobe junto com qualquer mudança na
- * entidade, para que entradas gravadas por um deploy anterior sejam ignoradas.
- *
- * Diferente de assinatura, **não** depende do shape de `Plan`, `Product` nem
- * `Aplication`: o item não aninha nenhuma outra entidade — `subscription` é o id
- * do pai. Mudança em plano ou produto não invalida cache de item.
- *
- * `v2`: `settings` entrou na entidade. `v3`: `vinculatedChannel` também. Subir a
- * versão torna o descarte de entradas antigas determinístico, em vez de depender de
- * o schema reprová-las.
- *
- * `v4`: `wabaId` do HubMessage passou a ser opcional. Aqui a versão sobe por um motivo
- * diferente dos anteriores — o schema novo **aceitaria** as entradas `v3`, porque
- * opcional é mais permissivo. O problema é o inverso: um item gravado em `v3` só
- * existia **com** WABA, e canal sem WABA era erro de leitura. Manter `v3` misturaria
- * entradas de dois regimes de validação diferentes na mesma chave.
- */
-const CACHE_VERSION = 'v4'
 
 const metadataSchema = z.discriminatedUnion('provider', [
   z.object({
@@ -79,12 +64,6 @@ function safeJsonParse(raw: string): unknown {
   }
 }
 
-const itemKey = (id: string) =>
-  `payments:subscription-item:${CACHE_VERSION}:${id}`
-const itemListKey = () => `payments:subscription-items:${CACHE_VERSION}:all`
-const subscriptionListKey = (subscriptionId: string) =>
-  `payments:subscription-items:${CACHE_VERSION}:subscription:${subscriptionId}`
-
 /**
  * Decorator de cache sobre qualquer `SubscriptionItemRepository`.
  * Não conhece a origem dos dados — falha de Redis nunca derruba a operação.
@@ -99,21 +78,27 @@ export class CachedSubscriptionItemRepository implements SubscriptionItemReposit
   ) {}
 
   async getSubscriptionItem(id: string): Promise<SubscriptionItem> {
-    const cached = await this.read(itemKey(id), subscriptionItemSchema)
+    const cached = await this.read(
+      subscriptionItemKey(id),
+      subscriptionItemSchema,
+    )
     if (cached) return cached
 
     const item = await this.inner.getSubscriptionItem(id)
-    await this.write(itemKey(id), item)
+    await this.write(subscriptionItemKey(id), item)
 
     return item
   }
 
   async getSubscriptionItems(): Promise<SubscriptionItem[]> {
-    const cached = await this.read(itemListKey(), subscriptionItemListSchema)
+    const cached = await this.read(
+      subscriptionItemListKey(),
+      subscriptionItemListSchema,
+    )
     if (cached) return cached
 
     const items = await this.inner.getSubscriptionItems()
-    await this.write(itemListKey(), items)
+    await this.write(subscriptionItemListKey(), items)
 
     return items
   }
@@ -121,7 +106,7 @@ export class CachedSubscriptionItemRepository implements SubscriptionItemReposit
   async getSubscriptionItemsBySubscription(
     subscriptionId: string,
   ): Promise<SubscriptionItem[]> {
-    const key = subscriptionListKey(subscriptionId)
+    const key = subscriptionItemsBySubscriptionKey(subscriptionId)
 
     const cached = await this.read(key, subscriptionItemListSchema)
     if (cached) return cached
@@ -192,18 +177,18 @@ export class CachedSubscriptionItemRepository implements SubscriptionItemReposit
     item: SubscriptionItem,
     originSubscriptionId?: string,
   ): Promise<void> {
-    const key = itemKey(item.id)
+    const key = subscriptionItemKey(item.id)
 
     const originKeys =
       originSubscriptionId && originSubscriptionId !== item.subscription
-        ? [subscriptionListKey(originSubscriptionId)]
+        ? [subscriptionItemsBySubscriptionKey(originSubscriptionId)]
         : []
 
     try {
       await this.redis.del(
         key,
-        itemListKey(),
-        subscriptionListKey(item.subscription),
+        subscriptionItemListKey(),
+        subscriptionItemsBySubscriptionKey(item.subscription),
         ...originKeys,
       )
     } catch (error) {

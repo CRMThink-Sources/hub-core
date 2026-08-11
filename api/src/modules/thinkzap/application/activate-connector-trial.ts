@@ -12,6 +12,8 @@ import {
 } from '@/modules/thinkzap/domain/connector-trial'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
+import { SpaClientContact } from '@/shared/domain/entities/spa-client-contact'
+import { UpdateSpaClientContactRepository } from '@/shared/domain/repositories/spa/spa-client-contact.repository'
 import { apiLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '../errors/catalog'
 import { ensureTrialPlan } from './helpers/ensure-trial-plan'
@@ -30,12 +32,28 @@ export class TrialNotEligibleError extends Error {
   }
 }
 
+/**
+ * Gravação do contato falhou, e o teste não começou.
+ *
+ * Erro próprio e não reaproveitamento de `trial_activation_failed`: aquele é
+ * `internal` e diz "tente de novo"; este é o CRM interno indisponível na escrita
+ * do item de cliente — retentável, e o runbook manda checar a instância interna.
+ */
+export class TrialContactWriteFailedError extends Error {
+  constructor(readonly cause: unknown) {
+    super('Não foi possível registrar os dados de contato para iniciar o teste')
+    this.name = 'TrialContactWriteFailedError'
+  }
+}
+
 export type ActivateConnectorTrialInput = {
   /** Uuid de `core_domains`, como vem no JWT. */
   domainId: string
   /** `core_app_codes.id`, como vem no JWT. */
   appCode: string
   provider: ConnectorProvider
+  /** Já validado e com o telefone normalizado por `parseTrialContact`. */
+  contact: SpaClientContact
 }
 
 export type ActivateConnectorTrialOutput = {
@@ -57,6 +75,7 @@ export class ActivateConnectorTrial {
     private readonly subscriptions: SubscriptionRepository,
     private readonly items: SubscriptionItemRepository,
     private readonly providerResolver: ConnectorProviderResolver,
+    private readonly contacts: UpdateSpaClientContactRepository,
   ) {}
 
   async execute(
@@ -83,6 +102,33 @@ export class ActivateConnectorTrial {
 
     // `spaId` é garantido pela elegibilidade: `no-spa-mirror` já teria barrado.
     const aplicationSpaId = context.aplication.spaId!
+
+    /**
+     * **Depois** de elegibilidade e plano, e **antes** do provider.
+     *
+     * Depois dos dois primeiros porque instalação inelegível não deve virar lead:
+     * ela não vai ativar teste nenhum, e o CRM encheria de ruído a cada tentativa.
+     *
+     * Antes do provider porque contato salvo é lead capturado. Se o
+     * provisionamento falhar depois, o comercial tem para quem ligar — e é
+     * exatamente a tentativa que falhou que mais precisa de atendimento humano.
+     * A instalação continua elegível (nenhuma assinatura foi criada), então a
+     * retentativa reescreve o mesmo contato: idempotente.
+     */
+    try {
+      await this.contacts.updateContact(aplicationSpaId, input.contact)
+    } catch (error) {
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.subscription.trial_contact_failed',
+        { app: 'thinkzap', domainId: input.domainId, err: error },
+        {
+          level: 'error',
+          msg: 'Contato não gravado no item de cliente — trial abortado antes de provisionar',
+        },
+      )
+      throw new TrialContactWriteFailedError(error)
+    }
 
     /**
      * `provisionConnector` sim, `subscribe` **não**: `subscribe` liga a cobrança do
