@@ -214,6 +214,78 @@ export function findConnectorLineWithEntitlement(
   return findLineWithEntitlement(context, subscriptionItemId, now)
 }
 
+/** A linha do WhatsApp Oficial, do jeito que as rotas dela precisam. */
+export type OfficialLine = {
+  /** Canal na HubMessage — é ele que identifica a linha no provider. */
+  channelId: string
+  /**
+   * `null` enquanto o cliente não conectou o número na Meta: o provisionamento
+   * cria só o canal, e a WABA nasce no embedded signup.
+   */
+  wabaId: string | null
+  item: SubscriptionItem
+  entitlement: LineEntitlement
+}
+
+/**
+ * A linha oficial (`HUBMESSAGE`) resolvida pelo id do item — o par de
+ * `findLineInContext` para o outro provider.
+ *
+ * O provider é checado **antes** da habilitação, e é por isso que o helper existe
+ * em vez de cada rota montar a sua ordem: item `ZAPI` ou `NONE` nunca foi linha
+ * oficial, e responder "seu teste acabou" sobre ele descreveria errado o estado.
+ *
+ * Não recusa linha bloqueada: a leitura do estado da conexão precisa dela para
+ * mostrar o que o cliente tinha. Quem escreve usa
+ * `assertEnabledOfficialLineInContext`.
+ */
+export function findOfficialLineInContext(
+  context: AplicationContext,
+  subscriptionItemId: string,
+  now: Date = new Date(),
+): OfficialLine {
+  const item = findItemInContext(context, subscriptionItemId)
+
+  if (item.metadata.provider !== 'HUBMESSAGE') {
+    throw new LineProviderNotSupportedError(item.metadata.provider)
+  }
+
+  const { entitlement } = findLineWithEntitlement(
+    context,
+    subscriptionItemId,
+    now,
+  )
+
+  return {
+    channelId: item.metadata.hubmessageChannelId,
+    wabaId: item.metadata.wabaId ?? null,
+    item,
+    entitlement,
+  }
+}
+
+/**
+ * Igual, recusando linha bloqueada — a porta da conexão do canal oficial.
+ *
+ * Recusa pelo mesmo motivo que o QR code recusa: conectar é abrir sessão, e linha
+ * de trial vencido que reconecta volta a funcionar por fora do bloqueio. A recusa
+ * acontece antes de qualquer chamada à HubMessage, então ela não gasta a
+ * autenticação Meta que o cliente acabou de fazer.
+ */
+export function assertEnabledOfficialLineInContext(
+  context: AplicationContext,
+  subscriptionItemId: string,
+  now: Date = new Date(),
+): OfficialLine {
+  const line = findOfficialLineInContext(context, subscriptionItemId, now)
+
+  if (line.entitlement !== 'active') {
+    throw new LineBlockedError(subscriptionItemId, line.entitlement)
+  }
+
+  return line
+}
+
 export function findLineInContext(
   context: AplicationContext,
   subscriptionItemId: string,

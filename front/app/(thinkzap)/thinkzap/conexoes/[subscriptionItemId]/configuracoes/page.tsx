@@ -10,9 +10,10 @@ import type { LineConnection } from '@/app/hooks/use-line-api'
 import { ConexaoTab } from '../../../_components/configuracoes/conexao-tab'
 import { AjustesTab } from '../../../_components/configuracoes/ajustes-tab'
 import { GruposTab } from '../../../_components/configuracoes/grupos-tab'
-import { ConfiguracoesOficial } from '../../../_components/configuracoes/oficial/configuracoes-oficial'
+import { ConexaoOficialTab } from '../../../_components/configuracoes/oficial/conexao-oficial-tab'
+import { TemplatesTab } from '../../../_components/configuracoes/oficial/templates-tab'
 
-type TabId = 'conexao' | 'grupos' | 'ajustes'
+type TabId = 'conexao' | 'grupos' | 'ajustes' | 'templates'
 
 /**
  * Configuração de uma linha, identificada pelo **id do item de assinatura**.
@@ -83,20 +84,35 @@ export default function ConfiguracoesLinhaPage() {
 
   /**
    * Linha oficial tem a **mesma casca** da não-oficial: conexão numa aba, ajustes
-   * internos na outra.
+   * internos na outra, e Templates no lugar de Grupos.
    *
-   * Sem a aba Ajustes, a linha oficial não tinha onde ser vinculada a um canal
-   * aberto — e sem vínculo a mensagem não chega ao CRM. Grupos ficam fora: são
-   * recurso de Z-API, a HubMessage não expõe.
+   * Templates tem aba própria porque Conexão passou a existir de verdade: antes a
+   * aba rotulada "Conexão" mostrava Templates dentro de um invólucro com a própria
+   * navegação, o que agora seria uma nav dentro de outra.
+   *
+   * Grupos ficam fora: são recurso de Z-API, a HubMessage não expõe. Ajustes
+   * ficam porque é lá que a linha oficial é vinculada a um canal aberto — sem
+   * vínculo a mensagem não chega ao CRM.
    */
   if (linha.provider === 'HUBMESSAGE') {
     const oficialTabs: Array<{ id: TabId; label: string }> = [
       { id: 'conexao', label: t('tabs.conexao') },
+      { id: 'templates', label: t('tabs.templates') },
       { id: 'ajustes', label: t('tabs.ajustes') },
     ]
 
     return (
-      <Shell titulo={linha.name} provider={t('provider.oficial')}>
+      <Shell
+        titulo={linha.name}
+        provider={t('provider.oficial')}
+        status={
+          connection === null
+            ? undefined
+            : connection.connected
+              ? { label: t('status.conectada'), tone: 'ok' }
+              : { label: t('status.desconectada'), tone: 'warn' }
+        }
+      >
         <Tabs
           tabs={oficialTabs}
           activeTab={activeTab}
@@ -105,10 +121,22 @@ export default function ConfiguracoesLinhaPage() {
         />
 
         <div className="mt-6">
-          {activeTab === 'ajustes' ? (
-            <AjustesTab itemId={linha.id} />
-          ) : (
-            <ConfiguracoesOficial itemId={linha.id} />
+          {activeTab === 'templates' && <TemplatesTab itemId={linha.id} />}
+          {activeTab === 'ajustes' && <AjustesTab itemId={linha.id} />}
+          {/**
+           * `conexao` é o default e também o destino de qualquer aba que não
+           * pertença à linha oficial — `grupos` sobrevive na troca de linha.
+           */}
+          {activeTab !== 'templates' && activeTab !== 'ajustes' && (
+            <ConexaoOficialTab
+              itemId={linha.id}
+              /**
+               * Nunca nulo aqui: item `HUBMESSAGE` sem canal é recusado na leitura
+               * do contexto — sem canal não há recurso no provider.
+               */
+              channelId={linha.providerRef ?? ''}
+              onConnectionChange={setConnection}
+            />
           )}
         </div>
       </Shell>

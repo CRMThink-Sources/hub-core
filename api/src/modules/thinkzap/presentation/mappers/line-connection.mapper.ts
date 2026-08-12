@@ -11,6 +11,13 @@ import type { LineEntitlement } from '@/modules/thinkzap/domain/connector-trial'
  * válido do app, inclusive não-admin.
  */
 export type LineConnectionView = {
+  /**
+   * Qual linha a tela está mostrando. Sai no payload porque os campos abaixo são
+   * quase todos do caminho Z-API: sem o provider, a aba teria que adivinhar pela
+   * ausência deles se está diante de uma linha oficial ou de uma Z-API que
+   * degradou.
+   */
+  provider: 'ZAPI' | 'HUBMESSAGE'
   connected: boolean
   /**
    * `active` | `trial-expired` | `inactive`. Sempre presente, inclusive quando
@@ -26,18 +33,42 @@ export type LineConnectionView = {
   about?: string
   deviceModel?: string
   isBusiness?: boolean
+  /**
+   * WABA da linha oficial. Presente só depois do embedded signup — é ela que os
+   * templates leem, e é por isso que a aba a mostra em vez de esconder o que
+   * identifica a conta conectada.
+   */
+  wabaId?: string
 }
 
 /** Campo de texto do provider só entra se tiver conteúdo. */
 const text = (value: string | undefined | null): string | undefined =>
   value && value.trim().length > 0 ? value : undefined
 
-export const mapLineConnectionToView = ({
-  instance,
-  phone,
-  entitlement,
-}: LineConnectionReading): LineConnectionView => {
+export const mapLineConnectionToView = (
+  reading: LineConnectionReading,
+): LineConnectionView => {
+  /**
+   * Linha oficial: só o que a HubMessage sabe dizer. Nada de `name`, `phone` ou
+   * `imgUrl` — o que existe é o `phoneId`, que não é o número do cliente, e
+   * apresentá-lo como se fosse mostraria dado errado na tela.
+   */
+  if (reading.provider === 'HUBMESSAGE') {
+    const view: LineConnectionView = {
+      provider: 'HUBMESSAGE',
+      connected: reading.connected,
+      entitlement: reading.entitlement,
+    }
+
+    if (reading.wabaId !== null) view.wabaId = reading.wabaId
+
+    return view
+  }
+
+  const { instance, phone, entitlement } = reading
+
   const view: LineConnectionView = {
+    provider: 'ZAPI',
     connected: instance.connected === true,
     entitlement,
   }

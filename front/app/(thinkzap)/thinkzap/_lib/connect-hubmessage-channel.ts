@@ -3,23 +3,43 @@ import { envConfig } from '@/shared/infra/env-config'
 import { resolveThinkzapClient } from './thinkzap-client'
 
 export type ConnectHubMessageParams = {
-  connectorId: string
+  /** Id do item de assinatura — a linha, do ponto de vista do cliente. */
+  itemId: string
+  /**
+   * Canal na HubMessage. Entra por parâmetro, e não é resolvido pelo backend antes
+   * de tudo, porque o SDK e a checagem de allowlist precisam dele **antes** de
+   * qualquer requisição nossa. O front já o tem: é o `providerRef` da linha.
+   */
   channelId: string
 }
 
 /**
  * Desfechos possíveis da conexão. O SDK resolve `{ success: false }` tanto em
  * cancelamento quanto em origem não autorizada, então os casos são distinguidos
- * antes de acioná-lo (ver `assertOriginAllowed`).
+ * antes de acioná-lo (ver `isOriginAllowed`).
  */
 export type ConnectHubMessageResult =
-  | { outcome: 'connected' }
+  | {
+      outcome: 'connected'
+      /**
+       * `false` quando o número conectou e a WABA não chegou ao item da linha. A
+       * tela precisa dizer isso: os templates recusam até ela existir.
+       */
+      wabaRecorded: boolean
+    }
   | { outcome: 'cancelled' }
   | { outcome: 'missing-config' }
   | { outcome: 'origin-not-allowed'; origin: string }
   | { outcome: 'incomplete' }
 
 type SdkInfo = { allowOrigins?: string[] }
+
+/** Corpo de `POST /thinkzap/lines/:itemId/connect-channel`. */
+type ConnectChannelResponse = {
+  connected: boolean
+  wabaId: string
+  wabaRecorded: boolean
+}
 
 const normalizeOrigin = (origin: string) => origin.replace(/\/$/, '')
 
@@ -50,8 +70,12 @@ async function isOriginAllowed(
  * Fluxo de conexão do WhatsApp Oficial (HubMessage) no iframe Bitrix:
  * 1. SDK `@hubmessage/connect` abre a autenticação Meta e retorna wabaId/phoneId/code
  * 2. Envia os dados ao backend, que finaliza via `POST /v1/channels/{id}/connect`
+ *    e grava a WABA no item da linha
  *
  * Cada cliente autentica a própria conta Meta (WABA própria por canal).
+ *
+ * A rota é endereçada pelo item de assinatura: o canal sai do `metadata` dele no
+ * servidor, e o `channelId` daqui serve só ao SDK.
  */
 export async function connectHubMessageChannel(
   params: ConnectHubMessageParams,
@@ -81,12 +105,14 @@ export async function connectHubMessageChannel(
     throw new Error(resolved.message)
   }
 
-  await resolved.client.post('/thinkzap/connector/connect-channel', {
-    connectorId: params.connectorId,
-    wabaId: response.wabaId,
-    phoneId: response.phoneId,
-    code: response.code,
-  })
+  const result = await resolved.client.post<ConnectChannelResponse>(
+    `/thinkzap/lines/${encodeURIComponent(params.itemId)}/connect-channel`,
+    {
+      wabaId: response.wabaId,
+      phoneId: response.phoneId,
+      code: response.code,
+    },
+  )
 
-  return { outcome: 'connected' }
+  return { outcome: 'connected', wabaRecorded: result?.wabaRecorded !== false }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mapLineConnectionToView } from './line-connection.mapper'
-import type { LineConnectionReading } from '@/modules/thinkzap/application/get-line-connection'
+import type { ZApiLineConnectionReading } from '@/modules/thinkzap/application/get-line-connection'
 import type { LineEntitlement } from '@/modules/thinkzap/domain/connector-trial'
 import type {
   InstanceDataResponse,
@@ -41,8 +41,9 @@ const phone = (overrides: Partial<PhoneDataResponse> = {}): PhoneDataResponse =>
  * repeti-lo em cada caso esconderia o que cada um afirma.
  */
 const reading = (
-  overrides: Partial<LineConnectionReading> = {},
-): LineConnectionReading => ({
+  overrides: Partial<ZApiLineConnectionReading> = {},
+): ZApiLineConnectionReading => ({
+  provider: 'ZAPI',
   instance: instance(),
   phone: phone(),
   entitlement: 'active',
@@ -52,6 +53,7 @@ const reading = (
 describe('mapLineConnectionToView', () => {
   it('emite o payload completo da linha conectada', () => {
     expect(mapLineConnectionToView(reading())).toEqual({
+      provider: 'ZAPI',
       connected: true,
       entitlement: 'active',
       name: 'Acme Suporte',
@@ -68,7 +70,7 @@ describe('mapLineConnectionToView', () => {
       mapLineConnectionToView(
         reading({ instance: instance({ connected: false }), phone: null }),
       ),
-    ).toEqual({ connected: false, entitlement: 'active' })
+    ).toEqual({ provider: 'ZAPI', connected: false, entitlement: 'active' })
   })
 
   it('trata connected ausente como false', () => {
@@ -79,7 +81,7 @@ describe('mapLineConnectionToView', () => {
           phone: null,
         }),
       ),
-    ).toEqual({ connected: false, entitlement: 'active' })
+    ).toEqual({ provider: 'ZAPI', connected: false, entitlement: 'active' })
   })
 
   /**
@@ -105,13 +107,18 @@ describe('mapLineConnectionToView', () => {
         }),
       )
 
-      expect(view).toEqual({ connected: false, entitlement: 'trial-expired' })
+      expect(view).toEqual({
+        provider: 'ZAPI',
+        connected: false,
+        entitlement: 'trial-expired',
+      })
     })
   })
 
   describe('degradação dos dados do aparelho', () => {
     it('emite connected true sem campos de aparelho quando phone é null', () => {
       expect(mapLineConnectionToView(reading({ phone: null }))).toEqual({
+        provider: 'ZAPI',
         connected: true,
         entitlement: 'active',
         name: 'Instancia Comercial',
@@ -200,6 +207,56 @@ describe('mapLineConnectionToView', () => {
       )
 
       expect(JSON.stringify(view)).not.toContain('TOKEN-SUPER-SECRETO')
+    })
+  })
+
+  /**
+   * Linha oficial: o payload é o que a HubMessage sabe dizer, e só. Nada de
+   * `name`/`phone`/`imgUrl` — o que existe do lado dela é o `phoneId`, que não é o
+   * número do cliente.
+   */
+  describe('linha HubMessage', () => {
+    it('emite provider, connected, entitlement e a WABA', () => {
+      expect(
+        mapLineConnectionToView({
+          provider: 'HUBMESSAGE',
+          connected: true,
+          wabaId: 'W-9',
+          entitlement: 'active',
+        }),
+      ).toEqual({
+        provider: 'HUBMESSAGE',
+        connected: true,
+        wabaId: 'W-9',
+        entitlement: 'active',
+      })
+    })
+
+    it('omite wabaId enquanto o número não foi conectado', () => {
+      const view = mapLineConnectionToView({
+        provider: 'HUBMESSAGE',
+        connected: false,
+        wabaId: null,
+        entitlement: 'active',
+      })
+
+      expect(view).toEqual({
+        provider: 'HUBMESSAGE',
+        connected: false,
+        entitlement: 'active',
+      })
+      expect(view).not.toHaveProperty('wabaId')
+    })
+
+    it('reporta a habilitação da linha bloqueada', () => {
+      const view = mapLineConnectionToView({
+        provider: 'HUBMESSAGE',
+        connected: true,
+        wabaId: 'W-9',
+        entitlement: 'trial-expired',
+      })
+
+      expect(view.entitlement).toBe('trial-expired')
     })
   })
 })

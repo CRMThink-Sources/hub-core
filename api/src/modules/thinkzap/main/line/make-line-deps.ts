@@ -1,6 +1,7 @@
 import { env } from '@/config/env'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { makeSubscriptionItemRepository } from '@/modules/application/main/make-subscription-item-repository'
+import { HubMessageClient } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
 
@@ -21,5 +22,10 @@ export function makeLineDeps() {
     subscriptionItems: makeSubscriptionItemRepository(),
     instanceRepository: new PrismaInstanceRepository(),
     zApiClient: new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken),
+    /** WhatsApp Oficial: conexão do canal e status ao vivo da linha. */
+    hubMessageClient: new HubMessageClient({
+      baseUrl: env.hubMessage.baseUrl,
+      token: env.hubMessage.secretKey,
+    }),
   }
 }
