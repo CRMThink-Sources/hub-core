@@ -140,7 +140,7 @@ app.post(
  * (`data[FIELDS][ID]`), e é o parser que as transforma em objeto. Não há HMAC sobre
  * o corpo cru a preservar aqui — a autenticação é o `application_token` do payload.
  */
-app.post('/api/webhooks/spa', adaptControllerFactory(makeSpaWebhookController))
+app.all('/api/webhooks/spa', adaptControllerFactory(makeSpaWebhookController))
 
 // Clicksign — rotas públicas (POST do robô + event do Bitrix), SEM authMiddleware.
 app.post(
