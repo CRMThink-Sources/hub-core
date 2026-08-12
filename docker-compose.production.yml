@@ -15,6 +15,19 @@ services:
       - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/workers/thinkzap-inbound.worker.js"]
 
+  # Processo próprio, e não junto do worker de inbound: cada job fala com o provider
+  # de WhatsApp e com o gateway de pagamento, e o inbound é o caminho quente de
+  # entrega de mensagem — provisionamento não pode dividir processo com ele.
+  worker-spa-provisioning:
+    image: ghcr.io/crmthink-sources/hub-core-api:latest
+    container_name: hubthink-worker-spa-provisioning
+    restart: unless-stopped
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "dist/src/workers/spa-item-provisioning.worker.js"]
+
   worker-importsheet:
     image: ghcr.io/crmthink-sources/hub-core-api:latest
     container_name: hubthink-worker-importsheet

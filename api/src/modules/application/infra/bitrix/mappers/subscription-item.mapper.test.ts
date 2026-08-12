@@ -670,4 +670,77 @@ describe('mapSubscriptionItemInputToBitrixFields', () => {
       expect(item.vinculatedChannel).toBe('10')
     })
   })
+
+  /**
+   * Item criado à mão no CRM: provider declarado, credencial vazia. É **ilegal** para
+   * esta leitura de propósito, e é a entrada do job de provisionamento — que grava o
+   * `metadata` por este mesmo mapper.
+   *
+   * O que se trava aqui é o fechamento do ciclo: o que o job escreve tem que voltar
+   * como item válido. Sem isso, o provisionamento poderia "dar certo" e deixar a
+   * assinatura inteira sem conseguir ser lida, que é o sintoma que ele existe para
+   * eliminar.
+   */
+  describe('item criado à mão, antes e depois do provisionamento', () => {
+    const manualItem = (provider: string) =>
+      validItem({
+        ufCrm93Provider: provider,
+        ufCrm93ZApiInstanceId: '',
+        ufCrm93ZApiInstanceToken: '',
+        ufCrm93HubChanelId: '',
+        ufCrm93HubWabaId: '',
+      })
+
+    it.each([['ZAPI'], ['HUBMESSAGE']])(
+      'item %s sem credencial é recusado antes do job rodar',
+      provider => {
+        expect(expectInvalid(manualItem(provider))).toContain('ufCrm93Provider')
+      },
+    )
+
+    it('o que o job grava para ZAPI volta como item válido', () => {
+      const fields = mapSubscriptionItemInputToBitrixFields({
+        metadata: {
+          provider: 'ZAPI',
+          zApiInstanceId: 'inst-2',
+          zApiInstanceToken: 'tok-2',
+        },
+      })
+
+      const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
+        validItem({ ...manualItem('ZAPI'), ...fields }),
+      )
+
+      expect(item.metadata).toEqual({
+        provider: 'ZAPI',
+        zApiInstanceId: 'inst-2',
+        zApiInstanceToken: 'tok-2',
+      })
+    })
+
+    /** Canal sem WABA é o que o provisionamento do HubMessage devolve — e é válido. */
+    it('o que o job grava para HUBMESSAGE volta como item válido, sem WABA', () => {
+      const fields = mapSubscriptionItemInputToBitrixFields({
+        metadata: { provider: 'HUBMESSAGE', hubmessageChannelId: 'chan-2' },
+      })
+
+      const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
+        validItem({ ...manualItem('HUBMESSAGE'), ...fields }),
+      )
+
+      expect(item.metadata).toEqual({
+        provider: 'HUBMESSAGE',
+        hubmessageChannelId: 'chan-2',
+      })
+    })
+
+    /** Item de cobrança declarado: `NONE` sem credencial é válido dos dois lados. */
+    it('item NONE sem credencial já é válido sem o job tocar nele', () => {
+      const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
+        manualItem('NONE'),
+      )
+
+      expect(item.metadata).toEqual({ provider: 'NONE' })
+    })
+  })
 })

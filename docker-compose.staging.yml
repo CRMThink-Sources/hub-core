@@ -19,6 +19,15 @@ services:
       - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/workers/thinkzap-inbound.worker.js"]
 
+  worker-spa-provisioning:
+    image: ghcr.io/crmthink-sources/hub-core-api:staging
+    container_name: hubthink-worker-spa-provisioning-staging
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "dist/src/workers/spa-item-provisioning.worker.js"]
+
   worker-clicksign:
     image: ghcr.io/crmthink-sources/hub-core-api:staging
     container_name: hubthink-worker-clicksign-staging

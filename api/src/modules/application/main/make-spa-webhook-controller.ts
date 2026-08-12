@@ -5,6 +5,7 @@ import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { InvalidateSpaCache } from '@/modules/application/application/invalidate-spa-cache'
 import { BitrixSpaParentReader } from '@/modules/application/infra/bitrix/readers/bitrix-spa-parent.reader'
 import { SpaWebhookController } from '@/modules/application/presentation/controllers/spa-webhook.controller'
+import { enqueueSpaItemProvisioningJob } from '@/queue/spa-item-provisioning.queue'
 
 /**
  * O `BitrixClient` aponta para o portal **interno** da CRMThink, onde as SPAs de
@@ -20,5 +21,14 @@ export const makeSpaWebhookController = (): Controller => {
     new BitrixSpaParentReader(bitrixClient),
   )
 
-  return new SpaWebhookController(invalidate, env.bitrixSpaWebhookToken)
+  /**
+   * A função de enfileiramento entra como dependência, e não o caso de uso: o
+   * provisionamento vive no `thinkzap`, e injetar a fila é o que mantém `payments` sem
+   * dependência dele. Quem consome o job é o worker, num processo próprio.
+   */
+  return new SpaWebhookController(
+    invalidate,
+    env.bitrixSpaWebhookToken,
+    enqueueSpaItemProvisioningJob,
+  )
 }

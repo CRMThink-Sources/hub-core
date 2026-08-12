@@ -361,6 +361,33 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 404,
   },
+  // Item de assinatura criado à mão no CRM interno: sem cliente esperando resposta,
+  // então os três são observabilidade pura — não há `httpStatus`, o webhook já
+  // respondeu 200 antes de o job rodar.
+  'thinkzap.subscription.manual_line_not_provisioned': {
+    category: 'internal',
+    userCause:
+      'Observabilidade — item de assinatura criado à mão no CRM não virou linha; nenhum recurso foi criado.',
+    remediation:
+      'Ver no log o id do item e o motivo; corrigir o item na SPA 1146 (provider e credencial) e recriar o evento.',
+    retriable: false,
+  },
+  'thinkzap.subscription.manual_line_credential_orphaned': {
+    category: 'internal',
+    userCause:
+      'Observabilidade — recurso criado no provedor e a credencial não foi gravada no item; recurso órfão, cobrado de nós.',
+    remediation:
+      'URGENTE: ver no log o id remoto e colar a credencial no item da SPA 1146, ou apagar o recurso no provedor.',
+    retriable: false,
+  },
+  'thinkzap.subscription.manual_line_billing_not_adjusted': {
+    category: 'internal',
+    userCause:
+      'Observabilidade — linha criada à mão e a cobrança do contrato não foi ajustada; cliente com uma linha a mais do que paga.',
+    remediation:
+      'Ver no log a assinatura do gateway e ajustar a quantidade do line_item para o número de linhas ativas.',
+    retriable: false,
+  },
 
   // ── provisioning: ciclo de vida da instância z-api ──
   'thinkzap.provisioning.instance_ensure_failed': {
