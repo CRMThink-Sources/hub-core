@@ -8,21 +8,28 @@ import {
 } from './subscription-item.mapper'
 import { InvalidBitrixSubscriptionItemError } from '../errors/invalid-bitrix-subscription-item.error'
 
-/** Item mínimo válido: sem credencial, sem gateway. */
+/**
+ * Item mínimo válido: sem credencial, sem gateway — e por isso com provider `NONE`
+ * **escrito**, nunca vazio. Campo vazio é "não preenchido" e reprova o item.
+ */
 const validItem = (overrides: Record<string, unknown> = {}) => ({
   id: 555,
   title: 'Conector 1',
   [SUBSCRIPTION_PARENT_FIELD]: 4242,
   ufCrm93Status: '13625',
+  ufCrm93Provider: 'NONE',
   ...overrides,
 })
 
+/** Credencial e provider andam juntos: item coerente declara os dois. */
 const zApiPair = {
+  ufCrm93Provider: 'ZAPI',
   ufCrm93ZApiInstanceId: 'inst-1',
   ufCrm93ZApiInstanceToken: 'tok-1',
 }
 
 const hubPair = {
+  ufCrm93Provider: 'HUBMESSAGE',
   ufCrm93HubChanelId: 'chan-1',
   ufCrm93HubWabaId: 'waba-1',
 }
@@ -154,8 +161,8 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
     })
   })
 
-  describe('provider inferido das credenciais', () => {
-    it('deriva ZAPI do par completo, sem campos de HubMessage', () => {
+  describe('provider declarado', () => {
+    it('lê ZAPI do campo, sem campos de HubMessage', () => {
       const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
         validItem(zApiPair),
       )
@@ -167,7 +174,7 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
       })
     })
 
-    it('deriva HUBMESSAGE do par completo, corrigindo a grafia de channel', () => {
+    it('lê HUBMESSAGE do campo, corrigindo a grafia de channel', () => {
       const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
         validItem(hubPair),
       )
@@ -179,7 +186,7 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
       })
     })
 
-    it('deriva NONE quando os quatro campos vêm vazios', () => {
+    it('lê NONE do campo quando os quatro campos vêm vazios', () => {
       const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
         validItem({
           ufCrm93ZApiInstanceId: '',
@@ -192,14 +199,61 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
       expect(item.metadata).toEqual({ provider: 'NONE' })
     })
 
+    /** Valor digitado à mão no CRM com caixa errada é o valor certo. */
+    it.each([
+      [' zapi ', 'ZAPI'],
+      ['HubMessage', 'HUBMESSAGE'],
+      ['none', 'NONE'],
+    ])('normaliza %s para %s', (raw, expected) => {
+      const credentials = expected === 'ZAPI' ? zApiPair : hubPair
+      const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
+        validItem({
+          ...(expected === 'NONE' ? {} : credentials),
+          ufCrm93Provider: raw,
+        }),
+      )
+
+      expect(item.metadata.provider).toBe(expected)
+    })
+
+    /**
+     * Vazio é **não preenchido**, nunca `NONE`. Degradar aqui apagaria justamente a
+     * distinção que o campo veio criar, e um item que ninguém preencheu sumiria da
+     * lista de linhas com a mesma cara de um item de cobrança sem conector.
+     */
+    it.each([
+      ['ausente', undefined],
+      ['null', null],
+      ['string vazia', ''],
+      ['só espaços', '   '],
+    ])('rejeita campo não preenchido: %s', (_label, raw) => {
+      const paths = expectInvalid(validItem({ ufCrm93Provider: raw }))
+
+      expect(paths).toContain('ufCrm93Provider')
+    })
+
+    /**
+     * Erro, e não `undefined` com `warn` como no plano: aqui não existe estado
+     * degradado útil, e chutar `NONE` removeria a linha da lista em silêncio.
+     */
+    it('rejeita valor desconhecido sem degradar para NONE', () => {
+      const paths = expectInvalid(validItem({ ufCrm93Provider: 'TWILIO' }))
+
+      expect(paths).toContain('ufCrm93Provider')
+    })
+
     /**
      * A WABA só existe depois de o cliente conectar o número na Meta, e o
      * provisionamento devolve o canal e nada mais. Exigir o par tornava a linha do
      * WhatsApp Oficial impossível de gravar — nem o trial conseguia.
      */
-    it('deriva HUBMESSAGE do canal sozinho, sem a WABA', () => {
+    it('aceita HUBMESSAGE com canal e sem WABA', () => {
       const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
-        validItem({ ufCrm93HubChanelId: 'chan-1', ufCrm93HubWabaId: '' }),
+        validItem({
+          ufCrm93Provider: 'HUBMESSAGE',
+          ufCrm93HubChanelId: 'chan-1',
+          ufCrm93HubWabaId: '',
+        }),
       )
 
       expect(item.metadata).toEqual({
@@ -211,38 +265,86 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
     /** `''` no domínio passaria por toda checagem de presença e falharia no provider. */
     it('omite a WABA em vez de gravar string vazia', () => {
       const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
-        validItem({ ufCrm93HubChanelId: 'chan-1', ufCrm93HubWabaId: '' }),
+        validItem({
+          ufCrm93Provider: 'HUBMESSAGE',
+          ufCrm93HubChanelId: 'chan-1',
+          ufCrm93HubWabaId: '',
+        }),
       )
 
       expect(item.metadata).not.toHaveProperty('wabaId')
     })
+  })
 
+  describe('coerência entre provider declarado e credencial', () => {
     it.each([
       ['ufCrm93ZApiInstanceId', 'inst-1'],
       ['ufCrm93ZApiInstanceToken', 'tok-1'],
     ])(
       'rejeita par incompleto da Z-API com só %s preenchido',
       (field, value) => {
-        const paths = expectInvalid(validItem({ [field]: value }))
+        const paths = expectInvalid(
+          validItem({ ufCrm93Provider: 'ZAPI', [field]: value }),
+        )
 
         expect(paths).toContain(field)
       },
     )
 
+    /**
+     * O ganho central do campo: antes isto lia `{ provider: 'NONE' }` e a linha
+     * sumia da lista sem nada apontar a causa.
+     */
+    it('rejeita ZAPI declarado sem nenhuma credencial', () => {
+      const paths = expectInvalid(validItem({ ufCrm93Provider: 'ZAPI' }))
+
+      expect(paths).toContain('ufCrm93ZApiInstanceId')
+    })
+
+    it('rejeita HUBMESSAGE declarado sem o id do canal', () => {
+      const paths = expectInvalid(validItem({ ufCrm93Provider: 'HUBMESSAGE' }))
+
+      expect(paths).toContain('ufCrm93HubChanelId')
+    })
+
     /** WABA sem canal é credencial órfã: não identifica recurso nenhum. */
     it('rejeita WABA sem o id do canal', () => {
       const paths = expectInvalid(
-        validItem({ ufCrm93HubChanelId: '', ufCrm93HubWabaId: 'waba-1' }),
+        validItem({
+          ufCrm93Provider: 'HUBMESSAGE',
+          ufCrm93HubChanelId: '',
+          ufCrm93HubWabaId: 'waba-1',
+        }),
       )
 
       expect(paths).toContain('ufCrm93HubWabaId')
     })
 
-    it('rejeita dois pares preenchidos sem escolher por precedência', () => {
-      const paths = expectInvalid(validItem({ ...zApiPair, ...hubPair }))
+    it('rejeita ZAPI declarado com credencial da HubMessage', () => {
+      const paths = expectInvalid(
+        validItem({ ...zApiPair, ufCrm93HubChanelId: 'chan-1' }),
+      )
+
+      expect(paths).toContain('ufCrm93HubChanelId')
+    })
+
+    it('rejeita HUBMESSAGE declarado com credencial da Z-API', () => {
+      const paths = expectInvalid(
+        validItem({ ...hubPair, ...zApiPair, ufCrm93Provider: 'HUBMESSAGE' }),
+      )
 
       expect(paths).toContain('ufCrm93ZApiInstanceId')
-      expect(paths).toContain('ufCrm93HubChanelId')
+    })
+
+    it.each([
+      ['Z-API', zApiPair],
+      ['HubMessage', hubPair],
+    ])('rejeita NONE declarado com credencial da %s', (_label, pair) => {
+      const paths = expectInvalid(
+        validItem({ ...pair, ufCrm93Provider: 'NONE' }),
+      )
+
+      expect(paths).toContain('ufCrm93Provider')
     })
   })
 
@@ -370,6 +472,7 @@ describe('mapSubscriptionItemInputToBitrixFields', () => {
       [SUBSCRIPTION_PARENT_FIELD]: '4242',
       ufCrm93Status: '13625',
       ufCrm93GatewayId: 'si_123',
+      ufCrm93Provider: 'ZAPI',
       ufCrm93ZApiInstanceId: 'inst-1',
       ufCrm93ZApiInstanceToken: 'tok-1',
       ufCrm93HubChanelId: '',
@@ -395,6 +498,7 @@ describe('mapSubscriptionItemInputToBitrixFields', () => {
     })
 
     expect(fields).toEqual({
+      ufCrm93Provider: 'HUBMESSAGE',
       ufCrm93HubChanelId: 'chan-1',
       ufCrm93HubWabaId: 'waba-1',
       ufCrm93ZApiInstanceId: '',
@@ -408,11 +512,26 @@ describe('mapSubscriptionItemInputToBitrixFields', () => {
     })
 
     expect(fields).toEqual({
+      ufCrm93Provider: 'NONE',
       ufCrm93ZApiInstanceId: '',
       ufCrm93ZApiInstanceToken: '',
       ufCrm93HubChanelId: '',
       ufCrm93HubWabaId: '',
     })
+  })
+
+  /**
+   * O provider não tem caminho próprio de escrita: ou sai junto com a credencial,
+   * ou não sai. É o que impede a escrita de produzir o item incoerente que a
+   * leitura passou a recusar.
+   */
+  it('não toca o provider num patch que não traz metadata', () => {
+    const fields = mapSubscriptionItemInputToBitrixFields({
+      settings: DEFAULT_CONNECTOR_SETTINGS,
+      status: 'active',
+    })
+
+    expect(fields).not.toHaveProperty('ufCrm93Provider')
   })
 
   it('nunca emite o campo parent pelo caminho de patch', () => {
@@ -549,6 +668,79 @@ describe('mapSubscriptionItemInputToBitrixFields', () => {
       )
 
       expect(item.vinculatedChannel).toBe('10')
+    })
+  })
+
+  /**
+   * Item criado à mão no CRM: provider declarado, credencial vazia. É **ilegal** para
+   * esta leitura de propósito, e é a entrada do job de provisionamento — que grava o
+   * `metadata` por este mesmo mapper.
+   *
+   * O que se trava aqui é o fechamento do ciclo: o que o job escreve tem que voltar
+   * como item válido. Sem isso, o provisionamento poderia "dar certo" e deixar a
+   * assinatura inteira sem conseguir ser lida, que é o sintoma que ele existe para
+   * eliminar.
+   */
+  describe('item criado à mão, antes e depois do provisionamento', () => {
+    const manualItem = (provider: string) =>
+      validItem({
+        ufCrm93Provider: provider,
+        ufCrm93ZApiInstanceId: '',
+        ufCrm93ZApiInstanceToken: '',
+        ufCrm93HubChanelId: '',
+        ufCrm93HubWabaId: '',
+      })
+
+    it.each([['ZAPI'], ['HUBMESSAGE']])(
+      'item %s sem credencial é recusado antes do job rodar',
+      provider => {
+        expect(expectInvalid(manualItem(provider))).toContain('ufCrm93Provider')
+      },
+    )
+
+    it('o que o job grava para ZAPI volta como item válido', () => {
+      const fields = mapSubscriptionItemInputToBitrixFields({
+        metadata: {
+          provider: 'ZAPI',
+          zApiInstanceId: 'inst-2',
+          zApiInstanceToken: 'tok-2',
+        },
+      })
+
+      const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
+        validItem({ ...manualItem('ZAPI'), ...fields }),
+      )
+
+      expect(item.metadata).toEqual({
+        provider: 'ZAPI',
+        zApiInstanceId: 'inst-2',
+        zApiInstanceToken: 'tok-2',
+      })
+    })
+
+    /** Canal sem WABA é o que o provisionamento do HubMessage devolve — e é válido. */
+    it('o que o job grava para HUBMESSAGE volta como item válido, sem WABA', () => {
+      const fields = mapSubscriptionItemInputToBitrixFields({
+        metadata: { provider: 'HUBMESSAGE', hubmessageChannelId: 'chan-2' },
+      })
+
+      const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
+        validItem({ ...manualItem('HUBMESSAGE'), ...fields }),
+      )
+
+      expect(item.metadata).toEqual({
+        provider: 'HUBMESSAGE',
+        hubmessageChannelId: 'chan-2',
+      })
+    })
+
+    /** Item de cobrança declarado: `NONE` sem credencial é válido dos dois lados. */
+    it('item NONE sem credencial já é válido sem o job tocar nele', () => {
+      const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
+        manualItem('NONE'),
+      )
+
+      expect(item.metadata).toEqual({ provider: 'NONE' })
     })
   })
 })

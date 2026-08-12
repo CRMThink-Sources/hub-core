@@ -12,6 +12,7 @@
     "test": "node node_modules/vitest/vitest.mjs run",
     "test:watch": "node node_modules/vitest/vitest.mjs",
     "worker:thinkzap": "tsx src/workers/thinkzap-inbound.worker.ts",
+    "worker:spa-provisioning": "tsx src/workers/spa-item-provisioning.worker.ts",
     "worker:importsheet": "tsx src/modules/importsheet/worker/importsheet.worker.ts",
     "worker:clicksign": "tsx src/modules/clicksign/infra/worker/clicksign.worker.ts",
     "register:audio-imbot": "tsx src/scripts/register-audio-imbot.ts",

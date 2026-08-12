@@ -6,6 +6,10 @@ import {
   ensurePlanProviderField,
 } from '@/modules/application/infra/bitrix/ensure-plan-provider-field'
 import {
+  SUBSCRIPTION_ITEM_PROVIDER_FIELD,
+  ensureSubscriptionItemProviderField,
+} from '@/modules/application/infra/bitrix/ensure-subscription-item-provider-field'
+import {
   SUBSCRIPTION_MODALITY_FIELD,
   ensureSubscriptionModalityField,
 } from '@/modules/application/infra/bitrix/ensure-subscription-modality-field'
@@ -105,6 +109,18 @@ async function main() {
       similar: /provider|conector|connector/i,
       verify: () =>
         ensurePlanProviderField(bitrix, env.payments.spa.planEntityType),
+    }),
+    await checkSpa({
+      bitrix,
+      label: 'Itens — provider do conector da linha',
+      entityTypeId: env.payments.spa.subscriptionItemEntityType,
+      expectedField: SUBSCRIPTION_ITEM_PROVIDER_FIELD,
+      similar: /provider|conector|connector/i,
+      verify: () =>
+        ensureSubscriptionItemProviderField(
+          bitrix,
+          env.payments.spa.subscriptionItemEntityType,
+        ),
     }),
   ]
 

@@ -41,6 +41,20 @@ const AUTHORIZED_CALLERS = new Set([
    * tocar provider ou gateway, travado em `create-additional-line.test.ts`.
    */
   'create-additional-line.ts',
+  /**
+   * Provisionamento de linha criada **à mão** na SPA 1146, disparado pelo webhook de
+   * saída do Bitrix. Autorizado pela mesma razão de `create-additional-line.ts`, e com
+   * a mesma restrição: `subscribe` só é alcançado depois de a cobrança do contrato ter
+   * sido ajustada no gateway no mesmo job. Contrato que não cobra — trial, modalidade
+   * manual, assinatura cancelada — retorna antes, e isso é travado em
+   * `provision-line-from-spa-item.test.ts`.
+   *
+   * Este é o gatilho que mais se aproxima de "mudança de estado na SPA dispara
+   * cobrança", e não é isso: o gatilho é a **criação** de um item, e o que ele faz no
+   * provider é assinar um recurso que ele mesmo acabou de provisionar. Nenhuma
+   * transição de status de assinatura é observada aqui.
+   */
+  'provision-line-from-spa-item.ts',
 ])
 
 function collectSourceFiles(dir: string): string[] {

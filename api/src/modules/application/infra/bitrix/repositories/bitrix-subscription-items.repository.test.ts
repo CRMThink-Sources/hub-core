@@ -8,11 +8,13 @@ import { InvalidBitrixSubscriptionItemError } from '../errors/invalid-bitrix-sub
 import { SUBSCRIPTION_PARENT_FIELD } from '../mappers/subscription-item.mapper'
 import { env } from '@/config/env'
 
+/** Provider `NONE` escrito, e não vazio: campo em branco reprova o item. */
 const spaItem = (id: number, overrides: Record<string, unknown> = {}) => ({
   id,
   title: `Conector ${id}`,
   [SUBSCRIPTION_PARENT_FIELD]: 4242,
   ufCrm93Status: '13625',
+  ufCrm93Provider: 'NONE',
   ...overrides,
 })
 
