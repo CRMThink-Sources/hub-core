@@ -142,6 +142,7 @@ export class SpaWebhookController extends Controller {
   }
 
   async perform(req: Request): Promise<httpResponse> {
+    console.log(req)
     if (!this.expectedToken) {
       apiLogger.warn(
         { app: 'payments' },
