@@ -1,6 +1,9 @@
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { GetLineConnection } from './get-line-connection'
+import {
+  GetLineConnection,
+  type LineConnectionReading,
+} from './get-line-connection'
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 
@@ -18,17 +21,28 @@ const zapiItem: SubscriptionItem = {
   },
 }
 
+/** A leitura é discriminada por provider; o braço errado não tem os campos. */
+const asZApi = (reading: LineConnectionReading) => {
+  if (reading.provider !== 'ZAPI') {
+    throw new Error(`esperava leitura Z-API, veio ${reading.provider}`)
+  }
+  return reading
+}
+
 const input = {
   subscriptionItemId: 'i1',
   domainId: 'domain-1',
   appCode: 'crmthink.thinkzap',
 }
 
-function makeSut(subscription: Record<string, unknown> = { status: 'active' }) {
+function makeSut(
+  subscription: Record<string, unknown> = { status: 'active' },
+  items: SubscriptionItem[] = [zapiItem],
+) {
   const execute = vi.fn().mockResolvedValue({
     customer: { id: 'domain-1' },
     aplication: { id: 'installed-1', spaId: '42' },
-    subscriptions: [{ id: 'sub-1', ...subscription, items: [zapiItem] }],
+    subscriptions: [{ id: 'sub-1', ...subscription, items }],
   })
   const getInstanceByInstanceId = vi.fn().mockResolvedValue(null)
   const getInstance = vi
@@ -38,15 +52,21 @@ function makeSut(subscription: Record<string, unknown> = { status: 'active' }) {
 
   const disconnectExpiredLine = { schedule: vi.fn() }
 
+  const getConnectionStatus = vi
+    .fn()
+    .mockResolvedValue({ connected: true, available: true })
+
   return {
     execute,
     getInstance,
     getPhoneData,
     disconnectExpiredLine,
+    getConnectionStatus,
     sut: new GetLineConnection(
       { execute } as never,
       { getInstance, getPhoneData } as never,
       disconnectExpiredLine as never,
+      { getConnectionStatus },
     ),
   }
 }
@@ -69,7 +89,7 @@ describe('GetLineConnection', () => {
     const reading = await ctx.sut.execute(input)
 
     expect(ctx.getPhoneData).toHaveBeenCalledWith('Z-1', 'TOKEN-SECRETO')
-    expect(reading.phone).toMatchObject({ phone: '5511999998888' })
+    expect(asZApi(reading).phone).toMatchObject({ phone: '5511999998888' })
   })
 
   it('NÃO lê os dados do aparelho quando desconectada', async () => {
@@ -78,7 +98,7 @@ describe('GetLineConnection', () => {
     const reading = await ctx.sut.execute(input)
 
     expect(ctx.getPhoneData).not.toHaveBeenCalled()
-    expect(reading.phone).toBeNull()
+    expect(asZApi(reading).phone).toBeNull()
   })
 
   it('degrada quando a leitura do aparelho devolve null', async () => {
@@ -86,8 +106,8 @@ describe('GetLineConnection', () => {
 
     const reading = await ctx.sut.execute(input)
 
-    expect(reading.instance).toMatchObject({ connected: true })
-    expect(reading.phone).toBeNull()
+    expect(asZApi(reading).instance).toMatchObject({ connected: true })
+    expect(asZApi(reading).phone).toBeNull()
   })
 
   it('propaga falha da leitura da instância em vez de dizer desconectada', async () => {
@@ -108,7 +128,7 @@ describe('GetLineConnection', () => {
   it('funciona com linha não provisionada — a credencial vem do item', async () => {
     const reading = await ctx.sut.execute(input)
 
-    expect(reading.instance).toMatchObject({ connected: true })
+    expect(asZApi(reading).instance).toMatchObject({ connected: true })
   })
 
   /**
@@ -159,6 +179,110 @@ describe('GetLineConnection', () => {
         expect.objectContaining({ id: 'i1' }),
         'active',
       )
+    })
+  })
+
+  /**
+   * Linha oficial: a WABA do item é a âncora, e a derivação por agregado de WABA
+   * fica no adapter — aqui só se mede qual fonte manda em cada estado.
+   */
+  describe('linha HubMessage', () => {
+    const hubItem = (wabaId?: string): SubscriptionItem => ({
+      ...zapiItem,
+      name: 'Linha oficial',
+      metadata: {
+        provider: 'HUBMESSAGE',
+        hubmessageChannelId: 'C-9',
+        wabaId,
+      },
+    })
+
+    const official = (
+      wabaId?: string,
+      subscription: Record<string, unknown> = { status: 'active' },
+    ) => makeSut(subscription, [hubItem(wabaId)])
+
+    it('responde desconectada sem consultar o provider quando não há WABA', async () => {
+      const sut = official()
+
+      const reading = await sut.sut.execute(input)
+
+      expect(reading).toMatchObject({
+        provider: 'HUBMESSAGE',
+        connected: false,
+        wabaId: null,
+      })
+      expect(sut.getConnectionStatus).not.toHaveBeenCalled()
+      expect(sut.getInstance).not.toHaveBeenCalled()
+    })
+
+    it('consulta o provider com a WABA do item', async () => {
+      const sut = official('W-9')
+
+      const reading = await sut.sut.execute(input)
+
+      expect(sut.getConnectionStatus).toHaveBeenCalledWith({
+        instanceId: 'C-9',
+        channelId: 'C-9',
+        wabaId: 'W-9',
+      })
+      expect(reading).toMatchObject({ connected: true, wabaId: 'W-9' })
+    })
+
+    it('reporta desconectada quando a WABA não tem canal conectado', async () => {
+      const sut = official('W-9')
+      sut.getConnectionStatus.mockResolvedValue({
+        connected: false,
+        available: true,
+      })
+
+      const reading = await sut.sut.execute(input)
+
+      expect(reading).toMatchObject({ connected: false, wabaId: 'W-9' })
+    })
+
+    /**
+     * Diferente do caminho Z-API de propósito: aqui existe fonte local — a WABA só é
+     * gravada depois de uma conexão concluída — e dizer "desconectada" ofereceria um
+     * embedded signup novo por causa de indisponibilidade nossa.
+     */
+    it('degrada para conectada quando a consulta ao provider não está disponível', async () => {
+      const sut = official('W-9')
+      sut.getConnectionStatus.mockResolvedValue({
+        connected: false,
+        available: false,
+      })
+
+      const reading = await sut.sut.execute(input)
+
+      expect(reading).toMatchObject({ connected: true, wabaId: 'W-9' })
+    })
+
+    it('devolve o estado da linha bloqueada em vez de recusar', async () => {
+      const sut = official('W-9', {
+        status: 'trialing',
+        currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
+      })
+
+      const reading = await sut.sut.execute(input)
+
+      expect(reading).toMatchObject({
+        provider: 'HUBMESSAGE',
+        connected: true,
+        entitlement: 'trial-expired',
+      })
+    })
+
+    /** A desconexão na expiração é da Z-API; a HubMessage não tem esse caminho. */
+    it('não agenda desconexão de expiração', async () => {
+      const sut = official('W-9', {
+        status: 'trialing',
+        currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
+      })
+
+      await sut.sut.execute(input)
+
+      expect(sut.disconnectExpiredLine.schedule).not.toHaveBeenCalled()
     })
   })
 })

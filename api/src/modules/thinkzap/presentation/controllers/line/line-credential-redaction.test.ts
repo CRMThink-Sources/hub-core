@@ -169,7 +169,9 @@ function makeSurface(entitlement: Case) {
         route: 'GET /lines/:itemId/connection',
         perform: () =>
           new GetLineConnectionController(
-            new GetLineConnection(ctx, zApiClient, disconnectExpiredLine),
+            new GetLineConnection(ctx, zApiClient, disconnectExpiredLine, {
+              getConnectionStatus: vi.fn(),
+            }),
           ).perform(req('i1')),
       },
       {

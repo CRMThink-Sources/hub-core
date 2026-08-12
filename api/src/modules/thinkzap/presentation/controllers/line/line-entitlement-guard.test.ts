@@ -210,7 +210,11 @@ function makeDeps(entitlement: LineEntitlement) {
     qrCode: new GetLineQrCodeController(ctx, zapi),
     getSettings: new GetLineSettingsController(new GetLineSettings(ctx, zapi)),
     getConnection: new GetLineConnectionController(
-      new GetLineConnection(ctx, zapi, disconnectExpiredLine as never),
+      new GetLineConnection(ctx, zapi, disconnectExpiredLine as never, {
+        getConnectionStatus: vi
+          .fn()
+          .mockResolvedValue({ connected: true, available: true }),
+      }),
     ),
     createGroup: new CreateGroupController(new CreateGroupService(ctx, zapi)),
     listGroups: new ListGroupsController(new ListGroupsService(ctx, zapi)),

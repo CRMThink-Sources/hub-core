@@ -13,6 +13,7 @@
   "tabs": {
     "conexao": "Connection",
     "grupos": "Groups",
+    "templates": "Templates",
     "ajustes": "Settings"
   },
   "provider": {

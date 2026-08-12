@@ -20,6 +20,12 @@ import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 export type LineEntitlement = 'active' | 'trial-expired' | 'inactive'
 
 export type LineConnection = {
+  /**
+   * Qual linha a leitura descreve. Os campos abaixo são quase todos do caminho
+   * Z-API — sem o provider, a aba teria que adivinhar pela ausência deles se está
+   * diante de uma linha oficial ou de uma Z-API que degradou.
+   */
+  provider: 'ZAPI' | 'HUBMESSAGE'
   connected: boolean
   /**
    * Sempre presente. É o que faz a aba explicar o bloqueio em vez de oferecer um QR
@@ -32,6 +38,11 @@ export type LineConnection = {
   about?: string
   deviceModel?: string
   isBusiness?: boolean
+  /**
+   * WABA da linha oficial. Só existe depois do embedded signup — é ela que os
+   * templates leem, e é por isso que a aba a mostra.
+   */
+  wabaId?: string
 }
 
 export type LineSettingsToggles = {

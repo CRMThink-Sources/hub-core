@@ -105,6 +105,11 @@ describe('GetLineConnectionController', () => {
           getPhoneData: deps.getPhoneData,
         } as never,
         { schedule: vi.fn() } as never,
+        {
+          getConnectionStatus: vi
+            .fn()
+            .mockResolvedValue({ connected: false, available: true }),
+        },
       ),
     )
   })
@@ -133,10 +138,19 @@ describe('GetLineConnectionController', () => {
     expect(deps.getInstance).not.toHaveBeenCalled()
   })
 
-  it('devolve 400 para linha de provider não-Z-API', async () => {
+  /**
+   * A rota deixou de recusar por provider: a linha oficial tem aba de conexão, e
+   * responder "operação indisponível" nela esconderia o estado que o cliente veio
+   * ver. O que muda é a fonte — a WABA do item, não a Z-API.
+   */
+  it('responde o estado da linha oficial sem tocar a Z-API', async () => {
     const response = await controller.perform(req('i2'))
 
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(200)
+    expect(response.result).toMatchObject({
+      provider: 'HUBMESSAGE',
+      connected: false,
+    })
     expect(deps.getInstance).not.toHaveBeenCalled()
   })
 

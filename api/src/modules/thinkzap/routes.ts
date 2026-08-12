@@ -50,6 +50,7 @@ import {
   makeListPlansController,
 } from './main/subscription/make-subscription-controllers'
 import {
+  makeConnectLineChannelController,
   makeDisconnectLineController,
   makeGetLineConnectionController,
   makeGetLineQrCodeController,
@@ -286,6 +287,18 @@ export const createThinkerszapRoutes = (): Router => {
     requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeGetLineQrCodeController),
   )
+  /**
+   * Conexão do WhatsApp Oficial — o par do QR code, que na linha oficial é o
+   * embedded signup da Meta rodando no iframe.
+   *
+   * `connectors:update` e não `create`: o canal já existe desde o provisionamento,
+   * o que esta rota faz é ligar o número do cliente a ele.
+   */
+  router.post(
+    '/lines/:itemId/connect-channel',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeConnectLineChannelController),
+  )
   router.post(
     '/lines/:itemId/disconnect',
     requireThinkzapPermission('connectors', 'delete'),
@@ -320,6 +333,14 @@ export const createThinkerszapRoutes = (): Router => {
   /**
    * `/connector/cancel` saiu com a cobrança antiga: cancelar uma linha era
    * decrementar a quantidade do item no Stripe e desativar a row de `Connector`.
+   */
+  /**
+   * Conexão de canal keyed por `connectorId` — **o caminho legado**.
+   *
+   * Continua aqui porque serve as rows de `Connector` anteriores à SPA, que
+   * resolvem o `channelId` pela `Instance`. O front não a alcança mais: linha
+   * oficial conecta por `POST /lines/:itemId/connect-channel`. Sai junto com a
+   * tabela, em `retire-instance-table`.
    */
   router.post(
     '/connector/connect-channel',
