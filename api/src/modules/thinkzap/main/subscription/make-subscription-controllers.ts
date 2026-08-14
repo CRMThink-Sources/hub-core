@@ -154,6 +154,7 @@ export const makeStripeWebhookController = (): Controller => {
     providerBilling,
     plans,
     providerResolver,
+    mirrors,
   } = makeSubscriptionDeps()
 
   return new StripeWebhookController(
@@ -177,6 +178,7 @@ export const makeStripeWebhookController = (): Controller => {
          * de o pagamento ser confirmado.
          */
         providerResolver,
+        mirrors,
       ),
       subscriptions,
       items,
@@ -193,6 +195,7 @@ export const makeCreateLineController = (): Controller => {
     items,
     providerBilling,
     providerResolver,
+    mirrors,
   } = makeSubscriptionDeps()
 
   return new CreateLineController(
@@ -204,6 +207,7 @@ export const makeCreateLineController = (): Controller => {
       items,
       providerResolver,
       providerBilling,
+      mirrors,
     ),
   )
 }

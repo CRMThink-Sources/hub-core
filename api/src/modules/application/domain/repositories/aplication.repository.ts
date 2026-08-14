@@ -20,10 +20,11 @@ export interface AplicationTitleReader {
 /**
  * Contrato de instalação de app, sobre `core_apps`.
  *
- * `linkSpaItem` é a **única escrita**: grava o id do item espelho numa
- * instalação que já existe. Não há `createAplication` nem
- * `deactivateAplication` — instalar e desinstalar app é do fluxo de instalação,
- * que já escreve `core_apps` e é a fonte de verdade do estado.
+ * `linkSpaItem` e `unlinkSpaItem` são as **únicas escritas**, e as duas mexem só
+ * na coluna do espelho. Não há `createAplication` nem `deactivateAplication` —
+ * instalar e desinstalar app é do fluxo de instalação, que já escreve `core_apps`
+ * e é a fonte de verdade do estado. O item da SPA é espelho de CRM, que pode ter
+ * duplicata e pode ser apagado por engano: ele anula a coluna, nunca a linha.
  *
  * Os lookups devolvem `null`; `getAplication(id)` lança. Quem lê assinatura
  * trata o `null` de `getAplicationBySpaId` como inconsistência de dados, porque
@@ -41,4 +42,12 @@ export interface AplicationRepository {
   /** Inclui as instalações inativas — filtrar é decisão de quem consome. */
   getAplicationsByCustomer(customerId: string): Promise<Aplication[]>
   linkSpaItem(id: string, spaId: string): Promise<Aplication>
+  /**
+   * Devolve `spa_id` a `NULL`. Chamado quando o item espelho é apagado no CRM:
+   * `spa_id` pendurado é pior que nulo — nulo é estado tratado, que devolve
+   * `subscriptions: []` por decisão, enquanto pendurado devolve o mesmo `[]` por
+   * filtrar num pai morto, com um `warn` de título ausente e nada que ligue o
+   * sintoma à exclusão.
+   */
+  unlinkSpaItem(id: string): Promise<Aplication>
 }

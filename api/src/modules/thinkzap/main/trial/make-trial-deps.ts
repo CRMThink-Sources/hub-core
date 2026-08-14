@@ -10,6 +10,7 @@ import { CachedPlanRepository } from '@/modules/application/infra/cache/cached-p
 import { CachedProductRepository } from '@/modules/application/infra/cache/cached-product.repository'
 import { CachedSubscriptionRepository } from '@/modules/application/infra/cache/cached-subscription.repository'
 import { PrismaAplicationRepository } from '@/modules/application/infra/prisma/repositories/prisma-aplications.repository'
+import { RedisSpaItemResourceMirrorRepository } from '@/modules/application/infra/cache/redis-spa-item-resource-mirror.repository'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { ZApiInstanceGateway } from '@/modules/thinkzap/infra/persistence/gateway/instance.gateway'
 import { makeConnectorProviderResolver } from '@/modules/thinkzap/main/make-connector-provider-resolver'
@@ -68,5 +69,10 @@ export function makeTrialDeps() {
       zApiClient,
       instanceGateway: new ZApiInstanceGateway(zApiClient),
     }),
+    /**
+     * Espelho do recurso, **sem TTL** — não é cache. O trial é o caminho que mais deixa
+     * recurso abandonado, e é ele que mais precisa da credencial sobreviver ao item.
+     */
+    mirrors: new RedisSpaItemResourceMirrorRepository(redisConnection),
   }
 }

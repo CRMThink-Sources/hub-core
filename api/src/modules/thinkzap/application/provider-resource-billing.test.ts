@@ -189,6 +189,112 @@ describe('ProviderResourceBilling', () => {
 
       expect(resolve).not.toHaveBeenCalled()
     })
+
+    it('registra o skip de item sem credencial também com origem de SPA', async () => {
+      const { resolver, resolve } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).unsubscribe(noneItem, {
+        origin: 'spa-item-status',
+        propagate: true,
+      })
+
+      expect(resolve).not.toHaveBeenCalled()
+      expect(apiLogger.warn).toHaveBeenCalled()
+    })
+  })
+
+  describe('origem e propagação', () => {
+    it('mantém o texto do gateway quando a origem não é informada', async () => {
+      const { resolver, adapter } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).unsubscribe(zApiItem)
+
+      expect(adapter.unsubscribe).toHaveBeenCalledWith(
+        expect.anything(),
+        'Assinatura cancelada no ThinkZap',
+      )
+    })
+
+    it('manda motivo distinto por origem, para o cancelamento ser rastreável no provider', async () => {
+      const status = makeResolver()
+      const deleted = makeResolver()
+
+      await new ProviderResourceBilling(status.resolver).unsubscribe(zApiItem, {
+        origin: 'spa-item-status',
+      })
+      await new ProviderResourceBilling(deleted.resolver).unsubscribeResource(
+        {
+          provider: 'ZAPI',
+          instanceId: 'inst-1',
+          zApiToken: 'tok-1',
+        },
+        { origin: 'spa-item-deleted' },
+      )
+
+      // `vi.fn` sem parâmetros declarados tipa `calls` como tupla vazia; o argumento
+      // real existe, e é ele que o teste compara.
+      const reasonOf = (spy: { mock: { calls: unknown[][] } }) =>
+        spy.mock.calls[0]?.[1]
+
+      const statusReason = reasonOf(status.adapter.unsubscribe)
+      const deletedReason = reasonOf(deleted.adapter.unsubscribe)
+
+      expect(statusReason).not.toBe(deletedReason)
+      expect(statusReason).toEqual(expect.any(String))
+      expect(deletedReason).toEqual(expect.any(String))
+    })
+
+    it('engole a falha por padrão — o chamador do gateway está dentro de um webhook', async () => {
+      const { resolver } = makeResolver({ failing: true })
+
+      await expect(
+        new ProviderResourceBilling(resolver).unsubscribe(zApiItem),
+      ).resolves.toBeUndefined()
+      expect(apiLogger.error).toHaveBeenCalled()
+    })
+
+    it('propaga a falha quando pedido, para a fila retentar', async () => {
+      const { resolver } = makeResolver({ failing: true })
+
+      await expect(
+        new ProviderResourceBilling(resolver).unsubscribe(zApiItem, {
+          origin: 'spa-item-status',
+          propagate: true,
+        }),
+      ).rejects.toThrow('provider fora')
+      // O log sai de qualquer forma: propagar é sobre quem retenta, não sobre registro.
+      expect(apiLogger.error).toHaveBeenCalled()
+    })
+
+    it('opera pela credencial solta, sem item — o caminho da exclusão', async () => {
+      const { resolver, adapter, resolve } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).unsubscribeResource(
+        { provider: 'HUBMESSAGE', instanceId: 'chan-1', channelId: 'chan-1' },
+        { origin: 'spa-item-deleted', propagate: true },
+      )
+
+      expect(resolve).toHaveBeenCalledWith(ConnectorProvider.HUBMESSAGE)
+      expect(adapter.unsubscribe).toHaveBeenCalledWith(
+        { instanceId: 'chan-1', channelId: 'chan-1' },
+        expect.any(String),
+      )
+    })
+
+    it('reassina pela credencial solta', async () => {
+      const { resolver, adapter } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).subscribeResource({
+        provider: 'ZAPI',
+        instanceId: 'inst-1',
+        zApiToken: 'tok-1',
+      })
+
+      expect(adapter.subscribe).toHaveBeenCalledWith({
+        instanceId: 'inst-1',
+        zApiToken: 'tok-1',
+      })
+    })
   })
 })
 

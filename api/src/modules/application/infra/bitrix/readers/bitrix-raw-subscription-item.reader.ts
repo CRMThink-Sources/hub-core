@@ -5,7 +5,10 @@ import type {
   RawSubscriptionItemReader,
 } from '@/modules/thinkzap/domain/ports/raw-subscription-item-reader.port'
 import { SUBSCRIPTION_ITEM_PROVIDER_FIELD } from '../ensure-subscription-item-provider-field'
-import { SUBSCRIPTION_PARENT_FIELD } from '../mappers/subscription-item.mapper'
+import {
+  STATUS_BY_BITRIX_ID,
+  SUBSCRIPTION_PARENT_FIELD,
+} from '../mappers/subscription-item.mapper'
 
 /**
  * Lê os campos crus de um item da SPA 1146 **sem** passar pelo mapper de domínio.
@@ -52,8 +55,20 @@ export class BitrixRawSubscriptionItemReader implements RawSubscriptionItemReade
         ...optional('wabaId', item.ufCrm93HubWabaId),
       },
       subscriptionId: normalizeParent(item[SUBSCRIPTION_PARENT_FIELD]),
+      status: normalizeStatus(item.ufCrm93Status),
     }
   }
+}
+
+/**
+ * O id do enum traduzido, ou `null`. Reusa o mapa do mapper: um segundo mapa aqui se
+ * dessincronizaria no dia em que a SPA ganhasse um status, e o sintoma seria linha
+ * cancelada tratada como ativa.
+ */
+function normalizeStatus(raw: unknown): 'active' | 'cancelled' | null {
+  if (typeof raw !== 'string' && typeof raw !== 'number') return null
+
+  return STATUS_BY_BITRIX_ID[String(raw).trim()] ?? null
 }
 
 /**

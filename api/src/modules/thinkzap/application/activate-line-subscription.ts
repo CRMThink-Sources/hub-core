@@ -6,6 +6,7 @@ import { Subscription } from '@/modules/application/domain/entities/subscription
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { SubscriptionRepository } from '@/modules/application/domain/repositories/subscription.repository'
 import { SubscriptionItemRepository } from '@/modules/application/domain/repositories/subscription-item.repository'
+import { SpaItemResourceMirrorRepository } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { ensureSubscriptionModalityField } from '@/modules/application/infra/bitrix/ensure-subscription-modality-field'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
@@ -15,6 +16,7 @@ import { CheckoutIntent } from '@/modules/thinkzap/domain/ports/payment-gateway.
 import { apiLogger } from '@/shared/infra/logger'
 import { thinkzapError, logThinkzapError } from '../errors/catalog'
 import { lineNameFor, toLineMetadata } from './helpers/line-resource-metadata'
+import { saveResourceMirror } from './helpers/save-resource-mirror'
 import { resolvePlanForProvider } from '@/modules/thinkzap/domain/line-subscription'
 import { ListOfferablePlans } from './list-offerable-plans'
 import { ProviderResourceBilling } from './provider-resource-billing'
@@ -94,6 +96,8 @@ export class ActivateLineSubscription {
     private readonly bitrix: BitrixClient,
     private readonly plans: ListOfferablePlans,
     private readonly providerResolver: ConnectorProviderResolver,
+    /** Espelho do recurso — a cópia da credencial que sobrevive ao item apagado. */
+    private readonly mirrors: SpaItemResourceMirrorRepository,
   ) {}
 
   async execute(
@@ -406,12 +410,21 @@ export class ActivateLineSubscription {
       const metadata = toLineMetadata(provider, resource)
       const parent = args.subscriptionByPlan.get(args.plan.id)!
 
-      return await this.items.createSubscriptionItem({
+      const item = await this.items.createSubscriptionItem({
         name: lineNameFor(provider, args.lineOrder),
         subscription: parent.id,
         status: 'active',
         metadata,
       })
+
+      await saveResourceMirror(this.mirrors, {
+        itemId: item.id,
+        provider,
+        resource,
+        subscriptionId: parent.id,
+      })
+
+      return item
     } catch (error) {
       logThinkzapError(
         apiLogger,

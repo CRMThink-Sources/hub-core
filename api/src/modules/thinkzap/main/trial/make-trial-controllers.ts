@@ -21,6 +21,7 @@ export const makeActivateTrialController = (): Controller => {
     items,
     providerResolver,
     contacts,
+    mirrors,
   } = makeTrialDeps()
 
   return new ActivateTrialController(
@@ -31,6 +32,7 @@ export const makeActivateTrialController = (): Controller => {
       items,
       providerResolver,
       contacts,
+      mirrors,
     ),
   )
 }

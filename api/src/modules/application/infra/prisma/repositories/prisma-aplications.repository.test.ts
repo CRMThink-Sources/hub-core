@@ -317,4 +317,76 @@ describe('PrismaAplicationRepository', () => {
       ).rejects.toThrow(/Unique constraint/)
     })
   })
+
+  describe('unlinkSpaItem', () => {
+    it('anula o spaId e devolve a entidade resultante', async () => {
+      const { prisma, update } = makePrisma({
+        findUnique: row(),
+        update: row({ spaId: null }),
+      })
+      const titles = makeTitles()
+
+      const aplication = await new PrismaAplicationRepository(
+        prisma,
+        titles.reader,
+      ).unlinkSpaItem('app-1')
+
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'app-1' },
+          data: { spaId: null },
+        }),
+      )
+      expect(aplication.spaId).toBeNull()
+      // Sem espelho o título cai para o nome do app, sem chamar o reader.
+      expect(aplication.title).toBe('ThinkersZap')
+    })
+
+    it('não escreve quando o spaId já é nulo', async () => {
+      const { prisma, update } = makePrisma({ findUnique: row({ spaId: null }) })
+      const titles = makeTitles()
+
+      const aplication = await new PrismaAplicationRepository(
+        prisma,
+        titles.reader,
+      ).unlinkSpaItem('app-1')
+
+      expect(update).not.toHaveBeenCalled()
+      expect(aplication.spaId).toBeNull()
+    })
+
+    it('lança AplicationNotFoundError sem tentar escrever', async () => {
+      const { prisma, update } = makePrisma({ findUnique: null })
+      const titles = makeTitles()
+
+      await expect(
+        new PrismaAplicationRepository(prisma, titles.reader).unlinkSpaItem(
+          'ausente',
+        ),
+      ).rejects.toThrow(AplicationNotFoundError)
+      expect(update).not.toHaveBeenCalled()
+    })
+
+    it('não altera status nem installedAt — só a coluna do espelho', async () => {
+      const { prisma, update } = makePrisma({
+        findUnique: row(),
+        update: row({ spaId: null }),
+      })
+      const titles = makeTitles()
+
+      const aplication = await new PrismaAplicationRepository(
+        prisma,
+        titles.reader,
+      ).unlinkSpaItem('app-1')
+
+      // `data` casa por igualdade profunda: qualquer campo a mais reprova.
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { spaId: null } }),
+      )
+      expect(aplication.active).toBe(true)
+      expect(aplication.createdAt).toEqual(
+        new Date('2026-01-01T00:00:00.000Z'),
+      )
+    })
+  })
 })

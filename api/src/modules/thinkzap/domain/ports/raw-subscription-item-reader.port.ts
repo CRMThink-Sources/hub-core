@@ -35,6 +35,16 @@ export type RawSubscriptionItem = {
   credentials: RawSubscriptionItemCredentials
   /** `parentId1142`. `null` quando o campo vem vazio: item sem assinatura pai. */
   subscriptionId: string | null
+  /**
+   * `ufCrm93Status` traduzido, ou `null` quando o id do enum é desconhecido ou o campo
+   * vem vazio.
+   *
+   * `null`, e não um default: o mapper estrito trata id desconhecido como erro de
+   * configuração, e assumir `'active'` aqui faria item cancelado parecer ativo enquanto
+   * assumir `'cancelled'` desassinaria recurso de cliente pagante. Quem lê decide — e a
+   * decisão de todos os fluxos atuais é não fazer nada.
+   */
+  status: 'active' | 'cancelled' | null
 }
 
 export interface RawSubscriptionItemReader {

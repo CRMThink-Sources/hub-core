@@ -6,6 +6,7 @@ import { Subscription } from '@/modules/application/domain/entities/subscription
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { SubscriptionRepository } from '@/modules/application/domain/repositories/subscription.repository'
 import { SubscriptionItemRepository } from '@/modules/application/domain/repositories/subscription-item.repository'
+import { SpaItemResourceMirrorRepository } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import {
   isTrialSubscription,
@@ -21,6 +22,7 @@ import {
   resourceRefOf,
   toLineMetadata,
 } from './helpers/line-resource-metadata'
+import { saveResourceMirror } from './helpers/save-resource-mirror'
 import { ListOfferablePlans } from './list-offerable-plans'
 import { ProviderResourceBilling } from './provider-resource-billing'
 
@@ -110,6 +112,8 @@ export class CreateAdditionalLine {
     private readonly items: SubscriptionItemRepository,
     private readonly providerResolver: ConnectorProviderResolver,
     private readonly providerBilling: ProviderResourceBilling,
+    /** Espelho do recurso — a cópia da credencial que sobrevive ao item apagado. */
+    private readonly mirrors: SpaItemResourceMirrorRepository,
   ) {}
 
   async execute(
@@ -263,6 +267,14 @@ export class CreateAdditionalLine {
         subscription: parent.id,
         status: 'active',
         metadata,
+      })
+
+      // Espelho depois do item existir: ele é chaveado pelo id do item.
+      await saveResourceMirror(this.mirrors, {
+        itemId: item.id,
+        provider,
+        resource,
+        subscriptionId: parent.id,
       })
     } catch (error) {
       logThinkzapError(

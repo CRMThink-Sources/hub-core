@@ -38,6 +38,7 @@ describe('BitrixRawSubscriptionItemReader', () => {
       provider: 'ZAPI',
       credentials: {},
       subscriptionId: '42',
+      status: null,
     })
   })
 
@@ -118,7 +119,32 @@ describe('BitrixRawSubscriptionItemReader', () => {
       provider: 'HUBMESSAGE',
       credentials: { zApiInstanceId: 'inst-1', zApiInstanceToken: 'tok-1' },
       subscriptionId: '42',
+      status: null,
     })
+  })
+
+  it('traduz o id do enum de status pelo mapa do mapper', async () => {
+    for (const [raw, expected] of [
+      ['13625', 'active'],
+      [13627, 'cancelled'],
+      ['  13627  ', 'cancelled'],
+      ['99999', null],
+      [undefined, null],
+      [null, null],
+    ] as Array<[unknown, 'active' | 'cancelled' | null]>) {
+      const { client } = makeClient({
+        id: 1,
+        ufCrm93Provider: 'ZAPI',
+        ufCrm93Status: raw,
+        [PARENT_FIELD]: 42,
+      })
+
+      const item = await new BitrixRawSubscriptionItemReader(
+        client,
+      ).getRawSubscriptionItem('1')
+
+      expect(item?.status).toBe(expected)
+    }
   })
 
   it('parent ausente, zero ou vazio sai como null', async () => {

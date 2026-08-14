@@ -257,7 +257,7 @@ export class BitrixClient {
   async listCrmItems(
     entityTypeId: number,
     filter: Record<string, unknown>,
-    options?: { select?: string[] },
+    options?: { select?: string[]; start?: number },
   ): Promise<ICrmItemListResponse> {
     const client = this.getClient()
     try {
@@ -265,6 +265,9 @@ export class BitrixClient {
         entityTypeId,
         filter,
         ...(options?.select ? { select: options.select } : {}),
+        // `start` só vai quando pedido: o Bitrix trata ausência como primeira página, e
+        // mandar `0` explicitamente não muda nada — mas mandar `undefined` sim.
+        ...(options?.start !== undefined ? { start: options.start } : {}),
       })
       return response.data
     } catch (error) {
@@ -447,6 +450,17 @@ export interface ICrmItemListResponse {
       id: string
     }[]
   }
+  /**
+   * O `start` da página seguinte. **Ausente na última página** — é assim que o Bitrix
+   * sinaliza o fim, e é por isso que quem pagina para no `undefined` em vez de comparar
+   * com `total`.
+   *
+   * A maioria das leituras daqui ignora este campo de propósito: elas filtram por pai ou
+   * por id e caberiam sempre na primeira página. Quem varre a SPA inteira — backfill —
+   * precisa dele, e sem ele cobriria só os 50 primeiros itens em silêncio.
+   */
+  next?: number
+  total?: number
 }
 
 export interface ICrmItemCreateResponse {

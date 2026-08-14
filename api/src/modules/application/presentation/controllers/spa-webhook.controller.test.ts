@@ -12,8 +12,27 @@ vi.mock('@/shared/infra/logger', () => ({
 const TOKEN = 'application_token_do_webhook'
 const SPA = env.payments.spa
 
-/** A fila de provisionamento entra como função — o controller não conhece o caso de uso. */
+/** As filas entram como funções — o controller não conhece os casos de uso. */
 const enqueue = vi.fn(() => Promise.resolve({ id: 'job-1' }))
+const enqueueCleanup = vi.fn(() => Promise.resolve({ id: 'job-2' }))
+const enqueueStatusSync = vi.fn(() => Promise.resolve({ id: 'job-3' }))
+const unlinkAplicationSpaItem = vi.fn(() => Promise.resolve())
+
+const effects = {
+  enqueueProvisioning: enqueue,
+  enqueueCleanup,
+  enqueueStatusSync,
+  unlinkAplicationSpaItem,
+}
+
+/** Os mesmos efeitos com um deles falhando, para o caminho de 200 com log. */
+const failingEffects = (
+  key: keyof typeof effects,
+  error = new Error('redis fora'),
+) => ({
+  ...effects,
+  [key]: vi.fn(() => Promise.reject(error)),
+})
 
 const makeInvalidate = () => {
   const execute = vi.fn(() =>
@@ -59,7 +78,7 @@ describe('SpaWebhookController', () => {
     const response = await new SpaWebhookController(
       invalidate,
       TOKEN,
-      enqueue,
+      effects,
     ).perform(
       reqWith(formBody({ event: 'ONCRMDYNAMICITEMUPDATE_1142', id: '42' })),
     )
@@ -68,13 +87,14 @@ describe('SpaWebhookController', () => {
     expect(execute).toHaveBeenCalledWith({
       entityTypeId: SPA.subscriptionEntityType,
       itemId: '42',
+      verb: 'UPDATE',
     })
   })
 
   it('lê o corpo aninhado do formulário do Bitrix', async () => {
     const { invalidate, execute } = makeInvalidate()
 
-    await new SpaWebhookController(invalidate, TOKEN, enqueue).perform(
+    await new SpaWebhookController(invalidate, TOKEN, effects).perform(
       reqWith({
         event: 'ONCRMDYNAMICITEMADD_1146',
         data: { FIELDS: { ID: '9', ENTITY_TYPE_ID: '1146' } },
@@ -85,13 +105,14 @@ describe('SpaWebhookController', () => {
     expect(execute).toHaveBeenCalledWith({
       entityTypeId: SPA.subscriptionItemEntityType,
       itemId: '9',
+      verb: 'ADD',
     })
   })
 
   it('aceita ID numérico e o normaliza para string', async () => {
     const { invalidate, execute } = makeInvalidate()
 
-    await new SpaWebhookController(invalidate, TOKEN, enqueue).perform(
+    await new SpaWebhookController(invalidate, TOKEN, effects).perform(
       reqWith({
         event: 'ONCRMDYNAMICITEMUPDATE_1142',
         data: { FIELDS: { ID: 42 } },
@@ -102,12 +123,13 @@ describe('SpaWebhookController', () => {
     expect(execute).toHaveBeenCalledWith({
       entityTypeId: SPA.subscriptionEntityType,
       itemId: '42',
+      verb: 'UPDATE',
     })
   })
 
-  it('trata add e delete como update', async () => {
+  it('repassa o verbo do evento ao invalidador — é ele que decide a leitura do pai', async () => {
     const { invalidate, execute } = makeInvalidate()
-    const controller = new SpaWebhookController(invalidate, TOKEN, enqueue)
+    const controller = new SpaWebhookController(invalidate, TOKEN, effects)
 
     await controller.perform(
       reqWith(formBody({ event: 'ONCRMDYNAMICITEMDELETE_1146', id: '9' })),
@@ -116,21 +138,25 @@ describe('SpaWebhookController', () => {
     expect(execute).toHaveBeenCalledWith({
       entityTypeId: SPA.subscriptionItemEntityType,
       itemId: '9',
+      verb: 'DELETE',
     })
   })
 
   it('cai para ENTITY_TYPE_ID quando o evento não traz o sufixo', async () => {
     const { invalidate, execute } = makeInvalidate()
 
-    await new SpaWebhookController(invalidate, TOKEN, enqueue).perform(
+    await new SpaWebhookController(invalidate, TOKEN, effects).perform(
       reqWith(
         formBody({ event: 'ONCRMITEMUPDATE', id: '5', entityTypeId: '1138' }),
       ),
     )
 
+    // `ONCRMITEMUPDATE` não é o padrão de SPA dinâmica: o `entityTypeId` vem do campo,
+    // e o verbo fica `UNKNOWN` — nenhum efeito é despachado por evento assim.
     expect(execute).toHaveBeenCalledWith({
       entityTypeId: SPA.planEntityType,
       itemId: '5',
+      verb: 'UNKNOWN',
     })
   })
 
@@ -140,7 +166,7 @@ describe('SpaWebhookController', () => {
     const response = await new SpaWebhookController(
       invalidate,
       TOKEN,
-      enqueue,
+      effects,
     ).perform(
       reqWith(
         formBody({
@@ -161,7 +187,7 @@ describe('SpaWebhookController', () => {
     const response = await new SpaWebhookController(
       invalidate,
       TOKEN,
-      enqueue,
+      effects,
     ).perform(
       reqWith({
         event: 'ONCRMDYNAMICITEMUPDATE_1142',
@@ -179,7 +205,7 @@ describe('SpaWebhookController', () => {
     const response = await new SpaWebhookController(
       invalidate,
       '',
-      enqueue,
+      effects,
     ).perform(
       reqWith(formBody({ event: 'ONCRMDYNAMICITEMUPDATE_1142', id: '42' })),
     )
@@ -194,7 +220,7 @@ describe('SpaWebhookController', () => {
     const response = await new SpaWebhookController(
       invalidate,
       TOKEN,
-      enqueue,
+      effects,
     ).perform(reqWith(formBody({ event: 'ONAPPINSTALL' })))
 
     expect(response.status).toBe(200)
@@ -209,13 +235,13 @@ describe('SpaWebhookController', () => {
     const response = await new SpaWebhookController(
       invalidate,
       TOKEN,
-      enqueue,
+      effects,
     ).perform(
       reqWith(formBody({ event: 'ONCRMDYNAMICITEMUPDATE_1050', id: '1' })),
     )
 
     expect(response.status).toBe(200)
-    expect(execute).toHaveBeenCalledWith({ entityTypeId: 1050, itemId: '1' })
+    expect(execute).toHaveBeenCalledWith({ entityTypeId: 1050, itemId: '1', verb: 'UPDATE' })
   })
 
   it('responde 200 quando o payload não traz id de item', async () => {
@@ -225,13 +251,14 @@ describe('SpaWebhookController', () => {
     const response = await new SpaWebhookController(
       invalidate,
       TOKEN,
-      enqueue,
+      effects,
     ).perform(reqWith(formBody({ event: 'ONCRMDYNAMICITEMUPDATE_1142' })))
 
     expect(response.status).toBe(200)
     expect(execute).toHaveBeenCalledWith({
       entityTypeId: SPA.subscriptionEntityType,
       itemId: undefined,
+      verb: 'UPDATE',
     })
   })
 
@@ -241,7 +268,7 @@ describe('SpaWebhookController', () => {
     const response = await new SpaWebhookController(
       invalidate,
       TOKEN,
-      enqueue,
+      effects,
     ).perform(reqWith('não é objeto'))
 
     expect(response.status).toBe(401)
@@ -255,7 +282,7 @@ describe('SpaWebhookController', () => {
       const response = await new SpaWebhookController(
         invalidate,
         TOKEN,
-        enqueue,
+        effects,
       ).perform(
         reqWith(
           formBody({
@@ -269,6 +296,7 @@ describe('SpaWebhookController', () => {
       expect(execute).toHaveBeenCalledWith({
         entityTypeId: SPA.subscriptionItemEntityType,
         itemId: '77',
+        verb: 'ADD',
       })
       expect(enqueue).toHaveBeenCalledTimes(1)
       // `traceKey` derivado do id, não aleatório: é o que correlaciona a linha do
@@ -284,11 +312,17 @@ describe('SpaWebhookController', () => {
       )
     })
 
-    it('update e delete de item invalidam e não enfileiram', async () => {
+    /**
+     * Trocar o provider de um item já provisionado é destruir um recurso e criar outro,
+     * com QR code novo para o cliente: operação própria, não efeito colateral de editar
+     * campo. O update tem efeito **próprio** — a sincronização de status —, e é ele que o
+     * despacha.
+     */
+    it('update e delete de item não enfileiram provisionamento', async () => {
       for (const verb of ['UPDATE', 'DELETE']) {
         const { invalidate, execute } = makeInvalidate()
 
-        await new SpaWebhookController(invalidate, TOKEN, enqueue).perform(
+        await new SpaWebhookController(invalidate, TOKEN, effects).perform(
           reqWith(
             formBody({
               event: `ONCRMDYNAMICITEM${verb}_${SPA.subscriptionItemEntityType}`,
@@ -299,6 +333,7 @@ describe('SpaWebhookController', () => {
 
         expect(execute).toHaveBeenCalled()
         expect(enqueue).not.toHaveBeenCalled()
+        vi.clearAllMocks()
       }
     })
 
@@ -313,7 +348,7 @@ describe('SpaWebhookController', () => {
       for (const entityTypeId of others) {
         const { invalidate, execute } = makeInvalidate()
 
-        await new SpaWebhookController(invalidate, TOKEN, enqueue).perform(
+        await new SpaWebhookController(invalidate, TOKEN, effects).perform(
           reqWith(
             formBody({ event: `ONCRMDYNAMICITEMADD_${entityTypeId}`, id: '5' }),
           ),
@@ -321,6 +356,7 @@ describe('SpaWebhookController', () => {
 
         expect(execute).toHaveBeenCalled()
         expect(enqueue).not.toHaveBeenCalled()
+        vi.clearAllMocks()
       }
     })
 
@@ -336,7 +372,7 @@ describe('SpaWebhookController', () => {
       const response = await new SpaWebhookController(
         invalidate,
         TOKEN,
-        enqueue,
+        effects,
       ).perform(
         reqWith(
           formBody({
@@ -351,6 +387,7 @@ describe('SpaWebhookController', () => {
       expect(execute).toHaveBeenCalledWith({
         entityTypeId: SPA.subscriptionItemEntityType,
         itemId: '25',
+        verb: 'ADD',
       })
       expect(enqueue).toHaveBeenCalledWith({
         itemId: '25',
@@ -358,10 +395,10 @@ describe('SpaWebhookController', () => {
       })
     })
 
-    it('update sem sufixo de SPA continua não enfileirando', async () => {
+    it('update sem sufixo de SPA não provisiona — sincroniza status', async () => {
       const { invalidate, execute } = makeInvalidate()
 
-      await new SpaWebhookController(invalidate, TOKEN, enqueue).perform(
+      await new SpaWebhookController(invalidate, TOKEN, effects).perform(
         reqWith(
           formBody({
             event: 'ONCRMDYNAMICITEMUPDATE',
@@ -373,12 +410,16 @@ describe('SpaWebhookController', () => {
 
       expect(execute).toHaveBeenCalled()
       expect(enqueue).not.toHaveBeenCalled()
+      expect(enqueueStatusSync).toHaveBeenCalledWith({
+        itemId: '25',
+        traceKey: 'spa-item-25',
+      })
     })
 
     it('evento sem sufixo de outra SPA não enfileira', async () => {
       const { invalidate, execute } = makeInvalidate()
 
-      await new SpaWebhookController(invalidate, TOKEN, enqueue).perform(
+      await new SpaWebhookController(invalidate, TOKEN, effects).perform(
         reqWith(
           formBody({
             event: 'ONCRMDYNAMICITEMADD',
@@ -391,6 +432,7 @@ describe('SpaWebhookController', () => {
       expect(execute).toHaveBeenCalledWith({
         entityTypeId: SPA.subscriptionEntityType,
         itemId: '25',
+        verb: 'ADD',
       })
       expect(enqueue).not.toHaveBeenCalled()
     })
@@ -399,7 +441,7 @@ describe('SpaWebhookController', () => {
     it('sufixo do evento tem precedência sobre ENTITY_TYPE_ID', async () => {
       const { invalidate, execute } = makeInvalidate()
 
-      await new SpaWebhookController(invalidate, TOKEN, enqueue).perform(
+      await new SpaWebhookController(invalidate, TOKEN, effects).perform(
         reqWith(
           formBody({
             event: `ONCRMDYNAMICITEMADD_${SPA.subscriptionItemEntityType}`,
@@ -412,6 +454,7 @@ describe('SpaWebhookController', () => {
       expect(execute).toHaveBeenCalledWith({
         entityTypeId: SPA.subscriptionItemEntityType,
         itemId: '25',
+        verb: 'ADD',
       })
       expect(enqueue).toHaveBeenCalledTimes(1)
     })
@@ -422,7 +465,7 @@ describe('SpaWebhookController', () => {
       const response = await new SpaWebhookController(
         invalidate,
         TOKEN,
-        enqueue,
+        effects,
       ).perform(
         reqWith(
           formBody({
@@ -439,7 +482,7 @@ describe('SpaWebhookController', () => {
     it('payload sem nome de evento não enfileira', async () => {
       const { invalidate, execute } = makeInvalidate()
 
-      await new SpaWebhookController(invalidate, TOKEN, enqueue).perform(
+      await new SpaWebhookController(invalidate, TOKEN, effects).perform(
         reqWith(
           formBody({
             entityTypeId: String(SPA.subscriptionItemEntityType),
@@ -457,7 +500,7 @@ describe('SpaWebhookController', () => {
     it('nome de evento irreconhecível não enfileira', async () => {
       const { invalidate, execute } = makeInvalidate()
 
-      await new SpaWebhookController(invalidate, TOKEN, enqueue).perform(
+      await new SpaWebhookController(invalidate, TOKEN, effects).perform(
         reqWith(
           formBody({
             event: 'ONCRMDYNAMICITEMWHATEVER',
@@ -473,12 +516,11 @@ describe('SpaWebhookController', () => {
 
     it('falha ao enfileirar responde 200 e preserva a invalidação', async () => {
       const { invalidate, execute } = makeInvalidate()
-      const failing = vi.fn(() => Promise.reject(new Error('redis fora')))
 
       const response = await new SpaWebhookController(
         invalidate,
         TOKEN,
-        failing,
+        failingEffects('enqueueProvisioning'),
       ).perform(
         reqWith(
           formBody({
@@ -499,7 +541,7 @@ describe('SpaWebhookController', () => {
       const response = await new SpaWebhookController(
         invalidate,
         TOKEN,
-        enqueue,
+        effects,
       ).perform(
         reqWith(
           formBody({
@@ -513,6 +555,251 @@ describe('SpaWebhookController', () => {
       expect(response.status).toBe(401)
       expect(execute).not.toHaveBeenCalled()
       expect(enqueue).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('despacho da limpeza e da sincronização de status', () => {
+    const itemEvent = (verb: string, id?: string) =>
+      reqWith(
+        formBody({
+          event: `ONCRMDYNAMICITEM${verb}_${SPA.subscriptionItemEntityType}`,
+          ...(id !== undefined && { id }),
+        }),
+      )
+
+    it('exclusão de item enfileira a limpeza, depois de invalidar', async () => {
+      const { invalidate, execute } = makeInvalidate()
+
+      const response = await new SpaWebhookController(
+        invalidate,
+        TOKEN,
+        effects,
+      ).perform(itemEvent('DELETE', '77'))
+
+      expect(response.status).toBe(200)
+      expect(enqueueCleanup).toHaveBeenCalledWith({
+        itemId: '77',
+        traceKey: 'spa-item-77',
+      })
+      expect(enqueueStatusSync).not.toHaveBeenCalled()
+      expect(enqueue).not.toHaveBeenCalled()
+      expect(execute.mock.invocationCallOrder[0]!).toBeLessThan(
+        enqueueCleanup.mock.invocationCallOrder[0]!,
+      )
+    })
+
+    it('atualização de item enfileira a sincronização de status', async () => {
+      const { invalidate, execute } = makeInvalidate()
+
+      const response = await new SpaWebhookController(
+        invalidate,
+        TOKEN,
+        effects,
+      ).perform(itemEvent('UPDATE', '77'))
+
+      expect(response.status).toBe(200)
+      expect(enqueueStatusSync).toHaveBeenCalledWith({
+        itemId: '77',
+        traceKey: 'spa-item-77',
+      })
+      expect(enqueueCleanup).not.toHaveBeenCalled()
+      expect(execute.mock.invocationCallOrder[0]!).toBeLessThan(
+        enqueueStatusSync.mock.invocationCallOrder[0]!,
+      )
+    })
+
+    it('exclusão sem sufixo de SPA também enfileira a limpeza', async () => {
+      const { invalidate } = makeInvalidate()
+
+      await new SpaWebhookController(invalidate, TOKEN, effects).perform(
+        reqWith(
+          formBody({
+            event: 'ONCRMDYNAMICITEMDELETE',
+            entityTypeId: String(SPA.subscriptionItemEntityType),
+            id: '25',
+          }),
+        ),
+      )
+
+      expect(enqueueCleanup).toHaveBeenCalledWith({
+        itemId: '25',
+        traceKey: 'spa-item-25',
+      })
+    })
+
+    it('exclusão sem id registra warn e não enfileira', async () => {
+      const { invalidate } = makeInvalidate()
+
+      const response = await new SpaWebhookController(
+        invalidate,
+        TOKEN,
+        effects,
+      ).perform(itemEvent('DELETE'))
+
+      expect(response.status).toBe(200)
+      expect(enqueueCleanup).not.toHaveBeenCalled()
+      expect(apiLogger.warn).toHaveBeenCalled()
+    })
+
+    it('exclusão nas outras SPAs de billing não enfileira efeito de recurso', async () => {
+      const others = [
+        SPA.subscriptionEntityType,
+        SPA.planEntityType,
+        SPA.productEntityType,
+        SPA.aplicationEntityType,
+      ]
+
+      for (const entityTypeId of others) {
+        const { invalidate } = makeInvalidate()
+
+        await new SpaWebhookController(invalidate, TOKEN, effects).perform(
+          reqWith(
+            formBody({
+              event: `ONCRMDYNAMICITEMDELETE_${entityTypeId}`,
+              id: '5',
+            }),
+          ),
+        )
+
+        expect(enqueueCleanup).not.toHaveBeenCalled()
+        expect(enqueueStatusSync).not.toHaveBeenCalled()
+        vi.clearAllMocks()
+      }
+    })
+
+    /**
+     * Cancelar recurso por inferência é destrutivo e irreversível para o cliente — e o
+     * verbo é o único sinal que distingue update de delete.
+     */
+    it('verbo desconhecido não enfileira limpeza nem sincronização', async () => {
+      const { invalidate, execute } = makeInvalidate()
+
+      await new SpaWebhookController(invalidate, TOKEN, effects).perform(
+        reqWith(
+          formBody({
+            entityTypeId: String(SPA.subscriptionItemEntityType),
+            id: '77',
+          }),
+        ),
+      )
+
+      expect(execute).toHaveBeenCalled()
+      expect(enqueueCleanup).not.toHaveBeenCalled()
+      expect(enqueueStatusSync).not.toHaveBeenCalled()
+    })
+
+    it('falha ao enfileirar a limpeza responde 200 com error', async () => {
+      const { invalidate, execute } = makeInvalidate()
+
+      const response = await new SpaWebhookController(
+        invalidate,
+        TOKEN,
+        failingEffects('enqueueCleanup'),
+      ).perform(itemEvent('DELETE', '77'))
+
+      expect(response.status).toBe(200)
+      expect(execute).toHaveBeenCalled()
+      expect(apiLogger.error).toHaveBeenCalled()
+    })
+
+    it('falha ao enfileirar a sincronização responde 200 com error', async () => {
+      const { invalidate } = makeInvalidate()
+
+      const response = await new SpaWebhookController(
+        invalidate,
+        TOKEN,
+        failingEffects('enqueueStatusSync'),
+      ).perform(itemEvent('UPDATE', '77'))
+
+      expect(response.status).toBe(200)
+      expect(apiLogger.error).toHaveBeenCalled()
+    })
+  })
+
+  describe('desvínculo do espelho da instalação (1060)', () => {
+    const aplicationEvent = (verb: string, id?: string) =>
+      reqWith(
+        formBody({
+          event: `ONCRMDYNAMICITEM${verb}_${SPA.aplicationEntityType}`,
+          ...(id !== undefined && { id }),
+        }),
+      )
+
+    it('exclusão desvincula, depois de invalidar', async () => {
+      const { invalidate, execute } = makeInvalidate()
+
+      const response = await new SpaWebhookController(
+        invalidate,
+        TOKEN,
+        effects,
+      ).perform(aplicationEvent('DELETE', '7'))
+
+      expect(response.status).toBe(200)
+      expect(unlinkAplicationSpaItem).toHaveBeenCalledWith('7')
+      expect(execute.mock.invocationCallOrder[0]!).toBeLessThan(
+        unlinkAplicationSpaItem.mock.invocationCallOrder[0]!,
+      )
+    })
+
+    it('atualização não desvincula — editar o espelho não é apagá-lo', async () => {
+      const { invalidate, execute } = makeInvalidate()
+
+      await new SpaWebhookController(invalidate, TOKEN, effects).perform(
+        aplicationEvent('UPDATE', '7'),
+      )
+
+      expect(execute).toHaveBeenCalled()
+      expect(unlinkAplicationSpaItem).not.toHaveBeenCalled()
+    })
+
+    it('exclusão sem id registra warn e não desvincula', async () => {
+      const { invalidate } = makeInvalidate()
+
+      const response = await new SpaWebhookController(
+        invalidate,
+        TOKEN,
+        effects,
+      ).perform(aplicationEvent('DELETE'))
+
+      expect(response.status).toBe(200)
+      expect(unlinkAplicationSpaItem).not.toHaveBeenCalled()
+      expect(apiLogger.warn).toHaveBeenCalled()
+    })
+
+    it('exclusão nas outras SPAs não desvincula', async () => {
+      for (const entityTypeId of [
+        SPA.subscriptionEntityType,
+        SPA.subscriptionItemEntityType,
+        SPA.planEntityType,
+      ]) {
+        const { invalidate } = makeInvalidate()
+
+        await new SpaWebhookController(invalidate, TOKEN, effects).perform(
+          reqWith(
+            formBody({
+              event: `ONCRMDYNAMICITEMDELETE_${entityTypeId}`,
+              id: '5',
+            }),
+          ),
+        )
+
+        expect(unlinkAplicationSpaItem).not.toHaveBeenCalled()
+        vi.clearAllMocks()
+      }
+    })
+
+    it('falha no desvínculo responde 200 com error', async () => {
+      const { invalidate, execute } = makeInvalidate()
+
+      const response = await new SpaWebhookController(
+        invalidate,
+        TOKEN,
+        failingEffects('unlinkAplicationSpaItem', new Error('db down')),
+      ).perform(aplicationEvent('DELETE', '7'))
+
+      expect(response.status).toBe(200)
+      expect(execute).toHaveBeenCalled()
+      expect(apiLogger.error).toHaveBeenCalled()
     })
   })
 })

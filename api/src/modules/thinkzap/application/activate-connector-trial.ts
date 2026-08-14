@@ -5,6 +5,7 @@ import { SubscriptionItem } from '@/modules/application/domain/entities/subscrip
 import { PlanRepository } from '@/modules/application/domain/repositories/get-plan.repository'
 import { SubscriptionRepository } from '@/modules/application/domain/repositories/subscription.repository'
 import { SubscriptionItemRepository } from '@/modules/application/domain/repositories/subscription-item.repository'
+import { SpaItemResourceMirrorRepository } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
 import {
   TrialIneligibilityReason,
   checkTrialEligibility,
@@ -18,6 +19,7 @@ import { apiLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '../errors/catalog'
 import { ensureTrialPlan } from './helpers/ensure-trial-plan'
 import { toLineMetadata } from './helpers/line-resource-metadata'
+import { saveResourceMirror } from './helpers/save-resource-mirror'
 
 export class TrialNotEligibleError extends Error {
   constructor(readonly reason: TrialIneligibilityReason) {
@@ -76,6 +78,8 @@ export class ActivateConnectorTrial {
     private readonly items: SubscriptionItemRepository,
     private readonly providerResolver: ConnectorProviderResolver,
     private readonly contacts: UpdateSpaClientContactRepository,
+    /** Espelho do recurso — a cópia da credencial que sobrevive ao item apagado. */
+    private readonly mirrors: SpaItemResourceMirrorRepository,
   ) {}
 
   async execute(
@@ -162,6 +166,18 @@ export class ActivateConnectorTrial {
          * ativado**. Uma regra, um lugar.
          */
         metadata: toLineMetadata(input.provider, resource),
+      })
+
+      /**
+       * Espelho do recurso, depois de o item existir. O trial é o caminho que mais
+       * abandona recurso — instalação que testa e desaparece —, então é justamente aqui
+       * que a credencial precisa sobreviver a alguém apagando o item no CRM.
+       */
+      await saveResourceMirror(this.mirrors, {
+        itemId: item.id,
+        provider: input.provider,
+        resource,
+        subscriptionId: subscription.id,
       })
 
       return {

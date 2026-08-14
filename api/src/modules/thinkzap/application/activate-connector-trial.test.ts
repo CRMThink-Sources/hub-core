@@ -17,6 +17,18 @@ const { apiLogger } = vi.hoisted(() => ({
   apiLogger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
 }))
 
+/**
+ * Espelho do recurso: dublê que aceita tudo. O que ele grava é afirmado nos testes de
+ * `saveResourceMirror` e do repositório Redis; aqui ele existe para o fluxo não depender
+ * de Redis.
+ */
+const MIRRORS_DOUBLE = {
+  find: vi.fn(() => Promise.resolve(null)),
+  save: vi.fn(() => Promise.resolve()),
+  setUnsubscribed: vi.fn(() => Promise.resolve()),
+  remove: vi.fn(() => Promise.resolve()),
+}
+
 vi.mock('@/shared/infra/logger', () => ({ apiLogger }))
 
 const { trialPlanId } = vi.hoisted(() => ({ trialPlanId: { value: 'plan-1' } }))
@@ -99,6 +111,7 @@ function makeSut(options?: {
     { createSubscriptionItem } as never,
     { resolve: () => ({ provisionConnector, subscribe }) } as never,
     { updateContact } as never,
+    MIRRORS_DOUBLE,
   )
 
   return {

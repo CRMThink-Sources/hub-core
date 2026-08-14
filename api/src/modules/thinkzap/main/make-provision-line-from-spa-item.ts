@@ -31,5 +31,6 @@ export const makeProvisionLineFromSpaItem = (): ProvisionLineFromSpaItem => {
     makePaymentGateway(),
     deps.providerResolver,
     deps.providerBilling,
+    deps.mirrors,
   )
 }
