@@ -7,6 +7,10 @@ import {
   PrismaWidgetOutboxRepository,
   WidgetOutboxRecord,
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
+import {
+  AppendJobLog,
+  noopJobLog,
+} from '@/modules/thinkzap/domain/ports/job-log.port'
 import { DestinationLock } from '@/modules/thinkzap/infra/queue/destination-send-lock'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
@@ -49,6 +53,12 @@ export type DispatchDeps = {
   ) => Promise<void>
   /** O comentário de timeline do envio bem-sucedido. Nunca lança. */
   notifySent: (row: WidgetOutboxRecord) => Promise<void>
+  /**
+   * Log na aba Logs do job (Bull Board). Registra **decisão**, não passo a passo: cada
+   * chamada é um round-trip ao Redis, e o valor está em explicar por que o provider foi
+   * ou não foi chamado — não em narrar o fluxo.
+   */
+  appendJobLog?: AppendJobLog
 }
 
 export type DispatchInput = {
@@ -78,6 +88,11 @@ export type DispatchInput = {
 export class DispatchWidgetOutboxMessage {
   constructor(private readonly deps: DispatchDeps) {}
 
+  /** Opcional na dependência para não obrigar os testes a passar um mock. */
+  private get jobLog(): AppendJobLog {
+    return this.deps.appendJobLog ?? noopJobLog
+  }
+
   async execute(input: DispatchInput): Promise<DispatchOutcome> {
     const { outboxId, line, isLastAttempt } = input
 
@@ -104,6 +119,10 @@ export class DispatchWidgetOutboxMessage {
      * erro possível deste código.
      */
     if (row.providerMessageId) {
+      await this.jobLog(
+        `Marca de entrega já existe (${row.providerMessageId}). ` +
+          'Provider NÃO será chamado — retomando apenas os efeitos colaterais.',
+      )
       await this.afterDelivery(row, row.providerMessageId)
       apiLogger.info(
         { ...logContext, providerMessageId: row.providerMessageId },
@@ -113,6 +132,9 @@ export class DispatchWidgetOutboxMessage {
     }
 
     if (row.status === 'FAILED' || row.status === 'UNKNOWN') {
+      await this.jobLog(
+        `Intenção em estado terminal (${row.status}). Nada a fazer.`,
+      )
       return { status: 'skipped', reason: 'terminal' }
     }
 
@@ -122,6 +144,10 @@ export class DispatchWidgetOutboxMessage {
      * reenvia.
      */
     if (row.status === 'SENDING') {
+      await this.jobLog(
+        'Intenção estava em SENDING sem marca de entrega: uma execução anterior morreu ' +
+          'DURANTE a chamada ao provider. Pode ter sido entregue ou não — não há como saber daqui.',
+      )
       return this.finishUnknown(
         row,
         logContext,
@@ -137,6 +163,10 @@ export class DispatchWidgetOutboxMessage {
     const lock = await this.deps.acquireLock(row.instanceId, row.destination)
     if (!lock) {
       apiLogger.debug(logContext, 'Destino ocupado; reagendando o envio')
+      await this.jobLog(
+        `Outro envio em curso para ${row.destination} nesta linha. ` +
+          'Reagendado para preservar a ordem — nenhuma tentativa gasta.',
+      )
       return { status: 'locked' }
     }
 
@@ -146,6 +176,9 @@ export class DispatchWidgetOutboxMessage {
         apiLogger.debug(
           logContext,
           'Intenção reivindicada por outra execução; nada a fazer',
+        )
+        await this.jobLog(
+          'Outra execução reivindicou esta intenção primeiro. Encerrando sem enviar.',
         )
         return { status: 'skipped', reason: 'claimed-by-other' }
       }
@@ -169,6 +202,10 @@ export class DispatchWidgetOutboxMessage {
       chatId: row.destination,
     })
 
+    await this.jobLog(
+      `Reivindicada. Chamando ${line.provider} para ${row.destination}...`,
+    )
+
     let providerMessageId: string
     try {
       const result = await sender.send({ kind: 'text', text: row.text })
@@ -176,6 +213,11 @@ export class DispatchWidgetOutboxMessage {
     } catch (err) {
       return this.handleSendFailure(row, logContext, isLastAttempt, err)
     }
+
+    await this.jobLog(
+      `Provider aceitou. providerMessageId=${providerMessageId} — a partir daqui ` +
+        'nenhuma retentativa reenvia esta mensagem.',
+    )
 
     /**
      * A marca de entrega é gravada **imediatamente** depois do aceite, antes de
@@ -204,8 +246,17 @@ export class DispatchWidgetOutboxMessage {
     const message = err instanceof Error ? err.message : String(err)
 
     if (failure === 'indeterminate') {
+      await this.jobLog(
+        `Provider NÃO respondeu (timeout/rede): "${message}". ` +
+          'Entrega indeterminada — pode ter saído. NÃO será reenviado: reenviar arriscaria ' +
+          'mensagem duplicada no WhatsApp do contato.',
+      )
       return this.finishUnknown(row, logContext, message, err)
     }
+
+    await this.jobLog(
+      `Provider RESPONDEU com erro: "${message}". Houve resposta, então nada foi entregue.`,
+    )
 
     /**
      * Recusa com resposta: nada saiu. Na última tentativa vira `failed` e o operador é
@@ -224,10 +275,16 @@ export class DispatchWidgetOutboxMessage {
           msg: 'Envio pelo widget esgotou as tentativas sem entregar',
         },
       )
+      await this.jobLog(
+        'Última tentativa esgotada. Intenção marcada como FAILED e operador avisado na timeline.',
+      )
       await this.deps.notifyOutcome('failed', row)
       return { status: 'failed' }
     }
 
+    await this.jobLog(
+      'Intenção devolvida para PENDING. O BullMQ vai retentar — a mensagem NÃO está perdida.',
+    )
     await this.deps.outbox.releaseToPending(row.id, message)
     throw err
   }
@@ -271,6 +328,9 @@ export class DispatchWidgetOutboxMessage {
     await this.persistMessage(row, providerMessageId)
     await this.enqueueOpenChannel(row, providerMessageId)
     await this.notifyTimeline(row)
+    await this.jobLog(
+      'Efeitos colaterais concluídos: mensagem persistida, abertura de conversa enfileirada, timeline notificada.',
+    )
   }
 
   private async persistMessage(

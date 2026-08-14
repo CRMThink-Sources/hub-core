@@ -3,6 +3,10 @@ import { findItemInContext } from '@/modules/thinkzap/application/helpers/resolv
 import { EnsureWidgetOpenChannelConversation } from '@/modules/thinkzap/application/ensure-widget-open-channel-conversation'
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
+import {
+  AppendJobLog,
+  noopJobLog,
+} from '@/modules/thinkzap/domain/ports/job-log.port'
 import { ThinkzapOpenChannelJob } from '@/queue/thinkzap-widget-outbound.queue'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { makeBitrixClientByDomainAndAppCoode } from '@/shared/main/make-bitrix-client'
@@ -29,7 +33,9 @@ const log = createWorkerSourceLogger('bitrix')
  */
 export async function processWidgetOpenChannelJob(
   job: ThinkzapOpenChannelJob,
+  context: { appendJobLog: AppendJobLog } = { appendJobLog: noopJobLog },
 ): Promise<void> {
+  const { appendJobLog } = context
   const {
     subscriptionItemId,
     domainId,
@@ -53,6 +59,9 @@ export async function processWidgetOpenChannelJob(
       { ...logContext, domainId },
       'Portal não encontrado; abertura de conversa descartada',
     )
+    await appendJobLog(
+      `Portal ${domainId} não encontrado. Conversa não será aberta.`,
+    )
     return
   }
 
@@ -64,19 +73,22 @@ export async function processWidgetOpenChannelJob(
    * WhatsApp Oficial — linha `HUBMESSAGE` cairia em "item não encontrado" e a conversa
    * nunca abriria. O id do item vale para qualquer provider e já vem no payload.
    */
-  const context = await makeGetAplicationContext().execute({
+  const applicationContext = await makeGetAplicationContext().execute({
     domainId,
     appCode,
   })
 
   let item
   try {
-    item = findItemInContext(context, subscriptionItemId)
+    item = findItemInContext(applicationContext, subscriptionItemId)
   } catch (err) {
     if (err instanceof LineNotFoundError) {
       log.warn(
         logContext,
         'Item de assinatura não está mais na instalação; abertura de conversa descartada',
+      )
+      await appendJobLog(
+        `Item ${subscriptionItemId} não está mais na instalação. Conversa não será aberta.`,
       )
       return
     }
@@ -103,6 +115,8 @@ export async function processWidgetOpenChannelJob(
     'Job de abertura de conversa processado',
   )
 
+  await appendJobLog(describeOpenChannelOutcome(outcome, chatId))
+
   /**
    * `EnsureWidgetOpenChannelConversation` nunca lança — devolve `failed`. Aqui a
    * tradução é obrigatória: sem transformar `failed` em exceção, o BullMQ marcaria o
@@ -113,4 +127,28 @@ export async function processWidgetOpenChannelJob(
       `Falha ao abrir a conversa no canal aberto para a mensagem ${providerMessageId}`,
     )
   }
+}
+
+/**
+ * O desfecho em português para quem abre o job no Bull Board.
+ *
+ * Os três `skipped` são os que mais geram dúvida de suporte — "por que a conversa não
+ * apareceu?" —, e cada um tem uma resposta diferente e acionável.
+ */
+function describeOpenChannelOutcome(
+  outcome: string,
+  chatId: string | null,
+): string {
+  const descriptions: Record<string, string> = {
+    opened: `Conversa ABERTA no canal aberto. chatId=${chatId ?? 'não devolvido pelo Bitrix'}`,
+    'already-open': `Conversa já estava aberta (chatId=${chatId}). Nada re-postado.`,
+    'toggle-off':
+      'Toggle "Enviar para canal aberto" está DESLIGADO nesta linha. Comportamento correto — nada a corrigir.',
+    'no-channel':
+      'Linha não tem canal aberto vinculado. Vincular na aba Ajustes para a conversa passar a aparecer.',
+    failed:
+      'FALHOU ao chamar o Bitrix. Será retentado. A mensagem ao contato NÃO é afetada — ela já foi entregue.',
+  }
+
+  return descriptions[outcome] ?? `Desfecho: ${outcome}`
 }

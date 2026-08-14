@@ -75,6 +75,55 @@ Na prática, hoje:
 {job="docker", container="hubthink-api-staging"} |= "/api/thinkzap"
 ```
 
+## Diagnosticar um envio pelo widget
+
+O envio de texto pelo widget é **enfileirado**: a API responde `202` e a entrega
+acontece no worker. Quando alguém pergunta "mandei e não chegou", a investigação é
+sobre o ciclo de vida do job, não sobre a requisição.
+
+O `jobId` é determinístico (`widget-send:<outboxId>`), então ele devolve a história
+inteira de **uma** mensagem:
+
+```logql
+# Tudo que aconteceu com uma mensagem
+{job="docker", container=~"hubthink-worker-widget-outbound.*"}
+  | json | jobId = "widget-send:<outboxId>"
+```
+
+A sequência esperada é `started` → `Despachando intenção` → `entregue ao provider` →
+`completed`. O que falta diz o que houve:
+
+| Sintoma no log                              | O que aconteceu                                        |
+| ------------------------------------------- | ------------------------------------------------------ |
+| Nenhuma linha                                | Job nunca chegou ao worker — worker parado ou não enfileirado |
+| `started` sem `completed`/`failed`           | Travou no meio; procure `stalled`                      |
+| `stalled: true`                              | Processo morreu ou passou do lock; vira `UNKNOWN` no outbox |
+| `failed` com `willRetry: true`               | Vai tentar de novo — **não** é mensagem perdida        |
+| `failed` com `willRetry: false`              | Desistiu; operador avisado na timeline                 |
+| `waitMs` alto                                | Fila represada — problema nosso (worker sem vazão)     |
+| `runMs` alto                                 | Provider ou Bitrix lentos — problema de terceiro       |
+| `alreadyDelivered: true`                     | Retomada de efeitos colaterais; o provider **não** foi chamado de novo |
+
+```logql
+# Envios que desistiram (operador foi avisado na timeline)
+{job="docker", app="thinkzap"} | json | errorCode = "thinkzap.message.widget_send_exhausted"
+
+# Entrega indeterminada — não é reenviada de propósito
+{job="docker", app="thinkzap"} | json | errorCode = "thinkzap.message.widget_send_unknown"
+
+# Jobs travados
+{job="docker", container=~"hubthink-worker-widget-outbound.*"} | json | stalled = "true"
+
+# Worker sem conseguir falar com o Redis
+{job="docker", container=~"hubthink-worker-widget-outbound.*"} |= "Widget outbound worker error"
+```
+
+Se o log não tiver nada, o estado está no banco:
+
+```sql
+SELECT status, COUNT(*) FROM core_thinkerszap_widget_outbox GROUP BY status;
+```
+
 ## Campos úteis para filtro (JSON)
 
 - `app`, `source`, `messageId`, `instanceId`, `jobId`, `path`, `level`
