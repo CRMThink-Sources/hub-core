@@ -11,7 +11,7 @@ vi.mock('@/config/env', () => ({
 }))
 
 import type { Request } from 'express'
-import { SendWidgetMessageUseCase } from '@/modules/thinkzap/application/send-widget-message.use-case'
+import { EnqueueWidgetMessageUseCase } from '@/modules/thinkzap/application/enqueue-widget-message.use-case'
 import { LineBlockedError } from '@/modules/thinkzap/domain/errors/line-blocked.error'
 import { LineDisconnectedError } from '@/modules/thinkzap/domain/errors/line-disconnected.error'
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
@@ -34,21 +34,46 @@ describe('SendWidgetMessageController', () => {
   const execute = vi.fn()
   const controller = new SendWidgetMessageController({
     execute,
-  } as unknown as SendWidgetMessageUseCase)
+  } as unknown as EnqueueWidgetMessageUseCase)
 
   beforeEach(() => {
     vi.clearAllMocks()
     execute.mockResolvedValue({
-      message: 'Message sent successfully',
+      clientMessageId: 'client-1',
+      status: 'queued',
       destination: '5511999999999',
-      sentMessageIds: ['msg-1'],
     })
   })
 
-  it('responde 200 no envio bem-sucedido', async () => {
+  /**
+   * `202` e não `200`: a mensagem ficou durável neste request, mas quem entrega é o
+   * worker. Afirmar entrega aqui era o que fazia o operador acreditar que a mensagem
+   * saiu quando ela tinha se perdido.
+   */
+  it('responde 202 quando a mensagem é aceita e enfileirada', async () => {
     const response = await controller.perform(req, {} as never)
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(202)
+    expect(response.result).toMatchObject({
+      clientMessageId: 'client-1',
+      status: 'queued',
+    })
+  })
+
+  /** Anexo não passa por esta rota enquanto a Fase 3 não decide o transporte. */
+  it('recusa anexo com 400 em vez de aceitar e descartar', async () => {
+    const withAttachment = {
+      ...req,
+      body: {
+        ...(req as unknown as { body: Record<string, unknown> }).body,
+        attachments: [{ kind: 'image', content: 'data:image/png;base64,aa' }],
+      },
+    } as unknown as Request
+
+    const response = await controller.perform(withAttachment, {} as never)
+
+    expect(response.status).toBe(400)
+    expect(execute).not.toHaveBeenCalled()
   })
 
   /**

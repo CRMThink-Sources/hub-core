@@ -1,5 +1,6 @@
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { env } from '@/config/env'
+import { BullMqOpenChannelConversationQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
 import { SendWidgetMessageUseCase } from '@/modules/thinkzap/application/send-widget-message.use-case'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
@@ -23,6 +24,6 @@ export const makeSendWidgetMessageUseCase = async (
     zApiClient,
     sendBitrixNotification,
     messageRepo,
-    bitrix,
+    new BullMqOpenChannelConversationQueue(),
   )
 }

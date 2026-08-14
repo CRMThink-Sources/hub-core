@@ -4,6 +4,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter'
 import { ExpressAdapter } from '@bull-board/express'
 import { NextFunction, Request, RequestHandler, Response } from 'express'
 import { thinkzapInboundQueue } from './thinkzap-inbound.queue'
+import { thinkzapWidgetOutboundQueue } from './thinkzap-widget-outbound.queue'
 import { spaItemProvisioningQueue } from './spa-item-provisioning.queue'
 import { spaItemResourceSyncQueue } from './spa-item-resource-sync.queue'
 import { importSheetRunQueue } from '@/modules/importsheet/queue/importsheet-run.queue'
@@ -15,6 +16,14 @@ serverAdapter.setBasePath('/api/admin/queues')
 createBullBoard({
   queues: [
     new BullMQAdapter(thinkzapInboundQueue),
+    /**
+     * A fila do outbound do widget carrega **entrega de mensagem ao cliente do
+     * parceiro**, então é a que mais precisa estar visível aqui. As filas são
+     * registradas uma a uma neste array, então uma fila nova que não seja acrescentada
+     * simplesmente não aparece no board — e a única superfície de observabilidade de
+     * fila do projeto ficaria cega justo para o que não pode parar.
+     */
+    new BullMQAdapter(thinkzapWidgetOutboundQueue),
     new BullMQAdapter(spaItemProvisioningQueue),
     new BullMQAdapter(spaItemResourceSyncQueue),
     new BullMQAdapter(importSheetRunQueue),

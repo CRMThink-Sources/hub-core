@@ -18,6 +18,15 @@ import {
 } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import { workerLogger } from '@/shared/infra/logger'
 
+/**
+ * Este entrypoint é o processo de worker do thinkzap, não só o do inbound: o import
+ * abaixo registra o `Worker` da fila `thinkzap-widget-outbound` no mesmo processo.
+ *
+ * É o que evita um serviço novo no `docker-compose` — o `command` de produção aponta
+ * para este arquivo. Ver `thinkzap-widget-outbound.worker.ts`.
+ */
+import './thinkzap-widget-outbound.worker'
+
 async function processJob(data: ThinkzapInboundJob) {
   if (data.source === 'z-api') {
     workerLogger.debug(

@@ -8,7 +8,9 @@ import {
   isValidZApiPhoneNumber,
   normalizePhoneNumber,
 } from '@/shared/helpers/normalize-phone-number'
+import { apiLogger } from '@/shared/infra/logger'
 import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositories/prisma-thinkzap-message.repository'
+import { OpenChannelConversationQueue } from '@/modules/thinkzap/domain/ports/open-channel-queue.port'
 import { ensureLineInstance } from './helpers/ensure-line-instance'
 import { resolveTemplateBody } from './helpers/resolve-template-body'
 import { resolveTemplateLine } from './helpers/resolve-template-context'
@@ -40,6 +42,14 @@ export class SendWidgetTemplateUseCase {
     private readonly templateSenderResolver: TemplateMessageSenderResolver,
     private readonly sendBitrixNotification: SendNotification,
     private readonly messageRepository: PrismaThinkzapMessageRepository,
+    /**
+     * Abertura da conversa no canal aberto, enfileirada — a mesma fila do envio livre.
+     *
+     * Abrir a conversa é operação Bitrix, idêntica nos dois providers, então o mesmo
+     * job serve. E é aqui que a linha do WhatsApp Oficial ganha retentativa junto: ela
+     * não tinha bridge nenhum enquanto a abertura vivia no callback de status da Z-API.
+     */
+    private readonly openChannelQueue: OpenChannelConversationQueue,
   ) {}
 
   async execute(
@@ -121,6 +131,32 @@ export class SendWidgetTemplateUseCase {
       type: 'TEXT',
       text: sentText,
     })
+
+    /**
+     * O texto que abre a conversa é o corpo **resolvido** — o mesmo que foi
+     * persistido e o mesmo que o contato recebeu. Postar o template cru deixaria
+     * `{{1}}` no histórico do canal aberto.
+     *
+     * `try/catch` porque o envio já aconteceu: o template está no telefone do
+     * contato, e um erro que subisse daqui faria o operador reenviar um template —
+     * que na maioria dos casos é cobrado pela Meta.
+     */
+    try {
+      await this.openChannelQueue.enqueue({
+        subscriptionItemId,
+        domainId,
+        appCode,
+        instanceId: instance.id,
+        providerMessageId: messageId,
+        destination: normalizedPhone,
+        text: sentText,
+      })
+    } catch (err) {
+      apiLogger.error(
+        { app: 'thinkzap', subscriptionItemId: item.id, err },
+        'Não foi possível enfileirar a abertura da conversa; envio de template preservado',
+      )
+    }
 
     await this.sendBitrixNotification.execute({
       contextId: entityId,

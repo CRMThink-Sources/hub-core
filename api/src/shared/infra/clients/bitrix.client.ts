@@ -388,7 +388,6 @@ export class BitrixClient {
     message: string,
   ): Promise<{ chatId: string | null; bitrixMessageId: string | null }> {
     const messageId = `widget_${Date.now()}_${phone}`
-    console.log(phone)
     const params: ISendMessageData = {
       CONNECTOR: connectorCode,
       LINE: Number(lineId),

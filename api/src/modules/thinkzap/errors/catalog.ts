@@ -438,6 +438,54 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 400,
   },
+  /**
+   * O envio enfileirado esgotou as tentativas sem que o provider aceitasse a mensagem.
+   * **Nada foi entregue** — todas as falhas do caminho tiveram resposta HTTP do
+   * provider, o que prova recusa e não incerteza. O operador pode reenviar.
+   */
+  'thinkzap.message.widget_send_exhausted': {
+    category: 'integration',
+    userCause:
+      'Uma mensagem enviada pelo widget não pôde ser entregue ao contato.',
+    remediation:
+      'Conferir a conexão da linha e o número do destinatário; o operador foi avisado na timeline e pode reenviar.',
+    retriable: false,
+  },
+  /**
+   * O pior desfecho possível e o motivo de o outbox existir: o processo morreu, ou a
+   * rede caiu, **durante** a chamada ao provider. Pode ter entregue ou não, e não há
+   * como saber localmente. Não é retentado de propósito.
+   */
+  'thinkzap.message.widget_send_unknown': {
+    category: 'integration',
+    userCause:
+      'Não foi possível confirmar se uma mensagem enviada pelo widget saiu para o contato.',
+    remediation:
+      'O operador foi avisado para conferir a conversa antes de reenviar; se recorrente, investigar estabilidade da rede com o provider.',
+    retriable: false,
+  },
+  'thinkzap.message.widget_send_notice_failed': {
+    category: 'integration',
+    userCause:
+      'O aviso de falha de envio não pôde ser publicado na timeline do CRM.',
+    remediation:
+      'Conferir as permissões de CRM do app no Bitrix24; o desfecho do envio está no log.',
+    retriable: false,
+  },
+  /**
+   * Sem `httpStatus` de propósito: este erro **não** vira resposta HTTP. A mensagem
+   * já foi entregue ao contato quando a abertura da conversa roda, e devolver falha
+   * faria o operador reenviar — o contato receberia duas vezes. O envio responde
+   * sucesso e o problema aparece aqui.
+   */
+  'thinkzap.message.open_channel_failed': {
+    category: 'integration',
+    userCause:
+      'A mensagem foi entregue ao contato, mas a conversa não abriu no canal aberto do Bitrix24.',
+    remediation:
+      'Conferir se a linha está vinculada a um canal aberto e se o conector está ativo naquela linha; a próxima mensagem tenta de novo.',
+    retriable: true,
+  },
   'thinkzap.message.inbound_zapi_failed': {
     category: 'integration',
     userCause:

@@ -102,12 +102,17 @@ function makeSut(
     execute: vi.fn().mockResolvedValue(undefined),
   }
 
+  const openChannelQueue = {
+    enqueue: vi.fn().mockResolvedValue(undefined),
+  }
+
   const useCase = new SendWidgetTemplateUseCase(
     { execute } as never,
     { getInstanceByChannelId, create } as never,
     { resolve } as never,
     sendBitrixNotification as never,
     messageRepository as never,
+    openChannelQueue as never,
   )
 
   return {
@@ -118,10 +123,39 @@ function makeSut(
     send,
     messageRepository,
     sendBitrixNotification,
+    openChannelQueue,
     sendTemplate: (overrides: Partial<typeof baseInput> = {}) =>
       useCase.execute({ ...baseInput, ...overrides }),
   }
 }
+
+/** A linha oficial do relato: canal vinculado no item e toggle ligado. */
+const openChannelHubItem = (): SubscriptionItem =>
+  hubItem({
+    settings: { ...DEFAULT_CONNECTOR_SETTINGS, widgetOpenChannelEnabled: true },
+  })
+
+/**
+ * O job de abertura de conversa que foi enfileirado — `mock.calls` é `any`.
+ *
+ * Identificadores, não o item resolvido: o worker relê o contexto no momento de
+ * postar.
+ */
+type OpenChannelCall = {
+  subscriptionItemId: string
+  domainId: string
+  appCode: string
+  instanceId: string
+  providerMessageId: string
+  destination: string
+  text: string
+}
+
+const openChannelCall = (
+  sut: { openChannelQueue: { enqueue: ReturnType<typeof vi.fn> } },
+  index = 0,
+): OpenChannelCall =>
+  sut.openChannelQueue.enqueue.mock.calls[index]?.[0] as OpenChannelCall
 
 describe('SendWidgetTemplateUseCase', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -266,5 +300,58 @@ describe('SendWidgetTemplateUseCase', () => {
       TemplateSendNotSupportedError,
     )
     expect(sut.messageRepository.create).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A linha do WhatsApp Oficial passa pela **mesma fila** do envio livre: abrir a
+   * conversa é operação Bitrix, idêntica nos dois providers. Enquanto a abertura vivia
+   * no callback de status da Z-API, esta linha não tinha bridge nenhum.
+   */
+  describe('conversa no canal aberto', () => {
+    it('enfileira com o corpo resolvido do template', async () => {
+      const sut = makeSut({ items: [openChannelHubItem()] })
+
+      await sut.sendTemplate()
+
+      const call = openChannelCall(sut)
+      expect(call.subscriptionItemId).toBe('i1')
+      expect(call.domainId).toBe('domain-1')
+      expect(call.appCode).toBe('crmthink.thinkzap')
+      expect(call.instanceId).toBe('inst-db-1')
+      expect(call.providerMessageId).toBe('msg-1')
+      expect(call.destination).toBe('5511999999999')
+      expect(call.text).toBe('Olá Maria, pedido 1234 saiu.')
+    })
+
+    it('não posta o template cru com placeholders', async () => {
+      const sut = makeSut({ items: [openChannelHubItem()] })
+
+      await sut.sendTemplate()
+
+      expect(openChannelCall(sut).text).not.toContain('{{1}}')
+    })
+
+    /** O toggle é decidido no worker, com o estado atual da linha. */
+    it('enfileira mesmo com o toggle desligado', async () => {
+      const sut = makeSut()
+
+      await sut.sendTemplate()
+
+      expect(sut.openChannelQueue.enqueue).toHaveBeenCalledTimes(1)
+    })
+
+    /**
+     * O template já está no telefone do contato — e template costuma ser cobrado
+     * pela Meta. Um erro que subisse faria o operador reenviar e pagar de novo.
+     */
+    it('falha ao enfileirar não impede o sucesso do envio', async () => {
+      const sut = makeSut({ items: [openChannelHubItem()] })
+      sut.openChannelQueue.enqueue.mockRejectedValue(new Error('redis down'))
+
+      await expect(sut.sendTemplate()).resolves.toMatchObject({
+        message: 'Template sent successfully',
+      })
+      expect(sut.sendBitrixNotification.execute).toHaveBeenCalled()
+    })
   })
 })
