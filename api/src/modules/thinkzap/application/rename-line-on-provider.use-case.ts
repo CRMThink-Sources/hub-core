@@ -11,6 +11,12 @@ import { UpdateInstanceGateway } from '@/modules/thinkzap/domain/repositories/up
  * Recebe credencial e host do portal já resolvidos. Não lê `Instance` nem
  * `core_domains`: a credencial vem de `item.metadata` e o host vem de
  * `context.customer.name`, os dois no contexto que o chamador já leu.
+ *
+ * **Lança.** O nome da linha passou a viver no item, e esta chamada é o espelho
+ * para o painel da Z-API — mas a tolerância a falha é de quem orquestra, não
+ * daqui: `UpdateLineSettings` a captura porque sabe que já gravou a fonte. Engolir
+ * o erro aqui tornaria o caso de uso inútil para um chamador que precise do
+ * resultado, e o nome dele diz "renomeia", não "tenta renomear".
  */
 export type RenameLineOnProviderInput = {
   zApiInstanceId: string

@@ -77,10 +77,10 @@ export const makeDisconnectLineController = (): Controller => {
 }
 
 export const makeGetLineSettingsController = (): Controller => {
-  const { getAplicationContext, zApiClient } = makeLineDeps()
+  const { getAplicationContext } = makeLineDeps()
 
   return new GetLineSettingsController(
-    new GetLineSettings(getAplicationContext, zApiClient),
+    new GetLineSettings(getAplicationContext),
   )
 }
 

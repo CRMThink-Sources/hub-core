@@ -23,6 +23,7 @@
     "backfill:connector-settings-to-spa": "tsx src/scripts/backfill-connector-settings-to-spa.ts",
     "backfill:legacy-subscriptions-to-spa": "tsx src/scripts/backfill-legacy-subscriptions-to-spa.ts",
     "backfill:spa-item-resource-mirror": "tsx src/scripts/backfill-spa-item-resource-mirror.ts",
+    "backfill:line-name-from-zapi": "tsx src/scripts/backfill-line-name-from-zapi.ts",
     "list:payment-plans": "tsx src/scripts/list-payment-plans.ts",
     "check:subscription-fields": "tsx src/scripts/check-subscription-fields.ts",
     "check:plans-vs-gateway": "tsx src/scripts/check-plans-vs-gateway.ts",

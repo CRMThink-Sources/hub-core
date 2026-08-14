@@ -154,16 +154,16 @@ function makeSurface(entitlement: Case) {
       {
         route: 'GET /lines/:itemId/settings',
         perform: () =>
-          new GetLineSettingsController(
-            new GetLineSettings(ctx, zApiClient),
-          ).perform(req('i1')),
+          new GetLineSettingsController(new GetLineSettings(ctx)).perform(
+            req('i1'),
+          ),
       },
       {
         route: 'GET /lines/:itemId/settings (linha oficial)',
         perform: () =>
-          new GetLineSettingsController(
-            new GetLineSettings(ctx, zApiClient),
-          ).perform(req('i2')),
+          new GetLineSettingsController(new GetLineSettings(ctx)).perform(
+            req('i2'),
+          ),
       },
       {
         route: 'GET /lines/:itemId/connection',

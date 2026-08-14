@@ -208,7 +208,7 @@ function makeDeps(entitlement: LineEntitlement) {
       bitrixClient as never,
     ),
     qrCode: new GetLineQrCodeController(ctx, zapi),
-    getSettings: new GetLineSettingsController(new GetLineSettings(ctx, zapi)),
+    getSettings: new GetLineSettingsController(new GetLineSettings(ctx)),
     getConnection: new GetLineConnectionController(
       new GetLineConnection(ctx, zapi, disconnectExpiredLine as never, {
         getConnectionStatus: vi
