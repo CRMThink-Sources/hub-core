@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
+import { useAplicationContext } from '@/providers/aplication-provider'
 import { APP_CODES } from '@/shared/app/app-codes'
 import { appTokenKey } from '@/shared/auth/app-token-storage'
 import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
@@ -63,6 +64,7 @@ const TOGGLE_KEYS = [
 export function AjustesTab({ itemId }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/ajustes')
   const api = useLineApi(itemId)
+  const { refresh } = useAplicationContext()
 
   const [state, setState] = useState<State>({ status: 'loading' })
   const [inicial, setInicial] = useState<{
@@ -235,6 +237,24 @@ export function AjustesTab({ itemId }: Props) {
       // Salvou: o que está na tela passa a ser o estado inicial.
       setInicial({ name: state.name.trim(), settings: state.settings })
       toast.success(t('salvo'))
+
+      /**
+       * Nome novo: recarrega o contexto da instalação.
+       *
+       * O nome da linha aparece fora desta aba — na lista de conexões, no
+       * cabeçalho desta tela e no seletor de linhas do widget —, e o contexto é
+       * lido uma vez por montagem do provider. Sem o recarregamento a gravação
+       * funciona e o cliente não vê, que é indistinguível de não ter salvado.
+       *
+       * Só quando o nome mudou: toggle nenhum aparece fora daqui, e recarregar
+       * por eles pagaria a releitura do contexto por nada.
+       *
+       * Fora do fluxo de erro do salvamento, e sem desfazer nada: o sucesso já foi
+       * confirmado e o estado inicial já foi atualizado. Falha aqui deixa a tela
+       * desatualizada — que é o estado de antes desta linha existir —, e o próprio
+       * provider reporta o erro de leitura pelo estado dele.
+       */
+      if (nomeMudou) void refresh().catch(() => undefined)
     } catch (err: unknown) {
       // O que o usuário digitou fica: nada é revertido em falha.
       tratarRecusa(err, t('erroSalvar'))

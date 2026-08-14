@@ -10,6 +10,7 @@
   "semProviderTitulo": "Línea sin proveedor",
   "semProviderHint": "Esta línea aún no tiene un proveedor de WhatsApp asociado.",
   "tabsAriaLabel": "Secciones de configuración",
+  "aparelho": "Dispositivo conectado: {{nome}}",
   "tabs": {
     "conexao": "Conexión",
     "grupos": "Grupos",

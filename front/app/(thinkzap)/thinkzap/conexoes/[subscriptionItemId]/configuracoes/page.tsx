@@ -159,7 +159,18 @@ export default function ConfiguracoesLinhaPage() {
 
   return (
     <Shell
-      titulo={connection?.name || linha.name}
+      titulo={linha.name}
+      /**
+       * O aparelho é informação secundária, não o título.
+       *
+       * `connection.name` é o nome de perfil da conta do WhatsApp conectada —
+       * responde a "qual número está nesta linha", não "como esta linha se chama".
+       * Enquanto ele era o título, com aparelho conectado (o caso normal) ele
+       * apagava o nome da linha, inclusive um que o cliente acabara de digitar.
+       */
+      subtitulo={
+        connection?.name ? t('aparelho', { nome: connection.name }) : undefined
+      }
       provider={t('provider.naoOficial')}
       status={
         connection === null
@@ -203,11 +214,14 @@ export default function ConfiguracoesLinhaPage() {
 
 function Shell({
   titulo,
+  subtitulo,
   provider,
   status,
   children,
 }: {
   titulo?: string
+  /** Informação secundária da linha — hoje, o aparelho conectado na Z-API. */
+  subtitulo?: string
   provider?: string
   status?: { label: string; tone: 'ok' | 'warn' }
   children: React.ReactNode
@@ -244,6 +258,9 @@ function Shell({
             </span>
           )}
         </div>
+        {subtitulo && (
+          <p className="text-sm text-muted-foreground">{subtitulo}</p>
+        )}
       </header>
 
       {children}

@@ -76,17 +76,55 @@ export const resourceRefOf = (
     ? (resource.channelId ?? resource.instanceId)
     : resource.instanceId
 
+/**
+ * A base do nome gerado, por conector.
+ *
+ * Um lugar só: `lineNameFor`, o nome do trial e `isGeneratedLineName` derivam
+ * todos daqui. Enquanto a base estava copiada, o predicado podia deixar de
+ * reconhecer um nome que a criação continuava produzindo — e o backfill trataria
+ * como "cliente já renomeou" um item que ninguém tocou.
+ */
+export const lineNameBase = (provider: ConnectorProvider): string =>
+  provider === ConnectorProvider.HUBMESSAGE ? 'WhatsApp Oficial' : 'WhatsApp'
+
 /** O nome da linha, derivado do conector. */
 export function lineNameFor(
   provider: ConnectorProvider,
   order: number,
 ): string {
-  const base =
-    provider === ConnectorProvider.HUBMESSAGE ? 'WhatsApp Oficial' : 'WhatsApp'
+  const base = lineNameBase(provider)
 
   /**
    * Sufixo de ordem só da segunda em diante: a primeira linha da instalação não
    * precisa de número, e numerar todas faria a linha existente parecer renomeada.
    */
   return order > 1 ? `${base} ${order}` : base
+}
+
+/** O nome da linha que nasce de um trial. */
+export const trialLineNameFor = (provider: ConnectorProvider): string =>
+  `${lineNameBase(provider)} (teste)`
+
+/**
+ * O nome ainda é o que a criação gerou — ninguém o ajustou.
+ *
+ * Existe para o backfill que traz para o item os nomes que só existiam na Z-API:
+ * ele só pode escrever onde o `title` continua sendo o gerado, sob pena de apagar
+ * o nome de quem editou o item direto no CRM.
+ *
+ * O guard é o **formato**, e não "o campo está vazio": `createSubscriptionItem`
+ * nunca deixa o nome vazio, então ausência não distingue nada.
+ */
+export function isGeneratedLineName(
+  name: string,
+  provider: ConnectorProvider,
+): boolean {
+  const base = lineNameBase(provider)
+
+  /** `WhatsApp`, `WhatsApp 2`, `WhatsApp (teste)` — e as variantes de "Oficial". */
+  const generated = new RegExp(
+    `^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?: \\d+| \\(teste\\))?$`,
+  )
+
+  return generated.test(name.trim())
 }

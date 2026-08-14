@@ -18,7 +18,10 @@ import { UpdateSpaClientContactRepository } from '@/shared/domain/repositories/s
 import { apiLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '../errors/catalog'
 import { ensureTrialPlan } from './helpers/ensure-trial-plan'
-import { toLineMetadata } from './helpers/line-resource-metadata'
+import {
+  toLineMetadata,
+  trialLineNameFor,
+} from './helpers/line-resource-metadata'
 import { saveResourceMirror } from './helpers/save-resource-mirror'
 
 export class TrialNotEligibleError extends Error {
@@ -211,9 +214,12 @@ export class ActivateConnectorTrial {
     }
   }
 
+  /**
+   * Delegado ao helper: a base do nome gerado vive num lugar só, junto de
+   * `lineNameFor` e do predicado que o backfill usa para saber se ninguém
+   * renomeou a linha ainda.
+   */
   private lineName(provider: ConnectorProvider): string {
-    return provider === ConnectorProvider.HUBMESSAGE
-      ? 'WhatsApp Oficial (teste)'
-      : 'WhatsApp (teste)'
+    return trialLineNameFor(provider)
   }
 }
