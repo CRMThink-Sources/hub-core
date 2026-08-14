@@ -19,6 +19,18 @@ services:
       - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/workers/thinkzap-inbound.worker.js"]
 
+  # Outbound do widget: entrega da mensagem do operador e abertura da conversa no
+  # canal aberto. Processo próprio desde que a fila passou a carregar entrega — um
+  # envio lento não pode segurar slot de mensagem recebida. Ver produção.
+  worker-widget-outbound:
+    image: ghcr.io/crmthink-sources/hub-core-api:staging
+    container_name: hubthink-worker-widget-outbound-staging
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "dist/src/workers/thinkzap-widget-outbound.worker.js"]
+
   worker-spa-provisioning:
     image: ghcr.io/crmthink-sources/hub-core-api:staging
     container_name: hubthink-worker-spa-provisioning-staging

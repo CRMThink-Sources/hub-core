@@ -15,19 +15,22 @@ import { workerLogger } from '@/shared/infra/logger'
 const DESTINATION_BUSY_RETRY_MS = 2_000
 
 /**
- * Worker do outbound do widget.
+ * Worker do outbound do widget — **entrypoint próprio**.
  *
- * **Não é um processo próprio.** Este módulo é importado pelo entrypoint de worker do
- * thinkzap que já roda (`thinkzap-inbound.worker.ts`), porque um processo consome
- * quantas filas quiser e um serviço novo no `docker-compose` seria configuração de
- * infra para uma mudança de aplicação.
+ * Serviço `worker-widget-outbound` no compose, container
+ * `hubthink-worker-widget-outbound`. O nome precisa começar com `hubthink-worker`: é o
+ * que o Promtail casa para coletar os logs, e fora dessa convenção o log do processo
+ * que entrega mensagem some da coleta em silêncio.
  *
- * O módulo nasce isolado justamente para que separá-lo depois seja só acrescentar um
- * `command` no compose apontando para cá — nada de código muda.
+ * Rodou dentro do processo de inbound enquanto a fila só carregava a abertura de
+ * conversa no canal aberto — efeito colateral idempotente, cuja falha ninguém sente na
+ * hora. Saiu quando passou a carregar `kind: 'send'`, a entrega ao contato: a partir
+ * daí um envio lento segura slot de mensagem recebida, reiniciar um fluxo derruba o
+ * outro, e os logs dos dois se misturam no mesmo stream.
  *
- * `concurrency` menor que a do inbound: este worker fala com o Bitrix do cliente, que
- * tem limite de requisições por portal, e a fila é de efeito colateral — atrasar um
- * job alguns segundos não custa nada, tomar rate limit custa a conversa.
+ * `concurrency` menor que a do inbound, e **não** foi aumentada com a separação: o
+ * limite nunca foi contenção de processo, e sim o Bitrix do cliente, que tem limite de
+ * requisições por portal.
  */
 async function processJob(
   job: Job<ThinkzapWidgetOutboundJob>,

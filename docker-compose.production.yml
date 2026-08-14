@@ -15,6 +15,29 @@ services:
       - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/workers/thinkzap-inbound.worker.js"]
 
+  # Outbound do widget: entrega da mensagem que o operador manda pelo CRM, e a
+  # abertura da conversa no canal aberto.
+  #
+  # Nasceu dentro do processo de inbound, quando a fila só carregava a abertura de
+  # conversa — efeito colateral idempotente, cuja falha ninguém sente na hora. Saiu de
+  # lá quando passou a carregar a **entrega ao contato**, com o operador já tendo
+  # recebido `202`: a partir daí um envio lento segura slot de mensagem recebida, e
+  # reiniciar um fluxo derruba o outro. É o mesmo argumento do worker de
+  # provisionamento logo abaixo.
+  #
+  # O nome do container **precisa** começar com `hubthink-worker`: é o que o Promtail
+  # casa (`observability/promtail-config.yml`) para coletar os logs. Fora dessa
+  # convenção, o log do processo que entrega mensagem some da coleta em silêncio.
+  worker-widget-outbound:
+    image: ghcr.io/crmthink-sources/hub-core-api:latest
+    container_name: hubthink-worker-widget-outbound
+    restart: unless-stopped
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "dist/src/workers/thinkzap-widget-outbound.worker.js"]
+
   # Processo próprio, e não junto do worker de inbound: cada job fala com o provider
   # de WhatsApp e com o gateway de pagamento, e o inbound é o caminho quente de
   # entrega de mensagem — provisionamento não pode dividir processo com ele.

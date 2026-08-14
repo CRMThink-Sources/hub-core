@@ -37,14 +37,24 @@ Logs do front (não JSON) não recebem esses labels. Logs **anteriores ao deploy
 
 ## Logs coletados
 
-O Promtail coleta logs de containers Docker com os nomes:
+O Promtail coleta por **padrão de nome**, não por lista fixa: o regex é
+`/hubthink-(api|worker|front).*`, com ou sem sufixo `-staging`.
 
-- `hubthink-api`
-- `hubthink-api-staging`
-- `hubthink-worker`
-- `hubthink-worker-staging`
-- `hubthink-front`
-- `hubthink-front-staging`
+Na prática, hoje:
+
+| Container                          | Conteúdo                                            |
+| ---------------------------------- | --------------------------------------------------- |
+| `hubthink-api`                     | API HTTP e webhooks                                  |
+| `hubthink-worker`                  | Fila de inbound do ThinkZap                          |
+| `hubthink-worker-widget-outbound`  | **Entrega da mensagem enviada pelo widget** e canal aberto |
+| `hubthink-worker-spa-provisioning` | Provisionamento de linha na SPA                      |
+| `hubthink-worker-spa-resource-sync`| Sincronização item ↔ recurso                        |
+| `hubthink-worker-clicksign`        | Fila do Clicksign                                    |
+| `hubthink-front`                   | Next.js (logs não-JSON, sem `app`/`source`)          |
+
+> **Ao criar um worker novo, o nome do container precisa começar com `hubthink-worker`.**
+> Fora dessa convenção, os logs não são coletados e **nada avisa** — não há erro em
+> lugar nenhum, o container simplesmente não aparece no Loki.
 
 ## Queries no Explore (Grafana)
 
