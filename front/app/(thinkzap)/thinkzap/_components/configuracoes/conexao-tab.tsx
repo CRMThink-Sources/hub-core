@@ -10,12 +10,19 @@ import {
   type LineConnection,
   type LineEntitlement,
 } from '@/app/hooks/use-line-api'
+import { useLineConnectionStatus } from '@/app/hooks/use-line-connection-status'
 import { ConfirmModal } from './confirm-modal'
 import { ConfigCard } from './config-card'
 import { LinhaBloqueadaAviso } from './linha-bloqueada-aviso'
 
 type Props = {
   itemId: string
+  /**
+   * Id da linha no provider — para a Z-API, o `instanceId`, que também nomeia a
+   * sala do socket. `null` quando a linha ainda não foi provisionada: aí não há
+   * sala para entrar, e a releitura periódica é o único caminho.
+   */
+  providerRef: string | null
   /** Avisa a casca quando o estado da conexão muda, para o cabeçalho acompanhar. */
   onConnectionChange?: (connection: LineConnection | null) => void
 }
@@ -34,7 +41,7 @@ type State =
  * Conectado: só os campos que o provider devolveu. Nada de placeholder para dado
  * que não existe.
  */
-export function ConexaoTab({ itemId, onConnectionChange }: Props) {
+export function ConexaoTab({ itemId, providerRef, onConnectionChange }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/conexao')
   const api = useLineApi(itemId)
 
@@ -63,6 +70,25 @@ export function ConexaoTab({ itemId, onConnectionChange }: Props) {
     }
   }, [api, onConnectionChange, t])
 
+  /**
+   * Releitura de fundo, para os avisos de conexão e para a repetição periódica.
+   *
+   * Não passa por `loading` nem por `error` de propósito. `loadConnection` troca a
+   * tela inteira por um spinner e, na falha, pelo card de erro — a cada oito
+   * segundos isso piscaria por cima do QR code que o usuário está tentando ler, e
+   * uma falha isolada de rede apagaria o QR em vez de deixar a próxima tentativa
+   * resolver. A tela só muda quando há resultado novo.
+   */
+  const refreshConnection = useCallback(async () => {
+    try {
+      const connection = await api.getConnection()
+      setState({ status: 'ready', connection })
+      onConnectionChange?.(connection)
+    } catch {
+      // Silêncio proposital: o estado anterior continua na tela.
+    }
+  }, [api, onConnectionChange])
+
   const loadQrCode = useCallback(async () => {
     setQrLoading(true)
     setQrError(null)
@@ -82,6 +108,18 @@ export function ConexaoTab({ itemId, onConnectionChange }: Props) {
   }, [loadConnection])
 
   /**
+   * A tela está esperando uma conexão acontecer: é o estado que mostra o QR code.
+   *
+   * Booleano, e não o objeto `state`, porque a releitura de fundo cria um `state`
+   * novo a cada oito segundos — os efeitos abaixo dependeriam de uma identidade que
+   * muda sozinha, e o QR seria rebuscado a cada ciclo.
+   */
+  const aguardandoConexao =
+    state.status === 'ready' &&
+    !state.connection.connected &&
+    state.connection.entitlement === 'active'
+
+  /**
    * QR só quando desconectado **e habilitado**.
    *
    * Buscar conectado gastaria chamada sem uso; buscar bloqueado gastaria uma chamada
@@ -89,14 +127,21 @@ export function ConexaoTab({ itemId, onConnectionChange }: Props) {
    * gerar o QR code", que descreve errado o que aconteceu.
    */
   useEffect(() => {
-    if (
-      state.status === 'ready' &&
-      !state.connection.connected &&
-      state.connection.entitlement === 'active'
-    ) {
-      void loadQrCode()
-    }
-  }, [state, loadQrCode])
+    if (aguardandoConexao) void loadQrCode()
+  }, [aguardandoConexao, loadQrCode])
+
+  /**
+   * Assinatura enquanto a leitura estiver carregada — inclusive conectada, que é
+   * como a tela percebe uma desconexão sem recarga. A releitura periódica fica
+   * restrita à espera do pareamento: ela consulta o provider a cada tentativa, e
+   * com a linha conectada não há desfecho para esperar.
+   */
+  useLineConnectionStatus({
+    providerRef,
+    subscribe: state.status === 'ready',
+    poll: aguardandoConexao,
+    onChange: () => void refreshConnection(),
+  })
 
   async function handleDesconectar() {
     setDesconectando(true)

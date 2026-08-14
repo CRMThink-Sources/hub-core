@@ -14,6 +14,10 @@ import {
 } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 import { apiLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '../../errors/catalog'
+import {
+  SubscriptionPeriod,
+  readSubscriptionPeriod,
+} from './read-subscription-period'
 
 /**
  * Status do Stripe → status da SPA.
@@ -439,31 +443,21 @@ export class StripePaymentGateway implements PaymentGateway {
   }
 
   /**
-   * O período da assinatura, tolerante a **onde** o Stripe o coloca.
+   * O período da assinatura, com a política de falha do webhook.
    *
-   * `current_period_start/end` viveram na assinatura e passaram a viver no item de
-   * linha nas versões novas da API. Ler só um dos dois lugares deixaria o período
-   * indefinido dependendo da versão de API da conta — e período inválido reprova o
-   * item inteiro no mapper da SPA, o que apareceria como "pagou e a linha não
-   * voltou".
+   * A leitura em si é `readSubscriptionPeriod`, compartilhada com o backfill de
+   * cobrança legada: a tolerância a período na assinatura **e** no item de linha é
+   * uma regra só, e duplicá-la significaria que a próxima versão da API do Stripe
+   * quebra um dos dois lados em silêncio.
+   *
+   * O que fica aqui é a política: no processamento de webhook, período ausente é um
+   * pagamento que não pode ser espelhado, então registra e lança. O backfill trata a
+   * mesma ausência pulando a instalação.
    */
-  private readPeriod(subscription: Stripe.Subscription): {
-    currentPeriodStart: Date
-    currentPeriodEnd: Date
-  } {
-    const item = subscription.items?.data?.[0] as
-      | { current_period_start?: number; current_period_end?: number }
-      | undefined
+  private readPeriod(subscription: Stripe.Subscription): SubscriptionPeriod {
+    const period = readSubscriptionPeriod(subscription)
 
-    const legacy = subscription as unknown as {
-      current_period_start?: number
-      current_period_end?: number
-    }
-
-    const start = legacy.current_period_start ?? item?.current_period_start
-    const end = legacy.current_period_end ?? item?.current_period_end
-
-    if (!start || !end) {
+    if (!period) {
       logThinkzapError(
         apiLogger,
         'thinkzap.gateway.period_missing',
@@ -475,9 +469,6 @@ export class StripePaymentGateway implements PaymentGateway {
       )
     }
 
-    return {
-      currentPeriodStart: new Date(start * 1000),
-      currentPeriodEnd: new Date(end * 1000),
-    }
+    return period
   }
 }

@@ -6,6 +6,7 @@ import { SUBSCRIPTION_PARENT_FIELD } from '@/modules/application/infra/bitrix/ma
 import {
   PLAN_SCAN_PATTERNS,
   PRODUCT_SCAN_PATTERNS,
+  SUBSCRIPTION_ITEM_SCAN_PATTERNS,
   SUBSCRIPTION_ITEMS_BY_SUBSCRIPTION_SCAN_PATTERN,
   SUBSCRIPTION_SCAN_PATTERNS,
   SUBSCRIPTIONS_BY_APLICATION_SCAN_PATTERN,
@@ -36,10 +37,30 @@ export type SpaParentReader = {
   }): Promise<string | null>
 }
 
+/**
+ * O verbo do evento de SPA.
+ *
+ * Vive aqui, e não no controller, porque quem decide **como** invalidar precisa dele:
+ * o controller importaria de `application` de qualquer forma, e a direção contrária —
+ * o caso de uso importando de `presentation` — seria a errada.
+ *
+ * `UNKNOWN` é o payload em que não há nome de evento reconhecível. Ele nunca é tratado
+ * como `DELETE`: o efeito do delete aqui é varrer mais chaves sem ler o pai, e assumi-lo
+ * por inferência num update faria toda edição varrer o keyspace compartilhado com o
+ * BullMQ.
+ */
+export type EventVerb = 'ADD' | 'UPDATE' | 'DELETE' | 'UNKNOWN'
+
 export type InvalidateSpaCacheInput = {
   entityTypeId: number
   /** Ausente em payload incompleto; alguns ramos não conseguem agir sem ele. */
   itemId?: string
+  /**
+   * O verbo do evento. Ausente é tratado como não-delete: o caminho de leitura do
+   * pai é o comportamento de antes deste parâmetro existir, e errar para esse lado
+   * custa uma ida à rede — errar para o outro pularia uma leitura necessária.
+   */
+  verb?: EventVerb
 }
 
 export type InvalidateSpaCacheResult = {
@@ -79,18 +100,20 @@ export class InvalidateSpaCache {
   ): Promise<InvalidateSpaCacheResult> {
     const { spa } = env.payments
 
+    const deleted = input.verb === 'DELETE'
+
     try {
       switch (input.entityTypeId) {
         case spa.subscriptionEntityType:
-          return await this.invalidateSubscription(input.itemId)
+          return await this.invalidateSubscription(input.itemId, deleted)
         case spa.subscriptionItemEntityType:
-          return await this.invalidateSubscriptionItem(input.itemId)
+          return await this.invalidateSubscriptionItem(input.itemId, deleted)
         case spa.planEntityType:
           return await this.invalidatePlan(input.itemId)
         case spa.productEntityType:
           return await this.invalidateProduct(input.itemId)
         case spa.aplicationEntityType:
-          return await this.invalidateAplication()
+          return await this.invalidateAplication(deleted)
         default:
           apiLogger.debug(
             { app: 'payments', entityTypeId: input.entityTypeId },
@@ -113,18 +136,26 @@ export class InvalidateSpaCache {
    * O pai é lido do Bitrix em vez de varrido porque esta é a SPA mais quente —
    * toda escrita da própria API gera um evento aqui, e varrer o keyspace
    * compartilhado com o BullMQ a cada uma sairia bem mais caro que uma leitura.
+   *
+   * **No delete a leitura é pulada.** O item não existe mais, então ela é 404 por
+   * construção: gastaria uma ida à rede por exclusão e produziria um `warn` de
+   * "leitura do pai falhou" que não descreve falha nenhuma — ensinando quem lê o log
+   * a ignorar a linha que existe para denunciar Bitrix fora do ar.
    */
   private async invalidateSubscription(
-    itemId?: string,
+    itemId: string | undefined,
+    isDelete: boolean,
   ): Promise<InvalidateSpaCacheResult> {
     if (!itemId)
       return this.missingItemId(env.payments.spa.subscriptionEntityType)
 
-    const parentId = await this.readParent(
-      env.payments.spa.subscriptionEntityType,
-      itemId,
-      APLICATION_PARENT_FIELD,
-    )
+    const parentId = isDelete
+      ? null
+      : await this.readParent(
+          env.payments.spa.subscriptionEntityType,
+          itemId,
+          APLICATION_PARENT_FIELD,
+        )
 
     const deleted = await this.del(
       subscriptionKey(itemId),
@@ -151,19 +182,24 @@ export class InvalidateSpaCache {
    *
    * Não toca na família de assinatura de propósito — `SubscriptionItem` não é
    * aninhado dentro de `Subscription` no cache; o vínculo é o id do pai.
+   *
+   * No delete a leitura do pai é pulada, pela mesma razão de `invalidateSubscription`.
    */
   private async invalidateSubscriptionItem(
-    itemId?: string,
+    itemId: string | undefined,
+    isDelete: boolean,
   ): Promise<InvalidateSpaCacheResult> {
     if (!itemId) {
       return this.missingItemId(env.payments.spa.subscriptionItemEntityType)
     }
 
-    const parentId = await this.readParent(
-      env.payments.spa.subscriptionItemEntityType,
-      itemId,
-      SUBSCRIPTION_PARENT_FIELD,
-    )
+    const parentId = isDelete
+      ? null
+      : await this.readParent(
+          env.payments.spa.subscriptionItemEntityType,
+          itemId,
+          SUBSCRIPTION_PARENT_FIELD,
+        )
 
     const deleted = await this.del(
       subscriptionItemKey(itemId),
@@ -224,12 +260,24 @@ export class InvalidateSpaCache {
   }
 
   /**
-   * Aplicação: só a família de assinatura. A SPA 1060 não tem cache próprio em
+   * Aplicação: a família de assinatura. A SPA 1060 não tem cache próprio em
    * Redis (a aplicação vive no Prisma), mas a entrada de assinatura guarda a
    * aplicação **hidratada** — título, cliente, `active`.
+   *
+   * **No delete, também a família de item.** A razão não é aninhamento —
+   * `SubscriptionItem` não guarda cópia da aplicação: é que as duas famílias
+   * alimentam `GET /api/application/me`, e servir por até 5 minutos as linhas de uma
+   * instalação cujo espelho deixou de existir é servir contexto de uma aplicação que
+   * não existe. No update a família de item fica intacta: editar o espelho não muda
+   * item nenhum.
    */
-  private async invalidateAplication(): Promise<InvalidateSpaCacheResult> {
-    const swept = await scanDelete(this.redis, SUBSCRIPTION_SCAN_PATTERNS)
+  private async invalidateAplication(
+    isDelete: boolean,
+  ): Promise<InvalidateSpaCacheResult> {
+    const swept = await scanDelete(this.redis, [
+      ...SUBSCRIPTION_SCAN_PATTERNS,
+      ...(isDelete ? SUBSCRIPTION_ITEM_SCAN_PATTERNS : []),
+    ])
 
     return this.done('aplication', swept)
   }

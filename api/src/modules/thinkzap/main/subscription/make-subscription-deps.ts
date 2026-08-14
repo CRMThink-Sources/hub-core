@@ -10,6 +10,7 @@ import { CachedPlanRepository } from '@/modules/application/infra/cache/cached-p
 import { CachedProductRepository } from '@/modules/application/infra/cache/cached-product.repository'
 import { CachedSubscriptionRepository } from '@/modules/application/infra/cache/cached-subscription.repository'
 import { PrismaAplicationRepository } from '@/modules/application/infra/prisma/repositories/prisma-aplications.repository'
+import { RedisSpaItemResourceMirrorRepository } from '@/modules/application/infra/cache/redis-spa-item-resource-mirror.repository'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { ZApiInstanceGateway } from '@/modules/thinkzap/infra/persistence/gateway/instance.gateway'
 import { makeConnectorProviderResolver } from '@/modules/thinkzap/main/make-connector-provider-resolver'
@@ -73,6 +74,12 @@ export function makeSubscriptionDeps() {
     items: makeSubscriptionItemRepository(),
     providerResolver,
     providerBilling: new ProviderResourceBilling(providerResolver),
+    /**
+     * O espelho do recurso, no mesmo Redis do cache — mas **sem TTL**, porque ele não é
+     * cache: é a única cópia da credencial que sobrevive ao item apagado, e a marca de
+     * desassinado que torna o gatilho de status idempotente.
+     */
+    mirrors: new RedisSpaItemResourceMirrorRepository(redisConnection),
   }
 }
 

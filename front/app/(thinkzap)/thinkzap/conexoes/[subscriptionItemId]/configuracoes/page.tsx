@@ -182,7 +182,12 @@ export default function ConfiguracoesLinhaPage() {
       */}
       <div className="mt-6">
         {activeTab === 'conexao' && (
-          <ConexaoTab itemId={linha.id} onConnectionChange={setConnection} />
+          <ConexaoTab
+            itemId={linha.id}
+            /* Linha `ZAPI`: o `providerRef` é o `instanceId`, que nomeia a sala do socket. */
+            providerRef={linha.providerRef}
+            onConnectionChange={setConnection}
+          />
         )}
         {activeTab === 'grupos' && (
           <GruposTab

@@ -28,7 +28,7 @@ export const SUBSCRIPTION_PARENT_FIELD =
  * Só dois valores: a SPA de itens não tem `Em teste` nem `Vencido`, porque trial
  * e inadimplência são estados da assinatura, não do item.
  */
-const STATUS_BY_BITRIX_ID: Record<string, SubscriptionItem['status']> = {
+export const STATUS_BY_BITRIX_ID: Record<string, SubscriptionItem['status']> = {
   '13625': 'active', // Ativo
   '13627': 'cancelled', // Cancelado
 }

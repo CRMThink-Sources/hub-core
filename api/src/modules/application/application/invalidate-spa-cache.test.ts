@@ -142,6 +142,41 @@ describe('InvalidateSpaCache', () => {
       )
     })
 
+    it('no delete não lê o pai e varre as listagens por aplicação', async () => {
+      const { redis, remaining } = makeRedis(FULL_KEYSPACE)
+      const parents = makeParents('7')
+
+      const result = await new InvalidateSpaCache(redis, parents).execute({
+        entityTypeId: SPA.subscriptionEntityType,
+        itemId: '42',
+        verb: 'DELETE',
+      })
+
+      expect(result.handled).toBe(true)
+      expect(parents.getParentId).not.toHaveBeenCalled()
+      expect(remaining.has('payments:subscription:v4:42')).toBe(false)
+      expect(remaining.has('payments:subscriptions:v4:all')).toBe(false)
+      expect(remaining.has('payments:subscriptions:v4:aplication:7')).toBe(
+        false,
+      )
+      expect(remaining.has('payments:subscriptions:v4:aplication:8')).toBe(
+        false,
+      )
+    })
+
+    it('no update continua lendo o pai', async () => {
+      const { redis } = makeRedis(FULL_KEYSPACE)
+      const parents = makeParents('7')
+
+      await new InvalidateSpaCache(redis, parents).execute({
+        entityTypeId: SPA.subscriptionEntityType,
+        itemId: '42',
+        verb: 'UPDATE',
+      })
+
+      expect(parents.getParentId).toHaveBeenCalledTimes(1)
+    })
+
     it('não apaga nada quando o evento vem sem id de item', async () => {
       const { redis, del, scan } = makeRedis(FULL_KEYSPACE)
 
@@ -202,6 +237,26 @@ describe('InvalidateSpaCache', () => {
       expect(
         remaining.has('payments:subscription-items:v4:subscription:42'),
       ).toBe(false)
+      expect(remaining.has('payments:subscription:v4:42')).toBe(true)
+    })
+
+    it('no delete não lê o pai e varre as listagens por assinatura', async () => {
+      const { redis, remaining } = makeRedis(FULL_KEYSPACE)
+      const parents = makeParents('42')
+
+      await new InvalidateSpaCache(redis, parents).execute({
+        entityTypeId: SPA.subscriptionItemEntityType,
+        itemId: '9',
+        verb: 'DELETE',
+      })
+
+      expect(parents.getParentId).not.toHaveBeenCalled()
+      expect(remaining.has('payments:subscription-item:v4:9')).toBe(false)
+      expect(remaining.has('payments:subscription-items:v4:all')).toBe(false)
+      expect(
+        remaining.has('payments:subscription-items:v4:subscription:42'),
+      ).toBe(false)
+      // Continua sem tocar a família de assinatura, mesmo no delete.
       expect(remaining.has('payments:subscription:v4:42')).toBe(true)
     })
   })
@@ -300,6 +355,30 @@ describe('InvalidateSpaCache', () => {
       )
       expect(remaining.has('payments:plan:v2:5')).toBe(true)
       expect(remaining.has('payments:subscription-item:v4:9')).toBe(true)
+    })
+
+    it('no delete apaga também a família de item, que alimenta o contexto', async () => {
+      const { redis, remaining } = makeRedis(FULL_KEYSPACE)
+
+      const result = await new InvalidateSpaCache(
+        redis,
+        makeParents('7'),
+      ).execute({
+        entityTypeId: SPA.aplicationEntityType,
+        itemId: '7',
+        verb: 'DELETE',
+      })
+
+      expect(result.handled).toBe(true)
+      expect(remaining.has('payments:subscription:v4:42')).toBe(false)
+      expect(remaining.has('payments:subscription-item:v4:9')).toBe(false)
+      expect(remaining.has('payments:subscription-items:v4:all')).toBe(false)
+      expect(
+        remaining.has('payments:subscription-items:v4:subscription:42'),
+      ).toBe(false)
+      // Plano e produto seguem intactos: a aplicação não é aninhada neles.
+      expect(remaining.has('payments:plan:v2:5')).toBe(true)
+      expect(remaining.has('payments:product:v1:3')).toBe(true)
     })
   })
 

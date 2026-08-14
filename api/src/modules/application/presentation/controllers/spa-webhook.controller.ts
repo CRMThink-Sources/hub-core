@@ -5,7 +5,10 @@ import { env } from '@/config/env'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { apiLogger } from '@/shared/infra/logger'
-import { InvalidateSpaCache } from '@/modules/application/application/invalidate-spa-cache'
+import {
+  InvalidateSpaCache,
+  type EventVerb,
+} from '@/modules/application/application/invalidate-spa-cache'
 
 /**
  * Payload do webhook de saída do Bitrix.
@@ -49,15 +52,15 @@ const payloadSchema = z.object({
 const EVENT_PATTERN = /^ONCRMDYNAMICITEM(ADD|UPDATE|DELETE)(?:_(\d+))?$/i
 
 /**
- * O verbo do evento.
+ * O verbo do evento vive em `invalidate-spa-cache.ts`: a invalidação passou a decidir
+ * por ele (delete não lê o pai), e o tipo tem que ser o mesmo nos dois lados.
  *
- * `UNKNOWN` sobrou para o payload em que **não há nome de evento reconhecível** — só
- * `data[FIELDS][ENTITY_TYPE_ID]`. Ele nunca despacha provisionamento: inferir `ADD` ali
- * criaria instância que ninguém pediu, e o custo do contrário é só uma linha manual
- * esperando provisionamento — visível, e recuperável.
+ * `UNKNOWN` é o payload em que **não há nome de evento reconhecível** — só
+ * `data[FIELDS][ENTITY_TYPE_ID]`. Ele nunca despacha efeito nenhum: inferir `ADD` ali
+ * criaria instância que ninguém pediu, e inferir `DELETE` desassinaria recurso de
+ * cliente ativo. O custo do contrário é uma linha manual esperando provisionamento —
+ * visível, e recuperável.
  */
-type EventVerb = 'ADD' | 'UPDATE' | 'DELETE' | 'UNKNOWN'
-
 type ParsedEvent = { entityTypeId: number; verb: EventVerb } | null
 
 /**
@@ -108,11 +111,11 @@ function tokenMatches(received: string, expected: string): boolean {
 }
 
 /**
- * Enfileira o provisionamento de um item criado à mão na SPA de itens.
+ * Enfileira um job por id de item da SPA de itens.
  *
  * Dependência de **função**, não do caso de uso: é o que mantém o módulo `payments` sem
- * dependência do `thinkzap`, onde o provisionamento vive. O controller sabe que existe
- * uma fila; não sabe o que ela faz.
+ * dependência do `thinkzap`, onde provisionamento e limpeza vivem. O controller sabe que
+ * existe uma fila; não sabe o que ela faz.
  */
 export type EnqueueSpaItemProvisioning = (job: {
   itemId: string
@@ -120,8 +123,37 @@ export type EnqueueSpaItemProvisioning = (job: {
 }) => Promise<unknown>
 
 /**
+ * Desvincula o item espelho de uma instalação, resolvendo-a pelo id do item da SPA 1060.
+ *
+ * Função, e não o repositório, pela mesma razão das filas: o controller não precisa
+ * saber que existe Prisma do outro lado, e injetar o repositório traria com ele os
+ * outros oito métodos que este caminho não usa.
+ */
+export type UnlinkAplicationSpaItem = (itemId: string) => Promise<void>
+
+/**
+ * Os efeitos que o controller despacha depois de invalidar.
+ *
+ * Objeto, e não quatro parâmetros posicionais: são todos funções de assinatura
+ * parecida, e trocar duas de lugar numa fábrica compilaria — com o sintoma sendo um
+ * item provisionado quando devia ser limpo.
+ */
+export type SpaWebhookEffects = {
+  /** `ADD` na SPA 1146: provisiona o conector do item criado à mão. */
+  enqueueProvisioning: EnqueueSpaItemProvisioning
+  /** `DELETE` na SPA 1146: desassina e desconecta o recurso do item apagado. */
+  enqueueCleanup: EnqueueSpaItemProvisioning
+  /** `UPDATE` na SPA 1146: reconcilia o recurso com o status do item. */
+  enqueueStatusSync: EnqueueSpaItemProvisioning
+  /** `DELETE` na SPA 1060: devolve `core_apps.spa_id` a `NULL`. */
+  unlinkAplicationSpaItem: UnlinkAplicationSpaItem
+}
+
+/**
  * Recebe o webhook de saída das SPAs de billing e traduz o evento em invalidação de
- * cache — e, na criação de item de assinatura, no provisionamento do conector dele.
+ * cache — e, no item de assinatura, nos efeitos sobre o conector dele: provisionamento
+ * na criação, sincronização de status na edição, limpeza na exclusão. Na SPA de
+ * aplicação, a exclusão também desvincula o espelho da instalação.
  *
  * A rota é pública (sem JWT): quem chama é o Bitrix, não uma instalação. A
  * autenticação é o `application_token` do próprio payload — o webhook de saída não
@@ -129,20 +161,20 @@ export type EnqueueSpaItemProvisioning = (job: {
  *
  * Só duas respostas fogem de 200: token divergente (401) e segredo não configurado
  * (503). Todo o resto — evento de SPA que não é de billing, payload sem id, Redis
- * fora do ar — responde 200 com log, porque o pior caso de não invalidar é a entrada
- * morrer por TTL, que é o comportamento de antes deste endpoint existir.
+ * fora do ar, falha de enfileiramento — responde 200 com log, porque o Bitrix desativa
+ * handler de evento que erra em sequência, e handler desativado é falha silenciosa que
+ * só aparece semanas depois.
  */
 export class SpaWebhookController extends Controller {
   constructor(
     private readonly invalidate: InvalidateSpaCache,
     private readonly expectedToken: string,
-    private readonly enqueueProvisioning: EnqueueSpaItemProvisioning,
+    private readonly effects: SpaWebhookEffects,
   ) {
     super()
   }
 
   async perform(req: Request): Promise<httpResponse> {
-    console.log(req)
     if (!this.expectedToken) {
       apiLogger.warn(
         { app: 'payments' },
@@ -192,46 +224,82 @@ export class SpaWebhookController extends Controller {
     const { entityTypeId, verb } = parsedEvent
     const itemId = fields?.ID === undefined ? undefined : String(fields.ID)
 
-    const result = await this.invalidate.execute({ entityTypeId, itemId })
+    const result = await this.invalidate.execute({ entityTypeId, itemId, verb })
 
     /**
-     * O despacho vem **depois** da invalidação, e a ordem não é estética: o job relê o
-     * item do Bitrix e escreve credencial nele. Enfileirar antes deixaria o worker
-     * correndo contra uma entrada de cache velha da própria SPA que ele acabou de ler.
+     * Os despachos vêm **depois** da invalidação, e a ordem não é estética: os jobs
+     * releem o item do Bitrix. Enfileirar antes deixaria o worker correndo contra uma
+     * entrada de cache velha da própria SPA que ele acabou de ler.
      */
-    await this.dispatchProvisioning({ entityTypeId, verb, itemId, event })
+    await this.dispatchItemEffect({ entityTypeId, verb, itemId, event })
+    await this.dispatchAplicationUnlink({ entityTypeId, verb, itemId, event })
 
     return this.ok(result)
   }
 
   /**
-   * Enfileira o provisionamento quando, e só quando, um item de assinatura **nasceu**.
+   * Traduz o verbo do evento da SPA 1146 no efeito que ele tem sobre o conector.
    *
-   * `UPDATE` não despacha: trocar o provider de um item já provisionado é destruir um
-   * recurso e criar outro, com QR code novo para o cliente — operação própria, não efeito
-   * colateral de editar campo. `DELETE` também não: cancelar linha é `status:
-   * 'cancelled'`, e o ciclo de desassinatura tem dono em `ProviderResourceBilling`.
+   * Os três verbos têm efeitos **distintos**, e é por isso que são jobs distintos:
+   *
+   * - `ADD` provisiona: o item nasce declarando provider e sem recurso do outro lado.
+   * - `UPDATE` sincroniza status: o payload não traz o valor anterior do campo, então
+   *   quem compara é o job, contra a marca do espelho. Provisionar aqui está fora de
+   *   questão — trocar o provider de item já provisionado é destruir um recurso e criar
+   *   outro, com QR code novo para o cliente.
+   * - `DELETE` limpa: a credencial morreu com o item, e o recurso continua cobrado de
+   *   nós até alguém desassiná-lo.
+   *
+   * `UNKNOWN` não despacha nada. Inferir `ADD` criaria instância que ninguém pediu, e
+   * inferir `DELETE` desassinaria recurso de cliente ativo.
    */
-  private async dispatchProvisioning(args: {
+  private async dispatchItemEffect(args: {
     entityTypeId: number
     verb: EventVerb
     itemId: string | undefined
     event: string | undefined
   }): Promise<void> {
-    if (args.verb !== 'ADD') return
-    if (args.entityTypeId !== env.payments.spa.subscriptionItemEntityType)
-      return
+    if (args.entityTypeId !== env.payments.spa.subscriptionItemEntityType) return
+
+    const effect =
+      args.verb === 'ADD'
+        ? {
+            enqueue: this.effects.enqueueProvisioning,
+            missingIdMessage:
+              'Criação de item de assinatura sem id — nada a provisionar',
+            failureMessage:
+              'Não foi possível enfileirar o provisionamento do item — item criado à mão fica pendente',
+          }
+        : args.verb === 'UPDATE'
+          ? {
+              enqueue: this.effects.enqueueStatusSync,
+              missingIdMessage:
+                'Atualização de item de assinatura sem id — nada a sincronizar',
+              failureMessage:
+                'Não foi possível enfileirar a sincronização de status do item — o recurso fica com a cobrança divergente do status',
+            }
+          : args.verb === 'DELETE'
+            ? {
+                enqueue: this.effects.enqueueCleanup,
+                missingIdMessage:
+                  'Exclusão de item de assinatura sem id — nada a limpar',
+                failureMessage:
+                  'Não foi possível enfileirar a limpeza do item — o recurso fica órfão no provider',
+              }
+            : null
+
+    if (!effect) return
 
     if (!args.itemId) {
       apiLogger.warn(
         { app: 'payments', event: args.event },
-        'Criação de item de assinatura sem id — nada a provisionar',
+        effect.missingIdMessage,
       )
       return
     }
 
     try {
-      await this.enqueueProvisioning({
+      await effect.enqueue({
         itemId: args.itemId,
         traceKey: `spa-item-${args.itemId}`,
       })
@@ -239,12 +307,54 @@ export class SpaWebhookController extends Controller {
       /**
        * Falha de enfileiramento responde **200**, pela mesma razão que a falha de
        * invalidação responde: o Bitrix desativa handler que erra em sequência, e um
-       * handler desativado é falha silenciosa que só aparece semanas depois. O item fica
-       * pendente de provisionamento, e é este log que nomeia isso.
+       * handler desativado é falha silenciosa que só aparece semanas depois. O efeito
+       * fica pendente, e é este log que nomeia isso.
        */
       apiLogger.error(
-        { app: 'payments', itemId: args.itemId, err: error },
-        'Não foi possível enfileirar o provisionamento do item — item criado à mão fica pendente',
+        { app: 'payments', itemId: args.itemId, verb: args.verb, err: error },
+        effect.failureMessage,
+      )
+    }
+  }
+
+  /**
+   * Desvincula o espelho quando o item da SPA 1060 é apagado.
+   *
+   * Só no `DELETE`: editar o espelho não é apagá-lo. E só com id, porque sem ele não há
+   * instalação a resolver — adivinhar desvincularia outra.
+   *
+   * Item que não corresponde a instalação nenhuma é o caso **comum**, não a exceção:
+   * item da SPA 1060 criado e apagado à mão no CRM não espelha nada. Quem trata isso é
+   * o outro lado da função; aqui não há o que distinguir.
+   */
+  private async dispatchAplicationUnlink(args: {
+    entityTypeId: number
+    verb: EventVerb
+    itemId: string | undefined
+    event: string | undefined
+  }): Promise<void> {
+    if (args.verb !== 'DELETE') return
+    if (args.entityTypeId !== env.payments.spa.aplicationEntityType) return
+
+    if (!args.itemId) {
+      apiLogger.warn(
+        { app: 'payments', event: args.event },
+        'Exclusão na SPA de aplicação sem id — nada a desvincular',
+      )
+      return
+    }
+
+    try {
+      await this.effects.unlinkAplicationSpaItem(args.itemId)
+    } catch (error) {
+      /**
+       * `error` e 200: o vínculo pendurado permanece, e o caminho de correção é o
+       * backfill do vínculo — que revincula por par (domínio, app code). Propagar aqui
+       * só ensinaria o Bitrix a desativar o handler.
+       */
+      apiLogger.error(
+        { app: 'payments', spaId: args.itemId, err: error },
+        'Não foi possível desvincular o espelho da instalação — o vínculo fica pendurado até o backfill',
       )
     }
   }

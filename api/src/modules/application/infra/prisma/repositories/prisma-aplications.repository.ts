@@ -104,8 +104,9 @@ export class PrismaAplicationRepository implements AplicationRepository {
   }
 
   /**
-   * Única escrita do repositório. A violação da restrição única propaga: um item
-   * da SPA representando duas instalações é erro de dados, não caso a tratar.
+   * Uma das duas escritas do repositório. A violação da restrição única propaga:
+   * um item da SPA representando duas instalações é erro de dados, não caso a
+   * tratar.
    */
   async linkSpaItem(id: string, spaId: string): Promise<Aplication> {
     const existing = await this.prisma.app.findUnique({
@@ -122,6 +123,32 @@ export class PrismaAplicationRepository implements AplicationRepository {
     const row = await this.prisma.app.update({
       where: { id },
       data: { spaId },
+      include: INCLUDE_RELATIONS,
+    })
+
+    return this.hydrateOne(row)
+  }
+
+  /**
+   * A outra escrita: anula `spa_id`, e **só** ele. A linha de `core_apps`
+   * permanece com o mesmo `status` e `installed_at` — quem apagou foi o espelho
+   * de CRM, não a instalação, e deletar a instalação a partir de um evento de CRM
+   * inverteria a direção da verdade.
+   */
+  async unlinkSpaItem(id: string): Promise<Aplication> {
+    const existing = await this.prisma.app.findUnique({
+      where: { id },
+      include: INCLUDE_RELATIONS,
+    })
+    if (!existing) throw new AplicationNotFoundError(id)
+
+    // Já nulo: nada a escrever. Reentrega do evento de exclusão pelo Bitrix é
+    // esperada, e ela não pode custar um UPDATE por entrega.
+    if (existing.spaId === null) return this.hydrateOne(existing)
+
+    const row = await this.prisma.app.update({
+      where: { id },
+      data: { spaId: null },
       include: INCLUDE_RELATIONS,
     })
 

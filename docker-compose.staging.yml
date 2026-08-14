@@ -28,6 +28,18 @@ services:
       - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/workers/spa-item-provisioning.worker.js"]
 
+  # Limpeza do item apagado e sincronização de status do recurso. Processo próprio, e
+  # separado do de provisionamento: o volume é outro — toda edição de campo do item da
+  # SPA 1146 gera um evento aqui.
+  worker-spa-resource-sync:
+    image: ghcr.io/crmthink-sources/hub-core-api:staging
+    container_name: hubthink-worker-spa-resource-sync-staging
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "dist/src/workers/spa-item-resource-sync.worker.js"]
+
   worker-clicksign:
     image: ghcr.io/crmthink-sources/hub-core-api:staging
     container_name: hubthink-worker-clicksign-staging

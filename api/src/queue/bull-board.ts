@@ -5,6 +5,7 @@ import { ExpressAdapter } from '@bull-board/express'
 import { NextFunction, Request, RequestHandler, Response } from 'express'
 import { thinkzapInboundQueue } from './thinkzap-inbound.queue'
 import { spaItemProvisioningQueue } from './spa-item-provisioning.queue'
+import { spaItemResourceSyncQueue } from './spa-item-resource-sync.queue'
 import { importSheetRunQueue } from '@/modules/importsheet/queue/importsheet-run.queue'
 import { importSheetSchedulerQueue } from '@/modules/importsheet/queue/importsheet-scheduler.queue'
 
@@ -15,6 +16,7 @@ createBullBoard({
   queues: [
     new BullMQAdapter(thinkzapInboundQueue),
     new BullMQAdapter(spaItemProvisioningQueue),
+    new BullMQAdapter(spaItemResourceSyncQueue),
     new BullMQAdapter(importSheetRunQueue),
     new BullMQAdapter(importSheetSchedulerQueue),
   ],

@@ -22,6 +22,18 @@ import { ListOfferablePlans } from './list-offerable-plans'
 import { ProviderResourceBilling } from './provider-resource-billing'
 import { ProvisionLineFromSpaItem } from './provision-line-from-spa-item'
 
+/**
+ * Espelho do recurso: dublê que aceita tudo. O que ele grava é afirmado nos testes de
+ * `saveResourceMirror` e do repositório Redis; aqui ele existe para o fluxo não depender
+ * de Redis.
+ */
+const MIRRORS_DOUBLE = {
+  find: vi.fn(() => Promise.resolve(null)),
+  save: vi.fn(() => Promise.resolve()),
+  setUnsubscribed: vi.fn(() => Promise.resolve()),
+  remove: vi.fn(() => Promise.resolve()),
+}
+
 vi.mock('@/shared/infra/logger', () => ({
   apiLogger: {
     debug: vi.fn(),
@@ -133,6 +145,8 @@ const RAW_ZAPI_UNPROVISIONED: RawSubscriptionItem = {
   provider: 'ZAPI',
   credentials: {},
   subscriptionId: '99',
+  /** O provisionamento não olha o status: item nasce ativo, e cancelado não provisiona. */
+  status: 'active',
 }
 
 type Options = {
@@ -256,6 +270,7 @@ const makeUseCase = (options: Options = {}) => {
     gateway,
     providerResolver,
     providerBilling,
+    MIRRORS_DOUBLE,
   )
 
   return {

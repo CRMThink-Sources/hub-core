@@ -31,6 +31,18 @@ import type { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/
 import type { PaymentGateway } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 
+/**
+ * Espelho do recurso: dublê que aceita tudo. O que ele grava é afirmado nos testes de
+ * `saveResourceMirror` e do repositório Redis; aqui ele existe para o fluxo não depender
+ * de Redis.
+ */
+const MIRRORS_DOUBLE = {
+  find: vi.fn(() => Promise.resolve(null)),
+  save: vi.fn(() => Promise.resolve()),
+  setUnsubscribed: vi.fn(() => Promise.resolve()),
+  remove: vi.fn(() => Promise.resolve()),
+}
+
 vi.mock('@/shared/infra/logger', () => ({
   apiLogger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
 }))
@@ -261,6 +273,7 @@ const makeUseCase = (options: Options = {}) => {
       items,
       providerResolver,
       providerBilling,
+      MIRRORS_DOUBLE,
     ),
     createCheckoutSession,
     syncSubscriptionLineItems,

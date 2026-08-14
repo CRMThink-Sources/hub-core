@@ -8,6 +8,7 @@ import { Subscription } from '@/modules/application/domain/entities/subscription
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { SubscriptionRepository } from '@/modules/application/domain/repositories/subscription.repository'
 import { SubscriptionItemRepository } from '@/modules/application/domain/repositories/subscription-item.repository'
+import { SpaItemResourceMirrorRepository } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { PaymentGateway } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
@@ -20,6 +21,7 @@ import {
   buildContractLineItems,
 } from './helpers/build-contract-line-items'
 import { resourceRefOf, toLineMetadata } from './helpers/line-resource-metadata'
+import { saveResourceMirror } from './helpers/save-resource-mirror'
 import { resolveProvisioningAction } from './helpers/resolve-provisioning-action'
 import { ListOfferablePlans } from './list-offerable-plans'
 import { ProviderResourceBilling } from './provider-resource-billing'
@@ -98,6 +100,12 @@ export class ProvisionLineFromSpaItem {
     private readonly gateway: PaymentGateway | null,
     private readonly providerResolver: ConnectorProviderResolver,
     private readonly providerBilling: ProviderResourceBilling,
+    /**
+     * O espelho do recurso, gravado junto da credencial no item. É a única cópia que
+     * sobrevive ao item apagado, e sem ela a exclusão desta linha registraria recurso
+     * órfão em vez de limpá-lo.
+     */
+    private readonly mirrors: SpaItemResourceMirrorRepository,
   ) {}
 
   async execute(
@@ -160,6 +168,7 @@ export class ProvisionLineFromSpaItem {
         itemId: raw.id,
         provider: action.provider,
         customerName: parent.aplication.customer.name,
+        subscriptionId: parent.id,
       })
 
       if (!provisioned) return { outcome: 'orphaned', billingAdjusted: false }
@@ -196,6 +205,8 @@ export class ProvisionLineFromSpaItem {
     itemId: string
     provider: ConnectorProvider
     customerName: string
+    /** `parentId1142` do item, para o espelho do recurso. */
+    subscriptionId: string
   }): Promise<boolean> {
     const adapter = this.providerResolver.resolve(args.provider)
 
@@ -230,6 +241,19 @@ export class ProvisionLineFromSpaItem {
        * deu à linha.
        */
       await this.items.updateSubscriptionItem(args.itemId, { metadata })
+
+      /**
+       * O espelho vem logo depois, e a falha dele **não** derruba o provisionamento: linha
+       * provisionada sem espelho é degradação recuperável pelo backfill, enquanto linha não
+       * provisionada é cliente pagando pelo que não recebeu. Ver `saveMirror`.
+       */
+      await saveResourceMirror(this.mirrors, {
+        itemId: args.itemId,
+        provider: args.provider,
+        resource,
+        subscriptionId: args.subscriptionId,
+        log: args.log,
+      })
 
       return true
     } catch (error) {
