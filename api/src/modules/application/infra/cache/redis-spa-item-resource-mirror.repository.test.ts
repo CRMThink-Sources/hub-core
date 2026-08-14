@@ -74,7 +74,9 @@ describe('RedisSpaItemResourceMirrorRepository', () => {
     })
 
     expect(
-      await new RedisSpaItemResourceMirrorRepository(corrupted.redis).find('77'),
+      await new RedisSpaItemResourceMirrorRepository(corrupted.redis).find(
+        '77',
+      ),
     ).toBeNull()
     expect(
       await new RedisSpaItemResourceMirrorRepository(invalid.redis).find('77'),
@@ -96,15 +98,18 @@ describe('RedisSpaItemResourceMirrorRepository', () => {
 
   it('limpa a marca removendo o campo do JSON, não gravando undefined', async () => {
     const { redis, store } = makeRedis({
-      [KEY]: JSON.stringify({ ...ZAPI, unsubscribedAt: '2026-08-01T00:00:00Z' }),
+      [KEY]: JSON.stringify({
+        ...ZAPI,
+        unsubscribedAt: '2026-08-01T00:00:00Z',
+      }),
     })
     const repo = new RedisSpaItemResourceMirrorRepository(redis)
 
     await repo.setUnsubscribed('77', false)
 
-    expect(Object.keys(JSON.parse(store.get(KEY)!))).not.toContain(
-      'unsubscribedAt',
-    )
+    const stored = JSON.parse(store.get(KEY)!) as Record<string, unknown>
+
+    expect(Object.keys(stored)).not.toContain('unsubscribedAt')
     expect((await repo.find('77'))?.unsubscribedAt).toBeUndefined()
   })
 

@@ -58,8 +58,12 @@ export function resolveMirrorBackfill(
     mirror: {
       provider: resource.provider,
       instanceId: resource.instanceId,
-      ...(resource.zApiToken !== undefined && { zApiToken: resource.zApiToken }),
-      ...(resource.channelId !== undefined && { channelId: resource.channelId }),
+      ...(resource.zApiToken !== undefined && {
+        zApiToken: resource.zApiToken,
+      }),
+      ...(resource.channelId !== undefined && {
+        channelId: resource.channelId,
+      }),
       subscriptionId: item.subscriptionId,
     },
   }

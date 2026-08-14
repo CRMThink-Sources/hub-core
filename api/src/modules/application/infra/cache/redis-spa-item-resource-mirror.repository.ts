@@ -21,9 +21,7 @@ import {
  * aceitável pelo tamanho — uma chave por linha viva, ordem de centenas — e o `remove` do
  * job de limpeza é o recolhedor.
  */
-export class RedisSpaItemResourceMirrorRepository
-  implements SpaItemResourceMirrorRepository
-{
+export class RedisSpaItemResourceMirrorRepository implements SpaItemResourceMirrorRepository {
   constructor(private readonly redis: IORedis) {}
 
   async find(itemId: string): Promise<SpaItemResourceMirror | null> {

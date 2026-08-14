@@ -241,7 +241,11 @@ describe('SpaWebhookController', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(execute).toHaveBeenCalledWith({ entityTypeId: 1050, itemId: '1', verb: 'UPDATE' })
+    expect(execute).toHaveBeenCalledWith({
+      entityTypeId: 1050,
+      itemId: '1',
+      verb: 'UPDATE',
+    })
   })
 
   it('responde 200 quando o payload não traz id de item', async () => {

@@ -188,8 +188,12 @@ export class ProviderResourceBilling {
      */
     const ref: ConnectorResourceRef = {
       instanceId: resource.instanceId,
-      ...(resource.zApiToken !== undefined && { zApiToken: resource.zApiToken }),
-      ...(resource.channelId !== undefined && { channelId: resource.channelId }),
+      ...(resource.zApiToken !== undefined && {
+        zApiToken: resource.zApiToken,
+      }),
+      ...(resource.channelId !== undefined && {
+        channelId: resource.channelId,
+      }),
     }
     const reason = REASON_BY_ORIGIN[options?.origin ?? 'gateway-event']
 
@@ -227,7 +231,6 @@ export class ProviderResourceBilling {
       if (options?.propagate) throw error
     }
   }
-
 }
 
 /**
