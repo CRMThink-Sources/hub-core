@@ -18,7 +18,10 @@ import {
   buildContractLineItems,
 } from './helpers/build-contract-line-items'
 import { ListOfferablePlans } from './list-offerable-plans'
-import { ProviderResourceBilling, providerOf } from './provider-resource-billing'
+import {
+  ProviderResourceBilling,
+  providerOf,
+} from './provider-resource-billing'
 
 export type CleanupDeletedSpaItemLineInput = {
   /** Id do item apagado na SPA 1146, como vem no evento do webhook. */
@@ -28,8 +31,7 @@ export type CleanupDeletedSpaItemLineInput = {
 }
 
 export type CleanupDeletedSpaItemLineResult = {
-  outcome:
-    /** Recurso desassinado e desconectado, espelho apagado. */
+  outcome: /** Recurso desassinado e desconectado, espelho apagado. */
     | 'cleaned'
     /** Sem espelho: recurso irresolvível, e é o que o log nomeia. */
     | 'missing-mirror'

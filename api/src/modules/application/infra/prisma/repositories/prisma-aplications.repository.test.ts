@@ -343,7 +343,9 @@ describe('PrismaAplicationRepository', () => {
     })
 
     it('não escreve quando o spaId já é nulo', async () => {
-      const { prisma, update } = makePrisma({ findUnique: row({ spaId: null }) })
+      const { prisma, update } = makePrisma({
+        findUnique: row({ spaId: null }),
+      })
       const titles = makeTitles()
 
       const aplication = await new PrismaAplicationRepository(
@@ -384,9 +386,7 @@ describe('PrismaAplicationRepository', () => {
         expect.objectContaining({ data: { spaId: null } }),
       )
       expect(aplication.active).toBe(true)
-      expect(aplication.createdAt).toEqual(
-        new Date('2026-01-01T00:00:00.000Z'),
-      )
+      expect(aplication.createdAt).toEqual(new Date('2026-01-01T00:00:00.000Z'))
     })
   })
 })

@@ -231,7 +231,9 @@ describe('SyncSpaItemResourceStatus', () => {
   })
 
   it('desassina sem espelhar quando o item não tem assinatura pai', async () => {
-    const items = makeItems(rawItem({ status: 'cancelled', subscriptionId: null }))
+    const items = makeItems(
+      rawItem({ status: 'cancelled', subscriptionId: null }),
+    )
     const mirrors = makeMirrors(null)
     const billing = makeBilling()
 

@@ -3,8 +3,13 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { THINKANALISE_ERRORS } from './catalog'
 
-// Guardrail do casamento log ↔ runbook (ver tasks/geral/suporte.md).
-const RUNBOOKS_ROOT = path.resolve(__dirname, '../../../../../mcp/kb/runbooks')
+// Guardrail do casamento log ↔ runbook (ver tasks/geral/suporte.md). errorCode
+// espelha o caminho do runbook (dots → pastas), sob mcp/kb/runbooks/hubcore —
+// mesmo root dos catálogos de thinkzap, clicksign e importsheet.
+const RUNBOOKS_ROOT = path.resolve(
+  __dirname,
+  '../../../../../mcp/kb/runbooks/hubcore',
+)
 const THINKANALISE_DIR = path.join(RUNBOOKS_ROOT, 'thinkanalise')
 
 const EMITTED = new Set<string>(Object.keys(THINKANALISE_ERRORS))

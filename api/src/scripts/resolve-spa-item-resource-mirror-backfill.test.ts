@@ -54,9 +54,7 @@ describe('resolveMirrorBackfill', () => {
 
     expect(outcome.kind).toBe('mirror')
     expect(
-      Object.keys(
-        (outcome as { mirror: Record<string, unknown> }).mirror,
-      ),
+      Object.keys((outcome as { mirror: Record<string, unknown> }).mirror),
     ).not.toContain('unsubscribedAt')
   })
 

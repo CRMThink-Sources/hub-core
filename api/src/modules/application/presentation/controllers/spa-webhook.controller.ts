@@ -259,7 +259,8 @@ export class SpaWebhookController extends Controller {
     itemId: string | undefined
     event: string | undefined
   }): Promise<void> {
-    if (args.entityTypeId !== env.payments.spa.subscriptionItemEntityType) return
+    if (args.entityTypeId !== env.payments.spa.subscriptionItemEntityType)
+      return
 
     const effect =
       args.verb === 'ADD'

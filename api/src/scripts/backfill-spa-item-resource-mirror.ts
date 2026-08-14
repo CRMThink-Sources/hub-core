@@ -83,7 +83,9 @@ async function main(): Promise<void> {
   const mirrors = new RedisSpaItemResourceMirrorRepository(redisConnection)
 
   const items = await listAllItems(bitrix)
-  console.log(`Itens na SPA ${env.payments.spa.subscriptionItemEntityType}: ${items.length}`)
+  console.log(
+    `Itens na SPA ${env.payments.spa.subscriptionItemEntityType}: ${items.length}`,
+  )
 
   let written = 0
   let failed = 0
@@ -92,9 +94,14 @@ async function main(): Promise<void> {
   for (const raw of items) {
     const outcome = resolveMirrorBackfill({
       id: String(raw.id),
-      provider: String(raw[SUBSCRIPTION_ITEM_PROVIDER_FIELD] ?? '')
-        .trim()
-        .toUpperCase(),
+      /**
+       * Pelo `text`, não por `String(...)`: o campo é `unknown` no `RawItem`, e
+       * `String` de um objeto entrega `[object Object]` como se fosse provider.
+       * O que não for string vira ausência, igual ao leitor cru.
+       */
+      provider: (
+        text(raw[SUBSCRIPTION_ITEM_PROVIDER_FIELD]) ?? ''
+      ).toUpperCase(),
       credentials: {
         ...(text(raw.ufCrm93ZApiInstanceId) && {
           zApiInstanceId: text(raw.ufCrm93ZApiInstanceId),

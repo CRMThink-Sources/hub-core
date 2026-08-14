@@ -161,11 +161,19 @@ export class SyncSpaItemResourceStatus {
      * gravá-lo antes deixaria um espelho sem marca caso a chamada ao provider falhasse,
      * que é indistinguível de recurso assinado.
      */
-    await this.ensureMirror(args.input.itemId, args.resource, args.item.subscriptionId)
+    await this.ensureMirror(
+      args.input.itemId,
+      args.resource,
+      args.item.subscriptionId,
+    )
     await this.mirrors.setUnsubscribed(args.input.itemId, true)
 
     apiLogger.info(
-      { ...args.log, provider: args.resource.provider, resourceId: args.resource.instanceId },
+      {
+        ...args.log,
+        provider: args.resource.provider,
+        resourceId: args.resource.instanceId,
+      },
       'Item cancelado na SPA — recurso desassinado no provider',
     )
 
@@ -185,7 +193,11 @@ export class SyncSpaItemResourceStatus {
     await this.mirrors.setUnsubscribed(args.input.itemId, false)
 
     apiLogger.info(
-      { ...args.log, provider: args.resource.provider, resourceId: args.resource.instanceId },
+      {
+        ...args.log,
+        provider: args.resource.provider,
+        resourceId: args.resource.instanceId,
+      },
       'Item devolvido a ativo na SPA — recurso reassinado no provider',
     )
 
@@ -217,8 +229,12 @@ export class SyncSpaItemResourceStatus {
     const mirror: SaveSpaItemResourceMirrorInput = {
       provider: resource.provider,
       instanceId: resource.instanceId,
-      ...(resource.zApiToken !== undefined && { zApiToken: resource.zApiToken }),
-      ...(resource.channelId !== undefined && { channelId: resource.channelId }),
+      ...(resource.zApiToken !== undefined && {
+        zApiToken: resource.zApiToken,
+      }),
+      ...(resource.channelId !== undefined && {
+        channelId: resource.channelId,
+      }),
       subscriptionId,
     }
 
