@@ -53,6 +53,22 @@ export async function processWidgetOpenChannelJob(
     providerMessageId,
   }
 
+  /**
+   * A primeira linha da aba precisa dizer **qual mensagem** este job acompanha.
+   *
+   * Sem ela, um job que termina em `toggle-off` mostra só "toggle desligado" e não há
+   * como saber de que envio ele veio — foi a lacuna que apareceu investigando "o widget
+   * disse que enviou e não chegou". Com o `providerMessageId` aqui, dá para consultar a
+   * mensagem no painel da Z-API e separar "nunca saiu" de "saiu e não foi entregue".
+   *
+   * O envio em si **já aconteceu** quando este job roda: ele é efeito colateral. Se a
+   * mensagem não chegou ao telefone, o problema não está neste job.
+   */
+  await appendJobLog(
+    `Abertura de conversa para a mensagem ${providerMessageId} → ${destination}. ` +
+      'O envio ao contato já ocorreu antes deste job.',
+  )
+
   const domain = await new PrismaDomainRepository().getDomainById(domainId)
   if (!domain) {
     log.warn(

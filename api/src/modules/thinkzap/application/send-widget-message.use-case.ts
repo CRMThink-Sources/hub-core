@@ -194,6 +194,38 @@ export class SendWidgetMessageUseCase {
       })
     }
 
+    /**
+     * O registro do que **este request** entregou.
+     *
+     * Este caminho é síncrono: não há job, e portanto não há aba de Logs no Bull Board
+     * onde procurar depois. Sem esta linha, um envio por aqui não deixa rastro
+     * correlacionável — que é exatamente o caso de "o widget disse que enviou e não
+     * chegou no telefone".
+     *
+     * `missingProviderMessageId` marca o estado que a tipagem não admite mas a rede
+     * produz: `200` da Z-API sem `messageId`. Ele vira `providerMessageId` nulo na
+     * persistência, e sem a marca ninguém saberia de onde veio.
+     */
+    apiLogger.info(
+      {
+        app: 'thinkzap',
+        deliveryPath: 'sync',
+        subscriptionItemId,
+        instanceId: instance.id,
+        zApiInstanceId: line.zApiInstanceId,
+        destination: normalizedPhone,
+        sentCount: sentMessages.length,
+        sent: sentMessages.map(item => ({
+          providerMessageId: item.providerMessageId,
+          type: item.type,
+        })),
+        missingProviderMessageId: sentMessages.some(
+          item => !item.providerMessageId,
+        ),
+      },
+      'Envio pelo widget concluído no request (caminho síncrono)',
+    )
+
     for (const sent of sentMessages) {
       await this.messageRepository.create({
         instanceId: instance.id,

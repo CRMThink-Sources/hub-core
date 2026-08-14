@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios'
 import { thinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { attachProviderHttpLogging } from '@/shared/infra/clients/provider-http-logging'
 import {
   ConnectHubMessageChannelParams,
   CreateHubMessageChannelParams,
@@ -61,6 +62,14 @@ export class HubMessageClient {
         'Content-Type': 'application/json',
       },
     })
+    /**
+     * Antes do interceptor de tradução abaixo: o log precisa ver o `AxiosError` cru,
+     * com `response.data` intacto. Registrado depois, ele receberia o
+     * `HubMessageApiError` já embrulhado e perderia o corpo — que é onde a HubMessage
+     * diz o motivo real da recusa.
+     */
+    attachProviderHttpLogging(this.http, 'HUBMESSAGE')
+
     this.http.interceptors.response.use(undefined, (error: unknown) => {
       if (axios.isAxiosError(error)) {
         throw new HubMessageApiError(
