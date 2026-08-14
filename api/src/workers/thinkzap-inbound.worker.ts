@@ -19,14 +19,14 @@ import {
 import { workerLogger } from '@/shared/infra/logger'
 
 /**
- * Este entrypoint é o processo de worker do thinkzap, não só o do inbound: o import
- * abaixo registra o `Worker` da fila `thinkzap-widget-outbound` no mesmo processo.
+ * Este entrypoint é **só o inbound**.
  *
- * É o que evita um serviço novo no `docker-compose` — o `command` de produção aponta
- * para este arquivo. Ver `thinkzap-widget-outbound.worker.ts`.
+ * O `Worker` da fila `thinkzap-widget-outbound` chegou a ser registrado aqui, enquanto
+ * aquela fila só carregava a abertura de conversa no canal aberto. Saiu para processo
+ * próprio quando passou a carregar a entrega da mensagem ao contato: um envio lento
+ * segurando slot de mensagem recebida, e um reinício derrubando os dois fluxos, é o
+ * que a separação evita. Ver o serviço `worker-widget-outbound` no compose.
  */
-import './thinkzap-widget-outbound.worker'
-
 async function processJob(data: ThinkzapInboundJob) {
   if (data.source === 'z-api') {
     workerLogger.debug(

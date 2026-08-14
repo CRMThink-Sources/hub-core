@@ -89,6 +89,33 @@ docker compose restart api
 docker compose pull && docker compose up -d
 ```
 
-## Bitrix24 — widget de áudio (dev local)
+### Fila de envio do widget — o que conferir depois do deploy
 
-Ver [docs/DEV-BITRIX.md](docs/DEV-BITRIX.md): túneis, `BITRIX_IFRAME_AUDIO_URL`, erro `Unexpected token '<'` e proxy `/api` no `next dev`.
+O provisionamento é automático: o CI copia os compose files e roda `up -d
+--remove-orphans`, então serviço novo no arquivo sobe junto. O que vale conferir é se o
+consumidor da fila de envio do widget está de pé — sem ele, a API continua aceitando
+mensagem e respondendo `202`, o operador vê "Mensagem na fila", e nada é entregue.
+Nenhum erro aparece em lugar nenhum.
+
+```bash
+docker compose logs worker-widget-outbound | grep "widget outbound worker is ready"
+```
+
+Se houver suspeita de fila parada:
+
+```sql
+SELECT status, COUNT(*) FROM core_thinkerszap_widget_outbox GROUP BY status;
+```
+
+- `PENDING` antigo → fila sem consumidor no período. Drena sozinho quando o worker sobe.
+- `UNKNOWN` → processo morreu durante a chamada ao provider. **Não é reenviado de
+  propósito** — pode ter sido entregue. O operador já foi avisado na timeline para
+  conferir antes de reenviar.
+
+## Desenvolvimento local
+
+- [docs/DEV-WORKERS.md](docs/DEV-WORKERS.md) — **workers e filas**. O compose de dev não
+  sobe worker nenhum; cada fila precisa do processo rodando à mão, e esquecer não gera
+  erro. É a causa mais comum de "enviei e não aconteceu nada" localmente.
+- [docs/DEV-BITRIX.md](docs/DEV-BITRIX.md) — widget de áudio: túneis,
+  `BITRIX_IFRAME_AUDIO_URL`, erro `Unexpected token '<'` e proxy `/api` no `next dev`.

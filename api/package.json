@@ -12,6 +12,7 @@
     "test": "node node_modules/vitest/vitest.mjs run",
     "test:watch": "node node_modules/vitest/vitest.mjs",
     "worker:thinkzap": "tsx src/workers/thinkzap-inbound.worker.ts",
+    "worker:widget-outbound": "tsx src/workers/thinkzap-widget-outbound.worker.ts",
     "worker:spa-provisioning": "tsx src/workers/spa-item-provisioning.worker.ts",
     "worker:spa-resource-sync": "tsx src/workers/spa-item-resource-sync.worker.ts",
     "worker:importsheet": "tsx src/modules/importsheet/worker/importsheet.worker.ts",
