@@ -16,13 +16,20 @@ vi.mock('axios', () => {
     get: vi.fn(),
     put: vi.fn(),
     delete: vi.fn(),
-    interceptors: { response: { use: vi.fn() } },
+    /**
+     * `request` além de `response`: o client registra o interceptor de log
+     * (`attachProviderHttpLogging`), que mede a duração da chamada no request e a
+     * consome na resposta. Mock sem `request` derruba o construtor.
+     */
+    interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } },
   }
   return {
     default: {
       create: vi.fn(() => instance),
       isAxiosError: vi.fn(() => false),
     },
+    /** O interceptor de log faz `error instanceof AxiosError`. */
+    AxiosError: class AxiosError extends Error {},
   }
 })
 

@@ -124,6 +124,78 @@ Se o log não tiver nada, o estado está no banco:
 SELECT status, COUNT(*) FROM core_thinkerszap_widget_outbox GROUP BY status;
 ```
 
+### "O widget disse que enviou e não chegou no telefone"
+
+O passo que separa **nosso problema** do problema do provider é descobrir se a Z-API
+aceitou o envio e com qual id:
+
+```logql
+{job="docker", app="thinkzap"} | json | operation =~ "send.*" | phone = "5511999999999"
+```
+
+A linha `Z-API aceitou o envio` traz `zaapId`, `messageId` e `zApiId`.
+
+**Aceite não é entrega.** Ele significa só "recebi a ordem de enviar"; a entrega ao
+aparelho é assíncrona e chega depois pelo `MessageStatusCallback`. Então:
+
+| O que o log mostra                          | Conclusão                                              |
+| ------------------------------------------- | ------------------------------------------------------ |
+| Nenhuma linha `Z-API aceitou o envio`        | A chamada nunca aconteceu ou falhou — **problema nosso** |
+| Aceitou, com `messageId`                     | Saiu daqui. Consultar o `messageId` no painel da Z-API — **problema do provider ou do número** |
+| Aceitou, com `missingMessageId: true`        | `200` sem id: a Z-API respondeu de forma inesperada. O `providerMessageId` vai nulo na persistência |
+
+Causas comuns quando a Z-API aceita e o aparelho não recebe: número sem WhatsApp,
+número com o 9º dígito errado, ou instância desconectada logo após o aceite.
+
+### Logs de provider (Z-API e HubMessage)
+
+Os dois clients são instrumentados por interceptor de axios, então **toda** chamada é
+registrada — não só envio.
+
+```logql
+# Toda falha de provider, com o corpo da resposta (é onde está o motivo real)
+{job="docker", app="thinkzap"} | json | provider =~ "ZAPI|HUBMESSAGE" |= "Provider falhou"
+
+# Só HubMessage (WhatsApp Oficial)
+{job="docker", app="thinkzap"} | json | provider = "HUBMESSAGE"
+```
+
+Campos:
+
+| Campo        | Para que serve                                                        |
+| ------------ | --------------------------------------------------------------------- |
+| `status`     | Código HTTP. Ausente = não houve resposta                              |
+| `response`   | **Corpo da resposta** — onde a Z-API diz "número não existe no WhatsApp" e a HubMessage diz "fora da janela de 24h" |
+| `noResponse` | `true` = timeout/DNS/conexão. Num envio, é a diferença entre recusado e **indeterminado** |
+| `durationMs` | Latência da chamada                                                   |
+| `url`        | Caminho **com o token mascarado**                                      |
+
+Sucesso sai em `debug` para não gerar uma linha por chamada no volume normal; **falha
+sai sempre em `error`**. Para investigar a fundo, suba `LOG_LEVEL` para `debug` e as
+requisições bem-sucedidas passam a aparecer com corpo de resposta e duração.
+
+> **Credencial nunca é logada.** A Z-API põe o token no caminho da URL e ele é mascarado
+> (`/token/***`); headers não são registrados em nenhum dos dois. Corpo de requisição
+> também não — é a mensagem do cliente final e, em mídia, base64 de dezenas de MB; só o
+> tamanho (`requestBytes`) entra. Resposta acima de 2000 chars vira o tamanho, para não
+> despejar QR code no Loki.
+
+### Qual caminho entregou a mensagem?
+
+Nem todo envio do widget passa pela fila, e isso muda onde procurar:
+
+```logql
+# Entregue dentro do request (anexo e template)
+{job="docker", app="thinkzap"} | json | deliveryPath = "sync"
+```
+
+- Achou `deliveryPath: sync` → foi anexo ou template. **Não existe job de envio**, e o
+  único job na fila é o de abertura de conversa.
+- Não achou → foi texto, entregue pelo worker. Procure o job `widget-send:<outboxId>`.
+
+Um job de `open-channel` sozinho, sem job de envio, significa caminho síncrono. A
+primeira linha dele traz o `providerMessageId` para continuar a investigação acima.
+
 ## Campos úteis para filtro (JSON)
 
 - `app`, `source`, `messageId`, `instanceId`, `jobId`, `path`, `level`
