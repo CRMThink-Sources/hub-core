@@ -1,5 +1,6 @@
 import { Request } from 'express'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
+import { BullMqOpenChannelConversationQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
 import { SendWidgetTemplateUseCase } from '@/modules/thinkzap/application/send-widget-template.use-case'
 import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
 import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
@@ -13,13 +14,15 @@ export const makeSendWidgetTemplateController = async (
   req: Request,
 ): Promise<Controller> => {
   const bitrix = await makeBitrixClient(req)
+  const messageRepo = new PrismaThinkzapMessageRepository()
 
   const useCase = new SendWidgetTemplateUseCase(
     makeGetAplicationContext(),
     new PrismaInstanceRepository(),
     makeTemplateSenderResolver(),
     new BitrixLivefeedNotificationService(bitrix),
-    new PrismaThinkzapMessageRepository(),
+    messageRepo,
+    new BullMqOpenChannelConversationQueue(),
   )
 
   return new SendWidgetTemplateController(useCase)

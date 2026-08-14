@@ -50,6 +50,17 @@ export abstract class Controller {
     return { status: 200, result: data }
   }
 
+  /**
+   * Aceito, ainda não concluído.
+   *
+   * Para as operações que ficam duráveis no request e são executadas depois — o envio
+   * pelo widget é a primeira. Responder `200` nesses casos afirmaria uma conclusão que
+   * não aconteceu, e o cliente não teria como distinguir "feito" de "aceito".
+   */
+  protected accepted(data: unknown): httpResponse {
+    return { status: 202, result: data }
+  }
+
   async handle(req: Request, res: Response) {
     const initTime = Date.now()
     const traceId = randomUUID()

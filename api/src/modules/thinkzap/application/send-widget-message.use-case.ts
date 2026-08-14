@@ -1,5 +1,7 @@
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
+import { apiLogger } from '@/shared/infra/logger'
 import { assertLineConnected } from './helpers/assert-line-connected'
 import { ensureLineInstance } from './helpers/ensure-line-instance'
 import {
@@ -14,14 +16,40 @@ import {
   normalizePhoneNumber,
 } from '@/shared/helpers/normalize-phone-number'
 import { SendNotification } from '@/shared/data/contracts/send-notification'
-import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
-import { env } from '@/config/env'
 import {
   SendWidgetMessageInput,
   SendWidgetMessageResult,
+  WidgetAttachmentKind,
   WidgetMessageAttachmentInput,
 } from './send-widget-message.types'
 import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositories/prisma-thinkzap-message.repository'
+import { OpenChannelConversationQueue } from '@/modules/thinkzap/domain/ports/open-channel-queue.port'
+import { resolveOpenChannelText } from './helpers/describe-attachment-text'
+
+/** Uma mensagem aceita pelo provider — uma row de `core_thinkerszap_messages`. */
+type SentMessage = {
+  providerMessageId: string
+  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT'
+  text: string | null
+  fileName: string | null
+}
+
+/**
+ * O `type` persistido de cada tipo de anexo do widget.
+ *
+ * O caminho antigo gravava `type: 'TEXT'` fixo para o envio inteiro, então a row de
+ * uma imagem mentia o tipo — e o quote de reply decide o formato do BBCode por
+ * `type`.
+ */
+const TYPE_BY_ATTACHMENT_KIND: Record<
+  WidgetAttachmentKind,
+  SentMessage['type']
+> = {
+  image: 'IMAGE',
+  video: 'VIDEO',
+  audio: 'AUDIO',
+  file: 'DOCUMENT',
+}
 
 export class SendWidgetMessageUseCase {
   constructor(
@@ -31,7 +59,16 @@ export class SendWidgetMessageUseCase {
     private readonly zApiClient: ZApiClient,
     private readonly sendBitrixNotification: SendNotification,
     private readonly messageRepository: PrismaThinkzapMessageRepository,
-    private readonly bitrixClient: BitrixClient,
+    /**
+     * A abertura da conversa no canal aberto, **enfileirada**.
+     *
+     * Era chamada direta aqui dentro; virou job para ganhar retentativa — Bitrix fora
+     * por trinta segundos deixava a conversa sem abrir e ninguém tentava de novo. É
+     * seguro retentar porque a abertura é idempotente pelo `chat_id` persistido.
+     *
+     * Um port, e não a fila concreta: este use case é testado sem Redis.
+     */
+    private readonly openChannelQueue: OpenChannelConversationQueue,
   ) {}
 
   async execute(
@@ -109,7 +146,14 @@ export class SendWidgetMessageUseCase {
       throw new Error('Invalid destination phone number')
     }
 
-    const sentMessageIds: string[] = []
+    /**
+     * Uma entrada por mensagem aceita pelo provider, e não só os ids: o tipo e o
+     * nome do arquivo de cada uma precisam chegar até a persistência. O caminho
+     * antigo guardava apenas `string[]`, gravava **uma** row com o primeiro id e
+     * `type: 'TEXT'` fixo — então um envio de texto com dois anexos virava três
+     * mensagens no WhatsApp e uma row mentindo o tipo.
+     */
+    const sentMessages: SentMessage[] = []
 
     if (message?.trim()) {
       const result = await this.zApiClient.sendMessage(
@@ -119,7 +163,12 @@ export class SendWidgetMessageUseCase {
         normalizedPhone,
       )
 
-      sentMessageIds.push(result.messageId)
+      sentMessages.push({
+        providerMessageId: result.messageId,
+        type: 'TEXT',
+        text: message.trim(),
+        fileName: null,
+      })
     }
 
     for (const attachment of attachments) {
@@ -129,15 +178,56 @@ export class SendWidgetMessageUseCase {
         line.zApiInstanceToken,
         normalizedPhone,
       )
-      sentMessageIds.push(messageId)
+
+      const type = TYPE_BY_ATTACHMENT_KIND[attachment.kind]
+
+      sentMessages.push({
+        providerMessageId: messageId,
+        type,
+        text: null,
+        /**
+         * Só documento persiste `fileName` — imagem, vídeo e áudio nunca gravaram o
+         * nome do arquivo, e o fluxo do operador (`persistOutboundMessage`) faz o
+         * mesmo recorte.
+         */
+        fileName: type === 'DOCUMENT' ? (attachment.name ?? null) : null,
+      })
     }
 
-    await this.messageRepository.create({
+    for (const sent of sentMessages) {
+      await this.messageRepository.create({
+        instanceId: instance.id,
+        source: 'BITRIX',
+        providerMessageId: sent.providerMessageId,
+        type: sent.type,
+        text: sent.text,
+        fileName: sent.fileName,
+      })
+    }
+
+    /**
+     * A conversa do canal aberto é enfileirada aqui, **uma vez por envio** — não uma
+     * vez por mídia, que dobraria o prefixo `[Mensagem enviada a partir do CRM]` no
+     * histórico do cliente.
+     *
+     * Ancorada na **primeira** mensagem enviada: é a row cujo `chat_id` guarda a
+     * sessão, e é por ela que o guard de idempotência decide.
+     *
+     * Depois da persistência, porque o worker vai ler essa row para decidir se a
+     * conversa já está aberta. Enfileirar antes abriria uma corrida com a própria
+     * escrita — exatamente o defeito que o callback de status tinha.
+     */
+    await this.openConversation({
+      subscriptionItemId,
+      domainId,
+      appCode,
       instanceId: instance.id,
-      source: 'BITRIX',
-      providerMessageId: sentMessageIds[0] as string,
-      type: 'TEXT',
-      text: message?.trim() || null,
+      providerMessageId: sentMessages[0]?.providerMessageId,
+      destination: normalizedPhone,
+      text: resolveOpenChannelText(
+        message,
+        attachments.map(attachment => attachment.kind),
+      ),
     })
 
     await this.sendBitrixNotification.execute({
@@ -149,7 +239,48 @@ export class SendWidgetMessageUseCase {
     return {
       message: 'Message sent successfully',
       destination: normalizedPhone,
-      sentMessageIds,
+      sentMessageIds: sentMessages.map(sent => sent.providerMessageId),
+    }
+  }
+
+  /**
+   * `try/catch` em volta de um `enqueue`: a mensagem **já está no telefone do
+   * contato** quando isto roda. Redis fora não pode virar `500` na tela — o operador
+   * reenviaria e o contato receberia duas vezes, desfecho pior do que uma conversa
+   * que não abriu.
+   *
+   * O que se perde nesse caso é a conversa daquela mensagem, e não há retentativa
+   * possível: enfileirar é o que cria a retentativa. É o único ponto do fluxo em que
+   * uma falha ainda é definitiva, e é por isso que o callback de status da Z-API
+   * continua existindo como reparo.
+   */
+  private async openConversation(input: {
+    subscriptionItemId: string
+    domainId: string
+    appCode: string
+    instanceId: string
+    providerMessageId: string | undefined
+    destination: string
+    text: string | null
+  }): Promise<void> {
+    const { providerMessageId, text } = input
+    if (!providerMessageId || !text) return
+
+    try {
+      await this.openChannelQueue.enqueue({
+        subscriptionItemId: input.subscriptionItemId,
+        domainId: input.domainId,
+        appCode: input.appCode,
+        instanceId: input.instanceId,
+        providerMessageId,
+        destination: input.destination,
+        text,
+      })
+    } catch (err) {
+      apiLogger.error(
+        { app: 'thinkzap', subscriptionItemId: input.subscriptionItemId, err },
+        'Não foi possível enfileirar a abertura da conversa; envio preservado',
+      )
     }
   }
 

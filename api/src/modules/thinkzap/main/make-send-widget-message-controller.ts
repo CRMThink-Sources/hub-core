@@ -1,11 +1,12 @@
 import { Controller } from '@/shared/presentation/controller'
 import { SendWidgetMessageController } from '../presentation/controllers/send-widget-message.controller'
-import { makeSendWidgetMessageUseCase } from './make-send-widget-message-use-case'
-import { Request } from 'express'
+import { makeEnqueueWidgetMessageUseCase } from './make-enqueue-widget-message-use-case'
 
-export const makeSendWidgetMessageController = async (
-  req: Request,
-): Promise<Controller> => {
-  const sendWidgetMessage = await makeSendWidgetMessageUseCase(req)
-  return new SendWidgetMessageController(sendWidgetMessage)
+/**
+ * Deixou de receber `req`: o caminho de texto não toca o Bitrix no request. O cliente
+ * Bitrix existia aqui só para o comentário de timeline, que migrou para o worker junto
+ * com o envio.
+ */
+export const makeSendWidgetMessageController = (): Controller => {
+  return new SendWidgetMessageController(makeEnqueueWidgetMessageUseCase())
 }

@@ -93,6 +93,45 @@ export function toQuoteInput(
   }
 }
 
+/**
+ * Campos que um segundo write pode atualizar, montados **só com o que veio na
+ * entrada**.
+ *
+ * `undefined` não entra no objeto, então a coluna fica como está; `null` explícito
+ * entra e limpa. A diferença não é cosmética: o `update` antigo escrevia
+ * `campo ?? null` em tudo, e por isso um segundo `create` parcial **apagava** o que
+ * o primeiro gravou — foi assim que o callback de status da Z-API zerava o `text`
+ * da mensagem que o widget acabara de persistir, quebrando de tabela o quote de
+ * reply, que lê `text`.
+ *
+ * Idempotência aqui significa **converge**, não "sobrescreve com o que o último
+ * chamador por acaso sabia".
+ */
+function buildPartialUpdate(
+  input: CreateThinkzapMessageInput,
+  fields: ReadonlyArray<keyof UpdatableMessageFields>,
+): UpdatableMessageFields {
+  const update: UpdatableMessageFields = {}
+
+  for (const field of fields) {
+    if (input[field] !== undefined) {
+      update[field] = input[field]
+    }
+  }
+
+  return update
+}
+
+/** As colunas que um segundo write pode tocar — chave e `type` ficam de fora. */
+type UpdatableMessageFields = {
+  providerMessageId?: string | null
+  bitrixMessageId?: string | null
+  bitrixChatId?: string | null
+  text?: string | null
+  fileName?: string | null
+  chatId?: string | null
+}
+
 export class PrismaThinkzapMessageRepository {
   async create(input: CreateThinkzapMessageInput): Promise<void> {
     const id = randomUUID()
@@ -118,13 +157,13 @@ export class PrismaThinkzapMessageRepository {
           },
         },
         create: data,
-        update: {
-          bitrixMessageId: input.bitrixMessageId ?? null,
-          bitrixChatId: input.bitrixChatId ?? null,
-          text: input.text ?? null,
-          fileName: input.fileName ?? null,
-          chatId: input.chatId ?? null,
-        },
+        update: buildPartialUpdate(input, [
+          'bitrixMessageId',
+          'bitrixChatId',
+          'text',
+          'fileName',
+          'chatId',
+        ]),
       })
     } else if (input.bitrixMessageId) {
       await prisma.thinkzapMessage.upsert({
@@ -135,13 +174,13 @@ export class PrismaThinkzapMessageRepository {
           },
         },
         create: data,
-        update: {
-          providerMessageId: input.providerMessageId ?? null,
-          bitrixChatId: input.bitrixChatId ?? null,
-          text: input.text ?? null,
-          fileName: input.fileName ?? null,
-          chatId: input.chatId ?? null,
-        },
+        update: buildPartialUpdate(input, [
+          'providerMessageId',
+          'bitrixChatId',
+          'text',
+          'fileName',
+          'chatId',
+        ]),
       })
     } else {
       await prisma.thinkzapMessage.create({ data })
@@ -179,6 +218,30 @@ export class PrismaThinkzapMessageRepository {
     await prisma.thinkzapMessage.update({
       where: { id },
       data: { bitrixMessageId },
+    })
+  }
+
+  /**
+   * Grava só o `chat_id` da conversa do canal aberto na mensagem que a abriu.
+   *
+   * Existe em vez de um `create` parcial porque a abertura da conversa não tem o
+   * corpo da mensagem em mãos por obrigação — ela recebe o texto **a postar**, que
+   * em envio só de anexo é um descritivo, não o que está persistido. Um `create`
+   * levaria esse descritivo para a coluna `text`.
+   *
+   * É este valor que faz o guard de "conversa já aberta" funcionar: sem ele
+   * gravado, todo reprocessamento re-posta a mesma mensagem no canal do cliente.
+   */
+  async updateChatId(
+    instanceId: string,
+    providerMessageId: string,
+    chatId: string,
+  ): Promise<void> {
+    await prisma.thinkzapMessage.update({
+      where: {
+        uq_msg_instance_provider: { instanceId, providerMessageId },
+      },
+      data: { chatId },
     })
   }
 }

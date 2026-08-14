@@ -499,6 +499,20 @@ export const ConversationView = () => {
         return
       }
 
+      /**
+       * Os dois caminhos têm garantias diferentes, e o texto de sucesso segue essa
+       * diferença.
+       *
+       * **Anexo** continua sendo entregue dentro do próprio request: sucesso aqui
+       * significa que o contato recebeu.
+       *
+       * **Texto** passou a ser enfileirado: o servidor responde `202` e a entrega
+       * acontece logo depois, com retentativa. Dizer "enviada com sucesso" afirmaria
+       * uma entrega que ainda não aconteceu — o que era exatamente o problema, porque
+       * o operador acreditava que a mensagem tinha saído quando ela se perdera.
+       */
+      let queued = false
+
       if (attachments.length > 0) {
         const formData = buildSendWidgetFormData({
           ...payloadBase,
@@ -515,13 +529,24 @@ export const ConversationView = () => {
         )
       } else {
         await client.client.post('/thinkzap/messages/send-widget', payloadBase)
+        queued = true
       }
 
+      /**
+       * O composer é limpo nos dois casos. No caminho enfileirado isso mudou de
+       * significado: a mensagem agora é durável no servidor, então preservar o rascunho
+       * convidaria o operador a reenviar o que já vai sair — e o contato receberia duas
+       * vezes. O rascunho só sobrevive a **erro**, no `catch` abaixo.
+       */
       setMessage('')
       setAttachments([])
       recorder.clearRecording()
       playback.resetPlayback()
-      setSuccessFeedback('Mensagem enviada com sucesso.')
+      setSuccessFeedback(
+        queued
+          ? 'Mensagem na fila de envio. Você será avisado na timeline se ela não for entregue.'
+          : 'Mensagem enviada com sucesso.',
+      )
     } catch (error) {
       /**
        * A recusa por desconexão é traduzida pelo `code`, não pelo texto da resposta —
