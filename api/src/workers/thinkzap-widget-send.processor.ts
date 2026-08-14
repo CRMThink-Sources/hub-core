@@ -12,6 +12,7 @@ import {
   WidgetOutboxRecord,
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
+import { AppendJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { ThinkzapWidgetSendJob } from '@/queue/thinkzap-widget-outbound.queue'
 import { redisConnection } from '@/queue/redis-connection'
 import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
@@ -36,8 +37,9 @@ export type WidgetSendJobOutcome = 'done' | 'reschedule'
  */
 export async function processWidgetSendJob(
   job: ThinkzapWidgetSendJob,
-  context: { isLastAttempt: boolean },
+  context: { isLastAttempt: boolean; appendJobLog: AppendJobLog },
 ): Promise<WidgetSendJobOutcome> {
+  const { appendJobLog } = context
   const outbox = new PrismaWidgetOutboxRepository()
 
   const row = await outbox.findById(job.outboxId)
@@ -46,8 +48,45 @@ export async function processWidgetSendJob(
       { app: 'thinkzap', outboxId: job.outboxId },
       'Intenção de envio não encontrada; job descartado',
     )
+    await appendJobLog(
+      `Intenção ${job.outboxId} não encontrada no banco. Nada a enviar — job descartado.`,
+    )
     return 'done'
   }
+
+  /**
+   * O estado da intenção **antes** de qualquer coisa acontecer com ela.
+   *
+   * É a linha que responde "esta execução ia enviar ou ia retomar?" — sem ela, um
+   * `resumed` no fim parece um envio que aconteceu, e um `unknown` parece decisão
+   * arbitrária. `attempts` e `lastError` mostram o histórico da intenção, que é
+   * independente do `attemptsMade` do job: a row sobrevive ao job.
+   */
+  log.info(
+    {
+      app: 'thinkzap',
+      outboxId: row.id,
+      subscriptionItemId: row.subscriptionItemId,
+      destination: row.destination,
+      outboxStatus: row.status,
+      alreadyDelivered: row.providerMessageId !== null,
+      outboxAttempts: row.attempts,
+      lastError: row.lastError,
+      isLastAttempt: context.isLastAttempt,
+    },
+    'Despachando intenção de envio do widget',
+  )
+
+  /**
+   * A primeira linha da aba Logs é a que enquadra tudo que vem depois: quem lê precisa
+   * saber, antes de qualquer coisa, se esta execução ia **enviar** ou apenas **retomar**
+   * efeitos colaterais de um envio que já aconteceu.
+   */
+  await appendJobLog(
+    `Intenção ${row.id} | status=${row.status} | destino=${row.destination} | ` +
+      `jáEntregue=${row.providerMessageId !== null} | tentativasDaIntenção=${row.attempts}` +
+      (context.isLastAttempt ? ' | ÚLTIMA TENTATIVA' : ''),
+  )
 
   const line = await resolveLineTarget(row)
   if (!line) {
@@ -56,10 +95,18 @@ export async function processWidgetSendJob(
      * instalação ou o portal foi apagado. Estado terminal com aviso ao operador, e não
      * job falho que o BullMQ vai reprocessar três vezes para chegar no mesmo lugar.
      */
+    await appendJobLog(
+      `Linha ${row.subscriptionItemId} não está mais na instalação. ` +
+        'Estado terminal (FAILED) — retentativa não resolveria. Operador avisado na timeline.',
+    )
     await outbox.markFailed(row.id, 'Linha não encontrada na instalação')
     await notifyOutcomeFor(row, 'failed')
     return 'done'
   }
+
+  await appendJobLog(
+    `Linha resolvida: provider=${line.provider} | instância=${line.instanceId}`,
+  )
 
   const dispatch = new DispatchWidgetOutboxMessage({
     outbox,
@@ -70,6 +117,7 @@ export async function processWidgetSendJob(
       acquireDestinationLock(redisConnection, instanceId, destination),
     notifyOutcome: (outcome, record) => notifyOutcomeFor(record, outcome),
     notifySent: record => notifySentFor(record),
+    appendJobLog,
   })
 
   const result = await dispatch.execute({
@@ -88,7 +136,32 @@ export async function processWidgetSendJob(
     'Job de envio do widget processado',
   )
 
+  await appendJobLog(`Desfecho: ${describeOutcome(result.status)}`)
+
   return result.status === 'locked' ? 'reschedule' : 'done'
+}
+
+/**
+ * Traduz o desfecho do despacho para quem está lendo a aba Logs do job.
+ *
+ * O código do desfecho sozinho engana: `resumed` parece envio que aconteceu agora, e
+ * `skipped` parece que o trabalho foi ignorado por engano. A frase diz o que de fato
+ * aconteceu com a mensagem do cliente.
+ */
+function describeOutcome(status: string): string {
+  const descriptions: Record<string, string> = {
+    sent: 'ENTREGUE ao contato nesta execução.',
+    resumed:
+      'Já estava entregue — o provider NÃO foi chamado de novo; só os efeitos colaterais foram retomados.',
+    locked:
+      'Destino ocupado por outro envio. Reagendado sem gastar tentativa, para preservar a ordem das mensagens.',
+    failed:
+      'NÃO entregue e não será reenviado automaticamente. Operador avisado na timeline.',
+    unknown:
+      'INDETERMINADO — não foi possível confirmar se saiu. Não é reenviado de propósito: reenviar arriscaria mensagem duplicada no WhatsApp do contato.',
+  }
+
+  return descriptions[status] ?? status
 }
 
 /**
