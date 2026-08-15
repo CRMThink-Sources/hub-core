@@ -30,6 +30,10 @@ const row = (
   text: 'Olá',
   entity: 'deal',
   entityId: '42',
+  kind: 'TEXT',
+  templateName: null,
+  templateLanguage: null,
+  templateParameters: null,
   status: 'PENDING',
   providerMessageId: null,
   timelineNotifiedAt: null,
@@ -45,6 +49,24 @@ const line = {
   instanceId: 'Z-1',
   zApiToken: 'TOKEN-SECRETO',
 }
+
+/** A linha oficial: template só sai por HubMessage, e por canal. */
+const hubLine = {
+  provider: ConnectorProvider.HUBMESSAGE,
+  instanceId: 'C-9',
+  channelId: 'C-9',
+}
+
+/** A intenção de template como `EnqueueWidgetTemplateUseCase` a grava. */
+const templateRow = (overrides: Partial<WidgetOutboxRecord> = {}) =>
+  row({
+    kind: 'TEMPLATE',
+    text: 'Olá Maria, pedido 1234 saiu.',
+    templateName: 'order_update',
+    templateLanguage: 'pt_BR',
+    templateParameters: ['Maria', '1234'],
+    ...overrides,
+  })
 
 /** Erro com resposta HTTP do provider — prova que nada saiu. */
 const refusedError = () =>
@@ -71,6 +93,14 @@ function makeSut(record = row()) {
   })
   const senderResolver = { resolve: vi.fn().mockReturnValue({ send }) }
 
+  const sendTemplate = vi.fn().mockResolvedValue({ messageId: 'tpl-1' })
+  const templateSenderResolver = {
+    resolve: vi.fn().mockReturnValue({
+      supportsTemplateSend: true,
+      send: sendTemplate,
+    }),
+  }
+
   const messages = { create: vi.fn().mockResolvedValue(undefined) }
   const openChannelQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
 
@@ -83,6 +113,7 @@ function makeSut(record = row()) {
   const sut = new DispatchWidgetOutboxMessage({
     outbox: outbox as never,
     senderResolver: senderResolver as never,
+    templateSenderResolver: templateSenderResolver as never,
     messages: messages as never,
     openChannelQueue,
     acquireLock,
@@ -95,6 +126,8 @@ function makeSut(record = row()) {
     outbox,
     send,
     senderResolver,
+    sendTemplate,
+    templateSenderResolver,
     messages,
     openChannelQueue,
     acquireLock,
@@ -103,6 +136,8 @@ function makeSut(record = row()) {
     notifySent,
     dispatch: (isLastAttempt = false) =>
       sut.execute({ outboxId: 'outbox-1', line, isLastAttempt }),
+    dispatchTemplate: (isLastAttempt = false) =>
+      sut.execute({ outboxId: 'outbox-1', line: hubLine, isLastAttempt }),
   }
 }
 
@@ -354,6 +389,146 @@ describe('DispatchWidgetOutboxMessage', () => {
       sut.openChannelQueue.enqueue.mockRejectedValue(new Error('redis down'))
 
       await expect(sut.dispatch()).resolves.toMatchObject({ status: 'sent' })
+    })
+  })
+
+  /**
+   * O template compartilha a intenção durável inteira com o envio livre — marca de
+   * entrega, claim condicional, lock por destino, efeitos colaterais. O que estes casos
+   * fixam é a **única** diferença: qual sender é chamado e com o quê.
+   */
+  describe('template', () => {
+    it('chama o sender de template, e não o de mensagem livre', async () => {
+      const sut = makeSut(templateRow())
+
+      const result = await sut.dispatchTemplate()
+
+      expect(sut.send).not.toHaveBeenCalled()
+      expect(sut.sendTemplate).toHaveBeenCalledWith({
+        templateName: 'order_update',
+        language: 'pt_BR',
+        bodyParameters: ['Maria', '1234'],
+      })
+      expect(result).toEqual({ status: 'sent', providerMessageId: 'tpl-1' })
+    })
+
+    it('resolve o sender pelo canal da linha e pelo destino', async () => {
+      const sut = makeSut(templateRow())
+
+      await sut.dispatchTemplate()
+
+      expect(sut.templateSenderResolver.resolve).toHaveBeenCalledWith(
+        'HUBMESSAGE',
+        { channelId: 'C-9', recipientIdentifier: '5511999999999' },
+      )
+    })
+
+    /** Linha antiga tem só o `instanceId`; o provisionamento novo grava os dois. */
+    it('usa o instanceId como canal quando a linha não tem channelId', async () => {
+      const sut = makeSut(templateRow())
+
+      await sut.sut.execute({
+        outboxId: 'outbox-1',
+        line: { provider: ConnectorProvider.HUBMESSAGE, instanceId: 'C-9' },
+        isLastAttempt: false,
+      })
+
+      expect(sut.templateSenderResolver.resolve).toHaveBeenCalledWith(
+        'HUBMESSAGE',
+        expect.objectContaining({ channelId: 'C-9' }),
+      )
+    })
+
+    it('template sem variável envia com lista vazia de parâmetros', async () => {
+      const sut = makeSut(templateRow({ templateParameters: null }))
+
+      await sut.dispatchTemplate()
+
+      expect(sut.sendTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({ bodyParameters: [] }),
+      )
+    })
+
+    /**
+     * O corpo **resolvido** é o que o histórico e a conversa do canal aberto guardam —
+     * o provider recebeu o par (template, parâmetros), e reconstruir o texto depois
+     * exigiria consultar o catálogo da Meta a cada leitura.
+     */
+    it('persiste e enfileira a conversa com o corpo resolvido', async () => {
+      const sut = makeSut(templateRow())
+
+      await sut.dispatchTemplate()
+
+      expect(sut.messages.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          providerMessageId: 'tpl-1',
+          type: 'TEXT',
+          text: 'Olá Maria, pedido 1234 saiu.',
+        }),
+      )
+      expect(sut.openChannelQueue.enqueue).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Olá Maria, pedido 1234 saiu.' }),
+      )
+    })
+
+    /**
+     * A garantia que vale mais no template: a Meta cobra por envio, então uma segunda
+     * chamada não é só mensagem repetida no telefone do contato — é cobrança repetida.
+     */
+    it('NÃO chama o provider quando a intenção já tem marca de entrega', async () => {
+      const sut = makeSut(
+        templateRow({ status: 'SENT', providerMessageId: 'tpl-1' }),
+      )
+
+      const result = await sut.dispatchTemplate()
+
+      expect(sut.sendTemplate).not.toHaveBeenCalled()
+      expect(result).toEqual({ status: 'resumed', providerMessageId: 'tpl-1' })
+    })
+
+    /**
+     * Estado impossível pelo caminho normal, e terminal quando acontece: nenhuma das
+     * três tentativas faria o nome do template aparecer na row.
+     */
+    it.each([
+      ['sem templateName', { templateName: null }],
+      ['sem language', { templateLanguage: null }],
+    ] as const)(
+      'recusa intenção de template %s antes do lock, como FAILED',
+      async (_label, overrides) => {
+        const sut = makeSut(templateRow(overrides))
+
+        const result = await sut.dispatchTemplate()
+
+        expect(result).toEqual({ status: 'failed' })
+        expect(sut.acquireLock).not.toHaveBeenCalled()
+        expect(sut.outbox.claimForSending).not.toHaveBeenCalled()
+        expect(sut.sendTemplate).not.toHaveBeenCalled()
+        expect(sut.notifyOutcome).toHaveBeenCalledWith(
+          'failed',
+          expect.objectContaining({ id: 'outbox-1' }),
+        )
+      },
+    )
+
+    /** A classificação da falha é a mesma dos dois caminhos — nada de específico aqui. */
+    it('recusa com resposta do provider devolve a intenção para PENDING e relança', async () => {
+      const sut = makeSut(templateRow())
+      sut.sendTemplate.mockRejectedValue(refusedError())
+
+      await expect(sut.dispatchTemplate(false)).rejects.toThrow()
+      expect(sut.outbox.releaseToPending).toHaveBeenCalled()
+      expect(sut.release).toHaveBeenCalledTimes(1)
+    })
+
+    it('falha sem resposta do provider vira unknown, sem reenviar', async () => {
+      const sut = makeSut(templateRow())
+      sut.sendTemplate.mockRejectedValue(indeterminateError())
+
+      const result = await sut.dispatchTemplate()
+
+      expect(result).toEqual({ status: 'unknown' })
+      expect(sut.outbox.markUnknown).toHaveBeenCalled()
     })
   })
 })

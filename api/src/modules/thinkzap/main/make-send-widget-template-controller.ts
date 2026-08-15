@@ -1,29 +1,12 @@
-import { Request } from 'express'
-import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
-import { BullMqOpenChannelConversationQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
-import { SendWidgetTemplateUseCase } from '@/modules/thinkzap/application/send-widget-template.use-case'
-import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
-import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
-import { makeBitrixClient } from '@/shared/main/make-bitrix-client'
 import { Controller } from '@/shared/presentation/controller'
-import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { SendWidgetTemplateController } from '../presentation/controllers/send-widget-template.controller'
-import { makeTemplateSenderResolver } from './connector/make-template-sender-resolver'
+import { makeEnqueueWidgetTemplateUseCase } from './make-enqueue-widget-template-use-case'
 
-export const makeSendWidgetTemplateController = async (
-  req: Request,
-): Promise<Controller> => {
-  const bitrix = await makeBitrixClient(req)
-  const messageRepo = new PrismaThinkzapMessageRepository()
-
-  const useCase = new SendWidgetTemplateUseCase(
-    makeGetAplicationContext(),
-    new PrismaInstanceRepository(),
-    makeTemplateSenderResolver(),
-    new BitrixLivefeedNotificationService(bitrix),
-    messageRepo,
-    new BullMqOpenChannelConversationQueue(),
-  )
-
-  return new SendWidgetTemplateController(useCase)
+/**
+ * Deixou de receber `req`: o envio de template não toca o Bitrix no request. O cliente
+ * Bitrix existia aqui só para o comentário de timeline, que migrou para o worker junto
+ * com o envio — mesma trajetória do envio livre.
+ */
+export const makeSendWidgetTemplateController = (): Controller => {
+  return new SendWidgetTemplateController(makeEnqueueWidgetTemplateUseCase())
 }

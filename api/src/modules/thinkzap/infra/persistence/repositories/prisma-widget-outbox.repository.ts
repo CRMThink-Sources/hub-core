@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { prisma } from '@/config/prisma'
-import type { ThinkzapOutboxStatus } from '@/prisma/client'
+import type { ThinkzapOutboxKind, ThinkzapOutboxStatus } from '@/prisma/client'
 
 export type WidgetOutboxStatus =
   | 'PENDING'
@@ -8,6 +8,15 @@ export type WidgetOutboxStatus =
   | 'SENT'
   | 'FAILED'
   | 'UNKNOWN'
+
+/**
+ * O que o worker vai chamar no provider.
+ *
+ * Mensagem livre e template compartilham a intenção durável inteira — a marca de
+ * entrega, o claim condicional, o lock por destino, os efeitos colaterais. O que muda
+ * é uma chamada, e é só isso que este discriminador carrega.
+ */
+export type WidgetOutboxKind = 'TEXT' | 'TEMPLATE'
 
 export type WidgetOutboxRecord = {
   id: string
@@ -20,6 +29,11 @@ export type WidgetOutboxRecord = {
   text: string
   entity: string
   entityId: string
+  kind: WidgetOutboxKind
+  /** Preenchidos só em `kind: 'TEMPLATE'`. */
+  templateName: string | null
+  templateLanguage: string | null
+  templateParameters: string[] | null
   status: WidgetOutboxStatus
   providerMessageId: string | null
   timelineNotifiedAt: Date | null
@@ -36,9 +50,28 @@ export type CreateWidgetOutboxInput = {
   domainId: string
   appCode: string
   destination: string
+  /** O texto que o contato lê. Em template, o corpo **já resolvido**. */
   text: string
   entity: string
   entityId: string
+  /** Ausente = `TEXT`, que é o que toda row anterior ao template é. */
+  kind?: WidgetOutboxKind
+  templateName?: string
+  templateLanguage?: string
+  templateParameters?: string[]
+}
+
+/**
+ * O `template_parameters` volta do MySQL como JSON livre, e o tipo do Prisma para
+ * coluna `Json` não promete array de string.
+ *
+ * Row com JSON de outra forma — escrita à mão, ou de uma versão futura que mude o
+ * formato — vira `null` em vez de derrubar a leitura: quem consome trata a ausência
+ * como template sem variável, e o guard do despacho recusa o que faltar de fato.
+ */
+function toBodyParameters(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null
+  return value.every(item => typeof item === 'string') ? value : null
 }
 
 function mapRow(row: {
@@ -52,6 +85,10 @@ function mapRow(row: {
   text: string
   entity: string
   entityId: string
+  kind: ThinkzapOutboxKind
+  templateName: string | null
+  templateLanguage: string | null
+  templateParameters: unknown
   status: ThinkzapOutboxStatus
   providerMessageId: string | null
   timelineNotifiedAt: Date | null
@@ -71,6 +108,10 @@ function mapRow(row: {
     text: row.text,
     entity: row.entity,
     entityId: row.entityId,
+    kind: row.kind as WidgetOutboxKind,
+    templateName: row.templateName,
+    templateLanguage: row.templateLanguage,
+    templateParameters: toBodyParameters(row.templateParameters),
     status: row.status as WidgetOutboxStatus,
     providerMessageId: row.providerMessageId,
     timelineNotifiedAt: row.timelineNotifiedAt,
@@ -92,8 +133,20 @@ function mapRow(row: {
  */
 export class PrismaWidgetOutboxRepository {
   async create(input: CreateWidgetOutboxInput): Promise<WidgetOutboxRecord> {
+    const { templateParameters, ...rest } = input
+
+    /**
+     * `templateParameters` fica **fora** do spread quando é `undefined`: numa coluna
+     * `Json` do Prisma, `undefined` significa "não escreva" e `null` exigiria
+     * `Prisma.DbNull`. Omitir a chave é o único jeito de a row de envio livre nascer
+     * com a coluna nula sem importar o sentinela aqui.
+     */
     const row = await prisma.thinkzapWidgetOutbox.create({
-      data: { id: randomUUID(), ...input },
+      data: {
+        id: randomUUID(),
+        ...rest,
+        ...(templateParameters ? { templateParameters } : {}),
+      },
     })
 
     return mapRow(row)

@@ -20,11 +20,19 @@ export type SendWidgetTemplateInput = {
   entityId: string
 }
 
-export type SendWidgetTemplateResult = {
-  message: string
+/**
+ * O que o request devolve agora que a entrega é do worker.
+ *
+ * `sentMessageId` saiu: ele era o id atribuído pelo provider, e no momento da resposta
+ * o provider ainda não foi chamado. Devolver um id inventado — ou vazio — faria o front
+ * acreditar numa entrega que não aconteceu, que é exatamente o problema que enfileirar
+ * veio resolver.
+ */
+export type EnqueueWidgetTemplateResult = {
+  /** Gerado pela API; identifica a intenção para o front e para o suporte. */
+  clientMessageId: string
+  status: 'queued'
   destination: string
-  /** Id atribuído pelo provider — persistido como `providerMessageId`. */
-  sentMessageId: string
-  /** Corpo com as variáveis resolvidas: o texto que o contato recebeu. */
+  /** Corpo com as variáveis resolvidas: o texto que o contato vai receber. */
   sentText: string
 }

@@ -495,7 +495,16 @@ export const ConversationView = () => {
 
         setSelectedTemplateKey('')
         setTemplateValues({})
-        setSuccessFeedback('Template enviado com sucesso.')
+        /**
+         * O template passou a ser enfileirado, como o texto livre: o servidor responde
+         * `202` e a entrega acontece logo depois, com retentativa. Dizer "enviado com
+         * sucesso" afirmaria uma entrega que ainda não aconteceu — e no template isso
+         * custa caro, porque o operador que acredita na falha reenvia, e a Meta cobra
+         * o segundo.
+         */
+        setSuccessFeedback(
+          'Template na fila de envio. Você será avisado na timeline se ele não for entregue.',
+        )
         return
       }
 

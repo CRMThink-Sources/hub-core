@@ -346,9 +346,28 @@ model ThinkzapWidgetOutbox {
   appCode            String @map("app_code")
 
   destination String
+  /// O texto que o contato lê. Em template é o corpo **resolvido**, não o cru: é ele
+  /// que abastece o histórico, o canal aberto e o aviso de falha, e nenhum dos três
+  /// tem como substituir `{{1}}` depois.
   text        String @db.Text
   entity      String
   entityId    String @map("entity_id")
+
+  /// O que o worker vai chamar no provider. Mensagem livre e template são a mesma
+  /// intenção durável com a mesma garantia de não-duplicidade — o que muda é a
+  /// chamada, e é só isso que este campo carrega.
+  ///
+  /// `@default(TEXT)` para a migration ser aditiva: as rows que já existem são todas
+  /// de envio livre.
+  kind ThinkzapOutboxKind @default(TEXT)
+
+  /// Os três só existem em `kind = TEMPLATE`, e juntos são o que a Meta precisa para
+  /// identificar a versão aprovada e preencher as variáveis. Guardados aqui, e não
+  /// derivados de `text`, porque o provider recebe o par (template, parâmetros) — o
+  /// corpo resolvido não tem volta.
+  templateName       String? @map("template_name")
+  templateLanguage   String? @map("template_language")
+  templateParameters Json?   @map("template_parameters")
 
   status ThinkzapOutboxStatus @default(PENDING)
 
@@ -374,6 +393,14 @@ model ThinkzapWidgetOutbox {
   /// Serve o alerta de pendência antiga e a limpeza por retenção.
   @@index([status, createdAt])
   @@map("core_thinkerszap_widget_outbox")
+}
+
+enum ThinkzapOutboxKind {
+  /// Mensagem livre. O worker chama `OutboundMessageSender` com `text`.
+  TEXT
+  /// Template aprovado do WhatsApp Oficial. O worker chama `TemplateMessageSender`
+  /// com `templateName`, `templateLanguage` e `templateParameters`.
+  TEMPLATE
 }
 
 enum ThinkzapOutboxStatus {
