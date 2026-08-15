@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import z from 'zod'
-import { SendWidgetTemplateUseCase } from '@/modules/thinkzap/application/send-widget-template.use-case'
+import { EnqueueWidgetTemplateUseCase } from '@/modules/thinkzap/application/enqueue-widget-template.use-case'
 import {
   ChannelNotConnectedError,
   ConnectorNotTemplateCapableError,
@@ -22,6 +22,12 @@ import { Controller } from '@/shared/presentation/controller'
  * preenchidas" é do front, e recusar aqui por conteúdo vazio devolveria erro de
  * schema onde o front já sabe mostrar aviso melhor. O que este schema garante é
  * forma.
+ *
+ * **Responde `202`.** O template fica durável neste request, mas quem o entrega ao
+ * contato é o worker. As recusas de negócio continuam todas síncronas — linha
+ * bloqueada, linha Z-API, canal não conectado, telefone inválido, provider sem
+ * configuração —, então o `catch` abaixo continua traduzindo o mesmo vocabulário de
+ * erros que traduzia quando o envio acontecia aqui.
  */
 const schema = z.object({
   subscriptionItemId: z.string().min(1),
@@ -35,7 +41,9 @@ const schema = z.object({
 })
 
 export class SendWidgetTemplateController extends Controller {
-  constructor(private readonly sendWidgetTemplate: SendWidgetTemplateUseCase) {
+  constructor(
+    private readonly enqueueWidgetTemplate: EnqueueWidgetTemplateUseCase,
+  ) {
     super()
   }
 
@@ -49,12 +57,12 @@ export class SendWidgetTemplateController extends Controller {
     }
 
     try {
-      const result = await this.sendWidgetTemplate.execute({
+      const result = await this.enqueueWidgetTemplate.execute({
         ...parsed.data,
         domainId: (req as unknown as { domainId: string }).domainId,
         appCode: (req as unknown as { appId: string }).appId,
       })
-      return this.ok(result)
+      return this.accepted(result)
     } catch (error) {
       logThinkzapError(
         apiLogger,
@@ -70,6 +78,11 @@ export class SendWidgetTemplateController extends Controller {
        *
        * `Retry-After` não vai: a HubMessage não informa janela de recuperação, e um
        * valor inventado é pior que nenhum.
+       *
+       * Com a entrega no worker esta tradução deixou de ser o caminho comum — provider
+       * fora agora vira retentativa, e só depois aviso na timeline. Fica porque a
+       * resolução do sender ainda acontece aqui, e um erro de configuração que ela
+       * levante não pode virar `500` genérico.
        */
       if (error instanceof TemplateProviderUnavailableError) {
         logThinkzapError(

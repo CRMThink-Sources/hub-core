@@ -12,6 +12,7 @@ import {
   WidgetOutboxRecord,
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
+import { makeTemplateSenderResolver } from '@/modules/thinkzap/main/connector/make-template-sender-resolver'
 import { AppendJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { ThinkzapWidgetSendJob } from '@/queue/thinkzap-widget-outbound.queue'
 import { redisConnection } from '@/queue/redis-connection'
@@ -68,6 +69,8 @@ export async function processWidgetSendJob(
       outboxId: row.id,
       subscriptionItemId: row.subscriptionItemId,
       destination: row.destination,
+      outboxKind: row.kind,
+      templateName: row.templateName,
       outboxStatus: row.status,
       alreadyDelivered: row.providerMessageId !== null,
       outboxAttempts: row.attempts,
@@ -83,7 +86,9 @@ export async function processWidgetSendJob(
    * efeitos colaterais de um envio que já aconteceu.
    */
   await appendJobLog(
-    `Intenção ${row.id} | status=${row.status} | destino=${row.destination} | ` +
+    `Intenção ${row.id} | tipo=${row.kind}` +
+      (row.kind === 'TEMPLATE' ? ` (${row.templateName})` : '') +
+      ` | status=${row.status} | destino=${row.destination} | ` +
       `jáEntregue=${row.providerMessageId !== null} | tentativasDaIntenção=${row.attempts}` +
       (context.isLastAttempt ? ' | ÚLTIMA TENTATIVA' : ''),
   )
@@ -111,6 +116,7 @@ export async function processWidgetSendJob(
   const dispatch = new DispatchWidgetOutboxMessage({
     outbox,
     senderResolver: makeOutboundSenderResolver(),
+    templateSenderResolver: makeTemplateSenderResolver(),
     messages: new PrismaThinkzapMessageRepository(),
     openChannelQueue: new BullMqOpenChannelConversationQueue(),
     acquireLock: (instanceId, destination) =>
@@ -250,16 +256,27 @@ async function notifyOutcomeFor(
   }
 }
 
-/** O comentário de timeline do envio bem-sucedido, com o mesmo texto de antes. */
+/**
+ * O comentário de timeline do envio bem-sucedido, com o mesmo texto de antes — e o de
+ * template continua nomeando o template.
+ *
+ * A linha `Template:` não é decoração: o corpo resolvido sozinho não diz qual versão
+ * aprovada saiu, e é por ela que o cliente concilia o que a Meta cobrou. Perder essa
+ * linha ao mover o envio para o worker seria uma regressão silenciosa no único registro
+ * que o operador enxerga.
+ */
 async function notifySentFor(row: WidgetOutboxRecord): Promise<void> {
   try {
     const notifier = await makeNotifier(row)
     if (!notifier) return
 
+    const templateLine =
+      row.kind === 'TEMPLATE' ? `\nTemplate: ${row.templateName}` : ''
+
     await notifier.execute({
       contextId: row.entityId,
       entity: row.entity,
-      message: `Para: ${row.destination}\nMensagem: ${row.text}`,
+      message: `Para: ${row.destination}${templateLine}\nMensagem: ${row.text}`,
     })
   } catch (err) {
     log.warn(

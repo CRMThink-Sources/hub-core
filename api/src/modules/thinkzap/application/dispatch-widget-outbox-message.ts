@@ -1,6 +1,7 @@
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { OpenChannelConversationQueue } from '@/modules/thinkzap/domain/ports/open-channel-queue.port'
 import { OutboundSenderResolver } from '@/modules/thinkzap/domain/ports/outbound-sender-resolver.port'
+import { TemplateMessageSenderResolver } from '@/modules/thinkzap/domain/ports/template-sender-resolver.port'
 import { classifyProviderSendFailure } from '@/modules/thinkzap/infra/adapters/classify-provider-send-failure'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import {
@@ -40,6 +41,15 @@ export type DispatchOutcome =
 export type DispatchDeps = {
   outbox: PrismaWidgetOutboxRepository
   senderResolver: OutboundSenderResolver
+  /**
+   * O resolver de template, para as intenções de `kind: 'TEMPLATE'`.
+   *
+   * Port separado e não uma variante de `OutboundSenderResolver` porque as duas
+   * chamadas não têm o mesmo formato: uma leva texto, a outra leva o par (template,
+   * parâmetros) e é escopada por canal + destinatário. Unir os dois obrigaria a
+   * assinatura de envio livre a carregar campos que nunca usa.
+   */
+  templateSenderResolver: TemplateMessageSenderResolver
   messages: PrismaThinkzapMessageRepository
   openChannelQueue: OpenChannelConversationQueue
   acquireLock: (
@@ -66,6 +76,31 @@ export type DispatchInput = {
   line: DispatchLineTarget
   /** `true` quando o BullMQ não vai retentar depois desta execução. */
   isLastAttempt: boolean
+}
+
+/**
+ * O template na forma que o provider recebe, ou `null` se a row não o descreve por
+ * inteiro.
+ *
+ * Uma função só, usada nos dois pontos que precisam da resposta — o guard terminal, que
+ * decide **antes** do lock, e a chamada, que já pode confiar. Duas checagens separadas
+ * divergiriam: a do guard cobriria um campo que a da chamada não cobre, e a intenção
+ * quebrada passaria pelo primeiro para morrer no segundo, com o destino travado e uma
+ * tentativa gasta.
+ *
+ * `bodyParameters` ausente vira lista vazia, e não recusa: template sem variável é
+ * legítimo, e é a Meta quem valida a contagem contra a versão aprovada.
+ */
+function templateDescriptorOf(
+  row: WidgetOutboxRecord,
+): { templateName: string; language: string; bodyParameters: string[] } | null {
+  if (!row.templateName || !row.templateLanguage) return null
+
+  return {
+    templateName: row.templateName,
+    language: row.templateLanguage,
+    bodyParameters: row.templateParameters ?? [],
+  }
 }
 
 /**
@@ -156,6 +191,37 @@ export class DispatchWidgetOutboxMessage {
     }
 
     /**
+     * Intenção de template sem o que identifica a versão aprovada.
+     *
+     * Estado impossível pelo caminho normal — `EnqueueWidgetTemplateUseCase` grava os
+     * três campos juntos —, e ainda assim terminal e não retentável: nenhuma das três
+     * tentativas faria o nome do template aparecer na row. Recusado **antes** do lock e
+     * do claim, para não segurar o destino por uma intenção que não tem como sair.
+     */
+    if (row.kind === 'TEMPLATE' && !templateDescriptorOf(row)) {
+      await this.jobLog(
+        'Intenção de template sem templateName ou language gravados. Não há o que ' +
+          'enviar e retentar não resolveria — estado terminal (FAILED). Operador avisado ' +
+          'na timeline.',
+      )
+      await this.deps.outbox.markFailed(
+        row.id,
+        'Intenção de template sem templateName/language',
+      )
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.message.widget_send_exhausted',
+        { ...logContext, outboxKind: row.kind },
+        {
+          level: 'error',
+          msg: 'Intenção de template incompleta; envio não será tentado',
+        },
+      )
+      await this.deps.notifyOutcome('failed', row)
+      return { status: 'failed' }
+    }
+
+    /**
      * Ordem por destino. Lock tomado devolve `locked` e o chamador re-agenda **sem
      * gastar tentativa**: esperar aqui seguraria um slot de concorrência e
      * transformaria uma fila de N workers numa fila de um.
@@ -195,21 +261,16 @@ export class DispatchWidgetOutboxMessage {
     logContext: Record<string, unknown>,
     isLastAttempt: boolean,
   ): Promise<DispatchOutcome> {
-    const sender = this.deps.senderResolver.resolve(line.provider, {
-      instanceId: line.instanceId,
-      zApiToken: line.zApiToken ?? null,
-      channelId: line.channelId ?? null,
-      chatId: row.destination,
-    })
-
     await this.jobLog(
-      `Reivindicada. Chamando ${line.provider} para ${row.destination}...`,
+      `Reivindicada. Chamando ${line.provider} para ${row.destination}` +
+        (row.kind === 'TEMPLATE'
+          ? ` com o template "${row.templateName}" (${row.templateLanguage})...`
+          : '...'),
     )
 
     let providerMessageId: string
     try {
-      const result = await sender.send({ kind: 'text', text: row.text })
-      providerMessageId = result.messageId
+      providerMessageId = await this.callProvider(row, line)
     } catch (err) {
       return this.handleSendFailure(row, logContext, isLastAttempt, err)
     }
@@ -234,6 +295,52 @@ export class DispatchWidgetOutboxMessage {
     await this.afterDelivery(row, providerMessageId)
 
     return { status: 'sent', providerMessageId }
+  }
+
+  /**
+   * A **única** diferença entre entregar uma mensagem livre e entregar um template.
+   *
+   * Tudo o que protege a mensagem do contato — a marca de entrega, o claim
+   * condicional, o lock por destino, a classificação da falha, os efeitos colaterais —
+   * é idêntico nos dois e fica fora daqui de propósito. Duplicar o `execute` inteiro
+   * por causa de uma chamada seria duplicar as garantias, e a segunda cópia começaria a
+   * divergir da primeira no primeiro ajuste.
+   *
+   * A resolução do sender é **por execução**, não guardada: uma linha reprovisionada
+   * entre o clique e a retentativa passa a valer com a credencial nova.
+   */
+  private async callProvider(
+    row: WidgetOutboxRecord,
+    line: DispatchLineTarget,
+  ): Promise<string> {
+    if (row.kind === 'TEMPLATE') {
+      const descriptor = templateDescriptorOf(row)
+      if (!descriptor) {
+        throw new Error('Intenção de template sem templateName/language')
+      }
+
+      /**
+       * Mesmo fallback do resolver de envio livre: o provisionamento grava o
+       * `channelId` nos dois campos, mas linha antiga pode ter só o `instanceId`.
+       */
+      const sender = this.deps.templateSenderResolver.resolve(line.provider, {
+        channelId: line.channelId ?? line.instanceId,
+        recipientIdentifier: row.destination,
+      })
+
+      const { messageId } = await sender.send(descriptor)
+      return messageId
+    }
+
+    const sender = this.deps.senderResolver.resolve(line.provider, {
+      instanceId: line.instanceId,
+      zApiToken: line.zApiToken ?? null,
+      channelId: line.channelId ?? null,
+      chatId: row.destination,
+    })
+
+    const { messageId } = await sender.send({ kind: 'text', text: row.text })
+    return messageId
   }
 
   private async handleSendFailure(
