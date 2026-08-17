@@ -35,3 +35,14 @@ services:
       - "3001:3000"
     env_file:
       - ./front/.env
+
+  # PORT dentro do container fica sempre 3200; host expõe 3201 no staging
+  mcp:
+    image: ghcr.io/crmthink-sources/hub-core-mcp:staging
+    container_name: hubthink-mcp-staging
+    ports:
+      - "3201:3200"
+    env_file:
+      - ./mcp/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

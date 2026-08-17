@@ -6,11 +6,12 @@ import {
   betterStackSource,
   queryBySonaxCall as bsQueryBySonaxCall,
   queryBySonaxPhone as bsQueryBySonaxPhone,
+  queryByGptmakerConversation as bsQueryByGptmakerConversation,
 } from './betterstack-source.js'
 
 // Produtos que emitem pro BetterStack (HubThink). Todo o resto = Loki (casa).
 // Extensível: cada produto HubStack novo com catálogo entra aqui.
-const HUBTHINK_APPS = new Set<string>(['sonax'])
+const HUBTHINK_APPS = new Set<string>(['sonax', 'gptmaker'])
 
 function sourceForApp(app: string): LogSource {
   return HUBTHINK_APPS.has(app) ? betterStackSource : lokiSource
@@ -90,4 +91,21 @@ export async function queryBySonaxPhone(
 ): Promise<LogEntry[]> {
   if (!betterStackSource.configured()) return []
   return bsQueryBySonaxPhone(phone, domain, sinceHours, limit)
+}
+
+// Junta as fases de uma conversa do GPT Maker pelo id da conversa. GPT Maker vive no
+// BetterStack; sem ele configurado, devolve vazio.
+export async function queryByGptmakerConversation(
+  conversationId: string,
+  domain?: string,
+  sinceHours?: number,
+  limit?: number,
+): Promise<LogEntry[]> {
+  if (!betterStackSource.configured()) return []
+  return bsQueryByGptmakerConversation(
+    conversationId,
+    domain,
+    sinceHours,
+    limit,
+  )
 }

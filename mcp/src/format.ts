@@ -57,6 +57,31 @@ export function fmtCallTimeline(callId: string, entries: LogEntry[]): string {
   return `${header}\n\n${entries.map(fmtEntry).join('\n')}${footer}`
 }
 
+// Timeline de uma conversa do GPT Maker (junta as fases pelo id da conversa). Realça
+// errorCodes e os traceKeys de cada fase, pra o suporte pivotar por fase se precisar.
+export function fmtConversationTimeline(
+  conversationId: string,
+  entries: LogEntry[],
+): string {
+  const codes = [...new Set(entries.map(e => e.errorCode).filter(Boolean))]
+  const traces = [...new Set(entries.map(e => e.traceKey).filter(Boolean))]
+  const tenant = entries.find(e => e.domain)?.domain
+  const header = [
+    `Timeline da conversa ${conversationId} (${entries.length} evento(s))`,
+    tenant ? `domínio: ${tenant}` : '',
+  ]
+    .filter(Boolean)
+    .join(' | ')
+  const foot: string[] = []
+  if (codes.length)
+    foot.push(
+      `errorCode(s): ${codes.join(', ')} → chame get_runbook para resolver.`,
+    )
+  if (traces.length) foot.push(`traceKey(s) por fase: ${traces.join(', ')}.`)
+  const footer = foot.length ? `\n\n${foot.join('\n')}` : ''
+  return `${header}\n\n${entries.map(fmtEntry).join('\n')}${footer}`
+}
+
 // Timeline por telefone: pode abranger várias chamadas do mesmo número. Realça os
 // errorCodes e os traceKeys (cada chamada/fase tem o seu) pra o suporte pivotar por
 // traceKey ou pelo id da chamada.
