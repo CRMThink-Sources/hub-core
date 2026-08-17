@@ -7,12 +7,14 @@ import {
   queryErrors,
   queryBySonaxCall,
   queryBySonaxPhone,
+  queryByGptmakerConversation,
 } from '../log/index.js'
 import {
   fmtTimeline,
   fmtErrorAggregation,
   fmtCallTimeline,
   fmtPhoneTimeline,
+  fmtConversationTimeline,
 } from '../format.js'
 import { text, errMsg } from '../respond.js'
 
@@ -203,6 +205,48 @@ export function registerLogTools(server: McpServer): void {
           )
         }
         return text(fmtPhoneTimeline(p, entries))
+      }),
+  )
+
+  // Específico do GPT Maker: uma conversa gera eventos separados (recebimento, geração
+  // da resposta, envio, transferência p/ humano, sincronização no CRM), cada um com
+  // traceKey próprio, mas o mesmo id de conversa. Junta as fases pelo id.
+  server.registerTool(
+    'query_gptmaker_conversation',
+    {
+      title: 'Linha do tempo da conversa GPT Maker (id da conversa)',
+      description:
+        'Para o app gptmaker: junta os eventos de uma mesma conversa (recebimento, ' +
+        'geração da resposta, envio, transferência para humano e sincronização no ' +
+        'CRM) pelo id da conversa e devolve a timeline com os errorCodes e os ' +
+        'traceKeys de cada fase. Use quando o ticket traz o id da conversa em vez de ' +
+        'um traceKey.',
+      inputSchema: {
+        conversationId: z
+          .string()
+          .describe('Id da conversa GPT Maker (uuid/identificador)'),
+        sinceHours: z
+          .number()
+          .optional()
+          .describe('Janela em horas (padrão 72)'),
+      },
+    },
+    async ({ conversationId, sinceHours }, extra) =>
+      withLogs(async () => {
+        const scope = scopeDomain(session(extra))
+        if (scope.error) return text(scope.error)
+        const id = conversationId.trim()
+        const entries = await queryByGptmakerConversation(
+          id,
+          scope.domain,
+          sinceHours,
+        )
+        if (entries.length === 0) {
+          return text(
+            `Nenhum evento para a conversa "${id}" na janela. Confira o id da conversa ou aumente sinceHours.`,
+          )
+        }
+        return text(fmtConversationTimeline(id, entries))
       }),
   )
 }

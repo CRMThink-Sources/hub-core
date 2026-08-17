@@ -89,3 +89,9 @@ services:
   front:
     ports:
       - "3002:3000"
+
+  mcp:
+    ports:
+      - "3200:3200"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

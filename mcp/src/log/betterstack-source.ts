@@ -202,6 +202,44 @@ export async function queryBySonaxCall(
   return entries.sort((a, b) => a.ts - b.ts) // cronológico p/ leitura
 }
 
+// Id da conversa do GPT Maker: alfanumérico (uuid/slug). Guard antes de injetar no
+// SQL (defense-in-depth) — `q()` já escapa, isto barra formato inesperado.
+const SAFE_CONVERSATION_ID = /^[A-Za-z0-9_-]{1,64}$/
+
+// Específico do GPT Maker: uma conversa gera eventos separados (recebimento, geração
+// da resposta, envio, transferência p/ humano, sincronização no CRM), cada um com
+// traceKey próprio, mas o MESMO id de conversa. Junta as fases pelo id p/ ver o que
+// aconteceu na conversa inteira. Não vive na interface LogSource (é do GPT Maker).
+export async function queryByGptmakerConversation(
+  conversationId: string,
+  domain?: string,
+  sinceHours?: number,
+  limit?: number,
+): Promise<LogEntry[]> {
+  const id = conversationId.trim()
+  if (!SAFE_CONVERSATION_ID.test(id)) return []
+  const hours = clamp(sinceHours, 72, MAX_SINCE_HOURS)
+  const cap = clamp(limit, 200, MAX_LIMIT)
+  // As chaves do id conforme a fase do evento. `contextId` é o nome nativo do fluxo
+  // (x-x-<agente>-<chat>); `gptmakerConversationId`/`conversationId` são aliases.
+  const idMatch =
+    `(${field('gptmakerConversationId')} = ${q(id)}` +
+    ` OR ${field('conversationId')} = ${q(id)}` +
+    ` OR ${field('contextId')} = ${q(id)})`
+  const where = [
+    `dt >= now() - INTERVAL ${hours} HOUR`,
+    idMatch,
+    domainClause(domain),
+  ]
+    .filter(Boolean)
+    .join(' AND ')
+  const sql =
+    `SELECT dt, raw FROM ${table()} WHERE ${where} ` +
+    `ORDER BY dt DESC LIMIT ${cap} FORMAT JSONEachRow`
+  const entries = await runSql(sql)
+  return entries.sort((a, b) => a.ts - b.ts) // cronológico p/ leitura
+}
+
 // Específico do Sonax: busca eventos por telefone do cliente. O telefone não é campo
 // estruturado — vive dentro de `extra` sob chaves variadas (numeroCliente/phone) e em
 // formatos diferentes → casa o sufixo local em qualquer lugar do `raw` (position).
