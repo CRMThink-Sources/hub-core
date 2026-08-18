@@ -8,7 +8,10 @@ import {
   WhatsAppConnectorProvider,
 } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
 import { HubMessageClient } from '@/modules/thinkzap/infra/clients/hubmessage.client'
-import { ListBusinessesResponse } from '@/modules/thinkzap/infra/clients/types/hubmessage.types'
+import {
+  HUBMESSAGE_CHANNEL_WEBHOOK_EVENTS,
+  ListBusinessesResponse,
+} from '@/modules/thinkzap/infra/clients/types/hubmessage.types'
 import { apiLogger } from '@/shared/infra/logger'
 import {
   logThinkzapError,
@@ -57,7 +60,7 @@ export class HubMessageConnectorProvider implements WhatsAppConnectorProvider {
     try {
       const webhook = await this.client.createWebhook(channelId, {
         url: this.config.webhookUrl,
-        events: ['MESSAGE_RECEIVED'],
+        events: HUBMESSAGE_CHANNEL_WEBHOOK_EVENTS,
       })
       webhookId = webhook.id
     } catch (error) {

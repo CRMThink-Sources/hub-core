@@ -31,6 +31,7 @@
     "check:plans-vs-gateway": "tsx src/scripts/check-plans-vs-gateway.ts",
     "check:gateway-webhook": "tsx src/scripts/check-gateway-webhook.ts",
     "check:spa-client-contact-fields": "tsx src/scripts/check-spa-client-contact-fields.ts",
+    "check:bitrix-bot-notice": "tsx src/scripts/check-bitrix-bot-notice.ts",
     "create:mcp-user": "tsx src/scripts/create-mcp-user.ts"
   },
   "dependencies": {
