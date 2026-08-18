@@ -171,7 +171,7 @@ describe('ConnectChannelController', () => {
 
     expect(client.createWebhook).toHaveBeenCalledWith('chan_1', {
       url: WEBHOOK_URL,
-      events: ['MESSAGE_RECEIVED'],
+      events: ['MESSAGE_RECEIVED', 'MESSAGE_DELIVERY'],
     })
   })
 

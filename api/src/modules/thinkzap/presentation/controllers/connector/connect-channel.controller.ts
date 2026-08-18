@@ -10,6 +10,7 @@ import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/g
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
 import { HubMessageClient } from '@/modules/thinkzap/infra/clients/hubmessage.client'
+import { HUBMESSAGE_CHANNEL_WEBHOOK_EVENTS } from '@/modules/thinkzap/infra/clients/types/hubmessage.types'
 import { findLineItemByChannelId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
 import { LineBlockedError } from '@/modules/thinkzap/domain/errors/line-blocked.error'
 import { mapLineBlockedError } from '@/modules/thinkzap/presentation/helpers/handle-line-error'
@@ -128,7 +129,7 @@ export class ConnectChannelController extends Controller {
     try {
       const webhook = await this.hubMessageClient.createWebhook(channelId, {
         url: this.webhookUrl,
-        events: ['MESSAGE_RECEIVED'],
+        events: HUBMESSAGE_CHANNEL_WEBHOOK_EVENTS,
       })
       return webhook.id
     } catch (error) {

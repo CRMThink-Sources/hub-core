@@ -24,6 +24,29 @@ export type HubMessageWebhookEvent =
   | 'INITIAL_DATA'
   | 'BLOCK'
 
+/**
+ * Eventos que **todo** webhook de canal nosso precisa assinar.
+ *
+ * `MESSAGE_RECEIVED` entrega a mensagem do contato. `MESSAGE_DELIVERY` entrega o
+ * desfecho do que **nós** enviamos: o `POST /messages` responde `200` antes de a Meta
+ * processar, então uma recusa (número sem aprovação de display name, janela fechada,
+ * número inválido) chega só por aqui. Sem este evento, mensagem que a Meta rejeita
+ * aparece como entregue no canal aberto e o contato nunca recebe nada.
+ *
+ * Constante, e não array literal em cada ponto de criação: eram duas cópias — o
+ * provisionamento do conector e a conclusão da conexão do canal — e duas cópias é
+ * como uma delas fica para trás na próxima mudança, deixando parte dos canais surda
+ * para o evento novo.
+ *
+ * Canais provisionados antes desta lista existir têm webhook só com
+ * `MESSAGE_RECEIVED` e precisam ser reconfigurados à mão no painel da HubMessage: a
+ * API só expõe `POST /webhooks`, sem leitura nem atualização.
+ */
+export const HUBMESSAGE_CHANNEL_WEBHOOK_EVENTS: HubMessageWebhookEvent[] = [
+  'MESSAGE_RECEIVED',
+  'MESSAGE_DELIVERY',
+]
+
 export type CreateHubMessageWebhookParams = {
   url: string
   events: HubMessageWebhookEvent[]

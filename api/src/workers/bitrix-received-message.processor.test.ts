@@ -317,6 +317,9 @@ describe('processBitrixReceivedMessage DB persistence', () => {
         bitrixMessageId: 'BITRIX-MSG-1',
         type: 'TEXT',
         chatId: '5511999999999',
+        // `im.chat_id`, nao o telefone: e o unico endereco para avisar o operador
+        // quando o provider aceita e a Meta recusa depois (callback de status).
+        bitrixChatId: '100',
       }),
     )
   })
@@ -446,6 +449,9 @@ describe('processBitrixReceivedMessage provider routing', () => {
         providerMessageId: 'HM-1',
         bitrixMessageId: 'BITRIX-MSG-1',
         type: 'TEXT',
+        // Sem isto o callback de status da HubMessage nao tem DIALOG_ID para avisar
+        // o operador quando a Meta recusa a entrega depois do aceite.
+        bitrixChatId: '100',
       }),
     )
     expect(setMessageDeliveredMock).toHaveBeenCalledTimes(1)
@@ -550,5 +556,63 @@ describe('processBitrixReceivedMessage janela de 24h fechada', () => {
 
     await expect(processBitrixReceivedMessage(makeEvent())).rejects.toThrow()
     expect(createMock).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * A aba Logs do job e' o unico lugar onde quem abre UM job especifico ve o que
+ * aconteceu com ELE. Estes testes travam as duas linhas que respondem "a mensagem nao
+ * chegou": o aceite do provider (com o id para rastrear do lado dele) e a recusa.
+ */
+describe('processBitrixReceivedMessage aba Logs do job', () => {
+  beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
+    createMock.mockClear()
+    createMock.mockResolvedValue(undefined)
+    findByBitrixMessageIdMock.mockClear()
+    findByBitrixMessageIdMock.mockResolvedValue(null)
+    sendHubMessageMock.mockClear()
+    sendHubMessageMock.mockResolvedValue({ messageId: 'HM-1' })
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockClear()
+    callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
+    getContextMock.mockResolvedValue(hubMessageContext)
+  })
+
+  it('registra contexto, aceite do provider e confirmacao no Bitrix', async () => {
+    const appendJobLog = vi.fn().mockResolvedValue(undefined)
+
+    await processBitrixReceivedMessage(makeEvent(), { appendJobLog })
+
+    const lines = appendJobLog.mock.calls.map(([line]) => line as string)
+
+    expect(lines.some(l => l.includes('linha=10'))).toBe(true)
+    expect(
+      lines.some(
+        l => l.includes('provider=HUBMESSAGE') && l.includes('CH-123'),
+      ),
+    ).toBe(true)
+    // O id do provider e' o fim da nossa visibilidade: sem ele na aba, nao ha por
+    // onde continuar a investigacao do lado da HubMessage.
+    expect(lines.some(l => l.includes('providerMessageId=HM-1'))).toBe(true)
+    expect(lines.some(l => l.includes('setMessageDelivered'))).toBe(true)
+  })
+
+  it('registra o status e o corpo da recusa do provider', async () => {
+    const appendJobLog = vi.fn().mockResolvedValue(undefined)
+    sendHubMessageMock.mockRejectedValue(
+      new HubMessageApiError(500, 'POST', '/x', { message: 'boom' }, null),
+    )
+
+    await expect(
+      processBitrixReceivedMessage(makeEvent(), { appendJobLog }),
+    ).rejects.toThrow()
+
+    const lines = appendJobLog.mock.calls.map(([line]) => line as string)
+
+    expect(
+      lines.some(l => l.includes('status 500') && l.includes('boom')),
+    ).toBe(true)
+    expect(lines.some(l => l.includes('providerMessageId'))).toBe(false)
   })
 })

@@ -25,6 +25,10 @@ import {
 } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import {
+  AppendJobLog,
+  noopJobLog,
+} from '@/modules/thinkzap/domain/ports/job-log.port'
 import { redisConnection } from '@/queue/redis-connection'
 
 const log = createWorkerSourceLogger('bitrix')
@@ -45,32 +49,52 @@ type BitrixMessageGetResult = {
   }
 }
 
+type PersistOutboundMessageInput = {
+  instanceId: string
+  providerMessageId: string
+  bitrixMessageId: string
+  /** Telefone do contato — o `chat.id` do evento. */
+  chatId: string
+  /**
+   * Chat do canal aberto (`im.chat_id`), onde o operador escreveu.
+   *
+   * Passou a ser gravado porque é o único endereço para avisar o operador quando o
+   * provider aceita o envio e a Meta o recusa depois — o callback de status conhece a
+   * mensagem por `providerMessageId` e precisa daqui o `DIALOG_ID`. Sem isto, a recusa
+   * não tem onde aparecer.
+   */
+  bitrixChatId: string
+  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT'
+  text?: string
+  fileName?: string
+}
+
+/**
+ * Objeto em vez de sete posicionais: os quatro primeiros campos são todos ids em
+ * string, e a ordem deles era a única coisa separando "gravou o chat certo" de "gravou
+ * o telefone no lugar do chat".
+ */
 async function persistOutboundMessage(
-  instanceId: string,
-  providerMessageId: string,
-  bitrixMessageId: string,
-  chatId: string,
-  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT',
-  text?: string,
-  fileName?: string,
+  input: PersistOutboundMessageInput,
 ): Promise<void> {
   try {
     await messageRepo.create({
-      instanceId,
+      instanceId: input.instanceId,
       source: 'BITRIX',
-      providerMessageId,
-      bitrixMessageId,
-      type,
-      text: text ?? null,
-      fileName: fileName ?? null,
-      chatId,
+      providerMessageId: input.providerMessageId,
+      bitrixMessageId: input.bitrixMessageId,
+      bitrixChatId: input.bitrixChatId,
+      type: input.type,
+      text: input.text ?? null,
+      fileName: input.fileName ?? null,
+      chatId: input.chatId,
     })
   } catch (err) {
     log.warn(
       {
-        instanceId,
-        providerMessageId,
-        bitrixMessageId,
+        instanceId: input.instanceId,
+        providerMessageId: input.providerMessageId,
+        bitrixMessageId: input.bitrixMessageId,
         err,
         dbWriteFailed: true,
       },
@@ -140,9 +164,21 @@ function toOutboundKind(file: {
   }
 }
 
+/**
+ * Envia ao contato no WhatsApp a mensagem que o operador escreveu no canal aberto do
+ * Bitrix, pelo provider do conector daquela linha.
+ *
+ * Além do log de processo (stdout → Promtail → Loki), escreve a história desta execução
+ * na **aba Logs do job** via `appendJobLog`: é onde quem abre um job específico no Bull
+ * Board procura "por que esta mensagem não chegou", sem montar query no Loki. Uma linha
+ * por decisão e por desfecho, não por passo — cada chamada é um round-trip ao Redis.
+ */
 export async function processBitrixReceivedMessage(
   event: IBX24MessageEvent,
+  deps: { appendJobLog: AppendJobLog } = { appendJobLog: noopJobLog },
 ): Promise<void> {
+  const { appendJobLog } = deps
+
   log.info(
     {
       domain: event.auth.domain,
@@ -151,10 +187,19 @@ export async function processBitrixReceivedMessage(
     },
     'Processing Bitrix outbound message',
   )
+
+  await appendJobLog(
+    `Saída do Bitrix | domínio=${event.auth.domain} | linha=${event.data.LINE} | ` +
+      `mensagens no evento=${event.data.MESSAGES.length}`,
+  )
+
   if (!event.data.MESSAGES.length) {
     log.warn(
       { domain: event.auth.domain, line: event.data.LINE },
       'Bitrix event received with no messages — skipping',
+    )
+    await appendJobLog(
+      'Evento sem mensagens — nada a enviar. Job encerrado sem falha.',
     )
     return
   }
@@ -175,6 +220,18 @@ export async function processBitrixReceivedMessage(
     'Bitrix messages parsed',
   )
 
+  /**
+   * Os tipos **depois** da tradução, não os do evento: anexo de tipo desconhecido é
+   * descartado no parse, e sem esta linha um job que não enviou nada parece um job que
+   * enviou. `nenhum` aqui já é a resposta inteira para "a mensagem não chegou".
+   */
+  await appendJobLog(
+    `Conteúdo a enviar: ${
+      descriptors.map(d => d.kind).join(', ') ||
+      'nenhum (tipo de anexo não suportado — descartado no parse)'
+    }`,
+  )
+
   const bitrixWebhookContextRepo: GetBitrixWebhookContextRepository =
     makeBitrixWebhookContextRepository()
 
@@ -188,6 +245,10 @@ export async function processBitrixReceivedMessage(
     log.error(
       { domain: event.auth.domain, line: event.data.LINE },
       'Bitrix webhook context not found',
+    )
+    await appendJobLog(
+      `Contexto do webhook não encontrado (domínio=${event.auth.domain}, linha=${event.data.LINE}). ` +
+        'Sem instância/conector não há para onde enviar — job vai falhar.',
     )
     throw new Error('Context not found')
   }
@@ -203,6 +264,11 @@ export async function processBitrixReceivedMessage(
       provider,
     },
     'Bitrix webhook context resolved',
+  )
+
+  await appendJobLog(
+    `Contexto resolvido: provider=${provider} | instância=${context.instance.instanceId} | ` +
+      `channelId=${context.instance.channelId ?? '—'} | destino(chatId)=${chatId}`,
   )
 
   /**
@@ -247,6 +313,11 @@ export async function processBitrixReceivedMessage(
         entitlement: line?.entitlement ?? 'unresolved',
       },
       'Envio recusado: linha sem assinatura ativa',
+    )
+    await appendJobLog(
+      `Envio recusado: linha sem assinatura ativa | item=${line?.item.id ?? 'não resolvido'} | ` +
+        `entitlement=${line?.entitlement ?? 'unresolved'}. É assinatura, não falha técnica — ` +
+        'retentativa cai no mesmo lugar.',
     )
     throw new Error('Line is not enabled for outbound messages')
   }
@@ -315,7 +386,7 @@ export async function processBitrixReceivedMessage(
   const bitrixMessageId = message.im.message_id
   const instanceDbId = context.instance.id
 
-  for (const descriptor of descriptors) {
+  for (const [index, descriptor] of descriptors.entries()) {
     log.debug(
       {
         domain: event.auth.domain,
@@ -325,6 +396,14 @@ export async function processBitrixReceivedMessage(
         messageType: descriptor.kind,
       },
       'Sending message to contact',
+    )
+
+    await appendJobLog(
+      `Enviando ${index + 1}/${descriptors.length} via ${provider} | tipo=${descriptor.kind}` +
+        (descriptor.fileName ? ` | arquivo=${descriptor.fileName}` : '') +
+        (replyId
+          ? ` | reply=${referencedMessageId ? 'resolvido' : 'não resolvido/não suportado'}`
+          : ''),
     )
 
     // O texto do operador passa pelo preparo do canal aberto (assinatura etc.);
@@ -377,6 +456,10 @@ export async function processBitrixReceivedMessage(
             msg: 'HubMessage rejeitou o envio por janela de 24h fechada — avisando operador sem retentar',
           },
         )
+        await appendJobLog(
+          'Provider recusou: janela de conversa de 24h fechada. Só template aprovado reabre — ' +
+            'operador avisado no chat, job encerrado SEM retentativa e sem entrega.',
+        )
         await notifyOperatorWindowClosed(
           bitrixClient,
           botId,
@@ -397,6 +480,16 @@ export async function processBitrixReceivedMessage(
         },
         { level: 'error' },
       )
+      /**
+       * A mensagem do erro é o que interessa aqui: `HubMessageApiError` já traz método,
+       * URL, status HTTP e corpo da resposta no `message`. É a linha que diz se o
+       * provider recusou (4xx com motivo) ou caiu (5xx) — sem ela, a aba mostraria só
+       * que o job falhou.
+       */
+      await appendJobLog(
+        `Falha no envio via ${provider}: ${err instanceof Error ? err.message : String(err)}. ` +
+          'Job vai falhar — BullMQ retenta conforme as tentativas configuradas.',
+      )
       throw err
     }
 
@@ -412,18 +505,37 @@ export async function processBitrixReceivedMessage(
       'Message sent to contact',
     )
 
-    await persistOutboundMessage(
-      instanceDbId,
-      result.messageId,
+    /**
+     * **Aceite do provider, não entrega ao contato.** O que houve aqui foi um 2xx na
+     * API; ninguém trata callback de status de entrega, então este id é o fim da nossa
+     * visibilidade. Job `completed` com esta linha e contato sem a mensagem = investigar
+     * do lado do provider, por este `providerMessageId` — não no nosso código.
+     */
+    await appendJobLog(
+      `${provider} aceitou (HTTP 2xx): providerMessageId=${result.messageId} | ` +
+        `tipoPersistido=${result.persistedType}. Aceite ≠ entrega — não há callback de ` +
+        'status; rastrear por este id no provider.',
+    )
+
+    await persistOutboundMessage({
+      instanceId: instanceDbId,
+      providerMessageId: result.messageId,
       bitrixMessageId,
       chatId,
-      result.persistedType,
-      result.sentText,
+      bitrixChatId: message.im.chat_id,
+      type: result.persistedType,
+      text: result.sentText,
       // Só documento persiste `fileName` — imagem/vídeo/áudio nunca gravaram o
       // nome do arquivo, e a extração do adapter não muda isso.
-      result.persistedType === 'DOCUMENT' ? descriptor.fileName : undefined,
-    )
+      fileName:
+        result.persistedType === 'DOCUMENT' ? descriptor.fileName : undefined,
+    })
     await setDelivered(bitrixClient, event, message, chatId, result.messageId)
+
+    await appendJobLog(
+      `Persistido no banco e confirmado no Bitrix (setMessageDelivered) | ` +
+        `bitrixMessageId=${bitrixMessageId} → ${result.messageId}`,
+    )
   }
 
   log.info(
@@ -436,6 +548,10 @@ export async function processBitrixReceivedMessage(
       messagesProcessed: descriptors.length,
     },
     'Bitrix outbound message processing completed',
+  )
+
+  await appendJobLog(
+    `Desfecho: ${descriptors.length} mensagem(ns) aceita(s) pelo ${provider} e confirmada(s) no Bitrix.`,
   )
 }
 
