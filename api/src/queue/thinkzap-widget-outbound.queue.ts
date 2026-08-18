@@ -67,17 +67,23 @@ export const thinkzapWidgetOutboundQueue = new Queue<ThinkzapWidgetOutboundJob>(
  * A dupla `(instanceId, providerMessageId)` é a mesma chave da row de mensagem, então
  * duas tentativas de abrir a conversa para a mesma mensagem são o mesmo job — não
  * dois jobs concorrendo pelo guard de `chat_id`.
+ *
+ * Separador é `-` e não `:` porque o BullMQ monta as chaves do Redis com `:`. Hoje ele
+ * só rejeita o id quando `split(':').length !== 3` — carve-out de compatibilidade com
+ * repeatable jobs antigos, marcado no próprio código como coisa a endurecer para
+ * `includes(':')` no próximo major. Um id de três segmentos passa por acidente, não por
+ * ser suportado; nenhum dos dois builders aqui depende disso.
  */
 export function openChannelJobId(
   instanceId: string,
   providerMessageId: string,
 ): string {
-  return `widget-open-channel:${instanceId}:${providerMessageId}`
+  return `widget-open-channel-${instanceId}-${providerMessageId}`
 }
 
 /** O id da row do outbox é a chave natural: uma intenção, um job. */
 export function widgetSendJobId(outboxId: string): string {
-  return `widget-send:${outboxId}`
+  return `widget-send-${outboxId}`
 }
 
 export async function enqueueThinkzapWidgetOutboundJob(
