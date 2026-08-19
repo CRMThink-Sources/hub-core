@@ -602,6 +602,26 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 400,
   },
+  'thinkzap.line.channel_already_linked': {
+    category: 'validation',
+    userCause: 'Este canal aberto já atende outra linha.',
+    remediation:
+      'Desvincular o canal da outra linha, ou criar um canal aberto novo no Bitrix para esta. ' +
+      'Um canal atende uma linha só: a saída do Bitrix identifica apenas o canal, então duas ' +
+      'linhas no mesmo canal fazem a resposta do operador sair por um número imprevisível.',
+    retriable: false,
+    httpStatus: 409,
+  },
+  'thinkzap.line.channel_binding_ambiguous': {
+    category: 'validation',
+    userCause:
+      'Este canal aberto está vinculado a mais de uma linha, e não há como saber qual deve responder.',
+    remediation:
+      'Na SPA 1146, desvincular o canal (`ufCrm93Conector`) do item que não deve responder. ' +
+      'Estado só existe em instalação configurada antes da guarda de vínculo único.',
+    retriable: false,
+    httpStatus: 409,
+  },
 
   // ── subscription: resolução de plano / regras de contratação ──
   'thinkzap.subscription.plan_not_offerable': {

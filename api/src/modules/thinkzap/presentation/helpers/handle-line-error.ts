@@ -8,6 +8,7 @@ import { InvalidBitrixPlanError } from '@/modules/application/infra/bitrix/error
 import { InvalidBitrixProductError } from '@/modules/application/infra/bitrix/errors/invalid-bitrix-product.error'
 import { LineBlockedError } from '@/modules/thinkzap/domain/errors/line-blocked.error'
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
+import { ChannelAlreadyLinkedError } from '@/modules/thinkzap/domain/errors/channel-already-linked.error'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
@@ -111,6 +112,26 @@ export function mapLineError(
     error instanceof AplicationNotFoundError
   ) {
     return { status: 404, result: { error: error.message } }
+  }
+
+  /**
+   * Canal aberto já ocupado por outra linha: `409`, porque o pedido é válido e é o
+   * estado do recurso que impede. A mensagem do erro nomeia a linha que ocupa e o que
+   * fazer — desvincular ou criar outro canal —, então a tela pode exibi-la direto.
+   */
+  if (error instanceof ChannelAlreadyLinkedError) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.line.channel_already_linked',
+      {
+        app: 'thinkzap',
+        line: error.line,
+        occupiedBySubscriptionItemId: error.occupiedBySubscriptionItemId,
+        err: error,
+      },
+      { level: 'warn' },
+    )
+    return { status: 409, result: { error: error.message } }
   }
 
   /** Recurso existe, operação não se aplica. */

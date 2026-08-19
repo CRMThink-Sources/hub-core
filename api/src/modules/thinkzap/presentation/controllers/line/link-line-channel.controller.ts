@@ -11,6 +11,8 @@ import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/ge
 import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
 import { ensureLineInstance } from '@/modules/thinkzap/application/helpers/ensure-line-instance'
 import { assertConnectorLineEnabled } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
+import { ChannelAlreadyLinkedError } from '@/modules/thinkzap/domain/errors/channel-already-linked.error'
+import { AplicationContext } from '@/modules/application/application/get-aplication-context'
 import { mapLineError } from '@/modules/thinkzap/presentation/helpers/handle-line-error'
 import { parseLineRequest } from './line-request'
 
@@ -64,6 +66,18 @@ export class LinkLineChannelController extends Controller {
         new Date(),
       )
 
+      const vinculatedChannel = String(body.data.lineId)
+
+      /**
+       * Um canal aberto atende **uma** linha. Conferido antes de tocar o Bitrix: se o
+       * canal já é de outra linha, não há por que ativar conector nenhum.
+       *
+       * Sem esta guarda o estado nascia sem aviso, e o sintoma aparecia longe daqui —
+       * mensagem do operador saindo por um número imprevisível, aceita pelo provider,
+       * com o job terminando em sucesso. Ver `AmbiguousChannelBindingError`.
+       */
+      assertChannelFree(context, vinculatedChannel, item.id)
+
       /**
        * Ativar no Bitrix **antes** de persistir: se a ativação falhar, o vínculo
        * não é gravado e a tela não mostra um canal que não recebe nada.
@@ -72,8 +86,6 @@ export class LinkLineChannelController extends Controller {
         body.data.lineId,
         env.bitrix.connector.code,
       )
-
-      const vinculatedChannel = String(body.data.lineId)
 
       await this.items.updateSubscriptionItem(item.id, {
         vinculatedChannel,
@@ -103,4 +115,37 @@ export class LinkLineChannelController extends Controller {
       return mapLineError(error, 'Falha ao vincular o canal aberto')
     }
   }
+}
+
+/**
+ * Recusa o vínculo quando o canal já é de outra linha **ativa** da instalação.
+ *
+ * Item cancelado não ocupa canal: linha cancelada não responde por nada, e travar o
+ * vínculo por causa dela deixaria o canal inutilizável sem nada na tela explicando o
+ * porquê.
+ *
+ * Revincular a linha ao canal que ela **já** tem passa: é idempotente, e o próprio item
+ * fica fora da comparação.
+ */
+function assertChannelFree(
+  context: AplicationContext,
+  vinculatedChannel: string,
+  subscriptionItemId: string,
+): void {
+  const occupant = context.subscriptions
+    .flatMap(subscription => subscription.items)
+    .find(
+      candidate =>
+        candidate.id !== subscriptionItemId &&
+        candidate.status !== 'cancelled' &&
+        candidate.vinculatedChannel === vinculatedChannel,
+    )
+
+  if (!occupant) return
+
+  throw new ChannelAlreadyLinkedError(
+    vinculatedChannel,
+    occupant.id,
+    occupant.name,
+  )
 }
