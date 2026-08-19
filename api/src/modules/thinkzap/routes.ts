@@ -11,6 +11,7 @@ import { makeSendWidgetMessageController } from './main/make-send-widget-message
 import { makeSendWidgetMessageMultipartController } from './main/make-send-widget-message-multipart-controller'
 import { makeGetLineStatusForWidgetController } from './main/make-get-line-status-for-widget-controller'
 import { makeListWidgetTemplatesController } from './main/make-list-widget-templates-controller'
+import { makeListTemplateLinesController } from './main/make-list-template-lines-controller'
 import { makeSendWidgetTemplateController } from './main/make-send-widget-template-controller'
 import { widgetMessageUploadParser } from './infra/http/widget-message-upload.multer'
 import { makeAddGroupParticipantsController } from './main/make-add-group-participants-controller'
@@ -130,6 +131,23 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/messages/widget-templates/:subscriptionItemId',
     adaptControllerFactory(makeListWidgetTemplatesController),
+  )
+  /**
+   * Linhas capazes de enviar template, para a tela de configuração do robô de
+   * Bizproc (`USE_PLACEMENT`).
+   *
+   * Fica neste bloco, **sem** `requireThinkzapPermission('connectors', 'read')`,
+   * pelo mesmo motivo das duas rotas acima: quem desenha a automação não é
+   * necessariamente quem administra conectores, e exigir permissão de conector
+   * abriria a tela vazia para o usuário que ela existe para atender.
+   *
+   * O escopo continua saindo do JWT, e a resposta são dois campos por linha
+   * (`id`, `name`) — sem credencial, canal ou ajustes. `/connector/list` não serve
+   * aqui: exige `connectors:read` e devolve a linha inteira.
+   */
+  router.get(
+    '/messages/template-lines',
+    adaptControllerFactory(makeListTemplateLinesController),
   )
 
   /**

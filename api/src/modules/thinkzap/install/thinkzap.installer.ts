@@ -9,6 +9,7 @@ import { env } from '@/config/env'
 import { buildAudioImTextareaPlacementBindParams } from '../application/build-audio-im-textarea-placement-params'
 import { buildCrmDetailPlacementBindParams } from '../application/build-crm-detail-placement-bind-params'
 import { ensureThinkzapRobot } from '../application/ensure-thinkzap-robot'
+import { ensureTemplateRobot } from '../application/ensure-template-robot'
 import { ensureSpaPlacements } from '../application/ensure-spa-conversation-widget-placements'
 import { syncThinkzapRobotConnectorOptions } from '../application/sync-robot-connectors'
 import { thinkzapError } from '../errors/catalog'
@@ -43,6 +44,7 @@ export class ThinkzapInstaller implements AppInstaller {
     await this.bindCrmPlacements(context)
     await this.bindAudioPlacement(context)
     await this.addRobot(context)
+    await this.addTemplateRobot(context)
 
     // Fail-fast: uma SPA que não vincula por motivo real derruba a instalação.
     await ensureSpaPlacements(client, { failFast: true })
@@ -124,5 +126,14 @@ export class ThinkzapInstaller implements AppInstaller {
    */
   private async addRobot({ client }: AppInstallContext): Promise<void> {
     await ensureThinkzapRobot(client)
+  }
+
+  /**
+   * Robô de envio de template, ao lado do de envio livre. Sem
+   * `BITRIX_TEMPLATE_ROBOT_HANDLER_URL` o passo é no-op — instalar num ambiente que
+   * ainda não publicou a rota do webhook continua funcionando, só sem o robô novo.
+   */
+  private async addTemplateRobot({ client }: AppInstallContext): Promise<void> {
+    await ensureTemplateRobot(client)
   }
 }

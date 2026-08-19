@@ -30,6 +30,12 @@ vi.mock('@/config/env', () => ({
       iframeAudio: { code: 'a', name: 'a', url: '', hash: '' },
       placement: { name: 'ThinkZap', url: 'https://app.test/placement' },
       robot: { code: 'r', name: 'r', handlerUrl: 'https://api.test/robot' },
+      templateRobot: {
+        code: 'tr',
+        name: 'tr',
+        handlerUrl: 'https://api.test/template-robot',
+        placementUrl: 'https://app.test/bizproc/template',
+      },
     },
     apiUrl: 'https://api.test',
   },
@@ -77,6 +83,18 @@ describe('ThinkzapInstaller', () => {
     expect(methods).toContain('placement.get')
     expect(methods).toContain('placement.bind')
     expect(methods).toContain('bizproc.robot.add')
+  })
+
+  it('registra os dois robôs: envio livre e template', async () => {
+    const callMethod = vi.fn().mockResolvedValue({})
+
+    await new ThinkzapInstaller().install(makeContext(callMethod))
+
+    const robotCodes = callMethod.mock.calls
+      .filter(call => call[0] === 'bizproc.robot.add')
+      .map(call => (call[1] as { CODE: string }).CODE)
+
+    expect(robotCodes).toEqual(['r', 'tr'])
   })
 
   it('vincula os três eventos de mensagem do conector', async () => {

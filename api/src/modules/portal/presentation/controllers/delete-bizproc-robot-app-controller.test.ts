@@ -13,6 +13,7 @@ describe('DeleteBizprocRobotAppController', () => {
   it('returns 200 with result', async () => {
     vi.mocked(deleteBizprocRobotForApp).mockResolvedValue({
       result: 'deleted',
+      templateResult: 'deleted',
     })
 
     const response = await controller.perform(
@@ -21,7 +22,10 @@ describe('DeleteBizprocRobotAppController', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(response.result).toEqual({ result: 'deleted' })
+    expect(response.result).toEqual({
+      result: 'deleted',
+      templateResult: 'deleted',
+    })
   })
 
   it('returns 422 when thinkzap is not installed', async () => {

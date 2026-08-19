@@ -28,6 +28,7 @@ import { makeTablesController } from './modules/thinkanalise/main/callbacks/make
 import { makeDescribeController } from './modules/thinkanalise/main/callbacks/make-describe-controller.js'
 import { makeDataController } from './modules/thinkanalise/main/callbacks/make-data-controller.js'
 import { makeBitrixRobotWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-robot-webhook-controller.js'
+import { makeBitrixTemplateRobotWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-template-robot-webhook-controller.js'
 import {
   bullBoardAuthMiddleware,
   bullBoardRouter,
@@ -129,6 +130,18 @@ app.post(
 app.post(
   '/api/thinkzap/webhooks/bitrix/robot',
   adaptControllerFactory(makeBitrixRobotWebhookHandlerController),
+)
+/**
+ * Robô de envio de **template**. Rota própria e não uma variante da de cima: o
+ * `HANDLER` do robô é o que identifica o disparo no Bitrix, e os dois robôs precisam
+ * de handlers distintos para coexistirem no mesmo portal.
+ *
+ * Tem de bater com `BITRIX_TEMPLATE_ROBOT_HANDLER_URL` — é essa URL que vai no
+ * registro do robô, e um descasamento só aparece no primeiro disparo, como `404`.
+ */
+app.post(
+  '/api/thinkzap/webhooks/bitrix/template-robot',
+  adaptControllerFactory(makeBitrixTemplateRobotWebhookHandlerController),
 )
 
 /**
