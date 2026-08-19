@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq'
-import { redisConnection } from './redis-connection'
+import { bullBaseOptions } from './redis-connection'
 import { apiLogger } from '@/shared/infra/logger'
 
 export const SPA_ITEM_RESOURCE_SYNC = 'spa-item-resource-sync'
@@ -32,7 +32,7 @@ export const SPA_ITEM_STATUS_JOB = 'sync-item-status'
  */
 export const spaItemResourceSyncQueue = new Queue<SpaItemResourceSyncJob>(
   SPA_ITEM_RESOURCE_SYNC,
-  { connection: redisConnection },
+  bullBaseOptions,
 )
 
 /**

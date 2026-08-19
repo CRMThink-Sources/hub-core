@@ -5,7 +5,9 @@ import { describe, expect, it, vi } from 'vitest'
  * sobre a **regra do id**, não sobre a fila, então a conexão é dublada — sem isso o
  * import pendura o processo tentando alcançar um Redis que não existe no CI.
  */
-vi.mock('./redis-connection', () => ({ redisConnection: {} }))
+vi.mock('./redis-connection', () => ({
+  bullBaseOptions: { connection: {}, prefix: 'bull' },
+}))
 vi.mock('bullmq', () => ({ Queue: class {} }))
 
 // `vi.mock` é içado acima dos imports, então o import estático já pega os dublês.

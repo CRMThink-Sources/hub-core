@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq'
-import { redisConnection } from './redis-connection'
+import { bullBaseOptions } from './redis-connection'
 import { apiLogger } from '@/shared/infra/logger'
 
 export const THINKZAP_WIDGET_OUTBOUND = 'thinkzap-widget-outbound'
@@ -57,7 +57,7 @@ export type ThinkzapWidgetOutboundJob =
 
 export const thinkzapWidgetOutboundQueue = new Queue<ThinkzapWidgetOutboundJob>(
   THINKZAP_WIDGET_OUTBOUND,
-  { connection: redisConnection },
+  bullBaseOptions,
 )
 
 /**

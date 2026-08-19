@@ -1,5 +1,5 @@
 import { Worker } from 'bullmq'
-import { redisConnection } from '@/queue/redis-connection'
+import { bullBaseOptions } from '@/queue/redis-connection'
 import {
   SPA_ITEM_CLEANUP_JOB,
   SPA_ITEM_RESOURCE_SYNC,
@@ -51,7 +51,7 @@ export const spaItemResourceSyncWorker = new Worker(
     )
   },
   {
-    connection: redisConnection,
+    ...bullBaseOptions,
     concurrency: 2,
   },
 )

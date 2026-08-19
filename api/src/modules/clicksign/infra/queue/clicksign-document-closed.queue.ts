@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq'
-import { redisConnection } from '@/queue/redis-connection'
+import { bullBaseOptions } from '@/queue/redis-connection'
 import { apiLogger } from '@/shared/infra/logger'
 import { getLogContext } from '@/shared/infra/log-context'
 import type { WebhookPayload } from '../../application/handle-signature-event.use-case'
@@ -17,9 +17,10 @@ export interface ClicksignDocumentClosedJob {
 }
 
 export const clicksignDocumentClosedQueue =
-  new Queue<ClicksignDocumentClosedJob>(CLICKSIGN_DOCUMENT_CLOSED, {
-    connection: redisConnection,
-  })
+  new Queue<ClicksignDocumentClosedJob>(
+    CLICKSIGN_DOCUMENT_CLOSED,
+    bullBaseOptions,
+  )
 
 export async function enqueueDocumentClosed(
   job: ClicksignDocumentClosedJob,

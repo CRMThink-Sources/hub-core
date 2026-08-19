@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { Worker } from 'bullmq'
-import { redisConnection } from '@/queue/redis-connection'
+import { bullBaseOptions } from '@/queue/redis-connection'
 import { workerLogger } from '@/shared/infra/logger'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
@@ -42,7 +42,7 @@ const worker = new Worker<ClicksignDocumentClosedJob>(
         ).handleDocumentClosed(payload)
       },
     ),
-  { connection: redisConnection, concurrency: 1 },
+  { ...bullBaseOptions, concurrency: 1 },
 )
 
 worker.on('failed', (job, err) => {

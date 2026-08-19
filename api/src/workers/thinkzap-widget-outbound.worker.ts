@@ -1,5 +1,5 @@
 import { DelayedError, Job, Worker } from 'bullmq'
-import { redisConnection } from '@/queue/redis-connection'
+import { bullBaseOptions } from '@/queue/redis-connection'
 import {
   THINKZAP_WIDGET_OUTBOUND,
   ThinkzapWidgetOutboundJob,
@@ -73,7 +73,7 @@ async function processJob(
 
 export const thinkzapWidgetOutboundWorker =
   new Worker<ThinkzapWidgetOutboundJob>(THINKZAP_WIDGET_OUTBOUND, processJob, {
-    connection: redisConnection,
+    ...bullBaseOptions,
     concurrency: 5,
   })
 

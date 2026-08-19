@@ -18,6 +18,19 @@ export const env = {
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',
   redisUrl: process.env.REDIS_URL ?? '',
+  /**
+   * Prefixo das chaves do BullMQ — o que isola as filas de um ambiente das do outro.
+   *
+   * Sem ele, staging e produção apontando para o mesmo Redis compartilham
+   * `bull:thinkzap-inbound:*`: o worker de staging consome a mensagem de um cliente e
+   * a derruba contra o banco de homologação, e um envio de teste em staging pode ser
+   * entregue pelo worker de produção, com credencial de produção. Aconteceu.
+   *
+   * Default `'bull'` é o próprio default do BullMQ: ambiente que não setar a variável
+   * segue lendo e escrevendo exatamente onde já lia. **Trocar o valor troca de fila** —
+   * o que estiver enfileirado no prefixo antigo fica órfão, então só com fila drenada.
+   */
+  queuePrefix: process.env.QUEUE_PREFIX ?? 'bull',
   bullBoard: {
     enabled: process.env.BULL_BOARD_ENABLED === 'true',
     username: process.env.BULL_BOARD_USERNAME ?? '',

@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq'
-import { redisConnection } from '@/queue/redis-connection'
+import { bullBaseOptions } from '@/queue/redis-connection'
 
 export const IMPORTSHEET_SCHEDULER = 'importsheet-scheduler'
 
@@ -9,9 +9,10 @@ export const SCHEDULER_TICK = 'scheduler-tick'
 /** Intervalo do poller — varre importações vencidas. */
 export const SCHEDULER_TICK_EVERY_MS = 60 * 1000
 
-export const importSheetSchedulerQueue = new Queue(IMPORTSHEET_SCHEDULER, {
-  connection: redisConnection,
-})
+export const importSheetSchedulerQueue = new Queue(
+  IMPORTSHEET_SCHEDULER,
+  bullBaseOptions,
+)
 
 /**
  * Garante o job repeatable do tick. Idempotente: o BullMQ deduplica pelo

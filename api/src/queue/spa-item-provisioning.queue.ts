@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq'
-import { redisConnection } from './redis-connection'
+import { bullBaseOptions } from './redis-connection'
 import { apiLogger } from '@/shared/infra/logger'
 
 export const SPA_ITEM_PROVISIONING = 'spa-item-provisioning'
@@ -23,7 +23,7 @@ export type SpaItemProvisioningJob = {
  */
 export const spaItemProvisioningQueue = new Queue<SpaItemProvisioningJob>(
   SPA_ITEM_PROVISIONING,
-  { connection: redisConnection },
+  bullBaseOptions,
 )
 
 /**

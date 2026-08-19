@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq'
-import { redisConnection } from './redis-connection'
+import { bullBaseOptions } from './redis-connection'
 import { apiLogger } from '@/shared/infra/logger'
 
 export const THINKZAP_INBOUND = 'thinkzap-inbound'
@@ -41,9 +41,7 @@ export type ThinkzapInboundJob =
 
 export const thinkzapInboundQueue = new Queue<ThinkzapInboundJob>(
   THINKZAP_INBOUND,
-  {
-    connection: redisConnection,
-  },
+  bullBaseOptions,
 )
 
 export async function enqueueThinkzapInboundJob(
