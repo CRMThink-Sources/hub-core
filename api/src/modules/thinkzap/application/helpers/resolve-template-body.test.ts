@@ -51,3 +51,25 @@ describe('resolveTemplateBody', () => {
     expect(resolveTemplateBody('Olá {{1}}!', [''])).toBe('Olá !')
   })
 })
+
+/**
+ * Caso real de produção: o corpo que chega pela propriedade do robô de Bizproc vem com
+ * um par de chaves a mais, e o contato leu `Ola {Joao}` porque a substituição casava só
+ * o par interno.
+ */
+describe('corpo com chaves em excesso', () => {
+  it('substitui placeholder de três chaves sem deixar sobra', () => {
+    expect(
+      resolveTemplateBody(
+        'Ola {{{1}}}, seja bem vindo.\nVocê é o número {{{2}}} da fila',
+        ['Joao', '6'],
+      ),
+    ).toBe('Ola Joao, seja bem vindo.\nVocê é o número 6 da fila')
+  })
+
+  it('segue resolvendo a forma canônica de duas chaves', () => {
+    expect(resolveTemplateBody('Ola {{1}}, número {{2}}', ['Joao', '6'])).toBe(
+      'Ola Joao, número 6',
+    )
+  })
+})

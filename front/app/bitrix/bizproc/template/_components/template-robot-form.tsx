@@ -30,6 +30,10 @@ import { ValueField } from './value-field'
 
 type TemplateLine = { id: string; name: string }
 
+/** Ids dos campos do documento, para o parse derivar o modo de valor sem expressão. */
+const toFieldIds = (fields: DocumentField[]): ReadonlySet<string> =>
+  new Set(fields.map(field => field.id))
+
 type TemplateRobotFormProps = {
   context: PlacementContext
 }
@@ -46,8 +50,20 @@ type TemplateRobotFormProps = {
  * quem persiste é o botão de salvar do próprio slider do Bitrix.
  */
 export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
+  /**
+   * Os campos do documento começam nos que o placement já entregou. Só isso permite
+   * parsear o estado inicial conhecendo os ids: um valor gravado que volte sem a
+   * expressão, só com o id do campo, seria indistinguível de texto digitado.
+   */
+  const [documentFields, setDocumentFields] = useState<DocumentField[]>(
+    context.documentFields,
+  )
+
   const [config, setConfig] = useState<RobotConfigState>(() =>
-    parseStoredProperties(context.storedProperties),
+    parseStoredProperties(
+      context.storedProperties,
+      toFieldIds(context.documentFields),
+    ),
   )
 
   const [lines, setLines] = useState<TemplateLine[]>([])
@@ -58,17 +74,35 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
   const [templatesError, setTemplatesError] = useState('')
   const [templatesLoading, setTemplatesLoading] = useState(false)
 
-  const [documentFields, setDocumentFields] = useState<DocumentField[]>([])
-
   /** Toda mudança de estado reescreve as propriedades — sem botão de aplicar. */
   const update = (next: RobotConfigState) => {
     setConfig(next)
     setPropertyValue(buildRobotProperties(next))
   }
 
+  /**
+   * Reserva: portal que não manda `document_fields` cai no método REST da entidade.
+   *
+   * Quando ela responde, o estado é reparseado com os ids em mão — é a chance de um
+   * valor que abriu como texto voltar para o modo campo. `setPropertyValue` **não** é
+   * chamado aqui: reparsear não é edição do usuário, e gravar sem ele ter mexido em
+   * nada sujaria a configuração do robô só por abrir a tela.
+   */
   useEffect(() => {
-    void fetchDocumentFields(context.documentType).then(setDocumentFields)
-  }, [context.documentType])
+    if (context.documentFields.length > 0) return
+
+    void fetchDocumentFields(context.documentType).then(fields => {
+      if (fields.length === 0) return
+
+      setDocumentFields(fields)
+      setConfig(current =>
+        parseStoredProperties(
+          buildRobotProperties(current),
+          toFieldIds(fields),
+        ),
+      )
+    })
+  }, [context.documentType, context.documentFields])
 
   useEffect(() => {
     const client = resolveThinkzapClient()

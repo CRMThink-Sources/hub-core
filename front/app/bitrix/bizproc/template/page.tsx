@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   authenticateBitrixWithBackend,
   BX24Script,
@@ -33,6 +33,8 @@ export default function BizprocTemplateRobotPage() {
   const [context, setContext] = useState<PlacementContext | null>(null)
   const [authenticated, setAuthenticated] = useState(false)
   const [error, setError] = useState('')
+
+  const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!scriptLoaded || !bx24Ready || typeof window === 'undefined') return
@@ -69,17 +71,45 @@ export default function BizprocTemplateRobotPage() {
 
     void start()
 
-    window.BX24?.fitWindow?.(() => {
-      window.BX24?.resizeWindow?.(640, 720)
-    })
-
     return () => {
       cancelled = true
     }
   }, [scriptLoaded, bx24Ready])
 
+  /**
+   * Ajusta o iframe à altura do conteúdo, e continua ajustando.
+   *
+   * `fitWindow` é o que cabe aqui — ele encolhe/cresce o frame até o conteúdo. Fixar a
+   * altura (`resizeWindow(640, 720)`) desfazia esse ajuste e era a origem do scroll: a
+   * tela cresce com a lista de linhas, com o corpo do template e com uma variável por
+   * placeholder, e nada disso é previsível na hora de escolher um número.
+   *
+   * O `ResizeObserver` existe porque o conteúdo muda **depois** do primeiro ajuste: as
+   * duas leituras chegam assíncronas e trocar de template adiciona ou remove campos.
+   */
+  useEffect(() => {
+    if (!scriptLoaded || !bx24Ready) return
+
+    const node = contentRef.current
+    if (!node) return
+
+    const fit = () => window.BX24?.fitWindow?.()
+
+    fit()
+
+    const observer = new ResizeObserver(() => fit())
+    observer.observe(node)
+
+    return () => observer.disconnect()
+  }, [scriptLoaded, bx24Ready])
+
   return (
-    <div className="min-h-screen bg-white">
+    /*
+      Sem `min-h-screen`: aqui `100vh` é a altura do próprio iframe, e o iframe é
+      redimensionado a partir do conteúdo — pedir uma tela inteira de altura mínima
+      trava o encolhimento e realimenta o ajuste. A altura é a do conteúdo, e ponto.
+    */
+    <div ref={contentRef} className="bg-white">
       <BX24Script onLoad={() => setScriptLoaded(true)} />
 
       {error && (

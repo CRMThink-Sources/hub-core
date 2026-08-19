@@ -5,8 +5,12 @@
  * **A mesma expressão vive em `api/.../helpers/resolve-template-body.ts`**, que
  * resolve o corpo para o histórico e para a notificação. Se as duas divergirem, o
  * operador vê um preview e o CRM guarda outro texto.
+ *
+ * De 2 a 4 chaves de cada lado, e não exatamente 2: corpo vindo da propriedade de um
+ * robô de Bizproc chega com um par a mais (`{{{1}}}`). Casando só o par interno, a
+ * substituição deixava as externas no texto (`Ola {Joao}`).
  */
-const PLACEHOLDER = /\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g
+const PLACEHOLDER = /\{{2,4}\s*([A-Za-z0-9_]+)\s*\}{2,4}/g
 
 /**
  * Chaves das variáveis do corpo, **na ordem de aparição** e sem repetição.

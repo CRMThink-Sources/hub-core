@@ -37,7 +37,8 @@ export interface BX24Api {
     params?: Record<string, unknown>,
     callback?: (result: BX24CallMethodResult) => void,
   ) => void
-  fitWindow?: (callback: () => void) => void
+  /** Ajusta o frame à altura do conteúdo. O callback é opcional. */
+  fitWindow?: (callback?: () => void) => void
   resizeWindow?: (width: number, height: number) => void
   /** Métodos de interação com o placement (widget) */
   placement?: {
