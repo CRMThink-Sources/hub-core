@@ -121,6 +121,37 @@ SELECT status, COUNT(*) FROM core_thinkerszap_widget_outbox GROUP BY status;
   propósito** — pode ter sido entregue. O operador já foi avisado na timeline para
   conferir antes de reenviar.
 
+### Isolamento das filas entre ambientes (`QUEUE_PREFIX`)
+
+As chaves do BullMQ são prefixadas por `QUEUE_PREFIX` (default `bull`, o mesmo do
+BullMQ). Ambientes que dividem host **e** índice de DB do Redis sem prefixos distintos
+dividem literalmente a mesma fila `bull:<nome>:*`, e as duas direções machucam:
+
+- worker de staging consome mensagem de cliente e queima as tentativas dela contra o
+  banco de homologação — os sintomas são `App not found`, `Context not found` e
+  `Instance not found` para portal real, no log do container de staging;
+- worker de produção processa job enfileirado por staging, com credencial de produção —
+  na fila `thinkzap-widget-outbound` isso é mensagem real no WhatsApp de contato real.
+
+Configuração: produção **sem** a variável (segue em `bull`); staging com
+`QUEUE_PREFIX=bull-staging`. `src/queue/queue-prefix.guard.test.ts` falha se alguma
+construção de `Queue`/`Worker` deixar de receber `bullBaseOptions`, que é o único lugar
+onde conexão e prefixo são decididos.
+
+**Trocar o valor troca de fila.** O que estiver enfileirado no prefixo antigo fica órfão
+— nem processado, nem visível no Bull Board novo. Ordem para virar:
+
+1. Pare os produtores do ambiente (API e webhooks) ou aceite a perda do que entrar.
+2. Espere a fila drenar: `waiting` e `delayed` em zero no Bull Board.
+3. Só então mude a variável e suba os serviços.
+
+Job repeatable (o tick do ImportSheet) também vive sob o prefixo: ele é re-registrado no
+boot do worker, então volta sozinho no prefixo novo.
+
+O prefixo isola **só o BullMQ**. Chaves de aplicação no mesmo Redis — cache do `botId`
+(`thinkzap:bot:*`), lock de documento do Clicksign — não têm prefixo de ambiente, então
+mantenha índices de DB distintos no `REDIS_URL` (`/0` produção, `/1` staging).
+
 ### Robô de template do Bizproc — ordem de deploy e registro
 
 O robô de envio de template (`thinkzap_template_robot`) é registrado no portal com um

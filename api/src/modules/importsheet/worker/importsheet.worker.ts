@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { Worker } from 'bullmq'
-import { redisConnection } from '@/queue/redis-connection'
+import { bullBaseOptions } from '@/queue/redis-connection'
 import { env } from '@/config/env'
 import { workerLogger } from '@/shared/infra/logger'
 import { AppError } from '@/shared/domain/errors/app-error'
@@ -73,7 +73,7 @@ const runWorker = new Worker<ImportSheetRunJob, ImportRunOutcome>(
         return outcome
       },
     ),
-  { connection: redisConnection, concurrency: 1 },
+  { ...bullBaseOptions, concurrency: 1 },
 )
 
 // Continuação da paginação: re-enfileira a PRÓXIMA página. Roda no evento
@@ -203,7 +203,7 @@ const schedulerWorker = new Worker(
         },
       )
     }),
-  { connection: redisConnection, concurrency: 1 },
+  { ...bullBaseOptions, concurrency: 1 },
 )
 
 schedulerWorker.on('failed', (job, err) => {

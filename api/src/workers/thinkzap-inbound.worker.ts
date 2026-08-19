@@ -1,5 +1,5 @@
 import { Worker } from 'bullmq'
-import { redisConnection } from '@/queue/redis-connection'
+import { bullBaseOptions } from '@/queue/redis-connection'
 import {
   THINKZAP_INBOUND,
   ThinkzapInboundJob,
@@ -98,7 +98,7 @@ export const thinkzapInboundWorker = new Worker(
     await processJob(job.data as ThinkzapInboundJob, makeAppendJobLog(job))
   },
   {
-    connection: redisConnection,
+    ...bullBaseOptions,
     concurrency: 10,
   },
 )

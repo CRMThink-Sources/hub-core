@@ -1,5 +1,5 @@
 import { Worker } from 'bullmq'
-import { redisConnection } from '@/queue/redis-connection'
+import { bullBaseOptions } from '@/queue/redis-connection'
 import {
   SPA_ITEM_PROVISIONING,
   SpaItemProvisioningJob,
@@ -20,7 +20,7 @@ export const spaItemProvisioningWorker = new Worker(
     await processSpaItemProvisioning(job.data as SpaItemProvisioningJob)
   },
   {
-    connection: redisConnection,
+    ...bullBaseOptions,
     concurrency: 2,
   },
 )
