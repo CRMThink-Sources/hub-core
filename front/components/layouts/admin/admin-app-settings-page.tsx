@@ -11,9 +11,10 @@ import { AdminClientDeploymentSection } from './admin-client-deployment-section'
 import { AdminClientPlacementsSection } from './admin-client-placements-section'
 import { AdminClientBizprocRobotsSection } from './admin-client-bizproc-robots-section'
 import { AdminClientInstancesSection } from './admin-client-instances-section'
+import { AdminAppSubscriptionsSection } from './admin-app-subscriptions-section'
 
 const TECH_TABS = ['deployment', 'placements', 'bizproc'] as const
-type TabValue = 'instances' | (typeof TECH_TABS)[number]
+type TabValue = 'instances' | 'subscriptions' | (typeof TECH_TABS)[number]
 
 type Props = {
   domainId: string
@@ -90,6 +91,10 @@ export function AdminAppSettingsPage({ domainId, appId }: Props) {
 
         <TabsContent value="instances" className="mt-4">
           <AdminClientInstancesSection appId={appId} />
+        </TabsContent>
+
+        <TabsContent value="subscriptions" className="mt-4">
+          <AdminAppSubscriptionsSection appId={appId} />
         </TabsContent>
 
         <TabsContent value="deployment" className="mt-4">

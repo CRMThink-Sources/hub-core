@@ -68,20 +68,22 @@ export function AdminInstanceConfigModal({
     useState<ThinkzapInstanceItem>(instance)
 
   /**
-   * Três ações ainda são keyed pelas tabelas antigas — renomear e assinar por
-   * `Instance.id`, reativar por `Connector.id`. Linha criada direto na SPA não tem
-   * essas rows, então o id vem `null` e a ação fica indisponível em vez de bater
-   * numa URL com `null` no path. Só os event binds já são keyed pelo item.
+   * As quatro ações são keyed pelo **item de assinatura**, como os event binds já eram.
+   * Não há mais guard por existência de row: linha nascida na SPA — que é o caso das
+   * linhas reais — tinha todas as ações escondidas, justamente onde o suporte precisa
+   * atuar.
+   *
+   * Renomear é a única que depende de provider: a HubMessage não expõe escrita de nome
+   * de canal.
    */
-  const hasInstanceRow = instance.instanceDbId !== null
-  const hasConnectorRow = instance.connectorId !== null
+  const canRename = instance.provider === 'ZAPI'
 
   async function handleSaveName() {
-    if (!name.trim() || !hasInstanceRow) return
+    if (!name.trim() || !canRename) return
     setNameSave({ kind: 'saving' })
     try {
       await axiosPortal().patch(
-        `/portal/apps/${appId}/thinkzap-instances/${instance.instanceDbId}/name`,
+        `/portal/apps/${appId}/thinkzap-lines/${instance.subscriptionItemId}/name`,
         { name: name.trim() },
       )
       setNameSave({ kind: 'saved' })
@@ -92,18 +94,17 @@ export function AdminInstanceConfigModal({
   }
 
   async function handleReactivate() {
-    if (!hasConnectorRow) return
     setReactivateState({ kind: 'loading' })
     try {
       await axiosPortal().patch(
-        `/portal/apps/${appId}/thinkzap-connectors/${instance.connectorId}/reactivate`,
+        `/portal/apps/${appId}/thinkzap-lines/${instance.subscriptionItemId}/reactivate`,
         {},
       )
       setReactivateState({ kind: 'success' })
-      setLocalInstance(prev => ({ ...prev, connectorStatus: 'ACTIVE' }))
+      setLocalInstance(prev => ({ ...prev, itemStatus: 'active' }))
       onUpdate({
         subscriptionItemId: instance.subscriptionItemId,
-        connectorStatus: 'ACTIVE',
+        itemStatus: 'active',
       })
     } catch {
       setReactivateState({
@@ -114,11 +115,10 @@ export function AdminInstanceConfigModal({
   }
 
   async function handleSubscriptionAction(action: 'subscribe' | 'unsubscribe') {
-    if (!hasInstanceRow) return
     setSubscriptionState({ kind: 'loading' })
     try {
       await axiosPortal().post(
-        `/portal/apps/${appId}/thinkzap-instances/${instance.instanceDbId}/${action}`,
+        `/portal/apps/${appId}/thinkzap-lines/${instance.subscriptionItemId}/${action}`,
         {},
       )
       const message =
@@ -256,8 +256,8 @@ export function AdminInstanceConfigModal({
               ) : null}
             </dl>
 
-            {/* Name edit */}
-            <div className="mt-4">
+            {/* Name edit — só Z-API: a HubMessage não tem escrita de nome de canal. */}
+            <div className={canRename ? 'mt-4' : 'hidden'}>
               <label className="mb-1 block text-sm font-medium text-foreground">
                 {t('instanceModalNameLabel')}
               </label>
@@ -272,12 +272,7 @@ export function AdminInstanceConfigModal({
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={
-                    !name.trim() ||
-                    nameSave.kind === 'saving' ||
-                    /* Renomear é operação na row antiga; linha da SPA não tem. */
-                    !hasInstanceRow
-                  }
+                  disabled={!name.trim() || nameSave.kind === 'saving'}
                   onClick={() => {
                     void handleSaveName()
                   }}
@@ -370,7 +365,8 @@ export function AdminInstanceConfigModal({
             </div>
           </section> */}
 
-          {localInstance.connectorStatus === 'INACTIVE' ? (
+          {/* Reativar só faz sentido para item cancelado na SPA. */}
+          {localInstance.itemStatus === 'cancelled' ? (
             <>
               <hr className="border-border" />
 
@@ -436,19 +432,11 @@ export function AdminInstanceConfigModal({
               {t('instanceModalSectionSubscription')}
             </h3>
 
-            {/* Assinar e desassinar são operações na row antiga, keyed por
-                `Instance.id`. Linha criada na SPA não tem, e a seção fica fora em vez
-                de oferecer um botão que bateria numa URL com `null` no path. */}
-            {!hasInstanceRow ? (
-              <p className="text-sm text-muted-foreground">
-                {t('instanceModalSubscriptionUnavailable')}
-              </p>
-            ) : null}
-
-            {hasInstanceRow &&
-            (subscriptionState.kind === 'idle' ||
-              subscriptionState.kind === 'success' ||
-              subscriptionState.kind === 'error') ? (
+            {/* Assinatura do **recurso no provider**, não a cobrança da SPA 1142.
+                Disponível para qualquer linha: a chave é o item, que toda linha tem. */}
+            {subscriptionState.kind === 'idle' ||
+            subscriptionState.kind === 'success' ||
+            subscriptionState.kind === 'error' ? (
               <div className="space-y-3">
                 {subscriptionState.kind === 'success' ? (
                   <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">

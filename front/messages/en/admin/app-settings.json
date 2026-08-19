@@ -6,8 +6,8 @@
     "deployment": "Deployment",
     "placements": "Placements",
     "bizproc": "BizProc",
-    "connectors": "Connectors",
-    "instances": "Instances"
+    "instances": "Instances",
+    "subscriptions": "Subscriptions"
   },
   "technicalTabsLabel": "Technical Settings",
   "deploymentTitle": "Manual deployment",
@@ -122,7 +122,6 @@
   "instanceModalNameSaving": "Saving...",
   "instanceModalNameSaved": "Name saved successfully",
   "instanceModalNameError": "Failed to save name. Please try again.",
-  "instanceModalSubscriptionUnavailable": "This line has no instance record in the database, so the Z-API on-demand subscription cannot be changed here.",
   "instanceModalSubscribe": "Activate Subscription",
   "instanceModalUnsubscribe": "Cancel Subscription",
   "instanceModalSubscribeConfirm": "Activate the on-demand subscription for this instance in Z-API?",
@@ -162,5 +161,18 @@
   "instancesEntitlementInactive": "No subscription",
   "instancesTrialNever": "Trial never activated for this installation.",
   "instancesTrialActive": "Trial in progress ({{provider}}), ends on {{data}}.",
-  "instancesTrialExpired": "Trial expired on {{data}} ({{provider}}). The lines below are blocked."
+  "instancesTrialExpired": "Trial expired on {{data}} ({{provider}}). The lines below are blocked.",
+  "instancesColumnConnection": "Connection",
+  "instancesItemStatusActive": "Active",
+  "instancesItemStatusCancelled": "Cancelled",
+  "subscriptionsLoading": "Loading subscriptions...",
+  "subscriptionsError": "Could not read subscriptions from the internal CRM.",
+  "subscriptionsNoMirror": "Installation has no SPA mirror — there is no subscription to read.",
+  "subscriptionsEmpty": "No subscriptions for this installation.",
+  "subscriptionsColumnStatus": "Status",
+  "subscriptionsColumnModality": "Modality",
+  "subscriptionsColumnPlan": "Plan",
+  "subscriptionsColumnPeriodEnd": "Period end",
+  "subscriptionsColumnLines": "Lines",
+  "subscriptionsColumnGatewayId": "Gateway id"
 }

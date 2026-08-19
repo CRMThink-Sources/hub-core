@@ -8,6 +8,7 @@ import {
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { ensureLineInstance } from '@/modules/thinkzap/application/helpers/ensure-line-instance'
+import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import { prisma } from '@/config/prisma.js'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -100,6 +101,8 @@ export class PrismaBitrixWebhookContextRepository implements GetBitrixWebhookCon
     const instance = await this.resolveAnchor(item, domain.id)
     if (!instance) return null
 
+    warnOnCredentialDrift(item, instance)
+
     return {
       id: domain.id,
       name: domain.name,
@@ -114,9 +117,20 @@ export class PrismaBitrixWebhookContextRepository implements GetBitrixWebhookCon
       // Do item, não de `Connector.provider`: é o item que declara o conector.
       connector: { provider: item.metadata.provider as ConnectorProvider },
       instance: {
-        instanceId: instance.instanceId,
-        zApiToken: instance.zApiToken,
-        channelId: instance.channelId,
+        /**
+         * Credencial **do item**, não da row.
+         *
+         * `ensureLineInstance` copia a credencial só no momento em que cria a âncora e
+         * devolve `existing` sem reconciliar. Linha reprovisionada — instância nova,
+         * token novo no item — deixava a row com a credencial velha, e este era o
+         * único caminho de envio que ainda lia dela: o widget resolve pelo item a cada
+         * execução (`resolveLineTarget`). O sintoma era envio aceito pela Z-API pelo
+         * par antigo e mensagem que não chega, com o widget funcionando ao lado.
+         *
+         * A row continua sendo âncora de identidade — `instance.id` abaixo é a FK de
+         * mensagem e conversa, e só ela vem de lá.
+         */
+        ...credentialFromItem(item),
         id: instance.id,
         createdAt: instance.createdAt,
         updatedAt: instance.updatedAt,
@@ -161,6 +175,72 @@ export class PrismaBitrixWebhookContextRepository implements GetBitrixWebhookCon
 
     return null
   }
+}
+
+/**
+ * A identidade da linha no provider, **do item da SPA**.
+ *
+ * Z-API é instância + token; HubMessage é o canal, que serve nas duas colunas — a
+ * âncora grava o `channelId` também em `instance_id`, e o resolver de envio aceita os
+ * dois. `NONE` não chega aqui: `resolveAnchor` já devolveu `null`.
+ */
+function credentialFromItem(item: SubscriptionItem): {
+  instanceId: string
+  zApiToken: string | null
+  channelId: string | null
+} {
+  if (item.metadata.provider === 'HUBMESSAGE') {
+    return {
+      instanceId: item.metadata.hubmessageChannelId,
+      zApiToken: null,
+      channelId: item.metadata.hubmessageChannelId,
+    }
+  }
+
+  if (item.metadata.provider === 'ZAPI') {
+    return {
+      instanceId: item.metadata.zApiInstanceId,
+      zApiToken: item.metadata.zApiInstanceToken,
+      channelId: null,
+    }
+  }
+
+  throw new LineProviderNotSupportedError(item.metadata.provider)
+}
+
+/**
+ * Registra quando a row divergiu do item.
+ *
+ * Não corrige e não falha: a partir daqui nada de comportamento lê a credencial da
+ * row, então divergência deixou de quebrar envio. O log existe porque a última vez que
+ * ela aconteceu não havia **nada** que ligasse "mensagem não chega" a "a row tem o
+ * token velho" — o envio era aceito pelo provider e o job terminava com sucesso.
+ *
+ * É o sinal de que a âncora daquela linha precisa ser reconciliada ou apagada.
+ */
+function warnOnCredentialDrift(
+  item: SubscriptionItem,
+  instance: { instanceId: string; zApiToken: string | null },
+): void {
+  if (item.metadata.provider !== 'ZAPI') return
+
+  const instanceDrifted = instance.instanceId !== item.metadata.zApiInstanceId
+  const tokenDrifted = instance.zApiToken !== item.metadata.zApiInstanceToken
+
+  if (!instanceDrifted && !tokenDrifted) return
+
+  apiLogger.warn(
+    {
+      app: 'thinkzap',
+      subscriptionItemId: item.id,
+      /** Nunca o token: só qual dos dois campos divergiu. */
+      itemInstanceId: item.metadata.zApiInstanceId,
+      rowInstanceId: instance.instanceId,
+      instanceDrifted,
+      tokenDrifted,
+    },
+    'Âncora de instância com credencial divergente do item da SPA — envio usa a do item',
+  )
 }
 
 /** Primeiro item cujo vínculo casa com o canal do evento. */

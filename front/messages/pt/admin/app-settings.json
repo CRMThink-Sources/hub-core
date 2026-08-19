@@ -6,8 +6,8 @@
     "deployment": "Implantação",
     "placements": "Placements",
     "bizproc": "BizProc",
-    "connectors": "Conectores",
-    "instances": "Instâncias"
+    "instances": "Instâncias",
+    "subscriptions": "Assinaturas"
   },
   "technicalTabsLabel": "Configurações Técnicas",
   "deploymentTitle": "Implantação manual",
@@ -122,7 +122,6 @@
   "instanceModalNameSaving": "Salvando...",
   "instanceModalNameSaved": "Nome salvo com sucesso",
   "instanceModalNameError": "Erro ao salvar o nome. Tente novamente.",
-  "instanceModalSubscriptionUnavailable": "Esta linha não tem registro de instância no banco, então a assinatura on-demand do Z-API não pode ser alterada por aqui.",
   "instanceModalSubscribe": "Ativar Assinatura",
   "instanceModalUnsubscribe": "Cancelar Assinatura",
   "instanceModalSubscribeConfirm": "Ativar a assinatura on-demand desta instância no Z-API?",
@@ -162,5 +161,18 @@
   "instancesEntitlementInactive": "Sem assinatura",
   "instancesTrialNever": "Trial nunca ativado nesta instalação.",
   "instancesTrialActive": "Trial em andamento ({{provider}}), termina em {{data}}.",
-  "instancesTrialExpired": "Trial expirado em {{data}} ({{provider}}). As linhas abaixo estão bloqueadas."
+  "instancesTrialExpired": "Trial expirado em {{data}} ({{provider}}). As linhas abaixo estão bloqueadas.",
+  "instancesColumnConnection": "Conexão",
+  "instancesItemStatusActive": "Ativa",
+  "instancesItemStatusCancelled": "Cancelada",
+  "subscriptionsLoading": "Carregando assinaturas...",
+  "subscriptionsError": "Não foi possível ler as assinaturas no CRM interno.",
+  "subscriptionsNoMirror": "Instalação sem espelho na SPA — não há assinatura a consultar.",
+  "subscriptionsEmpty": "Nenhuma assinatura para esta instalação.",
+  "subscriptionsColumnStatus": "Status",
+  "subscriptionsColumnModality": "Modalidade",
+  "subscriptionsColumnPlan": "Plano",
+  "subscriptionsColumnPeriodEnd": "Fim do período",
+  "subscriptionsColumnLines": "Linhas",
+  "subscriptionsColumnGatewayId": "Id no gateway"
 }

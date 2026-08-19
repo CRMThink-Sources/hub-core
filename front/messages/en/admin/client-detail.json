@@ -14,8 +14,15 @@
     "email": "Email",
     "installedAt": "Installed at",
     "actions": "Actions",
-    "settings": "Settings"
+    "settings": "Settings",
+    "contract": "Contract"
   },
   "errorTitle": "Client not found",
-  "errorDescription": "The requested domain does not exist or was removed."
+  "errorDescription": "The requested domain does not exist or was removed.",
+  "contract": {
+    "noMirror": "No SPA mirror",
+    "unavailable": "Unavailable",
+    "none": "No subscription",
+    "summary": "{{plano}} · {{status}} · {{linhas}} line(s)"
+  }
 }

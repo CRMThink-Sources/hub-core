@@ -15,5 +15,7 @@
   "emptyTitle": "No clients found",
   "emptyDescription": "There are no Bitrix24 domains registered yet.",
   "errorTitle": "Could not load clients",
-  "errorDescription": "Please try again in a moment."
+  "errorDescription": "Please try again in a moment.",
+  "appNoMirror": "(no mirror)",
+  "appNoMirrorHint": "Installation without a mirror item in SPA 1060: cannot receive a subscription."
 }

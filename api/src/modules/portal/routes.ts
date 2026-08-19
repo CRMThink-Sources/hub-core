@@ -20,11 +20,12 @@ import { createListBizprocRobotsAppController } from './main/factories/create-li
 import { createRegisterSpaWidgetAppController } from './main/factories/create-register-spa-widget-app-controller'
 import { createDeleteSpaWidgetAppController } from './main/factories/create-delete-spa-widget-app-controller'
 import { createListThinkzapInstancesAppController } from './main/factories/create-list-thinkzap-instances-app-controller'
-import { createSubscribeThinkzapInstanceController } from './main/factories/create-subscribe-thinkzap-instance-controller'
-import { createUnsubscribeThinkzapInstanceController } from './main/factories/create-unsubscribe-thinkzap-instance-controller'
-import { createUpdateThinkzapInstanceNameController } from './main/factories/create-update-thinkzap-instance-name-controller'
+import { createListAppSubscriptionsController } from './main/factories/create-list-app-subscriptions-controller'
+import { createSubscribeThinkzapLineController } from './main/factories/create-subscribe-thinkzap-line-controller'
+import { createUnsubscribeThinkzapLineController } from './main/factories/create-unsubscribe-thinkzap-line-controller'
+import { createUpdateThinkzapLineNameController } from './main/factories/create-update-thinkzap-line-name-controller'
 import { createUpdateThinkzapConnectorEventBindsAppController } from './main/factories/create-update-thinkzap-connector-event-binds-app-controller'
-import { createReactivateThinkzapConnectorController } from './main/factories/create-reactivate-thinkzap-connector-controller'
+import { createReactivateThinkzapLineController } from './main/factories/create-reactivate-thinkzap-line-controller'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -131,24 +132,27 @@ export const createPortalRoutes = (
     portalAuthMiddleware,
     adaptControllerFactory(createListThinkzapInstancesAppController),
   )
+  /**
+   * Ações de linha, todas keyed pelo **item de assinatura**: a linha é o item, e as
+   * rows de `Instance`/`Connector` não existem para linha criada na SPA — enquanto as
+   * rotas eram keyed por elas, a tela escondia toda ação justamente nas linhas reais.
+   */
   router.post(
-    '/apps/:appId/thinkzap-instances/:instanceDbId/subscribe',
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/subscribe',
     portalAuthMiddleware,
-    adaptControllerFactory(createSubscribeThinkzapInstanceController),
+    adaptControllerFactory(createSubscribeThinkzapLineController),
   )
   router.post(
-    '/apps/:appId/thinkzap-instances/:instanceDbId/unsubscribe',
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/unsubscribe',
     portalAuthMiddleware,
-    adaptControllerFactory(createUnsubscribeThinkzapInstanceController),
+    adaptControllerFactory(createUnsubscribeThinkzapLineController),
   )
   router.patch(
-    '/apps/:appId/thinkzap-instances/:instanceDbId/name',
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/name',
     portalAuthMiddleware,
-    adaptControllerFactory(createUpdateThinkzapInstanceNameController),
+    adaptControllerFactory(createUpdateThinkzapLineNameController),
   )
   router.patch(
-    // Keyed pelo item de assinatura, não por `Connector.id`: a linha é o item, e a
-    // row de conector não existe para linha criada na SPA.
     '/apps/:appId/thinkzap-lines/:subscriptionItemId/event-binds',
     portalAuthMiddleware,
     adaptControllerFactory(
@@ -156,15 +160,21 @@ export const createPortalRoutes = (
     ),
   )
   router.patch(
-    '/apps/:appId/thinkzap-connectors/:connectorId/reactivate',
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/reactivate',
     portalAuthMiddleware,
-    adaptControllerFactory(createReactivateThinkzapConnectorController),
+    adaptControllerFactory(createReactivateThinkzapLineController),
   )
   /**
-   * Removidas com a cobrança antiga: todo o `/apps/:appId/subscriptions*` —
-   * listar, criar, criar trial, estender e cancelar trial, cancelar assinatura.
-   * Liam e escreviam `billing_subscriptions`, que saiu junto.
+   * Listagem de assinaturas, de volta — agora lendo as SPAs 1142/1146 pelo contexto da
+   * instalação, e **somente leitura**. As rotas de escrita da cobrança antiga (criar,
+   * criar trial, estender e cancelar trial, cancelar assinatura) continuam fora: liam e
+   * escreviam `billing_subscriptions`, que saiu do schema.
    */
+  router.get(
+    '/apps/:appId/subscriptions',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListAppSubscriptionsController),
+  )
 
   return router
 }

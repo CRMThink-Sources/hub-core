@@ -153,6 +153,49 @@ describe('PrismaBitrixWebhookContextRepository', () => {
     expect(context?.instance.settings.prefixOperatorNameEnabled).toBe(true)
   })
 
+  /**
+   * O bug que isto fecha: `ensureLineInstance` copia a credencial só ao criar a âncora,
+   * então linha reprovisionada deixava a row com instância/token velhos. Este era o
+   * único caminho de envio que ainda lia da row — a Z-API aceitava pelo par antigo e a
+   * mensagem não chegava, com o widget funcionando ao lado.
+   */
+  it('devolve a credencial do item, não a da row', async () => {
+    const sut = makeSut()
+    sut.getInstanceByInstanceId.mockResolvedValue({
+      ...anchor,
+      instanceId: 'INST-VELHA',
+      zApiToken: 'token-velho',
+    })
+
+    const context = await sut.repo.getContext(params)
+
+    expect(context?.instance.instanceId).toBe('INST-A')
+    expect(context?.instance.zApiToken).toBe('TOKEN-SECRETO')
+  })
+
+  it('mantém o id da row como âncora de FK', async () => {
+    const sut = makeSut()
+
+    const context = await sut.repo.getContext(params)
+
+    expect(context?.instance.id).toBe('inst-db-1')
+  })
+
+  it('resolve o canal do item para linha HubMessage', async () => {
+    const sut = makeSut([hubItem('10')])
+    sut.getInstanceByChannelId.mockResolvedValue({
+      ...anchor,
+      instanceId: 'CH-ANTIGO',
+      channelId: 'CH-ANTIGO',
+    })
+
+    const context = await sut.repo.getContext(params)
+
+    expect(context?.instance.channelId).toBe('CH-123')
+    expect(context?.instance.instanceId).toBe('CH-123')
+    expect(context?.instance.zApiToken).toBeNull()
+  })
+
   it('devolve o provider do item', async () => {
     const sut = makeSut([hubItem('10')])
 
