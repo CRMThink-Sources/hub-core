@@ -8,20 +8,19 @@ import { axiosPortal } from '@/infra/client/axios-portal'
 import { AdminInstanceConfigModal } from './admin-instance-config-modal'
 
 /**
- * A linha é o **item de assinatura**: `subscriptionItemId` é a chave estável, a
- * mesma que a tela do tenant usa. `connectorId`, `connectorStatus` e `instanceDbId`
- * vêm das tabelas antigas e são `null` para linha criada direto na SPA — as ações
- * que dependem delas ficam indisponíveis, mas a linha aparece na lista.
+ * A linha é o **item de assinatura**: `subscriptionItemId` é a chave estável, a mesma
+ * que a tela do tenant usa e a das quatro ações do modal.
+ *
+ * Não há mais campo vindo de `Instance`/`Connector`. `itemStatus` é o status do item na
+ * SPA (`active`/`cancelled`); estado de conexão continua sendo leitura ao vivo do
+ * provider (`zapiConnected`).
  */
 export type ThinkzapInstanceItem = {
   subscriptionItemId: string
-  connectorId: string | null
-  connectorStatus: string | null
   provider: string
-  instanceDbId: string | null
   instanceId: string
   vinculatedChannel: string | null
-  status: string | null
+  itemStatus: string
   messageUpdateEventEnabled: boolean
   messageDeleteEventEnabled: boolean
   zapiName: string | null
@@ -131,6 +130,22 @@ export function AdminClientInstancesSection({ appId }: Props) {
     ) {
       setSelectedInstance(prev => (prev ? { ...prev, ...updated } : prev))
     }
+  }
+
+  /**
+   * Status do item na SPA. Substitui `Instance.status`, que era `null` para linha
+   * nascida na SPA — indistinguível, na tela, de linha desconectada.
+   */
+  function itemStatusBadge(status: string) {
+    return status === 'cancelled' ? (
+      <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
+        {t('instancesItemStatusCancelled')}
+      </span>
+    ) : (
+      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
+        {t('instancesItemStatusActive')}
+      </span>
+    )
   }
 
   function connectedBadge(connected: boolean | null) {
@@ -294,6 +309,9 @@ export function AdminClientInstancesSection({ appId }: Props) {
                     {t('instancesColumnStatus')}
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                    {t('instancesColumnConnection')}
+                  </th>
+                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                     {t('instancesColumnSubscription')}
                   </th>
                   <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -315,7 +333,7 @@ export function AdminClientInstancesSection({ appId }: Props) {
                       >
                         <span className="flex items-center gap-2 font-medium">
                           {instance.zapiName ?? instance.instanceId}
-                          {instance.connectorStatus === 'INACTIVE' ? (
+                          {instance.itemStatus === 'cancelled' ? (
                             <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300">
                               {t('instancesStatusInactive')}
                             </span>
@@ -338,6 +356,11 @@ export function AdminClientInstancesSection({ appId }: Props) {
                     <td className="px-4 py-3 text-muted-foreground">
                       {instance.vinculatedChannel ?? '—'}
                     </td>
+                    {/* Status do item na SPA, que toda linha tem — não `Instance.status`. */}
+                    <td className="px-4 py-3">
+                      {itemStatusBadge(instance.itemStatus)}
+                    </td>
+                    {/* Conexão é leitura ao vivo do provider, não estado persistido. */}
                     <td className="px-4 py-3">
                       {connectedBadge(instance.zapiConnected)}
                     </td>

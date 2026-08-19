@@ -14,8 +14,15 @@
     "email": "Correo",
     "installedAt": "Instalada",
     "actions": "Acciones",
-    "settings": "Configuraciones"
+    "settings": "Configuraciones",
+    "contract": "Contrato"
   },
   "errorTitle": "Cliente no encontrado",
-  "errorDescription": "El dominio solicitado no existe o fue eliminado."
+  "errorDescription": "El dominio solicitado no existe o fue eliminado.",
+  "contract": {
+    "noMirror": "Sin espejo en la SPA",
+    "unavailable": "No disponible",
+    "none": "Sin suscripción",
+    "summary": "{{plano}} · {{status}} · {{linhas}} línea(s)"
+  }
 }

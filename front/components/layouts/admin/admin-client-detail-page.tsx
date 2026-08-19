@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { axiosPortal } from '@/infra/client/axios-portal'
 import { formatPortalDate } from '@/lib/format-date'
 import {
+  type PortalAppContract,
   type PortalDomainDetail,
   THINKZAP_APP_CODE_ID,
 } from '@/lib/portal-domains'
@@ -65,6 +66,54 @@ export function AdminClientDetailPage({ domainId }: Props) {
       cancelled = true
     }
   }, [domainId])
+
+  /**
+   * Os três estados do contrato, distintos na tela.
+   *
+   * `unavailable` **não** é "sem assinatura": o CRM interno fora do ar não diz nada
+   * sobre o cliente, e o suporte abre esta tela justamente quando algo está fora.
+   */
+  function contractCell(contract: PortalAppContract | undefined) {
+    if (!contract) return <span className="text-muted-foreground">—</span>
+
+    if (contract.status === 'no-mirror') {
+      return (
+        <span className="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          {t('contract.noMirror')}
+        </span>
+      )
+    }
+
+    if (contract.status === 'unavailable') {
+      return (
+        <span className="inline-flex rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+          {t('contract.unavailable')}
+        </span>
+      )
+    }
+
+    if (contract.subscriptions.length === 0) {
+      return (
+        <span className="text-xs text-muted-foreground">
+          {t('contract.none')}
+        </span>
+      )
+    }
+
+    return (
+      <div className="flex flex-col gap-0.5">
+        {contract.subscriptions.map(subscription => (
+          <span key={subscription.id} className="text-xs text-foreground">
+            {t('contract.summary', {
+              plano: subscription.planName,
+              status: subscription.status,
+              linhas: subscription.lineCount,
+            })}
+          </span>
+        ))}
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (
@@ -169,6 +218,9 @@ export function AdminClientDetailPage({ domainId }: Props) {
                     {t('table.appCode')}
                   </th>
                   <th className="px-4 py-3 font-medium">{t('table.status')}</th>
+                  <th className="px-4 py-3 font-medium">
+                    {t('table.contract')}
+                  </th>
                   <th className="px-4 py-3 font-medium">{t('table.email')}</th>
                   <th className="px-4 py-3 font-medium">
                     {t('table.installedAt')}
@@ -190,16 +242,17 @@ export function AdminClientDetailPage({ domainId }: Props) {
                           href={`/admin/clientes/${domainId}/apps/${app.id}`}
                           className="text-primary underline-offset-4 hover:underline"
                         >
-                          {app.appName}
+                          {app.title}
                         </Link>
                       ) : (
-                        app.appName
+                        app.title
                       )}
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                       {app.appCode}
                     </td>
                     <td className="px-4 py-3 text-foreground">{app.status}</td>
+                    <td className="px-4 py-3">{contractCell(app.contract)}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {app.email}
                     </td>

@@ -4,6 +4,7 @@ import type { PortalDomainReadRepository } from '../../domain/repositories/porta
 
 const domainInclude = {
   apps: {
+    // `spaId` vem no `select` implícito da row inteira; o include é só do app code.
     include: {
       appCode: { select: { id: true, code: true, name: true } },
     },
@@ -19,6 +20,7 @@ type DomainRow = {
   updatedAt: Date
   apps: Array<{
     id: string
+    spaId: string | null
     email: string
     status: string
     installedAt: Date
@@ -38,6 +40,13 @@ function toPortalDomainDetail(row: DomainRow): PortalDomainDetail {
       appCodeId: app.appCode.id,
       appCode: app.appCode.code,
       appName: app.appCode.name,
+      /**
+       * `spaId` é coluna do banco, custo zero. `title` nasce igual a `appName`: a
+       * hidratação da SPA 1060 o sobrescreve quando há espelho, em lote, fora do
+       * repositório — que continua sendo só `core_domains`/`core_apps`.
+       */
+      title: app.appCode.name,
+      spaId: app.spaId,
       status: app.status,
       email: app.email,
       installedAt: app.installedAt.toISOString(),

@@ -6,8 +6,8 @@
     "deployment": "Implantación",
     "placements": "Placements",
     "bizproc": "BizProc",
-    "connectors": "Conectores",
-    "instances": "Instancias"
+    "instances": "Instancias",
+    "subscriptions": "Suscripciones"
   },
   "technicalTabsLabel": "Configuración Técnica",
   "deploymentTitle": "Implantación manual",
@@ -122,7 +122,6 @@
   "instanceModalNameSaving": "Guardando...",
   "instanceModalNameSaved": "Nombre guardado exitosamente",
   "instanceModalNameError": "Error al guardar el nombre. Inténtelo de nuevo.",
-  "instanceModalSubscriptionUnavailable": "Esta línea no tiene registro de instancia en la base de datos, por lo que la suscripción on-demand de Z-API no puede modificarse aquí.",
   "instanceModalSubscribe": "Activar Suscripción",
   "instanceModalUnsubscribe": "Cancelar Suscripción",
   "instanceModalSubscribeConfirm": "¿Activar la suscripción on-demand de esta instancia en Z-API?",
@@ -162,5 +161,18 @@
   "instancesEntitlementInactive": "Sin suscripción",
   "instancesTrialNever": "Prueba nunca activada en esta instalación.",
   "instancesTrialActive": "Prueba en curso ({{provider}}), termina el {{data}}.",
-  "instancesTrialExpired": "Prueba expirada el {{data}} ({{provider}}). Las líneas de abajo están bloqueadas."
+  "instancesTrialExpired": "Prueba expirada el {{data}} ({{provider}}). Las líneas de abajo están bloqueadas.",
+  "instancesColumnConnection": "Conexión",
+  "instancesItemStatusActive": "Activa",
+  "instancesItemStatusCancelled": "Cancelada",
+  "subscriptionsLoading": "Cargando suscripciones...",
+  "subscriptionsError": "No se pudieron leer las suscripciones en el CRM interno.",
+  "subscriptionsNoMirror": "Instalación sin espejo en la SPA — no hay suscripción que consultar.",
+  "subscriptionsEmpty": "Ninguna suscripción para esta instalación.",
+  "subscriptionsColumnStatus": "Estado",
+  "subscriptionsColumnModality": "Modalidad",
+  "subscriptionsColumnPlan": "Plan",
+  "subscriptionsColumnPeriodEnd": "Fin del período",
+  "subscriptionsColumnLines": "Líneas",
+  "subscriptionsColumnGatewayId": "Id en el gateway"
 }

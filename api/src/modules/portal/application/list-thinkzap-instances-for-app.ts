@@ -12,21 +12,22 @@ import {
 import { SubscriptionWithItems } from '@/modules/application/application/get-aplication-context'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
-import { resolveLegacyLineRows } from './resolve-legacy-line-rows'
 
 export type ThinkzapInstanceItem = {
-  /** Id do **item de assinatura** — a chave estável da linha. */
+  /** Id do **item de assinatura** — a chave estável da linha, e a das quatro ações. */
   subscriptionItemId: string
-  /** `Connector.id`, só para a rota de reativar. `null` quando não há row. */
-  connectorId: string | null
-  connectorStatus: string | null
   provider: string
-  /** `Instance.id`, chave das rotas de assinar, desassinar e renomear. `null` sem row. */
-  instanceDbId: string | null
   /** Id da linha no provider: instância Z-API ou canal HubMessage. */
   instanceId: string
   vinculatedChannel: string | null
-  status: string | null
+  /**
+   * `SubscriptionItem.status` — `active` ou `cancelled`.
+   *
+   * Substitui `Instance.status`/`Connector.status`, que descreviam rows que a linha
+   * pode não ter: linha nascida na SPA aparecia sem status nenhum, indistinguível de
+   * linha desconectada. Conexão ao vivo continua vindo do provider (`zapiConnected`).
+   */
+  itemStatus: string
   messageUpdateEventEnabled: boolean
   messageDeleteEventEnabled: boolean
   zapiName: string | null
@@ -63,16 +64,14 @@ export type ListThinkzapInstancesForAppOutput = {
  * Instâncias da instalação para o portal admin.
  *
  * Lista pelos **itens de assinatura**: a linha existe porque o item existe, não
- * porque há row em `core_thinkerszap_instances`. Antes o filtro era
- * `c.instance !== null`, o que sumia com toda linha criada na SPA.
- *
- * As rows antigas continuam sendo resolvidas **por** linha, porque quatro rotas de
- * escrita do admin ainda são keyed por elas — ver `resolveLegacyLineRows`. Linha sem
- * row aparece na lista com esses ids nulos, e a tela esconde as ações
- * correspondentes.
+ * porque há row em `core_thinkerszap_instances` — e nada aqui consulta aquela tabela.
+ * Antes cada linha listada pagava uma consulta de banco (`resolveLegacyLineRows`) só
+ * para produzir os ids que as rotas de escrita pediam; agora as rotas são keyed pelo
+ * item, e a consulta saiu junto com os campos.
  *
  * A credencial Z-API vem de `metadata`, não de `instance.zApiToken`: é a fonte que a
- * linha declara, e existe mesmo sem row.
+ * linha declara, e existe mesmo sem row. O token **não** sai no payload — ver
+ * `toThinkzapInstanceItem`.
  */
 export async function listThinkzapInstancesForApp(
   appId: string,
@@ -90,9 +89,6 @@ export async function listThinkzapInstancesForApp(
 
   const instances = await Promise.all(
     lines.items.map(async item => {
-      const lineId = providerLineId(item)
-      const legacy = await resolveLegacyLineRows(lineId)
-
       // Só a Z-API expõe leitura de instância; a HubMessage não tem equivalente.
       const zapi =
         item.metadata.provider === 'ZAPI'
@@ -106,13 +102,10 @@ export async function listThinkzapInstancesForApp(
 
       return {
         subscriptionItemId: item.id,
-        connectorId: legacy.connectorId,
-        connectorStatus: legacy.connectorStatus,
         provider: item.metadata.provider,
-        instanceDbId: legacy.instanceDbId,
-        instanceId: lineId ?? '',
+        instanceId: providerLineId(item) ?? '',
         vinculatedChannel: item.vinculatedChannel,
-        status: legacy.instanceStatus,
+        itemStatus: item.status,
         messageUpdateEventEnabled: item.settings.messageUpdateEventEnabled,
         messageDeleteEventEnabled: item.settings.messageDeleteEventEnabled,
         zapiName: zapi?.name ?? null,

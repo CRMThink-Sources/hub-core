@@ -131,7 +131,12 @@ const planView = (plan: Plan): PlanView => ({
   active: plan.active,
 })
 
-const metadataView = (
+/**
+ * Exportada para que **toda** superfície HTTP que serializa item de assinatura passe
+ * pela mesma redação — o portal admin também lê itens com token. Duas cópias da regra
+ * significariam duas chances de alguém trocar por spread.
+ */
+export const metadataView = (
   metadata: SubscriptionItem['metadata'],
 ): SubscriptionItemMetadataView => {
   switch (metadata.provider) {
