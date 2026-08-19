@@ -2,8 +2,13 @@
  * Placeholder de variável de template: `{{1}}`, `{{nome}}`, com ou sem espaços
  * internos. Mesma expressão usada no front para gerar os campos — se as duas
  * divergirem, o preview mostra um texto e o histórico guarda outro.
+ *
+ * As chaves são **2 a 4** de cada lado, e não exatamente 2, por causa do corpo que
+ * chega pela propriedade de um robô de Bizproc: ele vem com um par de chaves a mais
+ * (`{{{1}}}`). Casando só o par interno, a substituição deixava as externas para trás e
+ * o contato lia `Ola {Joao}`. Quantificador guloso consome o excesso dos dois lados.
  */
-const PLACEHOLDER = /\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g
+const PLACEHOLDER = /\{{2,4}\s*([A-Za-z0-9_]+)\s*\}{2,4}/g
 
 /**
  * Substitui os placeholders do corpo pelos valores informados, **por ordem de

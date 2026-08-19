@@ -82,3 +82,26 @@ describe('resolveRobotTemplateBody', () => {
     expect(body).toBe('Olá {{1}}, pedido {{2}}.')
   })
 })
+
+/**
+ * O corpo é persistido na row do outbox e lido depois pelo histórico, pela conversa do
+ * canal aberto e pelo aviso de falha — guardá-lo torto deixaria a marca do bug no
+ * registro mesmo com a substituição corrigida.
+ */
+describe('normalização dos placeholders', () => {
+  it('colapsa as chaves em excesso do corpo configurado', async () => {
+    const body = await resolveRobotTemplateBody(
+      {
+        name: 'boas_vindas',
+        language: 'pt_BR',
+        subscriptionItemId: '41',
+        domainId: 'domain-1',
+        appCode: 'thinkzap',
+        configuredBody: 'Ola {{{1}}}, número {{{ 2 }}}',
+      },
+      () => Promise.resolve([]),
+    )
+
+    expect(body).toBe('Ola {{1}}, número {{2}}')
+  })
+})

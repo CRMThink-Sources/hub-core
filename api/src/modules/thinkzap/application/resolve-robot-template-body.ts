@@ -12,6 +12,22 @@ export type TemplateBodyLookup = (input: {
   appCode: string
 }) => Promise<{ name: string; language: string; body: string }[]>
 
+/**
+ * Devolve os placeholders à forma canônica de duas chaves.
+ *
+ * O corpo que chega pela propriedade do robô vem com um par de chaves a mais —
+ * `{{{1}}}` no lugar de `{{1}}`. A tela grava dois (confirmado no `current_values` do
+ * portal), então o excesso entra no transporte do Bizproc até o handler.
+ *
+ * Normalizar na entrada e não só na substituição importa porque este corpo é
+ * **persistido** na row do outbox e lido depois pelo histórico, pela conversa do canal
+ * aberto e pelo aviso de falha. Guardar o corpo torto deixaria a marca do bug no
+ * registro mesmo com a substituição já corrigida.
+ */
+function normalizePlaceholders(body: string): string {
+  return body.replace(/\{{2,4}\s*([A-Za-z0-9_]+)\s*\}{2,4}/g, '{{$1}}')
+}
+
 export type ResolveRobotTemplateBodyInput = RobotTemplateIdentity & {
   subscriptionItemId: string
   domainId: string
@@ -46,7 +62,7 @@ export async function resolveRobotTemplateBody(
   lookup: TemplateBodyLookup,
 ): Promise<string> {
   const configured = input.configuredBody.trim()
-  if (configured) return input.configuredBody
+  if (configured) return normalizePlaceholders(input.configuredBody)
 
   try {
     const templates = await lookup({

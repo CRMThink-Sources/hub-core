@@ -6,19 +6,27 @@
  * pelo componente faria cada campo carregar um `Promise` improvisado.
  */
 
-/** Campo do documento, como `bizproc.document.fields` devolve. */
-export type DocumentField = {
-  id: string
-  title: string
-  type: string
-  multiple: boolean
-}
+import {
+  resolveFieldsQuery,
+  toDocumentFields,
+  type DocumentField,
+} from './document-fields'
+
+export type { DocumentField } from './document-fields'
 
 export type PlacementContext = {
   /** `['crm', 'CCrmDocumentDeal', 'DEAL']` — o que identifica o tipo de documento. */
   documentType: string[]
   /** Valores já gravados nas propriedades do robô. */
   storedProperties: Record<string, unknown>
+  /**
+   * Campos do documento que o próprio placement entrega em `document_fields`.
+   *
+   * É a fonte preferida: são os campos **do bizproc**, com o id que a expressão usa e o
+   * nome que o portal mostra, sem depender de escopo de CRM nem de traduzir o tipo de
+   * documento em método REST. Vazio em portal que não manda a chave — daí a reserva.
+   */
+  documentFields: DocumentField[]
 }
 
 /**
@@ -39,7 +47,13 @@ export function readPlacementContext(): PlacementContext | null {
   return {
     documentType: parseDocumentType(options.document_type),
     storedProperties: parseStored(options),
+    documentFields: toDocumentFields(parseMaybeJson(options.document_fields)),
   }
+}
+
+/** `document_fields` chega como objeto ou como JSON em string, igual aos outros. */
+function parseMaybeJson(value: unknown): unknown {
+  return typeof value === 'string' ? tryParseJson(value) : value
 }
 
 function parseDocumentType(value: unknown): string[] {
@@ -93,56 +107,35 @@ export function setPropertyValue(
 /**
  * Campos do tipo de documento onde a automação está configurada.
  *
- * Lidos por `bizproc.document.fields`, um método REST documentado, em vez de um
- * comando de seleção de campo do placement: o método existe igual em toda versão do
- * Bitrix que roda robôs, enquanto os comandos do placement variam entre versões — e
- * um seletor que some no portal do cliente deixaria a tela sem a metade que o
- * formulário nativo faz de graça.
+ * Não existe método REST que descreva os campos de um tipo de documento de bizproc —
+ * `bizproc.document.fields` responde `ERROR_METHOD_NOT_FOUND`. Quem responde é a
+ * entidade, e `resolveFieldsQuery` traduz o `document_type` no método de campos dela.
+ *
+ * Tipo de documento que não sabemos consultar resolve para lista vazia em vez de erro:
+ * o robô é registrado sem `FILTER` e aparece também fora do CRM, e lá a tela segue
+ * utilizável no modo literal.
  */
 export function fetchDocumentFields(
   documentType: string[],
 ): Promise<DocumentField[]> {
   return new Promise(resolve => {
     const callMethod = window.BX24?.callMethod
-    if (!callMethod || documentType.length === 0) {
+    const query = resolveFieldsQuery(documentType)
+
+    if (!callMethod || !query) {
       resolve([])
       return
     }
 
-    callMethod(
-      'bizproc.document.fields',
-      { document_type: documentType },
-      result => {
-        const payload = result
+    callMethod(query.method, query.params, result => {
+      const payload = result
 
-        if (payload.error?.()) {
-          resolve([])
-          return
-        }
-
-        resolve(toDocumentFields(payload.data?.()))
-      },
-    )
-  })
-}
-
-/**
- * `bizproc.document.fields` devolve um mapa `{ ID: { Name, Type, Multiple } }`. As
- * chaves entram como `id` porque é o `id` que compõe a expressão gravada.
- */
-export function toDocumentFields(data: unknown): DocumentField[] {
-  if (!data || typeof data !== 'object') return []
-
-  return Object.entries(data as Record<string, unknown>)
-    .map(([id, raw]) => {
-      const field = (raw ?? {}) as Record<string, unknown>
-
-      return {
-        id,
-        title: typeof field.Name === 'string' ? field.Name : id,
-        type: typeof field.Type === 'string' ? field.Type : 'string',
-        multiple: field.Multiple === true || field.Multiple === 'Y',
+      if (payload.error?.()) {
+        resolve([])
+        return
       }
+
+      resolve(toDocumentFields(payload.data?.()))
     })
-    .sort((a, b) => a.title.localeCompare(b.title))
+  })
 }

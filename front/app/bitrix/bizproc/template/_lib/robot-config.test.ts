@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  expressionLabel,
   buildRobotProperties,
   fromStoredValue,
   parseStoredProperties,
@@ -8,7 +9,6 @@ import {
   validateConfig,
   type RobotConfigState,
 } from './robot-config'
-import { toDocumentFields } from './placement-bridge'
 
 const base: RobotConfigState = {
   connector: 'item_1',
@@ -199,30 +199,132 @@ describe('validateConfig', () => {
   })
 })
 
-describe('toDocumentFields', () => {
-  it('converte o mapa do bizproc.document.fields, ordenado por título', () => {
-    expect(
-      toDocumentFields({
-        TITLE: { Name: 'Título', Type: 'string' },
-        PHONE: { Name: 'Telefone', Type: 'string', Multiple: 'Y' },
-      }),
-    ).toEqual([
-      { id: 'PHONE', title: 'Telefone', type: 'string', multiple: true },
-      { id: 'TITLE', title: 'Título', type: 'string', multiple: false },
-    ])
-  })
-
-  it('cai no id quando o campo não tem nome', () => {
-    expect(toDocumentFields({ UF_CRM_1: {} })[0]).toEqual({
-      id: 'UF_CRM_1',
-      title: 'UF_CRM_1',
-      type: 'string',
-      multiple: false,
+/**
+ * O que volta em `current_values` não é byte a byte o que gravamos: o designer de
+ * workflow usa uma chave só, e o portal pode acrescentar espaço ou modificador. Cada
+ * forma não reconhecida reabria a variável em "Texto" com a expressão crua no campo.
+ */
+describe('fromStoredValue — formas de expressão do Bitrix', () => {
+  it.each([
+    '{{=Document:UF_CRM_123}}',
+    '{=Document:UF_CRM_123}',
+    '{{ =Document: UF_CRM_123 }}',
+    '{=Document:UF_CRM_123_printable}',
+    '{{=Document:UF_CRM_123 > printable}}',
+  ])('reconhece %s como campo do documento', raw => {
+    expect(fromStoredValue(raw)).toEqual({
+      mode: 'document',
+      value: 'UF_CRM_123',
     })
   })
 
-  it('trata resposta inesperada como lista vazia', () => {
-    expect(toDocumentFields(null)).toEqual([])
-    expect(toDocumentFields('erro')).toEqual([])
+  /**
+   * Variável de workflow é expressão do Bitrix como qualquer outra: não é campo do
+   * documento, mas também não é texto — reescrevê-la quebraria a automação.
+   */
+  it('variável do workflow vira expressão preservada', () => {
+    expect(fromStoredValue('{{=Variable:Variable1}}')).toEqual({
+      mode: 'expression',
+      value: '{{=Variable:Variable1}}',
+    })
+  })
+
+  it('texto com expressão no meio continua literal', () => {
+    expect(fromStoredValue('Pedido {{=Document:TITLE}} enviado')).toEqual({
+      mode: 'literal',
+      value: 'Pedido {{=Document:TITLE}} enviado',
+    })
+  })
+
+  it('reconhece o valor que volta só com o id, quando o id é campo conhecido', () => {
+    const known = new Set(['TITLE', 'UF_CRM_9'])
+
+    expect(fromStoredValue('UF_CRM_9', known)).toEqual({
+      mode: 'document',
+      value: 'UF_CRM_9',
+    })
+    expect(fromStoredValue('UF_CRM_OUTRO', known).mode).toBe('literal')
+    expect(fromStoredValue('UF_CRM_9').mode).toBe('literal')
+  })
+
+  it('propaga os ids conhecidos ao recompor o estado', () => {
+    const parsed = parseStoredProperties(
+      {
+        templateName: 't',
+        templateLanguage: 'pt_BR',
+        templateBody: '{{um}} e {{dois}}',
+        templateParameters: ['fixo', '{=Document:UF_CRM_9}'],
+        destination: 'PHONE',
+      },
+      new Set(['PHONE', 'UF_CRM_9']),
+    )
+
+    expect(parsed.values.dois).toEqual({
+      mode: 'document',
+      value: 'UF_CRM_9',
+    })
+    expect(parsed.values.um).toEqual({ mode: 'literal', value: 'fixo' })
+    expect(parsed.destination).toEqual({ mode: 'document', value: 'PHONE' })
+  })
+})
+
+/**
+ * `current_values` de produção trouxe token de três chaves com rótulo legível:
+ * `{{{[Hariel] ID Negócio}}}`, `{{{[Criar usando fonte] ID Empresa}}}`. O rótulo entre
+ * colchetes é o passo da automação, então o token pode apontar para retorno de outro
+ * robô — valor que esta tela não sabe produzir e não deve reescrever.
+ */
+describe('token do seletor nativo do Bitrix', () => {
+  it('reabre como expressão, verbatim', () => {
+    expect(fromStoredValue('{{{[Hariel] ID Negócio}}}')).toEqual({
+      mode: 'expression',
+      value: '{{{[Hariel] ID Negócio}}}',
+    })
+  })
+
+  it('sobrevive à ida e volta sem ganhar chaves', () => {
+    const token = '{{{[Criar usando fonte] ID Empresa}}}'
+
+    expect(toStoredValue(fromStoredValue(token))).toBe(token)
+  })
+
+  it('mostra o rótulo sem as chaves', () => {
+    expect(expressionLabel('{{{[Hariel] ID Negócio}}}')).toBe(
+      '[Hariel] ID Negócio',
+    )
+  })
+
+  // Campo do documento ganha do token: devolve o `select` em vez de valor intocável.
+  it('não confunde a expressão de campo do documento com token', () => {
+    expect(fromStoredValue('{{=Document:PARENT_ID_1276}}')).toEqual({
+      mode: 'document',
+      value: 'PARENT_ID_1276',
+    })
+  })
+
+  it('recompõe o current_values real do portal', () => {
+    const parsed = parseStoredProperties({
+      connector: '41',
+      destination: '{{{[Hariel] ID Negócio}}}',
+      sendToAllRelatedContacts: 'N',
+      templateName: 'boas_vindas',
+      templateLanguage: 'pt_BR',
+      templateBody:
+        'Ola {{1}}, seja bem vindo ao canal de atendimento da CRMThink.\nVocê é o número {{2}} da fila de atendimento',
+      templateParameters: [
+        '{{=Document:PARENT_ID_1276}}',
+        '{{{[Criar usando fonte] ID Empresa}}}',
+      ],
+    })
+
+    expect(parsed.destination.mode).toBe('expression')
+    expect(parsed.values['1']).toEqual({
+      mode: 'document',
+      value: 'PARENT_ID_1276',
+    })
+    expect(parsed.values['2']).toEqual({
+      mode: 'expression',
+      value: '{{{[Criar usando fonte] ID Empresa}}}',
+    })
   })
 })
