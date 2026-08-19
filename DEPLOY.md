@@ -121,6 +121,34 @@ SELECT status, COUNT(*) FROM core_thinkerszap_widget_outbox GROUP BY status;
   propósito** — pode ter sido entregue. O operador já foi avisado na timeline para
   conferir antes de reenviar.
 
+### Robô de template do Bizproc — ordem de deploy e registro
+
+O robô de envio de template (`thinkzap_template_robot`) é registrado no portal com um
+`HANDLER` (webhook na API) e um `PLACEMENT_HANDLER` (tela de configuração no front).
+Registrar o robô antes de as duas rotas existirem cria automação que só falha no
+primeiro disparo, então a ordem importa:
+
+1. **Env primeiro.** `BITRIX_TEMPLATE_ROBOT_HANDLER_URL` e
+   `BITRIX_TEMPLATE_ROBOT_PLACEMENT_URL` nos secrets do ambiente. Sem `HANDLER_URL` o
+   registro é no-op — deployar sem as variáveis é seguro, o robô simplesmente não
+   aparece.
+2. **API e front depois.** O webhook (`POST /api/thinkzap/webhooks/bitrix/template-robot`)
+   e a tela (`/bitrix/bizproc/template`) precisam estar no ar **antes** de qualquer
+   portal registrar o robô.
+3. **Registro nos portais.** Instalação nova registra sozinha. Portal já instalado
+   registra por `POST /api/portal/apps/:appId/bizproc-robot` (botão "Registrar robô" no
+   admin) — a chamada garante os dois robôs e devolve `result` (envio livre) e
+   `templateResult` (template).
+
+Conferir depois: o robô aparece na lista de automação do portal, e a tela abre no
+slider de configuração. Se a tela não abrir, o Bitrix cai no formulário nativo sobre as
+mesmas propriedades — a automação continua configurável, só sem a lista de templates.
+
+**Rollback:** `bizproc.robot.delete` do robô de template pelo mesmo endpoint de
+remoção do admin (`DELETE /api/portal/apps/:appId/bizproc-robot`, que remove os dois).
+O robô de envio livre e o envio do widget não são tocados. Intenções já no outbox
+seguem sendo entregues — remover o robô impede disparos novos, não cancela os aceitos.
+
 ## Desenvolvimento local
 
 - [docs/DEV-WORKERS.md](docs/DEV-WORKERS.md) — **workers e filas**. O compose de dev não

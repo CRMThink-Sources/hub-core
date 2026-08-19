@@ -126,6 +126,22 @@ export const env = {
       name: process.env.BITRIX_ROBOT_NAME ?? 'ThinkZap Robot',
       handlerUrl: process.env.BITRIX_ROBOT_HANDLER_URL ?? '',
     },
+    /**
+     * Robô de envio de **template aprovado**, separado do de envio livre.
+     *
+     * `handlerUrl` vazio deixa o robô fora do portal — o registro vira no-op, e é
+     * assim que um ambiente sem a rota publicada não cria automação apontando para
+     * `404`. `placementUrl` vazio registra o robô **sem** a tela própria: o Bitrix cai
+     * no formulário nativo sobre as mesmas propriedades, feio mas funcional.
+     */
+    templateRobot: {
+      code: process.env.BITRIX_TEMPLATE_ROBOT_CODE ?? 'thinkzap_template_robot',
+      name:
+        process.env.BITRIX_TEMPLATE_ROBOT_NAME ??
+        'ThinkZap - Enviar template (WhatsApp Oficial)',
+      handlerUrl: process.env.BITRIX_TEMPLATE_ROBOT_HANDLER_URL ?? '',
+      placementUrl: process.env.BITRIX_TEMPLATE_ROBOT_PLACEMENT_URL ?? '',
+    },
     /** false only in local dev (e.g. SSL-inspecting proxy). Set BITRIX_TLS_REJECT_UNAUTHORIZED=false */
     tlsRejectUnauthorized:
       process.env.BITRIX_TLS_REJECT_UNAUTHORIZED !== 'false',

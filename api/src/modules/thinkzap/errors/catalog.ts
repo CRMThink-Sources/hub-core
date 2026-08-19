@@ -253,6 +253,22 @@ export const THINKZAP_ERRORS = {
       'Conferir se a linha está ativa e conectada; revisar a configuração do robô no fluxo.',
     retriable: false,
   },
+  'thinkzap.bitrix.template_robot_refused': {
+    category: 'config',
+    userCause:
+      'O robô de envio de template não disparou: a linha configurada não pode enviar template (bloqueada, Z-API, ou canal não conectado) ou nenhum destinatário foi encontrado.',
+    remediation:
+      'Abrir a configuração do robô no fluxo e escolher uma linha do WhatsApp Oficial conectada; conferir o destino ou os contatos relacionados da entidade.',
+    retriable: false,
+  },
+  'thinkzap.bitrix.template_robot_enqueue_failed': {
+    category: 'internal',
+    userCause:
+      'O robô de envio de template não conseguiu registrar o envio de um destinatário.',
+    remediation:
+      'Os demais destinatários seguiram; reexecutar a automação para o destinatário que falhou e acionar o suporte se persistir.',
+    retriable: true,
+  },
   'thinkzap.bitrix.bot_id_failed': {
     category: 'integration',
     userCause:
