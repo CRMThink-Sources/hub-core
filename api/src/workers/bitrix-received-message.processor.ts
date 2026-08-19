@@ -6,7 +6,11 @@ import {
 } from '@/modules/thinkzap/domain/ports/outbound-message-sender.port'
 import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
-import { GetBitrixWebhookContextRepository } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
+import {
+  BitrixWebhookContext,
+  GetBitrixWebhookContextRepository,
+} from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
+import { AmbiguousChannelBindingError } from '@/modules/thinkzap/domain/errors/ambiguous-channel-binding.error'
 import { makeBitrixWebhookContextRepository } from '@/modules/thinkzap/main/make-bitrix-webhook-context-repository'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
@@ -235,11 +239,37 @@ export async function processBitrixReceivedMessage(
   const bitrixWebhookContextRepo: GetBitrixWebhookContextRepository =
     makeBitrixWebhookContextRepository()
 
-  const context = await bitrixWebhookContextRepo.getContext({
-    domainName: event.auth.domain,
-    appCode: resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId ?? '',
-    line: event.data.LINE,
-  })
+  let context: BitrixWebhookContext | null
+  try {
+    context = await bitrixWebhookContextRepo.getContext({
+      domainName: event.auth.domain,
+      appCode: resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId ?? '',
+      line: event.data.LINE,
+    })
+  } catch (error) {
+    /**
+     * Ambiguidade de vínculo é dado errado no CRM, não falha técnica: duas linhas
+     * ativas dizendo responder pelo mesmo canal aberto. Nomeada aqui porque o
+     * "Contexto não encontrado" genérico mandaria o suporte procurar linha que existe.
+     */
+    if (error instanceof AmbiguousChannelBindingError) {
+      log.error(
+        {
+          domain: event.auth.domain,
+          line: event.data.LINE,
+          subscriptionItemIds: error.subscriptionItemIds,
+        },
+        'Canal aberto vinculado a mais de uma linha ativa',
+      )
+      await appendJobLog(
+        `${error.message}. Cada linha sai de um número diferente — enviar pela primeira ` +
+          'faria a mensagem sair por um número arbitrário e o contato não receber. ' +
+          'Conserto é no CRM: desvincular o canal do item que não deve responder ' +
+          '(`ufCrm93Conector` na SPA 1146). Job vai falhar; retentativa cai no mesmo lugar.',
+      )
+    }
+    throw error
+  }
 
   if (!context) {
     log.error(
@@ -268,7 +298,8 @@ export async function processBitrixReceivedMessage(
 
   await appendJobLog(
     `Contexto resolvido: provider=${provider} | instância=${context.instance.instanceId} | ` +
-      `channelId=${context.instance.channelId ?? '—'} | destino(chatId)=${chatId}`,
+      `channelId=${context.instance.channelId ?? '—'} | item=${context.subscriptionItemId} | ` +
+      `destino(chatId)=${chatId}`,
   )
 
   /**

@@ -20,6 +20,15 @@ export interface BitrixWebhookContext {
   connector: {
     provider: ConnectorProvider
   }
+  /**
+   * Item da SPA que respondeu por este canal aberto.
+   *
+   * Sai no log de processo e na aba Logs do job: sem ele não havia como saber **qual**
+   * linha da instalação foi escolhida — e foi a escolha errada, num canal vinculado a
+   * duas linhas, que fez a mensagem sair pelo número errado com o job terminando em
+   * sucesso.
+   */
+  subscriptionItemId: string
   instance: {
     instanceId: string
     zApiToken: string | null

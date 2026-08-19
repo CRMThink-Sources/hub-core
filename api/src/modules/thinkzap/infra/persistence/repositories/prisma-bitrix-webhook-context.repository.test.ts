@@ -225,6 +225,64 @@ describe('PrismaBitrixWebhookContextRepository', () => {
     expect(sut.create).not.toHaveBeenCalled()
   })
 
+  /**
+   * A causa raiz do "mensagem sai pelo número errado": duas linhas ativas vinculadas ao
+   * mesmo canal aberto, e o `.find()` pegava a primeira da listagem do Bitrix. Cada
+   * linha sai de um número diferente, então escolher sozinho é escolher errado metade
+   * das vezes — com a Z-API aceitando e o job terminando em sucesso.
+   */
+  it('lança quando o canal está vinculado a duas linhas ativas', async () => {
+    const outra: SubscriptionItem = {
+      ...zapiItem('10'),
+      id: 'i9',
+      metadata: {
+        provider: 'ZAPI',
+        zApiInstanceId: 'INST-B',
+        zApiInstanceToken: 'TOKEN-B',
+      },
+    }
+    const sut = makeSut([zapiItem('10'), outra])
+
+    await expect(sut.repo.getContext(params)).rejects.toMatchObject({
+      name: 'AmbiguousChannelBindingError',
+      subscriptionItemIds: ['i1', 'i9'],
+    })
+  })
+
+  /** Linha cancelada não responde por canal: o empate com ela não é empate. */
+  it('ignora item cancelado ao resolver o canal', async () => {
+    const cancelada: SubscriptionItem = {
+      ...zapiItem('10'),
+      id: 'i8',
+      status: 'cancelled',
+      metadata: {
+        provider: 'ZAPI',
+        zApiInstanceId: 'INST-MORTA',
+        zApiInstanceToken: 'TOKEN-MORTO',
+      },
+    }
+    const sut = makeSut([cancelada, zapiItem('10')])
+
+    const context = await sut.repo.getContext(params)
+
+    expect(context?.subscriptionItemId).toBe('i1')
+    expect(context?.instance.instanceId).toBe('INST-A')
+  })
+
+  it('devolve null quando o canal só tem linha cancelada', async () => {
+    const sut = makeSut([{ ...zapiItem('10'), status: 'cancelled' }])
+
+    await expect(sut.repo.getContext(params)).resolves.toBeNull()
+  })
+
+  it('expõe o item escolhido no contexto', async () => {
+    const sut = makeSut()
+
+    const context = await sut.repo.getContext(params)
+
+    expect(context?.subscriptionItemId).toBe('i1')
+  })
+
   it('devolve null quando nenhum item está vinculado ao canal', async () => {
     const sut = makeSut([zapiItem('999')])
 

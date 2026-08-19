@@ -9,6 +9,7 @@ import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { ensureLineInstance } from '@/modules/thinkzap/application/helpers/ensure-line-instance'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
+import { AmbiguousChannelBindingError } from '@/modules/thinkzap/domain/errors/ambiguous-channel-binding.error'
 import { prisma } from '@/config/prisma.js'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -116,6 +117,7 @@ export class PrismaBitrixWebhookContextRepository implements GetBitrixWebhookCon
       },
       // Do item, não de `Connector.provider`: é o item que declara o conector.
       connector: { provider: item.metadata.provider as ConnectorProvider },
+      subscriptionItemId: item.id,
       instance: {
         /**
          * Credencial **do item**, não da row.
@@ -243,11 +245,46 @@ function warnOnCredentialDrift(
   )
 }
 
-/** Primeiro item cujo vínculo casa com o canal do evento. */
+/**
+ * A linha que responde por um canal aberto.
+ *
+ * Era `.find()` — o **primeiro** item cujo vínculo casava, na ordem em que o Bitrix
+ * listou. Com dois itens apontando para o mesmo canal (linha antiga que ficou
+ * vinculada, item duplicado no CRM), a mensagem do operador saía por um número
+ * arbitrário: a Z-API aceitava, o job terminava com sucesso, e o contato daquele chat
+ * não recebia nada. O widget não tinha o problema porque escolhe a linha pelo id do
+ * item, não pelo canal.
+ *
+ * Item cancelado sai da disputa: linha cancelada não responde por canal nenhum.
+ * Empate entre itens ativos **lança** — ver `AmbiguousChannelBindingError`.
+ */
 const findItemByChannel = (
   subscriptions: { items: SubscriptionItem[] }[],
   line: string,
-): SubscriptionItem | undefined =>
-  subscriptions
+): SubscriptionItem | undefined => {
+  const bound = subscriptions
     .flatMap(subscription => subscription.items)
-    .find(item => item.vinculatedChannel === line)
+    .filter(item => item.vinculatedChannel === line)
+
+  const active = bound.filter(item => item.status !== 'cancelled')
+
+  if (active.length > 1) {
+    throw new AmbiguousChannelBindingError(
+      line,
+      active.map(item => item.id),
+    )
+  }
+
+  if (active.length === 0 && bound.length > 0) {
+    apiLogger.warn(
+      {
+        app: 'thinkzap',
+        line,
+        subscriptionItemIds: bound.map(item => item.id),
+      },
+      'Canal aberto vinculado só a linha cancelada — mensagem não processada',
+    )
+  }
+
+  return active[0]
+}
