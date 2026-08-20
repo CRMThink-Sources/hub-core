@@ -616,3 +616,238 @@ describe('processBitrixReceivedMessage aba Logs do job', () => {
     expect(lines.some(l => l.includes('providerMessageId'))).toBe(false)
   })
 })
+
+function makeFile(
+  overrides: Partial<{
+    name: string
+    type: string
+    mime: string
+    downloadLink: string
+  }> = {},
+) {
+  return {
+    name: 'photo.jpg',
+    type: 'image',
+    mime: 'image/jpeg',
+    link: 'http://x/photo.jpg',
+    downloadLink: 'http://x/photo.jpg',
+    size: '1000',
+    sizef: '1KB',
+    width: 100,
+    height: 100,
+    ...overrides,
+  }
+}
+
+/**
+ * Texto e anexo chegam no MESMO objeto de mensagem quando o operador anexa um
+ * arquivo e escreve um comentário. O parse retornava no primeiro `if (text)` e o
+ * anexo era descartado em silêncio — job `completed`, Bitrix confirmado, contato
+ * sem o arquivo.
+ */
+describe('processBitrixReceivedMessage texto + anexo', () => {
+  beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
+    createMock.mockClear()
+    createMock.mockResolvedValue(undefined)
+    findByBitrixMessageIdMock.mockClear()
+    findByBitrixMessageIdMock.mockResolvedValue(null)
+    sendMessageZApiMock.mockClear()
+    sendImageMock.mockClear()
+    sendVideoMock.mockClear()
+    sendAudioMock.mockClear()
+    sendDocumentMock.mockClear()
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockClear()
+    callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
+    getContextMock.mockResolvedValue(baseContext)
+  })
+
+  it('imagem com comentário sai como uma imagem legendada, sem envio de texto', async () => {
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: 'Teste de imagem com texto',
+          files: [makeFile()],
+        },
+      }),
+    )
+
+    expect(sendImageMock).toHaveBeenCalledTimes(1)
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+    // A legenda passa pelo preparo do canal aberto, igual ao texto puro — o mock
+    // de `prepareOpenLineOutboundText` devolve `texto enviado`.
+    expect(sendImageMock).toHaveBeenCalledWith(
+      'INST-A',
+      'token',
+      'http://x/photo.jpg',
+      '5511999999999',
+      expect.objectContaining({ caption: 'texto enviado' }),
+    )
+  })
+
+  it('imagem legendada persiste type de mídia e o texto da legenda', async () => {
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: 'Teste de imagem com texto',
+          files: [makeFile()],
+        },
+      }),
+    )
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'IMAGE',
+        text: 'texto enviado',
+        providerMessageId: 'ZAPI-IMG',
+      }),
+    )
+  })
+
+  it('imagem sem comentário continua sem legenda e sem texto persistido', async () => {
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: { user_id: '1', text: '', files: [makeFile()] },
+      }),
+    )
+
+    expect(sendImageMock.mock.calls[0]?.[4]).toEqual({ caption: undefined })
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'IMAGE', text: null }),
+    )
+  })
+
+  it('documento com comentário vai com legenda', async () => {
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: 'segue o contrato',
+          files: [
+            makeFile({
+              name: 'contrato.pdf',
+              type: 'file',
+              mime: 'application/pdf',
+              downloadLink: 'http://x/contrato.pdf',
+            }),
+          ],
+        },
+      }),
+    )
+
+    expect(sendDocumentMock).toHaveBeenCalledWith(
+      'INST-A',
+      'token',
+      'http://x/contrato.pdf',
+      '5511999999999',
+      'contrato.pdf',
+      expect.objectContaining({ caption: 'texto enviado' }),
+    )
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+  })
+
+  /** Áudio não tem campo de legenda no WhatsApp: o texto sai como mensagem própria. */
+  it('áudio com comentário sai em dois envios, texto primeiro', async () => {
+    const order: string[] = []
+    sendMessageZApiMock.mockImplementation(() => {
+      order.push('text')
+      return Promise.resolve({ messageId: 'ZAPI-1' })
+    })
+    sendAudioMock.mockImplementation(() => {
+      order.push('audio')
+      return Promise.resolve({ messageId: 'ZAPI-AUD' })
+    })
+
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: 'ouça isso',
+          files: [
+            makeFile({
+              name: 'audio-1.ogg',
+              type: 'audio',
+              mime: 'audio/ogg',
+              downloadLink: 'http://x/audio-1.ogg',
+            }),
+          ],
+        },
+      }),
+    )
+
+    expect(order).toEqual(['text', 'audio'])
+  })
+
+  it('dois anexos com um texto: legenda só no primeiro', async () => {
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: 'duas fotos',
+          files: [
+            makeFile({ name: 'a.jpg', downloadLink: 'http://x/a.jpg' }),
+            makeFile({ name: 'b.jpg', downloadLink: 'http://x/b.jpg' }),
+          ],
+        },
+      }),
+    )
+
+    expect(sendImageMock).toHaveBeenCalledTimes(2)
+    expect(sendImageMock.mock.calls[0]?.[4]).toEqual({
+      caption: 'texto enviado',
+    })
+    expect(sendImageMock.mock.calls[1]?.[4]).toEqual({ caption: undefined })
+  })
+
+  /** Anexo descartado no parse não pode levar o comentário do operador embora. */
+  it('texto com anexo de tipo desconhecido ainda envia o texto', async () => {
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: 'olha esse arquivo',
+          files: [makeFile({ type: 'unknown', name: 'x.bin' })],
+        },
+      }),
+    )
+
+    expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
+    expect(sendImageMock).not.toHaveBeenCalled()
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'TEXT' }),
+    )
+  })
+
+  it('só texto continua um único envio de texto', async () => {
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
+    expect(sendImageMock).not.toHaveBeenCalled()
+  })
+
+  it('aba Logs distingue mídia legendada de envio só de texto', async () => {
+    const appendJobLog = vi.fn().mockResolvedValue(undefined)
+
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: 'Teste de imagem com texto',
+          files: [makeFile()],
+        },
+      }),
+      { appendJobLog },
+    )
+
+    const lines = appendJobLog.mock.calls.map(([line]) => line as string)
+
+    expect(
+      lines.some(
+        l => l.includes('Conteúdo a enviar') && l.includes('image com legenda'),
+      ),
+    ).toBe(true)
+  })
+})

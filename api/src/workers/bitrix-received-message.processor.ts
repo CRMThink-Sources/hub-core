@@ -107,24 +107,34 @@ async function persistOutboundMessage(
   }
 }
 
+/** Tipos em que o WhatsApp aceita legenda junto da mídia. */
+const CAPTIONABLE_KINDS: ReadonlySet<OutboundMessageDescriptor['kind']> =
+  new Set(['image', 'video', 'document'])
+
 /**
  * Converte o evento do Bitrix em descritores neutros de envio. O provider
  * concreto é decidido depois, no resolver — aqui nada sabe de Z-API ou
  * HubMessage.
+ *
+ * O evento traz `text` e `files` no **mesmo** objeto quando o operador anexa um
+ * arquivo e escreve um comentário no mesmo envio. Aqui havia um `return` no
+ * primeiro `if (text)`, antes do laço de anexos: o arquivo era descartado em
+ * silêncio e o contato recebia só o texto, com o job em `completed` e o Bitrix
+ * já confirmado. Por isso os dois são percorridos.
+ *
+ * Onde o tipo aceita legenda (imagem, vídeo, documento), o texto vira legenda do
+ * **primeiro** anexo — uma mensagem só, como o operador vê no Bitrix. Onde não
+ * aceita (áudio), sai como texto separado **antes** da mídia, que é a ordem em
+ * que o comentário aparece acima do anexo no canal aberto.
  */
 function toOutboundDescriptors(
   message: IBX24MessageEvent['data']['MESSAGES'][number],
   logContext: { domain: string },
 ): OutboundMessageDescriptor[] {
-  if (message.message.text) {
-    return [{ kind: 'text', text: message.message.text }]
-  }
+  const text = message.message.text
+  const media: OutboundMessageDescriptor[] = []
 
-  if (!message.message.files) return []
-
-  const descriptors: OutboundMessageDescriptor[] = []
-
-  for (const file of message.message.files) {
+  for (const file of message.message.files ?? []) {
     const kind = toOutboundKind(file)
 
     if (!kind) {
@@ -135,7 +145,7 @@ function toOutboundDescriptors(
       continue
     }
 
-    descriptors.push({
+    media.push({
       kind,
       url: file.downloadLink,
       fileName: file.name,
@@ -143,7 +153,26 @@ function toOutboundDescriptors(
     })
   }
 
-  return descriptors
+  // Anexo de tipo desconhecido não leva o texto embora: sem mídia sobrando, o
+  // comentário ainda é a mensagem que o operador quis enviar.
+  if (!media.length) return text ? [{ kind: 'text', text }] : []
+
+  if (!text) return media
+
+  const first = media[0]
+
+  if (first && CAPTIONABLE_KINDS.has(first.kind)) {
+    return [{ ...first, text }, ...media.slice(1)]
+  }
+
+  return [{ kind: 'text', text }, ...media]
+}
+
+/** Rótulo do descritor para a aba Logs: distingue mídia legendada de mídia crua. */
+function describeDescriptor(descriptor: OutboundMessageDescriptor): string {
+  return descriptor.kind !== 'text' && descriptor.text
+    ? `${descriptor.kind} com legenda`
+    : descriptor.kind
 }
 
 /** `null` = tipo não suportado; o chamador loga e ignora sem derrubar o job. */
@@ -219,7 +248,10 @@ export async function processBitrixReceivedMessage(
     {
       domain: event.auth.domain,
       line: event.data.LINE,
-      parsedMessages: descriptors.map(d => ({ type: d.kind })),
+      parsedMessages: descriptors.map(d => ({
+        type: d.kind,
+        captioned: d.kind !== 'text' && !!d.text,
+      })),
     },
     'Bitrix messages parsed',
   )
@@ -228,10 +260,14 @@ export async function processBitrixReceivedMessage(
    * Os tipos **depois** da tradução, não os do evento: anexo de tipo desconhecido é
    * descartado no parse, e sem esta linha um job que não enviou nada parece um job que
    * enviou. `nenhum` aqui já é a resposta inteira para "a mensagem não chegou".
+   *
+   * `com legenda` está aqui porque a linha antiga dizia só `text` quando o operador
+   * mandava imagem com comentário — o mesmo log de um envio que era realmente só
+   * texto, escondendo o anexo perdido.
    */
   await appendJobLog(
     `Conteúdo a enviar: ${
-      descriptors.map(d => d.kind).join(', ') ||
+      descriptors.map(describeDescriptor).join(', ') ||
       'nenhum (tipo de anexo não suportado — descartado no parse)'
     }`,
   )
@@ -430,39 +466,44 @@ export async function processBitrixReceivedMessage(
     )
 
     await appendJobLog(
-      `Enviando ${index + 1}/${descriptors.length} via ${provider} | tipo=${descriptor.kind}` +
+      `Enviando ${index + 1}/${descriptors.length} via ${provider} | tipo=${describeDescriptor(descriptor)}` +
         (descriptor.fileName ? ` | arquivo=${descriptor.fileName}` : '') +
         (replyId
           ? ` | reply=${referencedMessageId ? 'resolvido' : 'não resolvido/não suportado'}`
           : ''),
     )
 
-    // O texto do operador passa pelo preparo do canal aberto (assinatura etc.);
-    // midia e documento seguem com o link cru do Bitrix.
-    const toSend =
-      descriptor.kind === 'text'
-        ? {
-            ...descriptor,
-            text: await prepareOpenLineOutboundText({
-              text: descriptor.text || '',
-              /**
-               * Do item da SPA, não de `context.instance.settings`: a coluna do
-               * banco não é mais escrita desde que a configuração passou para
-               * `ufCrm93Settings`, então ler dela devolveria o valor congelado de
-               * antes da migração — o prefixo de nome se comportaria ao contrário
-               * do que a tela mostra.
-               *
-               * Vem da resolução do topo, que já leu o contexto para decidir o
-               * entitlement — não há segunda ida ao Bitrix por mensagem.
-               */
-              settings: line.settings,
-              operatorUserId: message.message.user_id,
-              appId: context.app.id,
-              getBitrixUserDisplayName,
-              getAllowedUser,
-            }),
-          }
-        : descriptor
+    /**
+     * O texto do operador passa pelo preparo do canal aberto (assinatura etc.);
+     * midia e documento seguem com o link cru do Bitrix.
+     *
+     * A condição é "tem texto", não "é do tipo `text`": a legenda de uma mídia é o
+     * mesmo texto do operador e precisa do mesmo prefixo de nome, senão a mesma
+     * configuração de linha produziria duas saídas diferentes.
+     */
+    const toSend = descriptor.text
+      ? {
+          ...descriptor,
+          text: await prepareOpenLineOutboundText({
+            text: descriptor.text || '',
+            /**
+             * Do item da SPA, não de `context.instance.settings`: a coluna do
+             * banco não é mais escrita desde que a configuração passou para
+             * `ufCrm93Settings`, então ler dela devolveria o valor congelado de
+             * antes da migração — o prefixo de nome se comportaria ao contrário
+             * do que a tela mostra.
+             *
+             * Vem da resolução do topo, que já leu o contexto para decidir o
+             * entitlement — não há segunda ida ao Bitrix por mensagem.
+             */
+            settings: line.settings,
+            operatorUserId: message.message.user_id,
+            appId: context.app.id,
+            getBitrixUserDisplayName,
+            getAllowedUser,
+          }),
+        }
+      : descriptor
 
     let result: OutboundSendResult
     try {
@@ -555,9 +596,14 @@ export async function processBitrixReceivedMessage(
       chatId,
       bitrixChatId: message.im.chat_id,
       type: result.persistedType,
+      /**
+       * Mídia legendada grava aqui a legenda que o adapter devolveu em `sentText`,
+       * mantendo `type` da mídia. Mídia sem legenda continua gravando `null`.
+       */
       text: result.sentText,
       // Só documento persiste `fileName` — imagem/vídeo/áudio nunca gravaram o
-      // nome do arquivo, e a extração do adapter não muda isso.
+      // nome do arquivo, e nem a extração do adapter nem a legenda mudam isso:
+      // quem procura o registro de uma imagem procura por id, não por arquivo.
       fileName:
         result.persistedType === 'DOCUMENT' ? descriptor.fileName : undefined,
     })

@@ -24,7 +24,19 @@ export type OutboundMessageKind =
  */
 export type OutboundMessageDescriptor = {
   kind: OutboundMessageKind
-  /** Corpo da mensagem. Presente em `text`. */
+  /**
+   * Corpo da mensagem em `text`; **legenda** da mídia em `image`, `video` e
+   * `document`.
+   *
+   * Um campo só, e não um `caption` separado: os dois teriam o mesmo destino a
+   * jusante (`sentText`, coluna `text` do banco, preparo do texto do operador) e
+   * abririam um estado inválido novo — corpo e legenda preenchidos no mesmo
+   * descritor.
+   *
+   * `audio` não suporta legenda (nota de voz não tem campo de texto no
+   * WhatsApp): o chamador emite o texto como descritor `text` separado, e o
+   * adapter ignora texto que chegue aqui.
+   */
   text?: string
   /** URL do arquivo (`downloadLink` do Bitrix). Presente em mídia e documento. */
   url?: string
@@ -46,7 +58,12 @@ export type OutboundSendResult = {
   messageId: string
   /** Tipo efetivamente persistido — pode divergir do envio quando o adapter degrada (ex.: documento enviado como texto). */
   persistedType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT'
-  /** Texto efetivamente enviado, quando o adapter o constrói (ex.: fallback de documento). */
+  /**
+   * Texto efetivamente enviado: o corpo em `text`, a legenda em mídia legendada,
+   * ou o texto que o adapter constrói ao degradar (ex.: fallback de documento).
+   * É o que o chamador persiste na coluna `text` — mídia sem legenda devolve
+   * `undefined` e continua gravando `null`.
+   */
   sentText?: string
 }
 

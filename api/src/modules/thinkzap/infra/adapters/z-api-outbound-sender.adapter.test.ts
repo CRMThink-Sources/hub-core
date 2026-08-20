@@ -96,9 +96,36 @@ describe('ZApiOutboundSender', () => {
       'token',
       'http://x/photo.jpg',
       '5511999999999',
+      { caption: undefined },
     )
     expect(result.persistedType).toBe('IMAGE')
     expect(result.messageId).toBe('ZAPI-IMG')
+    // Sem legenda não há texto a persistir — a coluna `text` continua nula.
+    expect(result.sentText).toBeUndefined()
+  })
+
+  it('imagem com legenda repassa caption e devolve sentText', async () => {
+    const client = makeClient()
+    const sender = new ZApiOutboundSender(client as never, config)
+
+    const result = await sender.send({
+      kind: 'image',
+      url: 'http://x/photo.jpg',
+      text: 'olha isso',
+    })
+
+    expect(client.sendImage).toHaveBeenCalledWith(
+      'INST-A',
+      'token',
+      'http://x/photo.jpg',
+      '5511999999999',
+      { caption: 'olha isso' },
+    )
+    expect(result).toEqual({
+      messageId: 'ZAPI-IMG',
+      persistedType: 'IMAGE',
+      sentText: 'olha isso',
+    })
   })
 
   it('video chama sendVideo com a URL', async () => {
@@ -112,8 +139,29 @@ describe('ZApiOutboundSender', () => {
       'token',
       'http://x/v.mp4',
       '5511999999999',
+      { caption: undefined },
     )
     expect(result.persistedType).toBe('VIDEO')
+  })
+
+  it('video com legenda repassa caption', async () => {
+    const client = makeClient()
+    const sender = new ZApiOutboundSender(client as never, config)
+
+    const result = await sender.send({
+      kind: 'video',
+      url: 'http://x/v.mp4',
+      text: 'veja',
+    })
+
+    expect(client.sendVideo).toHaveBeenCalledWith(
+      'INST-A',
+      'token',
+      'http://x/v.mp4',
+      '5511999999999',
+      { caption: 'veja' },
+    )
+    expect(result.sentText).toBe('veja')
   })
 
   it('documento chama sendDocument com URL e fileName', async () => {
@@ -132,8 +180,31 @@ describe('ZApiOutboundSender', () => {
       'http://x/contrato.pdf',
       '5511999999999',
       'contrato.pdf',
+      { caption: undefined },
     )
     expect(result.persistedType).toBe('DOCUMENT')
+  })
+
+  it('documento com legenda repassa caption', async () => {
+    const client = makeClient()
+    const sender = new ZApiOutboundSender(client as never, config)
+
+    const result = await sender.send({
+      kind: 'document',
+      url: 'http://x/contrato.pdf',
+      fileName: 'contrato.pdf',
+      text: 'segue o contrato',
+    })
+
+    expect(client.sendDocument).toHaveBeenCalledWith(
+      'INST-A',
+      'token',
+      'http://x/contrato.pdf',
+      '5511999999999',
+      'contrato.pdf',
+      { caption: 'segue o contrato' },
+    )
+    expect(result.sentText).toBe('segue o contrato')
   })
 
   // Guarda de regressão do transcode: o Z-API aceita payload embutido, então o

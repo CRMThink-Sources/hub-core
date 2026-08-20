@@ -89,16 +89,21 @@ export class HubMessageOutboundSender implements OutboundMessageSender {
           sentText: descriptor.text ?? '',
         }
 
+      // `descriptor.text` em mídia é a legenda, e vai no anexo — não em
+      // `content.body`, que a API só lê em `TEXT`.
       case 'image':
         return {
           params: {
             recipient,
             content: {
               type: 'IMAGE',
-              attachments: [{ url: descriptor.url ?? '' }],
+              attachments: [
+                { url: descriptor.url ?? '', ...captionOf(descriptor) },
+              ],
             },
           },
           persistedType: 'IMAGE',
+          sentText: descriptor.text,
         }
 
       case 'video':
@@ -107,15 +112,33 @@ export class HubMessageOutboundSender implements OutboundMessageSender {
             recipient,
             content: {
               type: 'VIDEO',
-              attachments: [{ url: descriptor.url ?? '' }],
+              attachments: [
+                { url: descriptor.url ?? '', ...captionOf(descriptor) },
+              ],
             },
           },
           persistedType: 'VIDEO',
+          sentText: descriptor.text,
         }
 
       // Mídia vai por URL: sem o download + transcode para mp3/base64 que o
       // caminho Z-API faz, porque a HubMessage não aceita payload embutido.
       case 'audio':
+        /**
+         * Áudio não leva legenda (o WhatsApp não tem esse campo em nota de voz), e
+         * o chamador já emite o texto como mensagem separada. Se ainda assim vier
+         * texto aqui, é descartado com log — mandar como `caption` faria a API
+         * recusar o envio inteiro.
+         */
+        if (descriptor.text) {
+          log.info(
+            {
+              channelId: this.config.channelId,
+              audioCaptionDropped: true,
+            },
+            'Áudio não suporta legenda — texto ignorado neste envio',
+          )
+        }
         return {
           params: {
             recipient,
@@ -150,10 +173,24 @@ export class HubMessageOutboundSender implements OutboundMessageSender {
   }
 }
 
+/** Legenda do anexo, ou nada — a chave só entra no payload quando há texto. */
+function captionOf(descriptor: OutboundMessageDescriptor): {
+  caption?: string
+} {
+  return descriptor.text ? { caption: descriptor.text } : {}
+}
+
+/**
+ * O comentário do operador vem **antes** do nome + link: sem isto ele seria
+ * descartado, já que o documento inteiro é degradado para uma única mensagem de
+ * texto e não há segundo envio onde encaixá-lo.
+ */
 function buildDocumentFallbackText(
   descriptor: OutboundMessageDescriptor,
 ): string {
   const name = descriptor.fileName?.trim()
   const url = descriptor.url ?? ''
-  return name ? `📎 ${name}\n${url}` : `📎 ${url}`
+  const attachment = name ? `📎 ${name}\n${url}` : `📎 ${url}`
+  const caption = descriptor.text?.trim()
+  return caption ? `${caption}\n\n${attachment}` : attachment
 }

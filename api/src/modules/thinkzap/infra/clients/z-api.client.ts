@@ -302,7 +302,7 @@ export class ZApiClient {
     instanceToken: string,
     image: string,
     phone: string,
-    options?: { referencedMessageId?: string },
+    options?: { referencedMessageId?: string; caption?: string },
   ): Promise<SendMessageResponse> {
     try {
       const { data } = await this.http.post<SendMessageResponse>(
@@ -310,6 +310,7 @@ export class ZApiClient {
         {
           phone,
           image,
+          ...(options?.caption ? { caption: options.caption } : {}),
           ...(options?.referencedMessageId
             ? { messageId: options.referencedMessageId }
             : {}),
@@ -333,7 +334,7 @@ export class ZApiClient {
     instanceToken: string,
     video: string,
     phone: string,
-    options?: { referencedMessageId?: string },
+    options?: { referencedMessageId?: string; caption?: string },
   ): Promise<SendMessageResponse> {
     try {
       const { data } = await this.http.post<SendMessageResponse>(
@@ -341,6 +342,7 @@ export class ZApiClient {
         {
           phone,
           video,
+          ...(options?.caption ? { caption: options.caption } : {}),
           ...(options?.referencedMessageId
             ? { messageId: options.referencedMessageId }
             : {}),
@@ -664,7 +666,7 @@ export class ZApiClient {
     document: string,
     phone: string,
     fileName?: string,
-    options?: { referencedMessageId?: string },
+    options?: { referencedMessageId?: string; caption?: string },
   ): Promise<SendMessageResponse> {
     try {
       const extension =
@@ -677,6 +679,7 @@ export class ZApiClient {
           phone,
           document,
           fileName,
+          ...(options?.caption ? { caption: options.caption } : {}),
           ...(options?.referencedMessageId
             ? { messageId: options.referencedMessageId }
             : {}),
