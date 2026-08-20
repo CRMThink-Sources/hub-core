@@ -91,6 +91,75 @@ describe('HubMessageOutboundSender', () => {
     expect(result.sentText).toContain('contrato.pdf')
   })
 
+  it('imagem com legenda envia caption no anexo e devolve sentText', async () => {
+    const result = await sender.send({
+      kind: 'image',
+      url: 'http://x/photo.jpg',
+      text: 'olha isso',
+    })
+
+    expect(client.sendMessage).toHaveBeenCalledWith('CH-123', {
+      recipient: { identifier: '5511999999999' },
+      content: {
+        type: 'IMAGE',
+        attachments: [{ url: 'http://x/photo.jpg', caption: 'olha isso' }],
+      },
+    })
+    expect(result).toEqual({
+      messageId: 'HM-1',
+      persistedType: 'IMAGE',
+      sentText: 'olha isso',
+    })
+  })
+
+  it('video com legenda envia caption no anexo', async () => {
+    await sender.send({ kind: 'video', url: 'http://x/v.mp4', text: 'veja' })
+
+    expect(client.sendMessage).toHaveBeenCalledWith('CH-123', {
+      recipient: { identifier: '5511999999999' },
+      content: {
+        type: 'VIDEO',
+        attachments: [{ url: 'http://x/v.mp4', caption: 'veja' }],
+      },
+    })
+  })
+
+  /** Nota de voz não tem campo de texto: `caption` faria a API recusar o envio. */
+  it('audio ignora legenda e não envia caption', async () => {
+    const result = await sender.send({
+      kind: 'audio',
+      url: 'http://x/a.ogg',
+      text: 'ouça',
+    })
+
+    expect(client.sendMessage).toHaveBeenCalledWith('CH-123', {
+      recipient: { identifier: '5511999999999' },
+      content: { type: 'AUDIO', attachments: [{ url: 'http://x/a.ogg' }] },
+    })
+    expect(result.sentText).toBeUndefined()
+  })
+
+  it('documento com legenda leva o comentário no texto do fallback', async () => {
+    const result = await sender.send({
+      kind: 'document',
+      url: 'http://x/contrato.pdf',
+      fileName: 'contrato.pdf',
+      text: 'segue o contrato',
+    })
+
+    const [, params] = client.sendMessage.mock.calls[0] as [
+      string,
+      { content: { type: string; body: { message: string } } },
+    ]
+    expect(params.content.type).toBe('TEXT')
+    expect(params.content.body.message).toContain('segue o contrato')
+    expect(params.content.body.message).toContain('contrato.pdf')
+    expect(params.content.body.message).toContain('http://x/contrato.pdf')
+
+    expect(result.persistedType).toBe('DOCUMENT')
+    expect(result.sentText).toBe(params.content.body.message)
+  })
+
   it('documento sem fileName ainda envia o link', async () => {
     await sender.send({ kind: 'document', url: 'http://x/f.bin' })
 

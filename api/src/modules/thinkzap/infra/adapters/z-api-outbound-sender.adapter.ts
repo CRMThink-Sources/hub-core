@@ -52,14 +52,21 @@ export class ZApiOutboundSender implements OutboundMessageSender {
         }
       }
 
+      // `descriptor.text` em mídia é a legenda — o campo `caption` do Z-API. Sem
+      // legenda a chave nem entra no corpo.
       case 'image': {
         const result = await this.client.sendImage(
           instanceId,
           instanceToken,
           descriptor.url ?? '',
           phone,
+          { caption: descriptor.text },
         )
-        return { messageId: result.messageId, persistedType: 'IMAGE' }
+        return {
+          messageId: result.messageId,
+          persistedType: 'IMAGE',
+          sentText: descriptor.text,
+        }
       }
 
       case 'video': {
@@ -68,8 +75,13 @@ export class ZApiOutboundSender implements OutboundMessageSender {
           instanceToken,
           descriptor.url ?? '',
           phone,
+          { caption: descriptor.text },
         )
-        return { messageId: result.messageId, persistedType: 'VIDEO' }
+        return {
+          messageId: result.messageId,
+          persistedType: 'VIDEO',
+          sentText: descriptor.text,
+        }
       }
 
       case 'audio': {
@@ -96,8 +108,13 @@ export class ZApiOutboundSender implements OutboundMessageSender {
           descriptor.url ?? '',
           phone,
           descriptor.fileName ?? '',
+          { caption: descriptor.text },
         )
-        return { messageId: result.messageId, persistedType: 'DOCUMENT' }
+        return {
+          messageId: result.messageId,
+          persistedType: 'DOCUMENT',
+          sentText: descriptor.text,
+        }
       }
     }
   }
