@@ -411,6 +411,84 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
     expect(payload.MESSAGES[0]!.message.text).toBe('')
   })
 
+  /**
+   * Documento com comentário: o `caption` do Z-API é o que o contato escreveu, e
+   * era descartado — o canal aberto recebia o arquivo sem texto.
+   */
+  it('forwards document caption as the message text', async () => {
+    const { useCase, messageRepo } = buildUseCase()
+    await useCase.execute(
+      makeEvent({
+        text: undefined,
+        document: {
+          documentUrl: 'https://cdn.example.com/termo.pdf',
+          fileName: '5479 - Termo ERP + LGPD.pdf',
+          mimeType: 'application/pdf',
+          caption: 'Testando envio de documento com texto',
+        },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe(
+      'Testando envio de documento com texto',
+    )
+    expect(payload.MESSAGES[0]!.message.files).toEqual([
+      {
+        url: 'https://cdn.example.com/termo.pdf',
+        name: '5479 - Termo ERP + LGPD.pdf',
+      },
+    ])
+    expect(messageRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'DOCUMENT',
+        text: 'Testando envio de documento com texto',
+        fileName: '5479 - Termo ERP + LGPD.pdf',
+      }),
+    )
+  })
+
+  it('forwards document without caption as empty text', async () => {
+    const { useCase } = buildUseCase()
+    await useCase.execute(
+      makeEvent({
+        text: undefined,
+        document: {
+          documentUrl: 'https://cdn.example.com/f.pdf',
+          fileName: 'f.pdf',
+          mimeType: 'application/pdf',
+        },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe('')
+  })
+
+  /** O grupo tinha a mesma cadeia de ternários — e o mesmo furo. */
+  it('forwards document caption in group message, after sender prefix', async () => {
+    const { useCase } = buildUseCase()
+    await useCase.execute(
+      makeEvent({
+        isGroup: true,
+        phone: '5511999999999-group',
+        senderName: 'Maria',
+        text: undefined,
+        document: {
+          documentUrl: 'https://cdn.example.com/termo.pdf',
+          fileName: 'termo.pdf',
+          mimeType: 'application/pdf',
+          caption: 'segue o termo',
+        },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe(
+      '[b]Maria[/b]:\nsegue o termo',
+    )
+  })
+
   it('builds group reply preserving sender prefix order', async () => {
     const { useCase } = buildUseCase({
       repoFind: vi.fn().mockResolvedValue({

@@ -54,8 +54,10 @@ function renderQuoteBody(cached: ThinkzapMessageQuoteInput): string {
       return cached.text ? `🎥 Vídeo: ${cached.text}` : '🎥 Vídeo'
     case 'AUDIO':
       return '🎧 Áudio'
-    case 'DOCUMENT':
-      return cached.fileName ? `📎 ${cached.fileName}` : '📎 Documento'
+    case 'DOCUMENT': {
+      const label = cached.fileName ? `📎 ${cached.fileName}` : '📎 Documento'
+      return cached.text ? `${label}: ${cached.text}` : label
+    }
     case 'STICKER':
       return '🎭 Sticker'
     case 'CONTACT':
@@ -96,7 +98,14 @@ export function extractQuoteInput(
     return { type: 'AUDIO' }
   }
   if (event.document) {
-    return { type: 'DOCUMENT', fileName: event.document.fileName || undefined }
+    return {
+      type: 'DOCUMENT',
+      // A legenda é o que o contato escreveu; sem ela aqui, a citação de um
+      // documento comentado mostraria só o nome do arquivo, e o registro no
+      // banco gravaria `text = null`.
+      text: event.document.caption || undefined,
+      fileName: event.document.fileName || undefined,
+    }
   }
   if (event.sticker) {
     return { type: 'STICKER' }
