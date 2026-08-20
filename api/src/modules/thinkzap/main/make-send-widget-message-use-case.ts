@@ -1,7 +1,8 @@
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { env } from '@/config/env'
+import { BullMqOpenChannelConversationQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
 import { SendWidgetMessageUseCase } from '@/modules/thinkzap/application/send-widget-message.use-case'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
-import { PrismaConnectorRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-connector.repository'
 import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
 import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
 import { makeBitrixClient } from '@/shared/main/make-bitrix-client'
@@ -11,7 +12,6 @@ import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositori
 export const makeSendWidgetMessageUseCase = async (
   req: Request,
 ): Promise<SendWidgetMessageUseCase> => {
-  const connectorRepository = new PrismaConnectorRepository()
   const instanceRepository = new PrismaInstanceRepository()
   const zApiClient = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
   const bitrix = await makeBitrixClient(req)
@@ -19,11 +19,11 @@ export const makeSendWidgetMessageUseCase = async (
   const messageRepo = new PrismaThinkzapMessageRepository()
 
   return new SendWidgetMessageUseCase(
-    connectorRepository,
+    makeGetAplicationContext(),
     instanceRepository,
     zApiClient,
     sendBitrixNotification,
     messageRepo,
-    bitrix,
+    new BullMqOpenChannelConversationQueue(),
   )
 }

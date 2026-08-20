@@ -1,6 +1,7 @@
 import type IORedis from 'ioredis'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '../errors/catalog'
 
 const log = createWorkerSourceLogger('bitrix')
 const BOT_CODE = 'thinkzap-connector'
@@ -20,9 +21,14 @@ export async function ensureBitrixBotId(
       return parseInt(cached, 10)
     }
   } catch (err) {
-    log.warn(
+    logThinkzapError(
+      log,
+      'thinkzap.bitrix.bot_id_failed',
       { domain, appCode, err, botIdCacheFailed: true },
-      'Redis read failed for bot ID cache — fallback to Bitrix',
+      {
+        level: 'warn',
+        msg: 'Redis read failed for bot ID cache — fallback to Bitrix',
+      },
     )
   }
 
@@ -31,9 +37,11 @@ export async function ensureBitrixBotId(
   try {
     await redis.set(cacheKey, String(botId), 'EX', BOT_CACHE_TTL_SECONDS)
   } catch (err) {
-    log.warn(
+    logThinkzapError(
+      log,
+      'thinkzap.bitrix.bot_id_failed',
       { domain, appCode, err, botIdCacheFailed: true },
-      'Redis write failed for bot ID cache',
+      { level: 'warn', msg: 'Redis write failed for bot ID cache' },
     )
   }
 

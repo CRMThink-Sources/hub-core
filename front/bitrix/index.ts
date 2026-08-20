@@ -7,6 +7,9 @@ export {
 } from './app-info'
 export {
   authenticateBitrixWithBackend,
+  registerOperatorOAuth,
+  type BitrixAuthContext,
+  type BitrixBackendAuthFailureReason,
   type BitrixBackendAuthResult,
 } from './authenticate-with-backend'
 export { BX24Script } from './bx24-script'

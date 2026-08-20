@@ -3,6 +3,11 @@ import { app } from './app.js'
 import { createServer } from 'http'
 import { initSocket } from './shared/infra/socket.js'
 import { apiLogger } from './shared/infra/logger.js'
+import { assertInstallConfig } from './config/assert-install-config.js'
+
+// Antes de aceitar tráfego: config de instalação faltando tem que quebrar o
+// deploy, não a instalação do primeiro cliente que tentar.
+assertInstallConfig()
 
 const httpServer = createServer(app)
 

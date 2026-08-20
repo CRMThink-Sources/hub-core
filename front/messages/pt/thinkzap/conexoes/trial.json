@@ -1,0 +1,52 @@
+{
+  "convite": {
+    "titulo": "Teste o ThinkZap por 3 dias",
+    "descricao": "Escolha um tipo de conector para criar sua primeira linha. O teste é único por instalação e vale 3 dias.",
+    "escolher": "Começar teste",
+    "ZAPI": {
+      "titulo": "WhatsApp Web",
+      "descricao": "Conecta lendo o QR code no seu celular. Mais rápido de começar."
+    },
+    "HUBMESSAGE": {
+      "titulo": "WhatsApp Oficial",
+      "descricao": "Canal oficial da Meta, com número verificado e templates."
+    }
+  },
+  "formulario": {
+    "titulo": "Confirme seus dados de contato",
+    "descricao": "Usamos esses dados para falar com você durante o teste. Confira e corrija se precisar.",
+    "confirmar": "Ativar teste",
+    "cancelar": "Cancelar",
+    "name": {
+      "rotulo": "Seu nome",
+      "exemplo": "Joana Silva",
+      "erro": "Informe seu nome completo."
+    },
+    "email": {
+      "rotulo": "E-mail",
+      "exemplo": "joana@empresa.com.br",
+      "erro": "Informe um e-mail válido."
+    },
+    "phone": {
+      "rotulo": "Telefone",
+      "exemplo": "(11) 99999-8888",
+      "erro": "Informe um telefone válido, com DDD."
+    },
+    "company": {
+      "rotulo": "Empresa",
+      "exemplo": "Acme LTDA",
+      "erro": "Informe o nome da empresa."
+    }
+  },
+  "ativando": "Criando linha...",
+  "ativado": "Teste ativado. Sua linha foi criada.",
+  "emAndamentoTitulo": "Teste em andamento",
+  "emAndamentoDescricao": "Seu período de teste vai até {{data}}. Depois disso a linha continua visível, mas para de enviar e receber mensagens.",
+  "expiradoTitulo": "Período de teste encerrado",
+  "expiradoDescricao": "Seu teste terminou em {{data}}. A linha continua na lista abaixo, mas não envia nem recebe mensagens e não pode ser configurada. Use o botão Assinar na linha para reativá-la — a credencial, os ajustes e o canal vinculado continuam como estão.",
+  "indisponivelTitulo": "Teste indisponível",
+  "indisponivelDescricao": "O plano de teste não está configurado neste ambiente. Fale com o suporte para liberar.",
+  "erroLeituraTitulo": "Não foi possível verificar seu período de teste",
+  "erroLeitura": "Erro ao consultar o teste. Tente novamente.",
+  "erroAtivar": "Não foi possível ativar o teste. Tente novamente."
+}

@@ -1,5 +1,24 @@
 import axios from 'axios'
 import { env } from '@/config/env'
+import { BitrixApiError } from './bitrix-api.error'
+
+/**
+ * Mesma mensagem de `formatBitrixApiError`, mas guardando o `code` cru — quem
+ * precisa decidir por código (idempotência de instalação, métricas) não tem que
+ * reparsear a mensagem, que é localizada.
+ */
+export function makeBitrixApiError(
+  method: string,
+  code: string,
+  description?: string,
+): BitrixApiError {
+  return new BitrixApiError(
+    method,
+    code,
+    description,
+    formatBitrixApiError(method, code, description),
+  )
+}
 
 export function formatBitrixApiError(
   method: string,
@@ -60,9 +79,7 @@ export function extractBitrixErrorFromAxios(
 
   if (!data.error) return null
 
-  return new Error(
-    formatBitrixApiError(method, data.error, data.error_description),
-  )
+  return makeBitrixApiError(method, data.error, data.error_description)
 }
 
 export function wrapBitrixRequestError(method: string, error: unknown): Error {

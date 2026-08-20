@@ -1,138 +1,113 @@
 'use client'
 
-import { useConnectors } from '@/app/hooks/use-connectors'
-import { useTranslation } from 'react-i18next'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { MoreVerticalIcon } from 'lucide-react'
-
-type Connector = any
-
-type ConnectorsControl = ReturnType<typeof useConnectors>
-
-type MenuItem = {
-  label: string
-  onClick: () => void | Promise<void>
-}
-
-function buildConnectorMenuItems(
-  conn: Connector,
-  isConnected: boolean,
-  control: ConnectorsControl,
-  fetchQrCode: (connectorId: string) => Promise<void>,
-  onSolicitarCancelamento: (payload: { id: string; nome: string }) => void,
-  onOpenConfiguracoes: (connectorId: string) => void,
-  t: (key: string) => string,
-): MenuItem[] {
-  const btnText = isConnected ? t('menu.desconectar') : t('menu.conectar')
-
-  return [
-    {
-      label: t('menu.configuracoes'),
-      onClick: () => {
-        onOpenConfiguracoes(conn.id)
-      },
-    },
-    {
-      label: btnText,
-      onClick: async () => {
-        if (!isConnected) {
-          control.connect.open(conn)
-          await fetchQrCode(conn.id)
-        } else {
-          control.disconnect.open(conn)
-        }
-      },
-    },
-    {
-      label: !conn.instance?.vinculatedChannel
-        ? t('menu.vincularCanal')
-        : t('menu.desvincularCanal'),
-      onClick: () => {
-        if (!conn.instance?.vinculatedChannel) {
-          control.linkChannel.open(conn)
-        } else {
-          control.unlinkChannel.open(conn)
-        }
-      },
-    },
-    {
-      label: t('menu.cancelarConector'),
-      onClick: () => {
-        onSolicitarCancelamento({
-          id: conn.id,
-          nome: conn.instance?.name || t('semNome'),
-        })
-      },
-    },
-  ]
-}
+import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
+import type { SubscriptionLine } from '@/shared/aplication/subscription-items'
+import type { OfferablePlan } from '@/app/hooks/use-line-subscription'
 
 type Props = {
-  conn: Connector
+  linha: SubscriptionLine
   showBorderBottom: boolean
-  control: ConnectorsControl
-  fetchQrCode: (connectorId: string) => Promise<void>
-  onSolicitarCancelamento: (payload: { id: string; nome: string }) => void
+  /**
+   * Planos que servem **esta** linha — já filtrados pelo conector dela. Vazio
+   * esconde a ação de assinar.
+   */
+  planos?: OfferablePlan[]
+  /**
+   * Reserva a coluna de ação mesmo quando **esta** linha não tem plano. A tabela
+   * decide, olhando todas as linhas: sem a reserva uniforme, uma linha com botão e
+   * outra sem ficariam com colunas de larguras diferentes.
+   */
+  reservarAcoes?: boolean
+  /** Plano em redirecionamento, para desabilitar a ação sem travar a tela. */
+  redirecting?: string | null
+  onSubscribe?: (planId: string) => void
 }
 
+/** Igual ao `ACAO_COL` da tabela — cabeçalho, linha com botão e linha sem, todas iguais. */
+const ACAO_COL = 'w-56 shrink-0'
+
+/**
+ * Uma linha contratada — item de assinatura de `GET /api/application/me`.
+ *
+ * Não há mais conector/instância por trás desta linha, então **não** há status de
+ * conexão ao vivo, canal vinculado nem telefone aqui: nenhum desses dados vive no
+ * item. O status exibido é o do item (cobrança), não o da conexão com o WhatsApp —
+ * conexão, grupos e ajustes ficam na tela de configuração, para onde a linha leva.
+ *
+ * A ação de assinar mora aqui, e não num card separado, porque **o que se assina é
+ * a linha**: com mais de uma na lista, um botão fora dela não diria qual.
+ */
 export function ConexaoRow({
-  conn,
+  linha,
   showBorderBottom,
-  control,
-  fetchQrCode,
-  onSolicitarCancelamento,
+  planos = [],
+  reservarAcoes = false,
+  redirecting = null,
+  onSubscribe,
 }: Props) {
   const { t } = useTranslation('thinkzap/conexoes/conexao-row')
   const router = useRouter()
-  const {
-    name,
-    vinculatedChannelName,
-    paidStatus,
-    connected: isConnected,
-  } = conn.instance
+  const href = `/thinkzap/conexoes/${encodeURIComponent(linha.id)}/configuracoes`
 
-  const isPaid = paidStatus === 'PAID' || paidStatus === 'TRIAL'
-  const statusClass = isConnected
+  /** Só é escolha quando há mais de um plano para o mesmo conector. */
+  const [planoEscolhido, setPlanoEscolhido] = useState<string>(
+    planos[0]?.id ?? '',
+  )
+
+  const isAtivo = linha.status === 'active'
+  const statusClass = isAtivo
     ? 'bg-primary/10 text-primary'
     : 'bg-destructive/10 text-destructive'
-  const statusText = isConnected ? t('status.ativo') : t('status.inativo')
+  const statusText = isAtivo ? t('status.ativo') : t('status.cancelado')
 
-  const menuItems = buildConnectorMenuItems(
-    conn,
-    isConnected,
-    control,
-    fetchQrCode,
-    onSolicitarCancelamento,
-    connectorId =>
-      router.push(`/thinkzap/conexoes/${connectorId}/configuracoes`),
-    t,
-  )
+  const isOficial = linha.provider === 'HUBMESSAGE'
+  const providerClass = isOficial
+    ? 'border-primary/30 bg-primary/10 text-primary'
+    : 'border-border bg-muted text-muted-foreground'
+  const providerText = isOficial
+    ? t('provider.oficial')
+    : t('provider.naoOficial')
+
+  const podeAssinar = planos.length > 0 && onSubscribe !== undefined
+  const planoAtual = planos.find(p => p.id === planoEscolhido) ?? planos[0]
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={() => router.push(`/thinkzap/conexoes/${conn.id}/configuracoes`)}
+      onClick={() => router.push(href)}
       onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ')
-          router.push(`/thinkzap/conexoes/${conn.id}/configuracoes`)
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          router.push(href)
+        }
       }}
       className={`cursor-pointer p-4 transition-colors hover:bg-accent ${
         showBorderBottom ? 'border-b border-border' : ''
       }`}
+      data-line-id={linha.id}
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <span className="truncate text-left text-base font-semibold text-foreground transition-colors hover:text-primary">
-            {name || t('semNome')}
-          </span>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-left text-base font-semibold text-foreground transition-colors hover:text-primary">
+              {linha.name || t('semNome')}
+            </span>
+            {linha.provider !== 'NONE' && (
+              <span
+                className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${providerClass}`}
+              >
+                {providerText}
+              </span>
+            )}
+          </div>
           <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
             <span className="truncate">
-              {vinculatedChannelName || t('nenhumCanalVinculado')}
-              {conn.instance.phoneNumber != null &&
-              conn.instance.phoneNumber !== ''
-                ? ` · ${conn.instance.phoneNumber}`
-                : ''}
+              {linha.planName || t('semPlano')}
+              {linha.providerRef ? ` · ${linha.providerRef}` : ''}
             </span>
           </div>
         </div>
@@ -145,42 +120,70 @@ export function ConexaoRow({
           </span>
         </div>
 
-        <div className="relative flex w-16 shrink-0 justify-end">
-          <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation()
-              control.menu.toggle(conn.id)
-            }}
-            className="cursor-pointer rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-accent"
-            title="Mais opções"
+        {/**
+         * A célula é reservada sempre que a tabela pede, com ou sem botão dentro —
+         * é o que mantém STATUS alinhado com o cabeçalho e as linhas entre si.
+         *
+         * `stopPropagation` porque a linha inteira é um botão que navega para a
+         * configuração: sem isso, assinar levaria o cliente para outra tela no
+         * mesmo clique.
+         */}
+        {reservarAcoes ? (
+          <div
+            className={`flex items-center justify-end gap-2 ${ACAO_COL}`}
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => e.stopPropagation()}
           >
-            <MoreVerticalIcon className="size-4" />
-          </button>
+            {podeAssinar && planoAtual ? (
+              <>
+                {planos.length > 1 ? (
+                  <select
+                    value={planoEscolhido}
+                    onChange={e => setPlanoEscolhido(e.target.value)}
+                    className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-sm"
+                    aria-label={t('assinar.escolherPlano')}
+                  >
+                    {planos.map(plano => (
+                      <option key={plano.id} value={plano.id}>
+                        {plano.name} · {formatAmount(plano.amount)}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
 
-          {control.menu.openConnectorId === conn.id && (
-            <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border border-border bg-popover py-0.5 shadow-md">
-              {menuItems.map(item => (
-                <button
-                  key={item.label}
+                <Button
                   type="button"
-                  disabled={!isPaid}
-                  onClick={e => {
-                    e.stopPropagation()
-                    void item.onClick()
-                    control.menu.close()
-                  }}
-                  className={`flex w-full items-center gap-2 px-3 py-2 text-xs text-popover-foreground transition-colors hover:bg-accent ${
-                    !isPaid ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
-                  } `}
+                  size="sm"
+                  className="shrink-0"
+                  disabled={redirecting !== null}
+                  onClick={() => onSubscribe?.(planoAtual.id)}
+                  data-plan={planoAtual.id}
                 >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+                  {redirecting === planoAtual.id ? (
+                    <span className="mr-2 inline-block size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  ) : null}
+                  {planos.length === 1
+                    ? t('assinar.comValor', {
+                        valor: formatAmount(planoAtual.amount),
+                        intervalo: t(
+                          `assinar.intervalo.${planoAtual.interval}`,
+                        ),
+                      })
+                    : t('assinar.acao')}
+                </Button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   )
+}
+
+/** Centavos vêm da api; a moeda é de apresentação e o locale é o do operador. */
+function formatAmount(cents: number): string {
+  return (cents / 100).toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'BRL',
+  })
 }

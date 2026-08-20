@@ -1,4 +1,5 @@
-import { getAppRedirectUrl } from '@/app/config/app-redirects'
+import { APP_CODES } from '@/shared/app/app-codes'
+import { appTokenKey } from '@/shared/auth/app-token-storage'
 import { type ThinkzapHttpClient } from '@/infra/client/axios-thinkzap'
 import { envConfig } from '@/shared/infra/env-config'
 import axios from 'axios'
@@ -6,9 +7,7 @@ import { useMemo } from 'react'
 
 export function useThinkzapApi(): ThinkzapHttpClient {
   return useMemo(() => {
-    const authTokenKey = getAppRedirectUrl(
-      envConfig.appCodes.thinkzap,
-    )?.storageAuthTokenKey
+    const authTokenKey = appTokenKey(APP_CODES.thinkzap)
     const token =
       typeof window !== 'undefined' && authTokenKey
         ? sessionStorage.getItem(authTokenKey)

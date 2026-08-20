@@ -224,7 +224,7 @@ export class BitrixClient {
   ): Promise<ICrmItemResponse> {
     const client = this.getClient()
     try {
-      const response = await client.get(`/crm.item.get`, {
+      const response = await client.get<ICrmItemResponse>(`/crm.item.get`, {
         params: { entityTypeId, id },
       })
       return response.data
@@ -233,10 +233,31 @@ export class BitrixClient {
     }
   }
 
+  /**
+   * Descreve os campos de uma SPA. Serve para verificar que um campo custom
+   * existe **antes** de escrever nele: `crm.item.update` ignora campo desconhecido
+   * sem devolver erro, então gravar num campo inexistente é perda silenciosa.
+   */
+  async getCrmItemFields(
+    entityTypeId: number,
+  ): Promise<ICrmItemFieldsResponse> {
+    const client = this.getClient()
+    try {
+      const response = await client.get<ICrmItemFieldsResponse>(
+        `/crm.item.fields`,
+        { params: { entityTypeId } },
+      )
+      return response.data
+    } catch (error) {
+      console.error('[BitrixClient] getCrmItemFields error:', error)
+      throw new BitrixError('Failed to describe CRM item fields')
+    }
+  }
+
   async listCrmItems(
     entityTypeId: number,
     filter: Record<string, unknown>,
-    options?: { select?: string[] },
+    options?: { select?: string[]; start?: number },
   ): Promise<ICrmItemListResponse> {
     const client = this.getClient()
     try {
@@ -244,6 +265,9 @@ export class BitrixClient {
         entityTypeId,
         filter,
         ...(options?.select ? { select: options.select } : {}),
+        // `start` só vai quando pedido: o Bitrix trata ausência como primeira página, e
+        // mandar `0` explicitamente não muda nada — mas mandar `undefined` sim.
+        ...(options?.start !== undefined ? { start: options.start } : {}),
       })
       return response.data
     } catch (error) {
@@ -364,7 +388,6 @@ export class BitrixClient {
     message: string,
   ): Promise<{ chatId: string | null; bitrixMessageId: string | null }> {
     const messageId = `widget_${Date.now()}_${phone}`
-    console.log(phone)
     const params: ISendMessageData = {
       CONNECTOR: connectorCode,
       LINE: Number(lineId),
@@ -414,12 +437,29 @@ export interface ICrmItemResponse {
   }
 }
 
+export interface ICrmItemFieldsResponse {
+  result: {
+    fields: Record<string, { type?: string; isReadOnly?: boolean }>
+  }
+}
+
 export interface ICrmItemListResponse {
   result: {
     items: {
       id: string
     }[]
   }
+  /**
+   * O `start` da página seguinte. **Ausente na última página** — é assim que o Bitrix
+   * sinaliza o fim, e é por isso que quem pagina para no `undefined` em vez de comparar
+   * com `total`.
+   *
+   * A maioria das leituras daqui ignora este campo de propósito: elas filtram por pai ou
+   * por id e caberiam sempre na primeira página. Quem varre a SPA inteira — backfill —
+   * precisa dele, e sem ele cobriria só os 50 primeiros itens em silêncio.
+   */
+  next?: number
+  total?: number
 }
 
 export interface ICrmItemCreateResponse {

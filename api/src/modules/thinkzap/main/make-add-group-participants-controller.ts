@@ -4,12 +4,10 @@ import { AddGroupParticipantsController } from '../presentation/controllers/add-
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
 export const makeAddGroupParticipantsController = (): Controller => {
-  const { connectorRepository, instanceRepository, zApiClient } =
-    makeGroupZApiDeps()
+  const { getAplicationContext, zApiClient } = makeGroupZApiDeps()
 
   const service = new AddGroupParticipantsService(
-    connectorRepository,
-    instanceRepository,
+    getAplicationContext,
     zApiClient,
   )
 

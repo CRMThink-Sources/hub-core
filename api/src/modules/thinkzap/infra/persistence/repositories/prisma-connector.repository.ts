@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { Connector } from '@/modules/thinkzap/domain/entities/connector'
-import { CreateConnectorRepository } from '@/modules/thinkzap/domain/repositories/create-connector.repository'
+import {
+  Connector,
+  ConnectorProvider,
+} from '@/modules/thinkzap/domain/entities/connector'
+import {
+  CreateConnectorInput,
+  CreateConnectorRepository,
+} from '@/modules/thinkzap/domain/repositories/create-connector.repository'
 import { prisma } from '@/config/prisma.js'
 import { ListConnectorsRepository } from '@/modules/thinkzap/domain/repositories/list-connectors'
 import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
@@ -15,28 +21,28 @@ export class PrismaConnectorRepository
 {
   constructor() {}
 
-  async createConnector(connector: Omit<Connector, 'id'>): Promise<void> {
+  async createConnector(connector: CreateConnectorInput): Promise<void> {
     await prisma.connector.create({
       data: {
         id: randomUUID(),
         instanceId: connector.instanceId,
         appId: connector.appId,
+        provider: connector.provider ?? ConnectorProvider.ZAPI,
       },
     })
   }
 
   async get(id: string): Promise<Connector | null> {
-    console.log('id:', id)
     const connector = await prisma.connector.findUnique({
       where: { id: id },
     })
-    console.log('connector:', connector)
     if (!connector) return null
 
     return {
       id: connector.id,
       instanceId: connector.instanceId,
       appId: connector.appId,
+      provider: connector.provider as ConnectorProvider,
       createdAt: connector.createdAt,
       updatedAt: connector.updatedAt,
     } as Connector
@@ -53,6 +59,7 @@ export class PrismaConnectorRepository
       id: connector.id,
       instanceId: connector.instanceId,
       appId: connector.appId,
+      provider: connector.provider as ConnectorProvider,
     } as Connector
   }
 
@@ -78,13 +85,19 @@ export class PrismaConnectorRepository
           id: el.id,
           appId: el.appId,
           instanceId: el.instanceId,
+          provider: el.provider as ConnectorProvider,
           instance: el.instance
             ? {
                 id: el.instance.id,
                 domainId: el.instance.domainId,
                 instanceId: el.instance.instanceId,
                 vinculatedChannel: el.instance.vinculatedChannel,
-                settings: el.instance.settings,
+                channelId: el.instance.channelId,
+                webhookId: el.instance.webhookId,
+                wabaId: el.instance.wabaId,
+                phoneId: el.instance.phoneId,
+                // `settings` fica fora: a coluna está deprecada e nenhum consumidor
+                // de `connector.instance` a lê. A fonte é `ufCrm93Settings` no item.
                 zApiToken: includeZapiToken ? el.instance.zApiToken : undefined,
               }
             : undefined,

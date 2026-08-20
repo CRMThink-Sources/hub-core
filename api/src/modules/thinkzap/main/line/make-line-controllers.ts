@@ -1,0 +1,133 @@
+import { Request } from 'express'
+import { env } from '@/config/env'
+import { Controller } from '@/shared/presentation/controller'
+import { makeBitrixClient } from '@/shared/main/make-bitrix-client'
+import { HubMessageConnectorProvider } from '@/modules/thinkzap/infra/providers/hubmessage-connector-provider'
+import { ConnectOfficialLine } from '@/modules/thinkzap/application/connect-official-line'
+import { GetLineConnection } from '@/modules/thinkzap/application/get-line-connection'
+import { GetLineSettings } from '@/modules/thinkzap/application/get-line-settings'
+import { UpdateLineSettings } from '@/modules/thinkzap/application/update-line-settings'
+import { RenameLineOnProviderUseCase } from '@/modules/thinkzap/application/rename-line-on-provider.use-case'
+import { UpdateConnectorEventBindsUseCase } from '@/modules/thinkzap/application/update-connector-event-binds.use-case'
+import { ZApiInstanceGateway } from '@/modules/thinkzap/infra/persistence/gateway/instance.gateway'
+import { ConnectLineChannelController } from '@/modules/thinkzap/presentation/controllers/line/connect-line-channel.controller'
+import { GetLineConnectionController } from '@/modules/thinkzap/presentation/controllers/line/get-line-connection.controller'
+import { GetLineQrCodeController } from '@/modules/thinkzap/presentation/controllers/line/get-line-qr-code.controller'
+import { DisconnectLineController } from '@/modules/thinkzap/presentation/controllers/line/disconnect-line.controller'
+import { GetLineSettingsController } from '@/modules/thinkzap/presentation/controllers/line/get-line-settings.controller'
+import { UpdateLineSettingsController } from '@/modules/thinkzap/presentation/controllers/line/update-line-settings.controller'
+import { LinkLineChannelController } from '@/modules/thinkzap/presentation/controllers/line/link-line-channel.controller'
+import { UnlinkLineChannelController } from '@/modules/thinkzap/presentation/controllers/line/unlink-line-channel.controller'
+import { makeLineDeps } from './make-line-deps'
+import { makeDisconnectExpiredLine } from '../make-disconnect-expired-line'
+
+export const makeGetLineConnectionController = (): Controller => {
+  const { getAplicationContext, hubMessageClient, zApiClient } = makeLineDeps()
+
+  return new GetLineConnectionController(
+    new GetLineConnection(
+      getAplicationContext,
+      zApiClient,
+      makeDisconnectExpiredLine(),
+      /**
+       * O adapter entra só pelo `getConnectionStatus`. `webhookUrl` é do
+       * provisionamento e não participa da leitura, mas o adapter é um só — dividi-lo
+       * por consumidor faria a derivação de "canal conectado" existir em dois lugares.
+       */
+      new HubMessageConnectorProvider(hubMessageClient, {
+        webhookUrl: env.hubMessage.webhookUrl,
+      }),
+    ),
+  )
+}
+
+/**
+ * Conexão do WhatsApp Oficial pela linha. Sem `PrismaConnectorRepository` nem
+ * `PrismaInstanceRepository`: o canal sai do `metadata` do item, e a WABA volta
+ * para lá.
+ */
+export const makeConnectLineChannelController = (): Controller => {
+  const { getAplicationContext, hubMessageClient, subscriptionItems } =
+    makeLineDeps()
+
+  return new ConnectLineChannelController(
+    new ConnectOfficialLine(
+      getAplicationContext,
+      hubMessageClient,
+      subscriptionItems,
+    ),
+  )
+}
+
+export const makeGetLineQrCodeController = (): Controller => {
+  const { getAplicationContext, zApiClient } = makeLineDeps()
+
+  return new GetLineQrCodeController(getAplicationContext, zApiClient)
+}
+
+export const makeDisconnectLineController = (): Controller => {
+  const { getAplicationContext, instanceRepository, zApiClient } =
+    makeLineDeps()
+
+  return new DisconnectLineController(
+    getAplicationContext,
+    instanceRepository,
+    zApiClient,
+  )
+}
+
+export const makeGetLineSettingsController = (): Controller => {
+  const { getAplicationContext } = makeLineDeps()
+
+  return new GetLineSettingsController(
+    new GetLineSettings(getAplicationContext),
+  )
+}
+
+export const makeUpdateLineSettingsController = (): Controller => {
+  const { getAplicationContext, subscriptionItems, zApiClient } = makeLineDeps()
+
+  const updateLineSettings = new UpdateLineSettings(
+    new RenameLineOnProviderUseCase(new ZApiInstanceGateway(zApiClient)),
+    new UpdateConnectorEventBindsUseCase(),
+    subscriptionItems,
+  )
+
+  return new UpdateLineSettingsController(
+    getAplicationContext,
+    updateLineSettings,
+  )
+}
+
+/**
+ * Canal aberto usa o cliente Bitrix **do portal do cliente** (`makeBitrixClient`
+ * resolve pela credencial da instalação), não o interno da CRMThink: o canal a
+ * ativar vive no CRM do cliente.
+ */
+export const makeLinkLineChannelController = async (
+  req: Request,
+): Promise<Controller> => {
+  const { getAplicationContext, subscriptionItems, instanceRepository } =
+    makeLineDeps()
+
+  return new LinkLineChannelController(
+    getAplicationContext,
+    subscriptionItems,
+    instanceRepository,
+    await makeBitrixClient(req),
+  )
+}
+
+export const makeUnlinkLineChannelController = async (
+  req: Request,
+): Promise<Controller> => {
+  const { getAplicationContext, subscriptionItems, instanceRepository } =
+    makeLineDeps()
+
+  return new UnlinkLineChannelController(
+    getAplicationContext,
+    subscriptionItems,
+    instanceRepository,
+    await makeBitrixClient(req),
+  )
+}

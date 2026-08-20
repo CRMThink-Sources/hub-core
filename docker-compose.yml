@@ -17,6 +17,15 @@ services:
     networks:
       - hubthink
 
+  mcp:
+    image: ghcr.io/crmthink-sources/hub-core-mcp:latest
+    container_name: hubthink-mcp
+    restart: unless-stopped
+    env_file:
+      - ./mcp/.env
+    networks:
+      - hubthink
+
 networks:
   hubthink:
     driver: bridge

@@ -1,9 +1,28 @@
 {
-  "pageTitle": "Connector settings",
+  "pageTitle": "Line settings",
   "voltar": "Back to connections",
-  "conectorNaoEncontrado": "Connector not found.",
+  "carregando": "Loading...",
+  "erroContextoTitulo": "Could not load the line",
+  "instalacaoNaoEncontrada": "Installation not found on this portal.",
+  "sessaoExpirada": "Session expired. Reopen the app from Bitrix24.",
+  "linhaNaoEncontrada": "Line not found",
+  "linhaNaoEncontradaHint": "This line is not among this installation subscriptions.",
+  "semProviderTitulo": "Line without provider",
+  "semProviderHint": "This line has no WhatsApp provider associated yet.",
+  "tabsAriaLabel": "Settings sections",
+  "aparelho": "Connected device: {{nome}}",
   "tabs": {
-    "geral": "General",
-    "grupos": "Groups"
+    "conexao": "Connection",
+    "grupos": "Groups",
+    "templates": "Templates",
+    "ajustes": "Settings"
+  },
+  "provider": {
+    "oficial": "Official",
+    "naoOficial": "WhatsApp Web"
+  },
+  "status": {
+    "conectada": "Connected",
+    "desconectada": "Disconnected"
   }
 }

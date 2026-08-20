@@ -67,12 +67,23 @@ export function AdminInstanceConfigModal({
   const [localInstance, setLocalInstance] =
     useState<ThinkzapInstanceItem>(instance)
 
+  /**
+   * As quatro ações são keyed pelo **item de assinatura**, como os event binds já eram.
+   * Não há mais guard por existência de row: linha nascida na SPA — que é o caso das
+   * linhas reais — tinha todas as ações escondidas, justamente onde o suporte precisa
+   * atuar.
+   *
+   * Renomear é a única que depende de provider: a HubMessage não expõe escrita de nome
+   * de canal.
+   */
+  const canRename = instance.provider === 'ZAPI'
+
   async function handleSaveName() {
-    if (!name.trim()) return
+    if (!name.trim() || !canRename) return
     setNameSave({ kind: 'saving' })
     try {
       await axiosPortal().patch(
-        `/portal/apps/${appId}/thinkzap-instances/${instance.instanceDbId}/name`,
+        `/portal/apps/${appId}/thinkzap-lines/${instance.subscriptionItemId}/name`,
         { name: name.trim() },
       )
       setNameSave({ kind: 'saved' })
@@ -86,14 +97,14 @@ export function AdminInstanceConfigModal({
     setReactivateState({ kind: 'loading' })
     try {
       await axiosPortal().patch(
-        `/portal/apps/${appId}/thinkzap-connectors/${instance.connectorId}/reactivate`,
+        `/portal/apps/${appId}/thinkzap-lines/${instance.subscriptionItemId}/reactivate`,
         {},
       )
       setReactivateState({ kind: 'success' })
-      setLocalInstance(prev => ({ ...prev, connectorStatus: 'ACTIVE' }))
+      setLocalInstance(prev => ({ ...prev, itemStatus: 'active' }))
       onUpdate({
-        instanceDbId: instance.instanceDbId,
-        connectorStatus: 'ACTIVE',
+        subscriptionItemId: instance.subscriptionItemId,
+        itemStatus: 'active',
       })
     } catch {
       setReactivateState({
@@ -107,7 +118,7 @@ export function AdminInstanceConfigModal({
     setSubscriptionState({ kind: 'loading' })
     try {
       await axiosPortal().post(
-        `/portal/apps/${appId}/thinkzap-instances/${instance.instanceDbId}/${action}`,
+        `/portal/apps/${appId}/thinkzap-lines/${instance.subscriptionItemId}/${action}`,
         {},
       )
       const message =
@@ -130,13 +141,17 @@ export function AdminInstanceConfigModal({
   ) {
     setEventSave(prev => ({ ...prev, [field]: { kind: 'saving' } }))
     try {
+      // Keyed pelo item: os toggles vivem em `ufCrm93Settings`, não nas tabelas.
       await axiosPortal().patch(
-        `/portal/apps/${appId}/thinkzap-connectors/${instance.connectorId}/event-binds`,
+        `/portal/apps/${appId}/thinkzap-lines/${instance.subscriptionItemId}/event-binds`,
         { [field]: value },
       )
       const updated = { ...localInstance, [field]: value }
       setLocalInstance(updated)
-      onUpdate({ instanceDbId: instance.instanceDbId, [field]: value })
+      onUpdate({
+        subscriptionItemId: instance.subscriptionItemId,
+        [field]: value,
+      })
       setEventSave(prev => ({ ...prev, [field]: { kind: 'saved' } }))
       setTimeout(() => {
         setEventSave(prev => {
@@ -241,8 +256,8 @@ export function AdminInstanceConfigModal({
               ) : null}
             </dl>
 
-            {/* Name edit */}
-            <div className="mt-4">
+            {/* Name edit — só Z-API: a HubMessage não tem escrita de nome de canal. */}
+            <div className={canRename ? 'mt-4' : 'hidden'}>
               <label className="mb-1 block text-sm font-medium text-foreground">
                 {t('instanceModalNameLabel')}
               </label>
@@ -350,7 +365,8 @@ export function AdminInstanceConfigModal({
             </div>
           </section> */}
 
-          {localInstance.connectorStatus === 'INACTIVE' ? (
+          {/* Reativar só faz sentido para item cancelado na SPA. */}
+          {localInstance.itemStatus === 'cancelled' ? (
             <>
               <hr className="border-border" />
 
@@ -416,6 +432,8 @@ export function AdminInstanceConfigModal({
               {t('instanceModalSectionSubscription')}
             </h3>
 
+            {/* Assinatura do **recurso no provider**, não a cobrança da SPA 1142.
+                Disponível para qualquer linha: a chave é o item, que toda linha tem. */}
             {subscriptionState.kind === 'idle' ||
             subscriptionState.kind === 'success' ||
             subscriptionState.kind === 'error' ? (

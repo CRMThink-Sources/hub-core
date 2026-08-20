@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { CheckCircle2Icon, PlusIcon, XCircleIcon } from 'lucide-react'
 import type { Dataset, Provider, Source, SourceSettings } from '../../types'
 import { OAUTH_PROVIDERS, type OAuthProviderConfig } from '../constants'
-import { axiosThinkanalise } from '../../../_lib/thinkanalise-client'
+import {
+  AUTH_TOKEN_KEY,
+  axiosThinkanalise,
+} from '../../../_lib/thinkanalise-client'
 import { DatasetCard } from '../dataset/dataset-card'
 import { DatasetForm } from '../dataset/dataset-form'
 import { useLoading } from '@/providers/loading-provider'
@@ -13,8 +16,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 // import { Switch } from '@/components/ui/switch' // toggle ativo/inativo desabilitado temporariamente
-
-const AUTH_TOKEN_KEY = 'hubthink_auth_token'
 
 type CredentialField = {
   key: string

@@ -15,5 +15,7 @@
   "emptyTitle": "No se encontraron clientes",
   "emptyDescription": "Aún no hay dominios Bitrix24 registrados.",
   "errorTitle": "No se pudieron cargar los clientes",
-  "errorDescription": "Inténtelo de nuevo en un momento."
+  "errorDescription": "Inténtelo de nuevo en un momento.",
+  "appNoMirror": "(sin espejo)",
+  "appNoMirrorHint": "Instalación sin ítem espejo en la SPA 1060: no puede recibir suscripción."
 }

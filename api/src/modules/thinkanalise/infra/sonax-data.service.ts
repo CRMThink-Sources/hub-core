@@ -1,4 +1,6 @@
 import { SonaxClient } from '@/shared/infra/clients/sonax.client'
+import { apiLogger } from '@/shared/infra/logger'
+import { logThinkanaliseError } from '../errors/catalog'
 
 const CHAMADAS_COLS = [
   'PROTOCOLO',
@@ -134,7 +136,14 @@ export class SonaxDataService {
       campaignRaw = await this.client.request('lista_campanha', {
         id_campanha: 'todas',
       })
-    } catch {
+    } catch (error) {
+      logThinkanaliseError(
+        apiLogger,
+        'thinkanalise.sonax.campaigns_unavailable',
+        {
+          err: error instanceof Error ? error.message : String(error),
+        },
+      )
       return []
     }
 
@@ -153,8 +162,12 @@ export class SonaxDataService {
         raw = await this.client.request('download_arquivo_contato', {
           id_campanha: id,
         })
-      } catch {
-        // Campanha sem dados ou erro transitório — continua para próxima
+      } catch (error) {
+        // Campanha sem dados ou erro transitório — pula pra próxima (via C).
+        logThinkanaliseError(apiLogger, 'thinkanalise.sonax.campaign_skipped', {
+          id_campanha: id,
+          err: error instanceof Error ? error.message : String(error),
+        })
         continue
       }
 

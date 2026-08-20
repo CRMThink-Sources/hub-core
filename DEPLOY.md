@@ -20,6 +20,11 @@ Em cada environment, adicione os seguintes secrets:
 | `VPS_SSH_KEY` | Chave privada SSH (conteúdo do id_ed25519) | `-----BEGIN OPENSSH...`       |
 | `ENV_API`     | Conteúdo completo do `.env` da API         | `PORT=4000\nDATABASE_URL=...` |
 | `ENV_FRONT`   | Conteúdo completo do `.env` do front       | `NEXT_PUBLIC_API_URL=...`     |
+| `ENV_MCP`     | Conteúdo completo do `.env` do MCP         | `PORT=3200\nMCP_JWT_SECRET=`  |
+
+> `ENV_MCP` **precisa** de `MCP_JWT_SECRET`, `MCP_OAUTH_ISSUER_URL` e `MCP_PUBLIC_URL` —
+> sem os três o server aborta o boot (`mcp/src/index.ts`) e o container entra em crash loop.
+> Mantenha `PORT=3200`: os composes mapeiam a porta do host pra 3200 dentro do container.
 
 ## 2. Preparar a VPS
 
@@ -58,10 +63,14 @@ ssh-keygen -t ed25519 -C "github-deploy" -f ~/.ssh/hubthink_deploy
 
 ### Branches
 
-| Branch    | Ambiente   | Tag Docker | Portas na VPS        |
-| --------- | ---------- | ---------- | -------------------- |
-| `develop` | staging    | `:staging` | front:3001, api:4001 |
-| `main`    | production | `:latest`  | front:3000, api:4000 |
+| Branch    | Ambiente   | Tag Docker | Portas na VPS                   |
+| --------- | ---------- | ---------- | ------------------------------- |
+| `develop` | staging    | `:staging` | front:3001, api:4001, mcp:3201  |
+| `main`    | production | `:latest`  | front:3002, api:4000, mcp:3200  |
+
+O MCP precisa de HTTPS público pro connector do claude.ai: aponte um subdomínio
+(ex.: `mcp.<dominio>`) no reverse proxy da VPS pra `127.0.0.1:3200`, e use essa URL
+em `MCP_PUBLIC_URL`. Isso é config de nginx na VPS, não faz parte do workflow.
 
 ### Fluxo de trabalho
 
@@ -89,6 +98,92 @@ docker compose restart api
 docker compose pull && docker compose up -d
 ```
 
-## Bitrix24 — widget de áudio (dev local)
+### Fila de envio do widget — o que conferir depois do deploy
 
-Ver [docs/DEV-BITRIX.md](docs/DEV-BITRIX.md): túneis, `BITRIX_IFRAME_AUDIO_URL`, erro `Unexpected token '<'` e proxy `/api` no `next dev`.
+O provisionamento é automático: o CI copia os compose files e roda `up -d
+--remove-orphans`, então serviço novo no arquivo sobe junto. O que vale conferir é se o
+consumidor da fila de envio do widget está de pé — sem ele, a API continua aceitando
+mensagem e respondendo `202`, o operador vê "Mensagem na fila", e nada é entregue.
+Nenhum erro aparece em lugar nenhum.
+
+```bash
+docker compose logs worker-widget-outbound | grep "widget outbound worker is ready"
+```
+
+Se houver suspeita de fila parada:
+
+```sql
+SELECT status, COUNT(*) FROM core_thinkerszap_widget_outbox GROUP BY status;
+```
+
+- `PENDING` antigo → fila sem consumidor no período. Drena sozinho quando o worker sobe.
+- `UNKNOWN` → processo morreu durante a chamada ao provider. **Não é reenviado de
+  propósito** — pode ter sido entregue. O operador já foi avisado na timeline para
+  conferir antes de reenviar.
+
+### Isolamento das filas entre ambientes (`QUEUE_PREFIX`)
+
+As chaves do BullMQ são prefixadas por `QUEUE_PREFIX` (default `bull`, o mesmo do
+BullMQ). Ambientes que dividem host **e** índice de DB do Redis sem prefixos distintos
+dividem literalmente a mesma fila `bull:<nome>:*`, e as duas direções machucam:
+
+- worker de staging consome mensagem de cliente e queima as tentativas dela contra o
+  banco de homologação — os sintomas são `App not found`, `Context not found` e
+  `Instance not found` para portal real, no log do container de staging;
+- worker de produção processa job enfileirado por staging, com credencial de produção —
+  na fila `thinkzap-widget-outbound` isso é mensagem real no WhatsApp de contato real.
+
+Configuração: produção **sem** a variável (segue em `bull`); staging com
+`QUEUE_PREFIX=bull-staging`. `src/queue/queue-prefix.guard.test.ts` falha se alguma
+construção de `Queue`/`Worker` deixar de receber `bullBaseOptions`, que é o único lugar
+onde conexão e prefixo são decididos.
+
+**Trocar o valor troca de fila.** O que estiver enfileirado no prefixo antigo fica órfão
+— nem processado, nem visível no Bull Board novo. Ordem para virar:
+
+1. Pare os produtores do ambiente (API e webhooks) ou aceite a perda do que entrar.
+2. Espere a fila drenar: `waiting` e `delayed` em zero no Bull Board.
+3. Só então mude a variável e suba os serviços.
+
+Job repeatable (o tick do ImportSheet) também vive sob o prefixo: ele é re-registrado no
+boot do worker, então volta sozinho no prefixo novo.
+
+O prefixo isola **só o BullMQ**. Chaves de aplicação no mesmo Redis — cache do `botId`
+(`thinkzap:bot:*`), lock de documento do Clicksign — não têm prefixo de ambiente, então
+mantenha índices de DB distintos no `REDIS_URL` (`/0` produção, `/1` staging).
+
+### Robô de template do Bizproc — ordem de deploy e registro
+
+O robô de envio de template (`thinkzap_template_robot`) é registrado no portal com um
+`HANDLER` (webhook na API) e um `PLACEMENT_HANDLER` (tela de configuração no front).
+Registrar o robô antes de as duas rotas existirem cria automação que só falha no
+primeiro disparo, então a ordem importa:
+
+1. **Env primeiro.** `BITRIX_TEMPLATE_ROBOT_HANDLER_URL` e
+   `BITRIX_TEMPLATE_ROBOT_PLACEMENT_URL` nos secrets do ambiente. Sem `HANDLER_URL` o
+   registro é no-op — deployar sem as variáveis é seguro, o robô simplesmente não
+   aparece.
+2. **API e front depois.** O webhook (`POST /api/thinkzap/webhooks/bitrix/template-robot`)
+   e a tela (`/bitrix/bizproc/template`) precisam estar no ar **antes** de qualquer
+   portal registrar o robô.
+3. **Registro nos portais.** Instalação nova registra sozinha. Portal já instalado
+   registra por `POST /api/portal/apps/:appId/bizproc-robot` (botão "Registrar robô" no
+   admin) — a chamada garante os dois robôs e devolve `result` (envio livre) e
+   `templateResult` (template).
+
+Conferir depois: o robô aparece na lista de automação do portal, e a tela abre no
+slider de configuração. Se a tela não abrir, o Bitrix cai no formulário nativo sobre as
+mesmas propriedades — a automação continua configurável, só sem a lista de templates.
+
+**Rollback:** `bizproc.robot.delete` do robô de template pelo mesmo endpoint de
+remoção do admin (`DELETE /api/portal/apps/:appId/bizproc-robot`, que remove os dois).
+O robô de envio livre e o envio do widget não são tocados. Intenções já no outbox
+seguem sendo entregues — remover o robô impede disparos novos, não cancela os aceitos.
+
+## Desenvolvimento local
+
+- [docs/DEV-WORKERS.md](docs/DEV-WORKERS.md) — **workers e filas**. O compose de dev não
+  sobe worker nenhum; cada fila precisa do processo rodando à mão, e esquecer não gera
+  erro. É a causa mais comum de "enviei e não aconteceu nada" localmente.
+- [docs/DEV-BITRIX.md](docs/DEV-BITRIX.md) — widget de áudio: túneis,
+  `BITRIX_IFRAME_AUDIO_URL`, erro `Unexpected token '<'` e proxy `/api` no `next dev`.

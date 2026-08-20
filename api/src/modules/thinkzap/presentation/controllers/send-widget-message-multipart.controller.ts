@@ -7,6 +7,9 @@ import {
   WidgetAttachmentKind,
   WidgetMessageAttachmentInput,
 } from '@/modules/thinkzap/application/send-widget-message.types'
+import { mapWidgetSendError } from '@/modules/thinkzap/presentation/helpers/handle-widget-send-error'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
@@ -18,7 +21,7 @@ const attachmentMetaSchema = z.object({
 })
 
 const multipartBodySchema = z.object({
-  connectorId: z.string().min(1),
+  subscriptionItemId: z.string().min(1),
   destination: z.string().min(1),
   message: z.string().optional(),
   entity: z.string().min(1),
@@ -106,7 +109,9 @@ export class SendWidgetMessageMultipartController extends Controller {
 
     try {
       const result = await this.sendWidgetMessage.execute({
-        connectorId: parsedBody.data.connectorId,
+        subscriptionItemId: parsedBody.data.subscriptionItemId,
+        domainId: (req as unknown as { domainId: string }).domainId,
+        appCode: (req as unknown as { appId: string }).appId,
         destination: parsedBody.data.destination,
         message: trimmedMessage || undefined,
         attachments,
@@ -115,17 +120,13 @@ export class SendWidgetMessageMultipartController extends Controller {
       })
       return this.ok(result)
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to send message'
-
-      if (
-        message === 'Connector not found' ||
-        message === 'Instance not found'
-      ) {
-        return this.notFound(new Error(message))
-      }
-
-      return this.badRequest(new Error(message))
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.message.widget_send_failed',
+        { app: 'thinkzap', err: error },
+        { level: 'error' },
+      )
+      return mapWidgetSendError(error)
     }
   }
 }

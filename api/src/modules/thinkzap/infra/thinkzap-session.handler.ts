@@ -1,114 +1,54 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-import { env } from '@/config/env'
-
 import {
+  SessionAuthContext,
   SessionHanderPerformer,
   SessionHandler,
 } from '@/modules/auth/infra/session-registry'
-import { PrismaConnectorRepository } from './persistence/repositories/prisma-connector.repository'
-import { ZApiClient } from './clients/z-api.client'
-import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
-import { PrismaBillingSubscriptionRepository } from '@/shared/infra/persistence/repositories/prisma-billing-subscription.repository'
-import { parseConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings.schema'
+import { checkThinkzapAccess } from '@/modules/thinkzap/application/check-thinkzap-access'
+import { PrismaAllowedUserRepository } from './persistence/repositories/prisma-allowed-user.repository'
+import { PrismaAllowedDepartmentRepository } from './persistence/repositories/prisma-allowed-department.repository'
 
 export class ThinkzapSessionHandler implements SessionHandler {
   appCode = 'crmthink.thinkzap'
 
+  /**
+   * A chave `connectors` saiu daqui.
+   *
+   * O widget de conversa era o único consumidor e passou a ler as linhas de
+   * `GET /api/application/me` — mesma fonte da tela de conexões. Produzir a chave
+   * custava, **por linha**, `getInstance` + `getPhoneData` na Z-API,
+   * `getConnectionStatus` na HubMessage e `getOpenChannel` no Bitrix, para
+   * alimentar um sufixo de texto no `<option>`. Ver spec `widget-line-listing`.
+   *
+   * `listLinesForWidget` continua viva para `GET /thinkzap/connector/list`.
+   */
   handlers: SessionHanderPerformer[] = [
     {
-      perform: async <T>(params: { appId: string }): Promise<T> => {
-        const connectorRepository = new PrismaConnectorRepository()
-        const bx = await makeBitrixClientByAppId(params.appId)
-
-        const zApiClient = new ZApiClient(
-          env.zApi.partnerToken,
-          env.zApi.clientToken,
+      /**
+       * `subscription` continua na sessão, sempre `null`.
+       *
+       * A cobrança antiga saiu inteira e não há mais o que ler — `billing_subscriptions`
+       * foi removida. A chave sobrevive porque o front deriva o estado de acesso dela;
+       * removê-la do payload faria `undefined` significar "sessão velha" em vez de "sem
+       * assinatura", e é `null` que o front já sabe tratar.
+       *
+       * O gate de finanças ainda é resolvido aqui, e não no controller de sessão: ele
+       * não conhece app nenhuma. Quem substituir isto tem que devolver o estado real
+       * da assinatura nesta mesma chave.
+       */
+      perform: async <T>(params: SessionAuthContext): Promise<T> => {
+        const access = await checkThinkzapAccess(
+          new PrismaAllowedUserRepository(),
+          {
+            installedAppId: params.appId,
+            bitrixUserId: params.bitrixUserId,
+            isBitrixAdmin: params.isBitrixAdmin,
+            bitrixDepartmentIds: params.bitrixDepartmentIds,
+          },
+          new PrismaAllowedDepartmentRepository(),
         )
 
-        const connectors = await connectorRepository.listConnectors(
-          params.appId,
-          true,
-        )
-
-        const mappedConnectors = await Promise.all(
-          connectors.map(async connector => {
-            const instance = await zApiClient.getInstance(
-              connector.instance?.instanceId ?? '',
-              connector.instance?.zApiToken ?? '',
-            )
-            let phoneData = null
-            if (instance.connected) {
-              phoneData = await zApiClient.getPhoneData(
-                connector.instance?.instanceId ?? '',
-                connector.instance?.zApiToken ?? '',
-              )
-            }
-
-            const data: any = {
-              ...connector,
-              instance: {
-                instanceId: connector.instance?.instanceId,
-                vinculatedChannel: connector.instance?.vinculatedChannel,
-                settings: parseConnectorSettings(connector.instance?.settings),
-                name: instance.name.includes(' | ')
-                  ? instance.name.split(' | ')[1]
-                  : instance.name,
-                connected: instance.connected,
-                paidStatus: instance.paymentStatus,
-                due: instance.due,
-                phoneNumber: phoneData?.phone ? phoneData.phone : null,
-              },
-            }
-
-            if (connector.instance?.vinculatedChannel) {
-              try {
-                const openChannel = await bx.getOpenChannel(
-                  connector.instance.vinculatedChannel,
-                )
-                if (openChannel?.LINE_NAME) {
-                  data.instance.vinculatedChannelName = openChannel.LINE_NAME
-                }
-              } catch (error) {
-                console.error(
-                  '[ThinkzapSessionHandler] getOpenChannel failed',
-                  {
-                    channelId: connector.instance.vinculatedChannel,
-                    error,
-                  },
-                )
-              }
-            }
-            return data
-          }),
-        )
-
-        return { key: 'connectors', data: mappedConnectors } as T
-      },
-    },
-    {
-      perform: async <T>(params: {
-        appId: string
-        thinkzapAccess?: { canAccessFinance: boolean }
-      }): Promise<T> => {
-        if (params.thinkzapAccess && !params.thinkzapAccess.canAccessFinance) {
-          return { key: 'subscription', data: null } as T
-        }
-        const subscriptionRepository = new PrismaBillingSubscriptionRepository()
-        const subscription = await subscriptionRepository.getByAppId(
-          params.appId,
-        )
-        console.log('subscription', subscription)
-        return {
-          key: 'subscription',
-          data: subscription
-            ? {
-                status: subscription.status,
-                connectorQuantity: subscription.connectorQuantity,
-                trialEndsAt: subscription.trialEndsAt,
-              }
-            : null,
-        } as T
+        void access
+        return { key: 'subscription', data: null } as T
       },
     },
   ]

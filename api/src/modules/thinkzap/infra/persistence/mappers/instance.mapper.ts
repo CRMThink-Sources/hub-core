@@ -10,6 +10,10 @@ type PrismaInstanceRow = {
   instanceId: string
   vinculatedChannel: string | null
   zApiToken: string | null
+  channelId: string | null
+  webhookId: string | null
+  wabaId: string | null
+  phoneId: string | null
   settings: unknown
   status: string
   createdAt: Date
@@ -23,6 +27,10 @@ export function toInstance(row: PrismaInstanceRow): Instance {
     instanceId: row.instanceId,
     vinculatedChannel: row.vinculatedChannel,
     zApiToken: row.zApiToken,
+    channelId: row.channelId,
+    webhookId: row.webhookId,
+    wabaId: row.wabaId,
+    phoneId: row.phoneId,
     settings: parseConnectorSettings(row.settings),
     status: row.status as InstanceStatus,
     phoneNumber: null,

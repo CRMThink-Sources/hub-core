@@ -11,6 +11,9 @@ import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { OAuthStateStore } from '../../infra/oauth-state.store'
 import { thinkAnaliseAuthTokenService } from '../../infra/auth-token.service'
+import { AppError } from '@/shared/domain/errors/app-error'
+import { appErrorLogFields } from '@/shared/infra/log-error'
+import { thinkanaliseError } from '../../errors/catalog'
 
 const installedAppRepo = new PrismaInstalledAppRepository()
 
@@ -24,12 +27,12 @@ export class BlingOAuthCallbackController extends Controller {
       const { code, state } = req.query as Record<string, string | undefined>
 
       if (!code || !state) {
-        throw new Error('Missing code or state')
+        throw thinkanaliseError('thinkanalise.oauth.callback_missing_params')
       }
 
       const payload = this.stateStore.consume(state)
       if (!payload) {
-        throw new Error('Invalid or expired state')
+        throw thinkanaliseError('thinkanalise.oauth.state_invalid_or_expired')
       }
 
       // Rota pública (sem authMiddleware): resolve o tenant pro log manualmente.
@@ -44,13 +47,21 @@ export class BlingOAuthCallbackController extends Controller {
       }
 
       // Code do Bling expira em 1 minuto — trocar antes de qualquer outra coisa
-      const tokens = await BlingClient.exchangeCode(code)
+      let tokens
+      try {
+        tokens = await BlingClient.exchangeCode(code)
+      } catch (error) {
+        throw thinkanaliseError(
+          'thinkanalise.oauth.code_exchange_failed',
+          error,
+        )
+      }
 
       const app = await installedAppRepo.getByAppCodeAndDomainId(
         payload.appId,
         payload.domainId,
       )
-      if (!app) throw new Error('App not found')
+      if (!app) throw thinkanaliseError('thinkanalise.connector.app_not_found')
 
       const tokenKey = await thinkAnaliseAuthTokenService.upsert({
         appId: app.id,
@@ -98,12 +109,14 @@ export class BlingOAuthCallbackController extends Controller {
 
       res.send(oauthPopupHtml('bling-oauth', 'success'))
     } catch (error) {
-      apiLogger.error(
-        {
-          app: 'thinkanalise',
-          err: error instanceof Error ? error.message : String(error),
-        },
-        'OAuth Bling callback falhou',
+      const appErr =
+        error instanceof AppError
+          ? error
+          : thinkanaliseError('thinkanalise.oauth.finalize_failed', error)
+      const level = appErr.httpStatus >= 500 ? 'error' : 'warn'
+      apiLogger[level](
+        appErrorLogFields(appErr, { app: 'thinkanalise' }),
+        appErr.userCause,
       )
       res.send(oauthPopupHtml('bling-oauth', 'error'))
     }

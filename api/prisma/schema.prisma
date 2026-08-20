@@ -16,20 +16,20 @@ model Domain {
 
   apps      App[]
   instances Instance[]
+  mcpUsers  McpUser[]
 
   @@map("core_domains")
 }
 
 model AppCode {
-  id          String        @id @default(uuid())
-  code        String        @unique @map("code")
+  id          String   @id @default(uuid())
+  code        String   @unique @map("code")
   name        String
-  secret      String        @map("secret")
-  description String?       @db.Text
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  secret      String   @map("secret")
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
   apps        App[]
-  plans       BillingPlan[]
 
   @@map("core_app_codes")
 }
@@ -38,20 +38,24 @@ model App {
   id          String    @id @default(uuid())
   domainId    String    @map("domain_id")
   appCodeId   String    @map("app_code_id")
+  /// Id do item espelho desta instalacao na SPA 1060 do Bitrix.
+  /// `null` = instalacao sem espelho (instalada antes do backfill, ou falha na
+  /// criacao do item). Estado valido: so impede criar assinatura, que precisa
+  /// do id da SPA no campo parent.
+  spaId       String?   @unique @map("spa_id")
   email       String    @map("email")
   status      AppStatus @default(ACTIVE)
   installedAt DateTime  @default(now()) @map("installed_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  domain              Domain                @relation(fields: [domainId], references: [id])
-  appCode             AppCode               @relation(fields: [appCodeId], references: [id])
-  credential          Credential?
-  balance             BillingBalance?
-  agents              Agent[]
-  connectors          Connector[]
-  biAnalyseConnectors   BiAnalyseConnector[]
-  thinkAnaliseAuthTokens ThinkAnaliseAuthToken[]
-  subscriptions       BillingSubscription[]
+  domain                     Domain                      @relation(fields: [domainId], references: [id])
+  appCode                    AppCode                     @relation(fields: [appCodeId], references: [id])
+  credential                 Credential?
+  balance                    BillingBalance?
+  agents                     Agent[]
+  connectors                 Connector[]
+  biAnalyseConnectors        BiAnalyseConnector[]
+  thinkAnaliseAuthTokens     ThinkAnaliseAuthToken[]
   thinkzapAllowedUsers       ThinkzapAllowedUser[]
   thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
   thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
@@ -120,52 +124,9 @@ model BillingTransaction {
   @@map("billing_transactions")
 }
 
-/// Planos: CREDITS (pacotes de créditos, ex: GPT Maker) ou SUBSCRIPTION (valor fixo mensal, ex: ThinkersZap).
-model BillingPlan {
-  id           Int      @id @default(autoincrement())
-  appCodeId    String   @map("app_code_id")
-  type         PlanType @default(CREDITS)
-  name         String
-  description  String?  @db.Text
-  /// Apenas para type CREDITS.
-  credits      Int?
-  bonusCredits Int?     @map("bonus_credits")
-  price        Decimal  @db.Decimal(10, 2)
-
-  isRecurring   Boolean  @default(false) @map("is_recurring")
-  stripePriceId String?  @map("stripe_price_id")
-  active        Boolean  @default(true)
-  sortOrder     Int      @default(0) @map("sort_order")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  appCode       AppCode               @relation(fields: [appCodeId], references: [id])
-  subscriptions BillingSubscription[]
-
-  @@index([appCodeId])
-  @@index([type])
-  @@map("billing_plans")
-}
-
-/// Assinatura mensal — vínculo entre App e Stripe. Detalhes de período/cancelamento ficam no Stripe.
-model BillingSubscription {
-  id                   String             @id @default(uuid())
-  appId                String             @map("app_id")
-  planId               Int?               @map("plan_id") // opcional (GPT Maker pode ter plano, ThinkersZap não)
-  status               SubscriptionStatus @default(ACTIVE)
-  stripeSubscriptionId String             @unique @map("stripe_subscription_id")
-  connectorQuantity    Int                @default(0) @map("connector_quantity")
-  trialEndsAt          DateTime?          @map("trial_ends_at")
-  createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
-
-  app  App          @relation(fields: [appId], references: [id])
-  plan BillingPlan? @relation(fields: [planId], references: [id])
-
-  @@index([appId])
-  @@index([status])
-  @@map("billing_subscriptions")
-}
+// `BillingPlan` e `BillingSubscription` foram removidos junto com a cobrança
+// antiga (Stripe + tela de financeiro). A cobrança nova será modelada do zero;
+// enquanto isso não existe nenhuma fonte de estado de assinatura no banco.
 
 // ============================================
 // GPT MAKER
@@ -185,12 +146,13 @@ model Agent {
 // ============================================
 
 model Connector {
-  id         String          @id @default(uuid())
-  appId      String          @map("app_id")
-  instanceId String?         @unique @map("instance_id")
-  status     ConnectorStatus @default(PENDING_SETUP)
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
+  id         String            @id @default(uuid())
+  appId      String            @map("app_id")
+  instanceId String?           @unique @map("instance_id")
+  provider   ConnectorProvider @default(ZAPI)
+  status     ConnectorStatus   @default(PENDING_SETUP)
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
 
   app      App       @relation(fields: [appId], references: [id])
   instance Instance? @relation(fields: [instanceId], references: [id])
@@ -205,15 +167,27 @@ model Instance {
   instanceId        String         @unique @map("instance_id")
   vinculatedChannel String?        @map("vinculated_channel")
   zApiToken         String?        @map("z_api_token")
+  // Campos específicos do provider HubMessage (WhatsApp Oficial). Nulos em conectores Z-API.
+  channelId         String?        @map("channel_id")
+  webhookId         String?        @map("webhook_id")
+  wabaId            String?        @map("waba_id")
+  phoneId           String?        @map("phone_id")
+  /// DEPRECADO por `move-connector-settings-to-spa`: `ConnectorSettings` vive em
+  /// `ufCrm93Settings` no item da SPA 1146, que é a fonte única. Nada escreve mais
+  /// nesta coluna e nenhum caminho de comportamento a lê — o que sobra é dado
+  /// congelado de antes da migração, mantido só até o backfill ser confirmado em
+  /// produção. Não voltar a ler daqui: mostraria ao cliente o valor antigo.
+  /// O drop é dívida registrada, fora desta change (ver `retire-instance-table`).
   settings          Json           @default("{}") @map("settings")
   status            InstanceStatus @default(DISCONNECTED)
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
 
-  domain        Domain               @relation(fields: [domainId], references: [id])
+  domain        Domain                 @relation(fields: [domainId], references: [id])
   connector     Connector?
   conversations Conversation[]
   messages      ThinkzapMessage[]
+  widgetOutbox  ThinkzapWidgetOutbox[]
 
   @@map("core_thinkerszap_instances")
 }
@@ -252,12 +226,12 @@ model ThinkzapAllowedUser {
 }
 
 model ThinkzapAllowedDepartment {
-  id                   String   @id @default(uuid())
-  appId                String   @map("app_id")
-  bitrixDepartmentId   String   @map("bitrix_department_id")
-  displayName          String?  @map("display_name")
-  permissions          Json     @default("{\"connectors\":{\"read\":true,\"create\":true,\"update\":true,\"delete\":true},\"finance\":{\"read\":false,\"create\":false,\"update\":false,\"delete\":false}}")
-  createdAt            DateTime @default(now()) @map("created_at")
+  id                 String   @id @default(uuid())
+  appId              String   @map("app_id")
+  bitrixDepartmentId String   @map("bitrix_department_id")
+  displayName        String?  @map("display_name")
+  permissions        Json     @default("{\"connectors\":{\"read\":true,\"create\":true,\"update\":true,\"delete\":true},\"finance\":{\"read\":false,\"create\":false,\"update\":false,\"delete\":false}}")
+  createdAt          DateTime @default(now()) @map("created_at")
 
   app App @relation(fields: [appId], references: [id], onDelete: Cascade)
 
@@ -324,25 +298,120 @@ model ThinkAnaliseAuthToken {
 }
 
 model ThinkzapMessage {
-  id              String                  @id @default(uuid())
-  instanceId      String                  @map("instance_id")
-  source          ThinkzapMessageSource
-  zApiMessageId   String?                 @map("z_api_message_id")
-  bitrixMessageId String?                 @map("bitrix_message_id")
-  bitrixChatId    String?                 @map("bitrix_chat_id")
-  type            ThinkzapMessageType
-  text            String?                 @db.Text
-  fileName        String?                 @map("file_name")
-  chatId                String?                 @map("chat_id")
-  createdAt             DateTime                @default(now()) @map("created_at")
-  updatedAt       DateTime                @updatedAt @map("updated_at")
+  id                String                @id @default(uuid())
+  instanceId        String                @map("instance_id")
+  source            ThinkzapMessageSource
+  providerMessageId String?               @map("provider_message_id")
+  bitrixMessageId   String?               @map("bitrix_message_id")
+  bitrixChatId      String?               @map("bitrix_chat_id")
+  type              ThinkzapMessageType
+  text              String?               @db.Text
+  fileName          String?               @map("file_name")
+  chatId            String?               @map("chat_id")
+  createdAt         DateTime              @default(now()) @map("created_at")
+  updatedAt         DateTime              @updatedAt @map("updated_at")
 
   instance Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
 
-  @@unique([instanceId, zApiMessageId], name: "uq_msg_instance_zapi")
+  @@unique([instanceId, providerMessageId], name: "uq_msg_instance_provider")
   @@unique([instanceId, bitrixMessageId], name: "uq_msg_instance_bitrix")
   @@index([instanceId])
   @@map("core_thinkerszap_messages")
+}
+
+/// Intenção de envio pelo widget, gravada **antes** de qualquer chamada ao provider.
+///
+/// Existe porque enfileirar o envio sem ela transformaria retentativa em mensagem
+/// repetida no WhatsApp de quem recebe: sem um registro anterior à chamada, nada
+/// distingue "já entreguei e perdi a resposta" de "nunca entreguei". É o
+/// `providerMessageId` desta row que responde a pergunta.
+///
+/// **Não é histórico de conversa.** `ThinkzapMessage` é o histórico; esta tabela é a
+/// fila durável, e as duas descrevem a mesma mensagem em fases diferentes da vida.
+/// Confundir os papéis é o jeito mais fácil de estragar isso depois.
+///
+/// Tabela própria e não colunas em `ThinkzapMessage` porque a unique de lá é
+/// `(instance_id, provider_message_id)` e o `provider_message_id` **não existe** antes
+/// do envio — toda row pré-envio teria a chave nula e colidiria com as outras.
+model ThinkzapWidgetOutbox {
+  id String @id @default(uuid())
+
+  /// Gerado pela API e devolvido ao widget. Único por instância: é por ele que um
+  /// reenvio do próprio front é reconhecido como o mesmo envio.
+  clientMessageId String @map("client_message_id")
+
+  instanceId         String @map("instance_id")
+  subscriptionItemId String @map("subscription_item_id")
+  domainId           String @map("domain_id")
+  appCode            String @map("app_code")
+
+  destination String
+  /// O texto que o contato lê. Em template é o corpo **resolvido**, não o cru: é ele
+  /// que abastece o histórico, o canal aberto e o aviso de falha, e nenhum dos três
+  /// tem como substituir `{{1}}` depois.
+  text        String @db.Text
+  entity      String
+  entityId    String @map("entity_id")
+
+  /// O que o worker vai chamar no provider. Mensagem livre e template são a mesma
+  /// intenção durável com a mesma garantia de não-duplicidade — o que muda é a
+  /// chamada, e é só isso que este campo carrega.
+  ///
+  /// `@default(TEXT)` para a migration ser aditiva: as rows que já existem são todas
+  /// de envio livre.
+  kind ThinkzapOutboxKind @default(TEXT)
+
+  /// Os três só existem em `kind = TEMPLATE`, e juntos são o que a Meta precisa para
+  /// identificar a versão aprovada e preencher as variáveis. Guardados aqui, e não
+  /// derivados de `text`, porque o provider recebe o par (template, parâmetros) — o
+  /// corpo resolvido não tem volta.
+  templateName       String? @map("template_name")
+  templateLanguage   String? @map("template_language")
+  templateParameters Json?   @map("template_parameters")
+
+  status ThinkzapOutboxStatus @default(PENDING)
+
+  /// **A marca de entrega.** Nulo = o provider não aceitou nada ainda. Preenchido = já
+  /// entreguei, e nenhuma retentativa pode chamar o provider outra vez.
+  providerMessageId String? @map("provider_message_id")
+
+  /// Idempotência do comentário de timeline: `crm.timeline.comment.add` não tem chave
+  /// de idempotência, então sem este carimbo uma retentativa duplicaria o comentário
+  /// no CRM do cliente.
+  timelineNotifiedAt DateTime? @map("timeline_notified_at")
+
+  attempts  Int     @default(0)
+  lastError String? @map("last_error") @db.Text
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  sentAt    DateTime? @map("sent_at")
+
+  instance Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@unique([instanceId, clientMessageId], name: "uq_outbox_instance_client")
+  /// Serve o alerta de pendência antiga e a limpeza por retenção.
+  @@index([status, createdAt])
+  @@map("core_thinkerszap_widget_outbox")
+}
+
+enum ThinkzapOutboxKind {
+  /// Mensagem livre. O worker chama `OutboundMessageSender` com `text`.
+  TEXT
+  /// Template aprovado do WhatsApp Oficial. O worker chama `TemplateMessageSender`
+  /// com `templateName`, `templateLanguage` e `templateParameters`.
+  TEMPLATE
+}
+
+enum ThinkzapOutboxStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  /// O processo morreu **durante** a chamada HTTP ao provider: pode ter entregue ou
+  /// não. Não é reenviado automaticamente — reenviar trocaria uma incerteza rara por
+  /// duplicidade garantida no WhatsApp de quem recebe.
+  UNKNOWN
 }
 
 // ============================================
@@ -383,13 +452,13 @@ model ImportSheetImport {
   weekdays     Json?                   @map("weekdays")
   nextRunAt    DateTime?               @map("next_run_at")
 
-  enabled       Boolean   @default(true)  @map("enabled")
-  lastRunAt     DateTime?                 @map("last_run_at")
-  lastRunStatus String?                   @map("last_run_status")
-  lastError     String?   @db.Text        @map("last_error")
+  enabled       Boolean   @default(true) @map("enabled")
+  lastRunAt     DateTime? @map("last_run_at")
+  lastRunStatus String?   @map("last_run_status")
+  lastError     String?   @map("last_error") @db.Text
 
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt      @map("updated_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   app App @relation(fields: [appId], references: [id], onDelete: Cascade)
 
@@ -399,17 +468,17 @@ model ImportSheetImport {
 }
 
 model ClickSignSettings {
-  id              String   @id @default(uuid())
-  appId           String   @unique @map("app_id")
+  id    String @id @default(uuid())
+  appId String @unique @map("app_id")
 
-  fields          Json?    @map("fields")
-  verifySettings  Json?    @map("verify_settings")
-  contactSettings Json?    @map("contact_settings")
-  dealSettings    Json?    @map("deal_settings")
-  groups          Json?    @map("groups")
+  fields          Json? @map("fields")
+  verifySettings  Json? @map("verify_settings")
+  contactSettings Json? @map("contact_settings")
+  dealSettings    Json? @map("deal_settings")
+  groups          Json? @map("groups")
 
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt      @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   app App @relation(fields: [appId], references: [id], onDelete: Cascade)
 
@@ -433,12 +502,6 @@ enum AppStatus {
   TRIAL
 }
 
-/// Tipo de plano: por créditos (GPT Maker) ou assinatura mensal fixa (ThinkersZap).
-enum PlanType {
-  CREDITS
-  SUBSCRIPTION
-}
-
 enum TransactionType {
   PURCHASE
   CONSUMPTION
@@ -447,13 +510,9 @@ enum TransactionType {
   EXPIRATION
 }
 
-enum SubscriptionStatus {
-  ACTIVE
-  CANCELLED
-  PAST_DUE
-  TRIALING
-  INCOMPLETE
-  INCOMPLETE_EXPIRED
+enum ConnectorProvider {
+  ZAPI
+  HUBMESSAGE
 }
 
 enum ConnectorStatus {
@@ -472,6 +531,7 @@ enum InstanceStatus {
 enum ThinkzapMessageSource {
   ZAPI
   BITRIX
+  HUBMESSAGE
 }
 
 enum ThinkzapMessageType {
@@ -507,4 +567,103 @@ model PortalUser {
   updatedAt    DateTime       @updatedAt @map("updated_at")
 
   @@map("portal_users")
+}
+
+// ============================================
+// MCP OAUTH — Authorization Server do MCP de suporte
+// Base de credencial isolada do portal: acesso ao portal não concede acesso a
+// log de cliente. O MCP não fala com o banco; só valida o JWT emitido aqui.
+// ============================================
+
+/// Usuário do MCP de suporte. `isAdmin` = suporte interno CRMThink (escolhe
+/// qualquer domínio no login); não-admin fica travado no `domainId` do cadastro.
+model McpUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  domainId     String   @map("domain_id")
+  isAdmin      Boolean  @default(false) @map("is_admin")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  domain        Domain            @relation(fields: [domainId], references: [id])
+  authCodes     McpAuthCode[]
+  refreshTokens McpRefreshToken[]
+
+  @@index([domainId])
+  @@map("core_mcp_users")
+}
+
+/// Client registrado via Dynamic Client Registration (RFC 7591) pelo claude.ai.
+/// Public client: `token_endpoint_auth_method="none"`, sem secret — PKCE é a prova.
+model McpOauthClient {
+  id                      String   @id @default(uuid())
+  clientId                String   @unique @map("client_id")
+  clientName              String?  @map("client_name")
+  redirectUris            Json     @map("redirect_uris")
+  grantTypes              Json     @map("grant_types")
+  responseTypes           Json     @map("response_types")
+  scope                   String?
+  tokenEndpointAuthMethod String   @default("none") @map("token_endpoint_auth_method")
+  clientUri               String?  @map("client_uri")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  authCodes     McpAuthCode[]
+  refreshTokens McpRefreshToken[]
+
+  @@map("core_mcp_oauth_clients")
+}
+
+/// Authorization code de uso único (TTL ~60s). Guarda o `domainId` escolhido na
+/// tela de login — é ele que vira o claim `domain` do access token.
+model McpAuthCode {
+  id                  String    @id @default(uuid())
+  code                String    @unique
+  userId              String    @map("user_id")
+  clientId            String    @map("client_id")
+  domainId            String    @map("domain_id")
+  codeChallenge       String    @map("code_challenge")
+  codeChallengeMethod String    @default("S256") @map("code_challenge_method")
+  redirectUri         String    @map("redirect_uri") @db.Text
+  resource            String?   @db.Text
+  scopes              Json
+  expiresAt           DateTime  @map("expires_at")
+  consumedAt          DateTime? @map("consumed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+
+  user   McpUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client McpOauthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([expiresAt])
+  @@map("core_mcp_auth_codes")
+}
+
+/// Refresh token opaco, persistido só como hash. Rotação de uso único: o
+/// `/token` revoga o atual e aponta `rotatedToId` pro novo. Reuso de um token já
+/// rotacionado = sinal de vazamento → revogar a cadeia inteira.
+model McpRefreshToken {
+  id          String    @id @default(uuid())
+  tokenHash   String    @unique @map("token_hash")
+  userId      String    @map("user_id")
+  clientId    String    @map("client_id")
+  domainId    String    @map("domain_id")
+  scopes      Json
+  resource    String?   @db.Text
+  expiresAt   DateTime  @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  rotatedToId String?   @map("rotated_to_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user   McpUser        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client McpOauthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([expiresAt])
+  @@map("core_mcp_refresh_tokens")
 }

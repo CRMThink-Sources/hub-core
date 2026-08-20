@@ -11,7 +11,7 @@ import { AdminClientDeploymentSection } from './admin-client-deployment-section'
 import { AdminClientPlacementsSection } from './admin-client-placements-section'
 import { AdminClientBizprocRobotsSection } from './admin-client-bizproc-robots-section'
 import { AdminClientInstancesSection } from './admin-client-instances-section'
-import { AdminClientSubscriptionsSection } from './admin-client-subscriptions-section'
+import { AdminAppSubscriptionsSection } from './admin-app-subscriptions-section'
 
 const TECH_TABS = ['deployment', 'placements', 'bizproc'] as const
 type TabValue = 'instances' | 'subscriptions' | (typeof TECH_TABS)[number]
@@ -59,9 +59,8 @@ export function AdminAppSettingsPage({ domainId, appId }: Props) {
       <Tabs value={activeTab} onValueChange={v => setActiveTab(v as TabValue)}>
         <TabsList>
           <TabsTrigger value="instances">{t('tabs.instances')}</TabsTrigger>
-          <TabsTrigger value="subscriptions">
-            {t('tabs.subscriptions')}
-          </TabsTrigger>
+          {/* A aba de assinaturas saiu com a cobrança antiga: lia
+              `/apps/:appId/subscriptions`, que foi removida junto. */}
           <span className="mx-1 h-5 w-px self-center bg-border" />
           <button
             type="button"
@@ -95,7 +94,7 @@ export function AdminAppSettingsPage({ domainId, appId }: Props) {
         </TabsContent>
 
         <TabsContent value="subscriptions" className="mt-4">
-          <AdminClientSubscriptionsSection appId={appId} />
+          <AdminAppSubscriptionsSection appId={appId} />
         </TabsContent>
 
         <TabsContent value="deployment" className="mt-4">

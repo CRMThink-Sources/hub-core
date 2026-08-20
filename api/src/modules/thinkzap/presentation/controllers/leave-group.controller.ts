@@ -4,7 +4,7 @@ import { mapGroupServiceError } from '@/modules/thinkzap/presentation/helpers/ha
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
-import z from 'zod'
+import { parseLineRequest } from './line/line-request'
 
 export class LeaveGroupController extends Controller {
   constructor(private readonly leaveGroupService: LeaveGroupService) {
@@ -17,21 +17,9 @@ export class LeaveGroupController extends Controller {
       return this.badRequest(new Error('groupId is required'))
     }
 
-    const parsed = z
-      .object({
-        connectorId: z.string().min(1),
-      })
-      .safeParse(req.query.connectorId ? req.query : req.body)
-
-    if (!parsed.success) {
-      return this.badRequest(
-        new Error('Invalid request: ' + parsed.error.message),
-      )
-    }
-
     try {
       const result = await this.leaveGroupService.execute({
-        connectorId: parsed.data.connectorId,
+        ...parseLineRequest(req),
         groupId,
       })
       return this.ok(result)

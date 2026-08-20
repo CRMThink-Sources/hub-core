@@ -12,6 +12,9 @@ import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/reposit
 import { OAuthStateStore } from '../../infra/oauth-state.store'
 import { env } from '@/config/env'
 import { thinkAnaliseAuthTokenService } from '../../infra/auth-token.service'
+import { AppError } from '@/shared/domain/errors/app-error'
+import { appErrorLogFields } from '@/shared/infra/log-error'
+import { thinkanaliseError } from '../../errors/catalog'
 
 const installedAppRepo = new PrismaInstalledAppRepository()
 
@@ -27,12 +30,12 @@ export class ContaAzulOAuthCallbackController extends Controller {
       const { code, state } = req.query as Record<string, string | undefined>
 
       if (!code || !state) {
-        throw new Error('Missing code or state')
+        throw thinkanaliseError('thinkanalise.oauth.callback_missing_params')
       }
 
       const payload = this.stateStore.consume(state)
       if (!payload) {
-        throw new Error('Invalid or expired state')
+        throw thinkanaliseError('thinkanalise.oauth.state_invalid_or_expired')
       }
 
       // Rota pública (sem authMiddleware): resolve o tenant pro log manualmente.
@@ -46,13 +49,21 @@ export class ContaAzulOAuthCallbackController extends Controller {
         // segue sem o domínio
       }
 
-      const tokens = await ContaAzulClient.exchangeCode(code)
+      let tokens
+      try {
+        tokens = await ContaAzulClient.exchangeCode(code)
+      } catch (error) {
+        throw thinkanaliseError(
+          'thinkanalise.oauth.code_exchange_failed',
+          error,
+        )
+      }
 
       const app = await installedAppRepo.getByAppCodeAndDomainId(
         payload.appId,
         payload.domainId,
       )
-      if (!app) throw new Error('App not found')
+      if (!app) throw thinkanaliseError('thinkanalise.connector.app_not_found')
 
       const tokenKey = await thinkAnaliseAuthTokenService.upsert({
         appId: app.id,
@@ -100,12 +111,16 @@ export class ContaAzulOAuthCallbackController extends Controller {
 
       res.send(oauthPopupHtml('conta-azul-oauth', 'success'))
     } catch (error) {
-      apiLogger.error(
-        {
-          app: 'thinkanalise',
-          err: error instanceof Error ? error.message : String(error),
-        },
-        'OAuth Conta Azul callback falhou',
+      // Popup responde 200 HTML por design → via B. Erro não-classificado após a
+      // troca de token = falha ao finalizar (salvar token / atualizar source).
+      const appErr =
+        error instanceof AppError
+          ? error
+          : thinkanaliseError('thinkanalise.oauth.finalize_failed', error)
+      const level = appErr.httpStatus >= 500 ? 'error' : 'warn'
+      apiLogger[level](
+        appErrorLogFields(appErr, { app: 'thinkanalise' }),
+        appErr.userCause,
       )
       res.send(oauthPopupHtml('conta-azul-oauth', 'error'))
     }

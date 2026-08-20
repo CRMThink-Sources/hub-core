@@ -6,6 +6,7 @@ import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled
 import { ImportSheetImportRepository } from '../../domain/repositories/importsheet-import.repository'
 import { RunImportService } from '../../application/run-import.service'
 import { isImportRunInFlight } from '../../queue/importsheet-run.queue'
+import { logImportsheetError } from '../../errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 
 const bodySchema = z.object({
@@ -41,6 +42,10 @@ export class ReprocessImportController extends Controller {
     if (!found) return this.notFound(new Error('Import not found'))
 
     if (await isImportRunInFlight(id)) {
+      logImportsheetError(apiLogger, 'importsheet.reprocess.in_flight', {
+        appId: app.id,
+        importId: id,
+      })
       return this.conflict(
         new Error('Importação está em execução — aguarde para reprocessar'),
       )

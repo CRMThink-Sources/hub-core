@@ -11,6 +11,7 @@ import {
   WebhookPayload,
 } from '../../application/handle-signature-event.use-case'
 import { enqueueDocumentClosed } from '../../infra/queue/clicksign-document-closed.queue'
+import { clicksignError } from '../../errors/catalog'
 import { setTenantLogContext } from '@/shared/infra/log-tenant'
 
 // Usa raw body para validar o HMAC; resolve tenant por `:appId` e conta/secret
@@ -23,12 +24,13 @@ export class ClicksignWebhookController extends Controller {
   async perform(req: Request, _res: Response): Promise<httpResponse> {
     const appId = String(req.params.appId ?? '')
     const ref = String(req.params.ref ?? '')
-    if (!appId || !ref) return this.badRequest(new Error('Missing appId/ref'))
+    if (!appId || !ref)
+      throw clicksignError('clicksign.webhook.missing_app_or_ref')
 
     await setTenantLogContext(appId)
 
     const settings = await this.settings.findByAppId(appId)
-    if (!settings) return this.notFound(new Error('Settings not found'))
+    if (!settings) throw clicksignError('clicksign.webhook.settings_not_found')
 
     const fields = settings.fields as ClicksignFields | null
     const account = (fields?.tokens ?? []).find(
@@ -41,16 +43,14 @@ export class ClicksignWebhookController extends Controller {
 
     // Sem secret não dá pra autenticar a origem → rejeita.
     const secret = account?.webhook?.secret
-    if (!secret) {
-      return this.unauthorized(new Error('Webhook secret not configured'))
-    }
+    if (!secret) throw clicksignError('clicksign.webhook.secret_missing')
     const signature = req.header(CLICKSIGN_HMAC_HEADER)
     if (!verifyHmac(rawBody, secret, signature)) {
-      return this.unauthorized(new Error('Invalid HMAC signature'))
+      throw clicksignError('clicksign.webhook.signature_invalid')
     }
 
     const payload = parsePayload(rawBody)
-    if (!payload) return this.badRequest(new Error('Invalid payload'))
+    if (!payload) throw clicksignError('clicksign.webhook.payload_invalid')
 
     if (payload.event.name === 'document_closed') {
       await enqueueDocumentClosed({ appId, payload })

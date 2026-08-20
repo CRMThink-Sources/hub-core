@@ -1,4 +1,4 @@
-import { getAppRedirectUrl } from '@/app/config/app-redirects'
+import { appTokenKey } from '@/shared/auth/app-token-storage'
 import { envConfig } from '@/shared/infra/env-config'
 import axios from 'axios'
 import { usePathname } from 'next/navigation'
@@ -9,8 +9,16 @@ interface ISessionProviderProps {
   children: React.ReactNode
 }
 
+/**
+ * **Legado.** Sobrevive apenas para os dados agregados por app que ainda não têm
+ * endpoint próprio: `connectors`, `googleConnection`, `imports`, `biconnectors`.
+ *
+ * Identidade da instalação e billing saíram daqui — use `AplicationProvider`
+ * (`/api/application/me`). Permissões do thinkzap saíram daqui — use
+ * `ThinkzapAccessProvider` (`/api/thinkzap/access/me`). Este provider morre na
+ * change que quebrar os handlers de sessão em endpoints.
+ */
 type ISession = {
-  app: any
   [key: string]: any
   refreshSession: () => Promise<void>
 }
@@ -65,11 +73,7 @@ const SessionProvider = ({ appCode, children }: ISessionProviderProps) => {
   const pathname = usePathname()
 
   useEffect(() => {
-    const authTokenKey = getAppRedirectUrl(appCode)?.storageAuthTokenKey
-    if (!authTokenKey) {
-      throw new Error('Auth token key not found')
-    }
-    const client = createSessionClient(authTokenKey)
+    const client = createSessionClient(appTokenKey(appCode))
     const controller = new AbortController()
 
     setIsFetching(true)
@@ -87,11 +91,7 @@ const SessionProvider = ({ appCode, children }: ISessionProviderProps) => {
   }, [appCode, pathname])
 
   const refreshSession = async () => {
-    const authTokenKey = getAppRedirectUrl(appCode)?.storageAuthTokenKey
-    if (!authTokenKey) {
-      throw new Error('Auth token key not found')
-    }
-    const client = createSessionClient(authTokenKey)
+    const client = createSessionClient(appTokenKey(appCode))
     try {
       setIsFetching(true)
       const data = await client.get<ISession>(`/auth/session`)

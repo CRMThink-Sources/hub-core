@@ -1,6 +1,6 @@
 'use client'
 
-import { useSession } from '@/providers/session-provider'
+import { useThinkzapAccessState } from '@/providers/thinkzap-access-provider'
 import { isBitrixAdmin } from '@/bitrix'
 import {
   hasThinkzapPermission,
@@ -10,9 +10,16 @@ import {
   type ThinkzapUserPermissions,
 } from '@/shared/thinkzap-permissions'
 
+/**
+ * Acesso do usuário no thinkzap, de `GET /api/thinkzap/access/me`.
+ *
+ * `null` cobre três casos distintos — carregando, erro e não autenticado. Quem
+ * precisa diferenciar (o layout, que não pode decidir bloqueio com permissão
+ * ausente) usa `useThinkzapAccessState()` direto.
+ */
 export function useThinkzapAccess(): ThinkzapAccess | null {
-  const { session } = useSession()
-  return (session?.thinkzapAccess as ThinkzapAccess | undefined) ?? null
+  const { state } = useThinkzapAccessState()
+  return state.status === 'ready' ? state.access : null
 }
 
 export function useCanThinkzap(
@@ -26,10 +33,5 @@ export function useCanThinkzap(
 }
 
 export function useThinkzapPermissions(): ThinkzapUserPermissions | null {
-  const access = useThinkzapAccess()
-  if (!access) return null
-  if (access.canManageAccess || isBitrixAdmin()) {
-    return access.permissions
-  }
-  return access.permissions
+  return useThinkzapAccess()?.permissions ?? null
 }

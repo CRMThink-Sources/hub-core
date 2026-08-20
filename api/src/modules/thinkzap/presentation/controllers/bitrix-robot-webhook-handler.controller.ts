@@ -3,8 +3,11 @@ import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
-import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
-import { GetInstanceRepository } from '../../domain/repositories/get-instance.repository'
+import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import {
+  assertLineEnabled,
+  findLineInContext,
+} from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { ZApiClient } from '../../infra/clients/z-api.client'
 import { env } from '@/config/env'
 import { SendNotification } from '@/shared/data/contracts/send-notification'
@@ -13,6 +16,8 @@ import {
   bizprocEntityToPlacement,
   resolveRelatedDestinations,
 } from '../../application/related-destinations.resolver'
+import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '../../errors/catalog'
 
 export class BitrixRobotWebhookHandlerController extends Controller {
   private readonly zApiClient: ZApiClient = new ZApiClient(
@@ -22,8 +27,7 @@ export class BitrixRobotWebhookHandlerController extends Controller {
   constructor(
     private readonly getDomain: GetDomainRepository,
     private readonly getApp: GetInstalledAppRepository,
-    private readonly getConnector: GetConnectorRepository,
-    private readonly getInstance: GetInstanceRepository,
+    private readonly getAplicationContext: GetAplicationContext,
     private readonly sendNotification: SendNotification,
     private readonly bitrix: BitrixClient,
   ) {
@@ -32,9 +36,13 @@ export class BitrixRobotWebhookHandlerController extends Controller {
 
   async perform(req: Request, res: Response): Promise<httpResponse> {
     const data = req.body as BitrixRobotWebhookHandlerRequest
-    console.log(data)
     const domain = await this.getDomain.getDomain(data.auth.domain)
     if (!domain) {
+      logThinkzapError(apiLogger, 'thinkzap.app.not_found', {
+        app: 'thinkzap',
+        source: 'bitrix',
+        reason: 'domain',
+      })
       return this.notFound(new Error('Domain not found'))
     }
 
@@ -43,18 +51,33 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       domain.id,
     )
     if (!app) {
+      logThinkzapError(apiLogger, 'thinkzap.app.not_found', {
+        app: 'thinkzap',
+        source: 'bitrix',
+        reason: 'app',
+      })
       return this.notFound(new Error('App not found'))
     }
 
-    const connector = await this.getConnector.get(data.properties.connector)
-    if (!connector) {
-      return this.notFound(new Error('Connector not found'))
-    }
+    /**
+     * A opção do robô carrega o **id do item de assinatura**, não o do conector —
+     * ver `syncThinkzapRobotConnectorOptions`. `Connector` saiu do caminho: linha
+     * nascida na SPA não tem row naquela tabela, então o robô não conseguia enviar
+     * por ela.
+     */
+    const context = await this.getAplicationContext.execute({
+      domainId: domain.id,
+      appCode: app.appCodeId,
+    })
 
-    const instance = await this.getInstance.getInstance(connector.instanceId)
-    if (!instance) {
-      return this.notFound(new Error('Instance not found'))
-    }
+    /**
+     * Recusa antes de resolver recipients e credencial: um robô apontando para linha
+     * bloqueada não deve disparar nada, e o erro tem que aparecer no log do workflow
+     * em vez de virar envio silenciosamente perdido.
+     */
+    assertLineEnabled(context, data.properties.connector, new Date())
+
+    const line = findLineInContext(context, data.properties.connector)
 
     const documentId = data.document_id[2]
     if (!documentId) {
@@ -69,8 +92,8 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     const recipients = await this.resolveRecipients(data, crmDocument)
 
     const phoneData = await this.zApiClient.getPhoneData(
-      instance.instanceId,
-      instance.zApiToken || '',
+      line.zApiInstanceId,
+      line.zApiInstanceToken,
     )
     const fromPhone = phoneData?.phone ?? 'desconhecido'
 
@@ -86,18 +109,19 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     for (const phone of recipients) {
       try {
         await this.zApiClient.sendMessage(
-          instance.instanceId,
-          instance.zApiToken || '',
+          line.zApiInstanceId,
+          line.zApiInstanceToken,
           data.properties.message,
           phone,
         )
         sent.push(phone)
       } catch (error) {
-        console.error(
-          '[BitrixRobotWebhookHandler] failed to send to',
+        logThinkzapError(apiLogger, 'thinkzap.bitrix.robot_webhook_failed', {
+          app: 'thinkzap',
+          source: 'bitrix',
           phone,
-          (error as Error).message,
-        )
+          err: (error as Error).message,
+        })
       }
     }
 
@@ -148,9 +172,10 @@ export class BitrixRobotWebhookHandlerController extends Controller {
         )
         return destinations.map(d => d.phone)
       } catch (error) {
-        console.error(
-          '[BitrixRobotWebhookHandler] failed to resolve related contacts:',
-          (error as Error).message,
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.message.related_destinations_failed',
+          { app: 'thinkzap', source: 'bitrix', err: (error as Error).message },
         )
         return []
       }

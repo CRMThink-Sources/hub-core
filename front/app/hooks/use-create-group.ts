@@ -1,18 +1,20 @@
 import { useCallback, useState } from 'react'
 import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
+import { APP_CODES } from '@/shared/app/app-codes'
+import { appTokenKey } from '@/shared/auth/app-token-storage'
 
 export type CreatedGroup = {
   phone: string
   invitationLink: string
 }
 
-export function useCreateGroup(authTokenKey: string) {
+export function useCreateGroup() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const createGroup = useCallback(
     async (params: {
-      connectorId: string
+      itemId: string
       groupName: string
       autoInvite: boolean
       phones: string[]
@@ -20,10 +22,11 @@ export function useCreateGroup(authTokenKey: string) {
       setLoading(true)
       setError(null)
       try {
-        const client = axiosThinkzap(authTokenKey)
+        const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
+        const { itemId, ...body } = params
         const result = await client.post<CreatedGroup>(
-          '/thinkzap/groups',
-          params,
+          `/thinkzap/lines/${encodeURIComponent(itemId)}/groups`,
+          body,
         )
         return result
       } catch (err: unknown) {
@@ -55,7 +58,7 @@ export function useCreateGroup(authTokenKey: string) {
         setLoading(false)
       }
     },
-    [authTokenKey],
+    [],
   )
 
   return { createGroup, loading, error, setError }

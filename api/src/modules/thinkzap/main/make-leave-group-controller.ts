@@ -4,14 +4,9 @@ import { LeaveGroupController } from '../presentation/controllers/leave-group.co
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
 export const makeLeaveGroupController = (): Controller => {
-  const { connectorRepository, instanceRepository, zApiClient } =
-    makeGroupZApiDeps()
+  const { getAplicationContext, zApiClient } = makeGroupZApiDeps()
 
-  const service = new LeaveGroupService(
-    connectorRepository,
-    instanceRepository,
-    zApiClient,
-  )
+  const service = new LeaveGroupService(getAplicationContext, zApiClient)
 
   return new LeaveGroupController(service)
 }

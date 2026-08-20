@@ -1,0 +1,29 @@
+{
+  "titulo": "Connection",
+  "descricao": "Connection state of this line with the Official WhatsApp.",
+  "descricaoConectado": "This line is connected to the Official WhatsApp.",
+  "descricaoDesconectado": "Connect this line's number to your Meta account.",
+  "instrucao": "When you connect, Meta opens the sign-in for your WhatsApp Business account. At the end, the number is tied to this line and templates start working.",
+  "conectar": "Connect number",
+  "carregando": "Loading state...",
+  "erroEstado": "Could not read the connection state.",
+  "erroEstadoTitulo": "Connection state unavailable",
+  "tentarNovamente": "Try again",
+  "conectado": "Number connected.",
+  "conectadoSemWaba": "The number connected, but the account (WABA) was not recorded on this line. Templates only work after that — try connecting again or contact support.",
+  "cancelado": "Connection cancelled.",
+  "semConfiguracao": "The Official WhatsApp connection is not configured on this installation. Contact support.",
+  "origemNaoAutorizada": "This address ({{origem}}) is not allowed on the channel. Contact support with this address.",
+  "retornoIncompleto": "The sign-in did not return the required data. Try connecting again.",
+  "erroConectar": "Could not connect the number.",
+  "conectadoHint": "To change this line's number, contact support.",
+  "campos": {
+    "waba": "WhatsApp Business Account (WABA)"
+  },
+  "bloqueada": {
+    "trialTitulo": "Trial period ended",
+    "trialDescricao": "This line no longer connects: the trial is over. Connecting a number requires an active subscription.",
+    "inativaTitulo": "No active subscription",
+    "inativaDescricao": "This line does not connect while there is no active subscription."
+  }
+}

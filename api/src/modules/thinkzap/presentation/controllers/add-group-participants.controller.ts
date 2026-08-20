@@ -4,6 +4,7 @@ import { mapGroupServiceError } from '@/modules/thinkzap/presentation/helpers/ha
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { Request, Response } from 'express'
+import { parseLineRequest } from './line/line-request'
 import z from 'zod'
 
 export class AddGroupParticipantsController extends Controller {
@@ -21,7 +22,6 @@ export class AddGroupParticipantsController extends Controller {
 
     const parsed = z
       .object({
-        connectorId: z.string().min(1),
         autoInvite: z.boolean(),
         phones: z.array(z.string().min(1)).min(1),
       })
@@ -35,6 +35,7 @@ export class AddGroupParticipantsController extends Controller {
 
     try {
       const result = await this.addGroupParticipantsService.execute({
+        ...parseLineRequest(req),
         ...parsed.data,
         groupId,
       })

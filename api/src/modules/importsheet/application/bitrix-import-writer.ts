@@ -16,6 +16,8 @@ export type RowResult = {
   row: number
   status: 'added' | 'updated' | 'error'
   error?: string
+  /** errorCode estável (casa com runbook/MCP) quando a falha por-linha é classificável. */
+  errorCode?: string
   /** Id do registro criado/atualizado (pra vincular contato/empresa ao principal). */
   id?: string
 }
@@ -361,6 +363,7 @@ export class BitrixImportWriter {
           row: r.row,
           status: 'error',
           error: 'Match ambíguo: identificador casou com mais de um registro',
+          errorCode: 'importsheet.import.ambiguous_match',
         }
       }
       const key = `row_${i}`

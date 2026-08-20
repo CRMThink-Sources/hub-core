@@ -1,39 +1,30 @@
 import { prisma } from '@/config/prisma'
 import { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { env } from '@/config/env'
-import { GetConnectorRepository } from '@/modules/thinkzap/domain/repositories/get-connector.repository'
-import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
-import { UpdateInstanceRepository } from '@/modules/thinkzap/domain/repositories/update-instance.repository'
-import { mergeConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings.schema'
+import { thinkzapError } from '../errors/catalog'
 
+/**
+ * Faz `event.bind` / `event.unbind` no portal do cliente.
+ *
+ * **Não persiste mais nada.** Antes gravava as duas flags em `Instance.settings`;
+ * agora quem persiste é `UpdateLineSettings`, numa escrita só no item da SPA, com
+ * os quatro toggles juntos. Deixar a persistência aqui obrigaria duas escritas por
+ * salvamento e reintroduziria `Instance` no caminho.
+ *
+ * O efeito colateral no Bitrix continua sendo a razão deste caso de uso existir
+ * separado: os toggles de evento não são equivalentes aos outros dois.
+ */
 export type UpdateConnectorEventBindsInput = {
-  connectorId: string
+  /** `core_apps.id` da instalação. */
+  appId: string
   messageUpdateEventEnabled?: boolean
   messageDeleteEventEnabled?: boolean
 }
 
 export class UpdateConnectorEventBindsUseCase {
-  constructor(
-    private readonly getConnectorRepository: GetConnectorRepository,
-    private readonly getInstanceRepository: GetInstanceRepository,
-    private readonly updateInstanceRepository: UpdateInstanceRepository,
-  ) {}
-
   async execute(input: UpdateConnectorEventBindsInput): Promise<void> {
-    const connector = await this.getConnectorRepository.get(input.connectorId)
-    if (!connector) {
-      throw new Error('Connector not found')
-    }
-
-    const instance = await this.getInstanceRepository.getInstance(
-      connector.instanceId,
-    )
-    if (!instance) {
-      throw new Error('Instance not found')
-    }
-
     const app = await prisma.app.findUnique({
-      where: { id: connector.appId },
+      where: { id: input.appId },
       include: { credential: true, domain: true },
     })
     if (!app || !app.credential || !app.credential.accessToken) {
@@ -47,7 +38,7 @@ export class UpdateConnectorEventBindsUseCase {
 
     const webhookUrl = env.bitrix.webhookUrl
     if (!webhookUrl) {
-      throw new Error('Webhook URL not configured')
+      throw thinkzapError('thinkzap.config.missing_env')
     }
 
     if (input.messageUpdateEventEnabled !== undefined) {
@@ -71,19 +62,5 @@ export class UpdateConnectorEventBindsUseCase {
         auth_type: '0',
       })
     }
-
-    const updatedSettings = mergeConnectorSettings(instance.settings, {
-      ...(input.messageUpdateEventEnabled !== undefined && {
-        messageUpdateEventEnabled: input.messageUpdateEventEnabled,
-      }),
-      ...(input.messageDeleteEventEnabled !== undefined && {
-        messageDeleteEventEnabled: input.messageDeleteEventEnabled,
-      }),
-    })
-
-    await this.updateInstanceRepository.updateSettings(
-      instance.id,
-      updatedSettings,
-    )
   }
 }

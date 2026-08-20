@@ -3,8 +3,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { GetSheetHeaderService } from '../../application/get-sheet-header.service'
-import { GoogleAuthRequiredError } from '../../domain/errors/google-auth-required.error'
-import { GoogleUnavailableError } from '../../domain/errors/google-unavailable.error'
+import { importsheetError } from '../../errors/catalog'
 
 export class GetSheetHeaderController extends Controller {
   constructor(
@@ -38,26 +37,18 @@ export class GetSheetHeaderController extends Controller {
     )
     if (!app) return this.notFound(new Error('App not found'))
 
-    try {
-      const header = await this.getSheetHeader.execute(
-        app.id,
-        spreadsheetId,
-        tabTitle,
-      )
-      if (!header) {
-        return this.notFound(
-          new Error('Planilha ou aba não encontrada, ou sem acesso.'),
-        )
-      }
-      return this.ok({ header })
-    } catch (error) {
-      if (error instanceof GoogleAuthRequiredError) {
-        return this.unauthorized(error)
-      }
-      if (error instanceof GoogleUnavailableError) {
-        return this.gatewayTimeout(error)
-      }
-      throw error
+    // Erros Google são AppError → borbulham pro funil (loga errorCode + responde).
+    const header = await this.getSheetHeader.execute(
+      app.id,
+      spreadsheetId,
+      tabTitle,
+    )
+    if (!header) {
+      throw importsheetError('importsheet.sheet.not_found_or_forbidden')
     }
+    if (header.columns.length === 0) {
+      throw importsheetError('importsheet.sheet.header_empty')
+    }
+    return this.ok({ header })
   }
 }

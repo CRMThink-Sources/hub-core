@@ -15,24 +15,22 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 
 type Props = {
-  connectorId: string
+  itemId: string
   groupId: string
-  authTokenKey: string
   onBack: () => void
   onLeftGroup: () => void
 }
 
 export function GrupoDetalhePanel({
-  connectorId,
+  itemId,
   groupId,
-  authTokenKey,
   onBack,
   onLeftGroup,
 }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/grupos')
   const { metadata, loading, error, fetchMetadata, setError } =
-    useGroupMetadata(authTokenKey)
-  const mutations = useGroupMutations(authTokenKey)
+    useGroupMetadata()
+  const mutations = useGroupMutations()
 
   const [groupName, setGroupName] = useState('')
   const [description, setDescription] = useState('')
@@ -46,12 +44,12 @@ export function GrupoDetalhePanel({
   const [sectionError, setSectionError] = useState<string | null>(null)
 
   useEffect(() => {
-    void fetchMetadata(connectorId, groupId)
-  }, [connectorId, groupId, fetchMetadata])
+    void fetchMetadata(itemId, groupId)
+  }, [itemId, groupId, fetchMetadata])
 
   useEffect(() => {
     if (metadata) {
-      setGroupName(metadata.subject)
+      setGroupName(metadata.subject ?? '')
       setDescription(metadata.description ?? '')
     }
   }, [metadata])
@@ -72,21 +70,21 @@ export function GrupoDetalhePanel({
   const handleSaveName = async () => {
     setSectionError(null)
     const ok = await mutations.updateName({
-      connectorId,
+      itemId,
       groupId,
       groupName: groupName.trim(),
     })
-    if (ok) void fetchMetadata(connectorId, groupId)
+    if (ok) void fetchMetadata(itemId, groupId)
   }
 
   const handleSaveDescription = async () => {
     setSectionError(null)
     const ok = await mutations.updateDescription({
-      connectorId,
+      itemId,
       groupId,
       groupDescription: description,
     })
-    if (ok) void fetchMetadata(connectorId, groupId)
+    if (ok) void fetchMetadata(itemId, groupId)
   }
 
   const handlePhotoFile = (file: File) => {
@@ -95,11 +93,11 @@ export function GrupoDetalhePanel({
     reader.onload = async () => {
       const base64 = reader.result as string
       const ok = await mutations.updatePhoto({
-        connectorId,
+        itemId,
         groupId,
         groupPhoto: base64,
       })
-      if (ok) void fetchMetadata(connectorId, groupId)
+      if (ok) void fetchMetadata(itemId, groupId)
     }
     reader.readAsDataURL(file)
   }
@@ -119,32 +117,32 @@ export function GrupoDetalhePanel({
     if (pendingPhones.length === 0) return
     setSectionError(null)
     const ok = await mutations.addParticipants({
-      connectorId,
+      itemId,
       groupId,
       autoInvite,
       phones: pendingPhones,
     })
     if (ok) {
       setPendingPhones([])
-      void fetchMetadata(connectorId, groupId)
+      void fetchMetadata(itemId, groupId)
     }
   }
 
   const handleRemoveParticipant = async (phone: string) => {
     setSectionError(null)
     const ok = await mutations.removeParticipants({
-      connectorId,
+      itemId,
       groupId,
       phones: [phone],
     })
     if (ok) {
       setRemoveModal(null)
-      void fetchMetadata(connectorId, groupId)
+      void fetchMetadata(itemId, groupId)
     }
   }
 
   const handleLeave = async () => {
-    const ok = await mutations.leaveGroup({ connectorId, groupId })
+    const ok = await mutations.leaveGroup({ itemId, groupId })
     if (ok) {
       setLeaveModalOpen(false)
       onLeftGroup()
@@ -330,7 +328,6 @@ export function GrupoDetalhePanel({
           </span>
         </label>
         <ParticipantesPicker
-          authTokenKey={authTokenKey}
           onAddParticipant={addPendingParticipant}
           onError={setSectionError}
         />

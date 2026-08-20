@@ -3,6 +3,7 @@ import { prisma } from '@/config/prisma'
 import { BlingClient } from '@/shared/infra/clients/bling.client'
 import { ContaAzulClient } from '@/shared/infra/clients/conta-azul.client'
 import { apiLogger } from '@/shared/infra/logger'
+import { thinkanaliseError } from '../errors/catalog'
 
 export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
@@ -123,9 +124,7 @@ export class ThinkAnaliseAuthTokenService {
       where: { tokenKey },
     })
 
-    if (!record) {
-      throw new Error(`No auth token record found for provider '${provider}'`)
-    }
+    if (!record) throw thinkanaliseError('thinkanalise.token.not_found')
 
     const BUFFER_MS = 5 * 60 * 1000
     if (
@@ -138,9 +137,7 @@ export class ThinkAnaliseAuthTokenService {
     }
 
     const refresher = REFRESHERS[provider]
-    if (!refresher) {
-      throw new Error(`No refresher configured for provider '${provider}'`)
-    }
+    if (!refresher) throw thinkanaliseError('thinkanalise.token.no_refresher')
 
     const existing = refreshLocks.get(tokenKey)
     if (existing) {
@@ -156,12 +153,14 @@ export class ThinkAnaliseAuthTokenService {
         const fresh = await prisma.thinkAnaliseAuthToken.findUnique({
           where: { tokenKey },
         })
-        if (!fresh)
-          throw new Error(
-            `No auth token record found for provider '${provider}'`,
-          )
+        if (!fresh) throw thinkanaliseError('thinkanalise.token.not_found')
 
-        const result = await refresher(fresh.refreshToken)
+        let result: Awaited<ReturnType<typeof refresher>>
+        try {
+          result = await refresher(fresh.refreshToken)
+        } catch (error) {
+          throw thinkanaliseError('thinkanalise.token.refresh_failed', error)
+        }
 
         // Salva imediatamente após receber o novo token do Conta Azul.
         // O refresh_token do Conta Azul é rotativo (uso único) — se esta gravação

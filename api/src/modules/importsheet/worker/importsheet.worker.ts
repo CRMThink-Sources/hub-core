@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { Worker } from 'bullmq'
-import { redisConnection } from '@/queue/redis-connection'
+import { bullBaseOptions } from '@/queue/redis-connection'
 import { env } from '@/config/env'
 import { workerLogger } from '@/shared/infra/logger'
+import { AppError } from '@/shared/domain/errors/app-error'
+import { appErrorLogFields } from '@/shared/infra/log-error'
 import { runWithLogContext } from '@/shared/infra/log-context'
 import { setTenantLogContext } from '@/shared/infra/log-tenant'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
@@ -71,7 +73,7 @@ const runWorker = new Worker<ImportSheetRunJob, ImportRunOutcome>(
         return outcome
       },
     ),
-  { connection: redisConnection, concurrency: 1 },
+  { ...bullBaseOptions, concurrency: 1 },
 )
 
 // Continuação da paginação: re-enfileira a PRÓXIMA página. Roda no evento
@@ -108,17 +110,19 @@ runWorker.on('completed', (job, outcome) => {
 })
 
 runWorker.on('failed', (job, err) => {
-  workerLogger.error(
-    {
-      app: 'importsheet',
-      queue: IMPORTSHEET_RUN,
-      jobId: job?.id,
-      importId: job?.data?.importId,
-      attemptsMade: job?.attemptsMade,
-      err,
-    },
-    'Import run job failed',
-  )
+  // AppError → errorCode estruturado (casa com runbook/MCP); senão UNCLASSIFIED.
+  const base = {
+    app: 'importsheet',
+    queue: IMPORTSHEET_RUN,
+    jobId: job?.id,
+    importId: job?.data?.importId,
+    attemptsMade: job?.attemptsMade,
+  }
+  const fields =
+    err instanceof AppError
+      ? appErrorLogFields(err, base)
+      : { ...base, errorCode: 'UNCLASSIFIED', err }
+  workerLogger.error(fields, 'Import run job failed')
 })
 
 // Órfã de crash: `running` com `lastRunAt` velho. 20min dá folga acima do delay
@@ -199,19 +203,20 @@ const schedulerWorker = new Worker(
         },
       )
     }),
-  { connection: redisConnection, concurrency: 1 },
+  { ...bullBaseOptions, concurrency: 1 },
 )
 
 schedulerWorker.on('failed', (job, err) => {
-  workerLogger.error(
-    {
-      app: 'importsheet',
-      queue: IMPORTSHEET_SCHEDULER,
-      jobId: job?.id,
-      err,
-    },
-    'Scheduler tick failed',
-  )
+  const base = {
+    app: 'importsheet',
+    queue: IMPORTSHEET_SCHEDULER,
+    jobId: job?.id,
+  }
+  const fields =
+    err instanceof AppError
+      ? appErrorLogFields(err, base)
+      : { ...base, errorCode: 'UNCLASSIFIED', err }
+  workerLogger.error(fields, 'Scheduler tick failed')
 })
 
 async function bootstrap(): Promise<void> {

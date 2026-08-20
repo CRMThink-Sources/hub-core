@@ -13,6 +13,7 @@ describe('RegisterBizprocRobotAppController', () => {
   it('returns 200 with result', async () => {
     vi.mocked(registerBizprocRobotForApp).mockResolvedValue({
       result: 'created',
+      templateResult: 'created',
     })
 
     const response = await controller.perform(
@@ -21,7 +22,10 @@ describe('RegisterBizprocRobotAppController', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(response.result).toEqual({ result: 'created' })
+    expect(response.result).toEqual({
+      result: 'created',
+      templateResult: 'created',
+    })
   })
 
   it('returns 422 when thinkzap is not installed', async () => {

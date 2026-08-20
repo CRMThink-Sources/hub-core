@@ -4,14 +4,9 @@ import { UpdateGroupPhotoController } from '../presentation/controllers/update-g
 import { makeGroupZApiDeps } from './make-group-z-api-deps'
 
 export const makeUpdateGroupPhotoController = (): Controller => {
-  const { connectorRepository, instanceRepository, zApiClient } =
-    makeGroupZApiDeps()
+  const { getAplicationContext, zApiClient } = makeGroupZApiDeps()
 
-  const service = new UpdateGroupPhotoService(
-    connectorRepository,
-    instanceRepository,
-    zApiClient,
-  )
+  const service = new UpdateGroupPhotoService(getAplicationContext, zApiClient)
 
   return new UpdateGroupPhotoController(service)
 }

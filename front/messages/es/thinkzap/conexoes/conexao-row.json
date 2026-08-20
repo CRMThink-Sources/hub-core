@@ -3,7 +3,20 @@
   "nenhumCanalVinculado": "Ningún canal vinculado",
   "status": {
     "ativo": "Activo",
-    "inativo": "Inactivo"
+    "inativo": "Inactivo",
+    "aguardandoConexao": "Esperando conexión",
+    "cancelado": "Cancelado"
+  },
+  "conexao": {
+    "sucesso": "Número conectado con éxito",
+    "cancelada": "Conexión cancelada",
+    "incompleta": "Meta no devolvió los datos de la conexión. Inténtalo de nuevo.",
+    "semConfiguracao": "La integración de WhatsApp Oficial no está configurada. Contacta al soporte.",
+    "origemNaoAutorizada": "La dirección de esta aplicación no está autorizada en HubMessage. Contacta al soporte."
+  },
+  "provider": {
+    "oficial": "Oficial",
+    "naoOficial": "WhatsApp Web"
   },
   "menu": {
     "configuracoes": "Configuración",
@@ -13,5 +26,17 @@
     "vincularCanal": "Vincular canal",
     "desvincularCanal": "Desvincular canal",
     "cancelarConector": "Cancelar conector"
+  },
+  "semPlano": "Sin plan",
+  "assinar": {
+    "acao": "Suscribir",
+    "comValor": "Suscribir · {{valor}}/{{intervalo}}",
+    "escolherPlano": "Elegir plan",
+    "intervalo": {
+      "monthly": "mes",
+      "quarterly": "trimestre",
+      "semiannual": "semestre",
+      "yearly": "año"
+    }
   }
 }

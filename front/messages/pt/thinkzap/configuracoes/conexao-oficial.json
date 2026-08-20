@@ -1,0 +1,29 @@
+{
+  "titulo": "Conexão",
+  "descricao": "Estado da conexão desta linha com o WhatsApp Oficial.",
+  "descricaoConectado": "Esta linha está conectada ao WhatsApp Oficial.",
+  "descricaoDesconectado": "Conecte o número desta linha à sua conta da Meta.",
+  "instrucao": "Ao conectar, a Meta abre a autenticação da sua conta do WhatsApp Business. Ao final, o número fica ligado a esta linha e os templates passam a funcionar.",
+  "conectar": "Conectar número",
+  "carregando": "Carregando estado...",
+  "erroEstado": "Não foi possível ler o estado da conexão.",
+  "erroEstadoTitulo": "Estado da conexão indisponível",
+  "tentarNovamente": "Tentar novamente",
+  "conectado": "Número conectado.",
+  "conectadoSemWaba": "O número conectou, mas a conta (WABA) não foi registrada nesta linha. Os templates só funcionam depois disso — tente conectar de novo ou fale com o suporte.",
+  "cancelado": "Conexão cancelada.",
+  "semConfiguracao": "A conexão com o WhatsApp Oficial não está configurada nesta instalação. Fale com o suporte.",
+  "origemNaoAutorizada": "Este endereço ({{origem}}) não está autorizado no canal. Fale com o suporte informando esse endereço.",
+  "retornoIncompleto": "A autenticação não devolveu os dados necessários. Tente conectar de novo.",
+  "erroConectar": "Não foi possível conectar o número.",
+  "conectadoHint": "Para trocar o número desta linha, fale com o suporte.",
+  "campos": {
+    "waba": "Conta do WhatsApp Business (WABA)"
+  },
+  "bloqueada": {
+    "trialTitulo": "Período de teste encerrado",
+    "trialDescricao": "Esta linha não conecta mais: o teste acabou. Conectar um número exige uma assinatura ativa.",
+    "inativaTitulo": "Sem assinatura ativa",
+    "inativaDescricao": "Esta linha não conecta enquanto não houver assinatura ativa."
+  }
+}

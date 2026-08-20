@@ -8,6 +8,7 @@ import {
   toDatasetName,
 } from '@/modules/thinkanalise/domain/utils/field-name'
 import { apiLogger } from '@/shared/infra/logger'
+import { thinkanaliseError } from '@/modules/thinkanalise/errors/catalog'
 
 const fieldSchema = z.object({
   name: z.string().min(1),
@@ -51,7 +52,12 @@ export class AddDatasetController extends Controller {
       fields,
     }
 
-    const result = await this.bitrix.datasetAdd(payload)
+    let result
+    try {
+      result = await this.bitrix.datasetAdd(payload)
+    } catch (error) {
+      throw thinkanaliseError('thinkanalise.bitrix.dataset_write_failed', error)
+    }
 
     apiLogger.info(
       { app: 'thinkanalise', sourceId, campos: fields.length },

@@ -3,6 +3,7 @@ import { env } from '@/config/env'
 import { CLICKSIGN_WEBHOOK_EVENTS } from '../clicksign.constants'
 import { ClicksignClient } from '../infra/clients/clicksign.client'
 import { safeErrorMessage } from '../infra/clients/clicksign-error'
+import { logClicksignError } from '../errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 
 export interface TokenWebhook {
@@ -37,9 +38,13 @@ export class WebhookProvisioningService {
           if (result.changed) changed = true
           return result.token
         } catch (error) {
-          apiLogger.error(
-            { app: 'clicksign', err: safeErrorMessage(error) },
-            'Webhook sync falhou para token',
+          logClicksignError(
+            apiLogger,
+            'clicksign.provisioning.webhook_sync_failed',
+            {
+              appId: this.appId,
+              err: safeErrorMessage(error),
+            },
           )
           return token
         }

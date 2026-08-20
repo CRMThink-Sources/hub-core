@@ -1,8 +1,8 @@
 import { env } from '@/config/env'
 import { IBX24MessageDeleteEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
-import { appIdResolver } from '@/modules/auth/presentation/controllers/helpers/app-id-resolver'
-import { PrismaBitrixWebhookContextRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bitrix-webhook-context.repository'
+import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
+import { makeBitrixWebhookContextRepository } from '@/modules/thinkzap/main/make-bitrix-webhook-context-repository'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 
@@ -25,10 +25,10 @@ export async function processBitrixMessageDelete(
     return
   }
 
-  const bitrixWebhookContextRepo = new PrismaBitrixWebhookContextRepository()
+  const bitrixWebhookContextRepo = makeBitrixWebhookContextRepository()
   const context = await bitrixWebhookContextRepo.getContext({
     domainName: event.auth.domain,
-    appCode: appIdResolver[env.appCodes.thinkzap] || '',
+    appCode: resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId ?? '',
     line: event.data.LINE,
   })
 
@@ -48,7 +48,7 @@ export async function processBitrixMessageDelete(
     bitrixMessageId,
   )
 
-  if (!record || !record.zApiMessageId) {
+  if (!record || !record.providerMessageId) {
     log.warn(
       {
         instanceId: context.instance.id,
@@ -67,13 +67,13 @@ export async function processBitrixMessageDelete(
       context.instance.instanceId,
       context.instance.zApiToken || '',
       record.chatId || '',
-      record.zApiMessageId,
+      record.providerMessageId,
     )
     log.info(
       {
         instanceId: context.instance.id,
         bitrixMessageId,
-        zApiMessageId: record.zApiMessageId,
+        zApiMessageId: record.providerMessageId,
         messageDeleted: true,
       },
       'Message deleted via Z-API',
@@ -83,7 +83,7 @@ export async function processBitrixMessageDelete(
       {
         instanceId: context.instance.id,
         bitrixMessageId,
-        zApiMessageId: record.zApiMessageId,
+        zApiMessageId: record.providerMessageId,
         zApiDeleteFailed: true,
         error,
       },

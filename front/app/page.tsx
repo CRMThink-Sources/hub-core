@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { BX24Script } from '../bitrix/bx24-script'
 
 type Connector = {
@@ -28,10 +27,8 @@ const STATUS_COLORS: Record<Connector['status'], string> = {
 }
 
 export default function Home() {
-  const router = useRouter()
   const [connectors, setConnectors] = useState<Connector[]>([])
   const [loading, setLoading] = useState(true)
-  const [quantity, setQuantity] = useState(1)
   const [scriptLoaded, setScriptLoaded] = useState(false)
   useEffect(() => {
     async function fetchConnectors() {
@@ -52,11 +49,6 @@ export default function Home() {
     void fetchConnectors()
   }, [])
 
-  function handleBuy() {
-    if (quantity < 1) return
-    router.push(`/checkout?quantity=${quantity}`)
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-4 sm:p-8">
       <BX24Script onLoad={() => setScriptLoaded(true)} />
@@ -69,31 +61,9 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Comprar conectores */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-sm backdrop-blur-sm">
-          <h2 className="text-lg font-medium text-slate-800">
-            Comprar conectores
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Selecione a quantidade de conectores que deseja adquirir.
-          </p>
-
-          <div className="mt-4 flex items-center gap-3">
-            <input
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={e => setQuantity(Math.max(1, Number(e.target.value)))}
-              className="w-24 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-            />
-            <button
-              onClick={handleBuy}
-              className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:ring-offset-2"
-            >
-              Comprar {quantity} {quantity === 1 ? 'conector' : 'conectores'}
-            </button>
-          </div>
-        </div>
+        {/* O bloco de comprar conectores saiu com a cobrança antiga: levava para
+            `/checkout`, que foi removido junto. A compra volta aqui quando a
+            cobrança nova existir. */}
 
         {/* Tabela de conectores */}
         <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-sm">

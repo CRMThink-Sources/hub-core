@@ -1,0 +1,51 @@
+{
+  "status": {
+    "active": "Active",
+    "past_due": "Payment pending",
+    "cancelled": "Cancelled",
+    "trialing": "Trial"
+  },
+  "modalidade": {
+    "stripe": "Card billing",
+    "manual": "Bank slip billing"
+  },
+  "intervalo": {
+    "monthly": "month",
+    "quarterly": "quarter",
+    "semiannual": "semester",
+    "yearly": "year"
+  },
+  "valorPorIntervalo": "{{valor}} per {{intervalo}}",
+  "vigenteDescricao": "Your subscription is active and renews on {{data}}.",
+  "inadimplenteDescricao": "We could not complete the payment. Your lines stop sending and receiving messages until the charge is settled.",
+  "canceladaDescricao": "Your subscription was cancelled and the period ended on {{data}}. The lines are still here, but they do not send or receive messages.",
+  "manualSemAutoatendimento": "Bank slip billing is handled by our finance team. To change plan, payment method or cancel, contact support.",
+  "gerenciarPagamento": "Manage payment",
+  "abrindoPortal": "Opening...",
+  "contratar": {
+    "titulo": "Subscribe to keep going",
+    "descricao": "Your line sends and receives messages again as soon as the payment is confirmed. Credentials, settings and the linked channel stay as they are.",
+    "escolher": "Subscribe",
+    "redirecionando": "Redirecting..."
+  },
+  "processandoTitulo": "Confirming your payment",
+  "processandoDescricao": "We received your payment and are unlocking your line. This usually takes a few seconds — you can stay on this screen.",
+  "conector": {
+    "ZAPI": "For WhatsApp Web",
+    "HUBMESSAGE": "For Official WhatsApp"
+  },
+  "erroLeituraTitulo": "We could not check your subscription",
+  "erroLeitura": "Error loading the subscription. Please try again.",
+  "erroCheckout": "We could not start the checkout. Please try again.",
+  "erroPortal": "We could not open the billing portal. Please try again.",
+  "checkoutTitulo": "Complete your subscription",
+  "checkoutDescricao": "Fill in your payment details below. Your line starts working again as soon as the payment is confirmed.",
+  "checkoutFechar": "Close",
+  "checkoutErroTitulo": "Could not open the payment form",
+  "checkoutSemChave": "Card payment is not configured in this environment. Contact support.",
+  "tituloContrato": "Your subscription",
+  "umaLinha": "1 line",
+  "variasLinhas": "{{quantidade}} lines",
+  "linhaCriada": "Line created.",
+  "erroCriarLinha": "We could not create the line. Try again."
+}

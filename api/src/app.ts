@@ -7,11 +7,11 @@ import {
   clicksignRoutes,
   thinkerszapRoutes,
   portalRoutes,
+  aplicationRoutes,
 } from './composition-root.js'
 import { makeGoogleOAuthCallbackController } from './modules/importsheet/main/make-google-oauth-controllers.js'
 import cors from 'cors'
 import multer from 'multer'
-import { makeStripeWebhookHandlerController } from './modules/thinkzap/main/stripe-webhook.handler.js'
 import { makeZApiWebhookHandlerController } from './modules/thinkzap/main/z-api-webhook-handle-controller.js'
 import { startCredentialRefreshJob } from './shared/infra/scheduler/credential-refresh.job.js'
 import { adaptControllerFactory } from './shared/main/adapt-controller.js'
@@ -28,6 +28,7 @@ import { makeTablesController } from './modules/thinkanalise/main/callbacks/make
 import { makeDescribeController } from './modules/thinkanalise/main/callbacks/make-describe-controller.js'
 import { makeDataController } from './modules/thinkanalise/main/callbacks/make-data-controller.js'
 import { makeBitrixRobotWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-robot-webhook-controller.js'
+import { makeBitrixTemplateRobotWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-template-robot-webhook-controller.js'
 import {
   bullBoardAuthMiddleware,
   bullBoardRouter,
@@ -36,6 +37,14 @@ import {
 import { apiLogger, resolveLogApp } from './shared/infra/logger.js'
 import { runWithLogContext } from './shared/infra/log-context.js'
 import { randomUUID } from 'node:crypto'
+import { makeHubmessageWebhookHandlerController } from './modules/thinkzap/main/make-hubmessage-webhook-handler-controller.js'
+import { makeStripeWebhookController } from './modules/thinkzap/main/subscription/make-subscription-controllers.js'
+import { makeSpaWebhookController } from './modules/application/main/make-spa-webhook-controller.js'
+import {
+  buildMcpOAuthRouter,
+  isMcpOAuthConfigured,
+  mcpLoginHandler,
+} from './modules/mcp-oauth/main/mcp-oauth.router.js'
 
 const app: Express = express()
 
@@ -80,17 +89,25 @@ app.use(
     maxAge: 86_400,
   }),
 )
-// Webhook do Stripe ANTES do express.json() — precisa do body raw (Buffer) para validar assinatura
-app.post(
-  '/api/webhooks/stripe',
-  express.raw({ type: 'application/json' }),
-  adaptControllerFactory(makeStripeWebhookHandlerController),
-)
 // Webhook Clicksign ANTES do express.json() — raw body p/ validar HMAC.
 app.post(
   '/api/clicksign/webhook/:appId/:ref',
   express.raw({ type: '*/*' }),
   adaptControllerFactory(makeClicksignWebhookController),
+)
+
+/**
+ * Webhook do Stripe, também ANTES do express.json().
+ *
+ * A validação da assinatura do evento é um HMAC sobre os bytes exatos que
+ * chegaram. Registrada depois do parser, o corpo já foi reserializado e a
+ * assinatura falha em **100%** dos eventos — o que aparece como "segredo errado" e
+ * manda procurar no lugar errado. A ordem aqui é a correção, não uma preferência.
+ */
+app.post(
+  '/api/webhooks/stripe',
+  express.raw({ type: '*/*' }),
+  adaptControllerFactory(makeStripeWebhookController),
 )
 
 // JSON parser para as demais rotas (incluindo z-api webhook).
@@ -105,10 +122,38 @@ app.post(
   '/api/webhooks/bitrix',
   adaptControllerFactory(makeBitrixWebhookHandlerController),
 )
+
+app.post(
+  '/api/webhooks/hubmessage',
+  adaptControllerFactory(makeHubmessageWebhookHandlerController),
+)
 app.post(
   '/api/thinkzap/webhooks/bitrix/robot',
   adaptControllerFactory(makeBitrixRobotWebhookHandlerController),
 )
+/**
+ * Robô de envio de **template**. Rota própria e não uma variante da de cima: o
+ * `HANDLER` do robô é o que identifica o disparo no Bitrix, e os dois robôs precisam
+ * de handlers distintos para coexistirem no mesmo portal.
+ *
+ * Tem de bater com `BITRIX_TEMPLATE_ROBOT_HANDLER_URL` — é essa URL que vai no
+ * registro do robô, e um descasamento só aparece no primeiro disparo, como `404`.
+ */
+app.post(
+  '/api/thinkzap/webhooks/bitrix/template-robot',
+  adaptControllerFactory(makeBitrixTemplateRobotWebhookHandlerController),
+)
+
+/**
+ * Webhook de saída das SPAs de billing do portal interno — invalida o cache Redis
+ * do módulo `payments` quando um item é editado à mão no CRM.
+ *
+ * Registrado **depois** do `express.urlencoded({ extended: true })`, ao contrário do
+ * Stripe e do Clicksign: o Bitrix manda formulário com chaves aninhadas
+ * (`data[FIELDS][ID]`), e é o parser que as transforma em objeto. Não há HMAC sobre
+ * o corpo cru a preservar aqui — a autenticação é o `application_token` do payload.
+ */
+app.all('/api/webhooks/spa', adaptControllerFactory(makeSpaWebhookController))
 
 // Clicksign — rotas públicas (POST do robô + event do Bitrix), SEM authMiddleware.
 app.post(
@@ -123,6 +168,16 @@ app.post(
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' })
 })
+
+// Authorization Server OAuth 2.1 do MCP de suporte. Na RAIZ (não sob /api): o
+// claude.ai descobre /.well-known/* e chama /authorize, /token, /register, /revoke
+// direto na origin do issuer. Só monta se as envs (segredo + URLs) existirem.
+if (isMcpOAuthConfigured()) {
+  app.use(buildMcpOAuthRouter())
+  app.post('/mcp-oauth/login', mcpLoginHandler)
+} else {
+  apiLogger.warn('MCP OAuth desabilitado: MCP_JWT_SECRET/URLs não configurados')
+}
 
 if (isBullBoardEnabled) {
   app.use('/api/admin/queues', bullBoardAuthMiddleware, bullBoardRouter)
@@ -160,6 +215,10 @@ app.use('/api/thinkzap', authMiddleware, thinkerszapRoutes)
 app.use('/api/thinkanalise', authMiddleware, thinkanaliseRoutes)
 app.use('/api/importsheet', authMiddleware, importsheetRoutes)
 app.use('/api/clicksign', authMiddleware, clicksignRoutes)
+
+// Transversal, não por app: qualquer instalação com JWT válido consulta o próprio
+// contexto de billing aqui. Quem é a instalação sai do token, não do prefixo.
+app.use('/api/application', authMiddleware, aplicationRoutes)
 
 const audioUploadParser = multer({
   storage: multer.memoryStorage(),

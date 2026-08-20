@@ -6,6 +6,9 @@ import { createListPortalDomainsController } from './main/factories/create-list-
 import { createGetPortalDomainController } from './main/factories/create-get-portal-domain-controller'
 import { createCreatePortalUserController } from './main/factories/create-create-portal-user-controller'
 import { createListPortalUsersController } from './main/factories/create-list-portal-users-controller'
+import { createCreateMcpUserController } from './main/factories/create-create-mcp-user-controller'
+import { createListMcpUsersController } from './main/factories/create-list-mcp-users-controller'
+import { createUpdateMcpUserController } from './main/factories/create-update-mcp-user-controller'
 import { createRegisterAudioImbotAppController } from './main/factories/create-register-audio-imbot-app-controller'
 import { createDeleteAudioImbotAppController } from './main/factories/create-delete-audio-imbot-app-controller'
 import { createRegisterConversationWidgetAppController } from './main/factories/create-register-conversation-widget-app-controller'
@@ -17,17 +20,12 @@ import { createListBizprocRobotsAppController } from './main/factories/create-li
 import { createRegisterSpaWidgetAppController } from './main/factories/create-register-spa-widget-app-controller'
 import { createDeleteSpaWidgetAppController } from './main/factories/create-delete-spa-widget-app-controller'
 import { createListThinkzapInstancesAppController } from './main/factories/create-list-thinkzap-instances-app-controller'
-import { createSubscribeThinkzapInstanceController } from './main/factories/create-subscribe-thinkzap-instance-controller'
-import { createUnsubscribeThinkzapInstanceController } from './main/factories/create-unsubscribe-thinkzap-instance-controller'
-import { createUpdateThinkzapInstanceNameController } from './main/factories/create-update-thinkzap-instance-name-controller'
+import { createListAppSubscriptionsController } from './main/factories/create-list-app-subscriptions-controller'
+import { createSubscribeThinkzapLineController } from './main/factories/create-subscribe-thinkzap-line-controller'
+import { createUnsubscribeThinkzapLineController } from './main/factories/create-unsubscribe-thinkzap-line-controller'
+import { createUpdateThinkzapLineNameController } from './main/factories/create-update-thinkzap-line-name-controller'
 import { createUpdateThinkzapConnectorEventBindsAppController } from './main/factories/create-update-thinkzap-connector-event-binds-app-controller'
-import { createReactivateThinkzapConnectorController } from './main/factories/create-reactivate-thinkzap-connector-controller'
-import { createListSubscriptionsAppController } from './main/factories/create-list-subscriptions-app-controller'
-import { createExtendSubscriptionTrialController } from './main/factories/create-extend-subscription-trial-controller'
-import { createCancelSubscriptionTrialController } from './main/factories/create-cancel-subscription-trial-controller'
-import { createCreateTrialSubscriptionAppController } from './main/factories/create-create-trial-subscription-app-controller'
-import { createCreateSubscriptionAppController } from './main/factories/create-create-subscription-app-controller'
-import { createCancelSubscriptionController } from './main/factories/create-cancel-subscription-controller'
+import { createReactivateThinkzapLineController } from './main/factories/create-reactivate-thinkzap-line-controller'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -63,6 +61,21 @@ export const createPortalRoutes = (
     '/users',
     portalAuthMiddleware,
     adaptControllerFactory(createCreatePortalUserController),
+  )
+  router.get(
+    '/mcp-users',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListMcpUsersController),
+  )
+  router.post(
+    '/mcp-users',
+    portalAuthMiddleware,
+    adaptControllerFactory(createCreateMcpUserController),
+  )
+  router.patch(
+    '/mcp-users/:id',
+    portalAuthMiddleware,
+    adaptControllerFactory(createUpdateMcpUserController),
   )
   router.post(
     '/apps/:appId/audio-imbot',
@@ -119,62 +132,48 @@ export const createPortalRoutes = (
     portalAuthMiddleware,
     adaptControllerFactory(createListThinkzapInstancesAppController),
   )
+  /**
+   * Ações de linha, todas keyed pelo **item de assinatura**: a linha é o item, e as
+   * rows de `Instance`/`Connector` não existem para linha criada na SPA — enquanto as
+   * rotas eram keyed por elas, a tela escondia toda ação justamente nas linhas reais.
+   */
   router.post(
-    '/apps/:appId/thinkzap-instances/:instanceDbId/subscribe',
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/subscribe',
     portalAuthMiddleware,
-    adaptControllerFactory(createSubscribeThinkzapInstanceController),
+    adaptControllerFactory(createSubscribeThinkzapLineController),
   )
   router.post(
-    '/apps/:appId/thinkzap-instances/:instanceDbId/unsubscribe',
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/unsubscribe',
     portalAuthMiddleware,
-    adaptControllerFactory(createUnsubscribeThinkzapInstanceController),
+    adaptControllerFactory(createUnsubscribeThinkzapLineController),
   )
   router.patch(
-    '/apps/:appId/thinkzap-instances/:instanceDbId/name',
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/name',
     portalAuthMiddleware,
-    adaptControllerFactory(createUpdateThinkzapInstanceNameController),
+    adaptControllerFactory(createUpdateThinkzapLineNameController),
   )
   router.patch(
-    '/apps/:appId/thinkzap-connectors/:connectorId/event-binds',
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/event-binds',
     portalAuthMiddleware,
     adaptControllerFactory(
       createUpdateThinkzapConnectorEventBindsAppController,
     ),
   )
   router.patch(
-    '/apps/:appId/thinkzap-connectors/:connectorId/reactivate',
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/reactivate',
     portalAuthMiddleware,
-    adaptControllerFactory(createReactivateThinkzapConnectorController),
+    adaptControllerFactory(createReactivateThinkzapLineController),
   )
+  /**
+   * Listagem de assinaturas, de volta — agora lendo as SPAs 1142/1146 pelo contexto da
+   * instalação, e **somente leitura**. As rotas de escrita da cobrança antiga (criar,
+   * criar trial, estender e cancelar trial, cancelar assinatura) continuam fora: liam e
+   * escreviam `billing_subscriptions`, que saiu do schema.
+   */
   router.get(
     '/apps/:appId/subscriptions',
     portalAuthMiddleware,
-    adaptControllerFactory(createListSubscriptionsAppController),
-  )
-  router.patch(
-    '/apps/:appId/subscriptions/:subscriptionId/trial-end-date',
-    portalAuthMiddleware,
-    adaptControllerFactory(createExtendSubscriptionTrialController),
-  )
-  router.delete(
-    '/apps/:appId/subscriptions/:subscriptionId/trial',
-    portalAuthMiddleware,
-    adaptControllerFactory(createCancelSubscriptionTrialController),
-  )
-  router.post(
-    '/apps/:appId/subscriptions/trial',
-    portalAuthMiddleware,
-    adaptControllerFactory(createCreateTrialSubscriptionAppController),
-  )
-  router.post(
-    '/apps/:appId/subscriptions',
-    portalAuthMiddleware,
-    adaptControllerFactory(createCreateSubscriptionAppController),
-  )
-  router.post(
-    '/apps/:appId/subscriptions/:subscriptionId/cancel',
-    portalAuthMiddleware,
-    adaptControllerFactory(createCancelSubscriptionController),
+    adaptControllerFactory(createListAppSubscriptionsController),
   )
 
   return router

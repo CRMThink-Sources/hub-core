@@ -7,7 +7,7 @@ export type SendWidgetAttachment = {
 }
 
 export type BuildSendWidgetFormDataInput = {
-  connectorId: string
+  subscriptionItemId: string
   destination: string
   message?: string
   entity: string
@@ -20,7 +20,7 @@ export function buildSendWidgetFormData(
 ): FormData {
   const formData = new FormData()
 
-  formData.append('connectorId', input.connectorId)
+  formData.append('subscriptionItemId', input.subscriptionItemId)
   formData.append('destination', input.destination)
   if (input.message?.trim()) {
     formData.append('message', input.message.trim())

@@ -18,6 +18,19 @@ export const env = {
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: process.env.DATABASE_URL ?? '',
   redisUrl: process.env.REDIS_URL ?? '',
+  /**
+   * Prefixo das chaves do BullMQ — o que isola as filas de um ambiente das do outro.
+   *
+   * Sem ele, staging e produção apontando para o mesmo Redis compartilham
+   * `bull:thinkzap-inbound:*`: o worker de staging consome a mensagem de um cliente e
+   * a derruba contra o banco de homologação, e um envio de teste em staging pode ser
+   * entregue pelo worker de produção, com credencial de produção. Aconteceu.
+   *
+   * Default `'bull'` é o próprio default do BullMQ: ambiente que não setar a variável
+   * segue lendo e escrevendo exatamente onde já lia. **Trocar o valor troca de fila** —
+   * o que estiver enfileirado no prefixo antigo fica órfão, então só com fila drenada.
+   */
+  queuePrefix: process.env.QUEUE_PREFIX ?? 'bull',
   bullBoard: {
     enabled: process.env.BULL_BOARD_ENABLED === 'true',
     username: process.env.BULL_BOARD_USERNAME ?? '',
@@ -27,19 +40,41 @@ export const env = {
     process.env.API_URL && process.env.API_URL !== 'undefined'
       ? process.env.API_URL
       : 'https://homolog-hubthink.crmthink.com.br/api',
-  frontUrl: process.env.FRONT_URL ?? '',
+  /**
+   * URL pública do front, para onde serviços externos devolvem o navegador —
+   * retorno de checkout, portal de faturamento e callbacks de OAuth.
+   *
+   * Cai em `APP_URL` quando não definida: no deploy padrão front e api saem do mesmo
+   * host, com `/api/*` roteado para a api, então `APP_URL` já é o endereço do front.
+   * `FRONT_URL` existe para o caso de estarem separados.
+   *
+   * O fallback vive aqui, e não em cada consumidor, porque estava sendo repetido
+   * como `env.frontUrl || env.appUrl` em uns lugares e esquecido em outros — e
+   * esquecer produzia URL relativa, que o gateway recusa longe da causa.
+   */
+  frontUrl: process.env.FRONT_URL ?? process.env.APP_URL ?? '',
   crmthinkWebhookUrl: process.env.CRMTHINK_WEBHOOK_URL ?? '',
+  /**
+   * Application token do webhook de saída das SPAs de billing, copiado da tela do
+   * webhook no portal interno. É o **único** fator de autenticação de
+   * `POST /api/webhooks/spa`: o webhook de saída do Bitrix não assina o corpo, então
+   * não há HMAC a validar como no Stripe.
+   *
+   * Vazio **desabilita** a rota (503). Aceitar o POST por falta de configuração
+   * transformaria a rota num botão público de esvaziar o cache do módulo `payments`.
+   */
+  bitrixSpaWebhookToken: process.env.BITRIX_SPA_WEBHOOK_TOKEN ?? '',
   tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY ?? '',
-  stripe: {
-    secretKey: process.env.STRIPE_SECRET_KEY ?? '',
-    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
-  },
-  /** Price ID do produto ThinkZap (linhas) — mesmo valor que NEXT_PUBLIC_THINKZAP_PRICE_CONNECTORS no front */
-  thinkzapStripePriceId: process.env.THINKZAP_PRICE_CONNECTORS ?? '',
   zApi: {
     partnerToken: process.env.Z_API_PARTNER_TOKEN ?? '',
     clientToken: process.env.Z_API_CLIENT_TOKEN ?? '',
     callbackUrl: process.env.Z_API_CALLBACK_URL ?? '',
+  },
+  hubMessage: {
+    publicKey: process.env.HUBMESSAGE_PUBLIC_KEY ?? '',
+    secretKey: process.env.HUBMESSAGE_SECRET_KEY ?? '',
+    baseUrl: process.env.HUBMESSAGE_BASE_URL ?? 'https://api.hubmessage.io',
+    webhookUrl: process.env.HUBMESSAGE_WEBHOOK_URL ?? '',
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
@@ -104,6 +139,22 @@ export const env = {
       name: process.env.BITRIX_ROBOT_NAME ?? 'ThinkZap Robot',
       handlerUrl: process.env.BITRIX_ROBOT_HANDLER_URL ?? '',
     },
+    /**
+     * Robô de envio de **template aprovado**, separado do de envio livre.
+     *
+     * `handlerUrl` vazio deixa o robô fora do portal — o registro vira no-op, e é
+     * assim que um ambiente sem a rota publicada não cria automação apontando para
+     * `404`. `placementUrl` vazio registra o robô **sem** a tela própria: o Bitrix cai
+     * no formulário nativo sobre as mesmas propriedades, feio mas funcional.
+     */
+    templateRobot: {
+      code: process.env.BITRIX_TEMPLATE_ROBOT_CODE ?? 'thinkzap_template_robot',
+      name:
+        process.env.BITRIX_TEMPLATE_ROBOT_NAME ??
+        'ThinkZap - Enviar template (WhatsApp Oficial)',
+      handlerUrl: process.env.BITRIX_TEMPLATE_ROBOT_HANDLER_URL ?? '',
+      placementUrl: process.env.BITRIX_TEMPLATE_ROBOT_PLACEMENT_URL ?? '',
+    },
     /** false only in local dev (e.g. SSL-inspecting proxy). Set BITRIX_TLS_REJECT_UNAUTHORIZED=false */
     tlsRejectUnauthorized:
       process.env.BITRIX_TLS_REJECT_UNAUTHORIZED !== 'false',
@@ -132,5 +183,83 @@ export const env = {
       code: process.env.CLICKSIGN_ROBOT_CODE ?? 'ENVIAR_DOCUMENTO',
       name: process.env.CLICKSIGN_ROBOT_NAME ?? 'Enviar documento',
     },
+  },
+  payments: {
+    spa: {
+      productEntityType: 1134,
+      planEntityType: 1138,
+      subscriptionEntityType: 1142,
+      /**
+       * SPA de aplicação — o item por instalação de app (domínio + app code),
+       * espelho de `core_apps`. Existe para montar o nome do campo parent
+       * (`parentId1060`) num lugar só, em vez de espalhar a string literal pelo
+       * mapper e pelo repositório.
+       *
+       * Mesmo `entityTypeId` que o onboarding chama de `SPA_CLIENT`
+       * (`shared/domain/config/bitrix.env.ts`): o nome de lá é o vocabulário do
+       * fluxo de instalação e fica como está.
+       */
+      aplicationEntityType: 1060,
+      /**
+       * SPA de itens de assinatura — o que uma assinatura provisiona, na prática
+       * um conector. O vínculo com a assinatura é o campo parent
+       * (`parentId1142`), montado a partir de `subscriptionEntityType`.
+       *
+       * Não tem campo de provider: são dois pares de credenciais, e o
+       * preenchimento diz qual conector é (ver `subscription-item.mapper.ts`).
+       */
+      subscriptionItemEntityType: 1146,
+    },
+    /**
+     * Id do item de plano na SPA de planos (1138) que as assinaturas de trial
+     * referenciam.
+     *
+     * `Subscription.plan` é obrigatório e hidratado por `getPlan`, que lança quando
+     * o item não existe — e essa exceção sobe pela leitura do contexto, derrubando a
+     * lista de linhas da instalação inteira. Por isso é configuração verificada, não
+     * dado criado em runtime: `PlanRepository` é só leitura, e criar plano
+     * automaticamente exigiria abrir escrita de plano **e** de produto.
+     *
+     * Vazio = trial indisponível. A rota de estado reporta isso como motivo próprio,
+     * em vez de deixar a ativação falhar com erro de hidratação.
+     */
+    trialPlanId: process.env.THINKZAP_TRIAL_PLAN_ID ?? '',
+    /**
+     * Credenciais do gateway de pagamento.
+     *
+     * Vazio = contratação self-service indisponível. A modalidade manual
+     * continua funcionando inteira sem isto: ela é criada na SPA por automação
+     * externa, e o runtime lê a SPA. Por isso a ausência não derruba nada — só
+     * fecha o checkout e o portal de faturamento.
+     *
+     * `webhookSecret` é usado para validar a assinatura do evento sobre o corpo
+     * **cru**. Sem ele qualquer um poderia postar um `checkout.session.completed`
+     * forjado e destravar uma linha sem pagar, então o handler recusa o evento
+     * quando o segredo não está configurado.
+     */
+    stripe: {
+      secretKey: process.env.STRIPE_SECRET_KEY ?? '',
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
+    },
+  },
+  /**
+   * Authorization Server OAuth 2.1 do MCP de suporte.
+   * `jwtSecret` é DEDICADO: distinto de JWT_SECRET porque o token do portal é
+   * assinado sem `expiresIn` (nunca expira) — reusar o segredo deixaria um token
+   * de portal eterno ser aceito no /mcp.
+   * URLs sempre de env explícita, nunca de req.host: o issuer entra no `aud` e no
+   * redirect_uri, e host errado faz o claude.ai rejeitar.
+   */
+  mcpOauth: {
+    jwtSecret: process.env.MCP_JWT_SECRET ?? '',
+    /** URL pública do api = issuer OAuth. Ex: https://host/api */
+    issuerUrl: process.env.MCP_OAUTH_ISSUER_URL ?? '',
+    /** URL pública do MCP server (resource). Ex: https://mcp.host */
+    mcpServerUrl: process.env.MCP_SERVER_URL ?? '',
+    accessTokenTtlSeconds: Number(process.env.MCP_ACCESS_TOKEN_TTL ?? 3600),
+    refreshTokenTtlSeconds: Number(
+      process.env.MCP_REFRESH_TOKEN_TTL ?? 60 * 60 * 24 * 30,
+    ),
+    authCodeTtlSeconds: Number(process.env.MCP_AUTH_CODE_TTL ?? 60),
   },
 } as const

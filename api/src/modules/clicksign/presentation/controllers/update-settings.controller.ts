@@ -14,6 +14,7 @@ import {
 } from '../../application/webhook-provisioning.service'
 import { settingsPatchSchema } from './settings-payload.schema'
 import { safeErrorMessage } from '../../infra/clients/clicksign-error'
+import { clicksignError, logClicksignError } from '../../errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 
 export class UpdateSettingsController extends Controller {
@@ -40,7 +41,7 @@ export class UpdateSettingsController extends Controller {
       appCodeId,
       domainId,
     )
-    if (!app) return this.notFound(new Error('App not found'))
+    if (!app) throw clicksignError('clicksign.settings.app_not_found')
 
     // Lê o estado anterior antes do upsert: o front salva tokens sem o campo
     // `webhook` e o upsert sobrescreve o fields inteiro, então recuperamos o
@@ -106,9 +107,11 @@ export class UpdateSettingsController extends Controller {
         fields: { ...fields, tokens: result.tokens },
       })
     } catch (error) {
-      apiLogger.error(
-        { app: 'clicksign', err: safeErrorMessage(error) },
-        'Auto-registro de webhook falhou',
+      logClicksignError(
+        apiLogger,
+        'clicksign.settings.webhook_sync_failed',
+        { appId, err: safeErrorMessage(error) },
+        { level: 'error' },
       )
       return settings
     }
@@ -142,9 +145,11 @@ export class UpdateSettingsController extends Controller {
         buildClicksignRobotUpdateParams(groupOptions, empresaOptions),
       )
     } catch (error) {
-      apiLogger.error(
-        { app: 'clicksign', err: safeErrorMessage(error) },
-        'bizproc.robot.update falhou',
+      logClicksignError(
+        apiLogger,
+        'clicksign.settings.robot_update_failed',
+        { err: safeErrorMessage(error) },
+        { level: 'error' },
       )
     }
   }

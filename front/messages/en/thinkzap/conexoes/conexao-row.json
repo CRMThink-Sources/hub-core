@@ -3,7 +3,20 @@
   "nenhumCanalVinculado": "No channel linked",
   "status": {
     "ativo": "Active",
-    "inativo": "Inactive"
+    "inativo": "Inactive",
+    "aguardandoConexao": "Awaiting connection",
+    "cancelado": "Cancelled"
+  },
+  "conexao": {
+    "sucesso": "Number connected successfully",
+    "cancelada": "Connection cancelled",
+    "incompleta": "Meta did not return the connection data. Try again.",
+    "semConfiguracao": "Official WhatsApp integration is not configured. Contact support.",
+    "origemNaoAutorizada": "This application's address is not authorized in HubMessage. Contact support."
+  },
+  "provider": {
+    "oficial": "Official",
+    "naoOficial": "WhatsApp Web"
   },
   "menu": {
     "configuracoes": "Settings",
@@ -13,5 +26,17 @@
     "vincularCanal": "Link channel",
     "desvincularCanal": "Unlink channel",
     "cancelarConector": "Cancel connector"
+  },
+  "semPlano": "No plan",
+  "assinar": {
+    "acao": "Subscribe",
+    "comValor": "Subscribe · {{valor}}/{{intervalo}}",
+    "escolherPlano": "Choose plan",
+    "intervalo": {
+      "monthly": "month",
+      "quarterly": "quarter",
+      "semiannual": "half-year",
+      "yearly": "year"
+    }
   }
 }

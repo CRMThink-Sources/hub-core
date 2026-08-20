@@ -2,16 +2,17 @@ import { Request } from 'express'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { GetAvailableAppRepository } from '@/shared/domain/repositories/get-available-app.repository'
-import { GetOrCreateDomain } from '@/shared/application/get-or-create-domain'
+import { UpsertDomain } from '@/shared/application/upsert-domain'
 import { GenerateTokenRepository } from '@/shared/data/contracts/generate-token'
 import { resolveBitrixUserAtLogin } from '../../application/resolve-bitrix-user-at-login'
 import z from 'zod'
-import { appIdResolver } from './helpers/app-id-resolver'
+import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
+import { UnknownAppError } from '@/shared/app-catalog/errors/unknown-app.error'
 
 export class LoginController extends Controller {
   constructor(
     private readonly getAvailableAppRepository: GetAvailableAppRepository,
-    private readonly getOrCreateDomain: GetOrCreateDomain,
+    private readonly upsertDomain: UpsertDomain,
     private readonly generateToken: GenerateTokenRepository,
   ) {
     super()
@@ -49,17 +50,23 @@ export class LoginController extends Controller {
       bitrix_user_email,
       bitrix_department_ids,
     } = params.data
-    const appId = appIdResolver[app_code]
-    if (!appId) {
-      return this.notFound(new Error('App ID not found'))
+    /**
+     * O catálogo é a única fonte de "qual app é esta". Antes de qualquer
+     * escrita: code fora do catálogo não vira domínio nem token.
+     */
+    const catalogEntry = resolveByMarketplaceCode(app_code)
+    if (!catalogEntry) {
+      return this.notFound(new UnknownAppError(app_code))
     }
-    const availableApp = await this.getAvailableAppRepository.getById(appId)
+    const availableApp = await this.getAvailableAppRepository.getById(
+      catalogEntry.appCodeId,
+    )
 
     if (!availableApp) {
       return this.notFound(new Error('Available app not found'))
     }
 
-    const domainEntity = await this.getOrCreateDomain.execute({
+    const domainEntity = await this.upsertDomain.execute({
       name: domain,
       memberId: member_id,
     })
@@ -89,9 +96,21 @@ export class LoginController extends Controller {
       bitrixDepartmentIds: bitrixUser.bitrixDepartmentIds,
     })
 
+    /**
+     * A identidade da app sai junto do token para que o cliente não precise de
+     * mapa nenhum: `slug` diz para onde abrir, `appCode` é a chave de storage
+     * do token, e `requiresOperatorOAuth` substitui a condicional por nome de
+     * app que existia no front. Ver spec `app-login-identity`.
+     */
     return {
       result: {
         token,
+        app: {
+          appCode: catalogEntry.appCode,
+          appCodeId: catalogEntry.appCodeId,
+          slug: catalogEntry.slug,
+          requiresOperatorOAuth: catalogEntry.requiresOperatorOAuth,
+        },
       },
       status: 201,
     }

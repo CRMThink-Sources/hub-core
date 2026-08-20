@@ -1,5 +1,5 @@
 import type { PrismaThinkzapOperatorOAuthRepository } from '../infra/persistence/prisma-thinkzap-operator-oauth.repository'
-import { resolveBitrixTokenExpiresAt } from './resolve-bitrix-token-expires-at'
+import { resolveBitrixTokenExpiresAt } from '@/shared/application/resolve-bitrix-token-expires-at'
 
 export type UpsertOperatorBitrixOAuthInput = {
   appId: string

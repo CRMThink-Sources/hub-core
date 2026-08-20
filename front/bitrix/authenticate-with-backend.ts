@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getAppRedirectUrl } from '@/app/config/app-redirects'
+import type { ResolvedApp } from '@/shared/app/app-codes'
 import { envConfig } from '@/shared/infra/env-config'
 import {
   fetchAppInfoFromCallMethod,
@@ -7,21 +7,54 @@ import {
   getBitrixAppInfoFromUrl,
 } from './app-info'
 
+/**
+ * Contexto do Bitrix já resolvido durante a autenticação. Sai no resultado para
+ * que o chamador possa registrar o OAuth do operador sem recomputar nada.
+ */
+export type BitrixAuthContext = {
+  domain: string
+  bitrixUserId: string
+  accessToken: string
+  refreshToken?: string
+  expiresIn?: number
+}
+
 export type BitrixBackendAuthSuccess = {
   ok: true
   token: string
-  appCode: string
-  storageAuthTokenKey: string
+  /** Identidade resolvida pelo backend — o front não decide nada aqui. */
+  app: ResolvedApp
+  bitrix: BitrixAuthContext
 }
+
+export type BitrixBackendAuthFailureReason =
+  /** Página aberta fora do iframe do Bitrix (sem `DOMAIN` na URL). */
+  | 'outside-bitrix'
+  /** `BX24.getAuth()` não devolveu credencial. */
+  | 'missing-bitrix-auth'
+  /** `app.info` falhou ou não devolveu `CODE`. */
+  | 'app-info-unavailable'
+  /** Nem `user.current` nem a URL identificaram o usuário. */
+  | 'unknown-bitrix-user'
+  /** Backend não reconhece a app (`404` do catálogo). */
+  | 'unknown-app'
+  /** Qualquer outra falha do `POST /auth`. */
+  | 'backend-error'
 
 export type BitrixBackendAuthFailure = {
   ok: false
+  reason: BitrixBackendAuthFailureReason
   error: string
 }
 
 export type BitrixBackendAuthResult =
   | BitrixBackendAuthSuccess
   | BitrixBackendAuthFailure
+
+const fail = (
+  reason: BitrixBackendAuthFailureReason,
+  error: string,
+): BitrixBackendAuthFailure => ({ ok: false, reason, error })
 
 function extractBackendErrorMessage(data: unknown): string | undefined {
   if (!data || typeof data !== 'object') return undefined
@@ -34,18 +67,38 @@ function extractBackendErrorMessage(data: unknown): string | undefined {
   return payload.error?.message ?? payload.result?.error
 }
 
+/** Shape mínimo esperado de `result.app`. Sem ele o login não sabe para onde ir. */
+function parseResolvedApp(raw: unknown): ResolvedApp | null {
+  if (!raw || typeof raw !== 'object') return null
+  const app = raw as Partial<ResolvedApp>
+  if (!app.appCode || !app.appCodeId || !app.slug) return null
+  return {
+    appCode: app.appCode,
+    appCodeId: app.appCodeId,
+    slug: app.slug,
+    requiresOperatorOAuth: app.requiresOperatorOAuth === true,
+  }
+}
+
+/**
+ * Autentica no backend e devolve token + identidade da app.
+ *
+ * **Não grava token, não redireciona e não chama `bitrix-oauth`.** Quem chama
+ * decide isso a partir de `app` — é o que mantém o fluxo sem condicional por
+ * nome de aplicação. Ver spec `app-login-redirect`.
+ */
 export async function authenticateBitrixWithBackend(): Promise<BitrixBackendAuthResult> {
   const urlInfo = getBitrixAppInfoFromUrl()
   if (!urlInfo.domain) {
-    return { ok: false, error: 'Domínio Bitrix24 não encontrado na URL.' }
+    return fail('outside-bitrix', 'Domínio Bitrix24 não encontrado na URL.')
   }
 
   const auth = window.BX24?.getAuth?.()
   if (!auth || typeof auth === 'boolean') {
-    return {
-      ok: false,
-      error: 'Não foi possível obter o token de autenticação do Bitrix24.',
-    }
+    return fail(
+      'missing-bitrix-auth',
+      'Não foi possível obter o token de autenticação do Bitrix24.',
+    )
   }
 
   let appCode = ''
@@ -53,17 +106,17 @@ export async function authenticateBitrixWithBackend(): Promise<BitrixBackendAuth
     const appInfoData = await fetchAppInfoFromCallMethod()
     appCode = appInfoData?.CODE ?? ''
   } catch {
-    return {
-      ok: false,
-      error: 'Não foi possível obter o código do app (app.info).',
-    }
+    return fail(
+      'app-info-unavailable',
+      'Não foi possível obter o código do app (app.info).',
+    )
   }
 
   if (!appCode) {
-    return {
-      ok: false,
-      error: 'Não foi possível obter o código do app (app.info).',
-    }
+    return fail(
+      'app-info-unavailable',
+      'Não foi possível obter o código do app (app.info).',
+    )
   }
 
   let currentUser
@@ -79,10 +132,10 @@ export async function authenticateBitrixWithBackend(): Promise<BitrixBackendAuth
     urlInfo.urlParams?.USER_ID
 
   if (!bitrixUserId) {
-    return {
-      ok: false,
-      error: 'Não foi possível identificar o usuário do Bitrix24.',
-    }
+    return fail(
+      'unknown-bitrix-user',
+      'Não foi possível identificar o usuário do Bitrix24.',
+    )
   }
 
   const isBitrixAdmin = Boolean(window.BX24?.isAdmin?.())
@@ -115,57 +168,71 @@ export async function authenticateBitrixWithBackend(): Promise<BitrixBackendAuth
         extractBackendErrorMessage(err.response?.data) ??
         err.message ??
         'Falha ao autenticar no backend.'
-      return { ok: false, error: message }
+      // `404` no login é sempre app fora do catálogo — o backend responde antes
+      // de qualquer leitura de instalação.
+      const reason =
+        err.response?.status === 404 ? 'unknown-app' : 'backend-error'
+      return fail(reason, message)
     }
 
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : 'Erro ao autenticar.',
-    }
+    return fail(
+      'backend-error',
+      err instanceof Error ? err.message : 'Erro ao autenticar.',
+    )
   }
 
-  const thinkzapCodes = [
-    envConfig.appCodes.thinkzap,
-    'crmthink.thinkzap',
-  ].filter(Boolean)
+  const result = response.data?.result as
+    | { token?: string; app?: unknown }
+    | undefined
+  const token = result?.token
+  const app = parseResolvedApp(result?.app)
 
-  if (thinkzapCodes.includes(appCode) && auth.refresh_token) {
-    try {
-      await axios.post(`${envConfig.apiUrl}/auth/bitrix-oauth`, {
-        domain: urlInfo.domain,
-        app_code: appCode,
-        bitrix_user_id: bitrixUserId,
-        access_token: auth.access_token,
-        refresh_token: auth.refresh_token,
-        expires_in: auth.expires_in,
-      })
-    } catch (oauthErr) {
-      console.warn('Falha ao salvar OAuth do operador:', oauthErr)
-    }
+  if (!token) {
+    return fail(
+      'backend-error',
+      extractBackendErrorMessage(response.data) ??
+        'Falha ao autenticar no backend.',
+    )
   }
 
-  const dataRedirect = getAppRedirectUrl(appCode)
-  if (!dataRedirect) {
-    return {
-      ok: false,
-      error: `Aplicação não configurada para o app: ${appCode}`,
-    }
-  }
-
-  const authToken = response.data?.result?.token
-  const errorMessage = extractBackendErrorMessage(response.data)
-
-  if (!authToken) {
-    return {
-      ok: false,
-      error: errorMessage ?? 'Falha ao autenticar no backend.',
-    }
+  if (!app) {
+    return fail(
+      'unknown-app',
+      'O backend não devolveu a identidade da aplicação.',
+    )
   }
 
   return {
     ok: true,
-    token: authToken,
-    appCode,
-    storageAuthTokenKey: dataRedirect.storageAuthTokenKey,
+    token,
+    app,
+    bitrix: {
+      domain: urlInfo.domain,
+      bitrixUserId,
+      accessToken: auth.access_token,
+      refreshToken: auth.refresh_token,
+      expiresIn: auth.expires_in,
+    },
   }
+}
+
+/**
+ * Registra o refresh token do operador. Chamada apenas para apps que declaram
+ * `requiresOperatorOAuth`; a falha não bloqueia o login — a app funciona sem o
+ * OAuth de operador, só perde o envio em nome do usuário.
+ */
+export async function registerOperatorOAuth(
+  appCode: string,
+  bitrix: BitrixAuthContext,
+): Promise<void> {
+  if (!bitrix.refreshToken) return
+
+  await axios.post(`${envConfig.apiUrl}/auth/bitrix-oauth`, {
+    domain: bitrix.domain,
+    app_code: appCode,
+    bitrix_user_id: bitrix.bitrixUserId,
+    access_token: bitrix.accessToken,
+    refresh_token: bitrix.refreshToken,
+    expires_in: bitrix.expiresIn,
+  })
 }

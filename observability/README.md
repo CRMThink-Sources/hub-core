@@ -37,14 +37,24 @@ Logs do front (não JSON) não recebem esses labels. Logs **anteriores ao deploy
 
 ## Logs coletados
 
-O Promtail coleta logs de containers Docker com os nomes:
+O Promtail coleta por **padrão de nome**, não por lista fixa: o regex é
+`/hubthink-(api|worker|front).*`, com ou sem sufixo `-staging`.
 
-- `hubthink-api`
-- `hubthink-api-staging`
-- `hubthink-worker`
-- `hubthink-worker-staging`
-- `hubthink-front`
-- `hubthink-front-staging`
+Na prática, hoje:
+
+| Container                          | Conteúdo                                            |
+| ---------------------------------- | --------------------------------------------------- |
+| `hubthink-api`                     | API HTTP e webhooks                                  |
+| `hubthink-worker`                  | Fila de inbound do ThinkZap                          |
+| `hubthink-worker-widget-outbound`  | **Entrega da mensagem enviada pelo widget** e canal aberto |
+| `hubthink-worker-spa-provisioning` | Provisionamento de linha na SPA                      |
+| `hubthink-worker-spa-resource-sync`| Sincronização item ↔ recurso                        |
+| `hubthink-worker-clicksign`        | Fila do Clicksign                                    |
+| `hubthink-front`                   | Next.js (logs não-JSON, sem `app`/`source`)          |
+
+> **Ao criar um worker novo, o nome do container precisa começar com `hubthink-worker`.**
+> Fora dessa convenção, os logs não são coletados e **nada avisa** — não há erro em
+> lugar nenhum, o container simplesmente não aparece no Loki.
 
 ## Queries no Explore (Grafana)
 
@@ -64,6 +74,127 @@ O Promtail coleta logs de containers Docker com os nomes:
 # Fallback sem label (logs antigos)
 {job="docker", container="hubthink-api-staging"} |= "/api/thinkzap"
 ```
+
+## Diagnosticar um envio pelo widget
+
+O envio de texto pelo widget é **enfileirado**: a API responde `202` e a entrega
+acontece no worker. Quando alguém pergunta "mandei e não chegou", a investigação é
+sobre o ciclo de vida do job, não sobre a requisição.
+
+O `jobId` é determinístico (`widget-send:<outboxId>`), então ele devolve a história
+inteira de **uma** mensagem:
+
+```logql
+# Tudo que aconteceu com uma mensagem
+{job="docker", container=~"hubthink-worker-widget-outbound.*"}
+  | json | jobId = "widget-send:<outboxId>"
+```
+
+A sequência esperada é `started` → `Despachando intenção` → `entregue ao provider` →
+`completed`. O que falta diz o que houve:
+
+| Sintoma no log                              | O que aconteceu                                        |
+| ------------------------------------------- | ------------------------------------------------------ |
+| Nenhuma linha                                | Job nunca chegou ao worker — worker parado ou não enfileirado |
+| `started` sem `completed`/`failed`           | Travou no meio; procure `stalled`                      |
+| `stalled: true`                              | Processo morreu ou passou do lock; vira `UNKNOWN` no outbox |
+| `failed` com `willRetry: true`               | Vai tentar de novo — **não** é mensagem perdida        |
+| `failed` com `willRetry: false`              | Desistiu; operador avisado na timeline                 |
+| `waitMs` alto                                | Fila represada — problema nosso (worker sem vazão)     |
+| `runMs` alto                                 | Provider ou Bitrix lentos — problema de terceiro       |
+| `alreadyDelivered: true`                     | Retomada de efeitos colaterais; o provider **não** foi chamado de novo |
+
+```logql
+# Envios que desistiram (operador foi avisado na timeline)
+{job="docker", app="thinkzap"} | json | errorCode = "thinkzap.message.widget_send_exhausted"
+
+# Entrega indeterminada — não é reenviada de propósito
+{job="docker", app="thinkzap"} | json | errorCode = "thinkzap.message.widget_send_unknown"
+
+# Jobs travados
+{job="docker", container=~"hubthink-worker-widget-outbound.*"} | json | stalled = "true"
+
+# Worker sem conseguir falar com o Redis
+{job="docker", container=~"hubthink-worker-widget-outbound.*"} |= "Widget outbound worker error"
+```
+
+Se o log não tiver nada, o estado está no banco:
+
+```sql
+SELECT status, COUNT(*) FROM core_thinkerszap_widget_outbox GROUP BY status;
+```
+
+### "O widget disse que enviou e não chegou no telefone"
+
+O passo que separa **nosso problema** do problema do provider é descobrir se a Z-API
+aceitou o envio e com qual id:
+
+```logql
+{job="docker", app="thinkzap"} | json | operation =~ "send.*" | phone = "5511999999999"
+```
+
+A linha `Z-API aceitou o envio` traz `zaapId`, `messageId` e `zApiId`.
+
+**Aceite não é entrega.** Ele significa só "recebi a ordem de enviar"; a entrega ao
+aparelho é assíncrona e chega depois pelo `MessageStatusCallback`. Então:
+
+| O que o log mostra                          | Conclusão                                              |
+| ------------------------------------------- | ------------------------------------------------------ |
+| Nenhuma linha `Z-API aceitou o envio`        | A chamada nunca aconteceu ou falhou — **problema nosso** |
+| Aceitou, com `messageId`                     | Saiu daqui. Consultar o `messageId` no painel da Z-API — **problema do provider ou do número** |
+| Aceitou, com `missingMessageId: true`        | `200` sem id: a Z-API respondeu de forma inesperada. O `providerMessageId` vai nulo na persistência |
+
+Causas comuns quando a Z-API aceita e o aparelho não recebe: número sem WhatsApp,
+número com o 9º dígito errado, ou instância desconectada logo após o aceite.
+
+### Logs de provider (Z-API e HubMessage)
+
+Os dois clients são instrumentados por interceptor de axios, então **toda** chamada é
+registrada — não só envio.
+
+```logql
+# Toda falha de provider, com o corpo da resposta (é onde está o motivo real)
+{job="docker", app="thinkzap"} | json | provider =~ "ZAPI|HUBMESSAGE" |= "Provider falhou"
+
+# Só HubMessage (WhatsApp Oficial)
+{job="docker", app="thinkzap"} | json | provider = "HUBMESSAGE"
+```
+
+Campos:
+
+| Campo        | Para que serve                                                        |
+| ------------ | --------------------------------------------------------------------- |
+| `status`     | Código HTTP. Ausente = não houve resposta                              |
+| `response`   | **Corpo da resposta** — onde a Z-API diz "número não existe no WhatsApp" e a HubMessage diz "fora da janela de 24h" |
+| `noResponse` | `true` = timeout/DNS/conexão. Num envio, é a diferença entre recusado e **indeterminado** |
+| `durationMs` | Latência da chamada                                                   |
+| `url`        | Caminho **com o token mascarado**                                      |
+
+Sucesso sai em `debug` para não gerar uma linha por chamada no volume normal; **falha
+sai sempre em `error`**. Para investigar a fundo, suba `LOG_LEVEL` para `debug` e as
+requisições bem-sucedidas passam a aparecer com corpo de resposta e duração.
+
+> **Credencial nunca é logada.** A Z-API põe o token no caminho da URL e ele é mascarado
+> (`/token/***`); headers não são registrados em nenhum dos dois. Corpo de requisição
+> também não — é a mensagem do cliente final e, em mídia, base64 de dezenas de MB; só o
+> tamanho (`requestBytes`) entra. Resposta acima de 2000 chars vira o tamanho, para não
+> despejar QR code no Loki.
+
+### Qual caminho entregou a mensagem?
+
+Nem todo envio do widget passa pela fila, e isso muda onde procurar:
+
+```logql
+# Entregue dentro do request (anexo e template)
+{job="docker", app="thinkzap"} | json | deliveryPath = "sync"
+```
+
+- Achou `deliveryPath: sync` → foi anexo ou template. **Não existe job de envio**, e o
+  único job na fila é o de abertura de conversa.
+- Não achou → foi texto, entregue pelo worker. Procure o job `widget-send:<outboxId>`.
+
+Um job de `open-channel` sozinho, sem job de envio, significa caminho síncrono. A
+primeira linha dele traz o `providerMessageId` para continuar a investigação acima.
 
 ## Campos úteis para filtro (JSON)
 

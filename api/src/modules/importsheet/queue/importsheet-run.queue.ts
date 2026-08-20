@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq'
-import { redisConnection } from '@/queue/redis-connection'
+import { bullBaseOptions } from '@/queue/redis-connection'
 import { apiLogger } from '@/shared/infra/logger'
 import { getLogContext } from '@/shared/infra/log-context'
 
@@ -20,9 +20,7 @@ export type EnqueueImportRunOptions = {
 
 export const importSheetRunQueue = new Queue<ImportSheetRunJob>(
   IMPORTSHEET_RUN,
-  {
-    connection: redisConnection,
-  },
+  bullBaseOptions,
 )
 
 /**

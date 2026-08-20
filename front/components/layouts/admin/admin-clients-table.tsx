@@ -63,10 +63,20 @@ export function AdminClientsTable({ domains, hasSearch }: Props) {
                     {domain.apps.map(app => (
                       <span
                         key={app.id}
-                        className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                        className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
                         title={app.appCode}
                       >
-                        {app.appName}
+                        {/* Título do espelho da SPA 1060 — o mesmo que o tenant vê. */}
+                        {app.title}
+                        {/* Sem espelho, criar assinatura é impossível: vale marcar. */}
+                        {app.spaId === null ? (
+                          <span
+                            className="text-amber-700 dark:text-amber-400"
+                            title={t('appNoMirrorHint')}
+                          >
+                            {t('appNoMirror')}
+                          </span>
+                        ) : null}
                       </span>
                     ))}
                   </div>

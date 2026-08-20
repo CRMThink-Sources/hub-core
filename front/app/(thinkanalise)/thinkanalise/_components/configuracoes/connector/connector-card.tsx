@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ChevronDownIcon, PlusIcon } from 'lucide-react'
 import { PROVIDERS } from '../constants'
-import { useSession } from '@/providers/session-provider'
+import { useAplication } from '@/providers/aplication-provider'
 import type { Connection, Source } from '../../types'
 import { axiosThinkanalise } from '../../../_lib/thinkanalise-client'
 import { SourceCard, NewSourceCard } from '../source/source-card'
@@ -55,10 +55,12 @@ export function ConnectorCard({
   isOpen,
   onToggle,
 }: Props) {
-  const { session } = useSession()
+  const aplication = useAplication()
   const { t } = useTranslation('thinkanalise/configuracoes/connector')
   const BLOCKED_DOMAIN_ID = '9c8d9dca-db2d-4978-93ca-fc28ba6017d7' // domainId do cliente https://bmd.bitrix24.com.br/
-  const isBlocked = session?.app?.domainId === BLOCKED_DOMAIN_ID // bloquando para o cliente apenas usar connectores asaas
+  // `customer.id` é o id de `core_domains` — o mesmo valor que vinha em
+  // `session.app.domainId`.
+  const isBlocked = aplication?.customer.id === BLOCKED_DOMAIN_ID // bloquando para o cliente apenas usar connectores asaas
   const availableProviders = isBlocked
     ? PROVIDERS.filter(p => p.value === 'asaas')
     : PROVIDERS

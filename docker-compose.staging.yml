@@ -19,6 +19,39 @@ services:
       - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/workers/thinkzap-inbound.worker.js"]
 
+  # Outbound do widget: entrega da mensagem do operador e abertura da conversa no
+  # canal aberto. Processo próprio desde que a fila passou a carregar entrega — um
+  # envio lento não pode segurar slot de mensagem recebida. Ver produção.
+  worker-widget-outbound:
+    image: ghcr.io/crmthink-sources/hub-core-api:staging
+    container_name: hubthink-worker-widget-outbound-staging
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "dist/src/workers/thinkzap-widget-outbound.worker.js"]
+
+  worker-spa-provisioning:
+    image: ghcr.io/crmthink-sources/hub-core-api:staging
+    container_name: hubthink-worker-spa-provisioning-staging
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "dist/src/workers/spa-item-provisioning.worker.js"]
+
+  # Limpeza do item apagado e sincronização de status do recurso. Processo próprio, e
+  # separado do de provisionamento: o volume é outro — toda edição de campo do item da
+  # SPA 1146 gera um evento aqui.
+  worker-spa-resource-sync:
+    image: ghcr.io/crmthink-sources/hub-core-api:staging
+    container_name: hubthink-worker-spa-resource-sync-staging
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "dist/src/workers/spa-item-resource-sync.worker.js"]
+
   worker-clicksign:
     image: ghcr.io/crmthink-sources/hub-core-api:staging
     container_name: hubthink-worker-clicksign-staging
@@ -35,3 +68,14 @@ services:
       - "3001:3000"
     env_file:
       - ./front/.env
+
+  # PORT dentro do container fica sempre 3200; host expõe 3201 no staging
+  mcp:
+    image: ghcr.io/crmthink-sources/hub-core-mcp:staging
+    container_name: hubthink-mcp-staging
+    ports:
+      - "3201:3200"
+    env_file:
+      - ./mcp/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

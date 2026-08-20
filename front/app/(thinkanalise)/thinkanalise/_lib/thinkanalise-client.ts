@@ -1,12 +1,14 @@
 import { envConfig } from '@/shared/infra/env-config'
 import axios from 'axios'
+import { APP_CODES } from '@/shared/app/app-codes'
+import { appTokenKey } from '@/shared/auth/app-token-storage'
 
 /**
  * Client HTTP do ThinkAnalise. Co-localizado no app (mesmo padrão do
  * ThinkZap em `_lib/thinkzap-client.ts`): instancia `axios` com o token de
  * sessão e desembrulha `result`/`result.error` da resposta da API.
  */
-export const AUTH_TOKEN_KEY = 'hubthink_auth_token'
+export const AUTH_TOKEN_KEY = appTokenKey(APP_CODES.thinkanalise)
 
 export const axiosThinkanalise = (authTokenKey = AUTH_TOKEN_KEY) => {
   const token = sessionStorage.getItem(authTokenKey)

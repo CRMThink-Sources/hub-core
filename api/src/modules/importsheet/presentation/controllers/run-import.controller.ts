@@ -8,6 +8,7 @@ import {
   isImportRunInFlight,
 } from '../../queue/importsheet-run.queue'
 import { apiLogger } from '@/shared/infra/logger'
+import { logImportsheetError } from '../../errors/catalog'
 
 export class RunImportController extends Controller {
   constructor(
@@ -37,6 +38,12 @@ export class RunImportController extends Controller {
     // `enabled` só vale pra agendada — manual roda sob demanda, ignora pausa.
     // Agendada pausada: worker faria `skipped` calado → barra aqui (UX não mente).
     if (found.scheduleMode !== 'MANUAL' && !found.enabled) {
+      // Log carrega o errorCode; resposta mantém a msg imperativa pro usuário.
+      logImportsheetError(apiLogger, 'importsheet.run.paused', {
+        app: 'importsheet',
+        appId: app.id,
+        importId: id,
+      })
       return this.conflict(
         new Error('Importação pausada — ative antes de rodar manualmente'),
       )
@@ -45,6 +52,10 @@ export class RunImportController extends Controller {
     // Já tem run pendente/ativo na fila → não reenfileira (jobId fixo dedupa,
     // mas barramos antes pra UX não mentir um "enfileirada" falso).
     if (await isImportRunInFlight(id)) {
+      logImportsheetError(apiLogger, 'importsheet.run.in_flight', {
+        appId: app.id,
+        importId: id,
+      })
       return this.conflict(
         new Error('Importação já está na fila ou em execução'),
       )

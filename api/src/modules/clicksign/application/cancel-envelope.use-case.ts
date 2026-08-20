@@ -1,6 +1,7 @@
 import type { ClickSignSettings } from '../domain/repositories/clicksign-settings.repository'
 import { ClicksignClient } from '../infra/clients/clicksign.client'
 import { ClicksignApiError } from '../infra/clients/clicksign-error'
+import { logClicksignError } from '../errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 import { buildCancelActivityCard } from './build-activity-card'
 import {
@@ -50,6 +51,11 @@ export class CancelEnvelopeUseCase {
       )
       canceled = res.status === 'canceled'
     } catch (error) {
+      logClicksignError(apiLogger, 'clicksign.document.cancel_failed', {
+        dealId,
+        envelopeKey,
+        err: errorMessage(error),
+      })
       await this.comment(
         bitrix,
         dealId,
@@ -59,6 +65,10 @@ export class CancelEnvelopeUseCase {
     }
 
     if (!canceled) {
+      logClicksignError(apiLogger, 'clicksign.document.cancel_not_confirmed', {
+        dealId,
+        envelopeKey,
+      })
       await this.comment(bitrix, dealId, 'Erro ao tentar cancelar documento')
       return
     }
@@ -146,7 +156,7 @@ function parseOriginId(raw: string): { group?: string; envelopeKey?: string } {
 }
 
 function errorMessage(error: unknown): string {
-  if (error instanceof ClicksignApiError) return error.message
+  if (error instanceof ClicksignApiError) return error.providerMessage
   if (error instanceof Error) return error.message
   return 'erro desconhecido'
 }
