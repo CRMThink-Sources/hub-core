@@ -247,11 +247,7 @@ export class ProcessZApiInboundMessageUseCase {
     const outgoingMessageId = event.messageId
     const baseText = event.contact
       ? buildContactText(event.contact)
-      : event.image
-        ? event.image.caption
-        : event.video
-          ? event.video.caption
-          : event.text?.message || ''
+      : resolveInboundText(event)
 
     const { text, cached, replyLookupFailed } = await this.applyReplyContext(
       event,
@@ -390,14 +386,7 @@ export class ProcessZApiInboundMessageUseCase {
         ] ?? '')
       : event.contact
         ? `[b]${event.senderName}[/b]:\n${buildContactText(event.contact)}`
-        : '[b]' +
-          event.senderName +
-          '[/b]:\n' +
-          (event.image
-            ? event.image.caption
-            : event.video
-              ? event.video.caption
-              : event.text?.message || '')
+        : '[b]' + event.senderName + '[/b]:\n' + resolveInboundText(event)
 
     const { text, cached, replyLookupFailed } = await this.applyReplyContext(
       event,
@@ -589,6 +578,25 @@ async function resolveBitrixMessageId(
     )
   }
   return bitrixMessageId
+}
+
+/**
+ * Texto da mensagem do contato: a mensagem em si, ou a **legenda** quando vem
+ * junto de mídia. O arquivo sai por `buildMessageFiles`; isto é só o texto.
+ *
+ * `document.caption` faltava aqui — documento com comentário chegava ao canal
+ * aberto como arquivo sem texto, e o que o contato escreveu era descartado em
+ * silêncio. Áudio e sticker não têm legenda no WhatsApp, por isso não aparecem.
+ *
+ * Uma função só, e não a cadeia de ternários repetida no privado e no grupo:
+ * eram duas cópias, e a do grupo tinha o mesmo furo — corrigir uma deixaria a
+ * outra para trás.
+ */
+function resolveInboundText(event: ReceivedMessageEvent): string {
+  if (event.image) return event.image.caption || ''
+  if (event.video) return event.video.caption || ''
+  if (event.document) return event.document.caption || ''
+  return event.text?.message || ''
 }
 
 function buildMessageFiles(

@@ -132,6 +132,15 @@ describe('buildReplyQuote', () => {
     expect(buildReplyQuote(cached)).toBe('>>📎 contrato.pdf')
   })
 
+  it('builds quote for document with caption', () => {
+    const cached: ThinkzapMessageQuoteInput = {
+      type: 'DOCUMENT',
+      fileName: 'contrato.pdf',
+      text: 'segue o contrato',
+    }
+    expect(buildReplyQuote(cached)).toBe('>>📎 contrato.pdf: segue o contrato')
+  })
+
   it('builds quote for document without fileName', () => {
     expect(buildReplyQuote({ type: 'DOCUMENT' })).toBe('>>📎 Documento')
   })
@@ -305,7 +314,24 @@ describe('extractQuoteInput', () => {
     })
     expect(extractQuoteInput(event)).toEqual({
       type: 'DOCUMENT',
+      text: undefined,
       fileName: 'contrato.pdf',
+    })
+  })
+
+  it('extracts document with caption', () => {
+    const event = makeEvent({
+      document: {
+        documentUrl: '',
+        fileName: '5479 - Termo ERP + LGPD.pdf',
+        mimeType: 'application/pdf',
+        caption: 'Testando envio de documento com texto',
+      },
+    })
+    expect(extractQuoteInput(event)).toEqual({
+      type: 'DOCUMENT',
+      text: 'Testando envio de documento com texto',
+      fileName: '5479 - Termo ERP + LGPD.pdf',
     })
   })
 

@@ -59,6 +59,14 @@ export type ReceivedMessageEvent = {
     documentUrl: string
     fileName: string
     mimeType: string
+    /**
+     * Legenda do documento. Faltava aqui, e por isso o texto que o contato
+     * escrevia junto do arquivo não chegava ao canal aberto: o parse só olhava
+     * `image.caption` e `video.caption`.
+     */
+    caption?: string
+    title?: string
+    pageCount?: number
   }
   sticker?: {
     stickerUrl: string
