@@ -9,6 +9,7 @@ import { APP_CODES } from '@/shared/app/app-codes'
 import { appTokenKey } from '@/shared/auth/app-token-storage'
 import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
 import { TrialContactDialog, type TrialContact } from './trial-contact-dialog'
+import { isProviderUnavailable } from './provider-availability'
 
 type TrialProvider = 'ZAPI' | 'HUBMESSAGE'
 
@@ -152,21 +153,32 @@ export function TrialCard({ onActivated }: { onActivated: () => void }) {
       </p>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        {trial.providers.map(provider => (
-          <ProviderOption
-            key={provider}
-            provider={provider}
-            disabled={activating}
-            loading={activating && chosen === provider}
-            onChoose={() => {
-              setServerField(null)
-              setChosen(provider)
-            }}
-            label={t(`convite.${provider}.titulo`)}
-            hint={t(`convite.${provider}.descricao`)}
-            cta={t('convite.escolher')}
-          />
-        ))}
+        {trial.providers.map(provider => {
+          /**
+           * O conector continua na lista que a api devolve — o gate é de interface,
+           * enquanto o teste com a HubMessage não acontece. Ver
+           * `provider-availability`.
+           */
+          const indisponivel = isProviderUnavailable(provider)
+
+          return (
+            <ProviderOption
+              key={provider}
+              provider={provider}
+              disabled={activating || indisponivel}
+              indisponivel={indisponivel}
+              loading={activating && chosen === provider}
+              onChoose={() => {
+                setServerField(null)
+                setChosen(provider)
+              }}
+              label={t(`convite.${provider}.titulo`)}
+              hint={t(`convite.${provider}.descricao`)}
+              cta={t('convite.escolher')}
+              emBreve={t('convite.emBreve')}
+            />
+          )
+        })}
       </div>
 
       {chosen ? (
@@ -209,7 +221,9 @@ function ProviderOption({
   label,
   hint,
   cta,
+  emBreve,
   disabled,
+  indisponivel,
   loading,
   onChoose,
 }: {
@@ -217,14 +231,28 @@ function ProviderOption({
   label: string
   hint: string
   cta: string
+  emBreve: string
   disabled: boolean
+  /** Conector ainda não liberado: card apagado, selo e botão travado. */
+  indisponivel: boolean
   loading: boolean
   onChoose: () => void
 }) {
   return (
-    <div className="flex flex-1 flex-col gap-3 rounded-lg border border-border p-4">
+    <div
+      className={`flex flex-1 flex-col gap-3 rounded-lg border border-border p-4${
+        indisponivel ? ' opacity-60' : ''
+      }`}
+    >
       <div>
-        <p className="text-sm font-medium text-foreground">{label}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-medium text-foreground">{label}</p>
+          {indisponivel ? (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              {emBreve}
+            </span>
+          ) : null}
+        </div>
         <p className="mt-0.5 text-sm text-muted-foreground">{hint}</p>
       </div>
       <Button
@@ -233,11 +261,12 @@ function ProviderOption({
         disabled={disabled}
         onClick={onChoose}
         data-provider={provider}
+        data-unavailable={indisponivel ? 'true' : undefined}
       >
         {loading ? (
           <span className="mr-2 inline-block size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
         ) : null}
-        {cta}
+        {indisponivel ? emBreve : cta}
       </Button>
     </div>
   )

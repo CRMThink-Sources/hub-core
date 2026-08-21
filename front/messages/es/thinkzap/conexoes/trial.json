@@ -10,7 +10,8 @@
     "HUBMESSAGE": {
       "titulo": "WhatsApp Oficial",
       "descricao": "Canal oficial de Meta, con número verificado y plantillas."
-    }
+    },
+    "emBreve": "Próximamente"
   },
   "formulario": {
     "titulo": "Confirme sus datos de contacto",

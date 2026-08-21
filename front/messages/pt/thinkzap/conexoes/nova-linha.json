@@ -23,5 +23,6 @@
   "criando": "Criando...",
   "cancelar": "Cancelar",
   "semPlanoTitulo": "Nenhum tipo de conector disponível",
-  "semPlanoDescricao": "Não há plano cadastrado para nenhum dos conectores neste ambiente. Fale com o suporte para liberar."
+  "semPlanoDescricao": "Não há plano cadastrado para nenhum dos conectores neste ambiente. Fale com o suporte para liberar.",
+  "emBreve": "Em breve"
 }

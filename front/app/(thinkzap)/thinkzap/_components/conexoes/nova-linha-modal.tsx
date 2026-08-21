@@ -8,6 +8,7 @@ import type {
   OfferablePlan,
 } from '@/app/hooks/use-line-subscription'
 import { plansForProvider } from '@/app/hooks/use-line-subscription'
+import { isProviderUnavailable } from './provider-availability'
 
 type Props = {
   isOpen: boolean
@@ -32,6 +33,11 @@ const CONECTORES: LineProvider[] = ['ZAPI', 'HUBMESSAGE']
  * A opção do conector sem plano ofertável **não aparece**. Mostrar e falhar depois da
  * escolha seria pior: o cliente já teria decidido, e o erro não diria que o problema é
  * configuração nossa.
+ *
+ * Conector ainda não liberado (`isProviderUnavailable`) é o caso oposto: **aparece**,
+ * com o botão travado e o selo "Em breve". Sumir esconderia um canal que o cliente
+ * pergunta se existe; deixar clicável entregaria uma linha que ninguém consegue
+ * conectar ainda.
  */
 export function NovaLinhaModal({
   isOpen,
@@ -45,6 +51,7 @@ export function NovaLinhaModal({
   const disponiveis = CONECTORES.map(provider => ({
     provider,
     planos: plansForProvider(planos, provider),
+    indisponivel: isProviderUnavailable(provider),
   })).filter(opcao => opcao.planos.length > 0)
 
   if (!isOpen) return null
@@ -72,10 +79,12 @@ export function NovaLinhaModal({
                 key={opcao.provider}
                 provider={opcao.provider}
                 planos={opcao.planos}
-                disabled={criando !== null}
+                disabled={criando !== null || opcao.indisponivel}
+                indisponivel={opcao.indisponivel}
                 loading={criando === opcao.provider}
                 label={t(`conector.${opcao.provider}.titulo`)}
                 hint={t(`conector.${opcao.provider}.descricao`)}
+                emBreveLabel={t('emBreve')}
                 escolherPlanoLabel={t('escolherPlano')}
                 ctaLabel={t('criar')}
                 ctaLoadingLabel={t('criando')}
@@ -106,11 +115,13 @@ function ConectorOpcao({
   planos,
   label,
   hint,
+  emBreveLabel,
   escolherPlanoLabel,
   ctaLabel,
   ctaLoadingLabel,
   intervalLabel,
   disabled,
+  indisponivel,
   loading,
   onCreate,
 }: {
@@ -118,11 +129,14 @@ function ConectorOpcao({
   planos: OfferablePlan[]
   label: string
   hint: string
+  emBreveLabel: string
   escolherPlanoLabel: string
   ctaLabel: string
   ctaLoadingLabel: string
   intervalLabel: (interval: OfferablePlan['interval']) => string
   disabled: boolean
+  /** Conector ainda não liberado: card apagado, selo e botão travado. */
+  indisponivel: boolean
   loading: boolean
   onCreate: (planId: string) => void
 }) {
@@ -131,9 +145,20 @@ function ConectorOpcao({
   const plano = planos.find(p => p.id === escolhido) ?? planos[0]
 
   return (
-    <div className="flex flex-1 flex-col gap-3 rounded-lg border border-border p-4">
+    <div
+      className={`flex flex-1 flex-col gap-3 rounded-lg border border-border p-4${
+        indisponivel ? ' opacity-60' : ''
+      }`}
+    >
       <div>
-        <p className="text-sm font-medium text-foreground">{label}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-medium text-foreground">{label}</p>
+          {indisponivel ? (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              {emBreveLabel}
+            </span>
+          ) : null}
+        </div>
         <p className="mt-0.5 text-sm text-muted-foreground">{hint}</p>
       </div>
 
@@ -141,6 +166,7 @@ function ConectorOpcao({
         <select
           value={escolhido}
           onChange={e => setEscolhido(e.target.value)}
+          disabled={indisponivel}
           className="h-9 rounded-md border border-border bg-background px-2 text-sm"
           aria-label={escolherPlanoLabel}
         >
@@ -167,11 +193,12 @@ function ConectorOpcao({
         onClick={() => onCreate(plano.id)}
         data-provider={provider}
         data-plan={plano.id}
+        data-unavailable={indisponivel ? 'true' : undefined}
       >
         {loading ? (
           <span className="mr-2 inline-block size-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
         ) : null}
-        {loading ? ctaLoadingLabel : ctaLabel}
+        {indisponivel ? emBreveLabel : loading ? ctaLoadingLabel : ctaLabel}
       </Button>
     </div>
   )

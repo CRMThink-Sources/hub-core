@@ -23,5 +23,6 @@
   "criando": "Creando...",
   "cancelar": "Cancelar",
   "semPlanoTitulo": "Ningún tipo de conector disponible",
-  "semPlanoDescricao": "No hay ningún plan registrado para los conectores en este entorno. Habla con el soporte para habilitarlo."
+  "semPlanoDescricao": "No hay ningún plan registrado para los conectores en este entorno. Habla con el soporte para habilitarlo.",
+  "emBreve": "Próximamente"
 }

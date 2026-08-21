@@ -23,6 +23,7 @@
     "backfill:message-provider-instance-id": "tsx src/scripts/backfill-message-provider-instance-id.ts",
     "backfill:connector-settings-to-spa": "tsx src/scripts/backfill-connector-settings-to-spa.ts",
     "backfill:legacy-subscriptions-to-spa": "tsx src/scripts/backfill-legacy-subscriptions-to-spa.ts",
+    "backfill:stripe-subscriptions-to-spa": "tsx src/scripts/backfill-stripe-subscriptions-to-spa.ts",
     "backfill:spa-item-resource-mirror": "tsx src/scripts/backfill-spa-item-resource-mirror.ts",
     "backfill:line-name-from-zapi": "tsx src/scripts/backfill-line-name-from-zapi.ts",
     "prune:widget-outbox": "tsx src/scripts/prune-widget-outbox.ts",
