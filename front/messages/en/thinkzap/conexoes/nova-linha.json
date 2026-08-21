@@ -23,5 +23,6 @@
   "criando": "Creating...",
   "cancelar": "Cancel",
   "semPlanoTitulo": "No connector type available",
-  "semPlanoDescricao": "There is no plan registered for either connector in this environment. Contact support to enable it."
+  "semPlanoDescricao": "There is no plan registered for either connector in this environment. Contact support to enable it.",
+  "emBreve": "Coming soon"
 }
