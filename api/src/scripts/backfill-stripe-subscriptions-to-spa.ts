@@ -17,6 +17,15 @@ import dotenv from 'dotenv'
  *
  * Por isso o corpo entra por `await import()` dinâmico, depois do dotenv.
  *
+ * **A chave do Stripe do arquivo escolhe o ambiente do catálogo.** A SPA de planos é
+ * compartilhada entre produção e homologação, e cada plano tem um price id por
+ * ambiente; o mapper entrega o do ambiente derivado do prefixo da
+ * `STRIPE_SECRET_KEY`. Rodar com `sk_test_` casa as assinaturas pelos price ids de
+ * homologação e **não reconhece nenhuma assinatura de produção** — o relatório sai
+ * dizendo que não há plano para o conector, o que parece catálogo incompleto e é só
+ * ambiente trocado. Confira o ambiente com `yarn check:plans-vs-gateway` usando o
+ * mesmo `--env-file` antes de rodar com `--apply`.
+ *
  * Uso:
  *   yarn backfill:stripe-subscriptions-to-spa --env-file .env.production
  *   yarn backfill:stripe-subscriptions-to-spa --env-file .env.production --apply

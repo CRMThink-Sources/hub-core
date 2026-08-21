@@ -1,5 +1,7 @@
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { Plan, PlanProvider } from '@/modules/application/domain/entities/plan'
+import { PlanPrice } from '@/modules/application/domain/entities/plan-price'
+import { PlanPriceReader } from '@/modules/application/domain/repositories/plan-price.reader'
 import { SubscriptionModality } from '@/modules/application/domain/entities/subscription'
 import {
   LineEntitlement,
@@ -10,6 +12,8 @@ import {
   isTrialSubscription,
   resolveCurrentContract,
 } from '@/modules/thinkzap/domain/line-subscription'
+import { planAmountForLines } from '@/modules/thinkzap/domain/plan-pricing'
+import { apiLogger } from '@/shared/infra/logger'
 
 /**
  * Um plano cobrado pelo contrato, e quantas linhas ele cobra.
@@ -20,8 +24,25 @@ import {
 export type LineSubscriptionPlan = {
   id: string
   name: string
-  /** Centavos, como no `unit_amount` do gateway. A tela formata. */
+  /**
+   * Valor de cadastro do CRM, em centavos. **Não é o cobrado** — ver `Plan.amount`.
+   * Vai na resposta só para o diagnóstico de tela; nenhuma superfície deve
+   * multiplicá-lo pela contagem de linhas.
+   */
   amount: number
+  /**
+   * Quanto este plano custa no contrato, em centavos, já com os degraus do gateway
+   * aplicados sobre `lineCount`.
+   *
+   * É **este** o número que a tela mostra. `amount × lineCount` é conta errada em
+   * price escalonado: sob degraus 287/187, três linhas custam R$ 661,00 e a
+   * multiplicação diz R$ 861,00.
+   *
+   * `null` quando o preço não pôde ser resolvido — gateway indisponível, ou modo de
+   * escalonamento que o produto não calcula. A tela mostra a linha do plano sem
+   * valor, em vez de um número inventado.
+   */
+  chargedAmount: number | null
   interval: Plan['interval']
   /**
    * Conector que este plano precifica. Ausente no plano de trial, que não precifica
@@ -68,6 +89,14 @@ export type LineSubscriptionState =
        */
       plans: LineSubscriptionPlan[]
       /**
+       * O total cobrado do contrato, em centavos — a soma dos `chargedAmount`.
+       *
+       * Somado no servidor porque somar é parte da regra de preço. `null` quando
+       * algum plano ficou sem preço resolvido: um total que ignora um plano é um
+       * número menor apresentado como se fosse o completo.
+       */
+      contractTotal: number | null
+      /**
        * Habilitação resolvida da assinatura vigente e do agora. É o que a tela usa
        * para dizer se a linha funciona, em vez de reinterpretar `status` e período
        * por conta própria — duas implementações da mesma regra divergiriam.
@@ -92,6 +121,39 @@ export type LineSubscriptionState =
     }
 
 /**
+ * O valor cobrado de um plano, ou `null` quando não há como sabê-lo.
+ *
+ * Trial não tem preço e não tem o que cobrar: zero é a resposta certa, e não
+ * "desconhecido" — a assinatura de teste é gratuita por construção.
+ *
+ * Preço ausente num plano **pago** é outra coisa: é falha de leitura no gateway ou
+ * modo de escalonamento não suportado, e aí `null` é honesto. Devolver zero diria à
+ * tela que o cliente não paga nada.
+ */
+function resolveChargedAmount(
+  plan: Plan,
+  price: PlanPrice | null,
+  lineCount: number,
+): number | null {
+  if (!plan.gatewayId) return 0
+  if (!price) return null
+
+  try {
+    return planAmountForLines({
+      planId: plan.id,
+      price,
+      lines: lineCount,
+    })
+  } catch (error) {
+    apiLogger.warn(
+      { app: 'payments', planId: plan.id, error },
+      'Valor do plano não pôde ser calculado — a tela mostra o plano sem valor',
+    )
+    return null
+  }
+}
+
+/**
  * Lê o estado da assinatura da instalação atual.
  *
  * Só leitura, e só da SPA: o gateway de pagamento **não** é consultado. O estado
@@ -99,7 +161,51 @@ export type LineSubscriptionState =
  * gateway aqui criaria uma segunda resposta possível para a mesma pergunta.
  */
 export class GetLineSubscriptionState {
-  constructor(private readonly getAplicationContext: GetAplicationContext) {}
+  /**
+   * @param prices Leitura do preço no gateway, para a tela mostrar o valor cobrado.
+   * Opcional: sem ela o estado sai com `chargedAmount` nulo, o que é o comportamento
+   * certo para quem não tem gateway configurado. O tipo é o **port**, nunca o adapter
+   * — este módulo é entrypoint de runtime, e `runtime-gateway-isolation.test.ts`
+   * reprova qualquer caminho de import que alcance o Stripe daqui.
+   */
+  constructor(
+    private readonly getAplicationContext: GetAplicationContext,
+    private readonly prices?: PlanPriceReader,
+  ) {}
+
+  /**
+   * O preço de cada plano do contrato, por price id.
+   *
+   * Uma leitura por price distinto, não por assinatura: um contrato com duas linhas do
+   * mesmo conector tem duas assinaturas irmãs apontando para o mesmo price.
+   */
+  private async readPrices(
+    plans: readonly Plan[],
+  ): Promise<Map<string, PlanPrice>> {
+    const byPriceId = new Map<string, PlanPrice>()
+    if (!this.prices) return byPriceId
+
+    const priceIds = [
+      ...new Set(
+        plans.flatMap(plan => (plan.gatewayId ? [plan.gatewayId] : [])),
+      ),
+    ]
+
+    await Promise.all(
+      priceIds.map(async priceId => {
+        try {
+          byPriceId.set(priceId, await this.prices!.readPrice(priceId))
+        } catch (error) {
+          apiLogger.warn(
+            { app: 'payments', priceId, error },
+            'Preço não pôde ser lido no gateway — a tela mostra o plano sem valor',
+          )
+        }
+      }),
+    )
+
+    return byPriceId
+  }
 
   async execute(
     input: { domainId: string; appCode: string },
@@ -117,16 +223,38 @@ export class GetLineSubscriptionState {
 
     const isTrial = isTrialSubscription(current)
 
-    const plans = composeContractByPlan(contract).map(entry => ({
+    const composed = composeContractByPlan(contract)
+    const pricesByPriceId = await this.readPrices(
+      composed.map(entry => entry.plan),
+    )
+
+    const plans = composed.map(entry => ({
       id: entry.plan.id,
       name: entry.plan.name,
       amount: entry.plan.amount,
+      chargedAmount: resolveChargedAmount(
+        entry.plan,
+        entry.plan.gatewayId
+          ? (pricesByPriceId.get(entry.plan.gatewayId) ?? null)
+          : null,
+        entry.lineCount,
+      ),
       interval: entry.plan.interval,
       provider: entry.plan.provider,
       lineCount: entry.lineCount,
     }))
 
     const lineCount = plans.reduce((total, plan) => total + plan.lineCount, 0)
+
+    /**
+     * O total é somado aqui, e não na tela: somar é parte da regra de preço, e a tela
+     * somando `amount × lineCount` foi exatamente o que passou a mostrar mais do que a
+     * fatura. Plano com preço irresolúvel não entra na soma, e `contractTotal` fica
+     * `null` — total parcial passaria por total.
+     */
+    const contractTotal = plans.some(plan => plan.chargedAmount === null)
+      ? null
+      : plans.reduce((total, plan) => total + (plan.chargedAmount ?? 0), 0)
 
     return {
       status: current.status,
@@ -135,6 +263,7 @@ export class GetLineSubscriptionState {
       currentPeriodStart: current.currentPeriodStart,
       currentPeriodEnd: current.currentPeriodEnd,
       plans,
+      contractTotal,
       entitlement: resolveLineEntitlement(current, now),
       /**
        * Portal só para assinatura do gateway **e** que ainda existe lá: uma paga
