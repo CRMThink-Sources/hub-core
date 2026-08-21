@@ -1,5 +1,10 @@
 import type IORedis from 'ioredis'
 import { describe, expect, it, vi } from 'vitest'
+import {
+  subscriptionKey,
+  subscriptionListKey,
+  subscriptionsByAplicationKey,
+} from './keys'
 import { CachedSubscriptionRepository } from './cached-subscription.repository'
 import { Subscription } from '@/modules/application/domain/entities/subscription'
 import { SubscriptionRepository } from '@/modules/application/domain/repositories/subscription.repository'
@@ -52,9 +57,9 @@ const withoutSpaId: Subscription = {
   aplication: { ...subscription.aplication, spaId: null },
 }
 
-const SUBSCRIPTION_KEY = 'payments:subscription:v4:21'
-const SUBSCRIPTION_LIST_KEY = 'payments:subscriptions:v4:all'
-const APLICATION_LIST_KEY = 'payments:subscriptions:v4:aplication:512'
+const SUBSCRIPTION_KEY = subscriptionKey('21')
+const SUBSCRIPTION_LIST_KEY = subscriptionListKey()
+const APLICATION_LIST_KEY = subscriptionsByAplicationKey('512')
 
 function makeInner(entity: Subscription = subscription) {
   const getSubscription = vi.fn(() => Promise.resolve(entity))

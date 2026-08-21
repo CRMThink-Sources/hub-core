@@ -1,5 +1,10 @@
+import { env } from '@/config/env'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { PlanProvider } from '@/modules/application/domain/entities/plan'
+import {
+  ensurePlanGatewayIdFields,
+  planGatewayIdField,
+} from '@/modules/application/infra/bitrix/ensure-plan-gateway-id-fields'
 import { ensurePlanProviderField } from '@/modules/application/infra/bitrix/ensure-plan-provider-field'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import {
@@ -17,7 +22,9 @@ export class PlanNotOfferableError extends Error {
   constructor(planId: string) {
     super(
       `Plano "${planId}" não é ofertável para esta instalação: precisa estar ativo, ` +
-        'ter id no gateway de pagamento, e precificar o mesmo conector que a linha usa.',
+        `ter price id no ambiente "${env.payments.stripe.environment}" do gateway ` +
+        `(campo ${planGatewayIdField()} da SPA de planos), e precificar o mesmo ` +
+        'conector que a linha usa.',
     )
     this.name = 'PlanNotOfferableError'
   }
@@ -78,6 +85,14 @@ export class CreateSubscriptionCheckout {
      */
     await ensurePlanProviderField(this.bitrix)
 
+    /**
+     * Os dois campos de price id, pelo mesmo motivo e antes do mesmo passo: sem o
+     * campo do ambiente em uso nenhum plano é ofertável, e sem o do outro ambiente a
+     * leitura não distingue plano de trial de plano configurado só do outro lado —
+     * que passaria por grátis.
+     */
+    await ensurePlanGatewayIdFields(this.bitrix)
+
     const contract = resolveCurrentContract(context.subscriptions)
     const current = contract[0] ?? null
 
@@ -115,6 +130,7 @@ export class CreateSubscriptionCheckout {
     const { lineItems, plansByProvider } = buildContractLineItems({
       contract,
       offerablePlans: await this.plans.listOfferable(),
+      plansForDiagnosis: await this.plans.listForDiagnosis(),
     })
 
     /**

@@ -11,6 +11,7 @@ import type {
   GetAplicationContext,
   SubscriptionWithItems,
 } from '@/modules/application/application/get-aplication-context'
+import type { PlanPrice } from '@/modules/application/domain/entities/plan-price'
 import type { Plan } from '@/modules/application/domain/entities/plan'
 import type { Subscription } from '@/modules/application/domain/entities/subscription'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
@@ -35,6 +36,25 @@ const product = {
 }
 
 /** O plano do conector não oficial: a linha de teste do arquivo é Z-API. */
+/**
+ * Escalonado, como os prices reais em produção: primeiro degrau caro, seguintes com
+ * desconto. É o que faz o acréscimo da segunda linha ser menor que o da primeira.
+ */
+const tieredPrice = (
+  first: number,
+  rest: number,
+  mode: 'graduated' | 'volume' = 'graduated',
+): PlanPrice => ({
+  kind: 'tiered',
+  currency: 'brl',
+  recurrence: { interval: 'month', intervalCount: 1 },
+  mode,
+  tiers: [
+    { upTo: 1, unitAmount: first },
+    { upTo: null, unitAmount: rest },
+  ],
+})
+
 const PAID: Plan = {
   id: '7',
   name: 'Pro (não oficial)',
@@ -135,6 +155,19 @@ const makeContext = (subscriptions: SubscriptionWithItems[]) =>
     ),
   }) as unknown as GetAplicationContext
 
+/** Reader que responde pelos price ids dos planos pagos do arquivo. */
+const makePriceReader = () => ({
+  readPrice: vi.fn((priceId: string) => {
+    const prices: Record<string, PlanPrice> = {
+      price_paid: tieredPrice(4990, 3990),
+      price_official: tieredPrice(23700, 18700, 'volume'),
+    }
+    const price = prices[priceId]
+    if (!price) return Promise.reject(new Error(`No such price: ${priceId}`))
+    return Promise.resolve(price)
+  }),
+})
+
 const makePlanRepository = (plans: Plan[]) =>
   ({
     getPlan: vi.fn(),
@@ -173,16 +206,19 @@ const req = (body: unknown = {}) =>
 
 describe('GET /thinkzap/plans', () => {
   /**
-   * Sem contexto: a listagem deixou de ser filtrada pela instalação quando providers
-   * misturados passaram a ser precificáveis. O parâmetro de assinaturas segue no
-   * `makeController` só onde o teste ainda fala de instalação, e é ignorado aqui de
-   * propósito — é o que prova que a resposta não depende dela.
+   * A listagem **não** é filtrada pela instalação — providers misturados passaram a
+   * ser precificáveis. O contexto entra só para **contar** as linhas de cada conector,
+   * que é o que faz o valor anunciado ser o acréscimo da próxima linha em vez do
+   * primeiro degrau. Instalação sem linha é o default, e aí os dois coincidem.
    */
   const makeController = (
     plans: Plan[],
-    _subscriptions: SubscriptionWithItems[] = [],
+    subscriptions: SubscriptionWithItems[] = [],
   ) =>
-    new ListPlansController(new ListOfferablePlans(makePlanRepository(plans)))
+    new ListPlansController(
+      new ListOfferablePlans(makePlanRepository(plans), makePriceReader()),
+      makeContext(subscriptions),
+    )
 
   it('devolve o plano pago compatível, com nome, valor, intervalo e provider', async () => {
     const response = await makeController([PAID]).perform(req())
@@ -196,9 +232,82 @@ describe('GET /thinkzap/plans', () => {
           amount: 4990,
           interval: 'monthly',
           provider: 'ZAPI',
+          /** Instalação sem linha: o acréscimo é o primeiro degrau. */
+          additionalLineAmount: 4990,
+          totalAfterAdditionalLine: 4990,
+          pricing: { kind: 'tiered', mode: 'graduated' },
         },
       ],
     })
+  })
+
+  /**
+   * O número que a tela mostra na oferta de linha nova. Sem o marginal, ela anunciaria
+   * o primeiro degrau — R$ 10,00 mais caro neste fixture, e R$ 100,00 nos prices reais.
+   */
+  it('anuncia o acréscimo da próxima linha, não o primeiro degrau', async () => {
+    const comUmaLinhaZapi = [
+      subscriptionOf({
+        status: 'active',
+        modality: 'stripe',
+        plan: PAID,
+        items: [line],
+      }),
+    ]
+
+    const response = await makeController([PAID], comUmaLinhaZapi).perform(
+      req(),
+    )
+
+    expect((response.result as { plans: unknown[] }).plans[0]).toMatchObject({
+      additionalLineAmount: 3990,
+      totalAfterAdditionalLine: 8980,
+    })
+  })
+
+  /**
+   * `volume`: as linhas que já existem passam a pagar o degrau novo, então o acréscimo
+   * é menor que o degrau alcançado — e o total do plano muda de patamar.
+   */
+  it('em price volume, o acréscimo é a diferença do contrato inteiro', async () => {
+    const comUmaLinhaOficial = [
+      subscriptionOf({
+        status: 'active',
+        modality: 'stripe',
+        plan: PAID_OFFICIAL,
+        items: [
+          {
+            ...line,
+            metadata: {
+              provider: 'HUBMESSAGE',
+              hubmessageChannelId: 'chan-1',
+              wabaId: 'waba-1',
+            },
+          },
+        ],
+      }),
+    ]
+
+    const response = await makeController(
+      [PAID_OFFICIAL],
+      comUmaLinhaOficial,
+    ).perform(req())
+
+    expect((response.result as { plans: unknown[] }).plans[0]).toMatchObject({
+      // 2 × 187,00 = 374,00, menos os 237,00 de hoje.
+      additionalLineAmount: 13700,
+      totalAfterAdditionalLine: 37400,
+      pricing: { kind: 'tiered', mode: 'volume' },
+    })
+  })
+
+  /** Sem preço lido do gateway não há valor honesto a anunciar. */
+  it('não oferece plano sem preço resolvido', async () => {
+    const semPreco: Plan = { ...PAID, id: '11', gatewayId: 'price_fantasma' }
+
+    const response = await makeController([semPreco]).perform(req())
+
+    expect(response.result).toEqual({ plans: [] })
   })
 
   /**
@@ -326,10 +435,11 @@ describe('POST /thinkzap/subscription/checkout', () => {
         result: {
           fields:
             options.planFields ??
-            ({ ufCrm89Provider: { type: 'string' } } as Record<
-              string,
-              { type?: string }
-            >),
+            ({
+              ufCrm89Provider: { type: 'string' },
+              ufCrm89GatewayId: { type: 'string' },
+              ufCrm89GatewayIdHomolog: { type: 'string' },
+            } as Record<string, { type?: string }>),
         },
       }),
     )
@@ -688,7 +798,8 @@ describe('a superfície de contratação não vaza credencial do gateway', () =>
 
   it('nem na listagem de planos', async () => {
     const controller = new ListPlansController(
-      new ListOfferablePlans(makePlanRepository([PAID])),
+      new ListOfferablePlans(makePlanRepository([PAID]), makePriceReader()),
+      makeContext([]),
     )
 
     const serialized = JSON.stringify((await controller.perform(req())).result)
@@ -714,7 +825,13 @@ describe('a superfície de contratação não vaza credencial do gateway', () =>
         {
           getCrmItemFields: vi.fn(() =>
             Promise.resolve({
-              result: { fields: { ufCrm89Provider: { type: 'string' } } },
+              result: {
+                fields: {
+                  ufCrm89Provider: { type: 'string' },
+                  ufCrm89GatewayId: { type: 'string' },
+                  ufCrm89GatewayIdHomolog: { type: 'string' },
+                },
+              },
             }),
           ),
         } as unknown as BitrixClient,

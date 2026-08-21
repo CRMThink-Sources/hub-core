@@ -164,6 +164,7 @@ export class CreateAdditionalLine {
     const desired = buildContractLineItems({
       contract,
       offerablePlans: await this.plans.listOfferable(),
+      plansForDiagnosis: await this.plans.listForDiagnosis(),
       additional: { provider: input.provider, plan },
     })
 

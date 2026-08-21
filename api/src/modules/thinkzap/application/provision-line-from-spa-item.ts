@@ -350,6 +350,7 @@ export class ProvisionLineFromSpaItem {
       lineItems = buildContractLineItems({
         contract,
         offerablePlans: await this.plans.listOfferable(),
+        plansForDiagnosis: await this.plans.listForDiagnosis(),
       }).lineItems
     } catch (error) {
       /**

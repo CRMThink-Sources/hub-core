@@ -47,6 +47,12 @@ export const makeGetAplicationContext = (): GetAplicationContext => {
     redisConnection,
   )
 
+  /**
+   * **Sem leitura de preço aqui.** O contexto é lido pelo processamento de mensagem, e
+   * `runtime-gateway-isolation.test.ts` proíbe que esse caminho alcance o gateway —
+   * seria latência e rate limit de um terceiro em cada mensagem recebida. Quem exibe
+   * preço injeta o `PlanPriceReader` na própria superfície.
+   */
   const plans = new CachedPlanRepository(
     new BitrixPlanRepository(bitrixClient, products),
     redisConnection,

@@ -4,6 +4,7 @@ import {
   StripePaymentGateway,
   StripeWrongKeyTypeError,
 } from './stripe-payment.gateway'
+import { GatewayPriceUnreadableError } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 
 /**
  * Só o que o teste inspeciona dos parâmetros da sessão. Declarar o shape em vez de
@@ -45,6 +46,8 @@ const stripeFake = vi.hoisted(() => ({
   updateSubscription:
     vi.fn<(id: string, params: UpdateParams) => Promise<unknown>>(),
   constructEvent: vi.fn<() => { type: string; data: { object: unknown } }>(),
+  retrievePrice:
+    vi.fn<(id: string, params?: { expand?: string[] }) => Promise<unknown>>(),
 }))
 
 vi.mock('stripe', () => ({
@@ -57,6 +60,7 @@ vi.mock('stripe', () => ({
       update: stripeFake.updateSubscription,
     }
     webhooks = { constructEvent: stripeFake.constructEvent }
+    prices = { retrieve: stripeFake.retrievePrice }
   },
 }))
 
@@ -369,5 +373,183 @@ describe('normalização do evento', () => {
       status: 'active',
       totalLineQuantity: 3,
     })
+  })
+})
+
+/**
+ * Tradução do price para o vocabulário do domínio. O que estes casos protegem é o
+ * caminho em que o preço **existe** e não chega: `tiers` não vem por padrão na API, e
+ * um escalonado sem degraus se parece com plano gratuito.
+ */
+describe('StripePaymentGateway — leitura de preço', () => {
+  const gateway = () => new StripePaymentGateway('sk_test_123', 'whsec_1')
+
+  const recurringMonthly = {
+    interval: 'month',
+    interval_count: 1,
+    usage_type: 'licensed',
+  }
+
+  beforeEach(() => {
+    stripeFake.retrievePrice.mockReset()
+  })
+
+  it('pede os degraus expandidos', async () => {
+    stripeFake.retrievePrice.mockResolvedValue({
+      id: 'price_1',
+      currency: 'brl',
+      billing_scheme: 'per_unit',
+      unit_amount: 9900,
+      recurring: recurringMonthly,
+    })
+
+    await gateway().readPrice('price_1')
+
+    expect(stripeFake.retrievePrice).toHaveBeenCalledWith('price_1', {
+      expand: ['tiers'],
+    })
+  })
+
+  it('traduz price de valor único', async () => {
+    stripeFake.retrievePrice.mockResolvedValue({
+      id: 'price_1',
+      currency: 'brl',
+      billing_scheme: 'per_unit',
+      unit_amount: 9900,
+      recurring: recurringMonthly,
+    })
+
+    await expect(gateway().readPrice('price_1')).resolves.toEqual({
+      kind: 'unit',
+      currency: 'brl',
+      recurrence: { interval: 'month', intervalCount: 1 },
+      unitAmount: 9900,
+    })
+  })
+
+  /** Os degraus reais do WhatsApp Web em produção. */
+  it('traduz price escalonado graduated', async () => {
+    stripeFake.retrievePrice.mockResolvedValue({
+      id: 'price_web',
+      currency: 'brl',
+      billing_scheme: 'tiered',
+      tiers_mode: 'graduated',
+      unit_amount: null,
+      recurring: recurringMonthly,
+      tiers: [
+        { up_to: 1, unit_amount: 28700 },
+        { up_to: null, unit_amount: 18700 },
+      ],
+    })
+
+    await expect(gateway().readPrice('price_web')).resolves.toEqual({
+      kind: 'tiered',
+      currency: 'brl',
+      recurrence: { interval: 'month', intervalCount: 1 },
+      mode: 'graduated',
+      tiers: [
+        { upTo: 1, unitAmount: 28700 },
+        { upTo: null, unitAmount: 18700 },
+      ],
+    })
+  })
+
+  /** Os degraus reais do WhatsApp Business em produção. */
+  it('traduz price escalonado volume', async () => {
+    stripeFake.retrievePrice.mockResolvedValue({
+      id: 'price_biz',
+      currency: 'brl',
+      billing_scheme: 'tiered',
+      tiers_mode: 'volume',
+      unit_amount: null,
+      recurring: recurringMonthly,
+      tiers: [
+        { up_to: 1, unit_amount: 25700 },
+        { up_to: null, unit_amount: 18700 },
+      ],
+    })
+
+    await expect(gateway().readPrice('price_biz')).resolves.toMatchObject({
+      kind: 'tiered',
+      mode: 'volume',
+    })
+  })
+
+  /**
+   * O caso que motiva o `expand`: sem degraus, o price não tem valor nenhum. Falhar
+   * nomeando o price é o que separa "chamada incompleta" de "plano sem preço".
+   */
+  it('recusa escalonado sem degraus expandidos', async () => {
+    stripeFake.retrievePrice.mockResolvedValue({
+      id: 'price_web',
+      currency: 'brl',
+      billing_scheme: 'tiered',
+      tiers_mode: 'graduated',
+      unit_amount: null,
+      recurring: recurringMonthly,
+    })
+
+    await expect(gateway().readPrice('price_web')).rejects.toThrow(
+      GatewayPriceUnreadableError,
+    )
+    await expect(gateway().readPrice('price_web')).rejects.toThrow('price_web')
+  })
+
+  it('recusa tiers_mode desconhecido em vez de tratar como não escalonado', async () => {
+    stripeFake.retrievePrice.mockResolvedValue({
+      id: 'price_x',
+      currency: 'brl',
+      billing_scheme: 'tiered',
+      tiers_mode: 'by_moon_phase',
+      unit_amount: null,
+      recurring: recurringMonthly,
+      tiers: [{ up_to: null, unit_amount: 100 }],
+    })
+
+    await expect(gateway().readPrice('price_x')).rejects.toThrow(
+      GatewayPriceUnreadableError,
+    )
+  })
+
+  it('recusa price não recorrente', async () => {
+    stripeFake.retrievePrice.mockResolvedValue({
+      id: 'price_once',
+      currency: 'brl',
+      billing_scheme: 'per_unit',
+      unit_amount: 9900,
+      recurring: null,
+    })
+
+    await expect(gateway().readPrice('price_once')).rejects.toThrow(
+      GatewayPriceUnreadableError,
+    )
+  })
+
+  /**
+   * `interval` é união **aberta** no SDK, então um valor novo do gateway chegaria
+   * tipado e passaria por válido num cast.
+   */
+  it('recusa intervalo de recorrência desconhecido', async () => {
+    stripeFake.retrievePrice.mockResolvedValue({
+      id: 'price_odd',
+      currency: 'brl',
+      billing_scheme: 'per_unit',
+      unit_amount: 9900,
+      recurring: { interval: 'fortnight', interval_count: 1 },
+    })
+
+    await expect(gateway().readPrice('price_odd')).rejects.toThrow(
+      GatewayPriceUnreadableError,
+    )
+  })
+
+  it('traduz falha de chamada em erro nomeando o price', async () => {
+    stripeFake.retrievePrice.mockRejectedValue(
+      new Error("No such price: 'price_ghost'"),
+    )
+
+    await expect(gateway().readPrice('price_ghost')).rejects.toThrow(
+      GatewayPriceUnreadableError,
+    )
   })
 })

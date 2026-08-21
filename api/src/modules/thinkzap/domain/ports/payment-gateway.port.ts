@@ -1,4 +1,5 @@
 import { Subscription } from '@/modules/application/domain/entities/subscription'
+import { PlanPrice } from '@/modules/thinkzap/domain/plan-pricing'
 
 /**
  * Contrato neutro com o gateway de pagamento.
@@ -154,6 +155,20 @@ export class GatewaySignatureError extends Error {
   }
 }
 
+export class GatewayPriceUnreadableError extends Error {
+  constructor(
+    readonly priceId: string,
+    detail: string,
+  ) {
+    super(
+      `Não foi possível ler o preço "${priceId}" no gateway: ${detail}. O plano fica ` +
+        'sem preço resolvido e, por isso, fora dos ofertáveis — exibir um valor ' +
+        'estimado apareceria na fatura do cliente.',
+    )
+    this.name = 'GatewayPriceUnreadableError'
+  }
+}
+
 export interface PaymentGateway {
   /**
    * Valida a assinatura do evento sobre o corpo **cru** e devolve o evento
@@ -196,4 +211,22 @@ export interface PaymentGateway {
   createBillingPortalSession(
     input: CreateBillingPortalSessionInput,
   ): Promise<{ url: string }>
+
+  /**
+   * Lê o preço de um price, na forma que o domínio entende.
+   *
+   * Existe porque o preço dos conectores é **escalonado** e o gateway é a única
+   * fonte dele: a SPA de planos guarda um valor de cadastro que não descreve
+   * cobrança escalonada. Sem esta leitura, exibir preço é adivinhar.
+   *
+   * Devolve `PlanPrice`, nunca o tipo do gateway: `billing_scheme` e `tiers_mode`
+   * são vocabulário do provedor, e deixá-los subir faria trocar de gateway
+   * reescrever a regra de preço.
+   *
+   * Lança `GatewayPriceUnreadableError` quando o price não existe, quando a
+   * chamada falha, ou quando o price é escalonado e os degraus não vieram — o
+   * último caso é o mais traiçoeiro, porque um escalonado sem degraus se parece
+   * com "plano sem preço" e passaria por gratuito.
+   */
+  readPrice(priceId: string): Promise<PlanPrice>
 }

@@ -1,6 +1,13 @@
 import type IORedis from 'ioredis'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { InvalidateSpaCache, SpaParentReader } from './invalidate-spa-cache'
+import {
+  planKey,
+  planListKey,
+  subscriptionKey,
+  subscriptionListKey,
+  subscriptionsByAplicationKey,
+} from '@/modules/application/infra/cache/keys'
 import { env } from '@/config/env'
 
 vi.mock('@/shared/infra/logger', () => ({
@@ -54,12 +61,12 @@ const makeParents = (
 const FULL_KEYSPACE = [
   'payments:product:v1:3',
   'payments:products:v1:all',
-  'payments:plan:v2:5',
-  'payments:plans:v2:all',
-  'payments:subscription:v4:42',
-  'payments:subscriptions:v4:all',
-  'payments:subscriptions:v4:aplication:7',
-  'payments:subscriptions:v4:aplication:8',
+  planKey('5'),
+  planListKey(),
+  subscriptionKey('42'),
+  subscriptionListKey(),
+  subscriptionsByAplicationKey('7'),
+  subscriptionsByAplicationKey('8'),
   'payments:subscription-item:v4:9',
   'payments:subscription-items:v4:all',
   'payments:subscription-items:v4:subscription:42',
@@ -85,13 +92,11 @@ describe('InvalidateSpaCache', () => {
         itemId: '42',
         parentField: 'parentId1060',
       })
-      expect(remaining.has('payments:subscription:v4:42')).toBe(false)
-      expect(remaining.has('payments:subscriptions:v4:all')).toBe(false)
-      expect(remaining.has('payments:subscriptions:v4:aplication:7')).toBe(
-        false,
-      )
+      expect(remaining.has(subscriptionKey('42'))).toBe(false)
+      expect(remaining.has(subscriptionListKey())).toBe(false)
+      expect(remaining.has(subscriptionsByAplicationKey('7'))).toBe(false)
       // Listagem de outra aplicação sobrevive: a leitura do pai existe para isso.
-      expect(remaining.has('payments:subscriptions:v4:aplication:8')).toBe(true)
+      expect(remaining.has(subscriptionsByAplicationKey('8'))).toBe(true)
     })
 
     it('não toca nas famílias de plano, produto e item', async () => {
@@ -102,7 +107,7 @@ describe('InvalidateSpaCache', () => {
         itemId: '42',
       })
 
-      expect(remaining.has('payments:plan:v2:5')).toBe(true)
+      expect(remaining.has(planKey('5'))).toBe(true)
       expect(remaining.has('payments:product:v1:3')).toBe(true)
       expect(remaining.has('payments:subscription-item:v4:9')).toBe(true)
       expect(remaining.has('payments:subscription-items:v4:all')).toBe(true)
@@ -117,12 +122,8 @@ describe('InvalidateSpaCache', () => {
       ).execute({ entityTypeId: SPA.subscriptionEntityType, itemId: '42' })
 
       expect(result.handled).toBe(true)
-      expect(remaining.has('payments:subscriptions:v4:aplication:7')).toBe(
-        false,
-      )
-      expect(remaining.has('payments:subscriptions:v4:aplication:8')).toBe(
-        false,
-      )
+      expect(remaining.has(subscriptionsByAplicationKey('7'))).toBe(false)
+      expect(remaining.has(subscriptionsByAplicationKey('8'))).toBe(false)
       // A varredura é só das listagens por pai: entradas por id de outra assinatura ficam.
       expect(remaining.has('payments:subscription-item:v4:9')).toBe(true)
     })
@@ -136,10 +137,8 @@ describe('InvalidateSpaCache', () => {
       ).execute({ entityTypeId: SPA.subscriptionEntityType, itemId: '42' })
 
       expect(result.handled).toBe(true)
-      expect(remaining.has('payments:subscription:v4:42')).toBe(false)
-      expect(remaining.has('payments:subscriptions:v4:aplication:7')).toBe(
-        false,
-      )
+      expect(remaining.has(subscriptionKey('42'))).toBe(false)
+      expect(remaining.has(subscriptionsByAplicationKey('7'))).toBe(false)
     })
 
     it('no delete não lê o pai e varre as listagens por aplicação', async () => {
@@ -154,14 +153,10 @@ describe('InvalidateSpaCache', () => {
 
       expect(result.handled).toBe(true)
       expect(parents.getParentId).not.toHaveBeenCalled()
-      expect(remaining.has('payments:subscription:v4:42')).toBe(false)
-      expect(remaining.has('payments:subscriptions:v4:all')).toBe(false)
-      expect(remaining.has('payments:subscriptions:v4:aplication:7')).toBe(
-        false,
-      )
-      expect(remaining.has('payments:subscriptions:v4:aplication:8')).toBe(
-        false,
-      )
+      expect(remaining.has(subscriptionKey('42'))).toBe(false)
+      expect(remaining.has(subscriptionListKey())).toBe(false)
+      expect(remaining.has(subscriptionsByAplicationKey('7'))).toBe(false)
+      expect(remaining.has(subscriptionsByAplicationKey('8'))).toBe(false)
     })
 
     it('no update continua lendo o pai', async () => {
@@ -221,9 +216,9 @@ describe('InvalidateSpaCache', () => {
         itemId: '9',
       })
 
-      expect(remaining.has('payments:subscription:v4:42')).toBe(true)
-      expect(remaining.has('payments:subscriptions:v4:all')).toBe(true)
-      expect(remaining.has('payments:subscriptions:v4:aplication:7')).toBe(true)
+      expect(remaining.has(subscriptionKey('42'))).toBe(true)
+      expect(remaining.has(subscriptionListKey())).toBe(true)
+      expect(remaining.has(subscriptionsByAplicationKey('7'))).toBe(true)
     })
 
     it('varre as listagens por assinatura quando o pai não pode ser lido', async () => {
@@ -237,7 +232,7 @@ describe('InvalidateSpaCache', () => {
       expect(
         remaining.has('payments:subscription-items:v4:subscription:42'),
       ).toBe(false)
-      expect(remaining.has('payments:subscription:v4:42')).toBe(true)
+      expect(remaining.has(subscriptionKey('42'))).toBe(true)
     })
 
     it('no delete não lê o pai e varre as listagens por assinatura', async () => {
@@ -257,7 +252,7 @@ describe('InvalidateSpaCache', () => {
         remaining.has('payments:subscription-items:v4:subscription:42'),
       ).toBe(false)
       // Continua sem tocar a família de assinatura, mesmo no delete.
-      expect(remaining.has('payments:subscription:v4:42')).toBe(true)
+      expect(remaining.has(subscriptionKey('42'))).toBe(true)
     })
   })
 
@@ -270,16 +265,12 @@ describe('InvalidateSpaCache', () => {
         itemId: '5',
       })
 
-      expect(remaining.has('payments:plan:v2:5')).toBe(false)
-      expect(remaining.has('payments:plans:v2:all')).toBe(false)
-      expect(remaining.has('payments:subscription:v4:42')).toBe(false)
-      expect(remaining.has('payments:subscriptions:v4:all')).toBe(false)
-      expect(remaining.has('payments:subscriptions:v4:aplication:7')).toBe(
-        false,
-      )
-      expect(remaining.has('payments:subscriptions:v4:aplication:8')).toBe(
-        false,
-      )
+      expect(remaining.has(planKey('5'))).toBe(false)
+      expect(remaining.has(planListKey())).toBe(false)
+      expect(remaining.has(subscriptionKey('42'))).toBe(false)
+      expect(remaining.has(subscriptionListKey())).toBe(false)
+      expect(remaining.has(subscriptionsByAplicationKey('7'))).toBe(false)
+      expect(remaining.has(subscriptionsByAplicationKey('8'))).toBe(false)
     })
 
     it('não toca na família de produto nem na de item', async () => {
@@ -319,10 +310,10 @@ describe('InvalidateSpaCache', () => {
 
       expect(remaining.has('payments:product:v1:3')).toBe(false)
       expect(remaining.has('payments:products:v1:all')).toBe(false)
-      expect(remaining.has('payments:plan:v2:5')).toBe(false)
-      expect(remaining.has('payments:plans:v2:all')).toBe(false)
-      expect(remaining.has('payments:subscription:v4:42')).toBe(false)
-      expect(remaining.has('payments:subscriptions:v4:all')).toBe(false)
+      expect(remaining.has(planKey('5'))).toBe(false)
+      expect(remaining.has(planListKey())).toBe(false)
+      expect(remaining.has(subscriptionKey('42'))).toBe(false)
+      expect(remaining.has(subscriptionListKey())).toBe(false)
     })
 
     it('não toca na família de item', async () => {
@@ -348,12 +339,10 @@ describe('InvalidateSpaCache', () => {
       ).execute({ entityTypeId: SPA.aplicationEntityType, itemId: '7' })
 
       expect(result.handled).toBe(true)
-      expect(remaining.has('payments:subscription:v4:42')).toBe(false)
-      expect(remaining.has('payments:subscriptions:v4:all')).toBe(false)
-      expect(remaining.has('payments:subscriptions:v4:aplication:7')).toBe(
-        false,
-      )
-      expect(remaining.has('payments:plan:v2:5')).toBe(true)
+      expect(remaining.has(subscriptionKey('42'))).toBe(false)
+      expect(remaining.has(subscriptionListKey())).toBe(false)
+      expect(remaining.has(subscriptionsByAplicationKey('7'))).toBe(false)
+      expect(remaining.has(planKey('5'))).toBe(true)
       expect(remaining.has('payments:subscription-item:v4:9')).toBe(true)
     })
 
@@ -370,14 +359,14 @@ describe('InvalidateSpaCache', () => {
       })
 
       expect(result.handled).toBe(true)
-      expect(remaining.has('payments:subscription:v4:42')).toBe(false)
+      expect(remaining.has(subscriptionKey('42'))).toBe(false)
       expect(remaining.has('payments:subscription-item:v4:9')).toBe(false)
       expect(remaining.has('payments:subscription-items:v4:all')).toBe(false)
       expect(
         remaining.has('payments:subscription-items:v4:subscription:42'),
       ).toBe(false)
       // Plano e produto seguem intactos: a aplicação não é aninhada neles.
-      expect(remaining.has('payments:plan:v2:5')).toBe(true)
+      expect(remaining.has(planKey('5'))).toBe(true)
       expect(remaining.has('payments:product:v1:3')).toBe(true)
     })
   })

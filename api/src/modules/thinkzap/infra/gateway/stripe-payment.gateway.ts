@@ -2,12 +2,18 @@ import Stripe from 'stripe'
 import { env } from '@/config/env'
 import { Subscription } from '@/modules/application/domain/entities/subscription'
 import {
+  PlanPrice,
+  PriceRecurrence,
+  TieringMode,
+} from '@/modules/thinkzap/domain/plan-pricing'
+import {
   CreateBillingPortalSessionInput,
   CheckoutIntent,
   CheckoutSession,
   CreateCheckoutSessionInput,
   GatewayEvent,
   GatewayInstallationRef,
+  GatewayPriceUnreadableError,
   GatewaySignatureError,
   PaymentGateway,
   SyncSubscriptionLineItemsInput,
@@ -94,6 +100,14 @@ function assertServerKey(secretKey: string): void {
  * contratação, onde a latência de um terceiro é aceitável — diferente de cada
  * mensagem recebida, onde ela seria multiplicada por todo o tráfego.
  */
+/** Os intervalos que o domínio conhece, para validar a união aberta do SDK. */
+const RECURRENCE_INTERVALS: readonly PriceRecurrence['interval'][] = [
+  'day',
+  'week',
+  'month',
+  'year',
+]
+
 export class StripePaymentGateway implements PaymentGateway {
   private readonly stripe: Stripe
 
@@ -278,6 +292,118 @@ export class StripePaymentGateway implements PaymentGateway {
     })
 
     return { url: session.url }
+  }
+
+  /**
+   * Lê o price e traduz para o vocabulário do domínio.
+   *
+   * `expand: ['tiers']` é obrigatório: em price escalonado o `unit_amount` vem
+   * `null` e o valor mora nos degraus, que **não** vêm por padrão. Sem o expand a
+   * resposta é um price sem preço nenhum, indistinguível de plano gratuito.
+   */
+  async readPrice(priceId: string): Promise<PlanPrice> {
+    let price: Stripe.Price
+    try {
+      price = await this.stripe.prices.retrieve(priceId, {
+        expand: ['tiers'],
+      })
+    } catch (error) {
+      throw new GatewayPriceUnreadableError(
+        priceId,
+        error instanceof Error ? error.message : String(error),
+      )
+    }
+
+    const recurrence = this.readRecurrence(price)
+    const currency = price.currency
+
+    if (price.billing_scheme === 'tiered') {
+      /**
+       * Escalonado sem degraus na resposta é falha de leitura, não preço vazio: pode
+       * ser expand ausente numa chamada futura ou permissão de chave restrita. Cair
+       * para "sem preço" faria o plano sumir do checkout com o sintoma apontando para
+       * cadastro, e a causa sendo a chamada.
+       */
+      if (!price.tiers || price.tiers.length === 0) {
+        throw new GatewayPriceUnreadableError(
+          priceId,
+          'price escalonado veio sem os degraus (tiers). Sem eles não há valor a ' +
+            'exibir, e tratar como sem preço esconderia o plano por causa errada',
+        )
+      }
+
+      return {
+        kind: 'tiered',
+        currency,
+        recurrence,
+        mode: this.readTieringMode(priceId, price.tiers_mode),
+        tiers: price.tiers.map(tier => ({
+          upTo: typeof tier.up_to === 'number' ? tier.up_to : null,
+          unitAmount: tier.unit_amount ?? 0,
+        })),
+      }
+    }
+
+    if (price.unit_amount == null) {
+      throw new GatewayPriceUnreadableError(
+        priceId,
+        `price com billing_scheme "${price.billing_scheme}" e sem unit_amount`,
+      )
+    }
+
+    return { kind: 'unit', currency, recurrence, unitAmount: price.unit_amount }
+  }
+
+  /**
+   * Recorrência é obrigatória: assinatura precisa de price recorrente, e um price
+   * avulso aqui é cadastro que o gateway recusaria no checkout — longe daqui.
+   */
+  private readRecurrence(price: Stripe.Price): PriceRecurrence {
+    if (!price.recurring) {
+      throw new GatewayPriceUnreadableError(
+        price.id,
+        'price não é recorrente, e a assinatura precisa de um que seja',
+      )
+    }
+
+    /**
+     * O `interval` do SDK é união **aberta** (`'month' | ... | OtherString`), então
+     * castar aceitaria em silêncio um valor que o domínio não conhece — a mesma
+     * armadilha que o mapa de status já documenta. A validação explícita é o que
+     * transforma "intervalo novo do gateway" em recusa nomeada.
+     */
+    const interval = RECURRENCE_INTERVALS.find(
+      candidate => candidate === price.recurring?.interval,
+    )
+
+    if (!interval) {
+      throw new GatewayPriceUnreadableError(
+        price.id,
+        `intervalo de recorrência "${price.recurring.interval}" não é reconhecido`,
+      )
+    }
+
+    return { interval, intervalCount: price.recurring.interval_count }
+  }
+
+  /**
+   * `tiers_mode` do gateway → modo do domínio.
+   *
+   * Modo desconhecido **recusa**, e não vira `undefined`: `undefined` seria lido
+   * como "não escalonado" e o cálculo cobraria o degrau errado calado. A recusa
+   * esconde o plano, que é a falha fechada desejada.
+   */
+  private readTieringMode(
+    priceId: string,
+    mode: Stripe.Price.TiersMode | null,
+  ): TieringMode {
+    if (mode === 'graduated' || mode === 'volume') return mode
+
+    throw new GatewayPriceUnreadableError(
+      priceId,
+      `tiers_mode "${mode ?? '(ausente)'}" não é suportado — os modos calculáveis ` +
+        'são graduated e volume',
+    )
   }
 
   private async normalize(event: Stripe.Event): Promise<GatewayEvent> {

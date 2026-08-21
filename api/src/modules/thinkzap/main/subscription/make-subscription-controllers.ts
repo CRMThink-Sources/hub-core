@@ -21,30 +21,43 @@ import { makeGetAplicationContext } from '@/modules/application/main/make-get-ap
 import { requireAbsoluteUrl } from '@/shared/main/require-absolute-url'
 import {
   makePaymentGateway,
+  makePlanPriceReader,
   makeSubscriptionDeps,
 } from './make-subscription-deps'
 import { thinkzapError } from '../../errors/catalog'
 
 export const makeGetSubscriptionStateController = (): Controller => {
   /**
-   * Só o contexto: a rota é de leitura, e o estado que ela devolve sai todo da
-   * SPA. Nenhum cliente de gateway é montado aqui — o runtime nunca consulta o
-   * gateway, e a fiação é onde essa regra fica visível.
+   * O contexto sai todo da SPA, como antes. O que entra agora é a **leitura de
+   * preço**: o valor cobrado depende dos degraus do price, e só o gateway os
+   * conhece — a SPA guarda um valor de cadastro que não descreve escalonamento.
+   *
+   * A leitura entra aqui, na fiação, e não no caso de uso: `GetLineSubscriptionState`
+   * depende do port, e é o processamento de mensagem que não pode alcançar o adapter
+   * (`runtime-gateway-isolation.test.ts`). Cacheada, para abrir a tela não custar uma
+   * chamada por plano.
    */
   return new GetSubscriptionStateController(
-    new GetLineSubscriptionState(makeGetAplicationContext()),
+    new GetLineSubscriptionState(
+      makeGetAplicationContext(),
+      makePlanPriceReader(),
+    ),
   )
 }
 
 export const makeListPlansController = (): Controller => {
   /**
-   * Só o catálogo: a listagem deixou de ser filtrada pela instalação quando
-   * providers misturados passaram a ser precificáveis, então o contexto não
-   * participa mais da resposta.
+   * O catálogo **e** o contexto. A listagem não voltou a ser filtrada pela
+   * instalação: o contexto entra só para contar as linhas ativas de cada conector, que
+   * é o que torna o valor anunciado o acréscimo da próxima linha em vez do primeiro
+   * degrau.
    */
-  const { plans } = makeSubscriptionDeps()
+  const { plans, getAplicationContext } = makeSubscriptionDeps()
 
-  return new ListPlansController(new ListOfferablePlans(plans))
+  return new ListPlansController(
+    new ListOfferablePlans(plans, makePlanPriceReader()),
+    getAplicationContext,
+  )
 }
 
 /**
@@ -139,6 +152,8 @@ export const makeStripeWebhookController = (): Controller => {
         syncSubscriptionLineItems: () =>
           Promise.reject(new Error('gateway de pagamento não configurado')),
         createBillingPortalSession: () =>
+          Promise.reject(new Error('gateway de pagamento não configurado')),
+        readPrice: () =>
           Promise.reject(new Error('gateway de pagamento não configurado')),
       },
       // Inalcançável: a validação acima recusa antes de chegar ao handler.

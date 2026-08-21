@@ -44,6 +44,17 @@ export type PlanView = {
   id: string
   name: string
   product: ProductView
+  /**
+   * Valor de cadastro do CRM, em centavos. **Não é o preço cobrado.**
+   *
+   * O preço do plano é escalonado no gateway, então não existe valor unitário a
+   * multiplicar: quem responde "quanto o cliente paga" é `GET /thinkzap/subscription`,
+   * que devolve o valor de cada plano do contrato e o total já calculados. Este campo
+   * fica como rótulo do catálogo — nenhuma tela deve multiplicá-lo por quantidade.
+   *
+   * O preço do gateway **não** é projetado aqui de propósito: duas respostas para a
+   * mesma pergunta divergem, e o valor calculado tem um dono só.
+   */
   amount: number
   interval: Plan['interval']
   gatewayId?: string

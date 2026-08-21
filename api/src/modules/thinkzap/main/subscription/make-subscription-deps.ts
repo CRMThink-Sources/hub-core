@@ -6,6 +6,7 @@ import { BitrixAplicationTitleReader } from '@/modules/application/infra/bitrix/
 import { BitrixPlanRepository } from '@/modules/application/infra/bitrix/repositories/bitrix-plans.repository'
 import { BitrixProductRepository } from '@/modules/application/infra/bitrix/repositories/bitrix-products.repository'
 import { BitrixSubscriptionRepository } from '@/modules/application/infra/bitrix/repositories/bitrix-subscriptions.repository'
+import { CachedPlanPriceReader } from '@/modules/application/infra/cache/cached-plan-price.reader'
 import { CachedPlanRepository } from '@/modules/application/infra/cache/cached-plan.repository'
 import { CachedProductRepository } from '@/modules/application/infra/cache/cached-product.repository'
 import { CachedSubscriptionRepository } from '@/modules/application/infra/cache/cached-subscription.repository'
@@ -16,6 +17,7 @@ import { ZApiInstanceGateway } from '@/modules/thinkzap/infra/persistence/gatewa
 import { makeConnectorProviderResolver } from '@/modules/thinkzap/main/make-connector-provider-resolver'
 import { ProviderResourceBilling } from '@/modules/thinkzap/application/provider-resource-billing'
 import { StripePaymentGateway } from '@/modules/thinkzap/infra/gateway/stripe-payment.gateway'
+import { PlanPriceReader } from '@/modules/application/domain/repositories/plan-price.reader'
 import { PaymentGateway } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 import { redisConnection } from '@/queue/redis-connection'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
@@ -95,4 +97,21 @@ export function makePaymentGateway(): PaymentGateway | null {
   if (!env.payments.stripe.secretKey) return null
 
   return new StripePaymentGateway()
+}
+
+/**
+ * A leitura de preço no gateway, cacheada — ou `undefined` sem gateway configurado.
+ *
+ * Cacheada porque o preço é lido na abertura da tela de conexões e na listagem de
+ * planos, e sem cache cada abertura custaria uma chamada ao gateway por plano.
+ *
+ * `undefined` em vez de exceção, pelo mesmo motivo de `makePaymentGateway`: sem chave,
+ * a instalação continua inteira na modalidade boleto. Quem recebe trata a ausência
+ * como "não sei o preço", e plano sem preço não é oferecido.
+ */
+export function makePlanPriceReader(): PlanPriceReader | undefined {
+  const gateway = makePaymentGateway()
+  if (!gateway) return undefined
+
+  return new CachedPlanPriceReader(gateway, redisConnection)
 }
