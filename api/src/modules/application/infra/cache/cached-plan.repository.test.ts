@@ -1,5 +1,6 @@
 import type IORedis from 'ioredis'
 import { describe, expect, it, vi } from 'vitest'
+import { planKey, planListKey } from './keys'
 import { CachedPlanRepository } from './cached-plan.repository'
 import { Plan } from '@/modules/application/domain/entities/plan'
 import { PlanRepository } from '@/modules/application/domain/repositories/get-plan.repository'
@@ -23,8 +24,8 @@ const plan: Plan = {
   active: true,
 }
 
-const PLAN_KEY = 'payments:plan:v2:7'
-const PLAN_LIST_KEY = 'payments:plans:v2:all'
+const PLAN_KEY = planKey('7')
+const PLAN_LIST_KEY = planListKey()
 
 function makeInner() {
   const getPlan = vi.fn(() => Promise.resolve(plan))

@@ -2,6 +2,10 @@ import 'dotenv/config'
 
 import { env } from '@/config/env'
 import {
+  PLAN_GATEWAY_ID_FIELDS,
+  ensurePlanGatewayIdFields,
+} from '@/modules/application/infra/bitrix/ensure-plan-gateway-id-fields'
+import {
   PLAN_PROVIDER_FIELD,
   ensurePlanProviderField,
 } from '@/modules/application/infra/bitrix/ensure-plan-provider-field'
@@ -33,13 +37,18 @@ async function checkSpa(input: {
   bitrix: BitrixClient
   label: string
   entityTypeId: number
-  expectedField: string
+  /**
+   * Os campos que a verificação exige. É lista porque o price id do plano são
+   * **dois** campos, um por ambiente do gateway, e os dois têm que existir para a
+   * leitura distinguir plano de trial de plano configurado só no outro ambiente.
+   */
+  expectedFields: string[]
   /** Regex dos codes parecidos, para "existe com outro nome" não parecer "não existe". */
   similar: RegExp
   verify: () => Promise<void>
 }): Promise<boolean> {
   console.log(`\n=== ${input.label} (SPA ${input.entityTypeId}) ===`)
-  console.log(`Campo esperado: ${input.expectedField}\n`)
+  console.log(`Campos esperados: ${input.expectedFields.join(', ')}\n`)
 
   const response = await input.bitrix.getCrmItemFields(input.entityTypeId)
   const fields = response.result?.fields ?? {}
@@ -55,9 +64,14 @@ async function checkSpa(input: {
     for (const name of candidates) {
       console.log(
         `  ${name}  type=${JSON.stringify(fields[name]?.type)}` +
-          (name === input.expectedField ? '  <== ESPERADO' : ''),
+          (input.expectedFields.includes(name) ? '  <== ESPERADO' : ''),
       )
     }
+  }
+
+  const faltando = input.expectedFields.filter(name => !fields[name])
+  if (faltando.length > 0) {
+    console.log(`\nEsperados e AUSENTES: ${faltando.join(', ')}`)
   }
 
   console.log('\nTodos os userfields:')
@@ -68,7 +82,11 @@ async function checkSpa(input: {
   console.log('')
   try {
     await input.verify()
-    console.log(`OK: "${input.expectedField}" existe e é legível pelo mapper.`)
+    console.log(
+      `OK: ${input.expectedFields
+        .map(name => `"${name}"`)
+        .join(', ')} existe(m) e é(são) legível(is) pelo mapper.`,
+    )
     return true
   } catch (error) {
     console.error(
@@ -93,7 +111,7 @@ async function main() {
       bitrix,
       label: 'Assinaturas — modalidade de cobrança',
       entityTypeId: env.payments.spa.subscriptionEntityType,
-      expectedField: SUBSCRIPTION_MODALITY_FIELD,
+      expectedFields: [SUBSCRIPTION_MODALITY_FIELD],
       similar: /modalit|modalidad/i,
       verify: () =>
         ensureSubscriptionModalityField(
@@ -105,16 +123,34 @@ async function main() {
       bitrix,
       label: 'Planos — conector que o plano precifica',
       entityTypeId: env.payments.spa.planEntityType,
-      expectedField: PLAN_PROVIDER_FIELD,
+      expectedFields: [PLAN_PROVIDER_FIELD],
       similar: /provider|conector|connector/i,
       verify: () =>
         ensurePlanProviderField(bitrix, env.payments.spa.planEntityType),
     }),
     await checkSpa({
       bitrix,
+      label: `Planos — price id por ambiente (em uso: ${env.payments.stripe.environment})`,
+      entityTypeId: env.payments.spa.planEntityType,
+      expectedFields: [
+        PLAN_GATEWAY_ID_FIELDS.production,
+        PLAN_GATEWAY_ID_FIELDS.homolog,
+      ],
+      /**
+       * `/gateway/i` e não o nome exato: o campo de homologação é criado à mão no
+       * portal, e o modo mais provável de errar é o sufixo (`...Homol`,
+       * `...GatewayHomolog`). Sem os parecidos na saída, "existe com outro nome"
+       * apareceria como "não existe" e alguém criaria um terceiro campo.
+       */
+      similar: /gateway|price/i,
+      verify: () =>
+        ensurePlanGatewayIdFields(bitrix, env.payments.spa.planEntityType),
+    }),
+    await checkSpa({
+      bitrix,
       label: 'Itens — provider do conector da linha',
       entityTypeId: env.payments.spa.subscriptionItemEntityType,
-      expectedField: SUBSCRIPTION_ITEM_PROVIDER_FIELD,
+      expectedFields: [SUBSCRIPTION_ITEM_PROVIDER_FIELD],
       similar: /provider|conector|connector/i,
       verify: () =>
         ensureSubscriptionItemProviderField(

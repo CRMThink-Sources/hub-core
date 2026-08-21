@@ -1,3 +1,5 @@
+import { env } from '@/config/env'
+
 /**
  * Chaves do cache Redis do módulo `payments`, num lugar só.
  *
@@ -12,6 +14,18 @@
  * Eles são necessários porque as entidades são aninhadas no cache: a entrada de
  * assinatura guarda cópia do plano (com o produto) e da aplicação hidratada, e não
  * existe índice reverso de "quais assinaturas embutem este plano".
+ *
+ * **Quem carrega price id é escopado por ambiente do gateway.** As chaves de
+ * aplicação não têm prefixo de ambiente — só o BullMQ tem, via `QUEUE_PREFIX` — e
+ * dois ambientes podem apontar para o mesmo Redis e o mesmo índice de DB. Como
+ * produção e homologação compartilham o mesmo portal Bitrix e a mesma SPA de planos,
+ * o que difere entre eles é justamente o price id: sem o ambiente na chave, produção
+ * serviria a entrada gravada pela homologação. O sintoma pior não é cobrar errado, é
+ * `plan.gatewayId` ausente — e `isTrialSubscription` deriva "é trial" da ausência de
+ * price id, então uma assinatura paga passaria por trial e a linha ficaria de graça.
+ *
+ * Vale para **plano e assinatura**: a entrada de assinatura embute o plano. Produto e
+ * item de assinatura não carregam price id e ficam de fora.
  */
 
 /**
@@ -29,8 +43,23 @@ export const PRODUCT_CACHE_VERSION = 'v1'
  * opcional o schema **aceitaria** a entrada velha — resolvendo `undefined` e
  * tornando o plano pago não ofertável até o TTL vencer. Subir a versão é o que
  * evita uma janela de 5 min em que o checkout fica vazio depois do deploy.
+ *
+ * `v3`: o ambiente do gateway entrou na **chave**, e não no shape. A versão sobe
+ * porque as entradas `v2` não têm o segmento de ambiente: elas continuariam vivas
+ * até o TTL e seriam servidas pelo padrão antigo a quem ainda o lesse. Aqui a versão
+ * não protege de shape incompatível, protege de entrada ambígua.
+ *
  */
-export const PLAN_CACHE_VERSION = 'v2'
+export const PLAN_CACHE_VERSION = 'v3'
+
+/**
+ * Versão do shape do preço lido do gateway.
+ *
+ * Família nova, então começa em `v1`. Sobe quando a forma do preço mudar — um modo de
+ * escalonamento novo, `flat_amount` nos degraus —, porque entrada gravada sob a forma
+ * antiga passaria pelo schema e alimentaria o cálculo com um preço incompleto.
+ */
+export const PLAN_PRICE_CACHE_VERSION = 'v1'
 
 /**
  * Versão do shape do `Subscription`. Sobe junto com qualquer mudança na
@@ -49,8 +78,15 @@ export const PLAN_CACHE_VERSION = 'v2'
  * `v4`: `modality` entrou no shape. Entrada `v3` não tem o campo e reprovaria no
  * schema; subir a versão descarta as antigas de forma determinística, ao custo de
  * uma leitura ao Bitrix por instalação no primeiro acesso depois do deploy.
+ *
+ * `v5`: o ambiente do gateway entrou na chave. A entrada embute o plano, logo embute
+ * o price id — e uma entrada gravada pela homologação servida à produção traz
+ * `plan.gatewayId` do ambiente errado, ou ausente. Ausente é o caso ruim: a
+ * assinatura paga passaria por trial, porque é da ausência de price id que
+ * `isTrialSubscription` deriva "é trial".
+ *
  */
-export const SUBSCRIPTION_CACHE_VERSION = 'v4'
+export const SUBSCRIPTION_CACHE_VERSION = 'v5'
 
 /**
  * Versão do shape do `SubscriptionItem`. Sobe junto com qualquer mudança na
@@ -77,16 +113,40 @@ export const productKey = (id: string) =>
 export const productListKey = () =>
   `payments:products:${PRODUCT_CACHE_VERSION}:all`
 
+/**
+ * O ambiente do gateway como segmento de chave.
+ *
+ * Lido de `env` a cada chamada, e não capturado numa constante de módulo, para o
+ * teste poder trocar o ambiente sem recarregar o módulo — e porque o custo é uma
+ * leitura de propriedade.
+ */
+const gatewayEnvironment = () => env.payments.stripe.environment
+
+/**
+ * Preço lido do gateway, por **price id**.
+ *
+ * Família própria, fora do plano: o preço não é invalidado quando o plano muda na SPA
+ * — editar o título de um plano no CRM não mexe no price do gateway —, e o plano é
+ * lido por caminhos que não podem tocar o gateway.
+ *
+ * O ambiente não entra na chave porque **o price id já o identifica**: cada conta do
+ * gateway tem os seus, e dois ambientes nunca compartilham um. É o oposto do plano,
+ * cujo id é o mesmo nos dois porque a SPA é compartilhada.
+ */
+export const planPriceKey = (priceId: string) =>
+  `payments:plan-price:${PLAN_PRICE_CACHE_VERSION}:${priceId}`
+
 export const planKey = (id: string) =>
-  `payments:plan:${PLAN_CACHE_VERSION}:${id}`
-export const planListKey = () => `payments:plans:${PLAN_CACHE_VERSION}:all`
+  `payments:plan:${PLAN_CACHE_VERSION}:${gatewayEnvironment()}:${id}`
+export const planListKey = () =>
+  `payments:plans:${PLAN_CACHE_VERSION}:${gatewayEnvironment()}:all`
 
 export const subscriptionKey = (id: string) =>
-  `payments:subscription:${SUBSCRIPTION_CACHE_VERSION}:${id}`
+  `payments:subscription:${SUBSCRIPTION_CACHE_VERSION}:${gatewayEnvironment()}:${id}`
 export const subscriptionListKey = () =>
-  `payments:subscriptions:${SUBSCRIPTION_CACHE_VERSION}:all`
+  `payments:subscriptions:${SUBSCRIPTION_CACHE_VERSION}:${gatewayEnvironment()}:all`
 export const subscriptionsByAplicationKey = (aplicationSpaId: string) =>
-  `payments:subscriptions:${SUBSCRIPTION_CACHE_VERSION}:aplication:${aplicationSpaId}`
+  `payments:subscriptions:${SUBSCRIPTION_CACHE_VERSION}:${gatewayEnvironment()}:aplication:${aplicationSpaId}`
 
 export const subscriptionItemKey = (id: string) =>
   `payments:subscription-item:${SUBSCRIPTION_ITEM_CACHE_VERSION}:${id}`
@@ -103,6 +163,10 @@ export const subscriptionItemsBySubscriptionKey = (subscriptionId: string) =>
  * único como `payments:subscription*` alcançaria também
  * `payments:subscription-item*` — apagaria o cache de itens em toda invalidação de
  * assinatura, que é o caminho mais quente que existe aqui.
+ *
+ * Nas famílias escopadas por ambiente, o padrão para **antes** do segmento de
+ * ambiente e portanto apaga os dois. É o que se quer: o item mudou na SPA, que é
+ * compartilhada, então a cópia dos dois ambientes está velha.
  */
 export const PRODUCT_SCAN_PATTERNS = [
   `payments:product:${PRODUCT_CACHE_VERSION}:*`,
@@ -129,6 +193,12 @@ export const SUBSCRIPTION_ITEM_SCAN_PATTERNS = [
  * (item apagado no CRM, leitura do Bitrix falhando). Apaga menos que a família
  * inteira: as entradas por id sobrevivem.
  */
-export const SUBSCRIPTIONS_BY_APLICATION_SCAN_PATTERN = `payments:subscriptions:${SUBSCRIPTION_CACHE_VERSION}:aplication:*`
+/**
+ * O `*` do meio é o segmento de ambiente do gateway. Ele **tem** que estar aqui: com
+ * `...:${VERSÃO}:aplication:*` o padrão deixou de casar no dia em que o ambiente
+ * entrou na chave, e varredura que não casa nada não dá erro — dá cache velho
+ * servido, que é exatamente o que a invalidação existe para evitar.
+ */
+export const SUBSCRIPTIONS_BY_APLICATION_SCAN_PATTERN = `payments:subscriptions:${SUBSCRIPTION_CACHE_VERSION}:*:aplication:*`
 
 export const SUBSCRIPTION_ITEMS_BY_SUBSCRIPTION_SCAN_PATTERN = `payments:subscription-items:${SUBSCRIPTION_ITEM_CACHE_VERSION}:subscription:*`

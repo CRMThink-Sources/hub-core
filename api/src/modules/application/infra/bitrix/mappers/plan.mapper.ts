@@ -2,6 +2,10 @@ import z from 'zod'
 import { Plan, PlanProvider } from '@/modules/application/domain/entities/plan'
 import { env } from '@/config/env'
 import { apiLogger } from '@/shared/infra/logger'
+import {
+  PLAN_GATEWAY_ID_FIELDS,
+  planGatewayIdField,
+} from '../ensure-plan-gateway-id-fields'
 import { PLAN_PROVIDER_FIELD } from '../ensure-plan-provider-field'
 import { InvalidBitrixPlanError } from '../errors/invalid-bitrix-plan.error'
 
@@ -118,18 +122,88 @@ const bitrixPlanProvider = z
     return undefined
   })
 
+/**
+ * Price id como a SPA guarda: opcional, porque um plano existe no catálogo antes de
+ * ser espelhado em qualquer gateway. `null` e string vazia viram `undefined` — o
+ * domínio só conhece ausência, nunca `''`.
+ */
+const bitrixGatewayId = z
+  .string()
+  .nullish()
+  .transform(value => value || undefined)
+
+/**
+ * O price id do **ambiente em uso**, e o aviso quando ele falta mas o do outro
+ * ambiente está lá.
+ *
+ * O aviso é a única coisa que separa dois estados que produzem o mesmo
+ * `gatewayId: undefined`:
+ *
+ * | ambiente em uso | outro ambiente | o que é           |
+ * |-----------------|----------------|-------------------|
+ * | vazio           | vazio          | plano de trial    |
+ * | vazio           | preenchido     | plano mal cadastrado aqui |
+ *
+ * A distinção importa porque `isTrialSubscription` deriva "é trial" de **não ter**
+ * price id: sem o aviso, um plano pago configurado só em produção passa por gratuito
+ * em homologação, e a linha é liberada sem cobrança.
+ *
+ * **Não reprova o plano**, mesma postura do provider desconhecido: `getPlan` hidrata
+ * `Subscription.plan`, e lançar aqui derrubaria a leitura do contexto inteiro da
+ * instalação. O plano fica sem price id, logo não ofertável — falha fechada — e o log
+ * nomeia o campo vazio.
+ *
+ * **Sem fallback entre ambientes**, nos dois sentidos: usar o price id do outro lado
+ * seria mandar para a conta do gateway um id que ela não conhece, ou cobrar um
+ * cliente de produção com o preço de teste.
+ */
+function resolveGatewayIdForEnvironment(input: {
+  planId: string
+  name: string
+  production: string | undefined
+  homolog: string | undefined
+}): string | undefined {
+  const environment = env.payments.stripe.environment
+  const current =
+    environment === 'production' ? input.production : input.homolog
+  const other = environment === 'production' ? input.homolog : input.production
+
+  if (current) return current
+
+  if (other) {
+    apiLogger.warn(
+      {
+        app: 'payments',
+        planId: input.planId,
+        plan: input.name,
+        field: planGatewayIdField(environment),
+        environment,
+      },
+      'Plano tem price id só no outro ambiente do gateway — não será ofertável, e ' +
+        'não é um plano de trial',
+    )
+  }
+
+  return undefined
+}
+
 const bitrixPlanSchema = z.object({
   id: z.coerce.string(),
   title: z.string(),
   ufCrm89Product: bitrixProductRef,
   ufCrm89Value: bitrixAmount,
   ufCrm89Interval: bitrixInterval,
-  // Opcional na SPA: plano ainda não espelhado no gateway não tem id.
-  // String vazia é normalizada para `undefined` — o domínio só conhece ausência.
-  ufCrm89GatewayId: z
-    .string()
-    .nullish()
-    .transform(value => value || undefined),
+  /**
+   * Os dois price ids, um por conta do gateway. Os dois opcionais, e qual deles vira
+   * `Plan.gatewayId` é decidido por `resolveGatewayIdForEnvironment` — o domínio
+   * nunca vê os dois valores, senão cada consumidor de price id passaria a escolher
+   * ambiente, e a primeira escolha errada é uma cobrança na conta errada.
+   *
+   * Sem `.optional()` no campo de homologação: chave ausente já chega como
+   * `undefined` e o `nullish` trata — é o caso de todo plano anterior ao campo.
+   */
+  [PLAN_GATEWAY_ID_FIELDS.production]: bitrixGatewayId,
+  [PLAN_GATEWAY_ID_FIELDS.homolog]: bitrixGatewayId,
   ufCrm89Active: bitrixBoolean,
   /**
    * Sem `.optional()` no `z.unknown()`: chave ausente já chega como `undefined`, e o
@@ -151,7 +225,12 @@ export const mapBitrixSpaPlanToRawPlan = (raw: unknown): RawPlan => {
     productId: parsed.data.ufCrm89Product,
     amount: parsed.data.ufCrm89Value,
     interval: parsed.data.ufCrm89Interval,
-    gatewayId: parsed.data.ufCrm89GatewayId,
+    gatewayId: resolveGatewayIdForEnvironment({
+      planId: parsed.data.id,
+      name: parsed.data.title,
+      production: parsed.data[PLAN_GATEWAY_ID_FIELDS.production],
+      homolog: parsed.data[PLAN_GATEWAY_ID_FIELDS.homolog],
+    }),
     provider: parsed.data[PLAN_PROVIDER_FIELD],
     active: parsed.data.ufCrm89Active,
   }

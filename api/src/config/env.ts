@@ -1,5 +1,40 @@
 import 'dotenv/config'
 
+/**
+ * Ambiente do gateway de pagamento: qual conta Stripe as credenciais em uso
+ * apontam.
+ *
+ * Existe porque produção e homologação compartilham o **mesmo portal Bitrix** —
+ * `CRMTHINK_WEBHOOK_URL` é o mesmo valor nos dois — e portanto a mesma SPA de
+ * planos. O price id, porém, é por conta: o de teste não existe na conta live e
+ * vice-versa. É este valor que diz qual dos dois campos de price id do plano o
+ * mapper lê.
+ */
+export type StripeEnvironment = 'production' | 'homolog'
+
+/**
+ * Chave **live** é o que define produção. Qualquer outro valor — `sk_test_`,
+ * `rk_test_`, vazio, malformado — resolve `homolog`.
+ *
+ * Não é derivado de `NODE_ENV` de propósito: `.env.local` deste projeto tem
+ * `NODE_ENV=production` com `sk_test_`, e sob `NODE_ENV` esse arquivo leria o price
+ * id de produção para mandá-lo à conta de teste. Derivar da própria chave torna o
+ * descasamento inexpressável — a mesma string que decide qual conta é chamada
+ * decide qual price id é lido.
+ *
+ * `rk_` entra junto de `sk_` porque a restricted key é aceita pelo gateway
+ * (`StripeWrongKeyTypeError` recusa só a publicável): tratar `rk_live_` como
+ * homologação faria a produção ler o price de teste.
+ *
+ * Default fechado em `homolog`: chave vazia já significa checkout indisponível, e
+ * nesse estado ler o campo de produção não tem utilidade e tem risco.
+ */
+export function resolveStripeEnvironment(
+  secretKey: string | undefined,
+): StripeEnvironment {
+  return /^(sk|rk)_live_/.test(secretKey ?? '') ? 'production' : 'homolog'
+}
+
 /** Page size do worker: clamp [1,50] (50 = teto de comandos do batch Bitrix). */
 function parsePageSize(raw: string | undefined): number {
   const n = Number(raw)
@@ -240,6 +275,11 @@ export const env = {
     stripe: {
       secretKey: process.env.STRIPE_SECRET_KEY ?? '',
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? '',
+      /**
+       * A conta do gateway que estas credenciais alcançam, e portanto qual campo de
+       * price id da SPA de planos vale (ver `resolveStripeEnvironment`).
+       */
+      environment: resolveStripeEnvironment(process.env.STRIPE_SECRET_KEY),
     },
   },
   /**

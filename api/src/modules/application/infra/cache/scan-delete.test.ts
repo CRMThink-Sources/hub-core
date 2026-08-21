@@ -4,6 +4,9 @@ import { scanDelete } from './scan-delete'
 import {
   SUBSCRIPTION_ITEM_SCAN_PATTERNS,
   SUBSCRIPTION_SCAN_PATTERNS,
+  subscriptionKey,
+  subscriptionListKey,
+  subscriptionsByAplicationKey,
 } from './keys'
 
 /**
@@ -41,11 +44,11 @@ const makeRedis = (keyspace: string[], pageSize = 2) => {
 describe('scanDelete', () => {
   it('percorre o cursor até o fim e apaga tudo que casa com o padrão', async () => {
     const { redis, del, remaining } = makeRedis([
-      'payments:subscription:v4:1',
-      'payments:subscription:v4:2',
-      'payments:subscription:v4:3',
-      'payments:subscriptions:v4:all',
-      'payments:subscriptions:v4:aplication:9',
+      subscriptionKey('1'),
+      subscriptionKey('2'),
+      subscriptionKey('3'),
+      subscriptionListKey(),
+      subscriptionsByAplicationKey('9'),
     ])
 
     const deleted = await scanDelete(redis, SUBSCRIPTION_SCAN_PATTERNS)
@@ -58,7 +61,7 @@ describe('scanDelete', () => {
 
   it('não alcança chaves de item ao varrer a família de assinatura', async () => {
     const { redis, remaining } = makeRedis([
-      'payments:subscription:v4:1',
+      subscriptionKey('1'),
       'payments:subscription-item:v4:77',
       'payments:subscription-items:v4:all',
       'payments:subscription-items:v4:subscription:1',

@@ -4,11 +4,33 @@ import {
   mapBitrixSpaPlanToRawPlan,
 } from './plan.mapper'
 import { apiLogger } from '@/shared/infra/logger'
+import { PLAN_GATEWAY_ID_FIELDS } from '../ensure-plan-gateway-id-fields'
 import { PLAN_PROVIDER_FIELD } from '../ensure-plan-provider-field'
 import { InvalidBitrixPlanError } from '../errors/invalid-bitrix-plan.error'
 
 vi.mock('@/shared/infra/logger', () => ({
   apiLogger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
+}))
+
+/**
+ * O ambiente do gateway decide qual campo de price id o mapper lê, e é mutável aqui
+ * porque os dois casos importam: produção lendo o campo de teste cobraria o cliente
+ * com um price que a conta live não conhece, e homologação lendo o de produção
+ * mandaria um price live para a conta de teste.
+ */
+const stripeEnvironment = { value: 'production' as 'production' | 'homolog' }
+
+vi.mock('@/config/env', () => ({
+  env: {
+    payments: {
+      spa: { planEntityType: 1138 },
+      stripe: {
+        get environment() {
+          return stripeEnvironment.value
+        },
+      },
+    },
+  },
 }))
 
 const validItem = {
@@ -30,6 +52,7 @@ const itemWith = (overrides: Record<string, unknown>) => ({
 
 beforeEach(() => {
   vi.mocked(apiLogger.warn).mockClear()
+  stripeEnvironment.value = 'production'
 })
 
 describe('mapBitrixSpaPlanToRawPlan', () => {
@@ -210,7 +233,10 @@ describe('mapBitrixSpaPlanToRawPlan', () => {
       'trata ausência (%s) como undefined, não como erro',
       raw => {
         const plan = mapBitrixSpaPlanToRawPlan(
-          itemWith({ ufCrm89GatewayId: raw }),
+          itemWith({
+            [PLAN_GATEWAY_ID_FIELDS.production]: raw,
+            [PLAN_GATEWAY_ID_FIELDS.homolog]: raw,
+          }),
         )
 
         expect(plan.gatewayId).toBeUndefined()
@@ -219,6 +245,108 @@ describe('mapBitrixSpaPlanToRawPlan', () => {
 
     it('preserva o id quando o plano já está espelhado no gateway', () => {
       expect(mapBitrixSpaPlanToRawPlan(validItem).gatewayId).toBe('price_abc')
+    })
+
+    it('em produção lê o campo de produção', () => {
+      stripeEnvironment.value = 'production'
+
+      const plan = mapBitrixSpaPlanToRawPlan(
+        itemWith({
+          [PLAN_GATEWAY_ID_FIELDS.production]: 'price_live',
+          [PLAN_GATEWAY_ID_FIELDS.homolog]: 'price_test',
+        }),
+      )
+
+      expect(plan.gatewayId).toBe('price_live')
+      expect(apiLogger.warn).not.toHaveBeenCalled()
+    })
+
+    it('em homologação lê o campo de homologação', () => {
+      stripeEnvironment.value = 'homolog'
+
+      const plan = mapBitrixSpaPlanToRawPlan(
+        itemWith({
+          [PLAN_GATEWAY_ID_FIELDS.production]: 'price_live',
+          [PLAN_GATEWAY_ID_FIELDS.homolog]: 'price_test',
+        }),
+      )
+
+      expect(plan.gatewayId).toBe('price_test')
+      expect(apiLogger.warn).not.toHaveBeenCalled()
+    })
+
+    /**
+     * O price id do outro ambiente não é fallback: usá-lo mandaria para a conta do
+     * gateway um id que ela não conhece, ou cobraria produção com o preço de teste.
+     */
+    it.each([
+      ['homolog', PLAN_GATEWAY_ID_FIELDS.production],
+      ['production', PLAN_GATEWAY_ID_FIELDS.homolog],
+    ] as const)(
+      'em %s não usa o price id do outro ambiente como fallback',
+      (environment, filledField) => {
+        stripeEnvironment.value = environment
+
+        const plan = mapBitrixSpaPlanToRawPlan(
+          itemWith({
+            [PLAN_GATEWAY_ID_FIELDS.production]: '',
+            [PLAN_GATEWAY_ID_FIELDS.homolog]: '',
+            [filledField]: 'price_do_outro_lado',
+          }),
+        )
+
+        expect(plan.gatewayId).toBeUndefined()
+      },
+    )
+
+    /**
+     * Sem este aviso, plano pago mal cadastrado é indistinguível do plano de trial —
+     * `isTrialSubscription` deriva "é trial" de não ter price id —, e a linha paga
+     * seria liberada de graça.
+     */
+    it('avisa quando o price id está só no outro ambiente', () => {
+      stripeEnvironment.value = 'homolog'
+
+      const plan = mapBitrixSpaPlanToRawPlan(
+        itemWith({
+          [PLAN_GATEWAY_ID_FIELDS.production]: 'price_live',
+          [PLAN_GATEWAY_ID_FIELDS.homolog]: '',
+        }),
+      )
+
+      expect(plan.gatewayId).toBeUndefined()
+      expect(apiLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          planId: '7',
+          field: PLAN_GATEWAY_ID_FIELDS.homolog,
+          environment: 'homolog',
+        }),
+        expect.stringContaining('outro ambiente'),
+      )
+    })
+
+    it('não avisa quando os dois campos estão vazios — é o plano de trial', () => {
+      stripeEnvironment.value = 'homolog'
+
+      const plan = mapBitrixSpaPlanToRawPlan(
+        itemWith({
+          [PLAN_GATEWAY_ID_FIELDS.production]: '',
+          [PLAN_GATEWAY_ID_FIELDS.homolog]: null,
+        }),
+      )
+
+      expect(plan.gatewayId).toBeUndefined()
+      expect(apiLogger.warn).not.toHaveBeenCalled()
+    })
+
+    it('não derruba a leitura por causa do aviso', () => {
+      stripeEnvironment.value = 'homolog'
+
+      expect(() =>
+        mapBitrixSpaPlanToRawPlan(
+          itemWith({ [PLAN_GATEWAY_ID_FIELDS.homolog]: '' }),
+        ),
+      ).not.toThrow()
     })
   })
 

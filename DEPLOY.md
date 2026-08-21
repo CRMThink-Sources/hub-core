@@ -150,7 +150,16 @@ boot do worker, então volta sozinho no prefixo novo.
 
 O prefixo isola **só o BullMQ**. Chaves de aplicação no mesmo Redis — cache do `botId`
 (`thinkzap:bot:*`), lock de documento do Clicksign — não têm prefixo de ambiente, então
-mantenha índices de DB distintos no `REDIS_URL` (`/0` produção, `/1` staging).
+mantenha índices de DB distintos no `REDIS_URL` (`/0` produção, `/1` staging/homologação).
+
+Não é convenção opcional: produção e homologação usam o **mesmo portal Bitrix**, logo a
+mesma SPA de planos (1138), e o que difere entre os ambientes é o price id — cada um lê
+o campo da conta Stripe dele. As chaves de `payments` que carregam price id (plano e
+assinatura, que embute o plano) são escopadas por ambiente do gateway justamente porque
+o índice de DB pode estar compartilhado por engano; o índice separado é a segunda
+camada. Sem nenhuma das duas, produção serve a entrada gravada pela homologação e uma
+assinatura paga aparece como trial — `isTrialSubscription` deriva "é trial" da ausência
+de price id.
 
 ### Robô de template do Bizproc — ordem de deploy e registro
 
