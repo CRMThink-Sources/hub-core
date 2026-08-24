@@ -39,6 +39,7 @@ const row = (
   timelineNotifiedAt: null,
   attempts: 0,
   lastError: null,
+  operatorBitrixUserId: '7',
   createdAt: new Date('2026-08-14T12:00:00.000Z'),
   sentAt: null,
   ...overrides,
@@ -110,6 +111,19 @@ function makeSut(record = row()) {
   const notifyOutcome = vi.fn().mockResolvedValue(undefined)
   const notifySent = vi.fn().mockResolvedValue(undefined)
 
+  /** Substitui o preparo real: prefixa quando a linha pede, como ele faria. */
+  const prepareOutboundText = vi.fn(
+    (input: {
+      text: string
+      settings: { prefixOperatorNameEnabled: boolean }
+    }) =>
+      Promise.resolve(
+        input.settings.prefixOperatorNameEnabled
+          ? `João Vitor: ${input.text}`
+          : input.text,
+      ),
+  )
+
   const sut = new DispatchWidgetOutboxMessage({
     outbox: outbox as never,
     senderResolver: senderResolver as never,
@@ -119,6 +133,7 @@ function makeSut(record = row()) {
     acquireLock,
     notifyOutcome,
     notifySent,
+    prepareOutboundText: prepareOutboundText as never,
   })
 
   return {
@@ -134,15 +149,92 @@ function makeSut(record = row()) {
     release,
     notifyOutcome,
     notifySent,
+    prepareOutboundText,
     dispatch: (isLastAttempt = false) =>
       sut.execute({ outboxId: 'outbox-1', line, isLastAttempt }),
     dispatchTemplate: (isLastAttempt = false) =>
       sut.execute({ outboxId: 'outbox-1', line: hubLine, isLastAttempt }),
+    dispatchWithLine: (target: typeof line) =>
+      sut.execute({ outboxId: 'outbox-1', line: target, isLastAttempt: false }),
   }
 }
 
+/** Linha com os toggles resolvidos, como o worker os entrega. */
+const lineWithPrefix = (prefixOperatorNameEnabled: boolean) => ({
+  ...line,
+  appId: 'installed-1',
+  settings: {
+    prefixOperatorNameEnabled,
+    messageUpdateEventEnabled: false,
+    messageDeleteEventEnabled: false,
+    widgetOpenChannelEnabled: false,
+  },
+})
+
 describe('DispatchWidgetOutboxMessage', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  /**
+   * O prefixo é do **contato**. `row.text` alimenta o espelho no canal aberto, o
+   * comentário de timeline e o aviso de falha — nos três o autor já é conhecido.
+   */
+  describe('prefixo de nome do operador', () => {
+    it('prefixa a chamada ao provider quando a linha pede', async () => {
+      const sut = makeSut()
+
+      await sut.dispatchWithLine(lineWithPrefix(true))
+
+      expect(sut.send).toHaveBeenCalledWith({
+        kind: 'text',
+        text: 'João Vitor: Olá',
+      })
+      const call = sut.prepareOutboundText.mock.calls[0]?.[0]
+      expect(call?.text).toBe('Olá')
+      expect(call?.settings.prefixOperatorNameEnabled).toBe(true)
+      expect(sut.prepareOutboundText).toHaveBeenCalledWith(
+        expect.objectContaining({ operatorUserId: '7', appId: 'installed-1' }),
+      )
+    })
+
+    it('entrega o texto cru quando o toggle está desligado', async () => {
+      const sut = makeSut()
+
+      await sut.dispatchWithLine(lineWithPrefix(false))
+
+      expect(sut.send).toHaveBeenCalledWith({ kind: 'text', text: 'Olá' })
+    })
+
+    it('não prepara nada quando a intenção não tem operador', async () => {
+      const sut = makeSut(row({ operatorBitrixUserId: null }))
+
+      await sut.dispatchWithLine(lineWithPrefix(true))
+
+      expect(sut.prepareOutboundText).not.toHaveBeenCalled()
+      expect(sut.send).toHaveBeenCalledWith({ kind: 'text', text: 'Olá' })
+    })
+
+    it('não prepara nada em intenção de template', async () => {
+      const sut = makeSut(templateRow())
+
+      await sut.dispatchTemplate()
+
+      expect(sut.prepareOutboundText).not.toHaveBeenCalled()
+      expect(sut.sendTemplate).toHaveBeenCalledTimes(1)
+    })
+
+    it('mantém o texto cru no histórico e no comentário de timeline', async () => {
+      const sut = makeSut()
+
+      await sut.dispatchWithLine(lineWithPrefix(true))
+
+      expect(sut.messages.create).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Olá' }),
+      )
+      expect(sut.notifySent).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Olá' }),
+      )
+    })
+  })
 
   it('entrega uma intenção pendente e grava a marca de entrega', async () => {
     const sut = makeSut()

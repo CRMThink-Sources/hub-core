@@ -44,6 +44,8 @@ export type EnqueueTemplateIntentInput = {
   templateBody: string
   entity: string
   entityId: string
+  /** Operador que disparou, quando houve um: o robô de Bizproc não tem. */
+  operatorBitrixUserId?: string
 }
 
 /**
@@ -172,6 +174,11 @@ export class EnqueueTemplateSendService {
       templateName: input.templateName,
       templateLanguage: input.language,
       templateParameters: input.bodyParameters,
+      /**
+       * Guardado para rastro, não para prefixo: o despacho de template não passa pelo
+       * preparo de texto. Nulo no caminho do robô de Bizproc, que não tem operador.
+       */
+      operatorBitrixUserId: input.operatorBitrixUserId ?? null,
     })
 
     /**

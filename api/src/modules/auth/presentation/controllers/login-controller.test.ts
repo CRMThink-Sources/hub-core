@@ -41,15 +41,18 @@ function makeSut() {
     .mockResolvedValue({ id: 'crmthink.thinkzap', code: 'crmthink.thinkzap' })
   const upsertDomain = vi.fn().mockResolvedValue({ id: 'domain-1' })
   const generateToken = vi.fn().mockReturnValue({ token: 'jwt-1' })
+  const syncDisplayName = vi.fn().mockResolvedValue(undefined)
 
   return {
     getAvailableApp,
     upsertDomain,
     generateToken,
+    syncDisplayName,
     controller: new LoginController(
       { getById: getAvailableApp } as never,
       { execute: upsertDomain } as never,
       { generateToken } as never,
+      { sync: syncDisplayName },
     ),
   }
 }
@@ -165,5 +168,41 @@ describe('LoginController', () => {
 
     expect(response.status).toBe(400)
     expect(sut.generateToken).not.toHaveBeenCalled()
+  })
+
+  describe('nome de exibição do operador', () => {
+    it('grava o nome resolvido na instalação', async () => {
+      await sut.controller.perform(req(validBody))
+
+      expect(sut.syncDisplayName).toHaveBeenCalledWith({
+        appCodeId: 'crmthink.thinkzap',
+        domainId: 'domain-1',
+        bitrixUserId: '7',
+        displayName: 'Ana',
+      })
+    })
+
+    it('não grava quando o login não resolveu nome', async () => {
+      resolveBitrixUserAtLogin.mockResolvedValue({
+        bitrixUserId: '7',
+        displayName: null,
+        email: null,
+        isBitrixAdmin: false,
+        bitrixDepartmentIds: [],
+      })
+
+      await sut.controller.perform(req(validBody))
+
+      expect(sut.syncDisplayName).not.toHaveBeenCalled()
+    })
+
+    it('conclui com 201 quando a gravação do nome falha', async () => {
+      sut.syncDisplayName.mockRejectedValue(new Error('banco fora'))
+
+      const response = await sut.controller.perform(req(validBody))
+
+      expect(response.status).toBe(201)
+      expect(sut.generateToken).toHaveBeenCalled()
+    })
   })
 })

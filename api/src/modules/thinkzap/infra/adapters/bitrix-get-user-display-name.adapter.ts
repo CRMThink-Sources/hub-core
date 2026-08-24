@@ -1,6 +1,9 @@
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
-import { GetBitrixUserDisplayNamePort } from '@/modules/thinkzap/domain/ports/get-bitrix-user-display-name.port'
+import {
+  BitrixUserDisplayNameLookup,
+  GetBitrixUserDisplayNamePort,
+} from '@/modules/thinkzap/domain/ports/get-bitrix-user-display-name.port'
 import { logThinkzapError } from '../../errors/catalog'
 
 const log = createWorkerSourceLogger('bitrix')
@@ -21,9 +24,9 @@ function formatBitrixUserName(user: {
 export class BitrixGetUserDisplayNameAdapter implements GetBitrixUserDisplayNamePort {
   constructor(private readonly bitrixClient: BitrixClient) {}
 
-  async getDisplayName(userId: string): Promise<string | null> {
+  async getDisplayName(userId: string): Promise<BitrixUserDisplayNameLookup> {
     if (!userId.trim()) {
-      return null
+      return { name: null }
     }
 
     try {
@@ -33,18 +36,27 @@ export class BitrixGetUserDisplayNameAdapter implements GetBitrixUserDisplayName
 
       const users = response?.result
       if (!Array.isArray(users) || users.length === 0) {
-        return null
+        return { name: null }
       }
 
-      return formatBitrixUserName(users[0] ?? {})
+      return { name: formatBitrixUserName(users[0] ?? {}) }
     } catch (err) {
+      /**
+       * A mensagem da recusa é o que interessa: `BitrixError` traz status e corpo,
+       * e é ali que aparece o escopo `user`/`user_brief` faltando na instalação. Ela
+       * volta no `refusal` para caber na mesma linha de log de quem decidiu prefixar
+       * — sem isso o operador vê "nome não resolvido" sem saber onde mexer.
+       */
+      const refusal = err instanceof Error ? err.message : String(err)
+
       logThinkzapError(
         log,
         'thinkzap.bitrix.user_name_failed',
-        { userId, err },
+        { userId, refusal, err },
         { level: 'warn' },
       )
-      return null
+
+      return { name: null, refusal }
     }
   }
 }

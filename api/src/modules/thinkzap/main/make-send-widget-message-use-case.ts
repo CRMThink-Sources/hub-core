@@ -8,6 +8,9 @@ import { BitrixLivefeedNotificationService } from '@/shared/application/send-bit
 import { makeBitrixClient } from '@/shared/main/make-bitrix-client'
 import { Request } from 'express'
 import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositories/prisma-thinkzap-message.repository'
+import { prepareOpenLineOutboundText } from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
+import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
+import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
 
 export const makeSendWidgetMessageUseCase = async (
   req: Request,
@@ -25,5 +28,16 @@ export const makeSendWidgetMessageUseCase = async (
     sendBitrixNotification,
     messageRepo,
     new BullMqOpenChannelConversationQueue(),
+    /**
+     * O mesmo preparo do canal aberto, com o cliente Bitrix que a rota já tem em
+     * mãos: sem ele, este caminho entregaria sem prefixo enquanto o canal aberto
+     * prefixa — a mesma configuração de linha com dois comportamentos.
+     */
+    input =>
+      prepareOpenLineOutboundText({
+        ...input,
+        getBitrixUserDisplayName: new BitrixGetUserDisplayNameAdapter(bitrix),
+        getAllowedUser: new PrismaAllowedUserRepository(),
+      }),
   )
 }
