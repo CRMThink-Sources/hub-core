@@ -64,6 +64,12 @@ export class SendWidgetMessageController extends Controller {
         ...parsed.data,
         domainId: (req as unknown as { domainId: string }).domainId,
         appCode: (req as unknown as { appId: string }).appId,
+        /**
+         * Do token, nunca do corpo: quem escreveu é a identidade autenticada, e
+         * aceitar isso do cliente deixaria qualquer envio assinar com o nome de
+         * outro operador.
+         */
+        operatorBitrixUserId: req.bitrixUserId,
       })
       return this.accepted(result)
     } catch (error) {

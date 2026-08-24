@@ -6,6 +6,7 @@ import { ExistsAllowedUserRepository } from '@/modules/thinkzap/domain/repositor
 import { GetAllowedUserRepository } from '@/modules/thinkzap/domain/repositories/allowed-user/get-allowed-user.repository'
 import { ListAllowedUsersRepository } from '@/modules/thinkzap/domain/repositories/allowed-user/list-allowed-users.repository'
 import { RemoveAllowedUserRepository } from '@/modules/thinkzap/domain/repositories/allowed-user/remove-allowed-user.repository'
+import { UpdateAllowedUserDisplayNameRepository } from '@/modules/thinkzap/domain/repositories/allowed-user/update-allowed-user-display-name.repository'
 import { UpdateAllowedUserPermissionsRepository } from '@/modules/thinkzap/domain/repositories/allowed-user/update-allowed-user-permissions.repository'
 import {
   DEFAULT_ALLOWED_USER_PERMISSIONS,
@@ -39,7 +40,8 @@ export class PrismaAllowedUserRepository
     RemoveAllowedUserRepository,
     ExistsAllowedUserRepository,
     GetAllowedUserRepository,
-    UpdateAllowedUserPermissionsRepository
+    UpdateAllowedUserPermissionsRepository,
+    UpdateAllowedUserDisplayNameRepository
 {
   async listByAppId(appId: string): Promise<AllowedUser[]> {
     const rows = await prisma.thinkzapAllowedUser.findMany({
@@ -88,6 +90,23 @@ export class PrismaAllowedUserRepository
       where: { appId, bitrixUserId },
       data: { permissions },
     })
+  }
+
+  /**
+   * `updateMany` e não `upsert`: sem row, nada acontece. A row é o que concede
+   * acesso ao app — criar uma aqui daria permissão a quem só entrou para ter o
+   * nome atualizado.
+   */
+  async updateDisplayName(
+    appId: string,
+    bitrixUserId: string,
+    displayName: string,
+  ): Promise<number> {
+    const { count } = await prisma.thinkzapAllowedUser.updateMany({
+      where: { appId, bitrixUserId },
+      data: { displayName },
+    })
+    return count
   }
 
   async remove(appId: string, bitrixUserId: string): Promise<void> {

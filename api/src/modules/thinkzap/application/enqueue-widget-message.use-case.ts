@@ -61,6 +61,7 @@ export class EnqueueWidgetMessageUseCase {
       message,
       entity,
       entityId,
+      operatorBitrixUserId,
     } = input
 
     const text = message?.trim()
@@ -113,6 +114,13 @@ export class EnqueueWidgetMessageUseCase {
       text,
       entity,
       entityId,
+      /**
+       * O operador vai na intenção, não no `text`: quem clicou só é conhecido aqui,
+       * e a entrega — onde o prefixo é montado — acontece depois, em outro processo.
+       * Gravar já prefixado contaminaria o espelho no canal aberto, o comentário de
+       * timeline e o aviso de falha, que leem esta mesma coluna.
+       */
+      operatorBitrixUserId: operatorBitrixUserId ?? null,
     })
 
     /**

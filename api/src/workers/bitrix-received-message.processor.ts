@@ -16,7 +16,10 @@ import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
 import { isConversationWindowClosedError } from '@/modules/thinkzap/infra/adapters/is-conversation-window-closed-error'
 import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
-import { prepareOpenLineOutboundText } from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
+import {
+  describePrefixUnresolved,
+  prepareOpenLineOutboundText,
+} from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { ensureBitrixBotId } from '@/modules/thinkzap/application/ensure-bitrix-bot-id'
 import { notifyOperatorWindowClosed } from '@/modules/thinkzap/application/notify-operator-window-closed'
@@ -501,6 +504,13 @@ export async function processBitrixReceivedMessage(
             appId: context.app.id,
             getBitrixUserDisplayName,
             getAllowedUser,
+            /**
+             * O prefixo ligado e não aplicado é invisível no texto que sai — e era
+             * invisível no log também. Aqui existe uma aba onde o cliente olha:
+             * sem esta linha, "liguei o toggle e nada acontece" não tem resposta.
+             */
+            onPrefixUnresolved: info =>
+              appendJobLog(describePrefixUnresolved(info)),
           }),
         }
       : descriptor

@@ -39,6 +39,11 @@ export type WidgetOutboxRecord = {
   timelineNotifiedAt: Date | null
   attempts: number
   lastError: string | null
+  /**
+   * Operador do Bitrix24 que originou o envio. `null` nas rows gravadas antes da
+   * coluna existir — essas entregam sem prefixo de nome.
+   */
+  operatorBitrixUserId: string | null
   createdAt: Date
   sentAt: Date | null
 }
@@ -59,6 +64,8 @@ export type CreateWidgetOutboxInput = {
   templateName?: string
   templateLanguage?: string
   templateParameters?: string[]
+  /** Do token da requisição — é o que o worker usa para resolver o nome. */
+  operatorBitrixUserId?: string | null
 }
 
 /**
@@ -94,6 +101,7 @@ function mapRow(row: {
   timelineNotifiedAt: Date | null
   attempts: number
   lastError: string | null
+  operatorBitrixUserId: string | null
   createdAt: Date
   sentAt: Date | null
 }): WidgetOutboxRecord {
@@ -117,6 +125,7 @@ function mapRow(row: {
     timelineNotifiedAt: row.timelineNotifiedAt,
     attempts: row.attempts,
     lastError: row.lastError,
+    operatorBitrixUserId: row.operatorBitrixUserId,
     createdAt: row.createdAt,
     sentAt: row.sentAt,
   }

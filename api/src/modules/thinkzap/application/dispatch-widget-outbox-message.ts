@@ -1,4 +1,5 @@
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { OpenChannelConversationQueue } from '@/modules/thinkzap/domain/ports/open-channel-queue.port'
 import { OutboundSenderResolver } from '@/modules/thinkzap/domain/ports/outbound-sender-resolver.port'
 import { TemplateMessageSenderResolver } from '@/modules/thinkzap/domain/ports/template-sender-resolver.port'
@@ -24,6 +25,13 @@ export type DispatchLineTarget = {
   instanceId: string
   zApiToken?: string | null
   channelId?: string | null
+  /**
+   * Os toggles da linha, do item da SPA. Vêm na mesma resolução da credencial: quem
+   * acha o item para saber por onde enviar já tem em mãos como enviar.
+   */
+  settings?: ConnectorSettings
+  /** `core_apps.id` da instalação — para resolver o nome do operador. */
+  appId?: string
 }
 
 export type DispatchOutcome =
@@ -69,6 +77,20 @@ export type DispatchDeps = {
    * ou não foi chamado — não em narrar o fluxo.
    */
   appendJobLog?: AppendJobLog
+  /**
+   * Preparo do texto que vai para o contato — na prática,
+   * `prepareOpenLineOutboundText`, o mesmo que o canal aberto do Bitrix usa.
+   *
+   * Entra como porta e não como import direto porque ele fala com o Bitrix, e o
+   * despacho é testado sem rede. Ausente, o texto sai cru: é o comportamento de antes
+   * desta porta existir.
+   */
+  prepareOutboundText?: (input: {
+    text: string
+    settings: ConnectorSettings
+    operatorUserId: string
+    appId: string
+  }) => Promise<string>
 }
 
 export type DispatchInput = {
@@ -339,8 +361,43 @@ export class DispatchWidgetOutboxMessage {
       chatId: row.destination,
     })
 
-    const { messageId } = await sender.send({ kind: 'text', text: row.text })
+    const { messageId } = await sender.send({
+      kind: 'text',
+      text: await this.textForContact(row, line),
+    })
     return messageId
+  }
+
+  /**
+   * O texto como o **contato** o lê — que não é `row.text`.
+   *
+   * `row.text` alimenta o espelho no canal aberto, o comentário de timeline e o aviso
+   * de falha; nos três o autor já é conhecido. O prefixo de nome é só desta chamada, e
+   * é por isso que ele é montado aqui em vez de ser gravado na intenção.
+   *
+   * Row sem operador é de antes da coluna existir: entrega crua, como sempre entregou.
+   */
+  private async textForContact(
+    row: WidgetOutboxRecord,
+    line: DispatchLineTarget,
+  ): Promise<string> {
+    const prepare = this.deps.prepareOutboundText
+    if (!prepare || !line.settings || !line.appId) return row.text
+
+    if (!row.operatorBitrixUserId) {
+      apiLogger.debug(
+        { app: 'thinkzap', outboxId: row.id },
+        'Intenção sem operador — entregando sem prefixo de nome',
+      )
+      return row.text
+    }
+
+    return prepare({
+      text: row.text,
+      settings: line.settings,
+      operatorUserId: row.operatorBitrixUserId,
+      appId: line.appId,
+    })
   }
 
   private async handleSendFailure(

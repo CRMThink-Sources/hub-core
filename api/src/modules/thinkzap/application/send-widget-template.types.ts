@@ -18,6 +18,11 @@ export type SendWidgetTemplateInput = {
   templateBody: string
   entity: string
   entityId: string
+  /**
+   * Operador do Bitrix24 que disparou o envio, do JWT. Guardado na intenção para
+   * rastro; template não recebe prefixo de nome — o corpo é aprovado pela Meta.
+   */
+  operatorBitrixUserId?: string
 }
 
 /**

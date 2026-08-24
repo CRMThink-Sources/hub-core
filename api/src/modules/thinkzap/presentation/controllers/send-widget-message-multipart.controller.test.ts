@@ -91,6 +91,7 @@ describe('SendWidgetMessageMultipartController', () => {
         entityId: '1',
         attachmentsMeta: JSON.stringify([{ kind: 'audio', name: 'a.webm' }]),
       },
+      bitrixUserId: '7',
       files: [
         {
           buffer: Buffer.from('webm-audio'),
@@ -109,6 +110,8 @@ describe('SendWidgetMessageMultipartController', () => {
     expect(execute).toHaveBeenCalledWith(
       expect.objectContaining({
         subscriptionItemId: 'i1',
+        // Do token, nunca do corpo — é quem assina a mensagem.
+        operatorBitrixUserId: '7',
         attachments: [
           expect.objectContaining({
             kind: 'audio',

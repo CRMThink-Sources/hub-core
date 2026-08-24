@@ -438,6 +438,20 @@ export const THINKZAP_ERRORS = {
   },
 
   // ── message: orquestração de envio/recebimento (camada de use-case) ──
+  /**
+   * O toggle "Prefixar nome do operador" está ligado e o nome não foi resolvido por
+   * nenhuma origem — a mensagem saiu **sem** prefixo. O payload diz qual origem
+   * falhou (`prefixFailure`) e, quando houve recusa do portal, a mensagem dela
+   * (`refusal`): é o que separa escopo faltando na instalação de cadastro incompleto.
+   */
+  'thinkzap.message.operator_prefix_unresolved': {
+    category: 'config',
+    userCause:
+      'O nome do operador não foi obtido, então a mensagem saiu sem o prefixo configurado.',
+    remediation:
+      'Conferir se o app tem escopo de usuários no portal e se o operador tem nome no cadastro de usuários permitidos; a mensagem foi entregue.',
+    retriable: false,
+  },
   'thinkzap.message.widget_send_failed': {
     category: 'validation',
     userCause: 'Não foi possível enviar a mensagem.',
