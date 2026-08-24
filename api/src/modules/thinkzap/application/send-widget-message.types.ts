@@ -22,6 +22,11 @@ export type SendWidgetMessageInput = {
   attachments?: WidgetMessageAttachmentInput[]
   entity: string
   entityId: string
+  /**
+   * Operador do Bitrix24 que clicou em enviar, do JWT. É o que resolve o nome no
+   * prefixo — ausente, o envio sai sem prefixo.
+   */
+  operatorBitrixUserId?: string
 }
 
 export type SendWidgetMessageResult = {

@@ -19,6 +19,7 @@ import { LineDisconnectedError } from '@/modules/thinkzap/domain/errors/line-dis
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import type { SendWidgetMessageInput } from './send-widget-message.types'
 
 /**
  * O bloco anterior deste arquivo testava `sendToOpenChannel`, que **migrou** para
@@ -126,6 +127,19 @@ function makeSut(items: SubscriptionItem[] = [zapiItem()]) {
     enqueue: vi.fn().mockResolvedValue(undefined),
   }
 
+  /** Substitui o preparo real: prefixa quando a linha pede, como ele faria. */
+  const prepareOutboundText = vi.fn(
+    (input: {
+      text: string
+      settings: { prefixOperatorNameEnabled: boolean }
+    }) =>
+      Promise.resolve(
+        input.settings.prefixOperatorNameEnabled
+          ? `João Vitor: ${input.text}`
+          : input.text,
+      ),
+  )
+
   const useCase = new SendWidgetMessageUseCase(
     { execute } as never,
     { getInstanceByInstanceId, create } as never,
@@ -133,6 +147,7 @@ function makeSut(items: SubscriptionItem[] = [zapiItem()]) {
     sendBitrixNotification as never,
     messageRepository as never,
     openChannelQueue as never,
+    prepareOutboundText as never,
   )
 
   return {
@@ -143,7 +158,8 @@ function makeSut(items: SubscriptionItem[] = [zapiItem()]) {
     messageRepository,
     sendBitrixNotification,
     openChannelQueue,
-    send: (overrides: Partial<typeof baseInput> = {}) =>
+    prepareOutboundText,
+    send: (overrides: Partial<SendWidgetMessageInput> = {}) =>
       useCase.execute({ ...baseInput, ...overrides }),
   }
 }
@@ -162,6 +178,72 @@ describe('SendWidgetMessageUseCase', () => {
       'Olá',
       '5511999999999',
     )
+  })
+
+  describe('prefixo de nome do operador', () => {
+    const prefixItem = (): SubscriptionItem => ({
+      ...zapiItem(),
+      settings: {
+        ...DEFAULT_CONNECTOR_SETTINGS,
+        prefixOperatorNameEnabled: true,
+      },
+    })
+
+    it('prefixa o texto que vai para o contato', async () => {
+      const sut = makeSut([prefixItem()])
+
+      await sut.send({ operatorBitrixUserId: '7' })
+
+      expect(sut.zApiClient.sendMessage).toHaveBeenCalledWith(
+        'Z-1',
+        'TOKEN-SECRETO',
+        'João Vitor: Olá',
+        '5511999999999',
+      )
+      const call = sut.prepareOutboundText.mock.calls[0]?.[0]
+      expect(call?.text).toBe('Olá')
+      expect(call?.settings.prefixOperatorNameEnabled).toBe(true)
+      expect(sut.prepareOutboundText).toHaveBeenCalledWith(
+        expect.objectContaining({ operatorUserId: '7', appId: 'installed-1' }),
+      )
+    })
+
+    /**
+     * O registro interno guarda o que o operador digitou: histórico, espelho no canal
+     * aberto e comentário de timeline saem daqui, e nos três o autor já é conhecido.
+     */
+    it('mantém o texto cru no histórico e no canal aberto', async () => {
+      const sut = makeSut([
+        {
+          ...prefixItem(),
+          settings: {
+            ...DEFAULT_CONNECTOR_SETTINGS,
+            prefixOperatorNameEnabled: true,
+            widgetOpenChannelEnabled: true,
+          },
+        },
+      ])
+
+      await sut.send({ operatorBitrixUserId: '7' })
+
+      expect(sut.messageRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'Olá' }),
+      )
+      expect(openChannelCall(sut).text).toBe('Olá')
+    })
+
+    it('entrega o texto cru quando o toggle está desligado', async () => {
+      const sut = makeSut()
+
+      await sut.send({ operatorBitrixUserId: '7' })
+
+      expect(sut.zApiClient.sendMessage).toHaveBeenCalledWith(
+        'Z-1',
+        'TOKEN-SECRETO',
+        'Olá',
+        '5511999999999',
+      )
+    })
   })
 
   it('escopa a resolução pelo par (domainId, appCode) do token', async () => {

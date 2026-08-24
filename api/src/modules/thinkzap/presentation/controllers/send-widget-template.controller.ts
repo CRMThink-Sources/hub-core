@@ -61,6 +61,8 @@ export class SendWidgetTemplateController extends Controller {
         ...parsed.data,
         domainId: (req as unknown as { domainId: string }).domainId,
         appCode: (req as unknown as { appId: string }).appId,
+        /** Rastro na intenção; template não recebe prefixo de nome. */
+        operatorBitrixUserId: req.bitrixUserId,
       })
       return this.accepted(result)
     } catch (error) {

@@ -25,6 +25,7 @@ import {
 import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { OpenChannelConversationQueue } from '@/modules/thinkzap/domain/ports/open-channel-queue.port'
 import { resolveOpenChannelText } from './helpers/describe-attachment-text'
+import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 
 /** Uma mensagem aceita pelo provider — uma row de `core_thinkerszap_messages`. */
 type SentMessage = {
@@ -69,6 +70,19 @@ export class SendWidgetMessageUseCase {
      * Um port, e não a fila concreta: este use case é testado sem Redis.
      */
     private readonly openChannelQueue: OpenChannelConversationQueue,
+    /**
+     * Preparo do texto que vai para o contato — `prepareOpenLineOutboundText`, o
+     * mesmo do canal aberto e do worker do widget.
+     *
+     * Porta e não import direto porque fala com o Bitrix, e este caso de uso é
+     * testado sem rede. Ausente, o texto sai cru.
+     */
+    private readonly prepareOutboundText?: (input: {
+      text: string
+      settings: ConnectorSettings
+      operatorUserId: string
+      appId: string
+    }) => Promise<string>,
   ) {}
 
   async execute(
@@ -156,10 +170,29 @@ export class SendWidgetMessageUseCase {
     const sentMessages: SentMessage[] = []
 
     if (message?.trim()) {
+      /**
+       * O prefixo de nome do operador é só do **contato**: `sentMessages[].text`
+       * segue com o texto digitado, porque é dele que saem a row de histórico, o
+       * espelho no canal aberto e o comentário de timeline — e nos três o autor já é
+       * conhecido.
+       *
+       * Este caminho é síncrono, então o operador vem do request e não de coluna
+       * nenhuma. Os anexos não entram: a Z-API os recebe sem legenda aqui, cada um
+       * como mensagem própria, e não há texto onde encaixar prefixo.
+       */
+      const textForContact = this.prepareOutboundText
+        ? await this.prepareOutboundText({
+            text: message.trim(),
+            settings: line.item.settings,
+            operatorUserId: input.operatorBitrixUserId ?? '',
+            appId: context.aplication.id,
+          })
+        : message.trim()
+
       const result = await this.zApiClient.sendMessage(
         line.zApiInstanceId,
         line.zApiInstanceToken,
-        message.trim(),
+        textForContact,
         normalizedPhone,
       )
 

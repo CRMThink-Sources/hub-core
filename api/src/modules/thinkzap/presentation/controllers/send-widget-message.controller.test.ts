@@ -28,6 +28,7 @@ const req = {
   },
   domainId: 'domain-1',
   appId: 'crmthink.thinkzap',
+  bitrixUserId: '7',
 } as unknown as Request
 
 describe('SendWidgetMessageController', () => {
@@ -58,6 +59,18 @@ describe('SendWidgetMessageController', () => {
       clientMessageId: 'client-1',
       status: 'queued',
     })
+  })
+
+  /**
+   * O operador sai do token, não do corpo: aceitá-lo do cliente deixaria um envio
+   * assinar com o nome de outro operador.
+   */
+  it('passa o operador do token para o caso de uso', async () => {
+    await controller.perform(req, {} as never)
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.objectContaining({ operatorBitrixUserId: '7' }),
+    )
   })
 
   /** Anexo não passa por esta rota enquanto a Fase 3 não decide o transporte. */

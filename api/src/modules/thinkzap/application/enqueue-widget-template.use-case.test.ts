@@ -23,6 +23,7 @@ import {
 } from '@/modules/thinkzap/domain/ports/template-errors'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { EnqueueWidgetTemplateUseCase } from './enqueue-widget-template.use-case'
+import type { SendWidgetTemplateInput } from './send-widget-template.types'
 
 const hubItem = (
   overrides: Partial<SubscriptionItem> = {},
@@ -116,7 +117,7 @@ function makeSut(
     resolve,
     outbox,
     sendQueue,
-    enqueueTemplate: (overrides: Partial<typeof baseInput> = {}) =>
+    enqueueTemplate: (overrides: Partial<SendWidgetTemplateInput> = {}) =>
       useCase.execute({ ...baseInput, ...overrides }),
   }
 }
@@ -154,6 +155,16 @@ describe('EnqueueWidgetTemplateUseCase', () => {
       entity: 'deal',
       entityId: '42',
     })
+  })
+
+  it('grava o operador que disparou, e nulo quando não vem operador', async () => {
+    const withOperator = makeSut()
+    await withOperator.enqueueTemplate({ operatorBitrixUserId: '7' })
+    expect(outboxCall(withOperator).operatorBitrixUserId).toBe('7')
+
+    const robot = makeSut()
+    await robot.enqueueTemplate()
+    expect(outboxCall(robot).operatorBitrixUserId).toBeNull()
   })
 
   it('não grava o template cru com placeholders', async () => {

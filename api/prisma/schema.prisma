@@ -383,6 +383,13 @@ model ThinkzapWidgetOutbox {
   attempts  Int     @default(0)
   lastError String? @map("last_error") @db.Text
 
+  /// O operador do Bitrix24 que clicou em enviar, para o prefixo de nome na entrega.
+  ///
+  /// Vem do token da requisição: quem escreveu só é conhecido dentro dela, e a
+  /// entrega acontece depois, em outro processo. Nulo nas rows gravadas antes desta
+  /// coluna — essas entregam sem prefixo.
+  operatorBitrixUserId String? @map("operator_bitrix_user_id")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   sentAt    DateTime? @map("sent_at")

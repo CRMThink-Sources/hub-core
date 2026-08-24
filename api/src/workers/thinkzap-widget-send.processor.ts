@@ -1,5 +1,11 @@
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { DispatchWidgetOutboxMessage } from '@/modules/thinkzap/application/dispatch-widget-outbox-message'
+import {
+  describePrefixUnresolved,
+  prepareOpenLineOutboundText,
+} from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
+import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
+import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
 import type { DispatchLineTarget } from '@/modules/thinkzap/application/dispatch-widget-outbox-message'
 import { notifyWidgetSendOutcome } from '@/modules/thinkzap/application/notify-widget-send-outcome'
 import { findItemInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
@@ -124,6 +130,28 @@ export async function processWidgetSendJob(
     notifyOutcome: (outcome, record) => notifyOutcomeFor(record, outcome),
     notifySent: record => notifySentFor(record),
     appendJobLog,
+    /**
+     * O mesmo preparo do canal aberto: é o que faz o ajuste "Prefixar nome do
+     * operador" valer no widget também. Enquanto ele não existia aqui, a mesma
+     * configuração de linha prefixava no Bitrix e não prefixava no widget.
+     *
+     * O cliente Bitrix nasce por domínio/app code porque no worker não há `req`.
+     */
+    prepareOutboundText: async input => {
+      const bitrix = await makeBitrixClientByDomainAndAppCoode(
+        (await new PrismaDomainRepository().getDomainById(row.domainId))
+          ?.name ?? '',
+        row.appCode,
+      )
+
+      return prepareOpenLineOutboundText({
+        ...input,
+        getBitrixUserDisplayName: new BitrixGetUserDisplayNameAdapter(bitrix),
+        getAllowedUser: new PrismaAllowedUserRepository(),
+        onPrefixUnresolved: info =>
+          appendJobLog(describePrefixUnresolved(info)),
+      })
+    },
   })
 
   const result = await dispatch.execute({
@@ -186,8 +214,16 @@ async function resolveLineTarget(
 
     const item = findItemInContext(context, row.subscriptionItemId)
 
+    /**
+     * Os toggles saem da mesma resolução da credencial: quem achou o item para saber
+     * por onde enviar já sabe como enviar. Uma segunda leitura do contexto por
+     * mensagem seria o preço de esquecer isto aqui.
+     */
+    const line = { settings: item.settings, appId: context.aplication.id }
+
     if (item.metadata.provider === 'ZAPI') {
       return {
+        ...line,
         provider: ConnectorProvider.ZAPI,
         instanceId: item.metadata.zApiInstanceId,
         zApiToken: item.metadata.zApiInstanceToken,
@@ -196,6 +232,7 @@ async function resolveLineTarget(
 
     if (item.metadata.provider === 'HUBMESSAGE') {
       return {
+        ...line,
         provider: ConnectorProvider.HUBMESSAGE,
         instanceId: item.metadata.hubmessageChannelId,
         channelId: item.metadata.hubmessageChannelId,

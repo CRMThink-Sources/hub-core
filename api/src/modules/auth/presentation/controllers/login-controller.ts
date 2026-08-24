@@ -5,6 +5,8 @@ import { GetAvailableAppRepository } from '@/shared/domain/repositories/get-avai
 import { UpsertDomain } from '@/shared/application/upsert-domain'
 import { GenerateTokenRepository } from '@/shared/data/contracts/generate-token'
 import { resolveBitrixUserAtLogin } from '../../application/resolve-bitrix-user-at-login'
+import { SyncOperatorDisplayNamePort } from '../../domain/ports/sync-operator-display-name.port'
+import { apiLogger } from '@/shared/infra/logger'
 import z from 'zod'
 import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
 import { UnknownAppError } from '@/shared/app-catalog/errors/unknown-app.error'
@@ -14,6 +16,11 @@ export class LoginController extends Controller {
     private readonly getAvailableAppRepository: GetAvailableAppRepository,
     private readonly upsertDomain: UpsertDomain,
     private readonly generateToken: GenerateTokenRepository,
+    /**
+     * Opcional: instalação de app sem cadastro de operadores simplesmente não
+     * recebe a porta, e o login segue idêntico.
+     */
+    private readonly syncOperatorDisplayName?: SyncOperatorDisplayNamePort,
   ) {
     super()
   }
@@ -86,6 +93,31 @@ export class LoginController extends Controller {
       return this.badRequest(
         err instanceof Error ? err : new Error('Failed to resolve Bitrix user'),
       )
+    }
+
+    /**
+     * Depois do token estar garantido e **tolerante a falha**: o nome é um detalhe
+     * de exibição numa mensagem futura, e derrubar o login por causa dele deixaria
+     * o operador fora do app.
+     */
+    if (bitrixUser.displayName && this.syncOperatorDisplayName) {
+      try {
+        await this.syncOperatorDisplayName.sync({
+          appCodeId: availableApp.id,
+          domainId: domainEntity.id,
+          bitrixUserId: bitrixUser.bitrixUserId,
+          displayName: bitrixUser.displayName,
+        })
+      } catch (err) {
+        apiLogger.warn(
+          {
+            domainId: domainEntity.id,
+            bitrixUserId: bitrixUser.bitrixUserId,
+            err,
+          },
+          'Nome de exibição do operador não foi gravado — login segue normalmente',
+        )
+      }
     }
 
     const { token } = this.generateToken.generateToken({

@@ -117,6 +117,12 @@ export class SendWidgetMessageMultipartController extends Controller {
         attachments,
         entity: parsedBody.data.entity,
         entityId: parsedBody.data.entityId,
+        /**
+         * Do token, nunca do corpo: aceitar do cliente deixaria um envio assinar com
+         * o nome de outro operador. Aqui a entrega é síncrona, então este id é usado
+         * na hora, não guardado.
+         */
+        operatorBitrixUserId: req.bitrixUserId,
       })
       return this.ok(result)
     } catch (error) {
