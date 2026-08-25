@@ -131,13 +131,62 @@ model BillingTransaction {
 // ============================================
 // GPT MAKER
 // ============================================
+/// Agente do GPT Maker pertencente a uma instalacao.
+///
+/// Todos os agentes de todos os clientes vivem no MESMO workspace do vendor —
+/// a cobranca e por creditos, nao pelo workspace do cliente. O vendor nao
+/// conhece instalacao: um `gpt_maker_agent_id` do cliente A e aceito pela API
+/// dele se enviado pelo cliente B. **Esta tabela e a unica fronteira entre
+/// clientes**, e por isso todo acesso ao vendor passa por `forAgent`, que
+/// resolve a posse aqui antes de qualquer chamada.
 model Agent {
-  id              String @id @default(uuid())
-  appId           String @map("app_id")
+  id    String @id @default(uuid())
+  appId String @map("app_id")
+
+  /// Id do agente no vendor. Unique **global**, e nao por instalacao: como o
+  /// workspace e compartilhado, este id e unico no mundo todo, e a restricao
+  /// global e o que impede duas instalacoes reivindicarem o mesmo agente. Um
+  /// unique composto com `app_id` deixaria exatamente esse caso passar.
   gptMakerAgentId String @unique @map("gpt_maker_agent_id")
 
-  app App @relation(fields: [appId], references: [id])
+  /// IMBOT do portal do cliente vinculado a este agente. `null` = agente sem
+  /// bot, que nao recebe mensagem de canal aberto mas ja ocupa recurso no
+  /// workspace compartilhado (e por isso conta para o teto de 5).
+  botId Int? @map("bot_id")
 
+  /// Espelho do nome no vendor, mantido so para montar a lista sem uma
+  /// chamada ao vendor por agente. O valor de verdade e o do vendor.
+  name String?
+
+  /// Janela de atendimento. Regra nossa, aplicada antes de acionar o agente:
+  /// nao existe no vendor.
+  worktimeEnabled Boolean @default(false) @map("worktime_enabled")
+  initHour        String? @map("init_hour") @db.Char(5)
+  endHour         String? @map("end_hour") @db.Char(5)
+  /// Dias da semana ativos, 0 (domingo) a 6.
+  activeDays      Json?   @map("active_days")
+  /// Identificador IANA (ex: `America/Sao_Paulo`). Nao e offset: offset erra
+  /// durante horario de verao.
+  timezone        String? @map("timezone")
+  /// Inverte a janela: `true` = o agente atende FORA do expediente e silencia
+  /// dentro dele. Era `activeOfHours` no HubThink, cujo nome dizia o oposto do
+  /// que o codigo fazia.
+  respondsOnlyOffHours Boolean @default(false) @map("responds_only_off_hours")
+
+  /// O agente se retira da conversa quando um atendente humano entra.
+  /// Consumido pelo runtime de mensagem, que ainda nao existe aqui.
+  exitOnCollaboratorJoin Boolean @default(false) @map("exit_on_collaborator_join")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  /// `bot_id` e sequencial DENTRO de cada portal do Bitrix: dois clientes tem
+  /// bot 5. Um unique global aqui faria a segunda instalacao a criar um bot com
+  /// id repetido falhar com erro de constraint sem relacao com a causa.
+  @@unique([appId, botId])
+  @@index([appId])
   @@map("core_gpt_agents")
 }
 
