@@ -1,0 +1,104 @@
+{
+  "lista": {
+    "titulo": "Agents",
+    "contador": "{{atual}} of {{maximo}} agents",
+    "limiteAtingido": "You have reached the limit of {{maximo}} agents. This limit comes from Bitrix, which allows at most {{maximo}} bots per application — it does not change by plan. Delete an agent to create another.",
+    "vazio": "No agents yet. Create the first one to get started.",
+    "semBot": "No bot linked",
+    "comBot": "Bot #{{botId}}",
+    "perfilIndisponivel": "profile unavailable right now",
+    "erroCarregar": "Could not load the agents."
+  },
+  "criar": {
+    "titulo": "New agent",
+    "nomeObrigatorio": "Enter the agent name.",
+    "sucesso": "Agent created.",
+    "erro": "Could not create the agent."
+  },
+  "campos": {
+    "nome": "Name",
+    "nomePlaceholder": "e.g. Ana, from support",
+    "nomeAjuda": "This is the name the agent introduces itself with in the conversation.",
+    "cargo": "Job title",
+    "site": "Website",
+    "descricao": "Job description",
+    "comportamento": "Behavior",
+    "comunicacao": "Communication style",
+    "comunicacaoOpcoes": {
+      "FORMAL": "Formal",
+      "NORMAL": "Normal",
+      "RELAXED": "Relaxed"
+    },
+    "tipo": "Agent type",
+    "tipoOpcoes": {
+      "SUPPORT": "Support",
+      "SALE": "Sales",
+      "PERSONAL": "Personal"
+    }
+  },
+  "perfil": {
+    "titulo": "Profile and job",
+    "subtitulo": "This data lives in GPT Maker and defines how the agent behaves.",
+    "sucesso": "Profile saved.",
+    "erro": "Could not save the profile.",
+    "indisponivel": "GPT Maker did not respond, so the profile could not be loaded. Saving now would wipe the fields that were not read — reload the page before editing."
+  },
+  "horario": {
+    "titulo": "Working hours",
+    "subtitulo": "Rule applied before the agent is triggered. It does not exist in GPT Maker.",
+    "ativar": "Use working hours",
+    "inicio": "Start",
+    "fim": "End",
+    "fuso": "Time zone",
+    "diasAtivos": "Active days",
+    "dias": {
+      "domingo": "Sun",
+      "segunda": "Mon",
+      "terca": "Tue",
+      "quarta": "Wed",
+      "quinta": "Thu",
+      "sexta": "Fri",
+      "sabado": "Sat"
+    },
+    "inverter": "Invert the rule",
+    "inverterLigado": "The agent answers OUTSIDE the configured hours and stays silent within them.",
+    "inverterDesligado": "The agent answers WITHIN the configured hours and stays silent outside them.",
+    "sairComColaborador": "Leave the conversation when a human agent joins",
+    "sucesso": "Settings saved.",
+    "erro": "Could not save the settings."
+  },
+  "bot": {
+    "titulo": "Bitrix bot",
+    "semVinculo": "No bot linked. Without a bot, the agent does not receive messages from open channels.",
+    "comVinculo": "Linked to bot #{{botId}} on this portal.",
+    "criar": "Create and link bot",
+    "remover": "Remove bot",
+    "confirmarRemover": "Remove the bot from the portal? The agent is kept.",
+    "criado": "Bot created and linked.",
+    "removido": "Bot removed.",
+    "erroCriar": "Could not create the bot.",
+    "erroRemover": "Could not remove the bot."
+  },
+  "detalhe": {
+    "erroCarregar": "Could not load the agent.",
+    "naoEncontrado": "Agent not found."
+  },
+  "excluir": {
+    "confirmar": "Delete the agent \"{{nome}}\"? This removes it from GPT Maker.",
+    "sucesso": "Agent deleted.",
+    "erro": "Could not delete the agent."
+  },
+  "acoes": {
+    "novoAgente": "New agent",
+    "configurar": "Configure",
+    "criar": "Create",
+    "criando": "Creating...",
+    "cancelar": "Cancel",
+    "salvar": "Save",
+    "salvando": "Saving...",
+    "excluir": "Delete",
+    "excluindo": "Deleting...",
+    "removendo": "Removing...",
+    "voltar": "Back"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "lista": {
+    "titulo": "Agentes",
+    "contador": "{{atual}} de {{maximo}} agentes",
+    "limiteAtingido": "Você atingiu o limite de {{maximo}} agentes. Esse limite vem do Bitrix, que aceita no máximo {{maximo}} bots por aplicação — ele não muda por plano. Exclua um agente para criar outro.",
+    "vazio": "Nenhum agente ainda. Crie o primeiro para começar.",
+    "semBot": "Sem bot vinculado",
+    "comBot": "Bot #{{botId}}",
+    "perfilIndisponivel": "perfil indisponível no momento",
+    "erroCarregar": "Não foi possível carregar os agentes."
+  },
+  "criar": {
+    "titulo": "Novo agente",
+    "nomeObrigatorio": "Informe o nome do agente.",
+    "sucesso": "Agente criado.",
+    "erro": "Não foi possível criar o agente."
+  },
+  "campos": {
+    "nome": "Nome",
+    "nomePlaceholder": "Ex.: Ana, do atendimento",
+    "nomeAjuda": "É com este nome que o agente se apresenta ao cliente na conversa.",
+    "cargo": "Cargo",
+    "site": "Site",
+    "descricao": "Descrição do trabalho",
+    "comportamento": "Comportamento",
+    "comunicacao": "Estilo de comunicação",
+    "comunicacaoOpcoes": {
+      "FORMAL": "Formal",
+      "NORMAL": "Normal",
+      "RELAXED": "Descontraído"
+    },
+    "tipo": "Tipo de agente",
+    "tipoOpcoes": {
+      "SUPPORT": "Suporte",
+      "SALE": "Vendas",
+      "PERSONAL": "Pessoal"
+    }
+  },
+  "perfil": {
+    "titulo": "Perfil e trabalho",
+    "subtitulo": "Estes dados ficam no GPT Maker e definem como o agente se comporta.",
+    "sucesso": "Perfil salvo.",
+    "erro": "Não foi possível salvar o perfil.",
+    "indisponivel": "O GPT Maker não respondeu, então o perfil não pôde ser carregado. Salvar agora apagaria os campos que não foram lidos — recarregue a página antes de editar."
+  },
+  "horario": {
+    "titulo": "Horário de atendimento",
+    "subtitulo": "Regra aplicada antes de acionar o agente. Não existe no GPT Maker.",
+    "ativar": "Usar horário de atendimento",
+    "inicio": "Início",
+    "fim": "Fim",
+    "fuso": "Fuso horário",
+    "diasAtivos": "Dias ativos",
+    "dias": {
+      "domingo": "Dom",
+      "segunda": "Seg",
+      "terca": "Ter",
+      "quarta": "Qua",
+      "quinta": "Qui",
+      "sexta": "Sex",
+      "sabado": "Sáb"
+    },
+    "inverter": "Inverter a regra",
+    "inverterLigado": "O agente atende FORA do horário configurado e fica em silêncio dentro dele.",
+    "inverterDesligado": "O agente atende DENTRO do horário configurado e fica em silêncio fora dele.",
+    "sairComColaborador": "Sair da conversa quando um atendente humano entrar",
+    "sucesso": "Configurações salvas.",
+    "erro": "Não foi possível salvar as configurações."
+  },
+  "bot": {
+    "titulo": "Bot do Bitrix",
+    "semVinculo": "Nenhum bot vinculado. Sem bot, o agente não recebe mensagens dos canais abertos.",
+    "comVinculo": "Vinculado ao bot #{{botId}} deste portal.",
+    "criar": "Criar e vincular bot",
+    "remover": "Remover bot",
+    "confirmarRemover": "Remover o bot do portal? O agente é preservado.",
+    "criado": "Bot criado e vinculado.",
+    "removido": "Bot removido.",
+    "erroCriar": "Não foi possível criar o bot.",
+    "erroRemover": "Não foi possível remover o bot."
+  },
+  "detalhe": {
+    "erroCarregar": "Não foi possível carregar o agente.",
+    "naoEncontrado": "Agente não encontrado."
+  },
+  "excluir": {
+    "confirmar": "Excluir o agente \"{{nome}}\"? Isso o remove do GPT Maker.",
+    "sucesso": "Agente excluído.",
+    "erro": "Não foi possível excluir o agente."
+  },
+  "acoes": {
+    "novoAgente": "Novo agente",
+    "configurar": "Configurar",
+    "criar": "Criar",
+    "criando": "Criando...",
+    "cancelar": "Cancelar",
+    "salvar": "Salvar",
+    "salvando": "Salvando...",
+    "excluir": "Excluir",
+    "excluindo": "Excluindo...",
+    "removendo": "Removendo...",
+    "voltar": "Voltar"
+  }
+}
