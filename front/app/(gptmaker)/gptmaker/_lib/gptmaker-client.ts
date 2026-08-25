@@ -48,7 +48,11 @@ export type CreateAgentInput = {
   type?: AgentType
 }
 
-const BASE = '/api/gptmaker'
+/**
+ * O baseURL do axios ja termina em /api (NEXT_PUBLIC_API_URL), entao o path
+ * comeca no modulo — repetir /api aqui gerava /api/api/gptmaker e 404.
+ */
+const BASE = '/gptmaker'
 
 function client() {
   return axiosGptMaker()
