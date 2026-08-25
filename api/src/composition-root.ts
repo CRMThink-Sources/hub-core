@@ -7,6 +7,7 @@ import { createClickSignRoutes } from './modules/clicksign/routes.js'
 import { createPortalAuthMiddleware } from './modules/portal/infra/middleware/portal-auth.middleware.js'
 import { createPortalRoutes } from './modules/portal/routes.js'
 import { createAplicationRoutes } from './modules/application/routes.js'
+import { createGptMakerRoutes } from './modules/gptmaker/routes.js'
 
 // Auth
 export const authMiddleware = createAuthMiddleware()
@@ -32,3 +33,5 @@ export const clicksignRoutes = createClickSignRoutes()
 // Contexto de billing da instalação atual, do módulo `payments`. Prefixo próprio
 // (`/api/application`) porque o recurso é a instalação, e serve qualquer app.
 export const aplicationRoutes = createAplicationRoutes()
+
+export const gptmakerRoutes = createGptMakerRoutes()

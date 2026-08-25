@@ -105,6 +105,23 @@ export const env = {
     clientToken: process.env.Z_API_CLIENT_TOKEN ?? '',
     callbackUrl: process.env.Z_API_CALLBACK_URL ?? '',
   },
+  /**
+   * Credencial do GPT Maker, **compartilhada por todas as instalações**.
+   *
+   * Não existe token por cliente: todos os agentes são criados no mesmo
+   * workspace, porque a cobrança é por créditos e não pelo workspace do
+   * cliente. A consequência é que o vendor não distingue instalação — quem
+   * separa um cliente do outro é `core_gpt_agents`, e por isso o acesso a um
+   * agente só acontece pelo cliente escopado (`forAgent`).
+   *
+   * Vazio derruba toda criação de agente. O módulo sobe assim de propósito: o
+   * resto do hub-core não deve deixar de subir por causa de uma app.
+   */
+  gptMaker: {
+    apiToken: process.env.GPTMAKER_API_TOKEN ?? '',
+    workspaceId: process.env.GPTMAKER_WORKSPACE_ID ?? '',
+    baseUrl: process.env.GPTMAKER_BASE_URL ?? 'https://api.gptmaker.ai/v2',
+  },
   hubMessage: {
     publicKey: process.env.HUBMESSAGE_PUBLIC_KEY ?? '',
     secretKey: process.env.HUBMESSAGE_SECRET_KEY ?? '',
@@ -199,6 +216,7 @@ export const env = {
     thinkanalise: process.env.THINKANALISE_APP_CODE ?? 'crmthink.thinkanalise',
     importsheet: process.env.IMPORTSHEET_APP_CODE ?? 'crmthink.importsheet',
     clicksign: process.env.CLICKSIGN_APP_CODE ?? 'crmthink.clicksign',
+    gptmaker: process.env.GPTMAKER_APP_CODE ?? 'crmthink.gptmaker',
   },
   importsheet: {
     // Linhas por ciclo (round-robin). Default 20, teto 50 (batch Bitrix).
