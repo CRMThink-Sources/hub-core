@@ -35,15 +35,16 @@ function harness(
   overrides: {
     countByApp?: ReturnType<typeof vi.fn>
     create?: ReturnType<typeof vi.fn>
+    createOnVendor?: ReturnType<typeof vi.fn>
     deleteOnVendor?: ReturnType<typeof vi.fn>
     updateOnVendor?: ReturnType<typeof vi.fn>
   } = {},
 ): Harness {
   const countByApp = overrides.countByApp ?? vi.fn().mockResolvedValue(0)
   const create = overrides.create ?? vi.fn().mockResolvedValue(LINHA)
-  const createOnVendor = vi
-    .fn()
-    .mockResolvedValue({ id: 'vendor-1', name: 'Atendente' })
+  const createOnVendor =
+    overrides.createOnVendor ??
+    vi.fn().mockResolvedValue({ id: 'vendor-1', name: 'Atendente' })
   const updateOnVendor =
     overrides.updateOnVendor ??
     vi.fn().mockResolvedValue({ id: 'vendor-1', name: 'Atendente' })
@@ -152,9 +153,60 @@ describe('createAgent', () => {
     })
   })
 
-  describe('campos que a criação do vendor não aceita', () => {
-    it('aplica communicationType e type num PUT depois', async () => {
+  describe('communicationType e type', () => {
+    // O vendor EXIGE `type` na criação — sem ele responde
+    // `400 {"error":"type is required"}`. Os dois vão no POST, e o PUT só
+    // aparece se o vendor devolver algo diferente do pedido.
+    it('não faz PUT quando o vendor devolve o que foi pedido', async () => {
+      const h = harness({
+        createOnVendor: vi.fn().mockResolvedValue({
+          id: 'vendor-1',
+          name: 'Atendente',
+          communicationType: 'FORMAL',
+          type: 'SALE',
+        }),
+      })
+
+      await createAgent(h.deps, APP_ID, {
+        name: 'Atendente',
+        communicationType: 'FORMAL',
+        type: 'SALE',
+      })
+
+      expect(h.updateOnVendor).not.toHaveBeenCalled()
+    })
+
+    it('não faz PUT quando nenhum dos dois foi informado', async () => {
       const h = harness()
+
+      await createAgent(h.deps, APP_ID, { name: 'Atendente' })
+
+      expect(h.updateOnVendor).not.toHaveBeenCalled()
+    })
+
+    it('não faz PUT quando o vendor não ecoa os campos', async () => {
+      // Ausência na resposta não é divergência: o vendor nem sempre devolve
+      // tudo que recebeu, e tratar isso como erro faria um PUT em toda criação.
+      const h = harness()
+
+      await createAgent(h.deps, APP_ID, {
+        name: 'Atendente',
+        communicationType: 'FORMAL',
+        type: 'SALE',
+      })
+
+      expect(h.updateOnVendor).not.toHaveBeenCalled()
+    })
+
+    it('corrige num PUT quando o vendor devolve valor divergente', async () => {
+      const h = harness({
+        createOnVendor: vi.fn().mockResolvedValue({
+          id: 'vendor-1',
+          name: 'Atendente',
+          communicationType: 'NORMAL',
+          type: 'SUPPORT',
+        }),
+      })
 
       await createAgent(h.deps, APP_ID, {
         name: 'Atendente',
@@ -168,16 +220,13 @@ describe('createAgent', () => {
       })
     })
 
-    it('não faz PUT quando nenhum dos dois foi informado', async () => {
-      const h = harness()
-
-      await createAgent(h.deps, APP_ID, { name: 'Atendente' })
-
-      expect(h.updateOnVendor).not.toHaveBeenCalled()
-    })
-
-    it('entrega o agente mesmo se o PUT falhar', async () => {
+    it('entrega o agente mesmo se o PUT de correção falhar', async () => {
       const h = harness({
+        createOnVendor: vi.fn().mockResolvedValue({
+          id: 'vendor-1',
+          name: 'Atendente',
+          communicationType: 'NORMAL',
+        }),
         updateOnVendor: vi.fn().mockRejectedValue(new Error('vendor fora')),
       })
 

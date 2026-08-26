@@ -24,7 +24,10 @@ const createAgentSchema = z.object({
   behavior: z.string().optional(),
   jobName: z.string().optional(),
   jobSite: z.string().optional(),
-  jobDescription: z.string().optional(),
+  // Obrigatorio no vendor: sem ele a criacao volta
+  // 400 {"error":"jobDescription is required"}. Barrar aqui troca esse erro de
+  // integracao por uma mensagem de validacao, sem gastar a ida ao GPT Maker.
+  jobDescription: z.string().min(1, 'Informe a descricao do trabalho'),
   communicationType: communicationType.optional(),
   type: agentType.optional(),
 })

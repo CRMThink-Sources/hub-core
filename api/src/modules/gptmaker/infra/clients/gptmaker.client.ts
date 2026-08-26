@@ -6,6 +6,32 @@ import type {
   VendorAgent,
 } from '@/modules/gptmaker/domain/entities/agent'
 import { gptmakerError } from '@/modules/gptmaker/errors/catalog'
+import {
+  DEFAULT_AGENT_TYPE,
+  DEFAULT_COMMUNICATION_TYPE,
+} from '@/modules/gptmaker/gptmaker.constants'
+
+/**
+ * Descreve a recusa do vendor com o corpo da resposta.
+ *
+ * Sem isso o log guarda so "Request failed with status code 400", que nao diz
+ * qual campo o GPT Maker recusou e trava a investigacao no ponto em que ela
+ * comeca. Mesmo formato do client da HubMessage.
+ */
+function vendorFailure(method: string, path: string, error: unknown): unknown {
+  if (!axios.isAxiosError(error)) return error
+
+  const status = error.response?.status ?? 'sem resposta'
+  const body =
+    error.response?.data === undefined
+      ? ''
+      : ` — ${JSON.stringify(error.response.data)}`
+
+  return new Error(
+    `GPT Maker: ${method} ${path} falhou com status ${status}${body}`,
+    { cause: error },
+  )
+}
 
 /** A listagem do workspace vem ora como `{ data: [...] }`, ora como array. */
 type WorkspaceAgentsResponse = VendorAgent[] | { data?: VendorAgent[] }
@@ -45,22 +71,31 @@ export class GptMakerClient {
   async createAgent(input: CreateAgentInput): Promise<VendorAgent> {
     this.assertConfigured()
 
+    const path = `/workspace/${env.gptMaker.workspaceId}/agents`
+
     try {
-      const { data } = await this.http.post<VendorAgent>(
-        `/workspace/${env.gptMaker.workspaceId}/agents`,
-        {
-          name: input.name,
-          avatar: input.avatar,
-          behavior: input.behavior,
-          jobName: input.jobName,
-          jobSite: input.jobSite,
-          jobDescription: input.jobDescription,
-        },
-      )
+      const { data } = await this.http.post<VendorAgent>(path, {
+        name: input.name,
+        avatar: input.avatar,
+        behavior: input.behavior,
+        jobName: input.jobName,
+        jobSite: input.jobSite,
+        jobDescription: input.jobDescription,
+        // Obrigatório no vendor: sem `type` a criação volta
+        // `400 {"error":"type is required"}`. `communicationType` vai junto
+        // porque o mesmo endpoint aceita os dois, e mandar na criação evita
+        // um `PUT` extra para o caso comum.
+        type: input.type ?? DEFAULT_AGENT_TYPE,
+        communicationType:
+          input.communicationType ?? DEFAULT_COMMUNICATION_TYPE,
+      })
 
       return data
     } catch (error) {
-      throw gptmakerError('gptmaker.agent.create_failed', error)
+      throw gptmakerError(
+        'gptmaker.agent.create_failed',
+        vendorFailure('POST', path, error),
+      )
     }
   }
 
@@ -76,7 +111,10 @@ export class GptMakerClient {
         return null
       }
 
-      throw gptmakerError('gptmaker.agent.update_failed', error)
+      throw gptmakerError(
+        'gptmaker.agent.update_failed',
+        vendorFailure('GET', `/agent/${agentId}`, error),
+      )
     }
   }
 
@@ -94,7 +132,10 @@ export class GptMakerClient {
 
       return data
     } catch (error) {
-      throw gptmakerError('gptmaker.agent.update_failed', error)
+      throw gptmakerError(
+        'gptmaker.agent.update_failed',
+        vendorFailure('PUT', `/agent/${agentId}`, error),
+      )
     }
   }
 
@@ -107,7 +148,10 @@ export class GptMakerClient {
       // Agente já inexistente é o estado desejado, não uma falha.
       if (axios.isAxiosError(error) && error.response?.status === 404) return
 
-      throw gptmakerError('gptmaker.agent.delete_failed', error)
+      throw gptmakerError(
+        'gptmaker.agent.delete_failed',
+        vendorFailure('DELETE', `/agent/${agentId}`, error),
+      )
     }
   }
 

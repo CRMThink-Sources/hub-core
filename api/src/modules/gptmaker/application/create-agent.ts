@@ -50,38 +50,48 @@ export async function createAgent(
     throw gptmakerError('gptmaker.agent.create_failed', persistError)
   }
 
-  // Feito depois da gravação, e não junto da criação, porque o endpoint de
-  // criação do vendor não aceita estes dois campos. Falhar aqui não desfaz o
-  // agente: ele existe, está associado, e só ficou com os defaults.
-  const vendor = await applyFieldsCreateDoesNotAccept(deps, created.id, input)
+  // Rede de segurança, não caminho normal: a criação já manda os dois campos.
+  // Falhar aqui não desfaz o agente — ele existe, está associado, e no pior
+  // caso ficou com o que o vendor decidiu.
+  const vendor = await correctFieldsCreateIgnored(deps, created, input)
 
   return { ...local, vendor: vendor ?? created }
 }
 
 /**
- * `communicationType` e `type` só existem no `PUT`. Um agente com os defaults é
- * um agente utilizável — perder o agente inteiro porque o ajuste fino falhou
- * seria pior do que entregá-lo assim.
+ * Corrige `communicationType`/`type` quando o vendor devolve valor diferente do
+ * que a criação pediu.
+ *
+ * Só age sobre campo que o usuário pediu **e** que voltou preenchido e
+ * divergente. Campo ausente na resposta não é divergência: o vendor nem sempre
+ * ecoa tudo que recebe, e tratar ausência como erro faria um `PUT` inútil em
+ * toda criação.
  */
-async function applyFieldsCreateDoesNotAccept(
+async function correctFieldsCreateIgnored(
   deps: CreateAgentDeps,
-  gptMakerAgentId: string,
+  created: { id: string; communicationType?: string; type?: string },
   input: CreateAgentInput,
 ) {
-  if (!input.communicationType && !input.type) return null
+  const patch = {
+    ...(input.communicationType &&
+    created.communicationType &&
+    created.communicationType !== input.communicationType
+      ? { communicationType: input.communicationType }
+      : {}),
+    ...(input.type && created.type && created.type !== input.type
+      ? { type: input.type }
+      : {}),
+  }
+
+  if (Object.keys(patch).length === 0) return null
 
   try {
-    return await deps.client.updateAgent(gptMakerAgentId, {
-      ...(input.communicationType
-        ? { communicationType: input.communicationType }
-        : {}),
-      ...(input.type ? { type: input.type } : {}),
-    })
+    return await deps.client.updateAgent(created.id, patch)
   } catch (error) {
     logGptmakerError(
       deps.logger,
       'gptmaker.agent.update_failed',
-      { gptMakerAgentId, error },
+      { gptMakerAgentId: created.id, error },
       {
         msg: 'Agente criado, mas os ajustes de comunicação/tipo não foram aplicados',
       },
