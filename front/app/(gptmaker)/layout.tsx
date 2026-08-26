@@ -2,7 +2,6 @@
 
 import { Aside } from '@/components/layouts/shared/aside/aside'
 import { GPTMAKER_ASIDE_CONFIG } from '@/components/layouts/shared/aside/gptmaker-aside-config'
-import { SessionProvider } from '@/providers/session-provider'
 import { AplicationProvider } from '@/providers/aplication-provider'
 import { APP_CODES } from '@/shared/app/app-codes'
 import { Montserrat } from 'next/font/google'
@@ -44,6 +43,11 @@ function GptMakerContent({ children }: { children: React.ReactNode }) {
 /**
  * Sem provider de permissões: a fatia 1 não tem tela de acesso por
  * usuário/departamento. Quem instala o app usa tudo.
+ *
+ * E sem `SessionProvider`: ele é legado e existe para dados agregados de outras
+ * apps (conectores, importações, conexão do Google). Nenhuma tela daqui lê a
+ * sessão, então mantê-lo só custava uma chamada a `/api/auth/session` em toda
+ * abertura do app.
  */
 export default function GptMakerLayout({
   children,
@@ -52,9 +56,7 @@ export default function GptMakerLayout({
 }) {
   return (
     <AplicationProvider appCode={APP_CODES.gptmaker}>
-      <SessionProvider appCode={APP_CODES.gptmaker}>
-        <GptMakerContent>{children}</GptMakerContent>
-      </SessionProvider>
+      <GptMakerContent>{children}</GptMakerContent>
     </AplicationProvider>
   )
 }

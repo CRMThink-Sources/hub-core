@@ -5,6 +5,18 @@ export const MAX_AGENTS = 5
 export type CommunicationType = 'FORMAL' | 'NORMAL' | 'RELAXED'
 export type AgentType = 'SUPPORT' | 'SALE' | 'PERSONAL'
 
+/**
+ * Ordem em que as opções aparecem nos selects. Aqui e não no componente porque
+ * a criação e a edição de perfil oferecem a mesma lista — duplicar deixaria as
+ * duas telas divergirem quando o vendor ganhar um valor novo.
+ */
+export const COMMUNICATION_TYPES: CommunicationType[] = [
+  'FORMAL',
+  'NORMAL',
+  'RELAXED',
+]
+export const AGENT_TYPES: AgentType[] = ['SUPPORT', 'SALE', 'PERSONAL']
+
 export type Worktime = {
   enabled: boolean
   initHour: string | null
@@ -36,6 +48,19 @@ export type Agent = {
   exitOnCollaboratorJoin: boolean
   /** Ausente quando o GPT Maker não respondeu — a lista aparece mesmo assim. */
   vendor?: VendorAgent
+}
+
+/** Um imbot desta aplicação no portal do Bitrix. */
+export type PortalBot = {
+  id: number
+  code: string
+  name: string
+}
+
+export type Bot = PortalBot & {
+  /** Id do agente no vendor que usa este bot, ou `null` se ele está livre. */
+  boundToAgentId: string | null
+  boundToAgentName: string | null
 }
 
 export type CreateAgentInput = {
@@ -96,12 +121,33 @@ export async function updateAgentSettings(
   )) as unknown as Agent
 }
 
+/**
+ * Os bots desta aplicação no portal, com o agente que usa cada um.
+ *
+ * A lista vem do portal do Bitrix, não do nosso banco: o cliente pode criar e
+ * remover bots pelo painel de lá.
+ */
+export async function listBots(): Promise<Bot[]> {
+  return (await client().get(`${BASE}/bots`)) as unknown as Bot[]
+}
+
+export async function createBot(name: string): Promise<PortalBot> {
+  return (await client().post(`${BASE}/bots`, {
+    name,
+  })) as unknown as PortalBot
+}
+
+export async function deleteBot(botId: number): Promise<void> {
+  await client().delete(`${BASE}/bots/${botId}`)
+}
+
+/** Vincula ao agente um bot que já existe no portal. */
 export async function bindBot(
   gptMakerAgentId: string,
-  name?: string,
+  botId: number,
 ): Promise<Agent> {
   return (await client().post(`${BASE}/agents/${gptMakerAgentId}/bot`, {
-    name,
+    botId,
   })) as unknown as Agent
 }
 
