@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 import { bindBot, unbindBot, type BindBotDeps } from './bind-bot'
-import { MAX_AGENTS_PER_APP } from '../gptmaker.constants'
 import type { AgentRepository } from '../domain/repositories/agent.repository'
 import type { ImbotGateway, PortalBot } from '../infra/bitrix/imbot.gateway'
 import type { ScopedAgentClient } from '../infra/clients/scoped-agent.client'
 import { DEFAULT_WORKTIME } from '../domain/value-objects/worktime'
 
-const EVENT_HANDLER = 'https://api.exemplo/webhooks/gptmaker'
+const bot = (id: number): PortalBot => ({
+  id,
+  code: `gptmaker_${id}`,
+  name: `Bot ${id}`,
+})
 
 function scopedWith(botId: number | null): ScopedAgentClient {
   return {
@@ -24,97 +27,82 @@ function scopedWith(botId: number | null): ScopedAgentClient {
   } as unknown as ScopedAgentClient
 }
 
-function harness(bots: PortalBot[] = []) {
+function harness(
+  bots: PortalBot[] = [],
+  overrides: { findOwnedByBotId?: ReturnType<typeof vi.fn> } = {},
+) {
   const update = vi.fn((id: string, patch: { botId?: number | null }) =>
     Promise.resolve({ ...scopedWith(patch.botId ?? null).local, id }),
   )
+  const findOwnedByBotId =
+    overrides.findOwnedByBotId ?? vi.fn().mockResolvedValue(null)
   const listApplicationBots = vi.fn().mockResolvedValue(bots)
-  const register = vi.fn().mockResolvedValue(42)
   const unregister = vi.fn().mockResolvedValue(undefined)
 
   const deps: BindBotDeps = {
-    agents: { update } as unknown as AgentRepository,
-    imbot: {
-      listApplicationBots,
-      register,
-      unregister,
-    } as unknown as ImbotGateway,
-    eventHandlerUrl: EVENT_HANDLER,
+    agents: { update, findOwnedByBotId } as unknown as AgentRepository,
+    imbot: { listApplicationBots, unregister } as unknown as ImbotGateway,
   }
 
-  return { deps, update, listApplicationBots, register, unregister }
+  return { deps, update, findOwnedByBotId, listApplicationBots, unregister }
 }
 
 describe('bindBot', () => {
-  it('cria o bot e grava o botId no agente', async () => {
-    const h = harness()
+  it('grava o botId do bot escolhido', async () => {
+    const h = harness([bot(7)])
 
-    const updated = await bindBot(h.deps, scopedWith(null), 'Atendente')
+    const updated = await bindBot(h.deps, scopedWith(null), 7)
 
-    expect(h.register).toHaveBeenCalledWith({
-      name: 'Atendente',
-      eventHandlerUrl: EVENT_HANDLER,
-    })
-    expect(h.update).toHaveBeenCalledWith('local-1', { botId: 42 })
-    expect(updated.botId).toBe(42)
+    expect(h.update).toHaveBeenCalledWith('local-1', { botId: 7 })
+    expect(updated.botId).toBe(7)
   })
 
   it('recusa agente que já tem bot', async () => {
-    const h = harness()
+    const h = harness([bot(7)])
 
-    await expect(
-      bindBot(h.deps, scopedWith(7), 'Atendente'),
-    ).rejects.toMatchObject({ errorCode: 'gptmaker.bot.already_bound' })
+    await expect(bindBot(h.deps, scopedWith(9), 7)).rejects.toMatchObject({
+      errorCode: 'gptmaker.bot.already_bound',
+    })
 
-    expect(h.register).not.toHaveBeenCalled()
+    expect(h.update).not.toHaveBeenCalled()
   })
 
-  it('recusa quando o portal está no limite', async () => {
-    const cheio = Array.from({ length: MAX_AGENTS_PER_APP }, (_, i) => ({
-      id: i + 1,
-      code: `gptmaker_${i}`,
-    }))
-    const h = harness(cheio)
+  it('recusa bot que não é desta aplicação no portal', async () => {
+    // Um BOT_ID arbitrário pode ser de outra aplicação instalada no mesmo
+    // portal — a lista filtrada pelo prefixo do code é o que barra isso.
+    const h = harness([bot(7)])
 
-    await expect(
-      bindBot(h.deps, scopedWith(null), 'Sexto'),
-    ).rejects.toMatchObject({ errorCode: 'gptmaker.bot.limit_reached' })
+    await expect(bindBot(h.deps, scopedWith(null), 999)).rejects.toMatchObject({
+      errorCode: 'gptmaker.bot.not_found',
+    })
 
-    expect(h.register).not.toHaveBeenCalled()
+    expect(h.update).not.toHaveBeenCalled()
   })
 
-  it('libera vaga quando o cliente apagou um bot no painel do Bitrix', async () => {
-    // O nosso banco pode achar que há 5; o portal é quem responde.
-    const h = harness([
-      { id: 1, code: 'gptmaker_1' },
-      { id: 2, code: 'gptmaker_2' },
-    ])
+  it('recusa bot já vinculado a outro agente', async () => {
+    const h = harness([bot(7)], {
+      findOwnedByBotId: vi
+        .fn()
+        .mockResolvedValue({ id: 'local-2', gptMakerAgentId: 'vendor-2' }),
+    })
 
-    const updated = await bindBot(h.deps, scopedWith(null), 'Atendente')
+    await expect(bindBot(h.deps, scopedWith(null), 7)).rejects.toMatchObject({
+      errorCode: 'gptmaker.bot.in_use',
+    })
 
-    expect(updated.botId).toBe(42)
+    expect(h.update).not.toHaveBeenCalled()
   })
 })
 
 describe('unbindBot', () => {
-  it('remove o bot do portal e limpa o vínculo', async () => {
-    const h = harness([{ id: 7, code: 'gptmaker_7' }])
+  it('limpa o vínculo e preserva o bot no portal', async () => {
+    const h = harness([bot(7)])
 
     const updated = await unbindBot(h.deps, scopedWith(7))
 
-    expect(h.unregister).toHaveBeenCalledWith(7)
-    expect(h.update).toHaveBeenCalledWith('local-1', { botId: null })
-    expect(updated.botId).toBeNull()
-  })
-
-  it('conclui quando o bot já não existe no portal', async () => {
-    const h = harness([])
-
-    const updated = await unbindBot(h.deps, scopedWith(7))
-
-    // O estado desejado já é o corrente. Recusar deixaria o agente preso a um
-    // botId que não aponta para nada.
+    // Desvincular troca quem responde; destruir o canal é ação da tela de bots.
     expect(h.unregister).not.toHaveBeenCalled()
+    expect(h.update).toHaveBeenCalledWith('local-1', { botId: null })
     expect(updated.botId).toBeNull()
   })
 
@@ -123,7 +111,6 @@ describe('unbindBot', () => {
 
     await unbindBot(h.deps, scopedWith(null))
 
-    expect(h.unregister).not.toHaveBeenCalled()
     expect(h.update).not.toHaveBeenCalled()
   })
 })

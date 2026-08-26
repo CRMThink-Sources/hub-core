@@ -103,6 +103,24 @@ export const GPTMAKER_ERRORS = {
     retriable: false,
     httpStatus: 409,
   },
+  'gptmaker.bot.not_found': {
+    category: 'validation',
+    userCause: 'O bot não foi encontrado neste portal.',
+    remediation:
+      'Recarregar a lista de bots; se ele sumiu, foi removido pelo painel do Bitrix ou pertence a outra aplicação.',
+    retriable: false,
+    httpStatus: 404,
+  },
+  // Cobre os dois sentidos do mesmo conflito: vincular um bot que já é de outro
+  // agente, e excluir um bot que ainda está vinculado.
+  'gptmaker.bot.in_use': {
+    category: 'validation',
+    userCause: 'Este bot já está vinculado a outro agente.',
+    remediation:
+      'Desvincular o bot do agente que o usa antes de vinculá-lo a outro ou removê-lo do portal.',
+    retriable: false,
+    httpStatus: 409,
+  },
   'gptmaker.bot.create_failed': {
     category: 'integration',
     userCause: 'O Bitrix não conseguiu criar o bot no portal.',

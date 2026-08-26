@@ -2,6 +2,9 @@ import { Router } from 'express'
 import { adaptControllerFactory } from '@/shared/main/adapt-controller'
 import {
   makeBindBotController,
+  makeCreateBotController,
+  makeDeleteBotController,
+  makeListBotsController,
   makeCreateAgentController,
   makeDeleteAgentController,
   makeGetAgentController,
@@ -21,6 +24,13 @@ import {
  */
 export const createGptMakerRoutes = (): Router => {
   const router = Router()
+
+  // Bots existem por si: vivem no portal do cliente e podem ser criados,
+  // removidos e reaproveitados sem agente nenhum. O vínculo é a rota
+  // `/agents/:agentId/bot`.
+  router.get('/bots', adaptControllerFactory(makeListBotsController))
+  router.post('/bots', adaptControllerFactory(makeCreateBotController))
+  router.delete('/bots/:botId', adaptControllerFactory(makeDeleteBotController))
 
   router.get('/agents', adaptControllerFactory(makeListAgentsController))
   router.post('/agents', adaptControllerFactory(makeCreateAgentController))

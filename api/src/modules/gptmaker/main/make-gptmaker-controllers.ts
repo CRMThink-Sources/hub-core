@@ -11,6 +11,9 @@ import {
 } from '../presentation/controllers/agent-settings.controller'
 import {
   BindBotController,
+  CreateBotController,
+  DeleteBotController,
+  ListBotsController,
   UnbindBotController,
 } from '../presentation/controllers/bot.controller'
 
@@ -30,6 +33,14 @@ export const makeUpdateAgentProfileController = (): Controller =>
 
 export const makeUpdateAgentSettingsController = (): Controller =>
   new UpdateAgentSettingsController()
+
+export const makeListBotsController = (): Controller => new ListBotsController()
+
+export const makeCreateBotController = (): Controller =>
+  new CreateBotController()
+
+export const makeDeleteBotController = (): Controller =>
+  new DeleteBotController()
 
 export const makeBindBotController = (): Controller => new BindBotController()
 
