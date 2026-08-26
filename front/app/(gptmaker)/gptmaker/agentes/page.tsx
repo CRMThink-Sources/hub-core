@@ -4,12 +4,21 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { MoreHorizontalIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { CreateAgentModal } from '../_components/create-agent-modal'
 import {
   apiErrorMessage,
   deleteAgent,
   listAgents,
+  listBots,
   MAX_AGENTS,
   type Agent,
 } from '../_lib/gptmaker-client'
@@ -18,6 +27,7 @@ export default function AgentesPage() {
   const { t } = useTranslation('gptmaker/agentes')
 
   const [agents, setAgents] = useState<Agent[]>([])
+  const [botNames, setBotNames] = useState<Map<number, string>>(new Map())
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
@@ -33,9 +43,24 @@ export default function AgentesPage() {
     }
   }, [t])
 
+  /**
+   * Os nomes dos bots são um enfeite da lista, e por isso são buscados à parte
+   * e em silêncio: o portal pode não responder, e uma lista de agentes que
+   * some por causa do nome do bot seria pior do que uma que mostra só o id.
+   */
+  const loadBotNames = useCallback(async () => {
+    try {
+      const bots = await listBots()
+      setBotNames(new Map(bots.map(bot => [bot.id, bot.name])))
+    } catch {
+      setBotNames(new Map())
+    }
+  }, [])
+
   useEffect(() => {
     void load()
-  }, [load])
+    void loadBotNames()
+  }, [load, loadBotNames])
 
   async function handleDelete(agent: Agent) {
     if (!window.confirm(t('excluir.confirmar', { nome: agentLabel(agent) })))
@@ -91,36 +116,72 @@ export default function AgentesPage() {
           {agents.map(agent => (
             <li
               key={agent.gptMakerAgentId}
-              className="flex items-center justify-between gap-4 rounded-lg border p-4"
+              className="relative flex items-center justify-between gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50 focus-within:ring-2 focus-within:ring-ring"
             >
               <div className="min-w-0">
-                <p className="truncate font-medium">{agentLabel(agent)}</p>
+                {/* O link cobre a linha inteira (`after:absolute inset-0`), então
+                    clicar em qualquer ponto abre a configuração sem que a linha
+                    precise virar um `div` com onClick — o teclado e o "abrir em
+                    nova aba" continuam funcionando. */}
+                <Link
+                  href={`/gptmaker/agentes/${agent.gptMakerAgentId}`}
+                  className="truncate font-medium outline-none after:absolute after:inset-0 after:rounded-lg"
+                >
+                  {agentLabel(agent)}
+                </Link>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {agent.botId === null
                     ? t('lista.semBot')
-                    : t('lista.comBot', { botId: agent.botId })}
+                    : botNames.has(agent.botId)
+                      ? t('lista.comBotNomeado', {
+                          nome: botNames.get(agent.botId),
+                          botId: agent.botId,
+                        })
+                      : t('lista.comBot', { botId: agent.botId })}
                   {/* `vendor` ausente = o GPT Maker não respondeu. A lista vem
                       do nosso banco, então ela aparece mesmo assim. */}
                   {!agent.vendor && ` · ${t('lista.perfilIndisponivel')}`}
                 </p>
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <Link href={`/gptmaker/agentes/${agent.gptMakerAgentId}`}>
-                  <Button variant="outline" size="sm">
-                    {t('acoes.configurar')}
-                  </Button>
-                </Link>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void handleDelete(agent)}
-                  disabled={removing === agent.gptMakerAgentId}
-                >
-                  {removing === agent.gptMakerAgentId
-                    ? t('acoes.excluindo')
-                    : t('acoes.excluir')}
-                </Button>
+              {/* `z-10` põe o menu acima da área clicável da linha. */}
+              <div className="relative z-10 shrink-0">
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label={t('acoes.acoesDoAgente')}
+                        disabled={removing === agent.gptMakerAgentId}
+                      >
+                        {removing === agent.gptMakerAgentId ? (
+                          t('acoes.excluindo')
+                        ) : (
+                          <MoreHorizontalIcon className="size-4" />
+                        )}
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent>
+                    <DropdownMenuItem
+                      render={
+                        <Link
+                          href={`/gptmaker/agentes/${agent.gptMakerAgentId}`}
+                        >
+                          {t('acoes.configurar')}
+                        </Link>
+                      }
+                    />
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => void handleDelete(agent)}
+                    >
+                      {t('acoes.excluir')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </li>
           ))}

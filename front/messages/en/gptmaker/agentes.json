@@ -7,13 +7,19 @@
     "semBot": "No bot linked",
     "comBot": "Bot #{{botId}}",
     "perfilIndisponivel": "profile unavailable right now",
-    "erroCarregar": "Could not load the agents."
+    "erroCarregar": "Could not load the agents.",
+    "comBotNomeado": "{{nome}} · bot #{{botId}}"
   },
   "criar": {
     "titulo": "New agent",
     "nomeObrigatorio": "Enter the agent name.",
     "sucesso": "Agent created.",
-    "erro": "Could not create the agent."
+    "erro": "Could not create the agent.",
+    "passo": "Step {{atual}} of {{total}}",
+    "passo1Titulo": "Agent identity",
+    "passo2Titulo": "Job and behavior",
+    "tipoAjuda": "Type and style define how the agent runs the conversation. You can change both later on the settings screen.",
+    "camposObrigatorios": "Fill in every field to create the agent."
   },
   "campos": {
     "nome": "Name",
@@ -34,7 +40,8 @@
       "SUPPORT": "Support",
       "SALE": "Sales",
       "PERSONAL": "Personal"
-    }
+    },
+    "comportamentoAjuda": "Instructions on how the agent should act: tone, what it may promise, when to hand over to a human."
   },
   "perfil": {
     "titulo": "Profile and job",
@@ -70,14 +77,21 @@
   "bot": {
     "titulo": "Bitrix bot",
     "semVinculo": "No bot linked. Without a bot, the agent does not receive messages from open channels.",
-    "comVinculo": "Linked to bot #{{botId}} on this portal.",
-    "criar": "Create and link bot",
-    "remover": "Remove bot",
-    "confirmarRemover": "Remove the bot from the portal? The agent is kept.",
-    "criado": "Bot created and linked.",
-    "removido": "Bot removed.",
-    "erroCriar": "Could not create the bot.",
-    "erroRemover": "Could not remove the bot."
+    "comVinculo": "Bound to bot {{nome}} (#{{botId}}) in this portal.",
+    "semNome": "unnamed",
+    "carregando": "Loading the portal bots...",
+    "escolher": "Portal bot",
+    "escolherPlaceholder": "Pick a bot",
+    "escolhaObrigatoria": "Pick a bot to bind.",
+    "vincular": "Bind",
+    "desvincular": "Unbind",
+    "vinculado": "Bot bound.",
+    "desvinculado": "Bot unbound. It stays in the portal.",
+    "nenhumDisponivel": "Every portal bot is already bound to another agent. Create a new bot to use here.",
+    "irParaBots": "Go to bots",
+    "erroCarregar": "Could not load the portal bots.",
+    "erroVincular": "Could not bind the bot.",
+    "erroDesvincular": "Could not unbind the bot."
   },
   "detalhe": {
     "erroCarregar": "Could not load the agent.",
@@ -99,6 +113,15 @@
     "excluir": "Delete",
     "excluindo": "Deleting...",
     "removendo": "Removing...",
-    "voltar": "Back"
+    "voltar": "Back",
+    "avancar": "Next",
+    "acoesDoAgente": "Agent actions"
+  },
+  "secoes": {
+    "titulo": "Settings sections",
+    "perfil": "Profile and job",
+    "perfilDescricao": "How the agent introduces itself and what it knows about its job.",
+    "atendimento": "Service",
+    "atendimentoDescricao": "When the agent answers and which portal bot it answers through."
   }
 }

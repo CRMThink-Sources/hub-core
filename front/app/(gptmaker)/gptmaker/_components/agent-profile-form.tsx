@@ -14,15 +14,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  AGENT_TYPES,
+  COMMUNICATION_TYPES,
   apiErrorMessage,
   updateAgentProfile,
   type Agent,
   type AgentType,
   type CommunicationType,
 } from '../_lib/gptmaker-client'
-
-const COMMUNICATION_TYPES: CommunicationType[] = ['FORMAL', 'NORMAL', 'RELAXED']
-const AGENT_TYPES: AgentType[] = ['SUPPORT', 'SALE', 'PERSONAL']
 
 type Props = {
   agent: Agent
@@ -112,7 +111,9 @@ export function AgentProfileForm({ agent, onSaved }: Props) {
             }
           >
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue>
+                {(value: string) => t(`campos.comunicacaoOpcoes.${value}`)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {COMMUNICATION_TYPES.map(option => (
@@ -131,7 +132,9 @@ export function AgentProfileForm({ agent, onSaved }: Props) {
             onValueChange={value => setType(value as AgentType)}
           >
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue>
+                {(value: string) => t(`campos.tipoOpcoes.${value}`)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {AGENT_TYPES.map(option => (

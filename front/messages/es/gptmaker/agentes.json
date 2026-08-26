@@ -7,13 +7,19 @@
     "semBot": "Sin bot vinculado",
     "comBot": "Bot #{{botId}}",
     "perfilIndisponivel": "perfil no disponible en este momento",
-    "erroCarregar": "No se pudieron cargar los agentes."
+    "erroCarregar": "No se pudieron cargar los agentes.",
+    "comBotNomeado": "{{nome}} · bot #{{botId}}"
   },
   "criar": {
     "titulo": "Nuevo agente",
     "nomeObrigatorio": "Indica el nombre del agente.",
     "sucesso": "Agente creado.",
-    "erro": "No se pudo crear el agente."
+    "erro": "No se pudo crear el agente.",
+    "passo": "Paso {{atual}} de {{total}}",
+    "passo1Titulo": "Identidad del agente",
+    "passo2Titulo": "Trabajo y comportamiento",
+    "tipoAjuda": "El tipo y el estilo definen cómo el agente conduce la conversación. Se pueden cambiar después en la pantalla de configuración.",
+    "camposObrigatorios": "Completa todos los campos para crear el agente."
   },
   "campos": {
     "nome": "Nombre",
@@ -34,7 +40,8 @@
       "SUPPORT": "Soporte",
       "SALE": "Ventas",
       "PERSONAL": "Personal"
-    }
+    },
+    "comportamentoAjuda": "Instrucciones de cómo debe actuar el agente: tono, qué puede prometer, cuándo derivar a una persona."
   },
   "perfil": {
     "titulo": "Perfil y trabajo",
@@ -70,14 +77,21 @@
   "bot": {
     "titulo": "Bot de Bitrix",
     "semVinculo": "Ningún bot vinculado. Sin bot, el agente no recibe mensajes de los canales abiertos.",
-    "comVinculo": "Vinculado al bot #{{botId}} de este portal.",
-    "criar": "Crear y vincular bot",
-    "remover": "Eliminar bot",
-    "confirmarRemover": "¿Eliminar el bot del portal? El agente se conserva.",
-    "criado": "Bot creado y vinculado.",
-    "removido": "Bot eliminado.",
-    "erroCriar": "No se pudo crear el bot.",
-    "erroRemover": "No se pudo eliminar el bot."
+    "comVinculo": "Vinculado al bot {{nome}} (#{{botId}}) de este portal.",
+    "semNome": "sin nombre",
+    "carregando": "Cargando los bots del portal...",
+    "escolher": "Bot del portal",
+    "escolherPlaceholder": "Elige un bot",
+    "escolhaObrigatoria": "Elige un bot para vincular.",
+    "vincular": "Vincular",
+    "desvincular": "Desvincular",
+    "vinculado": "Bot vinculado.",
+    "desvinculado": "Bot desvinculado. Sigue en el portal.",
+    "nenhumDisponivel": "Todos los bots del portal ya están vinculados a otros agentes. Crea un bot nuevo para usarlo aquí.",
+    "irParaBots": "Ir a bots",
+    "erroCarregar": "No se pudieron cargar los bots del portal.",
+    "erroVincular": "No se pudo vincular el bot.",
+    "erroDesvincular": "No se pudo desvincular el bot."
   },
   "detalhe": {
     "erroCarregar": "No se pudo cargar el agente.",
@@ -99,6 +113,15 @@
     "excluir": "Eliminar",
     "excluindo": "Eliminando...",
     "removendo": "Eliminando...",
-    "voltar": "Volver"
+    "voltar": "Volver",
+    "avancar": "Continuar",
+    "acoesDoAgente": "Acciones del agente"
+  },
+  "secoes": {
+    "titulo": "Secciones de configuración",
+    "perfil": "Perfil y trabajo",
+    "perfilDescricao": "Cómo se presenta el agente y qué sabe sobre su trabajo.",
+    "atendimento": "Atención",
+    "atendimentoDescricao": "Cuándo atiende el agente y por cuál bot del portal responde."
   }
 }
