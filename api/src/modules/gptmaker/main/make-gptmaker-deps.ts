@@ -3,7 +3,6 @@ import { env } from '@/config/env'
 import { apiLogger } from '@/shared/infra/logger'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { makeBitrixClient } from '@/shared/main/make-bitrix-client'
-import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { createAgent } from '../application/create-agent'
 import {
   reconcileAgents,
@@ -93,9 +92,10 @@ export function runReconciliation(): Promise<ReconciliationReport> {
 }
 
 export async function makeImbotGateway(req: Request): Promise<ImbotGateway> {
-  return new ImbotGateway(
-    (await makeBitrixClient(req)) as unknown as BitrixRestClient,
-  )
+  // Sem cast: `BitrixClient` devolve o envelope (`{ result, time }`) e o
+  // gateway o desembrulha. Fingir que era `BitrixRestClient`, que já devolve
+  // `result`, fazia `imbot.register` ler NaN de um bot recém-criado.
+  return new ImbotGateway(await makeBitrixClient(req))
 }
 
 /**
