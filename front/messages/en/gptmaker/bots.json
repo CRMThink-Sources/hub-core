@@ -1,0 +1,38 @@
+{
+  "lista": {
+    "titulo": "Bitrix bots",
+    "subtitulo": "Bots this app created in the portal. Agents answer open channels through them.",
+    "identificador": "Bot #{{botId}}",
+    "livre": "no agent bound",
+    "vinculado": "answers as agent {{agente}}",
+    "limiteAtingido": "This portal already has {{maximo}} bots from this app. The cap comes from Bitrix and does not change per plan — remove one bot to create another.",
+    "vazio": "No bots yet. Create the first one to bind it to an agent.",
+    "erroCarregar": "Could not load the bots."
+  },
+  "criar": {
+    "titulo": "New bot",
+    "subtitulo": "The bot is created in the portal and bound to an agent later.",
+    "nomeObrigatorio": "Enter the bot name.",
+    "sucesso": "Bot created.",
+    "erro": "Could not create the bot."
+  },
+  "campos": {
+    "nome": "Name",
+    "nomePlaceholder": "e.g. Support",
+    "nomeAjuda": "This is the name customers see in the open channel."
+  },
+  "excluir": {
+    "confirmar": "Delete bot \"{{nome}}\"? It is removed from the portal.",
+    "sucesso": "Bot deleted.",
+    "erro": "Could not delete the bot."
+  },
+  "acoes": {
+    "novoBot": "New bot",
+    "acoesDoBot": "Bot actions",
+    "criar": "Create",
+    "criando": "Creating...",
+    "cancelar": "Cancel",
+    "excluir": "Delete",
+    "excluindo": "Deleting..."
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "lista": {
+    "titulo": "Bots do Bitrix",
+    "subtitulo": "Bots criados por esta aplicação no portal. É por eles que os agentes atendem nos canais abertos.",
+    "identificador": "Bot #{{botId}}",
+    "livre": "sem agente vinculado",
+    "vinculado": "atende pelo agente {{agente}}",
+    "limiteAtingido": "Este portal já tem {{maximo}} bots desta aplicação. O limite é do Bitrix e não muda por plano — remova um bot para criar outro.",
+    "vazio": "Nenhum bot ainda. Crie o primeiro para vincular a um agente.",
+    "erroCarregar": "Não foi possível carregar os bots."
+  },
+  "criar": {
+    "titulo": "Novo bot",
+    "subtitulo": "O bot é criado no portal e depois vinculado a um agente.",
+    "nomeObrigatorio": "Informe o nome do bot.",
+    "sucesso": "Bot criado.",
+    "erro": "Não foi possível criar o bot."
+  },
+  "campos": {
+    "nome": "Nome",
+    "nomePlaceholder": "Ex.: Atendimento",
+    "nomeAjuda": "É este nome que aparece para o cliente no canal aberto."
+  },
+  "excluir": {
+    "confirmar": "Excluir o bot \"{{nome}}\"? Ele é removido do portal.",
+    "sucesso": "Bot excluído.",
+    "erro": "Não foi possível excluir o bot."
+  },
+  "acoes": {
+    "novoBot": "Novo bot",
+    "acoesDoBot": "Ações do bot",
+    "criar": "Criar",
+    "criando": "Criando...",
+    "cancelar": "Cancelar",
+    "excluir": "Excluir",
+    "excluindo": "Excluindo..."
+  }
+}

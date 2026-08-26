@@ -8,6 +8,10 @@ export const GPTMAKER_ASIDE_CONFIG = {
       href: '/gptmaker/agentes',
       label: 'agentes',
     },
+    {
+      href: '/gptmaker/bots',
+      label: 'bots',
+    },
   ],
   linksNamespace: 'gptmaker/aside',
   languages: [
