@@ -8,6 +8,7 @@ import {
   thinkerszapRoutes,
   portalRoutes,
   aplicationRoutes,
+  gptmakerRoutes,
 } from './composition-root.js'
 import { makeGoogleOAuthCallbackController } from './modules/importsheet/main/make-google-oauth-controllers.js'
 import cors from 'cors'
@@ -215,6 +216,7 @@ app.use('/api/thinkzap', authMiddleware, thinkerszapRoutes)
 app.use('/api/thinkanalise', authMiddleware, thinkanaliseRoutes)
 app.use('/api/importsheet', authMiddleware, importsheetRoutes)
 app.use('/api/clicksign', authMiddleware, clicksignRoutes)
+app.use('/api/gptmaker', authMiddleware, gptmakerRoutes)
 
 // Transversal, não por app: qualquer instalação com JWT válido consulta o próprio
 // contexto de billing aqui. Quem é a instalação sai do token, não do prefixo.
