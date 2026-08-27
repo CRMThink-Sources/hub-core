@@ -120,6 +120,68 @@ export function composeContractByPlan<
 }
 
 /**
+ * Um plano do contrato com as duas contagens que importam para cobrança.
+ *
+ * `lineCount` é o que a instalação **usa**; `billedCount` é o que a fatura **cobra**.
+ * São números diferentes por construção quando existe linha de cortesia, e o produto
+ * inteiro dependia de eles serem o mesmo até aqui.
+ */
+export type ContractPlanBilling<T extends Subscription = Subscription> =
+  ContractPlanLines<T> & {
+    /** Linhas que o gateway cobra deste plano. É a `quantity` do `line_item`. */
+    billedCount: number
+    /** Linhas que a instalação tem além das cobradas. Nunca negativo. */
+    compedCount: number
+    /**
+     * O gateway cobra **mais** linhas do que a SPA tem ativas.
+     *
+     * Não é cortesia, é desencontro entre os dois lados — quantidade editada pelo
+     * portal de faturamento, ou item apagado na SPA sem sincronizar. Sinalizado para
+     * quem chama registrar; a contagem cobrada continua sendo a do gateway, porque é
+     * ela que aparece na fatura que o cliente confere.
+     */
+    overBilled: boolean
+  }
+
+/**
+ * A composição do contrato com o que o gateway cobra de cada plano.
+ *
+ * O casamento é pelo **price id** (`plan.gatewayId`), nunca por ordem nem por
+ * conector: ordem quebra com dois itens, e conector quebra com dois planos do mesmo
+ * conector — estado que `resolvePlanForProvider` já trata como `ambiguous` porque é
+ * alcançável.
+ *
+ * Plano sem item correspondente no gateway tem todas as linhas bonificadas. É o caso
+ * do plano cujo `line_item` nunca foi criado, e reportá-lo como cobrado anunciaria
+ * uma cobrança que não existe.
+ */
+export function composeContractBilling<T extends Subscription>(
+  composed: readonly ContractPlanLines<T>[],
+  gatewayItems: readonly { priceId: string; quantity: number }[],
+): ContractPlanBilling<T>[] {
+  const quantityByPriceId = new Map<string, number>()
+  for (const item of gatewayItems) {
+    quantityByPriceId.set(
+      item.priceId,
+      (quantityByPriceId.get(item.priceId) ?? 0) + item.quantity,
+    )
+  }
+
+  return composed.map(entry => {
+    const billedCount = entry.plan.gatewayId
+      ? (quantityByPriceId.get(entry.plan.gatewayId) ?? 0)
+      : 0
+
+    return {
+      ...entry,
+      billedCount,
+      compedCount: Math.max(0, entry.lineCount - billedCount),
+      overBilled: billedCount > entry.lineCount,
+    }
+  })
+}
+
+/**
  * Quantas linhas ativas de cada conector a instalação tem.
  *
  * É o que monta o estado desejado dos `line_items`: um `line_item` por plano, com

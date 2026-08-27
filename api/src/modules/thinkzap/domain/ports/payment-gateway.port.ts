@@ -1,3 +1,4 @@
+import { GatewaySubscription } from '@/modules/application/domain/entities/gateway-subscription'
 import { Subscription } from '@/modules/application/domain/entities/subscription'
 import { PlanPrice } from '@/modules/thinkzap/domain/plan-pricing'
 
@@ -169,6 +170,21 @@ export class GatewayPriceUnreadableError extends Error {
   }
 }
 
+export class GatewaySubscriptionUnreadableError extends Error {
+  constructor(
+    readonly gatewaySubscriptionId: string,
+    detail: string,
+  ) {
+    super(
+      `Não foi possível ler a assinatura "${gatewaySubscriptionId}" no gateway: ` +
+        `${detail}. O contrato fica sem dados de cobrança e a tela mostra só o ` +
+        'período vigente — preencher a lacuna com valor de cadastro anunciaria um ' +
+        'número que não bate com a fatura.',
+    )
+    this.name = 'GatewaySubscriptionUnreadableError'
+  }
+}
+
 export interface PaymentGateway {
   /**
    * Valida a assinatura do evento sobre o corpo **cru** e devolve o evento
@@ -229,4 +245,21 @@ export interface PaymentGateway {
    * com "plano sem preço" e passaria por gratuito.
    */
   readPrice(priceId: string): Promise<PlanPrice>
+
+  /**
+   * Lê a assinatura de um contrato, na forma que o domínio entende.
+   *
+   * Existe porque a `quantity` de cada `line_item` é a **única** fonte de quantas
+   * linhas o gateway cobra, e ela diverge da contagem da SPA por construção: linha
+   * de cortesia existe na SPA e não no `line_item`. Sem esta leitura, "bonificado"
+   * é indistinguível de "cobrado".
+   *
+   * Devolve `GatewaySubscription`, nunca o tipo do gateway: os status extras do
+   * provedor (`incomplete`, `unpaid`, `paused`) normalizam para `unknown` em vez de
+   * serem forçados num dos quatro da SPA.
+   *
+   * Lança `GatewaySubscriptionUnreadableError` quando a assinatura não existe lá ou
+   * a chamada falha.
+   */
+  readSubscription(gatewaySubscriptionId: string): Promise<GatewaySubscription>
 }

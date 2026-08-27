@@ -10,6 +10,8 @@ import type {
 import type { Plan } from '@/modules/application/domain/entities/plan'
 import type { Subscription } from '@/modules/application/domain/entities/subscription'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import type { GatewaySubscription } from '@/modules/application/domain/entities/gateway-subscription'
+import type { PlanPriceReader } from '@/modules/application/domain/repositories/plan-price.reader'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 
 const NOW = new Date('2026-08-03T12:00:00.000Z')
@@ -100,7 +102,32 @@ const lineOf = (
       : { provider, hubmessageChannelId: 'c', wabaId: 'w' },
 })
 
-const makeUseCase = (subscriptions: SubscriptionWithItems[]) => {
+/**
+ * A assinatura como o gateway a devolveria, para os testes que precisam de
+ * composição.
+ *
+ * `items` é o que separa cobrada de bonificada. Sem esta leitura o estado sai **sem**
+ * composição de propósito — é o caso do gateway indisponível, coberto abaixo.
+ */
+const gatewaySubscriptionOf = (
+  items: Array<{ priceId: string; quantity: number }>,
+): GatewaySubscription => ({
+  status: 'active',
+  currentPeriodStart: plusDays(-10),
+  currentPeriodEnd: plusDays(20),
+  items,
+})
+
+const makeUseCase = (
+  subscriptions: SubscriptionWithItems[],
+  gateway?: {
+    /** A assinatura lida, ou o erro que a leitura lança. */
+    subscription?: GatewaySubscription
+    fails?: boolean
+    /** Sem reader nenhum: o ambiente sem chave de gateway. */
+    absent?: boolean
+  },
+) => {
   const execute = vi.fn(
     (): Promise<AplicationContext> =>
       Promise.resolve({
@@ -110,11 +137,33 @@ const makeUseCase = (subscriptions: SubscriptionWithItems[]) => {
       }),
   )
 
+  const readSubscription = vi.fn(() =>
+    gateway?.fails
+      ? Promise.reject(new Error('gateway fora do ar'))
+      : Promise.resolve(
+          gateway?.subscription ??
+            gatewaySubscriptionOf([{ priceId: 'price_abc', quantity: 1 }]),
+        ),
+  )
+
+  const prices: PlanPriceReader = {
+    readPrice: () =>
+      Promise.resolve({
+        kind: 'unit',
+        currency: 'brl',
+        recurrence: { interval: 'month', intervalCount: 1 },
+        unitAmount: 4990,
+      }),
+  }
+
   return {
-    useCase: new GetLineSubscriptionState({
-      execute,
-    } as unknown as GetAplicationContext),
+    useCase: new GetLineSubscriptionState(
+      { execute } as unknown as GetAplicationContext,
+      prices,
+      gateway?.absent ? undefined : { readSubscription },
+    ),
     execute,
+    readSubscription,
   }
 }
 
@@ -406,6 +455,225 @@ describe('GetLineSubscriptionState', () => {
       expect(await useCase.execute(INPUT, NOW)).toMatchObject({
         plans: [{ id: '7', lineCount: 1 }],
       })
+    })
+  })
+
+  /**
+   * O que a fatura cobra × o que a instalação usa. Os dois números divergem por
+   * construção quando existe linha de cortesia, e é dessa diferença que sai
+   * "bonificado".
+   */
+  describe('cobradas × bonificadas', () => {
+    it('paridade: nada bonificado', async () => {
+      const { useCase } = makeUseCase(
+        [
+          subscriptionOf({
+            status: 'active',
+            modality: 'stripe',
+            gatewayId: 'sub_1',
+            items: [lineOf('1', 'ZAPI'), lineOf('2', 'ZAPI')],
+          }),
+        ],
+        {
+          subscription: gatewaySubscriptionOf([
+            { priceId: 'price_abc', quantity: 2 },
+          ]),
+        },
+      )
+
+      await expect(useCase.execute(INPUT, NOW)).resolves.toMatchObject({
+        plans: [{ id: '7', lineCount: 2, billedCount: 2, compedCount: 0 }],
+      })
+    })
+
+    it('instalação com cortesia reporta o excedente', async () => {
+      const { useCase } = makeUseCase(
+        [
+          subscriptionOf({
+            status: 'active',
+            modality: 'stripe',
+            gatewayId: 'sub_1',
+            items: [
+              lineOf('1', 'ZAPI'),
+              lineOf('2', 'ZAPI'),
+              lineOf('3', 'ZAPI'),
+            ],
+          }),
+        ],
+        {
+          subscription: gatewaySubscriptionOf([
+            { priceId: 'price_abc', quantity: 2 },
+          ]),
+        },
+      )
+
+      await expect(useCase.execute(INPUT, NOW)).resolves.toMatchObject({
+        plans: [{ id: '7', lineCount: 3, billedCount: 2, compedCount: 1 }],
+      })
+    })
+
+    /**
+     * O valor sai de `billedCount`. Cobrar o preço de 3 linhas mostrando 1
+     * bonificada anunciaria cortesia e valor cheio ao mesmo tempo.
+     */
+    it('o valor cobrado segue as cobradas, não as linhas', async () => {
+      const { useCase } = makeUseCase(
+        [
+          subscriptionOf({
+            status: 'active',
+            modality: 'stripe',
+            gatewayId: 'sub_1',
+            items: [
+              lineOf('1', 'ZAPI'),
+              lineOf('2', 'ZAPI'),
+              lineOf('3', 'ZAPI'),
+            ],
+          }),
+        ],
+        {
+          subscription: gatewaySubscriptionOf([
+            { priceId: 'price_abc', quantity: 2 },
+          ]),
+        },
+      )
+
+      const state = await useCase.execute(INPUT, NOW)
+
+      // 2 cobradas × R$ 49,90, e não 3.
+      expect(state).toMatchObject({ contractTotal: 9980 })
+    })
+
+    it('plano sem item no gateway sai inteiramente bonificado e sem valor', async () => {
+      const { useCase } = makeUseCase(
+        [
+          subscriptionOf({
+            status: 'active',
+            modality: 'stripe',
+            gatewayId: 'sub_1',
+            items: [lineOf('1', 'ZAPI')],
+          }),
+        ],
+        { subscription: gatewaySubscriptionOf([]) },
+      )
+
+      await expect(useCase.execute(INPUT, NOW)).resolves.toMatchObject({
+        plans: [{ id: '7', billedCount: 0, compedCount: 1, chargedAmount: 0 }],
+        contractTotal: 0,
+      })
+    })
+
+    it('gateway cobrando mais que a SPA não vira bonificado negativo', async () => {
+      const { useCase } = makeUseCase(
+        [
+          subscriptionOf({
+            status: 'active',
+            modality: 'stripe',
+            gatewayId: 'sub_1',
+            items: [lineOf('1', 'ZAPI')],
+          }),
+        ],
+        {
+          subscription: gatewaySubscriptionOf([
+            { priceId: 'price_abc', quantity: 2 },
+          ]),
+        },
+      )
+
+      await expect(useCase.execute(INPUT, NOW)).resolves.toMatchObject({
+        plans: [{ id: '7', lineCount: 1, billedCount: 2, compedCount: 0 }],
+      })
+    })
+  })
+
+  /**
+   * Sem dados de cobrança a resposta **omite** a composição. Preencher com
+   * `amount × lineCount` devolveria o número que não bate com a fatura — o que esta
+   * superfície existe para corrigir.
+   */
+  describe('dados de cobrança indisponíveis', () => {
+    it('gateway fora do ar: sem composição, mas com status e período', async () => {
+      const { useCase } = makeUseCase(
+        [
+          subscriptionOf({
+            status: 'active',
+            modality: 'stripe',
+            gatewayId: 'sub_1',
+            items: [lineOf('1', 'ZAPI')],
+          }),
+        ],
+        { fails: true },
+      )
+
+      const state = await useCase.execute(INPUT, NOW)
+
+      expect(state).toMatchObject({ status: 'active', modality: 'stripe' })
+      expect((state as { plans?: unknown }).plans).toBeUndefined()
+      expect(
+        (state as { contractTotal?: unknown }).contractTotal,
+      ).toBeUndefined()
+    })
+
+    it('ambiente sem chave de gateway: sem composição', async () => {
+      const { useCase } = makeUseCase(
+        [
+          subscriptionOf({
+            status: 'active',
+            modality: 'stripe',
+            gatewayId: 'sub_1',
+            items: [lineOf('1', 'ZAPI')],
+          }),
+        ],
+        { absent: true },
+      )
+
+      const state = await useCase.execute(INPUT, NOW)
+
+      expect((state as { plans?: unknown }).plans).toBeUndefined()
+    })
+
+    /** Boleto é mantido por fora: não há o que perguntar ao gateway. */
+    it('modalidade manual não consulta o gateway', async () => {
+      const { useCase, readSubscription } = makeUseCase([
+        subscriptionOf({
+          status: 'active',
+          modality: 'manual',
+          items: [lineOf('1', 'ZAPI')],
+        }),
+      ])
+
+      const state = await useCase.execute(INPUT, NOW)
+
+      expect(readSubscription).not.toHaveBeenCalled()
+      expect((state as { plans?: unknown }).plans).toBeUndefined()
+    })
+
+    it('trial não consulta o gateway', async () => {
+      const { useCase, readSubscription } = makeUseCase([
+        subscriptionOf({
+          status: 'trialing',
+          modality: 'manual',
+          plan: TRIAL_PLAN,
+          items: [lineOf('1', 'ZAPI')],
+        }),
+      ])
+
+      await useCase.execute(INPUT, NOW)
+
+      expect(readSubscription).not.toHaveBeenCalled()
+    })
+
+    it('contrato sem id no gateway não consulta o gateway', async () => {
+      const { useCase, readSubscription } = makeUseCase([
+        subscriptionOf({
+          status: 'active',
+          modality: 'stripe',
+          items: [lineOf('1', 'ZAPI')],
+        }),
+      ])
+
+      await useCase.execute(INPUT, NOW)
+
+      expect(readSubscription).not.toHaveBeenCalled()
     })
   })
 

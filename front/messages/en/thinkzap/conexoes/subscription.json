@@ -19,7 +19,6 @@
   "vigenteDescricao": "Your subscription is active and renews on {{data}}.",
   "inadimplenteDescricao": "We could not complete the payment. Your lines stop sending and receiving messages until the charge is settled.",
   "canceladaDescricao": "Your subscription was cancelled and the period ended on {{data}}. The lines are still here, but they do not send or receive messages.",
-  "manualSemAutoatendimento": "Bank slip billing is handled by our finance team. To change plan, payment method or cancel, contact support.",
   "gerenciarPagamento": "Manage payment",
   "abrindoPortal": "Opening...",
   "contratar": {
@@ -46,6 +45,7 @@
   "tituloContrato": "Your subscription",
   "umaLinha": "1 line",
   "variasLinhas": "{{quantidade}} lines",
+  "cobradasEBonificadas": "{{cobradas}} billed · {{bonificadas}} complimentary",
   "linhaCriada": "Line created.",
   "erroCriarLinha": "We could not create the line. Try again."
 }
