@@ -1,5 +1,6 @@
 import Stripe from 'stripe'
 import { env } from '@/config/env'
+import { GatewaySubscription } from '@/modules/application/domain/entities/gateway-subscription'
 import { Subscription } from '@/modules/application/domain/entities/subscription'
 import {
   PlanPrice,
@@ -15,6 +16,7 @@ import {
   GatewayInstallationRef,
   GatewayPriceUnreadableError,
   GatewaySignatureError,
+  GatewaySubscriptionUnreadableError,
   PaymentGateway,
   SyncSubscriptionLineItemsInput,
 } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
@@ -44,6 +46,27 @@ const STATUS_BY_STRIPE_STATUS: Record<string, Subscription['status']> = {
   incomplete: 'past_due',
   incomplete_expired: 'past_due',
   paused: 'past_due',
+  canceled: 'cancelled',
+}
+
+/**
+ * Status do Stripe → status da SPA, **para diagnóstico**.
+ *
+ * Mapa separado do de cima de propósito. Aquele decide habilitação, e achatar
+ * `unpaid` e `paused` em `past_due` é a decisão certa lá: a linha bloqueia igual. Este
+ * alimenta a leitura de cobrança, onde o campo só é olhado por quem está investigando
+ * — e ali "pausada" e "inadimplente" são perguntas diferentes.
+ *
+ * Status fora do mapa vira `unknown`, nunca um dos quatro por default: inventar
+ * `active` para um status novo do gateway afirmaria contrato vivo sem base.
+ */
+const STATUS_BY_STRIPE_STATUS_DIAGNOSTIC: Record<
+  string,
+  GatewaySubscription['status']
+> = {
+  active: 'active',
+  trialing: 'trialing',
+  past_due: 'past_due',
   canceled: 'cancelled',
 }
 
@@ -269,6 +292,24 @@ export class StripePaymentGateway implements PaymentGateway {
     })
   }
 
+  /**
+   * Marca o contrato para encerrar no vencimento.
+   *
+   * `cancel_at_period_end` e não `subscriptions.cancel()`: o segundo corta na hora, e
+   * o cliente perde o período que já pagou. Ver o port para o porquê da política.
+   *
+   * Idempotente por construção — o campo é um estado desejado, não um evento —, então
+   * não há verificação prévia. Uma leitura antes só criaria uma ida a mais à rede e
+   * uma janela entre ler e escrever.
+   */
+  async cancelSubscriptionAtPeriodEnd(
+    gatewaySubscriptionId: string,
+  ): Promise<void> {
+    await this.stripe.subscriptions.update(gatewaySubscriptionId, {
+      cancel_at_period_end: true,
+    })
+  }
+
   async createBillingPortalSession(
     input: CreateBillingPortalSessionInput,
   ): Promise<{ url: string }> {
@@ -352,6 +393,60 @@ export class StripePaymentGateway implements PaymentGateway {
     }
 
     return { kind: 'unit', currency, recurrence, unitAmount: price.unit_amount }
+  }
+
+  /**
+   * Lê a assinatura e traduz para o vocabulário do domínio.
+   *
+   * O que interessa é a `quantity` de cada item: é ela que diz quantas linhas a
+   * fatura cobra, e a diferença para a contagem da SPA é o que a tela chama de
+   * bonificado.
+   *
+   * O status **não** é forçado nos quatro da SPA aqui, ao contrário de
+   * `STATUS_BY_STRIPE_STATUS` no webhook. Lá o mapa existe para decidir habilitação, e
+   * `unpaid` bloquear como `past_due` é a decisão certa. Aqui o campo é diagnóstico —
+   * quem decide habilitação é a SPA —, e achatar `paused` em `past_due` numa leitura
+   * de diagnóstico esconderia justamente o estado que se foi olhar.
+   *
+   * Item sem preço resolvível é descartado, não vira erro: o contrato pode carregar
+   * item de cobrança que não é linha, e derrubar a leitura inteira por causa dele
+   * tiraria o valor da tela por um item que não a interessa.
+   */
+  async readSubscription(
+    gatewaySubscriptionId: string,
+  ): Promise<GatewaySubscription> {
+    let subscription: Stripe.Subscription
+    try {
+      subscription = await this.stripe.subscriptions.retrieve(
+        gatewaySubscriptionId,
+      )
+    } catch (error) {
+      throw new GatewaySubscriptionUnreadableError(
+        gatewaySubscriptionId,
+        error instanceof Error ? error.message : String(error),
+      )
+    }
+
+    const period = readSubscriptionPeriod(subscription)
+    if (!period) {
+      throw new GatewaySubscriptionUnreadableError(
+        gatewaySubscriptionId,
+        'assinatura veio sem período de cobrança, nem na raiz nem nos itens',
+      )
+    }
+
+    return {
+      status:
+        STATUS_BY_STRIPE_STATUS_DIAGNOSTIC[subscription.status] ?? 'unknown',
+      currentPeriodStart: period.currentPeriodStart,
+      currentPeriodEnd: period.currentPeriodEnd,
+      items: subscription.items.data.flatMap(item => {
+        const priceId = item.price?.id
+        if (!priceId) return []
+
+        return [{ priceId, quantity: item.quantity ?? 0 }]
+      }),
+    }
   }
 
   /**

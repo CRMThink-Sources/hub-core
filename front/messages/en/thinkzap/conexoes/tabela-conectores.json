@@ -3,5 +3,6 @@
     "nome": "Name",
     "status": "Status",
     "acoes": "Actions"
-  }
+  },
+  "semNome": "Unnamed"
 }

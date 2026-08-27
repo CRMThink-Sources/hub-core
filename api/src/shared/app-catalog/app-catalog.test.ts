@@ -7,6 +7,7 @@ vi.mock('@/config/env', () => ({
       thinkanalise: 'local.marketplace.thinkanalise',
       importsheet: 'local.marketplace.importsheet',
       clicksign: 'local.marketplace.clicksign',
+      gptmaker: 'local.marketplace.gptmaker',
     },
   },
 }))
@@ -40,6 +41,7 @@ describe('resolveByMarketplaceCode', () => {
     ['local.marketplace.thinkanalise', 'thinkanalise'],
     ['local.marketplace.importsheet', 'importsheet'],
     ['local.marketplace.clicksign', 'clicksign'],
+    ['local.marketplace.gptmaker', 'gptmaker'],
   ])('resolve %s para o slug %s', (code, slug) => {
     expect(resolveByMarketplaceCode(code)?.slug).toBe(slug)
   })
@@ -85,6 +87,7 @@ describe('env de code do marketplace vazia', () => {
           thinkanalise: '',
           importsheet: '',
           clicksign: '',
+          gptmaker: '',
         },
       },
     }))

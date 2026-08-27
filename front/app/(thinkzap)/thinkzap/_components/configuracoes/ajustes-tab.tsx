@@ -50,8 +50,6 @@ type State =
 const TOGGLE_KEYS = [
   'prefixOperatorNameEnabled',
   'widgetOpenChannelEnabled',
-  'messageUpdateEventEnabled',
-  'messageDeleteEventEnabled',
 ] as const
 
 /**
@@ -445,24 +443,6 @@ export function AjustesTab({ itemId }: Props) {
                   ? t('toggles.widgetOpenChannelHint')
                   : t('toggles.widgetOpenChannelSemCanal')
               }
-            />
-
-            <Toggle
-              id="message-update"
-              checked={state.settings.messageUpdateEventEnabled}
-              onChange={v => setToggle('messageUpdateEventEnabled', v)}
-              label={t('toggles.messageUpdateEvent')}
-              hint={t('toggles.messageUpdateEventHint')}
-              disabled={bloqueada}
-            />
-
-            <Toggle
-              id="message-delete"
-              checked={state.settings.messageDeleteEventEnabled}
-              onChange={v => setToggle('messageDeleteEventEnabled', v)}
-              label={t('toggles.messageDeleteEvent')}
-              hint={t('toggles.messageDeleteEventHint')}
-              disabled={bloqueada}
             />
           </div>
 

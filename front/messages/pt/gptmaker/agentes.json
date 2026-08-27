@@ -1,0 +1,127 @@
+{
+  "lista": {
+    "titulo": "Agentes",
+    "contador": "{{atual}} de {{maximo}} agentes",
+    "limiteAtingido": "Você atingiu o limite de {{maximo}} agentes. Esse limite vem do Bitrix, que aceita no máximo {{maximo}} bots por aplicação — ele não muda por plano. Exclua um agente para criar outro.",
+    "vazio": "Nenhum agente ainda. Crie o primeiro para começar.",
+    "semBot": "Sem bot vinculado",
+    "comBot": "Bot #{{botId}}",
+    "perfilIndisponivel": "perfil indisponível no momento",
+    "erroCarregar": "Não foi possível carregar os agentes.",
+    "comBotNomeado": "{{nome}} · bot #{{botId}}"
+  },
+  "criar": {
+    "titulo": "Novo agente",
+    "nomeObrigatorio": "Informe o nome do agente.",
+    "sucesso": "Agente criado.",
+    "erro": "Não foi possível criar o agente.",
+    "passo": "Passo {{atual}} de {{total}}",
+    "passo1Titulo": "Identidade do agente",
+    "passo2Titulo": "Trabalho e comportamento",
+    "tipoAjuda": "Tipo e estilo definem como o agente conduz a conversa. Dá para mudar depois na tela de configuração.",
+    "camposObrigatorios": "Preencha todos os campos para criar o agente."
+  },
+  "campos": {
+    "nome": "Nome",
+    "nomePlaceholder": "Ex.: Ana, do atendimento",
+    "nomeAjuda": "É com este nome que o agente se apresenta ao cliente na conversa.",
+    "cargo": "Cargo",
+    "site": "Site",
+    "descricao": "Descrição do trabalho",
+    "comportamento": "Comportamento",
+    "comunicacao": "Estilo de comunicação",
+    "comunicacaoOpcoes": {
+      "FORMAL": "Formal",
+      "NORMAL": "Normal",
+      "RELAXED": "Descontraído"
+    },
+    "tipo": "Tipo de agente",
+    "tipoOpcoes": {
+      "SUPPORT": "Suporte",
+      "SALE": "Vendas",
+      "PERSONAL": "Pessoal"
+    },
+    "comportamentoAjuda": "Instruções de como o agente deve agir: tom, o que pode prometer, quando encaminhar para um humano."
+  },
+  "perfil": {
+    "titulo": "Perfil e trabalho",
+    "subtitulo": "Estes dados ficam no GPT Maker e definem como o agente se comporta.",
+    "sucesso": "Perfil salvo.",
+    "erro": "Não foi possível salvar o perfil.",
+    "indisponivel": "O GPT Maker não respondeu, então o perfil não pôde ser carregado. Salvar agora apagaria os campos que não foram lidos — recarregue a página antes de editar."
+  },
+  "horario": {
+    "titulo": "Horário de atendimento",
+    "subtitulo": "Regra aplicada antes de acionar o agente. Não existe no GPT Maker.",
+    "ativar": "Usar horário de atendimento",
+    "inicio": "Início",
+    "fim": "Fim",
+    "fuso": "Fuso horário",
+    "diasAtivos": "Dias ativos",
+    "dias": {
+      "domingo": "Dom",
+      "segunda": "Seg",
+      "terca": "Ter",
+      "quarta": "Qua",
+      "quinta": "Qui",
+      "sexta": "Sex",
+      "sabado": "Sáb"
+    },
+    "inverter": "Inverter a regra",
+    "inverterLigado": "O agente atende FORA do horário configurado e fica em silêncio dentro dele.",
+    "inverterDesligado": "O agente atende DENTRO do horário configurado e fica em silêncio fora dele.",
+    "sairComColaborador": "Sair da conversa quando um atendente humano entrar",
+    "sucesso": "Configurações salvas.",
+    "erro": "Não foi possível salvar as configurações."
+  },
+  "bot": {
+    "titulo": "Bot do Bitrix",
+    "semVinculo": "Nenhum bot vinculado. Sem bot, o agente não recebe mensagens dos canais abertos.",
+    "comVinculo": "Vinculado ao bot {{nome}} (#{{botId}}) deste portal.",
+    "semNome": "sem nome",
+    "carregando": "Carregando os bots do portal...",
+    "escolher": "Bot do portal",
+    "escolherPlaceholder": "Escolha um bot",
+    "escolhaObrigatoria": "Escolha um bot para vincular.",
+    "vincular": "Vincular",
+    "desvincular": "Desvincular",
+    "vinculado": "Bot vinculado.",
+    "desvinculado": "Bot desvinculado. Ele continua no portal.",
+    "nenhumDisponivel": "Todos os bots do portal já estão vinculados a outros agentes. Crie um bot novo para usar aqui.",
+    "irParaBots": "Ir para bots",
+    "erroCarregar": "Não foi possível carregar os bots do portal.",
+    "erroVincular": "Não foi possível vincular o bot.",
+    "erroDesvincular": "Não foi possível desvincular o bot."
+  },
+  "detalhe": {
+    "erroCarregar": "Não foi possível carregar o agente.",
+    "naoEncontrado": "Agente não encontrado."
+  },
+  "excluir": {
+    "confirmar": "Excluir o agente \"{{nome}}\"? Isso o remove do GPT Maker.",
+    "sucesso": "Agente excluído.",
+    "erro": "Não foi possível excluir o agente."
+  },
+  "acoes": {
+    "novoAgente": "Novo agente",
+    "configurar": "Configurar",
+    "criar": "Criar",
+    "criando": "Criando...",
+    "cancelar": "Cancelar",
+    "salvar": "Salvar",
+    "salvando": "Salvando...",
+    "excluir": "Excluir",
+    "excluindo": "Excluindo...",
+    "removendo": "Removendo...",
+    "voltar": "Voltar",
+    "avancar": "Avançar",
+    "acoesDoAgente": "Ações do agente"
+  },
+  "secoes": {
+    "titulo": "Seções da configuração",
+    "perfil": "Perfil e trabalho",
+    "perfilDescricao": "Como o agente se apresenta e o que ele sabe sobre o trabalho dele.",
+    "atendimento": "Atendimento",
+    "atendimentoDescricao": "Quando o agente atende e por qual bot do portal ele responde."
+  }
+}

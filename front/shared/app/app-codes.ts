@@ -15,6 +15,7 @@ export const APP_CODES = {
   thinkanalise: 'crmthink.thinkanalise',
   importsheet: 'crmthink.importsheet',
   clicksign: 'crmthink.clicksign',
+  gptmaker: 'crmthink.gptmaker',
 } as const
 
 export type AppCode = (typeof APP_CODES)[keyof typeof APP_CODES]

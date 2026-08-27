@@ -34,9 +34,5 @@ export const mapLineSettingsToView = (
       reading.settings.prefixOperatorNameEnabled === true,
     widgetOpenChannelEnabled:
       reading.settings.widgetOpenChannelEnabled === true,
-    messageUpdateEventEnabled:
-      reading.settings.messageUpdateEventEnabled === true,
-    messageDeleteEventEnabled:
-      reading.settings.messageDeleteEventEnabled === true,
   },
 })

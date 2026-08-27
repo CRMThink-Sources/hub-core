@@ -4,7 +4,6 @@ import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/conne
 import { mergeConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings.schema'
 import { apiLogger } from '@/shared/infra/logger'
 import { RenameLineOnProviderUseCase } from './rename-line-on-provider.use-case'
-import { UpdateConnectorEventBindsUseCase } from './update-connector-event-binds.use-case'
 
 /**
  * Grava os ajustes de uma linha.
@@ -28,7 +27,13 @@ export type UpdateLineSettingsInput = {
   item: SubscriptionItem
   /** Host do portal do cliente, para o prefixo do nome na Z-API. */
   domainName: string
-  /** `core_apps.id` da instalação, para o cliente Bitrix dos binds. */
+  /**
+   * `core_apps.id` da instalação.
+   *
+   * Continua no input mesmo sem os binds: a rota já o resolve do JWT, e tirá-lo
+   * agora obrigaria a devolvê-lo no dia em que qualquer escrita voltar a precisar
+   * de contexto de instalação.
+   */
   appId: string
   name?: string
   settings?: Partial<ConnectorSettings>
@@ -37,7 +42,6 @@ export type UpdateLineSettingsInput = {
 export class UpdateLineSettings {
   constructor(
     private readonly renameLineOnProvider: RenameLineOnProviderUseCase,
-    private readonly updateEventBinds: UpdateConnectorEventBindsUseCase,
     private readonly items: SubscriptionItemRepository,
   ) {}
 
@@ -104,24 +108,13 @@ export class UpdateLineSettings {
     if (patch === undefined || Object.keys(patch).length === 0) return
 
     /**
-     * Binds **antes** da persistência: tocam o Bitrix do cliente e podem falhar
-     * por credencial. Falhando, nada é gravado — o usuário vê o erro do bind em
-     * vez de um sucesso mentiroso com o Bitrix fora de sincronia.
+     * Uma escrita, e nenhum efeito no Bitrix.
      *
-     * Isso mudou junto com a escrita única: antes os toggles simples já estavam
-     * gravados quando o bind falhava, e o estado ficava meio salvo.
+     * Havia aqui um passo de bind/unbind de evento antes da persistência, porque os
+     * toggles de sincronização de edição e exclusão tocavam o portal do cliente. Com
+     * as duas sincronizações descontinuadas, os toggles que restam são só nossos —
+     * gravar settings não sai da SPA.
      */
-    if (
-      patch.messageUpdateEventEnabled !== undefined ||
-      patch.messageDeleteEventEnabled !== undefined
-    ) {
-      await this.updateEventBinds.execute({
-        appId: input.appId,
-        messageUpdateEventEnabled: patch.messageUpdateEventEnabled,
-        messageDeleteEventEnabled: patch.messageDeleteEventEnabled,
-      })
-    }
-
     await this.items.updateSubscriptionItem(input.item.id, {
       settings: mergeConnectorSettings(input.item.settings, patch),
     })

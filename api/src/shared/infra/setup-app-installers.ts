@@ -3,6 +3,7 @@ import { ThinkzapInstaller } from '@/modules/thinkzap/install/thinkzap.installer
 import { ClicksignInstaller } from '@/modules/clicksign/install/clicksign.installer'
 import { ThinkanaliseInstaller } from '@/modules/thinkanalise/install/thinkanalise.installer'
 import { ImportsheetInstaller } from '@/modules/importsheet/install/importsheet.installer'
+import { GptMakerInstaller } from '@/modules/gptmaker/install/gptmaker.installer'
 
 const registry = new AppInstallerRegistry()
 
@@ -11,5 +12,6 @@ registry.register(new ThinkzapInstaller())
 registry.register(new ClicksignInstaller())
 registry.register(new ThinkanaliseInstaller())
 registry.register(new ImportsheetInstaller())
+registry.register(new GptMakerInstaller())
 
 export const appInstallerRegistry = registry

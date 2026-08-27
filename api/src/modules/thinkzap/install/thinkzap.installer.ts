@@ -18,11 +18,14 @@ const WHATSAPP_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
 
 const WHATSAPP_ICON_DATA = `data:image/svg+xml;charset=US-ASCII,${encodeURIComponent(WHATSAPP_ICON_SVG)}`
 
-const CONNECTOR_MESSAGE_EVENTS = [
-  'ONIMCONNECTORMESSAGEADD',
-  'ONIMCONNECTORMESSAGEUPDATE',
-  'ONIMCONNECTORMESSAGEDELETE',
-] as const
+/**
+ * Só o de mensagem recebida.
+ *
+ * `ONIMCONNECTORMESSAGEUPDATE` e `ONIMCONNECTORMESSAGEDELETE` **não** entram: as
+ * sincronizações de edição e exclusão foram descontinuadas, e registrar os binds
+ * entregaria os eventos a handlers que só os descartam.
+ */
+const CONNECTOR_MESSAGE_EVENTS = ['ONIMCONNECTORMESSAGEADD'] as const
 
 export const THINKZAP_APP_CODE_ID = 'crmthink.thinkzap'
 

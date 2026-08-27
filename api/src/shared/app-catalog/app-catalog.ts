@@ -68,6 +68,15 @@ const DEFINITIONS: readonly AppCatalogDefinition[] = [
     slug: 'clicksign',
     requiresOperatorOAuth: false,
   },
+  {
+    marketplaceCode: env.appCodes.gptmaker,
+    appCode: 'crmthink.gptmaker',
+    appCodeId: 'crmthink.gptmaker',
+    slug: 'gptmaker',
+    // O agente responde pelo imbot, não em nome do operador — nenhum refresh
+    // token de usuário é necessário.
+    requiresOperatorOAuth: false,
+  },
 ]
 
 const toEntry = ({

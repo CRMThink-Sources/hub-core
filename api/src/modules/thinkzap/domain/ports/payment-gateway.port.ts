@@ -1,3 +1,4 @@
+import { GatewaySubscription } from '@/modules/application/domain/entities/gateway-subscription'
 import { Subscription } from '@/modules/application/domain/entities/subscription'
 import { PlanPrice } from '@/modules/thinkzap/domain/plan-pricing'
 
@@ -169,6 +170,21 @@ export class GatewayPriceUnreadableError extends Error {
   }
 }
 
+export class GatewaySubscriptionUnreadableError extends Error {
+  constructor(
+    readonly gatewaySubscriptionId: string,
+    detail: string,
+  ) {
+    super(
+      `Não foi possível ler a assinatura "${gatewaySubscriptionId}" no gateway: ` +
+        `${detail}. O contrato fica sem dados de cobrança e a tela mostra só o ` +
+        'período vigente — preencher a lacuna com valor de cadastro anunciaria um ' +
+        'número que não bate com a fatura.',
+    )
+    this.name = 'GatewaySubscriptionUnreadableError'
+  }
+}
+
 export interface PaymentGateway {
   /**
    * Valida a assinatura do evento sobre o corpo **cru** e devolve o evento
@@ -229,4 +245,43 @@ export interface PaymentGateway {
    * com "plano sem preço" e passaria por gratuito.
    */
   readPrice(priceId: string): Promise<PlanPrice>
+
+  /**
+   * Lê a assinatura de um contrato, na forma que o domínio entende.
+   *
+   * Existe porque a `quantity` de cada `line_item` é a **única** fonte de quantas
+   * linhas o gateway cobra, e ela diverge da contagem da SPA por construção: linha
+   * de cortesia existe na SPA e não no `line_item`. Sem esta leitura, "bonificado"
+   * é indistinguível de "cobrado".
+   *
+   * Devolve `GatewaySubscription`, nunca o tipo do gateway: os status extras do
+   * provedor (`incomplete`, `unpaid`, `paused`) normalizam para `unknown` em vez de
+   * serem forçados num dos quatro da SPA.
+   *
+   * Lança `GatewaySubscriptionUnreadableError` quando a assinatura não existe lá ou
+   * a chamada falha.
+   */
+  readSubscription(gatewaySubscriptionId: string): Promise<GatewaySubscription>
+
+  /**
+   * Marca a assinatura para encerrar **no fim do período vigente**.
+   *
+   * É o caminho de quando não sobrou linha nenhuma no contrato. A reconciliação de
+   * quantidade não cobre esse caso: ela deriva os `line_items` dos itens vivos, e
+   * sem item vivo a lista sai vazia — o que não remove nada, porque
+   * `syncSubscriptionLineItems` não remove preço ausente da lista.
+   *
+   * **Método próprio, e não lista vazia naquele.** Fazer lista vazia significar
+   * "cancele tudo" transformaria a operação mais repetida do módulo numa que apaga
+   * contrato quando alguém erra a construção da lista. Um método com nome próprio
+   * não é chamado por engano.
+   *
+   * **Fim do período, não imediato.** O cliente pagou o período corrente: cortar na
+   * hora sem devolver cobra por serviço não prestado, e devolver exigiria uma
+   * política de crédito proporcional que o produto não tem. Encerrar no vencimento é
+   * o único caminho que não pede essa decisão, e é reversível pelo painel até lá.
+   *
+   * Idempotente: repetir sobre contrato já marcado não muda nada.
+   */
+  cancelSubscriptionAtPeriodEnd(gatewaySubscriptionId: string): Promise<void>
 }

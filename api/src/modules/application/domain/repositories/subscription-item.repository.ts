@@ -48,8 +48,23 @@ export type UpdateSubscriptionItemInput = Partial<
  * interface menor é refactor local.
  *
  * Sem prefixo `get-` no nome do arquivo, seguindo assinaturas: o contrato não é
- * só de leitura. Sem `deleteSubscriptionItem`: remoção é `status: 'cancelled'`,
- * não `crm.item.delete`.
+ * só de leitura.
+ *
+ * **Desligar e apagar são operações diferentes, e a diferença é a cobrança.**
+ * Este contrato proibia `deleteSubscriptionItem` e mandava usar
+ * `status: 'cancelled'` para tudo. A regra está certa para o que ela cobria —
+ * inadimplência, linha desligada sem perder histórico —, mas não cobre o cliente
+ * querendo o conector **fora**:
+ *
+ * - `status: 'cancelled'`: o item continua existindo e **continua contando** como
+ *   linha do contrato. O recurso é desassinado no provider, e os `line_items` do
+ *   gateway ficam como estavam. É desligar.
+ * - `deleteSubscriptionItem`: o item some, e o webhook de saída da SPA dispara a
+ *   limpeza que **reduz** a cobrança — ou encerra o contrato, se não sobrou linha.
+ *   É apagar.
+ *
+ * Usar cancelamento por status onde se queria exclusão entrega a metade errada: a
+ * linha some da tela e o cliente continua pagando por ela.
  */
 export interface SubscriptionItemRepository {
   getSubscriptionItem(id: string): Promise<SubscriptionItem>
@@ -84,4 +99,18 @@ export interface SubscriptionItemRepository {
     itemId: string,
     subscriptionId: string,
   ): Promise<SubscriptionItem>
+
+  /**
+   * Apaga o item na SPA.
+   *
+   * **Não** limpa o recurso no provider nem ajusta a cobrança: quem faz isso é o
+   * webhook de saída da SPA, que o item apagado dispara. Um caminho só, e é o mesmo
+   * de quando alguém apaga pelo Bitrix — uma segunda implementação aqui divergiria
+   * da primeira, com o sintoma sendo recurso pago no provider que ninguém
+   * desassinou.
+   *
+   * Item inexistente **não** é erro: apagar o que já não está lá chegou ao estado
+   * desejado. Reentrega de webhook e duplo clique tornam isso alcançável.
+   */
+  deleteSubscriptionItem(id: string): Promise<void>
 }

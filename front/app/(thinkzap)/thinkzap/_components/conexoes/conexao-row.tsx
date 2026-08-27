@@ -1,9 +1,18 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
+import { MoreHorizontalIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import type { SubscriptionLine } from '@/shared/aplication/subscription-items'
 import type { OfferablePlan } from '@/app/hooks/use-line-subscription'
 
@@ -24,6 +33,9 @@ type Props = {
   /** Plano em redirecionamento, para desabilitar a ação sem travar a tela. */
   redirecting?: string | null
   onSubscribe?: (planId: string) => void
+  /** Exclusão em curso desta linha, para travar o item sem travar a tela. */
+  excluindo?: boolean
+  onDelete?: () => void
 }
 
 /** Igual ao `ACAO_COL` da tabela — cabeçalho, linha com botão e linha sem, todas iguais. */
@@ -47,6 +59,8 @@ export function ConexaoRow({
   reservarAcoes = false,
   redirecting = null,
   onSubscribe,
+  excluindo = false,
+  onDelete,
 }: Props) {
   const { t } = useTranslation('thinkzap/conexoes/conexao-row')
   const router = useRouter()
@@ -172,6 +186,51 @@ export function ConexaoRow({
                     : t('assinar.acao')}
                 </Button>
               </>
+            ) : null}
+
+            {/**
+             * O menu vem por último, depois da ação de assinar: assinar é o que a
+             * tela quer que o cliente faça, e o menu guarda o resto.
+             *
+             * `z-10` o põe acima da área clicável da linha — sem isso o conteúdo do
+             * menu aberto ficaria atrás dela, e clicar num item navegaria.
+             */}
+            {onDelete ? (
+              <div className="relative z-10 shrink-0">
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label={t('menu.acoesDaLinha')}
+                        disabled={excluindo}
+                      >
+                        {excluindo ? (
+                          t('menu.excluindo')
+                        ) : (
+                          <MoreHorizontalIcon className="size-4" />
+                        )}
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent>
+                    {/**
+                     * Mesmo destino do clique na linha, de propósito: a linha
+                     * clicável não se anuncia, e o item nomeia o que o gesto faz.
+                     */}
+                    <DropdownMenuItem
+                      render={
+                        <Link href={href}>{t('menu.configuracoes')}</Link>
+                      }
+                    />
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                      {t('menu.excluir')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ) : null}
           </div>
         ) : null}
