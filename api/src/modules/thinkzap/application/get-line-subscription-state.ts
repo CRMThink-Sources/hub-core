@@ -7,7 +7,10 @@ import {
   LineEntitlement,
   resolveLineEntitlement,
 } from '@/modules/thinkzap/domain/connector-trial'
+import { GatewaySubscription } from '@/modules/application/domain/entities/gateway-subscription'
+import { GatewaySubscriptionReader } from '@/modules/application/domain/repositories/gateway-subscription.reader'
 import {
+  composeContractBilling,
   composeContractByPlan,
   isTrialSubscription,
   resolveCurrentContract,
@@ -49,8 +52,18 @@ export type LineSubscriptionPlan = {
    * nenhum.
    */
   provider?: PlanProvider
-  /** Linhas ativas cobradas por este plano. É o `quantity` do `line_item`. */
+  /** Linhas ativas deste plano na SPA. É o que a instalação **usa**. */
   lineCount: number
+  /**
+   * Linhas que o gateway **cobra** deste plano — a `quantity` do `line_item`.
+   *
+   * Diverge de `lineCount` por construção quando existe linha de cortesia, e é dessa
+   * diferença que sai `compedCount`. Vem do gateway, nunca da SPA: a SPA não sabe o
+   * que é cobrado.
+   */
+  billedCount: number
+  /** Linhas além das cobradas. Nunca negativo — ver `composeContractBilling`. */
+  compedCount: number
 }
 
 /**
@@ -86,16 +99,23 @@ export type LineSubscriptionState =
        * na mesma assinatura do gateway — um `line_item` por conector —, e reportar um
        * deles faria a tela mostrar menos do que o cliente paga. Status, período e
        * modalidade continuam saindo uma vez, porque são do contrato e não do plano.
+       *
+       * **Ausente** quando os dados de cobrança não puderam ser obtidos — gateway
+       * fora, sem credencial, assinatura inexistente lá, ou modalidade que não é do
+       * gateway. Ausência é a resposta honesta: preencher com `amount × lineCount`
+       * devolveria o número que não bate com a fatura, que é o que esta superfície
+       * existe para corrigir.
        */
-      plans: LineSubscriptionPlan[]
+      plans?: LineSubscriptionPlan[]
       /**
        * O total cobrado do contrato, em centavos — a soma dos `chargedAmount`.
        *
        * Somado no servidor porque somar é parte da regra de preço. `null` quando
        * algum plano ficou sem preço resolvido: um total que ignora um plano é um
-       * número menor apresentado como se fosse o completo.
+       * número menor apresentado como se fosse o completo. **Ausente** quando `plans`
+       * é ausente, pelo mesmo motivo.
        */
-      contractTotal: number | null
+      contractTotal?: number | null
       /**
        * Habilitação resolvida da assinatura vigente e do agora. É o que a tela usa
        * para dizer se a linha funciona, em vez de reinterpretar `status` e período
@@ -156,9 +176,11 @@ function resolveChargedAmount(
 /**
  * Lê o estado da assinatura da instalação atual.
  *
- * Só leitura, e só da SPA: o gateway de pagamento **não** é consultado. O estado
- * que o runtime obedece é o da SPA, e é o mesmo que a tela mostra — consultar o
- * gateway aqui criaria uma segunda resposta possível para a mesma pergunta.
+ * **A fronteira com o gateway é estreita, e de propósito.** Status, período,
+ * modalidade e habilitação saem da SPA — é o estado que o runtime obedece, e ter uma
+ * segunda fonte para "a linha funciona?" faria as duas divergirem. Do gateway vem
+ * uma coisa só: **quanto é cobrado, e por quantas linhas**. Essa pergunta a SPA não
+ * responde, porque linha de cortesia existe nela e não no `line_item`.
  */
 export class GetLineSubscriptionState {
   /**
@@ -167,11 +189,43 @@ export class GetLineSubscriptionState {
    * certo para quem não tem gateway configurado. O tipo é o **port**, nunca o adapter
    * — este módulo é entrypoint de runtime, e `runtime-gateway-isolation.test.ts`
    * reprova qualquer caminho de import que alcance o Stripe daqui.
+   * @param gatewaySubscriptions Leitura da assinatura no gateway, pela `quantity` de
+   * cada item. Opcional pelo mesmo motivo, e com a mesma restrição de tipo. Sem ela o
+   * estado sai **sem** composição — não com uma composição estimada.
    */
   constructor(
     private readonly getAplicationContext: GetAplicationContext,
     private readonly prices?: PlanPriceReader,
+    private readonly gatewaySubscriptions?: GatewaySubscriptionReader,
   ) {}
+
+  /**
+   * A assinatura no gateway, ou `null` quando não há como sabê-la.
+   *
+   * `null` cobre quatro casos que a tela trata igual — sem reader configurado,
+   * contrato sem id no gateway, modalidade que não é do gateway, e leitura falha — e
+   * todos levam ao mesmo lugar: a resposta sai sem composição, e a tela mostra só o
+   * período. Distinguí-los na resposta não mudaria nada do que o cliente vê.
+   */
+  private async readGatewaySubscription(
+    current: { modality: SubscriptionModality; gatewayId?: string },
+    isTrial: boolean,
+  ): Promise<GatewaySubscription | null> {
+    if (!this.gatewaySubscriptions) return null
+    if (isTrial) return null
+    if (current.modality !== 'stripe') return null
+    if (!current.gatewayId) return null
+
+    try {
+      return await this.gatewaySubscriptions.readSubscription(current.gatewayId)
+    } catch (error) {
+      apiLogger.warn(
+        { app: 'payments', gatewaySubscriptionId: current.gatewayId, error },
+        'Assinatura não pôde ser lida no gateway — a tela mostra só o período vigente',
+      )
+      return null
+    }
+  }
 
   /**
    * O preço de cada plano do contrato, por price id.
@@ -224,27 +278,68 @@ export class GetLineSubscriptionState {
     const isTrial = isTrialSubscription(current)
 
     const composed = composeContractByPlan(contract)
-    const pricesByPriceId = await this.readPrices(
-      composed.map(entry => entry.plan),
-    )
 
-    const plans = composed.map(entry => ({
+    const [gatewaySubscription, pricesByPriceId] = await Promise.all([
+      this.readGatewaySubscription(current, isTrial),
+      this.readPrices(composed.map(entry => entry.plan)),
+    ])
+
+    /**
+     * A composição existe **só** com a leitura do gateway em mãos.
+     *
+     * Sem ela não há como separar cobrada de bonificada, e o valor teria que sair de
+     * `amount × lineCount` — a conta que anuncia mais do que a fatura cobra. A
+     * resposta então omite a composição, e a tela cai na forma reduzida.
+     */
+    const billing = gatewaySubscription
+      ? composeContractBilling(composed, gatewaySubscription.items)
+      : null
+
+    const plans = billing?.map(entry => ({
       id: entry.plan.id,
       name: entry.plan.name,
       amount: entry.plan.amount,
+      /**
+       * Sobre `billedCount`, e não `lineCount`: com 3 linhas e 2 cobradas, cobrar o
+       * preço de 3 mostraria bonificado e o valor cheio ao mesmo tempo.
+       */
       chargedAmount: resolveChargedAmount(
         entry.plan,
         entry.plan.gatewayId
           ? (pricesByPriceId.get(entry.plan.gatewayId) ?? null)
           : null,
-        entry.lineCount,
+        entry.billedCount,
       ),
       interval: entry.plan.interval,
       provider: entry.plan.provider,
       lineCount: entry.lineCount,
+      billedCount: entry.billedCount,
+      compedCount: entry.compedCount,
     }))
 
-    const lineCount = plans.reduce((total, plan) => total + plan.lineCount, 0)
+    /**
+     * O gateway cobra mais linhas do que a SPA tem ativas. Não muda o que a tela
+     * mostra — o número da fatura é o do gateway —, mas é o sintoma de SPA e gateway
+     * separados, e sem registro ninguém nota.
+     */
+    for (const entry of billing ?? []) {
+      if (!entry.overBilled) continue
+
+      apiLogger.warn(
+        {
+          app: 'payments',
+          planId: entry.plan.id,
+          billedCount: entry.billedCount,
+          lineCount: entry.lineCount,
+        },
+        'Gateway cobra mais linhas do que a SPA tem ativas — divergência a reconciliar',
+      )
+    }
+
+    const lineCount = composed.reduce(
+      (total, entry) => total + entry.lineCount,
+      0,
+    )
 
     /**
      * O total é somado aqui, e não na tela: somar é parte da regra de preço, e a tela
@@ -252,9 +347,11 @@ export class GetLineSubscriptionState {
      * fatura. Plano com preço irresolúvel não entra na soma, e `contractTotal` fica
      * `null` — total parcial passaria por total.
      */
-    const contractTotal = plans.some(plan => plan.chargedAmount === null)
-      ? null
-      : plans.reduce((total, plan) => total + (plan.chargedAmount ?? 0), 0)
+    const contractTotal = !plans
+      ? undefined
+      : plans.some(plan => plan.chargedAmount === null)
+        ? null
+        : plans.reduce((total, plan) => total + (plan.chargedAmount ?? 0), 0)
 
     return {
       status: current.status,

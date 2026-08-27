@@ -35,10 +35,28 @@ export type OfferablePlan = {
 export type ContractPlan = {
   id: string
   name: string
+  /**
+   * Valor de cadastro do CRM. **Não é o cobrado** — preço de conector é escalonado no
+   * gateway, e `amount × lineCount` é a conta que anunciava mais do que a fatura.
+   * Quem mostra valor usa `chargedAmount`.
+   */
   amount: number
+  /**
+   * O que este plano custa no contrato, em centavos, já com os degraus aplicados
+   * sobre as linhas **cobradas**.
+   *
+   * `null` quando o preço não pôde ser resolvido: a tela mostra o plano sem valor, em
+   * vez de um número inventado.
+   */
+  chargedAmount?: number | null
   interval: PlanInterval
   provider?: LineProvider
+  /** Linhas ativas deste plano — o que a instalação **usa**. */
   lineCount: number
+  /** Linhas que o gateway **cobra**. Vem da `quantity` do item lá. */
+  billedCount?: number
+  /** Linhas além das cobradas: as bonificadas. */
+  compedCount?: number
 }
 
 /** Espelha `LineSubscriptionState` da api. */
@@ -55,12 +73,24 @@ export type SubscriptionState =
        * só, porque a instalação pode ser cobrada por dois planos na mesma assinatura
        * do gateway — mostrar um deles reportaria menos do que ela paga.
        *
-       * **Opcional de propósito.** Front e api sobem em deploys separados, então
-       * front novo contra api antigo é estado alcançável — e ali o campo não existe.
-       * Obrigatório no tipo, o `undefined` chegaria de qualquer forma e derrubaria a
-       * tela inteira num `.reduce` de campo ausente. Quem consome trata a ausência.
+       * **Opcional de propósito**, por dois motivos que hoje coincidem. O primeiro é
+       * deploy: front e api sobem separados, então front novo contra api antigo é
+       * estado alcançável — e ali o campo não existe. O segundo é regra: o servidor
+       * **omite** a composição quando não pôde ler a cobrança no gateway (fora do ar,
+       * sem credencial, ou modalidade que não é dele), porque preencher com valor
+       * local devolveria o número que não bate com a fatura.
+       *
+       * Os dois levam ao mesmo lugar na tela: a forma reduzida.
        */
       plans?: ContractPlan[]
+      /**
+       * O total cobrado do contrato, somado no servidor.
+       *
+       * Somar é parte da regra de preço, e a tela somando `amount × lineCount` foi
+       * exatamente o que passou a mostrar mais do que a fatura. `null` quando algum
+       * plano ficou sem preço resolvido; ausente quando `plans` é ausente.
+       */
+      contractTotal?: number | null
       entitlement: 'active' | 'trial-expired' | 'inactive'
       billingPortalAvailable: boolean
       canSubscribe: boolean

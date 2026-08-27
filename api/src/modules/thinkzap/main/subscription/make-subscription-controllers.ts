@@ -21,6 +21,7 @@ import { makeGetAplicationContext } from '@/modules/application/main/make-get-ap
 import { requireAbsoluteUrl } from '@/shared/main/require-absolute-url'
 import {
   makePaymentGateway,
+  makeGatewaySubscriptionReader,
   makePlanPriceReader,
   makeSubscriptionDeps,
 } from './make-subscription-deps'
@@ -41,6 +42,7 @@ export const makeGetSubscriptionStateController = (): Controller => {
     new GetLineSubscriptionState(
       makeGetAplicationContext(),
       makePlanPriceReader(),
+      makeGatewaySubscriptionReader(),
     ),
   )
 }
@@ -154,6 +156,8 @@ export const makeStripeWebhookController = (): Controller => {
         createBillingPortalSession: () =>
           Promise.reject(new Error('gateway de pagamento não configurado')),
         readPrice: () =>
+          Promise.reject(new Error('gateway de pagamento não configurado')),
+        readSubscription: () =>
           Promise.reject(new Error('gateway de pagamento não configurado')),
       },
       // Inalcançável: a validação acima recusa antes de chegar ao handler.

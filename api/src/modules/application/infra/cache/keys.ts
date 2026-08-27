@@ -62,6 +62,17 @@ export const PLAN_CACHE_VERSION = 'v3'
 export const PLAN_PRICE_CACHE_VERSION = 'v1'
 
 /**
+ * Versão do shape da assinatura lida do gateway.
+ *
+ * Família nova, então começa em `v1`. Sobe quando a forma mudar — um campo novo no
+ * item, ou o status ganhando valor —, porque entrada gravada sob a forma antiga
+ * passaria pelo schema e alimentaria a derivação de bonificado com um item
+ * incompleto. E item incompleto ali não vira erro: vira linha contada como
+ * bonificada, que é o pior desfecho possível desta família.
+ */
+export const GATEWAY_SUBSCRIPTION_CACHE_VERSION = 'v1'
+
+/**
  * Versão do shape do `Subscription`. Sobe junto com qualquer mudança na
  * entidade — inclusive no `Plan`, no `Product` e na `Aplication` aninhados —
  * para que entradas gravadas por um deploy anterior sejam ignoradas.
@@ -136,6 +147,22 @@ const gatewayEnvironment = () => env.payments.stripe.environment
 export const planPriceKey = (priceId: string) =>
   `payments:plan-price:${PLAN_PRICE_CACHE_VERSION}:${priceId}`
 
+/**
+ * Assinatura lida do gateway, por **id da assinatura no gateway**.
+ *
+ * Família própria, fora de `subscription:`, que é a assinatura da SPA. As duas
+ * descrevem o mesmo contrato por ângulos diferentes — a SPA diz o que existe, o
+ * gateway diz o que é cobrado — e juntá-las na mesma chave faria a invalidação de uma
+ * descartar a outra sem motivo.
+ *
+ * O ambiente não entra na chave, pelo mesmo argumento de `planPriceKey`: o id
+ * (`sub_...`) é emitido pela conta do gateway, e dois ambientes nunca compartilham um.
+ * É o oposto do plano e da assinatura da SPA, cujos ids vêm de SPAs compartilhadas
+ * entre produção e homologação.
+ */
+export const gatewaySubscriptionKey = (gatewaySubscriptionId: string) =>
+  `payments:gateway-subscription:${GATEWAY_SUBSCRIPTION_CACHE_VERSION}:${gatewaySubscriptionId}`
+
 export const planKey = (id: string) =>
   `payments:plan:${PLAN_CACHE_VERSION}:${gatewayEnvironment()}:${id}`
 export const planListKey = () =>
@@ -181,6 +208,17 @@ export const PLAN_SCAN_PATTERNS = [
 export const SUBSCRIPTION_SCAN_PATTERNS = [
   `payments:subscription:${SUBSCRIPTION_CACHE_VERSION}:*`,
   `payments:subscriptions:${SUBSCRIPTION_CACHE_VERSION}:*`,
+]
+
+/**
+ * Padrão da família inteira, para o caso de precisar limpá-la de fora.
+ *
+ * Singular só: esta família não tem listagem — a leitura é sempre por id de
+ * assinatura. O padrão para no id, então `payments:gateway-subscription:v1:*` não
+ * alcança nenhuma outra família.
+ */
+export const GATEWAY_SUBSCRIPTION_SCAN_PATTERNS = [
+  `payments:gateway-subscription:${GATEWAY_SUBSCRIPTION_CACHE_VERSION}:*`,
 ]
 
 export const SUBSCRIPTION_ITEM_SCAN_PATTERNS = [

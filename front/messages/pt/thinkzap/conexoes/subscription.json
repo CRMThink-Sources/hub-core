@@ -19,7 +19,6 @@
   "vigenteDescricao": "Sua assinatura está ativa e renova em {{data}}.",
   "inadimplenteDescricao": "Não conseguimos concluir o pagamento. Suas linhas param de enviar e receber mensagens até a cobrança ser regularizada.",
   "canceladaDescricao": "Sua assinatura foi cancelada e o período terminou em {{data}}. As linhas continuam aqui, mas não enviam nem recebem mensagens.",
-  "manualSemAutoatendimento": "A cobrança por boleto é gerenciada pela nossa equipe financeira. Para mudar plano, forma de pagamento ou cancelar, fale com o suporte.",
   "gerenciarPagamento": "Gerenciar pagamento",
   "abrindoPortal": "Abrindo...",
   "contratar": {
@@ -46,6 +45,7 @@
   "tituloContrato": "Sua assinatura",
   "umaLinha": "1 linha",
   "variasLinhas": "{{quantidade}} linhas",
+  "cobradasEBonificadas": "{{cobradas}} cobradas · {{bonificadas}} bonificadas",
   "linhaCriada": "Linha criada.",
   "erroCriarLinha": "Não foi possível criar a linha. Tente novamente."
 }

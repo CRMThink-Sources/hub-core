@@ -19,7 +19,6 @@
   "vigenteDescricao": "Tu suscripción está activa y se renueva el {{data}}.",
   "inadimplenteDescricao": "No pudimos completar el pago. Tus líneas dejan de enviar y recibir mensajes hasta que se regularice el cobro.",
   "canceladaDescricao": "Tu suscripción fue cancelada y el período terminó el {{data}}. Las líneas siguen aquí, pero no envían ni reciben mensajes.",
-  "manualSemAutoatendimento": "El cobro por boleto lo gestiona nuestro equipo financiero. Para cambiar de plan, forma de pago o cancelar, contacta al soporte.",
   "gerenciarPagamento": "Gestionar pago",
   "abrindoPortal": "Abriendo...",
   "contratar": {
@@ -46,6 +45,7 @@
   "tituloContrato": "Tu suscripción",
   "umaLinha": "1 línea",
   "variasLinhas": "{{quantidade}} líneas",
+  "cobradasEBonificadas": "{{cobradas}} cobradas · {{bonificadas}} bonificadas",
   "linhaCriada": "Línea creada.",
   "erroCriarLinha": "No se pudo crear la línea. Inténtalo de nuevo."
 }

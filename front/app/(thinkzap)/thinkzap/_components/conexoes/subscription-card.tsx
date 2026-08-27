@@ -6,17 +6,28 @@ import type {
   ContractPlan,
   UseLineSubscription,
 } from '@/app/hooks/use-line-subscription'
+import { resolveContractCardShape } from './contract-card-shape'
 
 /**
  * O contrato vigente da instalação.
  *
  * **Não oferece plano.** A contratação mora na linha da tabela, porque o que se
  * assina é a linha: com mais de uma na lista, um botão aqui não diria qual. Este
- * card fala do que já está contratado — valor, ciclo, status e modalidade — e da
- * ação que é da assinatura inteira, não de uma linha: o portal de faturamento.
+ * card fala do que já está contratado e da ação que é da assinatura inteira, não de
+ * uma linha: o portal de faturamento.
  *
- * A modalidade é mostrada de propósito: o cliente de boleto que não vê onde trocar
- * o cartão precisa saber que não é por falta da tela.
+ * **Duas formas** (`resolveContractCardShape`). A completa detalha cobrança — valor,
+ * composição, portal — e existe só para assinatura do gateway cuja cobrança foi lida
+ * lá. A reduzida mostra período vigente e modalidade, e é o que sobra quando a
+ * aplicação não conhece a cobrança: boleto, mantido por automação de fora, e a
+ * leitura do gateway que não veio.
+ *
+ * A modalidade aparece nas duas: o cliente de boleto que não vê onde trocar o cartão
+ * precisa saber que não é por falta da tela.
+ *
+ * **Nenhum valor é calculado aqui.** Preço de conector é escalonado no gateway, e a
+ * soma local de `amount × lineCount` foi exatamente o que passou a anunciar mais do
+ * que a fatura cobra. O servidor manda `chargedAmount` e `contractTotal` prontos.
  *
  * Recebe o estado por prop em vez de buscar: a tabela consome o mesmo dado, e duas
  * buscas seriam duas requisições capazes de discordar.
@@ -59,32 +70,22 @@ export function SubscriptionCard({
     )
   }
 
-  /**
-   * O contrato **pago** vigente, ou nada a mostrar. Instalação que só tem trial não
-   * rende card: quem fala do teste é o `TrialCard`.
-   */
-  if (subscription.status === 'none' || subscription.isTrial) return null
-
-  const contract = subscription
+  const shape = resolveContractCardShape(subscription)
 
   /**
-   * A composição pode não vir: api mais antigo que este front não manda o campo. A
-   * ausência **não** é tratada como "contrato sem plano" — é "não sabemos o valor", e
-   * a tela cala em vez de mostrar `R$ 0,00`, que seria mentira sobre dinheiro.
+   * Instalação sem contrato pago a comentar. Quem fala do teste é o `TrialCard`, e
+   * dois cards sobre o mesmo estado se contradiriam.
    */
-  const planos = contract.plans ?? []
+  if (shape.kind === 'ausente') return null
+
+  const contract = shape.contract
+  const planos = shape.kind === 'completa' ? shape.plans : []
 
   /**
-   * O total do contrato: valor de cada plano vezes o número de linhas dele.
-   *
-   * A soma é da tela porque a moeda é de apresentação. Somar valores de intervalos
-   * diferentes seria errado — e não acontece: um contrato tem um ciclo, porque é uma
-   * assinatura só no gateway.
+   * O total vem pronto do servidor. `null` é "algum plano ficou sem preço": aí o card
+   * cala em vez de mostrar um total parcial passando por completo.
    */
-  const total = planos.reduce(
-    (soma, plano) => soma + plano.amount * plano.lineCount,
-    0,
-  )
+  const total = contract.contractTotal
   const intervalo = planos[0]?.interval
 
   return (
@@ -95,7 +96,7 @@ export function SubscriptionCard({
             {t('tituloContrato')}
           </p>
           {/* Sem composição não há valor a afirmar: o card fala só do status. */}
-          {intervalo ? (
+          {intervalo && total != null ? (
             <p className="mt-1 text-sm text-muted-foreground">
               {t('valorPorIntervalo', {
                 valor: formatAmount(total),
@@ -137,6 +138,18 @@ export function SubscriptionCard({
                   ? t('umaLinha')
                   : t('variasLinhas', { quantidade: plano.lineCount })
               }
+              /**
+               * Só quando há bonificada: contrato em paridade não menciona a palavra.
+               * "2 cobradas · 0 bonificadas" seria ruído em cima do caso comum.
+               */
+              detalheLabel={
+                (plano.compedCount ?? 0) > 0
+                  ? t('cobradasEBonificadas', {
+                      cobradas: plano.billedCount ?? 0,
+                      bonificadas: plano.compedCount ?? 0,
+                    })
+                  : null
+              }
             />
           ))}
         </ul>
@@ -159,7 +172,7 @@ export function SubscriptionCard({
        * do servidor de propósito: a regra de quando ele existe é a mesma que a rota
        * usa para recusar, e duplicá-la aqui deixaria as duas divergirem.
        */}
-      {contract.billingPortalAvailable ? (
+      {shape.kind === 'completa' && contract.billingPortalAvailable ? (
         <div className="mt-4">
           <Button
             type="button"
@@ -173,37 +186,43 @@ export function SubscriptionCard({
           </Button>
         </div>
       ) : null}
-
-      {/**
-       * Boleto é mantido por fora: nada aqui oferece portal, checkout nem
-       * cancelamento para essa modalidade. O aviso substitui a ação que não existe,
-       * para o cliente não procurar onde trocar o cartão.
-       */}
-      {contract.modality === 'manual' ? (
-        <p className="mt-3 text-sm text-muted-foreground">
-          {t('manualSemAutoatendimento')}
-        </p>
-      ) : null}
     </Shell>
   )
 }
 
-/** Um plano do contrato: o que ele custa e quantas linhas ele cobra. */
+/**
+ * Um plano do contrato: o que ele custa e quantas linhas ele cobra.
+ *
+ * O valor vem de `chargedAmount`, calculado no servidor sobre as linhas **cobradas**.
+ * `null` é "não sabemos o preço": a linha do plano aparece sem valor, e não com
+ * `R$ 0,00` — zero afirmaria gratuidade onde há desconhecimento.
+ *
+ * Plano inteiramente bonificado é caso diferente: ali `chargedAmount` é zero de
+ * verdade, e o zero é a informação.
+ */
 function ComposicaoItem({
   plano,
   linhasLabel,
+  detalheLabel,
 }: {
   plano: ContractPlan
   linhasLabel: string
+  /** "2 cobradas · 1 bonificada", ou `null` quando não há bonificada. */
+  detalheLabel: string | null
 }) {
   return (
     <li className="flex items-baseline justify-between gap-4 text-sm">
       <span className="text-foreground">
         {plano.name}
         <span className="ml-2 text-muted-foreground">{linhasLabel}</span>
+        {detalheLabel ? (
+          <span className="block text-xs text-muted-foreground">
+            {detalheLabel}
+          </span>
+        ) : null}
       </span>
       <span className="shrink-0 tabular-nums text-muted-foreground">
-        {formatAmount(plano.amount * plano.lineCount)}
+        {plano.chargedAmount == null ? '—' : formatAmount(plano.chargedAmount)}
       </span>
     </li>
   )
