@@ -52,6 +52,7 @@ import {
 } from './main/subscription/make-subscription-controllers'
 import {
   makeConnectLineChannelController,
+  makeDeleteLineController,
   makeDisconnectLineController,
   makeGetLineConnectionController,
   makeGetLineQrCodeController,
@@ -321,6 +322,18 @@ export const createThinkerszapRoutes = (): Router => {
     '/lines/:itemId/disconnect',
     requireThinkzapPermission('connectors', 'delete'),
     adaptControllerFactory(makeDisconnectLineController),
+  )
+  /**
+   * Apaga a linha. `connectors:delete`, a mesma permissão de desconectar — as duas
+   * são destrutivas, e quem pode derrubar a sessão pode remover a linha.
+   *
+   * A limpeza do recurso no provider e o ajuste da cobrança vêm do webhook de saída
+   * da SPA que o item apagado dispara, não desta rota.
+   */
+  router.delete(
+    '/lines/:itemId',
+    requireThinkzapPermission('connectors', 'delete'),
+    adaptControllerFactory(makeDeleteLineController),
   )
   router.get(
     '/lines/:itemId/settings',

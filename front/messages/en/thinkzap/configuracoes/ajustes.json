@@ -36,11 +36,7 @@
     "prefixOperatorNameHint": "Adds the agent name before the sent message.",
     "widgetOpenChannel": "Send to open channel",
     "widgetOpenChannelHint": "Messages sent from the widget also go to the open channel.",
-    "widgetOpenChannelSemCanal": "Link an open channel to enable.",
-    "messageUpdateEvent": "Sync message edits",
-    "messageUpdateEventHint": "Edits made in the CRM are reflected on WhatsApp.",
-    "messageDeleteEvent": "Sync message deletions",
-    "messageDeleteEventHint": "Deletions made in the CRM are reflected on WhatsApp."
+    "widgetOpenChannelSemCanal": "Link an open channel to enable."
   },
   "bloqueada": {
     "trialTitulo": "Trial period ended",

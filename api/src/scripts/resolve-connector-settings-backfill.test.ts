@@ -50,15 +50,32 @@ describe('settingsToMigrate', () => {
     })
   })
 
-  it('migra os quatro toggles quando a coluna está completa', () => {
+  it('migra os dois toggles quando a coluna está completa', () => {
     const full = {
+      prefixOperatorNameEnabled: true,
+      widgetOpenChannelEnabled: true,
+    }
+
+    expect(settingsToMigrate(full)).toEqual(full)
+  })
+
+  /**
+   * Coluna gravada antes da descontinuação da sincronização de exclusão. A chave é
+   * descartada, e as três que restam mantêm os valores do cliente — cair nos
+   * defaults aqui religaria `prefixOperatorNameEnabled` em quase toda a base.
+   */
+  it('descarta as chaves descontinuadas sem perder as demais', () => {
+    const legado = {
       prefixOperatorNameEnabled: true,
       messageUpdateEventEnabled: false,
       messageDeleteEventEnabled: false,
       widgetOpenChannelEnabled: true,
     }
 
-    expect(settingsToMigrate(full)).toEqual(full)
+    expect(settingsToMigrate(legado)).toEqual({
+      prefixOperatorNameEnabled: true,
+      widgetOpenChannelEnabled: true,
+    })
   })
 
   /**

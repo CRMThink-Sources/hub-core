@@ -46,6 +46,14 @@ const ZAPI_PLAN: Plan = {
   active: true,
 }
 
+/** Segundo plano do catálogo, para o contrato de dois conectores. */
+const HUB_PLAN = {
+  ...ZAPI_PLAN,
+  id: '8',
+  gatewayId: 'price_hub',
+  provider: 'HUBMESSAGE' as const,
+}
+
 const aplication = {
   id: 'app-1',
   spaId: '512',
@@ -114,6 +122,8 @@ type Options = {
   failUnsubscribe?: boolean
   failDisconnect?: boolean
   failSync?: boolean
+  /** `true` faz o encerramento do contrato falhar. */
+  failCancel?: boolean
   gateway?: PaymentGateway | null
 }
 
@@ -182,11 +192,16 @@ const makeUseCase = (options: Options = {}) => {
 
   const plans = new ListOfferablePlans({
     getPlan: vi.fn(),
-    getPlans: vi.fn(() => Promise.resolve([ZAPI_PLAN])),
+    getPlans: vi.fn(() => Promise.resolve([ZAPI_PLAN, HUB_PLAN])),
   } as unknown as PlanRepository)
 
   const syncSubscriptionLineItems = vi.fn(() =>
     options.failSync
+      ? Promise.reject(new Error('gateway fora'))
+      : Promise.resolve(),
+  )
+  const cancelSubscriptionAtPeriodEnd = vi.fn(() =>
+    options.failCancel
       ? Promise.reject(new Error('gateway fora'))
       : Promise.resolve(),
   )
@@ -197,6 +212,7 @@ const makeUseCase = (options: Options = {}) => {
           verifyWebhookEvent: vi.fn(),
           createCheckoutSession: vi.fn(),
           syncSubscriptionLineItems,
+          cancelSubscriptionAtPeriodEnd,
           createBillingPortalSession: vi.fn(),
         } as unknown as PaymentGateway)
 
@@ -217,6 +233,7 @@ const makeUseCase = (options: Options = {}) => {
     resolve,
     getSubscription,
     syncSubscriptionLineItems,
+    cancelSubscriptionAtPeriodEnd,
   }
 }
 
@@ -400,6 +417,136 @@ describe('CleanupDeletedSpaItemLine', () => {
 
       expect(sut.remove).not.toHaveBeenCalled()
       expect(apiLogger.error).toHaveBeenCalled()
+    })
+  })
+})
+
+/**
+ * O buraco que a exclusão pela tela abriu: reconciliar quantidade não encerra
+ * contrato, e lista vazia significa "nada a mudar" para `syncSubscriptionLineItems`.
+ */
+describe('CleanupDeletedSpaItemLine — última linha do contrato', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('encerra a assinatura no fim do período quando não sobrou linha', async () => {
+    const sut = makeUseCase({ parent: subscription({ items: [] }) })
+
+    const result = await sut.useCase.execute(INPUT)
+
+    expect(sut.cancelSubscriptionAtPeriodEnd).toHaveBeenCalledWith('sub_1')
+    expect(result.billingAdjusted).toBe(true)
+  })
+
+  /** Encerrar e sincronizar são exclusivos: sincronizar lista vazia não faz nada. */
+  it('não sincroniza line_items ao encerrar', async () => {
+    const sut = makeUseCase({ parent: subscription({ items: [] }) })
+
+    await sut.useCase.execute(INPUT)
+
+    expect(sut.syncSubscriptionLineItems).not.toHaveBeenCalled()
+  })
+
+  it('sobrando linha, reduz a quantidade e não encerra', async () => {
+    const sut = makeUseCase()
+
+    await sut.useCase.execute(INPUT)
+
+    expect(sut.syncSubscriptionLineItems).toHaveBeenCalled()
+    expect(sut.cancelSubscriptionAtPeriodEnd).not.toHaveBeenCalled()
+  })
+
+  it('falha ao encerrar propaga para a fila retentar', async () => {
+    const sut = makeUseCase({
+      parent: subscription({ items: [] }),
+      failCancel: true,
+    })
+
+    await expect(sut.useCase.execute(INPUT)).rejects.toThrow('gateway fora')
+  })
+
+  /** As guardas de modalidade e trial vêm antes: nem chegam ao ramo de encerrar. */
+  it('boleto não encerra contrato', async () => {
+    const sut = makeUseCase({
+      parent: subscription({ items: [], modality: 'manual' }),
+    })
+
+    const result = await sut.useCase.execute(INPUT)
+
+    expect(sut.cancelSubscriptionAtPeriodEnd).not.toHaveBeenCalled()
+    expect(result.billingAdjusted).toBe(false)
+  })
+
+  it('trial não encerra contrato', async () => {
+    const sut = makeUseCase({
+      parent: subscription({ items: [], status: 'trialing' }),
+    })
+
+    const result = await sut.useCase.execute(INPUT)
+
+    expect(sut.cancelSubscriptionAtPeriodEnd).not.toHaveBeenCalled()
+    expect(result.billingAdjusted).toBe(false)
+  })
+
+  it('contrato já cancelado não é encerrado de novo', async () => {
+    const sut = makeUseCase({
+      parent: subscription({ items: [], status: 'cancelled' }),
+    })
+
+    const result = await sut.useCase.execute(INPUT)
+
+    expect(sut.cancelSubscriptionAtPeriodEnd).not.toHaveBeenCalled()
+    expect(result.billingAdjusted).toBe(false)
+  })
+
+  it('ambiente sem gateway não encerra e não falha o job', async () => {
+    const sut = makeUseCase({
+      parent: subscription({ items: [] }),
+      gateway: null,
+    })
+
+    const result = await sut.useCase.execute(INPUT)
+
+    expect(result.billingAdjusted).toBe(false)
+  })
+})
+
+/**
+ * Contrato de dois conectores onde a exclusão zera **um** deles. A lista derivada
+ * ainda tem um `line_item`, então o caminho é a reconciliação normal — não encerrar.
+ */
+describe('CleanupDeletedSpaItemLine — contrato com dois planos', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const oficialLine: SubscriptionItem = {
+    id: '71',
+    name: 'WhatsApp Oficial',
+    subscription: '42',
+    status: 'active',
+    settings: { ...DEFAULT_CONNECTOR_SETTINGS },
+    vinculatedChannel: null,
+    metadata: {
+      provider: 'HUBMESSAGE',
+      hubmessageChannelId: 'chan-1',
+      wabaId: 'waba-1',
+    },
+  }
+
+  it('zerar um plano não encerra o contrato', async () => {
+    const sut = makeUseCase({ parent: subscription({ items: [oficialLine] }) })
+
+    await sut.useCase.execute(INPUT)
+
+    expect(sut.cancelSubscriptionAtPeriodEnd).not.toHaveBeenCalled()
+  })
+
+  it('o plano zerado sai dos line_items e o outro continua', async () => {
+    const sut = makeUseCase({ parent: subscription({ items: [oficialLine] }) })
+
+    await sut.useCase.execute(INPUT)
+
+    expect(sut.syncSubscriptionLineItems).toHaveBeenCalledWith({
+      gatewaySubscriptionId: 'sub_1',
+      lineItems: [{ priceId: 'price_hub', quantity: 1 }],
     })
   })
 })

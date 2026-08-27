@@ -25,7 +25,10 @@
     "desconectar": "Disconnect",
     "vincularCanal": "Link channel",
     "desvincularCanal": "Unlink channel",
-    "cancelarConector": "Cancel connector"
+    "cancelarConector": "Cancel connector",
+    "acoesDaLinha": "Line actions",
+    "excluir": "Delete",
+    "excluindo": "Deleting..."
   },
   "semPlano": "No plan",
   "assinar": {
@@ -38,5 +41,13 @@
       "semiannual": "half-year",
       "yearly": "year"
     }
+  },
+  "excluir": {
+    "titulo": "Delete this line?",
+    "descricao": "The line \"{{nome}}\" leaves the list, the number is disconnected from WhatsApp, and its billing ends. This cannot be undone.",
+    "ultimaDoContrato": "This is the last line on this subscription. Deleting it ends the contract at the end of the current period — you keep access until then.",
+    "confirmar": "Delete line",
+    "cancelar": "Cancel",
+    "excluindo": "Deleting..."
   }
 }

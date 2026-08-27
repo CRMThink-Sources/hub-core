@@ -262,4 +262,26 @@ export interface PaymentGateway {
    * a chamada falha.
    */
   readSubscription(gatewaySubscriptionId: string): Promise<GatewaySubscription>
+
+  /**
+   * Marca a assinatura para encerrar **no fim do período vigente**.
+   *
+   * É o caminho de quando não sobrou linha nenhuma no contrato. A reconciliação de
+   * quantidade não cobre esse caso: ela deriva os `line_items` dos itens vivos, e
+   * sem item vivo a lista sai vazia — o que não remove nada, porque
+   * `syncSubscriptionLineItems` não remove preço ausente da lista.
+   *
+   * **Método próprio, e não lista vazia naquele.** Fazer lista vazia significar
+   * "cancele tudo" transformaria a operação mais repetida do módulo numa que apaga
+   * contrato quando alguém erra a construção da lista. Um método com nome próprio
+   * não é chamado por engano.
+   *
+   * **Fim do período, não imediato.** O cliente pagou o período corrente: cortar na
+   * hora sem devolver cobra por serviço não prestado, e devolver exigiria uma
+   * política de crédito proporcional que o produto não tem. Encerrar no vencimento é
+   * o único caminho que não pede essa decisão, e é reversível pelo painel até lá.
+   *
+   * Idempotente: repetir sobre contrato já marcado não muda nada.
+   */
+  cancelSubscriptionAtPeriodEnd(gatewaySubscriptionId: string): Promise<void>
 }

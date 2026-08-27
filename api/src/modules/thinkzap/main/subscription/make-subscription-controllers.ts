@@ -159,6 +159,8 @@ export const makeStripeWebhookController = (): Controller => {
           Promise.reject(new Error('gateway de pagamento não configurado')),
         readSubscription: () =>
           Promise.reject(new Error('gateway de pagamento não configurado')),
+        cancelSubscriptionAtPeriodEnd: () =>
+          Promise.reject(new Error('gateway de pagamento não configurado')),
       },
       // Inalcançável: a validação acima recusa antes de chegar ao handler.
       null as unknown as HandleGatewayWebhookEvent,

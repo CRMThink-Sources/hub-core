@@ -24,9 +24,9 @@ const item: SubscriptionItem = {
   gatewayId: 'si_abc',
 }
 
-const ITEM_KEY = 'payments:subscription-item:v4:77'
-const ITEM_LIST_KEY = 'payments:subscription-items:v4:all'
-const SUBSCRIPTION_LIST_KEY = 'payments:subscription-items:v4:subscription:4242'
+const ITEM_KEY = 'payments:subscription-item:v5:77'
+const ITEM_LIST_KEY = 'payments:subscription-items:v5:all'
+const SUBSCRIPTION_LIST_KEY = 'payments:subscription-items:v5:subscription:4242'
 
 function makeInner(entity: SubscriptionItem = item) {
   const getSubscriptionItem = vi.fn(() => Promise.resolve(entity))
@@ -40,6 +40,7 @@ function makeInner(entity: SubscriptionItem = item) {
     (_itemId: string, subscription: string) =>
       Promise.resolve({ ...entity, subscription }),
   )
+  const deleteSubscriptionItem = vi.fn(() => Promise.resolve())
 
   const repository: SubscriptionItemRepository = {
     getSubscriptionItem,
@@ -48,6 +49,7 @@ function makeInner(entity: SubscriptionItem = item) {
     createSubscriptionItem,
     updateSubscriptionItem,
     reparentSubscriptionItem,
+    deleteSubscriptionItem,
   }
 
   return {
@@ -58,6 +60,7 @@ function makeInner(entity: SubscriptionItem = item) {
     createSubscriptionItem,
     updateSubscriptionItem,
     reparentSubscriptionItem,
+    deleteSubscriptionItem,
   }
 }
 
@@ -272,7 +275,7 @@ describe('CachedSubscriptionItemRepository', () => {
       expect(del).toHaveBeenCalledWith(
         ITEM_KEY,
         ITEM_LIST_KEY,
-        'payments:subscription-items:v4:subscription:9999',
+        'payments:subscription-items:v5:subscription:9999',
       )
     })
 
@@ -304,7 +307,7 @@ describe('CachedSubscriptionItemRepository', () => {
 
   describe('reparentSubscriptionItem', () => {
     const DESTINATION_LIST_KEY =
-      'payments:subscription-items:v4:subscription:9999'
+      'payments:subscription-items:v5:subscription:9999'
 
     it('delega ao interno e devolve o item com o pai novo', async () => {
       const inner = makeInner()
@@ -407,5 +410,97 @@ describe('CachedSubscriptionItemRepository', () => {
 
       expect(del).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('deleteSubscriptionItem', () => {
+  it('apaga no interno e descarta as três chaves', async () => {
+    const inner = makeInner()
+    const { redis, del } = makeRedis()
+
+    await new CachedSubscriptionItemRepository(
+      inner.repository,
+      redis,
+    ).deleteSubscriptionItem('77')
+
+    expect(inner.deleteSubscriptionItem).toHaveBeenCalledWith('77')
+    expect(del).toHaveBeenCalledWith(
+      ITEM_KEY,
+      ITEM_LIST_KEY,
+      SUBSCRIPTION_LIST_KEY,
+    )
+  })
+
+  /**
+   * Write-through aqui repovoaria o cache com o item apagado — o oposto do que se
+   * quer. Por isso `forget` existe separado de `refresh`.
+   */
+  it('não regrava o item no cache', async () => {
+    const inner = makeInner()
+    const { redis, set } = makeRedis()
+
+    await new CachedSubscriptionItemRepository(
+      inner.repository,
+      redis,
+    ).deleteSubscriptionItem('77')
+
+    expect(set).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A assinatura pai é lida antes do delete: depois não há de onde tirá-la, e sem
+   * ela a listagem daquela assinatura serviria o item apagado até o TTL.
+   */
+  it('lê a assinatura pai antes de apagar', async () => {
+    const inner = makeInner()
+    const { redis } = makeRedis()
+
+    await new CachedSubscriptionItemRepository(
+      inner.repository,
+      redis,
+    ).deleteSubscriptionItem('77')
+
+    expect(inner.getSubscriptionItem).toHaveBeenCalledWith('77')
+  })
+
+  /** Item já ausente não impede a limpeza das chaves que possam ter sobrado. */
+  it('apaga as chaves mesmo sem conseguir ler o item', async () => {
+    const inner = makeInner()
+    inner.getSubscriptionItem.mockRejectedValueOnce(new Error('não existe'))
+    const { redis, del } = makeRedis()
+
+    await new CachedSubscriptionItemRepository(
+      inner.repository,
+      redis,
+    ).deleteSubscriptionItem('77')
+
+    expect(inner.deleteSubscriptionItem).toHaveBeenCalledWith('77')
+    expect(del).toHaveBeenCalledWith(ITEM_KEY, ITEM_LIST_KEY)
+  })
+
+  it('falha de Redis não derruba a exclusão', async () => {
+    const inner = makeInner()
+    const { redis } = makeFailingRedis('del')
+
+    await expect(
+      new CachedSubscriptionItemRepository(
+        inner.repository,
+        redis,
+      ).deleteSubscriptionItem('77'),
+    ).resolves.toBeUndefined()
+  })
+
+  /** Falha no Bitrix sobe: apagar é destrutivo, e sucesso falso esconderia o item. */
+  it('erro do interno propaga', async () => {
+    const inner = makeInner()
+    inner.deleteSubscriptionItem.mockRejectedValueOnce(new Error('bitrix fora'))
+    const { redis } = makeRedis()
+
+    await expect(
+      new CachedSubscriptionItemRepository(
+        inner.repository,
+        redis,
+      ).deleteSubscriptionItem('77'),
+    ).rejects.toThrow('bitrix fora')
   })
 })

@@ -3,5 +3,6 @@
     "nome": "Nome",
     "status": "Status",
     "acoes": "Ações"
-  }
+  },
+  "semNome": "Sem nome"
 }

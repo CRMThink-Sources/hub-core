@@ -67,9 +67,9 @@ const FULL_KEYSPACE = [
   subscriptionListKey(),
   subscriptionsByAplicationKey('7'),
   subscriptionsByAplicationKey('8'),
-  'payments:subscription-item:v4:9',
-  'payments:subscription-items:v4:all',
-  'payments:subscription-items:v4:subscription:42',
+  'payments:subscription-item:v5:9',
+  'payments:subscription-items:v5:all',
+  'payments:subscription-items:v5:subscription:42',
   'bull:thinkzap-inbound:1',
 ]
 
@@ -109,8 +109,8 @@ describe('InvalidateSpaCache', () => {
 
       expect(remaining.has(planKey('5'))).toBe(true)
       expect(remaining.has('payments:product:v1:3')).toBe(true)
-      expect(remaining.has('payments:subscription-item:v4:9')).toBe(true)
-      expect(remaining.has('payments:subscription-items:v4:all')).toBe(true)
+      expect(remaining.has('payments:subscription-item:v5:9')).toBe(true)
+      expect(remaining.has('payments:subscription-items:v5:all')).toBe(true)
     })
 
     it('varre as listagens por aplicação quando o item já não existe', async () => {
@@ -125,7 +125,7 @@ describe('InvalidateSpaCache', () => {
       expect(remaining.has(subscriptionsByAplicationKey('7'))).toBe(false)
       expect(remaining.has(subscriptionsByAplicationKey('8'))).toBe(false)
       // A varredura é só das listagens por pai: entradas por id de outra assinatura ficam.
-      expect(remaining.has('payments:subscription-item:v4:9')).toBe(true)
+      expect(remaining.has('payments:subscription-item:v5:9')).toBe(true)
     })
 
     it('varre quando a leitura do pai no Bitrix falha, e ainda assim reporta sucesso', async () => {
@@ -201,10 +201,10 @@ describe('InvalidateSpaCache', () => {
         itemId: '9',
         parentField: 'parentId1142',
       })
-      expect(remaining.has('payments:subscription-item:v4:9')).toBe(false)
-      expect(remaining.has('payments:subscription-items:v4:all')).toBe(false)
+      expect(remaining.has('payments:subscription-item:v5:9')).toBe(false)
+      expect(remaining.has('payments:subscription-items:v5:all')).toBe(false)
       expect(
-        remaining.has('payments:subscription-items:v4:subscription:42'),
+        remaining.has('payments:subscription-items:v5:subscription:42'),
       ).toBe(false)
     })
 
@@ -230,7 +230,7 @@ describe('InvalidateSpaCache', () => {
       })
 
       expect(
-        remaining.has('payments:subscription-items:v4:subscription:42'),
+        remaining.has('payments:subscription-items:v5:subscription:42'),
       ).toBe(false)
       expect(remaining.has(subscriptionKey('42'))).toBe(true)
     })
@@ -246,10 +246,10 @@ describe('InvalidateSpaCache', () => {
       })
 
       expect(parents.getParentId).not.toHaveBeenCalled()
-      expect(remaining.has('payments:subscription-item:v4:9')).toBe(false)
-      expect(remaining.has('payments:subscription-items:v4:all')).toBe(false)
+      expect(remaining.has('payments:subscription-item:v5:9')).toBe(false)
+      expect(remaining.has('payments:subscription-items:v5:all')).toBe(false)
       expect(
-        remaining.has('payments:subscription-items:v4:subscription:42'),
+        remaining.has('payments:subscription-items:v5:subscription:42'),
       ).toBe(false)
       // Continua sem tocar a família de assinatura, mesmo no delete.
       expect(remaining.has(subscriptionKey('42'))).toBe(true)
@@ -283,7 +283,7 @@ describe('InvalidateSpaCache', () => {
 
       expect(remaining.has('payments:product:v1:3')).toBe(true)
       expect(remaining.has('payments:products:v1:all')).toBe(true)
-      expect(remaining.has('payments:subscription-item:v4:9')).toBe(true)
+      expect(remaining.has('payments:subscription-item:v5:9')).toBe(true)
     })
 
     it('não lê o pai no Bitrix — plano não tem listagem por pai', async () => {
@@ -324,8 +324,8 @@ describe('InvalidateSpaCache', () => {
         itemId: '3',
       })
 
-      expect(remaining.has('payments:subscription-item:v4:9')).toBe(true)
-      expect(remaining.has('payments:subscription-items:v4:all')).toBe(true)
+      expect(remaining.has('payments:subscription-item:v5:9')).toBe(true)
+      expect(remaining.has('payments:subscription-items:v5:all')).toBe(true)
     })
   })
 
@@ -343,7 +343,7 @@ describe('InvalidateSpaCache', () => {
       expect(remaining.has(subscriptionListKey())).toBe(false)
       expect(remaining.has(subscriptionsByAplicationKey('7'))).toBe(false)
       expect(remaining.has(planKey('5'))).toBe(true)
-      expect(remaining.has('payments:subscription-item:v4:9')).toBe(true)
+      expect(remaining.has('payments:subscription-item:v5:9')).toBe(true)
     })
 
     it('no delete apaga também a família de item, que alimenta o contexto', async () => {
@@ -360,10 +360,10 @@ describe('InvalidateSpaCache', () => {
 
       expect(result.handled).toBe(true)
       expect(remaining.has(subscriptionKey('42'))).toBe(false)
-      expect(remaining.has('payments:subscription-item:v4:9')).toBe(false)
-      expect(remaining.has('payments:subscription-items:v4:all')).toBe(false)
+      expect(remaining.has('payments:subscription-item:v5:9')).toBe(false)
+      expect(remaining.has('payments:subscription-items:v5:all')).toBe(false)
       expect(
-        remaining.has('payments:subscription-items:v4:subscription:42'),
+        remaining.has('payments:subscription-items:v5:subscription:42'),
       ).toBe(false)
       // Plano e produto seguem intactos: a aplicação não é aninhada neles.
       expect(remaining.has(planKey('5'))).toBe(true)

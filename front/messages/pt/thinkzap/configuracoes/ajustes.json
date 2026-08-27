@@ -36,11 +36,7 @@
     "prefixOperatorNameHint": "Inclui o nome de quem atende antes da mensagem enviada.",
     "widgetOpenChannel": "Enviar para canal aberto",
     "widgetOpenChannelHint": "Mensagens enviadas pelo widget também vão para o canal aberto.",
-    "widgetOpenChannelSemCanal": "Vincule um canal aberto para habilitar.",
-    "messageUpdateEvent": "Sincronizar edição de mensagem",
-    "messageUpdateEventHint": "Edição feita no CRM é refletida no WhatsApp.",
-    "messageDeleteEvent": "Sincronizar exclusão de mensagem",
-    "messageDeleteEventHint": "Exclusão feita no CRM é refletida no WhatsApp."
+    "widgetOpenChannelSemCanal": "Vincule um canal aberto para habilitar."
   },
   "bloqueada": {
     "trialTitulo": "Período de teste encerrado",

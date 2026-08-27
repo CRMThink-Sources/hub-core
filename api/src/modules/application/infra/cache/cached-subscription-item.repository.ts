@@ -31,14 +31,12 @@ const metadataSchema = z.discriminatedUnion('provider', [
 ])
 
 /**
- * Os quatro toggles são obrigatórios aqui, apesar de opcionais no schema de
+ * Os dois toggles são obrigatórios aqui, apesar de opcionais no schema de
  * domínio: a entidade sempre os resolve antes de virar cache, então uma entrada
  * sem eles é de um deploy anterior e tem que virar miss.
  */
 const settingsSchema = z.object({
   prefixOperatorNameEnabled: z.boolean(),
-  messageUpdateEventEnabled: z.boolean(),
-  messageDeleteEventEnabled: z.boolean(),
   widgetOpenChannelEnabled: z.boolean(),
 })
 
@@ -157,6 +155,53 @@ export class CachedSubscriptionItemRepository implements SubscriptionItemReposit
     await this.refresh(item, origin)
 
     return item
+  }
+
+  async deleteSubscriptionItem(id: string): Promise<void> {
+    /**
+     * A assinatura pai é lida **antes** de apagar, e do interno: depois do delete
+     * não há de onde tirá-la, e sem ela a listagem daquela assinatura continuaria
+     * servindo o item apagado até o TTL — a linha some da tela e volta no refresh
+     * seguinte.
+     *
+     * Item já ausente não impede a limpeza: as chaves podem ter sobrado de uma
+     * tentativa anterior, e apagá-las de novo é inofensivo.
+     */
+    let subscriptionId: string | null = null
+    try {
+      subscriptionId = (await this.inner.getSubscriptionItem(id)).subscription
+    } catch {
+      subscriptionId = null
+    }
+
+    await this.inner.deleteSubscriptionItem(id)
+    await this.forget(id, subscriptionId)
+  }
+
+  /**
+   * Descarta as chaves de um item que **não existe mais**.
+   *
+   * Separado de `refresh` porque não há entidade a regravar: write-through aqui
+   * repovoaria o cache com o item apagado, que é o oposto do que se quer.
+   */
+  private async forget(
+    id: string,
+    subscriptionId: string | null,
+  ): Promise<void> {
+    try {
+      await this.redis.del(
+        subscriptionItemKey(id),
+        subscriptionItemListKey(),
+        ...(subscriptionId
+          ? [subscriptionItemsBySubscriptionKey(subscriptionId)]
+          : []),
+      )
+    } catch (error) {
+      apiLogger.warn(
+        { app: 'payments', itemId: id, error },
+        'Subscription item cache invalidation after delete failed — ignoring',
+      )
+    }
   }
 
   /**

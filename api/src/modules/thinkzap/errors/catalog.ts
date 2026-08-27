@@ -103,22 +103,6 @@ export const THINKZAP_ERRORS = {
     retriable: true,
     httpStatus: 502,
   },
-  'thinkzap.zapi.message_edit_failed': {
-    category: 'integration',
-    userCause: 'Editar a mensagem já enviada pela z-api falhou.',
-    remediation:
-      'Tentar de novo; se persistir, conferir se a linha está conectada.',
-    retriable: true,
-    httpStatus: 502,
-  },
-  'thinkzap.zapi.message_delete_failed': {
-    category: 'integration',
-    userCause: 'Apagar a mensagem já enviada pela z-api falhou.',
-    remediation:
-      'Tentar de novo; se persistir, conferir se a linha está conectada.',
-    retriable: true,
-    httpStatus: 502,
-  },
   'thinkzap.zapi.group_op_failed': {
     category: 'integration',
     userCause: 'Uma operação de grupo de WhatsApp na z-api falhou.',

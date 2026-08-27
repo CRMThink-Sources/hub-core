@@ -48,8 +48,6 @@ export type LineConnection = {
 export type LineSettingsToggles = {
   prefixOperatorNameEnabled: boolean
   widgetOpenChannelEnabled: boolean
-  messageUpdateEventEnabled: boolean
-  messageDeleteEventEnabled: boolean
 }
 
 /**

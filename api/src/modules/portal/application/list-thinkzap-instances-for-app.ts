@@ -28,8 +28,6 @@ export type ThinkzapInstanceItem = {
    * linha desconectada. Conexão ao vivo continua vindo do provider (`zapiConnected`).
    */
   itemStatus: string
-  messageUpdateEventEnabled: boolean
-  messageDeleteEventEnabled: boolean
   zapiName: string | null
   zapiConnected: boolean | null
   zapiPaymentStatus: string | null
@@ -106,8 +104,6 @@ export async function listThinkzapInstancesForApp(
         instanceId: providerLineId(item) ?? '',
         vinculatedChannel: item.vinculatedChannel,
         itemStatus: item.status,
-        messageUpdateEventEnabled: item.settings.messageUpdateEventEnabled,
-        messageDeleteEventEnabled: item.settings.messageDeleteEventEnabled,
         zapiName: zapi?.name ?? null,
         zapiConnected: zapi?.connected ?? null,
         zapiPaymentStatus: zapi?.paymentStatus ?? null,

@@ -177,6 +177,14 @@ export default function ConexoesLayout() {
         planos={planos}
         redirecting={subscription.redirecting}
         onSubscribe={planId => void subscription.subscribe(planId)}
+        /**
+         * Recarrega o contexto no sucesso: a lista sai dos itens de assinatura, e sem
+         * o recarregamento a linha apagada continuaria na tela. O contrato também
+         * muda quando era a última — o card acima lê do mesmo `refresh`.
+         */
+        onDelete={async lineId => {
+          if (await subscription.deleteLine(lineId)) await refresh()
+        }}
       />
     </div>
   )

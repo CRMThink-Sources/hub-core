@@ -64,4 +64,15 @@ export class CacheInvalidatingPaymentGateway implements PaymentGateway {
   ): Promise<GatewaySubscription> {
     return this.inner.readSubscription(gatewaySubscriptionId)
   }
+
+  /**
+   * Encerrar muda o contrato no gateway, então a leitura cacheada dele fica velha —
+   * a tela mostraria contrato vivo depois de ele ter sido marcado para encerrar.
+   */
+  async cancelSubscriptionAtPeriodEnd(
+    gatewaySubscriptionId: string,
+  ): Promise<void> {
+    await this.inner.cancelSubscriptionAtPeriodEnd(gatewaySubscriptionId)
+    await this.cache.invalidate(gatewaySubscriptionId)
+  }
 }

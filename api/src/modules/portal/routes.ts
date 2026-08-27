@@ -24,7 +24,6 @@ import { createListAppSubscriptionsController } from './main/factories/create-li
 import { createSubscribeThinkzapLineController } from './main/factories/create-subscribe-thinkzap-line-controller'
 import { createUnsubscribeThinkzapLineController } from './main/factories/create-unsubscribe-thinkzap-line-controller'
 import { createUpdateThinkzapLineNameController } from './main/factories/create-update-thinkzap-line-name-controller'
-import { createUpdateThinkzapConnectorEventBindsAppController } from './main/factories/create-update-thinkzap-connector-event-binds-app-controller'
 import { createReactivateThinkzapLineController } from './main/factories/create-reactivate-thinkzap-line-controller'
 import type { RequestHandler } from 'express'
 
@@ -151,13 +150,6 @@ export const createPortalRoutes = (
     '/apps/:appId/thinkzap-lines/:subscriptionItemId/name',
     portalAuthMiddleware,
     adaptControllerFactory(createUpdateThinkzapLineNameController),
-  )
-  router.patch(
-    '/apps/:appId/thinkzap-lines/:subscriptionItemId/event-binds',
-    portalAuthMiddleware,
-    adaptControllerFactory(
-      createUpdateThinkzapConnectorEventBindsAppController,
-    ),
   )
   router.patch(
     '/apps/:appId/thinkzap-lines/:subscriptionItemId/reactivate',
