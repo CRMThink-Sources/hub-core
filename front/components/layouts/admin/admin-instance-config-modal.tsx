@@ -35,12 +35,6 @@ type SubscriptionState =
   | { kind: 'success'; message: string }
   | { kind: 'error'; message: string }
 
-type EventSaveState =
-  | { kind: 'idle' }
-  | { kind: 'saving' }
-  | { kind: 'saved' }
-  | { kind: 'error'; message: string }
-
 type Props = {
   appId: string
   instance: ThinkzapInstanceItem
@@ -63,7 +57,6 @@ export function AdminInstanceConfigModal({
   const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>(
     { kind: 'idle' },
   )
-  const [eventSave, setEventSave] = useState<Record<string, EventSaveState>>({})
   const [localInstance, setLocalInstance] =
     useState<ThinkzapInstanceItem>(instance)
 
@@ -134,50 +127,6 @@ export function AdminInstanceConfigModal({
       setSubscriptionState({ kind: 'error', message })
     }
   }
-
-  async function handleEventToggle(
-    field: 'messageUpdateEventEnabled' | 'messageDeleteEventEnabled',
-    value: boolean,
-  ) {
-    setEventSave(prev => ({ ...prev, [field]: { kind: 'saving' } }))
-    try {
-      // Keyed pelo item: os toggles vivem em `ufCrm93Settings`, não nas tabelas.
-      await axiosPortal().patch(
-        `/portal/apps/${appId}/thinkzap-lines/${instance.subscriptionItemId}/event-binds`,
-        { [field]: value },
-      )
-      const updated = { ...localInstance, [field]: value }
-      setLocalInstance(updated)
-      onUpdate({
-        subscriptionItemId: instance.subscriptionItemId,
-        [field]: value,
-      })
-      setEventSave(prev => ({ ...prev, [field]: { kind: 'saved' } }))
-      setTimeout(() => {
-        setEventSave(prev => {
-          const next = { ...prev }
-          if (next[field]?.kind === 'saved') delete next[field]
-          return next
-        })
-      }, 2000)
-    } catch {
-      setEventSave(prev => ({
-        ...prev,
-        [field]: { kind: 'error', message: t('connectorsErrorSave') },
-      }))
-      setTimeout(() => {
-        setEventSave(prev => {
-          const next = { ...prev }
-          if (next[field]?.kind === 'error') delete next[field]
-          return next
-        })
-      }, 3000)
-    }
-  }
-
-  const isSavingAnyEvent = Object.values(eventSave).some(
-    s => s.kind === 'saving',
-  )
 
   return (
     <Dialog
@@ -297,73 +246,6 @@ export function AdminInstanceConfigModal({
               ) : null}
             </div>
           </section>
-
-          {/* <hr className="border-border" /> */}
-
-          {/* Connector settings section */}
-          {/* <section>
-            <h3 className="mb-3 text-sm font-semibold text-foreground">
-              {t('instanceModalSectionConnector')}
-            </h3>
-            <div className="space-y-3">
-              {(
-                [
-                  'messageUpdateEventEnabled',
-                  'messageDeleteEventEnabled',
-                ] as const
-              ).map(field => {
-                const save = eventSave[field]
-                const labelKey =
-                  field === 'messageUpdateEventEnabled'
-                    ? 'connectorsMessageUpdateEvent'
-                    : 'connectorsMessageDeleteEvent'
-                const hintKey =
-                  field === 'messageUpdateEventEnabled'
-                    ? 'connectorsMessageUpdateEventHint'
-                    : 'connectorsMessageDeleteEventHint'
-                return (
-                  <label
-                    key={field}
-                    className="flex cursor-pointer items-start gap-3"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={localInstance[field]}
-                      onChange={e => {
-                        void handleEventToggle(field, e.target.checked)
-                      }}
-                      disabled={isSavingAnyEvent}
-                      className="mt-0.5"
-                    />
-                    <span className="flex flex-col gap-0.5">
-                      <span className="text-sm font-medium text-foreground">
-                        {t(labelKey)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {t(hintKey)}
-                      </span>
-                      {save?.kind === 'saving' ? (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Loader2 className="size-3 animate-spin" />
-                          {t('connectorsSaving')}
-                        </span>
-                      ) : null}
-                      {save?.kind === 'saved' ? (
-                        <span className="text-xs text-green-600 dark:text-green-400">
-                          {t('connectorsSaved')}
-                        </span>
-                      ) : null}
-                      {save?.kind === 'error' ? (
-                        <span className="text-xs text-red-600 dark:text-red-400">
-                          {save.message}
-                        </span>
-                      ) : null}
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
-          </section> */}
 
           {/* Reativar só faz sentido para item cancelado na SPA. */}
           {localInstance.itemStatus === 'cancelled' ? (

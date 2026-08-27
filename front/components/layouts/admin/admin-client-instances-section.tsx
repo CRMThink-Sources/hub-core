@@ -21,8 +21,6 @@ export type ThinkzapInstanceItem = {
   instanceId: string
   vinculatedChannel: string | null
   itemStatus: string
-  messageUpdateEventEnabled: boolean
-  messageDeleteEventEnabled: boolean
   zapiName: string | null
   zapiConnected: boolean | null
   zapiPaymentStatus: string | null

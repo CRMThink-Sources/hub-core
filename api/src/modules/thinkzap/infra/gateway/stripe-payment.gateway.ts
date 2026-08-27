@@ -292,6 +292,24 @@ export class StripePaymentGateway implements PaymentGateway {
     })
   }
 
+  /**
+   * Marca o contrato para encerrar no vencimento.
+   *
+   * `cancel_at_period_end` e não `subscriptions.cancel()`: o segundo corta na hora, e
+   * o cliente perde o período que já pagou. Ver o port para o porquê da política.
+   *
+   * Idempotente por construção — o campo é um estado desejado, não um evento —, então
+   * não há verificação prévia. Uma leitura antes só criaria uma ida a mais à rede e
+   * uma janela entre ler e escrever.
+   */
+  async cancelSubscriptionAtPeriodEnd(
+    gatewaySubscriptionId: string,
+  ): Promise<void> {
+    await this.stripe.subscriptions.update(gatewaySubscriptionId, {
+      cancel_at_period_end: true,
+    })
+  }
+
   async createBillingPortalSession(
     input: CreateBillingPortalSessionInput,
   ): Promise<{ url: string }> {

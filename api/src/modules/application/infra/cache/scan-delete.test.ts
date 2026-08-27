@@ -62,18 +62,18 @@ describe('scanDelete', () => {
   it('não alcança chaves de item ao varrer a família de assinatura', async () => {
     const { redis, remaining } = makeRedis([
       subscriptionKey('1'),
-      'payments:subscription-item:v4:77',
-      'payments:subscription-items:v4:all',
-      'payments:subscription-items:v4:subscription:1',
+      'payments:subscription-item:v5:77',
+      'payments:subscription-items:v5:all',
+      'payments:subscription-items:v5:subscription:1',
     ])
 
     const deleted = await scanDelete(redis, SUBSCRIPTION_SCAN_PATTERNS)
 
     expect(deleted).toBe(1)
     expect([...remaining]).toEqual([
-      'payments:subscription-item:v4:77',
-      'payments:subscription-items:v4:all',
-      'payments:subscription-items:v4:subscription:1',
+      'payments:subscription-item:v5:77',
+      'payments:subscription-items:v5:all',
+      'payments:subscription-items:v5:subscription:1',
     ])
   })
 
@@ -81,8 +81,8 @@ describe('scanDelete', () => {
     const { redis, remaining } = makeRedis([
       'payments:subscription:v4:1',
       'payments:subscriptions:v4:all',
-      'payments:subscription-item:v4:77',
-      'payments:subscription-items:v4:all',
+      'payments:subscription-item:v5:77',
+      'payments:subscription-items:v5:all',
     ])
 
     const deleted = await scanDelete(redis, SUBSCRIPTION_ITEM_SCAN_PATTERNS)

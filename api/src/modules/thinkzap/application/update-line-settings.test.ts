@@ -31,18 +31,15 @@ const oficial = (settings = DEFAULT_CONNECTOR_SETTINGS): SubscriptionItem => ({
 
 function makeSut(current = DEFAULT_CONNECTOR_SETTINGS) {
   const rename = { execute: vi.fn().mockResolvedValue(undefined) }
-  const binds = { execute: vi.fn().mockResolvedValue(undefined) }
   const updateSubscriptionItem = vi.fn().mockResolvedValue(item(current))
 
   const useCase = new UpdateLineSettings(
     rename as never,
-    binds as never,
     { updateSubscriptionItem } as never,
   )
 
   return {
     rename,
-    binds,
     updateSubscriptionItem,
     execute: (
       patch: Parameters<typeof useCase.execute>[0] extends never
@@ -63,7 +60,7 @@ function makeSut(current = DEFAULT_CONNECTOR_SETTINGS) {
 describe('UpdateLineSettings', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('grava os quatro toggles numa escrita só, no item da SPA', async () => {
+  it('grava os dois toggles numa escrita só, no item da SPA', async () => {
     const sut = makeSut()
 
     await sut.execute({ settings: { prefixOperatorNameEnabled: true } })
@@ -165,44 +162,25 @@ describe('UpdateLineSettings', () => {
     })
   })
 
-  it('faz bind/unbind só para os toggles de evento', async () => {
+  /**
+   * Gravar settings **não sai da SPA**.
+   *
+   * Havia aqui três testes de bind/unbind no Bitrix: os toggles de sincronização de
+   * edição e exclusão de mensagem tocavam o portal do cliente antes de persistir.
+   * As duas sincronizações foram descontinuadas, e os toggles que restam são só
+   * nossos — não há mais efeito colateral a cobrir.
+   */
+  it('gravar settings não toca o Bitrix', async () => {
     const sut = makeSut()
 
     await sut.execute({ settings: { prefixOperatorNameEnabled: true } })
 
-    expect(sut.binds.execute).not.toHaveBeenCalled()
-  })
-
-  it('chama os binds quando um toggle de evento muda', async () => {
-    const sut = makeSut()
-
-    await sut.execute({ settings: { messageUpdateEventEnabled: false } })
-
-    expect(sut.binds.execute).toHaveBeenCalledWith({
-      appId: 'installed-1',
-      messageUpdateEventEnabled: false,
-      messageDeleteEventEnabled: undefined,
+    expect(sut.updateSubscriptionItem).toHaveBeenCalledWith('i1', {
+      settings: {
+        prefixOperatorNameEnabled: true,
+        widgetOpenChannelEnabled: false,
+      },
     })
-  })
-
-  /**
-   * Com escrita única, falha de bind não deixa mais estado meio salvo — antes os
-   * toggles simples já estavam gravados quando o bind estourava.
-   */
-  it('não grava settings quando o bind falha', async () => {
-    const sut = makeSut()
-    sut.binds.execute.mockRejectedValue(new Error('App credentials not found'))
-
-    await expect(
-      sut.execute({
-        settings: {
-          prefixOperatorNameEnabled: true,
-          messageDeleteEventEnabled: false,
-        },
-      }),
-    ).rejects.toThrow('App credentials not found')
-
-    expect(sut.updateSubscriptionItem).not.toHaveBeenCalled()
   })
 
   it('não grava nada quando o patch de settings vem vazio', async () => {
@@ -211,6 +189,5 @@ describe('UpdateLineSettings', () => {
     await sut.execute({ settings: {} })
 
     expect(sut.updateSubscriptionItem).not.toHaveBeenCalled()
-    expect(sut.binds.execute).not.toHaveBeenCalled()
   })
 })

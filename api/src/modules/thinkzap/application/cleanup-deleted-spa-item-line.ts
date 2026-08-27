@@ -260,6 +260,37 @@ export class CleanupDeletedSpaItemLine {
       return false
     }
 
+    /**
+     * Não sobrou linha nenhuma: o contrato inteiro acabou, e sincronizar não resolve.
+     *
+     * `syncSubscriptionLineItems` não remove preço ausente da lista — está escrito no
+     * port, e é a decisão certa lá, porque reduzir cobrança não pode ser efeito
+     * colateral de acrescentar linha. O efeito aqui seria o pior possível: lista
+     * vazia significa "nada a mudar", e o cliente seguiria pagando o contrato cheio
+     * por linha nenhuma.
+     *
+     * Encerra no fim do período. Ver o port para o porquê de não ser imediato.
+     *
+     * **Um plano zerado não é contrato vazio.** Contrato de dois planos onde a
+     * exclusão zera um deles ainda deriva um `line_item`, e cai na reconciliação
+     * normal logo abaixo. Só a lista inteiramente vazia chega aqui.
+     */
+    if (lineItems.length === 0) {
+      try {
+        await this.gateway.cancelSubscriptionAtPeriodEnd(parent.gatewayId)
+      } catch (error) {
+        this.billingNotAdjusted(log, 'sync-failed', error)
+        throw error
+      }
+
+      apiLogger.info(
+        { ...log, gatewaySubscriptionId: parent.gatewayId },
+        'Última linha do contrato apagada — assinatura encerra no fim do período vigente',
+      )
+
+      return true
+    }
+
     try {
       await this.gateway.syncSubscriptionLineItems({
         gatewaySubscriptionId: parent.gatewayId,

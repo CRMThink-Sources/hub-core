@@ -325,6 +325,36 @@ export function useLineSubscription() {
     [t],
   )
 
+  /**
+   * Apaga uma linha.
+   *
+   * Devolve `true` quando o item foi apagado, para a tela recarregar o contexto — a
+   * lista vem dos itens de assinatura, e sem o recarregamento a linha continuaria
+   * na tela.
+   *
+   * **A limpeza é assíncrona.** O servidor apaga o item e responde; desassinar o
+   * recurso no provider e ajustar a cobrança acontecem depois, pelo webhook de saída
+   * da SPA. O aviso de sucesso diz isso, e não que o número já foi desconectado.
+   *
+   * Vive aqui, e não em `useLineApi`, porque aquele hook é por linha e serve a tela
+   * de configuração — a exclusão parte da lista, que não instancia um por linha.
+   */
+  const deleteLine = useCallback(
+    async (itemId: string): Promise<boolean> => {
+      try {
+        const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
+        await client.delete(`/thinkzap/lines/${encodeURIComponent(itemId)}`)
+
+        toast.success(t('linhaExcluida'))
+        return true
+      } catch (err: unknown) {
+        toast.error(extractThinkzapError(err, t('erroExcluirLinha')))
+        return false
+      }
+    },
+    [t],
+  )
+
   const openBillingPortal = useCallback(async () => {
     const tab = window.open('', '_blank')
 
@@ -349,6 +379,7 @@ export function useLineSubscription() {
     redirecting,
     subscribe,
     createLine,
+    deleteLine,
     creating,
     checkoutSecret,
     closeCheckout,

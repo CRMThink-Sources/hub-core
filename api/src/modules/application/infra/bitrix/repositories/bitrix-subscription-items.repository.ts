@@ -133,6 +133,23 @@ export class BitrixSubscriptionItemRepository implements SubscriptionItemReposit
     return this.getSubscriptionItem(itemId)
   }
 
+  /**
+   * Apaga o item na SPA, e nada além disso.
+   *
+   * A limpeza do recurso no provider e o ajuste da cobrança vêm do webhook de saída
+   * que este delete dispara — mesmo caminho de quando alguém apaga pelo Bitrix.
+   * Fazer aqui criaria uma segunda implementação da mesma coisa.
+   *
+   * Item inexistente é tratado como sucesso pelo client, e é a política certa:
+   * apagar o que já não está lá chegou ao estado desejado.
+   */
+  async deleteSubscriptionItem(id: string): Promise<void> {
+    await this.bitrix.deleteCrmItem(
+      env.payments.spa.subscriptionItemEntityType,
+      id,
+    )
+  }
+
   private async ensureSubscriptionExists(
     subscriptionId: string,
   ): Promise<void> {

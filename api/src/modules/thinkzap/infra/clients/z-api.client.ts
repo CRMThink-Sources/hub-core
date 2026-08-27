@@ -626,40 +626,6 @@ export class ZApiClient {
     }
   }
 
-  async editMessage(
-    instanceId: string,
-    instanceToken: string,
-    phone: string,
-    messageId: string,
-    newText: string,
-  ): Promise<void> {
-    try {
-      await this.http.post(
-        `${this.instanceBaseUrl(instanceId, instanceToken)}/send-message-edit`,
-        { messageId, phone, message: newText },
-        { headers: this.instanceHeaders() },
-      )
-    } catch (error) {
-      throw thinkzapError('thinkzap.zapi.message_edit_failed', error)
-    }
-  }
-
-  async deleteMessage(
-    instanceId: string,
-    instanceToken: string,
-    phone: string,
-    messageId: string,
-  ): Promise<void> {
-    try {
-      await this.http.delete(
-        `${this.instanceBaseUrl(instanceId, instanceToken)}/messages/${encodeURIComponent(phone)}/${encodeURIComponent(messageId)}`,
-        { headers: this.instanceHeaders() },
-      )
-    } catch (error) {
-      throw thinkzapError('thinkzap.zapi.message_delete_failed', error)
-    }
-  }
-
   async sendDocument(
     instanceId: string,
     instanceToken: string,

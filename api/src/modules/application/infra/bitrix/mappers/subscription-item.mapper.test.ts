@@ -362,7 +362,26 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
         validItem({ ufCrm93Settings: raw }),
       ).settings
 
-    it('lê o JSON completo dos quatro toggles', () => {
+    it('lê o JSON completo dos dois toggles', () => {
+      expect(
+        settingsOf(
+          JSON.stringify({
+            prefixOperatorNameEnabled: true,
+            widgetOpenChannelEnabled: true,
+          }),
+        ),
+      ).toEqual({
+        prefixOperatorNameEnabled: true,
+        widgetOpenChannelEnabled: true,
+      })
+    })
+
+    /**
+     * O shape que quase todo item da SPA tem hoje. A chave descontinuada é
+     * descartada e as três restantes mantêm o valor do cliente — cair nos defaults
+     * aqui religaria `prefixOperatorNameEnabled` na base inteira, em silêncio.
+     */
+    it('ignora as chaves descontinuadas sem cair nos defaults', () => {
       expect(
         settingsOf(
           JSON.stringify({
@@ -374,8 +393,6 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
         ),
       ).toEqual({
         prefixOperatorNameEnabled: true,
-        messageUpdateEventEnabled: false,
-        messageDeleteEventEnabled: false,
         widgetOpenChannelEnabled: true,
       })
     })
@@ -564,13 +581,13 @@ describe('mapSubscriptionItemInputToBitrixFields', () => {
       widgetOpenChannelEnabled: true,
     }
 
-    it('serializa o objeto completo dos quatro toggles', () => {
+    it('serializa o objeto completo dos dois toggles', () => {
       const fields = mapSubscriptionItemInputToBitrixFields({ settings })
 
       expect(fields).toEqual({ ufCrm93Settings: JSON.stringify(settings) })
       expect(
         Object.keys(JSON.parse(String(fields.ufCrm93Settings)) as object),
-      ).toHaveLength(4)
+      ).toHaveLength(2)
     })
 
     it('não toca nos campos de credencial', () => {

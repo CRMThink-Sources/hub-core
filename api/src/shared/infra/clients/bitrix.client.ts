@@ -11,6 +11,23 @@ import {
 import { normalizeBitrixDomain } from './normalize-bitrix-domain'
 import { PlacementHandlerEntry } from '@/modules/thinkzap/application/normalize-placement-get-response'
 
+/**
+ * O erro do Bitrix é "esse item não existe"?
+ *
+ * O Bitrix responde `400` com `error: 'NOT_FOUND'` para item ausente, e não `404`.
+ * O código é conferido junto do status porque `400` sozinho cobre também payload
+ * inválido — e tratar payload inválido como "já apagado" esconderia um bug de
+ * chamada atrás de um sucesso.
+ */
+function isCrmItemNotFound(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false
+  if (error.response?.status !== 400) return false
+
+  const code = (error.response.data as { error?: unknown } | undefined)?.error
+
+  return typeof code === 'string' && code.toUpperCase().includes('NOT_FOUND')
+}
+
 interface IBitrixClientParams {
   bitrixCredential?: Credential
   domain?: string
@@ -309,6 +326,29 @@ export class BitrixClient {
     } catch (error) {
       console.error('[BitrixClient] updateCrmItem error:', error)
       throw new BitrixError('Failed to update CRM item')
+    }
+  }
+
+  /**
+   * Apaga um item de SPA.
+   *
+   * Item inexistente **não** propaga: o Bitrix responde erro para id que já não
+   * está lá, e apagar o que não existe chegou ao estado desejado. Reentrega de
+   * webhook e duplo clique tornam isso alcançável, e transformar os dois em falha
+   * faria a fila retentar para sempre um item que ninguém vai reencontrar.
+   *
+   * Qualquer outra falha sobe: apagar é destrutivo, e engolir erro aqui deixaria o
+   * chamador achando que o item saiu quando ele continua lá.
+   */
+  async deleteCrmItem(entityTypeId: number, id: string): Promise<void> {
+    const client = this.getClient()
+    try {
+      await client.post(`/crm.item.delete`, { entityTypeId, id })
+    } catch (error) {
+      if (isCrmItemNotFound(error)) return
+
+      console.error('[BitrixClient] deleteCrmItem error:', error)
+      throw new BitrixError('Failed to delete CRM item')
     }
   }
 

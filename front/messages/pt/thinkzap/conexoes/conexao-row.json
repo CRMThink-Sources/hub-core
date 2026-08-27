@@ -25,7 +25,10 @@
     "desconectar": "Desconectar",
     "vincularCanal": "Vincular canal",
     "desvincularCanal": "Desvincular canal",
-    "cancelarConector": "Cancelar conector"
+    "cancelarConector": "Cancelar conector",
+    "acoesDaLinha": "Ações da linha",
+    "excluir": "Excluir",
+    "excluindo": "Excluindo..."
   },
   "semPlano": "Sem plano",
   "assinar": {
@@ -38,5 +41,13 @@
       "semiannual": "semestre",
       "yearly": "ano"
     }
+  },
+  "excluir": {
+    "titulo": "Excluir esta linha?",
+    "descricao": "A linha \"{{nome}}\" sai da lista, o número é desconectado do WhatsApp e a cobrança dela é encerrada. Não é possível desfazer.",
+    "ultimaDoContrato": "Esta é a última linha desta assinatura. Excluí-la encerra o contrato no fim do período vigente — você continua com acesso até lá.",
+    "confirmar": "Excluir linha",
+    "cancelar": "Cancelar",
+    "excluindo": "Excluindo..."
   }
 }

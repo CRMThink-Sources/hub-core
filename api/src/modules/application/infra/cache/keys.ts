@@ -116,8 +116,16 @@ export const SUBSCRIPTION_CACHE_VERSION = 'v5'
  * opcional é mais permissivo. O problema é o inverso: um item gravado em `v3` só
  * existia **com** WABA, e canal sem WABA era erro de leitura. Manter `v3` misturaria
  * entradas de dois regimes de validação diferentes na mesma chave.
+ *
+ * `v5`: `settings` perdeu `messageUpdateEventEnabled` e `messageDeleteEventEnabled`
+ * com a descontinuação das sincronizações de edição e exclusão de mensagem. Mesmo
+ * caso de `v4`, e é justamente por isso que a versão sobe: tirar chave torna o
+ * schema **mais** permissivo, então as
+ * entradas `v4` passariam — e continuariam servindo `settings` de quatro chaves para
+ * código que espera duas, até o TTL vencer. Custo: uma leitura ao Bitrix por item no
+ * primeiro acesso depois do deploy.
  */
-export const SUBSCRIPTION_ITEM_CACHE_VERSION = 'v4'
+export const SUBSCRIPTION_ITEM_CACHE_VERSION = 'v5'
 
 export const productKey = (id: string) =>
   `payments:product:${PRODUCT_CACHE_VERSION}:${id}`

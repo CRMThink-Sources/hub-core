@@ -12,39 +12,6 @@ type IBX24Auth = {
   application_token: string
 }
 
-export interface IBX24MessageUpdateEvent {
-  event: string
-  data: {
-    CONNECTOR: string
-    LINE: string
-    MESSAGES: {
-      im: {
-        message_id: string
-      }
-      message: {
-        text: string
-      }
-    }[]
-  }
-  ts: string
-  auth: IBX24Auth
-}
-
-export interface IBX24MessageDeleteEvent {
-  event: string
-  data: {
-    CONNECTOR: string
-    LINE: string
-    MESSAGES: {
-      im: {
-        message_id: string
-      }
-    }[]
-  }
-  ts: string
-  auth: IBX24Auth
-}
-
 export interface IBX24MessageEvent {
   event: string
   event_handler_id: string

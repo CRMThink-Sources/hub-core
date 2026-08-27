@@ -4,10 +4,15 @@ import {
   DEFAULT_CONNECTOR_SETTINGS,
 } from './connector-settings'
 
+/**
+ * **`z.object` e nunca `z.strict()`.** O strip de chave desconhecida é o que faz o
+ * valor gravado antes da descontinuação continuar servindo: quase todo item da SPA
+ * carrega as duas chaves de evento, e reprovar por causa delas mandaria a base
+ * inteira para `DEFAULT_CONNECTOR_SETTINGS` — religando `prefixOperatorNameEnabled`
+ * em todo cliente que o desligou, sem erro, sem log, sem chamado.
+ */
 const connectorSettingsSchema = z.object({
   prefixOperatorNameEnabled: z.boolean().optional(),
-  messageUpdateEventEnabled: z.boolean().optional(),
-  messageDeleteEventEnabled: z.boolean().optional(),
   widgetOpenChannelEnabled: z.boolean().optional(),
 })
 

@@ -8,11 +8,12 @@ import { GetLineConnection } from '@/modules/thinkzap/application/get-line-conne
 import { GetLineSettings } from '@/modules/thinkzap/application/get-line-settings'
 import { UpdateLineSettings } from '@/modules/thinkzap/application/update-line-settings'
 import { RenameLineOnProviderUseCase } from '@/modules/thinkzap/application/rename-line-on-provider.use-case'
-import { UpdateConnectorEventBindsUseCase } from '@/modules/thinkzap/application/update-connector-event-binds.use-case'
 import { ZApiInstanceGateway } from '@/modules/thinkzap/infra/persistence/gateway/instance.gateway'
 import { ConnectLineChannelController } from '@/modules/thinkzap/presentation/controllers/line/connect-line-channel.controller'
 import { GetLineConnectionController } from '@/modules/thinkzap/presentation/controllers/line/get-line-connection.controller'
 import { GetLineQrCodeController } from '@/modules/thinkzap/presentation/controllers/line/get-line-qr-code.controller'
+import { DeleteLine } from '@/modules/thinkzap/application/delete-line'
+import { DeleteLineController } from '@/modules/thinkzap/presentation/controllers/line/delete-line.controller'
 import { DisconnectLineController } from '@/modules/thinkzap/presentation/controllers/line/disconnect-line.controller'
 import { GetLineSettingsController } from '@/modules/thinkzap/presentation/controllers/line/get-line-settings.controller'
 import { UpdateLineSettingsController } from '@/modules/thinkzap/presentation/controllers/line/update-line-settings.controller'
@@ -76,6 +77,14 @@ export const makeDisconnectLineController = (): Controller => {
   )
 }
 
+export const makeDeleteLineController = (): Controller => {
+  const { getAplicationContext, subscriptionItems } = makeLineDeps()
+
+  return new DeleteLineController(
+    new DeleteLine(getAplicationContext, subscriptionItems),
+  )
+}
+
 export const makeGetLineSettingsController = (): Controller => {
   const { getAplicationContext } = makeLineDeps()
 
@@ -89,7 +98,6 @@ export const makeUpdateLineSettingsController = (): Controller => {
 
   const updateLineSettings = new UpdateLineSettings(
     new RenameLineOnProviderUseCase(new ZApiInstanceGateway(zApiClient)),
-    new UpdateConnectorEventBindsUseCase(),
     subscriptionItems,
   )
 
