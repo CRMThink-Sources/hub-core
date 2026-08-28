@@ -19,7 +19,7 @@ permissions:
 jobs:
   # ─────────────── CI ───────────────
   ci-api:
-    name: API - Lint & Build
+    name: API - Lint & Types
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -38,14 +38,15 @@ jobs:
 
       - run: yarn install --frozen-lockfile
 
+      # Sem `yarn build`: o `docker build` do job build-api compila a partir do
+      # zero de qualquer jeito, e `check-types` acima já roda o mesmo `tsc`.
+      # Buildar aqui era um build inteiro jogado fora por push.
       - run: yarn lint
 
       - run: yarn check-types
 
-      - run: yarn build
-
   ci-front:
-    name: Front - Lint & Build
+    name: Front - Lint & Types
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -62,12 +63,15 @@ jobs:
 
       - run: yarn install --frozen-lockfile
 
+      # `check-types` no lugar de `yarn build`: o `next build` do job build-front
+      # recompila do zero, e o que este job precisa é do sinal de tipo, que o
+      # `tsc --noEmit` dá em uma fração do tempo.
       - run: yarn lint
 
-      - run: yarn build
+      - run: yarn check-types
 
   ci-mcp:
-    name: MCP - Lint & Build
+    name: MCP - Lint & Types
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -84,11 +88,10 @@ jobs:
 
       - run: yarn install --frozen-lockfile
 
+      # Mesmo motivo do ci-api: o build-mcp recompila no docker.
       - run: yarn lint
 
       - run: yarn check-types
-
-      - run: yarn build
 
   # ─────────────── Build & Push Docker Images ───────────────
   build-api:
