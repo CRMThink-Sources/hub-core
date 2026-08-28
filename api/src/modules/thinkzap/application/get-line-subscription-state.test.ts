@@ -48,6 +48,17 @@ const TRIAL_PLAN: Plan = {
   provider: undefined,
 }
 
+/** O plano do outro conector, com price id próprio — é ele que some quando a
+ * composição é lida por assinatura em vez de por conector. */
+const OFFICIAL_PLAN: Plan = {
+  ...PAID_PLAN,
+  id: '8',
+  name: 'Pro Oficial',
+  amount: 9990,
+  gatewayId: 'price_official',
+  provider: 'HUBMESSAGE',
+}
+
 const aplication = {
   id: 'app-1',
   spaId: '512',
@@ -127,6 +138,15 @@ const makeUseCase = (
     /** Sem reader nenhum: o ambiente sem chave de gateway. */
     absent?: boolean
   },
+  /**
+   * O catálogo ofertável. É dele que sai o plano de cada conector, agora que a
+   * composição é derivada do conector do item.
+   *
+   * `null` é o ambiente **sem** catálogo, e a resposta sai sem composição. Sentinela
+   * explícita em vez de `undefined`, que dispararia o default e faria o teste afirmar
+   * o contrário do que diz.
+   */
+  offerable: Plan[] | null = [PAID_PLAN, OFFICIAL_PLAN],
 ) => {
   const execute = vi.fn(
     (): Promise<AplicationContext> =>
@@ -156,14 +176,18 @@ const makeUseCase = (
       }),
   }
 
+  const listOfferable = vi.fn(() => Promise.resolve(offerable ?? []))
+
   return {
     useCase: new GetLineSubscriptionState(
       { execute } as unknown as GetAplicationContext,
       prices,
       gateway?.absent ? undefined : { readSubscription },
+      offerable ? { listOfferable } : undefined,
     ),
     execute,
     readSubscription,
+    listOfferable,
   }
 }
 
@@ -376,14 +400,6 @@ describe('GetLineSubscriptionState', () => {
    * gateway. Reportar um deles faria a tela mostrar menos do que o cliente paga.
    */
   describe('composição do contrato', () => {
-    const OFFICIAL_PLAN: Plan = {
-      ...PAID_PLAN,
-      id: '8',
-      name: 'Pro Oficial',
-      amount: 9990,
-      provider: 'HUBMESSAGE',
-    }
-
     it('reporta um item por plano, com o número de linhas de cada um', async () => {
       const { useCase } = makeUseCase([
         subscriptionOf({
@@ -455,6 +471,144 @@ describe('GetLineSubscriptionState', () => {
       expect(await useCase.execute(INPUT, NOW)).toMatchObject({
         plans: [{ id: '7', lineCount: 1 }],
       })
+    })
+
+    /**
+     * O estado da instalação 1617: uma assinatura da SPA com os itens dos dois
+     * conectores, e a assinatura do gateway cobrando os dois prices. Lido por
+     * assinatura, o plano do Oficial sumia e a linha dele virava bonificada do Web —
+     * duas afirmações falsas e um total abaixo da fatura.
+     */
+    it('conectores diferentes numa assinatura só compõem os dois planos', async () => {
+      const { useCase } = makeUseCase(
+        [
+          subscriptionOf({
+            id: '45',
+            status: 'active',
+            modality: 'stripe',
+            gatewayId: 'sub_1',
+            items: [
+              ...Array.from({ length: 8 }, (_, index) =>
+                lineOf(`z${index}`, 'ZAPI'),
+              ),
+              lineOf('h1', 'HUBMESSAGE'),
+            ],
+          }),
+        ],
+        {
+          subscription: gatewaySubscriptionOf([
+            { priceId: 'price_abc', quantity: 8 },
+            { priceId: 'price_official', quantity: 1 },
+          ]),
+        },
+      )
+
+      const state = await useCase.execute(INPUT, NOW)
+
+      expect(state).toMatchObject({
+        plans: [
+          {
+            id: '7',
+            provider: 'ZAPI',
+            lineCount: 8,
+            billedCount: 8,
+            compedCount: 0,
+          },
+          {
+            id: '8',
+            provider: 'HUBMESSAGE',
+            lineCount: 1,
+            billedCount: 1,
+            compedCount: 0,
+          },
+        ],
+        // 8 × R$ 49,90 + 1 × R$ 49,90 — o preço lido é o mesmo nos dois prices.
+        contractTotal: 44910,
+      })
+    })
+
+    /** A linha do vizinho não é excedente de plano nenhum. */
+    it('nenhum plano reporta bonificada por causa do conector do vizinho', async () => {
+      const { useCase } = makeUseCase(
+        [
+          subscriptionOf({
+            id: '45',
+            status: 'active',
+            modality: 'stripe',
+            gatewayId: 'sub_1',
+            items: [lineOf('z1', 'ZAPI'), lineOf('h1', 'HUBMESSAGE')],
+          }),
+        ],
+        {
+          subscription: gatewaySubscriptionOf([
+            { priceId: 'price_abc', quantity: 1 },
+            { priceId: 'price_official', quantity: 1 },
+          ]),
+        },
+      )
+
+      const state = await useCase.execute(INPUT, NOW)
+
+      expect(
+        (state as { plans: Array<{ compedCount: number }> }).plans.map(
+          plan => plan.compedCount,
+        ),
+      ).toEqual([0, 0])
+    })
+
+    /**
+     * Catálogo incompleto **degrada**: derrubar a tela por causa dele esconderia as
+     * linhas que funcionam. O conector sai da composição e o total sai desconhecido —
+     * o `line_item` que o cobra continua na fatura, e um total sem ele seria um número
+     * menor apresentado como completo.
+     */
+    it('conector sem plano ofertável some da composição e zera o total, sem derrubar', async () => {
+      const { useCase } = makeUseCase(
+        [
+          subscriptionOf({
+            id: '45',
+            status: 'active',
+            modality: 'stripe',
+            gatewayId: 'sub_1',
+            items: [lineOf('z1', 'ZAPI'), lineOf('h1', 'HUBMESSAGE')],
+          }),
+        ],
+        {
+          subscription: gatewaySubscriptionOf([
+            { priceId: 'price_abc', quantity: 1 },
+            { priceId: 'price_official', quantity: 1 },
+          ]),
+        },
+        [PAID_PLAN],
+      )
+
+      const state = await useCase.execute(INPUT, NOW)
+
+      expect(state).toMatchObject({
+        plans: [{ id: '7', provider: 'ZAPI', lineCount: 1 }],
+        contractTotal: null,
+      })
+    })
+
+    /** Sem catálogo não há como saber qual plano precifica o quê. */
+    it('sem catálogo a resposta sai sem composição', async () => {
+      const { useCase } = makeUseCase(
+        [
+          subscriptionOf({
+            status: 'active',
+            modality: 'stripe',
+            gatewayId: 'sub_1',
+            items: [lineOf('1', 'ZAPI')],
+          }),
+        ],
+        undefined,
+        null,
+      )
+
+      const state = await useCase.execute(INPUT, NOW)
+
+      expect((state as { plans?: unknown }).plans).toBeUndefined()
+      expect(state).toMatchObject({ status: 'active', canCreateLine: true })
     })
   })
 

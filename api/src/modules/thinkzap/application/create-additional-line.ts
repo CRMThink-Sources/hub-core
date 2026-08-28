@@ -198,8 +198,6 @@ export class CreateAdditionalLine {
         lineItems: desired.lineItems,
         lineOrder: existingLines.length + 1,
         customerName: context.customer.name,
-        aplicationTitle: context.aplication.title,
-        aplicationSpaId: context.aplication.spaId,
       }),
     }
   }
@@ -215,8 +213,6 @@ export class CreateAdditionalLine {
     lineItems: { priceId: string; quantity: number }[]
     lineOrder: number
     customerName: string
-    aplicationTitle: string
-    aplicationSpaId: string | null
   }): Promise<SubscriptionItem> {
     const provider = this.toConnectorProvider(args.input.provider)
 
@@ -261,7 +257,7 @@ export class CreateAdditionalLine {
     // ── Passo 3: a linha na SPA. Falhar aqui é o risco concentrado.
     let item: SubscriptionItem
     try {
-      const parent = await this.resolveParentSubscription(args)
+      const parent = this.resolveParentSubscription(args.contract)
 
       item = await this.items.createSubscriptionItem({
         name: lineNameFor(provider, args.lineOrder),
@@ -313,48 +309,25 @@ export class CreateAdditionalLine {
   }
 
   /**
-   * A assinatura que vai cobrar a linha nova: a irmã do plano dela, criada quando
-   * aquele plano ainda não tem uma.
+   * A assinatura que hospeda a linha nova: a **vigente do contrato**, qualquer que
+   * seja o conector dela.
    *
-   * Uma assinatura por plano na SPA é o que mantém `Subscription.plan` descrevendo
-   * honestamente a cobrança do grupo — pendurar a linha do Oficial na assinatura do
-   * plano do Web faria a tela mostrar o preço errado para ela.
+   * Não cria assinatura. A cobrança daquele conector nasce como um `line_item` novo na
+   * assinatura do gateway, que é onde o preço vive; duplicar essa informação num
+   * registro por plano na SPA foi o que deixou a leitura dependendo de o item estar
+   * sob a assinatura "certa" — e um item sob a assinatura de outro plano passou a ser
+   * contado como linha bonificada.
    *
-   * A irmã nasce com o **status e o período do contrato**, não com `active` fixo:
-   * criar linha num contrato `past_due` tem que nascer bloqueada junto com as
-   * outras, porque o entitlement é do pai.
+   * Contrato antigo com irmãs recebe a linha na vigente, sem criar outra: a composição
+   * conta os itens do contrato inteiro por conector, então as duas formas leem igual.
+   *
+   * Nada de `aplicationSpaId` aqui: o contrato já existe, e não há registro novo a
+   * pendurar na SPA de aplicações.
    */
-  private async resolveParentSubscription(args: {
-    contract: (Subscription & { items: SubscriptionItem[] })[]
-    gatewayId: string
-    plan: Plan
-    aplicationTitle: string
-    aplicationSpaId: string | null
-  }): Promise<Subscription> {
-    const sibling = args.contract.find(
-      subscription => subscription.plan.id === args.plan.id,
-    )
-    if (sibling) return sibling
-
-    if (!args.aplicationSpaId) {
-      throw new Error(
-        'Instalação sem espelho na SPA de aplicações: sem ele não há parent onde ' +
-          'pendurar a assinatura do plano novo',
-      )
-    }
-
-    const current = args.contract[0]!
-
-    return this.subscriptions.createSubscription({
-      name: `${args.plan.name} — ${args.aplicationTitle}`,
-      planId: args.plan.id,
-      aplicationSpaId: args.aplicationSpaId,
-      status: current.status,
-      currentPeriodStart: current.currentPeriodStart,
-      currentPeriodEnd: current.currentPeriodEnd,
-      gatewayId: args.gatewayId,
-      modality: 'stripe',
-    })
+  private resolveParentSubscription(
+    contract: readonly Subscription[],
+  ): Subscription {
+    return contract[0]!
   }
 
   /**

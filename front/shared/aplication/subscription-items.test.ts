@@ -3,6 +3,7 @@ import {
   countActiveLines,
   listSendableLines,
   listSubscriptionLines,
+  planNamesByProvider,
 } from './subscription-items'
 import type {
   SubscriptionItemMetadataView,
@@ -44,6 +45,15 @@ const hub: SubscriptionItemMetadataView = {
 }
 const none: SubscriptionItemMetadataView = { provider: 'NONE' }
 
+/**
+ * A composição do contrato, como a api a devolve: um plano por conector. É dela que
+ * sai o rótulo de cada linha, e não da assinatura que a hospeda.
+ */
+const COMPOSICAO = planNamesByProvider([
+  { provider: 'ZAPI', name: 'Conector WhatsApp' },
+  { provider: 'HUBMESSAGE', name: 'Conector Oficial' },
+])
+
 describe('listSubscriptionLines', () => {
   it('devolve lista vazia para payload ausente', () => {
     expect(listSubscriptionLines(undefined)).toEqual([])
@@ -52,9 +62,10 @@ describe('listSubscriptionLines', () => {
   })
 
   it('mapeia o item para a linha com plano e referência do provider', () => {
-    const linhas = listSubscriptionLines([
-      sub('s1', 'active', [item('i1', 'active', zapi, 'Comercial')]),
-    ])
+    const linhas = listSubscriptionLines(
+      [sub('s1', 'active', [item('i1', 'active', zapi, 'Comercial')])],
+      COMPOSICAO,
+    )
 
     expect(linhas).toEqual([
       {
@@ -140,28 +151,89 @@ describe('listSubscriptionLines', () => {
   )
 
   /**
-   * Uma instalação cobrada por dois planos tem uma assinatura por plano na SPA, as
-   * duas com o mesmo id no gateway. A lista atravessa as irmãs: cada linha tem um pai
-   * só, então nada duplica, e cada uma carrega o nome do plano que a cobra.
+   * Contratos criados pela forma anterior têm uma assinatura por plano, todas com o
+   * mesmo id no gateway. A lista atravessa as irmãs: cada linha tem um pai só, então
+   * nada duplica, e o rótulo continua vindo do conector de cada uma.
    */
   it('lista as linhas das assinaturas irmãs do mesmo contrato', () => {
-    const linhas = listSubscriptionLines([
-      {
-        ...sub('s1', 'active', [item('i1', 'active', zapi)], 'Web'),
-        gatewayId: 'sub_1',
-      },
-      {
-        ...sub('s2', 'active', [item('i2', 'active', hub)], 'Oficial'),
-        gatewayId: 'sub_1',
-      },
-    ])
+    const linhas = listSubscriptionLines(
+      [
+        {
+          ...sub('s1', 'active', [item('i1', 'active', zapi)], 'Web'),
+          gatewayId: 'sub_1',
+        },
+        {
+          ...sub('s2', 'active', [item('i2', 'active', hub)], 'Oficial'),
+          gatewayId: 'sub_1',
+        },
+      ],
+      COMPOSICAO,
+    )
 
     expect(
       linhas.map(linha => [linha.id, linha.planName, linha.subscriptionId]),
     ).toEqual([
-      ['i1', 'Web', 's1'],
-      ['i2', 'Oficial', 's2'],
+      ['i1', 'Conector WhatsApp', 's1'],
+      ['i2', 'Conector Oficial', 's2'],
     ])
+  })
+
+  /**
+   * O caso que a mudança existe para corrigir: os dois conectores numa assinatura só.
+   * Pelo plano da assinatura, a linha do Oficial seria rotulada "Conector WhatsApp".
+   */
+  it('rotula cada linha pelo conector dela, com os dois na mesma assinatura', () => {
+    const linhas = listSubscriptionLines(
+      [
+        sub(
+          's1',
+          'active',
+          [item('i1', 'active', zapi), item('i2', 'active', hub)],
+          'Conector WhatsApp',
+        ),
+      ],
+      COMPOSICAO,
+    )
+
+    expect(linhas.map(linha => [linha.id, linha.planName])).toEqual([
+      ['i1', 'Conector WhatsApp'],
+      ['i2', 'Conector Oficial'],
+    ])
+  })
+
+  /** Inventar um rótulo é pior que não ter: a tela mostra "sem plano". */
+  it('conector fora da composição fica sem nome de plano', () => {
+    const linhas = listSubscriptionLines(
+      [
+        sub(
+          's1',
+          'active',
+          [item('i1', 'active', zapi), item('i2', 'active', hub)],
+          'Conector WhatsApp',
+        ),
+      ],
+      planNamesByProvider([{ provider: 'ZAPI', name: 'Conector WhatsApp' }]),
+    )
+
+    expect(linhas.map(linha => [linha.id, linha.planName])).toEqual([
+      ['i1', 'Conector WhatsApp'],
+      ['i2', ''],
+    ])
+  })
+
+  /** Sem composição — gateway fora, boleto, trial — nenhuma linha recebe rótulo. */
+  it('sem composição nenhuma linha recebe nome de plano', () => {
+    const linhas = listSubscriptionLines([
+      sub('s1', 'active', [item('i1', 'active', zapi)], 'Conector WhatsApp'),
+    ])
+
+    expect(linhas.map(linha => linha.planName)).toEqual([''])
+  })
+
+  /** O plano de trial não precifica conector nenhum, então não indexa nada. */
+  it('plano sem conector fica fora do índice de rótulos', () => {
+    expect(planNamesByProvider([{ name: 'Teste' }]).size).toBe(0)
+    expect(planNamesByProvider(undefined).size).toBe(0)
   })
 })
 
@@ -186,6 +258,7 @@ describe('listSendableLines', () => {
     const linhas = listSendableLines(
       [sub('s1', 'active', [item('i1', 'active', zapi, 'Comercial')])],
       now,
+      COMPOSICAO,
     )
 
     expect(linhas).toEqual([

@@ -593,12 +593,18 @@ async function processInstallation(
 }
 
 /**
- * O provider da instalação, para escolher o plano.
+ * O provider que dá o **rótulo** ao contrato, para escolher o plano da assinatura.
  *
  * A primeira instância com credencial decide. Instalação com linhas de providers
- * diferentes existe e é caso raro: o aviso registra, e a assinatura fica com o plano
- * do provider predominante na ordem de leitura — corrigir mistura de plano é decisão
- * comercial, não inferência de script.
+ * diferentes é a forma vigente, e não uma exceção a corrigir: uma assinatura por
+ * contrato, com os itens de todos os conectores nela. O plano da assinatura é rótulo,
+ * e quem precifica cada linha é o plano do conector dela — resolvido pelo catálogo na
+ * composição do contrato, não por este campo.
+ *
+ * O aviso fica porque o rótulo escolhido aqui é o do primeiro conector na ordem de
+ * leitura, e não o do conector com mais linhas, que é a regra da escrita
+ * (`ActivateLineSubscription`). Nada de cobrança depende da diferença; o nome do
+ * registro no CRM sim.
  */
 function firstProvider(
   installation: ResolvedInstallation,
@@ -617,7 +623,8 @@ function firstProvider(
         ...providers,
       ].join(
         ' e ',
-      )} sob a mesma assinatura — plano do primeiro, conferir à mão`,
+      )} sob a mesma assinatura — forma esperada; o plano da assinatura é rótulo, e ` +
+        'fica com o do primeiro conector lido, não com o do predominante',
     )
   }
 

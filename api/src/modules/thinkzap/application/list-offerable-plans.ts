@@ -5,6 +5,7 @@ import {
 } from '@/modules/application/domain/entities/plan-price'
 import { PlanPriceReader } from '@/modules/application/domain/repositories/plan-price.reader'
 import { PlanRepository } from '@/modules/application/domain/repositories/get-plan.repository'
+import { OfferablePlanReader } from '@/modules/thinkzap/domain/ports/offerable-plan-reader.port'
 import {
   planAmountForLines,
   planMarginalForNextLine,
@@ -78,7 +79,7 @@ export type OfferablePlan = {
  * price id é resolvido no servidor — se viesse na resposta, mandar outro no corpo
  * seria escolher quanto pagar.
  */
-export class ListOfferablePlans {
+export class ListOfferablePlans implements OfferablePlanReader {
   /**
    * @param prices Leitura do preço no gateway, para a projeção da tela. Opcional
    * porque as superfícies que **montam cobrança** — criar linha, limpar item — usam só

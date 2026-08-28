@@ -37,12 +37,21 @@ export const makeGetSubscriptionStateController = (): Controller => {
    * depende do port, e é o processamento de mensagem que não pode alcançar o adapter
    * (`runtime-gateway-isolation.test.ts`). Cacheada, para abrir a tela não custar uma
    * chamada por plano.
+   *
+   * O **catálogo** entra pelo mesmo motivo: a composição do contrato é derivada do
+   * conector de cada item, e resolver o plano de um conector exige o catálogo. Sem
+   * reader de preço aqui: `listOfferable` devolve as entidades, e quem lê os degraus
+   * é `GetLineSubscriptionState` — injetar o reader duas vezes pagaria a mesma leitura
+   * duas vezes.
    */
+  const { plans } = makeSubscriptionDeps()
+
   return new GetSubscriptionStateController(
     new GetLineSubscriptionState(
       makeGetAplicationContext(),
       makePlanPriceReader(),
       makeGatewaySubscriptionReader(),
+      new ListOfferablePlans(plans),
     ),
   )
 }
