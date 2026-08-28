@@ -59,8 +59,8 @@ export class AplicationWithoutSpaMirrorError extends Error {
  * Ativa a assinatura paga de uma instalação, em passos **nesta ordem**:
  *
  * ```
- * 1. cria uma Subscription por plano envolvido (active, gatewayId compartilhado)
- * 2. move cada item para a irmã do plano que precifica o conector dele
+ * 1. cria UMA Subscription para o contrato (active, com o gatewayId dele)
+ * 2. move cada item para ela, qualquer que seja o conector
  *                                  ← se falhar aqui, cliente pagou e linha morta
  * 3. cria o item da linha nova, quando a intenção é acrescentar
  * 4. encerra a de trial (cancelled)
@@ -78,11 +78,18 @@ export class AplicationWithoutSpaMirrorError extends Error {
  * errado e silencioso. Não há compensação automática: desfazer cobrança aprovada é
  * pior que um chamado.
  *
- * **Uma assinatura por plano na SPA, todas com o mesmo `gatewayId`.** No gateway
- * continua sendo uma assinatura, com um `line_item` por preço. Na SPA cada registro
- * descreve honestamente a cobrança do grupo de linhas dele — plano parcial faria a
- * tela mostrar o preço de um conector para a linha do outro. Contratação de um plano
- * só cria uma assinatura só: a forma anterior é o caso degenerado desta.
+ * **Uma assinatura por contrato na SPA**, com os itens de todos os conectores nela.
+ * No gateway continua sendo uma assinatura, com um `line_item` por preço. O espelho
+ * descreve o **contrato** — status, período, modalidade e id no gateway —, e não o
+ * plano: a informação de preço já vive na SPA de planos e no `line_item`, e duplicá-la
+ * num registro por plano foi o que deixou a leitura dependendo de o item estar sob a
+ * assinatura "certa".
+ *
+ * `Subscription.plan` vira **rótulo** do contrato: o plano do conector com mais linhas
+ * ativas, com empate resolvido pela ordem alfabética do conector. O campo é
+ * obrigatório e hidratado (assinatura sem plano derruba a leitura do contexto
+ * inteiro), e deixa de ser fonte do preço de qualquer coisa — quem precifica é o
+ * plano resolvido por conector.
  *
  * O `subscribe` no provider vem **depois** de todas as escritas, e não bloqueia o
  * resultado.
@@ -109,9 +116,9 @@ export class ActivateLineSubscription {
      * outra assinatura, mover o item de novo, criar a linha de novo, nem reassinar o
      * recurso.
      *
-     * Lista **não vazia** é o sinal, e não "encontrou uma": uma ativação de dois
-     * planos deixa duas irmãs com o mesmo id, e qualquer uma delas prova que já
-     * rodou.
+     * Lista **não vazia** é o sinal, e não "encontrou uma": a escrita cria uma
+     * assinatura por contrato, mas contratos criados pela forma anterior têm irmãs com
+     * o mesmo id, e qualquer uma delas prova que já rodou.
      */
     const existing = await this.subscriptions.listSubscriptionsByGatewayId(
       input.gatewaySubscriptionId,
@@ -163,34 +170,60 @@ export class ActivateLineSubscription {
     const newLineProvider =
       input.intent.kind === 'add-line' ? input.intent.provider : null
 
-    const providers = new Set<PlanProvider>(
-      lines.map(line => line.metadata.provider as PlanProvider),
-    )
-    if (newLineProvider) providers.add(newLineProvider)
+    /**
+     * Quantas linhas cada conector vai ter depois desta ativação — a nova incluída.
+     * É o que escolhe o plano de rótulo do contrato.
+     */
+    const lineCountByProvider = new Map<PlanProvider, number>()
+    for (const line of lines) {
+      const provider = line.metadata.provider as PlanProvider
+      lineCountByProvider.set(
+        provider,
+        (lineCountByProvider.get(provider) ?? 0) + 1,
+      )
+    }
+    if (newLineProvider) {
+      lineCountByProvider.set(
+        newLineProvider,
+        (lineCountByProvider.get(newLineProvider) ?? 0) + 1,
+      )
+    }
 
     const planByProvider = this.resolvePlans(
-      providers,
+      new Set(lineCountByProvider.keys()),
       offerable,
       newLineProvider
         ? { provider: newLineProvider, planId: input.planId }
         : null,
     )
 
-    // ── Passo 1: uma assinatura por plano, todas com o mesmo id no gateway.
-    const subscriptionByPlan = await this.createSiblings({
-      planByProvider,
+    /**
+     * O plano de **rótulo** do contrato. Sem linha nenhuma — pagou antes de ativar o
+     * teste —, o plano escolhido no checkout: o pagamento existe e precisa de espelho.
+     */
+    const labelProvider = this.labelProvider(lineCountByProvider)
+    const labelPlan = labelProvider
+      ? planByProvider.get(labelProvider)!
+      : (offerable.find(plan => plan.id === input.planId) ?? null)
+
+    // ── Passo 1: uma assinatura para o contrato, com o id dele no gateway.
+    const primary = await this.subscriptions.createSubscription({
+      name: labelPlan
+        ? `${labelPlan.name} — ${context.aplication.title}`
+        : `Assinatura — ${context.aplication.title}`,
+      planId: labelPlan?.id ?? input.planId,
       aplicationSpaId: context.aplication.spaId,
-      aplicationTitle: context.aplication.title,
-      input,
+      status: 'active',
+      currentPeriodStart: input.currentPeriodStart,
+      currentPeriodEnd: input.currentPeriodEnd,
+      gatewayId: input.gatewaySubscriptionId,
+      modality: 'stripe',
     })
 
-    const primary = subscriptionByPlan.values().next().value as Subscription
-
-    // ── Passo 2: cada linha passa a ser paga pela irmã do plano dela.
+    // ── Passo 2: cada linha passa a ser paga pela assinatura do contrato.
     const moved: SubscriptionItem[] = []
     for (const line of lines) {
-      const plan = planByProvider.get(line.metadata.provider as PlanProvider)!
-      const parent = subscriptionByPlan.get(plan.id)!
+      const parent = primary
 
       try {
         moved.push(
@@ -249,7 +282,7 @@ export class ActivateLineSubscription {
       ? await this.createNewLine({
           provider: newLineProvider,
           plan: planByProvider.get(newLineProvider)!,
-          subscriptionByPlan,
+          parent: primary,
           lineOrder: lines.length + 1,
           customerName: context.customer.name,
           input,
@@ -257,7 +290,7 @@ export class ActivateLineSubscription {
       : null
 
     // ── Passo 4: o trial sai de cena. Falhar aqui não desfaz nada.
-    await this.endOrigin(origin, subscriptionByPlan)
+    await this.endOrigin(origin, primary)
 
     /**
      * ── Passo 5: `subscribe` **depois** das escritas na SPA, e sem poder derrubá-las.
@@ -329,54 +362,25 @@ export class ActivateLineSubscription {
     return byProvider
   }
 
-  /** Uma assinatura por plano, todas com o mesmo id no gateway. */
-  private async createSiblings(args: {
-    planByProvider: Map<PlanProvider, Plan>
-    aplicationSpaId: string
-    aplicationTitle: string
-    input: ActivateLineSubscriptionInput
-  }): Promise<Map<string, Subscription>> {
-    const byPlan = new Map<string, Subscription>()
-
-    for (const plan of args.planByProvider.values()) {
-      if (byPlan.has(plan.id)) continue
-
-      byPlan.set(
-        plan.id,
-        await this.subscriptions.createSubscription({
-          name: `${plan.name} — ${args.aplicationTitle}`,
-          planId: plan.id,
-          aplicationSpaId: args.aplicationSpaId,
-          status: 'active',
-          currentPeriodStart: args.input.currentPeriodStart,
-          currentPeriodEnd: args.input.currentPeriodEnd,
-          gatewayId: args.input.gatewaySubscriptionId,
-          modality: 'stripe',
-        }),
-      )
-    }
-
-    /**
-     * Instalação sem linha e sem plano resolvido: a assinatura do plano escolhido
-     * nasce de qualquer forma, porque o pagamento existe e precisa de espelho.
-     */
-    if (byPlan.size === 0) {
-      byPlan.set(
-        args.input.planId,
-        await this.subscriptions.createSubscription({
-          name: `Assinatura — ${args.aplicationTitle}`,
-          planId: args.input.planId,
-          aplicationSpaId: args.aplicationSpaId,
-          status: 'active',
-          currentPeriodStart: args.input.currentPeriodStart,
-          currentPeriodEnd: args.input.currentPeriodEnd,
-          gatewayId: args.input.gatewaySubscriptionId,
-          modality: 'stripe',
-        }),
-      )
-    }
-
-    return byPlan
+  /**
+   * O conector que dá o **rótulo** ao contrato: o de mais linhas ativas.
+   *
+   * Empate resolvido pela ordem alfabética do conector, e não pela ordem em que os
+   * itens vieram do CRM — que é ordem de criação e não significa nada aqui. Com
+   * desempate determinístico, o mesmo dado dá sempre o mesmo rótulo.
+   *
+   * `null` quando não há linha nenhuma: a instalação pagou antes de ativar o teste, e
+   * quem nomeia a assinatura é o plano escolhido no checkout.
+   */
+  private labelProvider(
+    lineCountByProvider: ReadonlyMap<PlanProvider, number>,
+  ): PlanProvider | null {
+    return (
+      [...lineCountByProvider.entries()].sort(
+        ([providerA, countA], [providerB, countB]) =>
+          countB - countA || providerA.localeCompare(providerB),
+      )[0]?.[0] ?? null
+    )
   }
 
   /**
@@ -390,8 +394,10 @@ export class ActivateLineSubscription {
    */
   private async createNewLine(args: {
     provider: PlanProvider
+    /** O plano que precifica a linha nova. Vai para o log, não para o pai. */
     plan: Plan
-    subscriptionByPlan: Map<string, Subscription>
+    /** A assinatura do contrato: a linha nova nasce nela, como todas as outras. */
+    parent: Subscription
     lineOrder: number
     customerName: string
     input: ActivateLineSubscriptionInput
@@ -408,7 +414,7 @@ export class ActivateLineSubscription {
       })
 
       const metadata = toLineMetadata(provider, resource)
-      const parent = args.subscriptionByPlan.get(args.plan.id)!
+      const parent = args.parent
 
       const item = await this.items.createSubscriptionItem({
         name: lineNameFor(provider, args.lineOrder),
@@ -456,14 +462,10 @@ export class ActivateLineSubscription {
    */
   private async endOrigin(
     origin: readonly Subscription[],
-    subscriptionByPlan: Map<string, Subscription>,
+    created: Subscription,
   ): Promise<void> {
-    const created = new Set(
-      [...subscriptionByPlan.values()].map(subscription => subscription.id),
-    )
-
     for (const subscription of origin) {
-      if (created.has(subscription.id)) continue
+      if (subscription.id === created.id) continue
       if (subscription.status === 'cancelled') continue
 
       try {
