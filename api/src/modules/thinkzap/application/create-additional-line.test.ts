@@ -407,28 +407,23 @@ describe('CreateAdditionalLine', () => {
     })
 
     /**
-     * Uma assinatura por plano: pendurar a linha do Oficial na assinatura do plano
-     * do Web faria a tela mostrar o preço errado para ela.
+     * A primeira linha de um conector novo **não** cria assinatura: a cobrança dele
+     * nasce como um `line_item` novo no gateway, que é onde o preço vive, e a linha é
+     * precificada pelo plano do conector dela na composição — não pelo plano da
+     * assinatura que a hospeda.
      */
-    it('cria a assinatura irmã do plano novo, com o mesmo gatewayId', async () => {
+    it('a linha do conector novo nasce na assinatura vigente, sem criar assinatura', async () => {
       const deps = makeUseCase()
 
       await deps.useCase.execute(INPUT)
 
-      expect(deps.createSubscription).toHaveBeenCalledWith(
-        expect.objectContaining({
-          planId: '8',
-          gatewayId: 'sub_1',
-          status: 'active',
-          modality: 'stripe',
-        }),
-      )
+      expect(deps.createSubscription).not.toHaveBeenCalled()
       expect(deps.createSubscriptionItem).toHaveBeenCalledWith(
-        expect.objectContaining({ subscription: '100' }),
+        expect.objectContaining({ subscription: '99' }),
       )
     })
 
-    it('reaproveita a irmã quando o plano já tem uma', async () => {
+    it('a linha do conector que já tem linha nasce na mesma assinatura', async () => {
       const deps = makeUseCase()
 
       await deps.useCase.execute({ ...INPUT, provider: 'ZAPI', planId: '7' })
@@ -439,16 +434,37 @@ describe('CreateAdditionalLine', () => {
       )
     })
 
-    /** O entitlement é do pai: a linha nova nasce bloqueada junto com as outras. */
-    it('a irmã nasce com o status do contrato, não com active fixo', async () => {
+    /**
+     * Contrato criado pela forma anterior: a linha cai na vigente, e nenhuma outra
+     * nasce. A composição continua certa porque conta o contrato inteiro por conector.
+     */
+    it('contrato com irmãs pré-existentes recebe a linha sem criar outra', async () => {
+      const deps = makeUseCase({
+        subscriptions: [
+          paidContract(),
+          paidContract({ id: '100', plan: HUB_PLAN, items: [] }),
+        ],
+      })
+
+      await deps.useCase.execute(INPUT)
+
+      expect(deps.createSubscription).not.toHaveBeenCalled()
+      expect(deps.createSubscriptionItem).toHaveBeenCalledWith(
+        expect.objectContaining({ subscription: '99' }),
+      )
+    })
+
+    /** O entitlement é do pai, e o pai é a assinatura vigente do contrato. */
+    it('contrato inadimplente hospeda a linha nova do mesmo jeito', async () => {
       const deps = makeUseCase({
         subscriptions: [paidContract({ status: 'past_due' })],
       })
 
       await deps.useCase.execute(INPUT)
 
-      expect(deps.createSubscription).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'past_due' }),
+      expect(deps.createSubscription).not.toHaveBeenCalled()
+      expect(deps.createSubscriptionItem).toHaveBeenCalledWith(
+        expect.objectContaining({ subscription: '99' }),
       )
     })
 
@@ -603,8 +619,13 @@ describe('CreateAdditionalLine', () => {
         call => call[0],
       )
 
+      /**
+       * Uma escrita só, e é a da linha nova. O item que já existia fica onde está:
+       * a criação **acrescenta** um item à assinatura do contrato, e não reescreve
+       * os que ela já hospedava.
+       */
       expect(written).toHaveLength(1)
-      expect(written[0]?.subscription).not.toBe('99')
+      expect(written[0]?.metadata).toMatchObject({ provider: 'HUBMESSAGE' })
     })
   })
 })

@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   composeContractBilling,
-  composeContractByPlan,
+  composeContractByProvider,
   countActiveLinesByProvider,
   isTrialSubscription,
   resolveCurrentContract,
@@ -188,36 +188,92 @@ describe('resolveCurrentContract', () => {
   })
 })
 
-describe('composeContractByPlan', () => {
-  const withItems = (
-    planId: string,
-    items: SubscriptionItem[],
-  ): Subscription & { items: SubscriptionItem[] } =>
-    ({
-      id: `s-${planId}`,
-      plan: { id: planId, amount: 4990 },
-      items,
-    }) as unknown as Subscription & { items: SubscriptionItem[] }
+describe('composeContractByProvider', () => {
+  const web = { id: 'p-web', provider: 'ZAPI' as const }
+  const oficial = { id: 'p-oficial', provider: 'HUBMESSAGE' as const }
+  const catalogo = [web, oficial]
 
-  it('conta as linhas ativas de cada plano', () => {
-    const composition = composeContractByPlan([
-      withItems('p1', [item('ZAPI'), item('ZAPI')]),
-      withItems('p2', [item('HUBMESSAGE')]),
+  const withItems = (items: SubscriptionItem[]) => ({ items })
+
+  /**
+   * O estado que motivou a change: 8 linhas de um conector e 1 de outro **na mesma
+   * assinatura**. Por assinatura, o segundo plano sumiria e a linha dele apareceria
+   * como bonificada do primeiro.
+   */
+  it('compõe dois planos com os conectores numa assinatura só', () => {
+    const composition = composeContractByProvider(
+      [
+        withItems([
+          ...Array.from({ length: 8 }, () => item('ZAPI')),
+          item('HUBMESSAGE'),
+        ]),
+      ],
+      catalogo,
+    )
+
+    expect(
+      composition.plans.map(entry => [entry.plan.id, entry.lineCount]),
+    ).toEqual([
+      ['p-web', 8],
+      ['p-oficial', 1],
     ])
+    expect(composition.unresolved).toEqual([])
+  })
 
-    expect(composition.map(entry => [entry.plan.id, entry.lineCount])).toEqual([
-      ['p1', 2],
-      ['p2', 1],
+  /** Contratos antigos têm irmãs: as duas formas de espelho leem igual. */
+  it('compõe igual com o mesmo contrato espalhado em assinaturas irmãs', () => {
+    const composition = composeContractByProvider(
+      [
+        withItems(Array.from({ length: 8 }, () => item('ZAPI'))),
+        withItems([item('HUBMESSAGE')]),
+      ],
+      catalogo,
+    )
+
+    expect(
+      composition.plans.map(entry => [entry.plan.id, entry.lineCount]),
+    ).toEqual([
+      ['p-web', 8],
+      ['p-oficial', 1],
     ])
   })
 
   /** Linha cancelada não é serviço prestado, então não entra na contagem cobrada. */
   it('ignora linha cancelada na contagem', () => {
-    const composition = composeContractByPlan([
-      withItems('p1', [item('ZAPI'), item('ZAPI', 'cancelled')]),
-    ])
+    const composition = composeContractByProvider(
+      [withItems([item('ZAPI'), item('ZAPI', 'cancelled')])],
+      catalogo,
+    )
 
-    expect(composition[0]?.lineCount).toBe(1)
+    expect(composition.plans[0]?.lineCount).toBe(1)
+  })
+
+  /**
+   * Não lança: quem lê degrada. Derrubar a tela de conexões por catálogo incompleto
+   * esconderia as linhas que funcionam.
+   */
+  it('conector sem plano sai como não resolvido, e os outros continuam', () => {
+    const composition = composeContractByProvider(
+      [withItems([item('ZAPI'), item('HUBMESSAGE')])],
+      [web],
+    )
+
+    expect(composition.plans.map(entry => entry.plan.id)).toEqual(['p-web'])
+    expect(composition.unresolved).toEqual([
+      { provider: 'HUBMESSAGE', reason: 'missing' },
+    ])
+  })
+
+  it('conector com dois planos ofertáveis sai como ambíguo, com os candidatos', () => {
+    const composition = composeContractByProvider(
+      [withItems([item('ZAPI')])],
+      [web, { id: 'p-web-2', provider: 'ZAPI' as const }],
+    )
+
+    expect(composition.plans).toEqual([])
+    expect(composition.unresolved).toEqual([
+      { provider: 'ZAPI', reason: 'ambiguous', planIds: ['p-web', 'p-web-2'] },
+    ])
   })
 })
 
@@ -330,7 +386,7 @@ describe('line-subscription (estrutura)', () => {
 describe('composeContractBilling', () => {
   const entry = (planId: string, gatewayId: string | null, lineCount: number) =>
     ({
-      subscription: { id: `s-${planId}` },
+      provider: 'ZAPI',
       plan: { id: planId, gatewayId: gatewayId ?? undefined },
       lineCount,
     }) as unknown as ContractPlanLines

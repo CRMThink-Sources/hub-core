@@ -24,15 +24,48 @@ export type SubscriptionLine = {
   name: string
   status: SubscriptionItemView['status']
   provider: LineProvider
-  /** Id da assinatura que cobra esta linha. */
+  /** Id da assinatura que hospeda esta linha. */
   subscriptionId: string
-  /** Nome do plano da assinatura — o que o cliente contratou. */
+  /**
+   * Nome do plano que precifica o **conector desta linha**.
+   *
+   * Vem da composição do contrato, e não da assinatura pai: uma assinatura hospeda os
+   * itens de vários conectores, e o plano dela descreve um só — usá-lo por linha diria
+   * "WhatsApp Web" numa linha do WhatsApp Oficial, na mesma tela em que o cliente
+   * confere o que paga.
+   *
+   * Vazio quando o conector não está na composição. A tela mostra o rótulo de "sem
+   * plano": inventar um nome é pior que não ter.
+   */
   planName: string
   /**
    * Identificador da linha no provider, quando existe. Não é credencial: o
    * mapper do api já redige o token da Z-API.
    */
   providerRef: string | null
+}
+
+/** O nome do plano de cada conector, como a composição do contrato o devolve. */
+export type PlanNameByProvider = ReadonlyMap<LineProvider, string>
+
+/**
+ * Monta o índice `conector → nome do plano` a partir da composição que
+ * `GET /thinkzap/subscription` devolve.
+ *
+ * Plano sem conector — o de trial — fica de fora: ele não precifica nenhum, e
+ * indexá-lo por ausência rotularia qualquer linha com o nome do teste.
+ */
+export function planNamesByProvider(
+  plans: readonly { provider?: LineProvider; name: string }[] | undefined,
+): PlanNameByProvider {
+  const byProvider = new Map<LineProvider, string>()
+
+  for (const plan of plans ?? []) {
+    if (!plan.provider) continue
+    byProvider.set(plan.provider, plan.name)
+  }
+
+  return byProvider
 }
 
 const providerRef = (metadata: SubscriptionItemMetadataView): string | null => {
@@ -56,6 +89,7 @@ const providerRef = (metadata: SubscriptionItemMetadataView): string | null => {
  */
 export function listSubscriptionLines(
   subscriptions: readonly SubscriptionView[] | undefined | null,
+  planNames?: PlanNameByProvider,
 ): SubscriptionLine[] {
   if (!subscriptions) return []
 
@@ -68,7 +102,7 @@ export function listSubscriptionLines(
         status: item.status,
         provider: item.metadata.provider,
         subscriptionId: subscription.id,
-        planName: subscription.plan?.name ?? '',
+        planName: planNames?.get(item.metadata.provider) ?? '',
         providerRef: providerRef(item.metadata),
       })),
     )
@@ -133,6 +167,7 @@ const isSubscriptionEnabled = (
 export function listSendableLines(
   subscriptions: readonly SubscriptionView[] | undefined | null,
   now: Date,
+  planNames?: PlanNameByProvider,
 ): SubscriptionLine[] {
   if (!subscriptions) return []
 
@@ -149,7 +184,7 @@ export function listSendableLines(
           status: item.status,
           provider: item.metadata.provider,
           subscriptionId: subscription.id,
-          planName: subscription.plan?.name ?? '',
+          planName: planNames?.get(item.metadata.provider) ?? '',
           providerRef: providerRef(item.metadata),
         })),
     )

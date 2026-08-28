@@ -212,10 +212,10 @@ const makeUseCase = (options: Options = {}) => {
     updateSubscription,
   } as unknown as SubscriptionRepository
 
-  const reparentSubscriptionItem = vi.fn((itemId: string) =>
+  const reparentSubscriptionItem = vi.fn((itemId: string, parentId: string) =>
     options.failReparent
       ? Promise.reject(new Error('crm.item.update falhou'))
-      : Promise.resolve({ ...lineItem, id: itemId, subscription: '99' }),
+      : Promise.resolve({ ...lineItem, id: itemId, subscription: parentId }),
   )
   const updateSubscriptionItem = vi.fn(() => Promise.resolve(lineItem))
   const createSubscriptionItem = vi.fn(() =>
@@ -538,8 +538,8 @@ describe('ActivateLineSubscription', () => {
   })
 
   /**
-   * Uma assinatura por plano na SPA, todas com o mesmo id no gateway. No gateway
-   * continua sendo uma assinatura, com um `line_item` por preço.
+   * Uma assinatura por **contrato** na SPA, com os itens dos dois conectores nela. No
+   * gateway continua sendo uma assinatura, com um `line_item` por preço.
    */
   describe('contratação que cobre dois conectores', () => {
     const mixedTrial: SubscriptionWithItems = {
@@ -547,7 +547,7 @@ describe('ActivateLineSubscription', () => {
       items: [lineItem, officialLine],
     }
 
-    it('cria uma assinatura por plano, com o mesmo gatewayId', async () => {
+    it('cria uma assinatura só, com o gatewayId do contrato', async () => {
       const deps = makeUseCase({
         subscriptions: [mixedTrial],
         catalog: [PAID_PLAN, PAID_OFFICIAL],
@@ -555,16 +555,43 @@ describe('ActivateLineSubscription', () => {
 
       await deps.useCase.execute(INPUT)
 
-      expect(deps.createSubscription).toHaveBeenCalledTimes(2)
-      expect(
-        deps.createSubscription.mock.calls.map(call => [
-          call[0].planId,
-          call[0].gatewayId,
-        ]),
-      ).toEqual([
-        ['7', 'sub_new'],
-        ['8', 'sub_new'],
-      ])
+      expect(deps.createSubscription).toHaveBeenCalledTimes(1)
+      expect(deps.createSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({ gatewayId: 'sub_new', status: 'active' }),
+      )
+    })
+
+    /**
+     * O rótulo é o plano do conector com mais linhas ativas. Com uma de cada, o
+     * empate é resolvido pela ordem alfabética do conector — `HUBMESSAGE` antes de
+     * `ZAPI` —, para o mesmo dado dar sempre o mesmo rótulo.
+     */
+    it('o plano da assinatura é o rótulo do conector predominante', async () => {
+      const deps = makeUseCase({
+        subscriptions: [mixedTrial],
+        catalog: [PAID_PLAN, PAID_OFFICIAL],
+      })
+
+      await deps.useCase.execute(INPUT)
+
+      expect(deps.createSubscription).toHaveBeenCalledWith(
+        expect.objectContaining({ planId: '8' }),
+      )
+    })
+
+    it('os itens dos dois conectores ficam sob ela', async () => {
+      const deps = makeUseCase({
+        subscriptions: [mixedTrial],
+        catalog: [PAID_PLAN, PAID_OFFICIAL],
+      })
+
+      await deps.useCase.execute(INPUT)
+
+      const parents = deps.reparentSubscriptionItem.mock.calls.map(
+        call => call[1],
+      )
+
+      expect(new Set(parents).size).toBe(1)
     })
 
     it('move cada linha e assina os dois recursos no provider', async () => {

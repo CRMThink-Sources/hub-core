@@ -10,6 +10,7 @@ import {
 import {
   countActiveLines,
   listSubscriptionLines,
+  planNamesByProvider,
 } from '@/shared/aplication/subscription-items'
 import { useTranslation } from 'react-i18next'
 import { ConexoesHeaderCard } from '../_components/conexoes/conexoes-header-card'
@@ -101,7 +102,23 @@ export default function ConexoesLayout() {
     )
   }
 
-  const linhas = listSubscriptionLines(aplicationState.subscriptions)
+  /**
+   * O rótulo de plano de cada linha sai da **composição do contrato**, indexada pelo
+   * conector: uma assinatura hospeda os itens de vários conectores, e o plano dela
+   * descreve um só. Sem composição — gateway fora, boleto, trial — nenhuma linha
+   * recebe rótulo, e a tabela cai no "sem plano" que já tem.
+   */
+  const nomesDePlano = planNamesByProvider(
+    subscription.state.kind === 'ready' &&
+      subscription.state.subscription.status !== 'none'
+      ? subscription.state.subscription.plans
+      : undefined,
+  )
+
+  const linhas = listSubscriptionLines(
+    aplicationState.subscriptions,
+    nomesDePlano,
+  )
   const ativas = countActiveLines(linhas)
   const billing = aplicationState.billing
 

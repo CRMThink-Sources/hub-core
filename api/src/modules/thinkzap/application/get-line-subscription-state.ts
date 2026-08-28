@@ -3,6 +3,7 @@ import { Plan, PlanProvider } from '@/modules/application/domain/entities/plan'
 import { PlanPrice } from '@/modules/application/domain/entities/plan-price'
 import { PlanPriceReader } from '@/modules/application/domain/repositories/plan-price.reader'
 import { SubscriptionModality } from '@/modules/application/domain/entities/subscription'
+import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import {
   LineEntitlement,
   resolveLineEntitlement,
@@ -11,10 +12,13 @@ import { GatewaySubscription } from '@/modules/application/domain/entities/gatew
 import { GatewaySubscriptionReader } from '@/modules/application/domain/repositories/gateway-subscription.reader'
 import {
   composeContractBilling,
-  composeContractByPlan,
+  composeContractByProvider,
+  countActiveLinesByProvider,
   isTrialSubscription,
   resolveCurrentContract,
+  type ContractComposition,
 } from '@/modules/thinkzap/domain/line-subscription'
+import { OfferablePlanReader } from '@/modules/thinkzap/domain/ports/offerable-plan-reader.port'
 import { planAmountForLines } from '@/modules/thinkzap/domain/plan-pricing'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -48,8 +52,15 @@ export type LineSubscriptionPlan = {
   chargedAmount: number | null
   interval: Plan['interval']
   /**
-   * Conector que este plano precifica. Ausente no plano de trial, que não precifica
-   * nenhum.
+   * Conector que este plano precifica, e o que indexa a composição.
+   *
+   * É por ele que a tela rotula cada linha: com itens de conectores diferentes numa
+   * assinatura só, o plano da assinatura descreve um deles, e usá-lo por linha diria
+   * "WhatsApp Web" numa linha do WhatsApp Oficial.
+   *
+   * Continua opcional no tipo pela compatibilidade do contrato de leitura — a
+   * composição só existe com a assinatura lida no gateway, e o trial (o único caso
+   * sem conector) nunca chega a compô-la.
    */
   provider?: PlanProvider
   /** Linhas ativas deste plano na SPA. É o que a instalação **usa**. */
@@ -192,11 +203,17 @@ export class GetLineSubscriptionState {
    * @param gatewaySubscriptions Leitura da assinatura no gateway, pela `quantity` de
    * cada item. Opcional pelo mesmo motivo, e com a mesma restrição de tipo. Sem ela o
    * estado sai **sem** composição — não com uma composição estimada.
+   * @param offerablePlans O catálogo, para resolver o plano de cada conector. A
+   * composição é derivada do conector do item, e não do plano da assinatura que o
+   * hospeda, então sem catálogo não há como saber qual plano precifica o quê — e a
+   * resposta sai sem composição, como já sai sem os outros dois readers. Port pelo
+   * mesmo motivo que eles.
    */
   constructor(
     private readonly getAplicationContext: GetAplicationContext,
     private readonly prices?: PlanPriceReader,
     private readonly gatewaySubscriptions?: GatewaySubscriptionReader,
+    private readonly offerablePlans?: OfferablePlanReader,
   ) {}
 
   /**
@@ -230,8 +247,9 @@ export class GetLineSubscriptionState {
   /**
    * O preço de cada plano do contrato, por price id.
    *
-   * Uma leitura por price distinto, não por assinatura: um contrato com duas linhas do
-   * mesmo conector tem duas assinaturas irmãs apontando para o mesmo price.
+   * Uma leitura por price **distinto**: a composição já vem com um plano por conector,
+   * mas dois conectores podem ser precificados pelo mesmo price, e ler duas vezes
+   * pagaria a mesma ida à rede duas vezes.
    */
   private async readPrices(
     plans: readonly Plan[],
@@ -261,6 +279,41 @@ export class GetLineSubscriptionState {
     return byPriceId
   }
 
+  /**
+   * A composição do contrato por conector, e o preço de cada plano dela.
+   *
+   * As duas coisas juntas porque a segunda depende da primeira: só depois de resolver
+   * o plano de cada conector é que se sabe quais prices ler. Fica num método para o
+   * encadeamento continuar rodando em paralelo com a leitura da assinatura no gateway
+   * — são duas idas à rede independentes, e serializá-las dobraria o tempo de abrir a
+   * tela.
+   *
+   * `null` sem catálogo: a resposta sai sem composição, e não com uma composição que
+   * adivinha qual plano precifica cada conector.
+   */
+  private async composeAndPrice(
+    contract: readonly { items: SubscriptionItem[] }[],
+  ): Promise<{
+    composition: ContractComposition<Plan> | null
+    pricesByPriceId: Map<string, PlanPrice>
+  }> {
+    if (!this.offerablePlans) {
+      return { composition: null, pricesByPriceId: new Map() }
+    }
+
+    const composition = composeContractByProvider(
+      contract,
+      await this.offerablePlans.listOfferable(),
+    )
+
+    return {
+      composition,
+      pricesByPriceId: await this.readPrices(
+        composition.plans.map(entry => entry.plan),
+      ),
+    }
+  }
+
   async execute(
     input: { domainId: string; appCode: string },
     now: Date = new Date(),
@@ -277,12 +330,11 @@ export class GetLineSubscriptionState {
 
     const isTrial = isTrialSubscription(current)
 
-    const composed = composeContractByPlan(contract)
-
-    const [gatewaySubscription, pricesByPriceId] = await Promise.all([
-      this.readGatewaySubscription(current, isTrial),
-      this.readPrices(composed.map(entry => entry.plan)),
-    ])
+    const [gatewaySubscription, { composition, pricesByPriceId }] =
+      await Promise.all([
+        this.readGatewaySubscription(current, isTrial),
+        this.composeAndPrice(contract),
+      ])
 
     /**
      * A composição existe **só** com a leitura do gateway em mãos.
@@ -291,9 +343,30 @@ export class GetLineSubscriptionState {
      * `amount × lineCount` — a conta que anuncia mais do que a fatura cobra. A
      * resposta então omite a composição, e a tela cai na forma reduzida.
      */
-    const billing = gatewaySubscription
-      ? composeContractBilling(composed, gatewaySubscription.items)
-      : null
+    const billing =
+      gatewaySubscription && composition
+        ? composeContractBilling(composition.plans, gatewaySubscription.items)
+        : null
+
+    /**
+     * Conector sem plano ofertável único **não derruba a leitura**: ele fica fora da
+     * composição, o total sai desconhecido logo abaixo, e os demais planos continuam
+     * sendo reportados. Quem **cobra** recusa nesse mesmo estado
+     * (`buildContractLineItems`), porque cobrar errado é pior que recusar; aqui a
+     * conta é outra — uma tela de conexões derrubada por catálogo incompleto esconde
+     * as linhas que funcionam.
+     */
+    for (const gap of composition?.unresolved ?? []) {
+      apiLogger.warn(
+        {
+          app: 'payments',
+          provider: gap.provider,
+          reason: gap.reason,
+          planIds: gap.reason === 'ambiguous' ? gap.planIds : undefined,
+        },
+        'Conector do contrato sem plano ofertável único — fora da composição, e o total sai desconhecido',
+      )
+    }
 
     const plans = billing?.map(entry => ({
       id: entry.plan.id,
@@ -311,7 +384,12 @@ export class GetLineSubscriptionState {
         entry.billedCount,
       ),
       interval: entry.plan.interval,
-      provider: entry.plan.provider,
+      /**
+       * O conector da **entrada**, não o do plano: são o mesmo valor, e é a entrada
+       * que carrega a garantia — a composição é indexada por conector, e é por ele
+       * que a tela rotula cada linha.
+       */
+      provider: entry.provider,
       lineCount: entry.lineCount,
       billedCount: entry.billedCount,
       compedCount: entry.compedCount,
@@ -336,8 +414,13 @@ export class GetLineSubscriptionState {
       )
     }
 
-    const lineCount = composed.reduce(
-      (total, entry) => total + entry.lineCount,
+    /**
+     * As linhas do contrato, contadas direto dos itens e **não** da composição: a
+     * composição depende do catálogo, e `canCreateLine` não pode virar `false` porque
+     * o catálogo não foi lido. Item de cobrança sem conector não conta — não é linha.
+     */
+    const lineCount = [...countActiveLinesByProvider(contract).values()].reduce(
+      (total, count) => total + count,
       0,
     )
 
@@ -346,10 +429,15 @@ export class GetLineSubscriptionState {
      * somando `amount × lineCount` foi exatamente o que passou a mostrar mais do que a
      * fatura. Plano com preço irresolúvel não entra na soma, e `contractTotal` fica
      * `null` — total parcial passaria por total.
+     *
+     * Conector fora da composição por falta de plano cai no mesmo `null`, pelo mesmo
+     * motivo: o `line_item` que cobra aquele conector existe na fatura, e um total sem
+     * ele é um número menor apresentado como se fosse o completo.
      */
     const contractTotal = !plans
       ? undefined
-      : plans.some(plan => plan.chargedAmount === null)
+      : (composition?.unresolved.length ?? 0) > 0 ||
+          plans.some(plan => plan.chargedAmount === null)
         ? null
         : plans.reduce((total, plan) => total + (plan.chargedAmount ?? 0), 0)
 
