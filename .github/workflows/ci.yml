@@ -125,8 +125,19 @@ jobs:
           context: ./api
           push: true
           tags: ${{ env.API_IMAGE }}:${{ steps.tag.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Cache no registry, e não no cache do Actions: `mode=max` exporta toda
+          # camada intermediária — o `node_modules` do builder passa de 500MB — e o
+          # cache do Actions tem teto de 10GB, então ele evicta e devolve miss sem
+          # avisar. O ghcr é o mesmo destino da imagem, com a banda do próprio push.
+          #
+          # A tag do cache acompanha a da imagem (`buildcache-latest` /
+          # `buildcache-staging`): uma só faria master e develop se derrubarem a cada
+          # push alternado.
+          cache-from: type=registry,ref=${{ env.API_IMAGE }}:buildcache-${{ steps.tag.outputs.tag }}
+          cache-to: type=registry,ref=${{ env.API_IMAGE }}:buildcache-${{ steps.tag.outputs.tag }},mode=max
+          # Sem atestação de proveniência: ela acrescenta manifesto e push a cada
+          # build. Religar é trocar para `true` se a imagem passar a exigir assinatura.
+          provenance: false
 
   build-front:
     name: Build Front Image
@@ -168,8 +179,10 @@ jobs:
           context: ./front
           push: true
           tags: ${{ env.FRONT_IMAGE }}:${{ steps.tag.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Ver a justificativa no build-api.
+          cache-from: type=registry,ref=${{ env.FRONT_IMAGE }}:buildcache-${{ steps.tag.outputs.tag }}
+          cache-to: type=registry,ref=${{ env.FRONT_IMAGE }}:buildcache-${{ steps.tag.outputs.tag }},mode=max
+          provenance: false
 
   build-mcp:
     name: Build MCP Image
@@ -202,8 +215,10 @@ jobs:
           context: ./mcp
           push: true
           tags: ${{ env.MCP_IMAGE }}:${{ steps.tag.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Ver a justificativa no build-api.
+          cache-from: type=registry,ref=${{ env.MCP_IMAGE }}:buildcache-${{ steps.tag.outputs.tag }}
+          cache-to: type=registry,ref=${{ env.MCP_IMAGE }}:buildcache-${{ steps.tag.outputs.tag }},mode=max
+          provenance: false
 
   # ─────────────── Deploy to VPS ───────────────
   deploy:
