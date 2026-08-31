@@ -11,6 +11,13 @@ import { env } from '@/config/env'
 import { apiLogger } from '@/shared/infra/logger'
 import { SUBSCRIPTION_MODALITY_FIELD } from '../ensure-subscription-modality-field'
 import { InvalidBitrixSubscriptionError } from '../errors/invalid-bitrix-subscription.error'
+import {
+  type CalendarDate,
+  endOfCalendarDay,
+  parseSpaCalendarDate,
+  startOfCalendarDay,
+  toSpaCalendarDateValue,
+} from '../spa-calendar-date'
 
 /**
  * Assinatura como sai da SPA: plano e aplicação ainda são só ids.
@@ -130,16 +137,37 @@ const bitrixRequiredRef = z
   })
 
 /**
- * `null` e string vazia são rejeitados antes da coerção: `new Date(null)` é
- * epoch e `new Date('')` é `Invalid Date`, e nenhum dos dois pode passar como
- * período válido.
+ * Data de período: **dia de calendário**, não instante.
+ *
+ * O valor da SPA vem no fuso do portal (`2026-08-01T00:00:00+03:00`), e o antigo
+ * `new Date(valor)` guardava o instante — `2026-07-31T21:00:00Z` —, que qualquer
+ * leitor a oeste do portal formatava como o dia anterior. `parseSpaCalendarDate`
+ * lê o dia do offset que a própria string carrega; a âncora resolve para onde
+ * dentro do dia. Ver `../spa-calendar-date.ts`.
+ *
+ * `null`, string vazia e data inválida continuam rejeitados: são `null` do parser,
+ * e o issue reprova o item como antes.
  */
-const bitrixDate = z
-  .union([z.string().min(1), z.date()])
-  .transform(value => (value instanceof Date ? value : new Date(value)))
-  .refine(date => !Number.isNaN(date.getTime()), {
-    message: 'Data de período inválida',
+const bitrixCalendarDate = (anchor: (date: CalendarDate) => Date) =>
+  z.unknown().transform((raw, ctx): Date => {
+    const day = parseSpaCalendarDate(raw)
+
+    if (!day) {
+      ctx.addIssue({ code: 'custom', message: 'Data de período inválida' })
+      return z.NEVER
+    }
+
+    return anchor(day)
   })
+
+/** Início do dia: o período começa no primeiro instante do dia informado. */
+const bitrixPeriodStart = bitrixCalendarDate(startOfCalendarDay)
+
+/**
+ * Fim do dia: um período que vai até o dia 1º inclui o dia 1º inteiro, e ancorar
+ * na meia-noite cortaria 24 horas contratadas.
+ */
+const bitrixPeriodEnd = bitrixCalendarDate(endOfCalendarDay)
 
 const bitrixSubscriptionSchema = z.object({
   id: z.coerce.string(),
@@ -159,8 +187,8 @@ const bitrixSubscriptionSchema = z.object({
    */
   [APLICATION_PARENT_FIELD]: bitrixRequiredRef,
   ufCrm91Status: bitrixStatus,
-  ufCrm91CurrentPeriodStart: bitrixDate,
-  ufCrm91CurrentPeriodEnd: bitrixDate,
+  ufCrm91CurrentPeriodStart: bitrixPeriodStart,
+  ufCrm91CurrentPeriodEnd: bitrixPeriodEnd,
   // Opcional na SPA: assinatura ainda não espelhada no gateway não tem id.
   // String vazia é normalizada para `undefined` — o domínio só conhece ausência.
   ufCrm91GatewayId: z
@@ -221,11 +249,21 @@ export const mapSubscriptionInputToBitrixFields = (
   if (input.status !== undefined) {
     fields.ufCrm91Status = BITRIX_ID_BY_STATUS[input.status]
   }
+  /**
+   * Dia de calendário, não instante. `.toISOString()` cru mandava a hora real, e o
+   * Bitrix a lê no fuso do portal — uma escrita perto da virada do dia gravava o
+   * dia seguinte. `toSpaCalendarDateValue` mantém o mesmo formato ISO que a SPA já
+   * aceita e ancora no meio-dia, que é o único horário estável em todo offset.
+   */
   if (input.currentPeriodStart !== undefined) {
-    fields.ufCrm91CurrentPeriodStart = input.currentPeriodStart.toISOString()
+    fields.ufCrm91CurrentPeriodStart = toSpaCalendarDateValue(
+      input.currentPeriodStart,
+    )
   }
   if (input.currentPeriodEnd !== undefined) {
-    fields.ufCrm91CurrentPeriodEnd = input.currentPeriodEnd.toISOString()
+    fields.ufCrm91CurrentPeriodEnd = toSpaCalendarDateValue(
+      input.currentPeriodEnd,
+    )
   }
   if (input.gatewayId !== undefined) {
     fields.ufCrm91GatewayId = input.gatewayId

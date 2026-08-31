@@ -9,10 +9,50 @@ import type { Subscription } from '@/modules/application/domain/entities/subscri
  * chamador já tem em mãos.
  */
 
-/** Duração do trial. Regra de negócio, não parâmetro de entrada. */
+/** Duração do trial, em dias de calendário. Regra de negócio, não parâmetro. */
 export const TRIAL_DURATION_DAYS = 3
 
-const DAY_IN_MS = 24 * 60 * 60 * 1000
+/**
+ * Fuso do contrato.
+ *
+ * Serve a **uma** direção só: transformar um instante (`now`) no dia de calendário
+ * que ele é para o cliente. Um trial ativado às 22:00 de Brasília é de hoje — em
+ * UTC já é amanhã, e contar de lá daria um dia a mais e uma data que não bate com
+ * a que o cliente acabou de ver na tela.
+ *
+ * Constante, e não configuração de ambiente: qual dia venceu não pode divergir
+ * entre staging e produção.
+ */
+export const BILLING_TIME_ZONE = 'America/Sao_Paulo'
+
+/**
+ * O dia de calendário de um instante, no fuso do contrato.
+ *
+ * `Intl` em vez de aritmética de offset porque horário de verão existe: somar três
+ * horas fixas acerta parte do ano e erra a outra. `Intl` é global, então isto não
+ * viola a regra de este módulo não importar nada além de tipo.
+ */
+function billingDayOf(instant: Date): {
+  year: number
+  month: number
+  day: number
+} {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: BILLING_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(instant)
+
+  const value = (type: string) =>
+    Number(parts.find(part => part.type === type)?.value)
+
+  return {
+    year: value('year'),
+    month: value('month'),
+    day: value('day'),
+  }
+}
 
 /**
  * Habilitação de uma linha.
@@ -50,18 +90,35 @@ export function isTrialStatus(status: Subscription['status']): boolean {
 }
 
 /**
- * A janela do trial, a partir do momento da ativação.
+ * A janela do trial, em **dias de calendário**, a partir do dia da ativação.
  *
  * Recebe o `now` em vez de chamar `new Date()`: o caso de uso decide o instante,
  * e o teste não precisa de relógio falso.
+ *
+ * O dia da ativação é lido no fuso do contrato (`BILLING_TIME_ZONE`); a janela é
+ * ancorada em UTC, seguindo a convenção de `Subscription.currentPeriodStart` — o
+ * componente UTC é o dia, e a hora é âncora. Início no começo do dia da ativação,
+ * fim no **último instante** do terceiro dia depois dele: o cliente tem o último
+ * dia inteiro.
+ *
+ * Antes disto a janela era `now + 3 * 24h`, o que dava um fim no meio do dia e
+ * gravava um instante que o CRM reinterpretava — a ponta de escrita do bug de D-1.
  */
 export function trialWindow(now: Date): {
   currentPeriodStart: Date
   currentPeriodEnd: Date
 } {
+  const { year, month, day } = billingDayOf(now)
+
   return {
-    currentPeriodStart: now,
-    currentPeriodEnd: new Date(now.getTime() + TRIAL_DURATION_DAYS * DAY_IN_MS),
+    currentPeriodStart: new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0)),
+    /**
+     * `day + TRIAL_DURATION_DAYS` transborda o mês de propósito: `Date.UTC` resolve
+     * — dia 30 de agosto mais 3 é 2 de setembro, sem aritmética de calendário aqui.
+     */
+    currentPeriodEnd: new Date(
+      Date.UTC(year, month - 1, day + TRIAL_DURATION_DAYS, 23, 59, 59, 999),
+    ),
   }
 }
 

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { axiosPortal } from '@/infra/client/axios-portal'
+import { formatSpaDate } from '@/lib/format-date'
 import { AdminInstanceConfigModal } from './admin-instance-config-modal'
 
 /**
@@ -163,19 +164,10 @@ export function AdminClientInstancesSection({ appId }: Props) {
   }
 
   /**
-   * A data vem crua da api de propósito: fuso e formatação são da tela. `undefined`
-   * de locale usa o do navegador, que é o do operador de suporte.
+   * Dia de calendário, formatado com o fuso da âncora nomeado. O locale segue o do
+   * navegador — o do operador de suporte.
    */
-  function formatDate(iso: string) {
-    const date = new Date(iso)
-    return Number.isNaN(date.getTime())
-      ? iso
-      : date.toLocaleDateString(undefined, {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        })
-  }
+  const formatDate = (iso: string) => formatSpaDate(iso)
 
   function providerLabel(provider: string) {
     return provider === 'HUBMESSAGE'

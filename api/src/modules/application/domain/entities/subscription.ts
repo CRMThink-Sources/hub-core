@@ -30,6 +30,19 @@ export interface Subscription {
    * com literais — é o que evita um status novo virar um bug por chamador.
    */
   status: 'active' | 'past_due' | 'cancelled' | 'trialing' | 'trial_expired'
+  /**
+   * **Dias de calendário, não instantes.** O campo da SPA guarda um dia escolhido
+   * no CRM ("o período vai até o dia 1º"), e o tipo é `Date` só porque o domínio
+   * precisa comparar com `now`.
+   *
+   * A convenção: o componente **UTC** destes `Date` é o dia. `currentPeriodStart`
+   * ancora no início do dia (`00:00:00.000Z`) e `currentPeriodEnd` no fim
+   * (`23:59:59.999Z`) — o período inclui o último dia inteiro.
+   *
+   * Quem formatar isto para tela **tem que** nomear o fuso `UTC`. Formatar no fuso
+   * de quem olha faz o dia mudar, e foi exatamente esse o bug de D-1.
+   * Conversão em `infra/bitrix/spa-calendar-date.ts`.
+   */
   currentPeriodStart: Date
   currentPeriodEnd: Date
   /**
