@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { axiosPortal } from '@/infra/client/axios-portal'
+import { formatSpaDate } from '@/lib/format-date'
 import type {
   AppSubscription,
   ListAppSubscriptionsResponse,
@@ -60,10 +61,8 @@ export function AdminAppSubscriptionsSection({ appId }: Props) {
     }
   }, [appId])
 
-  function formatDate(iso: string) {
-    const date = new Date(iso)
-    return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString(locale)
-  }
+  /** Dia de calendário: fuso da âncora nomeado, locale do operador. */
+  const formatDate = (iso: string) => formatSpaDate(iso, locale)
 
   if (state.kind === 'loading') {
     return (

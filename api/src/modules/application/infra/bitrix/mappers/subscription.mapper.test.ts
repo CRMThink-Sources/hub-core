@@ -44,8 +44,9 @@ describe('mapBitrixSpaSubscriptionToRawSubscription', () => {
       planId: '7',
       aplicationSpaId: '512',
       status: 'active',
-      currentPeriodStart: new Date('2026-07-01T00:00:00+03:00'),
-      currentPeriodEnd: new Date('2026-08-01T00:00:00+03:00'),
+      // Dias de calendário: início no começo do dia, fim no último instante dele.
+      currentPeriodStart: new Date('2026-07-01T00:00:00.000Z'),
+      currentPeriodEnd: new Date('2026-08-01T23:59:59.999Z'),
       gatewayId: 'sub_abc',
       modality: 'stripe',
     })
@@ -177,13 +178,39 @@ describe('mapBitrixSpaSubscriptionToRawSubscription', () => {
       ).toThrow(InvalidBitrixSubscriptionError)
     })
 
-    it('preserva a hora do offset do portal, convertida para UTC', () => {
+    /**
+     * Este teste afirmava o bug de D-1: converter o instante preservava a hora do
+     * portal e jogava o **dia** para trás em qualquer fuso a oeste dele. O campo é
+     * um dia, e é o dia que tem que sobreviver — ver `spa-calendar-date.ts`.
+     */
+    it('lê o dia denotado pelo offset do portal, ancorado no início do dia', () => {
       const subscription = mapBitrixSpaSubscriptionToRawSubscription(
         itemWith({ ufCrm91CurrentPeriodStart: '2026-07-01T00:00:00+03:00' }),
       )
 
       expect(subscription.currentPeriodStart.toISOString()).toBe(
-        '2026-06-30T21:00:00.000Z',
+        '2026-07-01T00:00:00.000Z',
+      )
+    })
+
+    it('ancora o fim de período no último instante do dia', () => {
+      const subscription = mapBitrixSpaSubscriptionToRawSubscription(
+        itemWith({ ufCrm91CurrentPeriodEnd: '2026-08-01T00:00:00+03:00' }),
+      )
+
+      expect(subscription.currentPeriodEnd.toISOString()).toBe(
+        '2026-08-01T23:59:59.999Z',
+      )
+    })
+
+    /** A hora que vier no valor não move o dia. */
+    it('ignora a hora dentro do dia', () => {
+      const subscription = mapBitrixSpaSubscriptionToRawSubscription(
+        itemWith({ ufCrm91CurrentPeriodEnd: '2026-08-01T23:30:00+03:00' }),
+      )
+
+      expect(subscription.currentPeriodEnd.toISOString()).toBe(
+        '2026-08-01T23:59:59.999Z',
       )
     })
   })
@@ -324,8 +351,9 @@ describe('mapSubscriptionInputToBitrixFields', () => {
       ufCrm91Plan: '7',
       [APLICATION_PARENT_FIELD]: '512',
       ufCrm91Status: '13619',
-      ufCrm91CurrentPeriodStart: '2026-07-01T00:00:00.000Z',
-      ufCrm91CurrentPeriodEnd: '2026-08-01T00:00:00.000Z',
+      // Meio-dia UTC: o dia sobrevive à leitura em qualquer offset de portal.
+      ufCrm91CurrentPeriodStart: '2026-07-01T12:00:00.000Z',
+      ufCrm91CurrentPeriodEnd: '2026-08-01T12:00:00.000Z',
       ufCrm91GatewayId: 'sub_abc',
       [SUBSCRIPTION_MODALITY_FIELD]: 'stripe',
     })
@@ -363,6 +391,39 @@ describe('mapSubscriptionInputToBitrixFields', () => {
 
   it('não emite nada para um patch vazio', () => {
     expect(mapSubscriptionInputToBitrixFields({})).toEqual({})
+  })
+
+  /**
+   * A propriedade que fecha o bug de D-1: o dia escrito é o dia lido de volta.
+   * Antes, a escrita mandava a hora real e a leitura convertia o instante — as duas
+   * pontas derivavam, em direções opostas.
+   */
+  it('faz round-trip do dia de período', () => {
+    const fields = mapSubscriptionInputToBitrixFields({
+      currentPeriodEnd: new Date('2026-08-01T23:59:59.999Z'),
+    })
+
+    const backToDomain = mapBitrixSpaSubscriptionToRawSubscription(
+      itemWith({
+        ufCrm91CurrentPeriodEnd: fields.ufCrm91CurrentPeriodEnd,
+      }),
+    )
+
+    expect(backToDomain.currentPeriodEnd.toISOString()).toBe(
+      '2026-08-01T23:59:59.999Z',
+    )
+  })
+
+  /**
+   * O caso da escrita que gravava o dia errado: 22:00 em Brasília já é o dia
+   * seguinte em UTC, e `.toISOString()` cru levava esse dia.
+   */
+  it('escrita perto da virada do dia grava o dia do domínio', () => {
+    const fields = mapSubscriptionInputToBitrixFields({
+      currentPeriodEnd: new Date('2026-08-01T23:59:59.999Z'),
+    })
+
+    expect(fields.ufCrm91CurrentPeriodEnd).toBe('2026-08-01T12:00:00.000Z')
   })
 
   /**

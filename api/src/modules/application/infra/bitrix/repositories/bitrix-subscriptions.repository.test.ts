@@ -142,7 +142,7 @@ describe('BitrixSubscriptionRepository', () => {
         aplication: aplicationOf('512'),
         status: 'active',
         currentPeriodStart: new Date('2026-07-01T00:00:00.000Z'),
-        currentPeriodEnd: new Date('2026-08-01T00:00:00.000Z'),
+        currentPeriodEnd: new Date('2026-08-01T23:59:59.999Z'),
         gatewayId: 'sub_21',
         // O item de teste não tem o campo de modalidade: leitura tolerante resolve
         // `manual`, que é o estado de toda assinatura anterior ao campo existir.
@@ -400,7 +400,7 @@ describe('BitrixSubscriptionRepository', () => {
       aplicationSpaId: '512',
       status: 'trialing' as const,
       currentPeriodStart: new Date('2026-07-01T00:00:00.000Z'),
-      currentPeriodEnd: new Date('2026-08-01T00:00:00.000Z'),
+      currentPeriodEnd: new Date('2026-08-01T23:59:59.999Z'),
     }
 
     it('grava na SPA e devolve a assinatura relida', async () => {

@@ -2,6 +2,7 @@
 
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
+import { formatSpaDate } from '@/lib/format-date'
 import type {
   ContractPlan,
   UseLineSubscription,
@@ -294,14 +295,11 @@ function formatAmount(cents: number): string {
   })
 }
 
-/** Data crua da api: fuso e formatação são da tela. */
-function formatDate(iso: string): string {
-  const date = new Date(iso)
-  return Number.isNaN(date.getTime())
-    ? iso
-    : date.toLocaleDateString(undefined, {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      })
-}
+/**
+ * Data de período vem de `@/lib/format-date`, com o fuso da âncora nomeado.
+ *
+ * A cópia local que morreu aqui formatava no fuso do navegador — "a formatação é da
+ * tela" vale, "o fuso é da tela" não: o valor é um dia, e reinterpretá-lo mudava o
+ * dia. O mesmo defeito existia em quatro telas ao mesmo tempo.
+ */
+const formatDate = (iso: string) => formatSpaDate(iso)

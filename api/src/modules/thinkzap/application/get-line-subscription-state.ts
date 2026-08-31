@@ -83,8 +83,9 @@ export type LineSubscriptionPlan = {
 /**
  * Estado da assinatura de uma instalação, para a tela decidir o que oferecer.
  *
- * `currentPeriodEnd` vai cru: fuso e formatação são da tela, que tem o locale do
- * operador.
+ * `currentPeriodEnd` vai cru, e é um **dia de calendário** ancorado em UTC. A
+ * formatação é da tela, que tem o locale do operador; o fuso é do contrato — a tela
+ * nomeia `UTC` ao formatar, ou o dia escorrega (o bug de D-1).
  *
  * **Nenhum campo de credencial do gateway aparece aqui** — nem chave de API, nem
  * segredo de webhook, nem o `gatewayId` da assinatura. A tela não precisa do id
