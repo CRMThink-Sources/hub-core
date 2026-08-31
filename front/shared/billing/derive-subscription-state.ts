@@ -17,6 +17,7 @@ export type SpaSubscriptionStatus =
   | 'past_due'
   | 'cancelled'
   | 'trialing'
+  | 'trial_expired'
 
 /** Status como a UI já escreve nas comparações que existem hoje. */
 export type UiSubscriptionStatus =
@@ -24,6 +25,7 @@ export type UiSubscriptionStatus =
   | 'PAST_DUE'
   | 'CANCELLED'
   | 'TRIALING'
+  | 'TRIAL_EXPIRED'
 
 export type SubscriptionItemStatus = 'active' | 'cancelled'
 
@@ -42,7 +44,7 @@ export type AplicationSubscriptionView = {
 export type SubscriptionState = {
   hasSubscription: boolean
   status: UiSubscriptionStatus | null
-  /** Linhas contratadas = itens ativos das assinaturas não canceladas. */
+  /** Linhas contratadas = itens ativos das assinaturas que não estão mortas. */
   connectorQuantity: number
   /** ISO 8601, só quando a assinatura de referência está em trial. */
   trialEndsAt: string | null
@@ -60,7 +62,23 @@ const UI_STATUS: Record<SpaSubscriptionStatus, UiSubscriptionStatus> = {
   past_due: 'PAST_DUE',
   cancelled: 'CANCELLED',
   trialing: 'TRIALING',
+  trial_expired: 'TRIAL_EXPIRED',
 }
+
+/**
+ * Status que não descrevem mais o que a instalação tem.
+ *
+ * Conjunto nomeado, e não duas comparações com `'cancelled'` espalhadas: contar as
+ * linhas de um teste encerrado como contratadas é o mesmo erro que contar as de uma
+ * cancelada, e um status morto novo tem que entrar num lugar só.
+ */
+const DEAD_STATUSES: ReadonlySet<SpaSubscriptionStatus> = new Set([
+  'cancelled',
+  'trial_expired',
+])
+
+const isLive = (s: AplicationSubscriptionView): boolean =>
+  !DEAD_STATUSES.has(s.status)
 
 const periodEndMs = (s: AplicationSubscriptionView): number => {
   const ms = new Date(s.currentPeriodEnd).getTime()
@@ -69,9 +87,8 @@ const periodEndMs = (s: AplicationSubscriptionView): number => {
 }
 
 /**
- * Assinatura de referência: entre as não canceladas, a de maior
- * `currentPeriodEnd`; se todas estiverem canceladas, a de maior
- * `currentPeriodEnd`.
+ * Assinatura de referência: entre as que não estão em status morto, a de maior
+ * `currentPeriodEnd`; se todas estiverem mortas, a de maior `currentPeriodEnd`.
  *
  * Empate resolve pela primeira da lista — a ordem da resposta é estável, então o
  * resultado não oscila entre renders.
@@ -79,7 +96,7 @@ const periodEndMs = (s: AplicationSubscriptionView): number => {
 export function referenceSubscription(
   subscriptions: readonly AplicationSubscriptionView[],
 ): AplicationSubscriptionView | null {
-  const live = subscriptions.filter(s => s.status !== 'cancelled')
+  const live = subscriptions.filter(isLive)
   const pool = live.length > 0 ? live : subscriptions
 
   return pool.reduce<AplicationSubscriptionView | null>(
@@ -101,7 +118,7 @@ export function deriveSubscriptionState(
   const reference = referenceSubscription(subscriptions)
 
   const connectorQuantity = subscriptions
-    .filter(s => s.status !== 'cancelled')
+    .filter(isLive)
     .reduce(
       (total, s) => total + s.items.filter(i => i.status === 'active').length,
       0,

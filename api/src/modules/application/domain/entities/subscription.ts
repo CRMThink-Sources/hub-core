@@ -18,7 +18,18 @@ export interface Subscription {
   id: string
   name: string
   plan: Plan
-  status: 'active' | 'past_due' | 'cancelled' | 'trialing'
+  /**
+   * `trial_expired` (enum `14353`, "Teste expirado" na SPA) é o teste encerrado
+   * **por marcação**, feita de fora do produto — operação ou automação do CRM.
+   * Nenhum caminho daqui o escreve; o produto só o lê. Ele é gravável pelo mesmo
+   * mapa que o lê para não existir um segundo mapa capaz de dessincronizar.
+   *
+   * Não confundir com `trialing` fora da janela, que é o teste expirado **pelo
+   * tempo**. Os dois são de teste e resolvem o mesmo entitlement; a diferença é
+   * quem encerrou. Use o predicado de `connector-trial.ts` em vez de comparar
+   * com literais — é o que evita um status novo virar um bug por chamador.
+   */
+  status: 'active' | 'past_due' | 'cancelled' | 'trialing' | 'trial_expired'
   currentPeriodStart: Date
   currentPeriodEnd: Date
   /**

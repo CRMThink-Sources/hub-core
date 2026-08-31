@@ -590,6 +590,31 @@ describe('ProvisionLineFromSpaItem', () => {
       expect(result).toEqual({ outcome: 'provisioned', billingAdjusted: false })
     })
 
+    /**
+     * Mesma guarda, outro status de teste. Sem o predicado, um teste marcado como
+     * expirado com `gatewayId` preenchido cairia no caminho de cobrança.
+     */
+    it('teste marcado como expirado provisiona, não cobra e não assina', async () => {
+      const parent = paidSubscription({
+        status: 'trial_expired',
+        plan: TRIAL_PLAN,
+        gatewayId: 'sub_abc',
+      })
+      const {
+        useCase,
+        syncSubscriptionLineItems,
+        subscribe,
+        updateSubscriptionItem,
+      } = makeUseCase({ subscriptions: [parent], parent })
+
+      const result = await useCase.execute(INPUT)
+
+      expect(updateSubscriptionItem).toHaveBeenCalled()
+      expect(syncSubscriptionLineItems).not.toHaveBeenCalled()
+      expect(subscribe).not.toHaveBeenCalled()
+      expect(result).toEqual({ outcome: 'provisioned', billingAdjusted: false })
+    })
+
     it('contrato cancelado provisiona e registra warn sem tocar o gateway', async () => {
       const parent = paidSubscription({ status: 'cancelled' })
       const { useCase, syncSubscriptionLineItems, updateSubscriptionItem } =

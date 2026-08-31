@@ -13,11 +13,18 @@ import z from 'zod'
  * string onde o domínio declara `Date`, e o erro só apareceria na formatação.
  */
 export const gatewaySubscriptionSchema = z.object({
+  /**
+   * A união do domínio mais `unknown`, porque a entidade declara
+   * `Subscription['status'] | 'unknown'`. O gateway não emite `trial_expired` —
+   * expiração de teste é do produto, não da fatura —, mas o schema tem que aceitar
+   * o que o tipo permite.
+   */
   status: z.union([
     z.literal('active'),
     z.literal('past_due'),
     z.literal('cancelled'),
     z.literal('trialing'),
+    z.literal('trial_expired'),
     z.literal('unknown'),
   ]),
   currentPeriodStart: z.coerce.date(),

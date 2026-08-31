@@ -20,12 +20,16 @@ import type { SubscriptionItem } from '@/modules/application/domain/entities/sub
  * o trial fica `cancelled` e a paga fica `active`. A ordem responde "qual delas a
  * tela está falando sobre", e é deliberadamente do estado mais vivo para o mais
  * morto: uma paga inadimplente é mais relevante que um trial encerrado.
+ *
+ * `trial_expired` fica entre `trialing` e `cancelled`: um teste encerrado descreve
+ * melhor o estado de uma instalação que nunca pagou do que um contrato cancelado.
  */
 const STATUS_PRECEDENCE: Record<Subscription['status'], number> = {
   active: 0,
   past_due: 1,
   trialing: 2,
-  cancelled: 3,
+  trial_expired: 3,
+  cancelled: 4,
 }
 
 /**

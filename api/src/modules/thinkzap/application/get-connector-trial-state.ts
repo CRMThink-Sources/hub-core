@@ -3,6 +3,7 @@ import { PlanRepository } from '@/modules/application/domain/repositories/get-pl
 import {
   TrialIneligibilityReason,
   checkTrialEligibility,
+  isTrialStatus,
   resolveLineEntitlement,
 } from '@/modules/thinkzap/domain/connector-trial'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
@@ -89,12 +90,13 @@ export class GetConnectorTrialState {
       return { status: 'unavailable', reason: eligibility.reason }
     }
 
-    const trial = context.subscriptions.find(
-      subscription => subscription.status === 'trialing',
+    const trial = context.subscriptions.find(subscription =>
+      isTrialStatus(subscription.status),
     )
 
     if (!trial) {
-      // Inalcançável: `already-used` só sai quando toda assinatura é `trialing`.
+      // Inalcançável: `already-used` só sai quando toda assinatura é de teste, e
+      // é o mesmo predicado que decide isso lá e acha o item aqui.
       return { status: 'unavailable', reason: 'already-used' }
     }
 

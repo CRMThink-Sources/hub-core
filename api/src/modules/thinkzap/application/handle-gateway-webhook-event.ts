@@ -1,3 +1,4 @@
+import type { Subscription } from '@/modules/application/domain/entities/subscription'
 import { SubscriptionRepository } from '@/modules/application/domain/repositories/subscription.repository'
 import { SubscriptionItemRepository } from '@/modules/application/domain/repositories/subscription-item.repository'
 import { GatewayEvent } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
@@ -96,7 +97,12 @@ export class HandleGatewayWebhookEvent {
   private async applyStatus(
     gatewaySubscriptionId: string,
     patch: {
-      status: 'active' | 'past_due' | 'cancelled' | 'trialing'
+      /**
+       * A união do domínio, como o evento do port já declara. O gateway não emite
+       * `trial_expired` — expiração de teste é do produto, não da fatura —, mas
+       * replicar a lista aqui só criava um segundo lugar para dessincronizar.
+       */
+      status: Subscription['status']
       currentPeriodStart: Date
       currentPeriodEnd: Date
     },

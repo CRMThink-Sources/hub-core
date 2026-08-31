@@ -2,7 +2,10 @@ import { GetAplicationContext } from '@/modules/application/application/get-apli
 import { Plan, PlanProvider } from '@/modules/application/domain/entities/plan'
 import { PlanPrice } from '@/modules/application/domain/entities/plan-price'
 import { PlanPriceReader } from '@/modules/application/domain/repositories/plan-price.reader'
-import { SubscriptionModality } from '@/modules/application/domain/entities/subscription'
+import {
+  Subscription,
+  SubscriptionModality,
+} from '@/modules/application/domain/entities/subscription'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import {
   LineEntitlement,
@@ -92,7 +95,12 @@ export type LineSubscriptionState =
   /** Instalação sem assinatura nenhuma. A tela oferece o teste. */
   | { status: 'none' }
   | {
-      status: 'active' | 'past_due' | 'cancelled' | 'trialing'
+      /**
+       * A união do domínio, não uma cópia: esta resposta reporta o status da
+       * assinatura, e replicar a lista aqui já deixou de reconhecer um status que
+       * o CRM tinha.
+       */
+      status: Subscription['status']
       /**
        * Como a assinatura é cobrada. Governa o que a tela oferece: só a
        * modalidade do gateway tem portal de faturamento.
