@@ -43,6 +43,7 @@ const STATUS_BY_BITRIX_ID: Record<string, Subscription['status']> = {
   '13619': 'trialing', // Em teste
   '13621': 'past_due', // Vencido
   '13623': 'cancelled', // Cancelado
+  '14353': 'trial_expired', // Teste expirado
 }
 
 /**

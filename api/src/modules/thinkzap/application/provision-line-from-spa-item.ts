@@ -9,6 +9,7 @@ import { SubscriptionItem } from '@/modules/application/domain/entities/subscrip
 import { SubscriptionRepository } from '@/modules/application/domain/repositories/subscription.repository'
 import { SubscriptionItemRepository } from '@/modules/application/domain/repositories/subscription-item.repository'
 import { SpaItemResourceMirrorRepository } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
+import { isTrialStatus } from '@/modules/thinkzap/domain/connector-trial'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { PaymentGateway } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
@@ -305,7 +306,7 @@ export class ProvisionLineFromSpaItem {
       return false
     }
 
-    if (parent.status === 'trialing' || !parent.gatewayId) {
+    if (isTrialStatus(parent.status) || !parent.gatewayId) {
       apiLogger.info(
         { ...args.log, subscriptionId: parent.id, status: parent.status },
         'Assinatura sem contrato pago no gateway — linha provisionada e nada a ajustar',

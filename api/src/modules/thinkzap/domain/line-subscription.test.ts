@@ -77,6 +77,44 @@ describe('resolveCurrentSubscription', () => {
   })
 
   /**
+   * Um teste encerrado descreve melhor uma instalação que nunca pagou do que um
+   * contrato cancelado — daí a posição entre `trialing` e `cancelled`.
+   */
+  it('prefere teste expirado a cancelada, e trial em andamento aos dois', () => {
+    expect(
+      resolveCurrentSubscription([
+        sub('cancelada', 'cancelled'),
+        sub('expirado', 'trial_expired'),
+      ])?.id,
+    ).toBe('expirado')
+
+    expect(
+      resolveCurrentSubscription([
+        sub('expirado', 'trial_expired'),
+        sub('andamento', 'trialing'),
+      ])?.id,
+    ).toBe('andamento')
+  })
+
+  it('escolhe a paga quando o teste ficou marcado como expirado', () => {
+    expect(
+      resolveCurrentSubscription([
+        sub('teste', 'trial_expired', plusDays(-1), null),
+        sub('paga', 'active'),
+      ])?.id,
+    ).toBe('paga')
+  })
+
+  it('desempata dois testes expirados pelo fim de período mais recente', () => {
+    expect(
+      resolveCurrentSubscription([
+        sub('antigo', 'trial_expired', plusDays(-60)),
+        sub('recente', 'trial_expired', plusDays(-1)),
+      ])?.id,
+    ).toBe('recente')
+  })
+
+  /**
    * Sem o desempate, a resposta dependeria da ordem em que o CRM devolveu os
    * itens — ordem de criação, que não significa nada aqui.
    */

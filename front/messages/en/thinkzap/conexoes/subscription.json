@@ -3,7 +3,8 @@
     "active": "Active",
     "past_due": "Payment pending",
     "cancelled": "Cancelled",
-    "trialing": "Trial"
+    "trialing": "Trial",
+    "trial_expired": "Trial ended"
   },
   "modalidade": {
     "stripe": "Card billing",
@@ -19,6 +20,7 @@
   "vigenteDescricao": "Your subscription is active and renews on {{data}}.",
   "inadimplenteDescricao": "We could not complete the payment. Your lines stop sending and receiving messages until the charge is settled.",
   "canceladaDescricao": "Your subscription was cancelled and the period ended on {{data}}. The lines are still here, but they do not send or receive messages.",
+  "testeExpiradoDescricao": "Your trial period ended on {{data}}. The lines are still here, but they do not send or receive messages until you subscribe.",
   "gerenciarPagamento": "Manage payment",
   "abrindoPortal": "Opening...",
   "contratar": {

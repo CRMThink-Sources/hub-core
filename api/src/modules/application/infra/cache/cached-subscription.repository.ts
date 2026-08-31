@@ -55,11 +55,16 @@ const subscriptionSchema = z.object({
     gatewayId: z.string().optional(),
     active: z.boolean(),
   }),
+  /**
+   * Ampliar esta união rejeita **menos** do que antes, então entrada gravada por
+   * um deploy anterior continua satisfazendo o shape — não há miss e não há flush.
+   */
   status: z.union([
     z.literal('active'),
     z.literal('past_due'),
     z.literal('cancelled'),
     z.literal('trialing'),
+    z.literal('trial_expired'),
   ]),
   // JSON serializa `Date` como string ISO — a leitura precisa reidratar.
   currentPeriodStart: z.coerce.date(),

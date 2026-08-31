@@ -123,9 +123,10 @@ export const countActiveLines = (lines: readonly SubscriptionLine[]): number =>
  * a autoridade, então divergir aqui não autoriza nada indevido.
  *
  * `trialing` vale enquanto `now <= currentPeriodEnd`: `>` e não `>=`, porque o
- * último instante da janela ainda é do cliente. Status desconhecido não habilita
- * — é decisão de autorização, e um `default` permissivo faria linha inválida
- * aparecer no widget.
+ * último instante da janela ainda é do cliente. `trial_expired` não consulta a
+ * janela — é o teste encerrado por marcação no CRM, e um `currentPeriodEnd` no
+ * futuro não o reabre. Status desconhecido não habilita — é decisão de
+ * autorização, e um `default` permissivo faria linha inválida aparecer no widget.
  */
 const isSubscriptionEnabled = (
   subscription: SubscriptionView,
@@ -136,6 +137,7 @@ const isSubscriptionEnabled = (
       return true
     case 'trialing':
       return now.getTime() <= new Date(subscription.currentPeriodEnd).getTime()
+    case 'trial_expired':
     case 'cancelled':
     case 'past_due':
       return false

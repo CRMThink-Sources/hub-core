@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   TRIAL_DURATION_DAYS,
   checkTrialEligibility,
+  isTrialStatus,
   resolveLineEntitlement,
   trialWindow,
 } from './connector-trial'
@@ -96,6 +97,29 @@ describe('resolveLineEntitlement', () => {
     expect(resolveLineEntitlement(null, NOW)).toBe('inactive')
   })
 
+  it('teste encerrado por marcação está expirado', () => {
+    expect(
+      resolveLineEntitlement(sub('trial_expired', plusDays(NOW, -1)), NOW),
+    ).toBe('trial-expired')
+  })
+
+  /**
+   * A marcação vence a janela aberta: ler `currentPeriodEnd` aqui faria um
+   * encerramento com período no futuro reabrir a linha.
+   */
+  it('marcação de encerramento vence a janela no futuro', () => {
+    expect(
+      resolveLineEntitlement(sub('trial_expired', plusDays(NOW, 30)), NOW),
+    ).toBe('trial-expired')
+  })
+
+  /** É `trial-expired` e não `inactive`: a tela diz coisas diferentes nos dois. */
+  it('teste marcado não é confundido com assinatura inativa', () => {
+    expect(
+      resolveLineEntitlement(sub('trial_expired', plusDays(NOW, 1)), NOW),
+    ).not.toBe('inactive')
+  })
+
   /**
    * A modalidade diz **como** a assinatura é cobrada, não **se** ela vale. Sem
    * isso, boleto criado à mão na SPA não destravaria a linha, e a modalidade
@@ -145,6 +169,23 @@ describe('resolveLineEntitlement', () => {
   })
 })
 
+/**
+ * O predicado existe para não haver `status === 'trialing'` espalhado. Este teste
+ * cobre os cinco status de uma vez, o que é o ponto: um status novo tem um lugar
+ * só para ser classificado.
+ */
+describe('isTrialStatus', () => {
+  it.each<[Subscription['status'], boolean]>([
+    ['trialing', true],
+    ['trial_expired', true],
+    ['active', false],
+    ['past_due', false],
+    ['cancelled', false],
+  ])('%s é de teste: %s', (status, expected) => {
+    expect(isTrialStatus(status)).toBe(expected)
+  })
+})
+
 describe('checkTrialEligibility', () => {
   const aplication = (spaId: string | null) => ({ spaId }) as never
 
@@ -191,6 +232,29 @@ describe('checkTrialEligibility', () => {
     expect(
       checkTrialEligibility(context('1060-1', ['trialing', 'active'])),
     ).toEqual({ eligible: false, reason: 'has-contract' })
+  })
+
+  /**
+   * Sem o predicado isto reportaria `has-contract`, e a tela diria "você já é
+   * cliente" para quem só fez um teste.
+   */
+  it('só teste marcado como expirado reporta que já usou', () => {
+    expect(checkTrialEligibility(context('1060-1', ['trial_expired']))).toEqual({
+      eligible: false,
+      reason: 'already-used',
+    })
+  })
+
+  it('teste marcado mais contrato reporta contrato', () => {
+    expect(
+      checkTrialEligibility(context('1060-1', ['trial_expired', 'active'])),
+    ).toEqual({ eligible: false, reason: 'has-contract' })
+  })
+
+  it('os dois status de teste juntos reportam que já usou', () => {
+    expect(
+      checkTrialEligibility(context('1060-1', ['trialing', 'trial_expired'])),
+    ).toEqual({ eligible: false, reason: 'already-used' })
   })
 
   /**

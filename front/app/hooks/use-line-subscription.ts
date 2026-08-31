@@ -8,6 +8,7 @@ import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 import { APP_CODES } from '@/shared/app/app-codes'
 import { appTokenKey } from '@/shared/auth/app-token-storage'
 import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
+import type { SpaSubscriptionStatus } from '@/shared/billing/derive-subscription-state'
 
 export type SubscriptionModality = 'stripe' | 'manual'
 
@@ -63,7 +64,7 @@ export type ContractPlan = {
 export type SubscriptionState =
   | { status: 'none' }
   | {
-      status: 'active' | 'past_due' | 'cancelled' | 'trialing'
+      status: SpaSubscriptionStatus
       modality: SubscriptionModality
       isTrial: boolean
       currentPeriodStart: string

@@ -3,7 +3,8 @@
     "active": "Ativa",
     "past_due": "Pagamento pendente",
     "cancelled": "Cancelada",
-    "trialing": "Em teste"
+    "trialing": "Em teste",
+    "trial_expired": "Teste expirado"
   },
   "modalidade": {
     "stripe": "Cobrança por cartão",
@@ -19,6 +20,7 @@
   "vigenteDescricao": "Sua assinatura está ativa e renova em {{data}}.",
   "inadimplenteDescricao": "Não conseguimos concluir o pagamento. Suas linhas param de enviar e receber mensagens até a cobrança ser regularizada.",
   "canceladaDescricao": "Sua assinatura foi cancelada e o período terminou em {{data}}. As linhas continuam aqui, mas não enviam nem recebem mensagens.",
+  "testeExpiradoDescricao": "Seu período de teste terminou em {{data}}. As linhas continuam aqui, mas não enviam nem recebem mensagens até você assinar.",
   "gerenciarPagamento": "Gerenciar pagamento",
   "abrindoPortal": "Abrindo...",
   "contratar": {
