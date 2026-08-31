@@ -8,6 +8,7 @@ import { axiosThinkzap } from '@/infra/client/axios-thinkzap'
 import { APP_CODES } from '@/shared/app/app-codes'
 import { appTokenKey } from '@/shared/auth/app-token-storage'
 import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
+import { formatSpaDate } from '@/lib/format-date'
 import { TrialContactDialog, type TrialContact } from './trial-contact-dialog'
 import { isProviderUnavailable } from './provider-availability'
 
@@ -293,16 +294,8 @@ function Shell({
 }
 
 /**
- * A api devolve a data crua de propósito — fuso e formatação são da tela. `undefined`
- * de locale usa o do navegador, que é o do operador.
+ * Fim do trial é dia de calendário: formatado por `formatSpaDate`, que nomeia o fuso
+ * da âncora. O locale continua sendo o do navegador — locale decide `01/08` ou
+ * `08/01`, fuso decide *qual dia*, e só o segundo é do contrato.
  */
-function formatDate(iso: string): string {
-  const date = new Date(iso)
-  return Number.isNaN(date.getTime())
-    ? iso
-    : date.toLocaleDateString(undefined, {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      })
-}
+const formatDate = (iso: string) => formatSpaDate(iso)

@@ -24,23 +24,56 @@ const plusDays = (from: Date, days: number) =>
   new Date(from.getTime() + days * 24 * 60 * 60 * 1000)
 
 describe('trialWindow', () => {
-  it('abre no agora e fecha em 3 dias', () => {
+  it('abre no começo do dia da ativação e fecha no fim do terceiro dia', () => {
     const window = trialWindow(NOW)
 
-    expect(window.currentPeriodStart).toEqual(NOW)
-    expect(window.currentPeriodEnd).toEqual(
-      new Date('2026-08-06T12:00:00.000Z'),
+    expect(window.currentPeriodStart.toISOString()).toBe(
+      '2026-08-03T00:00:00.000Z',
+    )
+    expect(window.currentPeriodEnd.toISOString()).toBe(
+      '2026-08-06T23:59:59.999Z',
     )
   })
 
   it('a duração é a constante, não um literal solto', () => {
     const window = trialWindow(NOW)
     const days =
-      (window.currentPeriodEnd.getTime() -
-        window.currentPeriodStart.getTime()) /
-      (24 * 60 * 60 * 1000)
+      window.currentPeriodEnd.getUTCDate() -
+      window.currentPeriodStart.getUTCDate()
 
     expect(days).toBe(TRIAL_DURATION_DAYS)
+  })
+
+  /**
+   * O caso que motivou contar no fuso do contrato: 22:00 em Brasília já é o dia
+   * seguinte em UTC. Contar de UTC daria um dia a mais e uma data que não bate com
+   * a que o cliente viu na tela.
+   */
+  it('ativação de noite conta a partir do dia de Brasília, não de UTC', () => {
+    const window = trialWindow(new Date('2026-08-04T01:30:00.000Z'))
+
+    expect(window.currentPeriodStart.toISOString()).toBe(
+      '2026-08-03T00:00:00.000Z',
+    )
+    expect(window.currentPeriodEnd.toISOString()).toBe(
+      '2026-08-06T23:59:59.999Z',
+    )
+  })
+
+  it('atravessa a virada do mês', () => {
+    const window = trialWindow(new Date('2026-08-30T15:00:00.000Z'))
+
+    expect(window.currentPeriodEnd.toISOString()).toBe(
+      '2026-09-02T23:59:59.999Z',
+    )
+  })
+
+  /** A janela do trial é a mesma para quem ativa, independente do relógio do host. */
+  it('o dia da janela não depende do fuso do processo', () => {
+    const window = trialWindow(NOW)
+
+    expect(window.currentPeriodStart.getUTCHours()).toBe(0)
+    expect(window.currentPeriodEnd.getUTCHours()).toBe(23)
   })
 })
 

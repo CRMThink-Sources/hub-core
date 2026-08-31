@@ -152,8 +152,13 @@ describe('ActivateConnectorTrial', () => {
         planId: 'plan-1',
         aplicationSpaId: '1060-1',
         status: 'trialing',
-        currentPeriodStart: NOW,
-        currentPeriodEnd: new Date('2026-08-06T12:00:00.000Z'),
+        /**
+         * Dias de calendário no fuso do contrato, não `NOW + 72h`: início no começo
+         * do dia da ativação, fim no último instante do terceiro dia. O cliente tem
+         * o último dia inteiro, e o dia gravado bate com o que ele vê na tela.
+         */
+        currentPeriodStart: new Date('2026-08-03T00:00:00.000Z'),
+        currentPeriodEnd: new Date('2026-08-06T23:59:59.999Z'),
       }),
     )
     expect(sut.createSubscriptionItem).toHaveBeenCalledWith(
@@ -168,7 +173,7 @@ describe('ActivateConnectorTrial', () => {
       }),
     )
     expect(result.currentPeriodEnd).toEqual(
-      new Date('2026-08-06T12:00:00.000Z'),
+      new Date('2026-08-06T23:59:59.999Z'),
     )
   })
 

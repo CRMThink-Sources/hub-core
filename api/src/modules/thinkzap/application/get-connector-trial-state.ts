@@ -14,9 +14,13 @@ import { isTrialPlanAvailable } from './helpers/ensure-trial-plan'
 /**
  * Estado do trial de uma instalação, para a tela decidir o que mostrar.
  *
- * `currentPeriodEnd` vai cru: fuso e formatação são responsabilidade da tela, que
- * já tem locale. Dias restantes calculados no servidor seriam um número errado
- * assim que o cliente virasse a meia-noite dele.
+ * `currentPeriodEnd` vai cru, e é um **dia de calendário** ancorado em UTC — não um
+ * instante. A **formatação** é da tela, que tem o locale; o **fuso** não é: a tela
+ * tem que nomear `UTC` ao formatar, ou o dia muda. Formatar no fuso do navegador foi
+ * exatamente o bug de D-1. Ver `formatSpaDate` no front.
+ *
+ * Dias restantes calculados no servidor seriam um número errado assim que o cliente
+ * virasse a meia-noite dele.
  */
 export type ConnectorTrialState =
   /**
