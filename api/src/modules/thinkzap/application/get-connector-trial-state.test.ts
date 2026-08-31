@@ -172,6 +172,26 @@ describe('GetConnectorTrialState', () => {
     })
   })
 
+  /**
+   * O caso que motivou o status novo: alguém encerrou o teste no CRM antes de a
+   * janela vencer. Com busca por `'trialing'` cru, a instalação apareceria como se
+   * nunca tivesse testado, e a tela ofereceria o teste de novo.
+   */
+  it('teste marcado como expirado está expirado, mesmo com janela aberta', async () => {
+    const end = new Date('2030-01-01T12:00:00.000Z')
+    const sut = makeSut({
+      subscriptions: [
+        { status: 'trial_expired', currentPeriodEnd: end, items: [zapiItem] },
+      ],
+    })
+
+    await expect(sut.state()).resolves.toEqual({
+      status: 'expired',
+      provider: ConnectorProvider.ZAPI,
+      currentPeriodEnd: end,
+    })
+  })
+
   it('cliente pagante fica indisponível com razão de contrato', async () => {
     const sut = makeSut({ subscriptions: [{ status: 'active', items: [] }] })
 

@@ -3,7 +3,8 @@
     "active": "Activa",
     "past_due": "Pago pendiente",
     "cancelled": "Cancelada",
-    "trialing": "En prueba"
+    "trialing": "En prueba",
+    "trial_expired": "Prueba finalizada"
   },
   "modalidade": {
     "stripe": "Cobro con tarjeta",
@@ -19,6 +20,7 @@
   "vigenteDescricao": "Tu suscripción está activa y se renueva el {{data}}.",
   "inadimplenteDescricao": "No pudimos completar el pago. Tus líneas dejan de enviar y recibir mensajes hasta que se regularice el cobro.",
   "canceladaDescricao": "Tu suscripción fue cancelada y el período terminó el {{data}}. Las líneas siguen aquí, pero no envían ni reciben mensajes.",
+  "testeExpiradoDescricao": "Tu período de prueba terminó el {{data}}. Las líneas siguen aquí, pero no envían ni reciben mensajes hasta que te suscribas.",
   "gerenciarPagamento": "Gestionar pago",
   "abrindoPortal": "Abriendo...",
   "contratar": {

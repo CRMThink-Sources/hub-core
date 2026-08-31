@@ -49,6 +49,7 @@ describe('deriveSubscriptionState', () => {
     ['past_due', 'PAST_DUE'],
     ['cancelled', 'CANCELLED'],
     ['trialing', 'TRIALING'],
+    ['trial_expired', 'TRIAL_EXPIRED'],
   ] as const)(
     'mapeia %s para %s',
     (spa: SpaSubscriptionStatus, ui: UiSubscriptionStatus) => {
@@ -71,6 +72,15 @@ describe('deriveSubscriptionState', () => {
     expect(
       deriveSubscriptionState([sub('s1', 'active', '2026-08-15T00:00:00.000Z')])
         .trialEndsAt,
+    ).toBeNull()
+  })
+
+  /** Teste encerrado não tem data futura a anunciar. */
+  it('não expõe trialEndsAt para teste expirado', () => {
+    expect(
+      deriveSubscriptionState([
+        sub('s1', 'trial_expired', '2026-08-15T00:00:00.000Z'),
+      ]).trialEndsAt,
     ).toBeNull()
   })
 
@@ -119,6 +129,22 @@ describe('deriveSubscriptionState', () => {
       expect(state.connectorQuantity).toBe(1)
     })
 
+    /**
+     * Contar as linhas de um teste encerrado como contratadas é o mesmo erro que
+     * contar as de uma cancelada — daí o conjunto de status mortos.
+     */
+    it('ignora itens de assinatura com teste expirado', () => {
+      const state = deriveSubscriptionState([
+        sub('s1', 'active', '2026-08-01T00:00:00.000Z', ['active']),
+        sub('s2', 'trial_expired', '2026-05-01T00:00:00.000Z', [
+          'active',
+          'active',
+        ]),
+      ])
+
+      expect(state.connectorQuantity).toBe(1)
+    })
+
     it('conta zero quando as assinaturas não têm itens', () => {
       expect(
         deriveSubscriptionState([
@@ -137,6 +163,15 @@ describe('referenceSubscription', () => {
     ])
 
     expect(chosen?.id).toBe('nova')
+  })
+
+  it('ignora teste expirado quando existe assinatura viva, mesmo com período maior', () => {
+    const chosen = referenceSubscription([
+      sub('expirado', 'trial_expired', '2027-01-01T00:00:00.000Z'),
+      sub('viva', 'active', '2026-08-01T00:00:00.000Z'),
+    ])
+
+    expect(chosen?.id).toBe('viva')
   })
 
   it('ignora canceladas quando existe alguma viva, mesmo com período maior', () => {

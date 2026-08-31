@@ -57,6 +57,7 @@ describe('mapBitrixSpaSubscriptionToRawSubscription', () => {
       ['13619', 'trialing'],
       ['13621', 'past_due'],
       ['13623', 'cancelled'],
+      ['14353', 'trial_expired'],
     ])('traduz o ID de enum %s para %s', (bitrixId, expected) => {
       const subscription = mapBitrixSpaSubscriptionToRawSubscription(
         itemWith({ ufCrm91Status: bitrixId }),
@@ -90,6 +91,18 @@ describe('mapBitrixSpaSubscriptionToRawSubscription', () => {
       expect(() =>
         mapBitrixSpaSubscriptionToRawSubscription(withoutStatus),
       ).toThrow(InvalidBitrixSubscriptionError)
+    })
+
+    /**
+     * O incidente que motivou isto: o CRM ganhou um id de enum novo, e a mensagem
+     * dizia só `campos: ufCrm91Status`. Descobrir qual id era exigiu abrir a SPA.
+     */
+    it('nomeia o campo e o valor recusado na mensagem do erro', () => {
+      expect(() =>
+        mapBitrixSpaSubscriptionToRawSubscription(
+          itemWith({ ufCrm91Status: '99999' }),
+        ),
+      ).toThrow(/ufCrm91Status.*99999/)
     })
   })
 
@@ -352,11 +365,23 @@ describe('mapSubscriptionInputToBitrixFields', () => {
     expect(mapSubscriptionInputToBitrixFields({})).toEqual({})
   })
 
+  /**
+   * `trial_expired` entra aqui apesar de nenhum caminho do produto o escrever: o
+   * mapa de escrita é a inversão do de leitura, e o round-trip é o que garante
+   * que os dois não podem discordar.
+   */
+  it('emite o ID de enum do teste expirado', () => {
+    expect(
+      mapSubscriptionInputToBitrixFields({ status: 'trial_expired' }),
+    ).toEqual({ ufCrm91Status: '14353' })
+  })
+
   it.each<Subscription['status']>([
     'active',
     'trialing',
     'past_due',
     'cancelled',
+    'trial_expired',
   ])('faz round-trip do status %s pelo ID de enum', status => {
     const fields = mapSubscriptionInputToBitrixFields({ status })
 

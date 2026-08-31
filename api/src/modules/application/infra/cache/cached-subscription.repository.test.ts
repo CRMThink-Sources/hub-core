@@ -144,6 +144,38 @@ describe('CachedSubscriptionRepository', () => {
       expect(result.currentPeriodEnd).toBeInstanceOf(Date)
     })
 
+    /**
+     * Ampliar a união de status rejeita menos, não mais: a entrada com o status
+     * novo é acerto, e a gravada antes dele — que é toda entrada de um deploy
+     * anterior — continua satisfazendo o shape. É o que dispensa flush do Redis.
+     */
+    it('aceita entrada com status de teste expirado', async () => {
+      const inner = makeInner()
+      const expired: Subscription = { ...subscription, status: 'trial_expired' }
+      const { redis } = makeRedis(JSON.stringify(expired))
+
+      const result = await new CachedSubscriptionRepository(
+        inner.repository,
+        redis,
+      ).getSubscription('21')
+
+      expect(result.status).toBe('trial_expired')
+      expect(inner.getSubscription).not.toHaveBeenCalled()
+    })
+
+    it('aceita entrada gravada antes do status novo existir', async () => {
+      const inner = makeInner()
+      const { redis } = makeRedis(JSON.stringify(subscription))
+
+      const result = await new CachedSubscriptionRepository(
+        inner.repository,
+        redis,
+      ).getSubscription('21')
+
+      expect(result.status).toBe('active')
+      expect(inner.getSubscription).not.toHaveBeenCalled()
+    })
+
     it('em miss consulta o interno e grava com TTL', async () => {
       const inner = makeInner()
       const { redis, set } = makeRedis()

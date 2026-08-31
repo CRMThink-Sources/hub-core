@@ -310,7 +310,24 @@ describe('listSendableLines', () => {
     expect(linhas.map(l => l.id)).toEqual(['i1'])
   })
 
-  it.each(['cancelled', 'past_due'] as const)(
+  /**
+   * A marcação de encerramento vence a janela aberta: sem isso, um teste que
+   * alguém encerrou no CRM continuaria ofertando linha até `currentPeriodEnd`.
+   */
+  it('não oferta linha de teste expirado, mesmo com janela aberta', () => {
+    const linhas = listSendableLines(
+      [
+        subUntil('s1', 'trial_expired', '2030-01-01T00:00:00.000Z', [
+          item('i1', 'active', zapi),
+        ]),
+      ],
+      now,
+    )
+
+    expect(linhas).toEqual([])
+  })
+
+  it.each(['cancelled', 'past_due', 'trial_expired'] as const)(
     'não oferta linha de assinatura %s',
     (status: SpaSubscriptionStatus) => {
       expect(

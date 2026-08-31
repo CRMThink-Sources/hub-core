@@ -24,6 +24,32 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000
 export type LineEntitlement = 'active' | 'trial-expired' | 'inactive'
 
 /**
+ * Status que descrevem um teste, não um contrato.
+ *
+ * `trialing` é o teste em andamento — que pode já ter passado da janela, porque
+ * nada flipa status no banco. `trial_expired` é o teste encerrado **por
+ * marcação**, feita de fora do produto. Os dois são teste; a diferença é quem
+ * encerrou.
+ *
+ * **Existe como predicado, e não como comparação literal em cada chamador,**
+ * porque `status === 'trialing'` estava escrito em cinco lugares — consulta de
+ * estado do trial, listagem de instâncias, classificação de inelegibilidade e as
+ * duas guardas de cobrança no provider. Um status de teste novo virou cinco bugs
+ * de uma vez, e o próximo faria o mesmo.
+ *
+ * **Não** substitui `isTrialSubscription` de `line-subscription.ts`: aquela
+ * pergunta é "esta assinatura é grátis por construção", respondida por uma
+ * propriedade do plano, e vale para um trial contratado que ficou `cancelled`.
+ * Esta é "este status descreve um teste". Unificar as duas quebraria a primeira.
+ *
+ * Este módulo não menciona meio de cobrança de propósito, e há teste estrutural
+ * sobre o texto dele afirmando isso — inclusive em comentário.
+ */
+export function isTrialStatus(status: Subscription['status']): boolean {
+  return status === 'trialing' || status === 'trial_expired'
+}
+
+/**
  * A janela do trial, a partir do momento da ativação.
  *
  * Recebe o `now` em vez de chamar `new Date()`: o caso de uso decide o instante,
@@ -49,8 +75,11 @@ export function trialWindow(now: Date): {
  * a linha funcionando de graça; rodando duas vezes, tem que ser idempotente sobre
  * estado de cobrança.
  *
- * A janela é a verdade. É por isso que isto é uma função de `(assinatura, agora)`
- * e não um campo.
+ * A janela é a verdade **para o teste em andamento**. É por isso que isto é uma
+ * função de `(assinatura, agora)` e não um campo.
+ *
+ * `trial_expired` é o segundo caminho para o mesmo veredito, e esse não depende do
+ * agora: é o teste que alguém encerrou no CRM.
  *
  * Assinatura ausente resolve `inactive`: sem janela nem status não há o que
  * autorize a linha, e o default conservador é não funcionar.
@@ -72,6 +101,14 @@ export function resolveLineEntitlement(
       return now.getTime() > subscription.currentPeriodEnd.getTime()
         ? 'trial-expired'
         : 'active'
+    case 'trial_expired':
+      /**
+       * Sem consultar a janela, de propósito. A regra é: **a janela só expira, o
+       * status também pode expirar, e nenhum dos dois reabre.** Ler
+       * `currentPeriodEnd` aqui faria uma marcação de encerramento com período no
+       * futuro voltar a habilitar a linha — o oposto do que quem marcou pediu.
+       */
+      return 'trial-expired'
     case 'cancelled':
     case 'past_due':
       return 'inactive'
@@ -132,8 +169,8 @@ export function checkTrialEligibility(
    * A razão distingue os dois casos para a tela: "seu teste acabou" e "você já é
    * cliente" pedem mensagens diferentes, e ambos caem em não-elegível.
    */
-  const onlyTrials = context.subscriptions.every(
-    subscription => subscription.status === 'trialing',
+  const onlyTrials = context.subscriptions.every(subscription =>
+    isTrialStatus(subscription.status),
   )
 
   return {

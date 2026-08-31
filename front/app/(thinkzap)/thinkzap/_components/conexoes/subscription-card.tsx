@@ -162,9 +162,13 @@ export function SubscriptionCard({
             })
           : contract.status === 'past_due'
             ? t('inadimplenteDescricao')
-            : t('vigenteDescricao', {
-                data: formatDate(contract.currentPeriodEnd),
-              })}
+            : contract.status === 'trial_expired'
+              ? t('testeExpiradoDescricao', {
+                  data: formatDate(contract.currentPeriodEnd),
+                })
+              : t('vigenteDescricao', {
+                  data: formatDate(contract.currentPeriodEnd),
+                })}
       </p>
 
       {/**
@@ -228,11 +232,18 @@ function ComposicaoItem({
   )
 }
 
+/**
+ * `trial_expired` tem tom próprio, não o vermelho de cancelada nem o âmbar de
+ * inadimplente: vermelho diria que alguém encerrou o contrato do cliente e âmbar
+ * diria que há fatura em atraso. O que acabou foi um teste, e é o único dos três
+ * que aponta para contratar.
+ */
 const STATUS_TONES = {
   active: 'bg-emerald-100 text-emerald-800',
   past_due: 'bg-amber-100 text-amber-800',
   cancelled: 'bg-red-100 text-red-800',
   trialing: 'bg-blue-100 text-blue-800',
+  trial_expired: 'bg-slate-200 text-slate-800',
 } as const
 
 function StatusBadge({

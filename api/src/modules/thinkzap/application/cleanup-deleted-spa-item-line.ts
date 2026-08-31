@@ -8,6 +8,7 @@ import {
   SpaItemResourceMirror,
   SpaItemResourceMirrorRepository,
 } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
+import { isTrialStatus } from '@/modules/thinkzap/domain/connector-trial'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { PaymentGateway } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 import { apiLogger } from '@/shared/infra/logger'
@@ -201,7 +202,7 @@ export class CleanupDeletedSpaItemLine {
       return false
     }
 
-    if (parent.status === 'trialing' || !parent.gatewayId) {
+    if (isTrialStatus(parent.status) || !parent.gatewayId) {
       apiLogger.info(
         { ...log, status: parent.status },
         'Assinatura sem contrato pago no gateway — recurso limpo e nada a ajustar',

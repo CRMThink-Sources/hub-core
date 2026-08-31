@@ -7,6 +7,7 @@ import {
 } from '@/modules/thinkzap/application/helpers/list-line-items-for-app'
 import {
   LineEntitlement,
+  isTrialStatus,
   resolveLineEntitlement,
 } from '@/modules/thinkzap/domain/connector-trial'
 import { SubscriptionWithItems } from '@/modules/application/application/get-aplication-context'
@@ -120,19 +121,20 @@ export async function listThinkzapInstancesForApp(
 }
 
 /**
- * Estado de trial da instalação, a partir da assinatura `trialing`.
+ * Estado de trial da instalação, a partir da assinatura de teste.
  *
- * A busca é por `status === 'trialing'` **cru** — o único lugar desta change em que
- * isso é correto, porque a pergunta aqui é "existe um trial?", não "a linha
- * funciona?". Quem decide se funciona é `resolveLineEntitlement`, e é ele que separa
- * `active` de `expired` abaixo.
+ * A busca é por **status de teste** — `trialing` ou `trial_expired` —, porque a
+ * pergunta aqui é "existe um trial?", não "a linha funciona?". Quem decide se
+ * funciona é `resolveLineEntitlement`, e é ele que separa `active` de `expired`
+ * abaixo. Comparar com `'trialing'` cru deixaria de fora o teste encerrado por
+ * marcação, e a instalação apareceria como se nunca tivesse testado.
  */
 function resolveTrialState(
   subscriptions: SubscriptionWithItems[],
   now: Date,
 ): AppTrialState {
-  const trial = subscriptions.find(
-    subscription => subscription.status === 'trialing',
+  const trial = subscriptions.find(subscription =>
+    isTrialStatus(subscription.status),
   )
 
   if (!trial) return { status: 'never' }
