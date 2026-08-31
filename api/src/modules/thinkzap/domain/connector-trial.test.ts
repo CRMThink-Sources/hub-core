@@ -239,10 +239,12 @@ describe('checkTrialEligibility', () => {
    * cliente" para quem só fez um teste.
    */
   it('só teste marcado como expirado reporta que já usou', () => {
-    expect(checkTrialEligibility(context('1060-1', ['trial_expired']))).toEqual({
-      eligible: false,
-      reason: 'already-used',
-    })
+    expect(checkTrialEligibility(context('1060-1', ['trial_expired']))).toEqual(
+      {
+        eligible: false,
+        reason: 'already-used',
+      },
+    )
   })
 
   it('teste marcado mais contrato reporta contrato', () => {
