@@ -9,11 +9,13 @@ const makeBitrix = (
     getCrmItem: ReturnType<typeof vi.fn>
     getDealContactIds: ReturnType<typeof vi.fn>
     getCompanyContactIds: ReturnType<typeof vi.fn>
+    getLeadContactIds: ReturnType<typeof vi.fn>
   }> = {},
 ) => ({
   getCrmItem: vi.fn(),
   getDealContactIds: vi.fn().mockResolvedValue([]),
   getCompanyContactIds: vi.fn().mockResolvedValue([]),
+  getLeadContactIds: vi.fn().mockResolvedValue([]),
   ...overrides,
 })
 
@@ -32,6 +34,18 @@ const crmItem = (
     },
   },
 })
+
+/**
+ * `getCrmItem` roteado por `entityTypeId:id`. Par não mapeado rejeita de
+ * propósito: um vínculo resolvido para uma entidade que o teste não previu tem de
+ * aparecer como falha, não como destino silenciosamente ausente.
+ */
+const routeCrmItems = (items: Record<string, ReturnType<typeof crmItem>>) =>
+  vi.fn().mockImplementation((entityTypeId: number, id: string) => {
+    const found = items[`${entityTypeId}:${id}`]
+    if (found) return Promise.resolve(found)
+    return Promise.reject(new Error(`unexpected(${entityTypeId},${id})`))
+  })
 
 describe('bizprocEntityToPlacement', () => {
   it('maps known entities to their CRM placement', () => {
@@ -78,6 +92,181 @@ describe('resolveRelatedDestinations', () => {
 
     const matching = destinations.filter(d => d.phone === '5511000000000')
     expect(matching).toHaveLength(1)
+  })
+
+  it('includes the phone of the contact linked to the lead', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1:5': crmItem('5', 'Lead X', '5511111111111'),
+        '3:20': crmItem('20', 'Maria', '5522222222222'),
+      }),
+      getLeadContactIds: vi.fn().mockResolvedValue(['20']),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_LEAD_DETAIL_TAB',
+      '5',
+    )
+
+    expect(bitrix.getLeadContactIds).toHaveBeenCalledWith('5')
+    expect(destinations).toEqual(
+      expect.arrayContaining([
+        { id: '20', label: 'Contato - Maria', phone: '5522222222222' },
+      ]),
+    )
+  })
+
+  it('includes every contact linked to the lead, plus the lead itself', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1:5': crmItem('5', 'Lead X', '5511111111111'),
+        '3:20': crmItem('20', 'Maria', '5522222222222'),
+        '3:30': crmItem('30', 'Joao', '5533333333333'),
+      }),
+      getLeadContactIds: vi.fn().mockResolvedValue(['20', '30']),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_LEAD_DETAIL_TAB',
+      '5',
+    )
+
+    expect(destinations.map(d => d.phone).sort()).toEqual([
+      '5511111111111',
+      '5522222222222',
+      '5533333333333',
+    ])
+  })
+
+  it('falls back to the lead contactId when the linked-contacts call fails', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1:5': crmItem('5', 'Lead X', undefined, { contactId: 20 }),
+        '3:20': crmItem('20', 'Maria', '5522222222222'),
+      }),
+      getLeadContactIds: vi.fn().mockRejectedValue(new Error('boom')),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_LEAD_DETAIL_TAB',
+      '5',
+    )
+
+    expect(destinations).toEqual([
+      { id: '20', label: 'Contato - Maria', phone: '5522222222222' },
+    ])
+  })
+
+  it('falls back to the lead contactIds when no linked contact is returned', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1:5': crmItem('5', 'Lead X', undefined, { contactIds: [20, '30'] }),
+        '3:20': crmItem('20', 'Maria', '5522222222222'),
+        '3:30': crmItem('30', 'Joao', '5533333333333'),
+      }),
+      getLeadContactIds: vi.fn().mockResolvedValue([]),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_LEAD_DETAIL_TAB',
+      '5',
+    )
+
+    expect(destinations.map(d => d.phone).sort()).toEqual([
+      '5522222222222',
+      '5533333333333',
+    ])
+  })
+
+  it('includes the company linked to the lead and the contacts of that company', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1:5': crmItem('5', 'Lead X', undefined, { companyId: 7 }),
+        '4:7': crmItem('7', 'Acme', '5544444444444'),
+        '3:100': crmItem('100', 'Ana', '5555555555555'),
+      }),
+      getCompanyContactIds: vi.fn().mockResolvedValue(['100']),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_LEAD_DETAIL_TAB',
+      '5',
+    )
+
+    expect(bitrix.getCompanyContactIds).toHaveBeenCalledWith('7')
+    expect(destinations).toEqual(
+      expect.arrayContaining([
+        { id: '7', label: 'Empresa - Acme', phone: '5544444444444' },
+        { id: '100', label: 'Contato - Ana', phone: '5555555555555' },
+      ]),
+    )
+  })
+
+  it('deduplicates a phone shared by the lead, its contact and its company', async () => {
+    const shared = '5511000000000'
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1:5': crmItem('5', 'Lead X', shared, { companyId: 7 }),
+        '3:20': crmItem('20', 'Maria', shared),
+        '4:7': crmItem('7', 'Acme', shared),
+      }),
+      getLeadContactIds: vi.fn().mockResolvedValue(['20']),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_LEAD_DETAIL_TAB',
+      '5',
+    )
+
+    expect(destinations).toEqual([
+      { id: '5', label: 'Lead - Lead X', phone: shared },
+    ])
+  })
+
+  it('resolves only the lead itself when it has no linked client', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1:5': crmItem('5', 'Lead X', '5511111111111'),
+      }),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_LEAD_DETAIL_TAB',
+      '5',
+    )
+
+    expect(destinations).toEqual([
+      { id: '5', label: 'Lead - Lead X', phone: '5511111111111' },
+    ])
+    expect(bitrix.getCompanyContactIds).not.toHaveBeenCalled()
+  })
+
+  it('keeps the remaining lead destinations when one linked contact fails to load', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1:5': crmItem('5', 'Lead X', '5511111111111'),
+        '3:30': crmItem('30', 'Joao', '5533333333333'),
+      }),
+      getLeadContactIds: vi.fn().mockResolvedValue(['20', '30']),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_LEAD_DETAIL_TAB',
+      '5',
+    )
+
+    expect(destinations.map(d => d.phone).sort()).toEqual([
+      '5511111111111',
+      '5533333333333',
+    ])
   })
 
   it('returns no destinations for an unknown placement', async () => {

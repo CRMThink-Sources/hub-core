@@ -370,6 +370,30 @@ export class BitrixClient {
     }
   }
 
+  /**
+   * Contatos ligados ao lead pela seção "Cliente".
+   *
+   * `crm.lead.contact.items.get` é o método canônico do vínculo múltiplo — o campo
+   * `contactId` do item traz só o contato principal em portal antigo. O chamador
+   * mantém o fallback pelos campos do item para o caso desta chamada falhar.
+   */
+  async getLeadContactIds(leadId: string): Promise<string[]> {
+    const client = this.getClient()
+    try {
+      const response = await client.post(`/crm.lead.contact.items.get`, {
+        id: leadId,
+      })
+      const result = (response.data as { result?: unknown })?.result
+      if (!Array.isArray(result)) return []
+      return (result as { CONTACT_ID: number | string }[]).map(item =>
+        String(item.CONTACT_ID),
+      )
+    } catch (error) {
+      console.error('[BitrixClient] getLeadContactIds error:', error)
+      throw new BitrixError('Failed to get lead contact ids')
+    }
+  }
+
   async getCompanyContactIds(companyId: string): Promise<string[]> {
     const client = this.getClient()
     try {
