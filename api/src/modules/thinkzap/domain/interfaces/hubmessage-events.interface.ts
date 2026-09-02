@@ -127,12 +127,39 @@ export type HubMessageDeliveryState = {
 }
 
 /**
+ * Um erro da Cloud API da Meta, como a HubMessage o repassa em
+ * `contents[].external_information.errors[]`.
+ *
+ * `code` é a chave estável: o texto (`title`, `message`, `error_data.details`) é
+ * escrito pela Meta, traduzido e reescrito sem aviso, enquanto o número não muda. Por
+ * isso a tradução casa por código primeiro e só depois por substring do texto.
+ *
+ * Tudo opcional porque só o payload de `131047` foi observado, e afirmar campo
+ * obrigatório a partir de uma amostra faria um callback ligeiramente diferente
+ * quebrar a leitura em vez de degradar.
+ */
+export type HubMessageDeliveryError = {
+  code?: string
+  title?: string
+  message?: string
+  href?: string
+  error_data?: {
+    details?: string
+  }
+}
+
+/**
  * Um item de `contents[]` no callback de status: uma transição de estado da mensagem
  * que **nós** enviamos.
  *
  * `identifier` é o id da própria transição — não da mensagem. É o que serve de chave
  * de idempotência: a reentrega do mesmo evento repete o `identifier`, e duas
  * transições distintas da mesma mensagem trazem valores diferentes.
+ *
+ * `external_information.errors[]` é onde o motivo real chega quando
+ * `state.failedDescription` vem `null` — foi assim no callback de janela de 24h
+ * fechada (2026-08-30), e ler só o `failedDescription` fez o operador receber
+ * "recusou o envio e não informou o motivo" para um erro que a Meta explicou.
  */
 export type HubMessageStateItem = {
   identifier?: string
@@ -143,6 +170,9 @@ export type HubMessageStateItem = {
   internal_information?: {
     /** Repete o `message._id` — a confirmação de que ele é o id do envio. */
     integration_id?: string
+  }
+  external_information?: {
+    errors?: HubMessageDeliveryError[]
   }
   state?: HubMessageDeliveryState
 }
