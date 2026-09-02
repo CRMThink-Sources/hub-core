@@ -14,7 +14,11 @@ import type { WidgetOutboxRecord } from '@/modules/thinkzap/infra/persistence/re
 import type { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
-import { describeHubMessageDeliveryFailure } from './describe-hubmessage-delivery-failure'
+import {
+  buildFailureText,
+  describeHubMessageDeliveryFailure,
+  readMetaErrorCode,
+} from './describe-hubmessage-delivery-failure'
 import type { NotifyOutcome } from './notify-operator-delivery-failed'
 
 const log = createWorkerSourceLogger('hubmessage')
@@ -239,14 +243,35 @@ export class ProcessHubMessageDeliveryStatusUseCase {
   ): Promise<void> {
     const { logContext, stateItem, appendJobLog } = args
     const failedDescription = stateItem?.state?.failedDescription
-    const notice = describeHubMessageDeliveryFailure(failedDescription)
+    /**
+     * O código em campo próprio, não interpolado na mensagem: é o que permite filtrar
+     * por ele na observabilidade ("quantas recusas por janela fechada esta semana"),
+     * pergunta que não se responde com grep em texto livre.
+     */
+    const metaErrorCode = readMetaErrorCode(stateItem)
+    /**
+     * O texto reunido das duas portas (`errors[]` e `failedDescription`). Sem isto o
+     * log deste caminho ficava em "Motivo do provider: —" para um callback que a Meta
+     * explicou — o mesmo silêncio que o chat tinha.
+     */
+    const failureText = buildFailureText(stateItem)
+    const notice = describeHubMessageDeliveryFailure(stateItem)
 
     /** Cru sempre no log: é a pista quando o padrão traduzido é novo. */
     log.error(
-      { ...logContext, bitrixChatId, failedDescription },
+      {
+        ...logContext,
+        bitrixChatId,
+        metaErrorCode,
+        failureText,
+        failedDescription,
+      },
       'Meta recusou a entrega da mensagem enviada pelo canal aberto',
     )
-    await appendJobLog(`Motivo do provider: ${failedDescription ?? '—'}`)
+    await appendJobLog(
+      `Motivo do provider: ${failureText || '—'}` +
+        (metaErrorCode ? ` | código Meta: ${metaErrorCode}` : ''),
+    )
 
     const domain = await this.deps.domainRepo.getDomainById(domainId)
     if (!domain) {
