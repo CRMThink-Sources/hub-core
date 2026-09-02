@@ -3,6 +3,7 @@ import { SubscriptionItem } from '@/modules/application/domain/entities/subscrip
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { resolveOpenChannelContactId } from '@/shared/helpers/open-channel-contact-id'
 import { apiLogger } from '@/shared/infra/logger'
 
 /**
@@ -41,7 +42,11 @@ export type EnsureWidgetOpenChannelInput = {
   instanceId: string
   /** Id da mensagem no provider — a chave da row cujo `chat_id` será gravado. */
   providerMessageId: string
-  /** Telefone do destino, já normalizado pelo chamador. Vira o `USER.ID` no Bitrix. */
+  /**
+   * Telefone do destino. Passa por `resolveOpenChannelContactId` antes de virar o
+   * `chat.id`/`user.id` no Bitrix — a canonização não é confiada ao chamador, porque
+   * foi cada chamador decidindo sozinho que produziu o canal aberto duplicado.
+   */
   destination: string
   /** O texto a postar. Em envio só de anexo, o descritivo do tipo. */
   text: string
@@ -50,7 +55,7 @@ export type EnsureWidgetOpenChannelInput = {
 /** O mínimo que a abertura precisa do repositório de mensagens. */
 export type OpenChannelMessageStore = Pick<
   PrismaThinkzapMessageRepository,
-  'findByProviderMessageId' | 'updateChatId'
+  'findByProviderMessageId' | 'updateOpenChannelRefs'
 >
 
 /** O mínimo que a abertura precisa do Bitrix. */
@@ -118,18 +123,35 @@ export class EnsureWidgetOpenChannelConversation {
     }
 
     /**
-     * O guard de idempotência. Só funciona porque o `chatId` passou a ser
-     * persistido: no caminho antigo o valor era desestruturado da resposta do Bitrix
+     * O guard de idempotência. Só funciona porque a referência da sessão passou a ser
+     * persistida: no caminho antigo o valor era desestruturado da resposta do Bitrix
      * e **descartado**, então a condição nunca era satisfeita e cada retentativa do
      * webhook re-postava a mesma mensagem no canal aberto do cliente.
+     *
+     * Lê `bitrixChatId ?? chatId` porque a sessão mudou de coluna. Hoje ela vai para
+     * `bitrix_chat_id` — o mesmo papel que a coluna já tem no inbound — mas as rows
+     * gravadas antes disso guardam a sessão em `chat_id`. Sem o fallback elas
+     * pareceriam "conversa não aberta", e o reparo do callback de status re-postaria
+     * no canal do cliente. O fallback dispensa backfill: nenhum predicado separa com
+     * segurança essas rows das do caminho do operador, que já usam as duas colunas
+     * corretamente, e um backfill errado corromperia o histórico do operador.
      *
      * Falha de leitura não recusa: sem saber o estado, tentar abrir é o
      * comportamento útil — o Bitrix reusa a sessão existente para o mesmo `USER.ID`.
      */
     const existing = await this.findMessage(instanceId, providerMessageId)
-    if (existing?.chatId) {
-      return this.skip('already-open', logContext, existing.chatId)
+    const openedChatId = existing?.bitrixChatId ?? existing?.chatId
+    if (openedChatId) {
+      return this.skip('already-open', logContext, openedChatId)
     }
+
+    /**
+     * A identidade do contato tem de ser a mesma que o `sendToOpenChannel` vai pôr em
+     * `chat.id`, porque é ela que é gravada em `chat_id` como registro de sob qual
+     * identidade este contato entrou no canal aberto. Resolver aqui e lá com a mesma
+     * função é o que mantém as duas iguais.
+     */
+    const contactId = resolveOpenChannelContactId(destination)
 
     try {
       const { chatId } = await this.bitrixClient.sendToOpenChannel(
@@ -145,7 +167,12 @@ export class EnsureWidgetOpenChannelConversation {
        * pediria uma retentativa que duplicaria a postagem.
        */
       if (chatId) {
-        await this.persistChatId(instanceId, providerMessageId, chatId)
+        await this.persistOpenChannelRefs(
+          instanceId,
+          providerMessageId,
+          chatId,
+          contactId,
+        )
       }
 
       apiLogger.info(
@@ -207,17 +234,28 @@ export class EnsureWidgetOpenChannelConversation {
    * isto roda. Transformar o sucesso em `failed` por causa da escrita faria o log
    * mentir sobre o que o cliente vê na tela.
    */
-  private async persistChatId(
+  private async persistOpenChannelRefs(
     instanceId: string,
     providerMessageId: string,
-    chatId: string,
+    bitrixChatId: string,
+    contactId: string,
   ): Promise<void> {
     try {
-      await this.messages.updateChatId(instanceId, providerMessageId, chatId)
+      await this.messages.updateOpenChannelRefs(instanceId, providerMessageId, {
+        bitrixChatId,
+        chatId: contactId,
+      })
     } catch (err) {
       apiLogger.warn(
-        { app: 'thinkzap', instanceId, providerMessageId, chatId, err },
-        'Conversa aberta, mas o chatId não pôde ser persistido — o guard de idempotência fica sem efeito para esta mensagem',
+        {
+          app: 'thinkzap',
+          instanceId,
+          providerMessageId,
+          bitrixChatId,
+          contactId,
+          err,
+        },
+        'Conversa aberta, mas as referências do canal aberto não puderam ser persistidas — o guard de idempotência fica sem efeito para esta mensagem',
       )
     }
   }

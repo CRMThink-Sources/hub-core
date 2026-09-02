@@ -60,7 +60,19 @@ type PersistOutboundMessageInput = {
   instanceId: string
   providerMessageId: string
   bitrixMessageId: string
-  /** Telefone do contato — o `chat.id` do evento. */
+  /**
+   * A identidade do contato — o `chat.id` do evento, usado verbatim como destino no
+   * provider.
+   *
+   * É telefone canônico sempre que o contato tem um: as três direções que escrevem
+   * `chat.id` passam por `resolveOpenChannelContactId`, então o valor que volta aqui
+   * é o mesmo que o envio pelo widget usa para discar. Só `@lid` e grupo chegam em
+   * outra forma, e nesses o valor cru é o que o provider espera.
+   *
+   * Antes desta garantia, uma conversa Z-API iniciada pelo contato trazia o `chatLid`
+   * aqui, e a resposta do operador discava um identificador interno do WhatsApp como
+   * se fosse telefone.
+   */
   chatId: string
   /**
    * Chat do canal aberto (`im.chat_id`), onde o operador escreveu.
