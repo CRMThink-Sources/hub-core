@@ -616,4 +616,66 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
     const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
     expect(payload.MESSAGES[0]!.user.phone).toBe('5511999999999')
   })
+
+  /**
+   * A identidade do contato no canal aberto. Enquanto ela era o `chatLid`, o envio
+   * pelo widget — que identifica o contato pelo telefone — abria uma sessão e a
+   * resposta do contato abria outra: dois canais abertos para a mesma conversa.
+   */
+  it('identifica o chat direto pelo telefone canônico, não pelo chatLid', async () => {
+    const { useCase } = buildUseCase()
+    await useCase.execute(
+      makeEvent({
+        phone: '551199999999',
+        chatLid: 'chat-lid',
+        text: { message: 'hello' },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.chat.id).toBe('5511999999999')
+    expect(payload.MESSAGES[0]!.user.id).toBe('5511999999999')
+  })
+
+  /**
+   * Contato em modo privacidade: o WhatsApp não expõe número, então não há telefone a
+   * canonizar e o lid segue sendo a identidade. Também não há divergência a resolver
+   * — o widget não consegue iniciar conversa sem um número.
+   */
+  it('mantém o lid cru como identidade quando o contato está em modo privacidade', async () => {
+    const { useCase } = buildUseCase()
+    await useCase.execute(
+      makeEvent({
+        phone: '123456789012345@lid',
+        text: { message: 'hello' },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.chat.id).toBe('123456789012345@lid')
+    expect(payload.MESSAGES[0]!.user.id).toBe('123456789012345@lid')
+  })
+
+  /** Grupo não passa pela mudança: `resolveGroupChatId` continua como estava. */
+  it('mantém o jid do grupo como identidade', async () => {
+    const { useCase } = buildUseCase()
+    await useCase.execute(
+      makeEvent({
+        isGroup: true,
+        phone: '5511999999999-group',
+        text: { message: 'hello' },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.chat.id).toBe('5511999999999-group')
+  })
+
+  it('rejeita payload sem telefone em vez de abrir sessão sem dono', async () => {
+    const { useCase } = buildUseCase()
+
+    await expect(
+      useCase.execute(makeEvent({ phone: '', text: { message: 'hello' } })),
+    ).rejects.toThrow('Chat ID not found')
+  })
 })

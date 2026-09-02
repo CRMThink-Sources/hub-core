@@ -6,14 +6,14 @@ const {
   makeBitrixClientMock,
   sendToOpenChannelMock,
   findByProviderMessageIdMock,
-  updateChatIdMock,
+  updateOpenChannelRefsMock,
 } = vi.hoisted(() => ({
   getDomainByIdMock: vi.fn(),
   getAplicationContextMock: vi.fn(),
   makeBitrixClientMock: vi.fn(),
   sendToOpenChannelMock: vi.fn(),
   findByProviderMessageIdMock: vi.fn(),
-  updateChatIdMock: vi.fn(),
+  updateOpenChannelRefsMock: vi.fn(),
 }))
 
 vi.mock('@/config/env', () => ({
@@ -48,7 +48,7 @@ vi.mock(
   () => ({
     PrismaThinkzapMessageRepository: class {
       findByProviderMessageId = findByProviderMessageIdMock
-      updateChatId = updateChatIdMock
+      updateOpenChannelRefs = updateOpenChannelRefsMock
     },
   }),
 )
@@ -121,11 +121,14 @@ describe('processWidgetOpenChannelJob', () => {
       chatId: '4242',
       bitrixMessageId: '99',
     })
-    findByProviderMessageIdMock.mockResolvedValue({ chatId: null })
-    updateChatIdMock.mockResolvedValue(undefined)
+    findByProviderMessageIdMock.mockResolvedValue({
+      bitrixChatId: null,
+      chatId: null,
+    })
+    updateOpenChannelRefsMock.mockResolvedValue(undefined)
   })
 
-  it('abre a conversa com o canal do item e persiste o chatId', async () => {
+  it('abre a conversa com o canal do item e persiste as referências', async () => {
     await processWidgetOpenChannelJob(job)
 
     expect(sendToOpenChannelMock).toHaveBeenCalledWith(
@@ -134,7 +137,14 @@ describe('processWidgetOpenChannelJob', () => {
       '5511999999999',
       'Olá',
     )
-    expect(updateChatIdMock).toHaveBeenCalledWith('inst-db-1', 'msg-1', '4242')
+    expect(updateOpenChannelRefsMock).toHaveBeenCalledWith(
+      'inst-db-1',
+      'msg-1',
+      {
+        bitrixChatId: '4242',
+        chatId: '5511999999999',
+      },
+    )
   })
 
   it('monta o cliente Bitrix por domínio e appCode, sem requisição HTTP', async () => {

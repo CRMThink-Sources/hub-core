@@ -222,26 +222,33 @@ export class PrismaThinkzapMessageRepository {
   }
 
   /**
-   * Grava só o `chat_id` da conversa do canal aberto na mensagem que a abriu.
+   * Grava as duas referências da conversa do canal aberto na mensagem que a abriu: a
+   * sessão do Bitrix em `bitrix_chat_id` e a identidade do contato em `chat_id`.
+   *
+   * **As duas, e nesses papéis, porque é o que o inbound já faz.** Antes a abertura
+   * pelo widget gravava a sessão em `chat_id` — a mesma coluna onde o inbound grava a
+   * identidade do contato. Dois significados opostos na mesma coluna, e nenhum jeito
+   * de descobrir pelo banco sob qual identidade um contato foi registrado, que é
+   * exatamente a informação necessária para diagnosticar canal aberto duplicado.
    *
    * Existe em vez de um `create` parcial porque a abertura da conversa não tem o
    * corpo da mensagem em mãos por obrigação — ela recebe o texto **a postar**, que
    * em envio só de anexo é um descritivo, não o que está persistido. Um `create`
    * levaria esse descritivo para a coluna `text`.
    *
-   * É este valor que faz o guard de "conversa já aberta" funcionar: sem ele
+   * É `bitrix_chat_id` que faz o guard de "conversa já aberta" funcionar: sem ele
    * gravado, todo reprocessamento re-posta a mesma mensagem no canal do cliente.
    */
-  async updateChatId(
+  async updateOpenChannelRefs(
     instanceId: string,
     providerMessageId: string,
-    chatId: string,
+    refs: { bitrixChatId: string; chatId: string },
   ): Promise<void> {
     await prisma.thinkzapMessage.update({
       where: {
         uq_msg_instance_provider: { instanceId, providerMessageId },
       },
-      data: { chatId },
+      data: { bitrixChatId: refs.bitrixChatId, chatId: refs.chatId },
     })
   }
 }

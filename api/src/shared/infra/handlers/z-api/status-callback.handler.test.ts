@@ -4,7 +4,7 @@ const {
   getInstanceByInstanceIdMock,
   findByProviderMessageIdMock,
   createMock,
-  updateChatIdMock,
+  updateOpenChannelRefsMock,
   getDomainByIdMock,
   sendToOpenChannelMock,
   findLineItemByInstanceIdMock,
@@ -12,7 +12,7 @@ const {
   getInstanceByInstanceIdMock: vi.fn(),
   findByProviderMessageIdMock: vi.fn(),
   createMock: vi.fn(),
-  updateChatIdMock: vi.fn(),
+  updateOpenChannelRefsMock: vi.fn(),
   getDomainByIdMock: vi.fn(),
   sendToOpenChannelMock: vi.fn(),
   findLineItemByInstanceIdMock: vi.fn(),
@@ -50,7 +50,7 @@ vi.mock(
     PrismaThinkzapMessageRepository: class {
       findByProviderMessageId = findByProviderMessageIdMock
       create = createMock
-      updateChatId = updateChatIdMock
+      updateOpenChannelRefs = updateOpenChannelRefsMock
     },
   }),
 )
@@ -142,7 +142,7 @@ describe('StatusCallbackHandler', () => {
       chatId: '4242',
       bitrixMessageId: '99',
     })
-    updateChatIdMock.mockResolvedValue(undefined)
+    updateOpenChannelRefsMock.mockResolvedValue(undefined)
   })
 
   const handle = (overrides: Record<string, unknown> = {}) =>
@@ -164,10 +164,17 @@ describe('StatusCallbackHandler', () => {
     )
   })
 
-  it('persiste o chatId devolvido pelo Bitrix', async () => {
+  it('persiste a sessão devolvida pelo Bitrix e a identidade do contato', async () => {
     await handle()
 
-    expect(updateChatIdMock).toHaveBeenCalledWith('inst-db-1', 'msg-1', '4242')
+    expect(updateOpenChannelRefsMock).toHaveBeenCalledWith(
+      'inst-db-1',
+      'msg-1',
+      {
+        bitrixChatId: '4242',
+        chatId: '5511999999999',
+      },
+    )
   })
 
   /**
