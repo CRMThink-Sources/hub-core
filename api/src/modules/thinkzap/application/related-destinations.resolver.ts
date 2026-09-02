@@ -166,17 +166,101 @@ async function getContactDestinations(
   return results
 }
 
+/**
+ * Vínculos de um lead: o próprio lead mais o **cliente** ligado a ele.
+ *
+ * "Cliente" no lead do Bitrix é contato + empresa, e é onde o operador liga um
+ * cadastro que já existe — o telefone costuma morar lá, não no lead. Por isso a
+ * empresa entra como destino em si (`entityTypeId: 4`, telefones do `fm`) e não
+ * só como fonte dos contatos dela.
+ */
 async function getLeadDestinations(
   bitrix: BitrixClient,
   entity: Record<string, unknown>,
   contextId: string,
 ): Promise<EntityId[]> {
   const results: EntityId[] = [{ entityTypeId: 1, id: contextId }]
-  const companyContactIds = await getCompanyContactIdsFromEntity(bitrix, entity)
+
+  /**
+   * As duas consultas correm juntas: são independentes, e serializá-las somaria
+   * duas idas de rede à abertura do widget.
+   */
+  const [leadContactIds, companyContactIds] = await Promise.all([
+    getLeadContactIdsWithFallback(bitrix, entity, contextId),
+    getCompanyContactIdsFromEntity(bitrix, entity),
+  ])
+
+  for (const id of leadContactIds) {
+    results.push({ entityTypeId: 3, id })
+  }
+
+  const companyId = readCompanyId(entity)
+  if (companyId) results.push({ entityTypeId: 4, id: companyId })
+
   for (const id of companyContactIds) {
     results.push({ entityTypeId: 3, id })
   }
+
   return results
+}
+
+/**
+ * Contatos ligados ao lead, por `crm.lead.contact.items.get` com fallback pelos
+ * campos do item.
+ *
+ * As duas fontes existem porque nenhuma sozinha basta: `contactId` traz só o
+ * contato principal em portal antigo — lead com dois contatos ligados perderia o
+ * segundo — e depender apenas do método canônico deixaria uma falha de rede zerar
+ * os contatos com `contactId` já em mãos, de graça, no item. O fallback só existe
+ * para o caminho de falha: no caminho feliz as duas fontes dariam o mesmo
+ * resultado depois da dedup por telefone.
+ */
+async function getLeadContactIdsWithFallback(
+  bitrix: BitrixClient,
+  entity: Record<string, unknown>,
+  leadId: string,
+): Promise<string[]> {
+  const linked = await bitrix.getLeadContactIds(leadId).catch(err => {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.message.related_destinations_failed',
+      { app: 'thinkzap', subQuery: 'lead-contact-ids', err },
+      { level: 'error', msg: 'error getting lead contact ids' },
+    )
+    return [] as string[]
+  })
+
+  if (linked.length > 0) return linked
+
+  return readContactIdsFromEntity(entity)
+}
+
+/**
+ * `contactId` (principal) e `contactIds` (múltiplo) do item, normalizados para
+ * `string[]` sem repetição. Campo ausente em qualquer das duas formas vira lista
+ * vazia — o item do lead nem sempre traz `contactIds`.
+ */
+function readContactIdsFromEntity(entity: Record<string, unknown>): string[] {
+  const ids: string[] = []
+
+  const single = readId(entity['contactId'])
+  if (single) ids.push(single)
+
+  const many = entity['contactIds']
+  if (Array.isArray(many)) {
+    for (const raw of many) {
+      const id = readId(raw)
+      if (id) ids.push(id)
+    }
+  }
+
+  return Array.from(new Set(ids))
+}
+
+function readId(value: unknown): string | null {
+  if (typeof value === 'number') return String(value)
+  if (typeof value === 'string' && value) return value
+  return null
 }
 
 async function getCompanyDestinations(
@@ -202,17 +286,15 @@ async function getCompanyDestinations(
   return results
 }
 
+function readCompanyId(entity: Record<string, unknown>): string | null {
+  return readId(entity['companyId'])
+}
+
 async function getCompanyContactIdsFromEntity(
   bitrix: BitrixClient,
   entity: Record<string, unknown>,
 ): Promise<string[]> {
-  const companyIdRaw = entity['companyId']
-  const companyId =
-    typeof companyIdRaw === 'number'
-      ? String(companyIdRaw)
-      : typeof companyIdRaw === 'string' && companyIdRaw
-        ? companyIdRaw
-        : null
+  const companyId = readCompanyId(entity)
   if (!companyId) return []
 
   return bitrix.getCompanyContactIds(companyId).catch(err => {
@@ -231,10 +313,9 @@ function getEntityId(
   key: string,
   entityTypeId: EntityTypeId,
 ): EntityId | null {
-  let value: string | number | null = entity[key] as string | number | null
-  if (typeof value === 'number') value = value.toString()
-  if (!value) return null
-  return { entityTypeId, id: value }
+  const id = readId(entity[key])
+  if (!id) return null
+  return { entityTypeId, id }
 }
 
 function deduplicateByPhone(destinations: Destination[]): Destination[] {
