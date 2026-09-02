@@ -46,6 +46,13 @@ export type EnqueueTemplateIntentInput = {
   entityId: string
   /** Operador que disparou, quando houve um: o robô de Bizproc não tem. */
   operatorBitrixUserId?: string
+  /**
+   * Âncoras da campanha de SMS do Bitrix, presentes **só** no envio vindo do handler
+   * de `messageservice`. Widget e robô as deixam vazias — nenhum dos dois tem para
+   * onde reportar status.
+   */
+  smsSenderCode?: string
+  smsMessageId?: string
 }
 
 /**
@@ -179,6 +186,13 @@ export class EnqueueTemplateSendService {
        * preparo de texto. Nulo no caminho do robô de Bizproc, que não tem operador.
        */
       operatorBitrixUserId: input.operatorBitrixUserId ?? null,
+      /**
+       * Preenchidas só no envio vindo da campanha. O `sms_message_id` é único na
+       * tabela: um reenvio do mesmo destinatário falha na gravação em vez de virar
+       * segundo template — que, no HubMessage, é segunda cobrança.
+       */
+      smsSenderCode: input.smsSenderCode ?? null,
+      smsMessageId: input.smsMessageId ?? null,
     })
 
     /**

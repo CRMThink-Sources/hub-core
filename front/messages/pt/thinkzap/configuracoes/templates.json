@@ -35,5 +35,25 @@
     "cancelar": "Cancelar",
     "erroNome": "Nome inválido: use snake_case (a-z, 0-9, _).",
     "erroBody": "O corpo da mensagem é obrigatório."
+  },
+  "campanha": {
+    "titulo": "Campanha de SMS do Bitrix24",
+    "descricao": "Cada template oferecido aparece como um provedor na lista de Marketing → Campanha de SMS. Escolher o provedor é escolher o template.",
+    "comoUsar": "No texto da campanha, informe apenas os valores das variáveis, na ordem — um por linha ou separados por ponto e vírgula. Use campos do CRM para que cada contato receba o valor dele. Ex.: #LEAD.TITLE#;#LEAD.ID#",
+    "oferecer": "Oferecer nas campanhas",
+    "remover": "Remover das campanhas",
+    "salvando": "Salvando...",
+    "semVariaveis": "Sem variáveis — deixe o texto da campanha vazio.",
+    "comVariaveis_one": "{{count}} variável a informar no texto da campanha.",
+    "comVariaveis_other": "{{count}} variáveis a informar no texto da campanha.",
+    "exemplo": "Exemplo de texto:",
+    "vazio": "Nenhum template aprovado nesta linha ainda.",
+    "registrado": "Template disponível nas suas campanhas de SMS.",
+    "removido": "Template removido das campanhas de SMS.",
+    "indisponivel": "Nada foi alterado: o envio por campanha não está disponível neste ambiente.",
+    "indisponivelAmbiente": "O envio por campanha não está disponível neste ambiente. Fale com o suporte.",
+    "erroLeitura": "Não foi possível ler os templates desta linha.",
+    "erroAcao": "Não foi possível alterar o provedor deste template.",
+    "bloqueada": "A assinatura desta linha não está ativa, então os templates não podem ser oferecidos às campanhas."
   }
 }

@@ -207,6 +207,22 @@ export const env = {
       handlerUrl: process.env.BITRIX_TEMPLATE_ROBOT_HANDLER_URL ?? '',
       placementUrl: process.env.BITRIX_TEMPLATE_ROBOT_PLACEMENT_URL ?? '',
     },
+    /**
+     * Provedor de mensagem (`messageservice`) que a campanha de SMS do Bitrix usa
+     * como canal de saída.
+     *
+     * `codePrefix` monta o `CODE` do sender junto com o id do item de assinatura da
+     * linha (`<prefixo>_<subscriptionItemId>`) — é o único identificador nosso que
+     * volta no payload do handler, e portanto o que reencontra a linha.
+     *
+     * `handlerUrl` vazio deixa o registro como no-op, pela mesma razão do robô: um
+     * ambiente sem a rota publicada não pode registrar no portal do cliente um
+     * provedor apontando para `404`.
+     */
+    smsSender: {
+      codePrefix: process.env.BITRIX_SMS_SENDER_CODE_PREFIX ?? 'thinkzap_sms',
+      handlerUrl: process.env.BITRIX_SMS_HANDLER_URL ?? '',
+    },
     /** false only in local dev (e.g. SSL-inspecting proxy). Set BITRIX_TLS_REJECT_UNAUTHORIZED=false */
     tlsRejectUnauthorized:
       process.env.BITRIX_TLS_REJECT_UNAUTHORIZED !== 'false',

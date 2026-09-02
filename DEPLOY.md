@@ -189,6 +189,31 @@ remoção do admin (`DELETE /api/portal/apps/:appId/bizproc-robot`, que remove o
 O robô de envio livre e o envio do widget não são tocados. Intenções já no outbox
 seguem sendo entregues — remover o robô impede disparos novos, não cancela os aceitos.
 
+### Provedor de mensagem da campanha de SMS — escopo `messageservice` (pendência externa)
+
+O provedor de mensagem (`messageservice.sender.add`) é o que faz a linha de WhatsApp
+aparecer em **Marketing → Campanha de SMS** no Bitrix do cliente. Toda chamada de
+registro depende do escopo `messageservice` estar **publicado no manifesto do app no
+Marketplace** — e de o portal reautorizar o app depois disso.
+
+**Enquanto o escopo não estiver publicado**, todo registro responde erro de escopo e o
+teste end-to-end fica bloqueado. É passo externo, fora deste repositório.
+
+Ordem de deploy, pelo mesmo motivo do robô de template:
+
+1. **Escopo primeiro.** Publicar o manifesto com `messageservice`; portais já
+   instalados só passam a conceder o escopo depois de reautorizar.
+2. **Deploy com `BITRIX_SMS_HANDLER_URL` vazia.** Todo registro vira `skipped`, nenhuma
+   chamada ao Bitrix, nada muda para nenhum cliente.
+3. **Preencher `BITRIX_SMS_HANDLER_URL`** apontando para
+   `<API>/api/thinkzap/webhooks/bitrix/sms-provider`, já no ar.
+4. **Registrar por linha** no portal admin
+   (`POST /api/portal/apps/:appId/thinkzap-lines/:subscriptionItemId/sms-provider`).
+
+**Rollback:** remover o sender pela ação do admin (`DELETE` na mesma rota). Esvaziar
+`BITRIX_SMS_HANDLER_URL` impede registros novos, mas **não** tira da tela do cliente os
+provedores já registrados — só a remoção do sender faz isso.
+
 ## Desenvolvimento local
 
 - [docs/DEV-WORKERS.md](docs/DEV-WORKERS.md) — **workers e filas**. O compose de dev não

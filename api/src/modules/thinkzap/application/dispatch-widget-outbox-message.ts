@@ -16,6 +16,7 @@ import {
 import { DestinationLock } from '@/modules/thinkzap/infra/queue/destination-send-lock'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
+import type { SmsMessageStatus } from './report-sms-message-status'
 import { WidgetSendOutcome } from './notify-widget-send-outcome'
 
 /** A credencial da linha, resolvida pelo chamador. */
@@ -71,6 +72,20 @@ export type DispatchDeps = {
   ) => Promise<void>
   /** O comentário de timeline do envio bem-sucedido. Nunca lança. */
   notifySent: (row: WidgetOutboxRecord) => Promise<void>
+  /**
+   * Escreve o desfecho na tela de campanha do Bitrix, para as rows que vieram de uma.
+   *
+   * Porta e não import direto pelo mesmo motivo de `prepareOutboundText`: fala com o
+   * Bitrix, e o despacho é testado sem rede. Ausente, nada é reportado — que é o
+   * comportamento correto para todo envio que não veio de campanha.
+   *
+   * **Nunca lança.** A mensagem já foi entregue quando isto roda; um erro aqui não
+   * pode desfazer, reenfileirar nem marcar como falho um envio que deu certo.
+   */
+  reportSmsStatus?: (
+    row: WidgetOutboxRecord,
+    status: SmsMessageStatus,
+  ) => Promise<void>
   /**
    * Log na aba Logs do job (Bull Board). Registra **decisão**, não passo a passo: cada
    * chamada é um round-trip ao Redis, e o valor está em explicar por que o provider foi
@@ -240,6 +255,7 @@ export class DispatchWidgetOutboxMessage {
         },
       )
       await this.deps.notifyOutcome('failed', row)
+      await this.reportCampaignStatus(row, 'failed')
       return { status: 'failed' }
     }
 
@@ -314,9 +330,33 @@ export class DispatchWidgetOutboxMessage {
       'Mensagem do widget entregue ao provider',
     )
 
+    /**
+     * `sent` e não `delivered`: o provider aceitou, ninguém confirmou entrega ainda.
+     * Linha `ZAPI` para aqui — a Z-API não confirma entrega por mensagem no caminho
+     * que o ThinkZap usa, e dizer `delivered` sem confirmação afirmaria ao cliente que
+     * a campanha chegou quando ninguém sabe.
+     */
+    await this.reportCampaignStatus(row, 'sent')
+
     await this.afterDelivery(row, providerMessageId)
 
     return { status: 'sent', providerMessageId }
+  }
+
+  /**
+   * Reporta o desfecho na tela de campanha do Bitrix — só para row que veio de uma.
+   *
+   * As duas âncoras juntas são a marca de origem: envio de widget e de robô as tem
+   * nulas e não reporta nada, que é o comportamento correto — não há campanha onde
+   * escrever.
+   */
+  private async reportCampaignStatus(
+    row: WidgetOutboxRecord,
+    status: SmsMessageStatus,
+  ): Promise<void> {
+    if (!row.smsSenderCode || !row.smsMessageId) return
+
+    await this.deps.reportSmsStatus?.(row, status)
   }
 
   /**
@@ -443,6 +483,12 @@ export class DispatchWidgetOutboxMessage {
         'Última tentativa esgotada. Intenção marcada como FAILED e operador avisado na timeline.',
       )
       await this.deps.notifyOutcome('failed', row)
+      /**
+       * Só no esgotamento. Reportar `failed` a cada tentativa faria a tela de campanha
+       * mostrar falha enquanto o worker ainda tem retentativa pela frente — e o Bitrix
+       * não tem status de "tentando de novo" para desfazer isso.
+       */
+      await this.reportCampaignStatus(row, 'failed')
       return { status: 'failed' }
     }
 

@@ -59,6 +59,12 @@ import {
   makeGetLineSettingsController,
   makeLinkLineChannelController,
   makeUnlinkLineChannelController,
+  makeGetLineSmsProviderController,
+  makeRegisterLineSmsProviderController,
+  makeDeleteLineSmsProviderController,
+  makeGetLineTemplateProvidersController,
+  makeRegisterTemplateSmsProviderController,
+  makeDeleteTemplateSmsProviderController,
   makeUpdateLineSettingsController,
 } from './main/line/make-line-controllers'
 
@@ -354,6 +360,53 @@ export const createThinkerszapRoutes = (): Router => {
     '/lines/:itemId/channel',
     requireThinkzapPermission('connectors', 'delete'),
     adaptControllerFactory(makeUnlinkLineChannelController),
+  )
+  /**
+   * Provedor de mensagem da campanha de SMS, por linha.
+   *
+   * Mesmas permissões do vínculo de canal — as duas escrevem no portal do cliente, e
+   * quem pode ligar a linha ao CRM pode oferecê-la à campanha. Remover é `delete`
+   * porque tira a linha da tela de campanha e não tem desfazer automático.
+   */
+  router.get(
+    '/lines/:itemId/sms-provider',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetLineSmsProviderController),
+  )
+  router.post(
+    '/lines/:itemId/sms-provider',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeRegisterLineSmsProviderController),
+  )
+  router.delete(
+    '/lines/:itemId/sms-provider',
+    requireThinkzapPermission('connectors', 'delete'),
+    adaptControllerFactory(makeDeleteLineSmsProviderController),
+  )
+  /**
+   * Provedor por **template**, na linha oficial. O `CODE` do sender declara o
+   * template, e é o que faz a lista de provedores da campanha virar o seletor de
+   * template — o payload do handler não carrega essa informação por nenhum outro
+   * caminho.
+   *
+   * Nome e idioma vão no corpo, inclusive no `DELETE`: o nome é do cliente e o
+   * separador do `CODE` é `.`, então um segmento de path exigiria codificação em toda
+   * chamada.
+   */
+  router.get(
+    '/lines/:itemId/sms-templates',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetLineTemplateProvidersController),
+  )
+  router.post(
+    '/lines/:itemId/sms-templates',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeRegisterTemplateSmsProviderController),
+  )
+  router.delete(
+    '/lines/:itemId/sms-templates',
+    requireThinkzapPermission('connectors', 'delete'),
+    adaptControllerFactory(makeDeleteTemplateSmsProviderController),
   )
 
   router.get(

@@ -35,5 +35,25 @@
     "cancelar": "Cancelar",
     "erroNome": "Nombre inválido: usa snake_case (a-z, 0-9, _).",
     "erroBody": "El cuerpo del mensaje es obligatorio."
+  },
+  "campanha": {
+    "titulo": "Campaña de SMS de Bitrix24",
+    "descricao": "Cada plantilla ofrecida aparece como un proveedor en Marketing → Campaña de SMS. Elegir el proveedor es elegir la plantilla.",
+    "comoUsar": "En el texto de la campaña, informe solo los valores de las variables, en orden — uno por línea o separados por punto y coma. Use campos del CRM para que cada contacto reciba su valor. Ej.: #LEAD.TITLE#;#LEAD.ID#",
+    "oferecer": "Ofrecer en las campañas",
+    "remover": "Quitar de las campañas",
+    "salvando": "Guardando...",
+    "semVariaveis": "Sin variables — deje el texto de la campaña vacío.",
+    "comVariaveis_one": "{{count}} variable a informar en el texto de la campaña.",
+    "comVariaveis_other": "{{count}} variables a informar en el texto de la campaña.",
+    "exemplo": "Ejemplo de texto:",
+    "vazio": "Ninguna plantilla aprobada en esta línea todavía.",
+    "registrado": "Plantilla disponible en sus campañas de SMS.",
+    "removido": "Plantilla quitada de las campañas de SMS.",
+    "indisponivel": "No se cambió nada: el envío por campaña no está disponible en este entorno.",
+    "indisponivelAmbiente": "El envío por campaña no está disponible en este entorno. Hable con el soporte.",
+    "erroLeitura": "No se pudieron leer las plantillas de esta línea.",
+    "erroAcao": "No se pudo cambiar el proveedor de esta plantilla.",
+    "bloqueada": "La suscripción de esta línea no está activa, así que las plantillas no pueden ofrecerse en las campañas."
   }
 }
