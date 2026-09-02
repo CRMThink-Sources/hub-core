@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { axiosPortal } from '@/infra/client/axios-portal'
+import { AdminClientSmsProviderSection } from './admin-client-sms-provider-section'
 import type { ThinkzapInstanceItem } from './admin-client-instances-section'
 
 type ReactivateState =
@@ -393,6 +394,16 @@ export function AdminInstanceConfigModal({
               </p>
             ) : null}
           </section>
+
+          <hr className="border-border" />
+
+          {/* Provedor de mensagem da campanha de SMS do Bitrix — por linha, porque o
+              `CODE` do sender deriva deste mesmo item de assinatura. */}
+          <AdminClientSmsProviderSection
+            appId={appId}
+            subscriptionItemId={instance.subscriptionItemId}
+            provider={instance.provider}
+          />
         </DialogBody>
 
         <DialogFooter>

@@ -40,6 +40,8 @@ const row = (
   attempts: 0,
   lastError: null,
   operatorBitrixUserId: '7',
+  smsSenderCode: null,
+  smsMessageId: null,
   createdAt: new Date('2026-08-14T12:00:00.000Z'),
   sentAt: null,
   ...overrides,

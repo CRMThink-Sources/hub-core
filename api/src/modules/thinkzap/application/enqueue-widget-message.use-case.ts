@@ -62,6 +62,8 @@ export class EnqueueWidgetMessageUseCase {
       entity,
       entityId,
       operatorBitrixUserId,
+      smsSenderCode,
+      smsMessageId,
     } = input
 
     const text = message?.trim()
@@ -121,6 +123,13 @@ export class EnqueueWidgetMessageUseCase {
        * timeline e o aviso de falha, que leem esta mesma coluna.
        */
       operatorBitrixUserId: operatorBitrixUserId ?? null,
+      /**
+       * Preenchidas só no envio vindo da campanha. É o `sms_message_id` — único na
+       * tabela — que faz um reenvio do mesmo destinatário falhar na gravação em vez de
+       * virar segunda mensagem no WhatsApp do contato.
+       */
+      smsSenderCode: smsSenderCode ?? null,
+      smsMessageId: smsMessageId ?? null,
     })
 
     /**

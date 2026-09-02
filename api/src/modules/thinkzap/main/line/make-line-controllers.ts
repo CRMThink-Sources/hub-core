@@ -2,6 +2,7 @@ import { Request } from 'express'
 import { env } from '@/config/env'
 import { Controller } from '@/shared/presentation/controller'
 import { makeBitrixClient } from '@/shared/main/make-bitrix-client'
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { HubMessageConnectorProvider } from '@/modules/thinkzap/infra/providers/hubmessage-connector-provider'
 import { ConnectOfficialLine } from '@/modules/thinkzap/application/connect-official-line'
 import { GetLineConnection } from '@/modules/thinkzap/application/get-line-connection'
@@ -19,6 +20,18 @@ import { GetLineSettingsController } from '@/modules/thinkzap/presentation/contr
 import { UpdateLineSettingsController } from '@/modules/thinkzap/presentation/controllers/line/update-line-settings.controller'
 import { LinkLineChannelController } from '@/modules/thinkzap/presentation/controllers/line/link-line-channel.controller'
 import { UnlinkLineChannelController } from '@/modules/thinkzap/presentation/controllers/line/unlink-line-channel.controller'
+import {
+  DeleteLineSmsProviderController,
+  GetLineSmsProviderController,
+  RegisterLineSmsProviderController,
+} from '@/modules/thinkzap/presentation/controllers/line/line-sms-provider.controller'
+import {
+  DeleteTemplateSmsProviderController,
+  GetLineTemplateProvidersController,
+  RegisterTemplateSmsProviderController,
+} from '@/modules/thinkzap/presentation/controllers/line/line-template-providers.controller'
+import { ListWidgetTemplatesUseCase } from '@/modules/thinkzap/application/list-widget-templates'
+import { makeTemplateProviderResolver } from '../connector/make-template-provider-resolver'
 import { makeLineDeps } from './make-line-deps'
 import { makeDisconnectExpiredLine } from '../make-disconnect-expired-line'
 
@@ -136,6 +149,93 @@ export const makeUnlinkLineChannelController = async (
     getAplicationContext,
     subscriptionItems,
     instanceRepository,
+    await makeBitrixClient(req),
+  )
+}
+
+/**
+ * Provedor de mensagem da campanha de SMS, na superficie do cliente.
+ *
+ * Cliente Bitrix **do portal do cliente**, como o vinculo de canal: o provedor a
+ * registrar vive no CRM dele, e e la que a campanha vai procura-lo.
+ */
+export const makeGetLineSmsProviderController = async (
+  req: Request,
+): Promise<Controller> => {
+  const { getAplicationContext } = makeLineDeps()
+
+  return new GetLineSmsProviderController(
+    getAplicationContext,
+    await makeBitrixClient(req),
+  )
+}
+
+export const makeRegisterLineSmsProviderController = async (
+  req: Request,
+): Promise<Controller> => {
+  const { getAplicationContext } = makeLineDeps()
+
+  return new RegisterLineSmsProviderController(
+    getAplicationContext,
+    await makeBitrixClient(req),
+  )
+}
+
+export const makeDeleteLineSmsProviderController = async (
+  req: Request,
+): Promise<Controller> => {
+  const { getAplicationContext } = makeLineDeps()
+
+  return new DeleteLineSmsProviderController(
+    getAplicationContext,
+    await makeBitrixClient(req),
+  )
+}
+
+/**
+ * Provedor por **template** da linha oficial.
+ *
+ * A listagem de templates entra como dependencia porque as tres rotas precisam do
+ * catalogo aprovado: e ele que diz quais templates existem, quantas variaveis cada um
+ * consome e se o que o cliente pediu para registrar ainda esta la.
+ */
+const makeTemplateCatalog = () =>
+  new ListWidgetTemplatesUseCase(
+    makeGetAplicationContext(),
+    makeTemplateProviderResolver(),
+  )
+
+export const makeGetLineTemplateProvidersController = async (
+  req: Request,
+): Promise<Controller> => {
+  const { getAplicationContext } = makeLineDeps()
+
+  return new GetLineTemplateProvidersController(
+    getAplicationContext,
+    makeTemplateCatalog(),
+    await makeBitrixClient(req),
+  )
+}
+
+export const makeRegisterTemplateSmsProviderController = async (
+  req: Request,
+): Promise<Controller> => {
+  const { getAplicationContext } = makeLineDeps()
+
+  return new RegisterTemplateSmsProviderController(
+    getAplicationContext,
+    makeTemplateCatalog(),
+    await makeBitrixClient(req),
+  )
+}
+
+export const makeDeleteTemplateSmsProviderController = async (
+  req: Request,
+): Promise<Controller> => {
+  const { getAplicationContext } = makeLineDeps()
+
+  return new DeleteTemplateSmsProviderController(
+    getAplicationContext,
     await makeBitrixClient(req),
   )
 }

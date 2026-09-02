@@ -27,6 +27,13 @@ export type SendWidgetMessageInput = {
    * prefixo — ausente, o envio sai sem prefixo.
    */
   operatorBitrixUserId?: string
+  /**
+   * Âncoras da campanha de SMS do Bitrix, presentes **só** quando o envio veio do
+   * handler de `messageservice`. É por elas que o worker sabe para onde reportar o
+   * status — envio de widget não tem para onde, e as deixa vazias.
+   */
+  smsSenderCode?: string
+  smsMessageId?: string
 }
 
 export type SendWidgetMessageResult = {

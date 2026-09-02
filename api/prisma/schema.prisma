@@ -439,6 +439,23 @@ model ThinkzapWidgetOutbox {
   /// coluna — essas entregam sem prefixo.
   operatorBitrixUserId String? @map("operator_bitrix_user_id")
 
+  /// Âncoras do provedor de mensagem do Bitrix, preenchidas **só** no envio vindo de
+  /// campanha de SMS. Sem as duas não há como o Bitrix casar o status com a mensagem
+  /// da campanha, e é por elas que o worker sabe que aquele envio veio de uma.
+  ///
+  /// Nulas em envio de widget e de robô — esses não reportam status a lugar nenhum.
+  smsSenderCode String? @map("sms_sender_code")
+
+  /// `message_id` do Bitrix, e a **chave de idempotência** da campanha: retentativa do
+  /// Bitrix e duplo disparo existem, e a segunda mensagem é visível para o contato —
+  /// no HubMessage, cobrada duas vezes.
+  /// `@unique` de **campo**, não `@@unique([...], name:)`: um unique nomeado é exposto
+  /// pelo nome no `where` do Prisma (`uq_outbox_sms_message: { smsMessageId }`), e a
+  /// busca pelo campo cru vira erro só em runtime — o tipo gerado é permissivo demais
+  /// para o compilador barrar. O índice no banco é o mesmo
+  /// (`core_thinkerszap_widget_outbox_sms_message_id_key`, o nome padrão do Prisma).
+  smsMessageId String? @unique @map("sms_message_id")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   sentAt    DateTime? @map("sent_at")

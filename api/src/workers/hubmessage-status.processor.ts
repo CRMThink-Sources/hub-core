@@ -7,6 +7,8 @@ import { notifyOperatorDeliveryFailed } from '@/modules/thinkzap/application/not
 import { ProcessHubMessageDeliveryStatusUseCase } from '@/modules/thinkzap/application/process-hubmessage-delivery-status.use-case'
 import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
+import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
+import { reportSmsMessageStatus } from '@/modules/thinkzap/application/report-sms-message-status'
 import { redisConnection } from '@/queue/redis-connection'
 import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
 import { makeBitrixClientByDomainAndAppCoode } from '@/shared/main/make-bitrix-client'
@@ -43,6 +45,26 @@ export async function processHubMessageDeliveryStatus(
         env.appCodes.thinkzap,
       ),
     notifyOperator: notifyOperatorDeliveryFailed,
+    outboxRepo: new PrismaWidgetOutboxRepository(),
+    /**
+     * `delivered` / `undelivered` na tela de campanha. Só a linha oficial passa por
+     * aqui, e é por isso que só ela tem estes dois status — a Z-API não confirma
+     * entrega por mensagem no caminho que o ThinkZap usa, e para em `sent`.
+     */
+    reportSmsStatus: async (row, status) => {
+      const domainName =
+        (await new PrismaDomainRepository().getDomainById(row.domainId))
+          ?.name ?? ''
+
+      await reportSmsMessageStatus(
+        await makeBitrixClientByDomainAndAppCoode(domainName, row.appCode),
+        {
+          senderCode: row.smsSenderCode as string,
+          messageId: row.smsMessageId as string,
+          status,
+        },
+      )
+    },
   })
 
   await useCase.execute(envelope, deps)

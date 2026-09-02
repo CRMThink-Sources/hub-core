@@ -10,10 +10,16 @@ import { cn } from '@/lib/utils'
 import { AdminClientDeploymentSection } from './admin-client-deployment-section'
 import { AdminClientPlacementsSection } from './admin-client-placements-section'
 import { AdminClientBizprocRobotsSection } from './admin-client-bizproc-robots-section'
+import { AdminClientSmsSendersSection } from './admin-client-sms-senders-section'
 import { AdminClientInstancesSection } from './admin-client-instances-section'
 import { AdminAppSubscriptionsSection } from './admin-app-subscriptions-section'
 
-const TECH_TABS = ['deployment', 'placements', 'bizproc'] as const
+const TECH_TABS = [
+  'deployment',
+  'placements',
+  'bizproc',
+  'smsProviders',
+] as const
 type TabValue = 'instances' | 'subscriptions' | (typeof TECH_TABS)[number]
 
 type Props = {
@@ -85,6 +91,9 @@ export function AdminAppSettingsPage({ domainId, appId }: Props) {
                 {t('tabs.placements')}
               </TabsTrigger>
               <TabsTrigger value="bizproc">{t('tabs.bizproc')}</TabsTrigger>
+              <TabsTrigger value="smsProviders">
+                {t('tabs.smsProviders')}
+              </TabsTrigger>
             </>
           ) : null}
         </TabsList>
@@ -107,6 +116,10 @@ export function AdminAppSettingsPage({ domainId, appId }: Props) {
 
         <TabsContent value="bizproc" className="mt-4">
           <AdminClientBizprocRobotsSection appId={appId} />
+        </TabsContent>
+
+        <TabsContent value="smsProviders" className="mt-4">
+          <AdminClientSmsSendersSection appId={appId} />
         </TabsContent>
       </Tabs>
     </div>

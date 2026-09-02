@@ -62,6 +62,49 @@ export type LineSettings = {
   entitlement: LineEntitlement
 }
 
+export type SmsProviderResult = 'created' | 'updated' | 'skipped' | 'deleted'
+
+/**
+ * Estado do provedor de mensagem da linha na campanha de SMS do Bitrix.
+ *
+ * Leitura própria e não um campo de `LineSettings`: saber isto custa uma chamada ao
+ * Bitrix, e pendurá-la nos ajustes poria uma ida à rede em toda abertura da aba.
+ */
+export type LineSmsProvider = {
+  registered: boolean
+  /** `CODE` do sender — é o que a campanha devolve para reencontrar a linha. */
+  code: string
+  /** `false` no ambiente sem a rota do handler publicada: registrar seria no-op. */
+  available: boolean
+  /** Linha não oficial: disparo em massa arrisca bloqueio do número pela Meta. */
+  banRisk: boolean
+  /** Linha oficial: o provedor é por template, na aba de Templates. */
+  perTemplate: boolean
+}
+
+/**
+ * Um template aprovado da linha oficial e o estado dele na campanha de SMS.
+ *
+ * O provedor é **por template**, não por linha: a lista de provedores do Bitrix é o
+ * seletor de template, porque o payload que o handler recebe não carrega template
+ * nenhum e o corpo chega com os placeholders de CRM já resolvidos.
+ */
+export type TemplateProvider = {
+  templateName: string
+  language: string
+  /** Corpo aprovado com os placeholders intactos — a tela monta o exemplo dele. */
+  body: string
+  /** Quantos valores o texto da campanha precisa trazer. */
+  parameterCount: number
+  registered: boolean
+  code: string
+}
+
+export type LineTemplateProviders = {
+  available: boolean
+  templates: TemplateProvider[]
+}
+
 export function useLineApi(itemId: string) {
   return useMemo(() => {
     const base = `/thinkzap/lines/${encodeURIComponent(itemId)}`
@@ -84,6 +127,27 @@ export function useLineApi(itemId: string) {
       unlinkChannel: () =>
         client().delete<{ vinculatedChannel: string | null }>(
           `${base}/channel`,
+        ),
+      getSmsProvider: () =>
+        client().get<LineSmsProvider>(`${base}/sms-provider`),
+      registerSmsProvider: () =>
+        client().post<{ result: SmsProviderResult }>(`${base}/sms-provider`),
+      removeSmsProvider: () =>
+        client().delete<{ result: SmsProviderResult }>(`${base}/sms-provider`),
+      getSmsTemplates: () =>
+        client().get<LineTemplateProviders>(`${base}/sms-templates`),
+      registerSmsTemplate: (input: {
+        templateName: string
+        language: string
+      }) =>
+        client().post<{ result: SmsProviderResult }>(
+          `${base}/sms-templates`,
+          input,
+        ),
+      removeSmsTemplate: (input: { templateName: string; language: string }) =>
+        client().delete<{ result: SmsProviderResult }>(
+          `${base}/sms-templates`,
+          { data: input },
         ),
     }
   }, [itemId])

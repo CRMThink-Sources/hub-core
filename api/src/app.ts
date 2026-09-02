@@ -30,6 +30,7 @@ import { makeDescribeController } from './modules/thinkanalise/main/callbacks/ma
 import { makeDataController } from './modules/thinkanalise/main/callbacks/make-data-controller.js'
 import { makeBitrixRobotWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-robot-webhook-controller.js'
 import { makeBitrixTemplateRobotWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-template-robot-webhook-controller.js'
+import { makeBitrixSmsProviderWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-sms-provider-webhook-controller.js'
 import {
   bullBoardAuthMiddleware,
   bullBoardRouter,
@@ -143,6 +144,19 @@ app.post(
 app.post(
   '/api/thinkzap/webhooks/bitrix/template-robot',
   adaptControllerFactory(makeBitrixTemplateRobotWebhookHandlerController),
+)
+
+/**
+ * Provedor de mensagem da **campanha de SMS**. O Bitrix chama esta rota uma vez por
+ * destinatário da campanha — é por aqui que todo destinatário de toda campanha passa.
+ *
+ * Tem de bater com `BITRIX_SMS_HANDLER_URL`: é essa URL que vai no `HANDLER` do
+ * registro do sender, e um descasamento só aparece no primeiro disparo, como `404`
+ * repetido por contato.
+ */
+app.post(
+  '/api/thinkzap/webhooks/bitrix/sms-provider',
+  adaptControllerFactory(makeBitrixSmsProviderWebhookHandlerController),
 )
 
 /**

@@ -44,6 +44,12 @@ export type WidgetOutboxRecord = {
    * coluna existir — essas entregam sem prefixo de nome.
    */
   operatorBitrixUserId: string | null
+  /**
+   * Âncoras da campanha de SMS do Bitrix. Preenchidas **só** no envio vindo do handler
+   * da campanha; nulas em widget e robô, que não reportam status a lugar nenhum.
+   */
+  smsSenderCode: string | null
+  smsMessageId: string | null
   createdAt: Date
   sentAt: Date | null
 }
@@ -66,6 +72,13 @@ export type CreateWidgetOutboxInput = {
   templateParameters?: string[]
   /** Do token da requisição — é o que o worker usa para resolver o nome. */
   operatorBitrixUserId?: string | null
+  /**
+   * Âncoras da campanha, gravadas só pelo handler de `messageservice`. É o par que o
+   * Bitrix precisa para casar o status com a mensagem na tela de campanha, e a marca
+   * que diz ao worker que aquele envio veio de uma.
+   */
+  smsSenderCode?: string | null
+  smsMessageId?: string | null
 }
 
 /**
@@ -102,6 +115,8 @@ function mapRow(row: {
   attempts: number
   lastError: string | null
   operatorBitrixUserId: string | null
+  smsSenderCode: string | null
+  smsMessageId: string | null
   createdAt: Date
   sentAt: Date | null
 }): WidgetOutboxRecord {
@@ -126,6 +141,8 @@ function mapRow(row: {
     attempts: row.attempts,
     lastError: row.lastError,
     operatorBitrixUserId: row.operatorBitrixUserId,
+    smsSenderCode: row.smsSenderCode,
+    smsMessageId: row.smsMessageId,
     createdAt: row.createdAt,
     sentAt: row.sentAt,
   }
@@ -163,6 +180,42 @@ export class PrismaWidgetOutboxRepository {
 
   async findById(id: string): Promise<WidgetOutboxRecord | null> {
     const row = await prisma.thinkzapWidgetOutbox.findUnique({ where: { id } })
+    return row ? mapRow(row) : null
+  }
+
+  /**
+   * A row entregue sob um id de mensagem do provider, ou `null`.
+   *
+   * Escopada por instância porque `providerMessageId` é único **no provider**, não no
+   * sistema: dois portais podem receber o mesmo id de canais diferentes, e é a
+   * instância que separa os dois.
+   */
+  async findByProviderMessageId(
+    instanceId: string,
+    providerMessageId: string,
+  ): Promise<WidgetOutboxRecord | null> {
+    const row = await prisma.thinkzapWidgetOutbox.findFirst({
+      where: { instanceId, providerMessageId },
+    })
+
+    return row ? mapRow(row) : null
+  }
+
+  /**
+   * A row já gravada para um `message_id` do Bitrix, ou `null`.
+   *
+   * A idempotência da campanha é o unique da coluna; esta leitura é o caminho feliz
+   * dela: retentativa do Bitrix reencontra a row e responde `200` reafirmando o
+   * estado, em vez de bater na constraint. A constraint segue sendo a garantia — duas
+   * requisições concorrentes passam pelas duas leituras antes de qualquer gravação.
+   */
+  async findBySmsMessageId(
+    smsMessageId: string,
+  ): Promise<WidgetOutboxRecord | null> {
+    const row = await prisma.thinkzapWidgetOutbox.findUnique({
+      where: { smsMessageId },
+    })
+
     return row ? mapRow(row) : null
   }
 
