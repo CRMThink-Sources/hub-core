@@ -6,11 +6,13 @@ const makeBitrix = (
     getCrmItem: ReturnType<typeof vi.fn>
     getDealContactIds: ReturnType<typeof vi.fn>
     getCompanyContactIds: ReturnType<typeof vi.fn>
+    getLeadContactIds: ReturnType<typeof vi.fn>
   }> = {},
 ) => ({
   getCrmItem: vi.fn(),
   getDealContactIds: vi.fn().mockResolvedValue([]),
   getCompanyContactIds: vi.fn().mockResolvedValue([]),
+  getLeadContactIds: vi.fn().mockResolvedValue([]),
   ...overrides,
 })
 
