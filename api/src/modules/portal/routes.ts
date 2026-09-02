@@ -25,6 +25,10 @@ import { createSubscribeThinkzapLineController } from './main/factories/create-s
 import { createUnsubscribeThinkzapLineController } from './main/factories/create-unsubscribe-thinkzap-line-controller'
 import { createUpdateThinkzapLineNameController } from './main/factories/create-update-thinkzap-line-name-controller'
 import { createReactivateThinkzapLineController } from './main/factories/create-reactivate-thinkzap-line-controller'
+import { createRegisterSmsProviderAppController } from './main/factories/create-register-sms-provider-app-controller'
+import { createDeleteSmsProviderAppController } from './main/factories/create-delete-sms-provider-app-controller'
+import { createListSmsProvidersAppController } from './main/factories/create-list-sms-providers-app-controller'
+import { createDeleteSmsProviderByCodeAppController } from './main/factories/create-delete-sms-provider-by-code-app-controller'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -155,6 +159,37 @@ export const createPortalRoutes = (
     '/apps/:appId/thinkzap-lines/:subscriptionItemId/reactivate',
     portalAuthMiddleware,
     adaptControllerFactory(createReactivateThinkzapLineController),
+  )
+  /**
+   * Provedor de mensagem da campanha de SMS, por linha. Registrar é o que faz a linha
+   * aparecer na lista de provedores do Bitrix do cliente; remover é a **única** coisa
+   * que a tira de lá.
+   */
+  router.post(
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/sms-provider',
+    portalAuthMiddleware,
+    adaptControllerFactory(createRegisterSmsProviderAppController),
+  )
+  router.delete(
+    '/apps/:appId/thinkzap-lines/:subscriptionItemId/sms-provider',
+    portalAuthMiddleware,
+    adaptControllerFactory(createDeleteSmsProviderAppController),
+  )
+  /**
+   * O que **está** registrado no portal do cliente, cruzado com as linhas: é a única
+   * superfície onde um sender órfão aparece, e ele é a causa de campanha que falha
+   * inteira sem explicação. A remoção do órfão é pelo `CODE` cru, porque o item que o
+   * geraria já não existe.
+   */
+  router.get(
+    '/apps/:appId/sms-providers',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListSmsProvidersAppController),
+  )
+  router.delete(
+    '/apps/:appId/sms-providers/:code',
+    portalAuthMiddleware,
+    adaptControllerFactory(createDeleteSmsProviderByCodeAppController),
   )
   /**
    * Listagem de assinaturas, de volta — agora lendo as SPAs 1142/1146 pelo contexto da

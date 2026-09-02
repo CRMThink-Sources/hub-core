@@ -35,5 +35,25 @@
     "cancelar": "Cancel",
     "erroNome": "Invalid name: use snake_case (a-z, 0-9, _).",
     "erroBody": "Message body is required."
+  },
+  "campanha": {
+    "titulo": "Bitrix24 SMS campaign",
+    "descricao": "Each offered template shows up as a provider under Marketing → SMS campaign. Picking the provider is picking the template.",
+    "comoUsar": "In the campaign text, enter only the variable values, in order — one per line or separated by semicolons. Use CRM fields so each contact gets their own value. E.g.: #LEAD.TITLE#;#LEAD.ID#",
+    "oferecer": "Offer in campaigns",
+    "remover": "Remove from campaigns",
+    "salvando": "Saving...",
+    "semVariaveis": "No variables — leave the campaign text empty.",
+    "comVariaveis_one": "{{count}} variable to provide in the campaign text.",
+    "comVariaveis_other": "{{count}} variables to provide in the campaign text.",
+    "exemplo": "Example text:",
+    "vazio": "No approved template on this line yet.",
+    "registrado": "Template available in your SMS campaigns.",
+    "removido": "Template removed from SMS campaigns.",
+    "indisponivel": "Nothing changed: campaign sending is not available in this environment.",
+    "indisponivelAmbiente": "Campaign sending is not available in this environment. Contact support.",
+    "erroLeitura": "Could not read the templates for this line.",
+    "erroAcao": "Could not change the provider for this template.",
+    "bloqueada": "This line has no active subscription, so its templates cannot be offered in campaigns."
   }
 }

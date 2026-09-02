@@ -8,6 +8,7 @@ import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapte
 import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
 import type { DispatchLineTarget } from '@/modules/thinkzap/application/dispatch-widget-outbox-message'
 import { notifyWidgetSendOutcome } from '@/modules/thinkzap/application/notify-widget-send-outcome'
+import { reportSmsMessageStatus } from '@/modules/thinkzap/application/report-sms-message-status'
 import { findItemInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { BullMqOpenChannelConversationQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
@@ -129,6 +130,27 @@ export async function processWidgetSendJob(
       acquireDestinationLock(redisConnection, instanceId, destination),
     notifyOutcome: (outcome, record) => notifyOutcomeFor(record, outcome),
     notifySent: record => notifySentFor(record),
+    /**
+     * Só as rows de campanha chegam aqui — o despacho já filtra pelas âncoras. O
+     * cliente Bitrix nasce por domínio/app code pela mesma razão do preparo de texto:
+     * no worker não há `req`.
+     */
+    reportSmsStatus: async (record, status) => {
+      const domainName =
+        (await new PrismaDomainRepository().getDomainById(record.domainId))
+          ?.name ?? ''
+
+      const bitrix = await makeBitrixClientByDomainAndAppCoode(
+        domainName,
+        record.appCode,
+      )
+
+      await reportSmsMessageStatus(bitrix, {
+        senderCode: record.smsSenderCode as string,
+        messageId: record.smsMessageId as string,
+        status,
+      })
+    },
     appendJobLog,
     /**
      * O mesmo preparo do canal aberto: é o que faz o ajuste "Prefixar nome do

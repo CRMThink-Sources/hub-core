@@ -10,6 +10,7 @@ import type { AppendJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { noopJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
 import type { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import type { ThinkzapMessageRecord } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
+import type { WidgetOutboxRecord } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import type { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
@@ -26,9 +27,32 @@ export type FindMessageByProviderId = {
   ): Promise<ThinkzapMessageRecord | null>
 }
 
+/** O mínimo do outbox que o status de campanha usa. */
+export type FindOutboxByProviderId = {
+  findByProviderMessageId(
+    instanceId: string,
+    providerMessageId: string,
+  ): Promise<WidgetOutboxRecord | null>
+}
+
 export type ProcessHubMessageDeliveryStatusDeps = {
   instanceRepo: Pick<GetInstanceRepository, 'getInstanceByChannelId'>
   messageRepo: FindMessageByProviderId
+  /**
+   * O outbox, para reportar `delivered` / `undelivered` na tela de campanha do Bitrix.
+   *
+   * Opcional para não obrigar todo chamador a montá-lo: ausente, o aviso ao operador
+   * continua igual e só o indicador de campanha deixa de ser atualizado.
+   */
+  outboxRepo?: FindOutboxByProviderId
+  /**
+   * Escreve o desfecho confirmado na tela de campanha. **Nunca lança** — a mensagem já
+   * chegou (ou não) ao contato, e o que se perde aqui é um indicador.
+   */
+  reportSmsStatus?: (
+    row: WidgetOutboxRecord,
+    status: 'delivered' | 'undelivered',
+  ) => Promise<void>
   domainRepo: Pick<GetDomainRepository, 'getDomainById'>
   /** Cliente Bitrix da instalação do portal — resolvido pelo nome do domínio. */
   makeBitrixClient: (domainName: string) => Promise<BitrixClient>
@@ -97,6 +121,17 @@ export class ProcessHubMessageDeliveryStatusUseCase {
       return
     }
 
+    /**
+     * O status da campanha é resolvido **antes** do aviso ao operador e independente
+     * dele: envio de campanha não vive no canal aberto, então as recusas que seguem
+     * (`source !== BITRIX`, sem `bitrixChatId`) encerrariam o caminho sem nunca
+     * chegar aqui — e a campanha ficaria eternamente em `sent` na tela do cliente.
+     */
+    await this.reportCampaignStatus(instance.id, message._id, failed, {
+      logContext,
+      appendJobLog,
+    })
+
     const message_ = await this.deps.messageRepo.findByProviderMessageId(
       instance.id,
       message._id,
@@ -156,6 +191,41 @@ export class ProcessHubMessageDeliveryStatusUseCase {
       stateItem,
       appendJobLog,
     })
+  }
+
+  /**
+   * `delivered` / `undelivered` na tela de campanha do Bitrix.
+   *
+   * Só a linha `HUBMESSAGE` chega aqui, e é por isso que só ela tem os dois status: é
+   * o único provider que confirma entrega por mensagem no caminho que o ThinkZap usa.
+   * Linha `ZAPI` para em `sent`, e dizer `delivered` sem confirmação afirmaria ao
+   * cliente que a campanha chegou quando ninguém sabe.
+   */
+  private async reportCampaignStatus(
+    instanceId: string,
+    providerMessageId: string,
+    failed: boolean,
+    args: {
+      logContext: Record<string, unknown>
+      appendJobLog: AppendJobLog
+    },
+  ): Promise<void> {
+    if (!this.deps.outboxRepo || !this.deps.reportSmsStatus) return
+
+    const row = await this.deps.outboxRepo.findByProviderMessageId(
+      instanceId,
+      providerMessageId,
+    )
+
+    /** Sem as duas âncoras o envio não veio de campanha — não há onde reportar. */
+    if (!row?.smsSenderCode || !row.smsMessageId) return
+
+    const status = failed ? 'undelivered' : 'delivered'
+
+    await this.deps.reportSmsStatus(row, status)
+    await args.appendJobLog(
+      `Status da campanha reportado ao Bitrix: ${status} (mensagem ${row.smsMessageId}).`,
+    )
   }
 
   private async notifyFailure(

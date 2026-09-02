@@ -10,6 +10,7 @@ import { LineBlockedError } from '@/modules/thinkzap/domain/errors/line-blocked.
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { ChannelAlreadyLinkedError } from '@/modules/thinkzap/domain/errors/channel-already-linked.error'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
+import { MessageServiceScopeMissingError } from '@/modules/thinkzap/application/helpers/sms-sender-scope-error'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -132,6 +133,30 @@ export function mapLineError(
       { level: 'warn' },
     )
     return { status: 409, result: { error: error.message } }
+  }
+
+  /**
+   * O portal não concedeu o escopo `messageservice` ao app.
+   *
+   * `409` e não `502`: nada está errado com a linha, com a credencial nem com o
+   * Bitrix — falta um passo de publicação do app que nenhuma retentativa resolve. O
+   * `code` vai no corpo para a tela distinguir isto de falha de rede, que ela trata
+   * oferecendo "tentar de novo".
+   */
+  if (error instanceof MessageServiceScopeMissingError) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.line.messageservice_scope_missing',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
+    return {
+      status: 409,
+      result: {
+        error: error.message,
+        code: 'messageservice-scope-missing',
+      },
+    }
   }
 
   /** Recurso existe, operação não se aplica. */

@@ -253,6 +253,32 @@ export const THINKZAP_ERRORS = {
       'Os demais destinatários seguiram; reexecutar a automação para o destinatário que falhou e acionar o suporte se persistir.',
     retriable: true,
   },
+  'thinkzap.line.messageservice_scope_missing': {
+    category: 'config',
+    userCause:
+      'O aplicativo não tem permissão de serviço de mensagens no portal, então a linha não pode ser oferecida à campanha de SMS.',
+    remediation:
+      'Publicar o escopo `messageservice` no manifesto do aplicativo e pedir que o portal reautorize o app; não é problema da linha nem da credencial.',
+    retriable: false,
+    httpStatus: 409,
+  },
+  'thinkzap.bitrix.sms_sender_unknown': {
+    category: 'config',
+    userCause:
+      'Uma campanha de SMS foi disparada por um provedor de mensagem que não corresponde a nenhuma linha desta instalação.',
+    remediation:
+      'Remover o provedor órfão pela tela de provedores do portal admin e refazer a campanha com uma linha existente.',
+    retriable: false,
+    httpStatus: 404,
+  },
+  'thinkzap.bitrix.sms_campaign_refused': {
+    category: 'config',
+    userCause:
+      'Um destinatário da campanha de SMS foi recusado antes do envio: linha sem habilitação, canal desconectado, corpo fora do formato exigido ou telefone inválido.',
+    remediation:
+      'Ler o motivo no log, corrigir a linha ou o corpo da campanha e disparar de novo; os demais destinatários seguiram normalmente.',
+    retriable: false,
+  },
   'thinkzap.bitrix.bot_id_failed': {
     category: 'integration',
     userCause:

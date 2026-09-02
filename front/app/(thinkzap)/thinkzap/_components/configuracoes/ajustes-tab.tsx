@@ -22,6 +22,7 @@ import {
 import { ConfigCard } from './config-card'
 import { ConfirmModal } from './confirm-modal'
 import { LinhaBloqueadaAviso } from './linha-bloqueada-aviso'
+import { SmsProviderCard } from './sms-provider-card'
 
 type Props = { itemId: string }
 
@@ -456,6 +457,10 @@ export function AjustesTab({ itemId }: Props) {
             </Button>
           </div>
         </ConfigCard>
+
+        {/* Provedor da campanha de SMS: escrita no portal do cliente, como o vínculo
+            de canal, e por isso mora aqui e não numa aba própria. */}
+        <SmsProviderCard itemId={itemId} bloqueada={bloqueada} />
       </div>
 
       <ConfirmModal
