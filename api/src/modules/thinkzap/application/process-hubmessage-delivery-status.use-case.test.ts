@@ -10,13 +10,20 @@ const PROVIDER_MESSAGE_ID = '01A015EEAFCA741A85FDD86E205BDD18'
 const DISPLAY_NAME_FAILURE =
   'Integration with meta-whatsapp failed (HTTP 400): {"messaging_product":"whatsapp","details":"WhatsApp provided number needs display name approval before message can be sent."}'
 
-/** Payload real de recusa (2026-08-18), reduzido ao que o use case lê. */
+/**
+ * Payload real de recusa (2026-08-18), reduzido ao que o use case lê.
+ *
+ * `extra` existe para o segundo formato de recusa (2026-08-30), em que
+ * `failedDescription` vem nulo e o motivo chega em
+ * `external_information.errors[]` — o item de estado carrega os dois.
+ */
 function makeEnvelope(
   state: Record<string, unknown> = {
     '@class': '.Failed',
     name: 'ERROR',
     failedDescription: DISPLAY_NAME_FAILURE,
   },
+  extra: Record<string, unknown> = {},
 ): HubMessageStatusEnvelope {
   return {
     message: {
@@ -30,6 +37,7 @@ function makeEnvelope(
           phone: '554388092447',
           type: 'ErrorCallback',
           internal_information: { integration_id: PROVIDER_MESSAGE_ID },
+          ...extra,
           state,
         },
       ],
@@ -250,6 +258,53 @@ describe('ProcessHubMessageDeliveryStatusUseCase', () => {
 
     expect(deps.notifyOperator).not.toHaveBeenCalled()
     expect(jobLogLines().some(l => l.includes('não encontrado'))).toBe(true)
+  })
+
+  /**
+   * O caso de 2026-08-30 (traceKey b6758d52-6ce8-40fd-9d25-c59235bc07b1): a Meta
+   * explicou o motivo em `errors[]` e `failedDescription` veio nulo. O aviso antigo
+   * dizia "não informou o motivo. Verifique a conexão da linha".
+   */
+  it('janela de 24h vinda de errors[] avisa a janela e registra o código', async () => {
+    const { useCase, deps } = makeDeps()
+
+    await useCase.execute(
+      makeEnvelope(
+        { '@class': '.Failed', name: 'ERROR', failedDescription: null },
+        {
+          external_information: {
+            errors: [
+              {
+                code: '131047',
+                title: 'Re-engagement message',
+                message: 'Re-engagement message',
+                error_data: {
+                  details:
+                    'Message failed to send because more than 24 hours have passed since the customer last replied to this number.',
+                },
+              },
+            ],
+          },
+        },
+      ),
+      { appendJobLog },
+    )
+
+    expect(deps.notifyOperator).toHaveBeenCalledWith(
+      expect.anything(),
+      1958,
+      '100',
+      expect.stringContaining('24 horas'),
+    )
+    const notice = deps.notifyOperator.mock.calls[0]?.[3] as string
+    expect(notice).toContain('template')
+    expect(notice).not.toContain('não informou o motivo')
+    expect(jobLogLines().some(l => l.includes('código Meta: 131047'))).toBe(
+      true,
+    )
+    expect(
+      jobLogLines().some(l => l.includes('more than 24 hours have passed')),
+    ).toBe(true)
   })
 
   it('erro desconhecido leva o retorno cru ao aviso', async () => {
