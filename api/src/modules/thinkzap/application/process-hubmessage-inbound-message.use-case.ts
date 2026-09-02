@@ -11,6 +11,7 @@ import { GetCredentialRepository } from '@/shared/domain/repositories/credential
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { normalizePhoneNumber } from '@/shared/helpers/normalize-phone-number'
+import { resolveOpenChannelContactId } from '@/shared/helpers/open-channel-contact-id'
 import {
   BitrixClient,
   ISendMessageData,
@@ -30,8 +31,10 @@ const log = createWorkerSourceLogger('hubmessage')
  *
  * - **Identidade do chat**: `message.chat_id` é `channel_id` + o número do
  *   NOSSO WABA — igual para todos os contatos do canal. Quem identifica o
- *   contato é `sender.identifier`. Usar `chat_id` colapsaria todos os contatos
- *   numa única sessão de canal aberto.
+ *   contato é `sender.identifier`, canonizado por `resolveOpenChannelContactId`.
+ *   Usar `chat_id` colapsaria todos os contatos numa única sessão de canal
+ *   aberto; usar o identifier cru fazia o contato iniciado pelo widget ganhar
+ *   uma segunda sessão ao responder.
  * - **Idempotência**: o registro só é gravado depois do envio ao Bitrix, então
  *   o guard por `_id` roda ANTES do envio — é ele que impede a mensagem
  *   duplicada no canal aberto quando a HubMessage reentrega o webhook.
@@ -233,12 +236,19 @@ export class ProcessHubMessageInboundMessageUseCase {
     })
 
     // Identidade do contato no canal aberto — NUNCA `message.chat_id` (ver doc
-    // da classe). Usamos o identifier CRU: `normalizePhoneNumber` insere o 9o
-    // digito em celular BR, e amarrar a sessao a essa heuristica faria o mesmo
-    // contato ganhar sessao nova se ela mudasse. O normalizado vai so em
-    // `user.phone`, onde serve pro Bitrix casar o contato no CRM.
-    const contactId = message.sender.identifier
-    const contactPhone = normalizePhoneNumber(contactId)
+    // da classe): aquele campo e identico para todos os contatos do canal e
+    // colapsaria todos numa sessao so.
+    //
+    // O identifier passa por `resolveOpenChannelContactId`, e nao vai cru. Usar o
+    // cru era a decisao anterior, pelo receio de amarrar a sessao a heuristica do
+    // 9o digito; o efeito real foi pior e imediato. A HubMessage entrega celular BR
+    // SEM o 9o digito (`554792259475`) e o envio pelo widget identifica o mesmo
+    // contato COM ele (`5547992259475`), entao todo contato iniciado pelo CRM
+    // ganhava um segundo canal aberto ao responder. O risco da heuristica e
+    // hipotetico; o desencontro entre as direcoes era certo. Canonizar e o que faz
+    // as duas formas convergirem.
+    const contactId = resolveOpenChannelContactId(message.sender.identifier)
+    const contactPhone = normalizePhoneNumber(message.sender.identifier)
     const contactName = message.sender.name || contactPhone
     const moment = message.metadata?.moment ?? message.created
 

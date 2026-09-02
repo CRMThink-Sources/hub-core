@@ -13,6 +13,7 @@ import { GetCredentialRepository } from '@/shared/domain/repositories/credential
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { normalizePhoneNumber } from '@/shared/helpers/normalize-phone-number'
+import { resolveOpenChannelContactId } from '@/shared/helpers/open-channel-contact-id'
 import { Domain } from '@/shared/domain/entities/domain'
 import { Credential } from '@/shared/domain/entities/credential'
 import { Instance } from '@/modules/thinkzap/domain/entities/instance'
@@ -239,6 +240,12 @@ export class ProcessZApiInboundMessageUseCase {
       return
     }
 
+    /**
+     * O guard passa a reprovar string vazia, e não `null`: `resolveChatId` deriva do
+     * `event.phone`, que é obrigatório no tipo do evento. Payload malformado, sem
+     * telefone, tem que continuar falhando visivelmente em vez de mandar um `chat.id`
+     * vazio ao Bitrix e abrir uma sessão sem dono.
+     */
     const chatId = resolveChatId(event)
     if (!chatId) {
       throw new Error('Chat ID not found')
@@ -622,9 +629,19 @@ function buildContactText(
   return `------------------------\n Contato encaminhado:\n 🛍️[b]${contact.displayName}[/b]\n${phones}`
 }
 
+/**
+ * A identidade do contato no canal aberto, para mensagem 1:1.
+ *
+ * **Sai do telefone, não do `chatLid`.** O `chatLid` é identificador interno do
+ * WhatsApp e só existe nesta direção: o envio pelo widget identifica o contato pelo
+ * número que o operador digitou e não teria como adivinhá-lo. Enquanto o inbound
+ * usava o lid, todo contato iniciado pelo CRM ganhava um segundo canal aberto ao
+ * responder — o Bitrix via dois `chat.id` e concluiu, corretamente, dois contatos.
+ *
+ * O guard de `@lid` que existia aqui foi absorvido por `resolveOpenChannelContactId`.
+ */
 function resolveChatId(event: ReceivedMessageEvent): string | null {
-  if (event.phone.includes('@lid')) return event.phone
-  return event.chatLid
+  return resolveOpenChannelContactId(event.phone)
 }
 
 function resolveGroupChatId(event: ReceivedMessageEvent): string | null {

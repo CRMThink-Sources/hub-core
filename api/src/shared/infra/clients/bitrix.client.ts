@@ -9,6 +9,7 @@ import {
   wrapBitrixRequestError,
 } from './bitrix-http-errors'
 import { normalizeBitrixDomain } from './normalize-bitrix-domain'
+import { resolveOpenChannelContactId } from '@/shared/helpers/open-channel-contact-id'
 import { PlacementHandlerEntry } from '@/modules/thinkzap/application/normalize-placement-get-response'
 
 /**
@@ -421,20 +422,37 @@ export class BitrixClient {
     }
   }
 
+  /**
+   * Posta no canal aberto do Bitrix uma mensagem que o CRM acabou de enviar ao
+   * contato, abrindo (ou reusando) a sessão daquele contato.
+   *
+   * O `contact` recebido é canonizado por `resolveOpenChannelContactId` **aqui**, e
+   * não no chamador. É este método que constrói o payload, então é ele que tem de
+   * garantir a invariante: o `chat.id` de um contato é o mesmo valor em toda direção.
+   * Deixar isso com o chamador foi o que produziu o canal aberto duplicado — o envio
+   * identificava o contato pelo telefone digitado no widget e o inbound identificava
+   * o mesmo contato por outro valor, então o Bitrix via dois contatos.
+   */
   async sendToOpenChannel(
     lineId: string,
     connectorCode: string,
-    phone: string,
+    contact: string,
     message: string,
   ): Promise<{ chatId: string | null; bitrixMessageId: string | null }> {
-    const messageId = `widget_${Date.now()}_${phone}`
+    const contactId = resolveOpenChannelContactId(contact)
+    const messageId = `widget_${Date.now()}_${contactId}`
     const params: ISendMessageData = {
       CONNECTOR: connectorCode,
       LINE: Number(lineId),
       MESSAGES: [
         {
-          chat: { id: phone, name: phone },
-          user: { id: phone, name: phone, last_name: '', phone: phone },
+          chat: { id: contactId, name: contactId },
+          user: {
+            id: contactId,
+            name: contactId,
+            last_name: '',
+            phone: contactId,
+          },
           message: {
             id: messageId,
             date: new Date().toISOString(),

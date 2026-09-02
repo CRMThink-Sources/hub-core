@@ -188,13 +188,21 @@ describe('PrismaThinkzapMessageRepository.create — update parcial', () => {
   })
 })
 
-describe('PrismaThinkzapMessageRepository.updateChatId', () => {
+describe('PrismaThinkzapMessageRepository.updateOpenChannelRefs', () => {
   beforeEach(() => {
     updateMock.mockReset()
   })
 
-  it('grava só o chatId, pela chave de provider', async () => {
-    await sut().updateChatId('inst-1', 'Z-1', '4242')
+  /**
+   * A sessão do Bitrix vai para `bitrixChatId` e a identidade do contato para
+   * `chatId` — os mesmos papéis que o inbound já dá às duas colunas. Antes a abertura
+   * pelo widget punha a sessão em `chatId`, invertendo o sentido da coluna.
+   */
+  it('grava as duas referências, pela chave de provider', async () => {
+    await sut().updateOpenChannelRefs('inst-1', 'Z-1', {
+      bitrixChatId: '4242',
+      chatId: '5547992259475',
+    })
 
     expect(updateMock).toHaveBeenCalledWith({
       where: {
@@ -203,7 +211,7 @@ describe('PrismaThinkzapMessageRepository.updateChatId', () => {
           providerMessageId: 'Z-1',
         },
       },
-      data: { chatId: '4242' },
+      data: { bitrixChatId: '4242', chatId: '5547992259475' },
     })
   })
 })

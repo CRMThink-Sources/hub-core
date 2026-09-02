@@ -236,10 +236,12 @@ describe('ProcessHubMessageInboundMessageUseCase', () => {
     expect(payload.LINE).toBe(12)
 
     const sent = payload.MESSAGES[0]!
-    // Identidade = identifier cru do contato; o normalizado (com 9o digito) so
-    // aparece em user.phone, pro Bitrix casar o contato no CRM.
-    expect(sent.chat.id).toBe('554792259475')
-    expect(sent.user.id).toBe('554792259475')
+    // Identidade = identifier canonizado. A HubMessage entrega celular BR sem o 9o
+    // digito e o envio pelo widget identifica o contato com ele; enquanto o cru era
+    // a identidade, o contato iniciado pelo CRM ganhava um segundo canal aberto ao
+    // responder.
+    expect(sent.chat.id).toBe('5547992259475')
+    expect(sent.user.id).toBe('5547992259475')
     expect(sent.user.phone).toBe('5547992259475')
     expect(sent.chat.id).not.toContain('15553840789')
     expect(sent.chat.id).not.toContain(CHANNEL_ID)
@@ -254,8 +256,8 @@ describe('ProcessHubMessageInboundMessageUseCase', () => {
     await useCase.execute(makeMessage({ _id: 'MSG-A' }))
     await useCase.execute(makeMessage({ _id: 'MSG-B' }))
 
-    expect(sentPayload(0).MESSAGES[0]!.chat.id).toBe('554792259475')
-    expect(sentPayload(1).MESSAGES[0]!.chat.id).toBe('554792259475')
+    expect(sentPayload(0).MESSAGES[0]!.chat.id).toBe('5547992259475')
+    expect(sentPayload(1).MESSAGES[0]!.chat.id).toBe('5547992259475')
   })
 
   it('gives distinct chat ids to distinct contacts sharing the same chat_id', async () => {
@@ -269,7 +271,7 @@ describe('ProcessHubMessageInboundMessageUseCase', () => {
       }),
     )
 
-    expect(sentPayload(0).MESSAGES[0]!.chat.id).toBe('554792259475')
+    expect(sentPayload(0).MESSAGES[0]!.chat.id).toBe('5547992259475')
     expect(sentPayload(1).MESSAGES[0]!.chat.id).toBe('5511999998888')
   })
 
@@ -359,7 +361,7 @@ describe('ProcessHubMessageInboundMessageUseCase', () => {
         providerMessageId: '019F5D201EAA795BA7B46A820C7CA289',
         bitrixChatId: '1801',
         bitrixMessageId: '456',
-        chatId: '554792259475',
+        chatId: '5547992259475',
         type: 'TEXT',
         text: 'Outra msg de teste',
       }),
