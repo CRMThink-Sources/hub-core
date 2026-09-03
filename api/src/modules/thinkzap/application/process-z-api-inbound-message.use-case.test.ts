@@ -55,6 +55,9 @@ import { ProcessZApiInboundMessageUseCase } from './process-z-api-inbound-messag
 import { ReceivedMessageEvent } from '@/shared/infra/handlers/z-api/z-api'
 import { ISendMessageData } from '@/shared/infra/clients/bitrix.client'
 
+/** LID do contato de teste. O payload da Z-API traz `phone` e `chatLid` juntos. */
+const LID = '3577724534928@lid'
+
 const baseInstance = {
   id: 'instance-db-1',
   instanceId: 'INST-A',
@@ -110,12 +113,20 @@ function buildUseCase({
   subscriptionStatus = 'active',
   currentPeriodEnd = new Date('2099-01-01T00:00:00.000Z'),
   domain = { id: 'domain-1', name: 'acme.bitrix24.com.br' },
+  identityOverride,
 }: {
   repoFind?: ReturnType<typeof vi.fn>
   repoCreate?: ReturnType<typeof vi.fn>
   subscriptionStatus?: string
   currentPeriodEnd?: Date
   domain?: unknown
+  identityOverride?: {
+    identity?: string
+    lid?: string | null
+    phone?: string | null
+    source?: string
+    legacy?: boolean
+  }
 } = {}) {
   const messageRepo = {
     findByProviderMessageId: repoFind ?? vi.fn().mockResolvedValue(null),
@@ -143,6 +154,24 @@ function buildUseCase({
   }
 
   const getDomainById = vi.fn().mockResolvedValue(domain)
+
+  /**
+   * A resolução da identidade é dublada aqui porque o que este arquivo mede é o payload
+   * que sai para o Bitrix, não a cadeia de LID — essa tem arquivo próprio
+   * (`resolve-zapi-contact-identity.test.ts`).
+   *
+   * O default reproduz o caso comum: contato com telefone e LID, sem identidade legada.
+   */
+  const resolveContactIdentity = vi.fn().mockResolvedValue({
+    identity: identityOverride?.identity ?? LID,
+    lid: identityOverride?.lid ?? LID,
+    phone:
+      identityOverride && 'phone' in identityOverride
+        ? identityOverride.phone
+        : '5511999999999',
+    source: identityOverride?.source ?? 'chatLid',
+    legacy: identityOverride?.legacy ?? false,
+  })
 
   const useCase = new ProcessZApiInboundMessageUseCase(
     /**
@@ -193,6 +222,7 @@ function buildUseCase({
     } as never,
     messageRepo as never,
     disconnectExpiredLine as never,
+    resolveContactIdentity,
   )
 
   /** Todo `execute` do teste passa pelo coletor; `useCase` fica exposto para o caso sem contexto. */
@@ -658,7 +688,9 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('forwards landline-shaped phone unmodified for direct message', async () => {
-    const { run } = buildUseCase()
+    const { run } = buildUseCase({
+      identityOverride: { phone: '551133334444' },
+    })
     await run(makeEvent({ phone: '551133334444', text: { message: 'hello' } }))
 
     const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
@@ -680,42 +712,102 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   /**
-   * A identidade do contato no canal aberto. Enquanto ela era o `chatLid`, o envio
-   * pelo widget — que identifica o contato pelo telefone — abria uma sessão e a
-   * resposta do contato abria outra: dois canais abertos para a mesma conversa.
+   * A inversão desta change.
+   *
+   * O cenário antigo afirmava `chat.id` = telefone canônico, "não o chatLid" — e era
+   * essa regra que fazia o mesmo contato abrir duas conversas, porque a Z-API entrega o
+   * `phone` ora como número, ora como `@lid`. Agora a identidade é o que a cadeia de LID
+   * resolveu, e o telefone existe no payload só como dado do contato.
    */
-  it('identifica o chat direto pelo telefone canônico, não pelo chatLid', async () => {
+  it('identifica o chat pela identidade resolvida, não pelo telefone', async () => {
     const { run } = buildUseCase()
     await run(
       makeEvent({
         phone: '551199999999',
-        chatLid: 'chat-lid',
+        chatLid: LID,
         text: { message: 'hello' },
       }),
     )
 
     const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
-    expect(payload.MESSAGES[0]!.chat.id).toBe('5511999999999')
-    expect(payload.MESSAGES[0]!.user.id).toBe('5511999999999')
+    expect(payload.MESSAGES[0]!.chat.id).toBe(LID)
+    expect(payload.MESSAGES[0]!.user.id).toBe(LID)
+    expect(payload.MESSAGES[0]!.user.phone).toBe('5511999999999')
   })
 
   /**
-   * Contato em modo privacidade: o WhatsApp não expõe número, então não há telefone a
-   * canonizar e o lid segue sendo a identidade. Também não há divergência a resolver
-   * — o widget não consegue iniciar conversa sem um número.
+   * As duas formas em que a Z-API entrega o mesmo contato convergem. É a asserção que
+   * prova o conserto da duplicidade relatada.
    */
-  it('mantém o lid cru como identidade quando o contato está em modo privacidade', async () => {
+  it('phone numérico e phone lid do mesmo contato caem na mesma identidade', async () => {
     const { run } = buildUseCase()
+
+    await run(makeEvent({ phone: '551199999999', chatLid: LID }))
+    await run(makeEvent({ phone: LID, chatLid: LID, messageId: 'MSG-2' }))
+
+    const first = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    const second = sendMessageMock.mock.calls[1]![0] as ISendMessageData
+    expect(first.MESSAGES[0]!.chat.id).toBe(second.MESSAGES[0]!.chat.id)
+  })
+
+  /** Contato que já tinha conversa antes da mudança não ganha uma nova. */
+  it('usa a identidade legada quando a resolução a devolve', async () => {
+    const { run } = buildUseCase({
+      identityOverride: { identity: '5511999999999', lid: LID, legacy: true },
+    })
+    await run(makeEvent({ chatLid: LID, text: { message: 'hello' } }))
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.chat.id).toBe('5511999999999')
+  })
+
+  /**
+   * Contato em modo privacidade: sem telefone conhecido, `user.phone` some do payload.
+   * O código antigo mandava `normalizePhoneNumber('...@lid')` — os dígitos do lid — e o
+   * Bitrix os gravava como telefone do contato.
+   */
+  it('contato lid-only não manda telefone nem nome com lid', async () => {
+    const { run } = buildUseCase({
+      identityOverride: { identity: LID, lid: LID, phone: null },
+    })
     await run(
       makeEvent({
-        phone: '123456789012345@lid',
+        phone: LID,
+        chatLid: LID,
+        senderName: '',
+        chatName: '',
         text: { message: 'hello' },
       }),
     )
 
-    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
-    expect(payload.MESSAGES[0]!.chat.id).toBe('123456789012345@lid')
-    expect(payload.MESSAGES[0]!.user.id).toBe('123456789012345@lid')
+    const sent = (sendMessageMock.mock.calls[0]![0] as ISendMessageData)
+      .MESSAGES[0]!
+    expect(sent.chat.id).toBe(LID)
+    expect(sent.user).not.toHaveProperty('phone')
+    expect(sent.chat.name).not.toContain('@lid')
+    expect(sent.chat.name).not.toContain('3577724534928')
+    expect(sent.user.name).not.toContain('@lid')
+  })
+
+  /** Sufixo do título é condicional: sem telefone, não há o que anexar. */
+  it('chat.name traz o telefone só quando ele é conhecido', async () => {
+    const comTelefone = buildUseCase()
+    await comTelefone.run(makeEvent({ senderName: 'João' }))
+    expect(
+      (sendMessageMock.mock.calls[0]![0] as ISendMessageData).MESSAGES[0]!.chat
+        .name,
+    ).toBe('João - 5511999999999')
+
+    sendMessageMock.mockClear()
+
+    const semTelefone = buildUseCase({
+      identityOverride: { identity: LID, lid: LID, phone: null },
+    })
+    await semTelefone.run(makeEvent({ senderName: 'João', phone: LID }))
+    expect(
+      (sendMessageMock.mock.calls[0]![0] as ISendMessageData).MESSAGES[0]!.chat
+        .name,
+    ).toBe('João')
   })
 
   /** Grupo não passa pela mudança: `resolveGroupChatId` continua como estava. */
@@ -733,11 +825,19 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
     expect(payload.MESSAGES[0]!.chat.id).toBe('5511999999999-group')
   })
 
-  it('rejeita payload sem telefone em vez de abrir sessão sem dono', async () => {
-    const { run, lines } = buildUseCase()
+  it('rejeita payload sem identidade em vez de abrir sessão sem dono', async () => {
+    const { run, lines } = buildUseCase({
+      // Payload malformado: nem telefone, nem lid em campo nenhum, e a cadeia esgotada.
+      identityOverride: {
+        identity: '',
+        lid: null,
+        phone: null,
+        source: 'none',
+      },
+    })
 
     await expect(
-      run(makeEvent({ phone: '', text: { message: 'hello' } })),
+      run(makeEvent({ phone: '', chatLid: null, text: { message: 'hello' } })),
     ).rejects.toThrow('Chat ID not found')
 
     expect(

@@ -127,6 +127,20 @@ export type ZApiGroupParticipant = {
 
 export type ProfilePictureResponse = { link: string } | Array<{ link: string }>
 
+/**
+ * Resposta de `phone-exists`. A Z-API devolve um array, mesmo consultando um número só.
+ *
+ * O `lid` é o motivo desta chamada existir no produto: é a única direção de conversão
+ * que o WhatsApp permite. `lid` → telefone é impossível; telefone → `lid` é isto aqui.
+ *
+ * `lid` vem nulo quando `exists` é `false` — número que não tem WhatsApp não tem LID.
+ */
+export type PhoneExistsResponse = Array<{
+  exists: boolean
+  phone: string
+  lid: string | null
+}>
+
 export type ZApiGroupMetadata = {
   phone: string
   description: string

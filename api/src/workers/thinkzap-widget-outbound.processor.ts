@@ -1,6 +1,8 @@
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { findItemInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { EnsureWidgetOpenChannelConversation } from '@/modules/thinkzap/application/ensure-widget-open-channel-conversation'
+import { makeGetCrmContactName } from '@/modules/thinkzap/application/get-crm-contact-name'
+import { makeResolveWidgetOpenChannelContact } from '@/modules/thinkzap/main/make-resolve-widget-open-channel-contact'
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import {
@@ -44,6 +46,8 @@ export async function processWidgetOpenChannelJob(
     providerMessageId,
     destination,
     text,
+    entity,
+    entityId,
   } = job
 
   const logContext = {
@@ -116,6 +120,8 @@ export async function processWidgetOpenChannelJob(
   const ensureOpenChannel = new EnsureWidgetOpenChannelConversation(
     bitrix,
     new PrismaThinkzapMessageRepository(),
+    makeResolveWidgetOpenChannelContact(),
+    makeGetCrmContactName(bitrix),
   )
 
   const { outcome, chatId } = await ensureOpenChannel.execute({
@@ -124,6 +130,12 @@ export async function processWidgetOpenChannelJob(
     providerMessageId,
     destination,
     text,
+    /**
+     * A entidade de origem vem da row do outbox e serve só para o **nome** da conversa
+     * — sem ela, o título do chat seria o número, que é o que o operador via antes.
+     */
+    entity,
+    entityId,
   })
 
   log.info(

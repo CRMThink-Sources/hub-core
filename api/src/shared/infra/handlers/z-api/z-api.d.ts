@@ -2,6 +2,15 @@ export type ReceivedMessageEvent = {
   notification: string
   isStatusReply: boolean
   chatLid: string | null
+  /**
+   * LID do remetente. Declarado opcional porque este tipo descreve o que a Z-API
+   * entrega, e o campo estava chegando e sendo descartado na desserialização.
+   *
+   * É o fallback documentado para `chatLid` nulo. Sem ele, um evento com telefone
+   * numérico e `chatLid` nulo não tem nenhum LID no payload, e a resolução da
+   * identidade precisa ir ao mapa ou à própria Z-API.
+   */
+  senderLid?: string | null
   connectedPhone: string
   waitingMessage: boolean
   isEdit: boolean

@@ -11,6 +11,7 @@ import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositor
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { makeDisconnectExpiredLine } from '@/modules/thinkzap/main/make-disconnect-expired-line'
+import { makeResolveContactIdentity } from '@/modules/thinkzap/main/make-resolve-contact-identity'
 
 /** Ver a nota em `processHubMessageReceivedMessage` sobre o port entrar pelo argumento. */
 export async function processZApiReceivedMessage(
@@ -25,6 +26,7 @@ export async function processZApiReceivedMessage(
     new PrismaCredentialRepository(),
     new PrismaThinkzapMessageRepository(),
     makeDisconnectExpiredLine(),
+    makeResolveContactIdentity(),
   )
 
   await useCase.execute(event, deps)

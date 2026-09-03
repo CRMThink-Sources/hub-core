@@ -42,6 +42,32 @@ describe('ZApiOutboundSender', () => {
     expect(sender.supportsReply).toBe(true)
   })
 
+  /**
+   * A resposta do operador a um contato em modo privacidade.
+   *
+   * O destino é o `chat.id` do canal aberto, que passou a ser o LID. A Z-API aceita LID
+   * no lugar do telefone no campo `phone` — é o mecanismo documentado por eles, e é o
+   * que permite a identidade por LID sem quebrar a direção de saída. O adapter não pode
+   * tentar "consertar" o valor: qualquer normalização aqui erraria o destino.
+   */
+  it('encaminha o lid verbatim como destino, sem tentar normalizar', async () => {
+    const client = makeClient()
+    const sender = new ZApiOutboundSender(client as never, {
+      ...config,
+      phone: '3577724534928@lid',
+    })
+
+    await sender.send({ kind: 'text', text: 'oi' })
+
+    expect(client.sendMessage).toHaveBeenCalledWith(
+      'INST-A',
+      'token',
+      'oi',
+      '3577724534928@lid',
+      expect.anything(),
+    )
+  })
+
   it('texto chama sendMessage com o telefone e devolve messageId', async () => {
     const client = makeClient()
     const sender = new ZApiOutboundSender(client as never, config)

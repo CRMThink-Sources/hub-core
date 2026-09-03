@@ -16,6 +16,15 @@ export type OpenChannelConversationJob = {
   destination: string
   /** O texto a postar; em envio só de anexo, o descritivo do tipo. */
   text: string
+  /**
+   * Entidade do CRM de onde o envio partiu. Serve **só para o nome** da conversa — o
+   * operador prefere ver o nome do contato a ver o número.
+   *
+   * Opcional porque nem toda origem tem uma: o reparo pelo callback de status da Z-API
+   * conhece só o evento do provider. Sem ela, o nome cai no telefone.
+   */
+  entity?: string
+  entityId?: string
 }
 
 export interface OpenChannelConversationQueue {

@@ -32,6 +32,9 @@ export type ThinkzapOpenChannelJob = {
   destination: string
   /** O texto a postar. Em envio só de anexo, o descritivo do tipo. */
   text: string
+  /** Entidade do CRM de origem — só para nomear a conversa. Ver o port. */
+  entity?: string
+  entityId?: string
 }
 
 /**

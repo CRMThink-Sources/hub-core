@@ -4,6 +4,8 @@ import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { resolveOpenChannelContactId } from '@/shared/helpers/open-channel-contact-id'
+import { normalizePhoneNumber } from '@/shared/helpers/normalize-phone-number'
+import { resolveContactDisplayName } from './open-channel-contact-display'
 import { apiLogger } from '@/shared/infra/logger'
 
 /**
@@ -43,14 +45,45 @@ export type EnsureWidgetOpenChannelInput = {
   /** Id da mensagem no provider — a chave da row cujo `chat_id` será gravado. */
   providerMessageId: string
   /**
-   * Telefone do destino. Passa por `resolveOpenChannelContactId` antes de virar o
-   * `chat.id`/`user.id` no Bitrix — a canonização não é confiada ao chamador, porque
-   * foi cada chamador decidindo sozinho que produziu o canal aberto duplicado.
+   * Telefone do destino, como o operador digitou.
+   *
+   * **Não é a identidade.** Ele entra em `resolveContact`, que decide o `chat.id` — em
+   * linha Z-API isso é o LID, resolvido pelo mapa ou por `phone-exists`. O que continua
+   * valendo é que a decisão não é do chamador: cada chamador decidindo sozinho foi o que
+   * produziu o canal aberto duplicado.
    */
   destination: string
   /** O texto a postar. Em envio só de anexo, o descritivo do tipo. */
   text: string
+  /**
+   * Entidade do CRM de onde o envio partiu, quando há uma.
+   *
+   * Serve só para o **nome** do contato na conversa: o operador prefere ver "Maria
+   * Souza" a ver um número. Opcional porque o caminho de reparo (callback de status da
+   * Z-API) não tem entidade em mãos — ele só conhece o evento do provider —, e nesse
+   * caso o nome cai no telefone.
+   */
+  entity?: string
+  entityId?: string
 }
+
+/**
+ * A identidade do contato, resolvida por quem sabe o provider da linha.
+ *
+ * Saiu de dentro do `BitrixClient` porque deixou de ser uma canonização de string: em
+ * linha Z-API ela é o LID, e chegar nele pode exigir o mapa e uma consulta ao provider.
+ */
+export type ResolveOpenChannelContact = (input: {
+  item: SubscriptionItem
+  instanceDbId: string
+  destination: string
+}) => Promise<{ id: string; phone: string | null }>
+
+/** Nome do contato no CRM. `null` quando não há entidade ou a consulta falha. */
+export type GetCrmContactName = (input: {
+  entity: string
+  entityId: string
+}) => Promise<string | null>
 
 /** O mínimo que a abertura precisa do repositório de mensagens. */
 export type OpenChannelMessageStore = Pick<
@@ -79,9 +112,11 @@ export type OpenChannelSender = Pick<BitrixClient, 'sendToOpenChannel'>
  * pelo `messageId` que o provider acabou de devolver. Nada externo precisa acontecer:
  * o webhook de status da Z-API deixou de ser o dono do fluxo e virou reparo.
  *
- * **Não é provider-aware.** Abrir a conversa é operação Bitrix, idêntica para Z-API e
- * HubMessage — é o que faz a linha do WhatsApp Oficial ganhar o comportamento de
- * graça, onde antes não tinha bridge nenhum.
+ * **Abrir a conversa segue sendo operação Bitrix, idêntica para os dois providers** —
+ * é o que faz a linha do WhatsApp Oficial ganhar o comportamento de graça. O que passou
+ * a ser provider-aware é a **identidade** do contato, e ela entra por `resolveContact`,
+ * fora daqui: em linha Z-API é o LID, em HubMessage é o telefone normalizado. Esta
+ * classe não sabe qual é qual, e é assim que deve continuar.
  *
  * **Nunca lança.** A mensagem já foi entregue ao contato quando isto roda; devolver
  * erro faria o operador reenviar e o contato receber duas vezes.
@@ -90,6 +125,20 @@ export class EnsureWidgetOpenChannelConversation {
   constructor(
     private readonly bitrixClient: OpenChannelSender,
     private readonly messages: OpenChannelMessageStore,
+    /**
+     * Default preserva o comportamento anterior — identidade = telefone canonizado — e
+     * é o que mantém a linha HubMessage e os chamadores que não resolvem provider
+     * funcionando sem mudança.
+     */
+    private readonly resolveContact: ResolveOpenChannelContact = ({
+      destination,
+    }) =>
+      Promise.resolve({
+        id: resolveOpenChannelContactId(destination),
+        phone: normalizePhoneNumber(destination),
+      }),
+    /** Ausente = nome cai no telefone, que é o comportamento de antes. */
+    private readonly getCrmContactName?: GetCrmContactName,
   ) {}
 
   async execute(
@@ -146,18 +195,28 @@ export class EnsureWidgetOpenChannelConversation {
     }
 
     /**
-     * A identidade do contato tem de ser a mesma que o `sendToOpenChannel` vai pôr em
-     * `chat.id`, porque é ela que é gravada em `chat_id` como registro de sob qual
-     * identidade este contato entrou no canal aberto. Resolver aqui e lá com a mesma
-     * função é o que mantém as duas iguais.
+     * A identidade é resolvida **aqui**, uma vez, e desce pronta para o cliente do
+     * Bitrix. Ela é gravada em `chat_id` como registro de sob qual identidade este
+     * contato entrou no canal aberto, então resolver duas vezes é como as duas direções
+     * divergiam antes.
+     *
+     * Isto roda **depois** do guard de conversa já aberta, e não antes: em linha Z-API a
+     * resolução pode custar uma consulta ao provider, e mensagem para conversa que já
+     * existe não deve pagar por ela.
      */
-    const contactId = resolveOpenChannelContactId(destination)
+    const contact = await this.resolveContact({
+      item,
+      instanceDbId: instanceId,
+      destination,
+    })
+    const contactId = contact.id
+    const contactName = await this.resolveDisplayName(input, contact.phone)
 
     try {
       const { chatId } = await this.bitrixClient.sendToOpenChannel(
         vinculatedChannel,
         env.bitrix.connector.code,
-        destination,
+        { id: contactId, name: contactName, phone: contact.phone },
         text,
       )
 
@@ -194,6 +253,43 @@ export class EnsureWidgetOpenChannelConversation {
 
       return { outcome: 'failed', chatId: null }
     }
+  }
+
+  /**
+   * O nome que o operador vai ler: nome do contato no CRM, e telefone como alternativa.
+   *
+   * A consulta ao CRM acontece só aqui — depois do guard de conversa já aberta —, então
+   * é uma por conversa, não por mensagem.
+   *
+   * Falha **não** interrompe a abertura: a mensagem já foi entregue ao contato quando
+   * isto roda, e recusar a conversa por causa de um nome trocaria um problema cosmético
+   * por uma conversa que não existe. Cai no telefone e segue.
+   */
+  private async resolveDisplayName(
+    input: EnsureWidgetOpenChannelInput,
+    phone: string | null,
+  ): Promise<string> {
+    const { entity, entityId } = input
+
+    if (this.getCrmContactName && entity && entityId) {
+      try {
+        const name = await this.getCrmContactName({ entity, entityId })
+        if (name?.trim()) return resolveContactDisplayName([name])
+      } catch (err) {
+        apiLogger.warn(
+          {
+            app: 'thinkzap',
+            entity,
+            entityId,
+            err,
+            crmContactNameLookupFailed: true,
+          },
+          'Nome do contato no CRM não resolvido; usando o telefone',
+        )
+      }
+    }
+
+    return resolveContactDisplayName([phone])
   }
 
   private skip(
