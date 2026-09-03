@@ -293,6 +293,8 @@ export class SendWidgetMessageUseCase {
         message,
         attachments.map(attachment => attachment.kind),
       ),
+      entity,
+      entityId,
     })
 
     await this.sendBitrixNotification.execute({
@@ -327,6 +329,9 @@ export class SendWidgetMessageUseCase {
     providerMessageId: string | undefined
     destination: string
     text: string | null
+    /** Só para nomear a conversa com o nome do contato, em vez do número. */
+    entity?: string
+    entityId?: string
   }): Promise<void> {
     const { providerMessageId, text } = input
     if (!providerMessageId || !text) return
@@ -340,6 +345,8 @@ export class SendWidgetMessageUseCase {
         providerMessageId,
         destination: input.destination,
         text,
+        entity: input.entity,
+        entityId: input.entityId,
       })
     } catch (err) {
       apiLogger.error(

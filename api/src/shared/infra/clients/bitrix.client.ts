@@ -450,32 +450,47 @@ export class BitrixClient {
    * Posta no canal aberto do Bitrix uma mensagem que o CRM acabou de enviar ao
    * contato, abrindo (ou reusando) a sessão daquele contato.
    *
-   * O `contact` recebido é canonizado por `resolveOpenChannelContactId` **aqui**, e
-   * não no chamador. É este método que constrói o payload, então é ele que tem de
-   * garantir a invariante: o `chat.id` de um contato é o mesmo valor em toda direção.
-   * Deixar isso com o chamador foi o que produziu o canal aberto duplicado — o envio
-   * identificava o contato pelo telefone digitado no widget e o inbound identificava
-   * o mesmo contato por outro valor, então o Bitrix via dois contatos.
+   * **A identidade chega pronta.** Este método canonizava o telefone por conta própria,
+   * o que era certo enquanto a identidade *era* um telefone. Deixou de ser: em linha
+   * Z-API ela é o LID, resolvido por uma cadeia que precisa do mapa e, no pior caso, de
+   * uma consulta à Z-API — nada que caiba dentro de um cliente HTTP do Bitrix. Quem
+   * resolve é o chamador, que sabe o provider da linha.
+   *
+   * **Identidade, nome e telefone são três valores.** Os cinco campos abaixo recebiam
+   * todos o mesmo: `chat.id`, `chat.name`, `user.id`, `user.name` e `user.phone`. Com
+   * identidade de telefone isso passava despercebido; com identidade de LID, o
+   * identificador interno do WhatsApp viraria o nome do contato na tela do operador e o
+   * telefone dele no CRM.
+   *
+   * `phone` ausente é estado válido — contato em modo privacidade não tem número — e é
+   * por isso que ele é omitido em vez de mandado vazio.
    */
   async sendToOpenChannel(
     lineId: string,
     connectorCode: string,
-    contact: string,
+    contact: {
+      /** `chat.id`/`user.id` — já resolvido pelo chamador. */
+      id: string
+      /** O que o operador lê. Nunca um LID. */
+      name: string
+      /** Telefone real, ou `null` quando o contato não tem um conhecido. */
+      phone: string | null
+    },
     message: string,
   ): Promise<{ chatId: string | null; bitrixMessageId: string | null }> {
-    const contactId = resolveOpenChannelContactId(contact)
+    const contactId = contact.id
     const messageId = `widget_${Date.now()}_${contactId}`
     const params: ISendMessageData = {
       CONNECTOR: connectorCode,
       LINE: Number(lineId),
       MESSAGES: [
         {
-          chat: { id: contactId, name: contactId },
+          chat: { id: contactId, name: contact.name },
           user: {
             id: contactId,
-            name: contactId,
+            name: contact.name,
             last_name: '',
-            phone: contactId,
+            ...(contact.phone ? { phone: contact.phone } : {}),
           },
           message: {
             id: messageId,
@@ -569,7 +584,13 @@ export interface ISendMessageData {
       id: string
       name: string
       last_name: string
-      phone: string
+      /**
+       * Telefone do contato no CRM. **Opcional**: contato em modo privacidade não tem
+       * telefone conhecido, e o campo tem que ser omitido em vez de receber o LID ou os
+       * dígitos extraídos dele — o Bitrix grava este valor como telefone do contato, e
+       * o operador disca por ele.
+       */
+      phone?: string
       picture?: {
         url: string
       }

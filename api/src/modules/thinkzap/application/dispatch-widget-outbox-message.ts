@@ -576,6 +576,8 @@ export class DispatchWidgetOutboxMessage {
         providerMessageId,
         destination: row.destination,
         text: row.text,
+        entity: row.entity,
+        entityId: row.entityId,
       })
     } catch (err) {
       apiLogger.error(

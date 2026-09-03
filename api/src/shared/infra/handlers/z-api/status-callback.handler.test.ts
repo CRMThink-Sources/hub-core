@@ -8,6 +8,7 @@ const {
   getDomainByIdMock,
   sendToOpenChannelMock,
   findLineItemByInstanceIdMock,
+  resolveContactMock,
 } = vi.hoisted(() => ({
   getInstanceByInstanceIdMock: vi.fn(),
   findByProviderMessageIdMock: vi.fn(),
@@ -16,6 +17,7 @@ const {
   getDomainByIdMock: vi.fn(),
   sendToOpenChannelMock: vi.fn(),
   findLineItemByInstanceIdMock: vi.fn(),
+  resolveContactMock: vi.fn(),
 }))
 
 vi.mock('@/config/env', () => ({
@@ -60,6 +62,18 @@ vi.mock('../../persistence/repositories/prisma-domain.repository', () => ({
     getDomainById = getDomainByIdMock
   },
 }))
+
+/**
+ * A resolução da identidade toca Prisma e a Z-API. O reparo usa a MESMA resolução do
+ * caminho principal de propósito — se usasse outra, repararia abrindo uma segunda
+ * conversa em vez da que faltava.
+ */
+vi.mock(
+  '@/modules/thinkzap/main/make-resolve-widget-open-channel-contact',
+  () => ({
+    makeResolveWidgetOpenChannelContact: () => resolveContactMock,
+  }),
+)
 
 vi.mock('@/shared/main/make-bitrix-client', () => ({
   makeBitrixClientByDomainAndAppCoode: vi
@@ -131,6 +145,10 @@ const lineWithChannel = {
 describe('StatusCallbackHandler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resolveContactMock.mockResolvedValue({
+      id: '5511999999999',
+      phone: '5511999999999',
+    })
     getInstanceByInstanceIdMock.mockResolvedValue(instanceWithoutChannel)
     findByProviderMessageIdMock.mockResolvedValue(widgetMessage())
     getDomainByIdMock.mockResolvedValue({
@@ -159,7 +177,7 @@ describe('StatusCallbackHandler', () => {
     expect(sendToOpenChannelMock).toHaveBeenCalledWith(
       '10',
       'hubthink_thinkzap',
-      '5511999999999',
+      { id: '5511999999999', name: '5511999999999', phone: '5511999999999' },
       'Olá',
     )
   })
@@ -267,7 +285,7 @@ describe('StatusCallbackHandler', () => {
     expect(sendToOpenChannelMock).toHaveBeenCalledWith(
       '10',
       'hubthink_thinkzap',
-      '5511999999999',
+      { id: '5511999999999', name: '5511999999999', phone: '5511999999999' },
       '[Imagem enviada]',
     )
   })

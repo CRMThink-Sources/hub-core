@@ -56,10 +56,12 @@ describe('EnsureWidgetOpenChannelConversation', () => {
     const result = await sut.execute({ ...baseInput, item: item() })
 
     expect(result).toEqual({ outcome: 'opened', chatId: '4242' })
+    // Identidade, nome e telefone chegam separados — antes eram o mesmo valor nos cinco
+    // campos do payload, e foi isso que faria o lid virar nome do contato.
     expect(sendToOpenChannel).toHaveBeenCalledWith(
       '10',
       expect.any(String),
-      '5511999999999',
+      { id: '5511999999999', name: '5511999999999', phone: '5511999999999' },
       'Olá',
     )
   })
@@ -116,9 +118,138 @@ describe('EnsureWidgetOpenChannelConversation', () => {
     expect(sendToOpenChannel).toHaveBeenCalledWith(
       '77',
       expect.any(String),
-      expect.any(String),
+      expect.any(Object),
       expect.any(String),
     )
+  })
+
+  /**
+   * A identidade deixou de ser canonizada dentro do cliente do Bitrix: em linha Z-API
+   * ela é o LID, e chegar nele pode custar o mapa e uma consulta ao provider. Quem
+   * resolve é quem sabe o provider da linha.
+   */
+  it('usa a identidade que o resolvedor devolve, não o telefone', async () => {
+    const sendToOpenChannel = vi
+      .fn()
+      .mockResolvedValue({ chatId: '4242', bitrixMessageId: '99' })
+
+    const sut = new EnsureWidgetOpenChannelConversation(
+      { sendToOpenChannel },
+      {
+        findByProviderMessageId: vi.fn().mockResolvedValue(null),
+        updateOpenChannelRefs: vi.fn().mockResolvedValue(undefined),
+      },
+      () =>
+        Promise.resolve({ id: '3577724534928@lid', phone: '5511999999999' }),
+    )
+
+    await sut.execute({ ...baseInput, item: item() })
+
+    expect(sendToOpenChannel).toHaveBeenCalledWith(
+      '10',
+      expect.any(String),
+      expect.objectContaining({ id: '3577724534928@lid' }),
+      'Olá',
+    )
+  })
+
+  /** O nome vem do CRM quando a entidade de origem existe. */
+  it('nomeia a conversa com o contato do CRM', async () => {
+    const sendToOpenChannel = vi
+      .fn()
+      .mockResolvedValue({ chatId: '4242', bitrixMessageId: '99' })
+
+    const sut = new EnsureWidgetOpenChannelConversation(
+      { sendToOpenChannel },
+      {
+        findByProviderMessageId: vi.fn().mockResolvedValue(null),
+        updateOpenChannelRefs: vi.fn().mockResolvedValue(undefined),
+      },
+      () =>
+        Promise.resolve({ id: '3577724534928@lid', phone: '5511999999999' }),
+      () => Promise.resolve('Maria Souza'),
+    )
+
+    await sut.execute({
+      ...baseInput,
+      item: item(),
+      entity: 'contact',
+      entityId: '42',
+    })
+
+    expect(sendToOpenChannel).toHaveBeenCalledWith(
+      '10',
+      expect.any(String),
+      expect.objectContaining({ name: 'Maria Souza' }),
+      'Olá',
+    )
+  })
+
+  /**
+   * A mensagem já foi entregue ao contato quando isto roda: recusar a conversa por
+   * causa de um nome trocaria um problema cosmético por uma conversa que não existe.
+   */
+  it('abre a conversa mesmo quando a consulta ao CRM falha', async () => {
+    const sendToOpenChannel = vi
+      .fn()
+      .mockResolvedValue({ chatId: '4242', bitrixMessageId: '99' })
+
+    const sut = new EnsureWidgetOpenChannelConversation(
+      { sendToOpenChannel },
+      {
+        findByProviderMessageId: vi.fn().mockResolvedValue(null),
+        updateOpenChannelRefs: vi.fn().mockResolvedValue(undefined),
+      },
+      () => Promise.resolve({ id: 'lid@lid', phone: '5511999999999' }),
+      () => Promise.reject(new Error('bitrix fora')),
+    )
+
+    const result = await sut.execute({
+      ...baseInput,
+      item: item(),
+      entity: 'contact',
+      entityId: '42',
+    })
+
+    expect(result.outcome).toBe('opened')
+    expect(sendToOpenChannel).toHaveBeenCalledWith(
+      '10',
+      expect.any(String),
+      expect.objectContaining({ name: '5511999999999' }),
+      'Olá',
+    )
+  })
+
+  /**
+   * A resolução pode custar uma consulta ao provider — conversa que já existe não deve
+   * pagar por ela.
+   */
+  it('não resolve identidade nem nome quando a conversa já está aberta', async () => {
+    const resolveContact = vi.fn()
+    const getCrmName = vi.fn()
+
+    const sut = new EnsureWidgetOpenChannelConversation(
+      { sendToOpenChannel: vi.fn() },
+      {
+        findByProviderMessageId: vi
+          .fn()
+          .mockResolvedValue({ bitrixChatId: '4242', chatId: 'x' }),
+        updateOpenChannelRefs: vi.fn(),
+      },
+      resolveContact,
+      getCrmName,
+    )
+
+    const result = await sut.execute({
+      ...baseInput,
+      item: item(),
+      entity: 'contact',
+      entityId: '42',
+    })
+
+    expect(result.outcome).toBe('already-open')
+    expect(resolveContact).not.toHaveBeenCalled()
+    expect(getCrmName).not.toHaveBeenCalled()
   })
 
   it('recusa com no-channel quando o item não tem canal vinculado', async () => {

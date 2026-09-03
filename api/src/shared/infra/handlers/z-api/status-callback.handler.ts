@@ -1,6 +1,7 @@
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
 import { EnsureWidgetOpenChannelConversation } from '@/modules/thinkzap/application/ensure-widget-open-channel-conversation'
+import { makeResolveWidgetOpenChannelContact } from '@/modules/thinkzap/main/make-resolve-widget-open-channel-contact'
 import { resolveOpenChannelTextFromPersisted } from '@/modules/thinkzap/application/helpers/describe-attachment-text'
 import { findLineItemByInstanceId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
 import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
@@ -152,9 +153,21 @@ export class StatusCallbackHandler implements ZApiEventHandler {
         return
       }
 
+      /**
+       * A mesma resolução de identidade do caminho principal, e não o default.
+       *
+       * Este é o **reparo**: ele abre a conversa que o enfileiramento não conseguiu
+       * abrir. Se ele resolvesse a identidade por outro caminho, repararia abrindo uma
+       * segunda conversa — com a chave antiga — em vez de a que faltava. Duas direções
+       * discordando sobre quem é o contato é a origem do defeito que esta change conserta.
+       *
+       * Sem nome do CRM: aqui só existe o evento do provider, sem entidade de origem. O
+       * nome cai no telefone, que é o que este caminho já produzia.
+       */
       const ensureOpenChannel = new EnsureWidgetOpenChannelConversation(
         bitrix,
         messageRepo,
+        makeResolveWidgetOpenChannelContact(),
       )
 
       const { outcome, chatId } = await ensureOpenChannel.execute({

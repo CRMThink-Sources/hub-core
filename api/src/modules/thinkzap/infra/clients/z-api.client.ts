@@ -15,6 +15,7 @@ import {
   UpdateGroupNameParams,
   UpdateGroupPhotoParams,
   ZApiBooleanResponse,
+  PhoneExistsResponse,
   ProfilePictureResponse,
   ZApiGroupListItem,
   ZApiGroupMetadata,
@@ -520,6 +521,63 @@ export class ZApiClient {
       }
       return null
     } catch {
+      return null
+    }
+  }
+
+  /**
+   * Descobre o LID de um telefone.
+   *
+   * **A única direção de conversão que existe.** O WhatsApp não permite ir de LID para
+   * telefone — a Z-API é explícita sobre isso, e a razão é privacidade. Este método é o
+   * que torna possível o widget, que só conhece o número digitado pelo operador,
+   * alcançar a mesma identidade de canal aberto que o inbound resolve pelo `chatLid`.
+   * Sem ele, a identidade por LID duplicaria toda conversa iniciada pelo CRM.
+   *
+   * Não lança e devolve `null` no erro, como `getProfilePicture`: o chamador trata a
+   * ausência caindo para o próximo elo da cadeia, e uma indisponibilidade da Z-API não
+   * pode derrubar a entrega de uma mensagem que já chegou.
+   *
+   * `exists: false` (número sem WhatsApp) vem com `lid` nulo e é devolvido como está —
+   * é informação, não erro, e o backfill a usa para saber que aquele contato não tem
+   * conversa a proteger.
+   */
+  async phoneExists(
+    instanceId: string,
+    instanceToken: string,
+    phone: string,
+  ): Promise<{ exists: boolean; phone: string; lid: string | null } | null> {
+    try {
+      const { data } = await this.http.get<PhoneExistsResponse>(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/phone-exists`,
+        {
+          params: { phone },
+          headers: this.instanceHeaders(),
+        },
+      )
+
+      // A Z-API devolve array mesmo para um número só; tolerar objeto solto porque a
+      // forma não está fixada por contrato e um 200 inesperado não deve virar exceção.
+      const entry = Array.isArray(data) ? data[0] : data
+      if (!entry || typeof entry !== 'object') return null
+
+      return {
+        exists: Boolean(entry.exists),
+        phone: entry.phone ?? phone,
+        lid: entry.lid ?? null,
+      }
+    } catch (err) {
+      apiLogger.warn(
+        {
+          app: 'thinkzap',
+          provider: 'ZAPI',
+          operation: 'phoneExists',
+          instanceId,
+          phone,
+          err,
+        },
+        'Z-API não resolveu o lid do telefone',
+      )
       return null
     }
   }
