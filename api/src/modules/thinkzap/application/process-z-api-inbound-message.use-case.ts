@@ -20,6 +20,10 @@ import { Instance } from '@/modules/thinkzap/domain/entities/instance'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import {
+  noopJobLog,
+  type AppendJobLog,
+} from '@/modules/thinkzap/domain/ports/job-log.port'
+import {
   toQuoteInput,
   PrismaThinkzapMessageRepository,
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
@@ -33,6 +37,17 @@ import { extractBitrixChatId } from './helpers/extract-bitrix-chat-id'
 
 const log = createWorkerSourceLogger('z-api')
 
+/**
+ * Entrega no canal aberto do Bitrix uma mensagem recebida no WhatsApp não-oficial
+ * (Z-API).
+ *
+ * Além do log de processo (stdout → Promtail → Loki), escreve a história desta
+ * execução na **aba Logs do job** via `appendJobLog`. Aqui isso pesa mais que no
+ * caminho oficial, porque três desfechos deste fluxo terminam em `completed` **sem**
+ * mensagem nova no canal aberto e são o esperado: grupo (identidade de chat de outra
+ * forma), `isEdit` (atualiza mensagem existente, não persiste) e `REVOKE` (apaga a
+ * mensagem). Sem linha na aba, os três são indistinguíveis de mensagem perdida.
+ */
 export class ProcessZApiInboundMessageUseCase {
   constructor(
     /**
@@ -53,7 +68,17 @@ export class ProcessZApiInboundMessageUseCase {
     private readonly disconnectExpiredLine: DisconnectExpiredLine,
   ) {}
 
-  async execute(event: ReceivedMessageEvent): Promise<void> {
+  /**
+   * `context` entra pelo argumento, e não como oitava dependência de construtor: o
+   * log de job pertence ao **job**, que existe por execução, não à regra de entrega.
+   * O default `noopJobLog` cobre chamada fora da fila e teste.
+   */
+  async execute(
+    event: ReceivedMessageEvent,
+    context: { appendJobLog: AppendJobLog } = { appendJobLog: noopJobLog },
+  ): Promise<void> {
+    const { appendJobLog } = context
+
     log.info(
       {
         instanceId: event.instanceId,
@@ -75,6 +100,17 @@ export class ProcessZApiInboundMessageUseCase {
         },
         'isEdit=true but editMessageId missing — skipping',
       )
+      /**
+       * Sem domínio nesta linha, e é o único desvio assim: o guard roda antes da
+       * leitura da instância de propósito — payload malformado não deve custar
+       * consulta ao banco.
+       */
+      await appendJobLog(
+        `Mensagem DESCARTADA: evento de edição sem \`editMessageId\` | ` +
+          `instância=${event.instanceId} | messageId=${event.messageId}. Sem o id da ` +
+          'mensagem original não há o que atualizar no canal aberto. Payload malformado ' +
+          'do provider — job encerrado sem falha, e retentativa não muda nada.',
+      )
       return
     }
 
@@ -92,12 +128,49 @@ export class ProcessZApiInboundMessageUseCase {
         },
         { level: 'warn', msg: 'Instance not found for received message' },
       )
+      await appendJobLog(
+        `Instância não encontrada para "${event.instanceId}" — nenhuma instalação é ` +
+          'alcançável por esta chave, então não há domínio nem linha para resolver. ' +
+          'Job vai falhar; retentativa cai no mesmo lugar.',
+      )
       throw new Error('Instance not found for received message')
     }
     const { domainId } = instance
     if (!domainId) {
       throw new Error('Domain ID is required')
     }
+
+    /**
+     * Domínio resolvido **aqui**, e não junto da credencial lá embaixo.
+     *
+     * `instance.domainId` é o único pré-requisito, e ele já existe antes de qualquer
+     * desvio de roteamento. Enquanto a leitura ficava depois da instalação, os desvios
+     * anteriores a ela — linha não resolvida, assinatura inativa, sem canal vinculado —
+     * encerravam sem que ninguém soubesse **de qual portal** era a mensagem, que é o
+     * primeiro dado que o suporte precisa. `domainId` é uuid de `core_domains`; quem vai
+     * abrir o portal precisa do endereço.
+     *
+     * Ausência **não** antecipa falha: registra e segue. O `throw` por domínio ausente
+     * fica onde sempre esteve, junto do da credencial, no ponto em que o `BitrixClient`
+     * precisa dele de fato.
+     */
+    const domain = await this.domainRepo.getDomainById(domainId)
+    const domainName = domain?.name ?? 'não resolvido'
+
+    /**
+     * `extractQuoteInput` é pura e já resolve o tipo do conteúdo — é a mesma função que
+     * o snapshot usa para gravar `type`, então a linha de contexto não pode divergir do
+     * que vai ao banco.
+     */
+    const inboundType = extractQuoteInput(event).type
+
+    await appendJobLog(
+      `Mensagem recebida | domínio=${domainName} | instância=${event.instanceId} | ` +
+        `contato=${event.phone} | messageId=${event.messageId} | conteúdo=${inboundType}` +
+        (event.isGroup ? ' | grupo=sim' : '') +
+        (event.isEdit ? ' | edição=sim' : '') +
+        (event.notification ? ` | notification=${event.notification}` : ''),
+    )
 
     /**
      * A linha é resolvida pelo **item de assinatura**, não por `Connector`.
@@ -122,6 +195,7 @@ export class ProcessZApiInboundMessageUseCase {
         'thinkzap.message.inbound_zapi_failed',
         {
           instanceId: event.instanceId,
+          domain: domainName,
           internalInstanceId: instance.id,
           messageId: event.messageId,
         },
@@ -130,10 +204,21 @@ export class ProcessZApiInboundMessageUseCase {
           msg: 'Nenhum item de assinatura corresponde a esta instância',
         },
       )
+      await appendJobLog(
+        `Nenhum item de assinatura corresponde à instância "${event.instanceId}" no ` +
+          `domínio ${domainName}. Sem item não há assinatura que autorize a entrega. ` +
+          'Conserto é no CRM: conferir a linha na SPA. Job vai falhar; retentativa cai ' +
+          'no mesmo lugar.',
+      )
       throw new Error('Line not found for received message')
     }
 
     const { item } = line
+
+    await appendJobLog(
+      `Linha resolvida | item=${item.id} | entitlement=${line.entitlement} | ` +
+        `canal aberto=${item.vinculatedChannel ?? '—'}`,
+    )
 
     /**
      * Descarta **antes** de persistir mensagem ou criar conversa: mensagem de linha
@@ -146,11 +231,19 @@ export class ProcessZApiInboundMessageUseCase {
       log.info(
         {
           instanceId: event.instanceId,
+          domain: domainName,
           subscriptionItemId: item.id,
           messageId: event.messageId,
           entitlement: line.entitlement,
         },
         'Mensagem descartada: linha sem assinatura ativa',
+      )
+
+      await appendJobLog(
+        `Mensagem DESCARTADA: linha sem assinatura ativa | item=${item.id} | ` +
+          `entitlement=${line.entitlement}. É assinatura, não falha técnica — reprocessar ` +
+          'o job não muda nada. Nada é persistido e nada aparece no CRM. Job encerrado ' +
+          'sem falha.',
       )
 
       /**
@@ -173,10 +266,17 @@ export class ProcessZApiInboundMessageUseCase {
         'thinkzap.message.inbound_zapi_failed',
         {
           instanceId: event.instanceId,
+          domain: domainName,
           subscriptionItemId: item.id,
           messageId: event.messageId,
         },
         { level: 'warn', msg: 'Linha sem canal aberto vinculado' },
+      )
+      await appendJobLog(
+        `Linha sem canal aberto vinculado | item=${item.id} | domínio=${domainName}. ` +
+          'Sem `LINE` não há para onde entregar. Conserto é no CRM: vincular o canal ' +
+          'aberto ao item (`ufCrm93Conector` na SPA 1146). Job vai falhar; retentativa ' +
+          'cai no mesmo lugar.',
       )
       throw new Error('Instance has no vinculated channel')
     }
@@ -189,26 +289,44 @@ export class ProcessZApiInboundMessageUseCase {
       logThinkzapError(
         log,
         'thinkzap.app.not_found',
-        { instanceId: event.instanceId, domainId, messageId: event.messageId },
+        {
+          instanceId: event.instanceId,
+          domainId,
+          domain: domainName,
+          messageId: event.messageId,
+        },
         {
           level: 'error',
           msg: `Instalação não encontrada: domínio "${domainId}", app "${thinkzapAppCodeId()}"`,
         },
+      )
+      await appendJobLog(
+        `Instalação não encontrada | domínio=${domainName} | app=${thinkzapAppCodeId()}. ` +
+          'Sem instalação não há credencial para chamar o Bitrix. Conferir se o app segue ' +
+          'instalado e ativo no portal. Job vai falhar; retentativa cai no mesmo lugar.',
       )
       throw new Error(
         `Instalação não encontrada: domínio "${domainId}", app "${thinkzapAppCodeId()}"`,
       )
     }
 
-    const domain = await this.domainRepo.getDomainById(domainId)
     const app = await this.appRepo.getById(installedApp.id)
 
     if (!app) {
       logThinkzapError(
         log,
         'thinkzap.app.not_found',
-        { instanceId: event.instanceId, domainId, messageId: event.messageId },
+        {
+          instanceId: event.instanceId,
+          domainId,
+          domain: domainName,
+          messageId: event.messageId,
+        },
         { level: 'error', msg: 'App not found' },
+      )
+      await appendJobLog(
+        `App "${installedApp.id}" não encontrado, embora a instalação exista ` +
+          `(domínio=${domainName}) — estado inconsistente. Job vai falhar.`,
       )
       throw new Error('App not found')
     }
@@ -216,6 +334,11 @@ export class ProcessZApiInboundMessageUseCase {
     const credential = await this.credentialRepo.get({ appId: app.id })
 
     if (!domain || !credential) {
+      await appendJobLog(
+        `Sem como chamar o Bitrix | domínio=${domain ? 'ok' : 'não encontrado'} | ` +
+          `credencial=${credential ? 'ok' : 'não encontrada'}. Reinstalar o app renova a ` +
+          'credencial. Job vai falhar; retentativa cai no mesmo lugar.',
+      )
       throw new Error('Domain or credential not found')
     }
 
@@ -228,6 +351,16 @@ export class ProcessZApiInboundMessageUseCase {
     const normalizedPhone = normalizePhoneNumber(event.phone)
 
     if (event.isGroup) {
+      /**
+       * A linha existe porque explica a forma das seguintes: no caminho de grupo o
+       * `chat.id` sai de `phone`/`chatLid` do grupo, não do telefone do remetente, e
+       * o texto ganha o nome de quem escreveu como prefixo.
+       */
+      await appendJobLog(
+        `Mensagem de grupo — segue pelo caminho de grupo: a identidade do chat é o ` +
+          `grupo (${event.phone}), não o contato, e o autor (${event.senderName ?? '—'}) ` +
+          'vai como prefixo do texto.',
+      )
       await this.sendGroupMessage(
         event,
         domain,
@@ -236,6 +369,7 @@ export class ProcessZApiInboundMessageUseCase {
         vinculatedChannel,
         normalizedPhone,
         files,
+        appendJobLog,
       )
       return
     }
@@ -248,6 +382,10 @@ export class ProcessZApiInboundMessageUseCase {
      */
     const chatId = resolveChatId(event)
     if (!chatId) {
+      await appendJobLog(
+        `Payload sem telefone utilizável (\`phone\`="${event.phone}") — sem identidade ` +
+          'de contato, enviar abriria uma sessão de canal aberto sem dono. Job vai falhar.',
+      )
       throw new Error('Chat ID not found')
     }
 
@@ -305,6 +443,20 @@ export class ProcessZApiInboundMessageUseCase {
       'Prepared message payload to send to Bitrix',
     )
 
+    /**
+     * `describeZApiOperation` nomeia qual das três chamadas vai sair. Job `completed`
+     * sem mensagem nova no canal aberto é o **esperado** em edição e em `REVOKE`, e sem
+     * esta linha isso é indistinguível de mensagem perdida.
+     */
+    await appendJobLog(
+      `Entregando no canal aberto | operação=${describeZApiOperation(event)} | ` +
+        `domínio=${domain.name} | CONNECTOR=${params.CONNECTOR} | LINE=${params.LINE} | ` +
+        `chat.id=${chatId} | tipo=${inboundType} | arquivos=${files?.length ?? 0}` +
+        (event.referenceMessageId
+          ? ` | citação=${cached ? 'resolvida' : 'não resolvida'}`
+          : ''),
+    )
+
     const result: unknown = event.isEdit
       ? await bitrixClient.updateMessage(params)
       : event.notification === 'REVOKE'
@@ -314,6 +466,7 @@ export class ProcessZApiInboundMessageUseCase {
     log.info(
       {
         messageId: event.messageId,
+        domain: domainName,
         outgoingMessageId,
         isEdit: event.isEdit,
         result: JSON.stringify(result),
@@ -330,12 +483,24 @@ export class ProcessZApiInboundMessageUseCase {
       bitrixChatId,
       event,
     )
+
+    await appendJobLog(
+      `Bitrix aceitou | session.CHAT_ID=${bitrixChatId ?? 'não devolvido'} | ` +
+        `bitrixMessageId=${bitrixMessageId ?? 'não resolvido (im.dialog.get)'}`,
+    )
+
     await this.persistInboundSnapshot(
       event,
       instance.id,
       bitrixMessageId,
       bitrixChatId,
       chatId,
+      appendJobLog,
+    )
+
+    await appendJobLog(
+      `Desfecho: ${describeZApiOperation(event)} concluída no canal aberto ` +
+        `${vinculatedChannel} do domínio ${domain.name}.`,
     )
   }
 
@@ -348,10 +513,12 @@ export class ProcessZApiInboundMessageUseCase {
     vinculatedChannel: string,
     normalizedPhone: string,
     files?: { url: string; name: string }[],
+    appendJobLog: AppendJobLog = noopJobLog,
   ): Promise<void> {
     log.info(
       {
         instanceId: event.instanceId,
+        domain: domain.name,
         messageId: event.messageId,
         phone: event.phone,
         senderName: event.senderName,
@@ -364,6 +531,10 @@ export class ProcessZApiInboundMessageUseCase {
 
     const chatId = resolveGroupChatId(event)
     if (!chatId) {
+      await appendJobLog(
+        `Grupo sem identidade de chat: \`phone\`="${event.phone}" não é grupo e ` +
+          '`chatLid` está vazio. Job vai falhar.',
+      )
       throw new Error('Chat ID not found')
     }
 
@@ -434,6 +605,15 @@ export class ProcessZApiInboundMessageUseCase {
       domain: domain.name,
     })
 
+    await appendJobLog(
+      `Entregando no canal aberto (grupo) | operação=${describeZApiOperation(event)} | ` +
+        `domínio=${domain.name} | CONNECTOR=${params.CONNECTOR} | LINE=${params.LINE} | ` +
+        `chat.id=${chatId} | arquivos=${files?.length ?? 0}` +
+        (event.referenceMessageId
+          ? ` | citação=${cached ? 'resolvida' : 'não resolvida'}`
+          : ''),
+    )
+
     let result: unknown
     if (event.isEdit) {
       result = await bitrixClient.updateMessage(params)
@@ -444,6 +624,7 @@ export class ProcessZApiInboundMessageUseCase {
     log.info(
       {
         instanceId: event.instanceId,
+        domain: domain.name,
         messageId: event.messageId,
         isEdit: event.isEdit,
         hasReplyContext: Boolean(cached),
@@ -461,12 +642,24 @@ export class ProcessZApiInboundMessageUseCase {
       bitrixChatId,
       event,
     )
+
+    await appendJobLog(
+      `Bitrix aceitou | session.CHAT_ID=${bitrixChatId ?? 'não devolvido'} | ` +
+        `bitrixMessageId=${bitrixMessageId ?? 'não resolvido (im.dialog.get)'}`,
+    )
+
     await this.persistInboundSnapshot(
       event,
       instance.id,
       bitrixMessageId,
       bitrixChatId,
       chatId,
+      appendJobLog,
+    )
+
+    await appendJobLog(
+      `Desfecho: ${describeZApiOperation(event)} de grupo concluída no canal aberto ` +
+        `${vinculatedChannel} do domínio ${domain.name}.`,
     )
   }
 
@@ -533,8 +726,20 @@ export class ProcessZApiInboundMessageUseCase {
     bitrixMessageId: string | null,
     bitrixChatId: string | null,
     chatId: string | null,
+    appendJobLog: AppendJobLog = noopJobLog,
   ): Promise<void> {
-    if (event.notification === 'REVOKE' || event.isEdit) return
+    if (event.notification === 'REVOKE' || event.isEdit) {
+      /**
+       * Edição e remoção agem sobre uma mensagem que já tem registro: gravar um
+       * segundo faria a citação de resposta resolver para a linha errada. A linha
+       * existe para que "job completed e nada novo no banco" leia como decisão.
+       */
+      await appendJobLog(
+        `Nenhum registro persistido — ${describeZApiOperation(event)} age sobre a ` +
+          'mensagem que já está no banco.',
+      )
+      return
+    }
 
     try {
       const quoteInput = extractQuoteInput(event)
@@ -559,8 +764,27 @@ export class ProcessZApiInboundMessageUseCase {
         },
         'Failed to persist inbound message snapshot',
       )
+      await appendJobLog(
+        'Mensagem ENTREGUE no canal aberto, mas a persistência falhou — ' +
+          `${err instanceof Error ? err.message : String(err)}. Job segue sem falha de ` +
+          'propósito: retentar duplicaria a mensagem no CRM. Sem o registro, a citação ' +
+          'de resposta a esta mensagem não resolve.',
+      )
     }
   }
+}
+
+/**
+ * Qual das três chamadas ao Bitrix vai sair. O caminho Z-API é o único inbound que
+ * tem mais de uma, e duas delas **não** produzem mensagem nova no canal aberto — sem
+ * o rótulo, um job `completed` de edição parece um job que perdeu a mensagem.
+ */
+function describeZApiOperation(event: ReceivedMessageEvent): string {
+  if (event.isEdit) return 'atualização de mensagem existente (updateMessage)'
+  if (event.notification === 'REVOKE') {
+    return 'remoção de mensagem apagada pelo contato (deleteMessage)'
+  }
+  return 'envio de mensagem nova (sendMessage)'
 }
 
 async function resolveBitrixMessageId(

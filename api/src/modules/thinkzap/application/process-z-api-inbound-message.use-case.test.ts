@@ -109,11 +109,13 @@ function buildUseCase({
   repoCreate,
   subscriptionStatus = 'active',
   currentPeriodEnd = new Date('2099-01-01T00:00:00.000Z'),
+  domain = { id: 'domain-1', name: 'acme.bitrix24.com.br' },
 }: {
   repoFind?: ReturnType<typeof vi.fn>
   repoCreate?: ReturnType<typeof vi.fn>
   subscriptionStatus?: string
   currentPeriodEnd?: Date
+  domain?: unknown
 } = {}) {
   const messageRepo = {
     findByProviderMessageId: repoFind ?? vi.fn().mockResolvedValue(null),
@@ -126,6 +128,21 @@ function buildUseCase({
    * `disconnect-expired-line.test.ts`.
    */
   const disconnectExpiredLine = { schedule: vi.fn() }
+
+  /**
+   * Coletor da **aba Logs** do job. Aqui pesa mais que no caminho oficial: grupo,
+   * edição e `REVOKE` encerram o job sem mensagem nova no canal aberto, e sem linha
+   * na aba os três são indistinguíveis de mensagem perdida.
+   */
+  const lines: string[] = []
+  const jobLog = {
+    appendJobLog: (line: string) => {
+      lines.push(line)
+      return Promise.resolve()
+    },
+  }
+
+  const getDomainById = vi.fn().mockResolvedValue(domain)
 
   const useCase = new ProcessZApiInboundMessageUseCase(
     /**
@@ -166,11 +183,7 @@ function buildUseCase({
     {
       getInstanceByInstanceId: vi.fn().mockResolvedValue(baseInstance),
     } as never,
-    {
-      getDomainById: vi
-        .fn()
-        .mockResolvedValue({ id: 'domain-1', name: 'acme' }),
-    } as never,
+    { getDomainById } as never,
     {
       getById: vi.fn().mockResolvedValue({ id: 'app-1' }),
       getByAppCodeAndDomainId: vi.fn().mockResolvedValue({ id: 'app-1' }),
@@ -182,7 +195,22 @@ function buildUseCase({
     disconnectExpiredLine as never,
   )
 
-  return { useCase, messageRepo, disconnectExpiredLine }
+  /** Todo `execute` do teste passa pelo coletor; `useCase` fica exposto para o caso sem contexto. */
+  const run = (event: ReceivedMessageEvent) => useCase.execute(event, jobLog)
+
+  return {
+    useCase,
+    run,
+    lines,
+    getDomainById,
+    messageRepo,
+    disconnectExpiredLine,
+  }
+}
+
+/** A aba tem que nomear o portal — `domainId` é uuid e não serve para abrir o CRM. */
+function expectNamesDomain(lines: string[]): void {
+  expect(lines.some(line => line.includes('acme.bitrix24.com.br'))).toBe(true)
 }
 
 describe('ProcessZApiInboundMessageUseCase reply handling', () => {
@@ -198,15 +226,21 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
    * deve virar row em `messages` nem chegar ao canal aberto.
    */
   it('discards the message when the trial has expired', async () => {
-    const { useCase, messageRepo } = buildUseCase({
+    const { run, messageRepo, lines } = buildUseCase({
       subscriptionStatus: 'trialing',
       currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
     })
 
-    await useCase.execute(makeEvent())
+    await run(makeEvent())
 
     expect(sendMessageMock).not.toHaveBeenCalled()
     expect(messageRepo.create).not.toHaveBeenCalled()
+
+    const discard = lines.find(line => line.includes('DESCARTADA'))
+    expect(discard).toContain('sem assinatura ativa')
+    expect(discard).toContain('trial-expired')
+    expect(discard).toContain('item=i1')
+    expectNamesDomain(lines)
   })
 
   /**
@@ -215,12 +249,12 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
    * e desapareceria sem rastro.
    */
   it('agenda a desconexão do recurso quando o trial venceu', async () => {
-    const { useCase, disconnectExpiredLine } = buildUseCase({
+    const { run, disconnectExpiredLine } = buildUseCase({
       subscriptionStatus: 'trialing',
       currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
     })
 
-    await useCase.execute(makeEvent())
+    await run(makeEvent())
 
     expect(disconnectExpiredLine.schedule).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'i1' }),
@@ -229,19 +263,19 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('não agenda desconexão para linha habilitada', async () => {
-    const { useCase, disconnectExpiredLine } = buildUseCase()
+    const { run, disconnectExpiredLine } = buildUseCase()
 
-    await useCase.execute(makeEvent())
+    await run(makeEvent())
 
     expect(disconnectExpiredLine.schedule).not.toHaveBeenCalled()
   })
 
   it('discards the message when the subscription is cancelled', async () => {
-    const { useCase, messageRepo } = buildUseCase({
+    const { run, messageRepo } = buildUseCase({
       subscriptionStatus: 'cancelled',
     })
 
-    await useCase.execute(makeEvent())
+    await run(makeEvent())
 
     expect(sendMessageMock).not.toHaveBeenCalled()
     expect(messageRepo.create).not.toHaveBeenCalled()
@@ -252,29 +286,29 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
    * reentregaria indefinidamente uma mensagem que nunca vai ser aceita.
    */
   it('does not throw when discarding — the provider must not retry', async () => {
-    const { useCase } = buildUseCase({
+    const { run } = buildUseCase({
       subscriptionStatus: 'trialing',
       currentPeriodEnd: new Date('2020-01-01T00:00:00.000Z'),
     })
 
-    await expect(useCase.execute(makeEvent())).resolves.toBeUndefined()
+    await expect(run(makeEvent())).resolves.toBeUndefined()
   })
 
   /** Trial dentro da janela funciona igual a assinatura paga. */
   it('processes normally while the trial window is open', async () => {
-    const { useCase } = buildUseCase({
+    const { run } = buildUseCase({
       subscriptionStatus: 'trialing',
       currentPeriodEnd: new Date('2099-01-01T00:00:00.000Z'),
     })
 
-    await useCase.execute(makeEvent())
+    await run(makeEvent())
 
     expect(sendMessageMock).toHaveBeenCalledTimes(1)
   })
 
   it('sends message without prefix when referenceMessageId absent', async () => {
-    const { useCase, messageRepo } = buildUseCase()
-    await useCase.execute(makeEvent())
+    const { run, messageRepo } = buildUseCase()
+    await run(makeEvent())
 
     expect(messageRepo.findByProviderMessageId).not.toHaveBeenCalled()
     expect(sendMessageMock).toHaveBeenCalledTimes(1)
@@ -283,7 +317,7 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('prefixes BBCode quote when reference DB hit', async () => {
-    const { useCase, messageRepo } = buildUseCase({
+    const { run, messageRepo } = buildUseCase({
       repoFind: vi.fn().mockResolvedValue({
         id: 'rec-1',
         instanceId: 'INST-A',
@@ -298,7 +332,7 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
       }),
     })
 
-    await useCase.execute(
+    await run(
       makeEvent({
         referenceMessageId: 'PREV',
         text: { message: 'tudo bem?' },
@@ -314,11 +348,11 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('uses generic fallback when reference DB miss', async () => {
-    const { useCase } = buildUseCase({
+    const { run } = buildUseCase({
       repoFind: vi.fn().mockResolvedValue(null),
     })
 
-    await useCase.execute(
+    await run(
       makeEvent({
         referenceMessageId: 'PREV',
         text: { message: 'tudo bem?' },
@@ -332,11 +366,11 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('uses generic fallback when DB findByProviderMessageId throws', async () => {
-    const { useCase } = buildUseCase({
+    const { run } = buildUseCase({
       repoFind: vi.fn().mockRejectedValue(new Error('db down')),
     })
 
-    await useCase.execute(
+    await run(
       makeEvent({
         referenceMessageId: 'PREV',
         text: { message: 'tudo bem?' },
@@ -350,18 +384,22 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('does not throw when DB create fails after Bitrix send', async () => {
-    const { useCase, messageRepo } = buildUseCase({
+    const { run, messageRepo, lines } = buildUseCase({
       repoCreate: vi.fn().mockRejectedValue(new Error('db write failed')),
     })
 
-    await expect(useCase.execute(makeEvent())).resolves.toBeUndefined()
+    await expect(run(makeEvent())).resolves.toBeUndefined()
     expect(sendMessageMock).toHaveBeenCalledTimes(1)
     expect(messageRepo.create).toHaveBeenCalled()
+
+    const failure = lines.find(line => line.includes('persistência falhou'))
+    expect(failure).toContain('ENTREGUE')
+    expect(failure).toContain('db write failed')
   })
 
   it('persists inbound text snapshot after successful send', async () => {
-    const { useCase, messageRepo } = buildUseCase()
-    await useCase.execute(makeEvent({ text: { message: 'hello' } }))
+    const { run, messageRepo } = buildUseCase()
+    await run(makeEvent({ text: { message: 'hello' } }))
 
     expect(messageRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -375,24 +413,52 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('skips DB write on REVOKE notifications', async () => {
-    const { useCase, messageRepo } = buildUseCase()
-    await useCase.execute(makeEvent({ notification: 'REVOKE' }))
+    const { run, messageRepo, lines } = buildUseCase()
+    await run(makeEvent({ notification: 'REVOKE' }))
 
     expect(deleteMessageMock).toHaveBeenCalledTimes(1)
     expect(messageRepo.create).not.toHaveBeenCalled()
+
+    /**
+     * `completed` sem mensagem nova no canal aberto é o esperado aqui. A aba tem que
+     * dizer isso, senão o desfecho é indistinguível de mensagem perdida.
+     */
+    expect(lines.some(line => line.includes('deleteMessage'))).toBe(true)
+    expect(
+      lines.some(line => line.includes('Nenhum registro persistido')),
+    ).toBe(true)
   })
 
   it('skips DB write on edits', async () => {
-    const { useCase, messageRepo } = buildUseCase()
-    await useCase.execute(makeEvent({ isEdit: true, editMessageId: 'OLD-MSG' }))
+    const { run, messageRepo, lines } = buildUseCase()
+    await run(makeEvent({ isEdit: true, editMessageId: 'OLD-MSG' }))
 
     expect(updateMessageMock).toHaveBeenCalledTimes(1)
     expect(messageRepo.create).not.toHaveBeenCalled()
+
+    expect(lines[0]).toContain('edição=sim')
+    expect(lines.some(line => line.includes('updateMessage'))).toBe(true)
+    expect(
+      lines.some(line => line.includes('Nenhum registro persistido')),
+    ).toBe(true)
+  })
+
+  it('descarta edição sem editMessageId nomeando o campo ausente', async () => {
+    const { run, lines } = buildUseCase()
+
+    await expect(
+      run(makeEvent({ isEdit: true, editMessageId: '' })),
+    ).resolves.toBeUndefined()
+
+    expect(updateMessageMock).not.toHaveBeenCalled()
+    const discard = lines.find(line => line.includes('DESCARTADA'))
+    expect(discard).toContain('editMessageId')
+    expect(discard).toContain('MSG-1')
   })
 
   it('forwards sticker as Sticker.webp file attachment', async () => {
-    const { useCase } = buildUseCase()
-    await useCase.execute(
+    const { run } = buildUseCase()
+    await run(
       makeEvent({
         text: undefined,
         sticker: {
@@ -416,8 +482,8 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
    * era descartado — o canal aberto recebia o arquivo sem texto.
    */
   it('forwards document caption as the message text', async () => {
-    const { useCase, messageRepo } = buildUseCase()
-    await useCase.execute(
+    const { run, messageRepo } = buildUseCase()
+    await run(
       makeEvent({
         text: undefined,
         document: {
@@ -449,8 +515,8 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('forwards document without caption as empty text', async () => {
-    const { useCase } = buildUseCase()
-    await useCase.execute(
+    const { run } = buildUseCase()
+    await run(
       makeEvent({
         text: undefined,
         document: {
@@ -467,8 +533,8 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
 
   /** O grupo tinha a mesma cadeia de ternários — e o mesmo furo. */
   it('forwards document caption in group message, after sender prefix', async () => {
-    const { useCase } = buildUseCase()
-    await useCase.execute(
+    const { run } = buildUseCase()
+    await run(
       makeEvent({
         isGroup: true,
         phone: '5511999999999-group',
@@ -490,7 +556,7 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('builds group reply preserving sender prefix order', async () => {
-    const { useCase } = buildUseCase({
+    const { run } = buildUseCase({
       repoFind: vi.fn().mockResolvedValue({
         id: 'rec-2',
         instanceId: 'INST-A',
@@ -505,7 +571,7 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
       }),
     })
 
-    await useCase.execute(
+    await run(
       makeEvent({
         isGroup: true,
         phone: '5511999999999-group',
@@ -524,9 +590,9 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   it('persists real bitrixMessageId resolved via im.dialog.get', async () => {
     sendMessageMock.mockResolvedValueOnce(withSession('1767'))
     getLastMessageIdMock.mockResolvedValueOnce('456')
-    const { useCase, messageRepo } = buildUseCase()
+    const { run, messageRepo } = buildUseCase()
 
-    await useCase.execute(makeEvent({ text: { message: 'hello' } }))
+    await run(makeEvent({ text: { message: 'hello' } }))
 
     expect(getLastMessageIdMock).toHaveBeenCalledWith('1767')
     expect(messageRepo.create).toHaveBeenCalledWith(
@@ -540,9 +606,9 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   it('persists bitrixMessageId=null when im.dialog.get fails', async () => {
     sendMessageMock.mockResolvedValueOnce(withSession('1769'))
     getLastMessageIdMock.mockResolvedValueOnce(null)
-    const { useCase, messageRepo } = buildUseCase()
+    const { run, messageRepo } = buildUseCase()
 
-    await useCase.execute(makeEvent({ text: { message: 'hello' } }))
+    await run(makeEvent({ text: { message: 'hello' } }))
 
     expect(getLastMessageIdMock).toHaveBeenCalledWith('1769')
     expect(messageRepo.create).toHaveBeenCalledWith(
@@ -555,9 +621,9 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
 
   it('does not look up bitrixMessageId when session/CHAT_ID absent', async () => {
     sendMessageMock.mockResolvedValueOnce({ ok: true })
-    const { useCase, messageRepo } = buildUseCase()
+    const { run, messageRepo } = buildUseCase()
 
-    await useCase.execute(makeEvent({ text: { message: 'hello' } }))
+    await run(makeEvent({ text: { message: 'hello' } }))
 
     expect(getLastMessageIdMock).not.toHaveBeenCalled()
     expect(messageRepo.create).toHaveBeenCalledWith(
@@ -569,24 +635,22 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('does not look up bitrixMessageId on REVOKE', async () => {
-    const { useCase } = buildUseCase()
-    await useCase.execute(makeEvent({ notification: 'REVOKE' }))
+    const { run } = buildUseCase()
+    await run(makeEvent({ notification: 'REVOKE' }))
 
     expect(getLastMessageIdMock).not.toHaveBeenCalled()
   })
 
   it('does not look up bitrixMessageId on edits', async () => {
-    const { useCase } = buildUseCase()
-    await useCase.execute(makeEvent({ isEdit: true, editMessageId: 'OLD-MSG' }))
+    const { run } = buildUseCase()
+    await run(makeEvent({ isEdit: true, editMessageId: 'OLD-MSG' }))
 
     expect(getLastMessageIdMock).not.toHaveBeenCalled()
   })
 
   it('forwards phone with ninth digit inserted for direct message missing it', async () => {
-    const { useCase } = buildUseCase()
-    await useCase.execute(
-      makeEvent({ phone: '551199999999', text: { message: 'hello' } }),
-    )
+    const { run } = buildUseCase()
+    await run(makeEvent({ phone: '551199999999', text: { message: 'hello' } }))
 
     const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
     expect(payload.MESSAGES[0]!.user.phone).toBe('5511999999999')
@@ -594,18 +658,16 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('forwards landline-shaped phone unmodified for direct message', async () => {
-    const { useCase } = buildUseCase()
-    await useCase.execute(
-      makeEvent({ phone: '551133334444', text: { message: 'hello' } }),
-    )
+    const { run } = buildUseCase()
+    await run(makeEvent({ phone: '551133334444', text: { message: 'hello' } }))
 
     const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
     expect(payload.MESSAGES[0]!.user.phone).toBe('551133334444')
   })
 
   it('forwards normalized phone for group message', async () => {
-    const { useCase } = buildUseCase()
-    await useCase.execute(
+    const { run } = buildUseCase()
+    await run(
       makeEvent({
         isGroup: true,
         phone: '5511999999999-group',
@@ -623,8 +685,8 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
    * resposta do contato abria outra: dois canais abertos para a mesma conversa.
    */
   it('identifica o chat direto pelo telefone canônico, não pelo chatLid', async () => {
-    const { useCase } = buildUseCase()
-    await useCase.execute(
+    const { run } = buildUseCase()
+    await run(
       makeEvent({
         phone: '551199999999',
         chatLid: 'chat-lid',
@@ -643,8 +705,8 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
    * — o widget não consegue iniciar conversa sem um número.
    */
   it('mantém o lid cru como identidade quando o contato está em modo privacidade', async () => {
-    const { useCase } = buildUseCase()
-    await useCase.execute(
+    const { run } = buildUseCase()
+    await run(
       makeEvent({
         phone: '123456789012345@lid',
         text: { message: 'hello' },
@@ -658,8 +720,8 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
 
   /** Grupo não passa pela mudança: `resolveGroupChatId` continua como estava. */
   it('mantém o jid do grupo como identidade', async () => {
-    const { useCase } = buildUseCase()
-    await useCase.execute(
+    const { run } = buildUseCase()
+    await run(
       makeEvent({
         isGroup: true,
         phone: '5511999999999-group',
@@ -672,10 +734,121 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
   })
 
   it('rejeita payload sem telefone em vez de abrir sessão sem dono', async () => {
-    const { useCase } = buildUseCase()
+    const { run, lines } = buildUseCase()
 
     await expect(
-      useCase.execute(makeEvent({ phone: '', text: { message: 'hello' } })),
+      run(makeEvent({ phone: '', text: { message: 'hello' } })),
     ).rejects.toThrow('Chat ID not found')
+
+    expect(
+      lines.some(line => line.includes('sessão de canal aberto sem dono')),
+    ).toBe(true)
+  })
+
+  it('escreve contexto, linha, payload, aceite e desfecho no caminho completo', async () => {
+    sendMessageMock.mockResolvedValue(withSession('1801'))
+    getLastMessageIdMock.mockResolvedValue('456')
+
+    const { run, lines } = buildUseCase()
+
+    await run(makeEvent({ text: { message: 'mensagem secreta' } }))
+
+    const context = lines[0]!
+    expect(context).toContain('Mensagem recebida')
+    expect(context).toContain('acme.bitrix24.com.br')
+    expect(context).toContain('instância=INST-A')
+    expect(context).toContain('5511999999999')
+    expect(context).toContain('messageId=MSG-1')
+    expect(context).toContain('conteúdo=TEXT')
+
+    const resolved = lines.find(line => line.startsWith('Linha resolvida'))!
+    expect(resolved).toContain('item=i1')
+    expect(resolved).toContain('entitlement=active')
+    expect(resolved).toContain('canal aberto=10')
+
+    const sending = lines.find(line => line.startsWith('Entregando'))!
+    expect(sending).toContain('sendMessage')
+    expect(sending).toContain('CONNECTOR=thinkzap')
+    expect(sending).toContain('LINE=10')
+
+    const accepted = lines.find(line => line.startsWith('Bitrix aceitou'))!
+    expect(accepted).toContain('session.CHAT_ID=1801')
+    expect(accepted).toContain('bitrixMessageId=456')
+
+    expect(lines.at(-1)).toContain('Desfecho')
+    expect(lines.at(-1)).toContain('canal aberto 10')
+
+    // O texto do contato não entra na aba; tipo e contagem de arquivos, sim.
+    expect(lines.some(line => line.includes('mensagem secreta'))).toBe(false)
+  })
+
+  it('nomeia o desvio para o caminho de grupo e registra o envio de grupo', async () => {
+    sendMessageMock.mockResolvedValue(withSession('1802'))
+
+    const { run, lines } = buildUseCase()
+
+    await run(
+      makeEvent({
+        isGroup: true,
+        phone: '5511999999999-group',
+        senderName: 'Maria',
+        text: { message: 'oi' },
+      }),
+    )
+
+    expect(lines[0]).toContain('grupo=sim')
+
+    const branch = lines.find(line => line.includes('caminho de grupo'))!
+    expect(branch).toContain('5511999999999-group')
+    expect(branch).toContain('Maria')
+
+    // Sem esta linha, o caminho de grupo ficava com a aba pela metade: contexto e
+    // linha resolvida, e nada sobre o envio, que acontece em outro método.
+    const sending = lines.find(line => line.includes('(grupo)'))!
+    expect(sending).toContain('LINE=10')
+    expect(sending).toContain('chat.id=5511999999999-group')
+
+    expect(lines.at(-1)).toContain('de grupo concluída')
+  })
+
+  /** O default `noopJobLog` é o que mantém chamada fora da fila funcionando. */
+  it('roda sem contexto de job e sem escrever linha nenhuma', async () => {
+    const { useCase, lines } = buildUseCase()
+
+    await expect(useCase.execute(makeEvent())).resolves.toBeUndefined()
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+    expect(lines).toEqual([])
+  })
+
+  /**
+   * A leitura tardia saiu quando o domínio subiu para o topo. Se voltar, o caminho
+   * completo passa a ler `core_domains` duas vezes por mensagem.
+   */
+  it('lê o domínio uma única vez no caminho completo', async () => {
+    const { run, getDomainById } = buildUseCase()
+
+    await run(makeEvent())
+
+    expect(getDomainById).toHaveBeenCalledTimes(1)
+  })
+
+  /**
+   * Resolver o domínio antes dos desvios não pode transformar domínio ausente em
+   * falha nova: o descarte por assinatura inativa nunca dependeu dele.
+   */
+  it('não antecipa falha quando o domínio não é encontrado', async () => {
+    const { run, lines } = buildUseCase({
+      domain: null,
+      subscriptionStatus: 'cancelled',
+    })
+
+    await expect(run(makeEvent())).resolves.toBeUndefined()
+
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(lines[0]).toContain('domínio=não resolvido')
+    expect(lines.find(line => line.includes('DESCARTADA'))).toContain(
+      'sem assinatura ativa',
+    )
   })
 })
