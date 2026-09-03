@@ -1,5 +1,9 @@
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { ProcessZApiInboundMessageUseCase } from '@/modules/thinkzap/application/process-z-api-inbound-message.use-case'
+import {
+  noopJobLog,
+  type AppendJobLog,
+} from '@/modules/thinkzap/domain/ports/job-log.port'
 import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { ReceivedMessageEvent } from '@/shared/infra/handlers/z-api/z-api'
@@ -8,7 +12,11 @@ import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { makeDisconnectExpiredLine } from '@/modules/thinkzap/main/make-disconnect-expired-line'
 
-export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
+/** Ver a nota em `processHubMessageReceivedMessage` sobre o port entrar pelo argumento. */
+export async function processZApiReceivedMessage(
+  event: ReceivedMessageEvent,
+  deps: { appendJobLog: AppendJobLog } = { appendJobLog: noopJobLog },
+) {
   const useCase = new ProcessZApiInboundMessageUseCase(
     makeGetAplicationContext(),
     new PrismaInstanceRepository(),
@@ -19,5 +27,5 @@ export async function processZApiReceivedMessage(event: ReceivedMessageEvent) {
     makeDisconnectExpiredLine(),
   )
 
-  await useCase.execute(event)
+  await useCase.execute(event, deps)
 }

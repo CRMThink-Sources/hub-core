@@ -34,15 +34,28 @@ async function processJob(
   /**
    * Primeira linha da aba Logs, igual para todo `source`: enquadra o resto e, sozinha,
    * já distingue "o job nem chegou ao processor certo" de "chegou e o envio falhou".
+   *
+   * `type` cai em marcador quando falta. A união do job declara `type: string`, mas o
+   * controller da HubMessage o preenche com o `messageEventType` do envelope, que o
+   * provider não manda sempre — e `type=undefined` cru lê como bug nosso quando o que
+   * houve foi campo ausente do provider.
+   *
+   * O `traceKey` sai aqui e não nas linhas dos use cases: ele vive no job, não no corpo
+   * da mensagem, e é a única ponte entre esta aba e a query no Loki do enfileiramento.
    */
-  await appendJobLog(`Job recebido | source=${data.source} | type=${data.type}`)
+  await appendJobLog(
+    `Job recebido | source=${data.source} | type=${data.type || '—'} | ` +
+      `traceKey=${data.traceKey || '—'}`,
+  )
 
   if (data.source === 'z-api') {
     workerLogger.debug(
       { app: 'thinkzap', source: data.source, type: data.type },
       'Processing inbound job',
     )
-    await processZApiReceivedMessage(data.body as ReceivedMessageEvent)
+    await processZApiReceivedMessage(data.body as ReceivedMessageEvent, {
+      appendJobLog,
+    })
   } else if (data.source === 'hubmessage') {
     workerLogger.debug(
       { app: 'thinkzap', source: data.source, type: data.type },
@@ -50,6 +63,7 @@ async function processJob(
     )
     await processHubMessageReceivedMessage(
       data.body as unknown as HubMessageWebhookMessage,
+      { appendJobLog },
     )
   } else if (data.source === 'hubmessage-status') {
     /**
