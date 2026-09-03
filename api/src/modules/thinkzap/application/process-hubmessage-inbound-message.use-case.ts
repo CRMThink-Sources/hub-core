@@ -6,6 +6,10 @@ import { findLineItemByChannelId } from '@/modules/thinkzap/application/helpers/
 import { DisconnectExpiredLine } from '@/modules/thinkzap/application/disconnect-expired-line'
 import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
+import {
+  noopJobLog,
+  type AppendJobLog,
+} from '@/modules/thinkzap/domain/ports/job-log.port'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { GetCredentialRepository } from '@/shared/domain/repositories/credential/get-credential'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
@@ -38,6 +42,13 @@ const log = createWorkerSourceLogger('hubmessage')
  * - **Idempotência**: o registro só é gravado depois do envio ao Bitrix, então
  *   o guard por `_id` roda ANTES do envio — é ele que impede a mensagem
  *   duplicada no canal aberto quando a HubMessage reentrega o webhook.
+ *
+ * Além do log de processo (stdout → Promtail → Loki), escreve a história desta
+ * execução na **aba Logs do job** via `appendJobLog`. Três dos desvios daqui são
+ * `return` sem exceção (assinatura inativa, duplicata, conteúdo não suportado): sem
+ * essas linhas o job fecha em `completed` com a aba idêntica à de um job que
+ * entregou, e "a mensagem não entrou no canal aberto" fica sem resposta. Uma linha
+ * por decisão e por desfecho, não por passo — cada chamada é um round-trip ao Redis.
  */
 export class ProcessHubMessageInboundMessageUseCase {
   constructor(
@@ -51,7 +62,16 @@ export class ProcessHubMessageInboundMessageUseCase {
     private readonly disconnectExpiredLine: DisconnectExpiredLine,
   ) {}
 
-  async execute(message: HubMessageWebhookMessage): Promise<void> {
+  /**
+   * `context` entra pelo argumento, e não como oitava dependência de construtor: o
+   * log de job pertence ao **job**, que existe por execução, não à regra de entrega.
+   * O default `noopJobLog` cobre chamada fora da fila e teste.
+   */
+  async execute(
+    message: HubMessageWebhookMessage,
+    context: { appendJobLog: AppendJobLog } = { appendJobLog: noopJobLog },
+  ): Promise<void> {
+    const { appendJobLog } = context
     const channelId = message.channel_id
 
     log.info(
@@ -71,8 +91,57 @@ export class ProcessHubMessageInboundMessageUseCase {
         { channelId, messageId: message._id },
         { level: 'warn', msg: 'Instance not found for HubMessage channel' },
       )
+      await appendJobLog(
+        `Instância não encontrada para o canal "${channelId}". A HubMessage entrega só ` +
+          'o `channel_id`, e a row de `Instance` é o único índice canal → instalação: ' +
+          'sem ela não há domínio nem linha para resolver. Job vai falhar; retentativa ' +
+          'cai no mesmo lugar.',
+      )
       throw new Error('Instance not found for HubMessage channel')
     }
+
+    const { domainId } = instance
+    if (!domainId) {
+      throw new Error('Domain ID is required')
+    }
+
+    /**
+     * Domínio resolvido **aqui**, e não junto da credencial lá embaixo.
+     *
+     * `instance.domainId` é o único pré-requisito, e ele já existe antes de qualquer
+     * desvio de roteamento. Enquanto a leitura ficava depois da instalação, os cinco
+     * desvios anteriores a ela — linha não resolvida, assinatura inativa, sem canal
+     * vinculado, duplicata, conteúdo não suportado — encerravam sem que ninguém
+     * soubesse **de qual portal** era a mensagem, que é o primeiro dado que o suporte
+     * precisa. `domainId` é uuid de `core_domains`; quem vai abrir o portal precisa do
+     * endereço.
+     *
+     * Custo: uma leitura por PK nos caminhos que retornam cedo (duplicata e assinatura
+     * inativa), que antes não chegavam a ler domínio. No caminho completo o total não
+     * muda — a leitura tardia saiu daqui para cá.
+     *
+     * Ausência **não** antecipa falha: registra e segue. O `throw` por domínio ausente
+     * fica onde sempre esteve, junto do da credencial, no ponto em que o `BitrixClient`
+     * precisa dele de fato — antecipá-lo derrubaria desvios que hoje encerram sem
+     * domínio nenhum.
+     */
+    const domain = await this.domainRepo.getDomainById(domainId)
+    const domainName = domain?.name ?? 'não resolvido'
+
+    /**
+     * Tradução do conteúdo antecipada só para a **linha de contexto**: é função pura,
+     * sem I/O, então chamá-la aqui não custa nada. O guard de conteúdo não suportado
+     * continua lá embaixo, depois do guard de duplicata: subi-lo mudaria qual dos dois
+     * descartes ganha numa reentrega de mensagem de tipo desconhecido.
+     */
+    const content = buildHubMessageContent(message)
+
+    await appendJobLog(
+      `Mensagem recebida | domínio=${domainName} | canal=${channelId} | ` +
+        `contato=${message.sender?.identifier ?? '—'} | _id=${message._id} | ` +
+        `conteúdo=${content?.type ?? 'nenhum tipo suportado'} | ` +
+        `arquivos=${content?.files?.length ?? 0}`,
+    )
 
     /**
      * A linha vem do **item de assinatura**, não de `Connector`.
@@ -105,11 +174,22 @@ export class ProcessHubMessageInboundMessageUseCase {
       logThinkzapError(
         log,
         'thinkzap.message.inbound_hubmessage_failed',
-        { channelId, internalInstanceId: instance.id, messageId: message._id },
+        {
+          channelId,
+          domain: domainName,
+          internalInstanceId: instance.id,
+          messageId: message._id,
+        },
         {
           level: 'warn',
           msg: 'Nenhuma linha HubMessage corresponde a este canal — recusando processar',
         },
+      )
+      await appendJobLog(
+        `Nenhuma linha ${ConnectorProvider.HUBMESSAGE} corresponde ao canal "${channelId}" ` +
+          `no domínio ${domainName}. A busca filtra por provider, então canal que resolve ` +
+          'para linha Z-API também cai aqui. Conserto é no CRM: conferir o canal da linha ' +
+          'oficial na SPA. Job vai falhar; retentativa cai no mesmo lugar.',
       )
       throw new Error(
         `Nenhuma linha HUBMESSAGE vinculada ao canal "${channelId}"`,
@@ -117,6 +197,11 @@ export class ProcessHubMessageInboundMessageUseCase {
     }
 
     const { item } = line
+
+    await appendJobLog(
+      `Linha resolvida | item=${item.id} | entitlement=${line.entitlement} | ` +
+        `canal aberto=${item.vinculatedChannel ?? '—'}`,
+    )
 
     /**
      * Descarta antes de persistir, mesmo tratamento do caminho Z-API: retorna em
@@ -127,11 +212,19 @@ export class ProcessHubMessageInboundMessageUseCase {
       log.info(
         {
           channelId,
+          domain: domainName,
           subscriptionItemId: item.id,
           messageId: message._id,
           entitlement: line.entitlement,
         },
         'Mensagem descartada: linha sem assinatura ativa',
+      )
+
+      await appendJobLog(
+        `Mensagem DESCARTADA: linha sem assinatura ativa | item=${item.id} | ` +
+          `entitlement=${line.entitlement}. É assinatura, não falha técnica — reprocessar ` +
+          'o job não muda nada. Job encerrado sem falha, e a mensagem não vai chegar ao ' +
+          'canal aberto.',
       )
 
       /** Sem `await`: o descarte já aconteceu e o worker não espera o provider. */
@@ -148,8 +241,19 @@ export class ProcessHubMessageInboundMessageUseCase {
       logThinkzapError(
         log,
         'thinkzap.message.inbound_hubmessage_failed',
-        { channelId, subscriptionItemId: item.id, messageId: message._id },
+        {
+          channelId,
+          domain: domainName,
+          subscriptionItemId: item.id,
+          messageId: message._id,
+        },
         { level: 'warn', msg: 'Linha sem canal aberto vinculado' },
+      )
+      await appendJobLog(
+        `Linha sem canal aberto vinculado | item=${item.id} | domínio=${domainName}. ` +
+          'Sem `LINE` não há para onde entregar. Conserto é no CRM: vincular o canal ' +
+          'aberto ao item (`ufCrm93Conector` na SPA 1146). Job vai falhar; retentativa ' +
+          'cai no mesmo lugar.',
       )
       throw new Error('Instance has no vinculated channel')
     }
@@ -162,20 +266,26 @@ export class ProcessHubMessageInboundMessageUseCase {
       log.info(
         {
           channelId,
+          domain: domainName,
           internalInstanceId: instance.id,
           messageId: message._id,
           duplicateSkipped: true,
         },
         'HubMessage message already delivered to Bitrix — skipping',
       )
+      await appendJobLog(
+        `Mensagem DESCARTADA: _id=${message._id} já foi entregue ao canal aberto ` +
+          `(domínio=${domainName}). Este job é reentrega do webhook pela HubMessage — ` +
+          'reenviar duplicaria a mensagem no CRM. Job encerrado sem falha.',
+      )
       return
     }
 
-    const content = buildHubMessageContent(message)
     if (!content) {
       log.warn(
         {
           channelId,
+          domain: domainName,
           messageId: message._id,
           contentTypes: message.contents?.map(item => item?.type),
           attachmentTypes: message.attachments?.map(item => item?.type),
@@ -183,12 +293,13 @@ export class ProcessHubMessageInboundMessageUseCase {
         },
         'No supported content in HubMessage message — skipping',
       )
+      await appendJobLog(
+        'Mensagem DESCARTADA: nenhum tipo de conteúdo suportado | ' +
+          `contents=[${message.contents?.map(item => item?.type ?? '?').join(', ') || '—'}] | ` +
+          `attachments=[${message.attachments?.map(item => item?.type ?? '?').join(', ') || '—'}]. ` +
+          'Nada havia para enviar. Job encerrado sem falha; retentativa não muda nada.',
+      )
       return
-    }
-
-    const { domainId } = instance
-    if (!domainId) {
-      throw new Error('Domain ID is required')
     }
 
     // `appId` vinha de `Connector`; a instalação é alcançável pelo par canônico.
@@ -200,26 +311,34 @@ export class ProcessHubMessageInboundMessageUseCase {
       logThinkzapError(
         log,
         'thinkzap.app.not_found',
-        { channelId, domainId, messageId: message._id },
+        { channelId, domainId, domain: domainName, messageId: message._id },
         {
           level: 'error',
           msg: `Instalação não encontrada: domínio "${domainId}", app "${thinkzapAppCodeId()}"`,
         },
+      )
+      await appendJobLog(
+        `Instalação não encontrada | domínio=${domainName} | app=${thinkzapAppCodeId()}. ` +
+          'Sem instalação não há credencial para chamar o Bitrix. Conferir se o app segue ' +
+          'instalado e ativo no portal. Job vai falhar; retentativa cai no mesmo lugar.',
       )
       throw new Error(
         `Instalação não encontrada: domínio "${domainId}", app "${thinkzapAppCodeId()}"`,
       )
     }
 
-    const domain = await this.domainRepo.getDomainById(domainId)
     const app = await this.appRepo.getById(installedApp.id)
 
     if (!app) {
       logThinkzapError(
         log,
         'thinkzap.app.not_found',
-        { channelId, domainId, messageId: message._id },
+        { channelId, domainId, domain: domainName, messageId: message._id },
         { level: 'error', msg: 'App not found' },
+      )
+      await appendJobLog(
+        `App "${installedApp.id}" não encontrado, embora a instalação exista ` +
+          `(domínio=${domainName}) — estado inconsistente. Job vai falhar.`,
       )
       throw new Error('App not found')
     }
@@ -227,6 +346,11 @@ export class ProcessHubMessageInboundMessageUseCase {
     const credential = await this.credentialRepo.get({ appId: app.id })
 
     if (!domain || !credential) {
+      await appendJobLog(
+        `Sem como chamar o Bitrix | domínio=${domain ? 'ok' : 'não encontrado'} | ` +
+          `credencial=${credential ? 'ok' : 'não encontrada'}. Reinstalar o app renova a ` +
+          'credencial. Job vai falhar; retentativa cai no mesmo lugar.',
+      )
       throw new Error('Domain or credential not found')
     }
 
@@ -280,6 +404,7 @@ export class ProcessHubMessageInboundMessageUseCase {
     log.debug(
       {
         channelId,
+        domain: domainName,
         messageId: message._id,
         connectorCode: params.CONNECTOR,
         channel: params.LINE,
@@ -290,6 +415,12 @@ export class ProcessHubMessageInboundMessageUseCase {
       'Prepared HubMessage payload to send to Bitrix',
     )
 
+    await appendJobLog(
+      `Entregando no canal aberto | domínio=${domain.name} | CONNECTOR=${params.CONNECTOR} | ` +
+        `LINE=${params.LINE} | chat.id=${contactId} | tipo=${content.type} | ` +
+        `arquivos=${content.files?.length ?? 0}`,
+    )
+
     const result: unknown = await bitrixClient.sendMessage(params)
 
     const bitrixChatId = extractBitrixChatId(result)
@@ -297,6 +428,7 @@ export class ProcessHubMessageInboundMessageUseCase {
     log.info(
       {
         channelId,
+        domain: domainName,
         messageId: message._id,
         bitrixChatId,
       },
@@ -311,6 +443,7 @@ export class ProcessHubMessageInboundMessageUseCase {
       log.warn(
         {
           channelId,
+          domain: domainName,
           messageId: message._id,
           bitrixChatId,
           bitrixMessageIdLookupFailed: true,
@@ -318,6 +451,16 @@ export class ProcessHubMessageInboundMessageUseCase {
         'Failed to resolve real Bitrix message id via im.dialog.get',
       )
     }
+
+    /**
+     * `session.CHAT_ID` ausente não é falha de entrega: a mensagem já está no canal
+     * aberto. É a perda da referência que a resposta do operador usa para citar — por
+     * isso a linha diz qual dos dois faltou, em vez de só omitir.
+     */
+    await appendJobLog(
+      `Bitrix aceitou | session.CHAT_ID=${bitrixChatId ?? 'não devolvido'} | ` +
+        `bitrixMessageId=${bitrixMessageId ?? 'não resolvido (im.dialog.get)'}`,
+    )
 
     try {
       await this.messageRepo.create({
@@ -334,9 +477,27 @@ export class ProcessHubMessageInboundMessageUseCase {
     } catch (err) {
       // Sem re-throw: a mensagem já está no Bitrix e o retry a duplicaria.
       log.warn(
-        { channelId, messageId: message._id, err, dbWriteFailed: true },
+        {
+          channelId,
+          domain: domainName,
+          messageId: message._id,
+          err,
+          dbWriteFailed: true,
+        },
         'Failed to persist inbound HubMessage snapshot',
       )
+      await appendJobLog(
+        `Desfecho: mensagem ENTREGUE no canal aberto, mas a persistência falhou — ` +
+          `${err instanceof Error ? err.message : String(err)}. Job encerrado sem falha ` +
+          'de propósito: retentar duplicaria a mensagem no CRM. Sem o registro, a citação ' +
+          'de resposta a esta mensagem não resolve.',
+      )
+      return
     }
+
+    await appendJobLog(
+      `Desfecho: mensagem ENTREGUE no canal aberto ${vinculatedChannel} do domínio ` +
+        `${domain.name} e registro persistido.`,
+    )
   }
 }
