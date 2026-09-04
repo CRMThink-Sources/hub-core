@@ -124,7 +124,7 @@ export async function processWidgetOpenChannelJob(
     makeGetCrmContactName(bitrix),
   )
 
-  const { outcome, chatId, payload } = await ensureOpenChannel.execute({
+  const { outcome, chatId, payload, error } = await ensureOpenChannel.execute({
     item,
     instanceId,
     providerMessageId,
@@ -139,20 +139,27 @@ export async function processWidgetOpenChannelJob(
   })
 
   log.info(
-    { ...logContext, openChannelOutcome: outcome, chatId },
+    { ...logContext, openChannelOutcome: outcome, chatId, err: error },
     'Job de abertura de conversa processado',
   )
 
-  await appendJobLog(describeOpenChannelOutcome(outcome, chatId, payload))
+  await appendJobLog(
+    describeOpenChannelOutcome(outcome, chatId, payload, error),
+  )
 
   /**
    * `EnsureWidgetOpenChannelConversation` nunca lança — devolve `failed`. Aqui a
    * tradução é obrigatória: sem transformar `failed` em exceção, o BullMQ marcaria o
    * job como concluído e a retentativa que justifica esta fila nunca aconteceria.
+   *
+   * A mensagem do erro do Bitrix entra no `throw` porque é isto que o Bull Board
+   * mostra como "failed reason" — sem ela, a única pista de causa ficava presa no
+   * log estruturado (Pino), fora do alcance de quem só olha o job.
    */
   if (outcome === 'failed') {
     throw new Error(
-      `Falha ao abrir a conversa no canal aberto para a mensagem ${providerMessageId}`,
+      `Falha ao abrir a conversa no canal aberto para a mensagem ${providerMessageId}` +
+        (error ? `: ${error}` : ''),
     )
   }
 }
@@ -167,6 +174,7 @@ function describeOpenChannelOutcome(
   outcome: string,
   chatId: string | null,
   payload?: unknown,
+  error?: string,
 ): string {
   const descriptions: Record<string, string> = {
     opened: `Conversa ABERTA no canal aberto. chatId=${chatId ?? 'não devolvido pelo Bitrix'}`,
@@ -189,6 +197,15 @@ function describeOpenChannelOutcome(
    */
   if (outcome === 'opened' && payload !== undefined) {
     return `${description}. payload=${JSON.stringify(payload)}`
+  }
+
+  /**
+   * Sem isto o log dizia só "FALHOU" e escondia a resposta do Bitrix (status +
+   * corpo, montada em `BitrixClient.sendToOpenChannel`) atrás do log estruturado —
+   * inacessível a quem só abre a aba do job no Bull Board.
+   */
+  if (outcome === 'failed' && error) {
+    return `${description} erro=${error}`
   }
 
   return description
