@@ -6,6 +6,7 @@ export type Credential = {
   accessToken: string
   refreshToken: string
   expiresAt: Date
+  refreshFailedAttempts: number
   createdAt: Date
   updatedAt: Date
 }

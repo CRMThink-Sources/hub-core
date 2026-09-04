@@ -5,13 +5,15 @@ import { UpdateCredentialRepository } from '@/shared/domain/repositories/credent
 import { ListExpiredCredentialsRepository } from '@/shared/domain/repositories/credential/list-expired-credentials'
 import { randomUUID } from 'crypto'
 import { GetCredentialRepository } from '@/shared/domain/repositories/credential/get-credential'
+import { RecordCredentialRefreshFailureRepository } from '@/shared/domain/repositories/credential/record-refresh-failure'
 
 export class PrismaCredentialRepository
   implements
     CreateCredentialRepository,
     UpdateCredentialRepository,
     GetCredentialRepository,
-    ListExpiredCredentialsRepository
+    ListExpiredCredentialsRepository,
+    RecordCredentialRefreshFailureRepository
 {
   async get(params: { appId: string }): Promise<Credential | null> {
     const credential = await prisma.credential.findUnique({
@@ -26,13 +28,17 @@ export class PrismaCredentialRepository
       accessToken: credential.accessToken ?? '',
       refreshToken: credential.refreshToken,
       expiresAt: credential.expiresAt,
+      refreshFailedAttempts: credential.refreshFailedAttempts,
       createdAt: credential.createdAt,
       updatedAt: credential.updatedAt,
     }
   }
 
   async create(
-    credential: Omit<Credential, 'id' | 'createdAt' | 'updatedAt'>,
+    credential: Omit<
+      Credential,
+      'id' | 'createdAt' | 'updatedAt' | 'refreshFailedAttempts'
+    >,
   ): Promise<Credential> {
     const newCredential = await prisma.credential.create({
       data: {
@@ -54,20 +60,28 @@ export class PrismaCredentialRepository
       accessToken: newCredential.accessToken ?? '',
       refreshToken: newCredential.refreshToken,
       expiresAt: newCredential.expiresAt,
+      refreshFailedAttempts: newCredential.refreshFailedAttempts,
       createdAt: newCredential.createdAt,
       updatedAt: newCredential.updatedAt,
     }
   }
 
-  async listExpired(buffer: Date): Promise<Credential[]> {
+  async listExpired(
+    buffer: Date,
+    maxRefreshAttempts: number,
+  ): Promise<Credential[]> {
     const credentials = await prisma.credential.findMany({
-      where: { expiresAt: { lte: buffer } },
+      where: {
+        expiresAt: { lte: buffer },
+        refreshFailedAttempts: { lt: maxRefreshAttempts },
+      },
       select: {
         id: true,
         appId: true,
         accessToken: true,
         refreshToken: true,
         expiresAt: true,
+        refreshFailedAttempts: true,
         createdAt: true,
         updatedAt: true,
         app: {
@@ -89,6 +103,7 @@ export class PrismaCredentialRepository
         accessToken: credential.accessToken ?? '',
         refreshToken: credential.refreshToken,
         expiresAt: credential.expiresAt,
+        refreshFailedAttempts: credential.refreshFailedAttempts,
         createdAt: credential.createdAt,
         updatedAt: credential.updatedAt,
       }
@@ -96,7 +111,10 @@ export class PrismaCredentialRepository
   }
 
   async update(
-    credential: Omit<Credential, 'id' | 'createdAt' | 'updatedAt'>,
+    credential: Omit<
+      Credential,
+      'id' | 'createdAt' | 'updatedAt' | 'refreshFailedAttempts'
+    >,
   ): Promise<Credential> {
     const updatedCredential = await prisma.credential.update({
       where: { appId: credential.appId },
@@ -104,6 +122,9 @@ export class PrismaCredentialRepository
         accessToken: credential.accessToken,
         refreshToken: credential.refreshToken,
         expiresAt: credential.expiresAt,
+        // Toda escrita de tokens é um recomeço: refresh que deu certo ou
+        // reautorização manual. Nos dois casos a credencial volta a ser elegível.
+        refreshFailedAttempts: 0,
       },
     })
 
@@ -115,8 +136,18 @@ export class PrismaCredentialRepository
       accessToken: updatedCredential.accessToken ?? '',
       refreshToken: updatedCredential.refreshToken,
       expiresAt: updatedCredential.expiresAt,
+      refreshFailedAttempts: updatedCredential.refreshFailedAttempts,
       createdAt: updatedCredential.createdAt,
       updatedAt: updatedCredential.updatedAt,
     }
+  }
+
+  async recordFailure(appId: string): Promise<{ attempts: number }> {
+    const updated = await prisma.credential.update({
+      where: { appId },
+      data: { refreshFailedAttempts: { increment: 1 } },
+      select: { refreshFailedAttempts: true },
+    })
+    return { attempts: updated.refreshFailedAttempts }
   }
 }
