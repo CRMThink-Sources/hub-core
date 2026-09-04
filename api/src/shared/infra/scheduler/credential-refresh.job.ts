@@ -5,6 +5,12 @@ import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositor
 import { BitrixOAuthClient } from '@/shared/infra/clients/bitrix-oauth.client'
 import { redisConnection } from '@/queue/redis-connection'
 
+/**
+ * Uma credencial que falha o refresh 5 vezes seguidas (`MAX_REFRESH_ATTEMPTS` em
+ * `refresh-expired-credentials.ts`) para de ser buscada por este job — sem
+ * reativação automática depois disso. Só uma escrita de tokens bem-sucedida
+ * (reautorizar/reinstalar o app) zera o contador e a torna elegível de novo.
+ */
 function makeRefreshExpiredCredentials(): RefreshExpiredCredentials {
   const credentialRepository = new PrismaCredentialRepository()
   const bitrixOAuthClient = new BitrixOAuthClient()
@@ -12,6 +18,7 @@ function makeRefreshExpiredCredentials(): RefreshExpiredCredentials {
   return new RefreshExpiredCredentials(
     credentialRepository,
     bitrixOAuthClient,
+    credentialRepository,
     credentialRepository,
   )
 }
