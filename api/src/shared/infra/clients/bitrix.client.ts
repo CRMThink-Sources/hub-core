@@ -10,6 +10,8 @@ import {
 } from './bitrix-http-errors'
 import { normalizeBitrixDomain } from './normalize-bitrix-domain'
 import { resolveOpenChannelContactId } from '@/shared/helpers/open-channel-contact-id'
+import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
+import { attachBitrixLimits } from '@/shared/infra/bitrix-limits/attach-bitrix-limits'
 import { PlacementHandlerEntry } from '@/modules/thinkzap/application/normalize-placement-get-response'
 
 /**
@@ -59,30 +61,43 @@ export class BitrixClient {
     const axiosDefaults = getBitrixAxiosDefaults()
 
     if (this.webhook) {
-      return axios.create({
-        baseURL: this.webhook,
-        ...axiosDefaults,
-      })
+      /**
+       * Webhook de entrada nao identifica portal: sem `domain`, `attachBitrixLimits`
+       * devolve a instancia intacta em vez de misturar baldes de instalacoes.
+       */
+      return attachBitrixLimits(
+        axios.create({
+          baseURL: this.webhook,
+          ...axiosDefaults,
+        }),
+        this.domain,
+      )
     }
     if (this.accessToken && this.domain) {
-      return axios.create({
-        baseURL: `https://${this.domain}/rest/`,
-        params: {
-          auth: this.accessToken,
-        },
-        ...axiosDefaults,
-      })
+      return attachBitrixLimits(
+        axios.create({
+          baseURL: `https://${this.domain}/rest/`,
+          params: {
+            auth: this.accessToken,
+          },
+          ...axiosDefaults,
+        }),
+        this.domain,
+      )
     }
     if (!this.bitrixCredential || !this.domain) {
       throw new Error('Bitrix credential and domain are required')
     }
-    return axios.create({
-      baseURL: `https://${this.domain}/rest/`,
-      params: {
-        auth: this.bitrixCredential.accessToken,
-      },
-      ...axiosDefaults,
-    })
+    return attachBitrixLimits(
+      axios.create({
+        baseURL: `https://${this.domain}/rest/`,
+        params: {
+          auth: this.bitrixCredential.accessToken,
+        },
+        ...axiosDefaults,
+      }),
+      this.domain,
+    )
   }
 
   async activateConnector(line: number, connector: string, active: number = 1) {
@@ -96,6 +111,10 @@ export class BitrixClient {
 
       return response.data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -113,6 +132,10 @@ export class BitrixClient {
       const response = await client.post(`/${method}`, params)
       return response.data as T
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       if (error instanceof Error) {
         console.log(error)
       }
@@ -130,6 +153,10 @@ export class BitrixClient {
       const response = await client.post('/imconnector.send.messages', data)
       return response.data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -144,6 +171,10 @@ export class BitrixClient {
       const response = await client.post('/imconnector.update.messages', data)
       return response.data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -158,6 +189,10 @@ export class BitrixClient {
       const response = await client.post('/imconnector.delete.messages', data)
       return response.data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -172,6 +207,10 @@ export class BitrixClient {
       const response = await client.get(`/im.dialog.get?DIALOG_ID=${chatId}`)
       return response.data.result
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -190,6 +229,10 @@ export class BitrixClient {
       const lastMessageId = response.data?.result?.last_message_id
       return lastMessageId != null ? String(lastMessageId) : null
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       const wrapped = wrapBitrixRequestError('im.dialog.get', error)
       console.error('[BitrixClient] getLastMessageId error:', wrapped.message)
       return null
@@ -205,6 +248,10 @@ export class BitrixClient {
       )
       return response.data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       console.error('[BitrixClient] setMessageDelivered error:', error)
     }
   }
@@ -217,6 +264,10 @@ export class BitrixClient {
       })
       return response.data.result
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       const wrapped = wrapBitrixRequestError('imopenlines.config.get', error)
       throw new BitrixError(wrapped.message)
     }
@@ -228,6 +279,10 @@ export class BitrixClient {
       const response = await client.post('/imopenlines.config.list.get', {})
       return response.data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       const wrapped = wrapBitrixRequestError(
         'imopenlines.config.list.get',
         error,
@@ -247,6 +302,10 @@ export class BitrixClient {
       })
       return response.data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       throw new BitrixError('Failed to get CRM item')
     }
   }
@@ -267,6 +326,10 @@ export class BitrixClient {
       )
       return response.data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       console.error('[BitrixClient] getCrmItemFields error:', error)
       throw new BitrixError('Failed to describe CRM item fields')
     }
@@ -289,6 +352,10 @@ export class BitrixClient {
       })
       return response.data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       console.error('[BitrixClient] listCrmItems error:', error)
       throw new BitrixError('Failed to list CRM items')
     }
@@ -306,6 +373,10 @@ export class BitrixClient {
       })
       return response.data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       console.error('[BitrixClient] createCrmItem error:', error)
       throw new BitrixError('Failed to create CRM item')
     }
@@ -325,6 +396,10 @@ export class BitrixClient {
       })
       return response.data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       console.error('[BitrixClient] updateCrmItem error:', error)
       throw new BitrixError('Failed to update CRM item')
     }
@@ -365,6 +440,10 @@ export class BitrixClient {
         String(item.CONTACT_ID),
       )
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       console.error('[BitrixClient] getDealContactIds error:', error)
       throw new BitrixError('Failed to get deal contact ids')
     }
@@ -407,6 +486,10 @@ export class BitrixClient {
         String(item.CONTACT_ID),
       )
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       console.error('[BitrixClient] getCompanyContactIds error:', error)
       throw new BitrixError('Failed to get company contact ids')
     }
@@ -436,6 +519,10 @@ export class BitrixClient {
 
       return data.result ?? data
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       console.error('[BitrixClient] getPlacementHandlers error:', error)
       if (error instanceof BitrixError) {
         throw error
@@ -523,6 +610,10 @@ export class BitrixClient {
       const bitrixMessageId = rawMsgId != null ? String(rawMsgId) : null
       return { chatId, bitrixMessageId, payload: params }
     } catch (error) {
+      // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
+      // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
+      if (error instanceof BitrixMethodPausedError) throw error
+
       const msg =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`

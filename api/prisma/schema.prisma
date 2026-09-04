@@ -59,6 +59,10 @@ model App {
   thinkzapAllowedUsers       ThinkzapAllowedUser[]
   thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
   thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
+  thinkzapBotFlows           ThinkzapBotFlow[]
+  thinkzapBotFlowBot         ThinkzapBotFlowBot?
+  thinkzapBotFlowBindings    ThinkzapBotFlowBinding[]
+  thinkzapBotSessions        ThinkzapBotSession[]
   importSheetAuthToken       ImportSheetAuthToken?
   importSheetImports         ImportSheetImport[]
   clickSignSettings          ClickSignSettings?
@@ -796,4 +800,129 @@ model McpRefreshToken {
   @@index([clientId])
   @@index([expiresAt])
   @@map("core_mcp_refresh_tokens")
+}
+
+// ============================================
+// ThinkZap — gerador de bot (fluxo de atendimento)
+// ============================================
+
+/// Bot de canal aberto desta instalacao, registrado por `imbot.v2.Bot.register`.
+///
+/// Um por instalacao, nao um por fluxo: o bot e infraestrutura (como o conector), e o
+/// que decide qual fluxo roda e o vinculo por linha. Tabela propria e nao cache em
+/// Redis porque `botToken` sai **uma vez** no registro e `imbot.v2.Bot.list` pode nao
+/// repeti-lo — cache expirado perderia o token para sempre, e sem ele `transfer` e
+/// `finish` nao identificam o bot chamador.
+model ThinkzapBotFlowBot {
+  id    String @id @default(uuid())
+  appId String @unique @map("app_id")
+  /// `id` do bot no portal, usado em `WELCOME_BOT_ID`.
+  bitrixBotId Int @map("bitrix_bot_id")
+  /// `CLIENT_ID` de `bot.session.transfer` / `.finish`. Obrigatorio: bot e webhook.
+  botToken String @map("bot_token") @db.Text
+  /// Handler registrado. Trocar de URL exige `Bot.update` — sem isto o portal segue
+  /// batendo no endereco antigo e nenhum evento chega.
+  webhookUrl String   @map("webhook_url") @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@map("thinkzap_bot_flow_bots")
+}
+
+model ThinkzapBotFlow {
+  id     String                @id @default(uuid())
+  appId  String                @map("app_id")
+  name   String
+  status ThinkzapBotFlowStatus @default(DRAFT)
+  /// Sobe a cada publicacao. A sessao guarda a versao com que comecou.
+  version Int      @default(1)
+  /// `{ entryNodeId, nodes[], settings }` — validado por `bot-flow/flow.schema.ts`.
+  graph   Json
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  app      App                      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  bindings ThinkzapBotFlowBinding[]
+  sessions ThinkzapBotSession[]
+
+  @@unique([appId, name])
+  @@index([appId])
+  @@map("thinkzap_bot_flows")
+}
+
+model ThinkzapBotFlowBinding {
+  id     String @id @default(uuid())
+  appId  String @map("app_id")
+  flowId String @map("flow_id")
+  /// `CONFIG_ID` da linha (canal aberto) no Bitrix.
+  lineId String @map("line_id")
+  /// Reservado. Um fluxo por canal (ver @@unique), entao nao ha o que ordenar.
+  priority Int     @default(100)
+  active   Boolean @default(true)
+  /// Reservado, junto com `priority`: sem dois fluxos por canal, nao ha o que desempatar.
+  condition Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  app  App             @relation(fields: [appId], references: [id], onDelete: Cascade)
+  flow ThinkzapBotFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  /// Canal aberto ocupado nao aceita outro fluxo. O Bitrix so guarda um
+  /// `WELCOME_BOT_ID` por linha, entao dois vinculos na mesma linha nao seriam
+  /// representaveis no portal — o segundo sobrescreveria o primeiro em silencio.
+  @@unique([appId, lineId])
+  @@index([appId, lineId, priority])
+  @@index([flowId])
+  @@map("thinkzap_bot_flow_bindings")
+}
+
+model ThinkzapBotSession {
+  id           String @id @default(uuid())
+  appId        String @map("app_id")
+  bitrixChatId String @map("bitrix_chat_id")
+  flowId       String @map("flow_id")
+  flowVersion  Int    @map("flow_version")
+  /// Snapshot do graph publicado no inicio: publicar nao quebra conversa em curso.
+  graph Json
+  /// Snapshot do contexto da linha (provider, settings, canal aberto). Evita reler
+  /// assinatura no CRM a cada mensagem — leitura que consome `operating` do app.
+  lineSnapshot Json    @map("line_snapshot")
+  /// Qual vinculo casou. Sem isso, condicao errada e invisivel na apuracao.
+  bindingId     String? @map("binding_id")
+  currentNodeId String  @map("current_node_id")
+  vars          Json
+  /// Tentativas no no atual.
+  attempts Int                      @default(0)
+  status   ThinkzapBotSessionStatus @default(ACTIVE)
+  closedAt DateTime?                @map("closed_at")
+  /// Sessao abandonada nao fica presa: passado o prazo, a proxima mensagem comeca de novo.
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  app  App             @relation(fields: [appId], references: [id], onDelete: Cascade)
+  flow ThinkzapBotFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  /// MySQL nao tem unique parcial: "uma sessao ativa por chat" e garantida pelo lock
+  /// por `bitrixChatId` no worker, nao por constraint.
+  @@index([appId, bitrixChatId, status])
+  @@index([flowId])
+  @@map("thinkzap_bot_sessions")
+}
+
+enum ThinkzapBotFlowStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ThinkzapBotSessionStatus {
+  ACTIVE
+  HANDED_OFF
+  FINISHED
+  ABORTED
+  EXPIRED
 }

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { Worker } from 'bullmq'
 import { bullBaseOptions } from '@/queue/redis-connection'
 import { createWorkerLogger } from '@/shared/infra/logger'
+import { installBitrixLimits } from '@/shared/infra/bitrix-limits/install-bitrix-limits'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { PrismaClickSignSettingsRepository } from '../persistence/repositories/prisma-clicksign-settings.repository'
@@ -19,6 +20,10 @@ import {
 const log = createWorkerLogger('clicksign')
 
 const settingsRepository = new PrismaClickSignSettingsRepository()
+
+// O balde de request do Bitrix e por portal: worker que chama o Bitrix sem
+// instalar o controle gasta a cota dos outros sem contar.
+installBitrixLimits()
 
 const worker = new Worker<ClicksignDocumentClosedJob>(
   CLICKSIGN_DOCUMENT_CLOSED,

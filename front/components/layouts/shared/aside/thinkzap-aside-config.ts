@@ -22,6 +22,10 @@ export const THINKZAP_ASIDE_CONFIG = {
       // icon: '/images/thinkzap/manual.png',
     },
     {
+      href: '/thinkzap/bots',
+      label: 'bots',
+    },
+    {
       href: '/thinkzap/logs',
       label: 'logs',
       // icon: '/images/thinkzap/manual.png',
