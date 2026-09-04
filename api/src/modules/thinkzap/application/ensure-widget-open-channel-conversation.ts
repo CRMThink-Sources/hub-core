@@ -27,6 +27,8 @@ export type EnsureWidgetOpenChannelResult = {
   chatId: string | null
   /** Payload enviado ao Bitrix (`imconnector.send.messages`). Só em `opened`. */
   payload?: unknown
+  /** Mensagem do erro que o Bitrix devolveu. Só em `failed`. */
+  error?: string
 }
 
 export type EnsureWidgetOpenChannelInput = {
@@ -253,7 +255,11 @@ export class EnsureWidgetOpenChannelConversation {
         },
       )
 
-      return { outcome: 'failed', chatId: null }
+      return {
+        outcome: 'failed',
+        chatId: null,
+        error: err instanceof Error ? err.message : String(err),
+      }
     }
   }
 
