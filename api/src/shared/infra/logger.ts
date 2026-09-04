@@ -90,10 +90,18 @@ export function createLogger(bindings: Bindings): Logger {
 
 export const apiLogger = createBaseLogger({ service: 'hubthink-api' })
 
-export const workerLogger = createBaseLogger({
-  service: 'hubthink-worker',
-  app: 'thinkzap',
-})
+/**
+ * Um logger de worker por `app`, com `app` fixo na base — a chamada nunca precisa
+ * repetir o campo. Sem isso, um worker novo que esquece de repetir `app: '...'` em
+ * toda linha herda silenciosamente o `app` de outro produto.
+ */
+export function createWorkerLogger(app: LogApp): Logger {
+  return createBaseLogger({ service: 'hubthink-worker', app })
+}
+
+// Preserva o logger compartilhado dos workers do ThinkZap (z-api, bitrix,
+// hubmessage) — construído em cima do factory acima, mesmo comportamento de antes.
+export const workerLogger = createWorkerLogger('thinkzap')
 
 export function createWorkerSourceLogger(source: WorkerSource): Logger {
   return workerLogger.child({ source })

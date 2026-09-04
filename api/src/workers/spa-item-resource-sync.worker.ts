@@ -66,6 +66,7 @@ spaItemResourceSyncWorker.on('failed', (job, err) => {
    */
   workerLogger.error(
     {
+      event: 'worker.job.failed',
       app: 'thinkzap',
       queue: SPA_ITEM_RESOURCE_SYNC,
       jobId: job?.id,
@@ -82,7 +83,7 @@ spaItemResourceSyncWorker.on('failed', (job, err) => {
 
 spaItemResourceSyncWorker.on('ready', () => {
   workerLogger.info(
-    { app: 'thinkzap', queue: SPA_ITEM_RESOURCE_SYNC },
+    { event: 'worker.ready', app: 'thinkzap', queue: SPA_ITEM_RESOURCE_SYNC },
     'SPA item resource sync worker is ready',
   )
 })

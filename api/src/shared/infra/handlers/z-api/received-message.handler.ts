@@ -13,6 +13,7 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
     const traceKey = randomUUID()
     apiLogger.info(
       {
+        event: 'webhook.received',
         app: 'thinkzap',
         source: 'z-api',
         eventType: this.eventType,
