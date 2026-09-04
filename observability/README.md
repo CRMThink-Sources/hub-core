@@ -26,14 +26,53 @@ JSONs em `observability/grafana/provisioning/dashboards/json/`. **Allow UI updat
 
 **Onde achar no Grafana:** menu **Dashboards** → pasta **HubThink**.
 
-## Labels Loki (`app`, `source`)
+## Labels Loki (`app`, `source`, `env`, `level`)
 
-O Promtail extrai dos logs JSON da API/worker:
+O Promtail extrai/deriva quatro labels de baixa cardinalidade — o que se filtra e
+agrupa rápido, sem escanear o corpo da linha:
 
-- **`app`**: `thinkzap`, `thinkanalise` ou `shared` (HTTP e handlers)
-- **`source`**: `z-api` ou `bitrix` (fila, worker e webhooks ThinkZap)
+- **`app`**: `thinkzap`, `thinkanalise`, `importsheet`, `clicksign` ou `shared`
+  (extraído do JSON — HTTP e handlers)
+- **`source`**: `z-api` ou `bitrix` (extraído do JSON — fila, worker e webhooks
+  ThinkZap)
+- **`env`**: `production` ou `staging` — **derivado do nome do container**
+  (sufixo `-staging`), não de `NODE_ENV`. Os dois ambientes setam `NODE_ENV`
+  de forma diferente entre si (hoje: `production` em produção, `development`
+  em staging), então o nome do container é a fonte estável.
+- **`level`**: `trace`/`debug`/`info`/`warn`/`error`/`fatal` — Pino loga o nível
+  como número (`10`–`60`); o Promtail traduz pro nome antes de indexar.
 
-Logs do front (não JSON) não recebem esses labels. Logs **anteriores ao deploy** da instrumentação não têm `app`/`source` até expirarem no retention do Loki.
+Logs do front (não JSON) não recebem `app`/`source`/`level`, mas recebem `env`
+(deriva só do nome do container). Logs **anteriores a este deploy** não têm
+`env`/`level` até expirarem no retention do Loki.
+
+## Campo `event`: nome estável por marco de ciclo de vida
+
+Cada worker escreve a mensagem humana (`msg`) do jeito que quiser — é o que aparece
+lido por gente. O problema é usar essa mensagem pra **filtrar/contar** num
+dashboard: `thinkzap-inbound.worker.ts` loga `'Worker job failed'`,
+`thinkzap-widget-outbound.worker.ts` loga `'Widget outbound job failed'` — um
+painel que filtra por uma das duas string perde a outra.
+
+`event` resolve isso: um campo estruturado, de baixo nível de cardinalidade,
+**adicionado ao lado** da mensagem (nunca a substitui), convenção
+`<domínio>.<entidade>.<ação>` — mesmo estilo do `errorCode`
+(`thinkzap.message.open_channel_failed`). Valores hoje:
+
+| Evento | Quando |
+| --- | --- |
+| `http.request` | toda resposta HTTP da API |
+| `worker.job.active` | BullMQ pegou o job pra processar |
+| `worker.job.completed` | job terminou com sucesso |
+| `worker.job.failed` | job terminou com erro (pode retentar) |
+| `worker.job.stalled` | job travou e vai ser reprocessado |
+| `worker.ready` / `worker.error` | ciclo de vida do processo worker (não de um job) |
+| `queue.job.enqueued` | algo foi colocado numa fila BullMQ |
+| `webhook.received` | webhook de provider recebido (hoje: Z-API) |
+
+Não é pra instrumentar todo log do sistema — só marcos que valem
+dashboard/alerta. Novos call sites que sirvam esse propósito devem seguir a
+convenção acima.
 
 ## Logs coletados
 
@@ -59,19 +98,22 @@ Na prática, hoje:
 ## Queries no Explore (Grafana)
 
 ```logql
-# ThinkZap (API + worker + webhooks)
-{job="docker", app="thinkzap"}
+# ThinkZap em produção (API + worker + webhooks)
+{job="docker", env="production", app="thinkzap"}
 
-# ThinkAnalise (só API)
-{job="docker", app="thinkanalise"}
+# ThinkAnalise em staging (só API)
+{job="docker", env="staging", app="thinkanalise"}
 
 # Worker Z-API
-{job="docker", container=~"hubthink-worker.*", app="thinkzap", source="z-api"}
+{job="docker", env="production", container=~"hubthink-worker.*", app="thinkzap", source="z-api"}
 
 # Worker Bitrix
-{job="docker", container=~"hubthink-worker.*", app="thinkzap", source="bitrix"}
+{job="docker", env="production", container=~"hubthink-worker.*", app="thinkzap", source="bitrix"}
 
-# Fallback sem label (logs antigos)
+# Só erro/fatal, qualquer app, em produção
+{job="docker", env="production", level=~"error|fatal"}
+
+# Fallback sem label (logs antigos, antes de env/level existirem)
 {job="docker", container="hubthink-api-staging"} |= "/api/thinkzap"
 ```
 
@@ -198,14 +240,17 @@ primeira linha dele traz o `providerMessageId` para continuar a investigação a
 
 ## Campos úteis para filtro (JSON)
 
-- `app`, `source`, `messageId`, `instanceId`, `jobId`, `path`, `level`
+- `event`, `messageId`, `instanceId`, `jobId`, `path`, `errorCode`, `traceKey`,
+  `domain`, `appId`
+- `app`, `source`, `env`, `level` já são **labels** (ver seção acima) — filtram sem
+  precisar de `| json`.
 
 ## Deploy na VPS
 
 Ordem recomendada após release:
 
-1. Deploy API + worker (novos campos `app` / `source` no JSON).
-2. Deploy observability (Promtail + Grafana). O CI recria `grafana` e `promtail` com `--force-recreate`.
+1. Deploy API + worker (campos `app` / `source` / `event` no JSON).
+2. Deploy observability (Promtail + Grafana). O CI recria `grafana` e `promtail` com `--force-recreate` — é este passo que ativa as labels `env` e `level` e os dashboards com a variável `$env`.
 
 ### Corrigir manualmente na VPS
 

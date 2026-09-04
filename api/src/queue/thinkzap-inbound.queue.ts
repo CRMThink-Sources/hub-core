@@ -60,6 +60,7 @@ export async function enqueueThinkzapInboundJob(
 
   apiLogger.info(
     {
+      event: 'queue.job.enqueued',
       app: 'thinkzap',
       queue: THINKZAP_INBOUND,
       jobId: createdJob.id,

@@ -138,7 +138,11 @@ function jobTimings(job: Job<ThinkzapWidgetOutboundJob>) {
  */
 thinkzapWidgetOutboundWorker.on('active', job => {
   workerLogger.info(
-    { ...jobBaseFields(job), waitMs: jobTimings(job).waitMs },
+    {
+      event: 'worker.job.active',
+      ...jobBaseFields(job),
+      waitMs: jobTimings(job).waitMs,
+    },
     'Widget outbound job started',
   )
 })
@@ -149,6 +153,7 @@ thinkzapWidgetOutboundWorker.on('failed', (job, err) => {
 
   workerLogger.error(
     {
+      event: 'worker.job.failed',
       ...jobBaseFields(job),
       ...(job ? jobTimings(job) : {}),
       /**
@@ -166,7 +171,11 @@ thinkzapWidgetOutboundWorker.on('failed', (job, err) => {
 
 thinkzapWidgetOutboundWorker.on('completed', job => {
   workerLogger.info(
-    { ...jobBaseFields(job), ...jobTimings(job) },
+    {
+      event: 'worker.job.completed',
+      ...jobBaseFields(job),
+      ...jobTimings(job),
+    },
     'Widget outbound job completed',
   )
 })
@@ -184,7 +193,13 @@ thinkzapWidgetOutboundWorker.on('completed', job => {
  */
 thinkzapWidgetOutboundWorker.on('stalled', jobId => {
   workerLogger.error(
-    { app: 'thinkzap', queue: THINKZAP_WIDGET_OUTBOUND, jobId, stalled: true },
+    {
+      event: 'worker.job.stalled',
+      app: 'thinkzap',
+      queue: THINKZAP_WIDGET_OUTBOUND,
+      jobId,
+      stalled: true,
+    },
     'Widget outbound job stalled — será reprocessado; envio pode ficar indeterminado',
   )
 })
@@ -197,14 +212,19 @@ thinkzapWidgetOutboundWorker.on('stalled', jobId => {
  */
 thinkzapWidgetOutboundWorker.on('error', err => {
   workerLogger.error(
-    { app: 'thinkzap', queue: THINKZAP_WIDGET_OUTBOUND, err },
+    {
+      event: 'worker.error',
+      app: 'thinkzap',
+      queue: THINKZAP_WIDGET_OUTBOUND,
+      err,
+    },
     'Widget outbound worker error',
   )
 })
 
 thinkzapWidgetOutboundWorker.on('ready', () => {
   workerLogger.info(
-    { app: 'thinkzap', queue: THINKZAP_WIDGET_OUTBOUND },
+    { event: 'worker.ready', app: 'thinkzap', queue: THINKZAP_WIDGET_OUTBOUND },
     'Thinkzap widget outbound worker is ready',
   )
 })

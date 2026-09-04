@@ -35,6 +35,7 @@ spaItemProvisioningWorker.on('failed', (job, err) => {
    */
   workerLogger.error(
     {
+      event: 'worker.job.failed',
       app: 'thinkzap',
       queue: SPA_ITEM_PROVISIONING,
       jobId: job?.id,
@@ -50,7 +51,7 @@ spaItemProvisioningWorker.on('failed', (job, err) => {
 
 spaItemProvisioningWorker.on('ready', () => {
   workerLogger.info(
-    { app: 'thinkzap', queue: SPA_ITEM_PROVISIONING },
+    { event: 'worker.ready', app: 'thinkzap', queue: SPA_ITEM_PROVISIONING },
     'SPA item provisioning worker is ready',
   )
 })

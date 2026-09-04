@@ -26,12 +26,32 @@ scrape_configs:
         target_label: 'service'
       - target_label: 'job'
         replacement: 'docker'
+      # `env` vem do nome do container, não do NODE_ENV do processo: hoje staging
+      # sobe com NODE_ENV=development e produção com NODE_ENV=production — valores
+      # que não formam um par direto ("staging"/"production") e podem mudar sem
+      # avisar este pipeline. O nome do container é a fonte estável.
+      - source_labels: ['container']
+        regex: '.*-staging$'
+        target_label: 'env'
+        replacement: 'staging'
+      - source_labels: ['env']
+        regex: '^$'
+        target_label: 'env'
+        replacement: 'production'
     pipeline_stages:
       - docker: {}
       - json:
           expressions:
             app: app
             source: source
+            level: level
+      # Pino loga level como número (10/20/.../60). Vira label como nome porque é
+      # assim que um humano digita a query no Explore — sem isto toda busca de erro
+      # precisa lembrar do número ou escanear o corpo da linha.
+      - template:
+          source: level
+          template: '{{ if eq .Value "10" }}trace{{ else if eq .Value "20" }}debug{{ else if eq .Value "30" }}info{{ else if eq .Value "40" }}warn{{ else if eq .Value "50" }}error{{ else if eq .Value "60" }}fatal{{ else }}unknown{{ end }}'
       - labels:
           app:
           source:
+          level:

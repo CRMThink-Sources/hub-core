@@ -71,7 +71,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\", source=\"z-api\"} |= \"Worker job active\" [$__interval]))",
+          "expr": "sum(count_over_time({job=\"docker\", env=\"$env\", container=~\"hubthink-worker.*\", app=\"thinkzap\", source=\"z-api\"} | json | event=\"worker.job.active\" [$__interval]))",
           "legendFormat": "Ativo",
           "queryType": "range",
           "refId": "A"
@@ -82,7 +82,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\", source=\"z-api\"} |= \"Worker job completed\" [$__interval]))",
+          "expr": "sum(count_over_time({job=\"docker\", env=\"$env\", container=~\"hubthink-worker.*\", app=\"thinkzap\", source=\"z-api\"} | json | event=\"worker.job.completed\" [$__interval]))",
           "legendFormat": "OK",
           "queryType": "range",
           "refId": "B"
@@ -93,7 +93,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\", source=\"z-api\"} |= \"Worker job failed\" [$__interval]))",
+          "expr": "sum(count_over_time({job=\"docker\", env=\"$env\", container=~\"hubthink-worker.*\", app=\"thinkzap\", source=\"z-api\"} | json | event=\"worker.job.failed\" [$__interval]))",
           "legendFormat": "Falha",
           "queryType": "range",
           "refId": "C"
@@ -148,7 +148,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "sum(count_over_time({job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\", source=\"z-api\"} |= \"Worker job failed\" [15m]))",
+          "expr": "sum(count_over_time({job=\"docker\", env=\"$env\", container=~\"hubthink-worker.*\", app=\"thinkzap\", source=\"z-api\"} |= \"Worker job failed\" [15m]))",
           "queryType": "instant",
           "refId": "A"
         }
@@ -194,7 +194,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{job=\"docker\", container=~\"hubthink-worker(-staging)?\", app=\"thinkzap\", source=\"z-api\"}",
+          "expr": "{job=\"docker\", env=\"$env\", container=~\"hubthink-worker.*\", app=\"thinkzap\", source=\"z-api\"}",
           "queryType": "range",
           "refId": "A"
         }
@@ -227,7 +227,7 @@
             "uid": "loki"
           },
           "editorMode": "code",
-          "expr": "{job=\"docker\", app=\"thinkzap\", source=\"z-api\"} |= \"Worker job failed\" or {job=\"docker\", app=\"thinkzap\", source=\"z-api\"} |= \"\\\"level\\\":50\"",
+          "expr": "{job=\"docker\", env=\"$env\", app=\"thinkzap\", source=\"z-api\", level=~\"error|fatal\"}",
           "queryType": "range",
           "refId": "A"
         }
@@ -245,7 +245,29 @@
     "loki"
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "text": "production",
+          "value": "production"
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values(env)",
+        "includeAll": false,
+        "label": "Ambiente",
+        "multi": false,
+        "name": "env",
+        "options": [],
+        "query": "label_values(env)",
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-6h",

@@ -107,6 +107,7 @@ thinkzapInboundWorker.on('failed', (job, err) => {
   const data = job?.data as ThinkzapInboundJob | undefined
   workerLogger.error(
     {
+      event: 'worker.job.failed',
       app: 'thinkzap',
       queue: THINKZAP_INBOUND,
       jobId: job?.id,
@@ -123,6 +124,7 @@ thinkzapInboundWorker.on('completed', job => {
   const data = job?.data as ThinkzapInboundJob | undefined
   workerLogger.info(
     {
+      event: 'worker.job.completed',
       app: 'thinkzap',
       queue: THINKZAP_INBOUND,
       jobId: job?.id,
@@ -138,6 +140,7 @@ thinkzapInboundWorker.on('active', job => {
   const data = job?.data as ThinkzapInboundJob | undefined
   workerLogger.info(
     {
+      event: 'worker.job.active',
       app: 'thinkzap',
       queue: THINKZAP_INBOUND,
       jobId: job?.id,
@@ -151,7 +154,7 @@ thinkzapInboundWorker.on('active', job => {
 
 thinkzapInboundWorker.on('ready', () => {
   workerLogger.info(
-    { app: 'thinkzap', queue: THINKZAP_INBOUND },
+    { event: 'worker.ready', app: 'thinkzap', queue: THINKZAP_INBOUND },
     'Thinkzap inbound worker is ready',
   )
 })

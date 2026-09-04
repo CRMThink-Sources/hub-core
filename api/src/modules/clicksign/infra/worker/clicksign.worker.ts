@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { Worker } from 'bullmq'
 import { bullBaseOptions } from '@/queue/redis-connection'
-import { workerLogger } from '@/shared/infra/logger'
+import { createWorkerLogger } from '@/shared/infra/logger'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { PrismaClickSignSettingsRepository } from '../persistence/repositories/prisma-clicksign-settings.repository'
@@ -16,6 +16,8 @@ import {
   type ClicksignDocumentClosedJob,
 } from '../queue/clicksign-document-closed.queue'
 
+const log = createWorkerLogger('clicksign')
+
 const settingsRepository = new PrismaClickSignSettingsRepository()
 
 const worker = new Worker<ClicksignDocumentClosedJob>(
@@ -29,8 +31,8 @@ const worker = new Worker<ClicksignDocumentClosedJob>(
 
         const settings = await settingsRepository.findByAppId(appId)
         if (!settings) {
-          workerLogger.warn(
-            { app: 'clicksign' },
+          log.warn(
+            { event: 'worker.job.skipped' },
             'Settings não encontradas — pulando document_closed',
           )
           return
@@ -47,7 +49,7 @@ const worker = new Worker<ClicksignDocumentClosedJob>(
 
 worker.on('failed', (job, err) => {
   const base = {
-    app: 'clicksign',
+    event: 'worker.job.failed',
     queue: CLICKSIGN_DOCUMENT_CLOSED,
     jobId: job?.id,
     appId: job?.data?.appId,
@@ -56,7 +58,7 @@ worker.on('failed', (job, err) => {
     err instanceof AppError
       ? appErrorLogFields(err, base)
       : { ...base, errorCode: 'UNCLASSIFIED', err: safeErrorMessage(err) }
-  workerLogger.error(fields, 'Clicksign document_closed job failed')
+  log.error(fields, 'Clicksign document_closed job failed')
 })
 
-workerLogger.info({ app: 'clicksign' }, 'Clicksign worker is ready')
+log.info({ event: 'worker.ready' }, 'Clicksign worker is ready')

@@ -64,6 +64,7 @@ app.use((req, res, next) => {
 
     apiLogger.info(
       {
+        event: 'http.request',
         app: resolveLogApp(req.originalUrl),
         method: req.method,
         path: req.originalUrl,
