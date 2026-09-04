@@ -13,7 +13,13 @@ import { NODE_KIND_LABEL, describeVarTest } from '@/shared/thinkzap-bot-flow'
 import type { VarTest } from '@/shared/thinkzap-bot-flow'
 import { nodePorts } from '@/shared/thinkzap-flow-graph'
 import { NODE_HEIGHT, NODE_WIDTH } from '@/shared/thinkzap-flow-layout'
-import { SIDES, inHandleId } from '@/shared/thinkzap-flow-sides'
+import {
+  LANES,
+  LANES_POR_LADO,
+  SIDES,
+  inHandleId,
+  lanePercent,
+} from '@/shared/thinkzap-flow-sides'
 import { KIND_ICON, KIND_ICON_COLOR } from './kind-visual'
 
 const POSITION_OF = {
@@ -22,6 +28,9 @@ const POSITION_OF = {
   top: Position.Top,
   bottom: Position.Bottom,
 } as const
+
+/** A faixa que recebe o arrasto — a mesma que uma aresta sozinha usa. */
+const MEIO = Math.floor(LANES_POR_LADO / 2)
 
 export type FlowBlockData = {
   node: FlowNode
@@ -73,19 +82,43 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
       }`}
       style={{ width: NODE_WIDTH, height: altura }}
     >
-      {/* Uma entrada por lado cobrindo o cartão inteiro: mirar a borda pede precisão
-          demais ao soltar. `z-0` é obrigatório — por cima, elas engoliam o mouse da
-          bolinha de saída. */}
-      {SIDES.map(side => (
-        <Handle
-          key={side}
-          id={inHandleId(side)}
-          type="target"
-          position={POSITION_OF[side]}
-          isConnectableStart={false}
-          className="!absolute !inset-0 !z-0 !h-full !w-full !transform-none !rounded-2xl !border-0 !bg-transparent !opacity-0 data-[connectingfrom=true]:!opacity-100 data-[connectingfrom=true]:!bg-primary/10"
-        />
-      ))}
+      {/* Entradas em faixas por lado: várias arestas chegando pelo mesmo lado
+          terminavam no mesmo pixel e ficavam sobrepostas.
+
+          A faixa do meio cobre o cartão inteiro porque é ela que recebe o arrasto —
+          mirar a borda pede precisão demais ao soltar. As outras são estreitas e só
+          servem de âncora para o traço; `pointer-events-none` as mantém fora do
+          caminho do mouse. `z-0` é obrigatório: por cima, engoliam o mouse da bolinha
+          de saída. */}
+      {SIDES.map(side =>
+        LANES.map(lane => {
+          const recebeArrasto = lane === MEIO
+          const vertical = side === 'left' || side === 'right'
+          const posicao = `${lanePercent(lane) * 100}%`
+
+          return (
+            <Handle
+              key={`${side}:${lane}`}
+              id={inHandleId(side, lane)}
+              type="target"
+              position={POSITION_OF[side]}
+              isConnectableStart={false}
+              className={
+                recebeArrasto
+                  ? '!absolute !inset-0 !z-0 !h-full !w-full !transform-none !rounded-2xl !border-0 !bg-transparent !opacity-0 data-[connectingfrom=true]:!opacity-100 data-[connectingfrom=true]:!bg-primary/10'
+                  : 'pointer-events-none !z-0 !h-1 !w-1 !border-0 !bg-transparent !opacity-0'
+              }
+              style={
+                recebeArrasto
+                  ? undefined
+                  : vertical
+                    ? { top: posicao }
+                    : { left: posicao }
+              }
+            />
+          )
+        }),
+      )}
 
       {isEntry ? (
         <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary-foreground">

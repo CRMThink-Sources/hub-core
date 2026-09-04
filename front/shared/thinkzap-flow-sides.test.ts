@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { BotFlowGraph } from './thinkzap-bot-flow'
 import { graphEdges } from './thinkzap-flow-graph'
-import { entrySide, entrySides, inHandleId } from './thinkzap-flow-sides'
+import {
+  LANES,
+  LANES_POR_LADO,
+  entrySide,
+  entrySides,
+  inHandleId,
+  lanePercent,
+} from './thinkzap-flow-sides'
 
 describe('entrySide', () => {
   it('entra pela esquerda quando vem da esquerda', () => {
@@ -35,9 +42,23 @@ describe('entrySide', () => {
 })
 
 describe('inHandleId', () => {
-  it('gera id por lado', () => {
-    expect(inHandleId('left')).toBe('in:left')
-    expect(inHandleId('bottom')).toBe('in:bottom')
+  it('gera id por lado e faixa', () => {
+    expect(inHandleId('left', 0)).toBe('in:left:0')
+    expect(inHandleId('bottom', 2)).toBe('in:bottom:2')
+  })
+})
+
+describe('lanePercent', () => {
+  it('distribui as faixas sem encostar nas quinas', () => {
+    // 0% ou 100% poriam o traço na quina do cartão, onde ele encosta na borda arredondada.
+    for (const lane of LANES) {
+      expect(lanePercent(lane)).toBeGreaterThan(0)
+      expect(lanePercent(lane)).toBeLessThan(1)
+    }
+  })
+
+  it('a faixa do meio fica no centro do lado', () => {
+    expect(lanePercent(Math.floor(LANES_POR_LADO / 2))).toBe(0.5)
   })
 })
 
@@ -78,15 +99,22 @@ describe('entrySides', () => {
     const lados = entrySides(graph)
 
     // n1 está à esquerda de n2
-    expect(lados.get('n1:next')).toBe('left')
+    expect(lados.get('n1:next')?.side).toBe('left')
     // n3 está abaixo de n2
-    expect(lados.get('n2:option:0')).toBe('top')
+    expect(lados.get('n2:option:0')?.side).toBe('top')
     // volta para n1, que está à esquerda
-    expect(lados.get('n2:option:1')).toBe('right')
+    expect(lados.get('n2:option:1')?.side).toBe('right')
   })
 
   it('cobre a saída de esgotamento', () => {
-    expect(entrySides(graph).get('n2:exhausted')).toBe('top')
+    expect(entrySides(graph).get('n2:exhausted')?.side).toBe('top')
+  })
+
+  it('chegada sozinha no lado usa a faixa do meio', () => {
+    // O caso comum não muda de aparência: entra pelo centro, como antes das faixas.
+    expect(entrySides(graph).get('n1:next')?.lane).toBe(
+      Math.floor(LANES_POR_LADO / 2),
+    )
   })
 
   it('bloco terminal não gera entrada', () => {
@@ -102,6 +130,141 @@ describe('entrySides', () => {
       ),
     }
     expect(() => entrySides(semPos)).not.toThrow()
+  })
+})
+
+/** Era o bug: N arestas no mesmo lado terminavam no mesmo pixel, sobrepostas. */
+describe('faixas quando várias arestas chegam pelo mesmo lado', () => {
+  /** Três blocos empilhados à esquerda, todos ligando no mesmo destino. */
+  const convergente: BotFlowGraph = {
+    entryNodeId: 'a',
+    settings: { escapeKeywords: [], escapeNext: null },
+    nodes: [
+      {
+        id: 'a',
+        kind: 'message',
+        text: 'a',
+        next: 'destino',
+        position: { x: 0, y: 0 },
+      },
+      {
+        id: 'b',
+        kind: 'message',
+        text: 'b',
+        next: 'destino',
+        position: { x: 0, y: 200 },
+      },
+      {
+        id: 'c',
+        kind: 'message',
+        text: 'c',
+        next: 'destino',
+        position: { x: 0, y: 400 },
+      },
+      {
+        id: 'destino',
+        kind: 'finish',
+        text: 'fim',
+        position: { x: 400, y: 200 },
+      },
+    ],
+  }
+
+  it('as três entram pelo mesmo lado', () => {
+    const lados = entrySides(convergente)
+
+    for (const chave of ['a:next', 'b:next', 'c:next']) {
+      expect(lados.get(chave)?.side).toBe('left')
+    }
+  })
+
+  it('cada uma recebe uma faixa diferente', () => {
+    const lados = entrySides(convergente)
+    const faixas = ['a:next', 'b:next', 'c:next'].map(
+      chave => lados.get(chave)?.lane,
+    )
+
+    expect(new Set(faixas).size).toBe(3)
+  })
+
+  it('a faixa segue a ordem vertical da origem', () => {
+    // Quem vem de cima entra pela faixa de cima: cruzar para alcançar a faixa desfaria
+    // o ganho de separá-las.
+    const lados = entrySides(convergente)
+
+    const deA = lados.get('a:next')?.lane ?? -1
+    const deB = lados.get('b:next')?.lane ?? -1
+    const deC = lados.get('c:next')?.lane ?? -1
+
+    expect(deA).toBeLessThan(deB)
+    expect(deB).toBeLessThan(deC)
+  })
+
+  it('mais chegadas que faixas não estoura o limite', () => {
+    const muitos: BotFlowGraph = {
+      ...convergente,
+      nodes: [
+        ...convergente.nodes,
+        {
+          id: 'd',
+          kind: 'message',
+          text: 'd',
+          next: 'destino',
+          position: { x: 0, y: 600 },
+        },
+        {
+          id: 'e',
+          kind: 'message',
+          text: 'e',
+          next: 'destino',
+          position: { x: 0, y: 800 },
+        },
+      ],
+    }
+
+    for (const entrada of entrySides(muitos).values()) {
+      expect(entrada.lane).toBeGreaterThanOrEqual(0)
+      expect(entrada.lane).toBeLessThan(LANES_POR_LADO)
+    }
+  })
+
+  it('lados diferentes não disputam faixa', () => {
+    // Um vindo da esquerda e um de cima podem usar a mesma faixa: pontos distintos.
+    const doisLados: BotFlowGraph = {
+      entryNodeId: 'esq',
+      settings: { escapeKeywords: [], escapeNext: null },
+      nodes: [
+        {
+          id: 'esq',
+          kind: 'message',
+          text: 'e',
+          next: 'destino',
+          position: { x: 0, y: 300 },
+        },
+        {
+          id: 'cima',
+          kind: 'message',
+          text: 'c',
+          next: 'destino',
+          position: { x: 400, y: 0 },
+        },
+        {
+          id: 'destino',
+          kind: 'finish',
+          text: 'fim',
+          position: { x: 400, y: 300 },
+        },
+      ],
+    }
+
+    const lados = entrySides(doisLados)
+
+    expect(lados.get('esq:next')?.side).toBe('left')
+    expect(lados.get('cima:next')?.side).toBe('top')
+    // Sozinho no seu lado, cada um fica no meio.
+    const meio = Math.floor(LANES_POR_LADO / 2)
+    expect(lados.get('esq:next')?.lane).toBe(meio)
+    expect(lados.get('cima:next')?.lane).toBe(meio)
   })
 })
 
@@ -157,7 +320,7 @@ describe('casamento com graphEdges', () => {
     }
 
     const lados = entrySides(graph)
-    const semLado = graphEdges(graph).filter(edge => !lados.get(edge.id))
+    const semLado = graphEdges(graph).filter(edge => !lados.get(edge.id)?.side)
 
     expect(semLado.map(edge => edge.id)).toEqual([])
   })

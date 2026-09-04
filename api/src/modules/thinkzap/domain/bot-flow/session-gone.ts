@@ -38,6 +38,11 @@ const SESSION_GONE_CODES = new Set([
   'SESSION_NOT_FOUND',
   'CHAT_NOT_FOUND',
   'BOT_IS_NOT_CONNECTED',
+  // `imbot.v2.Chat.Message.send`: nomes próprios para o mesmo desfecho — o bot não
+  // participa mais do diálogo. Fora `ERROR_INVALID_BOT`, que é credencial errada nossa
+  // e tem de continuar falhando alto.
+  'ERROR_ACCESS_DENIED',
+  'ERROR_INVALID_DIALOG',
 ])
 
 function codeOf(value: unknown): string {

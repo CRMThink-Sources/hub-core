@@ -55,17 +55,80 @@ export function autoLayout(graph: BotFlowGraph): Map<NodeId, NodePosition> {
     else byColumn.set(column, [node.id])
   }
 
+  // Ordena cada coluna pela posição dos pais: irmãos ficam juntos e na mesma sequência
+  // das saídas do bloco. Empilhados na ordem do array, as arestas de um pai cruzavam as
+  // dos vizinhos para alcançar filhos espalhados pela coluna.
+  ordenarPorPai(graph, byColumn, depth)
+
   const positions = new Map<NodeId, NodePosition>()
   for (const [column, ids] of byColumn) {
+    // Centrado na vertical: com a coluna sempre começando no topo, um bloco de 4 saídas
+    // ficava acima de todos os filhos e as 4 arestas desciam por cima do cartão vizinho.
+    const alturaTotal = (ids.length - 1) * (ROW_HEIGHT + ROW_GAP)
+
     ids.forEach((id, row) => {
       positions.set(id, {
         x: column * COLUMN_STEP,
-        y: row * (ROW_HEIGHT + ROW_GAP),
+        y: row * (ROW_HEIGHT + ROW_GAP) - alturaTotal / 2,
       })
     })
   }
 
   return positions
+}
+
+/**
+ * Reordena cada coluna para que filhos do mesmo pai fiquem adjacentes, na ordem das
+ * saídas dele.
+ *
+ * A chave de ordenação é a posição do pai na coluna anterior — já calculada, porque as
+ * colunas são percorridas da entrada para a frente.
+ */
+function ordenarPorPai(
+  graph: BotFlowGraph,
+  byColumn: Map<number, NodeId[]>,
+  depth: Map<NodeId, number>,
+): void {
+  const ordemNaColuna = new Map<NodeId, number>()
+  const colunas = [...byColumn.keys()].sort((a, b) => a - b)
+
+  for (const column of colunas) {
+    const ids = byColumn.get(column)
+    if (!ids) continue
+
+    if (column > 0) {
+      const chave = new Map<NodeId, number>()
+
+      for (const id of ids) {
+        // Primeiro pai que alcança este nó da coluna anterior, e em que saída dele.
+        let melhor = Number.MAX_SAFE_INTEGER
+
+        for (const pai of graph.nodes) {
+          if ((depth.get(pai.id) ?? -1) !== column - 1) continue
+
+          const saidas = nodeOutgoing(pai)
+          const indice = saidas.indexOf(id)
+          if (indice < 0) continue
+
+          const posicaoDoPai = ordemNaColuna.get(pai.id) ?? 0
+          // `posicaoDoPai` domina, `indice` desempata: filhos de um pai ficam juntos e na
+          // ordem das saídas.
+          const peso = posicaoDoPai * 1000 + indice
+          if (peso < melhor) melhor = peso
+        }
+
+        chave.set(id, melhor)
+      }
+
+      ids.sort(
+        (a, b) =>
+          (chave.get(a) ?? Number.MAX_SAFE_INTEGER) -
+          (chave.get(b) ?? Number.MAX_SAFE_INTEGER),
+      )
+    }
+
+    ids.forEach((id, row) => ordemNaColuna.set(id, row))
+  }
 }
 
 /** Preenche o que falta sem mexer em quem já tem coordenada salva. */

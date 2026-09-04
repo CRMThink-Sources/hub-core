@@ -12,6 +12,8 @@ import { PrismaBotFlowBindingRepository } from '@/modules/thinkzap/infra/persist
 import { PrismaBotFlowBotRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bot-flow-bot.repository'
 import { PrismaBotFlowRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bot-flow.repository'
 import { PrismaBotSessionRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bot-session.repository'
+import { acquireBotChatLock } from '@/modules/thinkzap/infra/queue/bot-chat-lock'
+import { redisConnection } from '@/queue/redis-connection'
 import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
 import { PrismaCredentialRepository } from '@/shared/infra/persistence/repositories/prisma-credential.repository'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
@@ -123,80 +125,125 @@ export async function processBitrixBotEvent(
     domain: domain.name,
   })
 
-  // O evento traz `chat.id` e o vínculo é por `CONFIG_ID` da linha: `dialog.get` é a única
-  // ponte entre os dois, uma chamada por evento.
-  const dialog = await client.callMethod('imopenlines.dialog.get', {
-    CHAT_ID: event.chatId,
-  })
-
-  const lineId = openLineIdFromDialog(dialog)
-  if (!lineId) {
-    logThinkzapError(
-      log,
-      'thinkzap.bot.event_unresolved',
-      { chatId: event.chatId, appId: installedApp.id },
-      {
-        level: 'warn',
-        msg: 'Chat sem linha de canal aberto — dialog.get não devolveu entity_id de LINES',
-      },
-    )
-    return
-  }
-
-  await ctx.appendJobLog(
-    `Turno do bot | chat=${event.chatId} | linha=${lineId} | tipo=${event.kind}`,
-  )
-
-  // Da mesma resposta do `dialog.get`, sem chamada extra: o `entity_data_2` traz os
-  // vínculos de CRM do chat, e é o que o bloco "Já é cliente?" compara.
-  const crm = crmVars(crmEntitiesFromDialog(dialog))
-
-  const outcome = await runBotTurn(
-    event,
-    lineId,
+  /**
+   * Um turno por chat de cada vez, do `dialog.get` até a última fala.
+   *
+   * O Bitrix dispara `MESSAGEADD` e `JOINCHAT` no mesmo instante na abertura da conversa
+   * (medido: 4 ms), e a fila roda com `concurrency: 10`. Os dois jobs entravam em
+   * paralelo, **nenhum via a sessão criada pelo outro**, e os dois rodavam o fluxo do
+   * início — o cliente recebia a saudação duas vezes.
+   *
+   * Descarta o concorrente em vez de esperar: é justamente o evento que não deve rodar de
+   * novo, e segurar um slot bloqueado reduziria dez workers a um.
+   */
+  const lock = await acquireBotChatLock(
+    redisConnection,
     installedApp.id,
-    {
-      session: new BitrixBotSessionAdapter(client, bot.botToken),
-      sessions,
-      flows,
-      bindings,
-    },
-    crm,
+    event.chatId,
   )
-
-  if (outcome.kind === 'gone') {
-    // Sem handoff para a fila: o bot não fala mais neste chat, então transferir falharia
-    // pelo mesmo motivo. Quem assumiu a conversa já está com ela.
-    await ctx.appendJobLog(`Bot fora da sessão | código=${outcome.code}`)
-    return
-  }
-
-  if (outcome.kind === 'skipped') {
-    // Bot na linha e nenhum fluxo para rodar: vai para a fila em vez de chat mudo.
-    // Acontece se o `unbind` falhou, se o fluxo foi despublicado com vínculo ativo, ou se
-    // o vínculo foi apagado direto no banco.
-    logThinkzapError(
-      log,
-      'thinkzap.bot.turn_skipped',
-      {
-        chatId: event.chatId,
-        lineId,
-        appId: installedApp.id,
-        reason: outcome.reason,
-      },
-      {
-        level: 'warn',
-        msg: `Turno sem fluxo (${outcome.reason}) — entregando para a fila`,
-      },
-    )
-
-    await ctx.appendJobLog(`Sem fluxo | motivo=${outcome.reason} | fila`)
-    await new BitrixBotSessionAdapter(client, bot.botToken).handoff(
-      event.chatId,
-      { type: 'queue' },
+  if (!lock) {
+    await ctx.appendJobLog(
+      `Turno concorrente no mesmo chat (${event.chatId}) — evento descartado.`,
     )
     return
   }
 
-  await ctx.appendJobLog(`Turno concluído | efeitos=${outcome.effects.length}`)
+  try {
+    // O evento traz `chat.id` e o vínculo é por `CONFIG_ID` da linha: `dialog.get` é a
+    // única ponte entre os dois, uma chamada por evento.
+    const dialog = await client.callMethod('imopenlines.dialog.get', {
+      CHAT_ID: event.chatId,
+    })
+
+    const lineId = openLineIdFromDialog(dialog)
+    if (!lineId) {
+      logThinkzapError(
+        log,
+        'thinkzap.bot.event_unresolved',
+        { chatId: event.chatId, appId: installedApp.id },
+        {
+          level: 'warn',
+          msg: 'Chat sem linha de canal aberto — dialog.get não devolveu entity_id de LINES',
+        },
+      )
+      return
+    }
+
+    await ctx.appendJobLog(
+      `Turno do bot | chat=${event.chatId} | linha=${lineId} | tipo=${event.kind}`,
+    )
+
+    // Da mesma resposta do `dialog.get`, sem chamada extra: o `entity_data_2` traz os
+    // vínculos de CRM do chat, e é o que o bloco "Já é cliente?" compara.
+    const crm = crmVars(crmEntitiesFromDialog(dialog))
+
+    /**
+     * Uma fala, um caminho: o adapter escreve com `imbot.v2.Chat.Message.send`, que sai
+     * como mensagem de participante e o canal aberto repassa ao conector — o mesmo
+     * transporte que leva a fala do operador ao destino final, qualquer que seja o
+     * conector daquele canal.
+     */
+    const sessao = new BitrixBotSessionAdapter(
+      client,
+      bot.botToken,
+      bot.bitrixBotId,
+    )
+
+    const outcome = await runBotTurn(
+      event,
+      lineId,
+      installedApp.id,
+      {
+        session: sessao,
+        sessions,
+        flows,
+        bindings,
+      },
+      crm,
+    )
+
+    if (outcome.kind === 'duplicado') {
+      // Rede de segurança do lock: cobre o evento que chega depois de o lock ter sido
+      // liberado, quando a sessão do turno anterior já está gravada.
+      await ctx.appendJobLog(`Evento repetido | motivo=${outcome.reason}`)
+      return
+    }
+
+    if (outcome.kind === 'gone') {
+      // Sem handoff para a fila: o bot não fala mais neste chat, então transferir
+      // falharia pelo mesmo motivo. Quem assumiu a conversa já está com ela.
+      await ctx.appendJobLog(`Bot fora da sessão | código=${outcome.code}`)
+      return
+    }
+
+    if (outcome.kind === 'skipped') {
+      // Bot na linha e nenhum fluxo para rodar: vai para a fila em vez de chat mudo.
+      // Acontece se o `unbind` falhou, se o fluxo foi despublicado com vínculo ativo, ou
+      // se o vínculo foi apagado direto no banco.
+      logThinkzapError(
+        log,
+        'thinkzap.bot.turn_skipped',
+        {
+          chatId: event.chatId,
+          lineId,
+          appId: installedApp.id,
+          reason: outcome.reason,
+        },
+        {
+          level: 'warn',
+          msg: `Turno sem fluxo (${outcome.reason}) — entregando para a fila`,
+        },
+      )
+
+      await ctx.appendJobLog(`Sem fluxo | motivo=${outcome.reason} | fila`)
+      await sessao.handoff(event.chatId, { type: 'queue' })
+      return
+    }
+
+    await ctx.appendJobLog(
+      `Turno concluído | efeitos=${outcome.effects.length}`,
+    )
+  } finally {
+    await lock.release()
+  }
 }

@@ -6,6 +6,12 @@
 
 /** Índice do `CONFIG_ID` em `connector|openline|chat|user`. */
 const OPENLINE_INDEX = 1
+/**
+ * Índice do chat do **conector** — o identificador do contato no provider, que o
+ * `bitrix-received-message.processor` usa como telefone no envio. Não confundir com o
+ * `CHAT_ID` do canal aberto, que é outro número e é o que o bot recebe no evento.
+ */
+const CONNECTOR_CHAT_INDEX = 2
 const EXPECTED_PARTS = 4
 
 export function parseOpenLineIdFromEntityId(entityId: unknown): string | null {
@@ -46,4 +52,32 @@ export function openLineIdFromDialog(response: unknown): string | null {
   if (tipo && tipo !== 'LINES') return null
 
   return parseOpenLineIdFromEntityId(result.entity_id)
+}
+
+/**
+ * Identificador do contato no provider, lido do mesmo `entity_id`.
+ *
+ * É o que o envio ao WhatsApp usa como destino — o `bitrix-received-message.processor`
+ * chama isso de `chatId` e o passa como `phone` ao Z-API. O bot precisa dele porque a
+ * fala não sai pelo Bitrix: a mensagem nasce no chat do canal aberto e não atravessa o
+ * conector, então quem entrega ao contato somos nós.
+ */
+export function connectorChatIdFromDialog(response: unknown): string | null {
+  const result = (response as DialogGetResponse | undefined)?.result
+  if (!result) return null
+
+  const tipo =
+    typeof result.entity_type === 'string'
+      ? result.entity_type.toUpperCase()
+      : ''
+  if (tipo && tipo !== 'LINES') return null
+
+  if (typeof result.entity_id !== 'string') return null
+
+  const parts = result.entity_id.split('|')
+  if (parts.length !== EXPECTED_PARTS) return null
+
+  // Sem validar como número: o identificador do contato é um telefone em alguns
+  // conectores e um id opaco em outros, então só a forma vazia é recusada.
+  return parts[CONNECTOR_CHAT_INDEX]?.trim() || null
 }

@@ -213,6 +213,95 @@ describe('runBotTurn', () => {
     })
   })
 
+  /**
+   * O Bitrix dispara `MESSAGEADD` e `JOINCHAT` no mesmo instante na abertura da conversa
+   * — medido com 4 ms entre os dois, em ordem invertida. Rodar o fluxo nos dois mandava a
+   * saudação duas vezes ao cliente.
+   */
+  describe('eco do join na abertura da conversa', () => {
+    const sessaoRecem = (nascidaEm: string): BotSession =>
+      ({
+        id: 'sess-1',
+        appId: APP,
+        bitrixChatId: CHAT,
+        flowId: 'flow-1',
+        flowVersion: 3,
+        graph,
+        bindingId: 'bind-1',
+        currentNodeId: 'ask',
+        vars: {},
+        attempts: 0,
+        status: 'ACTIVE',
+        createdAt: new Date(nascidaEm),
+      }) as BotSession
+
+    it('join logo depois do início não fala de novo', async () => {
+      // Sessão criada 4 ms antes, que é o intervalo medido em produção.
+      const { deps, say } = makeDeps({
+        sessaoAtiva: sessaoRecem('2026-08-31T11:59:59.996Z'),
+      })
+
+      const out = await runBotTurn(
+        evento({ kind: 'join', text: '' }),
+        LINE,
+        APP,
+        deps,
+      )
+
+      expect(out).toEqual({ kind: 'duplicado', reason: 'join-eco' })
+      expect(say).not.toHaveBeenCalled()
+    })
+
+    it('join em sessão antiga continua recomeçando', async () => {
+      // Bot recolocado numa conversa parada: recomeçar é o comportamento certo.
+      const { deps, say } = makeDeps({
+        sessaoAtiva: sessaoRecem('2026-08-31T11:00:00Z'),
+      })
+
+      const out = await runBotTurn(
+        evento({ kind: 'join', text: '' }),
+        LINE,
+        APP,
+        deps,
+      )
+
+      expect(out.kind).toBe('ran')
+      expect(say).toHaveBeenCalledWith(CHAT, 'Qual seu e-mail?')
+    })
+
+    it('mensagem do cliente nunca é descartada como eco', async () => {
+      // Descartar a fala perderia o que o cliente escreveu; só o `join` é eco.
+      const { deps, say } = makeDeps({
+        sessaoAtiva: sessaoRecem('2026-08-31T11:59:59.996Z'),
+      })
+
+      const out = await runBotTurn(
+        evento({ text: 'nao-e-email' }),
+        LINE,
+        APP,
+        deps,
+      )
+
+      expect(out.kind).toBe('ran')
+      expect(say).toHaveBeenCalled()
+    })
+
+    it('join sem sessão nenhuma roda normalmente', async () => {
+      const { deps, say, create } = makeDeps()
+
+      const out = await runBotTurn(
+        evento({ kind: 'join', text: '' }),
+        LINE,
+        APP,
+        deps,
+      )
+
+      expect(out.kind).toBe('ran')
+      expect(say).toHaveBeenCalledOnce()
+      expect(create).toHaveBeenCalledOnce()
+    })
+  })
+
   it('grava o estado antes de falar', async () => {
     // Fala antes de gravar: se a gravação caísse, a resposta do cliente seria lida como
     // resposta da pergunta anterior.
@@ -245,6 +334,8 @@ describe('runBotTurn', () => {
       vars: {},
       attempts: 0,
       status: 'ACTIVE',
+      // Antiga o bastante para não cair na janela de eco do `join`.
+      createdAt: new Date('2026-08-31T10:00:00Z'),
     }
     const { deps, handoff, close } = makeDeps({ sessaoAtiva: sessao })
 
@@ -280,6 +371,8 @@ describe('runBotTurn', () => {
       vars: {},
       attempts: 0,
       status: 'ACTIVE',
+      // Antiga o bastante para não cair na janela de eco do `join`.
+      createdAt: new Date('2026-08-31T10:00:00Z'),
     }
 
     const { deps, say } = makeDeps({

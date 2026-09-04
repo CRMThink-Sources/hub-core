@@ -80,6 +80,15 @@ const questionNodeSchema = z.object({
       z.object({
         value: z.string().min(1),
         label: z.string().min(1),
+        /**
+         * Outras respostas que levam a esta opção ("ajuda" para "Suporte").
+         *
+         * Teto de 20 e 40 caracteres por item: a lista é casada por igualdade a cada
+         * resposta, e sem limite um fluxo salvo com centenas de entradas viraria custo
+         * por mensagem. `optional` porque todo fluxo publicado antes disto não tem o
+         * campo.
+         */
+        aliases: z.array(z.string().min(1).max(40)).max(20).optional(),
         next: nodeIdSchema,
       }),
     )

@@ -21,6 +21,7 @@ type Row = {
   vars: unknown
   attempts: number
   status: string
+  createdAt: Date
 }
 
 function toSession(row: Row): BotSession {
@@ -40,6 +41,7 @@ function toSession(row: Row): BotSession {
         : {},
     attempts: row.attempts,
     status: row.status as BotSessionStatus,
+    createdAt: row.createdAt,
   }
 }
 

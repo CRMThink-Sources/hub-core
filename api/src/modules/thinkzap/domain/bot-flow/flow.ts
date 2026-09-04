@@ -35,6 +35,15 @@ export type QuestionOption = {
   /** É o que vai para `saveAs`; o rótulo é só o que o cliente lê. */
   value: string
   label: string
+  /**
+   * Outras respostas que levam a esta opção.
+   *
+   * O rótulo é o que aparece na mensagem, e ninguém digita exatamente ele: o cliente
+   * responde "ajuda", "problema", "um". Sem esta lista, tudo isso caía em
+   * `onExhausted` — e o operador não tinha como ensinar o bot, porque o rótulo é o
+   * texto exibido e mudá-lo mudaria a mensagem.
+   */
+  aliases?: string[]
   next: NodeId
 }
 

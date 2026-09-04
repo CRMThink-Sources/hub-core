@@ -21,6 +21,14 @@ import type { GetBotFlowBindingByLineRepository } from '@/modules/thinkzap/domai
 // da conversa, e a próxima mensagem é atendimento novo.
 const SESSION_TTL_SECONDS = 3600
 
+/**
+ * Janela em que um `join` é considerado eco do início que já rodou.
+ *
+ * Medido 4 ms entre os dois eventos; 30 s cobre atraso de fila e retry sem alcançar
+ * `join` legítimo, que só acontece quando alguém recoloca o bot numa conversa parada.
+ */
+const JOIN_ECHO_WINDOW_MS = 30_000
+
 export type BotTurnOutcome =
   | { kind: 'ran'; effects: BotEffect[] }
   | {
@@ -33,6 +41,8 @@ export type BotTurnOutcome =
     }
   /** Bot fora do chat: sessão encerrada, sem retry. Não é falha do job. */
   | { kind: 'gone'; code: string }
+  /** Evento repetido do mesmo início de conversa. Nada a fazer, e não é erro. */
+  | { kind: 'duplicado'; reason: 'join-eco' }
 
 export type RunBotTurnDeps = {
   session: BotSessionPort
@@ -73,6 +83,26 @@ export async function runBotTurn(
 
   if ('reason' in contexto) {
     return { kind: 'skipped', reason: contexto.reason }
+  }
+
+  /**
+   * O `join` que chega depois de a sessão já ter começado é eco, não conversa nova.
+   *
+   * O Bitrix dispara `ONIMBOTV2MESSAGEADD` e `ONIMBOTV2JOINCHAT` no mesmo instante
+   * quando o contato abre a conversa — medido em produção com 4 ms entre os dois, e em
+   * ordem invertida. Os dois rodavam o fluxo do início e o cliente recebia a saudação
+   * duplicada.
+   *
+   * Só o `join` é descartado, nunca o `message`: descartar a fala perderia o que o
+   * cliente escreveu. E a janela é curta de propósito — `join` legítimo (bot recolocado
+   * numa conversa antiga) tem de continuar recomeçando.
+   */
+  if (
+    event.kind === 'join' &&
+    existente &&
+    agora.getTime() - existente.createdAt.getTime() < JOIN_ECHO_WINDOW_MS
+  ) {
+    return { kind: 'duplicado', reason: 'join-eco' }
   }
 
   // `join` sempre recomeça: o Bitrix está dizendo que o bot entrou numa sessão nova, então

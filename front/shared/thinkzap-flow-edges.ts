@@ -19,16 +19,20 @@ export type CanvasEdge = {
  * necessidade faz ela emitir `replace` para todas e descartar a seleção.
  */
 export function canvasEdges(graph: BotFlowGraph): CanvasEdge[] {
-  const lados = entrySides(graph)
+  const entradas = entrySides(graph)
 
-  return graphEdges(graph).map(edge => ({
-    id: edge.id,
-    source: edge.source,
-    sourceHandle: edge.sourceHandle,
-    target: edge.target,
-    targetHandle: inHandleId(lados.get(edge.id) ?? 'left'),
-    label: edge.label,
-  }))
+  return graphEdges(graph).map(edge => {
+    const entrada = entradas.get(edge.id)
+
+    return {
+      id: edge.id,
+      source: edge.source,
+      sourceHandle: edge.sourceHandle,
+      target: edge.target,
+      targetHandle: inHandleId(entrada?.side ?? 'left', entrada?.lane ?? 0),
+      label: edge.label,
+    }
+  })
 }
 
 /** Chave que muda só quando o desenho das arestas muda de verdade. */

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  connectorChatIdFromDialog,
   openLineIdFromDialog,
   parseOpenLineIdFromEntityId,
 } from './open-line-entity-id'
@@ -69,5 +70,47 @@ describe('openLineIdFromDialog', () => {
     expect(openLineIdFromDialog(undefined)).toBeNull()
     expect(openLineIdFromDialog({})).toBeNull()
     expect(openLineIdFromDialog({ result: {} })).toBeNull()
+  })
+})
+
+/** O destino do contato: a fala do bot não sai pelo Bitrix, então nós a entregamos. */
+describe('connectorChatIdFromDialog', () => {
+  it('lê o chat do conector, não o do canal aberto', () => {
+    // Em `livechat|22|1775|599`: `22` é a linha e `1775` é o contato no provider. Trocar
+    // os dois mandaria a mensagem para o número errado sem nenhum erro.
+    const resposta = {
+      result: { entity_type: 'LINES', entity_id: 'livechat|22|1775|599' },
+    }
+
+    expect(connectorChatIdFromDialog(resposta)).toBe('1775')
+  })
+
+  it('aceita identificador não numérico', () => {
+    // Alguns conectores usam telefone, outros um id opaco: só a forma vazia é recusada.
+    expect(
+      connectorChatIdFromDialog({
+        result: { entity_id: 'wa|230|5547999998888|31' },
+      }),
+    ).toBe('5547999998888')
+  })
+
+  it('recusa chat que não é de canal aberto', () => {
+    expect(
+      connectorChatIdFromDialog({
+        result: { entity_type: 'CRM', entity_id: 'DEAL|1209|0|0' },
+      }),
+    ).toBeNull()
+  })
+
+  it('forma quebrada devolve nulo em vez de id errado', () => {
+    expect(connectorChatIdFromDialog(undefined)).toBeNull()
+    expect(connectorChatIdFromDialog({ result: {} })).toBeNull()
+    // Partes a menos: pegar o índice 2 de qualquer jeito devolveria outra coisa.
+    expect(
+      connectorChatIdFromDialog({ result: { entity_id: 'livechat|22' } }),
+    ).toBeNull()
+    expect(
+      connectorChatIdFromDialog({ result: { entity_id: 'livechat|22||599' } }),
+    ).toBeNull()
   })
 })

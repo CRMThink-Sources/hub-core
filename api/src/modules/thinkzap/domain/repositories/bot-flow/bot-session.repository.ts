@@ -21,6 +21,8 @@ export type BotSession = {
   vars: Record<string, string>
   attempts: number
   status: BotSessionStatus
+  /** Quando a sessão começou. Usado para reconhecer evento repetido do mesmo início. */
+  createdAt: Date
 }
 
 export interface GetActiveBotSessionRepository {

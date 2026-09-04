@@ -352,6 +352,26 @@ export const THINKZAP_ERRORS = {
       'Conferir se o canal aberto está ativo e o bot instalado na linha; a conversa segue com o atendimento humano.',
     retriable: true,
   },
+  // O contato já recebeu quando isto acontece: só o registro no chat do canal aberto
+  // falhou, e o operador perde o histórico da fala, não a conversa.
+  // Degradação deliberada: sem sender o turno roda só com o eco no chat, e o operador vê
+  // a conversa em vez de o job falhar sem nada acontecer.
+  'thinkzap.bot.contact_sender_unresolved': {
+    category: 'config',
+    userCause:
+      'O bot não conseguiu descobrir por qual número responder ao cliente; as falas ficaram só no chat do canal aberto, visíveis ao atendente.',
+    remediation:
+      'Conferir se o canal aberto do fluxo está vinculado a uma linha de WhatsApp ativa e conectada. Enquanto isso, o atendente pode responder manualmente pela conversa.',
+    retriable: true,
+  },
+  'thinkzap.bot.echo_failed': {
+    category: 'integration',
+    userCause:
+      'Observabilidade — uma fala do bot chegou ao cliente mas não foi registrada no chat do canal aberto. O atendimento não é afetado.',
+    remediation:
+      'Nenhuma ação de suporte: o cliente recebeu a mensagem. Se o atendente precisar do que foi dito, o histórico está na conversa do WhatsApp.',
+    retriable: false,
+  },
   'thinkzap.bot.say_session_gone': {
     category: 'integration',
     userCause:

@@ -20,6 +20,13 @@ export type PortSides = Record<string, 'right' | 'bottom'>
 export type QuestionOption = {
   label: string
   value: string
+  /**
+   * Outras respostas que levam a esta opção ("ajuda" para "Suporte").
+   *
+   * O rótulo é o que o cliente lê na mensagem, então não serve para ensinar o bot: mudar
+   * "Suporte" para "Suporte/ajuda" mudaria o texto exibido. Ver `matchOption` na API.
+   */
+  aliases?: string[]
   next: NodeId
 }
 

@@ -7,28 +7,49 @@ import {
 import { BitrixBotSessionAdapter } from './bitrix-bot-session.adapter'
 
 const TOKEN = 'bot-token-1'
+const BOT_ID = 2088
 
 function makeAdapter(callMethod = vi.fn().mockResolvedValue({ result: true })) {
   const client = { callMethod } as unknown as BitrixClient
-  return { adapter: new BitrixBotSessionAdapter(client, TOKEN), callMethod }
+  return {
+    adapter: new BitrixBotSessionAdapter(client, TOKEN, BOT_ID),
+    callMethod,
+  }
 }
 
 describe('BitrixBotSessionAdapter', () => {
-  it('fala pelo bot, não pelo conector de saída', () => {
+  it('fala como participante, para o conector repassar ao WhatsApp', async () => {
+    // Medido em produção: `imopenlines.bot.session.message.send` cria mensagem
+    // automática da linha, que o Bitrix não entrega ao conector — ficava só no chat.
     const { adapter, callMethod } = makeAdapter()
 
-    return adapter.say('112', 'oi').then(() => {
-      // Pela sessão do bot a fala fica no histórico que o operador lê.
-      expect(callMethod).toHaveBeenCalledWith(
-        'imopenlines.bot.session.message.send',
-        { CHAT_ID: '112', NAME: 'DEFAULT', MESSAGE: 'oi' },
-      )
+    await adapter.say('112', 'oi')
+
+    expect(callMethod).toHaveBeenCalledWith('imbot.v2.Chat.Message.send', {
+      botId: BOT_ID,
+      botToken: TOKEN,
+      dialogId: 'chat112',
+      fields: { message: 'oi', system: false },
     })
   })
 
-  it('`say` não manda CLIENT_ID; `transfer` e `finish` mandam', async () => {
-    // Assimetria da doc do Bitrix, não descuido: `transfer` e `finish` listam
-    // `CLIENT_ID` e `message.send` não declara o campo.
+  it('nunca manda `system: true`', async () => {
+    // É o campo que decide a entrega: mensagem de sistema aparece cinza no chat e o
+    // canal aberto não a repassa ao conector.
+    const { adapter, callMethod } = makeAdapter()
+
+    await adapter.say('112', 'oi')
+
+    const [, params] = callMethod.mock.calls[0] as [
+      string,
+      { fields: { system: boolean } },
+    ]
+    expect(params.fields.system).toBe(false)
+  })
+
+  it('`transfer` e `finish` mandam CLIENT_ID; o `say` usa `botToken`', async () => {
+    // Assimetria da doc do Bitrix: os métodos de sessão nomeiam `CLIENT_ID`, e o
+    // `imbot.v2.*` chama o mesmo segredo de `botToken`.
     const { adapter, callMethod } = makeAdapter()
 
     await adapter.say('112', 'oi')
@@ -40,7 +61,7 @@ describe('BitrixBotSessionAdapter', () => {
     >
 
     expect(chamadas).toHaveLength(3)
-    expect(chamadas[0]?.[1]).not.toHaveProperty('CLIENT_ID')
+    expect(chamadas[0]?.[1].botToken).toBe(TOKEN)
     expect(chamadas[1]?.[1].CLIENT_ID).toBe(TOKEN)
     expect(chamadas[2]?.[1].CLIENT_ID).toBe(TOKEN)
   })

@@ -26,16 +26,36 @@ export class BitrixBotSessionAdapter implements BotSessionPort {
   constructor(
     private readonly bitrixClient: BitrixClient,
     private readonly botToken: string,
+    /** `botId` do portal. Exigido por `imbot.v2.Chat.Message.send`. */
+    private readonly bitrixBotId: number,
   ) {}
 
+  /**
+   * `imbot.v2.Chat.Message.send`, e **não** `imopenlines.bot.session.message.send`.
+   *
+   * Medido em produção (2026-09-04, portal `crmthinkers`, linha 210): o método de
+   * `bot.session` cria a mensagem como **automática da linha** — ela aparece cinza no
+   * chat, sem autor, e o Bitrix não a entrega ao conector. O cliente nunca recebia.
+   *
+   * Este método manda como fala do bot participante. `system` tem default `false`, e é
+   * mensagem não-sistema que o canal aberto repassa ao conector — o par
+   * `SKIP_CONNECTOR` do `imbot.message.add` (v1) documenta que atravessar é o padrão.
+   *
+   * `dialogId` é `chat<CHAT_ID>`: o método fala em diálogo, não em sessão de linha.
+   */
   async say(chatId: string, text: string): Promise<void> {
-    const method = 'imopenlines.bot.session.message.send'
+    const method = 'imbot.v2.Chat.Message.send'
 
     try {
       const response = await this.bitrixClient.callMethod(method, {
-        CHAT_ID: chatId,
-        NAME: 'DEFAULT',
-        MESSAGE: text,
+        botId: this.bitrixBotId,
+        botToken: this.botToken,
+        dialogId: `chat${chatId}`,
+        fields: {
+          message: text,
+          // Explícito mesmo sendo o default: é o campo que decide se o conector recebe.
+          system: false,
+        },
       })
 
       // Recusa por HTTP 200 com `error` no corpo não passa pelo `catch`. Sem isto, bot
