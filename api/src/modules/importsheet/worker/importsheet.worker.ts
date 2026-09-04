@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { Worker } from 'bullmq'
 import { bullBaseOptions } from '@/queue/redis-connection'
 import { env } from '@/config/env'
-import { workerLogger } from '@/shared/infra/logger'
+import { createWorkerLogger } from '@/shared/infra/logger'
 import { AppError } from '@/shared/domain/errors/app-error'
 import { appErrorLogFields } from '@/shared/infra/log-error'
 import { runWithLogContext } from '@/shared/infra/log-context'
@@ -34,6 +34,8 @@ import {
   SCHEDULER_TICK_EVERY_MS,
   ensureSchedulerTick,
 } from '../queue/importsheet-scheduler.queue'
+
+const log = createWorkerLogger('importsheet')
 
 const importRepository = new PrismaImportSheetImportRepository()
 
@@ -88,8 +90,13 @@ runWorker.on('completed', (job, outcome) => {
       { importId, trigger: 'continuation' },
       delay ? { delay } : undefined,
     ).catch(error =>
-      workerLogger.error(
-        { app: 'importsheet', queue: IMPORTSHEET_RUN, importId, err: error },
+      log.error(
+        {
+          event: 'worker.job.enqueue_continuation_failed',
+          queue: IMPORTSHEET_RUN,
+          importId,
+          err: error,
+        },
         'Failed to enqueue import continuation — import may be stuck',
       ),
     )
@@ -112,7 +119,7 @@ runWorker.on('completed', (job, outcome) => {
 runWorker.on('failed', (job, err) => {
   // AppError → errorCode estruturado (casa com runbook/MCP); senão UNCLASSIFIED.
   const base = {
-    app: 'importsheet',
+    event: 'worker.job.failed',
     queue: IMPORTSHEET_RUN,
     jobId: job?.id,
     importId: job?.data?.importId,
@@ -122,7 +129,7 @@ runWorker.on('failed', (job, err) => {
     err instanceof AppError
       ? appErrorLogFields(err, base)
       : { ...base, errorCode: 'UNCLASSIFIED', err }
-  workerLogger.error(fields, 'Import run job failed')
+  log.error(fields, 'Import run job failed')
 })
 
 // Órfã de crash: `running` com `lastRunAt` velho. 20min dá folga acima do delay
@@ -163,9 +170,9 @@ async function reclaimStaleRunning(): Promise<void> {
     }
   }
 
-  workerLogger.warn(
+  log.warn(
     {
-      app: 'importsheet',
+      event: 'worker.job.reclaimed',
       queue: IMPORTSHEET_SCHEDULER,
       reclaimed: orphans.length,
       importIds: orphans.map(o => o.id),
@@ -189,9 +196,9 @@ const schedulerWorker = new Worker(
             await enqueueImportRun({ importId: imp.id, trigger: 'schedule' })
           }
           if (due.length > 0) {
-            workerLogger.info(
+            log.info(
               {
-                app: 'importsheet',
+                event: 'queue.job.enqueued',
                 queue: IMPORTSHEET_SCHEDULER,
                 due: due.length,
               },
@@ -208,7 +215,7 @@ const schedulerWorker = new Worker(
 
 schedulerWorker.on('failed', (job, err) => {
   const base = {
-    app: 'importsheet',
+    event: 'worker.job.failed',
     queue: IMPORTSHEET_SCHEDULER,
     jobId: job?.id,
   }
@@ -216,15 +223,15 @@ schedulerWorker.on('failed', (job, err) => {
     err instanceof AppError
       ? appErrorLogFields(err, base)
       : { ...base, errorCode: 'UNCLASSIFIED', err }
-  workerLogger.error(fields, 'Scheduler tick failed')
+  log.error(fields, 'Scheduler tick failed')
 })
 
 async function bootstrap(): Promise<void> {
   await ensureSchedulerTick()
   // Token Bitrix: a rota lê a credential fresca do banco por página; o refresh do
   // access_token é responsabilidade da rotina central da API (cron + buffer).
-  workerLogger.info(
-    { app: 'importsheet' },
+  log.info(
+    { event: 'worker.ready' },
     'ImportSheet worker is ready (run + scheduler)',
   )
 }
