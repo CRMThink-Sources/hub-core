@@ -477,7 +477,11 @@ export class BitrixClient {
       phone: string | null
     },
     message: string,
-  ): Promise<{ chatId: string | null; bitrixMessageId: string | null }> {
+  ): Promise<{
+    chatId: string | null
+    bitrixMessageId: string | null
+    payload: ISendMessageData
+  }> {
     const contactId = contact.id
     const messageId = `widget_${Date.now()}_${contactId}`
     const params: ISendMessageData = {
@@ -517,7 +521,7 @@ export class BitrixClient {
       const rawMsgId = result?.message?.id
       const chatId = rawChatId != null ? String(rawChatId) : null
       const bitrixMessageId = rawMsgId != null ? String(rawMsgId) : null
-      return { chatId, bitrixMessageId }
+      return { chatId, bitrixMessageId, payload: params }
     } catch (error) {
       const msg =
         axios.isAxiosError(error) && error.response

@@ -25,6 +25,8 @@ export type OpenChannelOutcome =
 export type EnsureWidgetOpenChannelResult = {
   outcome: OpenChannelOutcome
   chatId: string | null
+  /** Payload enviado ao Bitrix (`imconnector.send.messages`). Só em `opened`. */
+  payload?: unknown
 }
 
 export type EnsureWidgetOpenChannelInput = {
@@ -213,7 +215,7 @@ export class EnsureWidgetOpenChannelConversation {
     const contactName = await this.resolveDisplayName(input, contact.phone)
 
     try {
-      const { chatId } = await this.bitrixClient.sendToOpenChannel(
+      const { chatId, payload } = await this.bitrixClient.sendToOpenChannel(
         vinculatedChannel,
         env.bitrix.connector.code,
         { id: contactId, name: contactName, phone: contact.phone },
@@ -235,11 +237,11 @@ export class EnsureWidgetOpenChannelConversation {
       }
 
       apiLogger.info(
-        { ...logContext, chatId, openChannelOutcome: 'opened' },
+        { ...logContext, chatId, payload, openChannelOutcome: 'opened' },
         'Conversa do canal aberto criada para mensagem do widget',
       )
 
-      return { outcome: 'opened', chatId }
+      return { outcome: 'opened', chatId, payload }
     } catch (err) {
       logThinkzapError(
         apiLogger,
