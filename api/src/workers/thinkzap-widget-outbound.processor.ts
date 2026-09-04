@@ -143,7 +143,9 @@ export async function processWidgetOpenChannelJob(
     'Job de abertura de conversa processado',
   )
 
-  await appendJobLog(describeOpenChannelOutcome(outcome, chatId, payload, error))
+  await appendJobLog(
+    describeOpenChannelOutcome(outcome, chatId, payload, error),
+  )
 
   /**
    * `EnsureWidgetOpenChannelConversation` nunca lança — devolve `failed`. Aqui a
