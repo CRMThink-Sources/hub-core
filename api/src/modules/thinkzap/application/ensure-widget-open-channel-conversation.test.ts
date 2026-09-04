@@ -352,7 +352,11 @@ describe('EnsureWidgetOpenChannelConversation', () => {
 
     const result = await sut.execute({ ...baseInput, item: item() })
 
-    expect(result).toEqual({ outcome: 'failed', chatId: null })
+    expect(result).toEqual({
+      outcome: 'failed',
+      chatId: null,
+      error: 'Bitrix error: 400',
+    })
     expect(updateOpenChannelRefs).not.toHaveBeenCalled()
   })
 
