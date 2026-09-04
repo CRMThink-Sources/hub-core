@@ -1,6 +1,8 @@
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { findItemInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { EnsureWidgetOpenChannelConversation } from '@/modules/thinkzap/application/ensure-widget-open-channel-conversation'
+import { makeGetCrmContactName } from '@/modules/thinkzap/application/get-crm-contact-name'
+import { makeResolveWidgetOpenChannelContact } from '@/modules/thinkzap/main/make-resolve-widget-open-channel-contact'
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import {
@@ -44,6 +46,8 @@ export async function processWidgetOpenChannelJob(
     providerMessageId,
     destination,
     text,
+    entity,
+    entityId,
   } = job
 
   const logContext = {
@@ -116,14 +120,22 @@ export async function processWidgetOpenChannelJob(
   const ensureOpenChannel = new EnsureWidgetOpenChannelConversation(
     bitrix,
     new PrismaThinkzapMessageRepository(),
+    makeResolveWidgetOpenChannelContact(),
+    makeGetCrmContactName(bitrix),
   )
 
-  const { outcome, chatId } = await ensureOpenChannel.execute({
+  const { outcome, chatId, payload } = await ensureOpenChannel.execute({
     item,
     instanceId,
     providerMessageId,
     destination,
     text,
+    /**
+     * A entidade de origem vem da row do outbox e serve só para o **nome** da conversa
+     * — sem ela, o título do chat seria o número, que é o que o operador via antes.
+     */
+    entity,
+    entityId,
   })
 
   log.info(
@@ -131,7 +143,7 @@ export async function processWidgetOpenChannelJob(
     'Job de abertura de conversa processado',
   )
 
-  await appendJobLog(describeOpenChannelOutcome(outcome, chatId))
+  await appendJobLog(describeOpenChannelOutcome(outcome, chatId, payload))
 
   /**
    * `EnsureWidgetOpenChannelConversation` nunca lança — devolve `failed`. Aqui a
@@ -154,6 +166,7 @@ export async function processWidgetOpenChannelJob(
 function describeOpenChannelOutcome(
   outcome: string,
   chatId: string | null,
+  payload?: unknown,
 ): string {
   const descriptions: Record<string, string> = {
     opened: `Conversa ABERTA no canal aberto. chatId=${chatId ?? 'não devolvido pelo Bitrix'}`,
@@ -166,5 +179,17 @@ function describeOpenChannelOutcome(
       'FALHOU ao chamar o Bitrix. Será retentado. A mensagem ao contato NÃO é afetada — ela já foi entregue.',
   }
 
-  return descriptions[outcome] ?? `Desfecho: ${outcome}`
+  const description = descriptions[outcome] ?? `Desfecho: ${outcome}`
+
+  /**
+   * O payload só existe em `opened` — é o que a chamada `imconnector.send.messages`
+   * de fato enviou. Anexado aqui, e não num log separado, porque é aqui que o suporte
+   * já está olhando quando confere "o que foi mandado pro Bitrix": a aba do job no
+   * Bull Board, na mesma linha que confirma o `chatId`.
+   */
+  if (outcome === 'opened' && payload !== undefined) {
+    return `${description}. payload=${JSON.stringify(payload)}`
+  }
+
+  return description
 }

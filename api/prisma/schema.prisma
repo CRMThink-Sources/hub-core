@@ -232,11 +232,12 @@ model Instance {
   createdAt         DateTime       @default(now()) @map("created_at")
   updatedAt         DateTime       @updatedAt @map("updated_at")
 
-  domain        Domain                 @relation(fields: [domainId], references: [id])
-  connector     Connector?
-  conversations Conversation[]
-  messages      ThinkzapMessage[]
-  widgetOutbox  ThinkzapWidgetOutbox[]
+  domain            Domain                    @relation(fields: [domainId], references: [id])
+  connector         Connector?
+  conversations     Conversation[]
+  messages          ThinkzapMessage[]
+  widgetOutbox      ThinkzapWidgetOutbox[]
+  contactIdentities ThinkzapContactIdentity[]
 
   @@map("core_thinkerszap_instances")
 }
@@ -366,6 +367,54 @@ model ThinkzapMessage {
   @@unique([instanceId, bitrixMessageId], name: "uq_msg_instance_bitrix")
   @@index([instanceId])
   @@map("core_thinkerszap_messages")
+}
+
+/// Mapa `lid ↔ telefone` de um contato numa linha Z-API.
+///
+/// **Por que existe.** A Z-API entrega o contato ora pelo telefone, ora pelo `@lid`, no
+/// mesmo campo `phone`. Como o Bitrix identifica a sessão do canal aberto pelo `chat.id`,
+/// as duas formas viravam dois contatos e duas conversas. A identidade passou a ser o
+/// LID, que é o único valor estável — e esta tabela é o que permite chegar nele quando o
+/// evento traz telefone e nenhum LID.
+///
+/// **É cache, não oráculo.** Ela registra pares que aprendeu (de um evento que trouxe os
+/// dois, ou de uma consulta a `phone-exists`); ela não deriva nada. `lid` → telefone é
+/// impossível por decisão de privacidade do WhatsApp, e nenhum caminho deve fingir que é.
+/// Por isso `phone` é nullable: contato que nunca expôs o número tem row com `lid` e sem
+/// telefone, para sempre.
+///
+/// **Escopo é a instância**, e não global: o LID devolvido pela Z-API é o que *aquela*
+/// linha enxerga. Que um LID seja o mesmo entre contas diferentes não está documentado —
+/// assumir custaria caro e não assumir não custa nada.
+model ThinkzapContactIdentity {
+  id         String @id @default(uuid())
+  instanceId String @map("instance_id")
+  lid        String
+
+  /// Telefone normalizado do contato, quando conhecido. `null` = contato lid-only.
+  phone String?
+
+  /// A identidade que este contato **já usa** numa sessão de canal aberto criada antes
+  /// da mudança para LID.
+  ///
+  /// Preenchida exclusivamente pelo backfill que roda antes de a resolução por LID ser
+  /// ligada. Row com valor aqui usa esse valor como `chat.id` para sempre: trocar a
+  /// chave faria o Bitrix abrir uma conversa nova para um contato que já tem uma, e o
+  /// `imconnector` não oferece remapear `chat.id`.
+  ///
+  /// Nada em runtime escreve nesta coluna. Row criada depois do backfill nasce sem ela
+  /// e nunca a ganha — é o que impede a regra legada de contaminar contato novo.
+  legacyPhoneIdentity String? @map("legacy_phone_identity")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  instance Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@unique([instanceId, lid], name: "uq_identity_instance_lid")
+  @@unique([instanceId, phone], name: "uq_identity_instance_phone")
+  @@index([instanceId])
+  @@map("core_thinkerszap_contact_identities")
 }
 
 /// Intenção de envio pelo widget, gravada **antes** de qualquer chamada ao provider.

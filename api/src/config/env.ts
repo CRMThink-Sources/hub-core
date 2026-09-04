@@ -247,6 +247,18 @@ export const env = {
     process.env.THINKZAP_MOCK_ZAPI_PROVISIONING === 'true' ||
     (process.env.NODE_ENV === 'local' &&
       process.env.THINKZAP_MOCK_ZAPI_PROVISIONING !== 'false'),
+  /**
+   * Liga a identidade por LID no canal aberto de linha Z-API.
+   *
+   * **Desligada por padrão de propósito.** A troca de identidade não pode acontecer
+   * antes do backfill: trocar o `chat.id` de um contato faz o Bitrix abrir uma conversa
+   * nova para quem já tem uma, e o `imconnector` não oferece remapear. A ordem é
+   * deployar desligada (o mapa começa a aprender os pares sem mudar comportamento
+   * nenhum), rodar o backfill, e só então ligar.
+   *
+   * Desligar de volta é o rollback: o mapa e os pares aprendidos ficam, e não atrapalham.
+   */
+  thinkzapZApiLidIdentity: process.env.THINKZAP_ZAPI_LID_IDENTITY === 'true',
   clicksign: {
     robot: {
       code: process.env.CLICKSIGN_ROBOT_CODE ?? 'ENVIAR_DOCUMENTO',

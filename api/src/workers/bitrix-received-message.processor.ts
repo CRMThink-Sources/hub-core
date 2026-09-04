@@ -64,14 +64,18 @@ type PersistOutboundMessageInput = {
    * A identidade do contato — o `chat.id` do evento, usado verbatim como destino no
    * provider.
    *
-   * É telefone canônico sempre que o contato tem um: as três direções que escrevem
-   * `chat.id` passam por `resolveOpenChannelContactId`, então o valor que volta aqui
-   * é o mesmo que o envio pelo widget usa para discar. Só `@lid` e grupo chegam em
-   * outra forma, e nesses o valor cru é o que o provider espera.
+   * **Não é telefone.** A doc antiga aqui dizia que era "telefone canônico sempre que o
+   * contato tem um", e isso deixou de valer: em linha Z-API a identidade passou a ser o
+   * LID do contato, porque o `phone` que a Z-API entrega vem ora número, ora `@lid`, e
+   * usá-lo como chave abria duas conversas para a mesma pessoa.
    *
-   * Antes desta garantia, uma conversa Z-API iniciada pelo contato trazia o `chatLid`
-   * aqui, e a resposta do operador discava um identificador interno do WhatsApp como
-   * se fosse telefone.
+   * O que **continua** valendo é a invariante que importa: o valor é o mesmo em todas as
+   * direções que escrevem `chat.id`, então a resposta do operador disca o mesmo
+   * identificador que o inbound usou. A Z-API aceita um `@lid` no campo `phone` do envio
+   * — é o mecanismo documentado por eles.
+   *
+   * As formas possíveis, todas aceitas pelo provider: LID (Z-API, contato novo),
+   * telefone normalizado (Z-API legado, e HubMessage) e jid de grupo.
    */
   chatId: string
   /**

@@ -25,6 +25,7 @@
     "backfill:legacy-subscriptions-to-spa": "tsx src/scripts/backfill-legacy-subscriptions-to-spa.ts",
     "backfill:stripe-subscriptions-to-spa": "tsx src/scripts/backfill-stripe-subscriptions-to-spa.ts",
     "backfill:spa-item-resource-mirror": "tsx src/scripts/backfill-spa-item-resource-mirror.ts",
+    "backfill:zapi-contact-lid": "tsx src/scripts/backfill-zapi-contact-lid.ts",
     "backfill:line-name-from-zapi": "tsx src/scripts/backfill-line-name-from-zapi.ts",
     "prune:widget-outbox": "tsx src/scripts/prune-widget-outbox.ts",
     "list:payment-plans": "tsx src/scripts/list-payment-plans.ts",

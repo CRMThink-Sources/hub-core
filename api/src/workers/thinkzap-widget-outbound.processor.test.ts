@@ -7,6 +7,8 @@ const {
   sendToOpenChannelMock,
   findByProviderMessageIdMock,
   updateOpenChannelRefsMock,
+  resolveContactMock,
+  getCrmContactNameMock,
 } = vi.hoisted(() => ({
   getDomainByIdMock: vi.fn(),
   getAplicationContextMock: vi.fn(),
@@ -14,6 +16,8 @@ const {
   sendToOpenChannelMock: vi.fn(),
   findByProviderMessageIdMock: vi.fn(),
   updateOpenChannelRefsMock: vi.fn(),
+  resolveContactMock: vi.fn(),
+  getCrmContactNameMock: vi.fn(),
 }))
 
 vi.mock('@/config/env', () => ({
@@ -59,6 +63,21 @@ vi.mock('@/modules/application/main/make-get-aplication-context', () => ({
 
 vi.mock('@/shared/main/make-bitrix-client', () => ({
   makeBitrixClientByDomainAndAppCoode: makeBitrixClientMock,
+}))
+
+/**
+ * A resolução da identidade toca Prisma e a Z-API. Aqui ela é dublada porque o que
+ * este arquivo mede é o processor; a cadeia tem arquivo próprio.
+ */
+vi.mock(
+  '@/modules/thinkzap/main/make-resolve-widget-open-channel-contact',
+  () => ({
+    makeResolveWidgetOpenChannelContact: () => resolveContactMock,
+  }),
+)
+
+vi.mock('@/modules/thinkzap/application/get-crm-contact-name', () => ({
+  makeGetCrmContactName: () => getCrmContactNameMock,
 }))
 
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
@@ -126,6 +145,11 @@ describe('processWidgetOpenChannelJob', () => {
       chatId: null,
     })
     updateOpenChannelRefsMock.mockResolvedValue(undefined)
+    resolveContactMock.mockResolvedValue({
+      id: '5511999999999',
+      phone: '5511999999999',
+    })
+    getCrmContactNameMock.mockResolvedValue(null)
   })
 
   it('abre a conversa com o canal do item e persiste as referências', async () => {
@@ -134,7 +158,7 @@ describe('processWidgetOpenChannelJob', () => {
     expect(sendToOpenChannelMock).toHaveBeenCalledWith(
       '10',
       'hubthink_thinkzap',
-      '5511999999999',
+      { id: '5511999999999', name: '5511999999999', phone: '5511999999999' },
       'Olá',
     )
     expect(updateOpenChannelRefsMock).toHaveBeenCalledWith(

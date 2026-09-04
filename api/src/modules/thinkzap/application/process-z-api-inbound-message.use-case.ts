@@ -23,6 +23,13 @@ import {
   noopJobLog,
   type AppendJobLog,
 } from '@/modules/thinkzap/domain/ports/job-log.port'
+import type { ResolveContactIdentity } from '@/modules/thinkzap/main/make-resolve-contact-identity'
+import { describeContactIdentity } from './resolve-zapi-contact-identity'
+import {
+  buildOpenChannelChatName,
+  buildOpenChannelUser,
+  resolveContactDisplayName,
+} from './open-channel-contact-display'
 import {
   toQuoteInput,
   PrismaThinkzapMessageRepository,
@@ -66,6 +73,12 @@ export class ProcessZApiInboundMessageUseCase {
      * ainda está pareado com uma linha que o app descarta.
      */
     private readonly disconnectExpiredLine: DisconnectExpiredLine,
+    /**
+     * Resolve a identidade do contato pela cadeia de LID. Entra como porta porque as
+     * credenciais da Z-API — necessárias para o último elo, `phone-exists` — só são
+     * conhecidas depois de resolver a instância.
+     */
+    private readonly resolveContactIdentity: ResolveContactIdentity,
   ) {}
 
   /**
@@ -348,7 +361,6 @@ export class ProcessZApiInboundMessageUseCase {
     })
 
     const files = buildMessageFiles(event)
-    const normalizedPhone = normalizePhoneNumber(event.phone)
 
     if (event.isGroup) {
       /**
@@ -367,7 +379,7 @@ export class ProcessZApiInboundMessageUseCase {
         credential,
         instance,
         vinculatedChannel,
-        normalizedPhone,
+        normalizePhoneNumber(event.phone),
         files,
         appendJobLog,
       )
@@ -375,12 +387,55 @@ export class ProcessZApiInboundMessageUseCase {
     }
 
     /**
-     * O guard passa a reprovar string vazia, e não `null`: `resolveChatId` deriva do
-     * `event.phone`, que é obrigatório no tipo do evento. Payload malformado, sem
-     * telefone, tem que continuar falhando visivelmente em vez de mandar um `chat.id`
-     * vazio ao Bitrix e abrir uma sessão sem dono.
+     * Identidade, nome e telefone deixaram de ser o mesmo valor — e isto roda **só no
+     * 1:1**, depois do desvio de grupo.
+     *
+     * A identidade sai da cadeia de LID (ver `resolveZApiContactIdentity`): o `phone` da
+     * Z-API vem ora número, ora `@lid`, e usá-lo como chave fazia o mesmo contato abrir
+     * duas conversas no canal aberto.
+     *
+     * Grupo fica de fora de propósito: a identidade dele é o jid, que já é estável, e
+     * resolver aqui gravaria rows de grupo no mapa de contato — um índice de pessoas
+     * poluído por conversas que não são pessoas.
+     *
+     * `contactPhone` é `null` para contato lid-only, e é isso que impede o LID de virar
+     * telefone no CRM: `normalizePhoneNumber('3577724534928@lid')` devolvia
+     * `3577724534928`, que ia direto para `user.phone`.
      */
-    const chatId = resolveChatId(event)
+    const identity = await this.resolveContactIdentity({
+      event,
+      instanceDbId: instance.id,
+      zApiInstanceId: event.instanceId,
+      zApiToken: instance.zApiToken,
+    })
+    const contactPhone = identity.phone
+
+    await appendJobLog(`Contato: ${describeContactIdentity(identity)}`)
+
+    if (identity.source === 'none') {
+      logThinkzapError(
+        log,
+        'thinkzap.message.inbound_zapi_failed',
+        {
+          instanceId: event.instanceId,
+          domain: domainName,
+          messageId: event.messageId,
+          phone: event.phone,
+          lidResolutionFailed: true,
+        },
+        {
+          level: 'warn',
+          msg: 'Nenhum lid resolvido para o contato — identidade cai no telefone, e ele volta a poder duplicar',
+        },
+      )
+    }
+
+    /**
+     * O guard reprova string vazia: payload malformado, sem telefone e sem lid, tem que
+     * falhar visivelmente em vez de mandar um `chat.id` vazio ao Bitrix e abrir uma
+     * sessão sem dono.
+     */
+    const chatId = identity.identity
     if (!chatId) {
       await appendJobLog(
         `Payload sem telefone utilizável (\`phone\`="${event.phone}") — sem identidade ` +
@@ -390,6 +445,19 @@ export class ProcessZApiInboundMessageUseCase {
     }
 
     const outgoingMessageId = event.messageId
+
+    /**
+     * `senderName` primeiro: em 1:1 ele é o push name de quem escreveu. A cadeia existe
+     * porque ele pode vir vazio, e `resolveContactDisplayName` descarta qualquer
+     * candidato com `@lid` — sem isso, contato em modo privacidade sem push name
+     * apareceria para o operador com o identificador interno do WhatsApp como nome.
+     */
+    const contactName = resolveContactDisplayName([
+      event.senderName,
+      event.chatName,
+      contactPhone,
+    ])
+
     const baseText = event.contact
       ? buildContactText(event.contact)
       : resolveInboundText(event)
@@ -407,17 +475,14 @@ export class ProcessZApiInboundMessageUseCase {
         {
           chat: {
             id: chatId,
-            name: event.chatName + ' - ' + normalizedPhone,
+            name: buildOpenChannelChatName(contactName, contactPhone),
           },
-          user: {
+          user: buildOpenChannelUser({
             id: chatId,
-            name: event.chatName ?? event.senderName,
-            last_name: '',
-            phone: normalizedPhone,
-            picture: {
-              url: event.photo,
-            },
-          },
+            name: contactName,
+            phone: contactPhone,
+            pictureUrl: event.photo,
+          }),
           message: {
             id: outgoingMessageId,
             date: new Date(event.momment).toISOString(),
@@ -853,20 +918,18 @@ function buildContactText(
   return `------------------------\n Contato encaminhado:\n 🛍️[b]${contact.displayName}[/b]\n${phones}`
 }
 
-/**
- * A identidade do contato no canal aberto, para mensagem 1:1.
+/*
+ * `resolveChatId` viveu aqui e saiu. Ela derivava a identidade 1:1 de `event.phone`
+ * (`resolveOpenChannelContactId`), e a doc dela dizia: "Sai do telefone, não do
+ * `chatLid`. (…) o envio pelo widget identifica o contato pelo número que o operador
+ * digitou e não teria como adivinhá-lo."
  *
- * **Sai do telefone, não do `chatLid`.** O `chatLid` é identificador interno do
- * WhatsApp e só existe nesta direção: o envio pelo widget identifica o contato pelo
- * número que o operador digitou e não teria como adivinhá-lo. Enquanto o inbound
- * usava o lid, todo contato iniciado pelo CRM ganhava um segundo canal aberto ao
- * responder — o Bitrix via dois `chat.id` e concluiu, corretamente, dois contatos.
- *
- * O guard de `@lid` que existia aqui foi absorvido por `resolveOpenChannelContactId`.
+ * O raciocínio estava certo para o que se sabia; a premissa não. O `phone-exists` da
+ * Z-API resolve telefone → lid, então o widget **adivinha** — e sem isso a identidade
+ * ficava presa a um campo que a Z-API preenche ora com número, ora com `@lid`, o que
+ * abria duas conversas para o mesmo contato. A resolução vive agora em
+ * `resolveZApiContactIdentity`. Grupo continua em `resolveGroupChatId`.
  */
-function resolveChatId(event: ReceivedMessageEvent): string | null {
-  return resolveOpenChannelContactId(event.phone)
-}
 
 function resolveGroupChatId(event: ReceivedMessageEvent): string | null {
   return event.phone.includes('-group') ? event.phone : event.chatLid
