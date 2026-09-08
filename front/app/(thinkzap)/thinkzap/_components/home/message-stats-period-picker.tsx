@@ -36,31 +36,31 @@ export function MessageStatsPeriodPicker({ from, to, onChange }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-4">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="home-stats-from">De</Label>
-        <Input
-          id="home-stats-from"
-          type="date"
-          value={toDateInputValue(from)}
-          max={toDateInputValue(to)}
-          onChange={event => handleFromChange(event.target.value)}
-        />
+    <div className="flex flex-col items-end gap-1.5">
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="home-stats-from">De</Label>
+          <Input
+            id="home-stats-from"
+            type="date"
+            value={toDateInputValue(from)}
+            max={toDateInputValue(to)}
+            onChange={event => handleFromChange(event.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="home-stats-to">Até</Label>
+          <Input
+            id="home-stats-to"
+            type="date"
+            value={toDateInputValue(to)}
+            min={toDateInputValue(from)}
+            max={toDateInputValue(maxTo)}
+            onChange={event => handleToChange(event.target.value)}
+          />
+        </div>
       </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="home-stats-to">Até</Label>
-        <Input
-          id="home-stats-to"
-          type="date"
-          value={toDateInputValue(to)}
-          min={toDateInputValue(from)}
-          max={toDateInputValue(maxTo)}
-          onChange={event => handleToChange(event.target.value)}
-        />
-      </div>
-      <p className="pb-2 text-xs text-muted-foreground">
-        Período máximo de 6 meses
-      </p>
+      <p className="text-xs text-muted-foreground">Período máximo de 6 meses</p>
     </div>
   )
 }

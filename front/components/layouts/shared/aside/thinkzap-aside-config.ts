@@ -1,9 +1,15 @@
 export const THINKZAP_ASIDE_CONFIG = {
   logo: '/images/thinkzap/logo.png',
+  homeHref: '/thinkzap',
   brandIcon:
     'https://www.crmthink.com.br/wp-content/uploads/2020/06/favicon.png',
   brandName: 'CRMThink',
   links: [
+    {
+      href: '/thinkzap',
+      label: 'home',
+      // icon: '/images/thinkzap/home.png',
+    },
     {
       href: '/thinkzap/conexoes',
       label: 'conexoes',

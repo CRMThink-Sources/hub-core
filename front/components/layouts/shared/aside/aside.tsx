@@ -7,6 +7,7 @@ import { AsideProps } from '../../types/types'
 
 export const Aside = ({
   logo,
+  homeHref,
   brandIcon,
   brandName,
   links,
@@ -58,7 +59,13 @@ export const Aside = ({
         }}
       >
         <div className="w-full h-full p-8">
-          <img src={logo} alt="Logo" className="" />
+          {homeHref ? (
+            <Link href={homeHref}>
+              <img src={logo} alt="Logo" className="" />
+            </Link>
+          ) : (
+            <img src={logo} alt="Logo" className="" />
+          )}
         </div>
         <div
           style={{

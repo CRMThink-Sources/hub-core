@@ -11,6 +11,8 @@ export interface Language {
 
 export interface AsideProps {
   logo: string
+  /** Quando presente, o logo vira link para essa rota. Sem isso, é só imagem. */
+  homeHref?: string
   brandIcon: string
   brandName: string
   links: NavLink[]
