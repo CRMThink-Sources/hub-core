@@ -15,7 +15,7 @@ export function OnboardingCta() {
           Nenhum WhatsApp conectado ainda
         </h2>
         <p className="mt-1 max-w-md text-sm text-muted-foreground">
-          Conecte uma linha de WhatsApp Web ou Oficial para começar a ver suas
+          Conecte uma linha de WhatsApp Web ou Business para começar a ver suas
           estatísticas de mensagens aqui.
         </p>
       </div>

@@ -203,7 +203,7 @@ export default function ThinkzapHomeLayout() {
                   )}
                   {hasHubmessage && (
                     <MessageStatsCard
-                      title="Oficial"
+                      title="Business"
                       icon={BadgeCheck}
                       activeLines={hubmessageLines.length}
                       counts={currentHubmessage}

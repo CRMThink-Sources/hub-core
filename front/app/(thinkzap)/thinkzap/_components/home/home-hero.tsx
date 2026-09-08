@@ -27,7 +27,7 @@ export function HomeHero({ greetingName }: Props) {
           Olá, {greetingName}
         </h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Acompanhe o volume de mensagens do seu WhatsApp Web e Oficial, tudo
+          Acompanhe o volume de mensagens do seu WhatsApp Web e Business, tudo
           num só lugar.
         </p>
       </div>
