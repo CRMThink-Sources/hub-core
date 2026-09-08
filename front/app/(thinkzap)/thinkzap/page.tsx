@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import ThinkzapHomeLayout from '@/app/(thinkzap)/thinkzap/_layout/home-layout'
 
 export default function Home() {
-  redirect('/thinkzap/conexoes')
+  return <ThinkzapHomeLayout />
 }
