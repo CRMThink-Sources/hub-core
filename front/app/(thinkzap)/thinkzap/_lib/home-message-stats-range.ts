@@ -42,3 +42,17 @@ export function defaultRange(now: Date = new Date()): {
   )
   return { from, to }
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Período imediatamente anterior, com a mesma duração do range dado — base da
+ * comparação "vs período anterior" na home. Termina no dia anterior a `from`,
+ * então os dois períodos não se sobrepõem.
+ */
+export function previousRange(from: Date, to: Date): { from: Date; to: Date } {
+  const durationMs = to.getTime() - from.getTime()
+  const previousTo = new Date(from.getTime() - DAY_MS)
+  const previousFrom = new Date(previousTo.getTime() - durationMs)
+  return { from: previousFrom, to: previousTo }
+}

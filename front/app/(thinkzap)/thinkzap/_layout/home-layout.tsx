@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { BadgeCheck, Globe } from 'lucide-react'
+import { BX24Script } from '@/bitrix'
 import { useAplicationContext } from '@/providers/aplication-provider'
 import { listSubscriptionLines } from '@/shared/aplication/subscription-items'
 import {
@@ -9,26 +11,36 @@ import {
 } from '../_lib/thinkzap-client'
 import {
   getThinkzapHomeMessageStats,
-  type MessageDirectionCounts,
   type ThinkzapHomeMessageStats,
 } from '../_lib/get-thinkzap-home-message-stats'
-import { defaultRange } from '../_lib/home-message-stats-range'
+import { defaultRange, previousRange } from '../_lib/home-message-stats-range'
+import { sumCounts, ZERO_COUNTS } from '../_lib/message-stats-math'
+import { useBitrixUserName } from '../_lib/use-bitrix-user-name'
+import { HomeHero } from '../_components/home/home-hero'
+import { HomeShortcuts } from '../_components/home/home-shortcuts'
+import { OnboardingCta } from '../_components/home/onboarding-cta'
 import { MessageStatsPeriodPicker } from '../_components/home/message-stats-period-picker'
 import { MessageStatsCard } from '../_components/home/message-stats-card'
+import { MessageStatsSummary } from '../_components/home/message-stats-summary'
+import { ProviderShareBar } from '../_components/home/provider-share-bar'
 
 type StatsState =
   | { status: 'loading' }
-  | { status: 'ready'; stats: ThinkzapHomeMessageStats }
+  | {
+      status: 'ready'
+      current: ThinkzapHomeMessageStats
+      previous: ThinkzapHomeMessageStats
+    }
   | { status: 'error'; message: string }
 
-const ZERO: MessageDirectionCounts = { sent: 0, received: 0 }
-
 /**
- * Home do ThinkZap — contagem de mensagens enviadas/recebidas por provider.
+ * Home do ThinkZap — contagem de mensagens enviadas/recebidas por provider,
+ * resumo total, variação contra o período anterior e navegação para o resto do
+ * módulo.
  *
- * Quais cards aparecem vem do mesmo contexto de assinatura que o resto do
- * módulo usa (`useAplicationContext`), não de uma segunda leitura: é o dado que
- * `/thinkzap/conexoes` já resolve para decidir o que a instalação tem.
+ * Quais cards aparecem e quantas linhas ativas cada provider tem vêm do mesmo
+ * contexto de assinatura que o resto do módulo usa (`useAplicationContext`), não
+ * de uma segunda leitura: é o dado que `/thinkzap/conexoes` já resolve.
  */
 export default function ThinkzapHomeLayout() {
   const { state: aplicationState } = useAplicationContext()
@@ -36,6 +48,8 @@ export default function ThinkzapHomeLayout() {
   const [statsState, setStatsState] = useState<StatsState>({
     status: 'loading',
   })
+  const [bx24Ready, setBx24Ready] = useState(false)
+  const bitrixUser = useBitrixUserName(bx24Ready)
 
   useEffect(() => {
     let cancelled = false
@@ -47,9 +61,16 @@ export default function ThinkzapHomeLayout() {
       return
     }
 
-    getThinkzapHomeMessageStats(resolved.client, range)
-      .then(stats => {
-        if (!cancelled) setStatsState({ status: 'ready', stats })
+    const previous = previousRange(range.from, range.to)
+
+    Promise.all([
+      getThinkzapHomeMessageStats(resolved.client, range),
+      getThinkzapHomeMessageStats(resolved.client, previous),
+    ])
+      .then(([current, previousStats]) => {
+        if (!cancelled) {
+          setStatsState({ status: 'ready', current, previous: previousStats })
+        }
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -70,76 +91,145 @@ export default function ThinkzapHomeLayout() {
 
   if (aplicationState.status === 'loading') {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center gap-2 py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
-        <span className="animate-pulse text-sm font-medium text-muted-foreground">
-          Carregando...
-        </span>
-      </div>
+      <>
+        <BX24Script onLoad={() => setBx24Ready(true)} />
+        <div className="flex min-h-[50vh] items-center justify-center gap-2 py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+          <span className="animate-pulse text-sm font-medium text-muted-foreground">
+            Carregando...
+          </span>
+        </div>
+      </>
     )
   }
 
   if (aplicationState.status !== 'ready') {
     return (
-      <div className="mx-auto mt-10 max-w-2xl rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
-        <p className="text-sm font-medium">
-          Não foi possível carregar sua instalação
-        </p>
-      </div>
+      <>
+        <BX24Script onLoad={() => setBx24Ready(true)} />
+        <div className="mx-auto mt-10 max-w-2xl rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
+          <p className="text-sm font-medium">
+            Não foi possível carregar sua instalação
+          </p>
+        </div>
+      </>
     )
   }
 
   const activeLines = listSubscriptionLines(
     aplicationState.subscriptions,
   ).filter(line => line.status === 'active')
-  const hasZapi = activeLines.some(line => line.provider === 'ZAPI')
-  const hasHubmessage = activeLines.some(line => line.provider === 'HUBMESSAGE')
+  const zapiLines = activeLines.filter(line => line.provider === 'ZAPI')
+  const hubmessageLines = activeLines.filter(
+    line => line.provider === 'HUBMESSAGE',
+  )
+  const hasZapi = zapiLines.length > 0
+  const hasHubmessage = hubmessageLines.length > 0
+  const hasAnyLine = hasZapi || hasHubmessage
+
+  const isLoadingStats = statsState.status === 'loading'
+  const currentZapi =
+    statsState.status === 'ready'
+      ? (statsState.current.zapi ?? ZERO_COUNTS)
+      : ZERO_COUNTS
+  const currentHubmessage =
+    statsState.status === 'ready'
+      ? (statsState.current.hubmessage ?? ZERO_COUNTS)
+      : ZERO_COUNTS
+  const previousTotal =
+    statsState.status === 'ready'
+      ? sumCounts(
+          statsState.previous.zapi ?? ZERO_COUNTS,
+          statsState.previous.hubmessage ?? ZERO_COUNTS,
+        )
+      : ZERO_COUNTS
+  const currentTotal = sumCounts(currentZapi, currentHubmessage)
+
+  /**
+   * Nome+sobrenome do usuário Bitrix logado quando o BX24 resolve; nome do
+   * cliente/domínio como fallback — fora do iframe do Bitrix (ou falha da
+   * chamada) `bitrixUser.name` fica `null` e a saudação não quebra.
+   */
+  const greetingName =
+    bitrixUser.status === 'ready' && bitrixUser.name
+      ? bitrixUser.name
+      : aplicationState.customer.name
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <h1 className="text-xl font-semibold">Mensagens</h1>
+    <div className="mx-auto max-w-4xl space-y-8 p-6">
+      <BX24Script onLoad={() => setBx24Ready(true)} />
+      <HomeHero greetingName={greetingName} />
 
-      <div className="mt-4">
-        <MessageStatsPeriodPicker
-          from={range.from}
-          to={range.to}
-          onChange={setRange}
-        />
-      </div>
+      {!hasAnyLine && <OnboardingCta />}
 
-      {!hasZapi && !hasHubmessage && (
-        <p className="mt-8 text-sm text-muted-foreground">
-          Nenhuma linha ativa de WhatsApp Web ou Oficial nesta instalação.
-        </p>
-      )}
+      {hasAnyLine && (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold">Mensagens no período</h2>
+            <MessageStatsPeriodPicker
+              from={range.from}
+              to={range.to}
+              onChange={setRange}
+            />
+          </div>
 
-      {statsState.status === 'error' && (
-        <p className="mt-8 text-sm text-destructive">{statsState.message}</p>
-      )}
-
-      {(hasZapi || hasHubmessage) && statsState.status !== 'error' && (
-        <div className="mt-6 flex flex-wrap gap-4">
-          {statsState.status === 'loading' && (
-            <p className="text-sm text-muted-foreground">Carregando...</p>
+          {statsState.status === 'error' && (
+            <p className="text-sm text-destructive">{statsState.message}</p>
           )}
-          {statsState.status === 'ready' && (
-            <>
-              {hasZapi && (
-                <MessageStatsCard
-                  title="Web"
-                  counts={statsState.stats.zapi ?? ZERO}
+
+          {statsState.status !== 'error' &&
+            (isLoadingStats ? (
+              <p className="text-sm text-muted-foreground">Carregando...</p>
+            ) : (
+              <>
+                <MessageStatsSummary
+                  current={currentTotal}
+                  previous={previousTotal}
                 />
-              )}
-              {hasHubmessage && (
-                <MessageStatsCard
-                  title="Oficial"
-                  counts={statsState.stats.hubmessage ?? ZERO}
-                />
-              )}
-            </>
-          )}
+
+                <div className="flex flex-wrap gap-4">
+                  {hasZapi && (
+                    <MessageStatsCard
+                      title="Web"
+                      icon={Globe}
+                      activeLines={zapiLines.length}
+                      counts={currentZapi}
+                      previous={
+                        statsState.status === 'ready'
+                          ? (statsState.previous.zapi ?? ZERO_COUNTS)
+                          : ZERO_COUNTS
+                      }
+                    />
+                  )}
+                  {hasHubmessage && (
+                    <MessageStatsCard
+                      title="Oficial"
+                      icon={BadgeCheck}
+                      activeLines={hubmessageLines.length}
+                      counts={currentHubmessage}
+                      previous={
+                        statsState.status === 'ready'
+                          ? (statsState.previous.hubmessage ?? ZERO_COUNTS)
+                          : ZERO_COUNTS
+                      }
+                    />
+                  )}
+                </div>
+
+                {hasZapi && hasHubmessage && (
+                  <ProviderShareBar
+                    zapiTotal={currentZapi.sent + currentZapi.received}
+                    hubmessageTotal={
+                      currentHubmessage.sent + currentHubmessage.received
+                    }
+                  />
+                )}
+              </>
+            ))}
         </div>
       )}
+
+      <HomeShortcuts />
     </div>
   )
 }
