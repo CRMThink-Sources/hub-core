@@ -251,4 +251,39 @@ export class PrismaThinkzapMessageRepository {
       data: { bitrixChatId: refs.bitrixChatId, chatId: refs.chatId },
     })
   }
+
+  /**
+   * Contagem por `(instanceId, source)` dentro do período, para a home de
+   * estatísticas. Uma linha por combinação encontrada — quem chama soma por
+   * provider/direção, porque o provider de uma linha `BITRIX` (enviada) não vem
+   * do registro, só de fora (`resolveInstanceProvider` na `Instance`).
+   *
+   * `instanceIds` vazio não chama o banco: lista vazia em `IN ()` é consulta sem
+   * sentido, e o chamador (domínio sem nenhuma linha reconhecida) já sabe que o
+   * resultado é zero.
+   */
+  async countByInstanceAndSource(params: {
+    instanceIds: string[]
+    from: Date
+    to: Date
+  }): Promise<
+    { instanceId: string; source: ThinkzapMessageSource; count: number }[]
+  > {
+    if (!params.instanceIds.length) return []
+
+    const rows = await prisma.thinkzapMessage.groupBy({
+      by: ['instanceId', 'source'],
+      where: {
+        instanceId: { in: params.instanceIds },
+        createdAt: { gte: params.from, lte: params.to },
+      },
+      _count: { _all: true },
+    })
+
+    return rows.map(row => ({
+      instanceId: row.instanceId,
+      source: row.source,
+      count: row._count._all,
+    }))
+  }
 }

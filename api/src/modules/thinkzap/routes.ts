@@ -39,6 +39,7 @@ import {
 } from './infra/middleware/thinkzap-access.middleware'
 import { makeGetLogsControllerFactory } from '@/shared/main/make-get-logs-controller'
 import { makeGetThinkzapAccessController } from './main/make-get-thinkzap-access-controller'
+import { makeGetThinkzapHomeMessageStatsController } from './main/make-get-thinkzap-home-message-stats-controller'
 import {
   makeActivateTrialController,
   makeGetTrialStateController,
@@ -174,6 +175,17 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/logs',
     adaptControllerFactory(makeGetLogsControllerFactory('thinkzap')),
+  )
+
+  /**
+   * Contagem de mensagens enviadas/recebidas por provider, para a home do
+   * ThinkZap. `connectors:read`, mesma permissão das demais leituras agregadas
+   * do módulo (`/connector/list`, `/openchannels`) — não é dado de cobrança.
+   */
+  router.get(
+    '/home/message-stats',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetThinkzapHomeMessageStatsController),
   )
 
   router.get(
