@@ -6,13 +6,13 @@ type Props = {
 }
 
 /**
- * Proporção Web vs Oficial do total de mensagens do período — uma barra só,
+ * Proporção Web vs Business do total de mensagens do período — uma barra só,
  * dividida, em vez de gráfico com eixo. Só faz sentido com os dois providers
  * presentes; com um só, "100% de um lado" não é comparação nenhuma.
  *
  * Cor não carrega a identidade sozinha: cada segmento tem legenda com nome e
  * valor ao lado do swatch, não só a cor. `bg-primary` (marca da instalação,
- * varia por tema) para Oficial e um neutro dessaturado para Web — a leitura
+ * varia por tema) para Business e um neutro dessaturado para Web — a leitura
  * não depende de distinguir matizes.
  */
 export function ProviderShareBar({ zapiTotal, hubmessageTotal }: Props) {
@@ -25,7 +25,7 @@ export function ProviderShareBar({ zapiTotal, hubmessageTotal }: Props) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <h3 className="text-sm font-medium text-muted-foreground">
-        Web vs Oficial no período
+        Web vs Business no período
       </h3>
 
       <div className="mt-3 flex h-6 w-full overflow-hidden rounded-full bg-muted">
@@ -55,7 +55,7 @@ export function ProviderShareBar({ zapiTotal, hubmessageTotal }: Props) {
         />
         <LegendItem
           swatchClassName="bg-primary"
-          label="Oficial"
+          label="Business"
           value={hubmessageTotal}
           percent={hubmessagePercent}
         />
