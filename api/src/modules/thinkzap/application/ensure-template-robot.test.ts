@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
+import { BitrixApiError } from '@/shared/infra/clients/bitrix-api.error'
 
 const { addParams } = vi.hoisted(() => ({
   addParams: {
@@ -61,6 +62,23 @@ describe('EnsureTemplateRobot', () => {
       'bizproc.robot.update',
       expect.objectContaining({ CODE: 'thinkzap_template_robot' }),
     )
+  })
+
+  it('converges when the description is translated and has no marker, by code', async () => {
+    callMethod
+      .mockRejectedValueOnce(
+        new BitrixApiError(
+          'bizproc.robot.add',
+          'ERROR_ACTIVITY_VALIDATION_FAILURE',
+          'Ya existe un robot con este código',
+          'Bitrix bizproc.robot.add: Ya existe un robot con este código',
+        ),
+      )
+      .mockResolvedValueOnce(true)
+
+    const result = await service.execute(client)
+
+    expect(result).toBe('updated')
   })
 
   // Robô sem handler ficaria configurável no portal e morreria em 404 no disparo.

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
+import { BitrixApiError } from '@/shared/infra/clients/bitrix-api.error'
 import { EnsureThinkzapRobot } from './ensure-thinkzap-robot'
 
 vi.mock('./build-thinkzap-robot-add-params', () => ({
@@ -52,6 +53,23 @@ describe('EnsureThinkzapRobot', () => {
       'bizproc.robot.update',
       expect.objectContaining({ CODE: 'thinkzap_robot' }),
     )
+  })
+
+  it('updates robot when add fails with a translated description carrying no marker', async () => {
+    callMethod
+      .mockRejectedValueOnce(
+        new BitrixApiError(
+          'bizproc.robot.add',
+          'ERROR_ACTIVITY_VALIDATION_FAILURE',
+          'Ya existe un robot con este código',
+          'Bitrix bizproc.robot.add: Ya existe un robot con este código',
+        ),
+      )
+      .mockResolvedValueOnce(true)
+
+    const result = await service.execute(client)
+
+    expect(result).toBe('updated')
   })
 
   it('returns skipped when add returns false', async () => {

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
+import { BitrixApiError } from '@/shared/infra/clients/bitrix-api.error'
 import { EnsureConversationWidgetPlacements } from './ensure-conversation-widget-placements'
 import { fetchPlacementHandlers } from './normalize-placement-get-response'
 
@@ -85,12 +86,30 @@ describe('EnsureConversationWidgetPlacements', () => {
     expect(result).toBe('updated')
   })
 
-  it('returns skipped when all binds fail', async () => {
+  it('treats an already-bound placement as applied and keeps binding the rest', async () => {
     vi.mocked(fetchPlacementHandlers).mockResolvedValueOnce([])
-    callMethod.mockResolvedValue(false)
+    callMethod.mockRejectedValueOnce(
+      new BitrixApiError(
+        'placement.bind',
+        'ERROR_PLACEMENT_ALREADY_BINDED',
+        'Unable to set placement handler',
+        'Bitrix placement.bind: Unable to set placement handler: Handler already binded',
+      ),
+    )
+    callMethod.mockResolvedValue(true)
 
     const result = await service.execute(client)
 
-    expect(result).toBe('skipped')
+    expect(result).toBe('created')
+    expect(
+      callMethod.mock.calls.filter(call => call[0] === 'placement.bind'),
+    ).toHaveLength(4)
+  })
+
+  it('propagates a real bind failure instead of swallowing it', async () => {
+    vi.mocked(fetchPlacementHandlers).mockResolvedValueOnce([])
+    callMethod.mockRejectedValueOnce(new Error('network timeout'))
+
+    await expect(service.execute(client)).rejects.toThrow('network timeout')
   })
 })
