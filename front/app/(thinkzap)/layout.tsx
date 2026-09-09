@@ -41,7 +41,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
   const asideLinks = useMemo(() => {
     return THINKZAP_ASIDE_CONFIG.links.filter(link => {
       if (link.href === '/thinkzap/permissoes') return canManageAccess
-      if (link.href === '/thinkzap/conexoes') {
+      if (link.href === '/thinkzap' || link.href === '/thinkzap/conexoes') {
         return thinkzapAccess?.canAccess === true
       }
       return true

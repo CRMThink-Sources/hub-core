@@ -369,7 +369,11 @@ model ThinkzapMessage {
 
   @@unique([instanceId, providerMessageId], name: "uq_msg_instance_provider")
   @@unique([instanceId, bitrixMessageId], name: "uq_msg_instance_bitrix")
-  @@index([instanceId])
+  /// Substitui o índice simples em `instanceId`: cobre tanto o lookup por
+  /// instância (prefixo esquerdo) quanto a contagem por período — sem ele,
+  /// `WHERE instance_id IN (...) AND created_at BETWEEN ...` filtra a data sem
+  /// índice.
+  @@index([instanceId, createdAt])
   @@map("core_thinkerszap_messages")
 }
 
