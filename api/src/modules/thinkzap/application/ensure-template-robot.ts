@@ -4,25 +4,9 @@ import {
   buildTemplateRobotAddParams,
   buildTemplateRobotUpdateParams,
 } from './build-template-robot-params'
+import { isRobotAlreadyExistsError } from './is-robot-already-exists-error'
 
 export type EnsureTemplateRobotResult = 'created' | 'updated' | 'skipped'
-
-/**
- * O `bizproc.robot.add` do Bitrix não distingue "já existe" de erro de validação —
- * as duas coisas voltam como falha de validação. Mesma heurística de
- * `ensure-thinkzap-robot`: qualquer uma dessas mensagens leva ao `update`, que
- * converge a definição e falha de verdade se o problema for outro.
- */
-function isRobotAlreadyExistsError(error: unknown): boolean {
-  const message =
-    error instanceof Error ? error.message.toLowerCase() : String(error)
-
-  return (
-    message.includes('already') ||
-    message.includes('duplicate') ||
-    message.includes('validation_failure')
-  )
-}
 
 /**
  * Garante o robô de **template** no portal, sem tocar no robô de envio livre.

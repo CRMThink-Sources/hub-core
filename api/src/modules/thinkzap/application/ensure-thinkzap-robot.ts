@@ -4,19 +4,9 @@ import {
   buildThinkzapRobotAddParams,
   buildThinkzapRobotUpdateParams,
 } from './build-thinkzap-robot-add-params'
+import { isRobotAlreadyExistsError } from './is-robot-already-exists-error'
 
 export type EnsureThinkzapRobotResult = 'created' | 'updated' | 'skipped'
-
-function isRobotAlreadyExistsError(error: unknown): boolean {
-  const message =
-    error instanceof Error ? error.message.toLowerCase() : String(error)
-
-  return (
-    message.includes('already') ||
-    message.includes('duplicate') ||
-    message.includes('validation_failure')
-  )
-}
 
 export class EnsureThinkzapRobot {
   async execute(client: BitrixRestClient): Promise<EnsureThinkzapRobotResult> {
