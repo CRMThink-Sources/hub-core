@@ -1,4 +1,5 @@
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
+import { callBitrixIdempotent } from '@/shared/infra/clients/call-bitrix-idempotent'
 import { buildCrmDetailPlacementBindParams } from './build-crm-detail-placement-bind-params'
 import { fetchPlacementHandlers } from './normalize-placement-get-response'
 
@@ -47,11 +48,11 @@ export class EnsureConversationWidgetPlacements {
         anyExisted = true
       }
 
-      const bound = await client.callMethod('placement.bind', params)
-
-      if (bound) {
-        anyBound = true
-      }
+      // Placement já vinculado ("Handler already binded") conta como aplicado,
+      // não como falha: sem isso um item já registrado quebrava o loop inteiro
+      // e derrubava o registro dos demais placements da lista.
+      await callBitrixIdempotent(client, 'placement.bind', params)
+      anyBound = true
     }
 
     if (!anyBound) {
