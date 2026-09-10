@@ -42,6 +42,14 @@ import {
 } from './build-reply-quote'
 import { extractBitrixChatId } from './helpers/extract-bitrix-chat-id'
 
+/**
+ * Texto do aviso quando a mensagem inbound é uma mídia de visualização única sem
+ * conteúdo entregável (ver `isBareViewOnceMarker` em `execute`).
+ */
+const VIEW_ONCE_NOTICE =
+  'Você recebeu uma mensagem de visualização única. Por motivos de ' +
+  'privacidade, você só pode abrir essa mensagem no seu celular.'
+
 const log = createWorkerSourceLogger('z-api')
 
 /**
@@ -458,9 +466,26 @@ export class ProcessZApiInboundMessageUseCase {
       contactPhone,
     ])
 
-    const baseText = event.contact
+    let baseText = event.contact
       ? buildContactText(event.contact)
       : resolveInboundText(event)
+
+    /**
+     * `event.viewOnce` (mensagem de mídia de visualização única): a Z-API não expõe a
+     * mídia em si — o evento chega sem `image`/`audio`/`video`/`text`, só o metadado.
+     * O texto do aviso vira o próprio conteúdo enviado a `sendMessage`, no mesmo
+     * caminho de qualquer mensagem TEXT.
+     *
+     * Testado em produção: mandar o evento com texto vazio não confiavelmente abre
+     * nem continua a sessão do canal aberto (`session.CHAT_ID` nunca voltou), e um
+     * aviso postado à parte, num `bitrixChatId` obtido de mensagem antiga do contato,
+     * foi aceito pelo Bitrix mas não apareceu na sessão ATIVA que o atendente vê —
+     * provavelmente uma conversa já fechada/arquivada. Dar conteúdo real ao envio usa
+     * o pipeline já comprovado para toda mensagem de texto.
+     */
+    if (event.viewOnce && !files?.length && !baseText) {
+      baseText = VIEW_ONCE_NOTICE
+    }
 
     const { text, cached, replyLookupFailed } = await this.applyReplyContext(
       event,

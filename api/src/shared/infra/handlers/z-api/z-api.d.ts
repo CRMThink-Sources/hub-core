@@ -13,6 +13,13 @@ export type ReceivedMessageEvent = {
   senderLid?: string | null
   connectedPhone: string
   waitingMessage: boolean
+  /**
+   * Mensagem de mídia (foto/áudio/vídeo) de visualização única. Vem no **nível raiz**
+   * do evento, não aninhado em `image`/`audio`/`video` — a Z-API não expõe a mídia em
+   * si nesse caso (mantém o "visualização única" do WhatsApp: só abre pelo celular),
+   * então o evento chega sem `image`/`audio`/`video`/`text` nenhum, só os metadados.
+   */
+  viewOnce?: boolean
   isEdit: boolean
   isGroup: boolean
   isNewsletter: boolean
