@@ -62,7 +62,10 @@ export function AliasTagsField({
 
       <input
         value={rascunho}
-        placeholder={aliases.length ? '' : 'ajuda, problema, técnico'}
+        // Verbo, e não uma lista de exemplo: `ajuda, problema, técnico` cinza ao lado das
+        // etiquetas de outra opção se lia como sinônimo já gravado, e o operador não
+        // cadastrava nada achando que estava feito.
+        placeholder={aliases.length ? '' : 'digite e Enter…'}
         onChange={event => {
           const valor = event.target.value
           // Vírgula fecha a etiqueta em vez de entrar no texto: colar
