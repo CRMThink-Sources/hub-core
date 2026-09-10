@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { adoptLineBinding } from './adopt-line-binding'
-import type { BotFlowSummary } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow.repository'
+import type { CreateBotFlowBindingRepository } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow-binding.repository'
+import type {
+  BotFlowSummary,
+  ListBotFlowsRepository,
+} from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow.repository'
 
 const APP = 'app-1'
 const LINE = '300'
@@ -21,17 +25,25 @@ function flow(over: Partial<BotFlowSummary> = {}): BotFlowSummary {
 }
 
 function deps(flows: BotFlowSummary[]) {
-  const create = vi.fn().mockImplementation(async (input) => ({
-    id: 'b1',
-    ...input,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  }))
+  // Tipado pelo contrato do repositório: `vi.fn()` cru devolve `any`, e o mock deixaria de
+  // acusar mudança na assinatura de `create` — o teste passaria com o código quebrado.
+  const create = vi.fn<CreateBotFlowBindingRepository['create']>(input =>
+    Promise.resolve({
+      id: 'b1',
+      ...input,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }),
+  )
 
   return {
     create,
     deps: {
-      flows: { listByAppId: vi.fn().mockResolvedValue(flows) },
+      flows: {
+        listByAppId: vi.fn<ListBotFlowsRepository['listByAppId']>(() =>
+          Promise.resolve(flows),
+        ),
+      },
       bindings: { create },
     },
   }

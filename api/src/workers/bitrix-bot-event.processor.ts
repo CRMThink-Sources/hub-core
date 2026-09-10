@@ -204,13 +204,7 @@ export async function processBitrixBotEvent(
       bindings,
     }
 
-    let outcome = await runBotTurn(
-      event,
-      lineId,
-      installedApp.id,
-      deps,
-      crm,
-    )
+    let outcome = await runBotTurn(event, lineId, installedApp.id, deps, crm)
 
     /**
      * Canal ligado pelo painel do Bitrix, e não pela nossa tela: registra o vínculo e roda
