@@ -14,7 +14,8 @@ import {
   nextOptionValue,
 } from '@/shared/thinkzap-bot-flow'
 import { nodePorts, type PortKind } from '@/shared/thinkzap-flow-graph'
-import { parseAliases } from '@/shared/thinkzap-parse-aliases'
+import { questionHasInlineOptions } from '@/shared/thinkzap-question-has-options'
+import { AliasTagsField } from './alias-tags-field'
 import { KIND_ACCENT, KIND_ICON } from './canvas/kind-visual'
 import { HandoffTargetField } from './handoff-target-field'
 import { issueText } from './issue-text'
@@ -169,9 +170,29 @@ export function BlockPanel({
           <textarea
             value={node.text ?? ''}
             rows={3}
+            placeholder={
+              node.kind === 'question' ? 'No que posso ajudar?' : undefined
+            }
             onChange={event => onChange({ ...node, text: event.target.value })}
             className={`${field} resize-none`}
           />
+          {/* O motor numera as opções e as anexa a este texto, então quem as digita aqui
+              manda a lista duas vezes ao cliente. A dica é permanente e o aviso só aparece
+              quando o texto já tem a lista: orientar antes evita o erro, e avisar depois
+              alcança o fluxo que já estava salvo assim. */}
+          {node.kind === 'question' ? (
+            <>
+              <span className="text-[10px] text-muted-foreground">
+                Só a pergunta: as opções abaixo são numeradas e enviadas junto.
+              </span>
+              {questionHasInlineOptions(node.text ?? '') ? (
+                <span className="rounded-md bg-amber-500/10 px-2 py-1 text-[10px] text-amber-700">
+                  Este texto parece já listar as opções. O cliente vai receber a
+                  lista duas vezes — apague-a daqui e deixe só em “Opções”.
+                </span>
+              ) : null}
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -239,12 +260,17 @@ export function BlockPanel({
                   ),
                 })
               }
-              onAliases={texto =>
+              onAliases={proximos =>
                 onChange({
                   ...node,
                   options: node.options.map((current, i) =>
                     i === index
-                      ? { ...current, aliases: parseAliases(texto) }
+                      ? // `undefined` e não `[]`: o campo é opcional no schema, e a lista
+                        // vazia faria todo fluxo salvo carregar uma por opção.
+                        {
+                          ...current,
+                          aliases: proximos.length ? proximos : undefined,
+                        }
                       : current,
                   ),
                 })
@@ -482,8 +508,8 @@ function OptionRow({
   nodeId: string
   podeRemover: boolean
   onRotulo: (valor: string) => void
-  /** Recebe o texto cru do campo; quem chama separa por vírgula. */
-  onAliases: (texto: string) => void
+  /** Lista já editada pelo campo de etiquetas; quem chama decide o que gravar. */
+  onAliases: (proximos: string[]) => void
   onDestino: (valor: string) => void
   onRemover: () => void
 }) {
@@ -520,16 +546,11 @@ function OptionRow({
       {/* O rótulo sozinho não diz o que o cliente pode digitar: ele lê "Suporte" e
           responde "ajuda". Campo separado porque o rótulo é o texto **exibido** — juntar
           os dois mudaria a mensagem. */}
-      <div className="flex items-center gap-1.5 pl-6.5">
-        <span className="shrink-0 text-[10px] text-muted-foreground">
+      <div className="flex items-start gap-1.5 pl-6.5">
+        <span className="shrink-0 pt-1.5 text-[10px] text-muted-foreground">
           aceita
         </span>
-        <input
-          value={(aliases ?? []).join(', ')}
-          placeholder="ajuda, problema, técnico"
-          onChange={event => onAliases(event.target.value)}
-          className={`${field} min-w-0 flex-1`}
-        />
+        <AliasTagsField aliases={aliases ?? []} onChange={onAliases} />
       </div>
 
       {/* Em linha própria e não ao lado: os dois campos lado a lado estouravam a largura

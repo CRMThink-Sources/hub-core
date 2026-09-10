@@ -168,18 +168,32 @@ export class UpdateBotFlowBindingController extends Controller {
     // gravar: falha depois do banco deixaria linha antiga com bot sem fluxo (bot mudo)
     // ou bot atendendo por um vínculo que a tela mostra como desligado.
     const desativando = body.data.active === false && existing.active
-    const reativando = body.data.active === true && !existing.active
+    const deveEstarAtivo = body.data.active ?? existing.active
 
     if (mudouLinha && novaLinha) {
       await this.welcomeBot.unbindLine({ lineId: existing.lineId })
 
-      if (body.data.active ?? existing.active) {
+      if (deveEstarAtivo) {
         const { bitrixBotId } = await this.welcomeBot.ensureBot(appId)
         await this.welcomeBot.bindLine({ lineId: novaLinha, bitrixBotId })
       }
     } else if (desativando) {
       await this.welcomeBot.unbindLine({ lineId: existing.lineId })
-    } else if (reativando) {
+    } else if (deveEstarAtivo) {
+      /**
+       * Reatrela sempre que o vínculo deve estar ativo, e não só na transição
+       * desligado→ligado.
+       *
+       * O `WELCOME_BOT_ID` da linha é editável pelo painel do Bitrix: mexer na
+       * configuração do canal desliga a saudação sem avisar ninguém, e o vínculo segue
+       * `active` aqui. O portal para de convocar o bot, nenhum evento é gerado e não há
+       * o que aparecer em log — só o silêncio. Reagir à transição não cobria isso: com o
+       * vínculo já ativo, salvar não chamava o portal e a tela não tinha como consertar.
+       *
+       * `bindWelcomeBot` é idempotente (`assertLinhaLivre` libera a linha cujo bot já é o
+       * nosso), então repetir custa duas chamadas num gesto raro e devolve o portal ao
+       * estado que a tela mostra.
+       */
       const { bitrixBotId } = await this.welcomeBot.ensureBot(appId)
       await this.welcomeBot.bindLine({
         lineId: existing.lineId,

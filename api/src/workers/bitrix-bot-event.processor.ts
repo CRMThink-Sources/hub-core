@@ -8,6 +8,12 @@ import {
 } from '@/modules/thinkzap/domain/bot-flow/crm-entities'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { BitrixBotSessionAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-bot-session.adapter'
+import { HybridBotSessionAdapter } from '@/modules/thinkzap/infra/adapters/hybrid-bot-session.adapter'
+import { makeBitrixWebhookContextRepository } from '@/modules/thinkzap/main/make-bitrix-webhook-context-repository'
+import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
+import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
+import { env } from '@/config/env'
+import type { BotSessionPort } from '@/modules/thinkzap/domain/ports/bot-session.port'
 import { PrismaBotFlowBindingRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bot-flow-binding.repository'
 import { PrismaBotFlowBotRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bot-flow-bot.repository'
 import { PrismaBotFlowRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bot-flow.repository'
@@ -173,21 +179,26 @@ export async function processBitrixBotEvent(
       `Turno do bot | chat=${event.chatId} | linha=${lineId} | tipo=${event.kind}`,
     )
 
+    console.log(
+      `[thinkbot] chat=${event.chatId} linha=${lineId} tipo=${event.kind}`,
+    )
+
     // Da mesma resposta do `dialog.get`, sem chamada extra: o `entity_data_2` traz os
     // vínculos de CRM do chat, e é o que o bloco "Já é cliente?" compara.
     const crm = crmVars(crmEntitiesFromDialog(dialog))
 
-    /**
-     * Uma fala, um caminho: o adapter escreve com `imbot.v2.Chat.Message.send`, que sai
-     * como mensagem de participante e o canal aberto repassa ao conector — o mesmo
-     * transporte que leva a fala do operador ao destino final, qualquer que seja o
-     * conector daquele canal.
-     */
-    const sessao = new BitrixBotSessionAdapter(
+    const eco = new BitrixBotSessionAdapter(
       client,
       bot.botToken,
       bot.bitrixBotId,
     )
+
+    const sessao = await comEntregaAoContato(eco, {
+      domain: domain.name,
+      lineId,
+      chatId: event.chatId,
+      appendJobLog: ctx.appendJobLog,
+    })
 
     const outcome = await runBotTurn(
       event,
@@ -246,4 +257,63 @@ export async function processBitrixBotEvent(
   } finally {
     await lock.release()
   }
+}
+
+/**
+ * Envolve o adapter do bot no `HybridBotSessionAdapter`, que entrega a fala ao contato
+ * pelo mesmo caminho do operador.
+ *
+ * Escrever no chat do canal aberto **não** faz a mensagem chegar ao WhatsApp: o Bitrix não
+ * dispara `ONIMCONNECTORMESSAGEADD` pela fala do bot, e é esse evento que o ThinkZap
+ * escuta para despachar ao provider. Sem isto a saudação aparece no chat, o operador a lê,
+ * e o cliente nunca recebe nada — ver `HybridBotSessionAdapter`.
+ *
+ * O contexto é resolvido pela linha, a mesma chave do fluxo de mensagem do operador.
+ * Quando não resolve (canal aberto sem conector do ThinkZap — Telegram, site, outro app),
+ * segue só com o eco: o Bitrix entrega ao conector daquele canal por conta própria, e um
+ * envio nosso não teria para onde ir.
+ */
+async function comEntregaAoContato(
+  eco: BotSessionPort,
+  input: {
+    domain: string
+    lineId: string
+    chatId: string
+    appendJobLog: AppendJobLog
+  },
+): Promise<BotSessionPort> {
+  const appCode = resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId
+
+  if (!appCode) return eco
+
+  const context = await makeBitrixWebhookContextRepository().getContext({
+    domainName: input.domain,
+    appCode,
+    line: input.lineId,
+  })
+
+  if (!context) {
+    await input.appendJobLog(
+      `Canal sem conector ThinkZap (linha=${input.lineId}) — fala entregue só pelo chat ` +
+        'do canal aberto, que é quem repassa ao conector daquele canal.',
+    )
+    return eco
+  }
+
+  const contato = makeOutboundSenderResolver().resolve(
+    context.connector.provider,
+    {
+      instanceId: context.instance.instanceId,
+      zApiToken: context.instance.zApiToken,
+      channelId: context.instance.channelId,
+      chatId: input.chatId,
+    },
+  )
+
+  await input.appendJobLog(
+    `Entrega ao contato por ${context.connector.provider} | ` +
+      `instância=${context.instance.instanceId}`,
+  )
+
+  return new HybridBotSessionAdapter(eco, contato)
 }

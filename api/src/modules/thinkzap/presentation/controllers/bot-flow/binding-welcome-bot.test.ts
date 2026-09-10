@@ -209,7 +209,16 @@ describe('vínculo: efeito no portal', () => {
     })
   })
 
-  it('mudança que não afeta o portal não o chama', async () => {
+  /**
+   * O `WELCOME_BOT_ID` da linha é editável pelo painel do Bitrix, e mexer na configuração
+   * do canal desliga a saudação sem avisar. O vínculo continua `active` aqui, o portal
+   * para de convocar o bot e nada aparece em log — só o silêncio.
+   *
+   * Salvar o vínculo é o gesto de quem quer consertar isso, então reatrela mesmo sem
+   * mudança de estado: chamar o portal à toa custa duas chamadas num gesto raro, e não
+   * chamar deixava a tela sem como devolver o bot à linha.
+   */
+  it('salvar vínculo ativo reatrela o portal', async () => {
     const bot = welcomeBot()
 
     await new UpdateBotFlowBindingController(
@@ -219,7 +228,23 @@ describe('vínculo: efeito no portal', () => {
       bot.port,
     ).perform(req({ priority: 50 }, { bindingId: 'b1' }), res)
 
-    // `active: true` repetido num vínculo já ativo também é no-op.
+    expect(bot.bindLine).toHaveBeenCalledWith({
+      lineId: '7',
+      bitrixBotId: BOT_ID,
+    })
+    expect(bot.unbindLine).not.toHaveBeenCalled()
+  })
+
+  it('salvar vínculo inativo não toca no portal', async () => {
+    const bot = welcomeBot()
+
+    await new UpdateBotFlowBindingController(
+      { update: vi.fn().mockResolvedValue(binding({ priority: 50 })) },
+      { getById: vi.fn().mockResolvedValue(binding({ active: false })) },
+      { getByLineId: vi.fn() },
+      bot.port,
+    ).perform(req({ priority: 50 }, { bindingId: 'b1' }), res)
+
     expect(bot.ensureBot).not.toHaveBeenCalled()
     expect(bot.bindLine).not.toHaveBeenCalled()
     expect(bot.unbindLine).not.toHaveBeenCalled()
