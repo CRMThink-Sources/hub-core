@@ -40,6 +40,7 @@ import { apiLogger, resolveLogApp } from './shared/infra/logger.js'
 import { runWithLogContext } from './shared/infra/log-context.js'
 import { randomUUID } from 'node:crypto'
 import { makeHubmessageWebhookHandlerController } from './modules/thinkzap/main/make-hubmessage-webhook-handler-controller.js'
+import { makeBitrixBotWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-bot-webhook-handler-controller.js'
 import { makeStripeWebhookController } from './modules/thinkzap/main/subscription/make-subscription-controllers.js'
 import { makeSpaWebhookController } from './modules/application/main/make-spa-webhook-controller.js'
 import {
@@ -99,14 +100,8 @@ app.post(
   adaptControllerFactory(makeClicksignWebhookController),
 )
 
-/**
- * Webhook do Stripe, também ANTES do express.json().
- *
- * A validação da assinatura do evento é um HMAC sobre os bytes exatos que
- * chegaram. Registrada depois do parser, o corpo já foi reserializado e a
- * assinatura falha em **100%** dos eventos — o que aparece como "segredo errado" e
- * manda procurar no lugar errado. A ordem aqui é a correção, não uma preferência.
- */
+// Stripe também ANTES do express.json(): a assinatura é HMAC sobre os bytes crus, e
+// depois do parser o corpo já foi reserializado — falha em 100% dos eventos.
 app.post(
   '/api/webhooks/stripe',
   express.raw({ type: '*/*' }),
@@ -126,6 +121,14 @@ app.post(
   adaptControllerFactory(makeBitrixWebhookHandlerController),
 )
 
+// Eventos `ONIMBOTV2*`. Este caminho é o que fica gravado em `imbot.v2.Bot.register`,
+// que não atualiza em chamada repetida: mudá-lo exige `Bot.update` no portal, não só
+// deploy. Tem de bater com `BITRIX_BOT_WEBHOOK_URL` (ou o default de `API_URL`).
+app.post(
+  '/api/webhooks/bitrix-bot',
+  adaptControllerFactory(makeBitrixBotWebhookHandlerController),
+)
+
 app.post(
   '/api/webhooks/hubmessage',
   adaptControllerFactory(makeHubmessageWebhookHandlerController),
@@ -134,14 +137,9 @@ app.post(
   '/api/thinkzap/webhooks/bitrix/robot',
   adaptControllerFactory(makeBitrixRobotWebhookHandlerController),
 )
-/**
- * Robô de envio de **template**. Rota própria e não uma variante da de cima: o
- * `HANDLER` do robô é o que identifica o disparo no Bitrix, e os dois robôs precisam
- * de handlers distintos para coexistirem no mesmo portal.
- *
- * Tem de bater com `BITRIX_TEMPLATE_ROBOT_HANDLER_URL` — é essa URL que vai no
- * registro do robô, e um descasamento só aparece no primeiro disparo, como `404`.
- */
+// Handler próprio porque é o `HANDLER` que identifica o disparo no Bitrix — dois robôs
+// no mesmo portal precisam de handlers distintos. Tem de bater com
+// `BITRIX_TEMPLATE_ROBOT_HANDLER_URL`; descasamento só aparece no disparo, como 404.
 app.post(
   '/api/thinkzap/webhooks/bitrix/template-robot',
   adaptControllerFactory(makeBitrixTemplateRobotWebhookHandlerController),

@@ -30,6 +30,7 @@
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
+  --color-canvas: var(--canvas);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
@@ -50,6 +51,8 @@
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+  /* Fundo de área de trabalho (canvas). Cada tema de app sobrescreve com seu matiz. */
+  --canvas: oklch(0.935 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -211,6 +214,9 @@
  */
 .theme-thinkzap {
   --background: oklch(1 0 0);
+  /* Fundo da área de trabalho do canvas: precisa ser mais escuro que `--muted`
+     (0.97, quase branco) para o card branco do bloco se destacar. */
+  --canvas: oklch(0.935 0.008 165);
   --foreground: oklch(0.25 0.02 165); /* thinkzap */
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.25 0.02 165);
@@ -240,4 +246,37 @@
   html {
     @apply font-sans;
   }
+}
+
+/*
+ * Camadas do canvas do ThinkBot.
+ *
+ * `.react-flow__edges` não tem z-index no CSS da lib, então a ordem do DOM manda e os
+ * blocos cobrem as ligações — a linha passa por trás do bloco e o desenho fica ilegível.
+ * Aqui a aresta sobe acima do bloco, e o rótulo acima dela.
+ */
+.thinkbot-canvas .react-flow__edges {
+  z-index: 3;
+}
+
+.thinkbot-canvas .react-flow__edgelabel-renderer {
+  z-index: 4;
+}
+
+/*
+ * Os blocos ficam acima das arestas, e isso **não** rouba o clique da linha: o svg das
+ * arestas é `pointer-events: none` na lib e só o traço recebe mouse, então a linha
+ * continua clicável em todo trecho que não passa por baixo de um bloco.
+ *
+ * Sem esta regra a camada de arestas cobria as bolinhas de saída, que ficam sobre a
+ * borda do cartão — o mouse chegava na camada de cima e arrastar dali não iniciava
+ * ligação nenhuma.
+ */
+.thinkbot-canvas .react-flow__nodes {
+  z-index: 5;
+}
+
+/* Bloco selecionado sobe acima dos vizinhos, dentro da camada dos nós. */
+.thinkbot-canvas .react-flow__node.selected {
+  z-index: 2 !important;
 }

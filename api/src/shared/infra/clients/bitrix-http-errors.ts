@@ -20,6 +20,35 @@ export function makeBitrixApiError(
   )
 }
 
+/**
+ * Escopo que o método exige, quando não é o `im` genérico.
+ *
+ * A dica só ajuda se nomear o escopo certo: mandar "verifique `im`" numa falha de
+ * `imbot.*` faz o cliente conferir uma permissão que já tem e concluir que o problema é
+ * outro.
+ *
+ * Cada linha vem do campo `Scope` da doc do método, não do prefixo do nome — os dois
+ * divergem com frequência: `placement.bind` exige `im`, e `imconnector.register` exige
+ * `imopenlines`. Por isso a lista só tem prefixos conferidos, e o resto cai no `im`
+ * genérico, que era o comportamento anterior.
+ */
+const SCOPE_BY_METHOD_PREFIX: Array<[string, string]> = [
+  // `imopenlines.bot.session.*` exige os dois; o registro do bot, só `imbot`.
+  ['imopenlines.bot.', 'imopenlines e imbot'],
+  ['imbot.', 'imbot'],
+  ['imopenlines.', 'imopenlines'],
+  ['imconnector.', 'imopenlines'],
+  ['bizproc.', 'bizproc'],
+]
+
+function scopeForMethod(method: string): string {
+  const lower = method.toLowerCase()
+  return (
+    SCOPE_BY_METHOD_PREFIX.find(([prefix]) => lower.startsWith(prefix))?.[1] ??
+    'im'
+  )
+}
+
 export function formatBitrixApiError(
   method: string,
   error: string,
@@ -29,7 +58,7 @@ export function formatBitrixApiError(
   const lower = `${error} ${description ?? ''}`.toLowerCase()
 
   if (lower.includes('access_denied') || lower.includes('insufficient_scope')) {
-    return `${base}. Verifique scope im no app Bitrix24 e reinstale o app no portal.`
+    return `${base}. Verifique scope ${scopeForMethod(method)} no app Bitrix24 e reinstale o app no portal.`
   }
 
   return base

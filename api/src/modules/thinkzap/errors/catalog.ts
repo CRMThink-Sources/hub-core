@@ -287,6 +287,138 @@ export const THINKZAP_ERRORS = {
       'Conferir as permissões (escopo imbot) do app no Bitrix24 e tentar de novo.',
     retriable: true,
   },
+  'thinkzap.bot.register_failed': {
+    category: 'integration',
+    userCause:
+      'Não foi possível registrar o bot de atendimento no Bitrix24; o fluxo não pôde ser vinculada ao canal.',
+    remediation:
+      'Conferir se o app tem o escopo `imbot` liberado no portal e tentar vincular de novo.',
+    retriable: true,
+    httpStatus: 502,
+  },
+  // Antes do registro, e não depois de o Bitrix recusar: sem o escopo a chamada volta com
+  // `ACCESS_DENIED` genérico, que manda o suporte investigar canal aberto e bot em vez da
+  // permissão do app. `retriable: false` porque só reinstalar o app resolve.
+  'thinkzap.bot.scope_missing': {
+    category: 'config',
+    userCause:
+      'O app instalado no portal não tem as permissões de mensageria que o bot de atendimento precisa, então o bot não pode ser criado.',
+    remediation:
+      'Reinstalar o app no portal do parceiro liberando os escopos `imbot` e `imopenlines`; o log traz quais faltaram.',
+    retriable: false,
+    httpStatus: 409,
+  },
+  'thinkzap.bot.line_bind_failed': {
+    category: 'integration',
+    userCause:
+      'O Bitrix24 não guardou o bot no canal aberto; o fluxo não foi vinculada.',
+    remediation:
+      'Conferir se o canal aberto está ativo e se nenhum outro app configurou um bot de boas-vindas nele, e tentar vincular de novo.',
+    retriable: true,
+    httpStatus: 502,
+  },
+  // Recusa deliberada, não falha: o Bitrix guarda um bot de saudação por linha, e
+  // sobrescrever o de outro app o tiraria de operação sem aviso e sem volta.
+  'thinkzap.bot.line_has_other_bot': {
+    category: 'config',
+    userCause:
+      'O canal aberto escolhido já usa um bot de saudação de outro aplicativo, e o Bitrix24 só aceita um por canal.',
+    remediation:
+      'Escolher outro canal aberto, ou desativar o bot de saudação atual nas configurações do canal no Bitrix24 antes de vincular o fluxo. O log traz o id do bot que está ocupando a linha.',
+    retriable: false,
+    httpStatus: 409,
+  },
+  'thinkzap.bot.line_unbind_failed': {
+    category: 'integration',
+    userCause:
+      'O Bitrix24 não desligou o bot do canal aberto; o vínculo do fluxo foi mantido para o canal não ficar com um bot sem fluxo.',
+    remediation:
+      'Conferir o bot de boas-vindas do canal aberto no Bitrix24 e tentar remover o vínculo de novo.',
+    retriable: true,
+    httpStatus: 502,
+  },
+  'thinkzap.bot.unregister_failed': {
+    category: 'integration',
+    userCause:
+      'Observabilidade — o bot de atendimento ficou registrado no Bitrix24 depois de o último fluxo ser removido. Nenhum atendimento é afetado.',
+    remediation:
+      'Nenhuma ação de suporte: o próximo vínculo reaproveita o bot. Se o parceiro quiser limpar, o bot pode ser removido pela lista de bots do portal.',
+    retriable: false,
+  },
+  'thinkzap.bot.say_failed': {
+    category: 'integration',
+    userCause: 'Uma fala do bot de atendimento não chegou ao cliente.',
+    remediation:
+      'Conferir se o canal aberto está ativo e o bot instalado na linha; a conversa segue com o atendimento humano.',
+    retriable: true,
+  },
+  // O contato já recebeu quando isto acontece: só o registro no chat do canal aberto
+  // falhou, e o operador perde o histórico da fala, não a conversa.
+  // Degradação deliberada: sem sender o turno roda só com o eco no chat, e o operador vê
+  // a conversa em vez de o job falhar sem nada acontecer.
+  'thinkzap.bot.contact_sender_unresolved': {
+    category: 'config',
+    userCause:
+      'O bot não conseguiu descobrir por qual número responder ao cliente; as falas ficaram só no chat do canal aberto, visíveis ao atendente.',
+    remediation:
+      'Conferir se o canal aberto do fluxo está vinculado a uma linha de WhatsApp ativa e conectada. Enquanto isso, o atendente pode responder manualmente pela conversa.',
+    retriable: true,
+  },
+  'thinkzap.bot.echo_failed': {
+    category: 'integration',
+    userCause:
+      'Observabilidade — uma fala do bot chegou ao cliente mas não foi registrada no chat do canal aberto. O atendimento não é afetado.',
+    remediation:
+      'Nenhuma ação de suporte: o cliente recebeu a mensagem. Se o atendente precisar do que foi dito, o histórico está na conversa do WhatsApp.',
+    retriable: false,
+  },
+  'thinkzap.bot.say_session_gone': {
+    category: 'integration',
+    userCause:
+      'O bot tentou falar numa conversa em que já não participa — normalmente porque um atendente assumiu ou a sessão foi encerrada no portal.',
+    remediation:
+      'Nenhuma ação de suporte: a conversa está com quem a assumiu e a sessão do bot foi encerrada. Retentar não se aplica.',
+    retriable: false,
+  },
+  'thinkzap.bot.handoff_failed': {
+    category: 'integration',
+    userCause:
+      'O bot não conseguiu transferir a conversa para o atendimento humano.',
+    remediation:
+      'Conferir se o atendente ou canal escolhido no fluxo ainda existe e está ativo no Bitrix24.',
+    retriable: true,
+  },
+  'thinkzap.bot.handoff_target_unusable': {
+    category: 'config',
+    userCause:
+      'O bloco de entrega do fluxo aponta para um atendente ou canal que não existe mais; a conversa foi para a fila da linha.',
+    remediation:
+      'Abrir o fluxo, escolher de novo o destino do bloco de entrega e publicar.',
+    retriable: false,
+  },
+  'thinkzap.bot.finish_failed': {
+    category: 'integration',
+    userCause: 'O bot não conseguiu encerrar a sessão do canal aberto.',
+    remediation:
+      'A sessão fecha pelo tempo de inatividade da linha; nenhuma ação imediata.',
+    retriable: true,
+  },
+  'thinkzap.bot.event_unresolved': {
+    category: 'internal',
+    userCause:
+      'Uma mensagem chegou ao bot de atendimento e não foi possível descobrir a qual instalação ou canal ela pertence; a conversa segue com o atendimento humano.',
+    remediation:
+      'Conferir se a instalação do ThinkZap ainda está ativa no portal e se o canal aberto do evento existe. Reinstalar o app recria a credencial e o registro do bot.',
+    retriable: false,
+  },
+  'thinkzap.bot.turn_skipped': {
+    category: 'config',
+    userCause:
+      'O bot está ligado num canal aberto que não tem fluxo para rodar; a conversa foi entregue à fila da linha.',
+    remediation:
+      'Abrir o ThinkBot e vincular um fluxo publicado ao canal, ou remover o vínculo para o canal voltar ao atendimento humano direto.',
+    retriable: false,
+  },
   'thinkzap.bitrix.reply_context_failed': {
     category: 'internal',
     userCause:
