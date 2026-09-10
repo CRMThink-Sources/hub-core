@@ -952,3 +952,125 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
     )
   })
 })
+
+describe('ProcessZApiInboundMessageUseCase view-once notice', () => {
+  beforeEach(() => {
+    sendMessageMock.mockClear().mockResolvedValue({ ok: true })
+    updateMessageMock.mockClear()
+    deleteMessageMock.mockClear()
+    getLastMessageIdMock.mockClear().mockResolvedValue(null)
+  })
+
+  /**
+   * Formato real do payload da Z-API: `viewOnce` no nível raiz do evento, sem
+   * `image`/`audio`/`video`/`text` — ela não expõe a mídia de visualização única.
+   *
+   * Mensagem vazia não confiavelmente abre/continua a sessão do canal aberto
+   * (medido em produção: `session.CHAT_ID` nunca voltou), e o aviso postado à parte
+   * caiu num `bitrixChatId` de mensagem antiga, sem aparecer na sessão ativa. O
+   * texto do aviso passa a ser o próprio conteúdo enviado — mesmo caminho, já
+   * comprovado, de qualquer mensagem de texto.
+   */
+  it('usa o texto do aviso como conteúdo da mensagem para o marcador puro (payload real, sem mídia)', async () => {
+    sendMessageMock.mockResolvedValueOnce({ ok: true })
+    const { run } = buildUseCase()
+
+    await run(
+      makeEvent({
+        viewOnce: true,
+        waitingMessage: true,
+        text: undefined,
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe(
+      'Você recebeu uma mensagem de visualização única. Por motivos de ' +
+        'privacidade, você só pode abrir essa mensagem no seu celular.',
+    )
+  })
+
+  it('não sobrescreve o texto quando há mídia real junto do viewOnce', async () => {
+    sendMessageMock.mockResolvedValueOnce({ ok: true })
+    const { run } = buildUseCase()
+
+    await run(
+      makeEvent({
+        image: {
+          imageUrl: 'https://x/img.jpg',
+          thumbnailUrl: '',
+          caption: 'legenda da foto',
+          mimeType: 'image/jpeg',
+          viewOnce: true,
+          height: 10,
+          width: 10,
+        },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe('legenda da foto')
+  })
+
+  it('não sobrescreve o texto quando viewOnce é false ou ausente', async () => {
+    sendMessageMock.mockResolvedValue(withSession('1772'))
+    const { run } = buildUseCase()
+
+    await run(
+      makeEvent({
+        image: {
+          imageUrl: 'https://x/img.jpg',
+          thumbnailUrl: '',
+          caption: 'legenda normal',
+          mimeType: 'image/jpeg',
+          viewOnce: false,
+          height: 10,
+          width: 10,
+        },
+      }),
+    )
+    let payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe('legenda normal')
+
+    await run(makeEvent())
+    payload = sendMessageMock.mock.calls[1]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe('mensagem')
+  })
+
+  it('document, sticker ou contact nunca viram o aviso (sem campo viewOnce)', async () => {
+    sendMessageMock.mockResolvedValue(withSession('1773'))
+    const { run } = buildUseCase()
+
+    await run(
+      makeEvent({
+        document: {
+          documentUrl: 'https://x/doc.pdf',
+          fileName: 'doc.pdf',
+          mimeType: 'application/pdf',
+        },
+      }),
+    )
+    await run(
+      makeEvent({
+        sticker: {
+          stickerUrl: 'https://x/s.webp',
+          mimeType: 'image/webp',
+          width: 10,
+          height: 10,
+        },
+      }),
+    )
+    await run(
+      makeEvent({
+        contact: { displayName: 'João', vCard: '', phones: ['5511999999999'] },
+      }),
+    )
+
+    for (const call of sendMessageMock.mock.calls) {
+      const payload = call[0] as ISendMessageData
+      expect(payload.MESSAGES[0]!.message.text).not.toContain(
+        'visualização única',
+      )
+    }
+  })
+})
