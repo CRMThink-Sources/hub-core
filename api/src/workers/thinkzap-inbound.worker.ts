@@ -1,4 +1,4 @@
-import { Worker } from 'bullmq'
+import { DelayedError, Worker } from 'bullmq'
 import { bullBaseOptions } from '@/queue/redis-connection'
 import {
   THINKZAP_INBOUND,
@@ -12,21 +12,22 @@ import type {
 } from '@/modules/thinkzap/domain/interfaces/hubmessage-events.interface'
 import { processHubMessageDeliveryStatus } from './hubmessage-status.processor'
 import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
+import { processBitrixBotEvent } from './bitrix-bot-event.processor'
 import { ReceivedMessageEvent } from '@/shared/infra/handlers/z-api/z-api'
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import { workerLogger } from '@/shared/infra/logger'
 import { AppendJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { makeAppendJobLog } from './append-job-log'
+import { installBitrixLimits } from '@/shared/infra/bitrix-limits/install-bitrix-limits'
+import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
 
-/**
- * Este entrypoint é **só o inbound**.
- *
- * O `Worker` da fila `thinkzap-widget-outbound` chegou a ser registrado aqui, enquanto
- * aquela fila só carregava a abertura de conversa no canal aberto. Saiu para processo
- * próprio quando passou a carregar a entrega da mensagem ao contato: um envio lento
- * segurando slot de mensagem recebida, e um reinício derrubando os dois fluxos, é o
- * que a separação evita. Ver o serviço `worker-widget-outbound` no compose.
- */
+// O worker compartilha o balde do portal com a API: o limite do Bitrix conta por
+// instalação, não por processo.
+installBitrixLimits()
+
+// Só inbound: a fila `thinkzap-widget-outbound` saiu para processo próprio (serviço
+// `worker-widget-outbound` no compose) para que um envio lento não segure slot de
+// mensagem recebida, nem um reinício derrube os dois fluxos.
 async function processJob(
   data: ThinkzapInboundJob,
   appendJobLog: AppendJobLog,
@@ -66,10 +67,8 @@ async function processJob(
       { appendJobLog },
     )
   } else if (data.source === 'hubmessage-status') {
-    /**
-     * Desfecho de mensagem **nossa**, não mensagem recebida: o corpo tem outra forma
-     * (sem `sender`, com `contents[].state`) e por isso tem `source` próprio.
-     */
+    // Desfecho de mensagem nossa, não recebida: corpo com outra forma (sem `sender`,
+    // com `contents[].state`), por isso `source` próprio.
     workerLogger.debug(
       { app: 'thinkzap', source: data.source, type: data.type },
       'Processing inbound job',
@@ -78,6 +77,13 @@ async function processJob(
       { message: data.body } as unknown as HubMessageStatusEnvelope,
       { appendJobLog },
     )
+  } else if (data.source === 'bitrix-bot') {
+    // Antes do branch `'bitrix'`: o processor lê `bot`/`chat`/`user`, não `data.MESSAGES`.
+    workerLogger.debug(
+      { app: 'thinkzap', source: data.source, type: data.type },
+      'Processing inbound job',
+    )
+    await processBitrixBotEvent(data.body, { appendJobLog })
   } else if (data.source === 'bitrix') {
     workerLogger.debug(
       { app: 'thinkzap', source: data.source, type: data.type },
@@ -94,8 +100,34 @@ async function processJob(
 
 export const thinkzapInboundWorker = new Worker(
   THINKZAP_INBOUND,
-  async job => {
-    await processJob(job.data as ThinkzapInboundJob, makeAppendJobLog(job))
+  async (job, token) => {
+    try {
+      await processJob(job.data as ThinkzapInboundJob, makeAppendJobLog(job))
+    } catch (err) {
+      // Método pausado por `OPERATION_TIME_LIMIT` só volta quando a cesta de minuto do
+      // Bitrix vence — mais que as 3 tentativas com backoff de 1s da fila. Reagendar
+      // para o instante da liberação não gasta tentativa.
+      if (err instanceof BitrixMethodPausedError) {
+        workerLogger.warn(
+          {
+            app: 'thinkzap',
+            queue: THINKZAP_INBOUND,
+            jobId: job.id,
+            method: err.method,
+            domain: err.domain,
+            retryAt: new Date(err.untilMs).toISOString(),
+            bitrixMethodPaused: true,
+          },
+          'Metodo do Bitrix pausado — reagendando o job sem gastar tentativa',
+        )
+
+        await job.moveToDelayed(err.untilMs, token)
+        // Sinal que o BullMQ exige para nao tratar o job como concluido.
+        throw new DelayedError()
+      }
+
+      throw err
+    }
   },
   {
     ...bullBaseOptions,

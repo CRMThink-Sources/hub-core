@@ -5,6 +5,7 @@ import {
   wrapBitrixRequestError,
 } from './bitrix-http-errors'
 import { normalizeBitrixDomain } from './normalize-bitrix-domain'
+import { attachBitrixLimits } from '@/shared/infra/bitrix-limits/attach-bitrix-limits'
 import type { PlacementHandlerEntry } from '@/modules/thinkzap/application/normalize-placement-get-response'
 
 /**
@@ -15,11 +16,16 @@ export class BitrixRestClient {
   private readonly client: AxiosInstance
 
   constructor(domain: string, accessToken: string) {
-    this.client = axios.create({
-      baseURL: `https://${normalizeBitrixDomain(domain)}/rest/`,
-      params: { auth: accessToken },
-      ...getBitrixAxiosDefaults(),
-    })
+    const normalized = normalizeBitrixDomain(domain)
+
+    this.client = attachBitrixLimits(
+      axios.create({
+        baseURL: `https://${normalized}/rest/`,
+        params: { auth: accessToken },
+        ...getBitrixAxiosDefaults(),
+      }),
+      normalized,
+    )
   }
 
   /**

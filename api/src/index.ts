@@ -4,10 +4,15 @@ import { createServer } from 'http'
 import { initSocket } from './shared/infra/socket.js'
 import { apiLogger } from './shared/infra/logger.js'
 import { assertInstallConfig } from './config/assert-install-config.js'
+import { installBitrixLimits } from './shared/infra/bitrix-limits/install-bitrix-limits.js'
 
 // Antes de aceitar tráfego: config de instalação faltando tem que quebrar o
 // deploy, não a instalação do primeiro cliente que tentar.
 assertInstallConfig()
+
+// Balde de request por portal e pausa por metodo: sem isto, estouro de limite do
+// Bitrix sobe cru e a retentativa cai em cima do limite.
+installBitrixLimits()
 
 const httpServer = createServer(app)
 

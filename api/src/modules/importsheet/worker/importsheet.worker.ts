@@ -3,6 +3,7 @@ import { Worker } from 'bullmq'
 import { bullBaseOptions } from '@/queue/redis-connection'
 import { env } from '@/config/env'
 import { createWorkerLogger } from '@/shared/infra/logger'
+import { installBitrixLimits } from '@/shared/infra/bitrix-limits/install-bitrix-limits'
 import { AppError } from '@/shared/domain/errors/app-error'
 import { appErrorLogFields } from '@/shared/infra/log-error'
 import { runWithLogContext } from '@/shared/infra/log-context'
@@ -182,6 +183,10 @@ async function reclaimStaleRunning(): Promise<void> {
 }
 
 // --- Worker do scheduler: tick do poller (busca vencidas e enfileira). ---
+// O balde de request do Bitrix e por portal: worker que chama o Bitrix sem
+// instalar o controle gasta a cota dos outros sem contar.
+installBitrixLimits()
+
 const schedulerWorker = new Worker(
   IMPORTSHEET_SCHEDULER,
   async () =>
