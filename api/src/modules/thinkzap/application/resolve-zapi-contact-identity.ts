@@ -158,10 +158,18 @@ export async function resolveZApiContactIdentity(
    * Com a flag desligada, a identidade é a de antes desta mudança — mas os `upsert`
    * acima já rodaram. É esse par (aprender sempre, aplicar só com a flag) que permite o
    * deploy anteceder o backfill.
+   *
+   * `phoneIsLid` com `row.phone` conhecido usa o telefone mapeado, não o lid cru.
+   * Sem isto, um contato que já tem telefone aprendido pelo mapa (por ter mandado
+   * mensagem com `chatLid` antes) ganhava uma **segunda** identidade — e portanto uma
+   * segunda conversa no canal aberto — toda vez que chegasse um evento cujo `phone` já
+   * vem como lid (visualização única é o caso real: a Z-API não manda `chatLid` nesse
+   * evento, só o lid no campo `phone`). Sem telefone mapeado ainda, cai no lid cru,
+   * como antes — não há para onde mais ir.
    */
   if (!deps.useLidIdentity) {
     return {
-      identity: phoneIsLid ? raw : (phone ?? raw),
+      identity: phoneIsLid ? (row?.phone ?? raw) : (phone ?? raw),
       lid,
       phone: phone ?? row?.phone ?? null,
       source,
