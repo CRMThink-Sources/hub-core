@@ -316,7 +316,7 @@ describe('resolveZApiContactIdentity — flag de rollout', () => {
     expect(r.identity).toBe(PHONE)
   })
 
-  it('desligada com phone lid: identidade é o valor cru, como hoje', async () => {
+  it('desligada com phone lid e sem telefone mapeado: identidade é o valor cru, como hoje', async () => {
     const d = deps({ useLidIdentity: false })
 
     const r = await resolveZApiContactIdentity(
@@ -326,6 +326,34 @@ describe('resolveZApiContactIdentity — flag de rollout', () => {
     )
 
     expect(r.identity).toBe(LID)
+  })
+
+  /**
+   * O caso real que quebrava: contato já escreveu antes com `chatLid` (mensagem
+   * normal), o mapa aprendeu o telefone dele. Chega um evento cujo `phone` já é o lid
+   * (visualização única, que a Z-API entrega sem `chatLid`) — sem este fallback, essa
+   * mensagem ganhava uma identidade diferente (o lid cru) da que as mensagens normais
+   * do mesmo contato usam (o telefone), abrindo uma segunda conversa no canal aberto
+   * pra mesma pessoa.
+   */
+  it('desligada com phone lid e telefone já mapeado: usa o telefone mapeado, não o lid', async () => {
+    const d = deps({
+      useLidIdentity: false,
+      byLid: {
+        instanceId: INSTANCE,
+        lid: LID,
+        phone: PHONE,
+        legacyPhoneIdentity: null,
+      },
+    })
+
+    const r = await resolveZApiContactIdentity(
+      event({ phone: LID, chatLid: null }),
+      INSTANCE,
+      d,
+    )
+
+    expect(r.identity).toBe(PHONE)
   })
 
   /** É isto que permite o deploy anteceder o backfill. */

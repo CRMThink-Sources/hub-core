@@ -1,0 +1,29 @@
+{
+  "jobData": {
+    "source": "z-api",
+    "type": "received-message",
+    "body": {
+      "connectedPhone": "554789158638",
+      "isGroup": false,
+      "isNewsletter": false,
+      "instanceId": "3F26E6228F94E0F9FFC5D217A5857A3E",
+      "messageId": "3A6C8DB364C269160CC6",
+      "momment": 1789064578000,
+      "status": "RECEIVED",
+      "fromMe": false,
+      "phone": "243430240333944@lid",
+      "chatName": "",
+      "senderName": "Amanda",
+      "senderPhoto": null,
+      "photo": "https://pps.whatsapp.net/v/t61.24694-24/590760488_1043061875223516_6196405957006762232_n.jpg?ccb=11-4&oh=01_Q5Aa5gFikAnpwkBGN_EZRZNjqxUNYnlu0EXeGftjyaFY16gSTQ&oe=6AAFF946&_nc_sid=5e03e0&_nc_cat=110",
+      "broadcast": false,
+      "participantPhone": null,
+      "participantLid": null,
+      "type": "ReceivedCallback",
+      "waitingMessage": true,
+      "viewOnce": true
+    },
+    "traceKey": "fff83f3f-e2c8-4cc6-9a1f-8643815997cd"
+  },
+  "returnValue": null
+}

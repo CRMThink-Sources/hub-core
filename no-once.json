@@ -1,0 +1,45 @@
+{
+  "jobData": {
+    "source": "z-api",
+    "type": "received-message",
+    "body": {
+      "isStatusReply": false,
+      "chatLid": "243430240333944@lid",
+      "connectedPhone": "554789158638",
+      "waitingMessage": false,
+      "isEdit": false,
+      "isGroup": false,
+      "isNewsletter": false,
+      "instanceId": "3F26E6228F94E0F9FFC5D217A5857A3E",
+      "messageId": "3A5CEE0E20BEE0A6E467",
+      "phone": "554796875443",
+      "fromMe": false,
+      "momment": 1789064538000,
+      "status": "RECEIVED",
+      "chatName": "Amanda",
+      "senderPhoto": null,
+      "senderName": "Amanda",
+      "photo": "https://pps.whatsapp.net/v/t61.24694-24/590760488_1043061875223516_6196405957006762232_n.jpg?ccb=11-4&oh=01_Q5Aa5gFikAnpwkBGN_EZRZNjqxUNYnlu0EXeGftjyaFY16gSTQ&oe=6AAFF946&_nc_sid=5e03e0&_nc_cat=110",
+      "broadcast": false,
+      "participantPhone": null,
+      "participantLid": null,
+      "adContext": null,
+      "messageExpirationSeconds": 0,
+      "forwarded": false,
+      "type": "ReceivedCallback",
+      "fromApi": false,
+      "image": {
+        "imageUrl": "https://f004.backblazeb2.com/file/temp-file-download/instances/3F26E6228F94E0F9FFC5D217A5857A3E/3A5CEE0E20BEE0A6E467/Ktrc6EZMJdd9yVrOiANb1Q==.jpg",
+        "thumbnailUrl": "https://f004.backblazeb2.com/file/temp-file-download/instances/3F26E6228F94E0F9FFC5D217A5857A3E/3A5CEE0E20BEE0A6E467/Ktrc6EZMJdd9yVrOiANb1Q==.jpg",
+        "downloadError": null,
+        "caption": "",
+        "mimeType": "image/jpeg",
+        "viewOnce": false,
+        "width": 720,
+        "height": 1280
+      }
+    },
+    "traceKey": "6819a870-9fb9-4793-9823-7c9de9db5377"
+  },
+  "returnValue": null
+}
