@@ -1,3 +1,4 @@
+import { adoptLineBinding } from '@/modules/thinkzap/application/adopt-line-binding'
 import { BOT_CODE } from '@/modules/thinkzap/application/ensure-bot-flow-bot'
 import { runBotTurn } from '@/modules/thinkzap/application/run-bot-turn'
 import { parseBotEvent } from '@/modules/thinkzap/domain/bot-flow/bot-event'
@@ -179,10 +180,6 @@ export async function processBitrixBotEvent(
       `Turno do bot | chat=${event.chatId} | linha=${lineId} | tipo=${event.kind}`,
     )
 
-    console.log(
-      `[thinkbot] chat=${event.chatId} linha=${lineId} tipo=${event.kind}`,
-    )
-
     // Da mesma resposta do `dialog.get`, sem chamada extra: o `entity_data_2` traz os
     // vínculos de CRM do chat, e é o que o bloco "Já é cliente?" compara.
     const crm = crmVars(crmEntitiesFromDialog(dialog))
@@ -200,18 +197,43 @@ export async function processBitrixBotEvent(
       appendJobLog: ctx.appendJobLog,
     })
 
-    const outcome = await runBotTurn(
+    const deps = {
+      session: sessao,
+      sessions,
+      flows,
+      bindings,
+    }
+
+    let outcome = await runBotTurn(
       event,
       lineId,
       installedApp.id,
-      {
-        session: sessao,
-        sessions,
-        flows,
-        bindings,
-      },
+      deps,
       crm,
     )
+
+    /**
+     * Canal ligado pelo painel do Bitrix, e não pela nossa tela: registra o vínculo e roda
+     * o turno que acabou de não ter fluxo.
+     *
+     * `sem-vinculo` só, das razões de skip: as outras dizem que o vínculo existe e está
+     * impedido (inativo, fluxo fora do ar), e criar outro por cima passaria por cima de
+     * uma decisão que o cliente tomou.
+     */
+    if (outcome.kind === 'skipped' && outcome.reason === 'sem-vinculo') {
+      const adotado = await adoptLineBinding(installedApp.id, lineId, {
+        flows,
+        bindings,
+      })
+
+      if (adotado) {
+        await ctx.appendJobLog(
+          `Canal adotado | linha=${lineId} | fluxo=${adotado.flowId} — ` +
+            'bot configurado pelo painel do Bitrix ganhou vínculo.',
+        )
+        outcome = await runBotTurn(event, lineId, installedApp.id, deps, crm)
+      }
+    }
 
     if (outcome.kind === 'duplicado') {
       // Rede de segurança do lock: cobre o evento que chega depois de o lock ter sido

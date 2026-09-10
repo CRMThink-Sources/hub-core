@@ -4,7 +4,9 @@ import { questionHasInlineOptions } from './thinkzap-question-has-options'
 describe('questionHasInlineOptions', () => {
   it('acusa a lista digitada no texto da pergunta', () => {
     expect(
-      questionHasInlineOptions('No que posso ajudar?\n1 - Financeiro\n2 - Suporte'),
+      questionHasInlineOptions(
+        'No que posso ajudar?\n1 - Financeiro\n2 - Suporte',
+      ),
     ).toBe(true)
   })
 
