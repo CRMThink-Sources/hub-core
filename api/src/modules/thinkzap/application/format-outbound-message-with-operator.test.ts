@@ -17,7 +17,7 @@ describe('formatOutboundMessageWithOperator', () => {
         enabled: true,
         operatorName: 'João Silva',
       }),
-    ).toBe('João Silva: Olá')
+    ).toBe('*João Silva:* Olá')
   })
 
   it('returns text unchanged when enabled but operator name is missing', () => {
@@ -35,6 +35,6 @@ describe('formatOutboundMessageWithOperator', () => {
         enabled: true,
         operatorName: '  João Silva  ',
       }),
-    ).toBe('João Silva: Olá')
+    ).toBe('*João Silva:* Olá')
   })
 })

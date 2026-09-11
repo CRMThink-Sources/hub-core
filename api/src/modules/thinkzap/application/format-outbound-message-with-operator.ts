@@ -11,5 +11,5 @@ export function formatOutboundMessageWithOperator(
     return text
   }
 
-  return `${operatorName}: ${text}`
+  return `*${operatorName}:* ${text}`
 }
