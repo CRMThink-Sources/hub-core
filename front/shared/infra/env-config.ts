@@ -57,4 +57,11 @@ export const envConfig = {
     importsheet: process.env.NEXT_PUBLIC_IMPORTSHEET_APP_CODE ?? '',
     clicksign: process.env.NEXT_PUBLIC_CLICKSIGN_APP_CODE ?? '',
   },
+  /**
+   * Menu lateral do ThinkBot no thinkzap — visível por padrão. Só some se a env
+   * disser explicitamente `'false'`, pra ambiente que esquecer a variável não
+   * perder o menu.
+   */
+  thinkbotMenuEnabled:
+    process.env.NEXT_PUBLIC_THINKZAP_THINKBOT_MENU_ENABLED !== 'false',
 }
