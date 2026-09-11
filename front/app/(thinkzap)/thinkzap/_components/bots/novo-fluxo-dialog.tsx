@@ -26,8 +26,7 @@ export function NovoFluxoDialog({
   const [name, setName] = useState('')
   const [salvando, setSalvando] = useState(false)
 
-  // Nome não sobrevive ao fechamento: reabrir com o texto anterior sugeriria que o
-  // fluxo ficou meio criado.
+  // Reabrir com texto anterior sugeriria fluxo meio criado
   useEffect(() => {
     if (!open) {
       setName('')
@@ -57,7 +56,7 @@ export function NovoFluxoDialog({
           <DialogHeader>
             <DialogTitle>Novo fluxo</DialogTitle>
             <DialogDescription>
-              O nome é só para você se achar na lista. O cliente nunca vê.
+              Defina um nome para identificar este fluxo internamente.
             </DialogDescription>
           </DialogHeader>
 

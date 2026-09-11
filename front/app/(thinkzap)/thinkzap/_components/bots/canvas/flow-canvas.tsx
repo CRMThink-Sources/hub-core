@@ -21,6 +21,7 @@ import {
   type EdgeTypes,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { Map as MapIcon, X } from 'lucide-react'
 import type {
   BotFlowGraph,
   FlowIssue,
@@ -28,7 +29,11 @@ import type {
   FlowNodeKind,
   NodeId,
 } from '@/shared/thinkzap-bot-flow'
-import { NODE_KIND_LABEL, NODE_RECIPES } from '@/shared/thinkzap-bot-flow'
+import {
+  NODE_KIND_LABEL,
+  NODE_RECIPES,
+  removeNode,
+} from '@/shared/thinkzap-bot-flow'
 import {
   clearPort,
   isPortRenameable,
@@ -71,6 +76,7 @@ export function FlowCanvas({
   // Estado próprio dos nós: durante o arrasto o canvas é a única fonte de posição, e o
   // grafo só recebe no fim — senão o bloco piscava de volta à posição antiga.
   const [nodes, setNodes] = useState<Node[]>([])
+  const [mapaAberto, setMapaAberto] = useState(false)
   const arrastando = useRef(false)
   const religou = useRef(false)
 
@@ -85,6 +91,17 @@ export function FlowCanvas({
     portId: string
   } | null>(null)
 
+  /** Pelo ref: `onChange` troca de identidade a cada render e remontaria os blocos. */
+  const remover = useCallback(
+    (nodeId: NodeId) => {
+      const { graph: atualGraph, onChange: aplicar } = atual.current
+      aplicar(removeNode(atualGraph, nodeId))
+      onSelecionar(null)
+      setCriandoEm(null)
+    },
+    [onSelecionar],
+  )
+
   const dados = useCallback(
     (node: FlowNode, ordem: number): FlowBlockData => ({
       node,
@@ -96,8 +113,9 @@ export function FlowCanvas({
         onSelecionar(null)
         setCriandoEm({ nodeId: node.id, portId })
       },
+      onRemover: () => remover(node.id),
     }),
-    [graph.entryNodeId, issuesByNode, onSelecionar],
+    [graph.entryNodeId, issuesByNode, onSelecionar, remover],
   )
 
   /** Cria o bloco escolhido já ligado na saída que pediu, e abre a edição dele. */
@@ -365,7 +383,7 @@ export function FlowCanvas({
   )
 
   return (
-    <div className="thinkbot-canvas h-[calc(100vh-13rem)] min-h-[420px] w-full overflow-hidden rounded-xl border border-border bg-canvas">
+    <div className="thinkbot-canvas h-[calc(100vh-13rem)] min-h-105 w-full overflow-hidden rounded-xl border border-border bg-canvas">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -442,25 +460,46 @@ export function FlowCanvas({
         />
         <Controls
           showInteractive={false}
-          className="!border !border-border !bg-card !shadow-sm"
+          className="border border-border bg-card shadow-sm"
         />
 
         {/* Legenda dentro do canvas: barra própria comia altura de desenho. */}
         <Panel
           position="top-center"
-          className="!m-2 rounded-lg border border-border/60 bg-card/85 px-2.5 py-1 text-[10px] text-muted-foreground shadow-sm backdrop-blur-sm"
+          className="m-2 rounded-lg border border-border/60 bg-card/85 px-2.5 py-1 text-[10px] text-muted-foreground shadow-sm backdrop-blur-sm"
         >
           Clique no + para adicionar o próximo passo · clique no bloco para
           editar · clique na linha e Delete apaga
         </Panel>
-        <MiniMap
-          pannable
-          zoomable
-          className="!border !border-border !bg-card"
-          maskColor="oklch(0.97 0.006 165 / 0.7)"
-          nodeColor="var(--primary)"
-          nodeStrokeWidth={0}
-        />
+        {/* Recolhido por padrão: aberto, cobre o canto onde os blocos finais caem. */}
+        {mapaAberto ? (
+          <MiniMap
+            pannable
+            zoomable
+            className="bottom-20! right-2! m-0! h-24! w-40! border! border-border! bg-card! sm:h-32! sm:w-52!"
+            maskColor="oklch(0.97 0.006 165 / 0.7)"
+            nodeColor="var(--primary)"
+            nodeStrokeWidth={0}
+          />
+        ) : null}
+
+        {/* Acima da marca do React Flow, que também mora no canto. */}
+        <Panel position="bottom-right" className="mx-2! mb-10!">
+          <button
+            type="button"
+            onClick={() => setMapaAberto(aberto => !aberto)}
+            aria-pressed={mapaAberto}
+            aria-label={mapaAberto ? 'Ocultar mapa' : 'Mostrar mapa'}
+            title={mapaAberto ? 'Ocultar mapa' : 'Mostrar mapa'}
+            className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+          >
+            {mapaAberto ? (
+              <X className="h-3.5 w-3.5" />
+            ) : (
+              <MapIcon className="h-3.5 w-3.5" />
+            )}
+          </button>
+        </Panel>
       </ReactFlow>
     </div>
   )

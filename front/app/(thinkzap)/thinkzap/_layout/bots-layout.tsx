@@ -23,8 +23,7 @@ type LoadState =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; flows: BotFlowSummary[] }
 
-// Editor é estado desta tela, não rota própria: o "voltar" competiria com a
-// navegação do Bitrix.
+// Editor é estado, não rota: "voltar" competiria com a navegação do Bitrix
 export default function BotsLayout() {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [bindings, setBindings] = useState<BotFlowBinding[]>([])
@@ -35,8 +34,7 @@ export default function BotsLayout() {
 
   const carregar = useCallback(async () => {
     try {
-      // Canais vêm do portal do cliente e falham por conta própria; capturar o erro
-      // aqui evita que a falha esconda os fluxos, que seguem editáveis.
+      // Falha nos canais do portal não pode esconder os fluxos
       const [flows, vinculos, canais] = await Promise.all([
         listBotFlows(),
         listBotFlowBindings(),
@@ -52,8 +50,7 @@ export default function BotsLayout() {
         setLinhasErro(null)
         setLinhas(canais.todas.filter(canal => canal.active))
       } else {
-        // Erro e "portal sem canais" viravam o mesmo `[]`, e a célula dizia "nenhum
-        // canal aberto ativo" nos dois casos.
+        // Sem isso, erro e "portal sem canais" viram o mesmo `[]`
         console.log('[thinkbot] falha ao listar canais abertos:', canais.err)
         setLinhasErro(
           canais.err instanceof Error
@@ -83,7 +80,6 @@ export default function BotsLayout() {
     try {
       const flow = await createBotFlow(name)
       setCriando(false)
-      // Abre já no editor: criar sem editar não entrega nada ao usuário.
       setOpenFlowId(flow.id)
       await carregar()
     } catch (error) {
@@ -93,8 +89,7 @@ export default function BotsLayout() {
     }
   }
 
-  // Recarrega em vez de atualizar o estado local: a API mexe no portal do cliente e
-  // pode recusar (canal tomado por outro app).
+  // Recarrega em vez de mexer no estado local: a API pode recusar (canal tomado)
   async function handleVincular(flowId: string, lineId: string) {
     try {
       await createBotFlowBinding({ flowId, lineId })
@@ -156,8 +151,8 @@ export default function BotsLayout() {
             ThinkBot
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Monte o fluxo do atendimento: o bot conversa pelo caminho que você
-            desenhar e passa para um atendente quando o fluxo mandar.
+            Monte o fluxo de atendimento: defina como o bot deve conduzir a
+            conversa.
           </p>
         </div>
       </div>
@@ -170,7 +165,7 @@ export default function BotsLayout() {
           </span>
         </div>
       ) : state.kind === 'error' ? (
-        // Falha de leitura não vira lista vazia: convidaria a recriar o que existe.
+        // Falha de leitura não vira lista vazia: convidaria a recriar o que existe
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
           <p className="text-sm font-medium">
             Não foi possível carregar os fluxos

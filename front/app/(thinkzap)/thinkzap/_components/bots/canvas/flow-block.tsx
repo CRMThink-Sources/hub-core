@@ -7,7 +7,7 @@ import {
   useUpdateNodeInternals,
   type NodeProps,
 } from '@xyflow/react'
-import { AlertCircle, Plus } from 'lucide-react'
+import { AlertCircle, Plus, Trash2 } from 'lucide-react'
 import type { FlowIssue, FlowNode } from '@/shared/thinkzap-bot-flow'
 import { NODE_KIND_LABEL, describeVarTest } from '@/shared/thinkzap-bot-flow'
 import type { VarTest } from '@/shared/thinkzap-bot-flow'
@@ -39,6 +39,7 @@ export type FlowBlockData = {
   ordem: number
   /** Abre o menu de tipos para criar o próximo bloco já ligado nesta saída. */
   onAdicionar: (portId: string) => void
+  onRemover: () => void
 }
 
 /** Exportado: o canvas ancora o menu nesta altura, e duplicar desalinhava os dois. */
@@ -53,7 +54,7 @@ const DOT = 10
 // Quatro handles de entrada nomeados (`in:left`…) porque, com um só, a lib ancora toda
 // linha no mesmo ponto; a aresta escolhe o dela pela geometria — ver `entrySides`.
 export function FlowBlock({ id, data, selected }: NodeProps) {
-  const { node, isEntry, issues, ordem, onAdicionar } =
+  const { node, isEntry, issues, ordem, onAdicionar, onRemover } =
     data as unknown as FlowBlockData
 
   const Icon = KIND_ICON[node.kind]
@@ -105,8 +106,8 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
               isConnectableStart={false}
               className={
                 recebeArrasto
-                  ? '!absolute !inset-0 !z-0 !h-full !w-full !transform-none !rounded-2xl !border-0 !bg-transparent !opacity-0 data-[connectingfrom=true]:!opacity-100 data-[connectingfrom=true]:!bg-primary/10'
-                  : 'pointer-events-none !z-0 !h-1 !w-1 !border-0 !bg-transparent !opacity-0'
+                  ? 'absolute! inset-0! z-0! h-full! w-full! transform-none! rounded-2xl! border-0! bg-transparent! opacity-0! data-[connectingfrom=true]:opacity-100! data-[connectingfrom=true]:bg-primary/10!'
+                  : 'pointer-events-none z-0! h-1! w-1! border-0! bg-transparent! opacity-0!'
               }
               style={
                 recebeArrasto
@@ -125,12 +126,7 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
           início
         </span>
       ) : (
-        // Sai da frente do aviso quando há um: os dois moram no canto direito.
-        <span
-          className={`absolute top-1.5 text-[10px] font-medium tabular-nums text-muted-foreground/40 ${
-            quebrado ? 'right-7' : 'right-2'
-          }`}
-        >
+        <span className="absolute left-2 top-1.5 text-[10px] font-medium tabular-nums text-muted-foreground/40">
           {ordem}
         </span>
       )}
@@ -140,9 +136,29 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
           className="absolute right-1.5 top-1.5 text-destructive"
           title={`${issues.length} problema${issues.length > 1 ? 's' : ''}`}
         >
-          <AlertCircle className="h-[18px] w-[18px]" />
+          <AlertCircle className="h-4.5 w-4.5" />
         </span>
       ) : null}
+
+      {/* Some quando o cartão não está em foco para não poluir a leitura do fluxo, e
+          sai da frente do aviso quando há um. O bloco de início não sai. */}
+      {isEntry ? null : (
+        <button
+          type="button"
+          aria-label="Excluir bloco"
+          title="Excluir bloco"
+          /* `stopPropagation`: sem barrar, o wrapper da lib seleciona o nó junto. */
+          onClick={event => {
+            event.stopPropagation()
+            onRemover()
+          }}
+          className={`nodrag absolute top-1.5 z-30 h-4.5 w-4.5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive ${
+            quebrado ? 'right-7' : 'right-1.5'
+          } ${selected ? 'flex' : 'hidden group-hover:flex'}`}
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      )}
 
       {/* Centrado: o cartão é lido de relance, não campo por campo. */}
       <div className="flex h-full flex-col items-center justify-center gap-1 px-3.5 pb-2 pt-5 text-center">
@@ -204,7 +220,7 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
                 id={port.id}
                 type="source"
                 position={Position.Right}
-                className="!absolute !inset-0 !z-10 !h-full !w-full !min-h-0 !min-w-0 !transform-none !border-0 !bg-transparent after:absolute after:-inset-2 after:content-['']"
+                className="absolute! inset-0! z-10! h-full! w-full! min-h-0! min-w-0! transform-none! border-0! bg-transparent! after:absolute after:-inset-2 after:content-['']"
               />
             </span>
 
@@ -226,7 +242,7 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
                 event.stopPropagation()
                 onAdicionar(port.id)
               }}
-              className={`nodrag ml-1.5 h-[18px] w-[18px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-dashed border-primary/60 bg-card text-primary transition-colors hover:border-solid hover:bg-primary hover:text-primary-foreground ${
+              className={`nodrag ml-1.5 h-4.5 w-4.5 shrink-0 cursor-pointer items-center justify-center rounded-md border border-dashed border-primary/60 bg-card text-primary transition-colors hover:border-solid hover:bg-primary hover:text-primary-foreground ${
                 pendente ? 'flex' : 'hidden group-hover/porta:flex'
               }`}
             >
