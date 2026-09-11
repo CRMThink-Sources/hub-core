@@ -46,7 +46,7 @@ describe('prepareOpenLineOutboundText', () => {
       },
     })
 
-    expect(result).toBe('João Silva: Olá')
+    expect(result).toBe('*João Silva:* Olá')
     expect(apiLogger.warn).not.toHaveBeenCalled()
   })
 
