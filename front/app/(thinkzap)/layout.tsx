@@ -16,6 +16,7 @@ import { useEffect, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import { isBitrixAdmin } from '@/bitrix'
 import { AccessDeniedPanel } from './thinkzap/_components/access-denied-panel'
+import { envConfig } from '@/shared/infra/env-config'
 
 const THINKZAP_THEME_CLASS = 'theme-thinkzap'
 
@@ -40,6 +41,9 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
 
   const asideLinks = useMemo(() => {
     return THINKZAP_ASIDE_CONFIG.links.filter(link => {
+      if (link.href === '/thinkzap/bots' && !envConfig.thinkbotMenuEnabled) {
+        return false
+      }
       if (link.href === '/thinkzap/permissoes') return canManageAccess
       if (
         link.href === '/thinkzap' ||
