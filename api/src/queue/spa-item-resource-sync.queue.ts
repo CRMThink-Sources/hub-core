@@ -9,6 +9,15 @@ export type SpaItemResourceSyncJob = {
   itemId: string
   /** Correlação com a linha do webhook que originou o job. */
   traceKey: string
+  /**
+   * Quem e quando excluiu — só o job de limpeza (`SPA_ITEM_CLEANUP_JOB`) carrega
+   * isto, vindo de `DeleteLine`. Ausente no job de status-sync, que não tem "quem
+   * excluiu" (a edição pode ter vindo de qualquer lugar, inclusive o próprio CRM).
+   * Opcionais aqui, e não num tipo à parte, para os dois jobs continuarem
+   * compartilhando a mesma fila e o mesmo shape de payload.
+   */
+  deletedBy?: string
+  deletedAt?: string
 }
 
 /** Os dois nomes de job da fila. O processor é escolhido por eles. */
@@ -76,6 +85,8 @@ export async function enqueueSpaItemCleanupJob(job: SpaItemResourceSyncJob) {
       jobId: created.id,
       itemId: job.itemId,
       traceKey: job.traceKey,
+      ...(job.deletedBy !== undefined && { deletedBy: job.deletedBy }),
+      ...(job.deletedAt !== undefined && { deletedAt: job.deletedAt }),
     },
     'Limpeza do recurso de item apagado enfileirada',
   )

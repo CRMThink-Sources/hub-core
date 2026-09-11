@@ -64,7 +64,21 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
       settings: DEFAULT_CONNECTOR_SETTINGS,
       vinculatedChannel: null,
       gatewayId: 'si_123',
+      deletedAt: null,
+      deletedBy: null,
     })
+  })
+
+  it('mapeia ufCrm93DeletedAt/ufCrm93DeletedBy quando preenchidos', () => {
+    const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
+      validItem({
+        ufCrm93DeletedAt: '2026-09-10T12:00:00.000Z',
+        ufCrm93DeletedBy: 'Ana Souza',
+      }),
+    )
+
+    expect(item.deletedAt).toEqual(new Date('2026-09-10T12:00:00.000Z'))
+    expect(item.deletedBy).toBe('Ana Souza')
   })
 
   it('monta o nome do campo parent a partir do env', () => {
@@ -495,6 +509,27 @@ describe('mapSubscriptionItemInputToBitrixFields', () => {
       ufCrm93HubChanelId: '',
       ufCrm93HubWabaId: '',
     })
+  })
+
+  it('traduz deletedAt/deletedBy da exclusão', () => {
+    const fields = mapSubscriptionItemInputToBitrixFields({
+      status: 'cancelled',
+      deletedAt: new Date('2026-09-10T12:00:00.000Z'),
+      deletedBy: 'Ana Souza',
+    })
+
+    expect(fields).toEqual({
+      ufCrm93Status: '13627',
+      ufCrm93DeletedAt: '2026-09-10T12:00:00.000Z',
+      ufCrm93DeletedBy: 'Ana Souza',
+    })
+  })
+
+  it('omite deletedAt/deletedBy quando ausentes do input (não apaga o que já está gravado)', () => {
+    const fields = mapSubscriptionItemInputToBitrixFields({ status: 'active' })
+
+    expect(fields).not.toHaveProperty('ufCrm93DeletedAt')
+    expect(fields).not.toHaveProperty('ufCrm93DeletedBy')
   })
 
   it('omite os campos ausentes de um patch de um campo só', () => {

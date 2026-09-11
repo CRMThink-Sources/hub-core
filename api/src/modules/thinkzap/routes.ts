@@ -273,11 +273,13 @@ export const createThinkerszapRoutes = (): Router => {
     adaptControllerFactory(makeDisconnectLineController),
   )
   /**
-   * Apaga a linha. `connectors:delete`, a mesma permissão de desconectar — as duas
-   * são destrutivas, e quem pode derrubar a sessão pode remover a linha.
+   * Exclui a linha. `connectors:delete`, a mesma permissão de desconectar — as duas
+   * são destrutivas, e quem pode derrubar a sessão pode excluir a linha.
    *
-   * A limpeza do recurso no provider e o ajuste da cobrança vêm do webhook de saída
-   * da SPA que o item apagado dispara, não desta rota.
+   * Não apaga o item da SPA — edita para `status: 'cancelled'` e grava quem/quando
+   * excluiu (ver `DeleteLine`). A limpeza do recurso no provider e o ajuste da
+   * cobrança são enfileirados diretamente por esta rota, com o mesmo resultado de
+   * antes.
    */
   router.delete(
     '/lines/:itemId',

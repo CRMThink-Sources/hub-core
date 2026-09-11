@@ -85,6 +85,16 @@ const bitrixOptionalText = z
   .transform(value => value || undefined)
 
 /**
+ * Datetime opcional da SPA (`ufCrm93DeletedAt`). Mesma regra de ausência de
+ * `bitrixOptionalText`: string vazia e `null` viram `undefined`, e é o `?? null`
+ * do transform final que dá ao domínio o `Date | null` que ele espera.
+ */
+const bitrixOptionalDateTime = z
+  .string()
+  .nullish()
+  .transform(value => (value ? new Date(value) : undefined))
+
+/**
  * Lê o JSON de `ufCrm93Settings`.
  *
  * Degrada para os defaults em **todo** caminho de falha — campo ausente, string
@@ -330,6 +340,8 @@ const bitrixSubscriptionItemSchema = z
     [SUBSCRIPTION_ITEM_SETTINGS_FIELD]: z.unknown(),
     // Ausente, `null` e string vazia são o mesmo estado: sem canal vinculado.
     [SUBSCRIPTION_ITEM_CHANNEL_FIELD]: bitrixOptionalText,
+    ufCrm93DeletedAt: bitrixOptionalDateTime,
+    ufCrm93DeletedBy: bitrixOptionalText,
   })
   .transform((data, ctx): SubscriptionItem => {
     const resolution = resolveMetadata(data[SUBSCRIPTION_ITEM_PROVIDER_FIELD], {
@@ -359,6 +371,8 @@ const bitrixSubscriptionItemSchema = z
       settings: parseSettingsField(data[SUBSCRIPTION_ITEM_SETTINGS_FIELD]),
       vinculatedChannel: data[SUBSCRIPTION_ITEM_CHANNEL_FIELD] ?? null,
       gatewayId: data.ufCrm93GatewayId,
+      deletedAt: data.ufCrm93DeletedAt ?? null,
+      deletedBy: data.ufCrm93DeletedBy ?? null,
     }
   })
 
@@ -476,6 +490,19 @@ export const mapSubscriptionItemInputToBitrixFields = (
    */
   if (input.vinculatedChannel !== undefined) {
     fields[SUBSCRIPTION_ITEM_CHANNEL_FIELD] = input.vinculatedChannel ?? ''
+  }
+  /**
+   * `null` explícito (não deveria ocorrer em uso normal — exclusão só grava data
+   * real) ainda assim vira string vazia, pela mesma regra de `vinculatedChannel`:
+   * omissão é "não mexe", `null` é escrita.
+   */
+  if (input.deletedAt !== undefined) {
+    fields.ufCrm93DeletedAt = input.deletedAt
+      ? input.deletedAt.toISOString()
+      : ''
+  }
+  if (input.deletedBy !== undefined) {
+    fields.ufCrm93DeletedBy = input.deletedBy ?? ''
   }
   // Só o caminho de criação carrega `subscription`: `UpdateSubscriptionItemInput`
   // omite o campo, e o mapper não o reintroduz.
