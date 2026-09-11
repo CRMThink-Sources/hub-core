@@ -23,7 +23,6 @@ import {
   NODE_RECIPES,
   makeNode,
   nextNodeId,
-  removeNode,
 } from '@/shared/thinkzap-bot-flow'
 import { setPortTarget } from '@/shared/thinkzap-flow-graph'
 import {
@@ -397,10 +396,6 @@ export function BotFlowEditor({
                     ),
                   })
                 }
-                onRemove={() => {
-                  mutate(removeNode(graph, nodeSelecionado.id))
-                  setSelecionado(null)
-                }}
                 onSetEntry={() =>
                   mutate({ ...graph, entryNodeId: nodeSelecionado.id })
                 }

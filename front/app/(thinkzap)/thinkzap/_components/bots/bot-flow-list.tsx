@@ -11,7 +11,7 @@ type Props = {
   flows: BotFlowSummary[]
   bindings: BotFlowBinding[]
   linhas: OpenChannel[] | null
-  /** Mensagem quando a listagem falhou — distinto de portal sem canais. */
+  /** Erro na listagem — distinto de portal sem canais. */
   linhasErro: string | null
   onOpen: (flowId: string) => void
   onDelete: (flowId: string) => Promise<void>
@@ -45,13 +45,13 @@ export function BotFlowList({
 }: Props) {
   const [excluindo, setExcluindo] = useState<string | null>(null)
 
-  /** Índices por fluxo e por canal: `find` por linha da tabela seria O(n²). */
+  // `find` por linha da tabela seria O(n²)
   const porFlow = useMemo(
     () => new Map(bindings.map(binding => [binding.flowId, binding])),
     [bindings],
   )
 
-  /** Canal → nome do fluxo que o ocupa, para o seletor não oferecer o que a API recusa. */
+  // Canal → fluxo que o ocupa: seletor não oferece o que a API recusa
   const ocupadas = useMemo(() => {
     const nomes = new Map(flows.map(flow => [flow.id, flow.name]))
     return new Map(
@@ -79,14 +79,13 @@ export function BotFlowList({
         </div>
         <Button onClick={onCreate}>
           <Plus className="h-4 w-4" />
-          Criar primeiro fluxo
+          Criar fluxo
         </Button>
       </div>
     )
   }
 
-  // Publicado e sem canal não atende ninguém. O aviso fica aqui porque é aqui que se
-  // resolve: a coluna ao lado tem o seletor.
+  // Publicado e sem canal não atende ninguém
   const inertes = flows.filter(
     flow => flow.status === 'PUBLISHED' && !porFlow.has(flow.id),
   )
