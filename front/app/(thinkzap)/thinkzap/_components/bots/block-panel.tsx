@@ -1,6 +1,7 @@
 'use client'
 
-import { Plus, Trash2, X } from 'lucide-react'
+import { useState } from 'react'
+import { Minus, Plus, Trash2, X } from 'lucide-react'
 import type {
   FlowIssue,
   FlowNode,
@@ -41,7 +42,6 @@ export type BlockPanelProps = {
   issues: FlowIssue[]
   destinos: Array<{ id: string; rotulo: string }>
   onChange: (node: FlowNode) => void
-  onRemove: () => void
   onSetEntry: () => void
   onSetTarget: (port: PortKind, target: string) => void
 }
@@ -59,7 +59,6 @@ export function BlockPanel({
   issues,
   destinos,
   onChange,
-  onRemove,
   onSetEntry,
   onSetTarget,
 }: BlockPanelProps) {
@@ -111,26 +110,12 @@ export function BlockPanel({
             tornar início
           </button>
         )}
-        <button
-          type="button"
-          aria-label="Remover bloco"
-          title={
-            isEntry
-              ? 'O bloco de início não pode ser removido'
-              : 'Remover bloco'
-          }
-          onClick={onRemove}
-          disabled={isEntry}
-          className="ml-auto flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
         {onFechar ? (
           <button
             type="button"
             aria-label="Fechar"
             onClick={onFechar}
-            className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="ml-auto flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -314,6 +299,8 @@ export function BlockPanel({
         </div>
       ) : null}
 
+      {/* "Resposta diferente" fora do ar por ora — `RetrySection` segue no arquivo.
+          A saída "não entendeu" continua no cartão, ligável pela bolinha.
       {node.kind === 'question' || node.kind === 'input' ? (
         <RetrySection
           node={node}
@@ -321,7 +308,7 @@ export function BlockPanel({
           onChange={onChange}
           onSetTarget={onSetTarget}
         />
-      ) : null}
+      ) : null} */}
 
       {node.kind === 'condition' ? (
         <div className="flex flex-col gap-2">
@@ -373,9 +360,9 @@ export function BlockPanel({
                     pendente ? 'border-amber-500 text-amber-700' : ''
                   }`}
                 >
-                  {pendente ? (
-                    <option value={node.id}>escolher destino…</option>
-                  ) : null}
+                  {/* Sempre na lista: escondê-la depois de escolher trancava a saída
+                      no primeiro destino até existir um segundo bloco. */}
+                  <option value={node.id}>escolher destino…</option>
                   {destinos.map(item => (
                     <option key={item.id} value={item.id}>
                       {item.rotulo}
@@ -466,7 +453,7 @@ function RetrySection({
             pendente ? 'border-amber-500 text-amber-700' : ''
           }`}
         >
-          {pendente ? <option value={node.id}>escolher destino…</option> : null}
+          <option value={node.id}>escolher destino…</option>
           {destinos.map(item => (
             <option key={item.id} value={item.id}>
               {item.rotulo}
@@ -513,6 +500,11 @@ function OptionRow({
   onDestino: (valor: string) => void
   onRemover: () => void
 }) {
+  const palavras = aliases ?? []
+  // Fechado quando não há palavra: o campo vazio ocupava uma linha por opção sem dizer
+  // nada. Quem já usou abre com elas à vista.
+  const [abertas, setAbertas] = useState(palavras.length > 0)
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
@@ -546,11 +538,31 @@ function OptionRow({
       {/* O rótulo sozinho não diz o que o cliente pode digitar: ele lê "Suporte" e
           responde "ajuda". Campo separado porque o rótulo é o texto **exibido** — juntar
           os dois mudaria a mensagem. */}
-      <div className="flex items-start gap-1.5 pl-6.5">
-        <span className="shrink-0 pt-1.5 text-[10px] text-muted-foreground">
-          aceita
-        </span>
-        <AliasTagsField aliases={aliases ?? []} onChange={onAliases} />
+      <div className="flex flex-col gap-1 pl-6.5">
+        <button
+          type="button"
+          onClick={() => setAbertas(atual => !atual)}
+          aria-expanded={abertas}
+          className="flex w-fit cursor-pointer items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <span className="flex h-3.5 w-3.5 items-center justify-center rounded border border-border">
+            {abertas ? (
+              <Minus className="h-2.5 w-2.5" />
+            ) : (
+              <Plus className="h-2.5 w-2.5" />
+            )}
+          </span>
+          palavras-chave
+          {!abertas && palavras.length > 0 ? (
+            <span className="rounded bg-primary/10 px-1 font-medium text-primary">
+              {palavras.length}
+            </span>
+          ) : null}
+        </button>
+
+        {abertas ? (
+          <AliasTagsField aliases={palavras} onChange={onAliases} />
+        ) : null}
       </div>
 
       {/* Em linha própria e não ao lado: os dois campos lado a lado estouravam a largura
@@ -567,9 +579,7 @@ function OptionRow({
             destinoPendente ? 'border-amber-500 text-amber-700' : ''
           }`}
         >
-          {destinoPendente ? (
-            <option value={nodeId}>escolher destino…</option>
-          ) : null}
+          <option value={nodeId}>escolher destino…</option>
           {destinos.map(item => (
             <option key={item.id} value={item.id}>
               {item.rotulo}
@@ -677,7 +687,7 @@ function ConditionRow({
             pendente ? 'border-amber-500 text-amber-700' : ''
           }`}
         >
-          {pendente ? <option value={node.id}>escolher destino…</option> : null}
+          <option value={node.id}>escolher destino…</option>
           {destinos.map(item => (
             <option key={item.id} value={item.id}>
               {item.rotulo}
