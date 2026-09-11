@@ -27,6 +27,9 @@ export interface CreateSubscriptionItemInput {
    */
   vinculatedChannel?: string | null
   gatewayId?: string
+  /** Ver `SubscriptionItem.deletedAt`/`deletedBy`. Ausente na criação — item nasce nunca excluído. */
+  deletedAt?: Date | null
+  deletedBy?: string | null
 }
 
 /**
@@ -50,21 +53,20 @@ export type UpdateSubscriptionItemInput = Partial<
  * Sem prefixo `get-` no nome do arquivo, seguindo assinaturas: o contrato não é
  * só de leitura.
  *
- * **Desligar e apagar são operações diferentes, e a diferença é a cobrança.**
- * Este contrato proibia `deleteSubscriptionItem` e mandava usar
- * `status: 'cancelled'` para tudo. A regra está certa para o que ela cobria —
- * inadimplência, linha desligada sem perder histórico —, mas não cobre o cliente
- * querendo o conector **fora**:
+ * **Desligar e apagar já foram operações diferentes — hoje convergem no mesmo
+ * `status: 'cancelled'`.** Até `connector-soft-delete`, "apagar" era
+ * `deleteSubscriptionItem`: o item sumia da SPA e o webhook de saída disparava a
+ * limpeza (desassinar, desconectar, reconciliar cobrança). Isso passou a apagar
+ * histórico e auditoria (quem excluiu, quando) junto com o item, então "excluir"
+ * virou editar: `status: 'cancelled'` + `deletedAt`/`deletedBy` preenchidos, com a
+ * mesma limpeza de recurso enfileirada diretamente por quem chama (`DeleteLine`),
+ * em vez de esperar o webhook de item apagado — que só dispararia se o item
+ * realmente tivesse sido apagado.
  *
- * - `status: 'cancelled'`: o item continua existindo e **continua contando** como
- *   linha do contrato. O recurso é desassinado no provider, e os `line_items` do
- *   gateway ficam como estavam. É desligar.
- * - `deleteSubscriptionItem`: o item some, e o webhook de saída da SPA dispara a
- *   limpeza que **reduz** a cobrança — ou encerra o contrato, se não sobrou linha.
- *   É apagar.
- *
- * Usar cancelamento por status onde se queria exclusão entrega a metade errada: a
- * linha some da tela e o cliente continua pagando por ela.
+ * `deleteSubscriptionItem` foi removido deste contrato: sem chamador desde que
+ * `DeleteLine` passou a editar em vez de apagar. Excluir pelo Bitrix direto (fora
+ * desta API) continua possível e continua disparando o webhook reativo — este
+ * contrato só deixou de ser o que inicia isso.
  */
 export interface SubscriptionItemRepository {
   getSubscriptionItem(id: string): Promise<SubscriptionItem>
@@ -99,18 +101,4 @@ export interface SubscriptionItemRepository {
     itemId: string,
     subscriptionId: string,
   ): Promise<SubscriptionItem>
-
-  /**
-   * Apaga o item na SPA.
-   *
-   * **Não** limpa o recurso no provider nem ajusta a cobrança: quem faz isso é o
-   * webhook de saída da SPA, que o item apagado dispara. Um caminho só, e é o mesmo
-   * de quando alguém apaga pelo Bitrix — uma segunda implementação aqui divergiria
-   * da primeira, com o sintoma sendo recurso pago no provider que ninguém
-   * desassinou.
-   *
-   * Item inexistente **não** é erro: apagar o que já não está lá chegou ao estado
-   * desejado. Reentrega de webhook e duplo clique tornam isso alcançável.
-   */
-  deleteSubscriptionItem(id: string): Promise<void>
 }

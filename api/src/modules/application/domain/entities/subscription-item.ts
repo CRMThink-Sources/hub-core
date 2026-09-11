@@ -55,4 +55,17 @@ export interface SubscriptionItem {
    */
   vinculatedChannel: string | null
   gatewayId?: string
+  /**
+   * Quando e por quem a linha foi excluída pela rota do cliente. `null` = nunca
+   * excluída; **opcional**, e não `Date | null` puro, pelo mesmo motivo de
+   * `gatewayId` — dezenas de fixtures de teste já montam `SubscriptionItem` sem
+   * conhecer este campo, e forçar presença obrigaria todas a mudar por uma
+   * coluna que não testam.
+   *
+   * Persistidos em `ufCrm93DeletedAt`/`ufCrm93DeletedBy`. Excluir não apaga mais o
+   * item (`DeleteLine`): edita para `status: 'cancelled'` e preenche estes dois,
+   * mantendo o registro no CRM em vez de descartá-lo.
+   */
+  deletedAt?: Date | null
+  deletedBy?: string | null
 }

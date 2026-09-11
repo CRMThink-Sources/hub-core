@@ -23,3 +23,15 @@ export const parseLineRequest = (req: Request): LineRequestInput =>
     domainId: req.domainId,
     appCode: req.appId,
   })
+
+/**
+ * `bitrixUserId` fica **fora** do schema comum de propósito: ele já está em
+ * `req` para toda rota autenticada (`authMiddleware` recusa com 401 se ausente),
+ * mas só a exclusão precisa dele hoje (para registrar quem excluiu). Colocá-lo no
+ * schema comum obrigaria os outros ~20 consumidores de `parseLineRequest` — e os
+ * testes deles — a passar a mockar um campo que não usam.
+ */
+const bitrixUserIdSchema = z.string().min(1)
+
+export const parseBitrixUserId = (req: Request): string =>
+  bitrixUserIdSchema.parse(req.bitrixUserId)
