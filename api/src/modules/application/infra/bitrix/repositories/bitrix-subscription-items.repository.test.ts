@@ -48,6 +48,8 @@ describe('BitrixSubscriptionItemRepository', () => {
         settings: DEFAULT_CONNECTOR_SETTINGS,
         vinculatedChannel: null,
         gatewayId: undefined,
+        deletedAt: null,
+        deletedBy: null,
       })
     })
 

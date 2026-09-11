@@ -1,6 +1,9 @@
 import { Request } from 'express'
 import { env } from '@/config/env'
+import { ensureSubscriptionItemDeletionFields } from '@/modules/application/infra/bitrix/ensure-subscription-item-deletion-fields'
+import { enqueueSpaItemCleanupJob } from '@/queue/spa-item-resource-sync.queue'
 import { Controller } from '@/shared/presentation/controller'
+import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { makeBitrixClient } from '@/shared/main/make-bitrix-client'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { HubMessageConnectorProvider } from '@/modules/thinkzap/infra/providers/hubmessage-connector-provider'
@@ -14,6 +17,8 @@ import { ConnectLineChannelController } from '@/modules/thinkzap/presentation/co
 import { GetLineConnectionController } from '@/modules/thinkzap/presentation/controllers/line/get-line-connection.controller'
 import { GetLineQrCodeController } from '@/modules/thinkzap/presentation/controllers/line/get-line-qr-code.controller'
 import { DeleteLine } from '@/modules/thinkzap/application/delete-line'
+import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
+import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
 import { DeleteLineController } from '@/modules/thinkzap/presentation/controllers/line/delete-line.controller'
 import { DisconnectLineController } from '@/modules/thinkzap/presentation/controllers/line/disconnect-line.controller'
 import { GetLineSettingsController } from '@/modules/thinkzap/presentation/controllers/line/get-line-settings.controller'
@@ -90,11 +95,34 @@ export const makeDisconnectLineController = (): Controller => {
   )
 }
 
-export const makeDeleteLineController = (): Controller => {
+/**
+ * Cliente Bitrix **do portal do cliente** (`makeBitrixClient` resolve pela
+ * credencial da instalação), para resolver o nome de quem excluiu via `user.get`
+ * — diferente do cliente interno que `subscriptionItems` usa para escrever na
+ * SPA (CRMThink). Mesmo par de portais de `makeLinkLineChannelController`.
+ */
+export const makeDeleteLineController = async (
+  req: Request,
+): Promise<Controller> => {
   const { getAplicationContext, subscriptionItems } = makeLineDeps()
 
   return new DeleteLineController(
-    new DeleteLine(getAplicationContext, subscriptionItems),
+    new DeleteLine(
+      getAplicationContext,
+      subscriptionItems,
+      new BitrixGetUserDisplayNameAdapter(await makeBitrixClient(req)),
+      new PrismaAllowedUserRepository(),
+      /**
+       * Cliente Bitrix **interno** (CRMThink) — o mesmo portal onde a SPA 1146
+       * vive, não o do cliente. `makeSubscriptionItemRepository` monta um
+       * equivalente para escrever no item; este é só para o guard ler os campos.
+       */
+      () =>
+        ensureSubscriptionItemDeletionFields(
+          new BitrixClient({ webhook: env.crmthinkWebhookUrl }),
+        ),
+      enqueueSpaItemCleanupJob,
+    ),
   )
 }
 

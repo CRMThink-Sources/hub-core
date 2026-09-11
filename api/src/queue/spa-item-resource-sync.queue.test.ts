@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
  * O módulo da fila abre conexão com o Redis ao ser importado (`new Queue`). O teste é
@@ -8,10 +8,23 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('./redis-connection', () => ({
   bullBaseOptions: { connection: {}, prefix: 'bull' },
 }))
-vi.mock('bullmq', () => ({ Queue: class {} }))
+
+const { addMock, infoMock } = vi.hoisted(() => ({
+  addMock: vi.fn(() => Promise.resolve({ id: 'job-1' })),
+  infoMock: vi.fn(),
+}))
+vi.mock('bullmq', () => ({
+  Queue: class {
+    add = addMock
+  },
+}))
+vi.mock('@/shared/infra/logger', () => ({
+  apiLogger: { info: infoMock, debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}))
 
 // `vi.mock` é içado acima dos imports, então o import estático já pega os dublês.
 import {
+  enqueueSpaItemCleanupJob,
   spaItemCleanupJobId,
   spaItemStatusJobId,
 } from './spa-item-resource-sync.queue'
@@ -53,5 +66,39 @@ describe('ids de job da fila de recurso do item', () => {
   it('carregam o id do item, para o job ser rastreável pelo painel', () => {
     expect(spaItemCleanupJobId('27')).toBe('spa-item-cleanup-27')
     expect(spaItemStatusJobId('27')).toBe('spa-item-status-27')
+  })
+})
+
+describe('enqueueSpaItemCleanupJob', () => {
+  beforeEach(() => {
+    addMock.mockClear()
+    infoMock.mockClear()
+  })
+
+  it('loga deletedBy/deletedAt quando vêm no job (exclusão pela rota)', async () => {
+    await enqueueSpaItemCleanupJob({
+      itemId: '27',
+      traceKey: 'trace-1',
+      deletedBy: 'Ana Souza',
+      deletedAt: '2026-09-10T12:00:00.000Z',
+    })
+
+    expect(infoMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: '27',
+        deletedBy: 'Ana Souza',
+        deletedAt: '2026-09-10T12:00:00.000Z',
+      }),
+      'Limpeza do recurso de item apagado enfileirada',
+    )
+  })
+
+  /** Item apagado direto pelo Bitrix não tem "quem excluiu" — o log não deve inventar. */
+  it('não loga deletedBy/deletedAt quando ausentes (item apagado pelo Bitrix)', async () => {
+    await enqueueSpaItemCleanupJob({ itemId: '27', traceKey: 'trace-1' })
+
+    const loggedFields = infoMock.mock.calls[0]![0] as Record<string, unknown>
+    expect(loggedFields).not.toHaveProperty('deletedBy')
+    expect(loggedFields).not.toHaveProperty('deletedAt')
   })
 })

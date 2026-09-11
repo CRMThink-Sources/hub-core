@@ -29,6 +29,14 @@ export type CleanupDeletedSpaItemLineInput = {
   itemId: string
   /** Correlação com a linha do webhook que originou o job. */
   traceKey: string
+  /**
+   * Quem e quando excluiu, quando a origem foi `DeleteLine` (exclusão pela rota do
+   * cliente). Ausente quando o job vem de outra origem. `const log = { app:
+   * 'thinkzap', ...input }` já espalha os dois em toda linha de log deste caso de
+   * uso — não precisam ser lidos explicitamente em nenhum passo.
+   */
+  deletedBy?: string
+  deletedAt?: string
 }
 
 export type CleanupDeletedSpaItemLineResult = {

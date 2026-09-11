@@ -27,6 +27,8 @@ export async function processSpaItemCleanup(
   const result = await makeCleanupDeletedSpaItemLine().execute({
     itemId: job.itemId,
     traceKey: job.traceKey,
+    deletedBy: job.deletedBy,
+    deletedAt: job.deletedAt,
   })
 
   log.info(
@@ -36,6 +38,8 @@ export async function processSpaItemCleanup(
       traceKey: job.traceKey,
       outcome: result.outcome,
       billingAdjusted: result.billingAdjusted,
+      ...(job.deletedBy !== undefined && { deletedBy: job.deletedBy }),
+      ...(job.deletedAt !== undefined && { deletedAt: job.deletedAt }),
     },
     'Limpeza do recurso de item apagado concluída',
   )
