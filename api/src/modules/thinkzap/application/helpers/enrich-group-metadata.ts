@@ -33,6 +33,7 @@ function normalizeParticipant(
     short: coerceOptionalString(raw.short),
     name: coerceOptionalString(raw.name),
     imgUrl: null,
+    lid: coerceOptionalString(raw.lid),
   }
 }
 
