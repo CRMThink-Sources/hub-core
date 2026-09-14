@@ -6,7 +6,7 @@ import { nodePorts } from './thinkzap-flow-graph'
 
 const base = (): BotFlowGraph => ({
   entryNodeId: 'n1',
-  settings: { escapeKeywords: [], escapeNext: null },
+  settings: { escapeKeywords: [], escapeTarget: null },
   nodes: [
     {
       id: 'n1',
@@ -160,7 +160,7 @@ describe('insertAfter em saída já ligada', () => {
    */
   const ligado = (): BotFlowGraph => ({
     entryNodeId: 'a',
-    settings: { escapeKeywords: [], escapeNext: null },
+    settings: { escapeKeywords: [], escapeTarget: null },
     nodes: [
       {
         id: 'a',

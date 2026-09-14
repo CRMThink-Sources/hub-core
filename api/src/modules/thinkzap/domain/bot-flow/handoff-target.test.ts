@@ -4,7 +4,7 @@ import { parseBotFlowGraph, validateFlowGraph } from './flow.schema'
 
 const comAlvo = (target: HandoffTarget): BotFlowGraph => ({
   entryNodeId: 'a',
-  settings: { escapeKeywords: [], escapeNext: null },
+  settings: { escapeKeywords: [], escapeTarget: null },
   nodes: [
     { id: 'a', kind: 'message', text: 'oi', next: 'b' },
     { id: 'b', kind: 'handoff', target },
@@ -61,7 +61,7 @@ describe('alvo de handoff', () => {
 describe('variável da condição', () => {
   const comVar = (nome: string): BotFlowGraph => ({
     entryNodeId: 'a',
-    settings: { escapeKeywords: [], escapeNext: null },
+    settings: { escapeKeywords: [], escapeTarget: null },
     nodes: [
       {
         id: 'a',
@@ -110,7 +110,7 @@ describe('variável da condição', () => {
 describe('texto vazio no bloco', () => {
   const base = (nodes: BotFlowGraph['nodes']): BotFlowGraph => ({
     entryNodeId: 'a',
-    settings: { escapeKeywords: [], escapeNext: null },
+    settings: { escapeKeywords: [], escapeTarget: null },
     nodes,
   })
 

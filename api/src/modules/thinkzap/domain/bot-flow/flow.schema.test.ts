@@ -12,7 +12,7 @@ const codes = (graph: unknown): FlowIssueCode[] =>
 
 const minimal: BotFlowGraph = {
   entryNodeId: 'a',
-  settings: { escapeKeywords: [], escapeNext: null },
+  settings: { escapeKeywords: [], escapeTarget: null },
   nodes: [
     { id: 'a', kind: 'message', text: 'oi', next: 'b' },
     { id: 'b', kind: 'finish' },
@@ -28,7 +28,7 @@ describe('parseBotFlowGraph', () => {
     expect(
       parseBotFlowGraph({
         entryNodeId: 'a',
-        settings: { escapeKeywords: [], escapeNext: null },
+        settings: { escapeKeywords: [], escapeTarget: null },
         nodes: [{ id: 'a', kind: 'carrossel', text: 'oi' }],
       }),
     ).toBeNull()
@@ -61,7 +61,7 @@ describe('parseBotFlowGraph', () => {
       nodes: minimal.nodes,
     })
 
-    expect(parsed?.settings.escapeNext).toBeNull()
+    expect(parsed?.settings.escapeTarget).toBeNull()
   })
 })
 
@@ -123,7 +123,7 @@ describe('validateFlowGraph', () => {
     expect(
       codes({
         entryNodeId: 'a',
-        settings: { escapeKeywords: [], escapeNext: null },
+        settings: { escapeKeywords: [], escapeTarget: null },
         nodes: [
           { id: 'a', kind: 'message', text: 'gira', next: 'b' },
           { id: 'b', kind: 'message', text: 'gira', next: 'a' },
@@ -135,7 +135,7 @@ describe('validateFlowGraph', () => {
   it('re-pergunta não é ciclo: passa por nó de espera', () => {
     const issues = codes({
       entryNodeId: 'q',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         {
           id: 'q',
@@ -160,7 +160,7 @@ describe('validateFlowGraph', () => {
     expect(
       codes({
         entryNodeId: 'q',
-        settings: { escapeKeywords: [], escapeNext: null },
+        settings: { escapeKeywords: [], escapeTarget: null },
         nodes: [
           {
             id: 'q',
@@ -175,20 +175,46 @@ describe('validateFlowGraph', () => {
     ).toContain('no-terminal-reachable')
   })
 
-  it('acusa destino de escape inexistente', () => {
+  it('acusa saída de emergência sem atendente escolhido', () => {
     expect(
       codes({
         ...minimal,
-        settings: { escapeKeywords: ['atendente'], escapeNext: 'ninguem' },
+        settings: {
+          escapeKeywords: ['atendente'],
+          escapeTarget: { type: 'user', bitrixUserId: '' },
+        },
       }),
-    ).toContain('escape-target-not-found')
+    ).toContain('escape-target-incomplete')
+  })
+
+  it('migra o escape antigo que apontava para um handoff', () => {
+    const parsed = parseBotFlowGraph({
+      entryNodeId: 'a',
+      settings: { escapeKeywords: ['atendente'], escapeNext: 'h' },
+      nodes: [
+        { id: 'a', kind: 'message', text: 'oi', next: 'h' },
+        { id: 'h', kind: 'handoff', target: { type: 'line', lineId: '7' } },
+      ],
+    })
+
+    expect(parsed?.settings.escapeTarget).toEqual({ type: 'line', lineId: '7' })
+  })
+
+  it('desliga o escape antigo que apontava para bloco que não entrega', () => {
+    const parsed = parseBotFlowGraph({
+      entryNodeId: 'a',
+      settings: { escapeKeywords: ['atendente'], escapeNext: 'a' },
+      nodes: [{ id: 'a', kind: 'finish' }],
+    })
+
+    expect(parsed?.settings.escapeTarget).toBeNull()
   })
 
   it('acusa valor de opção repetido, que faria a variável ser ambígua', () => {
     expect(
       codes({
         entryNodeId: 'q',
-        settings: { escapeKeywords: [], escapeNext: null },
+        settings: { escapeKeywords: [], escapeTarget: null },
         nodes: [
           {
             id: 'q',
@@ -211,7 +237,7 @@ describe('validateFlowGraph', () => {
   it('devolve todos os problemas de uma vez, não só o primeiro', () => {
     const issues = validateFlowGraph({
       entryNodeId: 'z',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [{ id: 'a', kind: 'message', text: 'oi', next: 'fantasma' }],
     })
 
@@ -224,7 +250,7 @@ describe('validateFlowGraph — destino não escolhido', () => {
     // É como a saída nasce no editor: sem isso o fluxo publicaria sem ir a lugar nenhum.
     const codigos = codes({
       entryNodeId: 'q',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         {
           id: 'q',
@@ -245,7 +271,7 @@ describe('validateFlowGraph — destino não escolhido', () => {
     // "Repetir o menu" numa opção e seguir na outra é fluxo válido.
     const codigos = codes({
       entryNodeId: 'q',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         {
           id: 'q',

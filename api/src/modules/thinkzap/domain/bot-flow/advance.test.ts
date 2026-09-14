@@ -155,7 +155,7 @@ describe('advance — reconvergência e escape', () => {
   it('escape só vale quando o fluxo define destino', () => {
     const withoutEscape: BotFlowGraph = {
       ...exampleFlow,
-      settings: { escapeKeywords: ['atendente'], escapeNext: null },
+      settings: { escapeKeywords: ['atendente'], escapeTarget: null },
     }
 
     const result = advance(
@@ -184,7 +184,7 @@ describe('advance — fluxo quebrado', () => {
   it('destino inexistente no meio do caminho aborta', () => {
     const broken: BotFlowGraph = {
       entryNodeId: 'a',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [{ id: 'a', kind: 'message', text: 'oi', next: 'fantasma' }],
     }
 
@@ -199,7 +199,7 @@ describe('advance — fluxo quebrado', () => {
   it('ciclo sem espera para no teto de passos em vez de travar o worker', () => {
     const looping: BotFlowGraph = {
       entryNodeId: 'a',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         { id: 'a', kind: 'message', text: 'gira', next: 'b' },
         { id: 'b', kind: 'message', text: 'gira', next: 'a' },

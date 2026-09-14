@@ -91,7 +91,7 @@ describe('crmVars', () => {
 describe('condição de CRM no primeiro passo', () => {
   const graph = {
     entryNodeId: 'n1',
-    settings: { escapeKeywords: [], escapeNext: null },
+    settings: { escapeKeywords: [], escapeTarget: null },
     nodes: [
       {
         id: 'n1',

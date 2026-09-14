@@ -219,7 +219,8 @@ export function BlockPanel({
       {node.kind === 'handoff' ? (
         <HandoffTargetField
           target={node.target}
-          onChange={target => onChange({ ...node, target })}
+          // Sem `noneLabel` o seletor nunca devolve `null`: o bloco exige alvo.
+          onChange={target => target && onChange({ ...node, target })}
         />
       ) : null}
 

@@ -15,7 +15,7 @@ const CHAT = '5'
 // separa "avança" de "retry" nos testes abaixo.
 const graph: BotFlowGraph = {
   entryNodeId: 'ask',
-  settings: { escapeKeywords: [], escapeNext: null },
+  settings: { escapeKeywords: [], escapeTarget: null },
   nodes: [
     {
       id: 'ask',
@@ -419,7 +419,7 @@ describe('runBotTurn', () => {
     // Row `ACTIVE` sem próximo nó bloquearia o chat até expirar.
     const soHandoff = {
       entryNodeId: 'entrega',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [{ id: 'entrega', kind: 'handoff', target: { type: 'queue' } }],
     } as unknown as BotFlowGraph
 
@@ -438,7 +438,7 @@ describe('runBotTurn', () => {
     // depois: transferir para id vazio deixaria o chat órfão.
     const alvoVazio = {
       entryNodeId: 'entrega',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         {
           id: 'entrega',

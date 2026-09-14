@@ -27,12 +27,12 @@ const SCHEMA = readFileSync(
 describe('HandoffTarget espelha o servidor', () => {
   it('todo alvo aceito pelo zod existe no tipo do front', () => {
     const bloco = SCHEMA.slice(
+      SCHEMA.indexOf('const handoffTargetSchema'),
       SCHEMA.indexOf('const handoffNodeSchema'),
-      SCHEMA.indexOf('const finishNodeSchema'),
     )
-    const doServidor = [...bloco.matchAll(/z\.literal\('(\w+)'\)/g)]
-      .map(match => match[1])
-      .filter(nome => nome !== 'handoff')
+    const doServidor = [...bloco.matchAll(/z\.literal\('(\w+)'\)/g)].map(
+      match => match[1],
+    )
 
     expect(doServidor.length).toBeGreaterThan(0)
     expect([...doServidor].sort()).toEqual([...HANDOFF_TARGET_TYPES].sort())
