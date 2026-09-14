@@ -68,15 +68,9 @@ export function BotFlowList({
         <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted">
           <Bot className="h-7 w-7 text-muted-foreground" />
         </div>
-        <div>
-          <p className="text-sm font-semibold text-foreground">
-            Nenhum fluxo criado
-          </p>
-          <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            Um fluxo é o fluxo que o bot segue: blocos ligados definindo o que
-            ele fala, o que pergunta e quando chama um atendente.
-          </p>
-        </div>
+        <p className="text-sm font-semibold text-foreground">
+          Nenhum fluxo criado
+        </p>
         <Button onClick={onCreate}>
           <Plus className="h-4 w-4" />
           Criar fluxo

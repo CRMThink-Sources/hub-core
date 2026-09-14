@@ -16,7 +16,7 @@ import { canvasEdges } from './thinkzap-flow-edges'
  */
 const grafo = (): BotFlowGraph => ({
   entryNodeId: 'n1',
-  settings: { escapeKeywords: [], escapeNext: null },
+  settings: { escapeKeywords: [], escapeTarget: null },
   nodes: [
     {
       id: 'n1',

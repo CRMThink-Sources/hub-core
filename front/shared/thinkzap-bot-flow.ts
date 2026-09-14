@@ -168,7 +168,10 @@ export type FlowNodeKind = FlowNode['kind']
 
 export type FlowSettings = {
   escapeKeywords: string[]
-  escapeNext: NodeId | null
+  /** Para quem a conversa vai quando a palavra aparece. `null` desliga a saída. */
+  escapeTarget: HandoffTarget | null
+  /** Última fala antes de transferir. Ausente = transferência calada. */
+  escapeText?: string
 }
 
 export type BotFlowGraph = {
@@ -201,7 +204,7 @@ export type FlowIssueCode =
   | 'unreachable-node'
   | 'loop-without-wait'
   | 'no-terminal-reachable'
-  | 'escape-target-not-found'
+  | 'escape-target-incomplete'
   | 'duplicate-option-value'
   | 'self-target'
   | 'handoff-target-incomplete'
@@ -349,14 +352,11 @@ export function removeNode(graph: BotFlowGraph, nodeId: NodeId): BotFlowGraph {
     }
   })
 
+  // `settings` passa intacto: a saída de emergência guarda alvo de entrega, não id de bloco.
   return {
     entryNodeId: redirect(graph.entryNodeId),
     nodes,
-    settings: {
-      ...graph.settings,
-      escapeNext:
-        graph.settings.escapeNext === nodeId ? null : graph.settings.escapeNext,
-    },
+    settings: graph.settings,
   }
 }
 

@@ -17,7 +17,7 @@ const res = {} as Response
 /** Grafo publicável: uma mensagem que termina. */
 const graph = {
   entryNodeId: 'n1',
-  settings: { escapeKeywords: [], escapeNext: null },
+  settings: { escapeKeywords: [], escapeTarget: null },
   nodes: [
     { id: 'n1', kind: 'message', text: 'Olá', next: 'n2' },
     { id: 'n2', kind: 'finish' },

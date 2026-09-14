@@ -142,9 +142,12 @@ export type TerminalNode = HandoffNode | FinishNode
 export type WaitingNode = QuestionNode | InputNode
 
 export type FlowSettings = {
-  /** Vale em qualquer ponto do fluxo. `escapeNext: null` desliga a saída de emergência. */
+  /** Vale em qualquer ponto do fluxo. `escapeTarget: null` desliga a saída de emergência. */
   escapeKeywords: string[]
-  escapeNext: NodeId | null
+  /** Para quem a conversa vai quando a palavra aparece. Não é um bloco: o bot sai na hora. */
+  escapeTarget: HandoffTarget | null
+  /** Última fala antes de transferir. Ausente = transferência calada. */
+  escapeText?: string
 }
 
 export type BotFlowGraph = {
@@ -154,8 +157,10 @@ export type BotFlowGraph = {
 }
 
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
-  escapeKeywords: ['atendente', 'humano', 'pessoa'],
-  escapeNext: null,
+  // Vazio de propósito: palavra sugerida virava regra que ninguém pediu — "atendente"
+  // cortava o fluxo no primeiro cliente que escrevesse a palavra sem querer sair dele.
+  escapeKeywords: [],
+  escapeTarget: null,
 }
 
 export const isTerminal = (node: FlowNode): node is TerminalNode =>

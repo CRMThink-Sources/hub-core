@@ -11,8 +11,8 @@ export const ISSUE_TEXT: Record<FlowIssue['code'], string> = {
     'Volta para trás sem perguntar nada — o bot giraria sozinho.',
   'no-terminal-reachable':
     'Deste bloco não se chega a um encerramento nem a um atendente.',
-  'escape-target-not-found':
-    'A saída de emergência aponta para um bloco que não existe.',
+  'escape-target-incomplete':
+    'Escolha para quem a saída de emergência transfere.',
   'duplicate-option-value': 'Duas opções com o mesmo valor.',
   'self-target': 'Escolha para onde as saídas deste bloco vão.',
   'handoff-target-incomplete': 'Escolha para quem a conversa é entregue.',
@@ -29,7 +29,7 @@ const COM_DETALHE = new Set<FlowIssue['code']>([
   'target-not-found',
   'duplicate-option-value',
   'handoff-target-incomplete',
-  'escape-target-not-found',
+  'escape-target-incomplete',
   // Diz qual das condições, e se o nome está vazio ou inválido.
   'condition-var-invalid',
 ])

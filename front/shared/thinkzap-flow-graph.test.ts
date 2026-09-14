@@ -26,7 +26,7 @@ const question: FlowNode = {
 
 const graph: BotFlowGraph = {
   entryNodeId: 'n1',
-  settings: { escapeKeywords: [], escapeNext: null },
+  settings: { escapeKeywords: [], escapeTarget: null },
   nodes: [
     { id: 'n1', kind: 'message', text: 'oi', next: 'n2' },
     question,
@@ -175,7 +175,7 @@ describe('ir e voltar entre etapas', () => {
   /** menu → submenu → volta pro menu. Ciclo legítimo: espera resposta nas duas pontas. */
   const comVolta: BotFlowGraph = {
     entryNodeId: 'menu',
-    settings: { escapeKeywords: [], escapeNext: null },
+    settings: { escapeKeywords: [], escapeTarget: null },
     nodes: [
       {
         id: 'menu',
@@ -251,7 +251,7 @@ describe('fluxo grande', () => {
     )
     const grande: BotFlowGraph = {
       entryNodeId: 'n0',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes,
     }
 
@@ -269,7 +269,7 @@ describe('fluxo grande', () => {
 describe('ajustar e apagar ligação', () => {
   const base: BotFlowGraph = {
     entryNodeId: 'n1',
-    settings: { escapeKeywords: [], escapeNext: null },
+    settings: { escapeKeywords: [], escapeTarget: null },
     nodes: [
       { id: 'n1', kind: 'message', text: 'oi', next: 'n2' },
       question,
@@ -361,7 +361,7 @@ describe('renomear rótulo da ligação', () => {
 
     const edge = graphEdges({
       entryNodeId: 'n2',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         renomeado,
         { id: 'n3', kind: 'finish', text: 'f' },
