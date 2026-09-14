@@ -228,7 +228,9 @@ function buildUseCase({
     disconnectExpiredLine as never,
     resolveContactIdentity,
     (resolveGroupMentions ??
-      vi.fn().mockImplementation((text: string) => Promise.resolve(text))) as never,
+      vi
+        .fn()
+        .mockImplementation((text: string) => Promise.resolve(text))) as never,
   )
 
   /** Todo `execute` do teste passa pelo coletor; `useCase` fica exposto para o caso sem contexto. */

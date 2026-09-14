@@ -4,18 +4,16 @@ import { createResolveGroupMentions } from './resolve-group-mentions'
 function makeFakeRedis(initial: Record<string, string> = {}) {
   const store = new Map(Object.entries(initial))
   return {
-    get: vi.fn(async (key: string) => store.get(key) ?? null),
-    set: vi.fn(async (key: string, value: string) => {
+    get: vi.fn((key: string) => Promise.resolve(store.get(key) ?? null)),
+    set: vi.fn((key: string, value: string) => {
       store.set(key, value)
-      return 'OK'
+      return Promise.resolve('OK')
     }),
     store,
   }
 }
 
-function makeFakeZApiClient(
-  participants: { phone: string; lid?: string }[],
-) {
+function makeFakeZApiClient(participants: { phone: string; lid?: string }[]) {
   return {
     getGroupMetadata: vi.fn().mockResolvedValue({ participants }),
   }
@@ -57,14 +55,13 @@ describe('resolveGroupMentions', () => {
       zApiClient: zApiClient as never,
     })
 
-    const result = await resolve(
-      'Fala @159447120928786 e @271902299951214',
-      { instanceId: 'INST-A', zApiToken: 'tok', groupId: 'grp-1' },
-    )
+    const result = await resolve('Fala @159447120928786 e @271902299951214', {
+      instanceId: 'INST-A',
+      zApiToken: 'tok',
+      groupId: 'grp-1',
+    })
 
-    expect(result).toBe(
-      'Fala [b]@554788907930[/b] e [b]@554388092447[/b]',
-    )
+    expect(result).toBe('Fala [b]@554788907930[/b] e [b]@554388092447[/b]')
   })
 
   it('leaves an unmatched mention token unchanged', async () => {
