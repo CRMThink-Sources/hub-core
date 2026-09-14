@@ -63,6 +63,7 @@ const baseInstance = {
   instanceId: 'INST-A',
   vinculatedChannel: '10',
   domainId: 'domain-1',
+  zApiToken: 'zapi-token-1',
 }
 
 const baseConnector = {
@@ -114,6 +115,7 @@ function buildUseCase({
   currentPeriodEnd = new Date('2099-01-01T00:00:00.000Z'),
   domain = { id: 'domain-1', name: 'acme.bitrix24.com.br' },
   identityOverride,
+  resolveGroupMentions,
 }: {
   repoFind?: ReturnType<typeof vi.fn>
   repoCreate?: ReturnType<typeof vi.fn>
@@ -127,6 +129,8 @@ function buildUseCase({
     source?: string
     legacy?: boolean
   }
+  /** Default: devolve o texto sem alteração — o que a maioria dos testes quer. */
+  resolveGroupMentions?: ReturnType<typeof vi.fn>
 } = {}) {
   const messageRepo = {
     findByProviderMessageId: repoFind ?? vi.fn().mockResolvedValue(null),
@@ -223,6 +227,8 @@ function buildUseCase({
     messageRepo as never,
     disconnectExpiredLine as never,
     resolveContactIdentity,
+    (resolveGroupMentions ??
+      vi.fn().mockImplementation((text: string) => Promise.resolve(text))) as never,
   )
 
   /** Todo `execute` do teste passa pelo coletor; `useCase` fica exposto para o caso sem contexto. */
@@ -615,6 +621,51 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
     expect(payload.MESSAGES[0]!.message.text).toBe(
       '>>Bom dia\n[b]Maria[/b]:\nOK',
     )
+  })
+
+  it('resolves group mentions and uses the same text for Bitrix and persistence', async () => {
+    const resolveGroupMentions = vi
+      .fn()
+      .mockResolvedValue('Fala 554788907930, tudo bem?')
+    const { run, messageRepo } = buildUseCase({ resolveGroupMentions })
+
+    await run(
+      makeEvent({
+        isGroup: true,
+        phone: '120363423839924382-group',
+        senderName: 'Maria',
+        text: { message: 'Fala @159447120928786, tudo bem?' },
+      }),
+    )
+
+    expect(resolveGroupMentions).toHaveBeenCalledWith(
+      'Fala @159447120928786, tudo bem?',
+      {
+        instanceId: 'INST-A',
+        zApiToken: 'zapi-token-1',
+        groupId: '120363423839924382-group',
+      },
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe(
+      '[b]Maria[/b]:\nFala 554788907930, tudo bem?',
+    )
+    expect(messageRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'TEXT',
+        text: 'Fala 554788907930, tudo bem?',
+      }),
+    )
+  })
+
+  it('does not resolve mentions for direct (non-group) messages', async () => {
+    const resolveGroupMentions = vi.fn().mockResolvedValue('unused')
+    const { run } = buildUseCase({ resolveGroupMentions })
+
+    await run(makeEvent({ text: { message: '@159447120928786' } }))
+
+    expect(resolveGroupMentions).not.toHaveBeenCalled()
   })
 
   it('persists real bitrixMessageId resolved via im.dialog.get', async () => {

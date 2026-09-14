@@ -24,6 +24,7 @@ import {
   type AppendJobLog,
 } from '@/modules/thinkzap/domain/ports/job-log.port'
 import type { ResolveContactIdentity } from '@/modules/thinkzap/main/make-resolve-contact-identity'
+import type { ResolveGroupMentions } from './resolve-group-mentions'
 import { describeContactIdentity } from './resolve-zapi-contact-identity'
 import {
   buildOpenChannelChatName,
@@ -87,6 +88,13 @@ export class ProcessZApiInboundMessageUseCase {
      * conhecidas depois de resolver a instância.
      */
     private readonly resolveContactIdentity: ResolveContactIdentity,
+    /**
+     * Porta, pelo mesmo motivo de `resolveContactIdentity`: a credencial da
+     * Z-API (`instance.zApiToken`) só é conhecida depois de resolver a
+     * instância, então quem monta o use case não tem como injetar um cliente
+     * já pronto para consultar `group-metadata`.
+     */
+    private readonly resolveGroupMentions: ResolveGroupMentions,
   ) {}
 
   /**
@@ -585,6 +593,7 @@ export class ProcessZApiInboundMessageUseCase {
       bitrixMessageId,
       bitrixChatId,
       chatId,
+      null,
       appendJobLog,
     )
 
@@ -648,13 +657,49 @@ export class ProcessZApiInboundMessageUseCase {
       GROUP_CREATE: 'A new group has been created',
     }
 
+    /**
+     * `null` fora do texto puro (notificação, contato encaminhado): não há
+     * `@<lid>` a resolver nesses casos, e não vale gastar cache/chamada à
+     * Z-API por nada. `undefined` de `instance.zApiToken` também vira no-op
+     * dentro de `resolveGroupMentions` — sem token não há como consultar
+     * `group-metadata`.
+     */
+    let resolvedText: string | null = null
+    if (!event?.notification && !event.contact) {
+      const rawGroupText = resolveInboundText(event)
+      resolvedText = await this.resolveGroupMentions(rawGroupText, {
+        instanceId: event.instanceId,
+        zApiToken: instance.zApiToken,
+        groupId: chatId,
+      })
+
+      /**
+       * Sem isto, "menção não resolveu" é indistinguível de "não tinha
+       * menção": os três motivos de no-op (sem token, sem match, falha na
+       * Z-API) já são logados como `warn` dentro de `resolveGroupMentions`,
+       * mas nada aparecia na aba Logs do job — que é o que o suporte olha
+       * primeiro.
+       */
+      if (/@\d{5,}/.test(rawGroupText)) {
+        await appendJobLog(
+          resolvedText !== rawGroupText
+            ? 'Menção de grupo resolvida para telefone antes do envio.'
+            : `Menção de grupo NÃO resolvida (texto igual ao original) | ` +
+                `zApiToken=${instance.zApiToken ? 'presente' : 'ausente'}.`,
+        )
+      }
+    }
+
     const baseText: string = event?.notification
       ? (getNotificationMessage[
           event.notification as keyof typeof getNotificationMessage
         ] ?? '')
       : event.contact
         ? `[b]${event.senderName}[/b]:\n${buildContactText(event.contact)}`
-        : '[b]' + event.senderName + '[/b]:\n' + resolveInboundText(event)
+        : '[b]' +
+          event.senderName +
+          '[/b]:\n' +
+          (resolvedText ?? resolveInboundText(event))
 
     const { text, cached, replyLookupFailed } = await this.applyReplyContext(
       event,
@@ -744,6 +789,7 @@ export class ProcessZApiInboundMessageUseCase {
       bitrixMessageId,
       bitrixChatId,
       chatId,
+      resolvedText,
       appendJobLog,
     )
 
@@ -816,6 +862,13 @@ export class ProcessZApiInboundMessageUseCase {
     bitrixMessageId: string | null,
     bitrixChatId: string | null,
     chatId: string | null,
+    /**
+     * Texto já com menção resolvida (`@<lid>` → telefone), só no caminho de
+     * grupo. `null` no 1:1, que não tem participante nem menção a resolver.
+     * Sem isto, o histórico persistiria o `@<lid>` bruto enquanto o Bitrix já
+     * mostra o telefone — o mesmo texto tem que valer para os dois.
+     */
+    resolvedText: string | null = null,
     appendJobLog: AppendJobLog = noopJobLog,
   ): Promise<void> {
     if (event.notification === 'REVOKE' || event.isEdit) {
@@ -833,6 +886,10 @@ export class ProcessZApiInboundMessageUseCase {
 
     try {
       const quoteInput = extractQuoteInput(event)
+      const text =
+        quoteInput.type === 'TEXT' && resolvedText !== null
+          ? resolvedText
+          : (quoteInput.text ?? null)
       await this.messageRepo.create({
         instanceId: instanceDbId,
         source: 'ZAPI',
@@ -840,7 +897,7 @@ export class ProcessZApiInboundMessageUseCase {
         bitrixMessageId,
         bitrixChatId,
         type: quoteInput.type,
-        text: quoteInput.text ?? null,
+        text,
         fileName: quoteInput.fileName ?? null,
         chatId,
       })
