@@ -2,12 +2,12 @@ import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 
-const entityLabel = {
+const entityLabel: Record<number, string> = {
   4: 'Empresa',
   3: 'Contato',
   2: 'Negócio',
   1: 'Lead',
-} as const
+}
 
 export const ENTITY_TYPE_ID = {
   CRM_LEAD_DETAIL_TAB: 1,
@@ -16,7 +16,33 @@ export const ENTITY_TYPE_ID = {
   CRM_COMPANY_DETAIL_TAB: 4,
 } as const
 
-type EntityTypeId = keyof typeof entityLabel
+/**
+ * `CRM_DYNAMIC_<entityTypeId>_DETAIL_TAB` — placement de aba de SPA dinâmica
+ * (`spa-placement-registration`). `entityTypeId` é arbitrário (1060, 1142,
+ * ...), por isso não cabe no mapa estático acima.
+ */
+const DYNAMIC_PLACEMENT_PATTERN = /^CRM_DYNAMIC_(\d+)_DETAIL_TAB$/
+
+/**
+ * `number`, e não `1|2|3|4`: SPA dinâmica traz `entityTypeId` arbitrário, fora
+ * das 4 entidades estáticas conhecidas por este resolver.
+ */
+type EntityTypeId = number
+
+/**
+ * Resolve o `entityTypeId` do placement: mapa estático primeiro, senão o
+ * padrão `CRM_DYNAMIC_<id>_DETAIL_TAB`, senão `null` — placement que este
+ * resolver não conhece.
+ */
+function resolveEntityTypeId(placement: string): EntityTypeId | null {
+  const staticId = ENTITY_TYPE_ID[placement as keyof typeof ENTITY_TYPE_ID]
+  if (staticId !== undefined) return staticId
+
+  const dynamicMatch = DYNAMIC_PLACEMENT_PATTERN.exec(placement)
+  if (dynamicMatch) return Number(dynamicMatch[1])
+
+  return null
+}
 
 export type Destination = {
   id: string
@@ -58,12 +84,14 @@ export async function resolveRelatedDestinations(
   placement: string,
   contextId: string,
 ): Promise<{ destinations: Destination[]; entity: Record<string, unknown> }> {
+  const entityTypeId = resolveEntityTypeId(placement)
+  if (entityTypeId === null) {
+    throw new Error(`Unsupported placement: ${placement}`)
+  }
+
   const {
     result: { item: entity },
-  } = await bitrix.getCrmItem(
-    ENTITY_TYPE_ID[placement as keyof typeof ENTITY_TYPE_ID],
-    contextId,
-  )
+  } = await bitrix.getCrmItem(entityTypeId, contextId)
 
   const ids = await getRelatedDestinationIds(
     bitrix,
@@ -112,6 +140,18 @@ async function getRelatedDestinationIds(
     return getLeadDestinations(bitrix, entity, contextId)
   if (placement === 'CRM_COMPANY_DETAIL_TAB')
     return getCompanyDestinations(bitrix, contextId)
+
+  /**
+   * SPA dinâmica: o item em si é o único destino. Não há convenção genérica
+   * de campo de vínculo (contato/empresa) entre entidades de SPA dinâmica
+   * neste sistema — ver `BitrixSpaParentReader`, que recebe esse nome de
+   * campo por parâmetro do chamador, não de um mapa universal.
+   */
+  const dynamicMatch = DYNAMIC_PLACEMENT_PATTERN.exec(placement)
+  if (dynamicMatch) {
+    return [{ entityTypeId: Number(dynamicMatch[1]), id: contextId }]
+  }
+
   return []
 }
 
