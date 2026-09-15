@@ -183,14 +183,12 @@ describe('resolveRelatedDestinations', () => {
   })
 
   it('includes the company linked to the lead and the contacts of that company', async () => {
-    const bitrix = makeBitrix({
-      getCrmItem: routeCrmItems({
-        '1:5': crmItem('5', 'Lead X', undefined, { companyId: 7 }),
-        '4:7': crmItem('7', 'Acme', '5544444444444'),
-        '3:100': crmItem('100', 'Ana', '5555555555555'),
-      }),
-      getCompanyContactIds: vi.fn().mockResolvedValue(['100']),
+    const getCrmItem = routeCrmItems({
+      '1:5': crmItem('5', 'Lead X', undefined, { companyId: 7 }),
+      '4:7': crmItem('7', 'Acme', '5544444444444', { contactIds: [100] }),
+      '3:100': crmItem('100', 'Ana', '5555555555555'),
     })
+    const bitrix = makeBitrix({ getCrmItem })
 
     const { destinations } = await resolveRelatedDestinations(
       bitrix as never,
@@ -198,13 +196,19 @@ describe('resolveRelatedDestinations', () => {
       '5',
     )
 
-    expect(bitrix.getCompanyContactIds).toHaveBeenCalledWith('7')
     expect(destinations).toEqual(
       expect.arrayContaining([
         { id: '7', label: 'Empresa - Acme', phone: '5544444444444' },
         { id: '100', label: 'Contato - Ana', phone: '5555555555555' },
       ]),
     )
+    // A empresa é buscada uma única vez (cache): serve tanto como destino
+    // (telefone via `fm`) quanto como fonte dos `contactIds`.
+    expect(
+      getCrmItem.mock.calls.filter(
+        ([entityTypeId, id]) => entityTypeId === 4 && id === '7',
+      ),
+    ).toHaveLength(1)
   })
 
   it('deduplicates a phone shared by the lead, its contact and its company', async () => {
@@ -230,11 +234,10 @@ describe('resolveRelatedDestinations', () => {
   })
 
   it('resolves only the lead itself when it has no linked client', async () => {
-    const bitrix = makeBitrix({
-      getCrmItem: routeCrmItems({
-        '1:5': crmItem('5', 'Lead X', '5511111111111'),
-      }),
+    const getCrmItem = routeCrmItems({
+      '1:5': crmItem('5', 'Lead X', '5511111111111'),
     })
+    const bitrix = makeBitrix({ getCrmItem })
 
     const { destinations } = await resolveRelatedDestinations(
       bitrix as never,
@@ -245,7 +248,9 @@ describe('resolveRelatedDestinations', () => {
     expect(destinations).toEqual([
       { id: '5', label: 'Lead - Lead X', phone: '5511111111111' },
     ])
-    expect(bitrix.getCompanyContactIds).not.toHaveBeenCalled()
+    expect(
+      getCrmItem.mock.calls.filter(([entityTypeId]) => entityTypeId === 4),
+    ).toHaveLength(0)
   })
 
   it('keeps the remaining lead destinations when one linked contact fails to load', async () => {
@@ -341,7 +346,6 @@ describe('resolveRelatedDestinations', () => {
         '3:10': crmItem('10', 'Cliente Principal', '5511111111111'),
         '4:5': crmItem('5', 'Empresa Cliente', '5522222222222'),
       }),
-      getCompanyContactIds: vi.fn().mockResolvedValue([]),
     })
 
     const { destinations } = await resolveRelatedDestinations(
@@ -364,9 +368,11 @@ describe('resolveRelatedDestinations', () => {
         '1060:1617': crmItem('1617', 'Pedido 1617', undefined, {
           companyId: '5',
         }),
+        '4:5': crmItem('5', 'Empresa Cliente', undefined, {
+          contactIds: [20],
+        }),
         '3:20': crmItem('20', 'Contato da Empresa', '5533333333333'),
       }),
-      getCompanyContactIds: vi.fn().mockResolvedValue(['20']),
     })
 
     const { destinations } = await resolveRelatedDestinations(
@@ -376,6 +382,5 @@ describe('resolveRelatedDestinations', () => {
     )
 
     expect(destinations.map(d => d.phone)).toEqual(['5533333333333'])
-    expect(bitrix.getCompanyContactIds).toHaveBeenCalledWith('5')
   })
 })

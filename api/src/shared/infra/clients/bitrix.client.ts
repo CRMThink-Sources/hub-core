@@ -14,6 +14,9 @@ import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-lim
 import { attachBitrixLimits } from '@/shared/infra/bitrix-limits/attach-bitrix-limits'
 import { PlacementHandlerEntry } from '@/modules/thinkzap/application/normalize-placement-get-response'
 
+/** `entityTypeId` da entidade Empresa no `crm.item.*`. */
+const COMPANY_ENTITY_TYPE_ID = 4
+
 interface IBitrixClientParams {
   bitrixCredential?: Credential
   domain?: string
@@ -433,18 +436,30 @@ export class BitrixClient {
     }
   }
 
+  /**
+   * Contatos ligados a uma empresa, pelo vínculo múltiplo `contactIds` do item.
+   *
+   * `crm.company.contact.list` — método usado aqui antes — não existe no REST do
+   * Bitrix: a chamada voltava `ERROR_METHOD_NOT_FOUND` e todo chamador tratava a
+   * falha como "empresa sem contatos", zerando os contatos da empresa em Deal,
+   * Lead, Contato e SPA dinâmica. `crm.item.get` no `entityTypeId` 4 devolve o
+   * vínculo completo em `contactIds`.
+   */
   async getCompanyContactIds(companyId: string): Promise<string[]> {
-    const client = this.getClient()
     try {
-      const response = await client.post(`/crm.company.contact.list`, {
-        filter: { COMPANY_ID: companyId },
-        select: ['CONTACT_ID'],
-      })
-      const result = (response.data as { result?: unknown })?.result
-      if (!Array.isArray(result)) return []
-      return (result as { CONTACT_ID: number | string }[]).map(item =>
-        String(item.CONTACT_ID),
-      )
+      const {
+        result: { item },
+      } = await this.getCrmItem(COMPANY_ENTITY_TYPE_ID, companyId)
+
+      const contactIds = item?.contactIds
+      if (!Array.isArray(contactIds)) return []
+
+      const ids: string[] = []
+      for (const raw of contactIds) {
+        if (typeof raw === 'number') ids.push(String(raw))
+        else if (typeof raw === 'string' && raw) ids.push(raw)
+      }
+      return Array.from(new Set(ids))
     } catch (error) {
       // Pausa por OPERATION_TIME_LIMIT tem que chegar inteira em quem chamou: e o
       // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
