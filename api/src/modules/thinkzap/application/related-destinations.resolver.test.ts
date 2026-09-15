@@ -269,17 +269,65 @@ describe('resolveRelatedDestinations', () => {
     ])
   })
 
-  it('returns no destinations for an unknown placement', async () => {
+  it('rejects an unknown placement without calling the Bitrix API', async () => {
     const bitrix = makeBitrix({
       getCrmItem: vi.fn().mockResolvedValue(crmItem('1', 'X')),
     })
 
+    await expect(
+      resolveRelatedDestinations(bitrix as never, 'CRM_UNKNOWN_TAB', '1'),
+    ).rejects.toThrow('Unsupported placement: CRM_UNKNOWN_TAB')
+
+    expect(bitrix.getCrmItem).not.toHaveBeenCalled()
+  })
+
+  it('resolves entityTypeId from a dynamic SPA placement and returns its own phone', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1060:1617': crmItem('1617', 'Pedido 1617', '5511999999999'),
+      }),
+    })
+
     const { destinations } = await resolveRelatedDestinations(
       bitrix as never,
-      'CRM_UNKNOWN_TAB',
-      '1',
+      'CRM_DYNAMIC_1060_DETAIL_TAB',
+      '1617',
+    )
+
+    expect(destinations.map(d => d.phone)).toEqual(['5511999999999'])
+    expect(bitrix.getCrmItem).toHaveBeenCalledWith(1060, '1617')
+  })
+
+  it('returns no destinations when the dynamic SPA item has no phone', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1060:1617': crmItem('1617', 'Pedido 1617'),
+      }),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_DYNAMIC_1060_DETAIL_TAB',
+      '1617',
     )
 
     expect(destinations).toEqual([])
+  })
+
+  it('resolves a different dynamic entityTypeId the same way', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1142:42': crmItem('42', 'Contrato 42', '5511988888888'),
+      }),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_DYNAMIC_1142_DETAIL_TAB',
+      '42',
+    )
+
+    expect(destinations.map(d => d.phone)).toEqual(['5511988888888'])
+    expect(bitrix.getCrmItem).toHaveBeenCalledWith(1142, '42')
   })
 })

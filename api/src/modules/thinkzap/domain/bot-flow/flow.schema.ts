@@ -2,6 +2,7 @@ import z from 'zod'
 import {
   type BotFlowGraph,
   DEFAULT_FLOW_SETTINGS,
+  type HandoffTarget,
   type NodeId,
   isTerminal,
   isWaiting,
@@ -129,6 +130,14 @@ const conditionNodeSchema = z.object({
   otherwise: nodeIdSchema,
 })
 
+// Sem `min(1)` nos ids: o editor grava o alvo antes de escolher o atendente. Alvo sem
+// id é `handoff-target-incomplete` em `validateFlowGraph`, que aponta o nó.
+const handoffTargetSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('queue') }),
+  z.object({ type: z.literal('user'), bitrixUserId: z.string() }),
+  z.object({ type: z.literal('line'), lineId: z.string() }),
+])
+
 const handoffNodeSchema = z.object({
   id: nodeIdSchema,
   kind: z.literal('handoff'),
@@ -136,13 +145,7 @@ const handoffNodeSchema = z.object({
   portSides: portSidesSchema,
   name: nodeNameSchema,
   text: optionalTextSchema,
-  // Sem `min(1)` nos ids: o editor grava o alvo antes de escolher o atendente. Alvo sem
-  // id é `handoff-target-incomplete` em `validateFlowGraph`, que aponta o nó.
-  target: z.discriminatedUnion('type', [
-    z.object({ type: z.literal('queue') }),
-    z.object({ type: z.literal('user'), bitrixUserId: z.string() }),
-    z.object({ type: z.literal('line'), lineId: z.string() }),
-  ]),
+  target: handoffTargetSchema,
 })
 
 const finishNodeSchema = z.object({
@@ -165,10 +168,11 @@ const flowNodeSchema = z.discriminatedUnion('kind', [
 
 const flowSettingsSchema = z.object({
   escapeKeywords: z.array(z.string().min(1)).max(20),
-  escapeNext: nodeIdSchema.nullable(),
+  escapeTarget: handoffTargetSchema.nullable(),
+  escapeText: optionalTextSchema,
 })
 
-export const botFlowGraphSchema = z.object({
+const rawGraphSchema = z.object({
   entryNodeId: nodeIdSchema,
   // Sem teto de blocos: quem protege o worker é `MAX_STEPS` em `advance`, que limita
   // passos por mensagem e não tamanho do fluxo.
@@ -178,8 +182,45 @@ export const botFlowGraphSchema = z.object({
   settings: flowSettingsSchema.default(() => ({
     ...DEFAULT_FLOW_SETTINGS,
     escapeKeywords: [...DEFAULT_FLOW_SETTINGS.escapeKeywords],
+    escapeText: DEFAULT_FLOW_SETTINGS.escapeText,
   })),
 })
+
+export const botFlowGraphSchema = z.preprocess(
+  migrateEscapeNext,
+  rawGraphSchema,
+)
+
+/**
+ * Fluxo salvo antes da mudança guarda `escapeNext`, um id de bloco. A saída de emergência
+ * agora transfere direto, então o id só sobrevive quando apontava para um `handoff`: aí o
+ * alvo daquele bloco vira o alvo do escape. Apontando para qualquer outro bloco, a saída é
+ * desligada — pular para o meio do fluxo deixou de existir.
+ */
+function migrateEscapeNext(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw
+
+  const graph = raw as {
+    nodes?: unknown
+    settings?: Record<string, unknown> | null
+  }
+  const settings = graph.settings
+  if (!settings || typeof settings !== 'object') return raw
+  if (!('escapeNext' in settings) || 'escapeTarget' in settings) return raw
+
+  const { escapeNext, ...resto } = settings
+  const alvo = Array.isArray(graph.nodes)
+    ? graph.nodes.find(
+        (node): node is { kind: 'handoff'; target: unknown } =>
+          !!node &&
+          typeof node === 'object' &&
+          (node as { id?: unknown }).id === escapeNext &&
+          (node as { kind?: unknown }).kind === 'handoff',
+      )?.target
+    : undefined
+
+  return { ...graph, settings: { ...resto, escapeTarget: alvo ?? null } }
+}
 
 export type FlowIssueCode =
   | 'malformed'
@@ -189,7 +230,7 @@ export type FlowIssueCode =
   | 'unreachable-node'
   | 'loop-without-wait'
   | 'no-terminal-reachable'
-  | 'escape-target-not-found'
+  | 'escape-target-incomplete'
   | 'duplicate-option-value'
   | 'self-target'
   | 'handoff-target-incomplete'
@@ -283,11 +324,8 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
 
     if (node.kind === 'handoff') {
       const alvo = node.target
-      const idFaltando =
-        (alvo.type === 'user' && !alvo.bitrixUserId.trim()) ||
-        (alvo.type === 'line' && !alvo.lineId.trim())
 
-      if (idFaltando) {
+      if (!isTargetComplete(alvo)) {
         issues.push({
           code: 'handoff-target-incomplete',
           nodeId: node.id,
@@ -314,10 +352,14 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
     }
   }
 
-  if (graph.settings.escapeNext && !seen.has(graph.settings.escapeNext)) {
+  const escape = graph.settings.escapeTarget
+  if (escape && !isTargetComplete(escape)) {
     issues.push({
-      code: 'escape-target-not-found',
-      detail: `destino da palavra de escape "${graph.settings.escapeNext}" não existe`,
+      code: 'escape-target-incomplete',
+      detail:
+        escape.type === 'user'
+          ? 'saída de emergência sem atendente escolhido'
+          : 'saída de emergência sem canal escolhido',
     })
   }
 
@@ -368,6 +410,13 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
   }
 
   return issues
+}
+
+/** Alvo `queue` já é completo; `user` e `line` nascem sem id no editor. */
+function isTargetComplete(target: HandoffTarget): boolean {
+  if (target.type === 'user') return target.bitrixUserId.trim() !== ''
+  if (target.type === 'line') return target.lineId.trim() !== ''
+  return true
 }
 
 function indexById(graph: BotFlowGraph): Map<NodeId, BotFlowGraph['nodes'][0]> {

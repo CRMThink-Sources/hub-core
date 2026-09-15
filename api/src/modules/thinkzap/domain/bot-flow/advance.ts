@@ -77,12 +77,16 @@ export function advance(
     return walk(graph, current.id, state.vars, effects)
   }
 
-  const escapeTarget = graph.settings.escapeNext
+  // Transfere na hora, sem passar por bloco: a saída de emergência é um handoff avulso.
+  const escapeTarget = graph.settings.escapeTarget
   if (
     escapeTarget &&
     matchesEscape(input.text, graph.settings.escapeKeywords)
   ) {
-    return walk(graph, escapeTarget, state.vars, effects)
+    const despedida = graph.settings.escapeText?.trim()
+    if (despedida) effects.push({ kind: 'say', text: despedida })
+    effects.push({ kind: 'handoff', target: escapeTarget })
+    return { effects, state: null, awaiting: null }
   }
 
   return answerWaiting(graph, current, state, input.text, effects)

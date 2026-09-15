@@ -5,7 +5,7 @@ import { autoLayout, relayout } from './thinkzap-flow-layout'
 /** Pergunta com três opções, cada uma indo para um bloco diferente. */
 const leque: BotFlowGraph = {
   entryNodeId: 'q',
-  settings: { escapeKeywords: [], escapeNext: null },
+  settings: { escapeKeywords: [], escapeTarget: null },
   nodes: [
     {
       id: 'q',
@@ -79,7 +79,7 @@ describe('autoLayout', () => {
   it('grafo vazio não quebra', () => {
     const vazio: BotFlowGraph = {
       entryNodeId: 'nao-existe',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [],
     }
 
@@ -90,7 +90,7 @@ describe('autoLayout', () => {
   it('laço não trava a varredura', () => {
     const ciclo: BotFlowGraph = {
       entryNodeId: 'n1',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         { id: 'n1', kind: 'message', text: 'a', next: 'n2' },
         { id: 'n2', kind: 'message', text: 'b', next: 'n1' },

@@ -10,7 +10,7 @@ import {
 
 const graph = (): BotFlowGraph => ({
   entryNodeId: 'n1',
-  settings: { escapeKeywords: ['atendente'], escapeNext: 'n4' },
+  settings: { escapeKeywords: ['atendente'], escapeTarget: { type: 'queue' } },
   nodes: [
     { id: 'n1', kind: 'message', text: 'oi', next: 'n2' },
     {
@@ -74,9 +74,11 @@ describe('removeNode', () => {
     }
   })
 
-  it('limpa a saída de emergência quando o destino dela é removido', () => {
-    // Manter o id apontaria para nó inexistente: `escape-target-not-found`.
-    expect(removeNode(graph(), 'n4').settings.escapeNext).toBeNull()
+  it('mantém a saída de emergência quando um bloco é removido', () => {
+    // Ela transfere direto, sem passar por bloco: remover nó não a afeta.
+    expect(removeNode(graph(), 'n4').settings.escapeTarget).toEqual({
+      type: 'queue',
+    })
   })
 
   it('move a entrada quando o passo inicial é removido', () => {
@@ -89,7 +91,7 @@ describe('removeNode', () => {
   it('não remove o último passo — fluxo sem nó não é editável', () => {
     const single: BotFlowGraph = {
       entryNodeId: 'n1',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [{ id: 'n1', kind: 'finish', text: 'fim' }],
     }
 

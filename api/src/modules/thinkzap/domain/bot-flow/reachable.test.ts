@@ -32,7 +32,7 @@ function leque(quantidade: number): BotFlowGraph {
 
   return {
     entryNodeId: 'menu',
-    settings: { escapeKeywords: [], escapeNext: null },
+    settings: { escapeKeywords: [], escapeTarget: null },
     nodes,
   }
 }
@@ -51,7 +51,7 @@ function corrente(n: number): BotFlowGraph {
 
   return {
     entryNodeId: 'm0',
-    settings: { escapeKeywords: [], escapeNext: null },
+    settings: { escapeKeywords: [], escapeTarget: null },
     nodes,
   }
 }

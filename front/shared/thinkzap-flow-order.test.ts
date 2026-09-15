@@ -13,7 +13,7 @@ describe('readingOrder', () => {
   it('a entrada é sempre 1, mesmo criada por último', () => {
     const graph: BotFlowGraph = {
       entryNodeId: 'n3',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         { id: 'n1', kind: 'finish', text: 'fim' },
         { id: 'n2', kind: 'message', text: 'meio', next: 'n1' },
@@ -31,7 +31,7 @@ describe('readingOrder', () => {
   it('bloco inalcançável vai para o fim', () => {
     const graph: BotFlowGraph = {
       entryNodeId: 'n1',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         { id: 'n1', kind: 'message', text: 'oi', next: 'n2' },
         { id: 'n2', kind: 'finish', text: 'fim' },
@@ -45,7 +45,7 @@ describe('readingOrder', () => {
   it('numera todo bloco, sem repetir', () => {
     const graph: BotFlowGraph = {
       entryNodeId: 'n1',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         { id: 'n1', kind: 'message', text: 'oi', next: 'n2' },
         { id: 'n2', kind: 'message', text: 'dois', next: 'n1' },
@@ -63,7 +63,7 @@ describe('readingOrder', () => {
   it('entrada que não existe no grafo não quebra', () => {
     const graph: BotFlowGraph = {
       entryNodeId: 'sumiu',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [{ id: 'n1', kind: 'finish', text: 'fim' }],
     }
 
@@ -79,7 +79,7 @@ describe('saída pendente não vira linha', () => {
    */
   const graph: BotFlowGraph = {
     entryNodeId: 'n1',
-    settings: { escapeKeywords: [], escapeNext: null },
+    settings: { escapeKeywords: [], escapeTarget: null },
     nodes: [
       { ...makeNode('handoff', 'n1'), position: { x: 700, y: 60 } },
       { ...makeNode('question', 'n2'), position: { x: 300, y: 300 } },
@@ -109,7 +109,7 @@ describe('saída pendente não vira linha', () => {
     // `setPortTarget` recusa, mas fluxo salvo antes da regra pode conter.
     const laco: BotFlowGraph = {
       entryNodeId: 'n1',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [{ id: 'n1', kind: 'message', text: 'oi', next: 'n1' }],
     }
 
@@ -126,7 +126,7 @@ describe('readingOrder com grafo sujo', () => {
   it('id repetido não consome dois números', () => {
     const sujo: BotFlowGraph = {
       entryNodeId: 'n1',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         { id: 'n1', kind: 'message', text: 'a', next: 'n1' },
         { id: 'orfao', kind: 'finish', text: 'z' },
@@ -144,7 +144,7 @@ describe('readingOrder com grafo sujo', () => {
   it('entrada inexistente não quebra a numeração', () => {
     const semEntrada: BotFlowGraph = {
       entryNodeId: 'sumiu',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [{ id: 'n1', kind: 'finish', text: 'z' }],
     }
 

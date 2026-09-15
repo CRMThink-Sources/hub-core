@@ -6,7 +6,8 @@ export const exampleFlow: BotFlowGraph = {
   entryNodeId: 'n1',
   settings: {
     escapeKeywords: ['atendente', 'humano'],
-    escapeNext: 'n9',
+    escapeTarget: { type: 'queue' },
+    escapeText: 'Já chamo alguém do agendamento para falar com você.',
   },
   nodes: [
     {

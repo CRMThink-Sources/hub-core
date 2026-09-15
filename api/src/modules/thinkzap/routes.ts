@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { makeListConnectorsController } from './main/list-connectors-controller'
 import { adaptControllerFactory } from '@/shared/main/adapt-controller'
 import { makeListOpenChannelsController } from './main/make-list-open-channels-controller'
+import { makeListPortalUsersController } from './main/make-list-portal-users-controller'
 import { makeConnectChannelController } from './main/connector/make-connect-channel'
 import { makeListTemplatesController } from './main/connector/make-list-templates'
 import { makeCreateTemplateController } from './main/connector/make-create-template'
@@ -386,6 +387,13 @@ export const createThinkerszapRoutes = (): Router => {
     '/openchannels',
     requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeListOpenChannelsController),
+  )
+  // Atendentes do portal para o editor de bot. Mesma permissão do `/openchannels`: é
+  // leitura de cadastro do portal, não dado de cobrança.
+  router.get(
+    '/portal-users',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeListPortalUsersController),
   )
   router.get(
     '/contacts',

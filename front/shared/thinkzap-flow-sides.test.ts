@@ -92,7 +92,7 @@ describe('entrySides', () => {
         position: { x: 400, y: 300 },
       },
     ],
-    settings: { escapeKeywords: [], escapeNext: null },
+    settings: { escapeKeywords: [], escapeTarget: null },
   }
 
   it('mapeia o lado de cada saída', () => {
@@ -138,7 +138,7 @@ describe('faixas quando várias arestas chegam pelo mesmo lado', () => {
   /** Três blocos empilhados à esquerda, todos ligando no mesmo destino. */
   const convergente: BotFlowGraph = {
     entryNodeId: 'a',
-    settings: { escapeKeywords: [], escapeNext: null },
+    settings: { escapeKeywords: [], escapeTarget: null },
     nodes: [
       {
         id: 'a',
@@ -232,7 +232,7 @@ describe('faixas quando várias arestas chegam pelo mesmo lado', () => {
     // Um vindo da esquerda e um de cima podem usar a mesma faixa: pontos distintos.
     const doisLados: BotFlowGraph = {
       entryNodeId: 'esq',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         {
           id: 'esq',
@@ -277,7 +277,7 @@ describe('casamento com graphEdges', () => {
   it('toda aresta do grafo encontra o seu lado', () => {
     const graph: BotFlowGraph = {
       entryNodeId: 'n1',
-      settings: { escapeKeywords: [], escapeNext: null },
+      settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         {
           id: 'n1',

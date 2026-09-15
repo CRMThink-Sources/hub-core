@@ -4,7 +4,7 @@ import { canvasEdges, edgesKey } from './thinkzap-flow-edges'
 
 const base: BotFlowGraph = {
   entryNodeId: 'n1',
-  settings: { escapeKeywords: [], escapeNext: null },
+  settings: { escapeKeywords: [], escapeTarget: null },
   nodes: [
     {
       id: 'n1',

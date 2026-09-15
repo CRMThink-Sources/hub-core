@@ -10,7 +10,7 @@ const CODIGOS: FlowIssueCode[] = [
   'unreachable-node',
   'loop-without-wait',
   'no-terminal-reachable',
-  'escape-target-not-found',
+  'escape-target-incomplete',
   'duplicate-option-value',
   'self-target',
   'handoff-target-incomplete',

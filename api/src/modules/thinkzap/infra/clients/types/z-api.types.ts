@@ -123,6 +123,12 @@ export type ZApiGroupParticipant = {
   short?: string
   name?: string
   imgUrl?: string | null
+  /**
+   * Só existe aqui — não em `PhoneExistsResponse` — porque a Z-API entrega
+   * `phone` e `lid` já pareados por participante de grupo. É a única direção
+   * lid→telefone que não depende de `phone-exists`.
+   */
+  lid?: string
 }
 
 export type ProfilePictureResponse = { link: string } | Array<{ link: string }>

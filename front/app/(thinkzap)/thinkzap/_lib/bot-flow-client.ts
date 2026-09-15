@@ -169,6 +169,34 @@ export async function listOpenChannels(): Promise<OpenChannel[]> {
   }
 }
 
+/** Atendente do portal, como o editor de bot precisa dele. */
+export type PortalUser = { id: string; name: string; position?: string }
+
+// Mesma razão do `listOpenChannels`: a página do editor não carrega o script do portal,
+// então `BX24.callMethod` não existe nela.
+export async function searchPortalUsers(search: string): Promise<PortalUser[]> {
+  return fetchPortalUsers({ search })
+}
+
+/** Um único atendente, para mostrar o nome de quem já está gravado no fluxo. */
+export async function getPortalUser(id: string): Promise<PortalUser | null> {
+  const users = await fetchPortalUsers({ id })
+  return users[0] ?? null
+}
+
+async function fetchPortalUsers(
+  query: Record<string, string>,
+): Promise<PortalUser[]> {
+  try {
+    const result = await client().get<{ users?: PortalUser[] }>(
+      `/thinkzap/portal-users?${new URLSearchParams(query).toString()}`,
+    )
+    return result.users ?? []
+  } catch (error) {
+    rethrow(error, 'Não foi possível buscar os atendentes do portal.')
+  }
+}
+
 export async function listBotFlowBindings(): Promise<BotFlowBinding[]> {
   try {
     const result = await client().get<{ bindings: BotFlowBinding[] }>(

@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Search, X } from 'lucide-react'
+import { Loader2, Search, UserRound, X } from 'lucide-react'
 import {
-  formatBitrixUserName,
-  searchBitrixUsers,
-  type BitrixUserSearchHit,
-} from '@/bitrix'
-import { listOpenChannels, type OpenChannel } from '../../_lib/bot-flow-client'
+  getPortalUser,
+  listOpenChannels,
+  searchPortalUsers,
+  type OpenChannel,
+  type PortalUser,
+} from '../../_lib/bot-flow-client'
 import {
   HANDOFF_TARGET_LABEL,
   HANDOFF_TARGET_TYPES,
@@ -24,18 +25,33 @@ const label = 'text-[10px] font-semibold uppercase text-muted-foreground'
 export function HandoffTargetField({
   target,
   onChange,
+  title = 'Entregar para',
+  bordered = true,
+  noneLabel,
 }: {
-  target: HandoffTarget
-  onChange: (target: HandoffTarget) => void
+  target: HandoffTarget | null
+  onChange: (target: HandoffTarget | null) => void
+  title?: string
+  /** A borda separa o campo do resto do painel de bloco; fora dele sobra risco solto. */
+  bordered?: boolean
+  /** Rótulo da opção "sem alvo". Ausente = escolha obrigatória, como no bloco. */
+  noneLabel?: string
 }) {
   return (
-    <div className="flex flex-col gap-1.5 border-t border-border pt-2.5">
-      <span className={label}>Entregar para</span>
+    <div
+      className={`flex flex-col gap-1.5 ${bordered ? 'border-t border-border pt-2.5' : ''}`}
+    >
+      <span className={label}>{title}</span>
       <select
-        value={target.type}
-        onChange={event => onChange(alvoVazio(event.target.value))}
+        value={target?.type ?? ''}
+        onChange={event =>
+          onChange(
+            event.target.value === '' ? null : alvoVazio(event.target.value),
+          )
+        }
         className={`${field} cursor-pointer`}
       >
+        {noneLabel ? <option value="">{noneLabel}</option> : null}
         {HANDOFF_TARGET_TYPES.map(tipo => (
           <option key={tipo} value={tipo}>
             {HANDOFF_TARGET_LABEL[tipo]}
@@ -43,14 +59,14 @@ export function HandoffTargetField({
         ))}
       </select>
 
-      {target.type === 'user' ? (
+      {target?.type === 'user' ? (
         <UserPicker
           bitrixUserId={target.bitrixUserId}
           onPick={id => onChange({ type: 'user', bitrixUserId: id })}
         />
       ) : null}
 
-      {target.type === 'line' ? (
+      {target?.type === 'line' ? (
         <LinePicker
           lineId={target.lineId}
           onPick={id => onChange({ type: 'line', lineId: id })}
@@ -58,6 +74,14 @@ export function HandoffTargetField({
       ) : null}
     </div>
   )
+}
+
+/** Primeira e última inicial: "Gustavo Henrique Silvano" → "GS". */
+function iniciais(nome: string): string {
+  const partes = nome.trim().split(/\s+/).filter(Boolean)
+  const primeira = partes[0]?.[0] ?? '?'
+  const ultima = partes.length > 1 ? partes[partes.length - 1]?.[0] : ''
+  return `${primeira}${ultima ?? ''}`
 }
 
 // Zera o id: manter o anterior gravaria `bitrixUserId` num alvo `line`, que o zod do
@@ -76,14 +100,12 @@ function UserPicker({
   onPick: (bitrixUserId: string) => void
 }) {
   const [busca, setBusca] = useState('')
-  const [hits, setHits] = useState<BitrixUserSearchHit[]>([])
+  const [hits, setHits] = useState<PortalUser[]>([])
   const [buscando, setBuscando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const [escolhido, setEscolhido] = useState<BitrixUserSearchHit | null>(null)
+  const [escolhido, setEscolhido] = useState<PortalUser | null>(null)
 
-  // `String(ID)` na comparação: `user.get` devolve o id como número em algumas versões
-  // do portal. Guarda o id já procurado, achado ou não — id removido do portal buscaria
-  // sem fim.
+  // Guarda o id já procurado, achado ou não: id removido do portal buscaria sem fim.
   const procurado = useRef<string | null>(null)
 
   useEffect(() => {
@@ -91,10 +113,9 @@ function UserPicker({
     procurado.current = bitrixUserId
 
     let ativo = true
-    searchBitrixUsers('')
-      .then(todos => {
-        if (!ativo) return
-        setEscolhido(todos.find(hit => String(hit.ID) === bitrixUserId) ?? null)
+    getPortalUser(bitrixUserId)
+      .then(user => {
+        if (ativo) setEscolhido(user)
       })
       .catch(() => {})
     return () => {
@@ -115,10 +136,10 @@ function UserPicker({
     timer.current = setTimeout(() => {
       setBuscando(true)
       setErro(null)
-      searchBitrixUsers(termo.trim())
+      searchPortalUsers(termo.trim())
         .then(setHits)
         .catch(() => {
-          setErro('Não foi possível buscar usuários do portal.')
+          setErro('Não foi possível buscar os atendentes do portal.')
           setHits([])
         })
         .finally(() => setBuscando(false))
@@ -133,23 +154,46 @@ function UserPicker({
   )
 
   if (bitrixUserId) {
+    // Enquanto o nome não chega, o id sozinho não diz nada: mostra o esqueleto no lugar
+    // de "Usuário #12", que parecia o valor final.
+    const resolvendo = escolhido === null && procurado.current === bitrixUserId
+
     return (
-      <div className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1.5">
-        <span className="min-w-0 flex-1 truncate text-xs text-foreground">
-          {escolhido
-            ? formatBitrixUserName(escolhido)
-            : `Usuário #${bitrixUserId}`}
+      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold uppercase text-primary">
+          {escolhido ? (
+            iniciais(escolhido.name)
+          ) : (
+            <UserRound className="h-3 w-3" />
+          )}
         </span>
+
+        <span className="flex min-w-0 flex-1 flex-col">
+          {resolvendo ? (
+            <span className="h-3 w-28 animate-pulse rounded bg-muted-foreground/20" />
+          ) : (
+            <span className="truncate text-xs font-medium text-foreground">
+              {escolhido ? escolhido.name : `Usuário #${bitrixUserId}`}
+            </span>
+          )}
+          {escolhido?.position ? (
+            <span className="truncate text-[10px] text-muted-foreground">
+              {escolhido.position}
+            </span>
+          ) : null}
+        </span>
+
         <button
           type="button"
           aria-label="Trocar atendente"
+          title="Trocar atendente"
           onClick={() => {
             setEscolhido(null)
             onPick('')
           }}
-          className="shrink-0 cursor-pointer text-muted-foreground hover:text-destructive"
+          className="shrink-0 cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
         >
-          <X className="h-3 w-3" />
+          <X className="h-3.5 w-3.5" />
         </button>
       </div>
     )
@@ -175,21 +219,19 @@ function UserPicker({
       ) : hits.length > 0 ? (
         <ul className="max-h-36 overflow-y-auto rounded-md border border-border">
           {hits.map(hit => (
-            <li key={hit.ID}>
+            <li key={hit.id}>
               <button
                 type="button"
                 onClick={() => {
                   setEscolhido(hit)
-                  onPick(String(hit.ID))
+                  onPick(hit.id)
                 }}
                 className="flex w-full cursor-pointer flex-col items-start px-2 py-1 text-left hover:bg-muted"
               >
-                <span className="text-xs text-foreground">
-                  {formatBitrixUserName(hit)}
-                </span>
-                {hit.WORK_POSITION ? (
+                <span className="text-xs text-foreground">{hit.name}</span>
+                {hit.position ? (
                   <span className="text-[10px] text-muted-foreground">
-                    {hit.WORK_POSITION}
+                    {hit.position}
                   </span>
                 ) : null}
               </button>
