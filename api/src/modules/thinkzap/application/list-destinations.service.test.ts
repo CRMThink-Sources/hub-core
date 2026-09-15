@@ -103,7 +103,9 @@ describe('ListDestinationsService — CRM_LEAD_DETAIL_TAB', () => {
 
 describe('ListDestinationsService — CRM_COMPANY_DETAIL_TAB', () => {
   it('returns destinations from linked contacts', async () => {
-    const companyEntity = crmItem('5', 'Empresa A')
+    const companyEntity = crmItem('5', 'Empresa A', undefined, {
+      contactIds: [100],
+    })
     const contactEntity = crmItem('100', 'Maria', '5511000000000')
     const getCrmItem = vi
       .fn()
@@ -116,8 +118,7 @@ describe('ListDestinationsService — CRM_COMPANY_DETAIL_TAB', () => {
           new Error(`unexpected getCrmItem(${entityTypeId}, ${id})`),
         )
       })
-    const getCompanyContactIds = vi.fn().mockResolvedValue(['100'])
-    const bitrix = makeBitrix({ getCrmItem, getCompanyContactIds })
+    const bitrix = makeBitrix({ getCrmItem })
 
     const service = new ListDestinationsService(bitrix as never)
     const { destinations } = await service.execute({
@@ -125,10 +126,16 @@ describe('ListDestinationsService — CRM_COMPANY_DETAIL_TAB', () => {
       placement: 'CRM_COMPANY_DETAIL_TAB',
     })
 
-    expect(getCompanyContactIds).toHaveBeenCalledWith('5')
     expect(destinations).toContainEqual(
       expect.objectContaining({ phone: '5511000000000' }),
     )
+    // A empresa é o próprio `entity` do fetch inicial — não sai um segundo
+    // `crm.item.get` só para ler `contactIds`.
+    expect(
+      getCrmItem.mock.calls.filter(
+        ([entityTypeId, id]) => entityTypeId === 4 && id === '5',
+      ),
+    ).toHaveLength(1)
   })
 
   it('returns company phone when company item has phone in fm field', async () => {

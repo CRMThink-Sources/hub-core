@@ -1,4 +1,7 @@
-import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import {
+  BitrixClient,
+  ICrmItemResponse,
+} from '@/shared/infra/clients/bitrix.client'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -55,6 +58,30 @@ type EntityId = {
   id: string
 }
 
+type CrmItemGetter = (
+  entityTypeId: number,
+  id: string,
+) => Promise<ICrmItemResponse>
+
+/**
+ * Memoiza `bitrix.getCrmItem` por `entityTypeId:id` para a duração de uma
+ * resolução. A empresa vinculada a um Deal/Lead/Contato/SPA é lida duas vezes
+ * de propósitos diferentes — como destino (telefones do `fm`) e como fonte dos
+ * `contactIds` dela — e sem cache isso vira dois `crm.item.get` idênticos.
+ */
+function createCrmItemCache(bitrix: BitrixClient): CrmItemGetter {
+  const cache = new Map<string, Promise<ICrmItemResponse>>()
+  return (entityTypeId, id) => {
+    const key = `${entityTypeId}:${id}`
+    let item = cache.get(key)
+    if (!item) {
+      item = bitrix.getCrmItem(entityTypeId, id)
+      cache.set(key, item)
+    }
+    return item
+  }
+}
+
 /**
  * Maps a Bizproc `document_id` entity token (e.g. from `DEAL_123`) to the CRM
  * placement string used by the resolver. Returns null for unsupported entities.
@@ -89,12 +116,15 @@ export async function resolveRelatedDestinations(
     throw new Error(`Unsupported placement: ${placement}`)
   }
 
+  const getCrmItem = createCrmItemCache(bitrix)
+
   const {
     result: { item: entity },
-  } = await bitrix.getCrmItem(entityTypeId, contextId)
+  } = await getCrmItem(entityTypeId, contextId)
 
   const ids = await getRelatedDestinationIds(
     bitrix,
+    getCrmItem,
     placement,
     entity,
     contextId,
@@ -106,7 +136,7 @@ export async function resolveRelatedDestinations(
       try {
         const {
           result: { item },
-        } = await bitrix.getCrmItem(id.entityTypeId, id.id)
+        } = await getCrmItem(id.entityTypeId, id.id)
         destinationsRaw.push(
           ...buildDestinationsFromEntity(item, id.id, id.entityTypeId),
         )
@@ -128,23 +158,24 @@ export async function resolveRelatedDestinations(
 
 async function getRelatedDestinationIds(
   bitrix: BitrixClient,
+  getCrmItem: CrmItemGetter,
   placement: string,
   entity: Record<string, unknown>,
   contextId: string,
 ): Promise<EntityId[]> {
   if (placement === 'CRM_DEAL_DETAIL_TAB')
-    return getDealDestinations(bitrix, entity, contextId)
+    return getDealDestinations(bitrix, getCrmItem, entity, contextId)
   if (placement === 'CRM_CONTACT_DETAIL_TAB')
-    return getContactDestinations(bitrix, entity, contextId)
+    return getContactDestinations(getCrmItem, entity, contextId)
   if (placement === 'CRM_LEAD_DETAIL_TAB')
-    return getLeadDestinations(bitrix, entity, contextId)
+    return getLeadDestinations(bitrix, getCrmItem, entity, contextId)
   if (placement === 'CRM_COMPANY_DETAIL_TAB')
-    return getCompanyDestinations(bitrix, contextId)
+    return getCompanyDestinations(entity, contextId)
 
   const dynamicMatch = DYNAMIC_PLACEMENT_PATTERN.exec(placement)
   if (dynamicMatch) {
     return getDynamicSpaDestinations(
-      bitrix,
+      getCrmItem,
       entity,
       contextId,
       Number(dynamicMatch[1]),
@@ -158,25 +189,31 @@ async function getRelatedDestinationIds(
  * SPA dinâmica com campo "Cliente" habilitado: o Bitrix expõe o vínculo pelos
  * mesmos nomes de campo do Deal (`contactId`, `companyId`) — não há API
  * equivalente a `crm.deal.contact.items.get`/`crm.lead.contact.items.get`
- * genérica para tipo dinâmico, então só o contato principal é lido direto do
- * item, igual ao lead. `BitrixSpaParentReader` cobre outro vínculo (o
- * `parentId<N>` de item pai em relação pai/filho de SPA), não este.
+ * genérica para tipo dinâmico, então os contatos saem do próprio item
+ * (`contactId` + `contactIds`). Os contatos da **empresa** vinculada entram por
+ * `companyId` → `crm.item.get` no `entityTypeId` 4, que devolve o `contactIds`
+ * dela. `BitrixSpaParentReader` cobre outro vínculo (o `parentId<N>` de item pai
+ * em relação pai/filho de SPA), não este.
  */
 async function getDynamicSpaDestinations(
-  bitrix: BitrixClient,
+  getCrmItem: CrmItemGetter,
   entity: Record<string, unknown>,
   contextId: string,
   entityTypeId: number,
 ): Promise<EntityId[]> {
   const results: EntityId[] = [{ entityTypeId, id: contextId }]
 
-  const contactId = readId(entity['contactId'])
-  if (contactId) results.push({ entityTypeId: 3, id: contactId })
+  for (const id of readContactIdsFromEntity(entity)) {
+    results.push({ entityTypeId: 3, id })
+  }
 
   const companyId = readCompanyId(entity)
   if (companyId) results.push({ entityTypeId: 4, id: companyId })
 
-  const companyContactIds = await getCompanyContactIdsFromEntity(bitrix, entity)
+  const companyContactIds = await getCompanyContactIdsFromEntity(
+    getCrmItem,
+    entity,
+  )
   for (const id of companyContactIds) {
     results.push({ entityTypeId: 3, id })
   }
@@ -186,6 +223,7 @@ async function getDynamicSpaDestinations(
 
 async function getDealDestinations(
   bitrix: BitrixClient,
+  getCrmItem: CrmItemGetter,
   entity: Record<string, unknown>,
   dealId: string,
 ): Promise<EntityId[]> {
@@ -201,7 +239,7 @@ async function getDealDestinations(
       )
       return [] as string[]
     }),
-    getCompanyContactIdsFromEntity(bitrix, entity),
+    getCompanyContactIdsFromEntity(getCrmItem, entity),
   ])
 
   for (const id of contactIds) {
@@ -218,13 +256,16 @@ async function getDealDestinations(
 }
 
 async function getContactDestinations(
-  bitrix: BitrixClient,
+  getCrmItem: CrmItemGetter,
   entity: Record<string, unknown>,
   contextId: string,
 ): Promise<EntityId[]> {
   const results: EntityId[] = [{ entityTypeId: 3, id: contextId }]
 
-  const companyContactIds = await getCompanyContactIdsFromEntity(bitrix, entity)
+  const companyContactIds = await getCompanyContactIdsFromEntity(
+    getCrmItem,
+    entity,
+  )
   for (const id of companyContactIds) {
     results.push({ entityTypeId: 3, id })
   }
@@ -245,6 +286,7 @@ async function getContactDestinations(
  */
 async function getLeadDestinations(
   bitrix: BitrixClient,
+  getCrmItem: CrmItemGetter,
   entity: Record<string, unknown>,
   contextId: string,
 ): Promise<EntityId[]> {
@@ -256,7 +298,7 @@ async function getLeadDestinations(
    */
   const [leadContactIds, companyContactIds] = await Promise.all([
     getLeadContactIdsWithFallback(bitrix, entity, contextId),
-    getCompanyContactIdsFromEntity(bitrix, entity),
+    getCompanyContactIdsFromEntity(getCrmItem, entity),
   ])
 
   for (const id of leadContactIds) {
@@ -326,29 +368,35 @@ function readContactIdsFromEntity(entity: Record<string, unknown>): string[] {
   return Array.from(new Set(ids))
 }
 
+/**
+ * Id de vínculo do item, normalizado para `string`.
+ *
+ * `0` (número ou string) é como o Bitrix representa vínculo **vazio** em
+ * `contactId` / `companyId` / `leadId` — devolver `"0"` daqui viraria um
+ * `crm.item.get` no id 0, que erra, e um destino fantasma na lista.
+ */
 function readId(value: unknown): string | null {
-  if (typeof value === 'number') return String(value)
-  if (typeof value === 'string' && value) return value
+  if (typeof value === 'number') return value > 0 ? String(value) : null
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed || Number(trimmed) === 0) return null
+    return trimmed
+  }
   return null
 }
 
-async function getCompanyDestinations(
-  bitrix: BitrixClient,
+/**
+ * O placement da própria empresa: `entity` já É o item da empresa, buscado no
+ * fetch inicial de `resolveRelatedDestinations` — os `contactIds` dela saem
+ * direto dali, sem `get` nenhum.
+ */
+function getCompanyDestinations(
+  entity: Record<string, unknown>,
   contextId: string,
-): Promise<EntityId[]> {
+): EntityId[] {
   const results: EntityId[] = [{ entityTypeId: 4, id: contextId }]
 
-  const contactIds = await bitrix.getCompanyContactIds(contextId).catch(err => {
-    logThinkzapError(
-      apiLogger,
-      'thinkzap.message.related_destinations_failed',
-      { app: 'thinkzap', subQuery: 'company-contact-ids', err },
-      { level: 'error', msg: 'error getting company contact ids' },
-    )
-    return [] as string[]
-  })
-
-  for (const id of contactIds) {
+  for (const id of readCompanyContactIds(entity)) {
     results.push({ entityTypeId: 3, id })
   }
 
@@ -359,22 +407,48 @@ function readCompanyId(entity: Record<string, unknown>): string | null {
   return readId(entity['companyId'])
 }
 
+/**
+ * `contactIds` do item de empresa, normalizado para `string[]` sem repetição.
+ */
+function readCompanyContactIds(entity: Record<string, unknown>): string[] {
+  const contactIds = entity['contactIds']
+  if (!Array.isArray(contactIds)) return []
+
+  const ids: string[] = []
+  for (const raw of contactIds) {
+    const id = readId(raw)
+    if (id) ids.push(id)
+  }
+  return Array.from(new Set(ids))
+}
+
+/**
+ * Contatos da empresa vinculada ao item (por `companyId`), lidos do
+ * `contactIds` do item da empresa via `crm.item.get` no `entityTypeId` 4.
+ * Passa por `getCrmItem` (cache) porque essa mesma empresa também é buscada
+ * como destino em si — sem cache, sairiam dois `get` idênticos.
+ */
 async function getCompanyContactIdsFromEntity(
-  bitrix: BitrixClient,
+  getCrmItem: CrmItemGetter,
   entity: Record<string, unknown>,
 ): Promise<string[]> {
   const companyId = readCompanyId(entity)
   if (!companyId) return []
 
-  return bitrix.getCompanyContactIds(companyId).catch(err => {
+  try {
+    const {
+      result: { item: company },
+    } = await getCrmItem(4, companyId)
+    return readCompanyContactIds(company)
+  } catch (err) {
     logThinkzapError(
       apiLogger,
       'thinkzap.message.related_destinations_failed',
       { app: 'thinkzap', subQuery: 'company-contact-ids', err },
       { level: 'error', msg: 'error getting company contact ids' },
     )
-    return [] as string[]
-  })
+    return []
+  }
 }
 
 function getEntityId(
