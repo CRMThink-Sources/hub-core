@@ -141,18 +141,47 @@ async function getRelatedDestinationIds(
   if (placement === 'CRM_COMPANY_DETAIL_TAB')
     return getCompanyDestinations(bitrix, contextId)
 
-  /**
-   * SPA dinâmica: o item em si é o único destino. Não há convenção genérica
-   * de campo de vínculo (contato/empresa) entre entidades de SPA dinâmica
-   * neste sistema — ver `BitrixSpaParentReader`, que recebe esse nome de
-   * campo por parâmetro do chamador, não de um mapa universal.
-   */
   const dynamicMatch = DYNAMIC_PLACEMENT_PATTERN.exec(placement)
   if (dynamicMatch) {
-    return [{ entityTypeId: Number(dynamicMatch[1]), id: contextId }]
+    return getDynamicSpaDestinations(
+      bitrix,
+      entity,
+      contextId,
+      Number(dynamicMatch[1]),
+    )
   }
 
   return []
+}
+
+/**
+ * SPA dinâmica com campo "Cliente" habilitado: o Bitrix expõe o vínculo pelos
+ * mesmos nomes de campo do Deal (`contactId`, `companyId`) — não há API
+ * equivalente a `crm.deal.contact.items.get`/`crm.lead.contact.items.get`
+ * genérica para tipo dinâmico, então só o contato principal é lido direto do
+ * item, igual ao lead. `BitrixSpaParentReader` cobre outro vínculo (o
+ * `parentId<N>` de item pai em relação pai/filho de SPA), não este.
+ */
+async function getDynamicSpaDestinations(
+  bitrix: BitrixClient,
+  entity: Record<string, unknown>,
+  contextId: string,
+  entityTypeId: number,
+): Promise<EntityId[]> {
+  const results: EntityId[] = [{ entityTypeId, id: contextId }]
+
+  const contactId = readId(entity['contactId'])
+  if (contactId) results.push({ entityTypeId: 3, id: contactId })
+
+  const companyId = readCompanyId(entity)
+  if (companyId) results.push({ entityTypeId: 4, id: companyId })
+
+  const companyContactIds = await getCompanyContactIdsFromEntity(bitrix, entity)
+  for (const id of companyContactIds) {
+    results.push({ entityTypeId: 3, id })
+  }
+
+  return results
 }
 
 async function getDealDestinations(

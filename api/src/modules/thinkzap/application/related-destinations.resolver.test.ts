@@ -330,4 +330,52 @@ describe('resolveRelatedDestinations', () => {
     expect(destinations.map(d => d.phone)).toEqual(['5511988888888'])
     expect(bitrix.getCrmItem).toHaveBeenCalledWith(1142, '42')
   })
+
+  it('includes the client contact and company linked to a dynamic SPA item', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1060:1617': crmItem('1617', 'Pedido 1617', undefined, {
+          contactId: '10',
+          companyId: '5',
+        }),
+        '3:10': crmItem('10', 'Cliente Principal', '5511111111111'),
+        '4:5': crmItem('5', 'Empresa Cliente', '5522222222222'),
+      }),
+      getCompanyContactIds: vi.fn().mockResolvedValue([]),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_DYNAMIC_1060_DETAIL_TAB',
+      '1617',
+    )
+
+    expect(destinations.map(d => d.phone).sort()).toEqual([
+      '5511111111111',
+      '5522222222222',
+    ])
+    expect(bitrix.getCrmItem).toHaveBeenCalledWith(3, '10')
+    expect(bitrix.getCrmItem).toHaveBeenCalledWith(4, '5')
+  })
+
+  it("includes the client company's other contacts for a dynamic SPA item", async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '1060:1617': crmItem('1617', 'Pedido 1617', undefined, {
+          companyId: '5',
+        }),
+        '3:20': crmItem('20', 'Contato da Empresa', '5533333333333'),
+      }),
+      getCompanyContactIds: vi.fn().mockResolvedValue(['20']),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_DYNAMIC_1060_DETAIL_TAB',
+      '1617',
+    )
+
+    expect(destinations.map(d => d.phone)).toEqual(['5533333333333'])
+    expect(bitrix.getCompanyContactIds).toHaveBeenCalledWith('5')
+  })
 })
