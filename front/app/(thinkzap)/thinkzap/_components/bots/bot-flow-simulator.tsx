@@ -150,10 +150,10 @@ export function BotFlowSimulator({
         ) : null}
       </header>
 
-      <div className="flex min-h-[280px] flex-1 flex-col gap-2 overflow-y-auto rounded-lg bg-muted/40 p-3">
+      <div className="flex min-h-70 flex-1 flex-col gap-2 overflow-y-auto rounded-lg bg-muted/40 p-3">
         {bubbles.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-            <p className="max-w-[220px] text-xs text-muted-foreground">
+            <p className="max-w-55 text-xs text-muted-foreground">
               Rode o fluxo como se você fosse o cliente no WhatsApp.
             </p>
             <Button
