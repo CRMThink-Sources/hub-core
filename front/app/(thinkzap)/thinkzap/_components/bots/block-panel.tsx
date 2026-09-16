@@ -29,8 +29,16 @@ const VALIDATION_LABEL: Record<InputValidation, string> = {
   date: 'Data',
 }
 
-const field =
-  'w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50'
+/**
+ * Sem largura: `w-full` embutido aqui competia com a largura própria de quem precisa de
+ * uma (`w-19` no operador da condição, por exemplo). São a mesma propriedade, e quem vence
+ * é a ordem do CSS gerado, não a da string — o operador esticava a 100% e esmagava o campo
+ * da variável ao lado até sumir. Quem quer ocupar a linha pede `field` mais `w-full`.
+ */
+const fieldBase =
+  'rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50'
+
+const field = `${fieldBase} w-full`
 
 const label = 'text-[10px] font-semibold uppercase text-muted-foreground'
 
@@ -83,8 +91,17 @@ export function BlockPanel({
     return true
   })
 
+  /**
+   * Uma condição só já são dois caminhos — bate e não bate. Chamar o segundo de "se
+   * nenhuma condição bater" fazia parecer que faltava caminho no painel, enquanto o
+   * bloco no canvas mostrava as duas saídas.
+   */
   const tituloDasSaidas =
-    node.kind === 'condition' ? 'Se nenhuma condição bater' : 'Para onde vai'
+    node.kind !== 'condition'
+      ? 'Para onde vai'
+      : node.branches.length === 1
+        ? 'Se não bater'
+        : 'Se nenhuma condição bater'
 
   return (
     <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-xl border border-border bg-card p-3 shadow-xl">
@@ -313,7 +330,9 @@ export function BlockPanel({
 
       {node.kind === 'condition' ? (
         <div className="flex flex-col gap-2">
-          <span className={label}>Condições</span>
+          <span className={label}>
+            {node.branches.length === 1 ? 'Se bater' : 'Condições'}
+          </span>
           {node.branches.map((_, index) => (
             <ConditionRow
               key={index}
@@ -324,22 +343,26 @@ export function BlockPanel({
               onSetTarget={onSetTarget}
             />
           ))}
-          <button
-            type="button"
-            onClick={() =>
-              onChange({
-                ...node,
-                branches: [
-                  ...node.branches,
-                  { when: { var: '', op: 'notEmpty' }, next: node.id },
-                ],
-              })
-            }
-            className="flex w-fit cursor-pointer items-center gap-1 text-[10px] text-muted-foreground hover:text-primary"
-          >
-            <Plus className="h-2.5 w-2.5" />
-            condição
-          </button>
+          {/* Bloco de receita responde uma pergunta fechada ("já é cliente?"): uma
+              terceira saída não teria o que testar e só quebraria a leitura sim/não. */}
+          {node.recipeId ? null : (
+            <button
+              type="button"
+              onClick={() =>
+                onChange({
+                  ...node,
+                  branches: [
+                    ...node.branches,
+                    { when: { var: '', op: 'notEmpty' }, next: node.id },
+                  ],
+                })
+              }
+              className="flex w-fit cursor-pointer items-center gap-1 text-[10px] text-muted-foreground hover:text-primary"
+            >
+              <Plus className="h-2.5 w-2.5" />
+              condição
+            </button>
+          )}
         </div>
       ) : null}
 
@@ -357,7 +380,7 @@ export function BlockPanel({
                 <select
                   value={port.target}
                   onChange={event => onSetTarget(port.port, event.target.value)}
-                  className={`${field} w-37.5 shrink-0 cursor-pointer ${
+                  className={`${fieldBase} w-37.5 shrink-0 cursor-pointer ${
                     pendente ? 'border-amber-500 text-amber-700' : ''
                   }`}
                 >
@@ -415,7 +438,7 @@ function RetrySection({
           onChange={event =>
             onChange({ ...node, maxAttempts: Number(event.target.value) })
           }
-          className={`${field} w-14 shrink-0 cursor-pointer`}
+          className={`${fieldBase} w-14 shrink-0 cursor-pointer`}
         >
           {[1, 2, 3, 4, 5].map(valor => (
             <option key={valor} value={valor}>
@@ -637,7 +660,7 @@ function ConditionRow({
           onChange={event =>
             patch({ op: event.target.value as typeof branch.when.op })
           }
-          className={`${field} w-19 shrink-0 cursor-pointer`}
+          className={`${fieldBase} w-19 shrink-0 cursor-pointer`}
         >
           {/* Rótulos vêm do shared: o cartão do canvas resume a condição com os mesmos. */}
           {VAR_OPERATORS.map(op => (
@@ -651,7 +674,7 @@ function ConditionRow({
             value={branch.when.value ?? ''}
             placeholder="valor"
             onChange={event => patch({ value: event.target.value })}
-            className={`${field} w-16 shrink-0`}
+            className={`${fieldBase} min-w-0 flex-1`}
           />
         )}
         <button

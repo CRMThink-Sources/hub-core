@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Headset, RotateCcw, Send } from 'lucide-react'
+import { Headset, RotateCcw, Send, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { simulateBotFlow } from '../../_lib/bot-flow-client'
@@ -18,7 +18,14 @@ type Bubble =
 
 // Manda o `graph` da tela, não o `flowId`: o valor está em testar o que ainda não foi
 // publicado, com o motor do servidor.
-export function BotFlowSimulator({ graph }: { graph: BotFlowGraph }) {
+export function BotFlowSimulator({
+  graph,
+  onClose,
+}: {
+  graph: BotFlowGraph
+  /** O botão da barra também fecha, mas ninguém lê um botão aceso como "fechar". */
+  onClose?: () => void
+}) {
   const [bubbles, setBubbles] = useState<Bubble[]>([])
   const [state, setState] = useState<SimulationState | null>(null)
   const [encerrada, setEncerrada] = useState(false)
@@ -112,7 +119,7 @@ export function BotFlowSimulator({ graph }: { graph: BotFlowGraph }) {
 
   return (
     <div className="flex h-full flex-col gap-3 rounded-xl border border-border bg-card p-4">
-      <header className="flex items-center gap-2">
+      <header className="flex items-center gap-2 border-b border-border pb-2">
         <h2 className="text-sm font-semibold text-foreground">Simulador</h2>
         <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
           não envia nada ao cliente
@@ -122,11 +129,25 @@ export function BotFlowSimulator({ graph }: { graph: BotFlowGraph }) {
           size="icon-sm"
           className="ml-auto"
           aria-label="Reiniciar conversa"
+          title="Reiniciar conversa"
           disabled={ocupado}
           onClick={() => void reiniciar()}
         >
           <RotateCcw />
         </Button>
+
+        {onClose ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            aria-label="Fechar simulador"
+            title="Fechar simulador"
+            onClick={onClose}
+          >
+            <X />
+          </Button>
+        ) : null}
       </header>
 
       <div className="flex min-h-[280px] flex-1 flex-col gap-2 overflow-y-auto rounded-lg bg-muted/40 p-3">

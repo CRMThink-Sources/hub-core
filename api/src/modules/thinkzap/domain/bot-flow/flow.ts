@@ -98,12 +98,37 @@ export type ConditionNode = {
   name?: NodeName
   branches: Array<{ when: VarTest; next: NodeId }>
   otherwise: NodeId
+  /**
+   * Receita que criou o bloco (`ja-e-cliente`, …). Só o editor lê: uma receita pergunta
+   * uma coisa e tem duas respostas, então lá o painel não oferece mais condições. O motor
+   * ignora — o bloco continua sendo um `condition` comum.
+   */
+  recipeId?: string
 }
 
+/**
+ * Como a conversa é distribuída na entrega. Espelha o seletor de distribuição do portal:
+ * `channel` deixa a fila do canal aberto decidir, `evenly` e `all` partem de uma lista de
+ * atendentes escolhida aqui.
+ */
+export type HandoffDistribution = 'channel' | 'evenly' | 'all'
+
 export type HandoffTarget =
+  /** Canal Aberto — o mesmo canal em que a conversa já está. */
   | { type: 'queue' }
-  | { type: 'user'; bitrixUserId: string }
+  /** Canal Aberto — outro canal do portal. */
   | { type: 'line'; lineId: string }
+  /** Uniformemente: rodízio entre os selecionados, um por conversa. */
+  | { type: 'evenly'; bitrixUserIds: string[] }
+  /** Para Todos: cai na fila do canal, que avisa os selecionados conforme a config dele. */
+  | { type: 'all'; bitrixUserIds: string[] }
+
+/** Qual opção do seletor representa o alvo. `queue` e `line` são o mesmo item. */
+export function targetDistribution(target: HandoffTarget): HandoffDistribution {
+  if (target.type === 'evenly') return 'evenly'
+  if (target.type === 'all') return 'all'
+  return 'channel'
+}
 
 /** Entrega para humano. Termina a participação do bot. */
 export type HandoffNode = {
