@@ -10,9 +10,14 @@ import {
   type PortalUser,
 } from '../../_lib/bot-flow-client'
 import {
-  HANDOFF_TARGET_LABEL,
-  HANDOFF_TARGET_TYPES,
+  HANDOFF_DISTRIBUTION_HINT,
+  HANDOFF_DISTRIBUTION_LABEL,
+  HANDOFF_DISTRIBUTIONS,
+  type HandoffDistribution,
   type HandoffTarget,
+  targetDistribution,
+  targetUserIds,
+  withDistribution,
 } from '@/shared/thinkzap-bot-flow'
 
 const field =
@@ -20,12 +25,15 @@ const field =
 
 const label = 'text-[10px] font-semibold uppercase text-muted-foreground'
 
+/** Valor da opção "o mesmo canal da conversa" no seletor de canal (alvo `queue`). */
+const MESMO_CANAL = ''
+
 // O alvo é gravado como id, mas ninguém sabe o próprio id numérico — daí a busca por
 // nome. O nome não é persistido: é do portal, e copiá-lo daria dois lugares para mudar.
 export function HandoffTargetField({
   target,
   onChange,
-  title = 'Entregar para',
+  title = 'Distribuição',
   bordered = true,
   noneLabel,
 }: {
@@ -37,39 +45,59 @@ export function HandoffTargetField({
   /** Rótulo da opção "sem alvo". Ausente = escolha obrigatória, como no bloco. */
   noneLabel?: string
 }) {
+  const distribuicao = target ? targetDistribution(target) : null
+  const usuarios = target ? targetUserIds(target) : []
+
   return (
     <div
       className={`flex flex-col gap-1.5 ${bordered ? 'border-t border-border pt-2.5' : ''}`}
     >
       <span className={label}>{title}</span>
       <select
-        value={target?.type ?? ''}
+        value={distribuicao ?? ''}
         onChange={event =>
           onChange(
-            event.target.value === '' ? null : alvoVazio(event.target.value),
+            event.target.value === ''
+              ? null
+              : withDistribution(
+                  event.target.value as HandoffDistribution,
+                  target,
+                ),
           )
         }
         className={`${field} cursor-pointer`}
       >
         {noneLabel ? <option value="">{noneLabel}</option> : null}
-        {HANDOFF_TARGET_TYPES.map(tipo => (
-          <option key={tipo} value={tipo}>
-            {HANDOFF_TARGET_LABEL[tipo]}
+        {HANDOFF_DISTRIBUTIONS.map(opcao => (
+          <option key={opcao} value={opcao}>
+            {HANDOFF_DISTRIBUTION_LABEL[opcao]}
           </option>
         ))}
       </select>
 
-      {target?.type === 'user' ? (
-        <UserPicker
-          bitrixUserId={target.bitrixUserId}
-          onPick={id => onChange({ type: 'user', bitrixUserId: id })}
+      {distribuicao ? (
+        <p className="text-[10px] text-muted-foreground">
+          {HANDOFF_DISTRIBUTION_HINT[distribuicao]}
+        </p>
+      ) : null}
+
+      {distribuicao === 'channel' ? (
+        <LinePicker
+          lineId={target?.type === 'line' ? target.lineId : MESMO_CANAL}
+          onPick={id =>
+            onChange(
+              id === MESMO_CANAL
+                ? { type: 'queue' }
+                : { type: 'line', lineId: id },
+            )
+          }
         />
       ) : null}
 
-      {target?.type === 'line' ? (
-        <LinePicker
-          lineId={target.lineId}
-          onPick={id => onChange({ type: 'line', lineId: id })}
+      {distribuicao === 'evenly' || distribuicao === 'all' ? (
+        <UserPicker
+          bitrixUserIds={usuarios}
+          onChange={ids => onChange({ type: distribuicao, bitrixUserIds: ids })}
         />
       ) : null}
     </div>
@@ -84,44 +112,40 @@ function iniciais(nome: string): string {
   return `${primeira}${ultima ?? ''}`
 }
 
-// Zera o id: manter o anterior gravaria `bitrixUserId` num alvo `line`, que o zod do
-// servidor recusa no `PATCH`.
-function alvoVazio(tipo: string): HandoffTarget {
-  if (tipo === 'user') return { type: 'user', bitrixUserId: '' }
-  if (tipo === 'line') return { type: 'line', lineId: '' }
-  return { type: 'queue' }
-}
-
 function UserPicker({
-  bitrixUserId,
-  onPick,
+  bitrixUserIds,
+  onChange,
 }: {
-  bitrixUserId: string
-  onPick: (bitrixUserId: string) => void
+  bitrixUserIds: string[]
+  onChange: (bitrixUserIds: string[]) => void
 }) {
   const [busca, setBusca] = useState('')
   const [hits, setHits] = useState<PortalUser[]>([])
   const [buscando, setBuscando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const [escolhido, setEscolhido] = useState<PortalUser | null>(null)
+  const [nomes, setNomes] = useState<Record<string, PortalUser>>({})
 
-  // Guarda o id já procurado, achado ou não: id removido do portal buscaria sem fim.
-  const procurado = useRef<string | null>(null)
+  // Guarda os ids já procurados, achados ou não: id removido do portal buscaria sem fim.
+  const procurados = useRef<Set<string>>(new Set())
 
   useEffect(() => {
-    if (!bitrixUserId || procurado.current === bitrixUserId) return
-    procurado.current = bitrixUserId
-
     let ativo = true
-    getPortalUser(bitrixUserId)
-      .then(user => {
-        if (ativo) setEscolhido(user)
-      })
-      .catch(() => {})
+
+    for (const id of bitrixUserIds) {
+      if (!id || procurados.current.has(id)) continue
+      procurados.current.add(id)
+
+      getPortalUser(id)
+        .then(user => {
+          if (ativo && user) setNomes(atual => ({ ...atual, [id]: user }))
+        })
+        .catch(() => {})
+    }
+
     return () => {
       ativo = false
     }
-  }, [bitrixUserId])
+  }, [bitrixUserIds])
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -153,54 +177,16 @@ function UserPicker({
     [],
   )
 
-  if (bitrixUserId) {
-    // Enquanto o nome não chega, o id sozinho não diz nada: mostra o esqueleto no lugar
-    // de "Usuário #12", que parecia o valor final.
-    const resolvendo = escolhido === null && procurado.current === bitrixUserId
-
-    return (
-      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold uppercase text-primary">
-          {escolhido ? (
-            iniciais(escolhido.name)
-          ) : (
-            <UserRound className="h-3 w-3" />
-          )}
-        </span>
-
-        <span className="flex min-w-0 flex-1 flex-col">
-          {resolvendo ? (
-            <span className="h-3 w-28 animate-pulse rounded bg-muted-foreground/20" />
-          ) : (
-            <span className="truncate text-xs font-medium text-foreground">
-              {escolhido ? escolhido.name : `Usuário #${bitrixUserId}`}
-            </span>
-          )}
-          {escolhido?.position ? (
-            <span className="truncate text-[10px] text-muted-foreground">
-              {escolhido.position}
-            </span>
-          ) : null}
-        </span>
-
-        <button
-          type="button"
-          aria-label="Trocar atendente"
-          title="Trocar atendente"
-          onClick={() => {
-            setEscolhido(null)
-            onPick('')
-          }}
-          className="shrink-0 cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    )
+  function adicionar(user: PortalUser) {
+    if (bitrixUserIds.includes(user.id)) return
+    setNomes(atual => ({ ...atual, [user.id]: user }))
+    onChange([...bitrixUserIds, user.id])
+    setBusca('')
+    setHits([])
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1.5">
       <div className="relative">
         <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
         <input
@@ -218,35 +204,98 @@ function UserPicker({
         <p className="text-[10px] text-destructive">{erro}</p>
       ) : hits.length > 0 ? (
         <ul className="max-h-36 overflow-y-auto rounded-md border border-border">
-          {hits.map(hit => (
-            <li key={hit.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  setEscolhido(hit)
-                  onPick(hit.id)
-                }}
-                className="flex w-full cursor-pointer flex-col items-start px-2 py-1 text-left hover:bg-muted"
-              >
-                <span className="text-xs text-foreground">{hit.name}</span>
-                {hit.position ? (
-                  <span className="text-[10px] text-muted-foreground">
-                    {hit.position}
+          {hits.map(hit => {
+            const jaEscolhido = bitrixUserIds.includes(hit.id)
+
+            return (
+              <li key={hit.id}>
+                <button
+                  type="button"
+                  disabled={jaEscolhido}
+                  onClick={() => adicionar(hit)}
+                  className="flex w-full cursor-pointer flex-col items-start px-2 py-1 text-left hover:bg-muted disabled:cursor-default disabled:opacity-50"
+                >
+                  <span className="text-xs text-foreground">
+                    {hit.name}
+                    {jaEscolhido ? ' (já selecionado)' : ''}
                   </span>
-                ) : null}
-              </button>
-            </li>
-          ))}
+                  {hit.position ? (
+                    <span className="text-[10px] text-muted-foreground">
+                      {hit.position}
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            )
+          })}
         </ul>
       ) : busca.trim().length >= 2 && !buscando ? (
         <p className="text-[10px] text-muted-foreground">
           Nenhum atendente com esse nome.
         </p>
-      ) : (
+      ) : bitrixUserIds.length === 0 ? (
         <p className="text-[10px] text-muted-foreground">
-          Sem atendente escolhido, a publicação é recusada.
+          Sem nenhum atendente selecionado, a publicação é recusada.
         </p>
-      )}
+      ) : null}
+
+      {/* Abaixo da busca: quem já está escolhido é o resultado do campo de cima, e no
+          topo empurrava a busca para fora da vista a cada atendente adicionado. */}
+      {bitrixUserIds.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <span className={label}>Usuários selecionados</span>
+          <ul className="flex flex-col gap-1">
+            {bitrixUserIds.map(id => {
+              const escolhido = nomes[id]
+              // Enquanto o nome não chega, o id sozinho não diz nada: mostra o esqueleto
+              // no lugar de "Usuário #12", que parecia o valor final.
+              const resolvendo = !escolhido && procurados.current.has(id)
+
+              return (
+                <li
+                  key={id}
+                  className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5"
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold uppercase text-primary">
+                    {escolhido ? (
+                      iniciais(escolhido.name)
+                    ) : (
+                      <UserRound className="h-3 w-3" />
+                    )}
+                  </span>
+
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    {resolvendo ? (
+                      <span className="h-3 w-28 animate-pulse rounded bg-muted-foreground/20" />
+                    ) : (
+                      <span className="truncate text-xs font-medium text-foreground">
+                        {escolhido ? escolhido.name : `Usuário #${id}`}
+                      </span>
+                    )}
+                    {escolhido?.position ? (
+                      <span className="truncate text-[10px] text-muted-foreground">
+                        {escolhido.position}
+                      </span>
+                    ) : null}
+                  </span>
+
+                  <button
+                    type="button"
+                    aria-label="Remover atendente"
+                    title="Remover atendente"
+                    onClick={() =>
+                      onChange(bitrixUserIds.filter(outro => outro !== id))
+                    }
+                    className="shrink-0 cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -295,24 +344,19 @@ function LinePicker({
   }
 
   return (
-    <>
-      <select
-        value={lineId}
-        onChange={event => onPick(event.target.value)}
-        className={`${field} cursor-pointer ${lineId ? '' : 'border-amber-500 text-amber-700'}`}
-      >
-        <option value="">escolher canal…</option>
-        {linhas.map(linha => (
-          <option key={String(linha.id)} value={String(linha.id)}>
-            {linha.name?.trim() || `Canal #${linha.id}`}
-          </option>
-        ))}
-      </select>
-      {linhas.length === 0 ? (
-        <p className="text-[10px] text-muted-foreground">
-          Nenhum canal aberto ativo no portal.
-        </p>
-      ) : null}
-    </>
+    <select
+      value={lineId}
+      onChange={event => onPick(event.target.value)}
+      className={`${field} cursor-pointer`}
+    >
+      {/* Sem escolha explícita a conversa fica na fila do canal em que já está, que é o
+          caso comum — daí ser a primeira opção e não um estado pendente. */}
+      <option value={MESMO_CANAL}>o mesmo canal da conversa</option>
+      {linhas.map(linha => (
+        <option key={String(linha.id)} value={String(linha.id)}>
+          {linha.name?.trim() || `Canal #${linha.id}`}
+        </option>
+      ))}
+    </select>
   )
 }

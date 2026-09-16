@@ -17,10 +17,13 @@ const codes = (graph: unknown): string[] =>
 // Id vazio é estado normal de rascunho, mas o `min(1)` do zod reprovava o graph inteiro
 // como `malformed`, sem dizer qual bloco.
 describe('alvo de handoff', () => {
-  it('aceita os três alvos', () => {
+  it('aceita as três distribuições', () => {
     expect(parseBotFlowGraph(comAlvo({ type: 'queue' }))).not.toBeNull()
     expect(
-      parseBotFlowGraph(comAlvo({ type: 'user', bitrixUserId: '12' })),
+      parseBotFlowGraph(comAlvo({ type: 'evenly', bitrixUserIds: ['12'] })),
+    ).not.toBeNull()
+    expect(
+      parseBotFlowGraph(comAlvo({ type: 'all', bitrixUserIds: ['12', '13'] })),
     ).not.toBeNull()
     expect(
       parseBotFlowGraph(comAlvo({ type: 'line', lineId: '7' })),
@@ -28,16 +31,39 @@ describe('alvo de handoff', () => {
   })
 
   it('alvo completo não gera problema', () => {
-    expect(codes(comAlvo({ type: 'user', bitrixUserId: '12' }))).toEqual([])
+    expect(codes(comAlvo({ type: 'evenly', bitrixUserIds: ['12'] }))).toEqual(
+      [],
+    )
+    expect(
+      codes(comAlvo({ type: 'all', bitrixUserIds: ['12', '13'] })),
+    ).toEqual([])
     expect(codes(comAlvo({ type: 'line', lineId: '7' }))).toEqual([])
     expect(codes(comAlvo({ type: 'queue' }))).toEqual([])
   })
 
-  it('id vazio é problema de conteúdo, não de forma', () => {
-    const rascunho = comAlvo({ type: 'user', bitrixUserId: '' })
+  it('lista vazia é problema de conteúdo, não de forma', () => {
+    const rascunho = comAlvo({ type: 'evenly', bitrixUserIds: [] })
 
     expect(parseBotFlowGraph(rascunho)).not.toBeNull()
     expect(codes(rascunho)).toEqual(['handoff-target-incomplete'])
+  })
+
+  // Fluxo salvo antes da distribuição guarda um atendente só. Se virasse `malformed`,
+  // fluxo publicado deixaria de carregar; se virasse fila, entregaria para outra pessoa.
+  it('alvo antigo de um atendente vira rodízio de um', () => {
+    const antigo = comAlvo({ type: 'queue' })
+    antigo.nodes[1] = {
+      id: 'b',
+      kind: 'handoff',
+      target: { type: 'user', bitrixUserId: '12' },
+    } as unknown as (typeof antigo.nodes)[1]
+
+    const parsed = parseBotFlowGraph(antigo)
+
+    expect(parsed?.nodes[1]).toMatchObject({
+      target: { type: 'evenly', bitrixUserIds: ['12'] },
+    })
+    expect(codes(antigo)).toEqual([])
   })
 
   it('aponta o bloco e diz qual escolha falta', () => {

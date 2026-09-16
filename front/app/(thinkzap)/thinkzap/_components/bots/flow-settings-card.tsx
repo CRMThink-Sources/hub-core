@@ -1,6 +1,7 @@
 'use client'
 
 import { DoorOpen, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { BotFlowGraph, FlowSettings } from '@/shared/thinkzap-bot-flow'
 import { HandoffTargetField } from './handoff-target-field'
@@ -9,9 +10,12 @@ import { HandoffTargetField } from './handoff-target-field'
 export function FlowSettingsCard({
   graph,
   onChange,
+  onClose,
 }: {
   graph: BotFlowGraph
   onChange: (settings: FlowSettings) => void
+  /** O botão da barra também fecha, mas ninguém lê um botão aceso como "fechar". */
+  onClose?: () => void
 }) {
   const { escapeKeywords, escapeTarget, escapeText } = graph.settings
 
@@ -19,7 +23,7 @@ export function FlowSettingsCard({
   // que é o estado normal de um fluxo novo.
   const aviso =
     escapeTarget === null && escapeKeywords.length > 0
-      ? 'As palavras acima não têm efeito enquanto nada estiver escolhido em "Transferir para".'
+      ? 'As palavras acima não têm efeito enquanto nada estiver escolhido em "Distribuição".'
       : escapeTarget !== null && escapeKeywords.length === 0
         ? 'Sem nenhuma palavra, a saída de emergência nunca é acionada.'
         : null
@@ -36,12 +40,29 @@ export function FlowSettingsCard({
 
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
-      <header className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-          <DoorOpen className="h-3 w-3" />
-          Saída de emergência
-        </span>
+      {/* Título + divisória: sem uma linha de cabeçalho para ancorar, o botão de fechar
+          ficava solto entre os campos e ninguém o lia como ação do painel. */}
+      <header className="flex items-center gap-2 border-b border-border pb-2">
+        <h2 className="text-sm font-semibold text-foreground">Ajustes</h2>
+
+        {onClose ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="ml-auto text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            aria-label="Fechar ajustes"
+            title="Fechar ajustes"
+            onClick={onClose}
+          >
+            <X />
+          </Button>
+        ) : null}
       </header>
+
+      <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+        <DoorOpen className="h-3 w-3" />
+        Saída de emergência
+      </span>
 
       <p className="text-xs text-muted-foreground">
         Se o cliente escrever uma destas palavras em qualquer ponto, o bot para
@@ -73,7 +94,7 @@ export function FlowSettingsCard({
 
         <Input
           placeholder="Nova palavra..."
-          className="h-7 w-32 text-xs"
+          className="h-7 w-32 text-xs md:text-xs"
           disabled={escapeKeywords.length >= 20}
           onKeyDown={event => {
             if (event.key !== 'Enter') return
@@ -86,7 +107,7 @@ export function FlowSettingsCard({
 
       <div className="flex flex-col gap-2">
         <HandoffTargetField
-          title="Transferir para"
+          title="Distribuição"
           bordered={false}
           noneLabel="não usar saída de emergência"
           target={escapeTarget}
@@ -96,18 +117,24 @@ export function FlowSettingsCard({
         />
 
         {escapeTarget ? (
-          <Input
-            placeholder="fala antes de transferir (opcional)"
-            className="h-8 text-xs"
-            defaultValue={escapeText ?? ''}
-            onBlur={event => {
-              const texto = event.currentTarget.value.trim()
-              onChange({
-                ...graph.settings,
-                escapeText: texto ? texto : undefined,
-              })
-            }}
-          />
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-semibold uppercase text-muted-foreground">
+              Mensagem de transferência
+            </span>
+            <Input
+              placeholder="Ex.: Vou transferir você para um atendente. (opcional)"
+              // `md:text-xs` porque o `md:text-sm` do `Input` vence um `text-xs` solto.
+              className="h-8 text-xs md:text-xs"
+              defaultValue={escapeText ?? ''}
+              onBlur={event => {
+                const texto = event.currentTarget.value.trim()
+                onChange({
+                  ...graph.settings,
+                  escapeText: texto ? texto : undefined,
+                })
+              }}
+            />
+          </div>
         ) : null}
       </div>
 

@@ -95,24 +95,30 @@ export function BotFlowList({
       ) : null}
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <table className="min-w-full text-left text-sm">
+        <table className="w-full table-fixed text-left text-sm">
+          {/* Larguras declaradas: com `auto` o navegador media cada coluna pelo conteúdo
+              da linha, então a mesma coluna mudava de borda conforme o fluxo listado. */}
+          <colgroup>
+            <col className="w-[22%]" />
+            <col className="w-[14%]" />
+            <col />
+            <col className="w-24" />
+          </colgroup>
           <thead>
-            <tr className="border-b border-border bg-muted text-[11px] uppercase tracking-wide text-muted-foreground">
-              <th className="px-4 py-3 font-semibold">Fluxo</th>
-              <th className="px-4 py-3 font-semibold">Situação</th>
-              <th className="px-4 py-3 font-semibold">Atende em</th>
-              <th className="px-4 py-3 font-semibold">Passos</th>
-              <th className="px-4 py-3 font-semibold">Versão</th>
-              <th className="px-4 py-3" />
+            <tr className="border-b border-border bg-muted text-[11px] uppercase tracking-wide text-muted-foreground [&>th]:px-4 [&>th]:py-3 [&>th]:align-middle [&>th]:font-semibold">
+              <th>Fluxo</th>
+              <th>Situação</th>
+              <th>Atende em</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {flows.map(flow => (
               <tr
                 key={flow.id}
-                className="border-b border-border last:border-0 hover:bg-muted/50"
+                className="border-b border-border last:border-0 hover:bg-muted/50 [&>td]:px-4 [&>td]:py-3 [&>td]:align-middle"
               >
-                <td className="px-4 py-3">
+                <td>
                   <button
                     type="button"
                     onClick={() => onOpen(flow.id)}
@@ -121,14 +127,14 @@ export function BotFlowList({
                     {flow.name}
                   </button>
                 </td>
-                <td className="px-4 py-3">
+                <td>
                   <span
                     className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[flow.status]}`}
                   >
                     {STATUS_LABEL[flow.status]}
                   </span>
                 </td>
-                <td className="px-4 py-3">
+                <td>
                   <CanalCell
                     flow={flow}
                     binding={porFlow.get(flow.id) ?? null}
@@ -139,13 +145,7 @@ export function BotFlowList({
                     onDesvincular={onDesvincular}
                   />
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {flow.nodeCount}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  v{flow.version}
-                </td>
-                <td className="px-4 py-3">
+                <td>
                   <div className="flex justify-end gap-1">
                     <Button
                       variant="ghost"

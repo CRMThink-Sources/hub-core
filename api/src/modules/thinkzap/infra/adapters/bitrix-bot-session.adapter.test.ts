@@ -101,7 +101,7 @@ describe('BitrixBotSessionAdapter', () => {
   it('transfere pelo alvo escolhido', async () => {
     const { adapter, callMethod } = makeAdapter()
 
-    await adapter.handoff('112', { type: 'user', bitrixUserId: '15' })
+    await adapter.handoff('112', { type: 'evenly', bitrixUserIds: ['15'] })
 
     expect(callMethod).toHaveBeenCalledWith(
       'imopenlines.bot.session.transfer',
@@ -113,7 +113,7 @@ describe('BitrixBotSessionAdapter', () => {
     const { adapter, callMethod } = makeAdapter()
 
     // Atendente que saiu do portal depois de o fluxo ser publicado.
-    await adapter.handoff('112', { type: 'user', bitrixUserId: '' })
+    await adapter.handoff('112', { type: 'evenly', bitrixUserIds: [''] })
 
     expect(callMethod).toHaveBeenCalledTimes(1)
     expect(callMethod).toHaveBeenCalledWith(

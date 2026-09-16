@@ -549,7 +549,7 @@ async function stageHandoff(
   })
 
   const target: HandoffTarget = userId
-    ? { type: 'user', bitrixUserId: userId }
+    ? { type: 'evenly', bitrixUserIds: [userId] }
     : queueId
       ? { type: 'line', lineId: queueId }
       : { type: 'queue' }
@@ -589,7 +589,7 @@ Confirmação fora do processo (checagem 6):
   - quem recebeu a sessão? ${
     target.type === 'queue'
       ? 'um operador da fila desta linha'
-      : target.type === 'user'
+      : target.type === 'evenly'
         ? `o usuário ${userId} especificamente — não outro da fila`
         : `um operador do canal aberto ${queueId} — não da linha original`
   }

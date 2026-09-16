@@ -206,7 +206,7 @@ export function BotFlowEditor({
       const flow = await publishBotFlow(flowId)
       setState({ kind: 'ready', flow })
       setIssues([])
-      toast.success(`Fluxo publicado (v${flow.version}).`)
+      toast.success('Fluxo publicado.')
     } catch (error) {
       const found =
         error && typeof error === 'object' && 'issues' in error
@@ -271,11 +271,13 @@ export function BotFlowEditor({
             setSujo(true)
           }}
         />
-        <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-          v{state.flow.version} ·{' '}
-          {state.flow.status === 'PUBLISHED' ? 'publicada' : 'rascunho'}
-          {sujo ? ' · não salvo' : ''}
-        </span>
+        {/* Só o aviso de pendência: versão e situação são vocabulário de quem versiona
+            fluxo, e na tela de edição não mudavam nenhuma decisão de quem está montando. */}
+        {sujo ? (
+          <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            não salvo
+          </span>
+        ) : null}
 
         <span className="mx-1 h-5 w-px bg-border" />
 
@@ -417,11 +419,12 @@ export function BotFlowEditor({
         {painel ? (
           <div className="flex flex-col gap-3">
             {painel === 'simulador' ? (
-              <BotFlowSimulator graph={graph} />
+              <BotFlowSimulator graph={graph} onClose={() => setPainel(null)} />
             ) : (
               <FlowSettingsCard
                 graph={graph}
                 onChange={settings => mutate({ ...graph, settings })}
+                onClose={() => setPainel(null)}
               />
             )}
           </div>
