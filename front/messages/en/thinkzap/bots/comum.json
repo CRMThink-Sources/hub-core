@@ -1,0 +1,51 @@
+{
+  "tipos": {
+    "message": "Message",
+    "question": "Question",
+    "input": "Capture",
+    "condition": "Condition",
+    "handoff": "Transfer",
+    "finish": "End"
+  },
+  "dicas": {
+    "message": "Says something and moves on",
+    "question": "Offers options and waits for the choice",
+    "input": "Asks and stores the answer",
+    "condition": "Branches based on what was answered",
+    "handoff": "Transfers the conversation to an agent",
+    "finish": "Ends the conversation"
+  },
+  "grupos": {
+    "conversa": "Conversation",
+    "acoes": "Chat actions"
+  },
+  "receitas": {
+    "ja-e-cliente": {
+      "label": "Already a customer?",
+      "hint": "Branches if the contact already exists in the CRM"
+    },
+    "tem-negocio": {
+      "label": "Has an open deal?",
+      "hint": "Branches if the chat is linked to a deal"
+    }
+  },
+  "operadores": {
+    "notEmpty": "has value",
+    "empty": "is empty",
+    "eq": "=",
+    "neq": "≠",
+    "contains": "contains"
+  },
+  "variavel": "variable",
+  "distribuicao": {
+    "channel": "Open Channel",
+    "evenly": "Evenly",
+    "all": "To Everyone"
+  },
+  "distribuicaoDica": {
+    "channel": "the open channel queue picks the agent",
+    "evenly": "round robin among the selected agents",
+    "all": "everyone selected is notified by the channel queue"
+  },
+  "canalNumero": "Channel #{{id}}"
+}

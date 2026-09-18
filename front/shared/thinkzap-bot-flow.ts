@@ -56,10 +56,18 @@ export const VAR_OPERATORS: VarOperator[] = [
   'contains',
 ]
 
-/** Condição em uma linha. Antes o cartão contava os ramos sem dizer o que testam. */
-export function describeVarTest(test: VarTest): string {
-  const nome = test.var.trim() || 'variável'
-  const operador = VAR_OPERATOR_LABEL[test.op]
+/**
+ * Condição em uma linha. Antes o cartão contava os ramos sem dizer o que testam.
+ *
+ * Os rótulos entram por parâmetro porque a tela é traduzida: o padrão em português
+ * serve a quem chama sem `i18n` (testes, uso fora de componente).
+ */
+export function describeVarTest(
+  test: VarTest,
+  labels?: { operadores?: Record<VarOperator, string>; variavel?: string },
+): string {
+  const nome = test.var.trim() || labels?.variavel || 'variável'
+  const operador = (labels?.operadores ?? VAR_OPERATOR_LABEL)[test.op]
 
   if (test.op === 'empty' || test.op === 'notEmpty') {
     return `${nome} ${operador}`
@@ -328,11 +336,21 @@ export const NODE_KIND_ORDER: FlowNodeKind[] = [
 
 /** Separa o que o bot fala do que acontece com o atendimento. */
 export const NODE_KIND_GROUPS: Array<{
+  /** Chave de tradução do grupo — o `titulo` é o fallback em português. */
+  id: 'conversa' | 'acoes'
   titulo: string
   kinds: FlowNodeKind[]
 }> = [
-  { titulo: 'Conversa', kinds: ['message', 'question', 'input'] },
-  { titulo: 'Ações do chat', kinds: ['condition', 'handoff', 'finish'] },
+  {
+    id: 'conversa',
+    titulo: 'Conversa',
+    kinds: ['message', 'question', 'input'],
+  },
+  {
+    id: 'acoes',
+    titulo: 'Ações do chat',
+    kinds: ['condition', 'handoff', 'finish'],
+  },
 ]
 
 /** Uma linha de ajuda por tipo: o rótulo sozinho não diz o que o bloco faz. */

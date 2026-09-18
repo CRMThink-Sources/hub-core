@@ -1,0 +1,60 @@
+{
+  "titulo": "ThinkBot",
+  "subtitulo": "Arma el flujo de atención: define cómo el bot debe conducir la conversación.",
+  "carregando": "Cargando",
+  "erro": {
+    "titulo": "No fue posible cargar los flujos",
+    "carregar": "No fue posible cargar los flujos.",
+    "listarCanais": "fallo al listar los canales"
+  },
+  "toast": {
+    "criarFalhou": "No fue posible crear.",
+    "vinculado": "Flujo activado en el canal.",
+    "vincularFalhou": "No fue posible vincular.",
+    "desvinculado": "Vínculo eliminado. El canal vuelve a la atención humana.",
+    "desvincularFalhou": "No fue posible eliminar el vínculo.",
+    "excluido": "Flujo eliminado.",
+    "excluirFalhou": "No fue posible eliminar."
+  },
+  "vazio": {
+    "titulo": "Ningún flujo creado",
+    "acao": "Crear flujo"
+  },
+  "status": {
+    "PUBLISHED": "Publicado",
+    "DRAFT": "Borrador",
+    "ARCHIVED": "Archivado"
+  },
+  "inertes_one": "\"{{nome}}\" está publicado pero todavía no atiende a nadie — elige un canal abierto en \"Atiende en\".",
+  "inertes_other": "{{count}} flujos publicados todavía no atienden a nadie — elige un canal abierto en \"Atiende en\".",
+  "colunas": {
+    "fluxo": "Flujo",
+    "situacao": "Situación",
+    "atendeEm": "Atiende en"
+  },
+  "acoes": {
+    "editar": "Editar flujo",
+    "excluir": "Eliminar flujo"
+  },
+  "outroFluxo": "otro flujo",
+  "canal": {
+    "publiqueParaVincular": "publica para vincular",
+    "removerVinculo": "Eliminar vínculo",
+    "carregandoCanais": "canales",
+    "erroListar": "no fue posible listar los canales",
+    "erroBitrix": "Error de Bitrix: {{erro}}",
+    "semCanais": "ningún canal abierto en el portal",
+    "todosOcupados": "todos los canales ya tienen flujo",
+    "escolher": "elegir canal…",
+    "ativar": "activar"
+  },
+  "novo": {
+    "titulo": "Nuevo flujo",
+    "descricao": "Define un nombre para identificar este flujo internamente.",
+    "nome": "Nombre",
+    "placeholder": "Atención general",
+    "cancelar": "Cancelar",
+    "criar": "Crear",
+    "criando": "Creando…"
+  }
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, Search, UserRound, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   getPortalUser,
   listOpenChannels,
@@ -10,8 +11,6 @@ import {
   type PortalUser,
 } from '../../_lib/bot-flow-client'
 import {
-  HANDOFF_DISTRIBUTION_HINT,
-  HANDOFF_DISTRIBUTION_LABEL,
   HANDOFF_DISTRIBUTIONS,
   type HandoffDistribution,
   type HandoffTarget,
@@ -33,18 +32,21 @@ const MESMO_CANAL = ''
 export function HandoffTargetField({
   target,
   onChange,
-  title = 'Distribuição',
+  title,
   bordered = true,
   noneLabel,
 }: {
   target: HandoffTarget | null
   onChange: (target: HandoffTarget | null) => void
+  /** Ausente = "Distribuição", o rótulo padrão do campo. */
   title?: string
   /** A borda separa o campo do resto do painel de bloco; fora dele sobra risco solto. */
   bordered?: boolean
   /** Rótulo da opção "sem alvo". Ausente = escolha obrigatória, como no bloco. */
   noneLabel?: string
 }) {
+  const { t } = useTranslation('thinkzap/bots/bloco')
+  const { t: tc } = useTranslation('thinkzap/bots/comum')
   const distribuicao = target ? targetDistribution(target) : null
   const usuarios = target ? targetUserIds(target) : []
 
@@ -52,7 +54,7 @@ export function HandoffTargetField({
     <div
       className={`flex flex-col gap-1.5 ${bordered ? 'border-t border-border pt-2.5' : ''}`}
     >
-      <span className={label}>{title}</span>
+      <span className={label}>{title ?? t('handoff.distribuicao')}</span>
       <select
         value={distribuicao ?? ''}
         onChange={event =>
@@ -70,14 +72,14 @@ export function HandoffTargetField({
         {noneLabel ? <option value="">{noneLabel}</option> : null}
         {HANDOFF_DISTRIBUTIONS.map(opcao => (
           <option key={opcao} value={opcao}>
-            {HANDOFF_DISTRIBUTION_LABEL[opcao]}
+            {tc(`distribuicao.${opcao}`)}
           </option>
         ))}
       </select>
 
       {distribuicao ? (
         <p className="text-[10px] text-muted-foreground">
-          {HANDOFF_DISTRIBUTION_HINT[distribuicao]}
+          {tc(`distribuicaoDica.${distribuicao}`)}
         </p>
       ) : null}
 
@@ -119,6 +121,7 @@ function UserPicker({
   bitrixUserIds: string[]
   onChange: (bitrixUserIds: string[]) => void
 }) {
+  const { t } = useTranslation('thinkzap/bots/bloco')
   const [busca, setBusca] = useState('')
   const [hits, setHits] = useState<PortalUser[]>([])
   const [buscando, setBuscando] = useState(false)
@@ -163,7 +166,7 @@ function UserPicker({
       searchPortalUsers(termo.trim())
         .then(setHits)
         .catch(() => {
-          setErro('Não foi possível buscar os atendentes do portal.')
+          setErro(t('handoff.erroBuscar'))
           setHits([])
         })
         .finally(() => setBuscando(false))
@@ -191,7 +194,7 @@ function UserPicker({
         <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
         <input
           value={busca}
-          placeholder="buscar atendente pelo nome"
+          placeholder={t('handoff.buscarAtendente')}
           onChange={event => buscar(event.target.value)}
           className={`${field} pl-6`}
         />
@@ -217,7 +220,7 @@ function UserPicker({
                 >
                   <span className="text-xs text-foreground">
                     {hit.name}
-                    {jaEscolhido ? ' (já selecionado)' : ''}
+                    {jaEscolhido ? t('handoff.jaSelecionado') : ''}
                   </span>
                   {hit.position ? (
                     <span className="text-[10px] text-muted-foreground">
@@ -231,11 +234,11 @@ function UserPicker({
         </ul>
       ) : busca.trim().length >= 2 && !buscando ? (
         <p className="text-[10px] text-muted-foreground">
-          Nenhum atendente com esse nome.
+          {t('handoff.nenhumAtendente')}
         </p>
       ) : bitrixUserIds.length === 0 ? (
         <p className="text-[10px] text-muted-foreground">
-          Sem nenhum atendente selecionado, a publicação é recusada.
+          {t('handoff.semAtendente')}
         </p>
       ) : null}
 
@@ -243,7 +246,7 @@ function UserPicker({
           topo empurrava a busca para fora da vista a cada atendente adicionado. */}
       {bitrixUserIds.length > 0 ? (
         <div className="flex flex-col gap-1">
-          <span className={label}>Usuários selecionados</span>
+          <span className={label}>{t('handoff.usuariosSelecionados')}</span>
           <ul className="flex flex-col gap-1">
             {bitrixUserIds.map(id => {
               const escolhido = nomes[id]
@@ -269,7 +272,9 @@ function UserPicker({
                       <span className="h-3 w-28 animate-pulse rounded bg-muted-foreground/20" />
                     ) : (
                       <span className="truncate text-xs font-medium text-foreground">
-                        {escolhido ? escolhido.name : `Usuário #${id}`}
+                        {escolhido
+                          ? escolhido.name
+                          : t('handoff.usuarioNumero', { id })}
                       </span>
                     )}
                     {escolhido?.position ? (
@@ -281,8 +286,8 @@ function UserPicker({
 
                   <button
                     type="button"
-                    aria-label="Remover atendente"
-                    title="Remover atendente"
+                    aria-label={t('handoff.removerAtendente')}
+                    title={t('handoff.removerAtendente')}
                     onClick={() =>
                       onChange(bitrixUserIds.filter(outro => outro !== id))
                     }
@@ -307,6 +312,8 @@ function LinePicker({
   lineId: string
   onPick: (lineId: string) => void
 }) {
+  const { t } = useTranslation('thinkzap/bots/bloco')
+  const { t: tc } = useTranslation('thinkzap/bots/comum')
   const [linhas, setLinhas] = useState<OpenChannel[] | null>(null)
   const [erro, setErro] = useState(false)
 
@@ -328,9 +335,7 @@ function LinePicker({
 
   if (erro) {
     return (
-      <p className="text-[10px] text-destructive">
-        Não foi possível listar os canais abertos.
-      </p>
+      <p className="text-[10px] text-destructive">{t('handoff.erroCanais')}</p>
     )
   }
 
@@ -338,7 +343,7 @@ function LinePicker({
     return (
       <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
-        carregando canais
+        {t('handoff.carregandoCanais')}
       </p>
     )
   }
@@ -351,10 +356,10 @@ function LinePicker({
     >
       {/* Sem escolha explícita a conversa fica na fila do canal em que já está, que é o
           caso comum — daí ser a primeira opção e não um estado pendente. */}
-      <option value={MESMO_CANAL}>o mesmo canal da conversa</option>
+      <option value={MESMO_CANAL}>{t('handoff.mesmoCanal')}</option>
       {linhas.map(linha => (
         <option key={String(linha.id)} value={String(linha.id)}>
-          {linha.name?.trim() || `Canal #${linha.id}`}
+          {linha.name?.trim() || tc('canalNumero', { id: linha.id })}
         </option>
       ))}
     </select>

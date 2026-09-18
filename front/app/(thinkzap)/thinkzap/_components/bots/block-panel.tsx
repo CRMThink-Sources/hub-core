@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Minus, Plus, Trash2, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type {
   FlowIssue,
   FlowNode,
@@ -9,9 +10,7 @@ import type {
 } from '@/shared/thinkzap-bot-flow'
 import {
   MAX_QUESTION_OPTIONS,
-  NODE_KIND_LABEL,
   VAR_OPERATORS,
-  VAR_OPERATOR_LABEL,
   nextOptionValue,
 } from '@/shared/thinkzap-bot-flow'
 import { nodePorts, type PortKind } from '@/shared/thinkzap-flow-graph'
@@ -21,13 +20,7 @@ import { KIND_ACCENT, KIND_ICON } from './canvas/kind-visual'
 import { HandoffTargetField } from './handoff-target-field'
 import { issueText } from './issue-text'
 
-const VALIDATION_LABEL: Record<InputValidation, string> = {
-  text: 'Texto livre',
-  email: 'E-mail',
-  cpf: 'CPF',
-  number: 'Número',
-  date: 'Data',
-}
+const VALIDATIONS = ['text', 'email', 'cpf', 'number', 'date'] as const
 
 /**
  * Sem largura: `w-full` embutido aqui competia com a largura própria de quem precisa de
@@ -70,6 +63,10 @@ export function BlockPanel({
   onSetEntry,
   onSetTarget,
 }: BlockPanelProps) {
+  const { t } = useTranslation('thinkzap/bots/bloco')
+  const { t: tc } = useTranslation('thinkzap/bots/comum')
+  const { t: te } = useTranslation('thinkzap/bots/editor')
+
   if (!node) return null
 
   const ports = nodePorts(node)
@@ -98,10 +95,10 @@ export function BlockPanel({
    */
   const tituloDasSaidas =
     node.kind !== 'condition'
-      ? 'Para onde vai'
+      ? t('saidas.paraOndeVai')
       : node.branches.length === 1
-        ? 'Se não bater'
-        : 'Se nenhuma condição bater'
+        ? t('saidas.seNaoBater')
+        : t('saidas.seNenhuma')
 
   return (
     <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-xl border border-border bg-card p-3 shadow-xl">
@@ -112,11 +109,11 @@ export function BlockPanel({
           <Icon className="h-3.5 w-3.5" />
         </span>
         <span className="text-[13px] font-semibold text-foreground">
-          {NODE_KIND_LABEL[node.kind]}
+          {tc(`tipos.${node.kind}`)}
         </span>
         {isEntry ? (
           <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">
-            início
+            {t('inicio')}
           </span>
         ) : (
           <button
@@ -124,13 +121,13 @@ export function BlockPanel({
             onClick={onSetEntry}
             className="cursor-pointer text-[10px] text-muted-foreground hover:text-primary hover:underline"
           >
-            tornar início
+            {t('tornarInicio')}
           </button>
         )}
         {onFechar ? (
           <button
             type="button"
-            aria-label="Fechar"
+            aria-label={t('fechar')}
             onClick={onFechar}
             className="ml-auto flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
@@ -143,17 +140,17 @@ export function BlockPanel({
         <ul className="flex flex-col gap-0.5 rounded-md bg-destructive/10 px-2 py-1.5">
           {issues.map((issue, index) => (
             <li key={index} className="text-[10px] text-destructive">
-              {issueText(issue)}
+              {issueText(issue, code => te(`problemas.${code}`))}
             </li>
           ))}
         </ul>
       ) : null}
 
       <div className="flex flex-col gap-1">
-        <span className={label}>Nome do bloco</span>
+        <span className={label}>{t('nome')}</span>
         <input
           value={node.name ?? ''}
-          placeholder={NODE_KIND_LABEL[node.kind]}
+          placeholder={tc(`tipos.${node.kind}`)}
           maxLength={60}
           onChange={event =>
             onChange({ ...node, name: event.target.value || undefined })
@@ -166,14 +163,14 @@ export function BlockPanel({
         <div className="flex flex-col gap-1">
           <span className={label}>
             {node.kind === 'question' || node.kind === 'input'
-              ? 'O que o bot pergunta'
-              : 'O que o bot diz'}
+              ? t('perguntaLabel')
+              : t('falaLabel')}
           </span>
           <textarea
             value={node.text ?? ''}
             rows={3}
             placeholder={
-              node.kind === 'question' ? 'No que posso ajudar?' : undefined
+              node.kind === 'question' ? t('perguntaPlaceholder') : undefined
             }
             onChange={event => onChange({ ...node, text: event.target.value })}
             className={`${field} resize-none`}
@@ -185,12 +182,11 @@ export function BlockPanel({
           {node.kind === 'question' ? (
             <>
               <span className="text-[10px] text-muted-foreground">
-                Só a pergunta: as opções abaixo são numeradas e enviadas junto.
+                {t('dicaOpcoes')}
               </span>
               {questionHasInlineOptions(node.text ?? '') ? (
                 <span className="rounded-md bg-amber-500/10 px-2 py-1 text-[10px] text-amber-700">
-                  Este texto parece já listar as opções. O cliente vai receber a
-                  lista duas vezes — apague-a daqui e deixe só em “Opções”.
+                  {t('avisoOpcoesNoTexto')}
                 </span>
               ) : null}
             </>
@@ -201,10 +197,10 @@ export function BlockPanel({
       {node.kind === 'input' ? (
         <div className="flex gap-2">
           <div className="flex flex-1 flex-col gap-1">
-            <span className={label}>Guardar em</span>
+            <span className={label}>{t('guardarEm')}</span>
             <input
               value={node.saveAs}
-              placeholder="ex: cpf"
+              placeholder={t('guardarEmPlaceholder')}
               onChange={event =>
                 onChange({ ...node, saveAs: event.target.value })
               }
@@ -212,7 +208,7 @@ export function BlockPanel({
             />
           </div>
           <div className="flex flex-1 flex-col gap-1">
-            <span className={label}>Formato</span>
+            <span className={label}>{t('formato')}</span>
             <select
               value={node.validate}
               onChange={event =>
@@ -223,9 +219,9 @@ export function BlockPanel({
               }
               className={`${field} cursor-pointer`}
             >
-              {Object.entries(VALIDATION_LABEL).map(([value, texto]) => (
+              {VALIDATIONS.map(value => (
                 <option key={value} value={value}>
-                  {texto}
+                  {t(`validacao.${value}`)}
                 </option>
               ))}
             </select>
@@ -243,7 +239,7 @@ export function BlockPanel({
 
       {node.kind === 'question' ? (
         <div className="flex flex-col gap-2">
-          <span className={label}>Opções</span>
+          <span className={label}>{t('opcoes.titulo')}</span>
           {node.options.map((option, index) => (
             <OptionRow
               key={index}
@@ -306,13 +302,13 @@ export function BlockPanel({
             disabled={node.options.length >= MAX_QUESTION_OPTIONS}
             title={
               node.options.length >= MAX_QUESTION_OPTIONS
-                ? `Máximo de ${MAX_QUESTION_OPTIONS} opções.`
+                ? t('opcoes.maximo', { max: MAX_QUESTION_OPTIONS })
                 : undefined
             }
             className="flex w-fit cursor-pointer items-center gap-1 text-[10px] text-muted-foreground hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Plus className="h-2.5 w-2.5" />
-            opção
+            {t('opcoes.adicionar')}
           </button>
         </div>
       ) : null}
@@ -331,7 +327,9 @@ export function BlockPanel({
       {node.kind === 'condition' ? (
         <div className="flex flex-col gap-2">
           <span className={label}>
-            {node.branches.length === 1 ? 'Se bater' : 'Condições'}
+            {node.branches.length === 1
+              ? t('condicoes.seBater')
+              : t('condicoes.titulo')}
           </span>
           {node.branches.map((_, index) => (
             <ConditionRow
@@ -360,7 +358,7 @@ export function BlockPanel({
               className="flex w-fit cursor-pointer items-center gap-1 text-[10px] text-muted-foreground hover:text-primary"
             >
               <Plus className="h-2.5 w-2.5" />
-              condição
+              {t('condicoes.adicionar')}
             </button>
           )}
         </div>
@@ -375,7 +373,7 @@ export function BlockPanel({
             return (
               <div key={port.id} className="flex items-center gap-1.5">
                 <span className="min-w-0 flex-1 truncate text-xs text-foreground/80">
-                  {port.label || 'segue para'}
+                  {port.label || t('saidas.segueParaFallback')}
                 </span>
                 <select
                   value={port.target}
@@ -386,7 +384,7 @@ export function BlockPanel({
                 >
                   {/* Sempre na lista: escondê-la depois de escolher trancava a saída
                       no primeiro destino até existir um segundo bloco. */}
-                  <option value={node.id}>escolher destino…</option>
+                  <option value={node.id}>{t('escolherDestino')}</option>
                   {destinos.map(item => (
                     <option key={item.id} value={item.id}>
                       {item.rotulo}
@@ -397,7 +395,7 @@ export function BlockPanel({
             )
           })}
           <p className="text-[10px] text-muted-foreground">
-            Ou arraste a bolinha da saída até outro bloco no fluxo.
+            {t('saidas.dicaArrastar')}
           </p>
         </div>
       ) : null}
@@ -423,15 +421,16 @@ function RetrySection({
   onChange: (node: FlowNode) => void
   onSetTarget: (port: PortKind, target: string) => void
 }) {
+  const { t } = useTranslation('thinkzap/bots/bloco')
   const pendente = node.onExhausted === node.id
 
   return (
     <div className="flex flex-col gap-2 border-t border-border pt-2.5">
-      <span className={label}>Resposta diferente</span>
+      <span className={label}>{t('retry.titulo')}</span>
 
       <div className="flex items-center gap-1.5">
         <span className="shrink-0 text-xs text-foreground/80">
-          Repetir a pergunta
+          {t('retry.repetirPergunta')}
         </span>
         <select
           value={node.maxAttempts}
@@ -447,7 +446,7 @@ function RetrySection({
           ))}
         </select>
         <span className="shrink-0 text-xs text-foreground/80">
-          {node.maxAttempts === 1 ? 'vez' : 'vezes'}
+          {node.maxAttempts === 1 ? t('retry.vez') : t('retry.vezes')}
         </span>
       </div>
 
@@ -456,7 +455,7 @@ function RetrySection({
       {node.maxAttempts > 1 ? (
         <input
           value={node.retryText ?? ''}
-          placeholder="vazio = repete a pergunta original"
+          placeholder={t('retry.placeholder')}
           onChange={event =>
             onChange({ ...node, retryText: event.target.value || undefined })
           }
@@ -466,7 +465,7 @@ function RetrySection({
 
       <div className="flex items-center gap-1.5">
         <span className="shrink-0 text-[10px] text-muted-foreground">
-          depois leva para
+          {t('retry.depoisLevaPara')}
         </span>
         <select
           value={node.onExhausted}
@@ -477,7 +476,7 @@ function RetrySection({
             pendente ? 'border-amber-500 text-amber-700' : ''
           }`}
         >
-          <option value={node.id}>escolher destino…</option>
+          <option value={node.id}>{t('escolherDestino')}</option>
           {destinos.map(item => (
             <option key={item.id} value={item.id}>
               {item.rotulo}
@@ -524,6 +523,7 @@ function OptionRow({
   onDestino: (valor: string) => void
   onRemover: () => void
 }) {
+  const { t } = useTranslation('thinkzap/bots/bloco')
   const palavras = aliases ?? []
   // Fechado quando não há palavra: o campo vazio ocupava uma linha por opção sem dizer
   // nada. Quem já usou abre com elas à vista.
@@ -539,19 +539,15 @@ function OptionRow({
         </span>
         <input
           value={rotulo}
-          placeholder="Suporte"
+          placeholder={t('opcoes.placeholder')}
           onChange={event => onRotulo(event.target.value)}
           className={`${field} min-w-0 flex-1`}
         />
         <button
           type="button"
-          aria-label="Remover opção"
+          aria-label={t('opcoes.remover')}
           disabled={!podeRemover}
-          title={
-            podeRemover
-              ? 'Remover opção'
-              : 'A pergunta precisa de ao menos uma opção'
-          }
+          title={podeRemover ? t('opcoes.remover') : t('opcoes.minima')}
           onClick={onRemover}
           className="shrink-0 cursor-pointer text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -576,7 +572,7 @@ function OptionRow({
               <Plus className="h-2.5 w-2.5" />
             )}
           </span>
-          palavras-chave
+          {t('opcoes.palavrasChave')}
           {!abertas && palavras.length > 0 ? (
             <span className="rounded bg-primary/10 px-1 font-medium text-primary">
               {palavras.length}
@@ -594,7 +590,7 @@ function OptionRow({
           "resposta → destino" continuar lendo junto. */}
       <div className="flex items-center gap-1.5 pl-6.5">
         <span className="shrink-0 text-[10px] text-muted-foreground">
-          leva para
+          {t('opcoes.levaPara')}
         </span>
         <select
           value={destino}
@@ -603,7 +599,7 @@ function OptionRow({
             destinoPendente ? 'border-amber-500 text-amber-700' : ''
           }`}
         >
-          <option value={nodeId}>escolher destino…</option>
+          <option value={nodeId}>{t('escolherDestino')}</option>
           {destinos.map(item => (
             <option key={item.id} value={item.id}>
               {item.rotulo}
@@ -629,6 +625,8 @@ function ConditionRow({
   onChange: (node: FlowNode) => void
   onSetTarget: (port: PortKind, target: string) => void
 }) {
+  const { t } = useTranslation('thinkzap/bots/bloco')
+  const { t: tc } = useTranslation('thinkzap/bots/comum')
   const branch = node.branches[index]
   if (!branch) return null
 
@@ -651,7 +649,7 @@ function ConditionRow({
       <div className="flex items-center gap-1">
         <input
           value={branch.when.var}
-          placeholder="variável"
+          placeholder={t('condicoes.variavelPlaceholder')}
           onChange={event => patch({ var: event.target.value })}
           className={`${field} min-w-0 flex-1`}
         />
@@ -660,31 +658,32 @@ function ConditionRow({
           onChange={event =>
             patch({ op: event.target.value as typeof branch.when.op })
           }
-          className={`${fieldBase} w-19 shrink-0 cursor-pointer`}
+          // Largura do rótulo mais longo traduzido ("sin valor", "contiene").
+          className={`${fieldBase} w-24 shrink-0 cursor-pointer`}
         >
-          {/* Rótulos vêm do shared: o cartão do canvas resume a condição com os mesmos. */}
+          {/* Rótulos do namespace comum: o cartão do canvas resume a condição com os mesmos. */}
           {VAR_OPERATORS.map(op => (
             <option key={op} value={op}>
-              {VAR_OPERATOR_LABEL[op]}
+              {tc(`operadores.${op}`)}
             </option>
           ))}
         </select>
         {semValor ? null : (
           <input
             value={branch.when.value ?? ''}
-            placeholder="valor"
+            placeholder={t('condicoes.valorPlaceholder')}
             onChange={event => patch({ value: event.target.value })}
             className={`${fieldBase} min-w-0 flex-1`}
           />
         )}
         <button
           type="button"
-          aria-label="Remover condição"
+          aria-label={t('condicoes.remover')}
           disabled={node.branches.length === 1}
           title={
             node.branches.length === 1
-              ? 'A condição precisa de ao menos um teste'
-              : 'Remover condição'
+              ? t('condicoes.minima')
+              : t('condicoes.remover')
           }
           onClick={() =>
             onChange({
@@ -700,7 +699,7 @@ function ConditionRow({
 
       <div className="flex items-center gap-1.5">
         <span className="shrink-0 text-[10px] text-muted-foreground">
-          vai para
+          {t('condicoes.vaiPara')}
         </span>
         <select
           value={branch.next}
@@ -711,7 +710,7 @@ function ConditionRow({
             pendente ? 'border-amber-500 text-amber-700' : ''
           }`}
         >
-          <option value={node.id}>escolher destino…</option>
+          <option value={node.id}>{t('escolherDestino')}</option>
           {destinos.map(item => (
             <option key={item.id} value={item.id}>
               {item.rotulo}

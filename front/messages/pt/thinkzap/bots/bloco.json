@@ -1,0 +1,76 @@
+{
+  "inicio": "início",
+  "tornarInicio": "tornar início",
+  "fechar": "Fechar",
+  "nome": "Nome do bloco",
+  "perguntaLabel": "O que o bot pergunta",
+  "falaLabel": "O que o bot diz",
+  "perguntaPlaceholder": "No que posso ajudar?",
+  "dicaOpcoes": "Só a pergunta: as opções abaixo são numeradas e enviadas junto.",
+  "avisoOpcoesNoTexto": "Este texto parece já listar as opções. O cliente vai receber a lista duas vezes — apague-a daqui e deixe só em “Opções”.",
+  "guardarEm": "Guardar em",
+  "guardarEmPlaceholder": "ex: cpf",
+  "formato": "Formato",
+  "validacao": {
+    "text": "Texto livre",
+    "email": "E-mail",
+    "cpf": "CPF",
+    "number": "Número",
+    "date": "Data"
+  },
+  "opcoes": {
+    "titulo": "Opções",
+    "adicionar": "opção",
+    "maximo": "Máximo de {{max}} opções.",
+    "placeholder": "Suporte",
+    "remover": "Remover opção",
+    "minima": "A pergunta precisa de ao menos uma opção",
+    "palavrasChave": "palavras-chave",
+    "levaPara": "leva para"
+  },
+  "condicoes": {
+    "titulo": "Condições",
+    "seBater": "Se bater",
+    "adicionar": "condição",
+    "variavelPlaceholder": "variável",
+    "valorPlaceholder": "valor",
+    "remover": "Remover condição",
+    "minima": "A condição precisa de ao menos um teste",
+    "vaiPara": "vai para"
+  },
+  "saidas": {
+    "paraOndeVai": "Para onde vai",
+    "seNaoBater": "Se não bater",
+    "seNenhuma": "Se nenhuma condição bater",
+    "segueParaFallback": "segue para",
+    "dicaArrastar": "Ou arraste a bolinha da saída até outro bloco no fluxo."
+  },
+  "escolherDestino": "escolher destino…",
+  "retry": {
+    "titulo": "Resposta diferente",
+    "repetirPergunta": "Repetir a pergunta",
+    "vez": "vez",
+    "vezes": "vezes",
+    "placeholder": "vazio = repete a pergunta original",
+    "depoisLevaPara": "depois leva para"
+  },
+  "handoff": {
+    "distribuicao": "Distribuição",
+    "buscarAtendente": "buscar atendente pelo nome",
+    "erroBuscar": "Não foi possível buscar os atendentes do portal.",
+    "jaSelecionado": " (já selecionado)",
+    "nenhumAtendente": "Nenhum atendente com esse nome.",
+    "semAtendente": "Sem nenhum atendente selecionado, a publicação é recusada.",
+    "usuariosSelecionados": "Usuários selecionados",
+    "usuarioNumero": "Usuário #{{id}}",
+    "removerAtendente": "Remover atendente",
+    "erroCanais": "Não foi possível listar os canais abertos.",
+    "carregandoCanais": "carregando canais",
+    "mesmoCanal": "o mesmo canal da conversa"
+  },
+  "alias": {
+    "placeholder": "digite e Enter…",
+    "remover": "Remover {{palavra}}"
+  },
+  "destinoInexistente": "(não existe)"
+}

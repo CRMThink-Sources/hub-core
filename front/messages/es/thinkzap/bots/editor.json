@@ -1,0 +1,64 @@
+{
+  "carregando": "Cargando",
+  "erro": {
+    "titulo": "No fue posible abrir el flujo",
+    "carregar": "No fue posible cargar el flujo.",
+    "semConteudo": "Flujo sin contenido."
+  },
+  "voltar": "Volver",
+  "naoSalvo": "sin guardar",
+  "novoBloco": "Nuevo bloque",
+  "reorganizar": "Reorganizar",
+  "reorganizarDica": "Reposiciona los bloques en columnas, del inicio al fin",
+  "abas": {
+    "simulador": "simulador",
+    "ajustes": "ajustes"
+  },
+  "salvar": "Guardar",
+  "salvando": "Guardando…",
+  "publicar": "Publicar",
+  "publicando": "Publicando…",
+  "toast": {
+    "rascunhoSalvo": "Borrador guardado.",
+    "salvarFalhou": "No fue posible guardar.",
+    "publicado": "Flujo publicado.",
+    "publicarFalhou": "No fue posible publicar."
+  },
+  "problemas": {
+    "malformed": "Bloque con dato inválido.",
+    "duplicate-node-id": "Dos bloques con el mismo identificador.",
+    "entry-not-found": "El bloque inicial no existe.",
+    "target-not-found": "Conexión apuntando a un bloque que no existe.",
+    "unreachable-node": "Nada lleva hasta este bloque.",
+    "loop-without-wait": "Vuelve atrás sin preguntar nada — el bot giraría solo.",
+    "no-terminal-reachable": "Desde este bloque no se llega a un cierre ni a un agente.",
+    "escape-target-incomplete": "Elige a quién transfiere la salida de emergencia.",
+    "duplicate-option-value": "Dos opciones con el mismo valor.",
+    "self-target": "Elige a dónde van las salidas de este bloque.",
+    "handoff-target-incomplete": "Elige a quién se entrega la conversación.",
+    "condition-var-invalid": "La condición necesita una variable para probar.",
+    "node-text-missing": "Falta el texto que el bot envía en este bloque."
+  },
+  "canvas": {
+    "legenda": "Haz clic en + para agregar el siguiente paso · haz clic en el bloque para editar · haz clic en la línea y pulsa Supr para borrarla",
+    "mostrarMapa": "Mostrar mapa",
+    "ocultarMapa": "Ocultar mapa"
+  },
+  "bloco": {
+    "inicio": "inicio",
+    "excluir": "Eliminar bloque",
+    "adicionarProximo": "Agregar el siguiente paso",
+    "inserirAqui": "Insertar paso aquí",
+    "inserirEntre": "Insertar un paso entre los dos",
+    "problemas_one": "{{count}} problema",
+    "problemas_other": "{{count}} problemas",
+    "semPergunta": "sin pregunta",
+    "semMensagem": "sin mensaje",
+    "semCondicao": "sin condición"
+  },
+  "menu": {
+    "titulo": "¿Qué interacción deseas?",
+    "fechar": "Cerrar",
+    "prontos": "Listos"
+  }
+}

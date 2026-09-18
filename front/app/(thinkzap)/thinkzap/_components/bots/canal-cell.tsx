@@ -2,14 +2,10 @@
 
 import { useState } from 'react'
 import { Link2, Loader2, Unlink } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import type { OpenChannel } from '../../_lib/bot-flow-client'
 import type { BotFlowBinding, BotFlowSummary } from '@/shared/thinkzap-bot-flow'
-
-/** O nome vem da nossa API já resolvido; id cru é a reserva honesta. */
-function nomeCanal(canal: OpenChannel): string {
-  return canal.name?.trim() || `Canal #${canal.id}`
-}
 
 const select =
   'rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50'
@@ -39,13 +35,19 @@ export function CanalCell({
   onVincular,
   onDesvincular,
 }: Props) {
+  const { t } = useTranslation('thinkzap/bots/lista')
+  const { t: tc } = useTranslation('thinkzap/bots/comum')
   const [escolhido, setEscolhido] = useState('')
   const [salvando, setSalvando] = useState(false)
+
+  /** O nome vem da nossa API já resolvido; id cru é a reserva honesta. */
+  const nomeCanal = (canal: OpenChannel) =>
+    canal.name?.trim() || tc('canalNumero', { id: canal.id })
 
   if (flow.status !== 'PUBLISHED') {
     return (
       <span className="text-xs text-muted-foreground">
-        publique para vincular
+        {t('canal.publiqueParaVincular')}
       </span>
     )
   }
@@ -57,13 +59,13 @@ export function CanalCell({
       <div className="flex items-center gap-1.5">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
           <Link2 className="h-3 w-3 text-primary" />
-          {linha ? nomeCanal(linha) : `Canal #${binding.lineId}`}
+          {linha ? nomeCanal(linha) : tc('canalNumero', { id: binding.lineId })}
         </span>
         <Button
           variant="ghost"
           size="icon-sm"
-          title="Remover vínculo"
-          aria-label="Remover vínculo"
+          title={t('canal.removerVinculo')}
+          aria-label={t('canal.removerVinculo')}
           disabled={salvando}
           onClick={() => {
             setSalvando(true)
@@ -84,7 +86,7 @@ export function CanalCell({
     return (
       <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" />
-        canais
+        {t('canal.carregandoCanais')}
       </span>
     )
   }
@@ -99,18 +101,16 @@ export function CanalCell({
       return (
         <span
           className="text-xs text-destructive"
-          title={`Erro do Bitrix: ${linhasErro}`}
+          title={t('canal.erroBitrix', { erro: linhasErro })}
         >
-          não foi possível listar os canais
+          {t('canal.erroListar')}
         </span>
       )
     }
 
     return (
       <span className="text-xs text-muted-foreground">
-        {linhas.length === 0
-          ? 'nenhum canal aberto no portal'
-          : 'todos os canais já têm fluxo'}
+        {linhas.length === 0 ? t('canal.semCanais') : t('canal.todosOcupados')}
       </span>
     )
   }
@@ -123,7 +123,7 @@ export function CanalCell({
         onChange={event => setEscolhido(event.target.value)}
         className={`${select} max-w-40 cursor-pointer`}
       >
-        <option value="">escolher canal…</option>
+        <option value="">{t('canal.escolher')}</option>
         {livres.map(item => (
           <option key={String(item.id)} value={String(item.id)}>
             {nomeCanal(item)}
@@ -139,7 +139,11 @@ export function CanalCell({
           void onVincular(escolhido).finally(() => setSalvando(false))
         }}
       >
-        {salvando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'ativar'}
+        {salvando ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          t('canal.ativar')
+        )}
       </Button>
     </div>
   )
