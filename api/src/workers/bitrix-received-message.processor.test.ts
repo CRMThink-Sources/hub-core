@@ -15,6 +15,7 @@ const {
   ensureBitrixBotIdMock,
   sendHubMessageMock,
   sendInteractiveActionMock,
+  sendInteractiveButtonMock,
 } = vi.hoisted(() => ({
   createMock: vi.fn().mockResolvedValue(undefined),
   findByBitrixMessageIdMock: vi.fn().mockResolvedValue(null),
@@ -34,6 +35,9 @@ const {
   ensureBitrixBotIdMock: vi.fn().mockResolvedValue(1958),
   sendHubMessageMock: vi.fn().mockResolvedValue({ messageId: 'HM-1' }),
   sendInteractiveActionMock: vi.fn().mockResolvedValue({ messageId: 'HM-BTN' }),
+  sendInteractiveButtonMock: vi
+    .fn()
+    .mockResolvedValue({ messageId: 'HM-BTN-REPLY' }),
 }))
 
 vi.mock('@/modules/thinkzap/infra/clients/hubmessage.client', async () => {
@@ -47,6 +51,7 @@ vi.mock('@/modules/thinkzap/infra/clients/hubmessage.client', async () => {
     HubMessageClient: class {
       sendMessage = sendHubMessageMock
       sendInteractiveAction = sendInteractiveActionMock
+      sendInteractiveButton = sendInteractiveButtonMock
     },
   }
 })
@@ -944,8 +949,9 @@ describe('processBitrixReceivedMessage envio de botões via código do canal abe
     expect(sendHubMessageMock).not.toHaveBeenCalled()
   })
 
-  it('recusa botão REPLY numa linha HUBMESSAGE, sem chamar o provider', async () => {
+  it('aceita botão REPLY numa linha HUBMESSAGE — quick reply, via sendInteractiveButton', async () => {
     getContextMock.mockResolvedValue(hubMessageContext)
+    sendInteractiveButtonMock.mockClear()
 
     await processBitrixReceivedMessage(
       makeEvent({
@@ -960,12 +966,8 @@ describe('processBitrixReceivedMessage envio de botões via código do canal abe
       }),
     )
 
+    expect(sendInteractiveButtonMock).toHaveBeenCalled()
     expect(sendInteractiveActionMock).not.toHaveBeenCalled()
-    expect(createMock).not.toHaveBeenCalled()
-    expect(callMethodMock).toHaveBeenCalledWith(
-      'imbot.message.add',
-      expect.objectContaining({ BOT_ID: 1958, DIALOG_ID: 'chat100' }),
-    )
   })
 
   it('código malformado não envia nada e não relança', async () => {

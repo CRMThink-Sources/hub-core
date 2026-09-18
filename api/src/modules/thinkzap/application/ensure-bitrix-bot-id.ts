@@ -57,7 +57,11 @@ async function resolveFromBitrix(
   }>('imbot.v2.Bot.list', {})
 
   const bots = listResponse.result?.bots ?? []
-  const existing = bots.find(b => b.code === BOT_CODE) ?? bots[0]
+  // Casa só por `code`: o portal pode ter outro bot nosso (`thinkzap-flow`, o
+  // do bot-flow — ver `ensure-bot-flow-bot.ts`) já registrado, e um fallback
+  // pro primeiro bot da lista pegaria esse bot errado em vez de registrar o
+  // `thinkzap-connector` que falta.
+  const existing = bots.find(b => b.code === BOT_CODE)
 
   if (existing) {
     log.debug(
