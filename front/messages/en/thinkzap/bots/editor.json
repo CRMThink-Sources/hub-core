@@ -1,0 +1,64 @@
+{
+  "carregando": "Loading",
+  "erro": {
+    "titulo": "Could not open the flow",
+    "carregar": "Could not load the flow.",
+    "semConteudo": "Flow with no content."
+  },
+  "voltar": "Back",
+  "naoSalvo": "unsaved",
+  "novoBloco": "New block",
+  "reorganizar": "Rearrange",
+  "reorganizarDica": "Repositions the blocks in columns, from start to end",
+  "abas": {
+    "simulador": "simulator",
+    "ajustes": "settings"
+  },
+  "salvar": "Save",
+  "salvando": "Saving…",
+  "publicar": "Publish",
+  "publicando": "Publishing…",
+  "toast": {
+    "rascunhoSalvo": "Draft saved.",
+    "salvarFalhou": "Could not save.",
+    "publicado": "Flow published.",
+    "publicarFalhou": "Could not publish."
+  },
+  "problemas": {
+    "malformed": "Block with invalid data.",
+    "duplicate-node-id": "Two blocks with the same identifier.",
+    "entry-not-found": "The starting block does not exist.",
+    "target-not-found": "Connection pointing to a block that does not exist.",
+    "unreachable-node": "Nothing leads to this block.",
+    "loop-without-wait": "Goes back without asking anything — the bot would spin on its own.",
+    "no-terminal-reachable": "From this block there is no way to an ending nor to an agent.",
+    "escape-target-incomplete": "Choose who the emergency exit transfers to.",
+    "duplicate-option-value": "Two options with the same value.",
+    "self-target": "Choose where the outputs of this block go.",
+    "handoff-target-incomplete": "Choose who the conversation is handed to.",
+    "condition-var-invalid": "The condition needs a variable to test.",
+    "node-text-missing": "The text the bot sends in this block is missing."
+  },
+  "canvas": {
+    "legenda": "Click + to add the next step · click the block to edit · click the line and press Delete to remove",
+    "mostrarMapa": "Show map",
+    "ocultarMapa": "Hide map"
+  },
+  "bloco": {
+    "inicio": "start",
+    "excluir": "Delete block",
+    "adicionarProximo": "Add next step",
+    "inserirAqui": "Insert step here",
+    "inserirEntre": "Insert a step between the two",
+    "problemas_one": "{{count}} problem",
+    "problemas_other": "{{count}} problems",
+    "semPergunta": "no question",
+    "semMensagem": "no message",
+    "semCondicao": "no condition"
+  },
+  "menu": {
+    "titulo": "Which interaction do you want?",
+    "fechar": "Close",
+    "prontos": "Ready-made"
+  }
+}

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { FlowIssue, FlowIssueCode } from '@/shared/thinkzap-bot-flow'
-import { ISSUE_TEXT, issueText } from './issue-text'
+import { issueText } from './issue-text'
+import pt from '@/messages/pt/thinkzap/bots/editor.json'
+import en from '@/messages/en/thinkzap/bots/editor.json'
+import es from '@/messages/es/thinkzap/bots/editor.json'
 
 const CODIGOS: FlowIssueCode[] = [
   'malformed',
@@ -18,6 +21,9 @@ const CODIGOS: FlowIssueCode[] = [
   'node-text-missing',
 ]
 
+/** O `t` real resolve `problemas.<code>` no namespace do editor. */
+const traduzir = (code: FlowIssueCode) => pt.problemas[code]
+
 /**
  * O servidor manda o dado exato em `detail` (qual destino, qual valor) e o front
  * mostrava só a frase fixa do código. Dois `target-not-found` no mesmo bloco eram a
@@ -31,7 +37,7 @@ describe('issueText', () => {
       detail: 'destino "n9" não existe',
     }
 
-    expect(issueText(issue)).toContain('n9')
+    expect(issueText(issue, traduzir)).toContain('n9')
   })
 
   it('não repete o detalhe quando ele é a frase em outra língua', () => {
@@ -41,23 +47,26 @@ describe('issueText', () => {
       detail: 'nenhum caminho da entrada chega neste nó',
     }
 
-    expect(issueText(issue)).toBe(ISSUE_TEXT['unreachable-node'])
+    expect(issueText(issue, traduzir)).toBe(pt.problemas['unreachable-node'])
   })
 
   it('detalhe ausente ou em branco não deixa parênteses vazios', () => {
-    expect(issueText({ code: 'target-not-found' })).toBe(
-      ISSUE_TEXT['target-not-found'],
+    expect(issueText({ code: 'target-not-found' }, traduzir)).toBe(
+      pt.problemas['target-not-found'],
     )
-    expect(issueText({ code: 'target-not-found', detail: '   ' })).toBe(
-      ISSUE_TEXT['target-not-found'],
-    )
+    expect(
+      issueText({ code: 'target-not-found', detail: '   ' }, traduzir),
+    ).toBe(pt.problemas['target-not-found'])
   })
 
-  it('todo código tem texto — sem isso a linha sairia `undefined`', () => {
-    for (const code of CODIGOS) {
-      expect(ISSUE_TEXT[code]).toBeTruthy()
-      expect(issueText({ code })).toBeTruthy()
+  // Código sem chave sairia como a própria chave na tela, em qualquer idioma.
+  it('todo código tem texto nos três idiomas', () => {
+    for (const messages of [pt, en, es]) {
+      const problemas: Record<string, string> = messages.problemas
+      for (const code of CODIGOS) {
+        expect(problemas[code]).toBeTruthy()
+      }
+      expect(CODIGOS).toHaveLength(Object.keys(problemas).length)
     }
-    expect(CODIGOS).toHaveLength(Object.keys(ISSUE_TEXT).length)
   })
 })

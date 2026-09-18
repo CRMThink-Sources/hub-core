@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Os sinônimos da opção como etiquetas, e não como uma linha de texto separada por vírgula.
@@ -23,6 +24,7 @@ export function AliasTagsField({
   /** Lista completa depois da edição. Quem chama decide o que fazer com a lista vazia. */
   onChange: (proximos: string[]) => void
 }) {
+  const { t } = useTranslation('thinkzap/bots/bloco')
   const [rascunho, setRascunho] = useState('')
 
   // Duplicata não é erro de digitação a corrigir: o operador colou de novo, e o motor
@@ -51,7 +53,7 @@ export function AliasTagsField({
           {alias}
           <button
             type="button"
-            aria-label={`Remover ${alias}`}
+            aria-label={t('alias.remover', { palavra: alias })}
             onClick={() => onChange(aliases.filter((_, i) => i !== index))}
             className="cursor-pointer text-primary/60 hover:text-destructive"
           >
@@ -65,7 +67,7 @@ export function AliasTagsField({
         // Verbo, e não uma lista de exemplo: `ajuda, problema, técnico` cinza ao lado das
         // etiquetas de outra opção se lia como sinônimo já gravado, e o operador não
         // cadastrava nada achando que estava feito.
-        placeholder={aliases.length ? '' : 'digite e Enter…'}
+        placeholder={aliases.length ? '' : t('alias.placeholder')}
         onChange={event => {
           const valor = event.target.value
           // Vírgula fecha a etiqueta em vez de entrar no texto: colar

@@ -1,0 +1,64 @@
+{
+  "carregando": "Carregando",
+  "erro": {
+    "titulo": "Não foi possível abrir o fluxo",
+    "carregar": "Não foi possível carregar o fluxo.",
+    "semConteudo": "Fluxo sem conteúdo."
+  },
+  "voltar": "Voltar",
+  "naoSalvo": "não salvo",
+  "novoBloco": "Novo bloco",
+  "reorganizar": "Reorganizar",
+  "reorganizarDica": "Reposiciona os blocos em colunas, do início para o fim",
+  "abas": {
+    "simulador": "simulador",
+    "ajustes": "ajustes"
+  },
+  "salvar": "Salvar",
+  "salvando": "Salvando…",
+  "publicar": "Publicar",
+  "publicando": "Publicando…",
+  "toast": {
+    "rascunhoSalvo": "Rascunho salvo.",
+    "salvarFalhou": "Não foi possível salvar.",
+    "publicado": "Fluxo publicado.",
+    "publicarFalhou": "Não foi possível publicar."
+  },
+  "problemas": {
+    "malformed": "Bloco com dado inválido.",
+    "duplicate-node-id": "Dois blocos com o mesmo identificador.",
+    "entry-not-found": "O bloco inicial não existe.",
+    "target-not-found": "Ligação apontando para bloco que não existe.",
+    "unreachable-node": "Nada leva até este bloco.",
+    "loop-without-wait": "Volta para trás sem perguntar nada — o bot giraria sozinho.",
+    "no-terminal-reachable": "Deste bloco não se chega a um encerramento nem a um atendente.",
+    "escape-target-incomplete": "Escolha para quem a saída de emergência transfere.",
+    "duplicate-option-value": "Duas opções com o mesmo valor.",
+    "self-target": "Escolha para onde as saídas deste bloco vão.",
+    "handoff-target-incomplete": "Escolha para quem a conversa é entregue.",
+    "condition-var-invalid": "A condição precisa de uma variável para testar.",
+    "node-text-missing": "Falta o texto que o bot envia neste bloco."
+  },
+  "canvas": {
+    "legenda": "Clique no + para adicionar o próximo passo · clique no bloco para editar · clique na linha e Delete apaga",
+    "mostrarMapa": "Mostrar mapa",
+    "ocultarMapa": "Ocultar mapa"
+  },
+  "bloco": {
+    "inicio": "início",
+    "excluir": "Excluir bloco",
+    "adicionarProximo": "Adicionar próximo passo",
+    "inserirAqui": "Inserir passo aqui",
+    "inserirEntre": "Inserir um passo entre os dois",
+    "problemas_one": "{{count}} problema",
+    "problemas_other": "{{count}} problemas",
+    "semPergunta": "sem pergunta",
+    "semMensagem": "sem mensagem",
+    "semCondicao": "sem condição"
+  },
+  "menu": {
+    "titulo": "Qual a interação que deseja?",
+    "fechar": "Fechar",
+    "prontos": "Prontos"
+  }
+}

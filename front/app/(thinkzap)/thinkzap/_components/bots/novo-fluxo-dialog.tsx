@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,6 +24,7 @@ export function NovoFluxoDialog({
   onOpenChange: (open: boolean) => void
   onSubmit: (name: string) => Promise<void>
 }) {
+  const { t } = useTranslation('thinkzap/bots/lista')
   const [name, setName] = useState('')
   const [salvando, setSalvando] = useState(false)
 
@@ -54,22 +56,20 @@ export function NovoFluxoDialog({
       <DialogContent className="max-w-md">
         <form onSubmit={event => void handleSubmit(event)}>
           <DialogHeader>
-            <DialogTitle>Novo fluxo</DialogTitle>
-            <DialogDescription>
-              Defina um nome para identificar este fluxo internamente.
-            </DialogDescription>
+            <DialogTitle>{t('novo.titulo')}</DialogTitle>
+            <DialogDescription>{t('novo.descricao')}</DialogDescription>
           </DialogHeader>
 
           <DialogBody>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="novo-fluxo-nome">Nome</Label>
+              <Label htmlFor="novo-fluxo-nome">{t('novo.nome')}</Label>
               <Input
                 id="novo-fluxo-nome"
                 value={name}
                 autoFocus
                 maxLength={120}
                 disabled={salvando}
-                placeholder="Atendimento geral"
+                placeholder={t('novo.placeholder')}
                 onChange={event => setName(event.target.value)}
               />
             </div>
@@ -82,13 +82,13 @@ export function NovoFluxoDialog({
               disabled={salvando}
               onClick={() => onOpenChange(false)}
             >
-              Cancelar
+              {t('novo.cancelar')}
             </Button>
             <Button
               type="submit"
               disabled={salvando || name.trim().length === 0}
             >
-              {salvando ? 'Criando…' : 'Criar'}
+              {salvando ? t('novo.criando') : t('novo.criar')}
             </Button>
           </DialogFooter>
         </form>

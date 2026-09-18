@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Bot } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import {
   createBotFlow,
   createBotFlowBinding,
@@ -25,6 +26,7 @@ type LoadState =
 
 // Editor é estado, não rota: "voltar" competiria com a navegação do Bitrix
 export default function BotsLayout() {
+  const { t } = useTranslation('thinkzap/bots/lista')
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [bindings, setBindings] = useState<BotFlowBinding[]>([])
   const [linhas, setLinhas] = useState<OpenChannel[] | null>(null)
@@ -55,7 +57,7 @@ export default function BotsLayout() {
         setLinhasErro(
           canais.err instanceof Error
             ? canais.err.message
-            : 'falha ao listar canais',
+            : t('erro.listarCanais'),
         )
         setLinhas([])
       }
@@ -64,13 +66,10 @@ export default function BotsLayout() {
     } catch (error) {
       setState({
         kind: 'error',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Não foi possível carregar os fluxos.',
+        message: error instanceof Error ? error.message : t('erro.carregar'),
       })
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void carregar()
@@ -84,7 +83,7 @@ export default function BotsLayout() {
       await carregar()
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Não foi possível criar.',
+        error instanceof Error ? error.message : t('toast.criarFalhou'),
       )
     }
   }
@@ -93,11 +92,11 @@ export default function BotsLayout() {
   async function handleVincular(flowId: string, lineId: string) {
     try {
       await createBotFlowBinding({ flowId, lineId })
-      toast.success('Fluxo ativado no canal.')
+      toast.success(t('toast.vinculado'))
       await carregar()
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Não foi possível vincular.',
+        error instanceof Error ? error.message : t('toast.vincularFalhou'),
       )
     }
   }
@@ -105,13 +104,11 @@ export default function BotsLayout() {
   async function handleDesvincular(bindingId: string) {
     try {
       await deleteBotFlowBinding(bindingId)
-      toast.success('Vínculo removido. O canal volta ao atendimento humano.')
+      toast.success(t('toast.desvinculado'))
       await carregar()
     } catch (error) {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Não foi possível remover o vínculo.',
+        error instanceof Error ? error.message : t('toast.desvincularFalhou'),
       )
     }
   }
@@ -119,11 +116,11 @@ export default function BotsLayout() {
   async function handleExcluir(flowId: string) {
     try {
       await deleteBotFlow(flowId)
-      toast.success('Fluxo excluído.')
+      toast.success(t('toast.excluido'))
       await carregar()
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Não foi possível excluir.',
+        error instanceof Error ? error.message : t('toast.excluirFalhou'),
       )
     }
   }
@@ -148,12 +145,9 @@ export default function BotsLayout() {
         </div>
         <div className="flex-1">
           <h1 className="text-xl font-bold tracking-tight text-foreground">
-            ThinkBot
+            {t('titulo')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Monte o fluxo de atendimento: defina como o bot deve conduzir a
-            conversa.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitulo')}</p>
         </div>
       </div>
 
@@ -161,15 +155,13 @@ export default function BotsLayout() {
         <div className="flex min-h-[40vh] items-center justify-center gap-2 py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
           <span className="animate-pulse text-sm font-medium text-muted-foreground">
-            Carregando
+            {t('carregando')}
           </span>
         </div>
       ) : state.kind === 'error' ? (
         // Falha de leitura não vira lista vazia: convidaria a recriar o que existe
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
-          <p className="text-sm font-medium">
-            Não foi possível carregar os fluxos
-          </p>
+          <p className="text-sm font-medium">{t('erro.titulo')}</p>
           <p className="mt-1 text-sm">{state.message}</p>
         </div>
       ) : (

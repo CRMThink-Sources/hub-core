@@ -1,0 +1,19 @@
+{
+  "titulo": "Simulador",
+  "aviso": "no envía nada al cliente",
+  "reiniciar": "Reiniciar conversación",
+  "fechar": "Cerrar simulador",
+  "vazio": "Ejecuta el flujo como si fueras el cliente en WhatsApp.",
+  "iniciar": "Iniciar conversación",
+  "encerradaPlaceholder": "Conversación finalizada — reinicia para probar de nuevo",
+  "respostaPlaceholder": "Respuesta del cliente",
+  "enviar": "Enviar",
+  "sistema": {
+    "fluxoMudou": "El flujo cambió. Inicia la conversación de nuevo para probar.",
+    "handoff": "Conversación pasada a un agente.",
+    "finish": "Conversación finalizada por el bot.",
+    "loop": "El flujo entró en bucle y el bot se detuvo. Corrígelo antes de publicar.",
+    "noInexistente": "El flujo apunta a un paso que no existe. Corrígelo antes de publicar.",
+    "erro": "No fue posible simular."
+  }
+}

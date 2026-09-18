@@ -1,7 +1,11 @@
 'use client'
 
-import type { BotFlowGraph, NodeId } from '@/shared/thinkzap-bot-flow'
-import { NODE_KIND_LABEL } from '@/shared/thinkzap-bot-flow'
+import { useTranslation } from 'react-i18next'
+import type {
+  BotFlowGraph,
+  FlowNodeKind,
+  NodeId,
+} from '@/shared/thinkzap-bot-flow'
 
 /**
  * `<select>` nativo, não o `Select` do kit: o editor tem um por saída de nó, e o kit
@@ -24,6 +28,8 @@ export function NodeSelect({
   /** Rótulo da opção vazia. Ausente = escolha obrigatória. */
   allowEmpty?: string
 }) {
+  const { t } = useTranslation('thinkzap/bots/bloco')
+  const { t: tc } = useTranslation('thinkzap/bots/comum')
   const options = graph.nodes.filter(node => node.id !== exclude)
   const orphan = value.length > 0 && !graph.nodes.some(n => n.id === value)
 
@@ -40,10 +46,14 @@ export function NodeSelect({
       >
         {/* Destino apagado fica visível como opção quebrada. */}
         {allowEmpty ? <option value="">{allowEmpty}</option> : null}
-        {orphan ? <option value={value}>⚠ {value} (não existe)</option> : null}
+        {orphan ? (
+          <option value={value}>
+            ⚠ {value} {t('destinoInexistente')}
+          </option>
+        ) : null}
         {options.map(node => (
           <option key={node.id} value={node.id}>
-            {nodeTitle(graph, node.id)}
+            {nodeTitle(graph, node.id, kind => tc(`tipos.${kind}`))}
           </option>
         ))}
       </select>
@@ -52,12 +62,17 @@ export function NodeSelect({
 }
 
 /** `2 · Pergunta — "O que você quer fazer?"`, truncado. */
-export function nodeTitle(graph: BotFlowGraph, nodeId: NodeId): string {
+export function nodeTitle(
+  graph: BotFlowGraph,
+  nodeId: NodeId,
+  /** Rótulo traduzido do tipo — o `t` do namespace `thinkzap/bots/comum`. */
+  tipo: (kind: FlowNodeKind) => string,
+): string {
   const index = graph.nodes.findIndex(node => node.id === nodeId)
   const node = graph.nodes[index]
   if (!node) return nodeId
 
-  const kind = NODE_KIND_LABEL[node.kind]
+  const kind = tipo(node.kind)
   // Nome do bloco ganha do texto: é o rótulo que o usuário escolheu.
   const base =
     node.name?.trim() || ('text' in node && node.text ? node.text : '')

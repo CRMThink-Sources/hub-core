@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Headset, RotateCcw, Send, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { simulateBotFlow } from '../../_lib/bot-flow-client'
@@ -26,6 +27,7 @@ export function BotFlowSimulator({
   /** O botão da barra também fecha, mas ninguém lê um botão aceso como "fechar". */
   onClose?: () => void
 }) {
+  const { t } = useTranslation('thinkzap/bots/simulador')
   const [bubbles, setBubbles] = useState<Bubble[]>([])
   const [state, setState] = useState<SimulationState | null>(null)
   const [encerrada, setEncerrada] = useState(false)
@@ -42,32 +44,27 @@ export function BotFlowSimulator({
     setBubbles(current =>
       current.length === 0
         ? current
-        : [
-            {
-              from: 'sistema',
-              text: 'O fluxo mudou. Inicie a conversa de novo para testar.',
-            },
-          ],
+        : [{ from: 'sistema', text: t('sistema.fluxoMudou') }],
     )
     setState(null)
     setEncerrada(false)
-  }, [graph])
+  }, [graph, t])
 
   function aplicar(effects: BotEffect[]): Bubble[] {
     return effects.map((effect): Bubble => {
       if (effect.kind === 'say') return { from: 'bot', text: effect.text }
       if (effect.kind === 'handoff') {
-        return { from: 'sistema', text: 'Conversa passada para um atendente.' }
+        return { from: 'sistema', text: t('sistema.handoff') }
       }
       if (effect.kind === 'finish') {
-        return { from: 'sistema', text: 'Conversa encerrada pelo bot.' }
+        return { from: 'sistema', text: t('sistema.finish') }
       }
       return {
         from: 'sistema',
         text:
           effect.reason === 'loop'
-            ? 'O fluxo entrou em laço e o bot parou. Corrija antes de publicar.'
-            : 'O fluxo aponta para um passo que não existe. Corrija antes de publicar.',
+            ? t('sistema.loop')
+            : t('sistema.noInexistente'),
       }
     })
   }
@@ -87,10 +84,7 @@ export function BotFlowSimulator({
         ...proximas,
         {
           from: 'sistema',
-          text:
-            error instanceof Error
-              ? error.message
-              : 'Não foi possível simular.',
+          text: error instanceof Error ? error.message : t('sistema.erro'),
         },
       ])
     } finally {
@@ -120,16 +114,16 @@ export function BotFlowSimulator({
   return (
     <div className="flex h-full flex-col gap-3 rounded-xl border border-border bg-card p-4">
       <header className="flex items-center gap-2 border-b border-border pb-2">
-        <h2 className="text-sm font-semibold text-foreground">Simulador</h2>
+        <h2 className="text-sm font-semibold text-foreground">{t('titulo')}</h2>
         <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-          não envia nada ao cliente
+          {t('aviso')}
         </span>
         <Button
           variant="ghost"
           size="icon-sm"
           className="ml-auto"
-          aria-label="Reiniciar conversa"
-          title="Reiniciar conversa"
+          aria-label={t('reiniciar')}
+          title={t('reiniciar')}
           disabled={ocupado}
           onClick={() => void reiniciar()}
         >
@@ -141,8 +135,8 @@ export function BotFlowSimulator({
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            aria-label="Fechar simulador"
-            title="Fechar simulador"
+            aria-label={t('fechar')}
+            title={t('fechar')}
             onClick={onClose}
           >
             <X />
@@ -154,14 +148,14 @@ export function BotFlowSimulator({
         {bubbles.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
             <p className="max-w-55 text-xs text-muted-foreground">
-              Rode o fluxo como se você fosse o cliente no WhatsApp.
+              {t('vazio')}
             </p>
             <Button
               size="sm"
               disabled={ocupado}
               onClick={() => void reiniciar()}
             >
-              Iniciar conversa
+              {t('iniciar')}
             </Button>
           </div>
         ) : (
@@ -198,9 +192,7 @@ export function BotFlowSimulator({
           value={texto}
           disabled={ocupado || encerrada || bubbles.length === 0}
           placeholder={
-            encerrada
-              ? 'Conversa encerrada — reinicie para testar de novo'
-              : 'Resposta do cliente'
+            encerrada ? t('encerradaPlaceholder') : t('respostaPlaceholder')
           }
           className="h-9 text-xs"
           onChange={event => setTexto(event.target.value)}
@@ -208,7 +200,7 @@ export function BotFlowSimulator({
         <Button
           type="submit"
           size="icon-sm"
-          aria-label="Enviar"
+          aria-label={t('enviar')}
           disabled={ocupado || encerrada || texto.trim().length === 0}
         >
           <Send />

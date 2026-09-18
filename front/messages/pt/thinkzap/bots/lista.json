@@ -1,0 +1,60 @@
+{
+  "titulo": "ThinkBot",
+  "subtitulo": "Monte o fluxo de atendimento: defina como o bot deve conduzir a conversa.",
+  "carregando": "Carregando",
+  "erro": {
+    "titulo": "Não foi possível carregar os fluxos",
+    "carregar": "Não foi possível carregar os fluxos.",
+    "listarCanais": "falha ao listar canais"
+  },
+  "toast": {
+    "criarFalhou": "Não foi possível criar.",
+    "vinculado": "Fluxo ativado no canal.",
+    "vincularFalhou": "Não foi possível vincular.",
+    "desvinculado": "Vínculo removido. O canal volta ao atendimento humano.",
+    "desvincularFalhou": "Não foi possível remover o vínculo.",
+    "excluido": "Fluxo excluído.",
+    "excluirFalhou": "Não foi possível excluir."
+  },
+  "vazio": {
+    "titulo": "Nenhum fluxo criado",
+    "acao": "Criar fluxo"
+  },
+  "status": {
+    "PUBLISHED": "Publicada",
+    "DRAFT": "Rascunho",
+    "ARCHIVED": "Arquivada"
+  },
+  "inertes_one": "\"{{nome}}\" está publicada mas ainda não atende ninguém — escolha um canal aberto em \"Atende em\".",
+  "inertes_other": "{{count}} fluxos publicados ainda não atendem ninguém — escolha um canal aberto em \"Atende em\".",
+  "colunas": {
+    "fluxo": "Fluxo",
+    "situacao": "Situação",
+    "atendeEm": "Atende em"
+  },
+  "acoes": {
+    "editar": "Editar fluxo",
+    "excluir": "Excluir fluxo"
+  },
+  "outroFluxo": "outro fluxo",
+  "canal": {
+    "publiqueParaVincular": "publique para vincular",
+    "removerVinculo": "Remover vínculo",
+    "carregandoCanais": "canais",
+    "erroListar": "não foi possível listar os canais",
+    "erroBitrix": "Erro do Bitrix: {{erro}}",
+    "semCanais": "nenhum canal aberto no portal",
+    "todosOcupados": "todos os canais já têm fluxo",
+    "escolher": "escolher canal…",
+    "ativar": "ativar"
+  },
+  "novo": {
+    "titulo": "Novo fluxo",
+    "descricao": "Defina um nome para identificar este fluxo internamente.",
+    "nome": "Nome",
+    "placeholder": "Atendimento geral",
+    "cancelar": "Cancelar",
+    "criar": "Criar",
+    "criando": "Criando…"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "titulo": "Ajustes",
+  "fechar": "Fechar ajustes",
+  "saidaEmergencia": "Saída de emergência",
+  "descricao": "Se o cliente escrever uma destas palavras em qualquer ponto, o bot para na hora e transfere a conversa.",
+  "novaPalavra": "Nova palavra...",
+  "removerPalavra": "Remover {{palavra}}",
+  "semSaida": "não usar saída de emergência",
+  "mensagemTransferencia": "Mensagem de transferência",
+  "mensagemPlaceholder": "Ex.: Vou transferir você para um atendente. (opcional)",
+  "avisoSemAlvo": "As palavras acima não têm efeito enquanto nada estiver escolhido em \"Distribuição\".",
+  "avisoSemPalavra": "Sem nenhuma palavra, a saída de emergência nunca é acionada."
+}
