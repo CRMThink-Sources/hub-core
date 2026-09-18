@@ -58,10 +58,7 @@ describe('assertValidButtonsForProvider', () => {
 
   it('HUBMESSAGE recusa REPLY misturado com URL — rotas diferentes da API', () => {
     expect(() =>
-      assertValidButtonsForProvider(ConnectorProvider.HUBMESSAGE, [
-        reply,
-        url,
-      ]),
+      assertValidButtonsForProvider(ConnectorProvider.HUBMESSAGE, [reply, url]),
     ).toThrow(InvalidButtonCombinationError)
   })
 

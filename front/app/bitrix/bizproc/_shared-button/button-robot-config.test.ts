@@ -216,9 +216,7 @@ describe('validateButtonConfig', () => {
       ],
     }
 
-    expect(validateButtonConfig(config, ['URL'], { URL: 1 })).toMatch(
-      /máximo/i,
-    )
+    expect(validateButtonConfig(config, ['URL'], { URL: 1 })).toMatch(/máximo/i)
   })
 
   it('aceita um único botão dentro de maxButtonsByType', () => {
