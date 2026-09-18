@@ -54,7 +54,14 @@ const request =
   async (token: string): Promise<HttpOutcome> => {
     try {
       const response = await axios.get(`${envConfig.apiUrl}/application/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          /**
+           * Sem isto, o ngrok free tier responde com a página de aviso de
+           * "visitante" (HTML, sem CORS) — nunca chega no processo real.
+           */
+          'ngrok-skip-browser-warning': 'true',
+        },
         signal,
       })
       return { kind: 'ok', data: response.data?.result }

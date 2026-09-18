@@ -6,6 +6,17 @@ import type {
 } from '@/prisma/client'
 import type { ThinkzapMessageQuoteInput } from '@/modules/thinkzap/application/build-reply-quote'
 
+/** Espelho do enum `ThinkzapMessageType` do Prisma, em literais de string. */
+export type ThinkzapMessageRecordType =
+  | 'TEXT'
+  | 'IMAGE'
+  | 'VIDEO'
+  | 'AUDIO'
+  | 'DOCUMENT'
+  | 'STICKER'
+  | 'CONTACT'
+  | 'INTERACTIVE_BUTTON'
+
 export type ThinkzapMessageRecord = {
   id: string
   instanceId: string
@@ -13,14 +24,7 @@ export type ThinkzapMessageRecord = {
   providerMessageId: string | null
   bitrixMessageId: string | null
   bitrixChatId: string | null
-  type:
-    | 'TEXT'
-    | 'IMAGE'
-    | 'VIDEO'
-    | 'AUDIO'
-    | 'DOCUMENT'
-    | 'STICKER'
-    | 'CONTACT'
+  type: ThinkzapMessageRecordType
   text: string | null
   fileName: string | null
   chatId: string | null
@@ -33,14 +37,7 @@ export type CreateThinkzapMessageInput = {
   providerMessageId?: string | null
   bitrixMessageId?: string | null
   bitrixChatId?: string | null
-  type:
-    | 'TEXT'
-    | 'IMAGE'
-    | 'VIDEO'
-    | 'AUDIO'
-    | 'DOCUMENT'
-    | 'STICKER'
-    | 'CONTACT'
+  type: ThinkzapMessageRecordType
   text?: string | null
   fileName?: string | null
   chatId?: string | null
@@ -66,14 +63,7 @@ function mapRow(row: {
     providerMessageId: row.providerMessageId,
     bitrixMessageId: row.bitrixMessageId,
     bitrixChatId: row.bitrixChatId,
-    type: row.type as
-      | 'TEXT'
-      | 'IMAGE'
-      | 'VIDEO'
-      | 'AUDIO'
-      | 'DOCUMENT'
-      | 'STICKER'
-      | 'CONTACT',
+    type: row.type as ThinkzapMessageRecordType,
     text: row.text,
     fileName: row.fileName,
     chatId: row.chatId,
@@ -81,11 +71,17 @@ function mapRow(row: {
   }
 }
 
+/**
+ * Botão vira `TEXT` na citação: `ThinkzapMessageQuoteInputType` não conhece
+ * `INTERACTIVE_BUTTON`, e o corpo em `text` já é o suficiente para o preview
+ * de uma resposta citando essa mensagem — a citação não precisa saber que a
+ * mensagem original tinha botões.
+ */
 export function toQuoteInput(
   record: ThinkzapMessageRecord,
 ): ThinkzapMessageQuoteInput {
   return {
-    type: record.type,
+    type: record.type === 'INTERACTIVE_BUTTON' ? 'TEXT' : record.type,
     text: record.text ?? undefined,
     fileName: record.fileName ?? undefined,
     bitrixMessageId: record.bitrixMessageId ?? undefined,

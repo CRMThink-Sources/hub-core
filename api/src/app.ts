@@ -23,6 +23,7 @@ import {
 } from './modules/clicksign/main/make-clicksign-controllers.js'
 import { makeBitrixWebhookHandlerController } from './modules/thinkzap/main/bitrix-webhook-handle-controller.js'
 import { makeUploadAudioController } from './modules/audio/main/make-upload-audio-controller.js'
+import { makeSendOpenChannelButtonController } from './modules/thinkzap/main/make-send-open-channel-button-controller.js'
 import { makeCheckController } from './modules/thinkanalise/main/callbacks/make-check-controller.js'
 import { makeContaAzulOAuthCallbackController } from './modules/thinkanalise/main/make-conta-azul-oauth-controllers.js'
 import { makeTablesController } from './modules/thinkanalise/main/callbacks/make-tables-controller.js'
@@ -30,6 +31,8 @@ import { makeDescribeController } from './modules/thinkanalise/main/callbacks/ma
 import { makeDataController } from './modules/thinkanalise/main/callbacks/make-data-controller.js'
 import { makeBitrixRobotWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-robot-webhook-controller.js'
 import { makeBitrixTemplateRobotWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-template-robot-webhook-controller.js'
+import { makeBitrixButtonRobotOfficialWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-button-robot-official-webhook-controller.js'
+import { makeBitrixButtonRobotUnofficialWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-button-robot-unofficial-webhook-controller.js'
 import { makeBitrixSmsProviderWebhookHandlerController } from './modules/thinkzap/main/make-bitrix-sms-provider-webhook-controller.js'
 import {
   bullBoardAuthMiddleware,
@@ -144,6 +147,19 @@ app.post(
   '/api/thinkzap/webhooks/bitrix/template-robot',
   adaptControllerFactory(makeBitrixTemplateRobotWebhookHandlerController),
 )
+// Dois robôs de botão, um por provider — mesmo raciocínio de handler próprio do
+// robô de template. Tem de bater com `BITRIX_BUTTON_ROBOT_OFFICIAL_HANDLER_URL` /
+// `BITRIX_BUTTON_ROBOT_UNOFFICIAL_HANDLER_URL`.
+app.post(
+  '/api/thinkzap/webhooks/bitrix/button-robot-official',
+  adaptControllerFactory(makeBitrixButtonRobotOfficialWebhookHandlerController),
+)
+app.post(
+  '/api/thinkzap/webhooks/bitrix/button-robot-unofficial',
+  adaptControllerFactory(
+    makeBitrixButtonRobotUnofficialWebhookHandlerController,
+  ),
+)
 
 /**
  * Provedor de mensagem da **campanha de SMS**. O Bitrix chama esta rota uma vez por
@@ -244,6 +260,14 @@ app.post(
   '/api/audio/upload',
   audioUploadParser.single('audio'),
   adaptControllerFactory(makeUploadAudioController),
+)
+
+// Tela de botões do canal aberto — mesmo par de auth do áudio (accessToken direto
+// ou iframe imbot), fora do `/api/thinkzap` com JWT porque quem chama é o iframe do
+// Bitrix, não a SPA logada.
+app.post(
+  '/api/open-channel-button/send',
+  adaptControllerFactory(makeSendOpenChannelButtonController),
 )
 
 // Jobs

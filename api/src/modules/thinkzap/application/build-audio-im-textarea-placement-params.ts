@@ -33,7 +33,7 @@ export function buildAudioImTextareaPlacementBindParams(): AudioImTextareaPlacem
       ru: { TITLE: title },
     },
     OPTIONS: {
-      iconName: 'chat-compose',
+      iconName: 'fa-microphone',
       context: 'LINES',
       role: 'USER',
       extranet: 'N',

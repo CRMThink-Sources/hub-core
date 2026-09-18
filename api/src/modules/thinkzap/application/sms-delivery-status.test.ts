@@ -33,6 +33,7 @@ const row = (
   templateName: null,
   templateLanguage: null,
   templateParameters: null,
+  buttonPayload: null,
   status: 'PENDING',
   providerMessageId: null,
   timelineNotifiedAt: null,
@@ -74,6 +75,9 @@ function makeDispatch(record: WidgetOutboxRecord, send = vi.fn()) {
     senderResolver: { resolve: vi.fn().mockReturnValue({ send }) } as never,
     templateSenderResolver: {
       resolve: vi.fn().mockReturnValue({ supportsTemplateSend: true, send }),
+    } as never,
+    interactiveButtonSenderResolver: {
+      resolve: vi.fn().mockReturnValue({ send }),
     } as never,
     messages: { create: vi.fn().mockResolvedValue(undefined) } as never,
     openChannelQueue: { enqueue: vi.fn().mockResolvedValue(undefined) },

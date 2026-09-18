@@ -8,6 +8,7 @@ vi.mock('@/config/env', () => ({
     bitrix: {
       placement: { url: 'https://app.example/placement' },
       iframeAudio: { url: 'https://app.example/bitrix/widget/audio' },
+      iframeButton: { url: 'https://app.example/bitrix/widget/button' },
     },
   },
 }))
@@ -74,6 +75,26 @@ describe('ListInstalledPlacementsService', () => {
       {
         placement: 'CRM_LEAD_DETAIL_TAB',
         handler: 'https://app.example/bitrix/widget/audio',
+        title: null,
+        isThinkzap: true,
+      },
+    ])
+  })
+
+  it('flags the button widget placement as thinkzap', async () => {
+    getPlacementHandlers.mockResolvedValue([
+      {
+        placement: 'IM_TEXTAREA',
+        handler: 'https://app.example/bitrix/widget/button',
+      },
+    ])
+
+    const result = await service.execute(client)
+
+    expect(result).toEqual([
+      {
+        placement: 'IM_TEXTAREA',
+        handler: 'https://app.example/bitrix/widget/button',
         title: null,
         isThinkzap: true,
       },

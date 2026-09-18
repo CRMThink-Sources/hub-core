@@ -8,9 +8,12 @@ import { ensurePlacementBindings } from '@/shared/infra/clients/ensure-placement
 import { env } from '@/config/env'
 import { buildConnectorRegisterParams } from './build-connector-register-params'
 import { buildAudioImTextareaPlacementBindParams } from '../application/build-audio-im-textarea-placement-params'
+import { buildButtonImTextareaPlacementBindParams } from '../application/build-button-im-textarea-placement-params'
 import { buildCrmDetailPlacementBindParams } from '../application/build-crm-detail-placement-bind-params'
 import { ensureThinkzapRobot } from '../application/ensure-thinkzap-robot'
 import { ensureTemplateRobot } from '../application/ensure-template-robot'
+import { ensureButtonRobotOfficial } from '../application/ensure-button-robot-official'
+import { ensureButtonRobotUnofficial } from '../application/ensure-button-robot-unofficial'
 import { ensureSpaPlacements } from '../application/ensure-spa-conversation-widget-placements'
 import { syncThinkzapRobotConnectorOptions } from '../application/sync-robot-connectors'
 import { thinkzapError } from '../errors/catalog'
@@ -31,7 +34,11 @@ export const THINKZAP_APP_CODE_ID = 'crmthink.thinkzap'
  * reconciliação — um `CRM_DEAL_DETAIL_TAB` de outro app não é nosso para remover.
  */
 const OWNED_PLACEMENT_HANDLERS = (): string[] =>
-  [env.bitrix.placement.url, env.bitrix.iframeAudio.url].filter(Boolean)
+  [
+    env.bitrix.placement.url,
+    env.bitrix.iframeAudio.url,
+    env.bitrix.iframeButton.url,
+  ].filter(Boolean)
 
 export class ThinkzapInstaller implements AppInstaller {
   readonly appCode = THINKZAP_APP_CODE_ID
@@ -43,8 +50,10 @@ export class ThinkzapInstaller implements AppInstaller {
     await this.registerConnector(context)
     await this.bindCrmPlacements(context)
     await this.bindAudioPlacement(context)
+    await this.bindButtonPlacement(context)
     await this.addRobot(context)
     await this.addTemplateRobot(context)
+    await this.addButtonRobots(context)
 
     // Fail-fast: uma SPA que não vincula por motivo real derruba a instalação.
     await ensureSpaPlacements(client, { failFast: true })
@@ -114,6 +123,24 @@ export class ThinkzapInstaller implements AppInstaller {
   }
 
   /**
+   * Mesmo raciocínio do áudio: outro ícone no textarea do canal aberto, opcional
+   * sem o próprio `HANDLER` de env.
+   */
+  private async bindButtonPlacement({
+    client,
+  }: AppInstallContext): Promise<void> {
+    const params = buildButtonImTextareaPlacementBindParams()
+
+    if (!params.HANDLER) return
+
+    await ensurePlacementBindings(
+      client,
+      [params as { PLACEMENT: string; HANDLER: string }],
+      OWNED_PLACEMENT_HANDLERS(),
+    )
+  }
+
+  /**
    * `ensureThinkzapRobot` faz add e, quando o robô já existe, `bizproc.robot.update`
    * — reinstalar passa a corrigir as propriedades do robô em vez de deixá-lo com
    * a definição da versão anterior.
@@ -129,5 +156,15 @@ export class ThinkzapInstaller implements AppInstaller {
    */
   private async addTemplateRobot({ client }: AppInstallContext): Promise<void> {
     await ensureTemplateRobot(client)
+  }
+
+  /**
+   * Os dois robôs de botão, ao lado do de template e do de envio livre. Cada um
+   * é no-op sem o próprio `HANDLER_URL` de env — uma falha em um não impede o
+   * outro, mesmo raciocínio de `syncThinkzapRobotConnectorOptions`.
+   */
+  private async addButtonRobots({ client }: AppInstallContext): Promise<void> {
+    await ensureButtonRobotOfficial(client)
+    await ensureButtonRobotUnofficial(client)
   }
 }

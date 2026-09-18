@@ -31,6 +31,7 @@ export const axiosPortal = (): PortalHttpClient => {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
     },
   })
 
@@ -49,10 +50,11 @@ export async function portalLogin(
   email: string,
   password: string,
 ): Promise<{ token: string }> {
-  const response = await axios.post(`${envConfig.apiUrl}/portal/auth/login`, {
-    email,
-    password,
-  })
+  const response = await axios.post(
+    `${envConfig.apiUrl}/portal/auth/login`,
+    { email, password },
+    { headers: { 'ngrok-skip-browser-warning': 'true' } },
+  )
 
   return response.data.result as { token: string }
 }

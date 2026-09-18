@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { prisma } from '@/config/prisma'
 import type { ThinkzapOutboxKind, ThinkzapOutboxStatus } from '@/prisma/client'
+import type { InteractiveButtonDescriptor } from '@/modules/thinkzap/domain/ports/interactive-button-sender.port'
 
 export type WidgetOutboxStatus =
   | 'PENDING'
@@ -16,7 +17,7 @@ export type WidgetOutboxStatus =
  * entrega, o claim condicional, o lock por destino, os efeitos colaterais. O que muda
  * é uma chamada, e é só isso que este discriminador carrega.
  */
-export type WidgetOutboxKind = 'TEXT' | 'TEMPLATE'
+export type WidgetOutboxKind = 'TEXT' | 'TEMPLATE' | 'INTERACTIVE_BUTTON'
 
 export type WidgetOutboxRecord = {
   id: string
@@ -34,6 +35,8 @@ export type WidgetOutboxRecord = {
   templateName: string | null
   templateLanguage: string | null
   templateParameters: string[] | null
+  /** Preenchido só em `kind: 'INTERACTIVE_BUTTON'`. */
+  buttonPayload: InteractiveButtonDescriptor | null
   status: WidgetOutboxStatus
   providerMessageId: string | null
   timelineNotifiedAt: Date | null
@@ -70,6 +73,8 @@ export type CreateWidgetOutboxInput = {
   templateName?: string
   templateLanguage?: string
   templateParameters?: string[]
+  /** Preenchido só em `kind: 'INTERACTIVE_BUTTON'`. */
+  buttonPayload?: InteractiveButtonDescriptor
   /** Do token da requisição — é o que o worker usa para resolver o nome. */
   operatorBitrixUserId?: string | null
   /**
@@ -94,6 +99,20 @@ function toBodyParameters(value: unknown): string[] | null {
   return value.every(item => typeof item === 'string') ? value : null
 }
 
+/**
+ * O `button_payload` volta do MySQL como JSON livre, mirror de
+ * `toBodyParameters`. Row com formato inesperado vira `null` em vez de
+ * derrubar a leitura — quem consome trata a ausência como falta de payload, e
+ * o worker recusa o despacho por falta do que precisa, não por exceção.
+ */
+function toButtonPayload(value: unknown): InteractiveButtonDescriptor | null {
+  if (!value || typeof value !== 'object') return null
+  const candidate = value as Record<string, unknown>
+  if (typeof candidate.body !== 'string') return null
+  if (!Array.isArray(candidate.buttons)) return null
+  return candidate as unknown as InteractiveButtonDescriptor
+}
+
 function mapRow(row: {
   id: string
   clientMessageId: string
@@ -109,6 +128,7 @@ function mapRow(row: {
   templateName: string | null
   templateLanguage: string | null
   templateParameters: unknown
+  buttonPayload: unknown
   status: ThinkzapOutboxStatus
   providerMessageId: string | null
   timelineNotifiedAt: Date | null
@@ -135,6 +155,7 @@ function mapRow(row: {
     templateName: row.templateName,
     templateLanguage: row.templateLanguage,
     templateParameters: toBodyParameters(row.templateParameters),
+    buttonPayload: toButtonPayload(row.buttonPayload),
     status: row.status as WidgetOutboxStatus,
     providerMessageId: row.providerMessageId,
     timelineNotifiedAt: row.timelineNotifiedAt,
@@ -159,19 +180,21 @@ function mapRow(row: {
  */
 export class PrismaWidgetOutboxRepository {
   async create(input: CreateWidgetOutboxInput): Promise<WidgetOutboxRecord> {
-    const { templateParameters, ...rest } = input
+    const { templateParameters, buttonPayload, ...rest } = input
 
     /**
-     * `templateParameters` fica **fora** do spread quando é `undefined`: numa coluna
-     * `Json` do Prisma, `undefined` significa "não escreva" e `null` exigiria
-     * `Prisma.DbNull`. Omitir a chave é o único jeito de a row de envio livre nascer
-     * com a coluna nula sem importar o sentinela aqui.
+     * `templateParameters`/`buttonPayload` ficam **fora** do spread quando são
+     * `undefined`: numa coluna `Json` do Prisma, `undefined` significa "não
+     * escreva" e `null` exigiria `Prisma.DbNull`. Omitir a chave é o único
+     * jeito de a row de outro `kind` nascer com a coluna nula sem importar o
+     * sentinela aqui.
      */
     const row = await prisma.thinkzapWidgetOutbox.create({
       data: {
         id: randomUUID(),
         ...rest,
         ...(templateParameters ? { templateParameters } : {}),
+        ...(buttonPayload ? { buttonPayload } : {}),
       },
     })
 

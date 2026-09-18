@@ -131,7 +131,9 @@ export default function BitrixInstallPage() {
       // e concluir no Bitrix depois de uma falha deixaria o app registrado no
       // portal sem estar configurado.
       if (API_URL) {
-        await axios.post(API_URL + '/auth/install', payload)
+        await axios.post(API_URL + '/auth/install', payload, {
+          headers: { 'ngrok-skip-browser-warning': 'true' },
+        })
       }
 
       finishInstall()

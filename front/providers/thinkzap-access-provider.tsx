@@ -44,7 +44,13 @@ const request =
     try {
       const response = await axios.get(
         `${envConfig.apiUrl}/thinkzap/access/me`,
-        { headers: { Authorization: `Bearer ${token}` }, signal },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'ngrok-skip-browser-warning': 'true',
+          },
+          signal,
+        },
       )
       return { kind: 'ok', data: response.data?.result }
     } catch (err) {

@@ -1,5 +1,7 @@
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
+import { InteractiveButtonDescriptor } from '@/modules/thinkzap/domain/ports/interactive-button-sender.port'
+import { InteractiveButtonSenderResolver } from '@/modules/thinkzap/domain/ports/interactive-button-sender-resolver.port'
 import { OpenChannelConversationQueue } from '@/modules/thinkzap/domain/ports/open-channel-queue.port'
 import { OutboundSenderResolver } from '@/modules/thinkzap/domain/ports/outbound-sender-resolver.port'
 import { TemplateMessageSenderResolver } from '@/modules/thinkzap/domain/ports/template-sender-resolver.port'
@@ -59,6 +61,13 @@ export type DispatchDeps = {
    * assinatura de envio livre a carregar campos que nunca usa.
    */
   templateSenderResolver: TemplateMessageSenderResolver
+  /**
+   * O resolver de botões, para as intenções de `kind: 'INTERACTIVE_BUTTON'`.
+   *
+   * Ao contrário de `templateSenderResolver`, os dois providers têm adapter
+   * real — não há "não suportado" por provider inteiro aqui.
+   */
+  interactiveButtonSenderResolver: InteractiveButtonSenderResolver
   messages: PrismaThinkzapMessageRepository
   openChannelQueue: OpenChannelConversationQueue
   acquireLock: (
@@ -138,6 +147,16 @@ function templateDescriptorOf(
     language: row.templateLanguage,
     bodyParameters: row.templateParameters ?? [],
   }
+}
+
+/**
+ * O botão na forma que o provider recebe, ou `null` se a row não o descreve
+ * por inteiro. Mirror de `templateDescriptorOf`.
+ */
+function buttonDescriptorOf(
+  row: WidgetOutboxRecord,
+): InteractiveButtonDescriptor | null {
+  return row.buttonPayload
 }
 
 /**
@@ -260,6 +279,36 @@ export class DispatchWidgetOutboxMessage {
     }
 
     /**
+     * Intenção de botão sem o payload que descreve o envio.
+     *
+     * Mesmo raciocínio de `templateDescriptorOf`: estado impossível pelo
+     * caminho normal — `EnqueueInteractiveButtonSendService` grava o payload
+     * junto —, terminal e não retentável.
+     */
+    if (row.kind === 'INTERACTIVE_BUTTON' && !buttonDescriptorOf(row)) {
+      await this.jobLog(
+        'Intenção de botão sem buttonPayload gravado. Não há o que enviar e ' +
+          'retentar não resolveria — estado terminal (FAILED). Operador avisado na timeline.',
+      )
+      await this.deps.outbox.markFailed(
+        row.id,
+        'Intenção de botão sem buttonPayload',
+      )
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.message.widget_send_exhausted',
+        { ...logContext, outboxKind: row.kind },
+        {
+          level: 'error',
+          msg: 'Intenção de botão incompleta; envio não será tentado',
+        },
+      )
+      await this.deps.notifyOutcome('failed', row)
+      await this.reportCampaignStatus(row, 'failed')
+      return { status: 'failed' }
+    }
+
+    /**
      * Ordem por destino. Lock tomado devolve `locked` e o chamador re-agenda **sem
      * gastar tentativa**: esperar aqui seguraria um slot de concorrência e
      * transformaria uma fila de N workers numa fila de um.
@@ -303,7 +352,9 @@ export class DispatchWidgetOutboxMessage {
       `Reivindicada. Chamando ${line.provider} para ${row.destination}` +
         (row.kind === 'TEMPLATE'
           ? ` com o template "${row.templateName}" (${row.templateLanguage})...`
-          : '...'),
+          : row.kind === 'INTERACTIVE_BUTTON'
+            ? ' com mensagem de botões...'
+            : '...'),
     )
 
     let providerMessageId: string
@@ -389,6 +440,31 @@ export class DispatchWidgetOutboxMessage {
         channelId: line.channelId ?? line.instanceId,
         recipientIdentifier: row.destination,
       })
+
+      const { messageId } = await sender.send(descriptor)
+      return messageId
+    }
+
+    if (row.kind === 'INTERACTIVE_BUTTON') {
+      const descriptor = buttonDescriptorOf(row)
+      if (!descriptor) {
+        throw new Error('Intenção de botão sem buttonPayload')
+      }
+
+      /**
+       * Mesmo fallback do resolver de template: `channelId` para HubMessage,
+       * `instanceId`/`instanceToken` para Z-API — o resolver só usa o par que
+       * corresponde ao provider da linha.
+       */
+      const sender = this.deps.interactiveButtonSenderResolver.resolve(
+        line.provider,
+        {
+          channelId: line.channelId ?? line.instanceId,
+          instanceId: line.instanceId,
+          instanceToken: line.zApiToken ?? undefined,
+          recipientIdentifier: row.destination,
+        },
+      )
 
       const { messageId } = await sender.send(descriptor)
       return messageId
@@ -552,7 +628,7 @@ export class DispatchWidgetOutboxMessage {
         instanceId: row.instanceId,
         source: 'BITRIX',
         providerMessageId,
-        type: 'TEXT',
+        type: row.kind === 'INTERACTIVE_BUTTON' ? 'INTERACTIVE_BUTTON' : 'TEXT',
         text: row.text,
       })
     } catch (err) {

@@ -479,6 +479,12 @@ model ThinkzapWidgetOutbox {
   templateLanguage   String? @map("template_language")
   templateParameters Json?   @map("template_parameters")
 
+  /// Só existe em `kind = INTERACTIVE_BUTTON`: corpo, header/footer opcionais e a
+  /// lista de botões, no formato de `InteractiveButtonDescriptor`. Guardado como
+  /// veio do chamador — o worker remonta o descriptor direto daqui, sem
+  /// recompor a partir de `text`.
+  buttonPayload Json? @map("button_payload")
+
   status ThinkzapOutboxStatus @default(PENDING)
 
   /// **A marca de entrega.** Nulo = o provider não aceitou nada ainda. Preenchido = já
@@ -535,6 +541,9 @@ enum ThinkzapOutboxKind {
   /// Template aprovado do WhatsApp Oficial. O worker chama `TemplateMessageSender`
   /// com `templateName`, `templateLanguage` e `templateParameters`.
   TEMPLATE
+  /// Mensagem com botões de ação. O worker chama `InteractiveButtonSender` com o
+  /// descriptor gravado em `buttonPayload`.
+  INTERACTIVE_BUTTON
 }
 
 enum ThinkzapOutboxStatus {
@@ -676,6 +685,7 @@ enum ThinkzapMessageType {
   DOCUMENT
   STICKER
   CONTACT
+  INTERACTIVE_BUTTON
 }
 
 enum BiAnalyseProvider {
