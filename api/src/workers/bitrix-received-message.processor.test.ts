@@ -8,11 +8,13 @@ const {
   sendVideoMock,
   sendAudioMock,
   sendDocumentMock,
+  sendButtonActionsMock,
   setMessageDeliveredMock,
   callMethodMock,
   getContextMock,
   ensureBitrixBotIdMock,
   sendHubMessageMock,
+  sendInteractiveActionMock,
 } = vi.hoisted(() => ({
   createMock: vi.fn().mockResolvedValue(undefined),
   findByBitrixMessageIdMock: vi.fn().mockResolvedValue(null),
@@ -21,6 +23,9 @@ const {
   sendVideoMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-VID' }),
   sendAudioMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-AUD' }),
   sendDocumentMock: vi.fn().mockResolvedValue({ messageId: 'ZAPI-DOC' }),
+  sendButtonActionsMock: vi
+    .fn()
+    .mockResolvedValue({ zaapId: 'z1', messageId: 'ZAPI-BTN', id: 'ZAPI-BTN' }),
   setMessageDeliveredMock: vi.fn().mockResolvedValue(undefined),
   callMethodMock: vi
     .fn()
@@ -28,6 +33,7 @@ const {
   getContextMock: vi.fn(),
   ensureBitrixBotIdMock: vi.fn().mockResolvedValue(1958),
   sendHubMessageMock: vi.fn().mockResolvedValue({ messageId: 'HM-1' }),
+  sendInteractiveActionMock: vi.fn().mockResolvedValue({ messageId: 'HM-BTN' }),
 }))
 
 vi.mock('@/modules/thinkzap/infra/clients/hubmessage.client', async () => {
@@ -40,6 +46,7 @@ vi.mock('@/modules/thinkzap/infra/clients/hubmessage.client', async () => {
     HubMessageApiError: actual.HubMessageApiError,
     HubMessageClient: class {
       sendMessage = sendHubMessageMock
+      sendInteractiveAction = sendInteractiveActionMock
     },
   }
 })
@@ -71,6 +78,7 @@ vi.mock('@/modules/thinkzap/infra/clients/z-api.client', () => ({
     sendVideo = sendVideoMock
     sendAudio = sendAudioMock
     sendDocument = sendDocumentMock
+    sendButtonActions = sendButtonActionsMock
   },
 }))
 
@@ -201,6 +209,7 @@ vi.mock('@/shared/helpers/convert-to-mp3', () => ({
 import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
+import { encodeButtonActionCode } from '@/modules/thinkzap/application/parse-button-action-code'
 
 const baseContext = {
   name: 'acme.bitrix24.com',
@@ -849,5 +858,178 @@ describe('processBitrixReceivedMessage texto + anexo', () => {
         l => l.includes('Conteúdo a enviar') && l.includes('image com legenda'),
       ),
     ).toBe(true)
+  })
+})
+
+describe('processBitrixReceivedMessage envio de botões via código do canal aberto', () => {
+  const buttonDescriptor = {
+    body: 'Como podemos ajudar?',
+    buttons: [
+      { id: '1', label: 'Site', type: 'URL' as const, url: 'https://x.io' },
+    ],
+  }
+
+  beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
+    createMock.mockClear()
+    createMock.mockResolvedValue(undefined)
+    sendMessageZApiMock.mockClear()
+    sendButtonActionsMock.mockClear()
+    sendButtonActionsMock.mockResolvedValue({
+      zaapId: 'z1',
+      messageId: 'ZAPI-BTN',
+      id: 'ZAPI-BTN',
+    })
+    sendHubMessageMock.mockClear()
+    sendInteractiveActionMock.mockClear()
+    sendInteractiveActionMock.mockResolvedValue({ messageId: 'HM-BTN' })
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockClear()
+    callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
+    ensureBitrixBotIdMock.mockClear()
+    ensureBitrixBotIdMock.mockResolvedValue(1958)
+  })
+
+  it('envia botões via Z-API e persiste como INTERACTIVE_BUTTON', async () => {
+    getContextMock.mockResolvedValue(baseContext)
+
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: encodeButtonActionCode(buttonDescriptor),
+          files: undefined,
+        },
+      }),
+    )
+
+    expect(sendButtonActionsMock).toHaveBeenCalledTimes(1)
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instanceId: 'inst-db-1',
+        providerMessageId: 'ZAPI-BTN',
+        type: 'INTERACTIVE_BUTTON',
+        text: 'Como podemos ajudar?',
+        chatId: '5511999999999',
+        bitrixChatId: '100',
+      }),
+    )
+    expect(setMessageDeliveredMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('envia botões via HubMessage quando a linha é oficial', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: encodeButtonActionCode(buttonDescriptor),
+          files: undefined,
+        },
+      }),
+    )
+
+    expect(sendInteractiveActionMock).toHaveBeenCalledWith('CH-123', {
+      recipient: { identifier: '5511999999999' },
+      content: {
+        type: 'INTERACTIVE_ACTION',
+        body: { message: 'Como podemos ajudar?' },
+        attachments: [
+          { id: '1', title: 'Site', name: 'URL', url: 'https://x.io' },
+        ],
+      },
+    })
+    expect(sendHubMessageMock).not.toHaveBeenCalled()
+  })
+
+  it('recusa botão REPLY numa linha HUBMESSAGE, sem chamar o provider', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: encodeButtonActionCode({
+            body: 'Oi',
+            buttons: [{ id: '1', label: 'Sim', type: 'REPLY' as const }],
+          }),
+          files: undefined,
+        },
+      }),
+    )
+
+    expect(sendInteractiveActionMock).not.toHaveBeenCalled()
+    expect(createMock).not.toHaveBeenCalled()
+    expect(callMethodMock).toHaveBeenCalledWith(
+      'imbot.message.add',
+      expect.objectContaining({ BOT_ID: 1958, DIALOG_ID: 'chat100' }),
+    )
+  })
+
+  it('código malformado não envia nada e não relança', async () => {
+    getContextMock.mockResolvedValue(baseContext)
+
+    await expect(
+      processBitrixReceivedMessage(
+        makeEvent({
+          message: {
+            user_id: '1',
+            text: '##THINKZAP_BUTTON_ACTION##not-valid-base64-json',
+            files: undefined,
+          },
+        }),
+      ),
+    ).resolves.toBeUndefined()
+
+    expect(sendButtonActionsMock).not.toHaveBeenCalled()
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+    expect(createMock).not.toHaveBeenCalled()
+    expect(callMethodMock).toHaveBeenCalledWith(
+      'imbot.message.add',
+      expect.objectContaining({ BOT_ID: 1958, DIALOG_ID: 'chat100' }),
+    )
+  })
+
+  it('janela de 24h fechada no envio de botão não persiste, não relança e avisa o operador', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+    sendInteractiveActionMock.mockRejectedValue(
+      new HubMessageApiError(
+        422,
+        'POST',
+        '/v1/channels/CH-123/messages',
+        { message: 'A janela de conversa de 24 horas está fechada' },
+        null,
+      ),
+    )
+
+    await expect(
+      processBitrixReceivedMessage(
+        makeEvent({
+          message: {
+            user_id: '1',
+            text: encodeButtonActionCode(buttonDescriptor),
+            files: undefined,
+          },
+        }),
+      ),
+    ).resolves.toBeUndefined()
+
+    expect(createMock).not.toHaveBeenCalled()
+    expect(setMessageDeliveredMock).not.toHaveBeenCalled()
+    expect(callMethodMock).toHaveBeenCalledWith(
+      'imbot.message.add',
+      expect.objectContaining({ BOT_ID: 1958, DIALOG_ID: 'chat100' }),
+    )
+  })
+
+  it('mensagem comum (sem o prefixo) continua indo pelo caminho de texto livre', async () => {
+    getContextMock.mockResolvedValue(baseContext)
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(sendButtonActionsMock).not.toHaveBeenCalled()
+    expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
   })
 })

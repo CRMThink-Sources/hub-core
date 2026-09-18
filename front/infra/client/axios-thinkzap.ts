@@ -39,6 +39,13 @@ export const axiosThinkzap = (authTokenKey: string): ThinkzapHttpClient => {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      /**
+       * Sem isto, o ngrok free tier responde com a página de aviso de
+       * "visitante" (HTML, sem CORS) para qualquer request com jeito de
+       * navegador — nunca chega no processo real. É por isso que aparece
+       * `200` no Network do browser mas nada no log do back.
+       */
+      'ngrok-skip-browser-warning': 'true',
     },
   })
   axiosInstance.interceptors.request.use(config => {

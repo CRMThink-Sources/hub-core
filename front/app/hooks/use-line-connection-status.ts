@@ -95,6 +95,12 @@ export function useLineConnectionStatus({
     const socket = io(origin, {
       autoConnect: false,
       path: SOCKET_PATH,
+      /**
+       * O upgrade nativo para WebSocket não permite headers customizados no
+       * browser, mas o handshake inicial por polling usa XHR — isto evita o
+       * aviso de "visitante" do ngrok free tier nesse primeiro request.
+       */
+      extraHeaders: { 'ngrok-skip-browser-warning': 'true' },
     })
 
     socket.on('connect', () => {

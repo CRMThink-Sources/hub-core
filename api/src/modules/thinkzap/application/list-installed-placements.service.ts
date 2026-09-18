@@ -13,6 +13,7 @@ function isThinkzapHandler(handler: string): boolean {
   const thinkzapHandlers = [
     env.bitrix.placement.url,
     env.bitrix.iframeAudio.url,
+    env.bitrix.iframeButton.url,
   ].filter(Boolean)
 
   return thinkzapHandlers.includes(handler)

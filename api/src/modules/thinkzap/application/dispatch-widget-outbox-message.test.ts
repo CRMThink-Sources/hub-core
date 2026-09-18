@@ -34,6 +34,7 @@ const row = (
   templateName: null,
   templateLanguage: null,
   templateParameters: null,
+  buttonPayload: null,
   status: 'PENDING',
   providerMessageId: null,
   timelineNotifiedAt: null,
@@ -71,6 +72,18 @@ const templateRow = (overrides: Partial<WidgetOutboxRecord> = {}) =>
     ...overrides,
   })
 
+/** A intenção de botão como `EnqueueInteractiveButtonSendService` a grava. */
+const buttonRow = (overrides: Partial<WidgetOutboxRecord> = {}) =>
+  row({
+    kind: 'INTERACTIVE_BUTTON',
+    text: 'Como podemos ajudar?',
+    buttonPayload: {
+      body: 'Como podemos ajudar?',
+      buttons: [{ id: '1', label: 'Site', type: 'URL', url: 'https://x.io' }],
+    },
+    ...overrides,
+  })
+
 /** Erro com resposta HTTP do provider — prova que nada saiu. */
 const refusedError = () =>
   new HubMessageApiError(500, 'POST', '/messages', { error: 'boom' }, null)
@@ -104,6 +117,13 @@ function makeSut(record = row()) {
     }),
   }
 
+  const sendInteractiveButton = vi
+    .fn()
+    .mockResolvedValue({ messageId: 'btn-1' })
+  const interactiveButtonSenderResolver = {
+    resolve: vi.fn().mockReturnValue({ send: sendInteractiveButton }),
+  }
+
   const messages = { create: vi.fn().mockResolvedValue(undefined) }
   const openChannelQueue = { enqueue: vi.fn().mockResolvedValue(undefined) }
 
@@ -130,6 +150,7 @@ function makeSut(record = row()) {
     outbox: outbox as never,
     senderResolver: senderResolver as never,
     templateSenderResolver: templateSenderResolver as never,
+    interactiveButtonSenderResolver: interactiveButtonSenderResolver as never,
     messages: messages as never,
     openChannelQueue,
     acquireLock,
@@ -145,6 +166,8 @@ function makeSut(record = row()) {
     senderResolver,
     sendTemplate,
     templateSenderResolver,
+    sendInteractiveButton,
+    interactiveButtonSenderResolver,
     messages,
     openChannelQueue,
     acquireLock,
@@ -156,6 +179,8 @@ function makeSut(record = row()) {
       sut.execute({ outboxId: 'outbox-1', line, isLastAttempt }),
     dispatchTemplate: (isLastAttempt = false) =>
       sut.execute({ outboxId: 'outbox-1', line: hubLine, isLastAttempt }),
+    dispatchButton: (isLastAttempt = false) =>
+      sut.execute({ outboxId: 'outbox-1', line, isLastAttempt }),
     dispatchWithLine: (target: typeof line) =>
       sut.execute({ outboxId: 'outbox-1', line: target, isLastAttempt: false }),
   }
@@ -620,6 +645,101 @@ describe('DispatchWidgetOutboxMessage', () => {
       sut.sendTemplate.mockRejectedValue(indeterminateError())
 
       const result = await sut.dispatchTemplate()
+
+      expect(result).toEqual({ status: 'unknown' })
+      expect(sut.outbox.markUnknown).toHaveBeenCalled()
+    })
+  })
+
+  describe('botão', () => {
+    it('chama o sender de botões, e não o de mensagem livre ou de template', async () => {
+      const sut = makeSut(buttonRow())
+
+      const result = await sut.dispatchButton()
+
+      expect(sut.send).not.toHaveBeenCalled()
+      expect(sut.sendTemplate).not.toHaveBeenCalled()
+      expect(sut.sendInteractiveButton).toHaveBeenCalledWith({
+        body: 'Como podemos ajudar?',
+        buttons: [{ id: '1', label: 'Site', type: 'URL', url: 'https://x.io' }],
+      })
+      expect(result).toEqual({ status: 'sent', providerMessageId: 'btn-1' })
+    })
+
+    it('resolve o sender pela instância/token Z-API da linha e pelo destino', async () => {
+      const sut = makeSut(buttonRow())
+
+      await sut.dispatchButton()
+
+      expect(sut.interactiveButtonSenderResolver.resolve).toHaveBeenCalledWith(
+        'ZAPI',
+        {
+          channelId: 'Z-1',
+          instanceId: 'Z-1',
+          instanceToken: 'TOKEN-SECRETO',
+          recipientIdentifier: '5511999999999',
+        },
+      )
+    })
+
+    it('persiste a mensagem entregue com type INTERACTIVE_BUTTON', async () => {
+      const sut = makeSut(buttonRow())
+
+      await sut.dispatchButton()
+
+      expect(sut.messages.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          providerMessageId: 'btn-1',
+          type: 'INTERACTIVE_BUTTON',
+          text: 'Como podemos ajudar?',
+        }),
+      )
+    })
+
+    it('NÃO chama o provider quando a intenção já tem marca de entrega', async () => {
+      const sut = makeSut(
+        buttonRow({ status: 'SENT', providerMessageId: 'btn-1' }),
+      )
+
+      const result = await sut.dispatchButton()
+
+      expect(sut.sendInteractiveButton).not.toHaveBeenCalled()
+      expect(result).toEqual({ status: 'resumed', providerMessageId: 'btn-1' })
+    })
+
+    /**
+     * Estado impossível pelo caminho normal, e terminal quando acontece —
+     * mirror do guard equivalente de template.
+     */
+    it('recusa intenção de botão sem buttonPayload antes do lock, como FAILED', async () => {
+      const sut = makeSut(buttonRow({ buttonPayload: null }))
+
+      const result = await sut.dispatchButton()
+
+      expect(result).toEqual({ status: 'failed' })
+      expect(sut.acquireLock).not.toHaveBeenCalled()
+      expect(sut.outbox.claimForSending).not.toHaveBeenCalled()
+      expect(sut.sendInteractiveButton).not.toHaveBeenCalled()
+      expect(sut.notifyOutcome).toHaveBeenCalledWith(
+        'failed',
+        expect.objectContaining({ id: 'outbox-1' }),
+      )
+    })
+
+    it('recusa com resposta do provider devolve a intenção para PENDING e relança', async () => {
+      const sut = makeSut(buttonRow())
+      sut.sendInteractiveButton.mockRejectedValue(refusedError())
+
+      await expect(sut.dispatchButton(false)).rejects.toThrow()
+      expect(sut.outbox.releaseToPending).toHaveBeenCalled()
+      expect(sut.release).toHaveBeenCalledTimes(1)
+    })
+
+    it('falha sem resposta do provider vira unknown, sem reenviar', async () => {
+      const sut = makeSut(buttonRow())
+      sut.sendInteractiveButton.mockRejectedValue(indeterminateError())
+
+      const result = await sut.dispatchButton()
 
       expect(result).toEqual({ status: 'unknown' })
       expect(sut.outbox.markUnknown).toHaveBeenCalled()

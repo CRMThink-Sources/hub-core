@@ -186,6 +186,84 @@ export type SendHubMessageTemplateResponse = {
 }
 
 /**
+ * Envio de mensagem com botões de ação: mesma rota de mensagens do canal
+ * (`POST /v1/channels/{channelId}/messages`), com
+ * `content.type = 'INTERACTIVE_ACTION'`.
+ * Ref.: https://developer.hubmessage.io/messages/send-interactive-action
+ *
+ * FORMATO CONFIRMADO por envio real em 2026-09-15 — e a confirmação trouxe
+ * más notícias: a doc pública documenta botão `CALL` e múltiplos botões, mas
+ * a Cloud API da Meta (que a HubMessage repassa por trás) não tem nenhum dos
+ * dois em mensagem de sessão livre — só template aprovado tem botão de
+ * ligação, e o botão de URL da Meta (`cta_url`) é de um botão só. `CALL`
+ * sozinho voltou `400` direto da Meta ("missing: action"); `CALL` combinado
+ * com `URL` foi silenciosamente descartado, só o `URL` chegou. Por isso o
+ * type abaixo só tem `URL`, e `assertValidButtonsForProvider` limita a
+ * HUBMESSAGE a um botão só — ver `interactive-button-validation.ts`.
+ */
+export type HubMessageButtonActionType = 'URL'
+
+export type HubMessageButtonAction = {
+  id: string
+  title: string
+  name: HubMessageButtonActionType
+  url: string
+}
+
+export type SendHubMessageInteractiveActionParams = {
+  recipient: {
+    /** Telefone do destinatário (DDI + DDD + número). */
+    identifier: string
+  }
+  content: {
+    type: 'INTERACTIVE_ACTION'
+    header?: { message: string }
+    body: { message: string }
+    footer?: { message: string }
+    attachments: HubMessageButtonAction[]
+  }
+}
+
+export type SendHubMessageInteractiveActionResponse = {
+  messageId: string
+}
+
+/**
+ * Envio de resposta rápida: `content.type = 'INTERACTIVE_BUTTON'`, **rota
+ * separada de `INTERACTIVE_ACTION`** — não é o mesmo botão com outro `name`,
+ * é outro formato de mensagem. `attachments[]` só tem `id`/`title` (sem
+ * `name`, sem `url`/`phone`): o espelho do que `INTERACTIVE_BUTTON` traz na
+ * entrada (`HubMessageInteractiveButtonContent` em `hubmessage-events.interface.ts`),
+ * que também não tem `header`/`footer` — por isso este type não os declara.
+ *
+ * FORMATO CONFIRMADO por envio real em 2026-09-18: a Meta aceita até
+ * **3 botões** (limite do quick reply da Cloud API) — o 4º fez a Meta
+ * recusar a mensagem inteira (diferente do `URL` duplicado, que a Meta
+ * descarta em silêncio). Por isso `assertValidButtonsForProvider` limita
+ * `REPLY` na HUBMESSAGE a 3 — ver `interactive-button-validation.ts`.
+ */
+export type HubMessageQuickReplyButtonAction = {
+  id: string
+  title: string
+}
+
+export type SendHubMessageInteractiveButtonParams = {
+  recipient: {
+    /** Telefone do destinatário (DDI + DDD + número). */
+    identifier: string
+  }
+  content: {
+    type: 'INTERACTIVE_BUTTON'
+    body: { message: string }
+    attachments: HubMessageQuickReplyButtonAction[]
+  }
+}
+
+export type SendHubMessageInteractiveButtonResponse = {
+  messageId: string
+}
+
+/**
  * Templates de mensagem (WhatsApp Oficial), escopados por WABA.
  * Ref.: https://developer.hubmessage.io/templates/introduction
  * Rotas: `/whatsapp/businesses/{wabaId}/templates` (list/create/sync).

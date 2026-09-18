@@ -1,6 +1,8 @@
 'use client'
 import { useBX24 } from '../../../bitrix/use-bx24'
-import axios from 'axios'
+import { authenticateBitrixWithBackend } from '../../../bitrix/authenticate-with-backend'
+import { writeAppToken } from '@/shared/auth/app-token-storage'
+import { resolveThinkzapClient } from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
 import { useEffect, useState } from 'react'
 
 interface PlacementInfo {
@@ -25,6 +27,8 @@ export const ContactCenterView = ({
   const [placementInfo, setPlacementInfo] = useState<PlacementInfo | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [authenticated, setAuthenticated] = useState(false)
+  const [authError, setAuthError] = useState('')
 
   useEffect(() => {
     if (!ready || !window.BX24) return
@@ -41,25 +45,49 @@ export const ContactCenterView = ({
   }, [ready])
 
   const loadConnectors = async () => {
-    const {
-      data: {
-        result: { connectors },
-      },
-    } = await axios.get(
-      `${process.env.NEXT_PUBLIC_API_URL}/thinkzap/connector/list`,
-      {
-        headers: {
-          Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkb21haW5JZCI6ImU5OTljZDM2LTkxMDItNGFmMC04NjUyLTdiZjNlZDcxMjA0MiIsImFwcENvZGVJZCI6IjEiLCJpYXQiOjE3NzA4NDg3OTl9.m5E0cqb_L683Q3H8aFA9EoKGrRPTgRaOzp1GzFpUItk`,
-        },
-      },
+    const client = resolveThinkzapClient()
+    if (!client.ok) {
+      setAuthError(client.message)
+      return
+    }
+
+    const { connectors } = await client.client.get<{ connectors: any[] }>(
+      '/thinkzap/connector/list',
     )
 
     setConnectors(connectors.filter((connector: any) => connector.phoneData))
   }
 
+  /** Autentica no backend antes de qualquer chamada ao thinkzap — mirror de `BizprocButtonOfficialRobotPage`. */
   useEffect(() => {
+    if (!ready || typeof window === 'undefined') return
+
+    let cancelled = false
+
+    const start = async () => {
+      const result = await authenticateBitrixWithBackend()
+      if (cancelled) return
+
+      if (!result.ok) {
+        setAuthError(result.error)
+        return
+      }
+
+      writeAppToken(result.app.appCode, result.token)
+      setAuthenticated(true)
+    }
+
+    void start()
+
+    return () => {
+      cancelled = true
+    }
+  }, [ready])
+
+  useEffect(() => {
+    if (!authenticated) return
     void loadConnectors()
-  }, [])
+  }, [authenticated])
 
   const handleSave = () => {
     if (!selectedConnectorId || !placementInfo) return
@@ -98,6 +126,12 @@ export const ContactCenterView = ({
   return (
     <div className="w-full min-h-full p-5 bg-neutral-950 text-white flex flex-col gap-5">
       <h1 className="text-xl font-bold tracking-tight">Vincular WhatsApp</h1>
+
+      {authError ? (
+        <p className="rounded-lg border border-red-400/40 bg-red-950/40 px-3 py-2 text-sm text-red-300">
+          {authError}
+        </p>
+      ) : null}
 
       <section className="rounded-xl bg-white p-5 shadow-sm border border-neutral-200 flex flex-col gap-4">
         <div>

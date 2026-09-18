@@ -198,3 +198,30 @@ export type UpdateGroupPhotoParams = {
 export type LeaveGroupParams = {
   groupId: string
 }
+
+/**
+ * Envio de mensagem com botões de ação: `POST .../send-button-actions`.
+ * Ref.: https://developer.z-api.io/message/send-button-actions
+ *
+ * O WhatsApp Web rejeita misturar `REPLY` com `CALL`/`URL` no mesmo envio —
+ * validado no adapter antes de montar este payload, não aqui.
+ */
+export type ZApiButtonActionType = 'REPLY' | 'URL' | 'CALL'
+
+export type ZApiButtonAction = {
+  id?: string
+  type: ZApiButtonActionType
+  label: string
+  /** Presente quando `type: 'URL'`. */
+  url?: string
+  /** Presente quando `type: 'CALL'`. */
+  phone?: string
+}
+
+export type SendButtonActionsParams = {
+  phone: string
+  message: string
+  title?: string
+  footer?: string
+  buttonActions: ZApiButtonAction[]
+}

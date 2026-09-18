@@ -9,6 +9,18 @@ vi.mock('@/config/env', () => ({
         code: 'thinkzap_robot',
         name: 'ThinkZap Robot',
       },
+      templateRobot: {
+        code: 'thinkzap_template_robot',
+        name: 'ThinkZap Template',
+      },
+      buttonRobotOfficial: {
+        code: 'thinkzap_button_robot_official',
+        name: 'ThinkZap Botões (Oficial)',
+      },
+      buttonRobotUnofficial: {
+        code: 'thinkzap_button_robot_unofficial',
+        name: 'ThinkZap Botões (Z-API)',
+      },
     },
   },
 }))
@@ -56,6 +68,40 @@ describe('ListInstalledBizprocRobotsService', () => {
       {
         code: 'thinkzap_robot',
         name: 'ThinkZap Robot',
+        isThinkzap: true,
+      },
+    ])
+  })
+
+  it('flags template and button robots as thinkzap too', async () => {
+    callMethod.mockResolvedValue([
+      'thinkzap_template_robot',
+      'thinkzap_button_robot_official',
+      'thinkzap_button_robot_unofficial',
+      'other_robot',
+    ])
+
+    const result = await service.execute(client)
+
+    expect(result).toEqual([
+      {
+        code: 'other_robot',
+        name: null,
+        isThinkzap: false,
+      },
+      {
+        code: 'thinkzap_button_robot_official',
+        name: 'ThinkZap Botões (Oficial)',
+        isThinkzap: true,
+      },
+      {
+        code: 'thinkzap_button_robot_unofficial',
+        name: 'ThinkZap Botões (Z-API)',
+        isThinkzap: true,
+      },
+      {
+        code: 'thinkzap_template_robot',
+        name: 'ThinkZap Template',
         isThinkzap: true,
       },
     ])

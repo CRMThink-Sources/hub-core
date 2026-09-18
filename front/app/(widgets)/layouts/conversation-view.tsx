@@ -24,6 +24,14 @@ import {
   useRef,
   useState,
 } from 'react'
+import {
+  ButtonComposer,
+  buttonComposerValidationMessage,
+  newWidgetButtonEntry,
+  toButtonPayload,
+  type WidgetButtonEntry,
+  type WidgetButtonType,
+} from './button-composer'
 import { buildSendWidgetFormData } from './send-widget-message.client'
 import { TemplateComposer, templateKey } from './template-composer'
 import {
@@ -146,6 +154,19 @@ export const ConversationView = () => {
   const [templateValues, setTemplateValues] = useState<Record<string, string>>(
     {},
   )
+  /**
+   * Estado do modo botões — mesmo raciocínio do modo template: campos
+   * separados do modo livre, para que trocar de modo não misture rascunhos.
+   *
+   * `buttonModeActive` é **escolha do operador**, não derivada do provider
+   * como `composerMode` de template/livre: botão funciona nos dois providers,
+   * então não há linha que force ou proíba o modo.
+   */
+  const [buttonModeActive, setButtonModeActive] = useState(false)
+  const [buttonBody, setButtonBody] = useState('')
+  const [buttonHeader, setButtonHeader] = useState('')
+  const [buttonFooter, setButtonFooter] = useState('')
+  const [buttons, setButtons] = useState<WidgetButtonEntry[]>([])
   const [destinations, setDestinations] = useState<IDestination[]>([])
   const [lineStatus, setLineStatus] = useState<LineStatus>({ kind: 'idle' })
   const [isSending, setIsSending] = useState(false)
@@ -202,16 +223,40 @@ export const ConversationView = () => {
   )
 
   /**
-   * Modo de composição, **derivado** do provider da linha — não é estado próprio.
+   * Modo de composição. `template`/`free` continuam **derivados** do provider
+   * da linha, pelo motivo de sempre: o operador não tem como saber se a janela
+   * de conversa de 24h daquele contato está aberta, e oferecer mensagem livre
+   * numa linha oficial seria oferecer um botão que falha no primeiro toque.
    *
-   * Derivado porque assim não pode dessincronizar da seleção: o `useEffect` que já
-   * limpa a linha que saiu da lista de ofertáveis limpa o modo de graça. E não é
-   * escolha do operador de propósito — ele não tem como saber se a janela de conversa
-   * de 24h daquele contato está aberta, e oferecer mensagem livre numa linha oficial
-   * seria oferecer um botão que falha no primeiro toque. Template sempre passa.
+   * `button` é diferente: funciona nos dois providers, então é **escolha do
+   * operador** (`buttonModeActive`), sobrepondo o modo derivado enquanto
+   * ligado. Trocar de linha com o modo ligado mantém o modo — só os tipos de
+   * botão oferecidos mudam, via `allowedButtonTypes` abaixo.
    */
-  const composerMode: 'free' | 'template' =
-    selectedLine?.provider === 'HUBMESSAGE' ? 'template' : 'free'
+  const composerMode: 'free' | 'template' | 'button' = buttonModeActive
+    ? 'button'
+    : selectedLine?.provider === 'HUBMESSAGE'
+      ? 'template'
+      : 'free'
+
+  /**
+   * Tipos de botão que a linha selecionada aceita. `HUBMESSAGE` só tem
+   * **um botão `URL`** no endpoint de ação interativa — confirmado contra a
+   * API real em 2026-09-15 que a Cloud API da Meta não tem botão de ligação
+   * em mensagem de sessão livre, e que o botão de URL (`cta_url`) não
+   * combina com outro no mesmo envio (`maxButtons` abaixo). `ZAPI` tem os
+   * três, sem limite de quantidade, mas não pode misturar `REPLY` com os
+   * outros dois no mesmo envio — a mistura é recusada por
+   * `buttonComposerValidationMessage`, não por este array.
+   */
+  const allowedButtonTypes: WidgetButtonType[] = !selectedLine
+    ? []
+    : selectedLine.provider === 'HUBMESSAGE'
+      ? ['URL']
+      : ['REPLY', 'URL', 'CALL']
+
+  const maxButtons: number | undefined =
+    selectedLine?.provider === 'HUBMESSAGE' ? 1 : undefined
 
   /**
    * Templates aprovados da linha, só no modo template. `''` no modo livre é o que
@@ -344,11 +389,23 @@ export const ConversationView = () => {
     !!selectedTemplate &&
     hasAllTemplateVariables(selectedTemplate.body, templateValues)
 
+  const buttonValidationMessage = buttonComposerValidationMessage(
+    buttonBody,
+    buttons,
+    allowedButtonTypes,
+    maxButtons,
+  )
+  const canSubmitButtons = buttonValidationMessage === null
+
   const canSubmit =
     selectedConnectorId.trim() &&
     selectedDestinationPhone.trim() &&
     !isSending &&
-    (composerMode === 'template' ? canSubmitTemplate : canSubmitFreeMessage)
+    (composerMode === 'template'
+      ? canSubmitTemplate
+      : composerMode === 'button'
+        ? canSubmitButtons
+        : canSubmitFreeMessage)
 
   const setErrorFeedback = (text: string) => {
     setFeedbackVariant('error')
@@ -396,6 +453,31 @@ export const ConversationView = () => {
 
   const removeAttachment = (id: string) => {
     setAttachments(previous => previous.filter(item => item.id !== id))
+  }
+
+  /**
+   * `REPLY` não convive com `URL`/`CALL` no mesmo envio — trocar de tipo
+   * reinicia a lista, em vez de deixar o operador montar uma combinação que
+   * o envio vai recusar.
+   */
+  const addButton = (type: WidgetButtonType) => {
+    setButtons(previous =>
+      type === 'REPLY' || previous.some(button => button.type === 'REPLY')
+        ? [newWidgetButtonEntry(type)]
+        : [...previous, newWidgetButtonEntry(type)],
+    )
+  }
+
+  const updateButton = (id: string, patch: Partial<WidgetButtonEntry>) => {
+    setButtons(previous =>
+      previous.map(button =>
+        button.id === id ? { ...button, ...patch } : button,
+      ),
+    )
+  }
+
+  const removeButton = (id: string) => {
+    setButtons(previous => previous.filter(button => button.id !== id))
   }
 
   const handleToggleRecording = () => {
@@ -504,6 +586,34 @@ export const ConversationView = () => {
          */
         setSuccessFeedback(
           'Template na fila de envio. Você será avisado na timeline se ele não for entregue.',
+        )
+        return
+      }
+
+      /**
+       * Ramo de botões: rota própria, disponível nos dois providers — ao
+       * contrário do template, não há `return` condicionado a provider aqui.
+       */
+      if (composerMode === 'button') {
+        if (!canSubmitButtons) return
+
+        await client.client.post('/thinkzap/messages/send-widget-button', {
+          subscriptionItemId: selectedConnectorId,
+          destination: normalizePhoneNumber(selectedDestination?.phone ?? ''),
+          body: buttonBody.trim(),
+          header: buttonHeader.trim() || undefined,
+          footer: buttonFooter.trim() || undefined,
+          buttons: buttons.map(toButtonPayload),
+          entity,
+          entityId,
+        })
+
+        setButtonBody('')
+        setButtonHeader('')
+        setButtonFooter('')
+        setButtons([])
+        setSuccessFeedback(
+          'Mensagem com botões na fila de envio. Você será avisado na timeline se ela não for entregue.',
         )
         return
       }
@@ -717,10 +827,27 @@ export const ConversationView = () => {
             </div>
 
             {/*
-              Modo template substitui o composer livre inteiro — textarea, anexos e
-              gravação de áudio saem da árvore, não ficam apenas desabilitados. Linha
-              oficial só envia template aprovado, e deixar os controles visíveis
-              sugeriria que existe um caminho livre que não existe.
+              Toggle explícito do modo botões — ao contrário de template/livre, que o
+              provider decide, botão funciona nos dois e é o operador quem escolhe.
+              Fica fora do `disabled` de linha/destino de propósito: o operador pode
+              armar o modo antes de escolher a linha.
+            */}
+            <label className="mt-4 flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={buttonModeActive}
+                onChange={event => setButtonModeActive(event.target.checked)}
+                disabled={isSending}
+              />
+              Enviar mensagem com botões
+            </label>
+
+            {/*
+              Modo template/botões substitui o composer livre inteiro — textarea,
+              anexos e gravação de áudio saem da árvore, não ficam apenas
+              desabilitados. Linha oficial só envia template aprovado, e deixar os
+              controles visíveis sugeriria que existe um caminho livre que não existe;
+              botões seguem a mesma regra por consistência de tela.
             */}
             {composerMode === 'template' ? (
               <TemplateComposer
@@ -742,6 +869,30 @@ export const ConversationView = () => {
                 }
                 disabled={isSending}
               />
+            ) : composerMode === 'button' ? (
+              <>
+                <ButtonComposer
+                  body={buttonBody}
+                  onChangeBody={setButtonBody}
+                  header={buttonHeader}
+                  onChangeHeader={setButtonHeader}
+                  footer={buttonFooter}
+                  onChangeFooter={setButtonFooter}
+                  buttons={buttons}
+                  allowedTypes={allowedButtonTypes}
+                  maxButtons={maxButtons}
+                  onAddButton={addButton}
+                  onUpdateButton={updateButton}
+                  onRemoveButton={removeButton}
+                  disabled={isSending}
+                />
+                {!selectedLine ? (
+                  <p className="mt-2 text-xs text-amber-700">
+                    Escolha uma linha para saber quais tipos de botão estão
+                    disponíveis.
+                  </p>
+                ) : null}
+              </>
             ) : (
               <>
                 <label className="mt-4 grid gap-2">

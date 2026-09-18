@@ -20,6 +20,7 @@ import {
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
 import { makeTemplateSenderResolver } from '@/modules/thinkzap/main/connector/make-template-sender-resolver'
+import { makeInteractiveButtonSenderResolver } from '@/modules/thinkzap/main/connector/make-interactive-button-sender-resolver'
 import { AppendJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { ThinkzapWidgetSendJob } from '@/queue/thinkzap-widget-outbound.queue'
 import { redisConnection } from '@/queue/redis-connection'
@@ -95,6 +96,9 @@ export async function processWidgetSendJob(
   await appendJobLog(
     `Intenção ${row.id} | tipo=${row.kind}` +
       (row.kind === 'TEMPLATE' ? ` (${row.templateName})` : '') +
+      (row.kind === 'INTERACTIVE_BUTTON'
+        ? ` (${row.buttonPayload?.buttons.length ?? 0} botões)`
+        : '') +
       ` | status=${row.status} | destino=${row.destination} | ` +
       `jáEntregue=${row.providerMessageId !== null} | tentativasDaIntenção=${row.attempts}` +
       (context.isLastAttempt ? ' | ÚLTIMA TENTATIVA' : ''),
@@ -124,6 +128,7 @@ export async function processWidgetSendJob(
     outbox,
     senderResolver: makeOutboundSenderResolver(),
     templateSenderResolver: makeTemplateSenderResolver(),
+    interactiveButtonSenderResolver: makeInteractiveButtonSenderResolver(),
     messages: new PrismaThinkzapMessageRepository(),
     openChannelQueue: new BullMqOpenChannelConversationQueue(),
     acquireLock: (instanceId, destination) =>
