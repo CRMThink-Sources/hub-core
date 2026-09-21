@@ -47,9 +47,7 @@ describe('UpdateDisconnectNotifySettingsController', () => {
   it('rejeita userIds que não é um array de inteiros', async () => {
     const controller = new UpdateDisconnectNotifySettingsController()
 
-    const result = await controller.perform(
-      req({ body: { userIds: ['abc'] } }),
-    )
+    const result = await controller.perform(req({ body: { userIds: ['abc'] } }))
 
     expect(result.status).toBe(400)
     expect(setMock).not.toHaveBeenCalled()

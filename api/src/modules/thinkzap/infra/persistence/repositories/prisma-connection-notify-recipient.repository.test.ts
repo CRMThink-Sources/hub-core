@@ -51,12 +51,14 @@ describe('PrismaConnectionNotifyRecipientRepository', () => {
       const result = await repo.replaceAll('app-1', [111, 222, 111])
 
       expect(deleteManyMock).toHaveBeenCalledWith({ where: { appId: 'app-1' } })
-      expect(createManyMock).toHaveBeenCalledWith({
-        data: [
-          { id: expect.any(String), appId: 'app-1', bitrixUserId: 111 },
-          { id: expect.any(String), appId: 'app-1', bitrixUserId: 222 },
-        ],
-      })
+      const call = createManyMock.mock.calls[0]?.[0] as {
+        data: { id: string; appId: string; bitrixUserId: number }[]
+      }
+      expect(call.data.every(row => typeof row.id === 'string')).toBe(true)
+      expect(call.data.map(row => ({ ...row, id: undefined }))).toEqual([
+        { id: undefined, appId: 'app-1', bitrixUserId: 111 },
+        { id: undefined, appId: 'app-1', bitrixUserId: 222 },
+      ])
       expect(transactionMock).toHaveBeenCalledTimes(1)
       expect(result).toEqual([111, 222])
     })
