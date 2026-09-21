@@ -143,6 +143,32 @@ describe('BitrixBotSessionAdapter', () => {
     )
   })
 
+  it('transferência recusada com HTTP 200 não passa por feita', async () => {
+    // Era o bug do "bot não sai da conversa": a recusa vinha com status de sucesso, o
+    // `LEAVE: 'Y'` nunca rodava, e o bot seguia no chat recebendo os eventos do contato.
+    const { adapter } = makeAdapter(
+      vi.fn().mockResolvedValue({ error: 'CANCELED' }),
+    )
+
+    await expect(
+      adapter.handoff('112', { type: 'queue' }),
+    ).rejects.toBeInstanceOf(BotSessionGoneError)
+  })
+
+  it('recusa desconhecida na transferência sobe como falha', async () => {
+    const { adapter } = makeAdapter(
+      vi.fn().mockResolvedValue({ error: 'TRANSFER_ID_EMPTY' }),
+    )
+
+    const erro = await adapter
+      .handoff('112', { type: 'queue' })
+      .catch((e: unknown) => e)
+
+    expect(erro).toBeInstanceOf(Error)
+    expect(isBotSessionGoneError(erro)).toBe(false)
+    expect((erro as Error).message).toContain('TRANSFER_ID_EMPTY')
+  })
+
   it('encerramento que falha não sobe: a linha fecha por inatividade', async () => {
     const { adapter } = makeAdapter(
       vi.fn().mockRejectedValue(new Error('boom')),

@@ -236,6 +236,15 @@ export async function processBitrixBotEvent(
       return
     }
 
+    if (outcome.kind === 'entregue') {
+      // Antes do `skipped` de propósito: lá o desfecho é transferir para a fila, e aqui a
+      // conversa já está com um atendente — transferir de novo a tiraria dele.
+      await ctx.appendJobLog(
+        `Chat com atendimento humano desde ${outcome.desde.toISOString()} — bot calado.`,
+      )
+      return
+    }
+
     if (outcome.kind === 'gone') {
       // Sem handoff para a fila: o bot não fala mais neste chat, então transferir
       // falharia pelo mesmo motivo. Quem assumiu a conversa já está com ela.

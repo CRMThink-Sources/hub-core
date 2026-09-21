@@ -34,10 +34,10 @@ import { NODE_RECIPES, removeNode } from '@/shared/thinkzap-bot-flow'
 import {
   clearPort,
   isPortRenameable,
-  nodePorts,
   parsePortId,
   setPortLabel,
   setPortTarget,
+  visibleNodePorts,
 } from '@/shared/thinkzap-flow-graph'
 import { canvasEdges, edgesKey } from '@/shared/thinkzap-flow-edges'
 import { insertAfter } from '@/shared/thinkzap-flow-insert'
@@ -157,7 +157,7 @@ export function FlowCanvas({
     const node = graph.nodes.find(current => current.id === criandoEm.nodeId)
     if (!node?.position) return null
 
-    const portas = nodePorts(node)
+    const portas = visibleNodePorts(node)
     const indice = Math.max(
       0,
       portas.findIndex(port => port.id === criandoEm.portId),

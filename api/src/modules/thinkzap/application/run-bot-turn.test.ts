@@ -80,6 +80,8 @@ function makeDeps(
     sessaoAtiva?: BotSession | null
     flowAtual?: BotFlow | null
     bindingAtual?: BotFlowBinding | null
+    /** Quando o chat foi entregue a um atendente, se foi. */
+    entregueEm?: Date | null
   } = {},
 ) {
   // Args declarados: sem eles o TS infere `calls` como tupla vazia e `calls[0][1]` não existe.
@@ -98,6 +100,7 @@ function makeDeps(
     session: { say, handoff, finish },
     sessions: {
       getActiveByChatId: () => Promise.resolve(over.sessaoAtiva ?? null),
+      handoffAtByChatId: () => Promise.resolve(over.entregueEm ?? null),
       create,
       advance: advanceSession,
       close,
@@ -349,6 +352,82 @@ describe('runBotTurn', () => {
     // Resposta válida vai para `entrega`, que é terminal: fecha em vez de avançar.
     expect(handoff).toHaveBeenCalledWith(CHAT, { type: 'queue' })
     expect(close).toHaveBeenCalledWith('sess-1', 'HANDED_OFF')
+  })
+
+  it('chat já entregue a atendente não recomeça o fluxo', async () => {
+    // Era o bug: o handoff fecha a sessão, `getActiveByChatId` só vê `ACTIVE`, e a
+    // resposta seguinte do cliente — dirigida ao atendente — abria sessão nova.
+    const { deps, say, create, handoff } = makeDeps({
+      entregueEm: new Date('2026-08-31T11:30:00Z'),
+    })
+
+    const out = await runBotTurn(evento({ text: 'obrigado' }), LINE, APP, deps)
+
+    expect(out).toEqual({
+      kind: 'entregue',
+      desde: new Date('2026-08-31T11:30:00Z'),
+    })
+    expect(say).not.toHaveBeenCalled()
+    expect(create).not.toHaveBeenCalled()
+    // Nem transferir de novo: tiraria a conversa de quem já a assumiu.
+    expect(handoff).not.toHaveBeenCalled()
+  })
+
+  it('transferência que falha não fica gravada como entrega', async () => {
+    // Senão a guarda de reinício leria o `HANDED_OFF` como atendimento em curso e o retry
+    // deste job ficaria mudo: nem bot, nem atendente.
+    const sessao: BotSession = {
+      id: 'sess-1',
+      appId: APP,
+      bitrixChatId: CHAT,
+      flowId: 'flow-1',
+      flowVersion: 3,
+      graph,
+      bindingId: 'bind-1',
+      currentNodeId: 'ask',
+      vars: {},
+      attempts: 0,
+      status: 'ACTIVE',
+      createdAt: new Date('2026-08-31T10:00:00Z'),
+    }
+
+    const { deps, close, handoff } = makeDeps({ sessaoAtiva: sessao })
+    handoff.mockRejectedValueOnce(new Error('TRANSFER_ID_EMPTY'))
+
+    await expect(
+      runBotTurn(evento({ text: 'gustavo@crmthink.com.br' }), LINE, APP, deps),
+    ).rejects.toThrow('TRANSFER_ID_EMPTY')
+
+    expect(close).toHaveBeenCalledWith('sess-1', 'HANDED_OFF')
+    expect(close).toHaveBeenLastCalledWith('sess-1', 'ABORTED')
+  })
+
+  it('handoff antigo não cala o bot para sempre', async () => {
+    const { deps, say } = makeDeps({
+      // Passada a janela, a mensagem é atendimento novo no mesmo chat.
+      entregueEm: new Date('2026-08-30T12:00:00Z'),
+    })
+
+    const out = await runBotTurn(evento({ text: 'oi' }), LINE, APP, deps)
+
+    expect(out.kind).toBe('ran')
+    expect(say).toHaveBeenCalled()
+  })
+
+  it('join recomeça mesmo com handoff recente: o bot foi recolocado', async () => {
+    const { deps, say } = makeDeps({
+      entregueEm: new Date('2026-08-31T11:59:00Z'),
+    })
+
+    const out = await runBotTurn(
+      evento({ kind: 'join', text: '' }),
+      LINE,
+      APP,
+      deps,
+    )
+
+    expect(out.kind).toBe('ran')
+    expect(say).toHaveBeenCalled()
   })
 
   it('sessão viva roda o snapshot, não o fluxo republicado', async () => {

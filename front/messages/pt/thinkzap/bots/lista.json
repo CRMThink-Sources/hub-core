@@ -40,6 +40,7 @@
   "canal": {
     "publiqueParaVincular": "publique para vincular",
     "removerVinculo": "Remover vínculo",
+    "desvincular": "desvincular",
     "carregandoCanais": "canais",
     "erroListar": "não foi possível listar os canais",
     "erroBitrix": "Erro do Bitrix: {{erro}}",

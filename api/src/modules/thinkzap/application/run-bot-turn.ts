@@ -12,6 +12,7 @@ import type {
   BotSession,
   CreateBotSessionRepository,
   GetActiveBotSessionRepository,
+  GetHandedOffBotSessionRepository,
   UpdateBotSessionRepository,
 } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-session.repository'
 import type { GetBotFlowRepository } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow.repository'
@@ -29,6 +30,19 @@ const SESSION_TTL_SECONDS = 3600
  */
 const JOIN_ECHO_WINDOW_MS = 30_000
 
+/**
+ * Quanto tempo o bot fica calado num chat que já foi entregue a um atendente.
+ *
+ * O handoff fecha a sessão, e `getActiveByChatId` só vê `ACTIVE`: sem esta janela a
+ * mensagem seguinte do cliente não encontrava sessão, abria uma nova pelo vínculo da linha
+ * e o bot recomeçava o fluxo do zero por cima do atendimento humano.
+ *
+ * 12 h e não o TTL da sessão: o prazo que importa é o do atendimento que começou ali, não
+ * o da conversa do bot que acabou. Quem reabre antes disso é o `join` — o Bitrix dizendo
+ * que recolocou o bot numa conversa nova.
+ */
+const HANDOFF_MUTE_MS = 12 * 60 * 60 * 1000
+
 export type BotTurnOutcome =
   | { kind: 'ran'; effects: BotEffect[] }
   | {
@@ -41,12 +55,18 @@ export type BotTurnOutcome =
     }
   /** Bot fora do chat: sessão encerrada, sem retry. Não é falha do job. */
   | { kind: 'gone'; code: string }
+  /**
+   * Chat já entregue a um atendente. Nada a fazer — e, ao contrário de `skipped`, não
+   * transferir de novo: a conversa já está com quem a assumiu.
+   */
+  | { kind: 'entregue'; desde: Date }
   /** Evento repetido do mesmo início de conversa. Nada a fazer, e não é erro. */
   | { kind: 'duplicado'; reason: 'join-eco' }
 
 export type RunBotTurnDeps = {
   session: BotSessionPort
   sessions: GetActiveBotSessionRepository &
+    GetHandedOffBotSessionRepository &
     CreateBotSessionRepository &
     UpdateBotSessionRepository
   flows: GetBotFlowRepository
@@ -69,6 +89,28 @@ export async function runBotTurn(
   const expiresAt = new Date(agora.getTime() + SESSION_TTL_SECONDS * 1000)
 
   const existente = await deps.sessions.getActiveByChatId(appId, event.chatId)
+
+  /**
+   * Fala do cliente num chat já entregue não é conversa nova com o bot: é ele respondendo
+   * ao atendente.
+   *
+   * Só quando não há sessão viva, que é o caso em que o fluxo recomeçaria, e só para
+   * `message` — o `join` continua recomeçando, porque é o Bitrix dizendo que recolocou o
+   * bot numa conversa nova.
+   */
+  if (!existente && event.kind === 'message') {
+    const entregueEm = await deps.sessions.handoffAtByChatId(
+      appId,
+      event.chatId,
+    )
+
+    if (
+      entregueEm &&
+      agora.getTime() - entregueEm.getTime() < HANDOFF_MUTE_MS
+    ) {
+      return { kind: 'entregue', desde: entregueEm }
+    }
+  }
 
   // A sessão viva roda o snapshot dela, não o fluxo atual: o vínculo só é consultado para
   // sessão nova, então quem já está respondendo termina no fluxo em que começou.
@@ -130,7 +172,7 @@ export async function runBotTurn(
   // Grava o estado antes de falar: se falasse primeiro e a gravação caísse, o cliente
   // teria a pergunta na tela e a sessão apontaria para o nó anterior, lendo a resposta
   // dele como resposta da pergunta velha.
-  const sessaoId = await persistirEstado({
+  const { ativa: sessaoId, fechada } = await persistirEstado({
     appId,
     event,
     contexto,
@@ -143,7 +185,21 @@ export async function runBotTurn(
   try {
     await entregarEfeitos(effects, event.chatId, deps)
   } catch (err) {
-    if (!isBotSessionGoneError(err)) throw err
+    if (!isBotSessionGoneError(err)) {
+      /**
+       * Transferência que não confirmou não pode ficar gravada como entrega.
+       *
+       * O estado é gravado antes da entrega, então neste ponto a sessão já está
+       * `HANDED_OFF` — e a guarda de reinício leria isso como atendimento humano em curso,
+       * deixando o retry deste job mudo e a conversa sem bot e sem atendente. `ABORTED`
+       * diz o que de fato aconteceu: o fluxo chegou ao fim e a entrega não saiu.
+       */
+      if (fechada && effects.some(effect => effect.kind === 'handoff')) {
+        await deps.sessions.close(fechada, 'ABORTED')
+      }
+
+      throw err
+    }
 
     // O bot não participa mais do chat (operador assumiu, sessão fechou no portal).
     // Encerrar em vez de propagar: o retry repetiria uma chamada que nunca vai passar e
@@ -197,9 +253,10 @@ async function persistirEstado(input: {
   resultado: ReturnType<typeof advance>
   expiresAt: Date
   deps: RunBotTurnDeps
-  // Devolve o id da sessão que ficou `ACTIVE`, ou `null` se nenhuma: é ela que o `say`
-  // pode derrubar, e sem o id não há como encerrá-la.
-}): Promise<string | null> {
+  // `ativa`: a sessão que ficou `ACTIVE`, que é a que o `say` pode derrubar. `fechada`: a
+  // que este turno encerrou, e que a entrega falha precisa poder remarcar. Sem os dois ids
+  // não há como consertar nenhum dos casos.
+}): Promise<{ ativa: string | null; fechada: string | null }> {
   const { appId, event, contexto, existente, resultado, expiresAt, deps } =
     input
   const proximo = resultado.state
@@ -212,16 +269,16 @@ async function persistirEstado(input: {
         attempts: proximo.attempts,
         expiresAt,
       })
-      return existente.id
+      return { ativa: existente.id, fechada: null }
     }
 
     await deps.sessions.close(existente.id, statusFinal(resultado.effects))
-    return null
+    return { ativa: null, fechada: existente.id }
   }
 
   // Fluxo que termina no primeiro passo não cria sessão: uma row `ACTIVE` sem próximo nó
   // bloquearia o chat até expirar.
-  if (!proximo) return null
+  if (!proximo) return { ativa: null, fechada: null }
 
   const criada = await deps.sessions.create({
     appId,
@@ -236,7 +293,7 @@ async function persistirEstado(input: {
     expiresAt,
   })
 
-  return criada.id
+  return { ativa: criada.id, fechada: null }
 }
 
 function statusFinal(
