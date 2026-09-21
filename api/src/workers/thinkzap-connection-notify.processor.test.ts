@@ -6,16 +6,12 @@ const {
   getByAppCodeAndDomainIdMock,
   notifyServiceGetMock,
   notifyMock,
-  emitMock,
-  toMock,
 } = vi.hoisted(() => ({
   getInstanceByInstanceIdMock: vi.fn(),
   getDomainByIdMock: vi.fn(),
   getByAppCodeAndDomainIdMock: vi.fn(),
   notifyServiceGetMock: vi.fn(),
   notifyMock: vi.fn(),
-  emitMock: vi.fn(),
-  toMock: vi.fn(),
 }))
 
 vi.mock('@/shared/infra/logger', () => ({
@@ -25,10 +21,6 @@ vi.mock('@/shared/infra/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   },
-}))
-
-vi.mock('@/shared/infra/socket', () => ({
-  getIo: () => ({ to: toMock.mockReturnValue({ emit: emitMock }) }),
 }))
 
 vi.mock(
@@ -64,12 +56,17 @@ vi.mock('@/shared/app-catalog/app-catalog', () => ({
 }))
 
 vi.mock(
-  '@/modules/thinkzap/application/thinkzap-disconnect-notify-settings.service',
+  '@/modules/thinkzap/application/thinkzap-connection-notify-recipients.service',
   () => ({
-    ThinkzapDisconnectNotifySettingsService: class {
+    ThinkzapConnectionNotifyRecipientsService: class {
       get = notifyServiceGetMock
     },
   }),
+)
+
+vi.mock(
+  '@/modules/thinkzap/infra/persistence/repositories/prisma-connection-notify-recipient.repository',
+  () => ({ PrismaConnectionNotifyRecipientRepository: class {} }),
 )
 
 vi.mock('@/shared/application/bitrix-system-notification.service', () => ({
@@ -78,20 +75,21 @@ vi.mock('@/shared/application/bitrix-system-notification.service', () => ({
   },
 }))
 
-import { ZApiDisconectedHandler } from './disconected.handler'
+import { processConnectionEventJob } from './thinkzap-connection-notify.processor'
+import type { ThinkzapConnectionEventJob } from '@/queue/thinkzap-connection-events.queue'
 
-const event = (overrides: Record<string, unknown> = {}) =>
-  ({
-    type: 'DisconnectedCallback',
-    instanceId: 'Z-1',
-    disconnected: true,
-    momment: 1789991068459,
-    error:
-      'It was not possible to restore a session with the current token, please login again',
-    ...overrides,
-  }) as never
+const job = (
+  overrides: Partial<ThinkzapConnectionEventJob> = {},
+): ThinkzapConnectionEventJob => ({
+  type: 'disconnected',
+  instanceId: 'Z-1',
+  momment: 1789991068459,
+  error:
+    'It was not possible to restore a session with the current token, please login again',
+  ...overrides,
+})
 
-describe('ZApiDisconectedHandler', () => {
+describe('processConnectionEventJob', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     getInstanceByInstanceIdMock.mockResolvedValue({
@@ -108,93 +106,115 @@ describe('ZApiDisconectedHandler', () => {
     notifyMock.mockResolvedValue(true)
   })
 
-  const handle = (overrides: Record<string, unknown> = {}) =>
-    new ZApiDisconectedHandler().handle(event(overrides))
-
-  it('sempre emite o socket connector:disconnected para a sala da instância', async () => {
-    await handle()
-
-    expect(toMock).toHaveBeenCalledWith('Z-1')
-    expect(emitMock).toHaveBeenCalledWith('connector:disconnected', {
-      status: 'disconnected',
-    })
-  })
-
   it('não chama o Bitrix quando a lista de destinatários está vazia', async () => {
     notifyServiceGetMock.mockResolvedValue([])
 
-    await handle()
+    const result = await processConnectionEventJob(job())
 
     expect(notifyMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ outcome: 'no-recipients' })
   })
 
-  it('notifica cada usuário configurado no chat interno do Bitrix', async () => {
+  it('notifica cada usuário configurado no chat interno do Bitrix (desconexão)', async () => {
     notifyServiceGetMock.mockResolvedValue([111, 222])
 
-    await handle()
+    const result = await processConnectionEventJob(job())
 
     expect(notifyMock).toHaveBeenCalledTimes(2)
     expect(notifyMock).toHaveBeenNthCalledWith(1, {
       userId: 111,
       message: expect.stringContaining('Z-1'),
-      tag: 'thinkzap:disconnect',
+      tag: 'thinkzap:connection:disconnected',
     })
-    expect(notifyMock).toHaveBeenNthCalledWith(2, {
-      userId: 222,
-      message: expect.stringContaining('Z-1'),
-      tag: 'thinkzap:disconnect',
+    expect(result).toEqual({ outcome: 'notified', recipients: 2, sent: 2 })
+  })
+
+  it('notifica reconexão com tag e mensagem diferentes', async () => {
+    notifyServiceGetMock.mockResolvedValue([111])
+
+    await processConnectionEventJob(
+      job({ type: 'connected', error: undefined, phone: '554388092447' }),
+    )
+
+    expect(notifyMock).toHaveBeenCalledWith({
+      userId: 111,
+      message: expect.stringContaining('554388092447'),
+      tag: 'thinkzap:connection:connected',
     })
   })
 
-  it('inclui o motivo do evento na mensagem quando presente', async () => {
+  it('inclui o motivo do evento na mensagem de desconexão quando presente', async () => {
     notifyServiceGetMock.mockResolvedValue([111])
 
-    await handle({ error: 'token expirado' })
+    await processConnectionEventJob(job({ error: 'token expirado' }))
 
     expect(notifyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('token expirado') }),
+      expect.objectContaining({
+        message: expect.stringContaining('token expirado'),
+      }),
     )
   })
 
   it('instância não encontrada encerra sem tocar o Bitrix', async () => {
     getInstanceByInstanceIdMock.mockResolvedValue(null)
 
-    await handle()
+    const result = await processConnectionEventJob(job())
 
     expect(getDomainByIdMock).not.toHaveBeenCalled()
     expect(notifyMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ outcome: 'context-not-found' })
   })
 
   it('domínio não encontrado encerra sem tocar o Bitrix', async () => {
     getDomainByIdMock.mockResolvedValue(null)
 
-    await handle()
+    const result = await processConnectionEventJob(job())
 
     expect(notifyMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ outcome: 'context-not-found' })
   })
 
   it('app não encontrado encerra sem tocar o Bitrix', async () => {
     getByAppCodeAndDomainIdMock.mockResolvedValue(null)
 
-    await handle()
+    const result = await processConnectionEventJob(job())
 
     expect(notifyMock).not.toHaveBeenCalled()
+    expect(result).toEqual({ outcome: 'context-not-found' })
   })
 
-  it('falha ao notificar um usuário não impede os demais nem derruba o webhook', async () => {
+  it('falha ao notificar um usuário não impede os demais', async () => {
     notifyServiceGetMock.mockResolvedValue([111, 222])
     notifyMock
       .mockRejectedValueOnce(new Error('Bitrix indisponível'))
       .mockResolvedValueOnce(true)
 
-    await expect(handle()).resolves.toBeUndefined()
+    const result = await processConnectionEventJob(job())
 
     expect(notifyMock).toHaveBeenCalledTimes(2)
+    expect(result).toEqual({ outcome: 'notified', recipients: 2, sent: 1 })
   })
 
-  it('erro ao resolver contexto (ex.: Bitrix fora do ar) não derruba o webhook', async () => {
-    getDomainByIdMock.mockRejectedValue(new Error('DB indisponível'))
+  it('propaga erro ao montar o client Bitrix — a fila deve retentar', async () => {
+    notifyServiceGetMock.mockResolvedValue([111])
+    const { makeBitrixClientByDomainAndAppCoode } = await import(
+      '@/shared/main/make-bitrix-client'
+    )
+    vi.mocked(makeBitrixClientByDomainAndAppCoode).mockRejectedValueOnce(
+      new Error('Bitrix fora do ar'),
+    )
 
-    await expect(handle()).resolves.toBeUndefined()
+    await expect(processConnectionEventJob(job())).rejects.toThrow(
+      'Bitrix fora do ar',
+    )
+  })
+
+  it('chama appendJobLog para a aba de logs do job', async () => {
+    notifyServiceGetMock.mockResolvedValue([])
+    const appendJobLog = vi.fn().mockResolvedValue(undefined)
+
+    await processConnectionEventJob(job(), { appendJobLog })
+
+    expect(appendJobLog).toHaveBeenCalled()
   })
 })

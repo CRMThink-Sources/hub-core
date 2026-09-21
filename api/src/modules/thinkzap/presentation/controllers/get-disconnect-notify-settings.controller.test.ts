@@ -4,12 +4,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { getMock } = vi.hoisted(() => ({ getMock: vi.fn() }))
 
 vi.mock(
-  '../../application/thinkzap-disconnect-notify-settings.service',
+  '../../application/thinkzap-connection-notify-recipients.service',
   () => ({
-    ThinkzapDisconnectNotifySettingsService: class {
+    ThinkzapConnectionNotifyRecipientsService: class {
       get = getMock
     },
   }),
+)
+
+vi.mock(
+  '../../infra/persistence/repositories/prisma-connection-notify-recipient.repository',
+  () => ({ PrismaConnectionNotifyRecipientRepository: class {} }),
 )
 
 import { GetDisconnectNotifySettingsController } from './get-disconnect-notify-settings.controller'
@@ -24,7 +29,7 @@ describe('GetDisconnectNotifySettingsController', () => {
 
   it('retorna a lista de destinatários configurada', async () => {
     getMock.mockResolvedValue([111, 222])
-    const controller = new GetDisconnectNotifySettingsController({} as never)
+    const controller = new GetDisconnectNotifySettingsController()
 
     const result = await controller.perform(req())
 
@@ -33,7 +38,7 @@ describe('GetDisconnectNotifySettingsController', () => {
   })
 
   it('rejeita quando o contexto do app não foi resolvido', async () => {
-    const controller = new GetDisconnectNotifySettingsController({} as never)
+    const controller = new GetDisconnectNotifySettingsController()
 
     const result = await controller.perform(
       req({ thinkzapInstalledAppId: undefined }),

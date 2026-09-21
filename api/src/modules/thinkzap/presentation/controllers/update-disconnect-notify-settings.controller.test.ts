@@ -4,12 +4,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { setMock } = vi.hoisted(() => ({ setMock: vi.fn() }))
 
 vi.mock(
-  '../../application/thinkzap-disconnect-notify-settings.service',
+  '../../application/thinkzap-connection-notify-recipients.service',
   () => ({
-    ThinkzapDisconnectNotifySettingsService: class {
+    ThinkzapConnectionNotifyRecipientsService: class {
       set = setMock
     },
   }),
+)
+
+vi.mock(
+  '../../infra/persistence/repositories/prisma-connection-notify-recipient.repository',
+  () => ({ PrismaConnectionNotifyRecipientRepository: class {} }),
 )
 
 import { UpdateDisconnectNotifySettingsController } from './update-disconnect-notify-settings.controller'
@@ -30,9 +35,7 @@ describe('UpdateDisconnectNotifySettingsController', () => {
 
   it('persiste a lista de destinatários e retorna o resultado', async () => {
     setMock.mockResolvedValue([111, 222])
-    const controller = new UpdateDisconnectNotifySettingsController(
-      {} as never,
-    )
+    const controller = new UpdateDisconnectNotifySettingsController()
 
     const result = await controller.perform(req())
 
@@ -42,9 +45,7 @@ describe('UpdateDisconnectNotifySettingsController', () => {
   })
 
   it('rejeita userIds que não é um array de inteiros', async () => {
-    const controller = new UpdateDisconnectNotifySettingsController(
-      {} as never,
-    )
+    const controller = new UpdateDisconnectNotifySettingsController()
 
     const result = await controller.perform(
       req({ body: { userIds: ['abc'] } }),
@@ -55,9 +56,7 @@ describe('UpdateDisconnectNotifySettingsController', () => {
   })
 
   it('rejeita quando o contexto do app não foi resolvido', async () => {
-    const controller = new UpdateDisconnectNotifySettingsController(
-      {} as never,
-    )
+    const controller = new UpdateDisconnectNotifySettingsController()
 
     const result = await controller.perform(
       req({ thinkzapInstalledAppId: undefined }),
