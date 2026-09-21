@@ -57,6 +57,7 @@ model App {
   biAnalyseConnectors        BiAnalyseConnector[]
   thinkAnaliseAuthTokens     ThinkAnaliseAuthToken[]
   thinkzapAllowedUsers       ThinkzapAllowedUser[]
+  thinkzapConnectionNotifyRecipients ThinkzapConnectionNotifyRecipient[]
   thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
   thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
   thinkzapBotFlows           ThinkzapBotFlow[]
@@ -281,6 +282,22 @@ model ThinkzapAllowedUser {
   @@unique([appId, bitrixUserId])
   @@index([appId])
   @@map("thinkzap_allowed_users")
+}
+
+/// Destinatários (por Bitrix user id) do aviso de conexão/desconexão de linha Z-API,
+/// um por usuário. Substitui a lista antiga em `app.option` (`NotifyRecipientsService`),
+/// que "bugava" com o tempo — tabela relacional não tem parse de JSON pra corromper.
+model ThinkzapConnectionNotifyRecipient {
+  id           String   @id @default(uuid())
+  appId        String   @map("app_id")
+  bitrixUserId Int      @map("bitrix_user_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, bitrixUserId])
+  @@index([appId])
+  @@map("thinkzap_connection_notify_recipients")
 }
 
 model ThinkzapAllowedDepartment {

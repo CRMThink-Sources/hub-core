@@ -1,0 +1,21 @@
+{
+  "pageTitle": "Disconnect notifications",
+  "pageDescription": "Users who will receive a notice on the internal Bitrix24 chat when a WhatsApp connection disconnects.",
+  "adminOnly": "Only Thinkzap admins can configure this page.",
+  "loadError": "Could not load the settings.",
+  "saveError": "Could not save the settings.",
+  "carregando": "Loading…",
+  "nenhumUsuario": "No active users found.",
+  "destinatarios": "Recipients",
+  "destinatariosDescricao": "Choose who should be notified when a line disconnects.",
+  "contagemSelecionados": "{{count}} selected",
+  "limparTodos": "Clear all",
+  "semSelecionados": "No recipients selected yet.",
+  "removerDestinatario": "Remove {{name}}",
+  "buscarUsuario": "Search user…",
+  "nenhumResultado": "No user found.",
+  "alteracoesNaoSalvas": "Unsaved changes",
+  "tudoSalvo": "All saved",
+  "salvar": "Save",
+  "salvando": "Saving…"
+}

@@ -22,6 +22,11 @@ export const THINKZAP_ASIDE_CONFIG = {
       // icon: '/images/thinkzap/manual.png',
     },
     {
+      href: '/thinkzap/notificacoes-desconexao',
+      label: 'notificacoesDesconexao',
+      // icon: '/images/thinkzap/manual.png',
+    },
+    {
       href: '/thinkzap/bots',
       label: 'bots',
     },

@@ -4,11 +4,17 @@ import { ZApiDisconectedHandler } from './disconected.handler'
 import type { ZApiConnectedEvent, ZApiDisconectedEvent } from './z-api'
 import { getIo } from '@/shared/infra/socket'
 
+const { enqueueMock } = vi.hoisted(() => ({ enqueueMock: vi.fn() }))
+
 vi.mock('@/shared/infra/logger', () => ({
   apiLogger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
 
 vi.mock('@/shared/infra/socket', () => ({ getIo: vi.fn() }))
+
+vi.mock('@/queue/thinkzap-connection-events.queue', () => ({
+  enqueueThinkzapConnectionEvent: enqueueMock,
+}))
 
 /**
  * `emit` do servidor e `emit` da sala são espiões **diferentes** de propósito: é o
@@ -44,13 +50,12 @@ const disconnectedEvent: ZApiDisconectedEvent = {
   disconnected: true,
   momment: 1_700_000_000,
   instanceId: 'Z-INSTANCE-1',
-  phone: '5511999999999',
-  lid: '55119999@lid',
-  isBusiness: true,
+  error: 'sessão expirada',
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  enqueueMock.mockResolvedValue(undefined)
 })
 
 describe('ZApiConnectedHandler', () => {
@@ -89,6 +94,28 @@ describe('ZApiConnectedHandler', () => {
 
     expect(broadcastEmit).not.toHaveBeenCalled()
   })
+
+  it('enfileira o evento de conexão com o payload correto', async () => {
+    makeIo()
+
+    await new ZApiConnectedHandler().handle(connectedEvent)
+
+    expect(enqueueMock).toHaveBeenCalledWith({
+      type: 'connected',
+      instanceId: 'Z-INSTANCE-1',
+      momment: 1_700_000_000,
+      phone: '5511999999999',
+    })
+  })
+
+  it('falha ao enfileirar não derruba o processamento do webhook', async () => {
+    makeIo()
+    enqueueMock.mockRejectedValueOnce(new Error('Redis fora'))
+
+    await expect(
+      new ZApiConnectedHandler().handle(connectedEvent),
+    ).resolves.toBeUndefined()
+  })
 })
 
 describe('ZApiDisconectedHandler', () => {
@@ -124,5 +151,27 @@ describe('ZApiDisconectedHandler', () => {
     expect(payload).toEqual({ status: 'disconnected' })
     expect(payload).not.toHaveProperty('phone')
     expect(payload).not.toHaveProperty('lid')
+  })
+
+  it('enfileira o evento de desconexão com o payload correto', async () => {
+    makeIo()
+
+    await new ZApiDisconectedHandler().handle(disconnectedEvent)
+
+    expect(enqueueMock).toHaveBeenCalledWith({
+      type: 'disconnected',
+      instanceId: 'Z-INSTANCE-1',
+      momment: 1_700_000_000,
+      error: 'sessão expirada',
+    })
+  })
+
+  it('falha ao enfileirar não derruba o processamento do webhook', async () => {
+    makeIo()
+    enqueueMock.mockRejectedValueOnce(new Error('Redis fora'))
+
+    await expect(
+      new ZApiDisconectedHandler().handle(disconnectedEvent),
+    ).resolves.toBeUndefined()
   })
 })
