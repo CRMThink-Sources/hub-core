@@ -974,6 +974,7 @@ function resolveInboundText(event: ReceivedMessageEvent): string {
   if (event.image) return event.image.caption || ''
   if (event.video) return event.video.caption || ''
   if (event.document) return event.document.caption || ''
+  if (event.buttonReply) return event.buttonReply.message || ''
   return event.text?.message || ''
 }
 
