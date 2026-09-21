@@ -94,7 +94,13 @@ export class ZApiDisconectedHandler implements ZApiEventHandler {
         app.id,
       )
       const userIds = await notifyService.get()
-      if (userIds.length === 0) return
+      if (userIds.length === 0) {
+        apiLogger.info(
+          { ...logContext, appId: app.id },
+          'Nenhum destinatário configurado para o aviso de desconexão; aviso não enviado',
+        )
+        return
+      }
 
       const notifier = new BitrixSystemNotificationService(bitrix)
       const message = event.error
