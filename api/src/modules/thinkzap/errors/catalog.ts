@@ -312,6 +312,23 @@ export const THINKZAP_ERRORS = {
     retriable: true,
     httpStatus: 502,
   },
+  /**
+   * `code` do bot já usado por outra instalação no mesmo portal.
+   *
+   * Nomeado porque o `BOT_CODE_ALREADY_TAKEN` cru chegava como "Não foi possível vincular"
+   * e não dizia o que fazer: o `code` é único no portal, e `imbot.v2.Bot.register` só é
+   * idempotente para o app que registrou o bot. Acontece quando dois ambientes nossos
+   * apontam para o mesmo Bitrix24.
+   */
+  'thinkzap.bot.code_taken': {
+    category: 'config',
+    userCause:
+      'Este portal já tem um ThinkBot registrado por outra instalação do app, e o mesmo identificador não pode ser usado duas vezes.',
+    remediation:
+      'Definir `BITRIX_BOT_FLOW_CODE` com um valor próprio neste ambiente (ex.: `thinkzap-flow-dev`) e vincular de novo.',
+    retriable: false,
+    httpStatus: 409,
+  },
   // Antes do registro, e não depois de o Bitrix recusar: sem o escopo a chamada volta com
   // `ACCESS_DENIED` genérico, que manda o suporte investigar canal aberto e bot em vez da
   // permissão do app. `retriable: false` porque só reinstalar o app resolve.
