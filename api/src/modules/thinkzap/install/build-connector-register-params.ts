@@ -62,7 +62,7 @@ export function buildConnectorRegisterParams(): Record<string, unknown> {
      * CRM sem nada acontecer no WhatsApp dele — e a mensagem continuaria no aparelho
      * de quem a enviou, que é onde ela vive.
      */
-    DEL_EXTERNAL_MESSAGES: 'N',
+    DEL_EXTERNAL_MESSAGES: 'Y',
 
     NEED_SIGNATURE: 'N',
   }

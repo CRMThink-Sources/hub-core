@@ -593,6 +593,69 @@ describe('ProcessZApiInboundMessageUseCase reply handling', () => {
     )
   })
 
+  /**
+   * Resposta a botão de template: o payload chega sem `text`, só `buttonReply`.
+   * Sem o branch dedicado, o corpo ia vazio — só a citação da mensagem original
+   * aparecia no canal aberto.
+   */
+  it('forwards buttonReply.message as the message text (1:1)', async () => {
+    const { run, messageRepo } = buildUseCase({
+      repoFind: vi.fn().mockResolvedValue({
+        id: 'rec-3',
+        instanceId: 'INST-A',
+        source: 'ZAPI',
+        providerMessageId: '8199496787A1F37BBEE0',
+        bitrixMessageId: null,
+        type: 'TEXT',
+        text: 'Você prefere qual dia?',
+        fileName: null,
+        chatId: null,
+        createdAt: new Date(),
+      }),
+    })
+
+    await run(
+      makeEvent({
+        text: undefined,
+        referenceMessageId: '8199496787A1F37BBEE0',
+        buttonReply: {
+          buttonId: 'btn-3',
+          message: 'Todo dia',
+          referenceMessageId: '8199496787A1F37BBEE0',
+        },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe(
+      '>>Você prefere qual dia?\nTodo dia',
+    )
+    expect(payload.MESSAGES[0]!.message.files).toBeUndefined()
+    expect(messageRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'TEXT', text: 'Todo dia' }),
+    )
+  })
+
+  it('forwards buttonReply.message in group message, after sender prefix', async () => {
+    const { run } = buildUseCase()
+    await run(
+      makeEvent({
+        isGroup: true,
+        phone: '5511999999999-group',
+        senderName: 'Amanda',
+        text: undefined,
+        buttonReply: {
+          buttonId: 'btn-3',
+          message: 'Todo dia',
+          referenceMessageId: '8199496787A1F37BBEE0',
+        },
+      }),
+    )
+
+    const payload = sendMessageMock.mock.calls[0]![0] as ISendMessageData
+    expect(payload.MESSAGES[0]!.message.text).toBe('[b]Amanda[/b]:\nTodo dia')
+  })
+
   it('builds group reply preserving sender prefix order', async () => {
     const { run } = buildUseCase({
       repoFind: vi.fn().mockResolvedValue({

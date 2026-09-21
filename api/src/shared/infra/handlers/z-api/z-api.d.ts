@@ -106,6 +106,16 @@ export type ReceivedMessageEvent = {
       participant: string
     }
   }
+  /**
+   * Resposta a botão de template. Chega no lugar de `text` quando o contato
+   * toca um botão — `message` é o rótulo escolhido, e `referenceMessageId`
+   * (nível raiz do evento) já aponta pra mensagem original com os botões.
+   */
+  buttonReply?: {
+    buttonId: string
+    message: string
+    referenceMessageId: string
+  }
   _traceContext: {
     traceId: string
     spanId: string

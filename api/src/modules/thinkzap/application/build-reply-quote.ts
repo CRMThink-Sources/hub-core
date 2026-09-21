@@ -113,6 +113,9 @@ export function extractQuoteInput(
   if (event.contact) {
     return { type: 'CONTACT', text: event.contact.displayName || undefined }
   }
+  if (event.buttonReply) {
+    return { type: 'TEXT', text: event.buttonReply.message || '' }
+  }
   return { type: 'TEXT', text: event.text?.message || '' }
 }
 
