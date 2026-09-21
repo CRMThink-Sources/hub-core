@@ -32,6 +32,7 @@ import {
 } from '@/modules/thinkzap/application/parse-button-action-code'
 import { assertValidButtonsForProvider } from '@/modules/thinkzap/domain/ports/interactive-button-validation'
 import { notifyOperatorButtonActionFailed } from '@/modules/thinkzap/application/notify-operator-button-action-failed'
+import { rewriteButtonActionMessage } from '@/modules/thinkzap/application/rewrite-button-action-message'
 import type { InteractiveButtonSendResult } from '@/modules/thinkzap/domain/ports/interactive-button-sender.port'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import {
@@ -856,6 +857,12 @@ async function sendButtonActionMessage(params: {
   await appendJobLog(
     `Persistido no banco e confirmado no Bitrix (setMessageDelivered) | ` +
       `bitrixMessageId=${message.im.message_id} → ${result.messageId}`,
+  )
+
+  await rewriteButtonActionMessage(
+    bitrixClient,
+    message.im.message_id,
+    descriptor,
   )
 }
 

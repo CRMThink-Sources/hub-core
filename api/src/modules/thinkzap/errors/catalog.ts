@@ -660,6 +660,19 @@ export const THINKZAP_ERRORS = {
     retriable: false,
   },
   /**
+   * Cosmético: depois do envio confirmado, o processor tenta trocar o código
+   * base64 de `parse-button-action-code.ts` por um texto legível na timeline
+   * do operador (`im.message.update`). Nunca falha o job — o envio ao contato
+   * já aconteceu; só o texto na timeline do Bitrix fica com o código cru.
+   */
+  'thinkzap.message.button_action_rewrite_failed': {
+    category: 'internal',
+    userCause:
+      'Observabilidade — o código de envio de botões não foi trocado por um texto legível na timeline.',
+    remediation: 'Nenhuma ação de suporte; o envio ao contato não foi afetado.',
+    retriable: false,
+  },
+  /**
    * O envio enfileirado esgotou as tentativas sem que o provider aceitasse a mensagem.
    * **Nada foi entregue** — todas as falhas do caminho tiveram resposta HTTP do
    * provider, o que prova recusa e não incerteza. O operador pode reenviar.
