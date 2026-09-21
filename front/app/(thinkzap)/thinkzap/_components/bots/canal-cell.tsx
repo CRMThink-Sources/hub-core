@@ -1,14 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { Link2, Loader2, Unlink } from 'lucide-react'
+import { Link2, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import type { OpenChannel } from '../../_lib/bot-flow-client'
 import type { BotFlowBinding, BotFlowSummary } from '@/shared/thinkzap-bot-flow'
 
+// `h-8` para casar com o `size="sm"` do botão ao lado: com a altura livre o select nativo
+// ficava um par de pixels mais baixo e a dupla desalinhava dentro da célula.
 const select =
-  'rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50'
+  'h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50'
+
+/** Mesmo pill do "Publicada" na coluna ao lado: o canal ligado é um estado, não um campo. */
+const pill =
+  'inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary'
 
 type Props = {
   flow: BotFlowSummary
@@ -56,16 +62,18 @@ export function CanalCell({
     const linha = linhas?.find(item => String(item.id) === binding.lineId)
 
     return (
-      <div className="flex items-center gap-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-foreground">
-          <Link2 className="h-3 w-3 text-primary" />
+      <div className="flex items-center gap-2">
+        <span className={pill}>
+          <Link2 className="h-3 w-3" />
           {linha ? nomeCanal(linha) : tc('canalNumero', { id: binding.lineId })}
         </span>
+        {/* Texto e não ícone: a corrente partida não se lê. Discreto e sem moldura para
+            não competir com o pill ao lado — é ação de desfazer, não a da linha. */}
         <Button
+          size="xs"
           variant="ghost"
-          size="icon-sm"
+          className="font-normal text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           title={t('canal.removerVinculo')}
-          aria-label={t('canal.removerVinculo')}
           disabled={salvando}
           onClick={() => {
             setSalvando(true)
@@ -73,9 +81,9 @@ export function CanalCell({
           }}
         >
           {salvando ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
-            <Unlink className="h-3.5 w-3.5 text-muted-foreground" />
+            t('canal.desvincular')
           )}
         </Button>
       </div>
@@ -116,12 +124,12 @@ export function CanalCell({
   }
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       <select
         value={escolhido}
         disabled={salvando}
         onChange={event => setEscolhido(event.target.value)}
-        className={`${select} max-w-40 cursor-pointer`}
+        className={`${select} max-w-44 cursor-pointer`}
       >
         <option value="">{t('canal.escolher')}</option>
         {livres.map(item => (
@@ -130,9 +138,10 @@ export function CanalCell({
           </option>
         ))}
       </select>
+      {/* Sólido: é a ação que põe o fluxo no ar, e de contorno ela pesava igual ao select
+          ao lado — a célula ficava com duas caixas cinzas e nenhuma chamando o clique. */}
       <Button
         size="sm"
-        variant="outline"
         disabled={!escolhido || salvando}
         onClick={() => {
           setSalvando(true)

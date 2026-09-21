@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 import type { FlowIssue, FlowNode } from '@/shared/thinkzap-bot-flow'
 import { describeVarTest } from '@/shared/thinkzap-bot-flow'
 import type { VarOperator, VarTest } from '@/shared/thinkzap-bot-flow'
-import { nodePorts } from '@/shared/thinkzap-flow-graph'
+import { visibleNodePorts } from '@/shared/thinkzap-flow-graph'
 import { NODE_HEIGHT, NODE_WIDTH } from '@/shared/thinkzap-flow-layout'
 import {
   LANES,
@@ -61,7 +61,7 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
   const { t: tc } = useTranslation('thinkzap/bots/comum')
 
   const Icon = KIND_ICON[node.kind]
-  const ports = nodePorts(node)
+  const ports = visibleNodePorts(node)
   const quebrado = issues.length > 0
   const titulo = node.name?.trim() || tc(`tipos.${node.kind}`)
   const fala = 'text' in node && node.text ? node.text : ''

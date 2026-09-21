@@ -6,6 +6,7 @@ import type {
   BotSessionStatus,
   CreateBotSessionRepository,
   GetActiveBotSessionRepository,
+  GetHandedOffBotSessionRepository,
   UpdateBotSessionRepository,
 } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-session.repository'
 
@@ -48,6 +49,7 @@ function toSession(row: Row): BotSession {
 export class PrismaBotSessionRepository
   implements
     GetActiveBotSessionRepository,
+    GetHandedOffBotSessionRepository,
     CreateBotSessionRepository,
     UpdateBotSessionRepository
 {
@@ -69,6 +71,19 @@ export class PrismaBotSessionRepository
     })
 
     return row ? toSession(row as unknown as Row) : null
+  }
+
+  // Sem `expiresAt` na consulta: o prazo é da sessão do bot, e o atendimento humano que
+  // começou no handoff dura o que durar — quem decide até quando o bot fica calado é
+  // `runBotTurn`, pela data devolvida aqui.
+  async handoffAtByChatId(appId: string, chatId: string): Promise<Date | null> {
+    const row = await prisma.thinkzapBotSession.findFirst({
+      where: { appId, bitrixChatId: chatId, status: 'HANDED_OFF' },
+      orderBy: { closedAt: 'desc' },
+      select: { closedAt: true },
+    })
+
+    return row?.closedAt ?? null
   }
 
   async create(input: {

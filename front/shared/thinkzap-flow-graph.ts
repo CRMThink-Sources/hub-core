@@ -107,6 +107,20 @@ export function nodePorts(node: FlowNode): FlowPort[] {
 }
 
 /**
+ * Portas que o cartão desenha. A saída "não entendeu" da pergunta fica fora enquanto não
+ * leva a ninguém: sem rótulo no cartão e sem campo no painel, ela se lia como uma opção a
+ * mais do que a lista de opções. Ligada a um bloco ela volta, senão a aresta que já existe
+ * perderia a bolinha de onde sai.
+ */
+export function visibleNodePorts(node: FlowNode): FlowPort[] {
+  if (node.kind !== 'question') return nodePorts(node)
+
+  return nodePorts(node).filter(
+    porta => porta.port.kind !== 'exhausted' || porta.target !== node.id,
+  )
+}
+
+/**
  * Reaponta uma porta. Porta inexistente devolve o nó intacto.
  *
  * Recusa `target === node.id`: apontar para si é a convenção de "pendente, sem destino".

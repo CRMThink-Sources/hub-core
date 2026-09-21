@@ -120,17 +120,31 @@ export class BitrixBotSessionAdapter implements BotSessionPort {
       return this.handoff(chatId, { type: 'queue' })
     }
 
+    const method = 'imopenlines.bot.session.transfer'
+
     try {
-      await this.bitrixClient.callMethod(
-        'imopenlines.bot.session.transfer',
+      const response = await this.bitrixClient.callMethod(
+        method,
         transferParams(chatId, target, this.botToken),
       )
+
+      /**
+       * Mesma checagem do `say`, e pelo mesmo motivo: o REST do Bitrix recusa com HTTP
+       * 200 e `error` no corpo, que não passa pelo `catch`.
+       *
+       * Sem isto a recusa contava como transferência feita: o `LEAVE: 'Y'` nunca rodava,
+       * o bot seguia no chat recebendo os eventos do contato, e o único registro do
+       * handoff era a sessão que fechamos como `HANDED_OFF` do nosso lado.
+       */
+      this.recusarSeForaDaSessao(method, chatId, response)
     } catch (err) {
       logThinkzapError(
         log,
         'thinkzap.bot.handoff_failed',
         { chatId, targetType: target.type, err },
-        { level: 'error' },
+        // Bot já fora da conversa é desfecho normal — quem assumiu está com ela, e quem
+        // chama encerra a sessão em vez de retentar.
+        { level: isBotSessionGoneError(err) ? 'warn' : 'error' },
       )
       throw err
     }
