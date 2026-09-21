@@ -11,6 +11,60 @@ vi.mock('@/shared/infra/logger', () => ({
 vi.mock('@/shared/infra/socket', () => ({ getIo: vi.fn() }))
 
 /**
+ * O aviso de desconexão (best-effort, ver `disconected.handler.ts`) resolve
+ * instância/domínio/app antes de tocar o Bitrix. Sem instância encontrada, o
+ * handler encerra cedo — suficiente para estes testes, que só cobrem o socket.
+ * Os demais módulos precisam de mock aqui mesmo sem serem exercitados: são
+ * import estático de `disconected.handler.ts`, e puxariam o Prisma real.
+ */
+vi.mock(
+  '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository',
+  () => ({
+    PrismaInstanceRepository: class {
+      getInstanceByInstanceId = vi.fn().mockResolvedValue(null)
+    },
+  }),
+)
+
+vi.mock('@/shared/infra/persistence/repositories/prisma-domain.repository', () => ({
+  PrismaDomainRepository: class {
+    getDomainById = vi.fn()
+  },
+}))
+
+vi.mock(
+  '@/shared/infra/persistence/repositories/prisma-installed-app.repository',
+  () => ({
+    PrismaInstalledAppRepository: class {
+      getByAppCodeAndDomainId = vi.fn()
+    },
+  }),
+)
+
+vi.mock('@/shared/main/make-bitrix-client', () => ({
+  makeBitrixClientByDomainAndAppCoode: vi.fn(),
+}))
+
+vi.mock('@/shared/app-catalog/app-catalog', () => ({
+  thinkzapAppCodeId: () => 'crmthink.thinkzap',
+}))
+
+vi.mock(
+  '@/modules/thinkzap/application/thinkzap-disconnect-notify-settings.service',
+  () => ({
+    ThinkzapDisconnectNotifySettingsService: class {
+      get = vi.fn()
+    },
+  }),
+)
+
+vi.mock('@/shared/application/bitrix-system-notification.service', () => ({
+  BitrixSystemNotificationService: class {
+    notify = vi.fn()
+  },
+}))
+
+/**
  * `emit` do servidor e `emit` da sala são espiões **diferentes** de propósito: é o
  * que deixa "emitiu em broadcast" e "emitiu na sala" distinguíveis. O antigo
  * handler de desconexão fazia `getIo().emit(...)`, que passaria despercebido se

@@ -34,6 +34,10 @@ import { makeListAllowedUsersController } from './main/make-list-allowed-users-c
 import { makeAddAllowedUserController } from './main/make-add-allowed-user-controller'
 import { makeRemoveAllowedUserController } from './main/make-remove-allowed-user-controller'
 import { makeUpdateAllowedUserPermissionsController } from './main/make-update-allowed-user-permissions-controller'
+import {
+  makeGetDisconnectNotifySettingsController,
+  makeUpdateDisconnectNotifySettingsController,
+} from './main/make-disconnect-notify-settings-controllers'
 import { makeListAllowedDepartmentsController } from './main/make-list-allowed-departments-controller'
 import { makeAddAllowedDepartmentController } from './main/make-add-allowed-department-controller'
 import { makeRemoveAllowedDepartmentController } from './main/make-remove-allowed-department-controller'
@@ -197,6 +201,19 @@ export const createThinkerszapRoutes = (): Router => {
     '/access/allowed-users/:bitrixUserId',
     requireThinkzapAdmin,
     adaptControllerFactory(makeRemoveAllowedUserController),
+  )
+
+  // Lista de usuários avisados no chat interno do Bitrix quando uma linha Z-API
+  // desconecta. App-wide, mesma permissão do resto da administração de acesso.
+  router.get(
+    '/disconnect-notify-settings',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeGetDisconnectNotifySettingsController),
+  )
+  router.patch(
+    '/disconnect-notify-settings',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeUpdateDisconnectNotifySettingsController),
   )
 
   router.get(
