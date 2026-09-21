@@ -32,11 +32,14 @@ vi.mock(
   }),
 )
 
-vi.mock('@/shared/infra/persistence/repositories/prisma-domain.repository', () => ({
-  PrismaDomainRepository: class {
-    getDomainById = getDomainByIdMock
-  },
-}))
+vi.mock(
+  '@/shared/infra/persistence/repositories/prisma-domain.repository',
+  () => ({
+    PrismaDomainRepository: class {
+      getDomainById = getDomainByIdMock
+    },
+  }),
+)
 
 vi.mock(
   '@/shared/infra/persistence/repositories/prisma-installed-app.repository',
@@ -121,11 +124,14 @@ describe('processConnectionEventJob', () => {
     const result = await processConnectionEventJob(job())
 
     expect(notifyMock).toHaveBeenCalledTimes(2)
-    expect(notifyMock).toHaveBeenNthCalledWith(1, {
-      userId: 111,
-      message: expect.stringContaining('Z-1'),
-      tag: 'thinkzap:connection:disconnected',
-    })
+    const firstCall = notifyMock.mock.calls[0]?.[0] as {
+      userId: number
+      message: string
+      tag: string
+    }
+    expect(firstCall.userId).toBe(111)
+    expect(firstCall.message).toContain('Z-1')
+    expect(firstCall.tag).toBe('thinkzap:connection:disconnected')
     expect(result).toEqual({ outcome: 'notified', recipients: 2, sent: 2 })
   })
 
@@ -136,11 +142,14 @@ describe('processConnectionEventJob', () => {
       job({ type: 'connected', error: undefined, phone: '554388092447' }),
     )
 
-    expect(notifyMock).toHaveBeenCalledWith({
-      userId: 111,
-      message: expect.stringContaining('554388092447'),
-      tag: 'thinkzap:connection:connected',
-    })
+    const call = notifyMock.mock.calls[0]?.[0] as {
+      userId: number
+      message: string
+      tag: string
+    }
+    expect(call.userId).toBe(111)
+    expect(call.message).toContain('554388092447')
+    expect(call.tag).toBe('thinkzap:connection:connected')
   })
 
   it('inclui o motivo do evento na mensagem de desconexão quando presente', async () => {
@@ -148,11 +157,8 @@ describe('processConnectionEventJob', () => {
 
     await processConnectionEventJob(job({ error: 'token expirado' }))
 
-    expect(notifyMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: expect.stringContaining('token expirado'),
-      }),
-    )
+    const call = notifyMock.mock.calls[0]?.[0] as { message: string }
+    expect(call.message).toContain('token expirado')
   })
 
   it('instância não encontrada encerra sem tocar o Bitrix', async () => {
@@ -197,9 +203,8 @@ describe('processConnectionEventJob', () => {
 
   it('propaga erro ao montar o client Bitrix — a fila deve retentar', async () => {
     notifyServiceGetMock.mockResolvedValue([111])
-    const { makeBitrixClientByDomainAndAppCoode } = await import(
-      '@/shared/main/make-bitrix-client'
-    )
+    const { makeBitrixClientByDomainAndAppCoode } =
+      await import('@/shared/main/make-bitrix-client')
     vi.mocked(makeBitrixClientByDomainAndAppCoode).mockRejectedValueOnce(
       new Error('Bitrix fora do ar'),
     )

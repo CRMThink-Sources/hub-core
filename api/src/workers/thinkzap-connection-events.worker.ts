@@ -26,10 +26,14 @@ async function processJob(job: Job<ThinkzapConnectionEventJob>): Promise<void> {
 }
 
 export const thinkzapConnectionEventsWorker =
-  new Worker<ThinkzapConnectionEventJob>(THINKZAP_CONNECTION_EVENTS, processJob, {
-    ...bullBaseOptions,
-    concurrency: 5,
-  })
+  new Worker<ThinkzapConnectionEventJob>(
+    THINKZAP_CONNECTION_EVENTS,
+    processJob,
+    {
+      ...bullBaseOptions,
+      concurrency: 5,
+    },
+  )
 
 function jobBaseFields(job: Job<ThinkzapConnectionEventJob> | undefined) {
   return {

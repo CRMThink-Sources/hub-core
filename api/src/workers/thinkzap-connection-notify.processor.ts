@@ -7,7 +7,10 @@ import { ThinkzapConnectionNotifyRecipientsService } from '@/modules/thinkzap/ap
 import { PrismaConnectionNotifyRecipientRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-connection-notify-recipient.repository'
 import { BitrixSystemNotificationService } from '@/shared/application/bitrix-system-notification.service'
 import { apiLogger } from '@/shared/infra/logger'
-import { AppendJobLog, noopJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
+import {
+  AppendJobLog,
+  noopJobLog,
+} from '@/modules/thinkzap/domain/ports/job-log.port'
 import type { ThinkzapConnectionEventJob } from '@/queue/thinkzap-connection-events.queue'
 
 function buildMessage(job: ThinkzapConnectionEventJob): string {
@@ -74,7 +77,9 @@ export async function processConnectionEventJob(
     instance.domainId,
   )
   if (!app) {
-    await appendJobLog('App do Thinkzap não encontrado para o portal; aviso não enviado')
+    await appendJobLog(
+      'App do Thinkzap não encontrado para o portal; aviso não enviado',
+    )
     apiLogger.debug(
       { ...logContext, domainId: instance.domainId },
       'App do Thinkzap não encontrado para o portal',
@@ -107,7 +112,11 @@ export async function processConnectionEventJob(
 
   const results = await Promise.allSettled(
     userIds.map(userId =>
-      notifier.notify({ userId, message, tag: `thinkzap:connection:${job.type}` }),
+      notifier.notify({
+        userId,
+        message,
+        tag: `thinkzap:connection:${job.type}`,
+      }),
     ),
   )
   const sent = results.filter(r => r.status === 'fulfilled' && r.value).length
