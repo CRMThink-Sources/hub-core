@@ -20,7 +20,9 @@ import {
   resolveImbotAuth,
 } from '@/app/bitrix/widget/audio/_domain/imbot-context'
 
-const SEND_ENDPOINT = '/api/button/send'
+// Chama o backend direto — não passa pelo proxy Next em `/api/*`, que na infra
+// de prod/staging cai direto no container do backend e nunca chega ao Next.
+const SEND_ENDPOINT = `${envConfig.apiUrl.replace(/\/$/, '')}/open-channel-button/send`
 
 const THINKZAP_APP_CODE = envConfig.appCodes.thinkzap || 'crmthink.thinkzap'
 
