@@ -22,10 +22,31 @@ describe('encodeButtonActionCode / decodeButtonActionCode', () => {
     )
   })
 
-  it('o código começa com o prefixo', () => {
+  it('contém o marcador', () => {
     expect(encodeButtonActionCode(descriptor)).toContain(
       BUTTON_ACTION_CODE_PREFIX,
     )
+  })
+
+  it('o preview antes do marcador é legível — corpo, título, rodapé e botões', () => {
+    const encoded = encodeButtonActionCode(descriptor)
+    const preview = encoded.slice(0, encoded.indexOf(BUTTON_ACTION_CODE_PREFIX))
+
+    expect(preview).toContain(descriptor.body)
+    expect(preview).toContain(descriptor.header)
+    expect(preview).toContain(descriptor.footer)
+    expect(preview).toContain('Site')
+  })
+
+  it('sobrevive à ida e volta mesmo com marcador dentro do corpo do operador', () => {
+    const withMarkerInBody = {
+      ...descriptor,
+      body: `Preço: ${BUTTON_ACTION_CODE_PREFIX} não é código aqui`,
+    }
+
+    expect(
+      decodeButtonActionCode(encodeButtonActionCode(withMarkerInBody)),
+    ).toEqual(withMarkerInBody)
   })
 
   it('preserva corpo com quebra de linha e aspas', () => {
