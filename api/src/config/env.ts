@@ -165,6 +165,15 @@ export const env = {
     botWebhookUrl:
       process.env.BITRIX_BOT_WEBHOOK_URL ??
       bitrixBotWebhookFromApiUrl(process.env.API_URL),
+    /**
+     * `code` do bot do ThinkBot no portal.
+     *
+     * Configurável porque o `code` é único **no portal**, e não por app: dois ambientes
+     * nossos apontados para o mesmo Bitrix24 disputam o mesmo nome, e o segundo a
+     * registrar leva `BOT_CODE_ALREADY_TAKEN` — `imbot.v2.Bot.register` só é idempotente
+     * para o app que registrou. Produção fica no default; dev e homolog sobrescrevem.
+     */
+    botFlowCode: process.env.BITRIX_BOT_FLOW_CODE ?? 'thinkzap-flow',
     connector: {
       code: process.env.BITRIX_CONNECTOR_CODE ?? 'hubthink_thinkzap',
       name: process.env.BITRIX_CONNECTOR_NAME ?? 'ThinkZap',
