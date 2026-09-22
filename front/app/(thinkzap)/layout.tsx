@@ -12,10 +12,11 @@ import { APP_CODES } from '@/shared/app/app-codes'
 import { Montserrat } from 'next/font/google'
 import { setLocale } from '@/i18n/provider'
 import { useTranslation } from 'react-i18next'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { isBitrixAdmin } from '@/bitrix'
+import { isBitrixAdmin, isInsideIframe } from '@/bitrix'
 import { AccessDeniedPanel } from './thinkzap/_components/access-denied-panel'
+import { BitrixOnlyNotice } from './thinkzap/_components/bitrix-only-notice'
 import { envConfig } from '@/shared/infra/env-config'
 
 const THINKZAP_THEME_CLASS = 'theme-thinkzap'
@@ -132,11 +133,44 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
   )
 }
 
+/**
+ * `checking` até o primeiro efeito: no SSR não há `window`, e decidir no render
+ * daria HTML diferente entre servidor e cliente.
+ */
+type Embedding = 'checking' | 'inside' | 'outside'
+
 export default function ThinkzapLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const [embedding, setEmbedding] = useState<Embedding>('checking')
+
+  useEffect(() => {
+    setEmbedding(isInsideIframe() ? 'inside' : 'outside')
+  }, [])
+
+  // Fora do iframe do Bitrix não há token nem BX24: os providers abaixo lançariam
+  // `Token not found`. O gate vem antes deles para nada montar nem chamar a API.
+  if (embedding === 'checking') {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+      </div>
+    )
+  }
+
+  if (embedding === 'outside') {
+    return (
+      <div
+        className={`${THINKZAP_THEME_CLASS} ${montSerrat.variable}`}
+        style={{ fontFamily: 'var(--font-montserrat)' }}
+      >
+        <BitrixOnlyNotice marketUrl={envConfig.thinkzapMarketUrl} />
+      </div>
+    )
+  }
+
   return (
     <AplicationProvider appCode={APP_CODES.thinkzap}>
       <ThinkzapAccessProvider>
