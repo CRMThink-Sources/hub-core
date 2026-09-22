@@ -66,7 +66,7 @@ export function InstallForm({
                 htmlFor="install-email"
                 className="block text-sm font-semibold text-slate-700"
               >
-                E-mail de instalação
+                E-mail de instalação (opcional)
               </label>
               <input
                 id="install-email"
@@ -75,7 +75,6 @@ export function InstallForm({
                 onChange={e => onEmailChange(e.target.value)}
                 placeholder="seu@empresa.com"
                 className={INPUT_CLASS}
-                required
                 disabled={isSubmitting}
               />
             </div>

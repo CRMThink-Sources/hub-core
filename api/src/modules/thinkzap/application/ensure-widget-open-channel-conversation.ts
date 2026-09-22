@@ -63,9 +63,8 @@ export type EnsureWidgetOpenChannelInput = {
    * Entidade do CRM de onde o envio partiu, quando há uma.
    *
    * Serve só para o **nome** do contato na conversa: o operador prefere ver "Maria
-   * Souza" a ver um número. Opcional porque o caminho de reparo (callback de status da
-   * Z-API) não tem entidade em mãos — ele só conhece o evento do provider —, e nesse
-   * caso o nome cai no telefone.
+   * Souza" a ver um número. Opcional porque nem todo envio parte de uma entidade; sem
+   * ela o nome cai no telefone.
    */
   entity?: string
   entityId?: string
@@ -114,7 +113,9 @@ export type OpenChannelSender = Pick<BitrixClient, 'sendToOpenChannel'>
  *
  * Agora a decisão sai do item, e a chamada acontece no caminho do envio, disparada
  * pelo `messageId` que o provider acabou de devolver. Nada externo precisa acontecer:
- * o webhook de status da Z-API deixou de ser o dono do fluxo e virou reparo.
+ * o webhook de status da Z-API deixou de participar do fluxo. Ele chegou a ficar como
+ * reparo, mas corria com o job `open-channel` — lia `chat_id` nulo antes de o job
+ * gravá-lo e abria uma segunda conversa —, e foi removido.
  *
  * **Abrir a conversa segue sendo operação Bitrix, idêntica para os dois providers** —
  * é o que faz a linha do WhatsApp Oficial ganhar o comportamento de graça. O que passou
@@ -184,8 +185,8 @@ export class EnsureWidgetOpenChannelConversation {
      * Lê `bitrixChatId ?? chatId` porque a sessão mudou de coluna. Hoje ela vai para
      * `bitrix_chat_id` — o mesmo papel que a coluna já tem no inbound — mas as rows
      * gravadas antes disso guardam a sessão em `chat_id`. Sem o fallback elas
-     * pareceriam "conversa não aberta", e o reparo do callback de status re-postaria
-     * no canal do cliente. O fallback dispensa backfill: nenhum predicado separa com
+     * pareceriam "conversa não aberta", e uma retentativa do job re-postaria no canal
+     * do cliente. O fallback dispensa backfill: nenhum predicado separa com
      * segurança essas rows das do caminho do operador, que já usam as duas colunas
      * corretamente, e um backfill errado corromperia o histórico do operador.
      *

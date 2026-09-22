@@ -34,6 +34,7 @@ export type {
 export { useBX24 } from './use-bx24'
 export type { UseBX24Result } from './use-bx24'
 export { isBitrixAdmin } from './is-bitrix-admin'
+export { isInsideIframe } from './is-inside-iframe'
 export {
   searchBitrixUsers,
   formatBitrixUserName,
