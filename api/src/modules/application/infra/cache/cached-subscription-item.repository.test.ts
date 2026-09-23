@@ -102,6 +102,21 @@ describe('CachedSubscriptionItemRepository', () => {
       expect(result).toEqual(item)
     })
 
+    it.each([true, false, null])(
+      'preserva connected=%s no hit do cache',
+      async connected => {
+        const inner = makeInner()
+        const { redis } = makeRedis(JSON.stringify({ ...item, connected }))
+
+        const result = await new CachedSubscriptionItemRepository(
+          inner.repository,
+          redis,
+        ).getSubscriptionItem('77')
+
+        expect(result.connected).toBe(connected)
+      },
+    )
+
     it('no miss lê da fonte e grava com TTL de 300s', async () => {
       const inner = makeInner()
       const { redis, set } = makeRedis(null)

@@ -140,12 +140,10 @@ export function BitrixMenu({ active }: { active: BitrixMenuItem }) {
 export const APP_MENU = [
   'Início',
   'Conexões',
-  'Permissões',
-  'Notificações de desconexão',
+  'Administração',
   'ThinkBot',
   'Logs',
-  'Central de Ajuda',
-  'Diretrizes de Uso',
+  'Ajuda',
 ] as const
 export type AppMenuItem = (typeof APP_MENU)[number]
 

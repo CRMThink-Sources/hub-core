@@ -29,8 +29,9 @@ import { TrialCard } from '../_components/conexoes/trial-card'
  * saíram também da lista os fluxos que só existiam por causa do conector —
  * conectar/QR code, vincular/desvincular canal, desconectar, cancelar conector e
  * o link para a tela de configuração, que resolvia por `connectorId`. Esses
- * fluxos e o status de conexão passam para a tela de configuração, a ser
- * replanejada.
+ * fluxos passam para a tela de configuração. O status de conexão voltou à lista
+ * como o último estado registrado no item (`connected`), sem consulta ao provider
+ * por linha; a leitura ao vivo segue na aba de conexão.
  */
 export default function ConexoesLayout() {
   const { t: tCommon } = useTranslation('common')

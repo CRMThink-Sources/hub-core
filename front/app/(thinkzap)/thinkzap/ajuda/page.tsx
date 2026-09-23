@@ -4,7 +4,13 @@ import Link from 'next/link'
 import { BookOpen, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { buttonVariants } from '@/components/ui/button'
+import { DiretrizesSection } from '../_components/diretrizes-section'
 
+/**
+ * Ajuda: o manual (um card com o link para a documentação) e as diretrizes de uso,
+ * numa página só. Eram dois itens no menu; o manual sozinho não sustentava uma
+ * página, e sub-abas para um card seriam navegação sem conteúdo.
+ */
 export default function AjudaPage() {
   const { t } = useTranslation('thinkzap/ajuda/page')
 
@@ -38,6 +44,8 @@ export default function AjudaPage() {
           </div>
         </div>
       </div>
+
+      <DiretrizesSection />
     </div>
   )
 }

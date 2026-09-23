@@ -45,7 +45,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
       if (link.href === '/thinkzap/bots' && !envConfig.thinkbotMenuEnabled) {
         return false
       }
-      if (link.href === '/thinkzap/permissoes') return canManageAccess
+      if (link.href === '/thinkzap/administracao') return canManageAccess
       if (
         link.href === '/thinkzap' ||
         link.href === '/thinkzap/conexoes' ||
@@ -73,7 +73,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
      * `/ativar-trial` — saíram com a cobrança antiga. A permissão continua existindo
      * e volta a ser lida quando a cobrança nova tiver tela.
      */
-    if (pathname.startsWith('/thinkzap/permissoes') && !canManageAccess) {
+    if (pathname.startsWith('/thinkzap/administracao') && !canManageAccess) {
       return true
     }
     return false

@@ -114,6 +114,11 @@ export function ConexoesTabelaConectores({
         </div>
         <div className="flex flex-1 justify-center">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t('colunas.conexao')}
+          </span>
+        </div>
+        <div className="flex flex-1 justify-center">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('colunas.status')}
           </span>
         </div>

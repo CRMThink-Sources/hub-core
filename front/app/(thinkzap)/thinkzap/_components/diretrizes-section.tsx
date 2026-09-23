@@ -9,22 +9,23 @@ type Diretriz = {
   pontos: string[]
 }
 
-export default function DiretrizesPage() {
+export function DiretrizesSection() {
   const { t } = useTranslation('thinkzap/diretrizes/page')
 
   const diretrizes = t('diretrizes', { returnObjects: true }) as Diretriz[]
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-10 pt-8 sm:px-6 lg:px-8">
+    // `id` é a âncora do atalho da home (`/thinkzap/ajuda#diretrizes`).
+    <section id="diretrizes" className="flex w-full scroll-mt-6 flex-col gap-6">
       {/* Cabeçalho */}
       <div className="flex w-full gap-4 rounded-xl border border-border bg-card p-6">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-primary/10">
           <ShieldCheck className="h-8 w-8 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
+          <h2 className="text-xl font-bold tracking-tight text-foreground">
             {t('title')}
-          </h1>
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
       </div>
@@ -84,6 +85,6 @@ export default function DiretrizesPage() {
           {t('baixarPdf')}
         </a>
       </div>
-    </div>
+    </section>
   )
 }

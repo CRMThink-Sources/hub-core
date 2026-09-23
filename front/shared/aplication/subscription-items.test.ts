@@ -76,8 +76,21 @@ describe('listSubscriptionLines', () => {
         subscriptionId: 's1',
         planName: 'Conector WhatsApp',
         providerRef: 'Z-1',
+        connected: null,
       },
     ])
+  })
+
+  it('leva o estado de conexão registrado no item para a linha', () => {
+    const linhas = listSubscriptionLines([
+      sub('s1', 'active', [
+        { ...item('i1', 'active', zapi), connected: true },
+        { ...item('i2', 'active', hub), connected: false },
+        item('i3', 'active', zapi),
+      ]),
+    ])
+
+    expect(linhas.map(linha => linha.connected)).toEqual([true, false, null])
   })
 
   it('usa o channelId como referência de linha do WhatsApp Oficial', () => {
@@ -270,6 +283,7 @@ describe('listSendableLines', () => {
         subscriptionId: 's1',
         planName: 'Conector WhatsApp',
         providerRef: 'Z-1',
+        connected: null,
       },
     ])
   })
