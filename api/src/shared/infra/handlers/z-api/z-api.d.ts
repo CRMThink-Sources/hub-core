@@ -106,6 +106,16 @@ export type ReceivedMessageEvent = {
       participant: string
     }
   }
+  /**
+   * Resposta a botão de template. Chega no lugar de `text` quando o contato
+   * toca um botão — `message` é o rótulo escolhido, e `referenceMessageId`
+   * (nível raiz do evento) já aponta pra mensagem original com os botões.
+   */
+  buttonReply?: {
+    buttonId: string
+    message: string
+    referenceMessageId: string
+  }
   _traceContext: {
     traceId: string
     spanId: string
@@ -127,9 +137,16 @@ export type ZApiDisconectedEvent = {
   disconnected: boolean
   momment: number
   instanceId: string
-  phone: string
-  lid: string
-  isBusiness: boolean
+  /**
+   * Motivo da desconexão, ex.: "It was not possible to restore a session with
+   * the current token, please login again". Payload real não traz `phone`/`lid`/
+   * `isBusiness` (só o `ConnectedCallback` traz) — declarados opcionais aqui
+   * porque nenhum consumidor os exige.
+   */
+  error?: string
+  phone?: string
+  lid?: string
+  isBusiness?: boolean
 }
 
 export type StatusCallbackEvent = {

@@ -30,6 +30,17 @@ export interface GetActiveBotSessionRepository {
   getActiveByChatId(appId: string, chatId: string): Promise<BotSession | null>
 }
 
+export interface GetHandedOffBotSessionRepository {
+  /**
+   * Quando o chat foi entregue ao atendimento humano pela última vez, ou `null` se nunca.
+   *
+   * Existe porque `getActiveByChatId` só vê `ACTIVE`: sem consultar o handoff, a mensagem
+   * seguinte do cliente não encontrava sessão, abria uma nova e o bot recomeçava o fluxo
+   * por cima do atendente.
+   */
+  handoffAtByChatId(appId: string, chatId: string): Promise<Date | null>
+}
+
 export interface CreateBotSessionRepository {
   create(input: {
     appId: string

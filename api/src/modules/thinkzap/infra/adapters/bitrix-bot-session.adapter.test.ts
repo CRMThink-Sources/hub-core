@@ -101,7 +101,7 @@ describe('BitrixBotSessionAdapter', () => {
   it('transfere pelo alvo escolhido', async () => {
     const { adapter, callMethod } = makeAdapter()
 
-    await adapter.handoff('112', { type: 'user', bitrixUserId: '15' })
+    await adapter.handoff('112', { type: 'evenly', bitrixUserIds: ['15'] })
 
     expect(callMethod).toHaveBeenCalledWith(
       'imopenlines.bot.session.transfer',
@@ -113,7 +113,7 @@ describe('BitrixBotSessionAdapter', () => {
     const { adapter, callMethod } = makeAdapter()
 
     // Atendente que saiu do portal depois de o fluxo ser publicado.
-    await adapter.handoff('112', { type: 'user', bitrixUserId: '' })
+    await adapter.handoff('112', { type: 'evenly', bitrixUserIds: [''] })
 
     expect(callMethod).toHaveBeenCalledTimes(1)
     expect(callMethod).toHaveBeenCalledWith(
@@ -141,6 +141,32 @@ describe('BitrixBotSessionAdapter', () => {
     await expect(adapter.handoff('112', { type: 'queue' })).rejects.toThrow(
       'TRANSFER_ID_EMPTY',
     )
+  })
+
+  it('transferência recusada com HTTP 200 não passa por feita', async () => {
+    // Era o bug do "bot não sai da conversa": a recusa vinha com status de sucesso, o
+    // `LEAVE: 'Y'` nunca rodava, e o bot seguia no chat recebendo os eventos do contato.
+    const { adapter } = makeAdapter(
+      vi.fn().mockResolvedValue({ error: 'CANCELED' }),
+    )
+
+    await expect(
+      adapter.handoff('112', { type: 'queue' }),
+    ).rejects.toBeInstanceOf(BotSessionGoneError)
+  })
+
+  it('recusa desconhecida na transferência sobe como falha', async () => {
+    const { adapter } = makeAdapter(
+      vi.fn().mockResolvedValue({ error: 'TRANSFER_ID_EMPTY' }),
+    )
+
+    const erro = await adapter
+      .handoff('112', { type: 'queue' })
+      .catch((e: unknown) => e)
+
+    expect(erro).toBeInstanceOf(Error)
+    expect(isBotSessionGoneError(erro)).toBe(false)
+    expect((erro as Error).message).toContain('TRANSFER_ID_EMPTY')
   })
 
   it('encerramento que falha não sobe: a linha fecha por inatividade', async () => {

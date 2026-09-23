@@ -41,30 +41,3 @@ export function resolveOpenChannelText(
   const [first] = attachmentKinds
   return first ? describeAttachmentText(first) : null
 }
-
-/**
- * O mesmo descritivo, derivado do `type` **persistido**.
- *
- * Para o reparo pelo callback de status, que só tem a row da mensagem em mãos — o
- * `kind` do anexo original não sobrevive à persistência. `null` quando não há texto
- * nem tipo descritível: nada a postar, e postar vazio abriria uma conversa com uma
- * mensagem em branco no histórico do cliente.
- */
-const DESCRIPTION_BY_PERSISTED_TYPE: Record<string, string> = {
-  IMAGE: '[Imagem enviada]',
-  VIDEO: '[Vídeo enviado]',
-  AUDIO: '[Áudio enviado]',
-  DOCUMENT: '[Arquivo enviado]',
-  STICKER: '[Sticker enviado]',
-  CONTACT: '[Contato enviado]',
-}
-
-export function resolveOpenChannelTextFromPersisted(persisted: {
-  text: string | null
-  type: string
-}): string | null {
-  const trimmed = persisted.text?.trim()
-  if (trimmed) return trimmed
-
-  return DESCRIPTION_BY_PERSISTED_TYPE[persisted.type] ?? null
-}

@@ -38,13 +38,19 @@ export type HubMessageWebhookEvent =
  * como uma delas fica para trás na próxima mudança, deixando parte dos canais surda
  * para o evento novo.
  *
- * Canais provisionados antes desta lista existir têm webhook só com
- * `MESSAGE_RECEIVED` e precisam ser reconfigurados à mão no painel da HubMessage: a
- * API só expõe `POST /webhooks`, sem leitura nem atualização.
+ * `CONNECTED`/`DISCONNECTED` alimentam o campo Conectado do item da linha na SPA
+ * (`UF_CRM_93_CONNECTED`): sem eles, o CRM só saberia da conexão pela conclusão
+ * síncrona do connect, e nunca de uma queda.
+ *
+ * Canais provisionados antes de um evento entrar nesta lista não o assinam. O script
+ * `hubmessage:sync-channel-webhook-events` lista o webhook de cada canal e atualiza a
+ * lista de eventos (`PATCH`) para incluir todos os daqui.
  */
 export const HUBMESSAGE_CHANNEL_WEBHOOK_EVENTS: HubMessageWebhookEvent[] = [
   'MESSAGE_RECEIVED',
   'MESSAGE_DELIVERY',
+  'CONNECTED',
+  'DISCONNECTED',
 ]
 
 export type CreateHubMessageWebhookParams = {
@@ -63,6 +69,23 @@ export type CreateHubMessageWebhookResponse = {
   signing: boolean
   /** Retornado apenas na criação quando `signing = true`. */
   secret?: string
+}
+
+/** Item de `GET /v1/channels/{channelId}/webhooks`. Só os campos que usamos. */
+export type HubMessageWebhook = {
+  id: string
+  channelId: string
+  url: string
+  events: string[]
+  status: 'ENABLED' | 'DISABLED'
+}
+
+/** `PATCH /v1/channels/{channelId}/webhooks/{webhookId}`: só o que for enviado muda. */
+export type UpdateHubMessageWebhookParams = {
+  url?: string
+  /** **Substitui** a lista inteira — mande a união, nunca só o que falta. */
+  events?: string[]
+  status?: 'ENABLED' | 'DISABLED'
 }
 
 export type ConnectHubMessageChannelParams = {
@@ -182,6 +205,84 @@ export type SendHubMessageTemplateParams = {
  * `providerMessageId` e correlaciona o webhook de status.
  */
 export type SendHubMessageTemplateResponse = {
+  messageId: string
+}
+
+/**
+ * Envio de mensagem com botões de ação: mesma rota de mensagens do canal
+ * (`POST /v1/channels/{channelId}/messages`), com
+ * `content.type = 'INTERACTIVE_ACTION'`.
+ * Ref.: https://developer.hubmessage.io/messages/send-interactive-action
+ *
+ * FORMATO CONFIRMADO por envio real em 2026-09-15 — e a confirmação trouxe
+ * más notícias: a doc pública documenta botão `CALL` e múltiplos botões, mas
+ * a Cloud API da Meta (que a HubMessage repassa por trás) não tem nenhum dos
+ * dois em mensagem de sessão livre — só template aprovado tem botão de
+ * ligação, e o botão de URL da Meta (`cta_url`) é de um botão só. `CALL`
+ * sozinho voltou `400` direto da Meta ("missing: action"); `CALL` combinado
+ * com `URL` foi silenciosamente descartado, só o `URL` chegou. Por isso o
+ * type abaixo só tem `URL`, e `assertValidButtonsForProvider` limita a
+ * HUBMESSAGE a um botão só — ver `interactive-button-validation.ts`.
+ */
+export type HubMessageButtonActionType = 'URL'
+
+export type HubMessageButtonAction = {
+  id: string
+  title: string
+  name: HubMessageButtonActionType
+  url: string
+}
+
+export type SendHubMessageInteractiveActionParams = {
+  recipient: {
+    /** Telefone do destinatário (DDI + DDD + número). */
+    identifier: string
+  }
+  content: {
+    type: 'INTERACTIVE_ACTION'
+    header?: { message: string }
+    body: { message: string }
+    footer?: { message: string }
+    attachments: HubMessageButtonAction[]
+  }
+}
+
+export type SendHubMessageInteractiveActionResponse = {
+  messageId: string
+}
+
+/**
+ * Envio de resposta rápida: `content.type = 'INTERACTIVE_BUTTON'`, **rota
+ * separada de `INTERACTIVE_ACTION`** — não é o mesmo botão com outro `name`,
+ * é outro formato de mensagem. `attachments[]` só tem `id`/`title` (sem
+ * `name`, sem `url`/`phone`): o espelho do que `INTERACTIVE_BUTTON` traz na
+ * entrada (`HubMessageInteractiveButtonContent` em `hubmessage-events.interface.ts`),
+ * que também não tem `header`/`footer` — por isso este type não os declara.
+ *
+ * FORMATO CONFIRMADO por envio real em 2026-09-18: a Meta aceita até
+ * **3 botões** (limite do quick reply da Cloud API) — o 4º fez a Meta
+ * recusar a mensagem inteira (diferente do `URL` duplicado, que a Meta
+ * descarta em silêncio). Por isso `assertValidButtonsForProvider` limita
+ * `REPLY` na HUBMESSAGE a 3 — ver `interactive-button-validation.ts`.
+ */
+export type HubMessageQuickReplyButtonAction = {
+  id: string
+  title: string
+}
+
+export type SendHubMessageInteractiveButtonParams = {
+  recipient: {
+    /** Telefone do destinatário (DDI + DDD + número). */
+    identifier: string
+  }
+  content: {
+    type: 'INTERACTIVE_BUTTON'
+    body: { message: string }
+    attachments: HubMessageQuickReplyButtonAction[]
+  }
+}
+
+export type SendHubMessageInteractiveButtonResponse = {
   messageId: string
 }
 

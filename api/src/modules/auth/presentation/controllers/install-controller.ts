@@ -14,7 +14,7 @@ const installSchema = z.object({
   domain: z.string().min(1),
   member_id: z.string().min(1),
   app_code: z.string().min(1),
-  email: z.string().min(1),
+  email: z.string(),
   access_token: z.string().min(1),
   refresh_token: z.string().min(1),
   expires_in: z.number(),

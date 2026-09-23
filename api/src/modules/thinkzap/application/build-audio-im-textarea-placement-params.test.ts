@@ -11,7 +11,7 @@ describe('buildAudioImTextareaPlacementBindParams', () => {
     expect(params.TITLE).toBe(env.bitrix.iframeAudio.name)
     expect(params.LANG_ALL.pt?.TITLE).toBe(env.bitrix.iframeAudio.name)
     expect(params.OPTIONS).toEqual({
-      iconName: 'chat-compose',
+      iconName: 'fa-microphone',
       context: 'LINES',
       role: 'USER',
       extranet: 'N',

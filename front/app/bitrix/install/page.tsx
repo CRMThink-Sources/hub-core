@@ -20,7 +20,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 const MESSAGES = {
   acceptAll:
     'É necessário aceitar os termos, o contrato de licença e a política de privacidade.',
-  emailRequired: 'Informe o e-mail de instalação.',
   bx24Unavailable: 'BX24 não disponível. Abra esta página no Bitrix24.',
   installError: 'Erro ao concluir instalação.',
   apiError: 'Falha ao registrar a instalação. Tente novamente.',
@@ -109,10 +108,6 @@ export default function BitrixInstallPage() {
       return
     }
     const trimmedEmail = email.trim()
-    if (!trimmedEmail) {
-      setErrorMessage(MESSAGES.emailRequired)
-      return
-    }
     if (!window.BX24) {
       setErrorMessage(MESSAGES.bx24Unavailable)
       return
@@ -131,7 +126,9 @@ export default function BitrixInstallPage() {
       // e concluir no Bitrix depois de uma falha deixaria o app registrado no
       // portal sem estar configurado.
       if (API_URL) {
-        await axios.post(API_URL + '/auth/install', payload)
+        await axios.post(API_URL + '/auth/install', payload, {
+          headers: { 'ngrok-skip-browser-warning': 'true' },
+        })
       }
 
       finishInstall()

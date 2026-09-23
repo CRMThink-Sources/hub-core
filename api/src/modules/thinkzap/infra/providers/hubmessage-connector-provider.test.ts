@@ -12,7 +12,12 @@ function makeClient(overrides: Partial<HubMessageClient> = {}) {
       id: 'wh_1',
       channelId: 'chan_1',
       url: 'u',
-      events: ['MESSAGE_RECEIVED', 'MESSAGE_DELIVERY'],
+      events: [
+        'MESSAGE_RECEIVED',
+        'MESSAGE_DELIVERY',
+        'CONNECTED',
+        'DISCONNECTED',
+      ],
       status: 'ENABLED',
       signing: false,
     }),
@@ -50,7 +55,12 @@ describe('HubMessageConnectorProvider', () => {
     })
     expect(client.createWebhook).toHaveBeenCalledWith('chan_1', {
       url: config.webhookUrl,
-      events: ['MESSAGE_RECEIVED', 'MESSAGE_DELIVERY'],
+      events: [
+        'MESSAGE_RECEIVED',
+        'MESSAGE_DELIVERY',
+        'CONNECTED',
+        'DISCONNECTED',
+      ],
     })
     expect(result).toMatchObject({
       instanceId: 'chan_1',

@@ -1,0 +1,19 @@
+{
+  "titulo": "Simulator",
+  "aviso": "nothing is sent to the customer",
+  "reiniciar": "Restart conversation",
+  "fechar": "Close simulator",
+  "vazio": "Run the flow as if you were the customer on WhatsApp.",
+  "iniciar": "Start conversation",
+  "encerradaPlaceholder": "Conversation ended — restart to test again",
+  "respostaPlaceholder": "Customer answer",
+  "enviar": "Send",
+  "sistema": {
+    "fluxoMudou": "The flow changed. Start the conversation again to test.",
+    "handoff": "Conversation handed to an agent.",
+    "finish": "Conversation ended by the bot.",
+    "loop": "The flow went into a loop and the bot stopped. Fix it before publishing.",
+    "noInexistente": "The flow points to a step that does not exist. Fix it before publishing.",
+    "erro": "Could not simulate."
+  }
+}

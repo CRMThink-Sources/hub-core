@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { env } from '@/config/env'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import type {
@@ -13,7 +14,10 @@ const log = createWorkerSourceLogger('bitrix')
 
 // Não confundir com o `thinkzap-connector` de `ensureBitrixBotId`: aquele é
 // `type: supervisor` / `eventMode: fetch` e não recebe evento. Este participa da conversa.
-export const BOT_CODE = 'thinkzap-flow'
+//
+// Do env: o `code` é único no portal, não por app — ver `bitrix.botFlowCode`. O evento que
+// chega é casado por este mesmo valor, então trocá-lo troca as duas pontas de uma vez.
+export const BOT_CODE = env.bitrix.botFlowCode
 const BOT_NAME_FALLBACK = 'ThinkBot'
 
 /**
@@ -108,23 +112,13 @@ export async function ensureBotFlowBot(
   // `Bot.register` é idempotente por `code` e não atualiza nada em chamada repetida: um
   // registro anterior que não foi gravado aqui volta com o token antigo, e o novo
   // `botToken` não vale. Daí a gravação na mesma request.
-  const response = await client.callMethod<BotResponse>(
-    'imbot.v2.Bot.register',
-    {
-      fields: {
-        code: BOT_CODE,
-        botToken,
-        type: 'openline',
-        eventMode: 'webhook',
-        webhookUrl: input.webhookUrl,
-        properties: {
-          name: botDisplayName(input.flowName),
-          workPosition: 'Atendimento automático',
-          color: 'GREEN',
-        },
-      },
-    },
-  )
+  const response = await registrar(client, {
+    code: BOT_CODE,
+    botToken,
+    webhookUrl: input.webhookUrl,
+    flowName: input.flowName,
+    appId: input.appId,
+  })
 
   const bitrixBotId = Number(response.result?.bot?.id ?? 0)
 
@@ -144,4 +138,56 @@ export async function ensureBotFlowBot(
     botToken,
     webhookUrl: input.webhookUrl,
   })
+}
+
+/**
+ * Registra o bot, nomeando a recusa por `code` ocupado.
+ *
+ * O Bitrix devolve `BOT_CODE_ALREADY_TAKEN` em HTTP 400, e o `BitrixError` resultante
+ * chegava à tela como "Não foi possível vincular" — sem dizer que o conflito é de nome
+ * entre instalações nem o que fazer a respeito.
+ */
+async function registrar(
+  client: BitrixClient,
+  input: {
+    code: string
+    botToken: string
+    webhookUrl: string
+    flowName?: string
+    appId: string
+  },
+): Promise<BotResponse> {
+  try {
+    return await client.callMethod<BotResponse>('imbot.v2.Bot.register', {
+      fields: {
+        code: input.code,
+        botToken: input.botToken,
+        type: 'openline',
+        eventMode: 'webhook',
+        webhookUrl: input.webhookUrl,
+        properties: {
+          name: botDisplayName(input.flowName),
+          workPosition: 'Atendimento automático',
+          color: 'GREEN',
+        },
+      },
+    })
+  } catch (err) {
+    if (!codeJaUsado(err)) throw err
+
+    log.error(
+      { appId: input.appId, code: input.code },
+      'Code do bot já registrado por outra instalação no portal',
+    )
+    throw thinkzapError('thinkzap.bot.code_taken', toError(err))
+  }
+}
+
+/** Pela mensagem porque `callMethod` embala a resposta do Bitrix em `BitrixError`. */
+function codeJaUsado(err: unknown): boolean {
+  return err instanceof Error && err.message.includes('BOT_CODE_ALREADY_TAKEN')
+}
+
+function toError(err: unknown): Error {
+  return err instanceof Error ? err : new Error(String(err))
 }

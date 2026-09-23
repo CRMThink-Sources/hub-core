@@ -172,6 +172,28 @@ describe('mapAplicationContextToView', () => {
     expect(typeof view.aplication.createdAt).toBe('string')
   })
 
+  it('emite o estado de conexão registrado no item, e null quando nunca registrado', () => {
+    const view = mapAplicationContextToView({
+      ...context,
+      subscriptions: [
+        {
+          ...subscription,
+          items: [
+            { ...zApiItem, connected: true },
+            { ...hubItem, connected: false },
+            noneItem,
+          ],
+        },
+      ],
+    })
+
+    expect(view.subscriptions[0]?.items.map(item => item.connected)).toEqual([
+      true,
+      false,
+      null,
+    ])
+  })
+
   describe('metadata redigido', () => {
     it('emite provider e zApiInstanceId no caso ZAPI', () => {
       const view = mapAplicationContextToView(context)

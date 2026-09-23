@@ -165,6 +165,15 @@ export const env = {
     botWebhookUrl:
       process.env.BITRIX_BOT_WEBHOOK_URL ??
       bitrixBotWebhookFromApiUrl(process.env.API_URL),
+    /**
+     * `code` do bot do ThinkBot no portal.
+     *
+     * Configurável porque o `code` é único **no portal**, e não por app: dois ambientes
+     * nossos apontados para o mesmo Bitrix24 disputam o mesmo nome, e o segundo a
+     * registrar leva `BOT_CODE_ALREADY_TAKEN` — `imbot.v2.Bot.register` só é idempotente
+     * para o app que registrou. Produção fica no default; dev e homolog sobrescrevem.
+     */
+    botFlowCode: process.env.BITRIX_BOT_FLOW_CODE ?? 'thinkzap-flow',
     connector: {
       code: process.env.BITRIX_CONNECTOR_CODE ?? 'hubthink_thinkzap',
       name: process.env.BITRIX_CONNECTOR_NAME ?? 'ThinkZap',
@@ -175,6 +184,14 @@ export const env = {
       name: process.env.BITRIX_IFRAME_AUDIO_NAME ?? 'ThinkZap Audio',
       url: process.env.BITRIX_IFRAME_AUDIO_URL ?? '',
       hash: process.env.BITRIX_IFRAME_AUDIO_HASH ?? '',
+    },
+    // Mesmo esquema do widget de áudio, outro ícone no textarea do canal aberto.
+    // Sem `hash` própria: reaproveita `iframeAudio.hash`, o segredo de validação
+    // do iframe imbot — não é específico do widget de áudio.
+    iframeButton: {
+      code: process.env.BITRIX_IFRAME_BUTTON_CODE ?? 'thinkzap_button',
+      name: process.env.BITRIX_IFRAME_BUTTON_NAME ?? 'ThinkZap Botões',
+      url: process.env.BITRIX_IFRAME_BUTTON_URL ?? '',
     },
     placement: {
       name: process.env.BITRIX_PLACEMENT_NAME ?? 'ThinkZap',
@@ -195,6 +212,34 @@ export const env = {
         'ThinkZap - Enviar template (WhatsApp Oficial)',
       handlerUrl: process.env.BITRIX_TEMPLATE_ROBOT_HANDLER_URL ?? '',
       placementUrl: process.env.BITRIX_TEMPLATE_ROBOT_PLACEMENT_URL ?? '',
+    },
+    /**
+     * Dois robôs de botão — um por provider, mesmo `handlerUrl`/`placementUrl` vazio
+     * = fora do portal do jeito que `templateRobot` já faz. `NAME` em env (e não
+     * hardcoded) porque a copy que o operador vê na lista de robôs do Bitrix ainda
+     * não foi validada com o time — trocar sem redeploy até a decisão assentar.
+     */
+    buttonRobotOfficial: {
+      code:
+        process.env.BITRIX_BUTTON_ROBOT_OFFICIAL_CODE ??
+        'thinkzap_button_robot_official',
+      name:
+        process.env.BITRIX_BUTTON_ROBOT_OFFICIAL_NAME ??
+        'ThinkZap - Enviar botões (WhatsApp Oficial)',
+      handlerUrl: process.env.BITRIX_BUTTON_ROBOT_OFFICIAL_HANDLER_URL ?? '',
+      placementUrl:
+        process.env.BITRIX_BUTTON_ROBOT_OFFICIAL_PLACEMENT_URL ?? '',
+    },
+    buttonRobotUnofficial: {
+      code:
+        process.env.BITRIX_BUTTON_ROBOT_UNOFFICIAL_CODE ??
+        'thinkzap_button_robot_unofficial',
+      name:
+        process.env.BITRIX_BUTTON_ROBOT_UNOFFICIAL_NAME ??
+        'ThinkZap - Enviar botões (Z-API)',
+      handlerUrl: process.env.BITRIX_BUTTON_ROBOT_UNOFFICIAL_HANDLER_URL ?? '',
+      placementUrl:
+        process.env.BITRIX_BUTTON_ROBOT_UNOFFICIAL_PLACEMENT_URL ?? '',
     },
     /**
      * Provedor de mensagem (`messageservice`) que a campanha de SMS do Bitrix usa

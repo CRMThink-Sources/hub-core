@@ -10,13 +10,19 @@ import {
   CreateTemplateParams,
   CreateTemplateResponse,
   HubMessageBusiness,
+  HubMessageWebhook,
   ListBusinessesResponse,
   ListTemplatesResponse,
+  SendHubMessageInteractiveActionParams,
+  SendHubMessageInteractiveActionResponse,
+  SendHubMessageInteractiveButtonParams,
+  SendHubMessageInteractiveButtonResponse,
   SendHubMessageParams,
   SendHubMessageResponse,
   SendHubMessageTemplateParams,
   SendHubMessageTemplateResponse,
   SyncTemplatesResponse,
+  UpdateHubMessageWebhookParams,
 } from './types/hubmessage.types'
 
 export type HubMessageClientConfig = {
@@ -105,6 +111,25 @@ export class HubMessageClient {
     return data
   }
 
+  async listWebhooks(channelId: string): Promise<HubMessageWebhook[]> {
+    const { data } = await this.http.get<HubMessageWebhook[]>(
+      `/v1/channels/${channelId}/webhooks`,
+    )
+    return data
+  }
+
+  async updateWebhook(
+    channelId: string,
+    webhookId: string,
+    params: UpdateHubMessageWebhookParams,
+  ): Promise<HubMessageWebhook> {
+    const { data } = await this.http.patch<HubMessageWebhook>(
+      `/v1/channels/${channelId}/webhooks/${webhookId}`,
+      params,
+    )
+    return data
+  }
+
   async connectChannel(
     channelId: string,
     params: ConnectHubMessageChannelParams,
@@ -144,6 +169,41 @@ export class HubMessageClient {
       `/v1/channels/${channelId}/messages`,
       params,
     )
+    return data
+  }
+
+  /**
+   * Envia mensagem com botões de ação. Mesma rota do envio livre e do
+   * template; o que muda é `content`. Assim como o envio livre, só é aceita
+   * enquanto a janela de conversa de 24h estiver aberta.
+   */
+  async sendInteractiveAction(
+    channelId: string,
+    params: SendHubMessageInteractiveActionParams,
+  ): Promise<SendHubMessageInteractiveActionResponse> {
+    const { data } =
+      await this.http.post<SendHubMessageInteractiveActionResponse>(
+        `/v1/channels/${channelId}/messages`,
+        params,
+      )
+    return data
+  }
+
+  /**
+   * Envia mensagem com resposta rápida. Mesma rota do envio livre, mas
+   * `content.type = 'INTERACTIVE_BUTTON'` — formato diferente de
+   * `sendInteractiveAction` (sem `header`/`footer`), não um `content.type`
+   * alternativo do mesmo corpo. Ver `SendHubMessageInteractiveButtonParams`.
+   */
+  async sendInteractiveButton(
+    channelId: string,
+    params: SendHubMessageInteractiveButtonParams,
+  ): Promise<SendHubMessageInteractiveButtonResponse> {
+    const { data } =
+      await this.http.post<SendHubMessageInteractiveButtonResponse>(
+        `/v1/channels/${channelId}/messages`,
+        params,
+      )
     return data
   }
 

@@ -17,6 +17,7 @@ import {
   ZApiBooleanResponse,
   PhoneExistsResponse,
   ProfilePictureResponse,
+  SendButtonActionsParams,
   ZApiGroupListItem,
   ZApiGroupMetadata,
   ZApiListResponse,
@@ -324,6 +325,34 @@ export class ZApiClient {
         },
       )
       logZApiSend('sendImage', instanceId, phone, data)
+      return data
+    } catch (error) {
+      throw thinkzapError('thinkzap.zapi.message_send_failed', error)
+    }
+  }
+
+  /**
+   * Envia mensagem com botões de ação. Endpoint separado dos outros `send-*`:
+   * o corpo inteiro (`message`, `title`, `footer`, `buttonActions`) vai junto,
+   * não só o payload do que está sendo enviado.
+   */
+  async sendButtonActions(
+    instanceId: string,
+    instanceToken: string,
+    params: SendButtonActionsParams,
+  ): Promise<SendMessageResponse> {
+    try {
+      const { data } = await this.http.post<SendMessageResponse>(
+        `https://api.z-api.io/instances/${instanceId}/token/${instanceToken}/send-button-actions`,
+        params,
+        {
+          headers: {
+            'client-token': this.clientToken,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      logZApiSend('sendButtonActions', instanceId, params.phone, data)
       return data
     } catch (error) {
       throw thinkzapError('thinkzap.zapi.message_send_failed', error)

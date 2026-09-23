@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, LayoutGrid, Plus, Save, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -18,12 +19,7 @@ import type {
   FlowNodeKind,
   NodeId,
 } from '@/shared/thinkzap-bot-flow'
-import {
-  NODE_KIND_LABEL,
-  NODE_RECIPES,
-  makeNode,
-  nextNodeId,
-} from '@/shared/thinkzap-bot-flow'
+import { NODE_RECIPES, makeNode, nextNodeId } from '@/shared/thinkzap-bot-flow'
 import { setPortTarget } from '@/shared/thinkzap-flow-graph'
 import {
   nextFreePosition,
@@ -50,6 +46,8 @@ export function BotFlowEditor({
   flowId: string
   onClose: () => void
 }) {
+  const { t } = useTranslation('thinkzap/bots/editor')
+  const { t: tc } = useTranslation('thinkzap/bots/comum')
   const [state, setState] = useState<State>({ kind: 'loading' })
   const [graph, setGraph] = useState<BotFlowGraph | null>(null)
   const [name, setName] = useState('')
@@ -82,10 +80,7 @@ export function BotFlowEditor({
         if (!ativo) return
         setState({
           kind: 'error',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Não foi possível carregar o fluxo.',
+          message: error instanceof Error ? error.message : t('erro.carregar'),
         })
       }
     })()
@@ -93,7 +88,7 @@ export function BotFlowEditor({
     return () => {
       ativo = false
     }
-  }, [flowId])
+  }, [flowId, t])
 
   const issuesByNode = useMemo(() => {
     const map = new Map<NodeId, FlowIssue[]>()
@@ -134,13 +129,13 @@ export function BotFlowEditor({
           return {
             id: node.id,
             ordem,
-            rotulo: `${ordem}. ${resumo || NODE_KIND_LABEL[node.kind]}`,
+            rotulo: `${ordem}. ${resumo || tc(`tipos.${node.kind}`)}`,
           }
         })
         // Lista na ordem da conversa: procurar destino pelo número exige que ele ordene.
         .sort((a, b) => a.ordem - b.ordem)
     )
-  }, [graph])
+  }, [graph, tc])
 
   /** Bloco solto: nasce com as saídas pendentes, à direita de tudo. */
   const adicionarSolto = useCallback(
@@ -180,10 +175,10 @@ export function BotFlowEditor({
       setState({ kind: 'ready', flow })
       setIssues(found)
       setSujo(false)
-      toast.success('Rascunho salvo.')
+      toast.success(t('toast.rascunhoSalvo'))
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Não foi possível salvar.',
+        error instanceof Error ? error.message : t('toast.salvarFalhou'),
       )
     } finally {
       setSalvando(false)
@@ -206,7 +201,7 @@ export function BotFlowEditor({
       const flow = await publishBotFlow(flowId)
       setState({ kind: 'ready', flow })
       setIssues([])
-      toast.success(`Fluxo publicado (v${flow.version}).`)
+      toast.success(t('toast.publicado'))
     } catch (error) {
       const found =
         error && typeof error === 'object' && 'issues' in error
@@ -214,7 +209,7 @@ export function BotFlowEditor({
           : []
       if (found.length > 0) setIssues(found)
       toast.error(
-        error instanceof Error ? error.message : 'Não foi possível publicar.',
+        error instanceof Error ? error.message : t('toast.publicarFalhou'),
       )
     } finally {
       setPublicando(false)
@@ -226,7 +221,7 @@ export function BotFlowEditor({
       <div className="flex min-h-[60vh] items-center justify-center gap-2">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
         <span className="animate-pulse text-sm font-medium text-muted-foreground">
-          Carregando
+          {t('carregando')}
         </span>
       </div>
     )
@@ -236,14 +231,14 @@ export function BotFlowEditor({
     return (
       <div className="mx-auto mt-10 max-w-2xl px-4">
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
-          <p className="text-sm font-medium">Não foi possível abrir o fluxo</p>
+          <p className="text-sm font-medium">{t('erro.titulo')}</p>
           <p className="mt-1 text-sm">
-            {state.kind === 'error' ? state.message : 'Fluxo sem conteúdo.'}
+            {state.kind === 'error' ? state.message : t('erro.semConteudo')}
           </p>
         </div>
         <Button variant="outline" className="mt-4" onClick={onClose}>
           <ArrowLeft className="h-4 w-4" />
-          Voltar
+          {t('voltar')}
         </Button>
       </div>
     )
@@ -258,7 +253,7 @@ export function BotFlowEditor({
           variant="ghost"
           size="icon-sm"
           onClick={onClose}
-          aria-label="Voltar"
+          aria-label={t('voltar')}
         >
           <ArrowLeft />
         </Button>
@@ -271,11 +266,13 @@ export function BotFlowEditor({
             setSujo(true)
           }}
         />
-        <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-          v{state.flow.version} ·{' '}
-          {state.flow.status === 'PUBLISHED' ? 'publicada' : 'rascunho'}
-          {sujo ? ' · não salvo' : ''}
-        </span>
+        {/* Só o aviso de pendência: versão e situação são vocabulário de quem versiona
+            fluxo, e na tela de edição não mudavam nenhuma decisão de quem está montando. */}
+        {sujo ? (
+          <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            {t('naoSalvo')}
+          </span>
+        ) : null}
 
         <span className="mx-1 h-5 w-px bg-border" />
 
@@ -285,7 +282,7 @@ export function BotFlowEditor({
           {/* Sólido: é a ação principal do editor, e `outline` sumia contra o `bg-card`. */}
           <Button size="sm" onClick={() => setMenuSolto(atual => !atual)}>
             <Plus className="h-3.5 w-3.5" />
-            Novo bloco
+            {t('novoBloco')}
           </Button>
           {menuSolto ? (
             <div className="absolute left-0 top-full z-20 mt-1.5">
@@ -300,7 +297,11 @@ export function BotFlowEditor({
                   )
                   if (!receita) return
                   setMenuSolto(false)
-                  adicionarSolto(receita.make)
+                  // Nome traduzido: `make` nasce com o rótulo em português.
+                  adicionarSolto(id => ({
+                    ...receita.make(id),
+                    name: tc(`receitas.${receita.id}.label`),
+                  }))
                 }}
                 onFechar={() => setMenuSolto(false)}
               />
@@ -314,10 +315,10 @@ export function BotFlowEditor({
           size="sm"
           className="border-foreground/20"
           onClick={() => mutate(relayout(graph))}
-          title="Reposiciona os blocos em colunas, do início para o fim"
+          title={t('reorganizarDica')}
         >
           <LayoutGrid className="h-3.5 w-3.5" />
-          Reorganizar
+          {t('reorganizar')}
         </Button>
 
         <div className="ml-auto flex items-center gap-2">
@@ -333,7 +334,7 @@ export function BotFlowEditor({
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {aba}
+                {t(`abas.${aba}`)}
               </button>
             ))}
           </div>
@@ -343,14 +344,14 @@ export function BotFlowEditor({
             onClick={() => void salvar()}
           >
             <Save className="h-4 w-4" />
-            {salvando ? 'Salvando…' : 'Salvar'}
+            {salvando ? t('salvando') : t('salvar')}
           </Button>
           <Button
             disabled={salvando || publicando || bloqueada}
             onClick={() => void publicar()}
           >
             <Upload className="h-4 w-4" />
-            {publicando ? 'Publicando…' : 'Publicar'}
+            {publicando ? t('publicando') : t('publicar')}
           </Button>
         </div>
       </div>
@@ -360,7 +361,7 @@ export function BotFlowEditor({
           <ul className="flex flex-col gap-0.5">
             {globalIssues.map((issue, index) => (
               <li key={index} className="text-xs text-destructive">
-                {issueText(issue)}
+                {issueText(issue, code => t(`problemas.${code}`))}
               </li>
             ))}
           </ul>
@@ -417,11 +418,12 @@ export function BotFlowEditor({
         {painel ? (
           <div className="flex flex-col gap-3">
             {painel === 'simulador' ? (
-              <BotFlowSimulator graph={graph} />
+              <BotFlowSimulator graph={graph} onClose={() => setPainel(null)} />
             ) : (
               <FlowSettingsCard
                 graph={graph}
                 onChange={settings => mutate({ ...graph, settings })}
+                onClose={() => setPainel(null)}
               />
             )}
           </div>

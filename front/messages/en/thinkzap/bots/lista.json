@@ -1,0 +1,61 @@
+{
+  "titulo": "ThinkBot",
+  "subtitulo": "Build the service flow: define how the bot should lead the conversation.",
+  "carregando": "Loading",
+  "erro": {
+    "titulo": "Could not load the flows",
+    "carregar": "Could not load the flows.",
+    "listarCanais": "failed to list channels"
+  },
+  "toast": {
+    "criarFalhou": "Could not create.",
+    "vinculado": "Flow activated on the channel.",
+    "vincularFalhou": "Could not link.",
+    "desvinculado": "Link removed. The channel goes back to human service.",
+    "desvincularFalhou": "Could not remove the link.",
+    "excluido": "Flow deleted.",
+    "excluirFalhou": "Could not delete."
+  },
+  "vazio": {
+    "titulo": "No flow created",
+    "acao": "Create flow"
+  },
+  "status": {
+    "PUBLISHED": "Published",
+    "DRAFT": "Draft",
+    "ARCHIVED": "Archived"
+  },
+  "inertes_one": "\"{{nome}}\" is published but still serves no one — pick an open channel under \"Serves on\".",
+  "inertes_other": "{{count}} published flows still serve no one — pick an open channel under \"Serves on\".",
+  "colunas": {
+    "fluxo": "Flow",
+    "situacao": "Status",
+    "atendeEm": "Serves on"
+  },
+  "acoes": {
+    "editar": "Edit flow",
+    "excluir": "Delete flow"
+  },
+  "outroFluxo": "another flow",
+  "canal": {
+    "publiqueParaVincular": "publish to link",
+    "removerVinculo": "Remove link",
+    "desvincular": "unlink",
+    "carregandoCanais": "channels",
+    "erroListar": "could not list the channels",
+    "erroBitrix": "Bitrix error: {{erro}}",
+    "semCanais": "no open channel in the portal",
+    "todosOcupados": "every channel already has a flow",
+    "escolher": "pick a channel…",
+    "ativar": "activate"
+  },
+  "novo": {
+    "titulo": "New flow",
+    "descricao": "Set a name to identify this flow internally.",
+    "nome": "Name",
+    "placeholder": "General service",
+    "cancelar": "Cancel",
+    "criar": "Create",
+    "criando": "Creating…"
+  }
+}

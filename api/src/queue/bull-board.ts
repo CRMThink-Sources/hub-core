@@ -5,6 +5,7 @@ import { ExpressAdapter } from '@bull-board/express'
 import { NextFunction, Request, RequestHandler, Response } from 'express'
 import { thinkzapInboundQueue } from './thinkzap-inbound.queue'
 import { thinkzapWidgetOutboundQueue } from './thinkzap-widget-outbound.queue'
+import { thinkzapConnectionEventsQueue } from './thinkzap-connection-events.queue'
 import { spaItemProvisioningQueue } from './spa-item-provisioning.queue'
 import { spaItemResourceSyncQueue } from './spa-item-resource-sync.queue'
 import { importSheetRunQueue } from '@/modules/importsheet/queue/importsheet-run.queue'
@@ -24,6 +25,7 @@ createBullBoard({
      * fila do projeto ficaria cega justo para o que não pode parar.
      */
     new BullMQAdapter(thinkzapWidgetOutboundQueue),
+    new BullMQAdapter(thinkzapConnectionEventsQueue),
     new BullMQAdapter(spaItemProvisioningQueue),
     new BullMQAdapter(spaItemResourceSyncQueue),
     new BullMQAdapter(importSheetRunQueue),

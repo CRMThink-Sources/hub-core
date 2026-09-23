@@ -13,7 +13,12 @@ import { makeSendWidgetMessageMultipartController } from './main/make-send-widge
 import { makeGetLineStatusForWidgetController } from './main/make-get-line-status-for-widget-controller'
 import { makeListWidgetTemplatesController } from './main/make-list-widget-templates-controller'
 import { makeListTemplateLinesController } from './main/make-list-template-lines-controller'
+import {
+  makeListButtonOfficialLinesController,
+  makeListButtonUnofficialLinesController,
+} from './main/make-list-button-lines-controller'
 import { makeSendWidgetTemplateController } from './main/make-send-widget-template-controller'
+import { makeSendWidgetButtonController } from './main/make-send-widget-button-controller'
 import { widgetMessageUploadParser } from './infra/http/widget-message-upload.multer'
 import { makeAddGroupParticipantsController } from './main/make-add-group-participants-controller'
 import { makeCreateGroupController } from './main/make-create-group-controller'
@@ -29,6 +34,10 @@ import { makeListAllowedUsersController } from './main/make-list-allowed-users-c
 import { makeAddAllowedUserController } from './main/make-add-allowed-user-controller'
 import { makeRemoveAllowedUserController } from './main/make-remove-allowed-user-controller'
 import { makeUpdateAllowedUserPermissionsController } from './main/make-update-allowed-user-permissions-controller'
+import {
+  makeGetDisconnectNotifySettingsController,
+  makeUpdateDisconnectNotifySettingsController,
+} from './main/make-disconnect-notify-settings-controllers'
 import { makeListAllowedDepartmentsController } from './main/make-list-allowed-departments-controller'
 import { makeAddAllowedDepartmentController } from './main/make-add-allowed-department-controller'
 import { makeRemoveAllowedDepartmentController } from './main/make-remove-allowed-department-controller'
@@ -105,6 +114,12 @@ export const createThinkerszapRoutes = (): Router => {
     '/messages/send-widget-template',
     adaptControllerFactory(makeSendWidgetTemplateController),
   )
+  // Botões funcionam nos dois providers — ao contrário de `send-widget-template`,
+  // não há restrição de linha aqui.
+  router.post(
+    '/messages/send-widget-button',
+    adaptControllerFactory(makeSendWidgetButtonController),
+  )
   /**
    * As três rotas abaixo ficam no bloco do widget, sem
    * `requireThinkzapPermission('connectors', 'read')`: o operador do contact center
@@ -129,6 +144,16 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/messages/template-lines',
     adaptControllerFactory(makeListTemplateLinesController),
+  )
+  // Linhas capazes de enviar botão, uma rota por provider — mesmo raciocínio
+  // de `/messages/template-lines`, para as telas dos dois robôs de botão.
+  router.get(
+    '/messages/button-lines/official',
+    adaptControllerFactory(makeListButtonOfficialLinesController),
+  )
+  router.get(
+    '/messages/button-lines/unofficial',
+    adaptControllerFactory(makeListButtonUnofficialLinesController),
   )
 
   // Antes do `thinkzapAccessMiddleware`: ele responde 403 sem acesso, e esta rota
@@ -176,6 +201,19 @@ export const createThinkerszapRoutes = (): Router => {
     '/access/allowed-users/:bitrixUserId',
     requireThinkzapAdmin,
     adaptControllerFactory(makeRemoveAllowedUserController),
+  )
+
+  // Lista de usuários avisados no chat interno do Bitrix quando uma linha Z-API
+  // desconecta. App-wide, mesma permissão do resto da administração de acesso.
+  router.get(
+    '/disconnect-notify-settings',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeGetDisconnectNotifySettingsController),
+  )
+  router.patch(
+    '/disconnect-notify-settings',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeUpdateDisconnectNotifySettingsController),
   )
 
   router.get(

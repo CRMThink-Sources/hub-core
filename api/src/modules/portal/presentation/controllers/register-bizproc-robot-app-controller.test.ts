@@ -14,6 +14,8 @@ describe('RegisterBizprocRobotAppController', () => {
     vi.mocked(registerBizprocRobotForApp).mockResolvedValue({
       result: 'created',
       templateResult: 'created',
+      buttonOfficialResult: 'created',
+      buttonUnofficialResult: 'created',
     })
 
     const response = await controller.perform(
@@ -25,6 +27,8 @@ describe('RegisterBizprocRobotAppController', () => {
     expect(response.result).toEqual({
       result: 'created',
       templateResult: 'created',
+      buttonOfficialResult: 'created',
+      buttonUnofficialResult: 'created',
     })
   })
 

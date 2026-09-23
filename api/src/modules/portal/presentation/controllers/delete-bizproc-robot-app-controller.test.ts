@@ -14,6 +14,8 @@ describe('DeleteBizprocRobotAppController', () => {
     vi.mocked(deleteBizprocRobotForApp).mockResolvedValue({
       result: 'deleted',
       templateResult: 'deleted',
+      buttonOfficialResult: 'deleted',
+      buttonUnofficialResult: 'deleted',
     })
 
     const response = await controller.perform(
@@ -25,6 +27,8 @@ describe('DeleteBizprocRobotAppController', () => {
     expect(response.result).toEqual({
       result: 'deleted',
       templateResult: 'deleted',
+      buttonOfficialResult: 'deleted',
+      buttonUnofficialResult: 'deleted',
     })
   })
 

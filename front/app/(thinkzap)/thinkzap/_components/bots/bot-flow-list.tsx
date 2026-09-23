@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { Bot, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import type { OpenChannel } from '../../_lib/bot-flow-client'
 import type { BotFlowBinding, BotFlowSummary } from '@/shared/thinkzap-bot-flow'
@@ -26,12 +27,6 @@ const STATUS_STYLE: Record<BotFlowSummary['status'], string> = {
   ARCHIVED: 'bg-muted text-muted-foreground',
 }
 
-const STATUS_LABEL: Record<BotFlowSummary['status'], string> = {
-  PUBLISHED: 'Publicada',
-  DRAFT: 'Rascunho',
-  ARCHIVED: 'Arquivada',
-}
-
 export function BotFlowList({
   flows,
   bindings,
@@ -43,6 +38,7 @@ export function BotFlowList({
   onVincular,
   onDesvincular,
 }: Props) {
+  const { t } = useTranslation('thinkzap/bots/lista')
   const [excluindo, setExcluindo] = useState<string | null>(null)
 
   // `find` por linha da tabela seria O(n²)
@@ -57,10 +53,10 @@ export function BotFlowList({
     return new Map(
       bindings.map(binding => [
         binding.lineId,
-        nomes.get(binding.flowId) ?? 'outro fluxo',
+        nomes.get(binding.flowId) ?? t('outroFluxo'),
       ]),
     )
-  }, [bindings, flows])
+  }, [bindings, flows, t])
 
   if (flows.length === 0) {
     return (
@@ -69,11 +65,11 @@ export function BotFlowList({
           <Bot className="h-7 w-7 text-muted-foreground" />
         </div>
         <p className="text-sm font-semibold text-foreground">
-          Nenhum fluxo criado
+          {t('vazio.titulo')}
         </p>
         <Button onClick={onCreate}>
           <Plus className="h-4 w-4" />
-          Criar fluxo
+          {t('vazio.acao')}
         </Button>
       </div>
     )
@@ -88,31 +84,38 @@ export function BotFlowList({
     <div className="flex flex-col gap-3">
       {inertes.length > 0 ? (
         <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-          {inertes.length === 1
-            ? `"${inertes[0]?.name}" está publicada mas ainda não atende ninguém — escolha um canal aberto em "Atende em".`
-            : `${inertes.length} fluxos publicados ainda não atendem ninguém — escolha um canal aberto em "Atende em".`}
+          {t('inertes', {
+            count: inertes.length,
+            nome: inertes[0]?.name ?? '',
+          })}
         </p>
       ) : null}
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <table className="min-w-full text-left text-sm">
+        <table className="w-full table-fixed text-left text-sm">
+          {/* Larguras declaradas: com `auto` o navegador media cada coluna pelo conteúdo
+              da linha, então a mesma coluna mudava de borda conforme o fluxo listado. */}
+          <colgroup>
+            <col className="w-[22%]" />
+            <col className="w-[14%]" />
+            <col />
+            <col className="w-24" />
+          </colgroup>
           <thead>
-            <tr className="border-b border-border bg-muted text-[11px] uppercase tracking-wide text-muted-foreground">
-              <th className="px-4 py-3 font-semibold">Fluxo</th>
-              <th className="px-4 py-3 font-semibold">Situação</th>
-              <th className="px-4 py-3 font-semibold">Atende em</th>
-              <th className="px-4 py-3 font-semibold">Passos</th>
-              <th className="px-4 py-3 font-semibold">Versão</th>
-              <th className="px-4 py-3" />
+            <tr className="border-b border-border bg-muted text-[11px] uppercase tracking-wide text-muted-foreground [&>th]:px-4 [&>th]:py-3 [&>th]:align-middle [&>th]:font-semibold">
+              <th>{t('colunas.fluxo')}</th>
+              <th>{t('colunas.situacao')}</th>
+              <th>{t('colunas.atendeEm')}</th>
+              <th />
             </tr>
           </thead>
           <tbody>
             {flows.map(flow => (
               <tr
                 key={flow.id}
-                className="border-b border-border last:border-0 hover:bg-muted/50"
+                className="border-b border-border last:border-0 hover:bg-muted/50 [&>td]:px-4 [&>td]:py-3 [&>td]:align-middle"
               >
-                <td className="px-4 py-3">
+                <td>
                   <button
                     type="button"
                     onClick={() => onOpen(flow.id)}
@@ -121,14 +124,14 @@ export function BotFlowList({
                     {flow.name}
                   </button>
                 </td>
-                <td className="px-4 py-3">
+                <td>
                   <span
                     className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[flow.status]}`}
                   >
-                    {STATUS_LABEL[flow.status]}
+                    {t(`status.${flow.status}`)}
                   </span>
                 </td>
-                <td className="px-4 py-3">
+                <td>
                   <CanalCell
                     flow={flow}
                     binding={porFlow.get(flow.id) ?? null}
@@ -139,19 +142,13 @@ export function BotFlowList({
                     onDesvincular={onDesvincular}
                   />
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {flow.nodeCount}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  v{flow.version}
-                </td>
-                <td className="px-4 py-3">
+                <td>
                   <div className="flex justify-end gap-1">
                     <Button
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => onOpen(flow.id)}
-                      aria-label="Editar fluxo"
+                      aria-label={t('acoes.editar')}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -163,7 +160,7 @@ export function BotFlowList({
                         setExcluindo(flow.id)
                         void onDelete(flow.id).finally(() => setExcluindo(null))
                       }}
-                      aria-label="Excluir fluxo"
+                      aria-label={t('acoes.excluir')}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>

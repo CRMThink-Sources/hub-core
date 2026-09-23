@@ -16,16 +16,16 @@ import {
 } from '@/bitrix'
 import { useThinkzapApi } from '@/app/hooks/use-thinkzap-api'
 import { useThinkzapAccess } from '@/app/hooks/use-thinkzap-permissions'
-import { PermissionsHeader } from '../_components/permissions-header'
+import { PermissionsHeader } from './permissions-header'
 import {
   PermissionsModeTabs,
   type PermissionsTabMode,
-} from '../_components/permissions-mode-tabs'
-import { PermissionsToolbar } from '../_components/permissions-toolbar'
-import { PermissionsAddResults } from '../_components/permissions-add-results'
-import { PermissionsFooterBar } from '../_components/permissions-footer-bar'
-import { PermissionsUsersTable } from '../_components/permissions-users-table'
-import { PermissionsDepartmentsTable } from '../_components/permissions-departments-table'
+} from './permissions-mode-tabs'
+import { PermissionsToolbar } from './permissions-toolbar'
+import { PermissionsAddResults } from './permissions-add-results'
+import { PermissionsFooterBar } from './permissions-footer-bar'
+import { PermissionsUsersTable } from './permissions-users-table'
+import { PermissionsDepartmentsTable } from './permissions-departments-table'
 import {
   DEFAULT_ALLOWED_USER_PERMISSIONS,
   THINKZAP_PERMISSION_CATEGORIES,
@@ -68,7 +68,7 @@ function isDeptDirty(
   return JSON.stringify(current) !== JSON.stringify(dept.permissions)
 }
 
-export default function PermissoesPage() {
+export function PermissoesSection() {
   const { t } = useTranslation('thinkzap/permissoes')
   const thinkzapAccess = useThinkzapAccess()
   const api = useThinkzapApi()
@@ -410,7 +410,7 @@ export default function PermissoesPage() {
 
   if (!canManage) {
     return (
-      <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="flex w-full min-w-0 flex-col gap-4">
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {t('adminOnly')}
         </p>
@@ -425,7 +425,7 @@ export default function PermissoesPage() {
       : filteredDepartments.length === 0
 
   return (
-    <div className="relative mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 pb-4 pt-6 sm:px-6 lg:px-8">
+    <div className="relative flex w-full min-w-0 flex-col gap-6">
       <BX24Script onLoad={() => setScriptLoaded(true)} />
 
       <PermissionsHeader />

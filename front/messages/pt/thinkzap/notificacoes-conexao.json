@@ -1,0 +1,21 @@
+{
+  "pageTitle": "Notificações de conexão",
+  "pageDescription": "Usuários que receberão um aviso no chat interno do Bitrix24 quando uma conexão do WhatsApp conectar ou desconectar.",
+  "adminOnly": "Apenas administradores do Thinkzap podem configurar esta página.",
+  "loadError": "Não foi possível carregar as configurações.",
+  "saveError": "Não foi possível salvar as configurações.",
+  "carregando": "Carregando…",
+  "nenhumUsuario": "Nenhum usuário ativo encontrado.",
+  "destinatarios": "Destinatários",
+  "destinatariosDescricao": "Selecione quem deve ser avisado quando uma linha conectar ou desconectar.",
+  "contagemSelecionados": "{{count}} selecionado(s)",
+  "limparTodos": "Limpar todos",
+  "semSelecionados": "Nenhum destinatário selecionado ainda.",
+  "removerDestinatario": "Remover {{name}}",
+  "buscarUsuario": "Buscar usuário…",
+  "nenhumResultado": "Nenhum usuário encontrado.",
+  "alteracoesNaoSalvas": "Alterações não salvas",
+  "tudoSalvo": "Tudo salvo",
+  "salvar": "Salvar",
+  "salvando": "Salvando…"
+}

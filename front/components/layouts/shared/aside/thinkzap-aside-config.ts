@@ -16,9 +16,10 @@ export const THINKZAP_ASIDE_CONFIG = {
       // icon: '/images/thinkzap/connection.png',
     },
     // `/thinkzap/financeiro` saiu com a cobrança antiga; a tela nova entra aqui.
+    // Permissões e notificações de conexão, em sub-abas da mesma página.
     {
-      href: '/thinkzap/permissoes',
-      label: 'permissoes',
+      href: '/thinkzap/administracao',
+      label: 'administracao',
       // icon: '/images/thinkzap/manual.png',
     },
     {
@@ -30,15 +31,11 @@ export const THINKZAP_ASIDE_CONFIG = {
       label: 'logs',
       // icon: '/images/thinkzap/manual.png',
     },
+    // Manual e diretrizes de uso, na mesma página.
     {
       href: '/thinkzap/ajuda',
-      label: 'centralDeAjuda',
+      label: 'ajuda',
       // icon: '/images/thinkzap/manual.png',
-    },
-    {
-      href: '/thinkzap/diretrizes',
-      label: 'diretrizes',
-      // icon: '/images/thinkzap/diretrizes.png',
     },
   ],
   linksNamespace: 'thinkzap/aside',

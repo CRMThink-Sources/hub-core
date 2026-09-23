@@ -128,15 +128,46 @@ const conditionNodeSchema = z.object({
     .array(z.object({ when: varTestSchema, next: nodeIdSchema }))
     .min(1),
   otherwise: nodeIdSchema,
+  // Rótulo de origem, só para o editor. `optional` porque todo fluxo salvo antes disto
+  // não tem o campo.
+  recipeId: z.string().max(40).optional(),
 })
 
-// Sem `min(1)` nos ids: o editor grava o alvo antes de escolher o atendente. Alvo sem
-// id é `handoff-target-incomplete` em `validateFlowGraph`, que aponta o nó.
-const handoffTargetSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('queue') }),
-  z.object({ type: z.literal('user'), bitrixUserId: z.string() }),
-  z.object({ type: z.literal('line'), lineId: z.string() }),
-])
+// Sem `min(1)` nos ids nem na lista: o editor grava o alvo antes de escolher o atendente.
+// Alvo vazio é `handoff-target-incomplete` em `validateFlowGraph`, que aponta o nó.
+//
+// O teto de 50 atendentes existe porque a lista é percorrida a cada entrega e nada no
+// editor impede colar um portal inteiro.
+const handoffTargetSchema = z.preprocess(
+  migrateUserTarget,
+  z.discriminatedUnion('type', [
+    z.object({ type: z.literal('queue') }),
+    z.object({ type: z.literal('line'), lineId: z.string() }),
+    z.object({
+      type: z.literal('evenly'),
+      bitrixUserIds: z.array(z.string()).max(50),
+    }),
+    z.object({
+      type: z.literal('all'),
+      bitrixUserIds: z.array(z.string()).max(50),
+    }),
+  ]),
+)
+
+/**
+ * Alvo salvo antes da distribuição guarda `{ type: 'user', bitrixUserId }` — um atendente
+ * só. Vira `evenly` com um item: o rodízio de um nome é o próprio nome, então o fluxo
+ * publicado continua entregando para quem já entregava.
+ */
+function migrateUserTarget(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw
+
+  const target = raw as { type?: unknown; bitrixUserId?: unknown }
+  if (target.type !== 'user') return raw
+
+  const id = typeof target.bitrixUserId === 'string' ? target.bitrixUserId : ''
+  return { type: 'evenly', bitrixUserIds: id.trim() ? [id] : [] }
+}
 
 const handoffNodeSchema = z.object({
   id: nodeIdSchema,
@@ -329,10 +360,7 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
         issues.push({
           code: 'handoff-target-incomplete',
           nodeId: node.id,
-          detail:
-            alvo.type === 'user'
-              ? 'entrega para atendente sem atendente escolhido'
-              : 'entrega para canal aberto sem canal escolhido',
+          detail: `entrega ${faltaNoAlvo(alvo)}`,
         })
       }
     }
@@ -356,10 +384,7 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
   if (escape && !isTargetComplete(escape)) {
     issues.push({
       code: 'escape-target-incomplete',
-      detail:
-        escape.type === 'user'
-          ? 'saída de emergência sem atendente escolhido'
-          : 'saída de emergência sem canal escolhido',
+      detail: `saída de emergência ${faltaNoAlvo(escape)}`,
     })
   }
 
@@ -412,11 +437,20 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
   return issues
 }
 
-/** Alvo `queue` já é completo; `user` e `line` nascem sem id no editor. */
+/** Alvo `queue` já é completo; os outros nascem sem canal nem atendente no editor. */
 function isTargetComplete(target: HandoffTarget): boolean {
-  if (target.type === 'user') return target.bitrixUserId.trim() !== ''
   if (target.type === 'line') return target.lineId.trim() !== ''
+  if (target.type === 'evenly' || target.type === 'all') {
+    return target.bitrixUserIds.some(id => id.trim() !== '')
+  }
   return true
+}
+
+/** O que falta escolher, em uma frase. Prefixado pelo chamador. */
+function faltaNoAlvo(target: HandoffTarget): string {
+  return target.type === 'line'
+    ? 'sem canal escolhido'
+    : 'sem atendente escolhido'
 }
 
 function indexById(graph: BotFlowGraph): Map<NodeId, BotFlowGraph['nodes'][0]> {

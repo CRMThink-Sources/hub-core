@@ -27,6 +27,8 @@
     "backfill:spa-item-resource-mirror": "tsx src/scripts/backfill-spa-item-resource-mirror.ts",
     "backfill:zapi-contact-lid": "tsx src/scripts/backfill-zapi-contact-lid.ts",
     "backfill:line-name-from-zapi": "tsx src/scripts/backfill-line-name-from-zapi.ts",
+    "backfill:line-connected-field": "tsx src/scripts/backfill-line-connected-field.ts",
+    "hubmessage:sync-channel-webhook-events": "tsx src/scripts/sync-hubmessage-channel-webhook-events.ts",
     "prune:widget-outbox": "tsx src/scripts/prune-widget-outbox.ts",
     "list:payment-plans": "tsx src/scripts/list-payment-plans.ts",
     "check:subscription-fields": "tsx src/scripts/check-subscription-fields.ts",

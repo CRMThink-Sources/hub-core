@@ -7,6 +7,11 @@
     "aguardandoConexao": "Esperando conexión",
     "cancelado": "Cancelado"
   },
+  "conexaoStatus": {
+    "conectado": "Conectado",
+    "desconectado": "Desconectado",
+    "semRegistro": "Sin registro"
+  },
   "conexao": {
     "sucesso": "Número conectado con éxito",
     "cancelada": "Conexión cancelada",

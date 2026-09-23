@@ -24,6 +24,7 @@ export const axiosGptMaker = (authTokenKey = AUTH_TOKEN_KEY) => {
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true',
     },
   })
   axiosInstance.interceptors.response.use(

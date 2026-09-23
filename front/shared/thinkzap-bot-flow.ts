@@ -56,10 +56,18 @@ export const VAR_OPERATORS: VarOperator[] = [
   'contains',
 ]
 
-/** Condição em uma linha. Antes o cartão contava os ramos sem dizer o que testam. */
-export function describeVarTest(test: VarTest): string {
-  const nome = test.var.trim() || 'variável'
-  const operador = VAR_OPERATOR_LABEL[test.op]
+/**
+ * Condição em uma linha. Antes o cartão contava os ramos sem dizer o que testam.
+ *
+ * Os rótulos entram por parâmetro porque a tela é traduzida: o padrão em português
+ * serve a quem chama sem `i18n` (testes, uso fora de componente).
+ */
+export function describeVarTest(
+  test: VarTest,
+  labels?: { operadores?: Record<VarOperator, string>; variavel?: string },
+): string {
+  const nome = test.var.trim() || labels?.variavel || 'variável'
+  const operador = (labels?.operadores ?? VAR_OPERATOR_LABEL)[test.op]
 
   if (test.op === 'empty' || test.op === 'notEmpty') {
     return `${nome} ${operador}`
@@ -69,24 +77,82 @@ export function describeVarTest(test: VarTest): string {
 }
 
 export type HandoffTarget =
+  /** Canal Aberto — o mesmo canal em que a conversa já está. */
   | { type: 'queue' }
-  | { type: 'user'; bitrixUserId: string }
+  /** Canal Aberto — outro canal do portal. */
   | { type: 'line'; lineId: string }
+  /** Uniformemente: rodízio entre os selecionados, um por conversa. */
+  | { type: 'evenly'; bitrixUserIds: string[] }
+  /** Para Todos: cai na fila do canal, que avisa os selecionados conforme a config dele. */
+  | { type: 'all'; bitrixUserIds: string[] }
 
 export type HandoffTargetType = HandoffTarget['type']
 
-/** Rótulos do seletor de entrega, na ordem em que o painel os oferece. */
-export const HANDOFF_TARGET_LABEL: Record<HandoffTargetType, string> = {
-  queue: 'Fila do canal aberto',
-  user: 'Atendente específico',
-  line: 'Outro canal aberto',
-}
-
+/** Espelha os literais do `handoffTargetSchema` do servidor. Não é a ordem do seletor. */
 export const HANDOFF_TARGET_TYPES: HandoffTargetType[] = [
   'queue',
-  'user',
   'line',
+  'evenly',
+  'all',
 ]
+
+/**
+ * Como a conversa é distribuída na entrega. `queue` e `line` são a mesma opção do seletor
+ * ("Canal Aberto"), separadas só por qual canal recebe.
+ */
+export type HandoffDistribution = 'channel' | 'evenly' | 'all'
+
+/** Rótulos do seletor de distribuição, na ordem em que o painel os oferece. */
+export const HANDOFF_DISTRIBUTION_LABEL: Record<HandoffDistribution, string> = {
+  channel: 'Canal Aberto',
+  evenly: 'Uniformemente',
+  all: 'Para Todos',
+}
+
+/** Uma linha por opção: o rótulo sozinho não diz quem acaba recebendo a conversa. */
+export const HANDOFF_DISTRIBUTION_HINT: Record<HandoffDistribution, string> = {
+  channel: 'a fila do canal aberto escolhe o atendente',
+  evenly: 'rodízio entre os atendentes selecionados',
+  all: 'todos os selecionados são avisados pela fila do canal',
+}
+
+export const HANDOFF_DISTRIBUTIONS: HandoffDistribution[] = [
+  'channel',
+  'evenly',
+  'all',
+]
+
+/** Qual opção do seletor representa o alvo. */
+export function targetDistribution(target: HandoffTarget): HandoffDistribution {
+  if (target.type === 'evenly') return 'evenly'
+  if (target.type === 'all') return 'all'
+  return 'channel'
+}
+
+/** Atendentes do alvo. Vazio em `Canal Aberto`, que não tem lista. */
+export function targetUserIds(target: HandoffTarget): string[] {
+  return target.type === 'evenly' || target.type === 'all'
+    ? target.bitrixUserIds
+    : []
+}
+
+/**
+ * Troca de opção mantendo o que a nova entende: a lista sobrevive entre `evenly` e `all`,
+ * mas não vira `bitrixUserIds` num alvo de canal, que o zod do servidor recusa no `PATCH`.
+ */
+export function withDistribution(
+  distribution: HandoffDistribution,
+  anterior: HandoffTarget | null,
+): HandoffTarget {
+  if (distribution === 'channel') {
+    return anterior?.type === 'line' ? anterior : { type: 'queue' }
+  }
+
+  return {
+    type: distribution,
+    bitrixUserIds: targetUserIds(anterior ?? { type: 'queue' }),
+  }
+}
 
 export type MessageNode = {
   id: NodeId
@@ -135,6 +201,12 @@ export type ConditionNode = {
   name?: NodeName
   branches: Array<{ when: VarTest; next: NodeId }>
   otherwise: NodeId
+  /**
+   * Receita que criou o bloco (`ja-e-cliente`, …). Só o editor lê: uma receita pergunta
+   * uma coisa e tem duas respostas, então lá o painel não oferece mais condições. O motor
+   * ignora — o bloco continua sendo um `condition` comum.
+   */
+  recipeId?: string
 }
 
 export type HandoffNode = {
@@ -264,11 +336,21 @@ export const NODE_KIND_ORDER: FlowNodeKind[] = [
 
 /** Separa o que o bot fala do que acontece com o atendimento. */
 export const NODE_KIND_GROUPS: Array<{
+  /** Chave de tradução do grupo — o `titulo` é o fallback em português. */
+  id: 'conversa' | 'acoes'
   titulo: string
   kinds: FlowNodeKind[]
 }> = [
-  { titulo: 'Conversa', kinds: ['message', 'question', 'input'] },
-  { titulo: 'Ações do chat', kinds: ['condition', 'handoff', 'finish'] },
+  {
+    id: 'conversa',
+    titulo: 'Conversa',
+    kinds: ['message', 'question', 'input'],
+  },
+  {
+    id: 'acoes',
+    titulo: 'Ações do chat',
+    kinds: ['condition', 'handoff', 'finish'],
+  },
 ]
 
 /** Uma linha de ajuda por tipo: o rótulo sozinho não diz o que o bloco faz. */
@@ -461,6 +543,7 @@ export const NODE_RECIPES: NodeRecipe[] = [
       id,
       kind: 'condition',
       name: 'Já é cliente?',
+      recipeId: 'ja-e-cliente',
       // `contatoId` e não `leadId`: o Bitrix abre um lead sozinho no primeiro contato,
       // então lead preenchido não distingue cliente de desconhecido.
       branches: [{ when: { var: 'contatoId', op: 'notEmpty' }, next: id }],
@@ -476,6 +559,7 @@ export const NODE_RECIPES: NodeRecipe[] = [
       id,
       kind: 'condition',
       name: 'Tem negócio aberto?',
+      recipeId: 'tem-negocio',
       branches: [{ when: { var: 'negocioId', op: 'notEmpty' }, next: id }],
       otherwise: id,
     }),

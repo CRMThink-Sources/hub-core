@@ -22,6 +22,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Map as MapIcon, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type {
   BotFlowGraph,
   FlowIssue,
@@ -29,18 +30,14 @@ import type {
   FlowNodeKind,
   NodeId,
 } from '@/shared/thinkzap-bot-flow'
-import {
-  NODE_KIND_LABEL,
-  NODE_RECIPES,
-  removeNode,
-} from '@/shared/thinkzap-bot-flow'
+import { NODE_RECIPES, removeNode } from '@/shared/thinkzap-bot-flow'
 import {
   clearPort,
   isPortRenameable,
-  nodePorts,
   parsePortId,
   setPortLabel,
   setPortTarget,
+  visibleNodePorts,
 } from '@/shared/thinkzap-flow-graph'
 import { canvasEdges, edgesKey } from '@/shared/thinkzap-flow-edges'
 import { insertAfter } from '@/shared/thinkzap-flow-insert'
@@ -73,6 +70,8 @@ export function FlowCanvas({
   /** Cartão de edição do bloco selecionado. Vem de fora; aqui só entra o posicionamento. */
   editor?: React.ReactNode
 }) {
+  const { t } = useTranslation('thinkzap/bots/editor')
+  const { t: tc } = useTranslation('thinkzap/bots/comum')
   // Estado próprio dos nós: durante o arrasto o canvas é a única fonte de posição, e o
   // grafo só recebe no fim — senão o bloco piscava de volta à posição antiga.
   const [nodes, setNodes] = useState<Node[]>([])
@@ -141,9 +140,15 @@ export function FlowCanvas({
   const criarReceita = useCallback(
     (recipeId: string) => {
       const receita = NODE_RECIPES.find(atual => atual.id === recipeId)
-      if (receita) criar(receita.make)
+      // Nome traduzido: `make` nasce com o rótulo em português.
+      if (receita) {
+        criar(id => ({
+          ...receita.make(id),
+          name: tc(`receitas.${receita.id}.label`),
+        }))
+      }
     },
-    [criar],
+    [criar, tc],
   )
 
   /** Menu abre à direita da saída. Coordenadas do fluxo: o portal segue pan/zoom. */
@@ -152,7 +157,7 @@ export function FlowCanvas({
     const node = graph.nodes.find(current => current.id === criandoEm.nodeId)
     if (!node?.position) return null
 
-    const portas = nodePorts(node)
+    const portas = visibleNodePorts(node)
     const indice = Math.max(
       0,
       portas.findIndex(port => port.id === criandoEm.portId),
@@ -468,8 +473,7 @@ export function FlowCanvas({
           position="top-center"
           className="m-2 rounded-lg border border-border/60 bg-card/85 px-2.5 py-1 text-[10px] text-muted-foreground shadow-sm backdrop-blur-sm"
         >
-          Clique no + para adicionar o próximo passo · clique no bloco para
-          editar · clique na linha e Delete apaga
+          {t('canvas.legenda')}
         </Panel>
         {/* Recolhido por padrão: aberto, cobre o canto onde os blocos finais caem. */}
         {mapaAberto ? (
@@ -489,8 +493,12 @@ export function FlowCanvas({
             type="button"
             onClick={() => setMapaAberto(aberto => !aberto)}
             aria-pressed={mapaAberto}
-            aria-label={mapaAberto ? 'Ocultar mapa' : 'Mostrar mapa'}
-            title={mapaAberto ? 'Ocultar mapa' : 'Mostrar mapa'}
+            aria-label={
+              mapaAberto ? t('canvas.ocultarMapa') : t('canvas.mostrarMapa')
+            }
+            title={
+              mapaAberto ? t('canvas.ocultarMapa') : t('canvas.mostrarMapa')
+            }
             className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
           >
             {mapaAberto ? (

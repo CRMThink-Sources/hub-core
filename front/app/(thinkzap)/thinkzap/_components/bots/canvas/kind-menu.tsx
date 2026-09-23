@@ -2,14 +2,10 @@
 
 import { useEffect } from 'react'
 import { X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { FlowNodeKind } from '@/shared/thinkzap-bot-flow'
 import { KIND_ICON, KIND_ICON_COLOR } from './kind-visual'
-import {
-  NODE_KIND_GROUPS,
-  NODE_KIND_HINT,
-  NODE_KIND_LABEL,
-  NODE_RECIPES,
-} from '@/shared/thinkzap-bot-flow'
+import { NODE_KIND_GROUPS, NODE_RECIPES } from '@/shared/thinkzap-bot-flow'
 
 /**
  * Menu de tipos, aberto pelo `+` de uma saída.
@@ -31,6 +27,9 @@ export function KindMenu({
   onEscolherReceita?: (recipeId: string) => void
   onFechar: () => void
 }) {
+  const { t } = useTranslation('thinkzap/bots/editor')
+  const { t: tc } = useTranslation('thinkzap/bots/comum')
+
   useEffect(() => {
     const aoTeclar = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onFechar()
@@ -43,11 +42,11 @@ export function KindMenu({
     <div className="nodrag nowheel nopan w-59 overflow-hidden rounded-xl border border-border bg-card shadow-xl">
       <div className="flex items-center gap-2 px-3 pb-1 pt-2.5">
         <span className="flex-1 text-[12px] font-semibold text-foreground">
-          Qual a interação que deseja?
+          {t('menu.titulo')}
         </span>
         <button
           type="button"
-          aria-label="Fechar"
+          aria-label={t('menu.fechar')}
           onClick={onFechar}
           className="cursor-pointer text-muted-foreground hover:text-foreground"
         >
@@ -57,9 +56,9 @@ export function KindMenu({
 
       <div className="px-2 pb-2.5">
         {NODE_KIND_GROUPS.map(grupo => (
-          <div key={grupo.titulo}>
+          <div key={grupo.id}>
             <p className="px-1 pb-1.5 pt-2 text-[10px] font-medium text-primary">
-              {grupo.titulo}
+              {tc(`grupos.${grupo.id}`)}
             </p>
 
             <div className="grid grid-cols-2 gap-1.5">
@@ -72,14 +71,14 @@ export function KindMenu({
                     type="button"
                     onClick={() => onEscolher(kind)}
                     /* A dica virou `title`: no chip ela não cabe, mas continua ao alcance. */
-                    title={NODE_KIND_HINT[kind]}
+                    title={tc(`dicas.${kind}`)}
                     className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border/70 px-2 py-1.5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                   >
                     <Icon
                       className={`h-3.5 w-3.5 shrink-0 ${KIND_ICON_COLOR[kind]}`}
                     />
                     <span className="min-w-0 truncate text-[11px] text-foreground">
-                      {NODE_KIND_LABEL[kind]}
+                      {tc(`tipos.${kind}`)}
                     </span>
                   </button>
                 )
@@ -91,7 +90,7 @@ export function KindMenu({
         {onEscolherReceita ? (
           <div>
             <p className="px-1 pb-1.5 pt-2 text-[10px] font-medium text-primary">
-              Prontos
+              {t('menu.prontos')}
             </p>
 
             {/* Uma coluna: o rótulo é uma frase e não caberia no chip de meia largura. */}
@@ -104,14 +103,14 @@ export function KindMenu({
                     key={receita.id}
                     type="button"
                     onClick={() => onEscolherReceita(receita.id)}
-                    title={receita.hint}
+                    title={tc(`receitas.${receita.id}.hint`)}
                     className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border/70 px-2 py-1.5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                   >
                     <Icon
                       className={`h-3.5 w-3.5 shrink-0 ${KIND_ICON_COLOR[receita.kind]}`}
                     />
                     <span className="min-w-0 truncate text-[11px] text-foreground">
-                      {receita.label}
+                      {tc(`receitas.${receita.id}.label`)}
                     </span>
                   </button>
                 )

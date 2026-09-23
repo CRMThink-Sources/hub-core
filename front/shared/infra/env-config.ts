@@ -64,4 +64,15 @@ export const envConfig = {
    */
   thinkbotMenuEnabled:
     process.env.NEXT_PUBLIC_THINKZAP_THINKBOT_MENU_ENABLED !== 'false',
+  /**
+   * Página do ThinkZap no Bitrix24 Market — destino do "Instalar no Bitrix24" da
+   * LP e da tela de página restrita. Vazia = o botão não aparece.
+   */
+  thinkzapMarketUrl: (process.env.NEXT_PUBLIC_THINKZAP_MARKET_URL ?? '').trim(),
+  /**
+   * WhatsApp do comercial para o "Falar no WhatsApp" da LP. Aceita formatação
+   * (`+55 (11) 99999-0000`); `buildWhatsappLink` fica só com os dígitos. Vazio =
+   * o botão não aparece.
+   */
+  thinkzapSalesWhatsapp: process.env.NEXT_PUBLIC_THINKZAP_SALES_WHATSAPP ?? '',
 }

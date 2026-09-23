@@ -2,6 +2,7 @@ import { GetAplicationContext } from '@/modules/application/application/get-apli
 import { SubscriptionItemRepository } from '@/modules/application/domain/repositories/subscription-item.repository'
 import { HubMessageClient } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { apiLogger } from '@/shared/infra/logger'
+import type { SyncLineConnectedField } from './sync-line-connected-field'
 import { assertEnabledOfficialLineInContext } from './helpers/resolve-line-by-subscription-item'
 
 export type ConnectOfficialLineInput = {
@@ -41,6 +42,7 @@ export type ConnectOfficialLineResult = {
  * 3. recusa linha bloqueada         ← antes da HubMessage: não gasta a autenticação Meta
  * 4. POST /v1/channels/{id}/connect ← falha aqui sobe: nada foi gravado
  * 5. grava metadata.wabaId no item  ← falha aqui NÃO derruba: ver `recordWaba`
+ * 6. grava Conectado = Sim no item   ← falha aqui NÃO derruba: ver `recordConnected`
  * ```
  *
  * Os passos 2 e 3 estão em `assertEnabledOfficialLineInContext`, que é também a
@@ -52,6 +54,11 @@ export class ConnectOfficialLine {
     private readonly getAplicationContext: GetAplicationContext,
     private readonly hubMessageClient: HubMessageClient,
     private readonly items: SubscriptionItemRepository,
+    /**
+     * Grava `UF_CRM_93_CONNECTED` sem esperar o webhook `CONNECTED`. Opcional: sem
+     * ele, o campo fica só com o caminho do webhook.
+     */
+    private readonly syncConnected?: Pick<SyncLineConnectedField, 'execute'>,
   ) {}
 
   async execute(
@@ -82,8 +89,39 @@ export class ConnectOfficialLine {
     })
 
     const wabaRecorded = await this.recordWaba(line, input.wabaId)
+    await this.recordConnected(line)
 
     return { wabaId: input.wabaId, wabaRecorded }
+  }
+
+  /**
+   * Espelho para o CRM, não estado: **não lança**, pelo mesmo motivo de
+   * `recordWaba` — o canal já conectou, e o webhook `CONNECTED` ainda grava o
+   * campo se esta escrita se perder.
+   */
+  private async recordConnected(line: {
+    channelId: string
+    item: { id: string; connected?: boolean | null }
+  }): Promise<void> {
+    if (!this.syncConnected) return
+
+    try {
+      await this.syncConnected.execute({
+        itemId: line.item.id,
+        current: line.item.connected ?? null,
+        connected: true,
+      })
+    } catch (error) {
+      apiLogger.warn(
+        {
+          app: 'thinkzap',
+          itemId: line.item.id,
+          channelId: line.channelId,
+          err: error,
+        },
+        'Canal conectado e o campo Conectado não foi gravado no item da linha',
+      )
+    }
   }
 
   /**

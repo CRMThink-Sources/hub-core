@@ -10,9 +10,11 @@ import type {
  *
  * A lista **não** é mais montada a partir de conector/instância: a linha
  * contratada é o item da assinatura, e é ele que existe do ponto de vista do
- * cliente. Consequência aceita: status de conexão ao vivo, canal vinculado e
- * telefone não aparecem aqui — nada disso está no item. Essa informação passa a
- * viver na tela de configuração, que será replanejada.
+ * cliente. Consequência aceita: status de conexão **ao vivo**, canal vinculado e
+ * telefone não aparecem aqui — nada disso está no item, e ler o provider por linha
+ * custaria uma chamada por conector a cada carregamento. O que aparece é o último
+ * estado registrado no item (`connected`), gravado pelos eventos de conexão; a
+ * leitura ao vivo continua na aba de conexão da linha.
  */
 
 /** Provider da linha, como a UI rotula. */
@@ -43,6 +45,13 @@ export type SubscriptionLine = {
    * mapper do api já redige o token da Z-API.
    */
   providerRef: string | null
+  /**
+   * Último estado de conexão registrado no item — espelho gravado pelos eventos
+   * de conexão/desconexão, não leitura ao vivo. `null` = nunca registrado (linha
+   * que ainda não conectou desde que o campo existe, ou item sem conector).
+   * A aba de conexão da linha continua sendo a leitura autoritativa.
+   */
+  connected: boolean | null
 }
 
 /** O nome do plano de cada conector, como a composição do contrato o devolve. */
@@ -104,6 +113,7 @@ export function listSubscriptionLines(
         subscriptionId: subscription.id,
         planName: planNames?.get(item.metadata.provider) ?? '',
         providerRef: providerRef(item.metadata),
+        connected: item.connected ?? null,
       })),
     )
 }
@@ -190,6 +200,7 @@ export function listSendableLines(
           subscriptionId: subscription.id,
           planName: planNames?.get(item.metadata.provider) ?? '',
           providerRef: providerRef(item.metadata),
+          connected: item.connected ?? null,
         })),
     )
 }

@@ -9,6 +9,7 @@ import {
   portId,
   setPortLabel,
   setPortTarget,
+  visibleNodePorts,
 } from './thinkzap-flow-graph'
 import { autoLayout, nextFreePosition } from './thinkzap-flow-layout'
 
@@ -79,6 +80,43 @@ describe('nodePorts', () => {
     }
 
     expect(nodePorts(semRotulo)[0]?.label).toBe('Opção 1')
+  })
+})
+
+describe('visibleNodePorts', () => {
+  it('pergunta sem desvio ligado mostra só as opções', () => {
+    const pendente: FlowNode = { ...question, onExhausted: 'n2' }
+
+    expect(visibleNodePorts(pendente).map(port => port.id)).toEqual([
+      'option:0',
+      'option:1',
+    ])
+  })
+
+  it('desvio ligado continua no cartão, senão a aresta ficaria sem bolinha', () => {
+    expect(visibleNodePorts(question).map(port => port.id)).toEqual([
+      'option:0',
+      'option:1',
+      'exhausted',
+    ])
+  })
+
+  it('o desvio do input não é escondido', () => {
+    const input: FlowNode = {
+      id: 'n5',
+      kind: 'input',
+      text: 'nome?',
+      saveAs: 'nome',
+      validate: 'text',
+      next: 'n3',
+      maxAttempts: 3,
+      onExhausted: 'n5',
+    }
+
+    expect(visibleNodePorts(input).map(port => port.id)).toEqual([
+      'next',
+      'exhausted',
+    ])
   })
 })
 

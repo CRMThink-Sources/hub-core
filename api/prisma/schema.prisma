@@ -57,6 +57,7 @@ model App {
   biAnalyseConnectors        BiAnalyseConnector[]
   thinkAnaliseAuthTokens     ThinkAnaliseAuthToken[]
   thinkzapAllowedUsers       ThinkzapAllowedUser[]
+  thinkzapConnectionNotifyRecipients ThinkzapConnectionNotifyRecipient[]
   thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
   thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
   thinkzapBotFlows           ThinkzapBotFlow[]
@@ -283,6 +284,22 @@ model ThinkzapAllowedUser {
   @@map("thinkzap_allowed_users")
 }
 
+/// Destinatários (por Bitrix user id) do aviso de conexão/desconexão de linha Z-API,
+/// um por usuário. Substitui a lista antiga em `app.option` (`NotifyRecipientsService`),
+/// que "bugava" com o tempo — tabela relacional não tem parse de JSON pra corromper.
+model ThinkzapConnectionNotifyRecipient {
+  id           String   @id @default(uuid())
+  appId        String   @map("app_id")
+  bitrixUserId Int      @map("bitrix_user_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, bitrixUserId])
+  @@index([appId])
+  @@map("thinkzap_connection_notify_recipients")
+}
+
 model ThinkzapAllowedDepartment {
   id                 String   @id @default(uuid())
   appId              String   @map("app_id")
@@ -479,6 +496,12 @@ model ThinkzapWidgetOutbox {
   templateLanguage   String? @map("template_language")
   templateParameters Json?   @map("template_parameters")
 
+  /// Só existe em `kind = INTERACTIVE_BUTTON`: corpo, header/footer opcionais e a
+  /// lista de botões, no formato de `InteractiveButtonDescriptor`. Guardado como
+  /// veio do chamador — o worker remonta o descriptor direto daqui, sem
+  /// recompor a partir de `text`.
+  buttonPayload Json? @map("button_payload")
+
   status ThinkzapOutboxStatus @default(PENDING)
 
   /// **A marca de entrega.** Nulo = o provider não aceitou nada ainda. Preenchido = já
@@ -535,6 +558,9 @@ enum ThinkzapOutboxKind {
   /// Template aprovado do WhatsApp Oficial. O worker chama `TemplateMessageSender`
   /// com `templateName`, `templateLanguage` e `templateParameters`.
   TEMPLATE
+  /// Mensagem com botões de ação. O worker chama `InteractiveButtonSender` com o
+  /// descriptor gravado em `buttonPayload`.
+  INTERACTIVE_BUTTON
 }
 
 enum ThinkzapOutboxStatus {
@@ -676,6 +702,7 @@ enum ThinkzapMessageType {
   DOCUMENT
   STICKER
   CONTACT
+  INTERACTIVE_BUTTON
 }
 
 enum BiAnalyseProvider {

@@ -8,10 +8,11 @@ import {
   type NodeProps,
 } from '@xyflow/react'
 import { AlertCircle, Plus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { FlowIssue, FlowNode } from '@/shared/thinkzap-bot-flow'
-import { NODE_KIND_LABEL, describeVarTest } from '@/shared/thinkzap-bot-flow'
-import type { VarTest } from '@/shared/thinkzap-bot-flow'
-import { nodePorts } from '@/shared/thinkzap-flow-graph'
+import { describeVarTest } from '@/shared/thinkzap-bot-flow'
+import type { VarOperator, VarTest } from '@/shared/thinkzap-bot-flow'
+import { visibleNodePorts } from '@/shared/thinkzap-flow-graph'
 import { NODE_HEIGHT, NODE_WIDTH } from '@/shared/thinkzap-flow-layout'
 import {
   LANES,
@@ -56,11 +57,13 @@ const DOT = 10
 export function FlowBlock({ id, data, selected }: NodeProps) {
   const { node, isEntry, issues, ordem, onAdicionar, onRemover } =
     data as unknown as FlowBlockData
+  const { t } = useTranslation('thinkzap/bots/editor')
+  const { t: tc } = useTranslation('thinkzap/bots/comum')
 
   const Icon = KIND_ICON[node.kind]
-  const ports = nodePorts(node)
+  const ports = visibleNodePorts(node)
   const quebrado = issues.length > 0
-  const titulo = node.name?.trim() || NODE_KIND_LABEL[node.kind]
+  const titulo = node.name?.trim() || tc(`tipos.${node.kind}`)
   const fala = 'text' in node && node.text ? node.text : ''
 
   /** Cresce só quando as bolinhas não caberiam na borda com folga. */
@@ -123,7 +126,7 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
 
       {isEntry ? (
         <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary-foreground">
-          início
+          {t('bloco.inicio')}
         </span>
       ) : (
         <span className="absolute left-2 top-1.5 text-[10px] font-medium tabular-nums text-muted-foreground/40">
@@ -134,7 +137,7 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
       {quebrado ? (
         <span
           className="absolute right-1.5 top-1.5 text-destructive"
-          title={`${issues.length} problema${issues.length > 1 ? 's' : ''}`}
+          title={t('bloco.problemas', { count: issues.length })}
         >
           <AlertCircle className="h-4.5 w-4.5" />
         </span>
@@ -145,8 +148,8 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
       {isEntry ? null : (
         <button
           type="button"
-          aria-label="Excluir bloco"
-          title="Excluir bloco"
+          aria-label={t('bloco.excluir')}
+          title={t('bloco.excluir')}
           /* `stopPropagation`: sem barrar, o wrapper da lib seleciona o nó junto. */
           onClick={event => {
             event.stopPropagation()
@@ -174,10 +177,16 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
           {fala || (
             <span className="italic opacity-70">
               {node.kind === 'question' || node.kind === 'input'
-                ? 'sem pergunta'
+                ? t('bloco.semPergunta')
                 : node.kind === 'condition'
-                  ? resumoCondicao(node.branches)
-                  : 'sem mensagem'}
+                  ? resumoCondicao(node.branches, {
+                      operadores: tc('operadores', {
+                        returnObjects: true,
+                      }) as Record<VarOperator, string>,
+                      variavel: tc('variavel'),
+                      semCondicao: t('bloco.semCondicao'),
+                    })
+                  : t('bloco.semMensagem')}
             </span>
           )}
         </span>
@@ -229,12 +238,10 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
             <button
               type="button"
               aria-label={
-                pendente ? 'Adicionar próximo passo' : 'Inserir passo aqui'
+                pendente ? t('bloco.adicionarProximo') : t('bloco.inserirAqui')
               }
               title={
-                pendente
-                  ? 'Adicionar próximo passo'
-                  : 'Inserir um passo entre os dois'
+                pendente ? t('bloco.adicionarProximo') : t('bloco.inserirEntre')
               }
               /* `stopPropagation`: a lib põe a seleção do nó no wrapper, e sem
                  barrar o clique abria o painel junto com o menu. */
@@ -256,11 +263,18 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
 }
 
 /** Primeira condição por extenso, resto contado: o cartão tem duas linhas. */
-function resumoCondicao(branches: Array<{ when: VarTest }>): string {
+function resumoCondicao(
+  branches: Array<{ when: VarTest }>,
+  textos: {
+    operadores: Record<VarOperator, string>
+    variavel: string
+    semCondicao: string
+  },
+): string {
   const primeira = branches[0]
-  if (!primeira) return 'sem condição'
+  if (!primeira) return textos.semCondicao
 
-  const texto = describeVarTest(primeira.when)
+  const texto = describeVarTest(primeira.when, textos)
   const resto = branches.length - 1
 
   return resto > 0 ? `${texto} · +${resto}` : texto

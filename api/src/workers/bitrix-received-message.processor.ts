@@ -25,6 +25,14 @@ import { ensureBitrixBotId } from '@/modules/thinkzap/application/ensure-bitrix-
 import { notifyOperatorWindowClosed } from '@/modules/thinkzap/application/notify-operator-window-closed'
 import { resolveBitrixReplyContext } from '@/modules/thinkzap/application/resolve-bitrix-reply-context'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
+import { makeInteractiveButtonSenderResolver } from '@/modules/thinkzap/main/connector/make-interactive-button-sender-resolver'
+import {
+  isButtonActionCode,
+  decodeButtonActionCode,
+} from '@/modules/thinkzap/application/parse-button-action-code'
+import { assertValidButtonsForProvider } from '@/modules/thinkzap/domain/ports/interactive-button-validation'
+import { notifyOperatorButtonActionFailed } from '@/modules/thinkzap/application/notify-operator-button-action-failed'
+import type { InteractiveButtonSendResult } from '@/modules/thinkzap/domain/ports/interactive-button-sender.port'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import {
   findLineItemByChannelId,
@@ -41,6 +49,7 @@ import { redisConnection } from '@/queue/redis-connection'
 const log = createWorkerSourceLogger('bitrix')
 const messageRepo = new PrismaThinkzapMessageRepository()
 const outboundSenderResolver = makeOutboundSenderResolver()
+const interactiveButtonSenderResolver = makeInteractiveButtonSenderResolver()
 
 type BitrixMessageGetResult = {
   result: {
@@ -87,7 +96,7 @@ type PersistOutboundMessageInput = {
    * não tem onde aparecer.
    */
   bitrixChatId: string
-  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT'
+  type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'INTERACTIVE_BUTTON'
   text?: string
   fileName?: string
 }
@@ -413,6 +422,35 @@ export async function processBitrixReceivedMessage(
     domain: context.name,
   })
 
+  const botId = await ensureBitrixBotId(
+    bitrixClient,
+    redisConnection,
+    context.name,
+    env.appCodes.thinkzap,
+  )
+
+  /**
+   * A tela de botões do canal aberto não conhece o provider da linha (só o
+   * `dialogId` — ver design.md, Open Questions), então ela posta este texto
+   * especial, **como o operador**, no lugar de chamar o contrato neutro
+   * direto. Interceptado aqui, antes de qualquer descritor de texto/mídia ser
+   * montado ou enviado — é aqui que provider e destino já estão resolvidos,
+   * exatamente o que a tela não tinha.
+   */
+  if (isButtonActionCode(message.message.text ?? '')) {
+    await sendButtonActionMessage({
+      event,
+      message,
+      context,
+      provider,
+      chatId,
+      botId,
+      bitrixClient,
+      appendJobLog,
+    })
+    return
+  }
+
   const sender = outboundSenderResolver.resolve(provider, {
     instanceId: context.instance.instanceId,
     zApiToken: context.instance.zApiToken,
@@ -420,12 +458,6 @@ export async function processBitrixReceivedMessage(
     chatId,
   })
 
-  const botId = await ensureBitrixBotId(
-    bitrixClient,
-    redisConnection,
-    context.name,
-    env.appCodes.thinkzap,
-  )
   const response = await bitrixClient.callMethod<BitrixMessageGetResult>(
     'imbot.v2.Chat.Message.get',
     {
@@ -655,6 +687,175 @@ export async function processBitrixReceivedMessage(
 
   await appendJobLog(
     `Desfecho: ${descriptors.length} mensagem(ns) aceita(s) pelo ${provider} e confirmada(s) no Bitrix.`,
+  )
+}
+
+/**
+ * O envio de botões disparado pela tela do canal aberto, uma vez decodificado
+ * o texto especial que ela posta (ver `parse-button-action-code.ts`).
+ *
+ * Provider e destino já vêm resolvidos por quem chama — o mesmo contexto que
+ * toda mensagem de saída resolve —, então esta função não repete nada disso.
+ * Reaproveita a classificação de janela de 24h fechada
+ * (`isConversationWindowClosedError`) porque o adapter de botão propaga o
+ * mesmo `HubMessageApiError` cru que o de texto livre propaga — a
+ * distinção é do formato do erro, não de qual sender o lançou.
+ *
+ * Código malformado e tipo de botão inválido para o provider são os dois
+ * motivos permanentes: nenhum se resolve com retentativa, então os dois
+ * terminam com aviso ao operador no chat e **sem relançar** — mesmo
+ * tratamento da janela fechada.
+ */
+async function sendButtonActionMessage(params: {
+  event: IBX24MessageEvent
+  message: IBX24MessageEvent['data']['MESSAGES'][number]
+  context: BitrixWebhookContext
+  provider: ConnectorProvider
+  chatId: string
+  botId: number
+  bitrixClient: BitrixClient
+  appendJobLog: AppendJobLog
+}): Promise<void> {
+  const {
+    event,
+    message,
+    context,
+    provider,
+    chatId,
+    botId,
+    bitrixClient,
+    appendJobLog,
+  } = params
+
+  const logContext = {
+    domain: event.auth.domain,
+    instanceId: context.instance.instanceId,
+    chatId,
+    provider,
+    bitrixMessageId: message.im.message_id,
+  }
+
+  const descriptor = decodeButtonActionCode(message.message.text ?? '')
+
+  if (!descriptor) {
+    logThinkzapError(
+      log,
+      'thinkzap.message.button_action_failed',
+      { ...logContext, reason: 'malformed-code' },
+      {
+        level: 'error',
+        msg: 'Código de envio de botões malformado — nada foi enviado ao contato',
+      },
+    )
+    await appendJobLog(
+      'Código de botões da tela do canal aberto não pôde ser decodificado. ' +
+        'Nada foi enviado ao contato. Job encerrado SEM retentativa — o motivo é permanente.',
+    )
+    await notifyOperatorButtonActionFailed(
+      bitrixClient,
+      botId,
+      message.im.chat_id,
+      'a mensagem chegou corrompida. Tente novamente pela tela de botões.',
+    )
+    return
+  }
+
+  await appendJobLog(
+    `Código de botões decodificado: ${descriptor.buttons.length} botão(ões).`,
+  )
+
+  try {
+    assertValidButtonsForProvider(provider, descriptor.buttons)
+  } catch (err) {
+    logThinkzapError(
+      log,
+      'thinkzap.message.button_action_failed',
+      { ...logContext, reason: 'invalid-button-type', err },
+      {
+        level: 'warn',
+        msg: 'Tipo de botão não aceito pelo provider da linha — nada foi enviado',
+      },
+    )
+    await appendJobLog(
+      `Tipo de botão inválido para ${provider}: ${(err as Error).message}. ` +
+        'Nada foi enviado ao contato. Job encerrado SEM retentativa.',
+    )
+    await notifyOperatorButtonActionFailed(
+      bitrixClient,
+      botId,
+      message.im.chat_id,
+      (err as Error).message,
+    )
+    return
+  }
+
+  const sender = interactiveButtonSenderResolver.resolve(provider, {
+    channelId: context.instance.channelId ?? undefined,
+    instanceId: context.instance.instanceId,
+    instanceToken: context.instance.zApiToken ?? undefined,
+    recipientIdentifier: chatId,
+  })
+
+  let result: InteractiveButtonSendResult
+  try {
+    result = await sender.send(descriptor)
+  } catch (err) {
+    if (isConversationWindowClosedError(err)) {
+      logThinkzapError(
+        log,
+        'thinkzap.hubmessage.window_closed',
+        { ...logContext, conversationWindowClosed: true },
+        {
+          level: 'warn',
+          msg: 'HubMessage rejeitou o envio de botões por janela de 24h fechada — avisando operador sem retentar',
+        },
+      )
+      await appendJobLog(
+        'Provider recusou: janela de conversa de 24h fechada. Só template aprovado reabre — ' +
+          'operador avisado no chat, job encerrado SEM retentativa e sem entrega.',
+      )
+      await notifyOperatorWindowClosed(bitrixClient, botId, message.im.chat_id)
+      return
+    }
+
+    logThinkzapError(
+      log,
+      'thinkzap.hubmessage.send_failed',
+      { ...logContext, err },
+      { level: 'error' },
+    )
+    await appendJobLog(
+      `Falha no envio de botões via ${provider}: ${err instanceof Error ? err.message : String(err)}. ` +
+        'Job vai falhar — BullMQ retenta conforme as tentativas configuradas.',
+    )
+    throw err
+  }
+
+  log.info(
+    { ...logContext, providerMessageId: result.messageId },
+    'Button action message sent to contact',
+  )
+
+  await appendJobLog(
+    `${provider} aceitou os botões (HTTP 2xx): providerMessageId=${result.messageId}. ` +
+      'Aceite ≠ entrega — não há callback de status; rastrear por este id no provider.',
+  )
+
+  await persistOutboundMessage({
+    instanceId: context.instance.id,
+    providerMessageId: result.messageId,
+    bitrixMessageId: message.im.message_id,
+    chatId,
+    bitrixChatId: message.im.chat_id,
+    type: 'INTERACTIVE_BUTTON',
+    text: descriptor.body,
+  })
+
+  await setDelivered(bitrixClient, event, message, chatId, result.messageId)
+
+  await appendJobLog(
+    `Persistido no banco e confirmado no Bitrix (setMessageDelivered) | ` +
+      `bitrixMessageId=${message.im.message_id} → ${result.messageId}`,
   )
 }
 

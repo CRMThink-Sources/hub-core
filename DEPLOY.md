@@ -26,6 +26,11 @@ Em cada environment, adicione os seguintes secrets:
 > sem os três o server aborta o boot (`mcp/src/index.ts`) e o container entra em crash loop.
 > Mantenha `PORT=3200`: os composes mapeiam a porta do host pra 3200 dentro do container.
 
+> `ENV_FRONT` pode trazer `NEXT_PUBLIC_THINKZAP_MARKET_URL` (página do app no Bitrix24
+> Market) e `NEXT_PUBLIC_THINKZAP_SALES_WHATSAPP` (WhatsApp do comercial, com DDI) — são
+> os CTAs da LP pública `/lp/thinkzap`. Vazias, os botões somem. Por serem `NEXT_PUBLIC_*`,
+> trocar o valor exige rebuildar a imagem do front.
+
 ## 2. Preparar a VPS
 
 Execute estes comandos na VPS como root:

@@ -2,6 +2,7 @@
 
 import { useTranslation } from 'react-i18next'
 import { AdminClientImbotSection } from './admin-client-imbot-section'
+import { AdminClientButtonImbotSection } from './admin-client-button-imbot-section'
 import { AdminClientConversationWidgetSection } from './admin-client-conversation-widget-section'
 import { AdminClientSpaWidgetSection } from './admin-client-spa-widget-section'
 import { AdminClientBizprocRobotSection } from './admin-client-bizproc-robot-section'
@@ -25,6 +26,7 @@ export function AdminClientDeploymentSection({ appId }: Props) {
       </div>
 
       <AdminClientImbotSection appId={appId} />
+      <AdminClientButtonImbotSection appId={appId} />
       <AdminClientConversationWidgetSection appId={appId} />
       <AdminClientSpaWidgetSection appId={appId} />
       <AdminClientBizprocRobotSection appId={appId} />

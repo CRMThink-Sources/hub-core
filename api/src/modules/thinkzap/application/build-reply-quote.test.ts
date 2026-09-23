@@ -351,4 +351,28 @@ describe('extractQuoteInput', () => {
     const event = makeEvent({})
     expect(extractQuoteInput(event)).toEqual({ type: 'TEXT', text: '' })
   })
+
+  it('extracts buttonReply as TEXT', () => {
+    const event = makeEvent({
+      buttonReply: {
+        buttonId: 'btn-3',
+        message: 'Todo dia',
+        referenceMessageId: '8199496787A1F37BBEE0',
+      },
+    })
+    expect(extractQuoteInput(event)).toEqual({
+      type: 'TEXT',
+      text: 'Todo dia',
+    })
+  })
+})
+
+describe('buttonReply quoted in a later reply', () => {
+  it('renders as plain TEXT quote via buildReplyQuote', () => {
+    const cached: ThinkzapMessageQuoteInput = {
+      type: 'TEXT',
+      text: 'Todo dia',
+    }
+    expect(buildReplyQuote(cached)).toBe('>>Todo dia')
+  })
 })

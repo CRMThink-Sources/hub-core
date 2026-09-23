@@ -1,3 +1,4 @@
+import { makeSyncLineConnectedField } from '@/modules/thinkzap/main/make-sync-line-connected-field'
 import { Request } from 'express'
 import { env } from '@/config/env'
 import { ensureSubscriptionItemDeletionFields } from '@/modules/application/infra/bitrix/ensure-subscription-item-deletion-fields'
@@ -74,6 +75,7 @@ export const makeConnectLineChannelController = (): Controller => {
       getAplicationContext,
       hubMessageClient,
       subscriptionItems,
+      makeSyncLineConnectedField(),
     ),
   )
 }

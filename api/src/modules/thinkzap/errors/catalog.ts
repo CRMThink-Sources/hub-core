@@ -253,6 +253,22 @@ export const THINKZAP_ERRORS = {
       'Os demais destinatários seguiram; reexecutar a automação para o destinatário que falhou e acionar o suporte se persistir.',
     retriable: true,
   },
+  'thinkzap.bitrix.button_robot_refused': {
+    category: 'config',
+    userCause:
+      'O robô de envio de botões não disparou: a linha configurada não pode enviar botões por esse robô (bloqueada, provider incompatível, canal não conectado) ou nenhum destinatário/botão válido foi encontrado.',
+    remediation:
+      'Abrir a configuração do robô no fluxo, escolher uma linha do provider certo (oficial para o robô "WhatsApp Oficial", Z-API para o robô "Z-API") e conferir destino, corpo e botões.',
+    retriable: false,
+  },
+  'thinkzap.bitrix.button_robot_enqueue_failed': {
+    category: 'internal',
+    userCause:
+      'O robô de envio de botões não conseguiu registrar o envio de um destinatário.',
+    remediation:
+      'Os demais destinatários seguiram; reexecutar a automação para o destinatário que falhou e acionar o suporte se persistir.',
+    retriable: true,
+  },
   'thinkzap.line.messageservice_scope_missing': {
     category: 'config',
     userCause:
@@ -295,6 +311,23 @@ export const THINKZAP_ERRORS = {
       'Conferir se o app tem o escopo `imbot` liberado no portal e tentar vincular de novo.',
     retriable: true,
     httpStatus: 502,
+  },
+  /**
+   * `code` do bot já usado por outra instalação no mesmo portal.
+   *
+   * Nomeado porque o `BOT_CODE_ALREADY_TAKEN` cru chegava como "Não foi possível vincular"
+   * e não dizia o que fazer: o `code` é único no portal, e `imbot.v2.Bot.register` só é
+   * idempotente para o app que registrou o bot. Acontece quando dois ambientes nossos
+   * apontam para o mesmo Bitrix24.
+   */
+  'thinkzap.bot.code_taken': {
+    category: 'config',
+    userCause:
+      'Este portal já tem um ThinkBot registrado por outra instalação do app, e o mesmo identificador não pode ser usado duas vezes.',
+    remediation:
+      'Definir `BITRIX_BOT_FLOW_CODE` com um valor próprio neste ambiente (ex.: `thinkzap-flow-dev`) e vincular de novo.',
+    retriable: false,
+    httpStatus: 409,
   },
   // Antes do registro, e não depois de o Bitrix recusar: sem o escopo a chamada volta com
   // `ACCESS_DENIED` genérico, que manda o suporte investigar canal aberto e bot em vez da
@@ -609,6 +642,39 @@ export const THINKZAP_ERRORS = {
       'Conferir o número, se a linha é WhatsApp Oficial e se o template está aprovado; reenviar.',
     retriable: false,
     httpStatus: 400,
+  },
+  'thinkzap.message.widget_button_failed': {
+    category: 'validation',
+    userCause:
+      'Não foi possível enviar a mensagem com botões pelo widget de conversas.',
+    remediation:
+      'Conferir o número, a linha escolhida e se os botões preenchidos são aceitos por ela; reenviar.',
+    retriable: false,
+    httpStatus: 400,
+  },
+  'thinkzap.message.widget_button_provider_unavailable': {
+    category: 'integration',
+    userCause:
+      'O provider de WhatsApp está temporariamente indisponível; nenhuma mensagem com botões foi enviada.',
+    remediation:
+      'Tentar de novo em alguns minutos; se persistir, acionar o suporte.',
+    retriable: true,
+    httpStatus: 503,
+  },
+  /**
+   * Emitido pelo processor de saída do canal aberto (`bitrix-received-message.processor`)
+   * quando o texto do operador é o código de botões da tela do canal aberto — não um
+   * envio pelo provider ainda. Cobre os dois motivos permanentes (código malformado,
+   * tipo de botão que a linha não aceita); nenhum dos dois se resolve com retentativa,
+   * então o job encerra sem relançar e o operador é avisado no próprio chat.
+   */
+  'thinkzap.message.button_action_failed': {
+    category: 'validation',
+    userCause:
+      'O envio de botões da tela do canal aberto não pôde ser entregue ao provider.',
+    remediation:
+      'Conferir se os botões preenchidos são aceitos pela linha e reenviar pela tela.',
+    retriable: false,
   },
   /**
    * O envio enfileirado esgotou as tentativas sem que o provider aceitasse a mensagem.

@@ -68,4 +68,11 @@ export interface SubscriptionItem {
    */
   deletedAt?: Date | null
   deletedBy?: string | null
+  /**
+   * Espelho, para o CRM, do último estado de conexão registrado
+   * (`ufCrm93Connected`, `Sim`/`Não`). `null` = nunca registrado. **Não é fonte de
+   * estado**: quem precisa saber se a linha está conectada consulta o provider ao
+   * vivo. Opcional pelo mesmo motivo de `deletedAt`.
+   */
+  connected?: boolean | null
 }

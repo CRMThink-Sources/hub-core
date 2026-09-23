@@ -2,8 +2,7 @@
   "home": "Home",
   "conexoes": "Connections",
   "bots": "ThinkBot",
-  "permissoes": "Permissions",
+  "administracao": "Administration",
   "logs": "Logs",
-  "centralDeAjuda": "Help Center",
-  "diretrizes": "Best Practices"
+  "ajuda": "Help"
 }

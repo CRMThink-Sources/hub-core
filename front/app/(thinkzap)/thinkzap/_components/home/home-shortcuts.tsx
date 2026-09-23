@@ -17,7 +17,7 @@ const SHORTCUTS: readonly Shortcut[] = [
     icon: Cable,
   },
   {
-    href: '/thinkzap/diretrizes',
+    href: '/thinkzap/ajuda#diretrizes',
     label: 'Diretrizes de uso',
     description: 'Boas práticas e políticas do WhatsApp',
     icon: ClipboardList,

@@ -1,0 +1,51 @@
+{
+  "tipos": {
+    "message": "Mensagem",
+    "question": "Pergunta",
+    "input": "Captura",
+    "condition": "Condição",
+    "handoff": "Transferir",
+    "finish": "Encerrar"
+  },
+  "dicas": {
+    "message": "Fala e segue adiante",
+    "question": "Oferece opções e espera a escolha",
+    "input": "Pergunta e guarda a resposta",
+    "condition": "Desvia conforme o que foi respondido",
+    "handoff": "Transfere a conversa para um atendente",
+    "finish": "Encerra o atendimento"
+  },
+  "grupos": {
+    "conversa": "Conversa",
+    "acoes": "Ações do chat"
+  },
+  "receitas": {
+    "ja-e-cliente": {
+      "label": "Já é cliente?",
+      "hint": "Desvia se o contato já existe no CRM"
+    },
+    "tem-negocio": {
+      "label": "Tem negócio aberto?",
+      "hint": "Desvia se o chat está ligado a um negócio"
+    }
+  },
+  "operadores": {
+    "notEmpty": "tem",
+    "empty": "vazia",
+    "eq": "=",
+    "neq": "≠",
+    "contains": "contém"
+  },
+  "variavel": "variável",
+  "distribuicao": {
+    "channel": "Canal Aberto",
+    "evenly": "Uniformemente",
+    "all": "Para Todos"
+  },
+  "distribuicaoDica": {
+    "channel": "a fila do canal aberto escolhe o atendente",
+    "evenly": "rodízio entre os atendentes selecionados",
+    "all": "todos os selecionados são avisados pela fila do canal"
+  },
+  "canalNumero": "Canal #{{id}}"
+}

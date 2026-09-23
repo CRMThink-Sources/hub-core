@@ -25,21 +25,37 @@ function parseBizprocRobotListResponse(result: unknown): string[] {
   return []
 }
 
+/**
+ * Os quatro robôs que `ThinkzapInstaller` registra: envio livre, template, e os
+ * dois de botão. Um `Map` porque cada robô tem `CODE` próprio — comparar contra
+ * um único código (como antes) deixava template e botão marcados como "Outro".
+ */
+function knownThinkzapRobots(): Map<string, string> {
+  return new Map([
+    [env.bitrix.robot.code, env.bitrix.robot.name],
+    [env.bitrix.templateRobot.code, env.bitrix.templateRobot.name],
+    [env.bitrix.buttonRobotOfficial.code, env.bitrix.buttonRobotOfficial.name],
+    [
+      env.bitrix.buttonRobotUnofficial.code,
+      env.bitrix.buttonRobotUnofficial.name,
+    ],
+  ])
+}
+
 export class ListInstalledBizprocRobotsService {
   async execute(client: BitrixRestClient): Promise<InstalledBizprocRobot[]> {
     const list = await client.callMethod('bizproc.robot.list', {})
     const codes = parseBizprocRobotListResponse(list)
-    const thinkzapCode = env.bitrix.robot.code
-    const thinkzapName = env.bitrix.robot.name
+    const known = knownThinkzapRobots()
 
     return codes
       .map(code => {
-        const isThinkzap = code === thinkzapCode
+        const name = known.get(code) ?? null
 
         return {
           code,
-          name: isThinkzap ? thinkzapName : null,
-          isThinkzap,
+          name,
+          isThinkzap: name !== null,
         }
       })
       .sort((a, b) => a.code.localeCompare(b.code))

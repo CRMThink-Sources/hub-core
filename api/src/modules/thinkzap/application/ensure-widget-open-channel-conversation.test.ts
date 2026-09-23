@@ -317,8 +317,8 @@ describe('EnsureWidgetOpenChannelConversation', () => {
 
   /**
    * A row gravada antes desta mudança guarda a sessão em `chatId` e tem
-   * `bitrixChatId` nulo. Sem o fallback ela pareceria "conversa não aberta", e o
-   * reparo do callback de status re-postaria no canal do cliente.
+   * `bitrixChatId` nulo. Sem o fallback ela pareceria "conversa não aberta", e uma
+   * retentativa do job re-postaria no canal do cliente.
    */
   it('reconhece row antiga com a sessão em chatId', async () => {
     const { sut, sendToOpenChannel, findByProviderMessageId } = makeSut()
