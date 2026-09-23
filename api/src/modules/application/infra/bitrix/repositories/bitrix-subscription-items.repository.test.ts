@@ -50,6 +50,7 @@ describe('BitrixSubscriptionItemRepository', () => {
         gatewayId: undefined,
         deletedAt: null,
         deletedBy: null,
+        connected: null,
       })
     })
 

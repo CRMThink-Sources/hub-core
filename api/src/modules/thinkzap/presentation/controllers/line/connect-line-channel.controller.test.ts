@@ -87,11 +87,16 @@ function makeSut(
     updateSubscriptionItem: vi.fn().mockResolvedValue(undefined),
   }
 
+  const syncConnected = {
+    execute: vi.fn().mockResolvedValue('written'),
+  }
+
   const controller = new ConnectLineChannelController(
     new ConnectOfficialLine(
       getAplicationContext as never,
       hubMessageClient as never,
       subscriptionItems as never,
+      syncConnected,
     ),
   )
 
@@ -99,6 +104,7 @@ function makeSut(
     getAplicationContext,
     hubMessageClient,
     subscriptionItems,
+    syncConnected,
     controller,
   }
 }
@@ -134,6 +140,28 @@ describe('ConnectLineChannelController', () => {
     expect(response.result).toEqual({
       connected: true,
       wabaId: 'W-9',
+      wabaRecorded: true,
+    })
+  })
+
+  it('grava Conectado = Sim no item depois de conectar', async () => {
+    await sut.controller.perform(req())
+
+    expect(sut.syncConnected.execute).toHaveBeenCalledWith({
+      itemId: 'i1',
+      current: null,
+      connected: true,
+    })
+  })
+
+  it('falha ao gravar Conectado não muda a resposta', async () => {
+    sut.syncConnected.execute.mockRejectedValueOnce(new Error('bitrix fora'))
+
+    const response = await sut.controller.perform(req())
+
+    expect(response.status).toBe(200)
+    expect(response.result).toMatchObject({
+      connected: true,
       wabaRecorded: true,
     })
   })

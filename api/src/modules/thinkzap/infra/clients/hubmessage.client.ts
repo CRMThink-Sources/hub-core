@@ -10,6 +10,7 @@ import {
   CreateTemplateParams,
   CreateTemplateResponse,
   HubMessageBusiness,
+  HubMessageWebhook,
   ListBusinessesResponse,
   ListTemplatesResponse,
   SendHubMessageInteractiveActionParams,
@@ -21,6 +22,7 @@ import {
   SendHubMessageTemplateParams,
   SendHubMessageTemplateResponse,
   SyncTemplatesResponse,
+  UpdateHubMessageWebhookParams,
 } from './types/hubmessage.types'
 
 export type HubMessageClientConfig = {
@@ -104,6 +106,25 @@ export class HubMessageClient {
   ): Promise<CreateHubMessageWebhookResponse> {
     const { data } = await this.http.post<CreateHubMessageWebhookResponse>(
       `/v1/channels/${channelId}/webhooks`,
+      params,
+    )
+    return data
+  }
+
+  async listWebhooks(channelId: string): Promise<HubMessageWebhook[]> {
+    const { data } = await this.http.get<HubMessageWebhook[]>(
+      `/v1/channels/${channelId}/webhooks`,
+    )
+    return data
+  }
+
+  async updateWebhook(
+    channelId: string,
+    webhookId: string,
+    params: UpdateHubMessageWebhookParams,
+  ): Promise<HubMessageWebhook> {
+    const { data } = await this.http.patch<HubMessageWebhook>(
+      `/v1/channels/${channelId}/webhooks/${webhookId}`,
       params,
     )
     return data

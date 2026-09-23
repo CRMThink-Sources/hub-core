@@ -30,6 +30,8 @@ export interface CreateSubscriptionItemInput {
   /** Ver `SubscriptionItem.deletedAt`/`deletedBy`. Ausente na criação — item nasce nunca excluído. */
   deletedAt?: Date | null
   deletedBy?: string | null
+  /** Ver `SubscriptionItem.connected`. Grava `Sim`/`Não`; ausente não mexe. */
+  connected?: boolean
 }
 
 /**
