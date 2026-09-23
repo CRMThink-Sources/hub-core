@@ -49,6 +49,13 @@ const subscriptionItemSchema = z.object({
   settings: settingsSchema,
   vinculatedChannel: z.string().nullable(),
   gatewayId: z.string().optional(),
+  /**
+   * Opcional: entrada gravada antes do campo existir não vira miss, só sai sem ele
+   * (o mapper da view trata ausência como `null`). Sem a chave aqui, o `z.object`
+   * a descartaria em todo hit, e a lista de conexões mostraria "sem registro" para
+   * linha conectada durante o TTL.
+   */
+  connected: z.boolean().nullable().optional(),
 })
 
 const subscriptionItemListSchema = z.array(subscriptionItemSchema)

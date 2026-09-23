@@ -88,6 +88,14 @@ export type SubscriptionItemView = {
   status: SubscriptionItem['status']
   gatewayId?: string
   metadata: SubscriptionItemMetadataView
+  /**
+   * Último estado de conexão registrado no item (`UF_CRM_93_CONNECTED`), gravado
+   * pelos eventos de conexão/desconexão dos providers. `null` = nunca registrado.
+   *
+   * Serve para **exibir** na lista de conexões sem uma consulta ao provider por
+   * linha. Não é autoridade: a aba de conexão da linha continua lendo ao vivo.
+   */
+  connected: boolean | null
 }
 
 export type SubscriptionView = {
@@ -176,6 +184,7 @@ const subscriptionItemView = (
   status: item.status,
   gatewayId: item.gatewayId,
   metadata: metadataView(item.metadata),
+  connected: item.connected ?? null,
 })
 
 /** Sem `aplication`: a instalação é o pai. */

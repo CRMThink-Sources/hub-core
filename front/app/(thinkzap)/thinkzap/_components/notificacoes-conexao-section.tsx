@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { CheckIcon, SearchIcon, WifiOffIcon, XIcon } from 'lucide-react'
+import { CheckIcon, SearchIcon, BellIcon, XIcon } from 'lucide-react'
 import { isBitrixAdmin } from '@/bitrix'
 import { useThinkzapApi } from '@/app/hooks/use-thinkzap-api'
 import { useThinkzapAccess } from '@/app/hooks/use-thinkzap-permissions'
@@ -19,8 +19,8 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-export default function NotificacoesDesconexaoPage() {
-  const { t } = useTranslation('thinkzap/notificacoes-desconexao')
+export function NotificacoesConexaoSection() {
+  const { t } = useTranslation('thinkzap/notificacoes-conexao')
   const thinkzapAccess = useThinkzapAccess()
   const api = useThinkzapApi()
 
@@ -104,7 +104,7 @@ export default function NotificacoesDesconexaoPage() {
 
   if (!canManage) {
     return (
-      <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-4 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="flex w-full min-w-0 flex-col gap-4">
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {t('adminOnly')}
         </p>
@@ -113,11 +113,11 @@ export default function NotificacoesDesconexaoPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 pb-4 pt-6 sm:px-6 lg:px-8">
+    <div className="flex w-full min-w-0 flex-col gap-6">
       <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <WifiOffIcon className="h-7 w-7 text-primary" />
+            <BellIcon className="h-7 w-7 text-primary" />
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-foreground">

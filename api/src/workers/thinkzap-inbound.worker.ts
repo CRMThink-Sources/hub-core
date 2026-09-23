@@ -24,6 +24,8 @@ import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-lim
 // mesmo processo. Ver docstring em `thinkzap-connection-events.worker.ts` para o
 // porquê de não ter processo/serviço de compose próprio.
 import './thinkzap-connection-events.worker'
+// Idem para `thinkzap-line-connected-sync` (campo Conectado do item da linha).
+import './thinkzap-line-connected-sync.worker'
 
 // O worker compartilha o balde do portal com a API: o limite do Bitrix conta por
 // instalação, não por processo.

@@ -1,6 +1,7 @@
 {
   "colunas": {
     "nome": "Name",
+    "conexao": "Connection",
     "status": "Status",
     "acoes": "Actions"
   },

@@ -4,7 +4,10 @@ import { ZApiDisconectedHandler } from './disconected.handler'
 import type { ZApiConnectedEvent, ZApiDisconectedEvent } from './z-api'
 import { getIo } from '@/shared/infra/socket'
 
-const { enqueueMock } = vi.hoisted(() => ({ enqueueMock: vi.fn() }))
+const { enqueueMock, enqueueSyncMock } = vi.hoisted(() => ({
+  enqueueMock: vi.fn(),
+  enqueueSyncMock: vi.fn(),
+}))
 
 vi.mock('@/shared/infra/logger', () => ({
   apiLogger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -14,6 +17,10 @@ vi.mock('@/shared/infra/socket', () => ({ getIo: vi.fn() }))
 
 vi.mock('@/queue/thinkzap-connection-events.queue', () => ({
   enqueueThinkzapConnectionEvent: enqueueMock,
+}))
+
+vi.mock('@/queue/thinkzap-line-connected-sync.queue', () => ({
+  enqueueThinkzapLineConnectedSync: enqueueSyncMock,
 }))
 
 /**
@@ -56,6 +63,7 @@ const disconnectedEvent: ZApiDisconectedEvent = {
 beforeEach(() => {
   vi.clearAllMocks()
   enqueueMock.mockResolvedValue(undefined)
+  enqueueSyncMock.mockResolvedValue(undefined)
 })
 
 describe('ZApiConnectedHandler', () => {
@@ -116,6 +124,33 @@ describe('ZApiConnectedHandler', () => {
       new ZApiConnectedHandler().handle(connectedEvent),
     ).resolves.toBeUndefined()
   })
+
+  it('enfileira a gravação do campo Conectado', async () => {
+    makeIo()
+
+    await new ZApiConnectedHandler().handle(connectedEvent)
+
+    expect(enqueueSyncMock).toHaveBeenCalledWith({
+      provider: 'ZAPI',
+      remoteId: 'Z-INSTANCE-1',
+      event: 'connected',
+      momment: 1_700_000_000,
+    })
+  })
+
+  it('falha ao enfileirar o aviso não impede a gravação do campo, e vice-versa', async () => {
+    makeIo()
+    enqueueMock.mockRejectedValueOnce(new Error('Redis fora'))
+
+    await new ZApiConnectedHandler().handle(connectedEvent)
+    expect(enqueueSyncMock).toHaveBeenCalledOnce()
+
+    enqueueSyncMock.mockRejectedValueOnce(new Error('Redis fora'))
+    await expect(
+      new ZApiConnectedHandler().handle(connectedEvent),
+    ).resolves.toBeUndefined()
+    expect(enqueueMock).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('ZApiDisconectedHandler', () => {
@@ -173,5 +208,32 @@ describe('ZApiDisconectedHandler', () => {
     await expect(
       new ZApiDisconectedHandler().handle(disconnectedEvent),
     ).resolves.toBeUndefined()
+  })
+
+  it('enfileira a gravação do campo Conectado', async () => {
+    makeIo()
+
+    await new ZApiDisconectedHandler().handle(disconnectedEvent)
+
+    expect(enqueueSyncMock).toHaveBeenCalledWith({
+      provider: 'ZAPI',
+      remoteId: 'Z-INSTANCE-1',
+      event: 'disconnected',
+      momment: 1_700_000_000,
+    })
+  })
+
+  it('falha ao enfileirar o aviso não impede a gravação do campo, e vice-versa', async () => {
+    makeIo()
+    enqueueMock.mockRejectedValueOnce(new Error('Redis fora'))
+
+    await new ZApiDisconectedHandler().handle(disconnectedEvent)
+    expect(enqueueSyncMock).toHaveBeenCalledOnce()
+
+    enqueueSyncMock.mockRejectedValueOnce(new Error('Redis fora'))
+    await expect(
+      new ZApiDisconectedHandler().handle(disconnectedEvent),
+    ).resolves.toBeUndefined()
+    expect(enqueueMock).toHaveBeenCalledTimes(2)
   })
 })

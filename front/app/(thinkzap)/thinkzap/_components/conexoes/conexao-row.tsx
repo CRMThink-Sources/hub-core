@@ -45,9 +45,13 @@ const ACAO_COL = 'w-56 shrink-0'
  * Uma linha contratada — item de assinatura de `GET /api/application/me`.
  *
  * Não há mais conector/instância por trás desta linha, então **não** há status de
- * conexão ao vivo, canal vinculado nem telefone aqui: nenhum desses dados vive no
- * item. O status exibido é o do item (cobrança), não o da conexão com o WhatsApp —
- * conexão, grupos e ajustes ficam na tela de configuração, para onde a linha leva.
+ * conexão ao vivo, canal vinculado nem telefone aqui. Duas colunas de estado, de
+ * eixos diferentes:
+ *
+ * - **Conexão**: o último estado registrado no item (`linha.connected`), gravado
+ *   pelos eventos de conexão/desconexão do provider. Pode estar atrasado se um
+ *   evento se perder; a leitura ao vivo é a aba de conexão, para onde a linha leva.
+ * - **Status**: o do item (cobrança) — ativo ou cancelado.
  *
  * A ação de assinar mora aqui, e não num card separado, porque **o que se assina é
  * a linha**: com mais de uma na lista, um botão fora dela não diria qual.
@@ -76,6 +80,27 @@ export function ConexaoRow({
     ? 'bg-primary/10 text-primary'
     : 'bg-destructive/10 text-destructive'
   const statusText = isAtivo ? t('status.ativo') : t('status.cancelado')
+
+  /**
+   * `null` é "nunca registrado" — linha que não conectou desde que o campo existe.
+   * Mostrado como neutro, e não como desconectado: afirmar desconexão sem registro
+   * seria inventar um estado.
+   */
+  const conexao =
+    linha.connected === true
+      ? {
+          className: 'bg-primary/10 text-primary',
+          text: t('conexaoStatus.conectado'),
+        }
+      : linha.connected === false
+        ? {
+            className: 'bg-destructive/10 text-destructive',
+            text: t('conexaoStatus.desconectado'),
+          }
+        : {
+            className: 'bg-muted text-muted-foreground',
+            text: t('conexaoStatus.semRegistro'),
+          }
 
   const isOficial = linha.provider === 'HUBMESSAGE'
   const providerClass = isOficial
@@ -124,6 +149,18 @@ export function ConexaoRow({
               {linha.providerRef ? ` · ${linha.providerRef}` : ''}
             </span>
           </div>
+        </div>
+
+        <div className="flex flex-1 justify-center">
+          {linha.provider !== 'NONE' && (
+            <span
+              className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium ${conexao.className}`}
+              data-connected={String(linha.connected)}
+            >
+              <span className="size-1.5 rounded-full bg-current" aria-hidden />
+              {conexao.text}
+            </span>
+          )}
         </div>
 
         <div className="flex flex-1 justify-center">

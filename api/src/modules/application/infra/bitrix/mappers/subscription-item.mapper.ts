@@ -16,6 +16,10 @@ import {
   SUBSCRIPTION_ITEM_SETTINGS_FIELD,
 } from '../ensure-subscription-item-settings-field'
 import { SUBSCRIPTION_ITEM_PROVIDER_FIELD } from '../ensure-subscription-item-provider-field'
+import {
+  CONNECTED_FIELD_VALUE,
+  SUBSCRIPTION_ITEM_CONNECTED_FIELD,
+} from '../ensure-subscription-item-connected-field'
 
 export const SUBSCRIPTION_PARENT_FIELD =
   `parentId${env.payments.spa.subscriptionEntityType}` as const
@@ -116,6 +120,19 @@ const parseSettingsField = (raw: unknown): ConnectorSettings => {
   } catch {
     return parseConnectorSettings(null)
   }
+}
+
+/**
+ * `ufCrm93Connected` → domínio. Tolerante: é espelho cosmético, e texto digitado à
+ * mão no CRM nunca pode reprovar o item. Só `Sim`/`Não` (sem caixa nem espaços)
+ * contam; o resto é "nunca registrado".
+ */
+export const parseConnectedField = (raw: unknown): boolean | null => {
+  if (typeof raw !== 'string') return null
+  const value = raw.trim().toLowerCase()
+  if (value === CONNECTED_FIELD_VALUE.yes.toLowerCase()) return true
+  if (value === CONNECTED_FIELD_VALUE.no.toLowerCase()) return false
+  return null
 }
 
 type SubscriptionItemProvider = SubscriptionItemMetadata['provider']
@@ -342,6 +359,7 @@ const bitrixSubscriptionItemSchema = z
     [SUBSCRIPTION_ITEM_CHANNEL_FIELD]: bitrixOptionalText,
     ufCrm93DeletedAt: bitrixOptionalDateTime,
     ufCrm93DeletedBy: bitrixOptionalText,
+    [SUBSCRIPTION_ITEM_CONNECTED_FIELD]: z.unknown(),
   })
   .transform((data, ctx): SubscriptionItem => {
     const resolution = resolveMetadata(data[SUBSCRIPTION_ITEM_PROVIDER_FIELD], {
@@ -373,6 +391,7 @@ const bitrixSubscriptionItemSchema = z
       gatewayId: data.ufCrm93GatewayId,
       deletedAt: data.ufCrm93DeletedAt ?? null,
       deletedBy: data.ufCrm93DeletedBy ?? null,
+      connected: parseConnectedField(data[SUBSCRIPTION_ITEM_CONNECTED_FIELD]),
     }
   })
 
@@ -503,6 +522,11 @@ export const mapSubscriptionItemInputToBitrixFields = (
   }
   if (input.deletedBy !== undefined) {
     fields.ufCrm93DeletedBy = input.deletedBy ?? ''
+  }
+  if (input.connected !== undefined) {
+    fields[SUBSCRIPTION_ITEM_CONNECTED_FIELD] = input.connected
+      ? CONNECTED_FIELD_VALUE.yes
+      : CONNECTED_FIELD_VALUE.no
   }
   // Só o caminho de criação carrega `subscription`: `UpdateSubscriptionItemInput`
   // omite o campo, e o mapper não o reintroduz.

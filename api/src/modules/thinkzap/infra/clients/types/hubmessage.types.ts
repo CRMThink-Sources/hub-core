@@ -38,13 +38,19 @@ export type HubMessageWebhookEvent =
  * como uma delas fica para trás na próxima mudança, deixando parte dos canais surda
  * para o evento novo.
  *
- * Canais provisionados antes desta lista existir têm webhook só com
- * `MESSAGE_RECEIVED` e precisam ser reconfigurados à mão no painel da HubMessage: a
- * API só expõe `POST /webhooks`, sem leitura nem atualização.
+ * `CONNECTED`/`DISCONNECTED` alimentam o campo Conectado do item da linha na SPA
+ * (`UF_CRM_93_CONNECTED`): sem eles, o CRM só saberia da conexão pela conclusão
+ * síncrona do connect, e nunca de uma queda.
+ *
+ * Canais provisionados antes de um evento entrar nesta lista não o assinam. O script
+ * `hubmessage:sync-channel-webhook-events` lista o webhook de cada canal e atualiza a
+ * lista de eventos (`PATCH`) para incluir todos os daqui.
  */
 export const HUBMESSAGE_CHANNEL_WEBHOOK_EVENTS: HubMessageWebhookEvent[] = [
   'MESSAGE_RECEIVED',
   'MESSAGE_DELIVERY',
+  'CONNECTED',
+  'DISCONNECTED',
 ]
 
 export type CreateHubMessageWebhookParams = {
@@ -63,6 +69,23 @@ export type CreateHubMessageWebhookResponse = {
   signing: boolean
   /** Retornado apenas na criação quando `signing = true`. */
   secret?: string
+}
+
+/** Item de `GET /v1/channels/{channelId}/webhooks`. Só os campos que usamos. */
+export type HubMessageWebhook = {
+  id: string
+  channelId: string
+  url: string
+  events: string[]
+  status: 'ENABLED' | 'DISABLED'
+}
+
+/** `PATCH /v1/channels/{channelId}/webhooks/{webhookId}`: só o que for enviado muda. */
+export type UpdateHubMessageWebhookParams = {
+  url?: string
+  /** **Substitui** a lista inteira — mande a união, nunca só o que falta. */
+  events?: string[]
+  status?: 'ENABLED' | 'DISABLED'
 }
 
 export type ConnectHubMessageChannelParams = {

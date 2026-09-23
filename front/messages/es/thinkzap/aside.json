@@ -2,9 +2,7 @@
   "home": "Inicio",
   "conexoes": "Conexiones",
   "bots": "ThinkBot",
-  "permissoes": "Permisos",
-  "notificacoesDesconexao": "Notificaciones de desconexión",
+  "administracao": "Administración",
   "logs": "Logs",
-  "centralDeAjuda": "Centro de Ayuda",
-  "diretrizes": "Buenas prácticas"
+  "ajuda": "Ayuda"
 }

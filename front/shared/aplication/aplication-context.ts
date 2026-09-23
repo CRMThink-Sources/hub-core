@@ -49,6 +49,12 @@ export type SubscriptionItemView = {
   status: SubscriptionItemStatus
   gatewayId?: string
   metadata: SubscriptionItemMetadataView
+  /**
+   * Último estado de conexão registrado no item pelos eventos do provider
+   * (`UF_CRM_93_CONNECTED`). `null`/ausente = nunca registrado. Opcional porque um
+   * payload anterior ao campo não o traz.
+   */
+  connected?: boolean | null
 }
 
 /** Subconjunto do plano que o front consome. O payload traz mais. */

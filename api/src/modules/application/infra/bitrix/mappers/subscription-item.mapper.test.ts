@@ -66,7 +66,24 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
       gatewayId: 'si_123',
       deletedAt: null,
       deletedBy: null,
+      connected: null,
     })
+  })
+
+  it.each([
+    ['Sim', true],
+    ['Não', false],
+    [' sim ', true],
+    ['NÃO', false],
+    ['', null],
+    [null, null],
+    ['talvez', null],
+  ])('lê ufCrm93Connected %j como %s', (raw, expected) => {
+    const item = mapBitrixSpaSubscriptionItemToSubscriptionItem(
+      validItem({ ufCrm93Connected: raw }),
+    )
+
+    expect(item.connected).toBe(expected)
   })
 
   it('mapeia ufCrm93DeletedAt/ufCrm93DeletedBy quando preenchidos', () => {
@@ -530,6 +547,21 @@ describe('mapSubscriptionItemInputToBitrixFields', () => {
 
     expect(fields).not.toHaveProperty('ufCrm93DeletedAt')
     expect(fields).not.toHaveProperty('ufCrm93DeletedBy')
+  })
+
+  it.each([
+    [true, 'Sim'],
+    [false, 'Não'],
+  ])('grava connected %s como %s', (connected, expected) => {
+    expect(mapSubscriptionItemInputToBitrixFields({ connected })).toEqual({
+      ufCrm93Connected: expected,
+    })
+  })
+
+  it('omite connected quando ausente do input', () => {
+    expect(
+      mapSubscriptionItemInputToBitrixFields({ status: 'active' }),
+    ).not.toHaveProperty('ufCrm93Connected')
   })
 
   it('omite os campos ausentes de um patch de um campo só', () => {
