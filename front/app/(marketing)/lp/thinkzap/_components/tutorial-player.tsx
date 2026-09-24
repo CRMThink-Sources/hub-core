@@ -3,15 +3,14 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { ArrowLeft, ArrowRight, PartyPopper, RotateCcw } from 'lucide-react'
 import { CtaButtons } from './cta-buttons'
-import { WALKTHROUGH, WALKTHROUGH_DONE } from './content'
+import type { TutorialTrack } from './content'
 import type { ThinkzapCtas } from './resolve-ctas'
 import {
   AppAside,
   BitrixMenu,
-  SCREEN_FRAME,
-  SCREENS,
   type ScreenFrame,
-} from './walkthrough-screens'
+  type TutorialView,
+} from './tutorials/shared/frame'
 import {
   INITIAL_WALKTHROUGH,
   walkthroughReducer,
@@ -19,25 +18,37 @@ import {
   type WalkthroughState,
 } from './walkthrough-state'
 
-const TOTAL = WALKTHROUGH.length
+type NextTutorial = { label: string; onGo: () => void }
 
-const reducer = (state: WalkthroughState, action: WalkthroughAction) =>
-  walkthroughReducer(TOTAL, state, action)
+type Props = {
+  track: TutorialTrack
+  view: TutorialView
+  ctas: ThinkzapCtas
+  /** Próximo tutorial do menu, oferecido na conclusão. */
+  next?: NextTutorial
+}
 
 /**
- * Passo a passo simulado da instalação e configuração: uma janela do Bitrix24
- * desenhada em HTML onde o visitante clica no elemento destacado para avançar.
+ * Um tutorial simulado: uma janela do Bitrix24 desenhada em HTML onde o
+ * visitante clica no elemento destacado para avançar. Os passos vêm de
+ * `content.ts` e as telas de `tutorials/<slug>.tsx`.
  *
- * O primeiro passo sai no HTML do servidor; o resto só existe com JS. Nada aqui
- * chama API — é tudo ilustração.
+ * Trocar de tutorial remonta o componente (`key` no pai), o que reinicia o
+ * passo. O primeiro passo sai no HTML do servidor; o resto só existe com JS.
+ * Nada aqui chama API — é tudo ilustração.
  */
-export function InstallWalkthrough(ctas: ThinkzapCtas) {
-  const [state, dispatch] = useReducer(reducer, INITIAL_WALKTHROUGH)
+export function TutorialPlayer({ track, view, ctas, next }: Props) {
+  const total = track.steps.length
+  const [state, dispatch] = useReducer(
+    (current: WalkthroughState, action: WalkthroughAction) =>
+      walkthroughReducer(total, current, action),
+    INITIAL_WALKTHROUGH,
+  )
   const windowRef = useRef<HTMLDivElement>(null)
   const focusScreen = useRef(false)
 
-  const current = WALKTHROUGH[state.step]
-  const Screen = SCREENS[current.screen]
+  const current = track.steps[state.step]
+  const Screen = view.screens[current.screen]
 
   // O botão clicado some com a tela; sem isto o foco cai no `body` e quem navega
   // por teclado perde o lugar. Só quando o clique veio da própria tela: nos
@@ -56,10 +67,9 @@ export function InstallWalkthrough(ctas: ThinkzapCtas) {
     dispatch(action)
   }
 
-  // A conclusão fica dentro do app, na tela de conexões.
-  const frame: ScreenFrame = state.done
-    ? SCREEN_FRAME.lines
-    : SCREEN_FRAME[current.screen]
+  // A conclusão fica na moldura do último passo.
+  const frame: ScreenFrame =
+    view.frames[(state.done ? track.steps[total - 1] : current).screen]
 
   return (
     // Três blocos: texto, janela e controles. No celular empilham nessa ordem —
@@ -69,13 +79,13 @@ export function InstallWalkthrough(ctas: ThinkzapCtas) {
     <div className="grid items-start gap-6 lg:grid-cols-[340px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:gap-x-10">
       <div aria-live="polite" className="lg:min-h-[170px]">
         <p className="text-sm font-semibold text-primary">
-          {state.done ? 'Concluído' : `Passo ${state.step + 1} de ${TOTAL}`}
+          {state.done ? 'Concluído' : `Passo ${state.step + 1} de ${total}`}
         </p>
         <h3 className="mt-2 text-xl font-bold">
-          {state.done ? WALKTHROUGH_DONE.title : current.title}
+          {state.done ? track.done.title : current.title}
         </h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          {state.done ? WALKTHROUGH_DONE.description : current.description}
+          {state.done ? track.done.description : current.description}
         </p>
         {!state.done && (
           <p className="mt-3 text-xs text-muted-foreground">
@@ -108,7 +118,9 @@ export function InstallWalkthrough(ctas: ThinkzapCtas) {
           >
             {state.done ? (
               <DoneScreen
+                done={track.done}
                 ctas={ctas}
+                next={next}
                 onRestart={() => go({ type: 'restart' }, true)}
               />
             ) : (
@@ -129,13 +141,13 @@ export function InstallWalkthrough(ctas: ThinkzapCtas) {
           <div
             className="h-full rounded-full bg-primary transition-[width] duration-300"
             style={{
-              width: `${((state.done ? TOTAL : state.step + 1) / TOTAL) * 100}%`,
+              width: `${((state.done ? total : state.step + 1) / total) * 100}%`,
             }}
           />
         </div>
 
         <ol className="mt-4 flex flex-wrap gap-1.5">
-          {WALKTHROUGH.map((step, index) => {
+          {track.steps.map((step, index) => {
             const isCurrent = !state.done && index === state.step
             const isPast = state.done || index < state.step
             return (
@@ -176,7 +188,7 @@ export function InstallWalkthrough(ctas: ThinkzapCtas) {
               onClick={() => go({ type: 'next' })}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
             >
-              {state.step === TOTAL - 1 ? 'Concluir' : 'Próximo'}
+              {state.step === total - 1 ? 'Concluir' : 'Próximo'}
               <ArrowRight aria-hidden className="size-4" />
             </button>
           )}
@@ -187,10 +199,14 @@ export function InstallWalkthrough(ctas: ThinkzapCtas) {
 }
 
 function DoneScreen({
+  done,
   ctas,
+  next,
   onRestart,
 }: {
+  done: TutorialTrack['done']
   ctas: ThinkzapCtas
+  next?: NextTutorial
   onRestart: () => void
 }) {
   return (
@@ -199,21 +215,31 @@ function DoneScreen({
         <PartyPopper aria-hidden className="size-7" />
       </span>
       <div>
-        <p className="text-lg font-bold">{WALKTHROUGH_DONE.title}</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {WALKTHROUGH_DONE.description}
-        </p>
+        <p className="text-lg font-bold">{done.title}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{done.description}</p>
       </div>
       <CtaButtons {...ctas} className="justify-center" />
-      <button
-        type="button"
-        data-walkthrough-restart
-        onClick={onRestart}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-      >
-        <RotateCcw aria-hidden className="size-4" />
-        Ver de novo
-      </button>
+      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+        <button
+          type="button"
+          data-walkthrough-restart
+          onClick={onRestart}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+        >
+          <RotateCcw aria-hidden className="size-4" />
+          Ver de novo
+        </button>
+        {next && (
+          <button
+            type="button"
+            onClick={next.onGo}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+          >
+            Próximo tutorial: {next.label}
+            <ArrowRight aria-hidden className="size-4" />
+          </button>
+        )}
+      </div>
     </div>
   )
 }

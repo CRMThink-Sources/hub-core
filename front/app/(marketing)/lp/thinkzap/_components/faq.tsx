@@ -21,6 +21,14 @@ export function Faq() {
               <p className="mt-3 text-sm text-muted-foreground">
                 {item.answer}
               </p>
+              {item.link && (
+                <a
+                  href={item.link.href}
+                  className="mt-2 inline-block text-sm font-semibold text-primary hover:underline"
+                >
+                  {item.link.label} →
+                </a>
+              )}
             </details>
           ))}
         </div>
