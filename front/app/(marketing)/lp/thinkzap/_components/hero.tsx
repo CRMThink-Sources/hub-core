@@ -20,8 +20,8 @@ export function LpHeader({ marketUrl }: Pick<ThinkzapCtas, 'marketUrl'>) {
           <a href="#funcionalidades" className="hover:text-foreground">
             Funcionalidades
           </a>
-          <a href="#como-funciona" className="hover:text-foreground">
-            Como funciona
+          <a href="#tutoriais" className="hover:text-foreground">
+            Tutoriais
           </a>
           <a href="#duvidas" className="hover:text-foreground">
             Dúvidas
