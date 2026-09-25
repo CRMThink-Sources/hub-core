@@ -106,6 +106,34 @@ export class BitrixBotSessionAdapter implements BotSessionPort {
     throw new Error(`Bitrix ${method}: recusou com ${code}`)
   }
 
+  /**
+   * Mesmo método do `say`, com `system: true` — é esse campo, e não o método, que decide
+   * se a mensagem atravessa até o contato.
+   *
+   * `imopenlines.bot.session.message.send` parecia o caminho por não ser repassado **pelo
+   * Bitrix**, mas cria mensagem não-sistema: o nosso próprio pipeline de saída a tratou
+   * como fala a entregar e o resumo caiu no WhatsApp do cliente (medido 2026-09-24, chat
+   * 9644). `SYSTEM: 'Y'` é o mesmo recurso que `postOpenChannelSystemNotice` usa.
+   */
+  async whisper(chatId: string, text: string): Promise<void> {
+    try {
+      await this.bitrixClient.callMethod('imbot.v2.Chat.Message.send', {
+        botId: this.bitrixBotId,
+        botToken: this.botToken,
+        dialogId: `chat${chatId}`,
+        fields: { message: text, system: true },
+      })
+    } catch (err) {
+      // Não sobe: o resumo é contexto, e perdê-lo não vale segurar a transferência.
+      logThinkzapError(
+        log,
+        'thinkzap.bot.whisper_failed',
+        { chatId, err },
+        { level: 'warn' },
+      )
+    }
+  }
+
   async handoff(chatId: string, target: HandoffTarget): Promise<void> {
     // A sessão roda um snapshot do grafo publicado, então o atendente escolhido pode ter
     // saído do portal depois. Fila em vez de abortar, senão a conversa fica parada num bot

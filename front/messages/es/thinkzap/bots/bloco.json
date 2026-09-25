@@ -8,16 +8,7 @@
   "perguntaPlaceholder": "¿En qué puedo ayudarte?",
   "dicaOpcoes": "Solo la pregunta: las opciones de abajo se numeran y se envían junto.",
   "avisoOpcoesNoTexto": "Este texto parece listar ya las opciones. El cliente recibirá la lista dos veces — bórrala de aquí y déjala solo en “Opciones”.",
-  "guardarEm": "Guardar en",
   "guardarEmPlaceholder": "ej.: documento",
-  "formato": "Formato",
-  "validacao": {
-    "text": "Texto libre",
-    "email": "Correo electrónico",
-    "cpf": "CPF",
-    "number": "Número",
-    "date": "Fecha"
-  },
   "opcoes": {
     "titulo": "Opciones",
     "adicionar": "opción",
@@ -72,5 +63,26 @@
     "placeholder": "escribe y Enter…",
     "remover": "Eliminar {{palavra}}"
   },
-  "destinoInexistente": "(no existe)"
+  "destinoInexistente": "(no existe)",
+  "captura": {
+    "ativar": "Guardar la respuesta en una variable",
+    "titulo": "Captura",
+    "placeholder": "respuesta",
+    "remover": "No guardar la respuesta",
+    "nomeInvalido": "Usa letras, números y _, empezando por letra.",
+    "dicaMensagem": "El bot espera la respuesta y la guarda en {{variavel}}.",
+    "dicaPergunta": "Guarda la opción elegida en {{variavel}}."
+  },
+  "variaveis": {
+    "dica": "Escribe @ para insertar una variable.",
+    "daConversa": "capturada en el flujo",
+    "sistema": {
+      "bitrix.name": "nombre del cliente en el chat",
+      "bitrix.contactId": "contacto del CRM",
+      "bitrix.leadId": "lead del CRM",
+      "bitrix.companyId": "empresa del CRM",
+      "bitrix.dealId": "negocio del CRM"
+    },
+    "capturadaEm": "de {{bloco}}"
+  }
 }

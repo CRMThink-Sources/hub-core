@@ -2,7 +2,10 @@ import { adoptLineBinding } from '@/modules/thinkzap/application/adopt-line-bind
 import { BOT_CODE } from '@/modules/thinkzap/application/ensure-bot-flow-bot'
 import { runBotTurn } from '@/modules/thinkzap/application/run-bot-turn'
 import { parseBotEvent } from '@/modules/thinkzap/domain/bot-flow/bot-event'
-import { openLineIdFromDialog } from '@/modules/thinkzap/domain/bot-flow/open-line-entity-id'
+import {
+  contactNameFromDialog,
+  openLineIdFromDialog,
+} from '@/modules/thinkzap/domain/bot-flow/open-line-entity-id'
 import {
   crmEntitiesFromDialog,
   crmVars,
@@ -182,7 +185,10 @@ export async function processBitrixBotEvent(
 
     // Da mesma resposta do `dialog.get`, sem chamada extra: o `entity_data_2` traz os
     // vínculos de CRM do chat, e é o que o bloco "Já é cliente?" compara.
-    const crm = crmVars(crmEntitiesFromDialog(dialog))
+    // Nome do chat como reserva: o `JOINCHAT` não traz o autor, e é o turno da saudação.
+    const crm = crmVars(crmEntitiesFromDialog(dialog), {
+      name: event.authorName || contactNameFromDialog(dialog),
+    })
 
     const eco = new BitrixBotSessionAdapter(
       client,

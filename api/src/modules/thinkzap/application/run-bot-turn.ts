@@ -315,6 +315,11 @@ async function entregarEfeitos(
       continue
     }
 
+    if (effect.kind === 'whisper') {
+      await deps.session.whisper(chatId, effect.text)
+      continue
+    }
+
     if (effect.kind === 'handoff') {
       // Alvo incompleto só é detectável aqui: a publicação valida o grafo, mas o operador
       // pode ter saído do portal depois. Fila em vez de id inexistente.

@@ -57,5 +57,13 @@
     "cancelar": "Cancelar",
     "criar": "Criar",
     "criando": "Criando…"
+  },
+  "excluir": {
+    "titulo": "Excluir fluxo?",
+    "descricao": "“{{nome}}” será apagado e não dá para desfazer.",
+    "avisoCanal": "O canal {{canal}} volta ao atendimento humano.",
+    "cancelar": "Cancelar",
+    "confirmar": "Excluir",
+    "excluindo": "Excluindo…"
   }
 }

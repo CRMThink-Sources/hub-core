@@ -73,17 +73,6 @@ export function nodePorts(node: FlowNode): FlowPort[] {
         },
       ]
 
-    case 'input':
-      return [
-        { port: { kind: 'next' }, id: 'next', label: 'ok', target: node.next },
-        {
-          port: { kind: 'exhausted' },
-          id: 'exhausted',
-          label: 'não entendeu',
-          target: node.onExhausted,
-        },
-      ]
-
     case 'condition':
       return [
         ...node.branches.map((branch, index) => ({
@@ -157,11 +146,6 @@ function writePortTarget(
           ),
         }
       }
-      return node
-
-    case 'input':
-      if (port.kind === 'next') return { ...node, next: target }
-      if (port.kind === 'exhausted') return { ...node, onExhausted: target }
       return node
 
     case 'condition':

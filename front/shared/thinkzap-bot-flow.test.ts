@@ -124,11 +124,11 @@ describe('makeNode', () => {
     expect(node.onExhausted).toBe('n7')
   })
 
-  it('captura nasce com as duas saídas pendentes', () => {
-    const node = makeNode('input', 'n7')
-    if (node.kind !== 'input') throw new Error('tipo errado')
+  it('mensagem nasce sem captura: capturar é escolha do operador', () => {
+    const node = makeNode('message', 'n7')
+    if (node.kind !== 'message') throw new Error('tipo errado')
 
-    expect([node.next, node.onExhausted]).toEqual(['n7', 'n7'])
+    expect(node.capture).toBeUndefined()
   })
 
   it('condição nasce com ramo e senão pendentes', () => {

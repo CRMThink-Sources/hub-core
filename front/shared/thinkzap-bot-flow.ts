@@ -6,8 +6,6 @@ export type NodeId = string
 /** Espelha `MAX_QUESTION_OPTIONS` do servidor: acima disso o `PATCH` recusa. */
 export const MAX_QUESTION_OPTIONS = 20
 
-export type InputValidation = 'text' | 'email' | 'cpf' | 'number' | 'date'
-
 /** Nome que o usuário dá ao bloco. Só organização — o cliente nunca vê. */
 export type NodeName = string
 
@@ -161,6 +159,8 @@ export type MessageNode = {
   portSides?: PortSides
   name?: NodeName
   text: string
+  /** Nome sem prefixo. Presente = o bloco espera a resposta e guarda em `capture.<nome>`. */
+  capture?: string
   next: NodeId
 }
 
@@ -172,25 +172,10 @@ export type QuestionNode = {
   name?: NodeName
   text: string
   options: QuestionOption[]
-  saveAs?: string
+  capture?: string
   retryText?: string
   maxAttempts: number
   onExhausted: NodeId
-}
-
-export type InputNode = {
-  id: NodeId
-  kind: 'input'
-  position?: NodePosition
-  portSides?: PortSides
-  name?: NodeName
-  text: string
-  saveAs: string
-  validate: InputValidation
-  retryText?: string
-  maxAttempts: number
-  onExhausted: NodeId
-  next: NodeId
 }
 
 export type ConditionNode = {
@@ -231,7 +216,6 @@ export type FinishNode = {
 export type FlowNode =
   | MessageNode
   | QuestionNode
-  | InputNode
   | ConditionNode
   | HandoffNode
   | FinishNode
@@ -278,10 +262,12 @@ export type FlowIssueCode =
   | 'no-terminal-reachable'
   | 'escape-target-incomplete'
   | 'duplicate-option-value'
+  | 'option-label-missing'
   | 'self-target'
   | 'handoff-target-incomplete'
   | 'condition-var-invalid'
   | 'node-text-missing'
+  | 'unknown-var'
 
 export type FlowIssue = {
   code: FlowIssueCode
@@ -305,6 +291,8 @@ export type BotFlowBinding = {
 
 export type BotEffect =
   | { kind: 'say'; text: string }
+  /** Vai ao chat sem chegar ao cliente: contexto para quem assume o atendimento. */
+  | { kind: 'whisper'; text: string }
   | { kind: 'handoff'; target: HandoffTarget }
   | { kind: 'finish' }
   | { kind: 'abort'; reason: 'loop' | 'unknown-node' }
@@ -319,7 +307,6 @@ export type SimulationState = {
 export const NODE_KIND_LABEL: Record<FlowNodeKind, string> = {
   message: 'Mensagem',
   question: 'Pergunta',
-  input: 'Captura',
   condition: 'Condição',
   handoff: 'Atendente',
   finish: 'Encerrar',
@@ -328,7 +315,6 @@ export const NODE_KIND_LABEL: Record<FlowNodeKind, string> = {
 export const NODE_KIND_ORDER: FlowNodeKind[] = [
   'message',
   'question',
-  'input',
   'condition',
   'handoff',
   'finish',
@@ -344,7 +330,7 @@ export const NODE_KIND_GROUPS: Array<{
   {
     id: 'conversa',
     titulo: 'Conversa',
-    kinds: ['message', 'question', 'input'],
+    kinds: ['message', 'question'],
   },
   {
     id: 'acoes',
@@ -357,7 +343,6 @@ export const NODE_KIND_GROUPS: Array<{
 export const NODE_KIND_HINT: Record<FlowNodeKind, string> = {
   message: 'Fala e segue adiante',
   question: 'Oferece opções e espera a escolha',
-  input: 'Pergunta e guarda a resposta',
   condition: 'Desvia conforme o que foi respondido',
   handoff: 'Entrega a conversa para um atendente',
   finish: 'Encerra o atendimento',
@@ -370,8 +355,6 @@ export function nodeOutgoing(node: FlowNode): NodeId[] {
       return [node.next]
     case 'question':
       return [...node.options.map(option => option.next), node.onExhausted]
-    case 'input':
-      return [node.next, node.onExhausted]
     case 'condition':
       return [...node.branches.map(branch => branch.next), node.otherwise]
     case 'handoff':
@@ -411,12 +394,6 @@ export function removeNode(graph: BotFlowGraph, nodeId: NodeId): BotFlowGraph {
             ...option,
             next: redirect(option.next),
           })),
-          onExhausted: redirect(node.onExhausted),
-        }
-      case 'input':
-        return {
-          ...node,
-          next: redirect(node.next),
           onExhausted: redirect(node.onExhausted),
         }
       case 'condition':
@@ -479,17 +456,6 @@ export function makeNode(kind: FlowNodeKind, id: NodeId): FlowNode {
         options: [{ label: '', value: 'opcao-1', next: id }],
         maxAttempts: 3,
         onExhausted: id,
-      }
-    case 'input':
-      return {
-        id,
-        kind,
-        text: '',
-        saveAs: 'resposta',
-        validate: 'text',
-        maxAttempts: 3,
-        onExhausted: id,
-        next: id,
       }
     case 'condition':
       return {

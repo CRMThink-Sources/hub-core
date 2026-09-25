@@ -8,6 +8,7 @@
   "encerradaPlaceholder": "Conversa encerrada — reinicie para testar de novo",
   "respostaPlaceholder": "Resposta do cliente",
   "enviar": "Enviar",
+  "sussurro": "Só o atendente vê",
   "sistema": {
     "fluxoMudou": "O fluxo mudou. Inicie a conversa de novo para testar.",
     "handoff": "Conversa passada para um atendente.",

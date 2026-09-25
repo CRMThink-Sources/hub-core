@@ -101,22 +101,16 @@ describe('visibleNodePorts', () => {
     ])
   })
 
-  it('o desvio do input não é escondido', () => {
-    const input: FlowNode = {
+  it('a mensagem que captura tem saída única: toda resposta serve', () => {
+    const captura: FlowNode = {
       id: 'n5',
-      kind: 'input',
+      kind: 'message',
       text: 'nome?',
-      saveAs: 'nome',
-      validate: 'text',
+      capture: 'nome',
       next: 'n3',
-      maxAttempts: 3,
-      onExhausted: 'n5',
     }
 
-    expect(visibleNodePorts(input).map(port => port.id)).toEqual([
-      'next',
-      'exhausted',
-    ])
+    expect(visibleNodePorts(captura).map(port => port.id)).toEqual(['next'])
   })
 })
 

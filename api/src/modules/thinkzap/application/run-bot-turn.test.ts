@@ -11,21 +11,23 @@ const APP = 'app-1'
 const LINE = '224'
 const CHAT = '5'
 
-// `validate: 'email'` de propósito: dá um caminho válido e um inválido, que é o que
-// separa "avança" de "retry" nos testes abaixo.
+// Captura seguida de fala: a captura aceita qualquer resposta, então é o `eco` que mostra
+// de qual grafo o turno saiu.
 const graph: BotFlowGraph = {
   entryNodeId: 'ask',
   settings: { escapeKeywords: [], escapeTarget: null },
   nodes: [
     {
       id: 'ask',
-      kind: 'input',
+      kind: 'message',
       text: 'Qual seu e-mail?',
-      saveAs: 'email',
-      validate: 'email',
-      maxAttempts: 2,
-      retryText: 'Não entendi, repete?',
-      onExhausted: 'entrega',
+      capture: 'email',
+      next: 'eco',
+    },
+    {
+      id: 'eco',
+      kind: 'message',
+      text: 'Anotado.',
       next: 'entrega',
     },
     {
@@ -69,6 +71,7 @@ function evento(over: Partial<ParsedBotEvent> = {}): ParsedBotEvent {
     domain: 'p.bitrix24.com',
     text: 'oi',
     authorId: '31',
+    authorName: 'Gustavo',
     ...over,
   }
 }
@@ -90,6 +93,7 @@ function makeDeps(
     Promise.resolve(),
   )
   const finish = vi.fn((_chatId: string) => Promise.resolve())
+  const whisper = vi.fn((_chatId: string, _text: string) => Promise.resolve())
   const create = vi.fn((input: { currentNodeId: string }) =>
     Promise.resolve({ id: 'sess-1', ...input } as unknown as BotSession),
   )
@@ -97,7 +101,7 @@ function makeDeps(
   const close = vi.fn(() => Promise.resolve())
 
   const deps: RunBotTurnDeps = {
-    session: { say, handoff, finish },
+    session: { say, whisper, handoff, finish },
     sessions: {
       getActiveByChatId: () => Promise.resolve(over.sessaoAtiva ?? null),
       handoffAtByChatId: () => Promise.resolve(over.entregueEm ?? null),
@@ -169,13 +173,30 @@ describe('runBotTurn', () => {
     })
 
     it('encerra a sessão que já existia', async () => {
+      // Grafo com duas capturas: o turno para na segunda, então a sessão continua viva —
+      // é ela que precisa virar `EXPIRED`. Terminando em entrega, já fecharia sozinha.
+      const graphDuasCapturas = {
+        ...graph,
+        nodes: [
+          { ...graph.nodes[0], next: 'ask2' },
+          {
+            id: 'ask2',
+            kind: 'message',
+            text: 'E o telefone?',
+            capture: 'telefone',
+            next: 'entrega',
+          },
+          graph.nodes[2],
+        ],
+      } as unknown as BotFlowGraph
+
       const { deps, say, close } = makeDeps({
         sessaoAtiva: {
           id: 'sess-viva',
           currentNodeId: 'ask',
           vars: {},
           attempts: 0,
-          graph,
+          graph: graphDuasCapturas,
           flowId: 'flow-1',
           flowVersion: 3,
           bindingId: 'bind-1',
@@ -435,7 +456,11 @@ describe('runBotTurn', () => {
     // respondeu: o `graph` da sessão é a fonte, o do repositório não é lido.
     const outroGraph = {
       ...graph,
-      nodes: [{ ...graph.nodes[0], text: 'PERGUNTA NOVA' }, graph.nodes[1]],
+      nodes: [
+        graph.nodes[0],
+        { ...graph.nodes[1], text: 'PERGUNTA NOVA' },
+        graph.nodes[2],
+      ],
     } as unknown as BotFlowGraph
 
     const sessao: BotSession = {
@@ -459,12 +484,12 @@ describe('runBotTurn', () => {
       flowAtual: { ...flow, version: 4, graph: outroGraph },
     })
 
-    // Resposta inválida força o retry: o único caminho que devolve o texto do nó atual
-    // sem sair dele, e por isso o que distingue snapshot de fluxo republicado.
+    // A resposta avança para a fala seguinte, que é o que distingue o snapshot do fluxo
+    // republicado: o texto dito vem do grafo da sessão.
     await runBotTurn(evento({ text: 'x' }), LINE, APP, deps)
 
     const falas = say.mock.calls.map(c => String(c[1])).join(' ')
-    expect(falas).toContain('Não entendi')
+    expect(falas).toContain('Anotado.')
     expect(falas).not.toContain('PERGUNTA NOVA')
   })
 

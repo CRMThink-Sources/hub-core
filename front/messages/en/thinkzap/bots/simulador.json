@@ -8,6 +8,7 @@
   "encerradaPlaceholder": "Conversation ended — restart to test again",
   "respostaPlaceholder": "Customer answer",
   "enviar": "Send",
+  "sussurro": "Only the agent sees this",
   "sistema": {
     "fluxoMudou": "The flow changed. Start the conversation again to test.",
     "handoff": "Conversation handed to an agent.",

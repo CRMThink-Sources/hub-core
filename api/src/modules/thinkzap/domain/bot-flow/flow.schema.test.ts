@@ -41,18 +41,179 @@ describe('parseBotFlowGraph', () => {
         nodes: [
           {
             id: 'a',
-            kind: 'input',
+            kind: 'message',
             text: 'nome?',
-            saveAs: 'nome do cliente',
-            validate: 'text',
+            capture: 'nome do cliente',
             next: 'b',
-            maxAttempts: 2,
-            onExhausted: 'b',
           },
           { id: 'b', kind: 'finish' },
         ],
       }),
     ).toBeNull()
+  })
+
+  describe('fluxo salvo quando a captura era um bloco', () => {
+    const antigo = {
+      entryNodeId: 'a',
+      settings: { escapeKeywords: [], escapeTarget: null },
+      nodes: [
+        {
+          id: 'a',
+          kind: 'input',
+          text: 'Data de nascimento?',
+          saveAs: 'nascimento',
+          validate: 'date',
+          maxAttempts: 3,
+          onExhausted: 'c',
+          next: 'b',
+        },
+        {
+          id: 'b',
+          kind: 'condition',
+          branches: [
+            { when: { var: 'nascimento', op: 'notEmpty' }, next: 'c' },
+          ],
+          otherwise: 'c',
+        },
+        { id: 'c', kind: 'finish' },
+      ],
+    }
+
+    it('o bloco de captura vira uma mensagem que captura', () => {
+      const parsed = parseBotFlowGraph(antigo)
+      const node = parsed?.nodes[0]
+
+      expect(node).toEqual({
+        id: 'a',
+        kind: 'message',
+        text: 'Data de nascimento?',
+        capture: 'nascimento',
+        next: 'b',
+      })
+    })
+
+    it('a condição passa a testar o nome com namespace', () => {
+      const parsed = parseBotFlowGraph(antigo)
+      const condition = parsed?.nodes[1]
+
+      expect(condition).toMatchObject({
+        branches: [{ when: { var: 'capture.nascimento' } }],
+      })
+    })
+
+    it('o vínculo de CRM da condição vira o nome do sistema', () => {
+      const parsed = parseBotFlowGraph({
+        ...antigo,
+        nodes: [
+          antigo.nodes[0],
+          {
+            ...antigo.nodes[1],
+            branches: [
+              { when: { var: 'contatoId', op: 'notEmpty' }, next: 'c' },
+            ],
+          },
+          antigo.nodes[2],
+        ],
+      })
+
+      expect(parsed?.nodes[1]).toMatchObject({
+        branches: [{ when: { var: 'bitrix.contactId' } }],
+      })
+    })
+
+    it('o `saveAs` da pergunta vira `capture`', () => {
+      const parsed = parseBotFlowGraph({
+        ...minimal,
+        nodes: [
+          {
+            id: 'a',
+            kind: 'question',
+            text: 'qual?',
+            saveAs: 'motivo',
+            options: [{ value: 'x', label: 'X', next: 'b' }],
+            maxAttempts: 2,
+            onExhausted: 'b',
+          },
+          { id: 'b', kind: 'finish' },
+        ],
+      })
+
+      expect(parsed?.nodes[0]).toMatchObject({ capture: 'motivo' })
+    })
+  })
+
+  describe('variável interpolada no texto', () => {
+    const comTexto = (text: string) => ({
+      ...minimal,
+      nodes: [
+        { id: 'a', kind: 'message', text, next: 'b' },
+        { id: 'b', kind: 'finish' },
+      ],
+    })
+
+    it('aceita a variável do sistema', () => {
+      expect(codes(comTexto('Olá {bitrix.name}'))).toEqual([])
+    })
+
+    it('aceita o que outro bloco captura', () => {
+      const graph = {
+        ...minimal,
+        nodes: [
+          {
+            id: 'a',
+            kind: 'message',
+            text: 'Seu e-mail?',
+            capture: 'email',
+            next: 'b',
+          },
+          {
+            id: 'b',
+            kind: 'message',
+            text: 'Anotei {capture.email}',
+            next: 'c',
+          },
+          { id: 'c', kind: 'finish' },
+        ],
+      }
+
+      expect(codes(graph)).toEqual([])
+    })
+
+    it('acusa a variável que ninguém define', () => {
+      expect(codes(comTexto('Olá {capture.sumiu}'))).toEqual(['unknown-var'])
+    })
+
+    it('acusa a condição que testa variável de fora do fluxo', () => {
+      const graph = {
+        ...minimal,
+        nodes: [
+          {
+            id: 'a',
+            kind: 'condition',
+            branches: [
+              { when: { var: 'capture.sumiu', op: 'notEmpty' }, next: 'b' },
+            ],
+            otherwise: 'b',
+          },
+          { id: 'b', kind: 'finish' },
+        ],
+      }
+
+      expect(codes(graph)).toEqual(['unknown-var'])
+    })
+
+    it('acusa a despedida do escape com variável inexistente', () => {
+      const graph = {
+        ...minimal,
+        settings: {
+          escapeKeywords: ['atendente'],
+          escapeTarget: { type: 'queue' },
+          escapeText: 'Até logo, {capture.sumiu}',
+        },
+      }
+
+      expect(codes(graph)).toEqual(['unknown-var'])
+    })
   })
 
   it('preenche settings quando o JSON não traz', () => {
@@ -290,5 +451,58 @@ describe('validateFlowGraph — destino não escolhido', () => {
 
     expect(codigos).not.toContain('self-target')
     expect(codigos).toEqual([])
+  })
+})
+
+describe('opção sem rótulo', () => {
+  const comOpcaoVazia = {
+    ...minimal,
+    nodes: [
+      {
+        id: 'q',
+        kind: 'question',
+        text: 'menu',
+        options: [
+          { value: '', label: '', next: 'fim' },
+          { value: 's', label: 'Sair', next: 'fim' },
+        ],
+        maxAttempts: 2,
+        onExhausted: 'fim',
+      },
+      { id: 'fim', kind: 'finish' },
+    ],
+  }
+
+  // O editor cria a opção já vazia e o rascunho salva a cada tecla: recusar na forma
+  // derrubava o autosave enquanto o autor digitava o rótulo.
+  it('o rascunho salva, como já acontece com a variável da condição', () => {
+    expect(parseBotFlowGraph(comOpcaoVazia)).not.toBeNull()
+  })
+
+  it('mas a publicação cobra, apontando qual opção', () => {
+    const issues = validateFlowGraph(comOpcaoVazia)
+    const opcao = issues.find(issue => issue.code === 'option-label-missing')
+
+    expect(opcao?.nodeId).toBe('q')
+    expect(opcao?.detail).toContain('opção 1')
+  })
+
+  it('duas opções em branco não viram "valor repetido"', () => {
+    const codigos = codes({
+      ...comOpcaoVazia,
+      nodes: [
+        {
+          ...comOpcaoVazia.nodes[0],
+          options: [
+            { value: '', label: '', next: 'fim' },
+            { value: '', label: '', next: 'fim' },
+          ],
+        },
+        { id: 'fim', kind: 'finish' },
+      ],
+    })
+
+    expect(codigos).not.toContain('duplicate-option-value')
+    expect(codigos.filter(c => c === 'option-label-missing')).toHaveLength(2)
   })
 })

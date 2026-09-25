@@ -1,18 +1,25 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Handle,
   Position,
   useUpdateNodeInternals,
   type NodeProps,
 } from '@xyflow/react'
-import { AlertCircle, Plus, Trash2 } from 'lucide-react'
+import {
+  AlertCircle,
+  MessageSquareReply,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { FlowIssue, FlowNode } from '@/shared/thinkzap-bot-flow'
 import { describeVarTest } from '@/shared/thinkzap-bot-flow'
 import type { VarOperator, VarTest } from '@/shared/thinkzap-bot-flow'
 import { visibleNodePorts } from '@/shared/thinkzap-flow-graph'
+import { nodeCapture } from '@/shared/thinkzap-flow-vars'
 import { NODE_HEIGHT, NODE_WIDTH } from '@/shared/thinkzap-flow-layout'
 import {
   LANES,
@@ -41,6 +48,8 @@ export type FlowBlockData = {
   /** Abre o menu de tipos para criar o próximo bloco já ligado nesta saída. */
   onAdicionar: (portId: string) => void
   onRemover: () => void
+  /** Liga e desliga a captura da resposta. `null` no bloco que não captura. */
+  onCapturar: ((capture: string | undefined) => void) | null
 }
 
 /** Exportado: o canvas ancora o menu nesta altura, e duplicar desalinhava os dois. */
@@ -55,8 +64,11 @@ const DOT = 10
 // Quatro handles de entrada nomeados (`in:left`…) porque, com um só, a lib ancora toda
 // linha no mesmo ponto; a aresta escolhe o dela pela geometria — ver `entrySides`.
 export function FlowBlock({ id, data, selected }: NodeProps) {
-  const { node, isEntry, issues, ordem, onAdicionar, onRemover } =
+  const { node, isEntry, issues, ordem, onAdicionar, onRemover, onCapturar } =
     data as unknown as FlowBlockData
+  const [menuAberto, setMenuAberto] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const botaoRef = useRef<HTMLButtonElement>(null)
   const { t } = useTranslation('thinkzap/bots/editor')
   const { t: tc } = useTranslation('thinkzap/bots/comum')
 
@@ -65,9 +77,30 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
   const quebrado = issues.length > 0
   const titulo = node.name?.trim() || tc(`tipos.${node.kind}`)
   const fala = 'text' in node && node.text ? node.text : ''
+  const captura = nodeCapture(node)
 
   /** Cresce só quando as bolinhas não caberiam na borda com folga. */
-  const altura = Math.max(NODE_HEIGHT, 40 + ports.length * PORT_ROW)
+  const altura =
+    Math.max(NODE_HEIGHT, 40 + ports.length * PORT_ROW) + (captura ? 18 : 0)
+
+  // Fecha por posição do clique, e não por `stopPropagation` no menu: o React ouve no
+  // root e a ordem contra um listener de `document` não é garantida — o clique no item
+  // fechava a gaveta antes de virar ação.
+  useEffect(() => {
+    if (!menuAberto) return
+
+    const fechar = (event: PointerEvent) => {
+      const alvo = event.target as Node | null
+      if (!alvo) return setMenuAberto(false)
+      // O botão entra na exceção: fechado aqui, o clique dele reabriria em seguida.
+      if (menuRef.current?.contains(alvo)) return
+      if (botaoRef.current?.contains(alvo)) return
+      setMenuAberto(false)
+    }
+
+    document.addEventListener('pointerdown', fechar)
+    return () => document.removeEventListener('pointerdown', fechar)
+  }, [menuAberto])
 
   /** A lib ancora as portas na altura medida: mudar de altura pede remedir. */
   const updateNodeInternals = useUpdateNodeInternals()
@@ -77,7 +110,9 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`group relative rounded-2xl border bg-card transition-shadow ${
+      className={`group relative border bg-card transition-shadow ${
+        menuAberto ? 'rounded-2xl rounded-b-none' : 'rounded-2xl'
+      } ${
         quebrado
           ? 'border-destructive/60 shadow-md'
           : selected
@@ -163,6 +198,84 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
         </button>
       )}
 
+      {/* À esquerda da lixeira, que já ocupa a direita junto com o aviso de problema. */}
+      {onCapturar ? (
+        <div
+          className={`absolute top-1.5 z-30 ${
+            isEntry
+              ? quebrado
+                ? 'right-7'
+                : 'right-1.5'
+              : quebrado
+                ? 'right-12'
+                : 'right-7'
+          }`}
+        >
+          <button
+            ref={botaoRef}
+            type="button"
+            aria-label={t('bloco.maisOpcoes')}
+            title={t('bloco.maisOpcoes')}
+            onClick={event => {
+              event.stopPropagation()
+              setMenuAberto(aberto => !aberto)
+            }}
+            className={`nodrag h-4.5 w-4.5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground ${
+              selected || menuAberto ? 'flex' : 'hidden group-hover:flex'
+            }`}
+          >
+            <MoreHorizontal className="h-3 w-3" />
+          </button>
+        </div>
+      ) : null}
+
+      {/* Colado embaixo e com a largura do cartão: é continuação do bloco, não um balão
+          solto sobre o canvas. */}
+      {onCapturar && menuAberto ? (
+        <div
+          ref={menuRef}
+          className="nodrag absolute left-0 top-full z-40 w-full overflow-hidden rounded-b-2xl border border-t-0 border-border bg-card shadow-md"
+        >
+          {/* Interruptor, e não item de menu: a captura é um estado do bloco que fica
+              ligado, e o texto sozinho não se lia como algo clicável. */}
+          <div
+            role="button"
+            tabIndex={0}
+            /* No `pointerDown`: o canvas seleciona o nó no clique e a gaveta some antes. */
+            onPointerDown={event => {
+              event.stopPropagation()
+              onCapturar(captura ? undefined : 'resposta')
+            }}
+            onKeyDown={event => {
+              if (event.key !== 'Enter' && event.key !== ' ') return
+              event.preventDefault()
+              onCapturar(captura ? undefined : 'resposta')
+            }}
+            className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted"
+          >
+            <MessageSquareReply
+              className={`h-3.5 w-3.5 shrink-0 ${
+                captura ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            />
+            <span className="flex-1 text-[11px] font-medium text-foreground">
+              {t('bloco.capturar')}
+            </span>
+            <span
+              className={`flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
+                captura ? 'bg-primary' : 'bg-muted-foreground/25'
+              }`}
+            >
+              <span
+                className={`h-3 w-3 rounded-full bg-white shadow-sm transition-transform ${
+                  captura ? 'translate-x-3.5' : 'translate-x-0.5'
+                }`}
+              />
+            </span>
+          </div>
+        </div>
+      ) : null}
+
       {/* Centrado: o cartão é lido de relance, não campo por campo. */}
       <div className="flex h-full flex-col items-center justify-center gap-1 px-3.5 pb-2 pt-5 text-center">
         <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-muted/60">
@@ -173,10 +286,14 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
           {titulo}
         </span>
 
-        <span className="line-clamp-2 w-full text-[10px] leading-snug text-muted-foreground">
+        <span
+          className={`w-full text-[10px] leading-snug text-muted-foreground ${
+            captura ? 'line-clamp-1' : 'line-clamp-2'
+          }`}
+        >
           {fala || (
             <span className="italic opacity-70">
-              {node.kind === 'question' || node.kind === 'input'
+              {node.kind === 'question'
                 ? t('bloco.semPergunta')
                 : node.kind === 'condition'
                   ? resumoCondicao(node.branches, {
@@ -190,6 +307,13 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
             </span>
           )}
         </span>
+
+        {captura ? (
+          <span className="flex max-w-full items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+            <MessageSquareReply className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{t('bloco.capturaChip')}</span>
+          </span>
+        ) : null}
       </div>
 
       {/* Saídas sobre a borda: deslocada para fora, a bolinha caía na camada das arestas

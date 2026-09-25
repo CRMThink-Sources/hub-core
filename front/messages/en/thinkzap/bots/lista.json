@@ -57,5 +57,13 @@
     "cancelar": "Cancel",
     "criar": "Create",
     "criando": "Creating…"
+  },
+  "excluir": {
+    "titulo": "Delete flow?",
+    "descricao": "“{{nome}}” will be deleted and this cannot be undone.",
+    "avisoCanal": "Channel {{canal}} goes back to human support.",
+    "cancelar": "Cancel",
+    "confirmar": "Delete",
+    "excluindo": "Deleting…"
   }
 }

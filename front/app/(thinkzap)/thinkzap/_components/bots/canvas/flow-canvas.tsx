@@ -40,6 +40,7 @@ import {
   visibleNodePorts,
 } from '@/shared/thinkzap-flow-graph'
 import { canvasEdges, edgesKey } from '@/shared/thinkzap-flow-edges'
+import { flowVars, nextCaptureName } from '@/shared/thinkzap-flow-vars'
 import { insertAfter } from '@/shared/thinkzap-flow-insert'
 import {
   NODE_HEIGHT,
@@ -113,6 +114,24 @@ export function FlowCanvas({
         setCriandoEm({ nodeId: node.id, portId })
       },
       onRemover: () => remover(node.id),
+      onCapturar:
+        node.kind === 'message' || node.kind === 'question'
+          ? capture => {
+              const { graph: atualGraph, onChange: aplicar } = atual.current
+              aplicar({
+                ...atualGraph,
+                nodes: atualGraph.nodes.map(current =>
+                  current.id === node.id
+                    ? {
+                        ...current,
+                        capture:
+                          capture && nextCaptureName(flowVars(atualGraph)),
+                      }
+                    : current,
+                ),
+              })
+            }
+          : null,
     }),
     [graph.entryNodeId, issuesByNode, onSelecionar, remover],
   )

@@ -16,6 +16,8 @@ export type ParsedBotEvent = {
   /** Texto do contato. Vazio em `join`. */
   text: string
   authorId: string
+  /** Nome do contato como o portal o conhece. Vazio quando o evento não o traz. */
+  authorName: string
   /** Por que foi ignorado, quando `kind === 'ignore'`. Para log, não para o cliente. */
   ignoreReason?:
     | 'evento-nao-tratado'
@@ -54,6 +56,17 @@ function asText(value: unknown): string {
   return ''
 }
 
+// O evento manda `name` pronto em alguns portais e só as partes em outros.
+function nomeDoUsuario(user: Raw): string {
+  const completo = asText(user.name).trim()
+  if (completo) return completo
+
+  return [asText(user.first_name), asText(user.last_name)]
+    .map(parte => parte.trim())
+    .filter(Boolean)
+    .join(' ')
+}
+
 // `expectedBotCode` vem de fora para o parser não conhecer a constante do registro.
 export function parseBotEvent(
   body: unknown,
@@ -81,6 +94,7 @@ export function parseBotEvent(
     domain: asText(auth.domain || asRecord(payload.auth).domain),
     text: asText(message.text),
     authorId: asText(message.authorId ?? user.id ?? ''),
+    authorName: nomeDoUsuario(user),
   }
 
   const ignorar = (reason: ParsedBotEvent['ignoreReason']): ParsedBotEvent => ({
