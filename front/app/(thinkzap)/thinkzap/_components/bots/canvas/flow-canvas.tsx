@@ -166,7 +166,7 @@ function Canvas({
         fim.y <= area.bottom - MARGEM
       if (visivel) return
 
-      setCenter(rect.x + rect.width / 2, rect.y + rect.height / 2, {
+      void setCenter(rect.x + rect.width / 2, rect.y + rect.height / 2, {
         zoom: getZoom(),
         duration: 320,
       })
