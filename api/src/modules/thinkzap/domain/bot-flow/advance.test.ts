@@ -151,6 +151,78 @@ describe('advance — reconvergência e escape', () => {
   })
 })
 
+describe('advance — resumo sussurrado', () => {
+  /** O ajuste desliga o sussurro; a transferência em si não muda. */
+  const semResumo: BotFlowGraph = {
+    ...exampleFlow,
+    settings: { ...exampleFlow.settings, whisperSummary: false },
+  }
+
+  it('desligado, o handoff de bloco transfere sem sussurrar', () => {
+    const result = advance(
+      semResumo,
+      { currentNodeId: 'n6', vars: {}, attempts: 0 },
+      { kind: 'text', text: 'manhã' },
+    )
+
+    expect(kinds(result.effects)).toEqual(['say', 'handoff'])
+  })
+
+  it('desligado, a saída de emergência também não sussurra', () => {
+    const result = advance(
+      semResumo,
+      { currentNodeId: 'n2', vars: {}, attempts: 0 },
+      { kind: 'text', text: 'quero falar com um atendente por favor' },
+    )
+
+    expect(kinds(result.effects)).toEqual(['say', 'handoff'])
+  })
+
+  it('ajuste ausente sussurra — é como os fluxos antigos foram salvos', () => {
+    const { whisperSummary: _, ...semCampo } = exampleFlow.settings
+    const antigo: BotFlowGraph = { ...exampleFlow, settings: semCampo }
+
+    const result = advance(
+      antigo,
+      { currentNodeId: 'n6', vars: {}, attempts: 0 },
+      { kind: 'text', text: 'manhã' },
+    )
+
+    expect(kinds(result.effects)).toEqual(['say', 'whisper', 'handoff'])
+  })
+})
+
+describe('advance — bloco de horário', () => {
+  const comHorario: BotFlowGraph = {
+    entryNodeId: 'h',
+    settings: { escapeKeywords: [], escapeTarget: null },
+    nodes: [
+      { id: 'h', kind: 'schedule', whenOpen: 'aberto', whenClosed: 'fechado' },
+      { id: 'aberto', kind: 'finish', text: 'estamos no ar' },
+      { id: 'fechado', kind: 'finish', text: 'voltamos amanhã' },
+    ],
+  } as unknown as BotFlowGraph
+
+  const rodar = (vars: Record<string, string>) =>
+    says(advance(comHorario, null, { kind: 'start' }, vars).effects)
+
+  it('dentro do horário segue por whenOpen', () => {
+    expect(rodar({ 'bitrix.withinWorkingHours': 'Y' })).toEqual([
+      'estamos no ar',
+    ])
+  })
+
+  it('fora do horário segue por whenClosed', () => {
+    expect(rodar({ 'bitrix.withinWorkingHours': 'N' })).toEqual([
+      'voltamos amanhã',
+    ])
+  })
+
+  it('sem a variável segue como dentro do horário', () => {
+    expect(rodar({})).toEqual(['estamos no ar'])
+  })
+})
+
 describe('advance — fluxo quebrado', () => {
   it('nó atual inexistente aborta em vez de estourar', () => {
     const result = reply(

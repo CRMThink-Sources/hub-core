@@ -20,7 +20,11 @@ import { describeVarTest } from '@/shared/thinkzap-bot-flow'
 import type { VarOperator, VarTest } from '@/shared/thinkzap-bot-flow'
 import { visibleNodePorts } from '@/shared/thinkzap-flow-graph'
 import { nodeCapture } from '@/shared/thinkzap-flow-vars'
-import { NODE_HEIGHT, NODE_WIDTH } from '@/shared/thinkzap-flow-layout'
+import {
+  NODE_WIDTH,
+  nodeHeight,
+  portOffsetY,
+} from '@/shared/thinkzap-flow-layout'
 import {
   LANES,
   LANES_POR_LADO,
@@ -52,9 +56,6 @@ export type FlowBlockData = {
   onCapturar: ((capture: string | undefined) => void) | null
 }
 
-/** Exportado: o canvas ancora o menu nesta altura, e duplicar desalinhava os dois. */
-export const PORT_ROW = 26
-
 /** Diâmetro da bolinha de saída. Entra no `left` para ela ficar sobre a borda. */
 const DOT = 10
 
@@ -79,9 +80,8 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
   const fala = 'text' in node && node.text ? node.text : ''
   const captura = nodeCapture(node)
 
-  /** Cresce só quando as bolinhas não caberiam na borda com folga. */
-  const altura =
-    Math.max(NODE_HEIGHT, 40 + ports.length * PORT_ROW) + (captura ? 18 : 0)
+  /** Do módulo de layout: o posicionamento do bloco novo usa a mesma conta. */
+  const altura = nodeHeight(node)
 
   // Fecha por posição do clique, e não por `stopPropagation` no menu: o React ouve no
   // root e a ordem contra um listener de `document` não é garantida — o clique no item
@@ -295,15 +295,17 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
             <span className="italic opacity-70">
               {node.kind === 'question'
                 ? t('bloco.semPergunta')
-                : node.kind === 'condition'
-                  ? resumoCondicao(node.branches, {
-                      operadores: tc('operadores', {
-                        returnObjects: true,
-                      }) as Record<VarOperator, string>,
-                      variavel: tc('variavel'),
-                      semCondicao: t('bloco.semCondicao'),
-                    })
-                  : t('bloco.semMensagem')}
+                : node.kind === 'schedule'
+                  ? t('bloco.resumoHorario')
+                  : node.kind === 'condition'
+                    ? resumoCondicao(node.branches, {
+                        operadores: tc('operadores', {
+                          returnObjects: true,
+                        }) as Record<VarOperator, string>,
+                        variavel: tc('variavel'),
+                        semCondicao: t('bloco.semCondicao'),
+                      })
+                    : t('bloco.semMensagem')}
             </span>
           )}
         </span>
@@ -318,10 +320,9 @@ export function FlowBlock({ id, data, selected }: NodeProps) {
 
       {/* Saídas sobre a borda: deslocada para fora, a bolinha caía na camada das arestas
           e o mouse ia para lá. `z-20` as põe acima das entradas. */}
-      {ports.map((port, indice) => {
+      {ports.map(port => {
         const pendente = port.target === node.id
-        const topo =
-          altura / 2 - ((ports.length - 1) * PORT_ROW) / 2 + indice * PORT_ROW
+        const topo = portOffsetY(node, port.id)
 
         return (
           <div

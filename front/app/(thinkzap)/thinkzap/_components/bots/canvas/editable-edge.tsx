@@ -8,6 +8,9 @@ export type EditableEdgeData = {
   onRename?: (texto: string) => void
 }
 
+/** A lib arredonda as âncoras ao pixel, e 1px de sobra já vira dois cotovelos. */
+const SNAP = 6
+
 // `interactionWidth`: 1.5px é fino demais para clicar e selecionar antes do Delete.
 //
 // Sem rótulo na linha: com blocos próximos, pills de arestas vizinhas se cruzavam e
@@ -23,14 +26,20 @@ export function EditableEdge({
   selected,
   markerEnd,
 }: EdgeProps) {
+  // Só quando o traço vai de fato para a frente: em laço para trás o desvio é o desenho.
+  const reto = Math.abs(sourceY - targetY) <= SNAP && targetX > sourceX
+  const y = reto ? (sourceY + targetY) / 2 : null
+
   const [path] = getSmoothStepPath({
     sourceX,
-    sourceY,
+    sourceY: y ?? sourceY,
     sourcePosition,
     targetX,
-    targetY,
+    targetY: y ?? targetY,
     targetPosition,
-    borderRadius: 12,
+    borderRadius: 16,
+    // Trecho reto antes de dobrar: curto, o traço encostava na borda do cartão.
+    offset: 28,
   })
 
   return (

@@ -454,6 +454,44 @@ describe('validateFlowGraph — destino não escolhido', () => {
   })
 })
 
+describe('bloco de horário — os dois caminhos são obrigatórios', () => {
+  const comHorario = (whenOpen: string, whenClosed: string) => ({
+    entryNodeId: 'h',
+    settings: { escapeKeywords: [], escapeTarget: null },
+    nodes: [
+      { id: 'h', kind: 'schedule', whenOpen, whenClosed },
+      { id: 'fim', kind: 'handoff', target: { type: 'queue' } },
+    ],
+  })
+
+  it('acusa quando só um lado foi escolhido', () => {
+    expect(codes(comHorario('fim', 'h'))).toContain('schedule-path-missing')
+    expect(codes(comHorario('h', 'fim'))).toContain('schedule-path-missing')
+  })
+
+  it('não acusa com os dois escolhidos', () => {
+    const codigos = codes({
+      entryNodeId: 'h',
+      settings: { escapeKeywords: [], escapeTarget: null },
+      nodes: [
+        { id: 'h', kind: 'schedule', whenOpen: 'fim', whenClosed: 'fora' },
+        { id: 'fim', kind: 'handoff', target: { type: 'queue' } },
+        { id: 'fora', kind: 'finish', text: 'voltamos amanhã' },
+      ],
+    })
+
+    expect(codigos).toEqual([])
+  })
+
+  // `self-target` diz "escolha os destinos"; aqui o texto aponta qual lado falta.
+  it('com os dois pendentes, acusa só o código específico', () => {
+    const codigos = codes(comHorario('h', 'h'))
+
+    expect(codigos).toContain('schedule-path-missing')
+    expect(codigos).not.toContain('self-target')
+  })
+})
+
 describe('opção sem rótulo', () => {
   const comOpcaoVazia = {
     ...minimal,

@@ -48,16 +48,33 @@ describe('nextOptionValue', () => {
 })
 
 describe('removeNode', () => {
-  it('religa quem apontava para o passo removido', () => {
+  it('quem apontava para o passo removido fica pendente', () => {
     const next = removeNode(graph(), 'n3')
 
     const pergunta = next.nodes.find(node => node.id === 'n2')
-    expect(pergunta?.kind).toBe('question')
     if (pergunta?.kind !== 'question') throw new Error('tipo inesperado')
 
-    // A opção A apontava para n3; n3 era terminal, então herda o que sobrou.
-    expect(pergunta.options[0]?.next).not.toBe('n3')
+    // Aponta para si: sem destino, e por isso sem aresta no canvas.
+    expect(pergunta.options[0]?.next).toBe('n2')
     expect(next.nodes.some(node => node.id === 'n3')).toBe(false)
+  })
+
+  it('não religa a saída ao bloco inicial', () => {
+    const next = removeNode(graph(), 'n3')
+    const pergunta = next.nodes.find(node => node.id === 'n2')
+    if (pergunta?.kind !== 'question') throw new Error('tipo inesperado')
+
+    expect(pergunta.options[0]?.next).not.toBe(next.entryNodeId)
+  })
+
+  it('as outras saídas do mesmo bloco não são tocadas', () => {
+    const next = removeNode(graph(), 'n3')
+    const pergunta = next.nodes.find(node => node.id === 'n2')
+    if (pergunta?.kind !== 'question') throw new Error('tipo inesperado')
+
+    // Só a opção A apontava para n3.
+    expect(pergunta.options[1]?.next).toBe('n4')
+    expect(pergunta.onExhausted).toBe('n4')
   })
 
   it('não deixa destino órfão em nenhuma saída', () => {

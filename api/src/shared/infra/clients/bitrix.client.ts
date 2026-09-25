@@ -644,6 +644,13 @@ export interface ICrmItemUpdateResponse {
 }
 export interface IGetOpenChannelResponse {
   LINE_NAME: string
+  /** Expediente do canal — formatos em `isWithinWorkingHours`. */
+  WORKTIME_ENABLE?: string
+  WORKTIME_FROM?: string
+  WORKTIME_TO?: string
+  WORKTIME_TIMEZONE?: string
+  WORKTIME_DAYOFF?: string[]
+  WORKTIME_HOLIDAYS?: string[]
 }
 
 export interface ISendMessageData {

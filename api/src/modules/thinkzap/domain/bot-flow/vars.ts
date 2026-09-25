@@ -18,6 +18,9 @@ export function choiceVar(nodeId: string): string {
   return `${CHOICE_NAMESPACE}.${nodeId}`
 }
 
+/** `Y`/`N`, do expediente do canal. Ausente vale como `Y`. */
+export const WORKING_HOURS_VAR = 'bitrix.withinWorkingHours'
+
 /** Contrato com todo fluxo publicado que os interpole. */
 export const SYSTEM_VARS = [
   'bitrix.name',
@@ -25,6 +28,7 @@ export const SYSTEM_VARS = [
   'bitrix.leadId',
   'bitrix.companyId',
   'bitrix.dealId',
+  WORKING_HOURS_VAR,
 ] as const
 
 export type SystemVar = (typeof SYSTEM_VARS)[number]

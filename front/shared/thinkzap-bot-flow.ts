@@ -194,6 +194,17 @@ export type ConditionNode = {
   recipeId?: string
 }
 
+/** Desvia pelo expediente do canal aberto. Os dois caminhos são obrigatórios. */
+export type ScheduleNode = {
+  id: NodeId
+  kind: 'schedule'
+  position?: NodePosition
+  portSides?: PortSides
+  name?: NodeName
+  whenOpen: NodeId
+  whenClosed: NodeId
+}
+
 export type HandoffNode = {
   id: NodeId
   kind: 'handoff'
@@ -217,6 +228,7 @@ export type FlowNode =
   | MessageNode
   | QuestionNode
   | ConditionNode
+  | ScheduleNode
   | HandoffNode
   | FinishNode
 
@@ -228,6 +240,12 @@ export type FlowSettings = {
   escapeTarget: HandoffTarget | null
   /** Última fala antes de transferir. Ausente = transferência calada. */
   escapeText?: string
+  /**
+   * Sussurra ao operador, no handoff, o resumo do que o bot apurou.
+   *
+   * Ausente vale como ligado: fluxo salvo antes deste campo sempre sussurrou.
+   */
+  whisperSummary?: boolean
 }
 
 export type BotFlowGraph = {
@@ -235,6 +253,10 @@ export type BotFlowGraph = {
   nodes: FlowNode[]
   settings: FlowSettings
 }
+
+/** Espelha `shouldWhisperSummary` do servidor: ausente vale como ligado. */
+export const shouldWhisperSummary = (settings: FlowSettings): boolean =>
+  settings.whisperSummary !== false
 
 export type BotFlowStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 
@@ -308,6 +330,7 @@ export const NODE_KIND_LABEL: Record<FlowNodeKind, string> = {
   message: 'Mensagem',
   question: 'Pergunta',
   condition: 'Condição',
+  schedule: 'Horário',
   handoff: 'Atendente',
   finish: 'Encerrar',
 }
@@ -316,6 +339,7 @@ export const NODE_KIND_ORDER: FlowNodeKind[] = [
   'message',
   'question',
   'condition',
+  'schedule',
   'handoff',
   'finish',
 ]
@@ -335,7 +359,7 @@ export const NODE_KIND_GROUPS: Array<{
   {
     id: 'acoes',
     titulo: 'Ações do chat',
-    kinds: ['condition', 'handoff', 'finish'],
+    kinds: ['condition', 'schedule', 'handoff', 'finish'],
   },
 ]
 
@@ -344,6 +368,7 @@ export const NODE_KIND_HINT: Record<FlowNodeKind, string> = {
   message: 'Fala e segue adiante',
   question: 'Oferece opções e espera a escolha',
   condition: 'Desvia conforme o que foi respondido',
+  schedule: 'Desvia pelo horário de atendimento do canal',
   handoff: 'Entrega a conversa para um atendente',
   finish: 'Encerra o atendimento',
 }
@@ -357,16 +382,15 @@ export function nodeOutgoing(node: FlowNode): NodeId[] {
       return [...node.options.map(option => option.next), node.onExhausted]
     case 'condition':
       return [...node.branches.map(branch => branch.next), node.otherwise]
+    case 'schedule':
+      return [node.whenOpen, node.whenClosed]
     case 'handoff':
     case 'finish':
       return []
   }
 }
 
-/**
- * Remove um passo e religa quem apontava para ele, herdando o destino do removido.
- * Sem isso cada referência órfã viraria `target-not-found` na publicação.
- */
+/** Quem apontava para o removido fica pendente. Só a entrada precisa de substituto. */
 export function removeNode(graph: BotFlowGraph, nodeId: NodeId): BotFlowGraph {
   const removido = graph.nodes.find(node => node.id === nodeId)
   if (!removido) return graph
@@ -374,16 +398,18 @@ export function removeNode(graph: BotFlowGraph, nodeId: NodeId): BotFlowGraph {
   const restantes = graph.nodes.filter(node => node.id !== nodeId)
   if (restantes.length === 0) return graph
 
-  /** Primeira saída do removido; se era terminal, o que sobrou no topo da lista. */
-  const substituto =
-    nodeOutgoing(removido).find(
-      target => target !== nodeId && restantes.some(n => n.id === target),
-    ) ?? restantes[0].id
-
-  const redirect = (target: NodeId): NodeId =>
-    target === nodeId ? substituto : target
+  const novaEntrada =
+    graph.entryNodeId === nodeId
+      ? (nodeOutgoing(removido).find(
+          target => target !== nodeId && restantes.some(n => n.id === target),
+        ) ?? restantes[0].id)
+      : graph.entryNodeId
 
   const nodes = restantes.map((node): FlowNode => {
+    // Aponta para si: a convenção de saída sem destino.
+    const redirect = (target: NodeId): NodeId =>
+      target === nodeId ? node.id : target
+
     switch (node.kind) {
       case 'message':
         return { ...node, next: redirect(node.next) }
@@ -405,6 +431,12 @@ export function removeNode(graph: BotFlowGraph, nodeId: NodeId): BotFlowGraph {
           })),
           otherwise: redirect(node.otherwise),
         }
+      case 'schedule':
+        return {
+          ...node,
+          whenOpen: redirect(node.whenOpen),
+          whenClosed: redirect(node.whenClosed),
+        }
       case 'handoff':
       case 'finish':
         return node
@@ -413,7 +445,7 @@ export function removeNode(graph: BotFlowGraph, nodeId: NodeId): BotFlowGraph {
 
   // `settings` passa intacto: a saída de emergência guarda alvo de entrega, não id de bloco.
   return {
-    entryNodeId: redirect(graph.entryNodeId),
+    entryNodeId: novaEntrada,
     nodes,
     settings: graph.settings,
   }
@@ -464,6 +496,8 @@ export function makeNode(kind: FlowNodeKind, id: NodeId): FlowNode {
         branches: [{ when: { var: 'resposta', op: 'notEmpty' }, next: id }],
         otherwise: id,
       }
+    case 'schedule':
+      return { id, kind, whenOpen: id, whenClosed: id }
     case 'handoff':
       return { id, kind, text: '', target: { type: 'queue' } }
     case 'finish':

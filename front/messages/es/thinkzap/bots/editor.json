@@ -39,6 +39,7 @@
     "handoff-target-incomplete": "Elige a quién se entrega la conversación.",
     "condition-var-invalid": "La condición necesita una variable para probar.",
     "node-text-missing": "Falta el texto que el bot envía en este bloque.",
+    "schedule-path-missing": "Los dos caminos del horario de atención son obligatorios.",
     "unknown-var": "Este bloque usa una variable que no existe en el flujo."
   },
   "canvas": {
@@ -55,6 +56,7 @@
     "problemas_one": "{{count}} problema",
     "problemas_other": "{{count}} problemas",
     "semPergunta": "sin pregunta",
+    "resumoHorario": "sigue el horario del canal",
     "semMensagem": "sin mensaje",
     "semCondicao": "sin condición",
     "capturar": "Guardar la respuesta",

@@ -164,6 +164,16 @@ function migrateUserTarget(raw: unknown): unknown {
   return { type: 'evenly', bitrixUserIds: id.trim() ? [id] : [] }
 }
 
+const scheduleNodeSchema = z.object({
+  id: nodeIdSchema,
+  kind: z.literal('schedule'),
+  position: positionSchema,
+  portSides: portSidesSchema,
+  name: nodeNameSchema,
+  whenOpen: nodeIdSchema,
+  whenClosed: nodeIdSchema,
+})
+
 const handoffNodeSchema = z.object({
   id: nodeIdSchema,
   kind: z.literal('handoff'),
@@ -187,6 +197,7 @@ const flowNodeSchema = z.discriminatedUnion('kind', [
   messageNodeSchema,
   questionNodeSchema,
   conditionNodeSchema,
+  scheduleNodeSchema,
   handoffNodeSchema,
   finishNodeSchema,
 ])
@@ -195,6 +206,9 @@ const flowSettingsSchema = z.object({
   escapeKeywords: z.array(z.string().min(1)).max(20),
   escapeTarget: handoffTargetSchema.nullable(),
   escapeText: optionalTextSchema,
+  // `default(true)`: fluxo gravado antes do ajuste sussurrava o resumo, e parsear não
+  // pode desligar em silêncio um bot que já está no ar.
+  whisperSummary: z.boolean().default(true),
 })
 
 const rawGraphSchema = z.object({
@@ -208,6 +222,7 @@ const rawGraphSchema = z.object({
     ...DEFAULT_FLOW_SETTINGS,
     escapeKeywords: [...DEFAULT_FLOW_SETTINGS.escapeKeywords],
     escapeText: DEFAULT_FLOW_SETTINGS.escapeText,
+    whisperSummary: DEFAULT_FLOW_SETTINGS.whisperSummary ?? true,
   })),
 })
 
@@ -334,6 +349,7 @@ export type FlowIssueCode =
   | 'condition-var-invalid'
   | 'node-text-missing'
   | 'unknown-var'
+  | 'schedule-path-missing'
 
 export type FlowIssue = {
   code: FlowIssueCode
@@ -536,9 +552,29 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
   }
 
   // Exige que *nenhuma* saída leve a outro bloco: uma só voltando é laço legítimo
+  // As duas saídas do bloco de horário são obrigatórias, não só uma.
+  for (const node of graph.nodes) {
+    if (node.kind !== 'schedule') continue
+
+    const faltando = [
+      node.whenOpen === node.id ? 'dentro do horário' : null,
+      node.whenClosed === node.id ? 'fora do horário' : null,
+    ].filter((lado): lado is string => lado !== null)
+
+    if (faltando.length > 0) {
+      issues.push({
+        code: 'schedule-path-missing',
+        nodeId: node.id,
+        detail: `escolha o destino de: ${faltando.join(' e ')}`,
+      })
+    }
+  }
+
   // ("repetir o menu"); todas voltando é destino nunca escolhido no editor.
   for (const node of graph.nodes) {
     const saidas = outgoing(node)
+    // `schedule` já foi acusado acima, com o lado que falta.
+    if (node.kind === 'schedule') continue
     if (saidas.length > 0 && saidas.every(target => target === node.id)) {
       issues.push({
         code: 'self-target',
@@ -561,7 +597,8 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
 
 /** Todo texto que o cliente lê neste bloco. */
 function textoFalado(node: BotFlowGraph['nodes'][number]): string {
-  if (node.kind === 'condition') return ''
+  // `condition` e `schedule` só desviam: não têm fala para interpolar.
+  if (node.kind === 'condition' || node.kind === 'schedule') return ''
   if (node.kind === 'question') return `${node.text}\n${node.retryText ?? ''}`
   return node.text ?? ''
 }

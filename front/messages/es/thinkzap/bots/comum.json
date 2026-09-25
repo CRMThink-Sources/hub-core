@@ -3,6 +3,7 @@
     "message": "Mensaje",
     "question": "Pregunta",
     "input": "Captura",
+    "schedule": "Horario",
     "condition": "Condición",
     "handoff": "Transferir",
     "finish": "Finalizar"
@@ -11,6 +12,7 @@
     "message": "Habla y sigue adelante",
     "question": "Ofrece opciones y espera la elección",
     "input": "Pregunta y guarda la respuesta",
+    "schedule": "Deriva según el horario de atención del canal",
     "condition": "Desvía según lo que se respondió",
     "handoff": "Transfiere la conversación a un agente",
     "finish": "Finaliza la atención"

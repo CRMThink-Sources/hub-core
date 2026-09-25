@@ -3,6 +3,7 @@ import type { BotFlowGraph } from './thinkzap-bot-flow'
 import { insertAfter } from './thinkzap-flow-insert'
 import { canvasEdges } from './thinkzap-flow-edges'
 import { nodePorts } from './thinkzap-flow-graph'
+import { NODE_WIDTH, nodeHeight, portOffsetY } from './thinkzap-flow-layout'
 
 const base = (): BotFlowGraph => ({
   entryNodeId: 'n1',
@@ -97,8 +98,8 @@ describe('insertAfter', () => {
     expect(b.position).not.toEqual(a.position)
   })
 
-  it('a segunda saída desvia para o lado, não para baixo', () => {
-    // Fluxo se lê da esquerda para a direita: empilhar para baixo virava coluna.
+  it('a segunda saída desvia na própria coluna, não para a coluna seguinte', () => {
+    // Na coluna seguinte, a aresta até o irmão cruzava o bloco do meio.
     const primeiro = insertAfter(
       base(),
       'n1',
@@ -115,8 +116,57 @@ describe('insertAfter', () => {
     const a = segundo.graph.nodes.find(n => n.id === primeiro.nodeId)!
     const b = segundo.graph.nodes.find(n => n.id === segundo.nodeId)!
 
-    expect(b.position!.y).toBe(a.position!.y)
-    expect(b.position!.x).toBeGreaterThan(a.position!.x)
+    expect(b.position!.x).toBe(a.position!.x)
+    expect(b.position!.y).not.toBe(a.position!.y)
+  })
+
+  it('o bloco novo nasce alinhado com a saída que o pediu', () => {
+    // Alinhado pelo centro; pelo topo, o traço vinha em degrau.
+    const { graph, nodeId } = insertAfter(
+      base(),
+      'n1',
+      { kind: 'option', index: 0 },
+      'message',
+    )
+
+    const origem = graph.nodes.find(node => node.id === 'n1')!
+    const novo = graph.nodes.find(node => node.id === nodeId)!
+
+    const saida = origem.position!.y + portOffsetY(origem, 'option:0')
+    const centro = novo.position!.y + nodeHeight(novo) / 2
+
+    expect(centro).toBeCloseTo(saida, 5)
+  })
+
+  it('blocos criados não se sobrepõem', () => {
+    const primeiro = insertAfter(
+      base(),
+      'n1',
+      { kind: 'option', index: 0 },
+      'message',
+    )
+    const segundo = insertAfter(
+      primeiro.graph,
+      'n1',
+      { kind: 'exhausted' },
+      'handoff',
+    )
+
+    const caixas = segundo.graph.nodes.map(node => ({
+      ...node.position!,
+      altura: nodeHeight(node),
+    }))
+
+    for (let i = 0; i < caixas.length; i += 1) {
+      for (let j = i + 1; j < caixas.length; j += 1) {
+        const sobrepoe =
+          Math.abs(caixas[i].x - caixas[j].x) < NODE_WIDTH &&
+          caixas[i].y < caixas[j].y + caixas[j].altura &&
+          caixas[j].y < caixas[i].y + caixas[i].altura
+
+        expect(sobrepoe).toBe(false)
+      }
+    }
   })
 
   it('bloco terminal criado pelo + não fica pendente', () => {
@@ -186,6 +236,27 @@ describe('insertAfter em saída já ligada', () => {
 
     expect(a.kind === 'message' && a.next).toBe(nodeId)
     expect(novo.kind === 'message' && novo.next).toBe('c')
+  })
+
+  it('o bloco novo entra entre os dois, sem desviar de lado', () => {
+    // 'c' está a menos de uma coluna de 'a'.
+    const { graph, nodeId } = insertAfter(
+      ligado(),
+      'a',
+      { kind: 'next' },
+      'message',
+    )
+
+    const a = graph.nodes.find(node => node.id === 'a')!
+    const c = graph.nodes.find(node => node.id === 'c')!
+    const novo = graph.nodes.find(node => node.id === nodeId)!
+
+    expect(novo.position!.x).toBeGreaterThan(a.position!.x)
+    expect(novo.position!.x).toBeLessThan(c.position!.x)
+    // Os três em linha: é uma cadeia 1 → 1 → 1.
+    const centro = (node: (typeof graph.nodes)[number]) =>
+      node.position!.y + nodeHeight(node) / 2
+    expect(centro(novo)).toBeCloseTo(centro(a), 5)
   })
 
   it('o destino antigo não é descartado', () => {

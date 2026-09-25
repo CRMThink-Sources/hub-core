@@ -10,6 +10,7 @@ import {
   crmEntitiesFromDialog,
   crmVars,
 } from '@/modules/thinkzap/domain/bot-flow/crm-entities'
+import { isWithinWorkingHours } from '@/modules/thinkzap/domain/bot-flow/working-hours'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { BitrixBotSessionAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-bot-session.adapter'
 import { HybridBotSessionAdapter } from '@/modules/thinkzap/infra/adapters/hybrid-bot-session.adapter'
@@ -208,6 +209,27 @@ export async function processBitrixBotEvent(
       sessions,
       flows,
       bindings,
+      // Só chamado se o fluxo tem bloco de horário — ver `runBotTurn`.
+      workingHours: async (id: string) => {
+        try {
+          const config = await client.getOpenChannel(id)
+          const dentro = isWithinWorkingHours(config)
+
+          await ctx.appendJobLog(
+            `Horário do canal | linha=${id} | dentro=${dentro} | ` +
+              `enable=${config.WORKTIME_ENABLE} ${config.WORKTIME_FROM}-${config.WORKTIME_TO} ` +
+              `tz=${config.WORKTIME_TIMEZONE} folga=[${config.WORKTIME_DAYOFF ?? ''}]`,
+          )
+
+          return dentro
+        } catch (error) {
+          await ctx.appendJobLog(
+            `Horário do canal indisponível | linha=${id} — fluxo segue como dentro do expediente.`,
+          )
+          console.error('[bot-event] getOpenChannel error:', error)
+          return null
+        }
+      },
     }
 
     let outcome = await runBotTurn(event, lineId, installedApp.id, deps, crm)
