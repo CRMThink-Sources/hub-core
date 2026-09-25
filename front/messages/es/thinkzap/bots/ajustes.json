@@ -9,5 +9,7 @@
   "mensagemTransferencia": "Mensaje de transferencia",
   "mensagemPlaceholder": "Ej.: Voy a transferirte a un agente. (opcional)",
   "avisoSemAlvo": "Las palabras de arriba no tienen efecto mientras no se elija nada en \"Distribución\".",
-  "avisoSemPalavra": "Sin ninguna palabra, la salida de emergencia nunca se activa."
+  "avisoSemPalavra": "Sin ninguna palabra, la salida de emergencia nunca se activa.",
+  "resumoSussurro": "Enviar resumen en modo susurro",
+  "resumoSussurroAjuda": "El bot enviará un mensaje en modo susurro con las etapas y respuestas que obtuvo del cliente."
 }

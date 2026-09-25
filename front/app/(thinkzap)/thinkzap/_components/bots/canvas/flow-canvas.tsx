@@ -9,9 +9,11 @@ import {
   MiniMap,
   Panel,
   ReactFlow,
+  ReactFlowProvider,
   ViewportPortal,
   applyEdgeChanges,
   applyNodeChanges,
+  useReactFlow,
   type Connection,
   type Edge,
   type EdgeChange,
@@ -29,6 +31,7 @@ import type {
   FlowNode,
   FlowNodeKind,
   NodeId,
+  NodePosition,
 } from '@/shared/thinkzap-bot-flow'
 import { NODE_RECIPES, removeNode } from '@/shared/thinkzap-bot-flow'
 import {
@@ -37,17 +40,17 @@ import {
   parsePortId,
   setPortLabel,
   setPortTarget,
-  visibleNodePorts,
 } from '@/shared/thinkzap-flow-graph'
 import { canvasEdges, edgesKey } from '@/shared/thinkzap-flow-edges'
 import { flowVars, nextCaptureName } from '@/shared/thinkzap-flow-vars'
 import { insertAfter } from '@/shared/thinkzap-flow-insert'
 import {
-  NODE_HEIGHT,
   NODE_WIDTH,
+  nodeHeight,
+  portOffsetY,
   readingOrder,
 } from '@/shared/thinkzap-flow-layout'
-import { FlowBlock, PORT_ROW, type FlowBlockData } from './flow-block'
+import { FlowBlock, type FlowBlockData } from './flow-block'
 import { EditableEdge, type EditableEdgeData } from './editable-edge'
 import { KindMenu } from './kind-menu'
 
@@ -55,14 +58,15 @@ import { KindMenu } from './kind-menu'
 const NODE_TYPES: NodeTypes = { flowBlock: FlowBlock }
 const EDGE_TYPES: EdgeTypes = { editable: EditableEdge }
 
-export function FlowCanvas({
-  graph,
-  issuesByNode,
-  onChange,
-  selecionado,
-  onSelecionar,
-  editor,
-}: {
+/** Folga entre o bloco e a borda do canvas ao enquadrar. */
+const MARGEM = 32
+
+export type FlowCanvasApi = {
+  /** Centro da área visível, em coordenadas do fluxo. */
+  centro: () => NodePosition
+}
+
+type FlowCanvasProps = {
   graph: BotFlowGraph
   issuesByNode: Map<NodeId, FlowIssue[]>
   onChange: (graph: BotFlowGraph) => void
@@ -70,7 +74,47 @@ export function FlowCanvas({
   onSelecionar: (id: NodeId | null) => void
   /** Cartão de edição do bloco selecionado. Vem de fora; aqui só entra o posicionamento. */
   editor?: React.ReactNode
-}) {
+  /** Preenchido na montagem: o botão "novo bloco" mora na barra, fora daqui. */
+  apiRef?: React.MutableRefObject<FlowCanvasApi | null>
+}
+
+/** Retângulo que cobre os dois blocos, em coordenadas do fluxo. */
+function unir(
+  a: FlowNode,
+  b: FlowNode,
+): { x: number; y: number; width: number; height: number } {
+  const pa = a.position ?? { x: 0, y: 0 }
+  const pb = b.position ?? { x: 0, y: 0 }
+
+  const x = Math.min(pa.x, pb.x)
+  const y = Math.min(pa.y, pb.y)
+
+  return {
+    x,
+    y,
+    width: Math.max(pa.x, pb.x) + NODE_WIDTH - x,
+    height: Math.max(pa.y + nodeHeight(a), pb.y + nodeHeight(b)) - y,
+  }
+}
+
+// Casca: `useReactFlow` não funciona no componente que monta o provider.
+export function FlowCanvas(props: FlowCanvasProps) {
+  return (
+    <ReactFlowProvider>
+      <Canvas {...props} />
+    </ReactFlowProvider>
+  )
+}
+
+function Canvas({
+  graph,
+  issuesByNode,
+  onChange,
+  selecionado,
+  onSelecionar,
+  editor,
+  apiRef,
+}: FlowCanvasProps) {
   const { t } = useTranslation('thinkzap/bots/editor')
   const { t: tc } = useTranslation('thinkzap/bots/comum')
   // Estado próprio dos nós: durante o arrasto o canvas é a única fonte de posição, e o
@@ -79,6 +123,56 @@ export function FlowCanvas({
   const [mapaAberto, setMapaAberto] = useState(false)
   const arrastando = useRef(false)
   const religou = useRef(false)
+
+  const moldura = useRef<HTMLDivElement>(null)
+  const { screenToFlowPosition, flowToScreenPosition, setCenter, getZoom } =
+    useReactFlow()
+
+  /** Centro da área visível, em coordenadas do fluxo. */
+  const centroVisivel = useCallback((): NodePosition => {
+    const area = moldura.current?.getBoundingClientRect()
+    if (!area) return { x: 0, y: 0 }
+
+    return screenToFlowPosition({
+      x: area.left + area.width / 2,
+      y: area.top + area.height / 2,
+    })
+  }, [screenToFlowPosition])
+
+  useEffect(() => {
+    if (!apiRef) return
+    apiRef.current = { centro: centroVisivel }
+    return () => {
+      apiRef.current = null
+    }
+  }, [apiRef, centroVisivel])
+
+  /** Só desliza se o retângulo não couber, e preservando o zoom. */
+  const enquadrar = useCallback(
+    (rect: { x: number; y: number; width: number; height: number }) => {
+      const area = moldura.current?.getBoundingClientRect()
+      if (!area) return
+
+      const inicio = flowToScreenPosition({ x: rect.x, y: rect.y })
+      const fim = flowToScreenPosition({
+        x: rect.x + rect.width,
+        y: rect.y + rect.height,
+      })
+
+      const visivel =
+        inicio.x >= area.left + MARGEM &&
+        inicio.y >= area.top + MARGEM &&
+        fim.x <= area.right - MARGEM &&
+        fim.y <= area.bottom - MARGEM
+      if (visivel) return
+
+      setCenter(rect.x + rect.width / 2, rect.y + rect.height / 2, {
+        zoom: getZoom(),
+        duration: 320,
+      })
+    },
+    [flowToScreenPosition, getZoom, setCenter],
+  )
 
   // Fora das deps do efeito das arestas: `onChange` troca de identidade a cada render e
   // reconstruiria a lista sempre — e é nela que a seleção mora.
@@ -152,8 +246,15 @@ export function FlowCanvas({
       setCriandoEm(null)
       onChange(proximo)
       onSelecionar(nodeId)
+
+      // O par, e não só o bloco novo: ver de onde a ligação sai é o ponto do `+`.
+      const pai = proximo.nodes.find(node => node.id === criandoEm.nodeId)
+      const novo = proximo.nodes.find(node => node.id === nodeId)
+      if (pai?.position && novo?.position) {
+        enquadrar(unir(pai, novo))
+      }
     },
-    [criandoEm, graph, onChange, onSelecionar],
+    [criandoEm, enquadrar, graph, onChange, onSelecionar],
   )
 
   const criarReceita = useCallback(
@@ -176,20 +277,9 @@ export function FlowCanvas({
     const node = graph.nodes.find(current => current.id === criandoEm.nodeId)
     if (!node?.position) return null
 
-    const portas = visibleNodePorts(node)
-    const indice = Math.max(
-      0,
-      portas.findIndex(port => port.id === criandoEm.portId),
-    )
-
-    // Mesma conta do `topo` em `flow-block`: bolinhas centradas na altura do cartão.
-    const altura = Math.max(NODE_HEIGHT, 40 + portas.length * PORT_ROW)
-    const offset =
-      altura / 2 - ((portas.length - 1) * PORT_ROW) / 2 + indice * PORT_ROW
-
     return {
       x: node.position.x + NODE_WIDTH + 48,
-      y: node.position.y + offset - 16,
+      y: node.position.y + portOffsetY(node, criandoEm.portId) - 16,
     }
   }, [criandoEm, graph.nodes])
 
@@ -407,7 +497,10 @@ export function FlowCanvas({
   )
 
   return (
-    <div className="thinkbot-canvas h-[calc(100vh-13rem)] min-h-105 w-full overflow-hidden rounded-xl border border-border bg-canvas">
+    <div
+      ref={moldura}
+      className="thinkbot-canvas h-[calc(100vh-13rem)] min-h-105 w-full overflow-hidden rounded-xl border border-border bg-canvas"
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}

@@ -163,7 +163,7 @@ export function BlockPanel({
         />
       </div>
 
-      {node.kind !== 'condition' ? (
+      {node.kind !== 'condition' && node.kind !== 'schedule' ? (
         <div className="flex flex-col gap-1">
           <span className={label}>
             {node.kind === 'question' ? t('perguntaLabel') : t('falaLabel')}

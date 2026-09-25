@@ -1,6 +1,11 @@
 import type { BotFlowGraph, NodeId, NodePosition } from './thinkzap-bot-flow'
 import { nodePorts } from './thinkzap-flow-graph'
-import { NODE_HEIGHT, NODE_WIDTH } from './thinkzap-flow-layout'
+import {
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  nodeCenter,
+  portAnchor,
+} from './thinkzap-flow-layout'
 
 // O React Flow, sem handle nomeado, ancora a linha no primeiro handle que encontra —
 // sempre no mesmo pixel. Aqui o lado da entrada sai da geometria. Nada é salvo, então
@@ -67,8 +72,9 @@ export type Entry = { side: Side; lane: number }
  * separa traços que antes terminavam no mesmo ponto.
  */
 export function entrySides(graph: BotFlowGraph): Map<string, Entry> {
-  const posicoes = new Map<NodeId, NodePosition>(
-    graph.nodes.map(node => [node.id, node.position ?? { x: 0, y: 0 }]),
+  // Centro, e não o canto: com alturas diferentes o canto elegia `top`/`bottom` sem motivo.
+  const centros = new Map<NodeId, NodePosition>(
+    graph.nodes.map(node => [node.id, nodeCenter(node)]),
   )
 
   type Chegada = { chave: string; side: Side; from: NodePosition }
@@ -76,17 +82,22 @@ export function entrySides(graph: BotFlowGraph): Map<string, Entry> {
   const porDestinoLado = new Map<string, Chegada[]>()
 
   for (const node of graph.nodes) {
-    const from = posicoes.get(node.id)
+    const from = centros.get(node.id)
     if (!from) continue
 
     for (const port of nodePorts(node)) {
-      const to = posicoes.get(port.target)
+      const to = centros.get(port.target)
       if (!to) continue
 
       const side = entrySide(from, to)
       const grupo = `${port.target}|${side}`
       const lista = porDestinoLado.get(grupo)
-      const chegada = { chave: `${node.id}:${port.id}`, side, from }
+      // Ordena pela bolinha, não pelo centro: duas saídas do mesmo bloco o compartilham.
+      const chegada = {
+        chave: `${node.id}:${port.id}`,
+        side,
+        from: portAnchor(node, port.id),
+      }
 
       if (lista) lista.push(chegada)
       else porDestinoLado.set(grupo, [chegada])
@@ -96,7 +107,7 @@ export function entrySides(graph: BotFlowGraph): Map<string, Entry> {
   const entradas = new Map<string, Entry>()
 
   for (const chegadas of porDestinoLado.values()) {
-    // Uma só: faixa do meio, que é o comportamento de antes.
+    // Uma só: faixa do meio, que é o que deixa a ligação 1 → 1 numa reta.
     if (chegadas.length === 1) {
       const unica = chegadas[0]
       entradas.set(unica.chave, {
@@ -113,12 +124,16 @@ export function entrySides(graph: BotFlowGraph): Map<string, Entry> {
       eixo ? a.from.x - b.from.x : a.from.y - b.from.y,
     )
 
+    // Espalha em vez de encostar no topo: com duas chegadas, 25% e 75%.
+    const passo =
+      ordenadas.length > 1 ? (LANES_POR_LADO - 1) / (ordenadas.length - 1) : 0
+
     ordenadas.forEach((chegada, indice) => {
       entradas.set(chegada.chave, {
         // Mais chegadas que faixas: as excedentes repetem a última em vez de sair do
         // cartão. Sobreposição volta só nesse caso, que é raro.
         side: chegada.side,
-        lane: Math.min(indice, LANES_POR_LADO - 1),
+        lane: Math.min(Math.round(indice * passo), LANES_POR_LADO - 1),
       })
     })
   }

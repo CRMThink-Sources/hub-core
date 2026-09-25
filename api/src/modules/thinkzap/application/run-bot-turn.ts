@@ -7,6 +7,7 @@ import {
 import type { ParsedBotEvent } from '@/modules/thinkzap/domain/bot-flow/bot-event'
 import { isBotSessionGoneError } from '@/modules/thinkzap/domain/bot-flow/session-gone'
 import { isTargetExecutable } from '@/modules/thinkzap/domain/bot-flow/transfer-params'
+import { WORKING_HOURS_VAR } from '@/modules/thinkzap/domain/bot-flow/vars'
 import type { BotSessionPort } from '@/modules/thinkzap/domain/ports/bot-session.port'
 import type {
   BotSession,
@@ -71,6 +72,8 @@ export type RunBotTurnDeps = {
     UpdateBotSessionRepository
   flows: GetBotFlowRepository
   bindings: GetBotFlowBindingByLineRepository
+  /** `null` = não deu para saber. Só chamado se o fluxo tem bloco de horário. */
+  workingHours?: (lineId: string) => Promise<boolean | null>
   /** Injetado para o teste fixar o prazo sem mexer no relógio do processo. */
   now?: () => Date
 }
@@ -164,7 +167,7 @@ export async function runBotTurn(
     event.kind === 'join'
       ? { kind: 'start' }
       : { kind: 'text', text: event.text },
-    crmVars,
+    await comHorarioDeAtendimento(crmVars, contexto.graph, lineId, deps),
   )
 
   const effects = collapseSays(resultado.effects)
@@ -210,6 +213,22 @@ export async function runBotTurn(
   }
 
   return { kind: 'ran', effects }
+}
+
+/** Falha na consulta não derruba o turno: sem a variável, segue como dentro do horário. */
+async function comHorarioDeAtendimento(
+  vars: Record<string, string>,
+  graph: BotSession['graph'],
+  lineId: string,
+  deps: RunBotTurnDeps,
+): Promise<Record<string, string>> {
+  if (!deps.workingHours) return vars
+  if (!graph.nodes.some(node => node.kind === 'schedule')) return vars
+
+  const dentro = await deps.workingHours(lineId).catch(() => null)
+  if (dentro === null) return vars
+
+  return { ...vars, [WORKING_HOURS_VAR]: dentro ? 'Y' : 'N' }
 }
 
 type Contexto = {

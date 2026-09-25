@@ -1,10 +1,12 @@
 'use client'
 
-import { DoorOpen, X } from 'lucide-react'
+import { DoorOpen, Info, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import type { BotFlowGraph, FlowSettings } from '@/shared/thinkzap-bot-flow'
+import { shouldWhisperSummary } from '@/shared/thinkzap-bot-flow'
 import { HandoffTargetField } from './handoff-target-field'
 
 /** Palavra sem alvo (e alvo sem palavra) não faz nada — daí o aviso em vez de lista morta. */
@@ -20,6 +22,7 @@ export function FlowSettingsCard({
 }) {
   const { t } = useTranslation('thinkzap/bots/ajustes')
   const { escapeKeywords, escapeTarget, escapeText } = graph.settings
+  const sussurra = shouldWhisperSummary(graph.settings)
 
   // Metade preenchida é a única configuração inútil: as duas vazias é a saída desligada,
   // que é o estado normal de um fluxo novo.
@@ -141,6 +144,43 @@ export function FlowSettingsCard({
           {aviso}
         </p>
       ) : null}
+
+      {/* Divisória: vale para toda transferência, não só para a do escape. */}
+      <div className="flex items-center gap-2 border-t border-border pt-3">
+        <Switch
+          id="whisper-summary"
+          checked={sussurra}
+          onCheckedChange={checked =>
+            onChange({ ...graph.settings, whisperSummary: checked })
+          }
+        />
+
+        <label
+          htmlFor="whisper-summary"
+          className="cursor-pointer text-xs font-medium text-foreground"
+        >
+          {t('resumoSussurro')}
+        </label>
+
+        {/* Balão próprio: o `title` nativo abre junto do cursor e saía da tela. */}
+        <span className="group/dica relative flex">
+          <button
+            type="button"
+            aria-label={t('resumoSussurroAjuda')}
+            className="cursor-help text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
+
+          {/* `right-0`: abre para a esquerda, que é onde há espaço. */}
+          <span
+            role="tooltip"
+            className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 hidden w-56 rounded-lg border border-border bg-popover p-2 text-[11px] leading-snug font-normal text-popover-foreground shadow-md group-hover/dica:block group-focus-within/dica:block"
+          >
+            {t('resumoSussurroAjuda')}
+          </span>
+        </span>
+      </div>
     </section>
   )
 }

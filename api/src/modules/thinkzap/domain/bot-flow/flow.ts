@@ -117,6 +117,17 @@ export function targetDistribution(target: HandoffTarget): HandoffDistribution {
   return 'channel'
 }
 
+/** Desvia pelo expediente do canal aberto, configurado no painel do portal. */
+export type ScheduleNode = {
+  id: NodeId
+  kind: 'schedule'
+  position?: NodePosition
+  portSides?: PortSides
+  name?: NodeName
+  whenOpen: NodeId
+  whenClosed: NodeId
+}
+
 /** Entrega para humano. Termina a participação do bot. */
 export type HandoffNode = {
   id: NodeId
@@ -143,6 +154,7 @@ export type FlowNode =
   | MessageNode
   | QuestionNode
   | ConditionNode
+  | ScheduleNode
   | HandoffNode
   | FinishNode
 
@@ -159,6 +171,14 @@ export type FlowSettings = {
   escapeTarget: HandoffTarget | null
   /** Última fala antes de transferir. Ausente = transferência calada. */
   escapeText?: string
+  /**
+   * Sussurra ao operador, no handoff, o resumo do que o bot apurou. Desligado, a
+   * transferência entrega só a conversa.
+   *
+   * Opcional no tipo e ligado no default: fluxo salvo antes deste campo sempre sussurrou,
+   * e ausência tem de continuar significando isso.
+   */
+  whisperSummary?: boolean
 }
 
 export type BotFlowGraph = {
@@ -172,7 +192,14 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   // cortava o fluxo no primeiro cliente que escrevesse a palavra sem querer sair dele.
   escapeKeywords: [],
   escapeTarget: null,
+  // Ligado: o resumo é o que dá contexto ao operador que assume, e era o comportamento
+  // antes de o ajuste existir.
+  whisperSummary: true,
 }
+
+/** Ausente = ligado: fluxo salvo antes do ajuste sempre sussurrou o resumo. */
+export const shouldWhisperSummary = (settings: FlowSettings): boolean =>
+  settings.whisperSummary !== false
 
 export const isTerminal = (node: FlowNode): node is TerminalNode =>
   node.kind === 'handoff' || node.kind === 'finish'
@@ -190,6 +217,8 @@ export function outgoing(node: FlowNode): NodeId[] {
       return [...node.options.map(option => option.next), node.onExhausted]
     case 'condition':
       return [...node.branches.map(branch => branch.next), node.otherwise]
+    case 'schedule':
+      return [node.whenOpen, node.whenClosed]
     case 'handoff':
     case 'finish':
       return []

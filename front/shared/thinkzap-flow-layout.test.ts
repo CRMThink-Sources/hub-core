@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BotFlowGraph } from './thinkzap-bot-flow'
-import { autoLayout, relayout } from './thinkzap-flow-layout'
+import { autoLayout, nodeHeight, relayout } from './thinkzap-flow-layout'
 
 /** Pergunta com três opções, cada uma indo para um bloco diferente. */
 const leque: BotFlowGraph = {
@@ -36,14 +36,34 @@ describe('autoLayout', () => {
   })
 
   it('os filhos ficam centrados no pai, não empilhados abaixo', () => {
-    // Com a coluna começando sempre no topo, o pai ficava acima de todos os filhos e as
-    // arestas desciam por cima do cartão vizinho.
+    // Compara centros: é do centro do cartão que as saídas partem.
     const pos = autoLayout(leque)
+    const centro = (id: string) => {
+      const node = leque.nodes.find(atual => atual.id === id)!
+      return (pos.get(id)?.y ?? 0) + nodeHeight(node) / 2
+    }
 
-    const ys = ['f1', 'f2', 'f3'].map(id => pos.get(id)?.y ?? 0)
-    const meioDosFilhos = (Math.min(...ys) + Math.max(...ys)) / 2
+    const centros = ['f1', 'f2', 'f3'].map(centro)
+    const meioDosFilhos = (Math.min(...centros) + Math.max(...centros)) / 2
 
-    expect(meioDosFilhos).toBeCloseTo(pos.get('q')?.y ?? 0, 5)
+    expect(meioDosFilhos).toBeCloseTo(centro('q'), 5)
+  })
+
+  it('cartão alto não invade o de baixo', () => {
+    // Passo vertical fixo fazia o cartão de muitas saídas cobrir o vizinho.
+    const pos = autoLayout(leque)
+    const ordenados = ['f1', 'f2', 'f3']
+      .map(id => ({
+        y: pos.get(id)?.y ?? 0,
+        altura: nodeHeight(leque.nodes.find(node => node.id === id)!),
+      }))
+      .sort((a, b) => a.y - b.y)
+
+    for (let i = 1; i < ordenados.length; i += 1) {
+      expect(ordenados[i].y).toBeGreaterThanOrEqual(
+        ordenados[i - 1].y + ordenados[i - 1].altura,
+      )
+    }
   })
 
   it('filhos na ordem das saídas do pai', () => {

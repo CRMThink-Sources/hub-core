@@ -7,10 +7,11 @@ import {
   type WaitingNode,
   findNode,
   isWaiting,
+  shouldWhisperSummary,
 } from './flow'
 import { handoffSummary } from './handoff-summary'
 import { matchOption, matchesEscape, normalizeAnswer } from './match-answer'
-import { captureVar, choiceVar, renderVars } from './vars'
+import { WORKING_HOURS_VAR, captureVar, choiceVar, renderVars } from './vars'
 
 // O motor do fluxo: `(fluxo, estado, entrada) → (falas, próximo estado)`. Worker, simulador
 // do editor e teste consomem o mesmo contrato.
@@ -105,12 +106,22 @@ export function advance(
     if (despedida) {
       effects.push({ kind: 'say', text: renderVars(despedida, vars) })
     }
-    effects.push({ kind: 'whisper', text: handoffSummary(graph, vars) })
+    pushSummary(graph, vars, effects)
     effects.push({ kind: 'handoff', target: escapeTarget })
     return { effects, state: null, awaiting: null }
   }
 
   return answerWaiting(graph, current, { ...state, vars }, input.text, effects)
+}
+
+/** Vale para os dois caminhos de handoff: bloco terminal e saída de emergência. */
+function pushSummary(
+  graph: BotFlowGraph,
+  vars: Record<string, string>,
+  effects: BotEffect[],
+): void {
+  if (!shouldWhisperSummary(graph.settings)) return
+  effects.push({ kind: 'whisper', text: handoffSummary(graph, vars) })
 }
 
 function answerWaiting(
@@ -189,6 +200,12 @@ function walk(
         cursor = resolveCondition(node.branches, node.otherwise, vars)
         continue
 
+      case 'schedule':
+        // Var ausente = dentro do horário.
+        cursor =
+          vars[WORKING_HOURS_VAR] === 'N' ? node.whenClosed : node.whenOpen
+        continue
+
       case 'question':
         effects.push({ kind: 'say', text: askText(node, vars) })
         return {
@@ -201,7 +218,7 @@ function walk(
         if (node.text) {
           effects.push({ kind: 'say', text: renderVars(node.text, vars) })
         }
-        effects.push({ kind: 'whisper', text: handoffSummary(graph, vars) })
+        pushSummary(graph, vars, effects)
         effects.push({ kind: 'handoff', target: node.target })
         return { effects, state: null, awaiting: null }
 

@@ -1,5 +1,12 @@
-import type { BotFlowGraph, NodeId, NodePosition } from './thinkzap-bot-flow'
+import type {
+  BotFlowGraph,
+  FlowNode,
+  NodeId,
+  NodePosition,
+} from './thinkzap-bot-flow'
 import { nodeOutgoing } from './thinkzap-bot-flow'
+import { visibleNodePorts } from './thinkzap-flow-graph'
+import { nodeCapture } from './thinkzap-flow-vars'
 
 /** Cartão em repouso; cresce com muitas saídas. */
 export const NODE_WIDTH = 208
@@ -8,8 +15,57 @@ export const NODE_HEIGHT = 120
 const COLUMN_GAP = 140
 /** Exportado: o `+` cria bloco com este passo, senão `Reorganizar` deslocava tudo. */
 export const COLUMN_STEP = NODE_WIDTH + COLUMN_GAP
-const ROW_GAP = 72
-const ROW_HEIGHT = NODE_HEIGHT
+/** Exportado: o `+` usa o mesmo passo vertical do `Reorganizar`. */
+export const ROW_GAP = 72
+
+/** Altura de uma linha de saída no cartão. */
+export const PORT_ROW = 26
+/** O chip de captura empurra o cartão para baixo. */
+const CAPTURE_EXTRA = 18
+
+// Geometria compartilhada por bloco, layout e aresta — duplicá-la entortava as linhas.
+
+/** Altura que o cartão ocupa na tela. */
+export function nodeHeight(node: FlowNode): number {
+  const ports = visibleNodePorts(node)
+  return (
+    Math.max(NODE_HEIGHT, 40 + ports.length * PORT_ROW) +
+    (nodeCapture(node) ? CAPTURE_EXTRA : 0)
+  )
+}
+
+/** Topo do cartão até o centro da bolinha. Porta não desenhada cai no meio. */
+export function portOffsetY(node: FlowNode, portId: string): number {
+  const ports = visibleNodePorts(node)
+  const altura = nodeHeight(node)
+  const indice = ports.findIndex(port => port.id === portId)
+  if (indice < 0) return altura / 2
+
+  return altura / 2 - ((ports.length - 1) * PORT_ROW) / 2 + indice * PORT_ROW
+}
+
+/** Centro do cartão em coordenadas do fluxo. */
+export function nodeCenter(node: FlowNode): NodePosition {
+  const position = node.position ?? { x: 0, y: 0 }
+  return {
+    x: position.x + NODE_WIDTH / 2,
+    y: position.y + nodeHeight(node) / 2,
+  }
+}
+
+/** Ponto de onde a aresta desta saída parte, em coordenadas do fluxo. */
+export function portAnchor(node: FlowNode, portId: string): NodePosition {
+  const position = node.position ?? { x: 0, y: 0 }
+  return {
+    x: position.x + NODE_WIDTH,
+    y: position.y + portOffsetY(node, portId),
+  }
+}
+
+/** Topo do cartão para que o centro dele caia em `centroY`. */
+export function topFromCenter(node: FlowNode, centroY: number): number {
+  return centroY - nodeHeight(node) / 2
+}
 
 /** Índice por id: as varreduras faziam `find`/`some` por nó, o que era O(n²). */
 function indexById(
@@ -62,15 +118,21 @@ export function autoLayout(graph: BotFlowGraph): Map<NodeId, NodePosition> {
 
   const positions = new Map<NodeId, NodePosition>()
   for (const [column, ids] of byColumn) {
-    // Centrado na vertical: com a coluna sempre começando no topo, um bloco de 4 saídas
-    // ficava acima de todos os filhos e as 4 arestas desciam por cima do cartão vizinho.
-    const alturaTotal = (ids.length - 1) * (ROW_HEIGHT + ROW_GAP)
+    // Altura real: com passo fixo, cartão de muitas saídas invadia o de baixo.
+    const alturas = ids.map(id => {
+      const node = porId.get(id)
+      return node ? nodeHeight(node) : NODE_HEIGHT
+    })
+
+    // Centrado pelo centro, não pelo topo: é do centro que as saídas partem.
+    const total =
+      alturas.reduce((soma, altura) => soma + altura, 0) +
+      ROW_GAP * Math.max(0, ids.length - 1)
+    let cursor = -total / 2
 
     ids.forEach((id, row) => {
-      positions.set(id, {
-        x: column * COLUMN_STEP,
-        y: row * (ROW_HEIGHT + ROW_GAP) - alturaTotal / 2,
-      })
+      positions.set(id, { x: column * COLUMN_STEP, y: cursor })
+      cursor += alturas[row] + ROW_GAP
     })
   }
 

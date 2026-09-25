@@ -24,6 +24,8 @@ const SIMULATED_SYSTEM_VARS: Record<string, string> = {
   'bitrix.leadId': '',
   'bitrix.companyId': '',
   'bitrix.dealId': '',
+  // Simulação não tem canal para consultar: segue como dentro do expediente.
+  'bitrix.withinWorkingHours': 'Y',
 }
 
 // Usa o mesmo `advance` do worker: motor próprio aprovaria fluxo que quebra em

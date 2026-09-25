@@ -39,6 +39,7 @@
     "handoff-target-incomplete": "Choose who the conversation is handed to.",
     "condition-var-invalid": "The condition needs a variable to test.",
     "node-text-missing": "The text the bot sends in this block is missing.",
+    "schedule-path-missing": "Both business hours paths are required.",
     "unknown-var": "This block uses a variable that does not exist in the flow."
   },
   "canvas": {
@@ -55,6 +56,7 @@
     "problemas_one": "{{count}} problem",
     "problemas_other": "{{count}} problems",
     "semPergunta": "no question",
+    "resumoHorario": "follows the channel business hours",
     "semMensagem": "no message",
     "semCondicao": "no condition",
     "capturar": "Save the answer",
