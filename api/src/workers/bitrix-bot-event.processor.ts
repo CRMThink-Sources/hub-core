@@ -218,7 +218,7 @@ export async function processBitrixBotEvent(
           await ctx.appendJobLog(
             `Horário do canal | linha=${id} | dentro=${dentro} | ` +
               `enable=${config.WORKTIME_ENABLE} ${config.WORKTIME_FROM}-${config.WORKTIME_TO} ` +
-              `tz=${config.WORKTIME_TIMEZONE} folga=[${config.WORKTIME_DAYOFF ?? ''}]`,
+              `tz=${config.WORKTIME_TIMEZONE} folga=[${(config.WORKTIME_DAYOFF ?? []).join(',')}]`,
           )
 
           return dentro
