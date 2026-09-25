@@ -8,6 +8,7 @@
   "encerradaPlaceholder": "Conversación finalizada — reinicia para probar de nuevo",
   "respostaPlaceholder": "Respuesta del cliente",
   "enviar": "Enviar",
+  "sussurro": "Solo lo ve el agente",
   "sistema": {
     "fluxoMudou": "El flujo cambió. Inicia la conversación de nuevo para probar.",
     "handoff": "Conversación pasada a un agente.",

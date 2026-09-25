@@ -6,8 +6,6 @@ export type NodeId = string
 /** Nome de variável da sessão, onde a captura guarda a resposta. */
 export type VarName = string
 
-export type InputValidation = 'text' | 'email' | 'cpf' | 'number' | 'date'
-
 /** Só organização — o cliente nunca vê. */
 export type NodeName = string
 
@@ -20,7 +18,7 @@ export type NodePosition = { x: number; y: number }
  */
 export type PortSides = Record<string, 'right' | 'bottom'>
 
-/** Fala e segue. Não espera resposta. */
+/** Fala e segue. Com `capture`, espera a resposta antes de seguir. */
 export type MessageNode = {
   id: NodeId
   kind: 'message'
@@ -28,8 +26,12 @@ export type MessageNode = {
   portSides?: PortSides
   name?: NodeName
   text: string
+  /** Nome sem prefixo: o motor guarda em `capture.<nome>`. Ausente = não espera. */
+  capture?: VarName
   next: NodeId
 }
+
+export type CapturingMessageNode = MessageNode & { capture: VarName }
 
 export type QuestionOption = {
   /** É o que vai para `saveAs`; o rótulo é só o que o cliente lê. */
@@ -56,26 +58,11 @@ export type QuestionNode = {
   name?: NodeName
   text: string
   options: QuestionOption[]
-  saveAs?: VarName
+  /** Guarda o `value` da opção em `capture.<nome>`. */
+  capture?: VarName
   /** Texto da re-pergunta. Ausente = repete `text`. */
   retryText?: string
   /** Respostas fora das opções toleradas antes de desviar. */
-  maxAttempts: number
-  onExhausted: NodeId
-}
-
-/** Espera texto livre, valida e guarda. */
-export type InputNode = {
-  id: NodeId
-  kind: 'input'
-  position?: NodePosition
-  portSides?: PortSides
-  name?: NodeName
-  text: string
-  saveAs: VarName
-  validate: InputValidation
-  retryText?: string
-  next: NodeId
   maxAttempts: number
   onExhausted: NodeId
 }
@@ -155,7 +142,6 @@ export type FinishNode = {
 export type FlowNode =
   | MessageNode
   | QuestionNode
-  | InputNode
   | ConditionNode
   | HandoffNode
   | FinishNode
@@ -164,7 +150,7 @@ export type FlowNode =
 export type TerminalNode = HandoffNode | FinishNode
 
 /** Nós que param e esperam o cliente. */
-export type WaitingNode = QuestionNode | InputNode
+export type WaitingNode = QuestionNode | CapturingMessageNode
 
 export type FlowSettings = {
   /** Vale em qualquer ponto do fluxo. `escapeTarget: null` desliga a saída de emergência. */
@@ -192,7 +178,8 @@ export const isTerminal = (node: FlowNode): node is TerminalNode =>
   node.kind === 'handoff' || node.kind === 'finish'
 
 export const isWaiting = (node: FlowNode): node is WaitingNode =>
-  node.kind === 'question' || node.kind === 'input'
+  node.kind === 'question' ||
+  (node.kind === 'message' && !!node.capture?.trim())
 
 /** Destinos de um nó. Terminal não tem nenhum. */
 export function outgoing(node: FlowNode): NodeId[] {
@@ -201,8 +188,6 @@ export function outgoing(node: FlowNode): NodeId[] {
       return [node.next]
     case 'question':
       return [...node.options.map(option => option.next), node.onExhausted]
-    case 'input':
-      return [node.next, node.onExhausted]
     case 'condition':
       return [...node.branches.map(branch => branch.next), node.otherwise]
     case 'handoff':

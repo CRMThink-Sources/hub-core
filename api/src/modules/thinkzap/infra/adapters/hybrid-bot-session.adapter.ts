@@ -51,6 +51,11 @@ export class HybridBotSessionAdapter implements BotSessionPort {
     }
   }
 
+  /** Só pelo bot: o sussurro é para o operador, e mandá-lo ao contato o entregaria a quem não deve ver. */
+  async whisper(chatId: string, text: string): Promise<void> {
+    return this.eco.whisper(chatId, text)
+  }
+
   async handoff(chatId: string, target: HandoffTarget): Promise<void> {
     return this.eco.handoff(chatId, target)
   }

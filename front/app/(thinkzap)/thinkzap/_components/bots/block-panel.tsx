@@ -3,24 +3,25 @@
 import { useState } from 'react'
 import { Minus, Plus, Trash2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type {
-  FlowIssue,
-  FlowNode,
-  InputValidation,
-} from '@/shared/thinkzap-bot-flow'
+import type { FlowIssue, FlowNode } from '@/shared/thinkzap-bot-flow'
 import {
   MAX_QUESTION_OPTIONS,
   VAR_OPERATORS,
   nextOptionValue,
 } from '@/shared/thinkzap-bot-flow'
 import { nodePorts, type PortKind } from '@/shared/thinkzap-flow-graph'
+import {
+  CAPTURE_NAME_PATTERN,
+  CAPTURE_NAMESPACE,
+  type FlowVar,
+  nextCaptureName,
+} from '@/shared/thinkzap-flow-vars'
 import { questionHasInlineOptions } from '@/shared/thinkzap-question-has-options'
 import { AliasTagsField } from './alias-tags-field'
+import { TextWithVars } from './text-with-vars'
 import { KIND_ACCENT, KIND_ICON } from './canvas/kind-visual'
 import { HandoffTargetField } from './handoff-target-field'
 import { issueText } from './issue-text'
-
-const VALIDATIONS = ['text', 'email', 'cpf', 'number', 'date'] as const
 
 /**
  * Sem largura: `w-full` embutido aqui competia com a largura própria de quem precisa de
@@ -39,6 +40,8 @@ export type BlockPanelProps = {
   node: FlowNode | null
   /** Fecha o cartão de edição. */
   onFechar?: () => void
+  /** Variáveis que o `@` oferece: sistema mais o que os blocos capturam. */
+  vars: FlowVar[]
   isEntry: boolean
   issues: FlowIssue[]
   destinos: Array<{ id: string; rotulo: string }>
@@ -56,6 +59,7 @@ export type BlockPanelProps = {
 export function BlockPanel({
   node,
   onFechar,
+  vars,
   isEntry,
   issues,
   destinos,
@@ -162,17 +166,15 @@ export function BlockPanel({
       {node.kind !== 'condition' ? (
         <div className="flex flex-col gap-1">
           <span className={label}>
-            {node.kind === 'question' || node.kind === 'input'
-              ? t('perguntaLabel')
-              : t('falaLabel')}
+            {node.kind === 'question' ? t('perguntaLabel') : t('falaLabel')}
           </span>
-          <textarea
+          <TextWithVars
             value={node.text ?? ''}
-            rows={3}
+            vars={vars}
             placeholder={
               node.kind === 'question' ? t('perguntaPlaceholder') : undefined
             }
-            onChange={event => onChange({ ...node, text: event.target.value })}
+            onChange={text => onChange({ ...node, text })}
             className={`${field} resize-none`}
           />
           {/* O motor numera as opções e as anexa a este texto, então quem as digita aqui
@@ -194,39 +196,8 @@ export function BlockPanel({
         </div>
       ) : null}
 
-      {node.kind === 'input' ? (
-        <div className="flex gap-2">
-          <div className="flex flex-1 flex-col gap-1">
-            <span className={label}>{t('guardarEm')}</span>
-            <input
-              value={node.saveAs}
-              placeholder={t('guardarEmPlaceholder')}
-              onChange={event =>
-                onChange({ ...node, saveAs: event.target.value })
-              }
-              className={field}
-            />
-          </div>
-          <div className="flex flex-1 flex-col gap-1">
-            <span className={label}>{t('formato')}</span>
-            <select
-              value={node.validate}
-              onChange={event =>
-                onChange({
-                  ...node,
-                  validate: event.target.value as InputValidation,
-                })
-              }
-              className={`${field} cursor-pointer`}
-            >
-              {VALIDATIONS.map(value => (
-                <option key={value} value={value}>
-                  {t(`validacao.${value}`)}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+      {node.kind === 'message' || node.kind === 'question' ? (
+        <CaptureField node={node} vars={vars} onChange={onChange} />
       ) : null}
 
       {node.kind === 'handoff' ? (
@@ -315,7 +286,7 @@ export function BlockPanel({
 
       {/* "Resposta diferente" fora do ar por ora — `RetrySection` segue no arquivo.
           A saída "não entendeu" continua no cartão, ligável pela bolinha.
-      {node.kind === 'question' || node.kind === 'input' ? (
+      {node.kind === 'question' ? (
         <RetrySection
           node={node}
           destinos={destinos}
@@ -336,6 +307,7 @@ export function BlockPanel({
               key={index}
               node={node}
               index={index}
+              vars={vars}
               destinos={destinos}
               onChange={onChange}
               onSetTarget={onSetTarget}
@@ -404,6 +376,76 @@ export function BlockPanel({
 }
 
 /**
+ * Ligar a captura muda o que o bloco faz: a mensagem passa a esperar a resposta antes de
+ * seguir. Por isso um botão, e não um campo sempre aberto.
+ */
+function CaptureField({
+  node,
+  vars,
+  onChange,
+}: {
+  node: Extract<FlowNode, { kind: 'message' | 'question' }>
+  vars: FlowVar[]
+  onChange: (node: FlowNode) => void
+}) {
+  const { t } = useTranslation('thinkzap/bots/bloco')
+  const nome = node.capture ?? ''
+  const invalido = !!nome && !CAPTURE_NAME_PATTERN.test(nome)
+
+  if (!node.capture) {
+    return (
+      <button
+        type="button"
+        onClick={() => onChange({ ...node, capture: nextCaptureName(vars) })}
+        className="flex cursor-pointer items-center gap-1.5 self-start text-[11px] text-primary hover:underline"
+      >
+        <Plus className="h-3 w-3" />
+        {t('captura.ativar')}
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className={label}>{t('captura.titulo')}</span>
+      <div className="flex items-center gap-1.5">
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+          {CAPTURE_NAMESPACE}.
+        </span>
+        <input
+          value={nome}
+          placeholder={t('captura.placeholder')}
+          onChange={event => onChange({ ...node, capture: event.target.value })}
+          className={`${fieldBase} min-w-0 flex-1 ${
+            invalido ? 'border-destructive' : ''
+          }`}
+        />
+        <button
+          type="button"
+          aria-label={t('captura.remover')}
+          onClick={() => onChange({ ...node, capture: undefined })}
+          className="shrink-0 cursor-pointer text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <span
+        className={`text-[10px] ${invalido ? 'text-destructive' : 'text-muted-foreground'}`}
+      >
+        {invalido
+          ? t('captura.nomeInvalido')
+          : t(
+              node.kind === 'question'
+                ? 'captura.dicaPergunta'
+                : 'captura.dicaMensagem',
+              { variavel: `${CAPTURE_NAMESPACE}.${nome}` },
+            )}
+      </span>
+    </div>
+  )
+}
+
+/**
  * O que acontece quando a resposta não casa com nenhuma opção.
  *
  * Estava invisível: `maxAttempts` e `retryText` não tinham campo no painel, então não
@@ -416,7 +458,7 @@ function RetrySection({
   onChange,
   onSetTarget,
 }: {
-  node: Extract<FlowNode, { kind: 'question' | 'input' }>
+  node: Extract<FlowNode, { kind: 'question' }>
   destinos: Array<{ id: string; rotulo: string }>
   onChange: (node: FlowNode) => void
   onSetTarget: (port: PortKind, target: string) => void
@@ -615,12 +657,14 @@ function OptionRow({
 function ConditionRow({
   node,
   index,
+  vars,
   destinos,
   onChange,
   onSetTarget,
 }: {
   node: Extract<FlowNode, { kind: 'condition' }>
   index: number
+  vars: FlowVar[]
   destinos: Array<{ id: string; rotulo: string }>
   onChange: (node: FlowNode) => void
   onSetTarget: (port: PortKind, target: string) => void
@@ -646,36 +690,27 @@ function ConditionRow({
 
   return (
     <div className="flex flex-col gap-1 rounded-md border border-border bg-muted/30 p-2">
+      {/* Sozinha na linha: com operador e valor ao lado, o nome truncava em "bitrix.nam". */}
       <div className="flex items-center gap-1">
-        <input
-          value={branch.when.var}
-          placeholder={t('condicoes.variavelPlaceholder')}
-          onChange={event => patch({ var: event.target.value })}
-          className={`${field} min-w-0 flex-1`}
-        />
+        {/* Lista, não campo livre: o nome tem namespace (`capture.x`), e digitado na mão
+            ele não casa com nada e a condição desvia sempre pelo mesmo lado. */}
         <select
-          value={branch.when.op}
-          onChange={event =>
-            patch({ op: event.target.value as typeof branch.when.op })
-          }
-          // Largura do rótulo mais longo traduzido ("sin valor", "contiene").
-          className={`${fieldBase} w-24 shrink-0 cursor-pointer`}
+          value={branch.when.var}
+          onChange={event => patch({ var: event.target.value })}
+          className={`${fieldBase} min-w-0 flex-1 cursor-pointer`}
         >
-          {/* Rótulos do namespace comum: o cartão do canvas resume a condição com os mesmos. */}
-          {VAR_OPERATORS.map(op => (
-            <option key={op} value={op}>
-              {tc(`operadores.${op}`)}
+          <option value="">{t('condicoes.variavelPlaceholder')}</option>
+          {/* Variável de fluxo antigo, cujo bloco de origem já não existe. */}
+          {branch.when.var &&
+          !vars.some(item => item.name === branch.when.var) ? (
+            <option value={branch.when.var}>{branch.when.var}</option>
+          ) : null}
+          {vars.map(item => (
+            <option key={item.name} value={item.name}>
+              {item.name}
             </option>
           ))}
         </select>
-        {semValor ? null : (
-          <input
-            value={branch.when.value ?? ''}
-            placeholder={t('condicoes.valorPlaceholder')}
-            onChange={event => patch({ value: event.target.value })}
-            className={`${fieldBase} min-w-0 flex-1`}
-          />
-        )}
         <button
           type="button"
           aria-label={t('condicoes.remover')}
@@ -695,6 +730,34 @@ function ConditionRow({
         >
           <Trash2 className="h-3 w-3" />
         </button>
+      </div>
+
+      <div className="flex items-center gap-1">
+        <select
+          value={branch.when.op}
+          onChange={event =>
+            patch({ op: event.target.value as typeof branch.when.op })
+          }
+          // Largura do rótulo mais longo traduzido ("sin valor", "contiene").
+          className={`${fieldBase} cursor-pointer ${
+            semValor ? 'min-w-0 flex-1' : 'w-24 shrink-0'
+          }`}
+        >
+          {/* Rótulos do namespace comum: o cartão do canvas resume a condição com os mesmos. */}
+          {VAR_OPERATORS.map(op => (
+            <option key={op} value={op}>
+              {tc(`operadores.${op}`)}
+            </option>
+          ))}
+        </select>
+        {semValor ? null : (
+          <input
+            value={branch.when.value ?? ''}
+            placeholder={t('condicoes.valorPlaceholder')}
+            onChange={event => patch({ value: event.target.value })}
+            className={`${fieldBase} min-w-0 flex-1`}
+          />
+        )}
       </div>
 
       <div className="flex items-center gap-1.5">

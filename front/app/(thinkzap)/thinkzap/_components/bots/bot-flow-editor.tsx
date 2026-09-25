@@ -29,6 +29,7 @@ import {
 } from '@/shared/thinkzap-flow-layout'
 import { FlowCanvas } from './canvas/flow-canvas'
 import { KindMenu } from './canvas/kind-menu'
+import { flowVars } from '@/shared/thinkzap-flow-vars'
 import { BlockPanel } from './block-panel'
 import { FlowSettingsCard } from './flow-settings-card'
 import { BotFlowSimulator } from './bot-flow-simulator'
@@ -383,6 +384,7 @@ export function BotFlowEditor({
             nodeSelecionado ? (
               <BlockPanel
                 node={nodeSelecionado}
+                vars={flowVars(graph)}
                 isEntry={nodeSelecionado.id === graph.entryNodeId}
                 issues={issuesByNode.get(nodeSelecionado.id) ?? []}
                 destinos={destinos.filter(

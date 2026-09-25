@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  matchOption,
-  matchesEscape,
-  normalizeAnswer,
-  validateInput,
-} from './match-answer'
+import { matchOption, matchesEscape, normalizeAnswer } from './match-answer'
 
 const node = {
   options: [
@@ -194,62 +189,5 @@ describe('matchesEscape', () => {
 
   it('sem palavras configuradas nunca escapa', () => {
     expect(matchesEscape('atendente', [])).toBe(false)
-  })
-})
-
-describe('validateInput', () => {
-  it('texto aceita qualquer coisa não vazia, aparada', () => {
-    expect(validateInput('  José  ', 'text')).toEqual({
-      valid: true,
-      value: 'José',
-    })
-    expect(validateInput('   ', 'text').valid).toBe(false)
-  })
-
-  it('e-mail normaliza para minúsculo', () => {
-    expect(validateInput('Fulano@Empresa.COM', 'email')).toEqual({
-      valid: true,
-      value: 'fulano@empresa.com',
-    })
-    expect(validateInput('fulano@empresa', 'email').valid).toBe(false)
-  })
-
-  it('número aceita vírgula decimal', () => {
-    expect(validateInput('3,5', 'number')).toEqual({
-      valid: true,
-      value: '3.5',
-    })
-    expect(validateInput('muitos', 'number').valid).toBe(false)
-  })
-
-  it('CPF valida dígito e guarda só os números', () => {
-    expect(validateInput('529.982.247-25', 'cpf')).toEqual({
-      valid: true,
-      value: '52998224725',
-    })
-    expect(validateInput('529.982.247-26', 'cpf').valid).toBe(false)
-  })
-
-  it('CPF de dígitos repetidos é recusado, apesar de fechar o cálculo', () => {
-    expect(validateInput('111.111.111-11', 'cpf').valid).toBe(false)
-  })
-
-  it('data vira ISO, venha em barra ou em ISO', () => {
-    expect(validateInput('14/03/1986', 'date')).toEqual({
-      valid: true,
-      value: '1986-03-14',
-    })
-    expect(validateInput('1986-03-14', 'date')).toEqual({
-      valid: true,
-      value: '1986-03-14',
-    })
-  })
-
-  it('recusa dia que não existe no mês', () => {
-    expect(validateInput('31/02/1990', 'date').valid).toBe(false)
-  })
-
-  it('recusa ano fora de faixa plausível', () => {
-    expect(validateInput('14/03/1200', 'date').valid).toBe(false)
   })
 })

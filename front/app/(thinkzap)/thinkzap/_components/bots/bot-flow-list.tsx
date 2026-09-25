@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import type { OpenChannel } from '../../_lib/bot-flow-client'
 import type { BotFlowBinding, BotFlowSummary } from '@/shared/thinkzap-bot-flow'
 import { CanalCell } from './canal-cell'
+import { ExcluirFluxoDialog } from './excluir-fluxo-dialog'
 
 type Props = {
   flows: BotFlowSummary[]
@@ -39,13 +40,22 @@ export function BotFlowList({
   onDesvincular,
 }: Props) {
   const { t } = useTranslation('thinkzap/bots/lista')
-  const [excluindo, setExcluindo] = useState<string | null>(null)
+  const [paraExcluir, setParaExcluir] = useState<BotFlowSummary | null>(null)
 
   // `find` por linha da tabela seria O(n²)
   const porFlow = useMemo(
     () => new Map(bindings.map(binding => [binding.flowId, binding])),
     [bindings],
   )
+
+  /** Canal em que o fluxo atende hoje, pelo nome que a tabela mostra. */
+  const canalDoFluxo = (flow: BotFlowSummary | null): string | null => {
+    const binding = flow ? porFlow.get(flow.id) : undefined
+    if (!binding) return null
+
+    const linha = linhas?.find(item => String(item.id) === binding.lineId)
+    return linha?.name?.trim() || `#${binding.lineId}`
+  }
 
   // Canal → fluxo que o ocupa: seletor não oferece o que a API recusa
   const ocupadas = useMemo(() => {
@@ -155,11 +165,7 @@ export function BotFlowList({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      disabled={excluindo === flow.id}
-                      onClick={() => {
-                        setExcluindo(flow.id)
-                        void onDelete(flow.id).finally(() => setExcluindo(null))
-                      }}
+                      onClick={() => setParaExcluir(flow)}
                       aria-label={t('acoes.excluir')}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -171,6 +177,19 @@ export function BotFlowList({
           </tbody>
         </table>
       </div>
+
+      <ExcluirFluxoDialog
+        flow={paraExcluir}
+        canal={canalDoFluxo(paraExcluir)}
+        onOpenChange={aberto => {
+          if (!aberto) setParaExcluir(null)
+        }}
+        onConfirm={async () => {
+          if (!paraExcluir) return
+          await onDelete(paraExcluir.id)
+          setParaExcluir(null)
+        }}
+      />
     </div>
   )
 }

@@ -11,6 +11,8 @@ export type IssueTranslate = (code: FlowIssueCode) => string
 const COM_DETALHE = new Set<FlowIssueCode>([
   'target-not-found',
   'duplicate-option-value',
+  // Diz qual das opções da lista está em branco.
+  'option-label-missing',
   'handoff-target-incomplete',
   'escape-target-incomplete',
   // Diz qual das condições, e se o nome está vazio ou inválido.

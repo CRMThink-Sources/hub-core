@@ -188,3 +188,26 @@ describe('BitrixBotSessionAdapter', () => {
     })
   })
 })
+
+describe('BitrixBotSessionAdapter — sussurro', () => {
+  it('manda `system: true`, senão o resumo chega ao cliente', async () => {
+    const { adapter, callMethod } = makeAdapter()
+
+    await adapter.whisper('112', 'Resumo do atendimento automático')
+
+    expect(callMethod).toHaveBeenCalledWith('imbot.v2.Chat.Message.send', {
+      botId: BOT_ID,
+      botToken: TOKEN,
+      dialogId: 'chat112',
+      fields: { message: 'Resumo do atendimento automático', system: true },
+    })
+  })
+
+  it('falha no sussurro não segura a transferência', async () => {
+    const { adapter } = makeAdapter(
+      vi.fn().mockRejectedValue(new Error('portal fora do ar')),
+    )
+
+    await expect(adapter.whisper('112', 'resumo')).resolves.toBeUndefined()
+  })
+})

@@ -397,6 +397,14 @@ export const THINKZAP_ERRORS = {
       'Conferir se o canal aberto do fluxo está vinculado a uma linha de WhatsApp ativa e conectada. Enquanto isso, o atendente pode responder manualmente pela conversa.',
     retriable: true,
   },
+  'thinkzap.bot.whisper_failed': {
+    category: 'integration',
+    userCause:
+      'Observabilidade — o resumo do atendimento automático não foi registrado no chat antes da transferência. O cliente foi transferido normalmente.',
+    remediation:
+      'Nenhuma ação de suporte: o atendente tem o histórico da conversa no próprio chat.',
+    retriable: false,
+  },
   'thinkzap.bot.echo_failed': {
     category: 'integration',
     userCause:

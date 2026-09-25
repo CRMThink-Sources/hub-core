@@ -101,7 +101,7 @@ describe('variável da condição', () => {
   })
 
   it('nome válido não gera problema', () => {
-    expect(codes(comVar('clienteId'))).toEqual([])
+    expect(codes(comVar('bitrix.contactId'))).toEqual([])
   })
 
   it('em branco salva mas não publica', () => {
@@ -127,7 +127,7 @@ describe('variável da condição', () => {
   })
 
   it('os dois ramos em finish, com variável: publicável', () => {
-    expect(validateFlowGraph(comVar('clienteId'))).toEqual([])
+    expect(validateFlowGraph(comVar('bitrix.contactId'))).toEqual([])
   })
 })
 
@@ -145,7 +145,9 @@ describe('texto vazio no bloco', () => {
       {
         id: 'a',
         kind: 'condition',
-        branches: [{ when: { var: 'clienteId', op: 'notEmpty' }, next: 'b' }],
+        branches: [
+          { when: { var: 'bitrix.contactId', op: 'notEmpty' }, next: 'b' },
+        ],
         otherwise: 'c',
       },
       { id: 'b', kind: 'finish', text: '' },

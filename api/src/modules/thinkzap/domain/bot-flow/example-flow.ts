@@ -18,26 +18,24 @@ export const exampleFlow: BotFlowGraph = {
     },
     {
       id: 'n2',
-      kind: 'input',
+      kind: 'message',
       text: 'Para achar sua consulta, me diga sua data de nascimento (dia/mês/ano).',
-      retryText: 'Não consegui ler a data. Manda no formato dia/mês/ano.',
-      saveAs: 'nascimento',
-      validate: 'date',
+      capture: 'nascimento',
       next: 'n3',
-      maxAttempts: 3,
-      onExhausted: 'n9',
     },
     {
       id: 'n3',
       kind: 'condition',
-      branches: [{ when: { var: 'nascimento', op: 'notEmpty' }, next: 'n4' }],
+      branches: [
+        { when: { var: 'capture.nascimento', op: 'notEmpty' }, next: 'n4' },
+      ],
       otherwise: 'n9',
     },
     {
       id: 'n4',
       kind: 'question',
       text: 'Achei sua consulta: quinta, 14h, com a Dra. Andrade. O que você quer fazer?',
-      saveAs: 'motivo',
+      capture: 'motivo',
       options: [
         { value: 'confirmar', label: 'Confirmar', next: 'n5' },
         { value: 'reagendar', label: 'Reagendar', next: 'n6' },
@@ -57,7 +55,7 @@ export const exampleFlow: BotFlowGraph = {
       id: 'n6',
       kind: 'question',
       text: 'Qual turno fica melhor?',
-      saveAs: 'turno',
+      capture: 'turno',
       options: [
         { value: 'manha', label: 'Manhã', next: 'n9' },
         { value: 'tarde', label: 'Tarde', next: 'n9' },

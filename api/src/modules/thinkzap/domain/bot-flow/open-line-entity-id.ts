@@ -35,7 +35,32 @@ type DialogGetResponse = {
   result?: {
     entity_id?: unknown
     entity_type?: unknown
+    name?: unknown
+    title?: unknown
   }
+}
+
+/**
+ * Nome do contato, lido do nome do chat do canal aberto.
+ *
+ * O campo é `name`; `title` vai junto porque a resposta foi lida dele antes e nada
+ * garante que uma versão do portal não o devolva assim — vazio nos dois é o caso real de
+ * chat sem nome ainda.
+ *
+ * O chat se chama `<contato> - <nome da linha>` (medido 2026-09-24, chat 9644:
+ * `Gustavo Henrique - Teste Amanda - Gerais`), então corta no primeiro separador. A
+ * linha pode ter ` - ` no próprio nome, como nesse exemplo, e é por isso que o corte é
+ * no primeiro e não no último.
+ */
+export function contactNameFromDialog(response: unknown): string {
+  const result = (response as DialogGetResponse | undefined)?.result
+  const bruto = [result?.name, result?.title].find(
+    valor => typeof valor === 'string' && valor.trim(),
+  )
+
+  if (typeof bruto !== 'string') return ''
+
+  return (bruto.split(' - ')[0] ?? '').trim()
 }
 
 // Confere `entity_type` porque chat que não é de canal aberto não tem linha.

@@ -59,16 +59,22 @@ export function crmEntitiesFromDialog(response: unknown): CrmEntities {
 }
 
 /**
- * Variáveis que o fluxo enxerga desde o primeiro passo, sem o cliente ter respondido nada.
- *
- * Nomes fixos porque são contrato com o bloco de condição que o editor oferece pronto:
- * renomear aqui quebra todo fluxo já publicado que os use.
+ * Variáveis que o fluxo enxerga desde o primeiro passo. Os nomes sem `bitrix.` continuam
+ * semeados: fluxo antigo compara `contatoId` e não foi republicado.
  */
-export function crmVars(entities: CrmEntities): Record<string, string> {
+export function crmVars(
+  entities: CrmEntities,
+  contact: { name?: string } = {},
+): Record<string, string> {
   return {
     contatoId: entities.contactId,
     leadId: entities.leadId,
     empresaId: entities.companyId,
     negocioId: entities.dealId,
+    'bitrix.name': contact.name?.trim() ?? '',
+    'bitrix.contactId': entities.contactId,
+    'bitrix.leadId': entities.leadId,
+    'bitrix.companyId': entities.companyId,
+    'bitrix.dealId': entities.dealId,
   }
 }

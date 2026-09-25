@@ -83,7 +83,7 @@ describe('saída pendente não vira linha', () => {
     nodes: [
       { ...makeNode('handoff', 'n1'), position: { x: 700, y: 60 } },
       { ...makeNode('question', 'n2'), position: { x: 300, y: 300 } },
-      { ...makeNode('input', 'n3'), position: { x: 260, y: 620 } },
+      { ...makeNode('message', 'n3'), position: { x: 260, y: 620 } },
     ],
   }
 
@@ -96,7 +96,7 @@ describe('saída pendente não vira linha', () => {
     const ligado: BotFlowGraph = {
       ...graph,
       nodes: graph.nodes.map(node =>
-        node.id === 'n3' && node.kind === 'input'
+        node.id === 'n3' && node.kind === 'message'
           ? { ...node, next: 'n1' }
           : node,
       ),

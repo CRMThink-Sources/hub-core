@@ -8,16 +8,7 @@
   "perguntaPlaceholder": "How can I help you?",
   "dicaOpcoes": "Only the question: the options below are numbered and sent along.",
   "avisoOpcoesNoTexto": "This text seems to list the options already. The customer will receive the list twice — remove it from here and keep it only in “Options”.",
-  "guardarEm": "Save as",
   "guardarEmPlaceholder": "e.g.: email",
-  "formato": "Format",
-  "validacao": {
-    "text": "Free text",
-    "email": "E-mail",
-    "cpf": "CPF",
-    "number": "Number",
-    "date": "Date"
-  },
   "opcoes": {
     "titulo": "Options",
     "adicionar": "option",
@@ -72,5 +63,26 @@
     "placeholder": "type and press Enter…",
     "remover": "Remove {{palavra}}"
   },
-  "destinoInexistente": "(does not exist)"
+  "destinoInexistente": "(does not exist)",
+  "captura": {
+    "ativar": "Save the answer to a variable",
+    "titulo": "Capture",
+    "placeholder": "answer",
+    "remover": "Do not save the answer",
+    "nomeInvalido": "Use letters, numbers and _, starting with a letter.",
+    "dicaMensagem": "The bot waits for the answer and saves it to {{variavel}}.",
+    "dicaPergunta": "Saves the chosen option to {{variavel}}."
+  },
+  "variaveis": {
+    "dica": "Type @ to insert a variable.",
+    "daConversa": "captured in the flow",
+    "sistema": {
+      "bitrix.name": "customer name in the chat",
+      "bitrix.contactId": "CRM contact",
+      "bitrix.leadId": "CRM lead",
+      "bitrix.companyId": "CRM company",
+      "bitrix.dealId": "CRM deal"
+    },
+    "capturadaEm": "from {{bloco}}"
+  }
 }

@@ -35,8 +35,11 @@ export class UpdateBotFlowController extends Controller {
       })
       .safeParse(req.body)
 
+    // Com o motivo junto: rascunho salva grafo incompleto, então quando o schema recusa é
+    // por forma inesperada, e "Invalid request" sozinho não diz qual campo.
     if (!params.success || !body.success) {
-      return this.badRequest(new Error('Invalid request'))
+      const motivo = (params.error ?? body.error)?.message ?? ''
+      return this.badRequest(new Error(`Invalid request: ${motivo}`))
     }
 
     const { flowId } = params.data
