@@ -1,5 +1,5 @@
 export const THINKZAP_ASIDE_CONFIG = {
-  logo: '/images/thinkzap/logo.png',
+  logo: '/images/thinkzap/logo-aside.svg',
   homeHref: '/thinkzap',
   brandIcon:
     'https://www.crmthink.com.br/wp-content/uploads/2020/06/favicon.png',
