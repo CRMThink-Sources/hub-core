@@ -1,0 +1,49 @@
+{
+  "loading": "Loading...",
+  "installationError": "We couldn't load your installation",
+  "statsError": "We couldn't load the statistics.",
+  "hero": {
+    "greeting": "Hi, {{name}}",
+    "subtitle": "Track the message volume of your WhatsApp Web and Business, all in one place."
+  },
+  "onboarding": {
+    "title": "No WhatsApp connected yet",
+    "description": "Connect a WhatsApp Web or Business line to start seeing your message statistics here.",
+    "cta": "Connect WhatsApp"
+  },
+  "stats": {
+    "title": "Messages in the period",
+    "sent": "Sent",
+    "received": "Received",
+    "activeLines_one": "{{count}} active line",
+    "activeLines_other": "{{count}} active lines",
+    "totalSent": "Total sent",
+    "totalReceived": "Total received",
+    "share": "Web vs Business in the period",
+    "trendNew": "new"
+  },
+  "period": {
+    "from": "From",
+    "to": "To",
+    "maxRange": "Maximum period of 6 months"
+  },
+  "shortcuts": {
+    "title": "Quick access",
+    "conexoes": {
+      "label": "Connections",
+      "description": "Manage your WhatsApp lines"
+    },
+    "diretrizes": {
+      "label": "Usage guidelines",
+      "description": "WhatsApp best practices and policies"
+    },
+    "logs": {
+      "label": "Logs",
+      "description": "Message and event history"
+    },
+    "ajuda": {
+      "label": "Help",
+      "description": "Documentation and support"
+    }
+  }
+}

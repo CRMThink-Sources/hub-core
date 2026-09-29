@@ -1,3 +1,4 @@
+import type { LpContent } from './content'
 import { SectionHeading } from './features'
 import type { ThinkzapCtas } from './resolve-ctas'
 import { allTutorialHashes } from './tutorial-hash'
@@ -9,7 +10,10 @@ import { TUTORIALS_SECTION_ID, TutorialTabs } from './tutorial-tabs'
  * aba é só uma âncora e precisa de onde cair; com JS o `TutorialTabs` lê o hash
  * e seleciona a aba.
  */
-export function HowItWorks(ctas: ThinkzapCtas) {
+export function HowItWorks({
+  content,
+  ...ctas
+}: ThinkzapCtas & { content: LpContent }) {
   const anchors = [
     'como-funciona',
     ...allTutorialHashes().map(hash => hash.slice(1)),
@@ -30,11 +34,11 @@ export function HowItWorks(ctas: ThinkzapCtas) {
       ))}
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
-          title="Tutoriais"
-          subtitle="Simulações do caminho real, dentro do Bitrix24. Escolha um tema e clique no destaque laranja para avançar."
+          title={content.tutorialsSection.title}
+          subtitle={content.tutorialsSection.subtitle}
         />
         <div className="mt-10">
-          <TutorialTabs ctas={ctas} />
+          <TutorialTabs ctas={ctas} locale={content.locale} />
         </div>
       </div>
     </section>

@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import { Check, Search } from 'lucide-react'
 import type { InstalacaoScreen } from '../content'
+import { useTutorialScreens } from '../content/locale-context'
 import {
   APP_PATH,
   HotspotButton,
@@ -19,7 +20,7 @@ import {
  */
 export const INSTALACAO_VIEW: TutorialView<InstalacaoScreen> = {
   frames: {
-    market: { kind: 'bitrix', path: 'market/', menu: 'Market' },
+    market: { kind: 'bitrix', path: 'market/', menu: 'market' },
     install: { kind: 'bare', path: APP_PATH },
   },
   screens: {
@@ -29,9 +30,11 @@ export const INSTALACAO_VIEW: TutorialView<InstalacaoScreen> = {
 }
 
 function MarketScreen({ action, onAdvance }: ScreenProps) {
+  const { market } = useTutorialScreens('instalacao')
+
   return (
     <div className="space-y-4 p-4 sm:p-6">
-      <p className="text-base font-semibold">Market</p>
+      <p className="text-base font-semibold">{market.title}</p>
       <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm">
         <Search aria-hidden className="size-4 text-muted-foreground" />
         <span>ThinkZap</span>
@@ -48,10 +51,10 @@ function MarketScreen({ action, onAdvance }: ScreenProps) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-semibold">ThinkZap</p>
-          <p className="text-sm text-muted-foreground">
-            WhatsApp Web e API oficial integrados ao Bitrix24
+          <p className="text-sm text-muted-foreground">{market.appTagline}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {market.category}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">Comunicação</p>
         </div>
         <HotspotButton action={action} onAdvance={onAdvance} />
       </div>
@@ -61,39 +64,31 @@ function MarketScreen({ action, onAdvance }: ScreenProps) {
   )
 }
 
-const TERMS = [
-  'Termos de uso do Bitrix24 Market',
-  'Contrato de licença (EULA)',
-  'Política de privacidade',
-]
-
 function InstallScreen({ action, onAdvance }: ScreenProps) {
+  const { install } = useTutorialScreens('instalacao')
+
   return (
     <div className="flex h-full min-h-[inherit] items-center justify-center bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-4 sm:p-6">
       <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-xl shadow-slate-200/50">
         <div className="bg-linear-to-r from-indigo-600 to-indigo-700 px-6 py-5 text-center text-white">
-          <p className="text-lg font-bold tracking-tight">
-            Instalação do aplicativo
-          </p>
-          <p className="mt-1 text-xs text-indigo-100">
-            Preencha os dados e aceite os termos para concluir.
-          </p>
+          <p className="text-lg font-bold tracking-tight">{install.title}</p>
+          <p className="mt-1 text-xs text-indigo-100">{install.subtitle}</p>
         </div>
         <div className="space-y-4 p-5">
           <div>
             <p className="text-xs font-semibold text-slate-700">
-              E-mail de instalação (opcional)
+              {install.emailLabel}
             </p>
             <p className="mt-1.5 rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm text-slate-400">
-              seu@empresa.com
+              {install.emailPlaceholder}
             </p>
           </div>
           <div className="space-y-2">
             <p className="text-xs font-semibold text-slate-700">
-              Termos e aceite
+              {install.termsTitle}
             </p>
             <div className="space-y-1 rounded-xl bg-slate-50/80 p-2">
-              {TERMS.map(term => (
+              {install.terms.map(term => (
                 <p
                   key={term}
                   className="flex gap-2 p-1.5 text-xs text-slate-600"
@@ -102,7 +97,7 @@ function InstallScreen({ action, onAdvance }: ScreenProps) {
                     <Check aria-hidden className="size-3" />
                   </span>
                   <span>
-                    Li e aceito{' '}
+                    {install.accept}{' '}
                     <span className="font-medium text-indigo-600 underline">
                       {term}
                     </span>
@@ -117,7 +112,7 @@ function InstallScreen({ action, onAdvance }: ScreenProps) {
             onAdvance={onAdvance}
             className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:bg-indigo-700"
           >
-            Concluir instalação
+            {install.submit}
           </Hotspot>
         </div>
       </div>

@@ -19,6 +19,8 @@ import {
   X,
 } from 'lucide-react'
 import type { ThinkbotScreen } from '../content'
+import { useTutorialScreens } from '../content/locale-context'
+import type { ThinkbotCopy } from '../content/pt/tutorials/thinkbot'
 import {
   APP_PATH,
   DialogOver,
@@ -47,7 +49,7 @@ import { OpenChannelChat } from './shared/open-channel-chat'
  * O canvas real é React Flow; aqui os blocos são desenhados em linha, só para
  * reconhecer o formato. Mudou uma dessas telas no app, mude aqui também.
  */
-const APP: ScreenFrame = { kind: 'app', path: APP_PATH, menu: 'ThinkBot' }
+const APP: ScreenFrame = { kind: 'app', path: APP_PATH, menu: 'thinkbot' }
 
 export const THINKBOT_VIEW: TutorialView<ThinkbotScreen> = {
   frames: {
@@ -60,7 +62,7 @@ export const THINKBOT_VIEW: TutorialView<ThinkbotScreen> = {
     'simulator-chat': APP,
     publish: APP,
     bind: APP,
-    'bot-chat': { kind: 'bitrix', path: 'online/', menu: 'Canais abertos' },
+    'bot-chat': { kind: 'bitrix', path: 'online/', menu: 'openChannels' },
   },
   screens: {
     empty: EmptyScreen,
@@ -76,15 +78,19 @@ export const THINKBOT_VIEW: TutorialView<ThinkbotScreen> = {
   },
 }
 
-const FLOW_NAME = 'Atendimento geral'
-const WELCOME = 'Olá! Sou o atendimento automático. Como posso ajudar?'
-const QUESTION = 'Sobre o que você quer falar?'
-const HANDOFF = 'Conversa passada para um atendente.'
+type FlowCopy = ThinkbotCopy['screens']['flow']
+
+/** A pergunta do menu com as opções numeradas, como o bot envia. */
+function questionWithOptions(flow: FlowCopy) {
+  const { support, finish } = flow.options
+  return `${flow.question}\n1. ${support.label}\n2. ${finish.label}`
+}
 
 // ─── Lista ─────────────────────────────────────────────────────────────────
 
 /** Casca de `bots-layout`: cabeçalho com ícone, título e subtítulo. */
 function BotsPage({ children }: { children: React.ReactNode }) {
+  const { list } = useTutorialScreens('thinkbot')
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-5">
       <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-5">
@@ -93,12 +99,9 @@ function BotsPage({ children }: { children: React.ReactNode }) {
         </span>
         <div className="min-w-0">
           <p className="text-lg font-bold tracking-tight text-foreground">
-            ThinkBot
+            {list.title}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Monte o fluxo de atendimento: defina como o bot deve conduzir a
-            conversa.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{list.subtitle}</p>
         </div>
       </div>
       {children}
@@ -107,26 +110,26 @@ function BotsPage({ children }: { children: React.ReactNode }) {
 }
 
 function EmptyList({ children }: { children?: React.ReactNode }) {
+  const { list } = useTutorialScreens('thinkbot')
   return (
     <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border bg-card p-10 text-center">
       <span className="flex size-14 items-center justify-center rounded-xl bg-muted">
         <Bot aria-hidden className="size-7 text-muted-foreground" />
       </span>
-      <p className="text-sm font-semibold text-foreground">
-        Nenhum fluxo criado
-      </p>
+      <p className="text-sm font-semibold text-foreground">{list.emptyTitle}</p>
       {children}
     </div>
   )
 }
 
 function EmptyScreen({ action, onAdvance }: ScreenProps) {
+  const { list } = useTutorialScreens('thinkbot')
   return (
     <BotsPage>
       <EmptyList>
         <HotspotButton action={action} onAdvance={onAdvance}>
           <Plus aria-hidden className="size-4" />
-          Criar fluxo
+          {list.create}
         </HotspotButton>
       </EmptyList>
     </BotsPage>
@@ -134,6 +137,7 @@ function EmptyScreen({ action, onAdvance }: ScreenProps) {
 }
 
 function NewFlowScreen({ action, onAdvance }: ScreenProps) {
+  const { newFlow, flow } = useTutorialScreens('thinkbot')
   return (
     <DialogOver
       background={
@@ -142,15 +146,15 @@ function NewFlowScreen({ action, onAdvance }: ScreenProps) {
         </BotsPage>
       }
     >
-      <p className="text-base font-medium">Novo fluxo</p>
+      <p className="text-base font-medium">{newFlow.title}</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Defina um nome para identificar este fluxo internamente.
+        {newFlow.description}
       </p>
       <div className="mt-4">
-        <FakeField label="Nome" value={FLOW_NAME} />
+        <FakeField label={newFlow.nameLabel} value={flow.name} />
       </div>
       <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <OutlineButton>Cancelar</OutlineButton>
+        <OutlineButton>{newFlow.cancel}</OutlineButton>
         <HotspotButton action={action} onAdvance={onAdvance} />
       </div>
     </DialogOver>
@@ -158,40 +162,43 @@ function NewFlowScreen({ action, onAdvance }: ScreenProps) {
 }
 
 function BindScreen({ action, onAdvance }: ScreenProps) {
+  const { bind, flow } = useTutorialScreens('thinkbot')
   return (
     <BotsPage>
       <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-        &quot;{FLOW_NAME}&quot; está publicada mas ainda não atende ninguém —
-        escolha um canal aberto em &quot;Atende em&quot;.
+        {bind.inert(flow.name)}
       </p>
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <table className="w-full min-w-[440px] text-left text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-[11px] uppercase tracking-wide text-muted-foreground [&>th]:px-4 [&>th]:py-3 [&>th]:font-semibold">
-              <th>Fluxo</th>
-              <th>Situação</th>
-              <th>Atende em</th>
+              <th>{bind.columns.flow}</th>
+              <th>{bind.columns.status}</th>
+              <th>{bind.columns.servesOn}</th>
               <th />
             </tr>
           </thead>
           <tbody>
             <tr className="[&>td]:px-4 [&>td]:py-3 [&>td]:align-middle">
-              <td className="font-medium text-foreground">{FLOW_NAME}</td>
+              <td className="font-medium text-foreground">{flow.name}</td>
               <td>
                 <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                  Publicada
+                  {bind.published}
                 </span>
               </td>
               <td>
                 <div className="flex items-center gap-2 py-1">
-                  <FakeSelect value="Vendas" className="h-8 w-32 text-xs" />
+                  <FakeSelect
+                    value={bind.channel}
+                    className="h-8 w-32 text-xs"
+                  />
                   <Hotspot
                     action={action}
                     onAdvance={onAdvance}
                     className="inline-flex h-8 items-center gap-1 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/80"
                   >
                     <Link2 aria-hidden className="size-3" />
-                    ativar
+                    {bind.activate}
                   </Hotspot>
                 </div>
               </td>
@@ -218,15 +225,16 @@ function EditorShell({
   saved = false,
   panel,
   hotspot,
-  problem,
+  problem = false,
   children,
 }: {
   saved?: boolean
   panel?: 'simulador' | 'bloco'
   hotspot?: EditorHotspot
-  problem?: string
+  problem?: boolean
   children: React.ReactNode
 }) {
+  const { editor, flow } = useTutorialScreens('thinkbot')
   return (
     <div className="flex flex-col gap-3 p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2.5">
@@ -234,21 +242,21 @@ function EditorShell({
           <ArrowLeft aria-hidden className="size-4" />
         </span>
         <span className="flex h-8 items-center rounded-md border border-input px-2.5 text-sm font-medium">
-          {FLOW_NAME}
+          {flow.name}
         </span>
         {!saved && (
           <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-            não salvo
+            {editor.unsaved}
           </span>
         )}
         <span className="flex gap-1.5">
           <SmallOutline>
             <Plus aria-hidden className="size-3.5" />
-            Novo bloco
+            {editor.newBlock}
           </SmallOutline>
           <SmallOutline>
             <LayoutGrid aria-hidden className="size-3.5" />
-            <span className="hidden sm:inline">Reorganizar</span>
+            <span className="hidden sm:inline">{editor.rearrange}</span>
           </SmallOutline>
         </span>
         <span className="ml-auto flex flex-wrap items-center gap-2">
@@ -259,18 +267,18 @@ function EditorShell({
                 onAdvance={hotspot.onAdvance}
                 className="rounded-md bg-background px-2 py-1 text-xs font-medium capitalize"
               >
-                simulador
+                {editor.tabs.simulador}
               </Hotspot>
             ) : (
               <PanelToggle active={panel === 'simulador'}>
-                simulador
+                {editor.tabs.simulador}
               </PanelToggle>
             )}
-            <PanelToggle>ajustes</PanelToggle>
+            <PanelToggle>{editor.tabs.ajustes}</PanelToggle>
           </span>
           <SmallOutline>
             <Save aria-hidden className="size-3.5" />
-            Salvar
+            {editor.save}
           </SmallOutline>
           {hotspot?.target === 'Publicar' ? (
             <HotspotButton
@@ -279,19 +287,19 @@ function EditorShell({
               className="h-8"
             >
               <Upload aria-hidden className="size-3.5" />
-              Publicar
+              {editor.publish}
             </HotspotButton>
           ) : (
             <PrimaryButton className="h-8">
               <Upload aria-hidden className="size-3.5" />
-              Publicar
+              {editor.publish}
             </PrimaryButton>
           )}
         </span>
       </div>
       {problem && (
         <p className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-          {problem}
+          {editor.problem}
         </p>
       )}
       {children}
@@ -329,24 +337,22 @@ function PanelToggle({
 
 /** Fundo pontilhado do canvas com a legenda do app. */
 function Canvas({ children }: { children: React.ReactNode }) {
+  const { editor } = useTutorialScreens('thinkbot')
   return (
     <div className="rounded-xl border border-border bg-[radial-gradient(circle,_var(--color-border)_1px,_transparent_1px)] bg-[length:16px_16px] p-4">
       <div className="flex flex-wrap items-center gap-y-4">{children}</div>
-      <p className="mt-4 text-[10px] text-muted-foreground">
-        Clique no + para adicionar o próximo passo · clique no bloco para editar
-        · clique na linha e Delete apaga
-      </p>
+      <p className="mt-4 text-[10px] text-muted-foreground">{editor.legend}</p>
     </div>
   )
 }
 
 const KIND = {
-  message: { icon: MessageSquare, color: 'text-sky-600', label: 'Mensagem' },
-  question: { icon: ListChecks, color: 'text-violet-600', label: 'Pergunta' },
-  input: { icon: Type, color: 'text-amber-600', label: 'Captura' },
-  condition: { icon: Split, color: 'text-slate-600', label: 'Condição' },
-  handoff: { icon: Headset, color: 'text-primary', label: 'Transferir' },
-  finish: { icon: Flag, color: 'text-emerald-600', label: 'Encerrar' },
+  message: { icon: MessageSquare, color: 'text-sky-600' },
+  question: { icon: ListChecks, color: 'text-violet-600' },
+  input: { icon: Type, color: 'text-amber-600' },
+  condition: { icon: Split, color: 'text-slate-600' },
+  handoff: { icon: Headset, color: 'text-primary' },
+  finish: { icon: Flag, color: 'text-emerald-600' },
 } as const
 
 type Kind = keyof typeof KIND
@@ -365,6 +371,7 @@ function FlowBlock({
   entry?: boolean
   selected?: boolean
 }) {
+  const { editor } = useTutorialScreens('thinkbot')
   const { icon: Icon, color } = KIND[kind]
   return (
     <span
@@ -374,7 +381,7 @@ function FlowBlock({
     >
       {entry && (
         <span className="absolute left-2 top-1.5 rounded bg-primary/10 px-1 text-[9px] font-semibold uppercase text-primary">
-          início
+          {editor.entry}
         </span>
       )}
       <span className="flex size-7 items-center justify-center rounded-xl bg-muted/60">
@@ -416,30 +423,43 @@ function PendingPort({ hotspot }: { hotspot?: ScreenProps }) {
   )
 }
 
-const WELCOME_BLOCK = (
-  <FlowBlock kind="message" name="Boas-vindas" text={WELCOME} entry />
-)
+function WelcomeBlock() {
+  const { flow } = useTutorialScreens('thinkbot')
+  return (
+    <FlowBlock
+      kind="message"
+      name={flow.blocks.welcome}
+      text={flow.welcome}
+      entry
+    />
+  )
+}
 
 /** Fluxo montado: boas-vindas → pergunta → transferir / encerrar. */
 function FullFlow({ selected = false }: { selected?: boolean }) {
+  const { flow } = useTutorialScreens('thinkbot')
   return (
     <>
-      {WELCOME_BLOCK}
+      <WelcomeBlock />
       <Edge />
       <FlowBlock
         kind="question"
-        name="Menu"
-        text={QUESTION}
+        name={flow.blocks.menu}
+        text={flow.question}
         selected={selected}
       />
       <Edge />
       <span className="flex flex-col gap-2">
         <FlowBlock
           kind="handoff"
-          name="Atendente"
-          text="Fila do canal aberto"
+          name={flow.blocks.agent}
+          text={flow.blocks.agentText}
         />
-        <FlowBlock kind="finish" name="Tchau" text="Até logo!" />
+        <FlowBlock
+          kind="finish"
+          name={flow.blocks.bye}
+          text={flow.blocks.byeText}
+        />
       </span>
     </>
   )
@@ -447,45 +467,44 @@ function FullFlow({ selected = false }: { selected?: boolean }) {
 
 function EditorScreen({ action, onAdvance }: ScreenProps) {
   return (
-    <EditorShell problem="Deste bloco não se chega a um encerramento nem a um atendente.">
+    <EditorShell problem>
       <Canvas>
-        {WELCOME_BLOCK}
+        <WelcomeBlock />
         <PendingPort hotspot={{ action, onAdvance }} />
       </Canvas>
     </EditorShell>
   )
 }
 
-const KIND_GROUPS: { title: string; kinds: Kind[] }[] = [
-  { title: 'Conversa', kinds: ['message', 'question', 'input'] },
-  { title: 'Ações do chat', kinds: ['condition', 'handoff', 'finish'] },
+const KIND_GROUPS: { id: 'conversa' | 'acoes'; kinds: Kind[] }[] = [
+  { id: 'conversa', kinds: ['message', 'question', 'input'] },
+  { id: 'acoes', kinds: ['condition', 'handoff', 'finish'] },
 ]
 
-const RECIPES = ['Já é cliente?', 'Tem negócio aberto?']
-
 function KindMenuScreen({ action, onAdvance }: ScreenProps) {
+  const { kindMenu, kinds } = useTutorialScreens('thinkbot')
   return (
-    <EditorShell problem="Deste bloco não se chega a um encerramento nem a um atendente.">
+    <EditorShell problem>
       <Canvas>
-        {WELCOME_BLOCK}
+        <WelcomeBlock />
         <PendingPort />
         {/* `kind-menu`: grade de dois por grupo e a coluna de prontos. */}
         <span className="ml-3 w-56 overflow-hidden rounded-xl border border-border bg-card shadow-xl">
           <span className="flex items-center gap-2 px-3 pb-1 pt-2.5">
             <span className="flex-1 text-[12px] font-semibold text-foreground">
-              Qual a interação que deseja?
+              {kindMenu.title}
             </span>
             <X aria-hidden className="size-3.5 text-muted-foreground" />
           </span>
           <span className="block px-2 pb-2.5">
             {KIND_GROUPS.map(group => (
-              <span key={group.title} className="block">
+              <span key={group.id} className="block">
                 <span className="block px-1 pb-1.5 pt-2 text-[10px] font-medium text-primary">
-                  {group.title}
+                  {kindMenu.groups[group.id]}
                 </span>
                 <span className="grid grid-cols-2 gap-1.5">
                   {group.kinds.map(kind => {
-                    const { icon: Icon, color, label } = KIND[kind]
+                    const { icon: Icon, color } = KIND[kind]
                     const chip =
                       'flex items-center gap-1.5 rounded-lg border border-border/70 px-2 py-1.5 text-left text-[11px]'
                     const content = (
@@ -494,7 +513,7 @@ function KindMenuScreen({ action, onAdvance }: ScreenProps) {
                           aria-hidden
                           className={`size-3.5 shrink-0 ${color}`}
                         />
-                        <span className="truncate">{label}</span>
+                        <span className="truncate">{kinds[kind]}</span>
                       </>
                     )
                     return kind === 'question' ? (
@@ -516,10 +535,10 @@ function KindMenuScreen({ action, onAdvance }: ScreenProps) {
               </span>
             ))}
             <span className="block px-1 pb-1.5 pt-2 text-[10px] font-medium text-primary">
-              Prontos
+              {kindMenu.ready}
             </span>
             <span className="flex flex-col gap-1.5">
-              {RECIPES.map(recipe => (
+              {kindMenu.recipes.map(recipe => (
                 <span
                   key={recipe}
                   className="flex items-center gap-1.5 rounded-lg border border-border/70 px-2 py-1.5 text-[11px]"
@@ -539,12 +558,12 @@ function KindMenuScreen({ action, onAdvance }: ScreenProps) {
   )
 }
 
-const OPTIONS = [
-  { label: 'Suporte', keywords: 'ajuda, problema', target: 'Atendente' },
-  { label: 'Encerrar', keywords: 'sair, tchau', target: 'Tchau' },
-]
-
 function BlockPanelScreen({ action, onAdvance }: ScreenProps) {
+  const { blockPanel, flow, kinds } = useTutorialScreens('thinkbot')
+  const options = [
+    { ...flow.options.support, target: flow.blocks.agent },
+    { ...flow.options.finish, target: flow.blocks.bye },
+  ]
   return (
     <EditorShell
       panel="bloco"
@@ -557,30 +576,30 @@ function BlockPanelScreen({ action, onAdvance }: ScreenProps) {
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
         <p className="flex items-center gap-1.5 text-sm font-semibold">
           <ListChecks aria-hidden className="size-4 text-violet-600" />
-          Pergunta
+          {kinds.question}
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <FakeField label="Nome do bloco" value="Menu" />
-          <FakeField label="O que o bot pergunta" value={QUESTION} />
+          <FakeField label={blockPanel.blockName} value={flow.blocks.menu} />
+          <FakeField label={blockPanel.questionLabel} value={flow.question} />
         </div>
-        <p className="text-sm font-medium">Opções</p>
+        <p className="text-sm font-medium">{blockPanel.options}</p>
         <div className="flex flex-col gap-2">
-          {OPTIONS.map(option => (
+          {options.map(option => (
             <div
               key={option.label}
               className="grid gap-2 rounded-lg border border-border p-2.5 text-xs sm:grid-cols-3"
             >
               <span className="font-semibold">{option.label}</span>
               <span className="text-muted-foreground">
-                palavras-chave: {option.keywords}
+                {blockPanel.keywords} {option.keywords}
               </span>
               <span>
-                leva para <strong>{option.target}</strong>
+                {blockPanel.leadsTo} <strong>{option.target}</strong>
               </span>
             </div>
           ))}
           <span className="w-fit text-xs font-medium text-primary">
-            + opção
+            {blockPanel.addOption}
           </span>
         </div>
       </div>
@@ -592,10 +611,13 @@ function BlockPanelScreen({ action, onAdvance }: ScreenProps) {
 
 type Bubble = { from: 'cliente' | 'bot' | 'sistema'; text: string }
 
-const CONVERSATION: Bubble[] = [
-  { from: 'bot', text: WELCOME },
-  { from: 'bot', text: `${QUESTION}\n1. Suporte\n2. Encerrar` },
-]
+/** O começo da conversa: boas-vindas e a pergunta com as opções. */
+function conversation(flow: FlowCopy): Bubble[] {
+  return [
+    { from: 'bot', text: flow.welcome },
+    { from: 'bot', text: questionWithOptions(flow) },
+  ]
+}
 
 /** `bot-flow-simulator`: bolhas e caixa de resposta. */
 function Simulator({
@@ -609,12 +631,15 @@ function Simulator({
   start?: ScreenProps
   send?: ScreenProps
 }) {
+  const { simulator } = useTutorialScreens('thinkbot')
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-2 border-b border-border pb-2">
-        <p className="text-sm font-semibold text-foreground">Simulador</p>
+        <p className="text-sm font-semibold text-foreground">
+          {simulator.title}
+        </p>
         <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-          não envia nada ao cliente
+          {simulator.notice}
         </span>
         <span className="ml-auto flex gap-2 text-muted-foreground">
           <RotateCcw aria-hidden className="size-4" />
@@ -625,11 +650,11 @@ function Simulator({
         {bubbles.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
             <p className="max-w-56 text-xs text-muted-foreground">
-              Rode o fluxo como se você fosse o cliente no WhatsApp.
+              {simulator.empty}
             </p>
             {start && (
               <HotspotButton {...start} className="h-8 text-xs">
-                Iniciar conversa
+                {simulator.start}
               </HotspotButton>
             )}
           </div>
@@ -657,7 +682,7 @@ function Simulator({
         <p
           className={`flex h-9 flex-1 items-center rounded-lg border border-input px-2.5 text-xs ${typed ? '' : 'text-muted-foreground'}`}
         >
-          {typed || 'Resposta do cliente'}
+          {typed || simulator.placeholder}
         </p>
         {send ? (
           <Hotspot
@@ -688,17 +713,23 @@ function SimulatorStartScreen(props: ScreenProps) {
 }
 
 function SimulatorChatScreen(props: ScreenProps) {
+  const { flow } = useTutorialScreens('thinkbot')
   return (
     <EditorShell panel="simulador">
       <Canvas>
         <FullFlow />
       </Canvas>
-      <Simulator bubbles={CONVERSATION} typed="Suporte" send={props} />
+      <Simulator
+        bubbles={conversation(flow)}
+        typed={flow.options.support.label}
+        send={props}
+      />
     </EditorShell>
   )
 }
 
 function PublishScreen({ action, onAdvance }: ScreenProps) {
+  const { flow } = useTutorialScreens('thinkbot')
   return (
     <EditorShell
       panel="simulador"
@@ -710,9 +741,9 @@ function PublishScreen({ action, onAdvance }: ScreenProps) {
       </Canvas>
       <Simulator
         bubbles={[
-          ...CONVERSATION,
-          { from: 'cliente', text: 'Suporte' },
-          { from: 'sistema', text: HANDOFF },
+          ...conversation(flow),
+          { from: 'cliente', text: flow.options.support.label },
+          { from: 'sistema', text: flow.handoff },
         ]}
       />
     </EditorShell>
@@ -722,23 +753,21 @@ function PublishScreen({ action, onAdvance }: ScreenProps) {
 // ─── Chat do canal aberto ──────────────────────────────────────────────────
 
 function BotChatScreen(props: ScreenProps) {
+  const { botChat, flow } = useTutorialScreens('thinkbot')
   return (
     <OpenChannelChat
       {...props}
-      chats={[
-        { name: 'Carlos Lima', detail: 'WhatsApp · Vendas' },
-        { name: 'Maria Clara', detail: 'WhatsApp · Vendas' },
-      ]}
-      title="Carlos Lima"
-      subtitle="WhatsApp · Canal Vendas · Contato no CRM"
+      chats={botChat.chats}
+      title={botChat.title}
+      subtitle={botChat.subtitle}
       messages={[
-        { from: 'in', text: 'Oi, meu pedido ainda não chegou' },
-        { from: 'bot', text: WELCOME },
-        { from: 'bot', text: `${QUESTION}\n1. Suporte\n2. Encerrar` },
-        { from: 'in', text: 'Suporte' },
-        { from: 'system', text: HANDOFF },
+        { from: 'in', text: botChat.incoming },
+        { from: 'bot', text: flow.welcome },
+        { from: 'bot', text: questionWithOptions(flow) },
+        { from: 'in', text: flow.options.support.label },
+        { from: 'system', text: flow.handoff },
       ]}
-      reply="Oi, Carlos! Sou a Joana, já vou verificar seu pedido."
+      reply={botChat.reply}
     />
   )
 }

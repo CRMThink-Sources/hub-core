@@ -1,12 +1,17 @@
+'use client'
+
+import { useTranslation } from 'react-i18next'
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Trend } from '../../_lib/message-stats-math'
 
 export function TrendBadge({ trend }: { trend: Trend }) {
+  const { t } = useTranslation('thinkzap/home')
+
   if (trend.kind === 'new') {
     return (
       <span className="inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
-        novo
+        {t('stats.trendNew')}
       </span>
     )
   }
