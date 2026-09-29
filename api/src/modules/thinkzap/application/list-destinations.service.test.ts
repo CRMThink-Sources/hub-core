@@ -50,13 +50,14 @@ describe('ListDestinationsService — CRM_CONTACT_DETAIL_TAB', () => {
     )
   })
 
-  it('does not call getCompanyContactIds when contact has no companyId', async () => {
-    const contactEntity = crmItem('42', 'João', '5511999999999')
-    const getCompanyContactIds = vi.fn().mockResolvedValue([])
-    const bitrix = makeBitrix({
-      getCrmItem: vi.fn().mockResolvedValue(contactEntity),
-      getCompanyContactIds,
+  it('loads only the contact itself even when it has a linked company', async () => {
+    const contactEntity = crmItem('42', 'João', '5511999999999', {
+      companyId: 7,
+      leadId: 9,
     })
+    const getCrmItem = vi.fn().mockResolvedValue(contactEntity)
+    const getCompanyContactIds = vi.fn().mockResolvedValue([])
+    const bitrix = makeBitrix({ getCrmItem, getCompanyContactIds })
 
     const service = new ListDestinationsService(bitrix as never)
     await service.execute({
@@ -64,6 +65,8 @@ describe('ListDestinationsService — CRM_CONTACT_DETAIL_TAB', () => {
       placement: 'CRM_CONTACT_DETAIL_TAB',
     })
 
+    expect(getCrmItem).toHaveBeenCalledTimes(1)
+    expect(getCrmItem).toHaveBeenCalledWith(3, '42')
     expect(getCompanyContactIds).not.toHaveBeenCalled()
   })
 })

@@ -104,6 +104,7 @@ export function bizprocEntityToPlacement(entity: string): string | null {
 /**
  * Resolves every deduplicated phone destination related to a CRM entity
  * (the entity itself plus related contacts / company contacts / linked lead).
+ * Contact placement is the exception: it resolves only the contact itself.
  * Shared by the widget destination list and the Bizproc broadcast robot.
  */
 export async function resolveRelatedDestinations(
@@ -166,7 +167,7 @@ async function getRelatedDestinationIds(
   if (placement === 'CRM_DEAL_DETAIL_TAB')
     return getDealDestinations(bitrix, getCrmItem, entity, contextId)
   if (placement === 'CRM_CONTACT_DETAIL_TAB')
-    return getContactDestinations(getCrmItem, entity, contextId)
+    return getContactDestinations(contextId)
   if (placement === 'CRM_LEAD_DETAIL_TAB')
     return getLeadDestinations(bitrix, getCrmItem, entity, contextId)
   if (placement === 'CRM_COMPANY_DETAIL_TAB')
@@ -255,25 +256,13 @@ async function getDealDestinations(
   return results
 }
 
-async function getContactDestinations(
-  getCrmItem: CrmItemGetter,
-  entity: Record<string, unknown>,
-  contextId: string,
-): Promise<EntityId[]> {
-  const results: EntityId[] = [{ entityTypeId: 3, id: contextId }]
-
-  const companyContactIds = await getCompanyContactIdsFromEntity(
-    getCrmItem,
-    entity,
-  )
-  for (const id of companyContactIds) {
-    results.push({ entityTypeId: 3, id })
-  }
-
-  const leadId = getEntityId(entity, 'leadId', 1)
-  if (leadId) results.push(leadId)
-
-  return results
+/**
+ * O placement do contato: só o próprio contato. Empresas vinculadas (e os
+ * contatos delas) e o lead vinculado ficam de fora — com várias empresas
+ * ligadas, o operador via números de outras pessoas misturados aos do contato.
+ */
+function getContactDestinations(contextId: string): EntityId[] {
+  return [{ entityTypeId: 3, id: contextId }]
 }
 
 /**
