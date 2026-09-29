@@ -109,7 +109,7 @@ export const HANDOFF_DISTRIBUTION_LABEL: Record<HandoffDistribution, string> = {
 
 /** Uma linha por opção: o rótulo sozinho não diz quem acaba recebendo a conversa. */
 export const HANDOFF_DISTRIBUTION_HINT: Record<HandoffDistribution, string> = {
-  channel: 'a fila do canal aberto escolhe o atendente',
+  channel: 'canal destino',
   evenly: 'rodízio entre os atendentes selecionados',
   all: 'todos os selecionados são avisados pela fila do canal',
 }

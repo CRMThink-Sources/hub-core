@@ -45,7 +45,7 @@
     "all": "To Everyone"
   },
   "distribuicaoDica": {
-    "channel": "the open channel queue picks the agent",
+    "channel": "destination channel",
     "evenly": "round robin among the selected agents",
     "all": "everyone selected is notified by the channel queue"
   },

@@ -38,7 +38,6 @@ describe('alvo de handoff', () => {
       codes(comAlvo({ type: 'all', bitrixUserIds: ['12', '13'] })),
     ).toEqual([])
     expect(codes(comAlvo({ type: 'line', lineId: '7' }))).toEqual([])
-    expect(codes(comAlvo({ type: 'queue' }))).toEqual([])
   })
 
   it('lista vazia é problema de conteúdo, não de forma', () => {
@@ -75,10 +74,12 @@ describe('alvo de handoff', () => {
     expect(issues[0]?.detail).toContain('canal')
   })
 
-  it('`queue` nunca fica incompleto: não tem id para escolher', () => {
-    expect(codes(comAlvo({ type: 'queue' }))).not.toContain(
-      'handoff-target-incomplete',
-    )
+  it('`queue` é canal não escolhido, e não a fila do canal atual', () => {
+    const issues = validateFlowGraph(comAlvo({ type: 'queue' }))
+
+    expect(issues).toHaveLength(1)
+    expect(issues[0]?.code).toBe('handoff-target-incomplete')
+    expect(issues[0]?.detail).toContain('canal')
   })
 })
 

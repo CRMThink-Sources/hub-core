@@ -603,18 +603,16 @@ function textoFalado(node: BotFlowGraph['nodes'][number]): string {
   return node.text ?? ''
 }
 
-/** Alvo `queue` já é completo; os outros nascem sem canal nem atendente no editor. */
+/** Todo alvo exige escolha: `queue` é o canal ainda não escolhido no editor. */
 function isTargetComplete(target: HandoffTarget): boolean {
+  if (target.type === 'queue') return false
   if (target.type === 'line') return target.lineId.trim() !== ''
-  if (target.type === 'evenly' || target.type === 'all') {
-    return target.bitrixUserIds.some(id => id.trim() !== '')
-  }
-  return true
+  return target.bitrixUserIds.some(id => id.trim() !== '')
 }
 
 /** O que falta escolher, em uma frase. Prefixado pelo chamador. */
 function faltaNoAlvo(target: HandoffTarget): string {
-  return target.type === 'line'
+  return target.type === 'line' || target.type === 'queue'
     ? 'sem canal escolhido'
     : 'sem atendente escolhido'
 }
