@@ -480,7 +480,9 @@ describe('resolveRelatedDestinations — CRM_COMPANY_DETAIL_TAB', () => {
   it('includes the company phone and the phones of its linked contacts', async () => {
     const bitrix = makeBitrix({
       getCrmItem: routeCrmItems({
-        '4:5': crmItem('5', 'Acme', '5531111111111', { contactIds: [100, 101] }),
+        '4:5': crmItem('5', 'Acme', '5531111111111', {
+          contactIds: [100, 101],
+        }),
         '3:100': crmItem('100', 'Ana', '5555555555555'),
         '3:101': crmItem('101', 'Bia', '5566666666666'),
       }),
@@ -524,7 +526,9 @@ describe('resolveRelatedDestinations — CRM_COMPANY_DETAIL_TAB', () => {
     const bitrix = makeBitrix({
       // `3:101` fora do mapa: `routeCrmItems` rejeita a leitura desse contato.
       getCrmItem: routeCrmItems({
-        '4:5': crmItem('5', 'Acme', '5531111111111', { contactIds: [100, 101] }),
+        '4:5': crmItem('5', 'Acme', '5531111111111', {
+          contactIds: [100, 101],
+        }),
         '3:100': crmItem('100', 'Ana', '5555555555555'),
       }),
     })
