@@ -4,7 +4,7 @@
   "fechar": "Close",
   "nome": "Block name",
   "perguntaLabel": "What the bot asks",
-  "falaLabel": "What the bot says",
+  "falaLabel": "Message",
   "perguntaPlaceholder": "How can I help you?",
   "dicaOpcoes": "Only the question: the options below are numbered and sent along.",
   "avisoOpcoesNoTexto": "This text seems to list the options already. The customer will receive the list twice — remove it from here and keep it only in “Options”.",
@@ -21,7 +21,7 @@
   },
   "condicoes": {
     "titulo": "Conditions",
-    "seBater": "If it matches",
+    "seBater": "Condition identified",
     "adicionar": "condition",
     "variavelPlaceholder": "variable",
     "valorPlaceholder": "value",
@@ -30,11 +30,21 @@
     "vaiPara": "goes to"
   },
   "saidas": {
-    "paraOndeVai": "Where it goes",
-    "seNaoBater": "If it does not match",
-    "seNenhuma": "If no condition matches",
+    "paraOndeVai": "Go to",
+    "seNaoBater": "Condition not identified",
+    "seNenhuma": "No condition identified",
     "segueParaFallback": "goes to",
     "dicaArrastar": "Or drag the output dot onto another block in the flow."
+  },
+  "receitas": {
+    "ja-e-cliente": {
+      "bate": "Customer identified",
+      "naoBate": "Customer not identified"
+    },
+    "tem-negocio": {
+      "bate": "Deal identified",
+      "naoBate": "Deal not identified"
+    }
   },
   "escolherDestino": "pick a destination…",
   "retry": {
@@ -57,7 +67,7 @@
     "removerAtendente": "Remove agent",
     "erroCanais": "Could not list the open channels.",
     "carregandoCanais": "loading channels",
-    "mesmoCanal": "the same channel as the conversation"
+    "selecioneCanal": "Select the open channel..."
   },
   "alias": {
     "placeholder": "type and press Enter…",

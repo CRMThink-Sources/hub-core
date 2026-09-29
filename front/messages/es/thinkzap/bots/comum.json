@@ -45,7 +45,7 @@
     "all": "Para Todos"
   },
   "distribuicaoDica": {
-    "channel": "la cola del canal abierto elige al agente",
+    "channel": "canal destino",
     "evenly": "rotación entre los agentes seleccionados",
     "all": "todos los seleccionados son avisados por la cola del canal"
   },

@@ -18,23 +18,17 @@ import {
 } from '@/shared/thinkzap-flow-vars'
 import { questionHasInlineOptions } from '@/shared/thinkzap-question-has-options'
 import { AliasTagsField } from './alias-tags-field'
+import { FieldLabel, fieldLabel } from './field-label'
 import { TextWithVars } from './text-with-vars'
 import { KIND_ACCENT, KIND_ICON } from './canvas/kind-visual'
 import { HandoffTargetField } from './handoff-target-field'
 import { issueText } from './issue-text'
 
-/**
- * Sem largura: `w-full` embutido aqui competia com a largura própria de quem precisa de
- * uma (`w-19` no operador da condição, por exemplo). São a mesma propriedade, e quem vence
- * é a ordem do CSS gerado, não a da string — o operador esticava a 100% e esmagava o campo
- * da variável ao lado até sumir. Quem quer ocupar a linha pede `field` mais `w-full`.
- */
+// Sem largura: quem precisa da própria largura usa `fieldBase`; quem ocupa a linha, `field`.
 const fieldBase =
   'rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50'
 
 const field = `${fieldBase} w-full`
-
-const label = 'text-[10px] font-semibold uppercase text-muted-foreground'
 
 export type BlockPanelProps = {
   node: FlowNode | null
@@ -50,12 +44,7 @@ export type BlockPanelProps = {
   onSetTarget: (port: PortKind, target: string) => void
 }
 
-/**
- * Edição do bloco selecionado.
- *
- * Todo campo que antes ficava dentro do nó mora aqui. O cartão do canvas voltou a ser
- * leitura, e os campos ganharam largura de painel em vez dos 240px de um nó.
- */
+/** Edição do bloco selecionado; o cartão do canvas é só leitura. */
 export function BlockPanel({
   node,
   onFechar,
@@ -76,33 +65,31 @@ export function BlockPanel({
   const ports = nodePorts(node)
   const Icon = KIND_ICON[node.kind]
 
-  /**
-   * As saídas que **não** aparecem junto do campo que as nomeia.
-   *
-   * Rótulo e destino da mesma opção ficavam em seções distintas da tela, e casá-los era
-   * por ordem: com quatro opções, escolher o destino da segunda era adivinhação. Agora a
-   * opção carrega o próprio destino, e aqui sobra só o caminho de exceção.
-   */
+  /** Saídas que não aparecem junto do campo que as nomeia. */
   const portasRestantes = ports.filter(port => {
-    // `exhausted` mora dentro de "Repete Nx" — o destino só faz sentido ao lado do
-    // número de tentativas que leva até ele.
+    // `exhausted` mora dentro de "Repete Nx", ao lado do número de tentativas.
     if (port.port.kind === 'exhausted') return false
     if (node.kind === 'question') return port.port.kind !== 'option'
     if (node.kind === 'condition') return port.port.kind !== 'branch'
     return true
   })
 
-  /**
-   * Uma condição só já são dois caminhos — bate e não bate. Chamar o segundo de "se
-   * nenhuma condição bater" fazia parecer que faltava caminho no painel, enquanto o
-   * bloco no canvas mostrava as duas saídas.
-   */
+  // A receita sabe o que testa, então nomeia os dois caminhos pelo resultado.
+  const receita = node.kind === 'condition' ? node.recipeId : undefined
+  const umTeste = node.kind === 'condition' && node.branches.length === 1
+
+  const tituloDaCondicao = !umTeste
+    ? t('condicoes.titulo')
+    : t(`receitas.${receita}.bate`, { defaultValue: t('condicoes.seBater') })
+
   const tituloDasSaidas =
     node.kind !== 'condition'
       ? t('saidas.paraOndeVai')
-      : node.branches.length === 1
-        ? t('saidas.seNaoBater')
-        : t('saidas.seNenhuma')
+      : !umTeste
+        ? t('saidas.seNenhuma')
+        : t(`receitas.${receita}.naoBate`, {
+            defaultValue: t('saidas.seNaoBater'),
+          })
 
   return (
     <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-xl border border-border bg-card p-3 shadow-xl">
@@ -151,7 +138,7 @@ export function BlockPanel({
       ) : null}
 
       <div className="flex flex-col gap-1">
-        <span className={label}>{t('nome')}</span>
+        <span className={fieldLabel}>{t('nome')}</span>
         <input
           value={node.name ?? ''}
           placeholder={tc(`tipos.${node.kind}`)}
@@ -165,7 +152,7 @@ export function BlockPanel({
 
       {node.kind !== 'condition' && node.kind !== 'schedule' ? (
         <div className="flex flex-col gap-1">
-          <span className={label}>
+          <span className={fieldLabel}>
             {node.kind === 'question' ? t('perguntaLabel') : t('falaLabel')}
           </span>
           <TextWithVars
@@ -177,10 +164,7 @@ export function BlockPanel({
             onChange={text => onChange({ ...node, text })}
             className={`${field} resize-none`}
           />
-          {/* O motor numera as opções e as anexa a este texto, então quem as digita aqui
-              manda a lista duas vezes ao cliente. A dica é permanente e o aviso só aparece
-              quando o texto já tem a lista: orientar antes evita o erro, e avisar depois
-              alcança o fluxo que já estava salvo assim. */}
+          {/* O motor já anexa as opções ao texto: digitá-las aqui duplica a lista. */}
           {node.kind === 'question' ? (
             <>
               <span className="text-[10px] text-muted-foreground">
@@ -210,7 +194,7 @@ export function BlockPanel({
 
       {node.kind === 'question' ? (
         <div className="flex flex-col gap-2">
-          <span className={label}>{t('opcoes.titulo')}</span>
+          <span className={fieldLabel}>{t('opcoes.titulo')}</span>
           {node.options.map((option, index) => (
             <OptionRow
               key={index}
@@ -235,8 +219,7 @@ export function BlockPanel({
                   ...node,
                   options: node.options.map((current, i) =>
                     i === index
-                      ? // `undefined` e não `[]`: o campo é opcional no schema, e a lista
-                        // vazia faria todo fluxo salvo carregar uma por opção.
+                      ? // `undefined` e não `[]`: o campo é opcional no schema.
                         {
                           ...current,
                           aliases: proximos.length ? proximos : undefined,
@@ -284,8 +267,7 @@ export function BlockPanel({
         </div>
       ) : null}
 
-      {/* "Resposta diferente" fora do ar por ora — `RetrySection` segue no arquivo.
-          A saída "não entendeu" continua no cartão, ligável pela bolinha.
+      {/* "Resposta diferente" fora do ar por ora.
       {node.kind === 'question' ? (
         <RetrySection
           node={node}
@@ -297,11 +279,7 @@ export function BlockPanel({
 
       {node.kind === 'condition' ? (
         <div className="flex flex-col gap-2">
-          <span className={label}>
-            {node.branches.length === 1
-              ? t('condicoes.seBater')
-              : t('condicoes.titulo')}
-          </span>
+          <span className={fieldLabel}>{tituloDaCondicao}</span>
           {node.branches.map((_, index) => (
             <ConditionRow
               key={index}
@@ -313,8 +291,7 @@ export function BlockPanel({
               onSetTarget={onSetTarget}
             />
           ))}
-          {/* Bloco de receita responde uma pergunta fechada ("já é cliente?"): uma
-              terceira saída não teria o que testar e só quebraria a leitura sim/não. */}
+          {/* Receita é pergunta fechada: terceira saída quebraria a leitura sim/não. */}
           {node.recipeId ? null : (
             <button
               type="button"
@@ -338,24 +315,37 @@ export function BlockPanel({
 
       {portasRestantes.length > 0 ? (
         <div className="flex flex-col gap-1.5 border-t border-border pt-2.5">
-          <span className={label}>{tituloDasSaidas}</span>
+          {/* Balão para cima: a seção fica no fim do painel rolável. */}
+          <FieldLabel hint={t('saidas.dicaArrastar')} side="top">
+            {tituloDasSaidas}
+          </FieldLabel>
           {portasRestantes.map(port => {
             const pendente = port.target === node.id
 
+            // Sem rótulo quando o título da seção já nomeia a saída.
+            const rotulo =
+              node.kind === 'condition'
+                ? ''
+                : port.label ||
+                  (portasRestantes.length > 1
+                    ? t('saidas.segueParaFallback')
+                    : '')
+
             return (
               <div key={port.id} className="flex items-center gap-1.5">
-                <span className="min-w-0 flex-1 truncate text-xs text-foreground/80">
-                  {port.label || t('saidas.segueParaFallback')}
-                </span>
+                {rotulo ? (
+                  <span className="min-w-0 flex-1 truncate text-xs text-foreground/80">
+                    {rotulo}
+                  </span>
+                ) : null}
                 <select
                   value={port.target}
                   onChange={event => onSetTarget(port.port, event.target.value)}
-                  className={`${fieldBase} w-37.5 shrink-0 cursor-pointer ${
-                    pendente ? 'border-amber-500 text-amber-700' : ''
-                  }`}
+                  className={`${fieldBase} cursor-pointer ${
+                    rotulo ? 'w-37.5 shrink-0' : 'w-full'
+                  } ${pendente ? 'border-amber-500 text-amber-700' : ''}`}
                 >
-                  {/* Sempre na lista: escondê-la depois de escolher trancava a saída
-                      no primeiro destino até existir um segundo bloco. */}
+                  {/* Sempre na lista: escondê-la trancava a saída no primeiro destino. */}
                   <option value={node.id}>{t('escolherDestino')}</option>
                   {destinos.map(item => (
                     <option key={item.id} value={item.id}>
@@ -366,19 +356,13 @@ export function BlockPanel({
               </div>
             )
           })}
-          <p className="text-[10px] text-muted-foreground">
-            {t('saidas.dicaArrastar')}
-          </p>
         </div>
       ) : null}
     </div>
   )
 }
 
-/**
- * Ligar a captura muda o que o bloco faz: a mensagem passa a esperar a resposta antes de
- * seguir. Por isso um botão, e não um campo sempre aberto.
- */
+// Botão e não campo aberto: ligar a captura faz o bloco esperar a resposta.
 function CaptureField({
   node,
   vars,
@@ -407,7 +391,7 @@ function CaptureField({
 
   return (
     <div className="flex flex-col gap-1">
-      <span className={label}>{t('captura.titulo')}</span>
+      <span className={fieldLabel}>{t('captura.titulo')}</span>
       <div className="flex items-center gap-1.5">
         <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
           {CAPTURE_NAMESPACE}.
@@ -445,13 +429,7 @@ function CaptureField({
   )
 }
 
-/**
- * O que acontece quando a resposta não casa com nenhuma opção.
- *
- * Estava invisível: `maxAttempts` e `retryText` não tinham campo no painel, então não
- * havia como saber se uma resposta fora das opções repetia a pergunta ou desviava — e
- * `maxAttempts` nascia `3` sem o operador escolher.
- */
+/** O que acontece quando a resposta não casa com nenhuma opção. */
 function RetrySection({
   node,
   destinos,
@@ -468,7 +446,7 @@ function RetrySection({
 
   return (
     <div className="flex flex-col gap-2 border-t border-border pt-2.5">
-      <span className={label}>{t('retry.titulo')}</span>
+      <span className={fieldLabel}>{t('retry.titulo')}</span>
 
       <div className="flex items-center gap-1.5">
         <span className="shrink-0 text-xs text-foreground/80">
@@ -492,8 +470,7 @@ function RetrySection({
         </span>
       </div>
 
-      {/* `maxAttempts: 1` desvia na primeira falha e nunca repergunta — o campo de texto
-          seria morto. Vazio não silencia: `askText` repete a pergunta original. */}
+      {/* `maxAttempts: 1` desvia na primeira falha: o campo de texto seria morto. */}
       {node.maxAttempts > 1 ? (
         <input
           value={node.retryText ?? ''}
@@ -530,13 +507,7 @@ function RetrySection({
   )
 }
 
-/**
- * Uma opção da pergunta: o que o cliente responde e para onde isso leva, na mesma linha.
- *
- * Os dois juntos porque são uma decisão só. Separados — rótulo em "Opções", destino em
- * "Para onde vai" — o operador tinha de casar os dois pela ordem, e uma opção sem rótulo
- * virava um "escolher destino…" sem dono na outra seção.
- */
+/** Uma opção da pergunta: rótulo e destino juntos, por serem uma decisão só. */
 function OptionRow({
   numero,
   rotulo,
@@ -567,15 +538,13 @@ function OptionRow({
 }) {
   const { t } = useTranslation('thinkzap/bots/bloco')
   const palavras = aliases ?? []
-  // Fechado quando não há palavra: o campo vazio ocupava uma linha por opção sem dizer
-  // nada. Quem já usou abre com elas à vista.
+  // Fechado sem palavras: o campo vazio ocupava uma linha por opção sem dizer nada.
   const [abertas, setAbertas] = useState(palavras.length > 0)
 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">
-        {/* O número é o que o cliente digita: o canal entrega texto puro, sem botão, e a
-            numeração da mensagem segue a ordem desta lista. */}
+        {/* O número é o que o cliente digita: o canal entrega texto puro, sem botão. */}
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
           {numero}
         </span>
@@ -597,9 +566,7 @@ function OptionRow({
         </button>
       </div>
 
-      {/* O rótulo sozinho não diz o que o cliente pode digitar: ele lê "Suporte" e
-          responde "ajuda". Campo separado porque o rótulo é o texto **exibido** — juntar
-          os dois mudaria a mensagem. */}
+      {/* Campo separado: o rótulo é o texto exibido, as palavras-chave só casam resposta. */}
       <div className="flex flex-col gap-1 pl-6.5">
         <button
           type="button"
@@ -627,9 +594,7 @@ function OptionRow({
         ) : null}
       </div>
 
-      {/* Em linha própria e não ao lado: os dois campos lado a lado estouravam a largura
-          do painel e viravam scroll horizontal. Indentado sob o número, para o par
-          "resposta → destino" continuar lendo junto. */}
+      {/* Em linha própria: lado a lado os dois campos estouravam a largura do painel. */}
       <div className="flex items-center gap-1.5 pl-6.5">
         <span className="shrink-0 text-[10px] text-muted-foreground">
           {t('opcoes.levaPara')}
@@ -692,8 +657,7 @@ function ConditionRow({
     <div className="flex flex-col gap-1 rounded-md border border-border bg-muted/30 p-2">
       {/* Sozinha na linha: com operador e valor ao lado, o nome truncava em "bitrix.nam". */}
       <div className="flex items-center gap-1">
-        {/* Lista, não campo livre: o nome tem namespace (`capture.x`), e digitado na mão
-            ele não casa com nada e a condição desvia sempre pelo mesmo lado. */}
+        {/* Lista e não campo livre: nome digitado na mão não casa com nada. */}
         <select
           value={branch.when.var}
           onChange={event => patch({ var: event.target.value })}

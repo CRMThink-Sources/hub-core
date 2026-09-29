@@ -45,7 +45,7 @@
     "all": "Para Todos"
   },
   "distribuicaoDica": {
-    "channel": "a fila do canal aberto escolhe o atendente",
+    "channel": "canal destino",
     "evenly": "rodízio entre os atendentes selecionados",
     "all": "todos os selecionados são avisados pela fila do canal"
   },

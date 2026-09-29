@@ -4,7 +4,7 @@
   "fechar": "Fechar",
   "nome": "Nome do bloco",
   "perguntaLabel": "O que o bot pergunta",
-  "falaLabel": "O que o bot diz",
+  "falaLabel": "Mensagem",
   "perguntaPlaceholder": "No que posso ajudar?",
   "dicaOpcoes": "Só a pergunta: as opções abaixo são numeradas e enviadas junto.",
   "avisoOpcoesNoTexto": "Este texto parece já listar as opções. O cliente vai receber a lista duas vezes — apague-a daqui e deixe só em “Opções”.",
@@ -21,7 +21,7 @@
   },
   "condicoes": {
     "titulo": "Condições",
-    "seBater": "Se bater",
+    "seBater": "Condição identificada",
     "adicionar": "condição",
     "variavelPlaceholder": "variável",
     "valorPlaceholder": "valor",
@@ -30,11 +30,21 @@
     "vaiPara": "vai para"
   },
   "saidas": {
-    "paraOndeVai": "Para onde vai",
-    "seNaoBater": "Se não bater",
-    "seNenhuma": "Se nenhuma condição bater",
+    "paraOndeVai": "Ir para",
+    "seNaoBater": "Condição não identificada",
+    "seNenhuma": "Nenhuma condição identificada",
     "segueParaFallback": "segue para",
-    "dicaArrastar": "Ou arraste a bolinha da saída até outro bloco no fluxo."
+    "dicaArrastar": "Selecione o próximo bloco para cada situação."
+  },
+  "receitas": {
+    "ja-e-cliente": {
+      "bate": "Cliente identificado",
+      "naoBate": "Cliente não identificado"
+    },
+    "tem-negocio": {
+      "bate": "Negócio identificado",
+      "naoBate": "Negócio não identificado"
+    }
   },
   "escolherDestino": "escolher destino…",
   "retry": {
@@ -57,7 +67,7 @@
     "removerAtendente": "Remover atendente",
     "erroCanais": "Não foi possível listar os canais abertos.",
     "carregandoCanais": "carregando canais",
-    "mesmoCanal": "o mesmo canal da conversa"
+    "selecioneCanal": "Selecione o canal aberto..."
   },
   "alias": {
     "placeholder": "digite e Enter…",

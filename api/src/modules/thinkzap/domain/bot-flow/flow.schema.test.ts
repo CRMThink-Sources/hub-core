@@ -207,7 +207,7 @@ describe('parseBotFlowGraph', () => {
         ...minimal,
         settings: {
           escapeKeywords: ['atendente'],
-          escapeTarget: { type: 'queue' },
+          escapeTarget: { type: 'line', lineId: '1' },
           escapeText: 'Até logo, {capture.sumiu}',
         },
       }
@@ -421,7 +421,7 @@ describe('validateFlowGraph — destino não escolhido', () => {
           maxAttempts: 2,
           onExhausted: 'q',
         },
-        { id: 'fim', kind: 'handoff', target: { type: 'queue' } },
+        { id: 'fim', kind: 'handoff', target: { type: 'line', lineId: '1' } },
       ],
     })
 
@@ -445,7 +445,7 @@ describe('validateFlowGraph — destino não escolhido', () => {
           maxAttempts: 2,
           onExhausted: 'fim',
         },
-        { id: 'fim', kind: 'handoff', target: { type: 'queue' } },
+        { id: 'fim', kind: 'handoff', target: { type: 'line', lineId: '1' } },
       ],
     })
 
@@ -460,7 +460,7 @@ describe('bloco de horário — os dois caminhos são obrigatórios', () => {
     settings: { escapeKeywords: [], escapeTarget: null },
     nodes: [
       { id: 'h', kind: 'schedule', whenOpen, whenClosed },
-      { id: 'fim', kind: 'handoff', target: { type: 'queue' } },
+      { id: 'fim', kind: 'handoff', target: { type: 'line', lineId: '1' } },
     ],
   })
 
@@ -475,7 +475,7 @@ describe('bloco de horário — os dois caminhos são obrigatórios', () => {
       settings: { escapeKeywords: [], escapeTarget: null },
       nodes: [
         { id: 'h', kind: 'schedule', whenOpen: 'fim', whenClosed: 'fora' },
-        { id: 'fim', kind: 'handoff', target: { type: 'queue' } },
+        { id: 'fim', kind: 'handoff', target: { type: 'line', lineId: '1' } },
         { id: 'fora', kind: 'finish', text: 'voltamos amanhã' },
       ],
     })

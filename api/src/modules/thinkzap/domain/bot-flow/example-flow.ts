@@ -6,7 +6,7 @@ export const exampleFlow: BotFlowGraph = {
   entryNodeId: 'n1',
   settings: {
     escapeKeywords: ['atendente', 'humano'],
-    escapeTarget: { type: 'queue' },
+    escapeTarget: { type: 'line', lineId: '1' },
     escapeText: 'Já chamo alguém do agendamento para falar com você.',
   },
   nodes: [
@@ -74,7 +74,7 @@ export const exampleFlow: BotFlowGraph = {
       id: 'n9',
       kind: 'handoff',
       text: 'Já chamo alguém do agendamento para falar com você.',
-      target: { type: 'queue' },
+      target: { type: 'line', lineId: '1' },
     },
     { id: 'n10', kind: 'finish' },
   ],

@@ -18,17 +18,15 @@ import {
   targetUserIds,
   withDistribution,
 } from '@/shared/thinkzap-bot-flow'
+import { FieldLabel, fieldLabel } from './field-label'
 
 const field =
   'w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50'
 
-const label = 'text-[10px] font-semibold uppercase text-muted-foreground'
+/** Canal ainda não escolhido: o alvo fica `queue`, que a validação reprova. */
+const SEM_CANAL = ''
 
-/** Valor da opção "o mesmo canal da conversa" no seletor de canal (alvo `queue`). */
-const MESMO_CANAL = ''
-
-// O alvo é gravado como id, mas ninguém sabe o próprio id numérico — daí a busca por
-// nome. O nome não é persistido: é do portal, e copiá-lo daria dois lugares para mudar.
+// Busca por nome porque o alvo é id, e o nome não é persistido: é do portal.
 export function HandoffTargetField({
   target,
   onChange,
@@ -54,7 +52,11 @@ export function HandoffTargetField({
     <div
       className={`flex flex-col gap-1.5 ${bordered ? 'border-t border-border pt-2.5' : ''}`}
     >
-      <span className={label}>{title ?? t('handoff.distribuicao')}</span>
+      <FieldLabel
+        hint={distribuicao ? tc(`distribuicaoDica.${distribuicao}`) : undefined}
+      >
+        {title ?? t('handoff.distribuicao')}
+      </FieldLabel>
       <select
         value={distribuicao ?? ''}
         onChange={event =>
@@ -77,18 +79,12 @@ export function HandoffTargetField({
         ))}
       </select>
 
-      {distribuicao ? (
-        <p className="text-[10px] text-muted-foreground">
-          {tc(`distribuicaoDica.${distribuicao}`)}
-        </p>
-      ) : null}
-
       {distribuicao === 'channel' ? (
         <LinePicker
-          lineId={target?.type === 'line' ? target.lineId : MESMO_CANAL}
+          lineId={target?.type === 'line' ? target.lineId : SEM_CANAL}
           onPick={id =>
             onChange(
-              id === MESMO_CANAL
+              id === SEM_CANAL
                 ? { type: 'queue' }
                 : { type: 'line', lineId: id },
             )
@@ -242,16 +238,16 @@ function UserPicker({
         </p>
       ) : null}
 
-      {/* Abaixo da busca: quem já está escolhido é o resultado do campo de cima, e no
-          topo empurrava a busca para fora da vista a cada atendente adicionado. */}
+      {/* Abaixo da busca: no topo, empurrava o campo para fora da vista. */}
       {bitrixUserIds.length > 0 ? (
         <div className="flex flex-col gap-1">
-          <span className={label}>{t('handoff.usuariosSelecionados')}</span>
+          <span className={fieldLabel}>
+            {t('handoff.usuariosSelecionados')}
+          </span>
           <ul className="flex flex-col gap-1">
             {bitrixUserIds.map(id => {
               const escolhido = nomes[id]
-              // Enquanto o nome não chega, o id sozinho não diz nada: mostra o esqueleto
-              // no lugar de "Usuário #12", que parecia o valor final.
+              // Esqueleto enquanto o nome não chega: "Usuário #12" parecia o valor final.
               const resolvendo = !escolhido && procurados.current.has(id)
 
               return (
@@ -317,8 +313,7 @@ function LinePicker({
   const [linhas, setLinhas] = useState<OpenChannel[] | null>(null)
   const [erro, setErro] = useState(false)
 
-  // Pela nossa API, não por `BX24.callMethod`: o caminho do browser exigia o script do
-  // portal carregado e o escopo `imopenlines` no app do cliente.
+  // Pela nossa API: o `BX24.callMethod` exigia o escopo `imopenlines` no app do cliente.
   useEffect(() => {
     let ativo = true
     listOpenChannels()
@@ -354,9 +349,8 @@ function LinePicker({
       onChange={event => onPick(event.target.value)}
       className={`${field} cursor-pointer`}
     >
-      {/* Sem escolha explícita a conversa fica na fila do canal em que já está, que é o
-          caso comum — daí ser a primeira opção e não um estado pendente. */}
-      <option value={MESMO_CANAL}>{t('handoff.mesmoCanal')}</option>
+      {/* Placeholder, não destino: sem canal escolhido o bloco fica com problema. */}
+      <option value={SEM_CANAL}>{t('handoff.selecioneCanal')}</option>
       {linhas.map(linha => (
         <option key={String(linha.id)} value={String(linha.id)}>
           {linha.name?.trim() || tc('canalNumero', { id: linha.id })}
