@@ -25,7 +25,9 @@ const CTAS = {
 }
 
 const withContent = (content: LpContent, node: ReactElement) =>
-  renderToStaticMarkup(createElement(LpContentProvider, { content, children: node }))
+  renderToStaticMarkup(
+    createElement(LpContentProvider, { content, children: node }),
+  )
 
 /** Texto visível e rótulos acessíveis, sem tags nem outros atributos. */
 function visibleText(html: string): string {
