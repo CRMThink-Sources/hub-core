@@ -55,55 +55,36 @@ describe('advance — abertura', () => {
 })
 
 describe('advance — captura', () => {
-  it('guarda a data normalizada e segue pela condição até a pergunta', () => {
+  it('guarda a resposta como veio e segue pela condição até a pergunta', () => {
     const opened = start()
-    const result = reply(opened.state!, '14/03/1986')
+    const result = reply(opened.state!, '  14/03/1986  ')
 
-    expect(result.state?.vars).toEqual({ nascimento: '1986-03-14' })
+    expect(result.state?.vars).toEqual({ 'capture.nascimento': '14/03/1986' })
     expect(result.awaiting?.id).toBe('n4')
     // A condição no meio não fala nada: só a pergunta sai.
     expect(says(result.effects)).toHaveLength(1)
   })
 
-  it('data inválida repete com o texto de retry e conta tentativa', () => {
+  it('qualquer resposta é aceita: não existe repetir nem desvio', () => {
     const opened = start()
     const result = reply(opened.state!, 'ontem')
 
-    expect(says(result.effects)).toEqual([
-      'Não consegui ler a data. Manda no formato dia/mês/ano.',
-    ])
-    expect(result.state).toEqual({
-      currentNodeId: 'n2',
-      vars: {},
-      attempts: 1,
-    })
-  })
-
-  it('na última tentativa desvia para o handoff em vez de repetir', () => {
-    const state: BotSessionState = {
-      currentNodeId: 'n2',
-      vars: {},
-      attempts: 2,
-    }
-    const result = reply(state, 'nao sei')
-
-    expect(kinds(result.effects)).toEqual(['say', 'handoff'])
-    expect(result.state).toBeNull()
-    expect(result.awaiting).toBeNull()
+    expect(result.state?.vars).toEqual({ 'capture.nascimento': 'ontem' })
+    expect(result.awaiting?.id).toBe('n4')
   })
 })
 
 describe('advance — pergunta', () => {
   const atQuestion = (): BotSessionState => ({
     currentNodeId: 'n4',
-    vars: { nascimento: '1986-03-14' },
+    vars: { 'capture.nascimento': '1986-03-14' },
     attempts: 0,
   })
 
   it('casa pelo número da opção', () => {
     const result = reply(atQuestion(), '2')
 
-    expect(result.state?.vars.motivo).toBe('reagendar')
+    expect(result.state?.vars['capture.motivo']).toBe('reagendar')
     expect(result.awaiting?.id).toBe('n6')
   })
 
@@ -139,8 +120,8 @@ describe('advance — reconvergência e escape', () => {
     const manha = reply(atTurno, 'manhã')
     const tarde = reply(atTurno, '2')
 
-    expect(kinds(manha.effects)).toEqual(['say', 'handoff'])
-    expect(kinds(tarde.effects)).toEqual(['say', 'handoff'])
+    expect(kinds(manha.effects)).toEqual(['say', 'whisper', 'handoff'])
+    expect(kinds(tarde.effects)).toEqual(['say', 'whisper', 'handoff'])
   })
 
   it('palavra de escape corta o fluxo de qualquer nó de espera', () => {
@@ -149,7 +130,7 @@ describe('advance — reconvergência e escape', () => {
       'quero falar com um atendente por favor',
     )
 
-    expect(kinds(result.effects)).toEqual(['say', 'handoff'])
+    expect(kinds(result.effects)).toEqual(['say', 'whisper', 'handoff'])
   })
 
   it('escape só vale quando o fluxo define destino', () => {
@@ -164,9 +145,81 @@ describe('advance — reconvergência e escape', () => {
       { kind: 'text', text: 'atendente' },
     )
 
-    // Sem destino, "atendente" é só uma data inválida: repete.
-    expect(result.awaiting?.id).toBe('n2')
-    expect(result.state?.attempts).toBe(1)
+    // Sem destino, "atendente" é só o que o cliente respondeu: vira variável e segue.
+    expect(kinds(result.effects)).not.toContain('handoff')
+    expect(result.state?.vars).toEqual({ 'capture.nascimento': 'atendente' })
+  })
+})
+
+describe('advance — resumo sussurrado', () => {
+  /** O ajuste desliga o sussurro; a transferência em si não muda. */
+  const semResumo: BotFlowGraph = {
+    ...exampleFlow,
+    settings: { ...exampleFlow.settings, whisperSummary: false },
+  }
+
+  it('desligado, o handoff de bloco transfere sem sussurrar', () => {
+    const result = advance(
+      semResumo,
+      { currentNodeId: 'n6', vars: {}, attempts: 0 },
+      { kind: 'text', text: 'manhã' },
+    )
+
+    expect(kinds(result.effects)).toEqual(['say', 'handoff'])
+  })
+
+  it('desligado, a saída de emergência também não sussurra', () => {
+    const result = advance(
+      semResumo,
+      { currentNodeId: 'n2', vars: {}, attempts: 0 },
+      { kind: 'text', text: 'quero falar com um atendente por favor' },
+    )
+
+    expect(kinds(result.effects)).toEqual(['say', 'handoff'])
+  })
+
+  it('ajuste ausente sussurra — é como os fluxos antigos foram salvos', () => {
+    const { whisperSummary: _, ...semCampo } = exampleFlow.settings
+    const antigo: BotFlowGraph = { ...exampleFlow, settings: semCampo }
+
+    const result = advance(
+      antigo,
+      { currentNodeId: 'n6', vars: {}, attempts: 0 },
+      { kind: 'text', text: 'manhã' },
+    )
+
+    expect(kinds(result.effects)).toEqual(['say', 'whisper', 'handoff'])
+  })
+})
+
+describe('advance — bloco de horário', () => {
+  const comHorario: BotFlowGraph = {
+    entryNodeId: 'h',
+    settings: { escapeKeywords: [], escapeTarget: null },
+    nodes: [
+      { id: 'h', kind: 'schedule', whenOpen: 'aberto', whenClosed: 'fechado' },
+      { id: 'aberto', kind: 'finish', text: 'estamos no ar' },
+      { id: 'fechado', kind: 'finish', text: 'voltamos amanhã' },
+    ],
+  } as unknown as BotFlowGraph
+
+  const rodar = (vars: Record<string, string>) =>
+    says(advance(comHorario, null, { kind: 'start' }, vars).effects)
+
+  it('dentro do horário segue por whenOpen', () => {
+    expect(rodar({ 'bitrix.withinWorkingHours': 'Y' })).toEqual([
+      'estamos no ar',
+    ])
+  })
+
+  it('fora do horário segue por whenClosed', () => {
+    expect(rodar({ 'bitrix.withinWorkingHours': 'N' })).toEqual([
+      'voltamos amanhã',
+    ])
+  })
+
+  it('sem a variável segue como dentro do horário', () => {
+    expect(rodar({})).toEqual(['estamos no ar'])
   })
 })
 
@@ -311,6 +364,152 @@ describe('advance — tentativas', () => {
       { currentNodeId: 'n6', vars: {}, attempts: 1 },
       { kind: 'text', text: 'ainda nao sei' },
     )
-    expect(kinds(segunda.effects)).toEqual(['say', 'handoff'])
+    expect(kinds(segunda.effects)).toEqual(['say', 'whisper', 'handoff'])
+  })
+})
+
+describe('advance — variáveis do portal', () => {
+  // Captura e despedida: o mínimo para chegar a um segundo turno.
+  const despedida: BotFlowGraph = {
+    entryNodeId: 'p1',
+    settings: { escapeKeywords: [], escapeTarget: null },
+    nodes: [
+      {
+        id: 'p1',
+        kind: 'message',
+        text: 'oi',
+        capture: 'resposta',
+        next: 'p2',
+      },
+      { id: 'p2', kind: 'finish', text: 'tchau {bitrix.name}' },
+    ],
+  }
+
+  it('rega o nome que o portal só soube depois do JOINCHAT', () => {
+    const sessao: BotSessionState = {
+      currentNodeId: 'p1',
+      vars: { 'bitrix.name': '', 'bitrix.contactId': '9520' },
+      attempts: 0,
+    }
+
+    const turno = advance(
+      despedida,
+      sessao,
+      { kind: 'text', text: 'oi' },
+      { 'bitrix.name': 'Gustavo Henrique', 'bitrix.contactId': '9520' },
+    )
+
+    expect(says(turno.effects)).toEqual(['tchau Gustavo Henrique'])
+  })
+
+  it('vazio não apaga o que a sessão já sabia', () => {
+    const sessao: BotSessionState = {
+      currentNodeId: 'p1',
+      vars: { 'bitrix.name': 'Gustavo Henrique' },
+      attempts: 0,
+    }
+
+    const turno = advance(
+      despedida,
+      sessao,
+      { kind: 'text', text: 'oi' },
+      {
+        'bitrix.name': '',
+      },
+    )
+
+    expect(says(turno.effects)).toEqual(['tchau Gustavo Henrique'])
+  })
+
+  it('a resposta deste turno vence a rega', () => {
+    const eco: BotFlowGraph = {
+      entryNodeId: 'p1',
+      settings: { escapeKeywords: [], escapeTarget: null },
+      nodes: [
+        {
+          id: 'p1',
+          kind: 'message',
+          text: 'oi',
+          capture: 'resposta',
+          next: 'p2',
+        },
+        { id: 'p2', kind: 'finish', text: 'voce disse {capture.resposta}' },
+      ],
+    }
+
+    const sessao: BotSessionState = {
+      currentNodeId: 'p1',
+      vars: { 'capture.resposta': 'antiga' },
+      attempts: 0,
+    }
+
+    const turno = advance(
+      eco,
+      sessao,
+      { kind: 'text', text: 'nova' },
+      { 'capture.resposta': 'do portal' },
+    )
+
+    expect(says(turno.effects)).toEqual(['voce disse nova'])
+  })
+})
+
+describe('advance — rastro das escolhas', () => {
+  it('pergunta sem captura guarda o rótulo escolhido para o resumo', () => {
+    const menu: BotFlowGraph = {
+      entryNodeId: 'q',
+      settings: { escapeKeywords: [], escapeTarget: null },
+      nodes: [
+        {
+          id: 'q',
+          kind: 'question',
+          text: 'setor?',
+          options: [
+            { value: 'suporte', label: 'Suporte', next: 'q2' },
+            { value: 'financeiro', label: 'Financeiro', next: 'q2' },
+          ],
+          maxAttempts: 2,
+          onExhausted: 'q2',
+        },
+        { id: 'q2', kind: 'message', text: 'ok', capture: 'x', next: 'fim' },
+        { id: 'fim', kind: 'finish' },
+      ],
+    }
+
+    const turno = advance(
+      menu,
+      { currentNodeId: 'q', vars: {}, attempts: 0 },
+      { kind: 'text', text: '1' },
+    )
+
+    expect(turno.state?.vars).toEqual({ 'choice.q': 'Suporte' })
+  })
+
+  it('com captura, o rastro não duplica: vale a variável do autor', () => {
+    const menu: BotFlowGraph = {
+      entryNodeId: 'q',
+      settings: { escapeKeywords: [], escapeTarget: null },
+      nodes: [
+        {
+          id: 'q',
+          kind: 'question',
+          text: 'setor?',
+          options: [{ value: 'suporte', label: 'Suporte', next: 'q2' }],
+          capture: 'setor',
+          maxAttempts: 2,
+          onExhausted: 'q2',
+        },
+        { id: 'q2', kind: 'message', text: 'ok', capture: 'x', next: 'fim' },
+        { id: 'fim', kind: 'finish' },
+      ],
+    }
+
+    const turno = advance(
+      menu,
+      { currentNodeId: 'q', vars: {}, attempts: 0 },
+      { kind: 'text', text: '1' },
+    )
+
+    expect(turno.state?.vars).toEqual({ 'capture.setor': 'suporte' })
   })
 })

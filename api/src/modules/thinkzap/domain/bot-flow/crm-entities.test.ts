@@ -75,15 +75,27 @@ describe('crmEntitiesFromDialog', () => {
 
 describe('crmVars', () => {
   it('expõe os nomes que o bloco pronto usa', () => {
-    // Contrato com o editor: renomear aqui quebra todo fluxo publicado que os use.
+    // Contrato com o editor: renomear aqui quebra todo fluxo publicado que os use. Os
+    // nomes sem namespace continuam porque fluxo antigo os compara na condição.
     expect(
-      crmVars(parseCrmEntities('LEAD|1|COMPANY|2|CONTACT|3|DEAL|4')),
+      crmVars(parseCrmEntities('LEAD|1|COMPANY|2|CONTACT|3|DEAL|4'), {
+        name: ' Gustavo ',
+      }),
     ).toEqual({
       leadId: '1',
       empresaId: '2',
       contatoId: '3',
       negocioId: '4',
+      'bitrix.name': 'Gustavo',
+      'bitrix.leadId': '1',
+      'bitrix.companyId': '2',
+      'bitrix.contactId': '3',
+      'bitrix.dealId': '4',
     })
+  })
+
+  it('sem nome no evento a variável existe vazia, e não some do `{...}`', () => {
+    expect(crmVars(parseCrmEntities('CONTACT|3'))['bitrix.name']).toBe('')
   })
 })
 

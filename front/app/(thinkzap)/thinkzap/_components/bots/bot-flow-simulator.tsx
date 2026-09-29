@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Headset, RotateCcw, Send, X } from 'lucide-react'
+import { EyeOff, Headset, RotateCcw, Send, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +16,8 @@ type Bubble =
   | { from: 'bot'; text: string }
   | { from: 'cliente'; text: string }
   | { from: 'sistema'; text: string }
+  /** Só o atendente lê no Bitrix; aqui aparece para o autor conferir o resumo. */
+  | { from: 'sussurro'; text: string }
 
 // Manda o `graph` da tela, não o `flowId`: o valor está em testar o que ainda não foi
 // publicado, com o motor do servidor.
@@ -53,6 +55,10 @@ export function BotFlowSimulator({
   function aplicar(effects: BotEffect[]): Bubble[] {
     return effects.map((effect): Bubble => {
       if (effect.kind === 'say') return { from: 'bot', text: effect.text }
+      // O cliente não vê: aqui vale mostrar para o autor conferir o que o atendente recebe.
+      if (effect.kind === 'whisper') {
+        return { from: 'sussurro', text: effect.text }
+      }
       if (effect.kind === 'handoff') {
         return { from: 'sistema', text: t('sistema.handoff') }
       }
@@ -167,7 +173,9 @@ export function BotFlowSimulator({
                   ? 'self-end rounded-lg rounded-br-sm bg-primary px-3 py-2 text-xs text-primary-foreground whitespace-pre-wrap max-w-[85%]'
                   : bubble.from === 'bot'
                     ? 'self-start rounded-lg rounded-bl-sm bg-background px-3 py-2 text-xs text-foreground shadow-xs whitespace-pre-wrap max-w-[85%]'
-                    : 'self-center rounded-full bg-foreground/5 px-3 py-1 text-[11px] text-muted-foreground'
+                    : bubble.from === 'sussurro'
+                      ? 'self-start rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-[11px] text-muted-foreground whitespace-pre-wrap max-w-[85%]'
+                      : 'self-center rounded-full bg-foreground/5 px-3 py-1 text-[11px] text-muted-foreground'
               }
             >
               {bubble.from === 'sistema' ? (
@@ -175,6 +183,15 @@ export function BotFlowSimulator({
                   <Headset className="h-3 w-3" />
                   {bubble.text}
                 </span>
+              ) : bubble.from === 'sussurro' ? (
+                <>
+                  {/* Tracejado e rótulo: sem eles o resumo parece fala que o cliente leu. */}
+                  <span className="mb-1 flex items-center gap-1 font-semibold uppercase">
+                    <EyeOff className="h-3 w-3" />
+                    {t('sussurro')}
+                  </span>
+                  {bubble.text}
+                </>
               ) : (
                 bubble.text
               )}

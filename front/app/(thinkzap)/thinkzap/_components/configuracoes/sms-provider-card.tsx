@@ -46,7 +46,7 @@ type State =
  *    linha. No admin isso é um aviso; aqui quem clica é o dono do número.
  */
 export function SmsProviderCard({ itemId, bloqueada }: Props) {
-  const { t } = useTranslation('thinkzap/configuracoes/ajustes')
+  const { t } = useTranslation('thinkzap/configuracoes/campanha-sms')
   const api = useLineApi(itemId)
 
   const [state, setState] = useState<State>({ status: 'loading' })
@@ -61,7 +61,7 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
     } catch (err) {
       setState({
         status: 'error',
-        message: extractThinkzapError(err, t('smsProvider.erroLeitura')),
+        message: extractThinkzapError(err, t('erroLeitura')),
       })
     }
   }, [api, t])
@@ -80,7 +80,7 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
         if (!cancelado) {
           setState({
             status: 'error',
-            message: extractThinkzapError(err, t('smsProvider.erroLeitura')),
+            message: extractThinkzapError(err, t('erroLeitura')),
           })
         }
       })
@@ -101,14 +101,12 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
     try {
       const { result } = await api.registerSmsProvider()
       toast.success(
-        result === 'skipped'
-          ? t('smsProvider.registroIndisponivel')
-          : t('smsProvider.registrado'),
+        result === 'skipped' ? t('registroIndisponivel') : t('registrado'),
       )
       fecharModais()
       await carregar()
     } catch (err) {
-      toast.error(extractThinkzapError(err, t('smsProvider.erroRegistro')))
+      toast.error(extractThinkzapError(err, t('erroRegistro')))
     } finally {
       setSalvando(false)
     }
@@ -118,11 +116,11 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
     setSalvando(true)
     try {
       await api.removeSmsProvider()
-      toast.success(t('smsProvider.removido'))
+      toast.success(t('removido'))
       fecharModais()
       await carregar()
     } catch (err) {
-      toast.error(extractThinkzapError(err, t('smsProvider.erroRemocao')))
+      toast.error(extractThinkzapError(err, t('erroRemocao')))
     } finally {
       setSalvando(false)
     }
@@ -130,10 +128,7 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
 
   if (state.status === 'loading') {
     return (
-      <ConfigCard
-        title={t('smsProvider.titulo')}
-        description={t('smsProvider.descricao')}
-      >
+      <ConfigCard title={t('titulo')} description={t('descricao')}>
         <p className="text-sm text-muted-foreground">{t('carregando')}</p>
       </ConfigCard>
     )
@@ -141,10 +136,7 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
 
   if (state.status === 'error') {
     return (
-      <ConfigCard
-        title={t('smsProvider.titulo')}
-        description={t('smsProvider.descricao')}
-      >
+      <ConfigCard title={t('titulo')} description={t('descricao')}>
         <p className="text-sm text-destructive">{state.message}</p>
       </ConfigCard>
     )
@@ -172,39 +164,29 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
    */
   if (!available) {
     return (
-      <ConfigCard
-        title={t('smsProvider.titulo')}
-        description={t('smsProvider.descricao')}
-      >
-        <p className="text-sm text-muted-foreground">
-          {t('smsProvider.indisponivel')}
-        </p>
+      <ConfigCard title={t('titulo')} description={t('descricao')}>
+        <p className="text-sm text-muted-foreground">{t('indisponivel')}</p>
       </ConfigCard>
     )
   }
 
   return (
     <>
-      <ConfigCard
-        title={t('smsProvider.titulo')}
-        description={t('smsProvider.descricao')}
-      >
+      <ConfigCard title={t('titulo')} description={t('descricao')}>
         <p className="flex gap-2 rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:bg-blue-950 dark:text-blue-200">
           <Info className="mt-0.5 size-4 shrink-0" />
-          {t('smsProvider.avisoRotulo')}
+          {t('avisoRotulo')}
         </p>
 
         {banRisk && (
           <p className="mt-2 flex gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            {t('smsProvider.avisoBloqueio')}
+            {t('avisoBloqueio')}
           </p>
         )}
 
         <p className="mt-4 text-sm text-foreground">
-          {registered
-            ? t('smsProvider.statusRegistrado')
-            : t('smsProvider.statusNaoRegistrado')}
+          {registered ? t('statusRegistrado') : t('statusNaoRegistrado')}
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -215,7 +197,7 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
               onClick={() => setConfirmandoRemocao(true)}
               className="border-destructive text-destructive hover:bg-destructive/10"
             >
-              {t('smsProvider.remover')}
+              {t('remover')}
             </Button>
           ) : (
             <Button
@@ -234,14 +216,14 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
                 void registrar()
               }}
             >
-              {t('smsProvider.registrar')}
+              {t('registrar')}
             </Button>
           )}
         </div>
 
         {bloqueada && (
           <p className="mt-3 text-sm text-muted-foreground">
-            {t('smsProvider.bloqueada')}
+            {t('bloqueadaHint')}
           </p>
         )}
       </ConfigCard>
@@ -258,10 +240,8 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('smsProvider.confirmarTitulo')}</DialogTitle>
-            <DialogDescription>
-              {t('smsProvider.confirmarDescricao')}
-            </DialogDescription>
+            <DialogTitle>{t('confirmarTitulo')}</DialogTitle>
+            <DialogDescription>{t('confirmarDescricao')}</DialogDescription>
           </DialogHeader>
 
           <DialogBody>
@@ -270,7 +250,7 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
                 checked={ciente}
                 onCheckedChange={next => setCiente(next === true)}
               />
-              <span>{t('smsProvider.confirmarCiencia')}</span>
+              <span>{t('confirmarCiencia')}</span>
             </label>
           </DialogBody>
 
@@ -280,7 +260,7 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
               onClick={fecharModais}
               disabled={salvando}
             >
-              {t('smsProvider.cancelar')}
+              {t('cancelar')}
             </Button>
             <Button
               disabled={!ciente || salvando}
@@ -288,7 +268,7 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
                 void registrar()
               }}
             >
-              {t('smsProvider.confirmarRegistrar')}
+              {t('confirmarRegistrar')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -296,10 +276,10 @@ export function SmsProviderCard({ itemId, bloqueada }: Props) {
 
       <ConfirmModal
         isOpen={confirmandoRemocao}
-        title={t('smsProvider.removerTitulo')}
-        message={t('smsProvider.removerDescricao')}
-        confirmLabel={t('smsProvider.removerConfirmar')}
-        cancelLabel={t('smsProvider.cancelar')}
+        title={t('removerTitulo')}
+        message={t('removerDescricao')}
+        confirmLabel={t('removerConfirmar')}
+        cancelLabel={t('cancelar')}
         loading={salvando}
         onConfirm={() => {
           void remover()

@@ -27,8 +27,6 @@
   "confirmarDesvincularTitulo": "¿Desvincular el canal abierto?",
   "confirmarDesvincularDescricao": "Los mensajes de esta línea dejan de llegar al canal en el CRM.",
   "comportamento": "Comportamiento",
-  "salvar": "Guardar",
-  "salvando": "Guardando...",
   "salvo": "Ajustes guardados.",
   "erroSalvar": "No se pudieron guardar los ajustes.",
   "toggles": {
@@ -44,30 +42,12 @@
     "inativaTitulo": "Sin suscripción activa",
     "inativaDescricao": "Esta línea no tiene suscripción activa. Los ajustes quedan de solo lectura hasta regularizar la suscripción."
   },
-  "smsProvider": {
-    "titulo": "Campaña de SMS de Bitrix24",
-    "descricao": "Ofrece esta línea como canal de envío de las campañas de marketing de su Bitrix24.",
-    "avisoRotulo": "Bitrix24 solo acepta proveedores de tipo SMS: esta línea aparecerá en el menú de SMS, en Marketing → Campaña de SMS, aunque entregue por WhatsApp.",
-    "avisoBloqueio": "Esta es una línea de WhatsApp no oficial. El envío masivo tiene riesgo real de bloqueo del número por Meta, y el bloqueo derriba también la atención individual de esta línea.",
-    "statusRegistrado": "Esta línea ya aparece como proveedor en sus campañas.",
-    "statusNaoRegistrado": "Esta línea aún no aparece en sus campañas.",
-    "registrar": "Ofrecer en las campañas",
-    "remover": "Quitar de las campañas",
-    "indisponivel": "El envío por campaña no está disponible en este entorno. Hable con el soporte.",
-    "bloqueada": "La suscripción de esta línea no está activa, así que no puede ofrecerse en las campañas.",
-    "confirmarTitulo": "Confirmar el uso de esta línea en campañas",
-    "confirmarDescricao": "Esta es una línea de WhatsApp no oficial. Enviar una campaña a muchos contactos a la vez aumenta el riesgo de que Meta bloquee el número — y el bloqueo derriba también la atención individual de esta línea.",
-    "confirmarCiencia": "Entiendo el riesgo de bloqueo del número y quiero ofrecer esta línea en las campañas.",
-    "confirmarRegistrar": "Ofrecer en las campañas",
-    "removerTitulo": "Quitar de las campañas",
-    "removerDescricao": "Esta línea deja de aparecer en la lista de proveedores de sus campañas de SMS. Las campañas programadas para ella dejan de encontrarla.",
-    "removerConfirmar": "Quitar",
-    "cancelar": "Cancelar",
-    "registrado": "Línea disponible en sus campañas de SMS.",
-    "removido": "Línea quitada de las campañas de SMS.",
-    "registroIndisponivel": "No se cambió nada: el envío por campaña no está disponible en este entorno.",
-    "erroLeitura": "No se pudo verificar el proveedor de campaña de esta línea.",
-    "erroRegistro": "No se pudo ofrecer esta línea en las campañas.",
-    "erroRemocao": "No se pudo quitar esta línea de las campañas."
+  "barra": {
+    "semAlteracoes": "Ningún cambio pendiente",
+    "alteracoes_one": "{{count}} cambio sin guardar",
+    "alteracoes_other": "{{count}} cambios sin guardar",
+    "salvar": "Guardar cambios",
+    "salvando": "Guardando...",
+    "descartar": "Descartar"
   }
 }

@@ -23,9 +23,13 @@ function setup(
     Promise.resolve(),
   )
   const ecoFinish = vi.fn((_chatId: string) => Promise.resolve())
+  const ecoWhisper = vi.fn((_chatId: string, _text: string) =>
+    Promise.resolve(),
+  )
 
   const eco: BotSessionPort = {
     say: ecoSay,
+    whisper: ecoWhisper,
     handoff: ecoHandoff,
     finish: ecoFinish,
   }

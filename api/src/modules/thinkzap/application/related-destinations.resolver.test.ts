@@ -384,3 +384,164 @@ describe('resolveRelatedDestinations', () => {
     expect(destinations.map(d => d.phone)).toEqual(['5533333333333'])
   })
 })
+
+describe('resolveRelatedDestinations — CRM_CONTACT_DETAIL_TAB', () => {
+  it('resolves only the contact phones even when linked to several companies', async () => {
+    const getCrmItem = routeCrmItems({
+      '3:42': crmItem('42', 'João', '5511111111111,5522222222222', {
+        companyId: 7,
+        companyIds: [7, 8],
+      }),
+      '4:7': crmItem('7', 'Acme', '5533333333333', { contactIds: [42, 100] }),
+      '4:8': crmItem('8', 'Beta', '5544444444444', { contactIds: [42, 101] }),
+      '3:100': crmItem('100', 'Ana', '5555555555555'),
+      '3:101': crmItem('101', 'Bia', '5566666666666'),
+    })
+    const bitrix = makeBitrix({ getCrmItem })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_CONTACT_DETAIL_TAB',
+      '42',
+    )
+
+    expect(destinations).toEqual([
+      { id: '42', label: 'Contato - João', phone: '5511111111111' },
+      { id: '42', label: 'Contato - João', phone: '5522222222222' },
+    ])
+    expect(
+      getCrmItem.mock.calls.filter(([entityTypeId]) => entityTypeId === 4),
+    ).toHaveLength(0)
+    expect(bitrix.getCompanyContactIds).not.toHaveBeenCalled()
+  })
+
+  it('does not include the lead linked to the contact', async () => {
+    const getCrmItem = routeCrmItems({
+      '3:42': crmItem('42', 'João', '5511111111111', { leadId: 9 }),
+      '1:9': crmItem('9', 'Lead X', '5577777777777'),
+    })
+    const bitrix = makeBitrix({ getCrmItem })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_CONTACT_DETAIL_TAB',
+      '42',
+    )
+
+    expect(destinations.map(d => d.phone)).toEqual(['5511111111111'])
+    expect(
+      getCrmItem.mock.calls.filter(([entityTypeId]) => entityTypeId === 1),
+    ).toHaveLength(0)
+  })
+
+  it('returns no destinations when the contact has no phone', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '3:42': crmItem('42', 'João', undefined, { companyId: 7 }),
+        '4:7': crmItem('7', 'Acme', '5533333333333', { contactIds: [100] }),
+        '3:100': crmItem('100', 'Ana', '5555555555555'),
+      }),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_CONTACT_DETAIL_TAB',
+      '42',
+    )
+
+    expect(destinations).toEqual([])
+  })
+
+  it('lists a phone repeated on the contact only once', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '3:42': crmItem('42', 'João', undefined, {
+          fm: [
+            { typeId: 'PHONE', value: '5511111111111' },
+            { typeId: 'PHONE', value: '5511111111111' },
+          ],
+        }),
+      }),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_CONTACT_DETAIL_TAB',
+      '42',
+    )
+
+    expect(destinations).toEqual([
+      { id: '42', label: 'Contato - João', phone: '5511111111111' },
+    ])
+  })
+})
+
+describe('resolveRelatedDestinations — CRM_COMPANY_DETAIL_TAB', () => {
+  it('includes the company phone and the phones of its linked contacts', async () => {
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '4:5': crmItem('5', 'Acme', '5531111111111', {
+          contactIds: [100, 101],
+        }),
+        '3:100': crmItem('100', 'Ana', '5555555555555'),
+        '3:101': crmItem('101', 'Bia', '5566666666666'),
+      }),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_COMPANY_DETAIL_TAB',
+      '5',
+    )
+
+    expect(destinations).toHaveLength(3)
+    expect(destinations).toEqual(
+      expect.arrayContaining([
+        { id: '5', label: 'Empresa - Acme', phone: '5531111111111' },
+        { id: '100', label: 'Contato - Ana', phone: '5555555555555' },
+        { id: '101', label: 'Contato - Bia', phone: '5566666666666' },
+      ]),
+    )
+  })
+
+  it('lists a phone shared by the company and a contact only once', async () => {
+    const shared = '5531111111111'
+    const bitrix = makeBitrix({
+      getCrmItem: routeCrmItems({
+        '4:5': crmItem('5', 'Acme', shared, { contactIds: [100] }),
+        '3:100': crmItem('100', 'Ana', shared),
+      }),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_COMPANY_DETAIL_TAB',
+      '5',
+    )
+
+    expect(destinations.filter(d => d.phone === shared)).toHaveLength(1)
+  })
+
+  it('keeps the other destinations when one linked contact fails to load', async () => {
+    const bitrix = makeBitrix({
+      // `3:101` fora do mapa: `routeCrmItems` rejeita a leitura desse contato.
+      getCrmItem: routeCrmItems({
+        '4:5': crmItem('5', 'Acme', '5531111111111', {
+          contactIds: [100, 101],
+        }),
+        '3:100': crmItem('100', 'Ana', '5555555555555'),
+      }),
+    })
+
+    const { destinations } = await resolveRelatedDestinations(
+      bitrix as never,
+      'CRM_COMPANY_DETAIL_TAB',
+      '5',
+    )
+
+    expect(destinations.map(d => d.phone).sort()).toEqual([
+      '5531111111111',
+      '5555555555555',
+    ])
+  })
+})

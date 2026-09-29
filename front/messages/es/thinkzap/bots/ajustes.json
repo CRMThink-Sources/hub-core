@@ -2,12 +2,16 @@
   "titulo": "Ajustes",
   "fechar": "Cerrar ajustes",
   "saidaEmergencia": "Salida de emergencia",
-  "descricao": "Si el cliente escribe una de estas palabras en cualquier momento, el bot se detiene al instante y transfiere la conversación.",
+  "descricao": "Al identificar una de estas palabras, el bot interrumpe la atención y transfiere la conversación.",
+  "palavras": "Palabras clave",
+  "palavrasAjuda": "Escribe la palabra y pulsa Enter. Hasta 20 palabras.",
   "novaPalavra": "Nueva palabra...",
   "removerPalavra": "Eliminar {{palavra}}",
-  "semSaida": "no usar salida de emergencia",
+  "selecioneDistribuicao": "Selecciona la distribución...",
   "mensagemTransferencia": "Mensaje de transferencia",
   "mensagemPlaceholder": "Ej.: Voy a transferirte a un agente. (opcional)",
   "avisoSemAlvo": "Las palabras de arriba no tienen efecto mientras no se elija nada en \"Distribución\".",
-  "avisoSemPalavra": "Sin ninguna palabra, la salida de emergencia nunca se activa."
+  "avisoSemPalavra": "Sin ninguna palabra, la salida de emergencia nunca se activa.",
+  "resumoSussurro": "Enviar resumen en modo susurro",
+  "resumoSussurroAjuda": "El bot enviará un mensaje en modo susurro con las etapas y respuestas que obtuvo del cliente."
 }

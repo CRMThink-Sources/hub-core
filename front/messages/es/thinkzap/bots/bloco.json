@@ -4,20 +4,11 @@
   "fechar": "Cerrar",
   "nome": "Nombre del bloque",
   "perguntaLabel": "Lo que el bot pregunta",
-  "falaLabel": "Lo que el bot dice",
+  "falaLabel": "Mensaje",
   "perguntaPlaceholder": "¿En qué puedo ayudarte?",
   "dicaOpcoes": "Solo la pregunta: las opciones de abajo se numeran y se envían junto.",
   "avisoOpcoesNoTexto": "Este texto parece listar ya las opciones. El cliente recibirá la lista dos veces — bórrala de aquí y déjala solo en “Opciones”.",
-  "guardarEm": "Guardar en",
   "guardarEmPlaceholder": "ej.: documento",
-  "formato": "Formato",
-  "validacao": {
-    "text": "Texto libre",
-    "email": "Correo electrónico",
-    "cpf": "CPF",
-    "number": "Número",
-    "date": "Fecha"
-  },
   "opcoes": {
     "titulo": "Opciones",
     "adicionar": "opción",
@@ -30,7 +21,7 @@
   },
   "condicoes": {
     "titulo": "Condiciones",
-    "seBater": "Si coincide",
+    "seBater": "Condición identificada",
     "adicionar": "condición",
     "variavelPlaceholder": "variable",
     "valorPlaceholder": "valor",
@@ -39,11 +30,21 @@
     "vaiPara": "va a"
   },
   "saidas": {
-    "paraOndeVai": "A dónde va",
-    "seNaoBater": "Si no coincide",
-    "seNenhuma": "Si ninguna condición coincide",
+    "paraOndeVai": "Ir a",
+    "seNaoBater": "Condición no identificada",
+    "seNenhuma": "Ninguna condición identificada",
     "segueParaFallback": "sigue a",
     "dicaArrastar": "O arrastra el punto de la salida hasta otro bloque del flujo."
+  },
+  "receitas": {
+    "ja-e-cliente": {
+      "bate": "Cliente identificado",
+      "naoBate": "Cliente no identificado"
+    },
+    "tem-negocio": {
+      "bate": "Negocio identificado",
+      "naoBate": "Negocio no identificado"
+    }
   },
   "escolherDestino": "elegir destino…",
   "retry": {
@@ -66,11 +67,32 @@
     "removerAtendente": "Eliminar agente",
     "erroCanais": "No fue posible listar los canales abiertos.",
     "carregandoCanais": "cargando canales",
-    "mesmoCanal": "el mismo canal de la conversación"
+    "selecioneCanal": "Selecciona el canal abierto..."
   },
   "alias": {
     "placeholder": "escribe y Enter…",
     "remover": "Eliminar {{palavra}}"
   },
-  "destinoInexistente": "(no existe)"
+  "destinoInexistente": "(no existe)",
+  "captura": {
+    "ativar": "Guardar la respuesta en una variable",
+    "titulo": "Captura",
+    "placeholder": "respuesta",
+    "remover": "No guardar la respuesta",
+    "nomeInvalido": "Usa letras, números y _, empezando por letra.",
+    "dicaMensagem": "El bot espera la respuesta y la guarda en {{variavel}}.",
+    "dicaPergunta": "Guarda la opción elegida en {{variavel}}."
+  },
+  "variaveis": {
+    "dica": "Escribe @ para insertar una variable.",
+    "daConversa": "capturada en el flujo",
+    "sistema": {
+      "bitrix.name": "nombre del cliente en el chat",
+      "bitrix.contactId": "contacto del CRM",
+      "bitrix.leadId": "lead del CRM",
+      "bitrix.companyId": "empresa del CRM",
+      "bitrix.dealId": "negocio del CRM"
+    },
+    "capturadaEm": "de {{bloco}}"
+  }
 }

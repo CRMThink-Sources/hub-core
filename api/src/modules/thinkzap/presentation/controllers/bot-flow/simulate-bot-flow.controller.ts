@@ -17,6 +17,17 @@ const stateSchema = z.object({
   attempts: z.number().int().min(0),
 })
 
+/** Vazio faria "Olá {bitrix.name}" sair como "Olá " e parecer defeito do fluxo. */
+const SIMULATED_SYSTEM_VARS: Record<string, string> = {
+  'bitrix.name': 'Cliente de teste',
+  'bitrix.contactId': '1',
+  'bitrix.leadId': '',
+  'bitrix.companyId': '',
+  'bitrix.dealId': '',
+  // Simulação não tem canal para consultar: segue como dentro do expediente.
+  'bitrix.withinWorkingHours': 'Y',
+}
+
 // Usa o mesmo `advance` do worker: motor próprio aprovaria fluxo que quebra em
 // produção. Estado vai e volta no corpo para não misturar com sessão real.
 export class SimulateBotFlowController extends Controller {
@@ -69,6 +80,7 @@ export class SimulateBotFlowController extends Controller {
       resolvedGraph,
       (state ?? null) as BotSessionState | null,
       input,
+      SIMULATED_SYSTEM_VARS,
     )
 
     return this.ok({

@@ -34,10 +34,13 @@
     "no-terminal-reachable": "Desde este bloque no se llega a un cierre ni a un agente.",
     "escape-target-incomplete": "Elige a quién transfiere la salida de emergencia.",
     "duplicate-option-value": "Dos opciones con el mismo valor.",
+    "option-label-missing": "Opción sin etiqueta.",
     "self-target": "Elige a dónde van las salidas de este bloque.",
     "handoff-target-incomplete": "Elige a quién se entrega la conversación.",
     "condition-var-invalid": "La condición necesita una variable para probar.",
-    "node-text-missing": "Falta el texto que el bot envía en este bloque."
+    "node-text-missing": "Falta el texto que el bot envía en este bloque.",
+    "schedule-path-missing": "Los dos caminos del horario de atención son obligatorios.",
+    "unknown-var": "Este bloque usa una variable que no existe en el flujo."
   },
   "canvas": {
     "legenda": "Haz clic en + para agregar el siguiente paso · haz clic en el bloque para editar · haz clic en la línea y pulsa Supr para borrarla",
@@ -53,8 +56,12 @@
     "problemas_one": "{{count}} problema",
     "problemas_other": "{{count}} problemas",
     "semPergunta": "sin pregunta",
+    "resumoHorario": "sigue el horario del canal",
     "semMensagem": "sin mensaje",
-    "semCondicao": "sin condición"
+    "semCondicao": "sin condición",
+    "capturar": "Guardar la respuesta",
+    "maisOpcoes": "Más opciones",
+    "capturaChip": "capturar respuesta"
   },
   "menu": {
     "titulo": "¿Qué interacción deseas?",

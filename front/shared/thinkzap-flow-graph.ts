@@ -9,6 +9,8 @@ export type PortKind =
   | { kind: 'exhausted' }
   | { kind: 'branch'; index: number }
   | { kind: 'otherwise' }
+  | { kind: 'whenOpen' }
+  | { kind: 'whenClosed' }
 
 /** `option:2`, `next`, `exhausted`… — id da porta no React Flow. */
 export function portId(port: PortKind): string {
@@ -19,6 +21,10 @@ export function portId(port: PortKind): string {
       return 'exhausted'
     case 'otherwise':
       return 'otherwise'
+    case 'whenOpen':
+      return 'whenOpen'
+    case 'whenClosed':
+      return 'whenClosed'
     case 'option':
       return `option:${port.index}`
     case 'branch':
@@ -31,6 +37,8 @@ export function parsePortId(raw: string | null | undefined): PortKind | null {
   if (raw === 'next') return { kind: 'next' }
   if (raw === 'exhausted') return { kind: 'exhausted' }
   if (raw === 'otherwise') return { kind: 'otherwise' }
+  if (raw === 'whenOpen') return { kind: 'whenOpen' }
+  if (raw === 'whenClosed') return { kind: 'whenClosed' }
 
   const option = /^option:(\d+)$/.exec(raw)
   if (option) return { kind: 'option', index: Number(option[1]) }
@@ -73,17 +81,6 @@ export function nodePorts(node: FlowNode): FlowPort[] {
         },
       ]
 
-    case 'input':
-      return [
-        { port: { kind: 'next' }, id: 'next', label: 'ok', target: node.next },
-        {
-          port: { kind: 'exhausted' },
-          id: 'exhausted',
-          label: 'não entendeu',
-          target: node.onExhausted,
-        },
-      ]
-
     case 'condition':
       return [
         ...node.branches.map((branch, index) => ({
@@ -97,6 +94,22 @@ export function nodePorts(node: FlowNode): FlowPort[] {
           id: 'otherwise',
           label: 'senão',
           target: node.otherwise,
+        },
+      ]
+
+    case 'schedule':
+      return [
+        {
+          port: { kind: 'whenOpen' },
+          id: 'whenOpen',
+          label: 'dentro do horário',
+          target: node.whenOpen,
+        },
+        {
+          port: { kind: 'whenClosed' },
+          id: 'whenClosed',
+          label: 'fora do horário',
+          target: node.whenClosed,
         },
       ]
 
@@ -159,11 +172,6 @@ function writePortTarget(
       }
       return node
 
-    case 'input':
-      if (port.kind === 'next') return { ...node, next: target }
-      if (port.kind === 'exhausted') return { ...node, onExhausted: target }
-      return node
-
     case 'condition':
       if (port.kind === 'otherwise') return { ...node, otherwise: target }
       if (port.kind === 'branch') {
@@ -174,6 +182,11 @@ function writePortTarget(
           ),
         }
       }
+      return node
+
+    case 'schedule':
+      if (port.kind === 'whenOpen') return { ...node, whenOpen: target }
+      if (port.kind === 'whenClosed') return { ...node, whenClosed: target }
       return node
 
     case 'handoff':
@@ -223,26 +236,12 @@ export function isPortRenameable(node: FlowNode, port: PortKind): boolean {
  * Remove uma ligação. O schema exige um destino em toda saída, então "sem destino" é a
  * saída apontando para o próprio nó — a mesma convenção com que um bloco novo nasce.
  *
- * Em opção de pergunta e ramo de condição, apagar remove o item; a última só volta a
- * ficar pendente, porque pergunta sem opção não é respondível.
+ * Só a ligação cai: a opção da pergunta e o ramo da condição continuam lá, pendentes,
+ * prontos para apontar para outro bloco. Apagar o traço removendo o item junto destruía
+ * o rótulo e o valor que o usuário tinha escrito, e a única saída era desfazer. Remover a
+ * opção em si é botão próprio no painel do bloco.
  */
 export function clearPort(node: FlowNode, port: PortKind): FlowNode {
-  if (node.kind === 'question' && port.kind === 'option') {
-    if (node.options.length <= 1) return writePortTarget(node, port, node.id)
-    return {
-      ...node,
-      options: node.options.filter((_, index) => index !== port.index),
-    }
-  }
-
-  if (node.kind === 'condition' && port.kind === 'branch') {
-    if (node.branches.length <= 1) return writePortTarget(node, port, node.id)
-    return {
-      ...node,
-      branches: node.branches.filter((_, index) => index !== port.index),
-    }
-  }
-
   return writePortTarget(node, port, node.id)
 }
 

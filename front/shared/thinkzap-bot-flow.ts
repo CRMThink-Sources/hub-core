@@ -6,8 +6,6 @@ export type NodeId = string
 /** Espelha `MAX_QUESTION_OPTIONS` do servidor: acima disso o `PATCH` recusa. */
 export const MAX_QUESTION_OPTIONS = 20
 
-export type InputValidation = 'text' | 'email' | 'cpf' | 'number' | 'date'
-
 /** Nome que o usuário dá ao bloco. Só organização — o cliente nunca vê. */
 export type NodeName = string
 
@@ -111,7 +109,7 @@ export const HANDOFF_DISTRIBUTION_LABEL: Record<HandoffDistribution, string> = {
 
 /** Uma linha por opção: o rótulo sozinho não diz quem acaba recebendo a conversa. */
 export const HANDOFF_DISTRIBUTION_HINT: Record<HandoffDistribution, string> = {
-  channel: 'a fila do canal aberto escolhe o atendente',
+  channel: 'canal destino',
   evenly: 'rodízio entre os atendentes selecionados',
   all: 'todos os selecionados são avisados pela fila do canal',
 }
@@ -161,6 +159,8 @@ export type MessageNode = {
   portSides?: PortSides
   name?: NodeName
   text: string
+  /** Nome sem prefixo. Presente = o bloco espera a resposta e guarda em `capture.<nome>`. */
+  capture?: string
   next: NodeId
 }
 
@@ -172,25 +172,10 @@ export type QuestionNode = {
   name?: NodeName
   text: string
   options: QuestionOption[]
-  saveAs?: string
+  capture?: string
   retryText?: string
   maxAttempts: number
   onExhausted: NodeId
-}
-
-export type InputNode = {
-  id: NodeId
-  kind: 'input'
-  position?: NodePosition
-  portSides?: PortSides
-  name?: NodeName
-  text: string
-  saveAs: string
-  validate: InputValidation
-  retryText?: string
-  maxAttempts: number
-  onExhausted: NodeId
-  next: NodeId
 }
 
 export type ConditionNode = {
@@ -207,6 +192,17 @@ export type ConditionNode = {
    * ignora — o bloco continua sendo um `condition` comum.
    */
   recipeId?: string
+}
+
+/** Desvia pelo expediente do canal aberto. Os dois caminhos são obrigatórios. */
+export type ScheduleNode = {
+  id: NodeId
+  kind: 'schedule'
+  position?: NodePosition
+  portSides?: PortSides
+  name?: NodeName
+  whenOpen: NodeId
+  whenClosed: NodeId
 }
 
 export type HandoffNode = {
@@ -231,8 +227,8 @@ export type FinishNode = {
 export type FlowNode =
   | MessageNode
   | QuestionNode
-  | InputNode
   | ConditionNode
+  | ScheduleNode
   | HandoffNode
   | FinishNode
 
@@ -244,6 +240,12 @@ export type FlowSettings = {
   escapeTarget: HandoffTarget | null
   /** Última fala antes de transferir. Ausente = transferência calada. */
   escapeText?: string
+  /**
+   * Sussurra ao operador, no handoff, o resumo do que o bot apurou.
+   *
+   * Ausente vale como ligado: fluxo salvo antes deste campo sempre sussurrou.
+   */
+  whisperSummary?: boolean
 }
 
 export type BotFlowGraph = {
@@ -251,6 +253,10 @@ export type BotFlowGraph = {
   nodes: FlowNode[]
   settings: FlowSettings
 }
+
+/** Espelha `shouldWhisperSummary` do servidor: ausente vale como ligado. */
+export const shouldWhisperSummary = (settings: FlowSettings): boolean =>
+  settings.whisperSummary !== false
 
 export type BotFlowStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 
@@ -278,10 +284,12 @@ export type FlowIssueCode =
   | 'no-terminal-reachable'
   | 'escape-target-incomplete'
   | 'duplicate-option-value'
+  | 'option-label-missing'
   | 'self-target'
   | 'handoff-target-incomplete'
   | 'condition-var-invalid'
   | 'node-text-missing'
+  | 'unknown-var'
 
 export type FlowIssue = {
   code: FlowIssueCode
@@ -305,6 +313,8 @@ export type BotFlowBinding = {
 
 export type BotEffect =
   | { kind: 'say'; text: string }
+  /** Vai ao chat sem chegar ao cliente: contexto para quem assume o atendimento. */
+  | { kind: 'whisper'; text: string }
   | { kind: 'handoff'; target: HandoffTarget }
   | { kind: 'finish' }
   | { kind: 'abort'; reason: 'loop' | 'unknown-node' }
@@ -319,8 +329,8 @@ export type SimulationState = {
 export const NODE_KIND_LABEL: Record<FlowNodeKind, string> = {
   message: 'Mensagem',
   question: 'Pergunta',
-  input: 'Captura',
   condition: 'Condição',
+  schedule: 'Horário',
   handoff: 'Atendente',
   finish: 'Encerrar',
 }
@@ -328,8 +338,8 @@ export const NODE_KIND_LABEL: Record<FlowNodeKind, string> = {
 export const NODE_KIND_ORDER: FlowNodeKind[] = [
   'message',
   'question',
-  'input',
   'condition',
+  'schedule',
   'handoff',
   'finish',
 ]
@@ -344,12 +354,12 @@ export const NODE_KIND_GROUPS: Array<{
   {
     id: 'conversa',
     titulo: 'Conversa',
-    kinds: ['message', 'question', 'input'],
+    kinds: ['message', 'question'],
   },
   {
     id: 'acoes',
     titulo: 'Ações do chat',
-    kinds: ['condition', 'handoff', 'finish'],
+    kinds: ['condition', 'schedule', 'handoff', 'finish'],
   },
 ]
 
@@ -357,8 +367,8 @@ export const NODE_KIND_GROUPS: Array<{
 export const NODE_KIND_HINT: Record<FlowNodeKind, string> = {
   message: 'Fala e segue adiante',
   question: 'Oferece opções e espera a escolha',
-  input: 'Pergunta e guarda a resposta',
   condition: 'Desvia conforme o que foi respondido',
+  schedule: 'Desvia pelo horário de atendimento do canal',
   handoff: 'Entrega a conversa para um atendente',
   finish: 'Encerra o atendimento',
 }
@@ -370,20 +380,17 @@ export function nodeOutgoing(node: FlowNode): NodeId[] {
       return [node.next]
     case 'question':
       return [...node.options.map(option => option.next), node.onExhausted]
-    case 'input':
-      return [node.next, node.onExhausted]
     case 'condition':
       return [...node.branches.map(branch => branch.next), node.otherwise]
+    case 'schedule':
+      return [node.whenOpen, node.whenClosed]
     case 'handoff':
     case 'finish':
       return []
   }
 }
 
-/**
- * Remove um passo e religa quem apontava para ele, herdando o destino do removido.
- * Sem isso cada referência órfã viraria `target-not-found` na publicação.
- */
+/** Quem apontava para o removido fica pendente. Só a entrada precisa de substituto. */
 export function removeNode(graph: BotFlowGraph, nodeId: NodeId): BotFlowGraph {
   const removido = graph.nodes.find(node => node.id === nodeId)
   if (!removido) return graph
@@ -391,16 +398,18 @@ export function removeNode(graph: BotFlowGraph, nodeId: NodeId): BotFlowGraph {
   const restantes = graph.nodes.filter(node => node.id !== nodeId)
   if (restantes.length === 0) return graph
 
-  /** Primeira saída do removido; se era terminal, o que sobrou no topo da lista. */
-  const substituto =
-    nodeOutgoing(removido).find(
-      target => target !== nodeId && restantes.some(n => n.id === target),
-    ) ?? restantes[0].id
-
-  const redirect = (target: NodeId): NodeId =>
-    target === nodeId ? substituto : target
+  const novaEntrada =
+    graph.entryNodeId === nodeId
+      ? (nodeOutgoing(removido).find(
+          target => target !== nodeId && restantes.some(n => n.id === target),
+        ) ?? restantes[0].id)
+      : graph.entryNodeId
 
   const nodes = restantes.map((node): FlowNode => {
+    // Aponta para si: a convenção de saída sem destino.
+    const redirect = (target: NodeId): NodeId =>
+      target === nodeId ? node.id : target
+
     switch (node.kind) {
       case 'message':
         return { ...node, next: redirect(node.next) }
@@ -413,12 +422,6 @@ export function removeNode(graph: BotFlowGraph, nodeId: NodeId): BotFlowGraph {
           })),
           onExhausted: redirect(node.onExhausted),
         }
-      case 'input':
-        return {
-          ...node,
-          next: redirect(node.next),
-          onExhausted: redirect(node.onExhausted),
-        }
       case 'condition':
         return {
           ...node,
@@ -428,6 +431,12 @@ export function removeNode(graph: BotFlowGraph, nodeId: NodeId): BotFlowGraph {
           })),
           otherwise: redirect(node.otherwise),
         }
+      case 'schedule':
+        return {
+          ...node,
+          whenOpen: redirect(node.whenOpen),
+          whenClosed: redirect(node.whenClosed),
+        }
       case 'handoff':
       case 'finish':
         return node
@@ -436,7 +445,7 @@ export function removeNode(graph: BotFlowGraph, nodeId: NodeId): BotFlowGraph {
 
   // `settings` passa intacto: a saída de emergência guarda alvo de entrega, não id de bloco.
   return {
-    entryNodeId: redirect(graph.entryNodeId),
+    entryNodeId: novaEntrada,
     nodes,
     settings: graph.settings,
   }
@@ -480,17 +489,6 @@ export function makeNode(kind: FlowNodeKind, id: NodeId): FlowNode {
         maxAttempts: 3,
         onExhausted: id,
       }
-    case 'input':
-      return {
-        id,
-        kind,
-        text: '',
-        saveAs: 'resposta',
-        validate: 'text',
-        maxAttempts: 3,
-        onExhausted: id,
-        next: id,
-      }
     case 'condition':
       return {
         id,
@@ -498,6 +496,8 @@ export function makeNode(kind: FlowNodeKind, id: NodeId): FlowNode {
         branches: [{ when: { var: 'resposta', op: 'notEmpty' }, next: id }],
         otherwise: id,
       }
+    case 'schedule':
+      return { id, kind, whenOpen: id, whenClosed: id }
     case 'handoff':
       return { id, kind, text: '', target: { type: 'queue' } }
     case 'finish':

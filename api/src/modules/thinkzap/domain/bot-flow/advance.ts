@@ -7,13 +7,11 @@ import {
   type WaitingNode,
   findNode,
   isWaiting,
+  shouldWhisperSummary,
 } from './flow'
-import {
-  matchOption,
-  matchesEscape,
-  normalizeAnswer,
-  validateInput,
-} from './match-answer'
+import { handoffSummary } from './handoff-summary'
+import { matchOption, matchesEscape, normalizeAnswer } from './match-answer'
+import { WORKING_HOURS_VAR, captureVar, choiceVar, renderVars } from './vars'
 
 // O motor do fluxo: `(fluxo, estado, entrada) → (falas, próximo estado)`. Worker, simulador
 // do editor e teste consomem o mesmo contrato.
@@ -27,6 +25,8 @@ export type BotSessionState = {
 
 export type BotEffect =
   | { kind: 'say'; text: string }
+  /** Vai ao chat sem chegar ao cliente: contexto para quem assume o atendimento. */
+  | { kind: 'whisper'; text: string }
   | { kind: 'handoff'; target: HandoffTarget }
   | { kind: 'finish' }
   /** Fluxo quebrado em runtime. O chamador entrega para humano e loga. */
@@ -47,12 +47,29 @@ export type AdvanceResult = {
 /** Teto de nós por chamada: fluxo gravado antes da validação viraria laço infinito. */
 const MAX_STEPS = 50
 
+/**
+ * Rega as variáveis do portal sobre as da sessão a cada turno: o `JOINCHAT` não traz o
+ * usuário, então a sessão nasce com `bitrix.name` vazio e só o `MESSAGEADD` seguinte sabe
+ * o nome. Vazio não sobrescreve — um turno sem o dado não apaga o que outro descobriu.
+ */
+function seedPortalVars(
+  vars: Record<string, string>,
+  initialVars: Record<string, string>,
+): Record<string, string> {
+  const merged = { ...vars }
+
+  for (const [nome, valor] of Object.entries(initialVars)) {
+    if (valor.trim()) merged[nome] = valor
+  }
+
+  return merged
+}
+
 export function advance(
   graph: BotFlowGraph,
   state: BotSessionState | null,
   input: BotInput,
-  // Variáveis já conhecidas quando a conversa começa (vínculos de CRM do chat). Entram
-  // aqui e não no `walk` porque só valem para sessão nova: a sessão viva carrega as suas.
+  // Vínculos de CRM do chat e nome do contato. Valem em todo turno — ver `seedPortalVars`.
   initialVars: Record<string, string> = {},
 ): AdvanceResult {
   const effects: BotEffect[] = []
@@ -72,9 +89,11 @@ export function advance(
     return { effects, state: null, awaiting: null }
   }
 
+  const vars = seedPortalVars(state.vars, initialVars)
+
   // Resposta para nó que não perguntou nada: retoma em vez de descartar.
   if (!isWaiting(current)) {
-    return walk(graph, current.id, state.vars, effects)
+    return walk(graph, current.id, vars, effects)
   }
 
   // Transfere na hora, sem passar por bloco: a saída de emergência é um handoff avulso.
@@ -84,12 +103,25 @@ export function advance(
     matchesEscape(input.text, graph.settings.escapeKeywords)
   ) {
     const despedida = graph.settings.escapeText?.trim()
-    if (despedida) effects.push({ kind: 'say', text: despedida })
+    if (despedida) {
+      effects.push({ kind: 'say', text: renderVars(despedida, vars) })
+    }
+    pushSummary(graph, vars, effects)
     effects.push({ kind: 'handoff', target: escapeTarget })
     return { effects, state: null, awaiting: null }
   }
 
-  return answerWaiting(graph, current, state, input.text, effects)
+  return answerWaiting(graph, current, { ...state, vars }, input.text, effects)
+}
+
+/** Vale para os dois caminhos de handoff: bloco terminal e saída de emergência. */
+function pushSummary(
+  graph: BotFlowGraph,
+  vars: Record<string, string>,
+  effects: BotEffect[],
+): void {
+  if (!shouldWhisperSummary(graph.settings)) return
+  effects.push({ kind: 'whisper', text: handoffSummary(graph, vars) })
 }
 
 function answerWaiting(
@@ -101,18 +133,22 @@ function answerWaiting(
 ): AdvanceResult {
   const vars = { ...state.vars }
 
-  if (node.kind === 'question') {
-    const match = matchOption(node, text)
-    if (match.matched) {
-      if (node.saveAs) vars[node.saveAs] = match.option.value
-      return walk(graph, match.option.next, vars, effects)
+  // Sem opção para casar, não há o que reperguntar: toda resposta serve.
+  if (node.kind === 'message') {
+    vars[captureVar(node.capture)] = text.trim()
+    return walk(graph, node.next, vars, effects)
+  }
+
+  const match = matchOption(node, text)
+  if (match.matched) {
+    if (node.capture) {
+      vars[captureVar(node.capture)] = match.option.value
+    } else {
+      // Sem captura a escolha não deixava rastro, e o resumo do handoff chegava ao
+      // operador sem os menus que o cliente percorreu. Guarda o rótulo, que é o que ele leu.
+      vars[choiceVar(node.id)] = match.option.label
     }
-  } else {
-    const validated = validateInput(text, node.validate)
-    if (validated.valid) {
-      vars[node.saveAs] = validated.value
-      return walk(graph, node.next, vars, effects)
-    }
+    return walk(graph, match.option.next, vars, effects)
   }
 
   // `maxAttempts` conta falhas toleradas, incluindo esta: com 2, o cliente é perguntado de
@@ -122,7 +158,7 @@ function answerWaiting(
     return walk(graph, node.onExhausted, vars, effects)
   }
 
-  effects.push({ kind: 'say', text: askText(node, node.retryText) })
+  effects.push({ kind: 'say', text: askText(node, vars, node.retryText) })
   return {
     effects,
     state: { currentNodeId: node.id, vars, attempts },
@@ -149,17 +185,29 @@ function walk(
 
     switch (node.kind) {
       case 'message':
-        effects.push({ kind: 'say', text: node.text })
-        cursor = node.next
-        continue
+        effects.push({ kind: 'say', text: renderVars(node.text, vars) })
+        if (!isWaiting(node)) {
+          cursor = node.next
+          continue
+        }
+        return {
+          effects,
+          state: { currentNodeId: node.id, vars, attempts: 0 },
+          awaiting: node,
+        }
 
       case 'condition':
         cursor = resolveCondition(node.branches, node.otherwise, vars)
         continue
 
+      case 'schedule':
+        // Var ausente = dentro do horário.
+        cursor =
+          vars[WORKING_HOURS_VAR] === 'N' ? node.whenClosed : node.whenOpen
+        continue
+
       case 'question':
-      case 'input':
-        effects.push({ kind: 'say', text: askText(node) })
+        effects.push({ kind: 'say', text: askText(node, vars) })
         return {
           effects,
           state: { currentNodeId: node.id, vars, attempts: 0 },
@@ -167,12 +215,17 @@ function walk(
         }
 
       case 'handoff':
-        if (node.text) effects.push({ kind: 'say', text: node.text })
+        if (node.text) {
+          effects.push({ kind: 'say', text: renderVars(node.text, vars) })
+        }
+        pushSummary(graph, vars, effects)
         effects.push({ kind: 'handoff', target: node.target })
         return { effects, state: null, awaiting: null }
 
       case 'finish':
-        if (node.text) effects.push({ kind: 'say', text: node.text })
+        if (node.text) {
+          effects.push({ kind: 'say', text: renderVars(node.text, vars) })
+        }
         effects.push({ kind: 'finish' })
         return { effects, state: null, awaiting: null }
     }
@@ -211,8 +264,12 @@ export function testVar(test: VarTest, vars: Record<string, string>): boolean {
 }
 
 // As opções vão dentro do texto porque o conector entrega texto puro, sem botão.
-export function askText(node: WaitingNode, override?: string): string {
-  const base = override ?? node.text
+export function askText(
+  node: WaitingNode,
+  vars: Record<string, string> = {},
+  override?: string,
+): string {
+  const base = renderVars(override ?? node.text, vars)
   const options = renderOptions(node)
 
   return options ? `${base}\n\n${options}` : base

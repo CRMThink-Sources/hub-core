@@ -3,6 +3,7 @@
     "message": "Mensagem",
     "question": "Pergunta",
     "input": "Captura",
+    "schedule": "Horário",
     "condition": "Condição",
     "handoff": "Transferir",
     "finish": "Encerrar"
@@ -11,6 +12,7 @@
     "message": "Fala e segue adiante",
     "question": "Oferece opções e espera a escolha",
     "input": "Pergunta e guarda a resposta",
+    "schedule": "Desvia pelo horário de atendimento do canal",
     "condition": "Desvia conforme o que foi respondido",
     "handoff": "Transfere a conversa para um atendente",
     "finish": "Encerra o atendimento"
@@ -43,7 +45,7 @@
     "all": "Para Todos"
   },
   "distribuicaoDica": {
-    "channel": "a fila do canal aberto escolhe o atendente",
+    "channel": "canal destino",
     "evenly": "rodízio entre os atendentes selecionados",
     "all": "todos os selecionados são avisados pela fila do canal"
   },

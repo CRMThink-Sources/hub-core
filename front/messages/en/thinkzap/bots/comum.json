@@ -3,6 +3,7 @@
     "message": "Message",
     "question": "Question",
     "input": "Capture",
+    "schedule": "Hours",
     "condition": "Condition",
     "handoff": "Transfer",
     "finish": "End"
@@ -11,6 +12,7 @@
     "message": "Says something and moves on",
     "question": "Offers options and waits for the choice",
     "input": "Asks and stores the answer",
+    "schedule": "Branches by the channel business hours",
     "condition": "Branches based on what was answered",
     "handoff": "Transfers the conversation to an agent",
     "finish": "Ends the conversation"
@@ -43,7 +45,7 @@
     "all": "To Everyone"
   },
   "distribuicaoDica": {
-    "channel": "the open channel queue picks the agent",
+    "channel": "destination channel",
     "evenly": "round robin among the selected agents",
     "all": "everyone selected is notified by the channel queue"
   },

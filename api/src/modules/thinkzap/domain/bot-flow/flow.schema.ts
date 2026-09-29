@@ -8,6 +8,13 @@ import {
   isWaiting,
   outgoing,
 } from './flow'
+import {
+  CAPTURE_NAMESPACE,
+  SYSTEM_VARS,
+  VAR_NAME_PATTERN,
+  captureVar,
+  varsUsedIn,
+} from './vars'
 
 // Duas camadas: o zod diz se o JSON é um fluxo; `validateFlowGraph` diz se ele funciona.
 
@@ -56,9 +63,6 @@ const varTestSchema = z.object({
   value: z.string().optional(),
 })
 
-/** Identificador simples: a variável é interpolada em texto e comparada em condição. */
-const VAR_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]*$/
-
 const messageNodeSchema = z.object({
   id: nodeIdSchema,
   kind: z.literal('message'),
@@ -66,6 +70,8 @@ const messageNodeSchema = z.object({
   portSides: portSidesSchema,
   name: nodeNameSchema,
   text: requiredTextSchema,
+  // Presente = o bloco espera a resposta e a guarda em `capture.<nome>`.
+  capture: varNameSchema.optional(),
   next: nodeIdSchema,
 })
 
@@ -79,8 +85,12 @@ const questionNodeSchema = z.object({
   options: z
     .array(
       z.object({
-        value: z.string().min(1),
-        label: z.string().min(1),
+        // Sem `min(1)`, como `varTestSchema.var` e pelo mesmo motivo: opção recém-criada
+        // nasce vazia, e o rascunho salva a cada tecla. Recusar aqui derrubava o
+        // autosave inteiro enquanto o autor trocava o rótulo. Cobrado em
+        // `validateFlowGraph` como `option-label-missing`, que aponta o bloco.
+        value: z.string().max(120),
+        label: z.string().max(120),
         /**
          * Outras respostas que levam a esta opção ("ajuda" para "Suporte").
          *
@@ -97,23 +107,8 @@ const questionNodeSchema = z.object({
     // As opções saem numeradas em texto puro no WhatsApp, sem botão: o teto evita a
     // mensagem-parede.
     .max(MAX_QUESTION_OPTIONS),
-  saveAs: varNameSchema.optional(),
+  capture: varNameSchema.optional(),
   retryText: z.string().min(1).optional(),
-  maxAttempts: z.number().int().min(1).max(10),
-  onExhausted: nodeIdSchema,
-})
-
-const inputNodeSchema = z.object({
-  id: nodeIdSchema,
-  kind: z.literal('input'),
-  position: positionSchema,
-  portSides: portSidesSchema,
-  name: nodeNameSchema,
-  text: requiredTextSchema,
-  saveAs: varNameSchema,
-  validate: z.enum(['text', 'email', 'cpf', 'number', 'date']),
-  retryText: z.string().min(1).optional(),
-  next: nodeIdSchema,
   maxAttempts: z.number().int().min(1).max(10),
   onExhausted: nodeIdSchema,
 })
@@ -169,6 +164,16 @@ function migrateUserTarget(raw: unknown): unknown {
   return { type: 'evenly', bitrixUserIds: id.trim() ? [id] : [] }
 }
 
+const scheduleNodeSchema = z.object({
+  id: nodeIdSchema,
+  kind: z.literal('schedule'),
+  position: positionSchema,
+  portSides: portSidesSchema,
+  name: nodeNameSchema,
+  whenOpen: nodeIdSchema,
+  whenClosed: nodeIdSchema,
+})
+
 const handoffNodeSchema = z.object({
   id: nodeIdSchema,
   kind: z.literal('handoff'),
@@ -191,8 +196,8 @@ const finishNodeSchema = z.object({
 const flowNodeSchema = z.discriminatedUnion('kind', [
   messageNodeSchema,
   questionNodeSchema,
-  inputNodeSchema,
   conditionNodeSchema,
+  scheduleNodeSchema,
   handoffNodeSchema,
   finishNodeSchema,
 ])
@@ -201,6 +206,9 @@ const flowSettingsSchema = z.object({
   escapeKeywords: z.array(z.string().min(1)).max(20),
   escapeTarget: handoffTargetSchema.nullable(),
   escapeText: optionalTextSchema,
+  // `default(true)`: fluxo gravado antes do ajuste sussurrava o resumo, e parsear não
+  // pode desligar em silêncio um bot que já está no ar.
+  whisperSummary: z.boolean().default(true),
 })
 
 const rawGraphSchema = z.object({
@@ -214,13 +222,85 @@ const rawGraphSchema = z.object({
     ...DEFAULT_FLOW_SETTINGS,
     escapeKeywords: [...DEFAULT_FLOW_SETTINGS.escapeKeywords],
     escapeText: DEFAULT_FLOW_SETTINGS.escapeText,
+    whisperSummary: DEFAULT_FLOW_SETTINGS.whisperSummary ?? true,
   })),
 })
 
 export const botFlowGraphSchema = z.preprocess(
-  migrateEscapeNext,
+  raw => migrateCapture(migrateEscapeNext(raw)),
   rawGraphSchema,
 )
+
+/**
+ * Fluxo salvo quando a captura era um bloco: `input` vira mensagem que captura, `saveAs`
+ * vira `capture` e a condição passa a testar o nome com namespace.
+ */
+function migrateCapture(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw
+
+  const graph = raw as { nodes?: unknown }
+  if (!Array.isArray(graph.nodes)) return raw
+
+  const capturados = new Set<string>()
+
+  const nodes = (graph.nodes as unknown[]).map((node): unknown => {
+    if (!node || typeof node !== 'object') return node
+
+    const { kind, saveAs, capture, ...resto } = node as Record<string, unknown>
+    const nome = typeof capture === 'string' ? capture : saveAs
+
+    if (kind !== 'input' && kind !== 'question') return node
+    if (typeof nome !== 'string' || !nome.trim()) {
+      return kind === 'input' ? { ...resto, kind: 'message' } : node
+    }
+
+    capturados.add(nome)
+    return kind === 'input'
+      ? { ...resto, kind: 'message', capture: nome }
+      : { ...resto, kind, capture: nome }
+  })
+
+  return {
+    ...graph,
+    nodes: nodes.map(node => migrateVarTests(node, capturados)),
+  }
+}
+
+const LEGACY_SYSTEM_VARS: Record<string, string> = {
+  contatoId: 'bitrix.contactId',
+  leadId: 'bitrix.leadId',
+  empresaId: 'bitrix.companyId',
+  negocioId: 'bitrix.dealId',
+}
+
+function migrateVarTests(node: unknown, capturados: Set<string>): unknown {
+  if (!node || typeof node !== 'object') return node
+
+  const condition = node as { kind?: unknown; branches?: unknown }
+  if (condition.kind !== 'condition' || !Array.isArray(condition.branches)) {
+    return node
+  }
+
+  const branches = (condition.branches as unknown[]).map((branch): unknown => {
+    if (!branch || typeof branch !== 'object') return branch
+
+    const { when, ...resto } = branch as { when?: unknown }
+    if (!when || typeof when !== 'object') return branch
+
+    const test = when as { var?: unknown }
+    const nome = typeof test.var === 'string' ? test.var : ''
+    // Já migrado: só nome cru é reescrito, senão `capture.x` viraria `capture.capture.x`.
+    if (!nome || nome.includes('.')) return branch
+
+    const novo = capturados.has(nome)
+      ? `${CAPTURE_NAMESPACE}.${nome}`
+      : LEGACY_SYSTEM_VARS[nome]
+
+    return novo ? { ...resto, when: { ...test, var: novo } } : branch
+  })
+
+  return { ...condition, branches }
+}
 
 /**
  * Fluxo salvo antes da mudança guarda `escapeNext`, um id de bloco. A saída de emergência
@@ -263,10 +343,13 @@ export type FlowIssueCode =
   | 'no-terminal-reachable'
   | 'escape-target-incomplete'
   | 'duplicate-option-value'
+  | 'option-label-missing'
   | 'self-target'
   | 'handoff-target-incomplete'
   | 'condition-var-invalid'
   | 'node-text-missing'
+  | 'unknown-var'
+  | 'schedule-path-missing'
 
 export type FlowIssue = {
   code: FlowIssueCode
@@ -288,6 +371,16 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
   }
 
   const issues: FlowIssue[] = []
+
+  // Sem olhar posição no grafo: a captura pode estar num ramo que nem sempre roda.
+  const conhecidas = new Set<string>([
+    ...SYSTEM_VARS,
+    ...graph.nodes.flatMap(node =>
+      (node.kind === 'message' || node.kind === 'question') && node.capture
+        ? [captureVar(node.capture)]
+        : [],
+    ),
+  ])
 
   // Também serve de índice de existência: `findNode` varreria a lista por destino.
   const seen = new Set<NodeId>()
@@ -322,9 +415,7 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
     }
 
     if (
-      (node.kind === 'message' ||
-        node.kind === 'question' ||
-        node.kind === 'input') &&
+      (node.kind === 'message' || node.kind === 'question') &&
       !node.text.trim()
     ) {
       issues.push({
@@ -349,6 +440,17 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
               ? `condição ${index + 1}: "${nome}" não é um nome de variável válido`
               : `condição ${index + 1}: escolha a variável a testar`,
           })
+          return
+        }
+
+        // Comparar nome que ninguém preenche não quebra nada, e é pior: a condição
+        // desvia sempre pelo mesmo lado sem dizer por quê.
+        if (!conhecidas.has(nome)) {
+          issues.push({
+            code: 'unknown-var',
+            nodeId: node.id,
+            detail: `condição ${index + 1}: "${nome}" não é uma variável deste fluxo`,
+          })
         }
       })
     }
@@ -365,8 +467,34 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
       }
     }
 
+    for (const nome of varsUsedIn(textoFalado(node))) {
+      if (conhecidas.has(nome)) continue
+
+      issues.push({
+        code: 'unknown-var',
+        nodeId: node.id,
+        detail: `"{${nome}}" não é uma variável deste fluxo`,
+      })
+    }
+
     if (node.kind === 'question') {
-      const values = node.options.map(option => option.value)
+      // O rótulo é o que o cliente lê na lista numerada, e o valor é o que a captura
+      // guarda: opção sem um dos dois publica uma pergunta com linha em branco.
+      node.options.forEach((option, index) => {
+        if (option.label.trim() && option.value.trim()) return
+
+        issues.push({
+          code: 'option-label-missing',
+          nodeId: node.id,
+          detail: `opção ${index + 1} está sem rótulo`,
+        })
+      })
+
+      // Vazio fora: duas opções em branco não são "valor repetido", e o aviso de rótulo
+      // acima já cobre cada uma.
+      const values = node.options
+        .map(option => option.value)
+        .filter(value => value.trim())
       const duplicated = values.filter(
         (value, index) => values.indexOf(value) !== index,
       )
@@ -385,6 +513,16 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
     issues.push({
       code: 'escape-target-incomplete',
       detail: `saída de emergência ${faltaNoAlvo(escape)}`,
+    })
+  }
+
+  // A despedida do escape também é interpolada antes de sair para o cliente.
+  for (const nome of varsUsedIn(graph.settings.escapeText ?? '')) {
+    if (conhecidas.has(nome)) continue
+
+    issues.push({
+      code: 'unknown-var',
+      detail: `saída de emergência: "{${nome}}" não é uma variável deste fluxo`,
     })
   }
 
@@ -414,9 +552,29 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
   }
 
   // Exige que *nenhuma* saída leve a outro bloco: uma só voltando é laço legítimo
+  // As duas saídas do bloco de horário são obrigatórias, não só uma.
+  for (const node of graph.nodes) {
+    if (node.kind !== 'schedule') continue
+
+    const faltando = [
+      node.whenOpen === node.id ? 'dentro do horário' : null,
+      node.whenClosed === node.id ? 'fora do horário' : null,
+    ].filter((lado): lado is string => lado !== null)
+
+    if (faltando.length > 0) {
+      issues.push({
+        code: 'schedule-path-missing',
+        nodeId: node.id,
+        detail: `escolha o destino de: ${faltando.join(' e ')}`,
+      })
+    }
+  }
+
   // ("repetir o menu"); todas voltando é destino nunca escolhido no editor.
   for (const node of graph.nodes) {
     const saidas = outgoing(node)
+    // `schedule` já foi acusado acima, com o lado que falta.
+    if (node.kind === 'schedule') continue
     if (saidas.length > 0 && saidas.every(target => target === node.id)) {
       issues.push({
         code: 'self-target',
@@ -437,18 +595,24 @@ export function validateFlowGraph(raw: unknown): FlowIssue[] {
   return issues
 }
 
-/** Alvo `queue` já é completo; os outros nascem sem canal nem atendente no editor. */
+/** Todo texto que o cliente lê neste bloco. */
+function textoFalado(node: BotFlowGraph['nodes'][number]): string {
+  // `condition` e `schedule` só desviam: não têm fala para interpolar.
+  if (node.kind === 'condition' || node.kind === 'schedule') return ''
+  if (node.kind === 'question') return `${node.text}\n${node.retryText ?? ''}`
+  return node.text ?? ''
+}
+
+/** Todo alvo exige escolha: `queue` é o canal ainda não escolhido no editor. */
 function isTargetComplete(target: HandoffTarget): boolean {
+  if (target.type === 'queue') return false
   if (target.type === 'line') return target.lineId.trim() !== ''
-  if (target.type === 'evenly' || target.type === 'all') {
-    return target.bitrixUserIds.some(id => id.trim() !== '')
-  }
-  return true
+  return target.bitrixUserIds.some(id => id.trim() !== '')
 }
 
 /** O que falta escolher, em uma frase. Prefixado pelo chamador. */
 function faltaNoAlvo(target: HandoffTarget): string {
-  return target.type === 'line'
+  return target.type === 'line' || target.type === 'queue'
     ? 'sem canal escolhido'
     : 'sem atendente escolhido'
 }

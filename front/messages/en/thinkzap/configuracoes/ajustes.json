@@ -27,8 +27,6 @@
   "confirmarDesvincularTitulo": "Unlink the open channel?",
   "confirmarDesvincularDescricao": "Messages from this line stop reaching the channel in the CRM.",
   "comportamento": "Behavior",
-  "salvar": "Save",
-  "salvando": "Saving...",
   "salvo": "Settings saved.",
   "erroSalvar": "Could not save the settings.",
   "toggles": {
@@ -44,30 +42,12 @@
     "inativaTitulo": "No active subscription",
     "inativaDescricao": "This line has no active subscription. Settings are read-only until the subscription is sorted out."
   },
-  "smsProvider": {
-    "titulo": "Bitrix24 SMS campaign",
-    "descricao": "Offers this line as a sending channel for your Bitrix24 marketing campaigns.",
-    "avisoRotulo": "Bitrix24 only accepts providers of type SMS: this line will show up under the SMS menu, in Marketing → SMS campaign, even though it delivers over WhatsApp.",
-    "avisoBloqueio": "This is an unofficial WhatsApp line. Bulk sending carries a real risk of Meta blocking the number, and that also takes down one-to-one support on this line.",
-    "statusRegistrado": "This line already shows up as a provider in your campaigns.",
-    "statusNaoRegistrado": "This line does not show up in your campaigns yet.",
-    "registrar": "Offer in campaigns",
-    "remover": "Remove from campaigns",
-    "indisponivel": "Campaign sending is not available in this environment. Contact support.",
-    "bloqueada": "This line has no active subscription, so it cannot be offered in campaigns.",
-    "confirmarTitulo": "Confirm using this line in campaigns",
-    "confirmarDescricao": "This is an unofficial WhatsApp line. Sending a campaign to many contacts at once increases the risk of Meta blocking the number — and that also takes down one-to-one support on this line.",
-    "confirmarCiencia": "I understand the risk of the number being blocked and want to offer this line in campaigns.",
-    "confirmarRegistrar": "Offer in campaigns",
-    "removerTitulo": "Remove from campaigns",
-    "removerDescricao": "This line stops showing up in the provider list of your SMS campaigns. Campaigns scheduled for it stop finding it.",
-    "removerConfirmar": "Remove",
-    "cancelar": "Cancel",
-    "registrado": "Line available in your SMS campaigns.",
-    "removido": "Line removed from SMS campaigns.",
-    "registroIndisponivel": "Nothing changed: campaign sending is not available in this environment.",
-    "erroLeitura": "Could not check the campaign provider for this line.",
-    "erroRegistro": "Could not offer this line in campaigns.",
-    "erroRemocao": "Could not remove this line from campaigns."
+  "barra": {
+    "semAlteracoes": "No pending changes",
+    "alteracoes_one": "{{count}} unsaved change",
+    "alteracoes_other": "{{count}} unsaved changes",
+    "salvar": "Save changes",
+    "salvando": "Saving...",
+    "descartar": "Discard"
   }
 }

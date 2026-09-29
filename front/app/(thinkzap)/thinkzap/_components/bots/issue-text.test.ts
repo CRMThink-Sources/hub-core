@@ -15,10 +15,12 @@ const CODIGOS: FlowIssueCode[] = [
   'no-terminal-reachable',
   'escape-target-incomplete',
   'duplicate-option-value',
+  'option-label-missing',
   'self-target',
   'handoff-target-incomplete',
   'condition-var-invalid',
   'node-text-missing',
+  'unknown-var',
 ]
 
 /** O `t` real resolve `problemas.<code>` no namespace do editor. */

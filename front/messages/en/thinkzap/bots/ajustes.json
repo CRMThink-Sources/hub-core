@@ -2,12 +2,16 @@
   "titulo": "Settings",
   "fechar": "Close settings",
   "saidaEmergencia": "Emergency exit",
-  "descricao": "If the customer types one of these words at any point, the bot stops right away and transfers the conversation.",
+  "descricao": "When one of these words is detected, the bot stops the service and transfers the conversation.",
+  "palavras": "Keywords",
+  "palavrasAjuda": "Type the word and press Enter. Up to 20 words.",
   "novaPalavra": "New word...",
   "removerPalavra": "Remove {{palavra}}",
-  "semSaida": "do not use an emergency exit",
+  "selecioneDistribuicao": "Select the distribution...",
   "mensagemTransferencia": "Transfer message",
   "mensagemPlaceholder": "E.g.: I'll transfer you to an agent. (optional)",
   "avisoSemAlvo": "The words above have no effect while nothing is chosen under \"Distribution\".",
-  "avisoSemPalavra": "With no word at all, the emergency exit is never triggered."
+  "avisoSemPalavra": "With no word at all, the emergency exit is never triggered.",
+  "resumoSussurro": "Send summary as a whisper",
+  "resumoSussurroAjuda": "The bot will send a whisper message with the steps and answers it got from the customer."
 }

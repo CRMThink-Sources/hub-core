@@ -101,22 +101,16 @@ describe('visibleNodePorts', () => {
     ])
   })
 
-  it('o desvio do input não é escondido', () => {
-    const input: FlowNode = {
+  it('a mensagem que captura tem saída única: toda resposta serve', () => {
+    const captura: FlowNode = {
       id: 'n5',
-      kind: 'input',
+      kind: 'message',
       text: 'nome?',
-      saveAs: 'nome',
-      validate: 'text',
+      capture: 'nome',
       next: 'n3',
-      maxAttempts: 3,
-      onExhausted: 'n5',
     }
 
-    expect(visibleNodePorts(input).map(port => port.id)).toEqual([
-      'next',
-      'exhausted',
-    ])
+    expect(visibleNodePorts(captura).map(port => port.id)).toEqual(['next'])
   })
 })
 
@@ -455,15 +449,27 @@ describe('bloco não liga em si mesmo', () => {
 })
 
 describe('clearPort', () => {
-  it('apagar ligação de opção remove a opção', () => {
+  // Remover a opção em si é botão do painel, não o Delete na linha.
+  it('apagar ligação de opção mantém a opção, só pendente', () => {
     const next = clearPort(question, { kind: 'option', index: 0 })
 
     if (next.kind !== 'question') throw new Error('tipo inesperado')
-    expect(next.options).toHaveLength(1)
-    expect(next.options[0]?.label).toBe('B')
+    expect(next.options).toHaveLength(2)
+    expect(next.options[0]?.label).toBe('A')
+    expect(next.options[0]?.value).toBe('opcao-1')
+    // Aponta para o próprio bloco: pendente, pronta para ligar em outro destino.
+    expect(next.options[0]?.next).toBe(next.id)
   })
 
-  it('não remove a última opção — pergunta sem opção não é respondível', () => {
+  it('a opção pendente volta a aceitar destino', () => {
+    const limpo = clearPort(question, { kind: 'option', index: 0 })
+    const religado = setPortTarget(limpo, { kind: 'option', index: 0 }, 'n4')
+
+    if (religado.kind !== 'question') throw new Error('tipo inesperado')
+    expect(religado.options[0]?.next).toBe('n4')
+  })
+
+  it('a última opção também só fica pendente', () => {
     const uma: FlowNode = {
       ...question,
       options: [{ label: 'A', value: 'opcao-1', next: 'n3' }],
@@ -472,7 +478,6 @@ describe('clearPort', () => {
 
     if (next.kind !== 'question') throw new Error('tipo inesperado')
     expect(next.options).toHaveLength(1)
-    // Fica pendente, apontando para o próprio bloco.
     expect(next.options[0]?.next).toBe(next.id)
   })
 
@@ -484,7 +489,7 @@ describe('clearPort', () => {
     expect(next.next).toBe('n1')
   })
 
-  it('apagar ramo de condição remove o ramo', () => {
+  it('apagar ligação de ramo mantém a condição, só pendente', () => {
     const cond: FlowNode = {
       id: 'c1',
       kind: 'condition',
@@ -497,7 +502,8 @@ describe('clearPort', () => {
     const next = clearPort(cond, { kind: 'branch', index: 0 })
 
     if (next.kind !== 'condition') throw new Error('tipo inesperado')
-    expect(next.branches).toHaveLength(1)
-    expect(next.branches[0]?.when.var).toBe('b')
+    expect(next.branches).toHaveLength(2)
+    expect(next.branches[0]?.when.var).toBe('a')
+    expect(next.branches[0]?.next).toBe('c1')
   })
 })

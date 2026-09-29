@@ -34,10 +34,13 @@
     "no-terminal-reachable": "From this block there is no way to an ending nor to an agent.",
     "escape-target-incomplete": "Choose who the emergency exit transfers to.",
     "duplicate-option-value": "Two options with the same value.",
+    "option-label-missing": "Option without a label.",
     "self-target": "Choose where the outputs of this block go.",
     "handoff-target-incomplete": "Choose who the conversation is handed to.",
     "condition-var-invalid": "The condition needs a variable to test.",
-    "node-text-missing": "The text the bot sends in this block is missing."
+    "node-text-missing": "The text the bot sends in this block is missing.",
+    "schedule-path-missing": "Both business hours paths are required.",
+    "unknown-var": "This block uses a variable that does not exist in the flow."
   },
   "canvas": {
     "legenda": "Click + to add the next step · click the block to edit · click the line and press Delete to remove",
@@ -53,8 +56,12 @@
     "problemas_one": "{{count}} problem",
     "problemas_other": "{{count}} problems",
     "semPergunta": "no question",
+    "resumoHorario": "follows the channel business hours",
     "semMensagem": "no message",
-    "semCondicao": "no condition"
+    "semCondicao": "no condition",
+    "capturar": "Save the answer",
+    "maisOpcoes": "More options",
+    "capturaChip": "capture answer"
   },
   "menu": {
     "titulo": "Which interaction do you want?",

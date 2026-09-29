@@ -19,12 +19,22 @@ import {
   type LineSettings,
   type LineSettingsToggles,
 } from '@/app/hooks/use-line-api'
+import { contarAlteracoes, TOGGLE_KEYS } from './ajustes-alteracoes'
 import { ConfigCard } from './config-card'
 import { ConfirmModal } from './confirm-modal'
 import { LinhaBloqueadaAviso } from './linha-bloqueada-aviso'
-import { SmsProviderCard } from './sms-provider-card'
+import { SaveChangesBar } from './save-changes-bar'
 
-type Props = { itemId: string }
+type Props = {
+  itemId: string
+  /**
+   * Avisa a página quando passa a haver (ou deixa de haver) alteração não salva.
+   *
+   * Trocar de aba desmonta esta — e o que foi digitado some junto. Quem troca de
+   * aba é a página, então é ela que precisa saber para pedir confirmação.
+   */
+  onDirtyChange?: (dirty: boolean) => void
+}
 
 type OpenChannel = { id: string; name: string }
 
@@ -48,11 +58,6 @@ type State =
       entitlement: LineEntitlement
     }
 
-const TOGGLE_KEYS = [
-  'prefixOperatorNameEnabled',
-  'widgetOpenChannelEnabled',
-] as const
-
 /**
  * Aba de ajustes: tudo que é configuração **persistida** da linha.
  *
@@ -60,7 +65,7 @@ const TOGGLE_KEYS = [
  * vincular e desvincular canal aberto. Sem isso, uma linha nova não teria como ser
  * ligada ao canal do Bitrix, e mensagem nenhuma chegaria ao CRM.
  */
-export function AjustesTab({ itemId }: Props) {
+export function AjustesTab({ itemId, onDirtyChange }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/ajustes')
   const api = useLineApi(itemId)
   const { refresh } = useAplicationContext()
@@ -167,6 +172,39 @@ export function AjustesTab({ itemId }: Props) {
     void carregarCanais()
   }, [itemId, carregarCanais])
 
+  /**
+   * Calculado antes dos retornos antecipados: os efeitos abaixo dependem dele, e
+   * hook não pode ficar depois de `return`.
+   */
+  const dirtyCount =
+    state.status === 'ready' && inicial !== null
+      ? contarAlteracoes(inicial, state)
+      : 0
+  const dirty = dirtyCount > 0
+
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+
+  /** Desmontar com pendência (salvou e saiu, ou descartou na troca de aba) não é mais pendência. */
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange])
+
+  /**
+   * Fechar ou recarregar a página com alteração pendente: aviso nativo do
+   * navegador. O texto é do navegador — os atuais ignoram mensagem própria.
+   */
+  useEffect(() => {
+    if (!dirty) return
+
+    const avisar = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [dirty])
+
   if (state.status === 'loading') {
     return (
       <ConfigCard title={t('titulo')} description={t('descricao')}>
@@ -201,12 +239,10 @@ export function AjustesTab({ itemId }: Props) {
 
   const bloqueada = state.entitlement !== 'active'
 
-  const nomeMudou = inicial !== null && state.name !== inicial.name
-  const togglesMudaram =
-    inicial !== null &&
-    TOGGLE_KEYS.some(key => state.settings[key] !== inicial.settings[key])
+  const nomeMudou =
+    inicial !== null && state.name.trim() !== inicial.name.trim()
   const nomeValido = state.name.trim().length > 0
-  const podeSalvar = (nomeMudou || togglesMudaram) && nomeValido && !bloqueada
+  const podeSalvar = dirty && nomeValido && !bloqueada
 
   function setToggle(key: keyof LineSettingsToggles, value: boolean) {
     setState(prev =>
@@ -260,6 +296,17 @@ export function AjustesTab({ itemId }: Props) {
     } finally {
       setSalvando(false)
     }
+  }
+
+  /** Volta ao que está gravado, sem ir à api. */
+  function handleDescartar() {
+    if (inicial === null) return
+
+    setState(prev =>
+      prev.status === 'ready'
+        ? { ...prev, name: inicial.name, settings: inicial.settings }
+        : prev,
+    )
   }
 
   async function handleVincular() {
@@ -446,21 +493,17 @@ export function AjustesTab({ itemId }: Props) {
               }
             />
           </div>
-
-          <div className="mt-6 flex items-center gap-3 border-t border-border pt-4">
-            <Button
-              type="button"
-              disabled={!podeSalvar || salvando}
-              onClick={() => void handleSalvar()}
-            >
-              {salvando ? t('salvando') : t('salvar')}
-            </Button>
-          </div>
         </ConfigCard>
 
-        {/* Provedor da campanha de SMS: escrita no portal do cliente, como o vínculo
-            de canal, e por isso mora aqui e não numa aba própria. */}
-        <SmsProviderCard itemId={itemId} bloqueada={bloqueada} />
+        {/* Uma barra para a aba inteira: nome e toggles saem juntos. Vincular canal
+            continua ação imediata e não passa por ela. */}
+        <SaveChangesBar
+          dirtyCount={dirtyCount}
+          saving={salvando}
+          canSave={podeSalvar}
+          onSave={() => void handleSalvar()}
+          onDiscard={handleDescartar}
+        />
       </div>
 
       <ConfirmModal

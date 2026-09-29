@@ -15,7 +15,8 @@
     "conexao": "Conexión",
     "grupos": "Grupos",
     "templates": "Plantillas",
-    "ajustes": "Ajustes"
+    "ajustes": "Ajustes",
+    "campanha": "Campaña de SMS"
   },
   "provider": {
     "oficial": "Oficial",
@@ -24,5 +25,11 @@
   "status": {
     "conectada": "Conectada",
     "desconectada": "Desconectada"
+  },
+  "sairSemSalvar": {
+    "titulo": "¿Salir sin guardar?",
+    "descricao": "Hay cambios en los ajustes de esta línea que aún no se guardaron. Si sales ahora, se descartarán.",
+    "confirmar": "Descartar y salir",
+    "cancelar": "Seguir editando"
   }
 }

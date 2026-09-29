@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, LayoutGrid, Plus, Save, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -22,13 +22,16 @@ import type {
 import { NODE_RECIPES, makeNode, nextNodeId } from '@/shared/thinkzap-bot-flow'
 import { setPortTarget } from '@/shared/thinkzap-flow-graph'
 import {
+  NODE_WIDTH,
   nextFreePosition,
   readingOrder,
   relayout,
+  topFromCenter,
   withPositions,
 } from '@/shared/thinkzap-flow-layout'
-import { FlowCanvas } from './canvas/flow-canvas'
+import { FlowCanvas, type FlowCanvasApi } from './canvas/flow-canvas'
 import { KindMenu } from './canvas/kind-menu'
+import { flowVars } from '@/shared/thinkzap-flow-vars'
 import { BlockPanel } from './block-panel'
 import { FlowSettingsCard } from './flow-settings-card'
 import { BotFlowSimulator } from './bot-flow-simulator'
@@ -61,6 +64,8 @@ export function BotFlowEditor({
   // Bloco solto, sem ligação: o `+` da saída sempre nasce ligado a algo, e sem isto
   // não haveria como começar quando nenhuma saída livre está na tela.
   const [menuSolto, setMenuSolto] = useState(false)
+  /** Preenchido pelo canvas: é quem sabe para onde o usuário está olhando. */
+  const canvas = useRef<FlowCanvasApi | null>(null)
 
   useEffect(() => {
     let ativo = true
@@ -137,7 +142,7 @@ export function BotFlowEditor({
     )
   }, [graph, tc])
 
-  /** Bloco solto: nasce com as saídas pendentes, à direita de tudo. */
+  /** Bloco solto: saídas pendentes, no meio da tela. Sem canvas montado, à direita. */
   const adicionarSolto = useCallback(
     (kindOuFabrica: FlowNodeKind | ((id: NodeId) => FlowNode)) => {
       if (!graph) return
@@ -147,13 +152,16 @@ export function BotFlowEditor({
           ? kindOuFabrica(id)
           : makeNode(kindOuFabrica, id)
 
-      mutate({
-        ...graph,
-        nodes: [
-          ...graph.nodes,
-          { ...criado, position: nextFreePosition(graph) },
-        ],
-      })
+      const centro = canvas.current?.centro()
+      // Sem desviar de colisão: sobreposto o usuário arrasta, longe ele não acha.
+      const position = centro
+        ? {
+            x: centro.x - NODE_WIDTH / 2,
+            y: topFromCenter(criado, centro.y),
+          }
+        : nextFreePosition(graph)
+
+      mutate({ ...graph, nodes: [...graph.nodes, { ...criado, position }] })
       setSelecionado(id)
     },
     [graph, mutate],
@@ -374,6 +382,7 @@ export function BotFlowEditor({
         }`}
       >
         <FlowCanvas
+          apiRef={canvas}
           graph={graph}
           issuesByNode={issuesByNode}
           onChange={mutate}
@@ -383,6 +392,7 @@ export function BotFlowEditor({
             nodeSelecionado ? (
               <BlockPanel
                 node={nodeSelecionado}
+                vars={flowVars(graph)}
                 isEntry={nodeSelecionado.id === graph.entryNodeId}
                 issues={issuesByNode.get(nodeSelecionado.id) ?? []}
                 destinos={destinos.filter(

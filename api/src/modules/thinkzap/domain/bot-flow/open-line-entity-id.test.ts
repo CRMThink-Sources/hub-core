@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   connectorChatIdFromDialog,
+  contactNameFromDialog,
   openLineIdFromDialog,
   parseOpenLineIdFromEntityId,
 } from './open-line-entity-id'
@@ -112,5 +113,35 @@ describe('connectorChatIdFromDialog', () => {
     expect(
       connectorChatIdFromDialog({ result: { entity_id: 'livechat|22||599' } }),
     ).toBeNull()
+  })
+})
+
+describe('contactNameFromDialog', () => {
+  // Medido 2026-09-24 (chat 9644): a resposta traz `name`, não `title`. Lendo o campo
+  // errado, `{bitrix.name}` saía vazio na saudação — o único turno sem autor no evento.
+  it('lê o nome do chat e corta o nome da linha', () => {
+    expect(
+      contactNameFromDialog({
+        result: { name: 'Gustavo Henrique - Teste Amanda - Gerais' },
+      }),
+      // Corta no primeiro separador: a linha do exemplo também tem " - ".
+    ).toBe('Gustavo Henrique')
+  })
+
+  it('aceita `title` para não depender da forma de uma versão só', () => {
+    expect(
+      contactNameFromDialog({ result: { title: 'Maria - Suporte' } }),
+    ).toBe('Maria')
+  })
+
+  it('chat só com o nome do contato sai inteiro', () => {
+    expect(contactNameFromDialog({ result: { name: 'Gustavo' } })).toBe(
+      'Gustavo',
+    )
+  })
+
+  it('sem nome ainda devolve vazio, não quebra a fala', () => {
+    expect(contactNameFromDialog({ result: {} })).toBe('')
+    expect(contactNameFromDialog(undefined)).toBe('')
   })
 })
