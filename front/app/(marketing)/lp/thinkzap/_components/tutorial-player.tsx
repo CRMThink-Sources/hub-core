@@ -4,6 +4,7 @@ import { useEffect, useReducer, useRef } from 'react'
 import { ArrowLeft, ArrowRight, PartyPopper, RotateCcw } from 'lucide-react'
 import { CtaButtons } from './cta-buttons'
 import type { TutorialTrack } from './content'
+import { useLpContent } from './content/locale-context'
 import type { ThinkzapCtas } from './resolve-ctas'
 import {
   AppAside,
@@ -31,13 +32,14 @@ type Props = {
 /**
  * Um tutorial simulado: uma janela do Bitrix24 desenhada em HTML onde o
  * visitante clica no elemento destacado para avançar. Os passos vêm de
- * `content.ts` e as telas de `tutorials/<slug>.tsx`.
+ * `content/` e as telas de `tutorials/<slug>.tsx`.
  *
  * Trocar de tutorial remonta o componente (`key` no pai), o que reinicia o
  * passo. O primeiro passo sai no HTML do servidor; o resto só existe com JS.
  * Nada aqui chama API — é tudo ilustração.
  */
 export function TutorialPlayer({ track, view, ctas, next }: Props) {
+  const { player, frame: frameCopy } = useLpContent()
   const total = track.steps.length
   const [state, dispatch] = useReducer(
     (current: WalkthroughState, action: WalkthroughAction) =>
@@ -79,7 +81,7 @@ export function TutorialPlayer({ track, view, ctas, next }: Props) {
     <div className="grid items-start gap-6 lg:grid-cols-[340px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:gap-x-10">
       <div aria-live="polite" className="lg:min-h-[170px]">
         <p className="text-sm font-semibold text-primary">
-          {state.done ? 'Concluído' : `Passo ${state.step + 1} de ${total}`}
+          {state.done ? player.done : player.stepOf(state.step + 1, total)}
         </p>
         <h3 className="mt-2 text-xl font-bold">
           {state.done ? track.done.title : current.title}
@@ -89,7 +91,7 @@ export function TutorialPlayer({ track, view, ctas, next }: Props) {
         </p>
         {!state.done && (
           <p className="mt-3 text-xs text-muted-foreground">
-            Clique no destaque laranja da tela:{' '}
+            {player.hint}{' '}
             <strong className="text-foreground">{current.action}</strong>.
           </p>
         )}
@@ -106,7 +108,7 @@ export function TutorialPlayer({ track, view, ctas, next }: Props) {
             <span className="size-2.5 rounded-full bg-emerald-400" />
           </span>
           <span className="min-w-0 flex-1 truncate rounded-md bg-background px-3 py-1 text-xs text-muted-foreground">
-            suaempresa.bitrix24.com.br/{frame.path}
+            {frameCopy.portalHost}/{frame.path}
           </span>
         </div>
         <div className="flex">
@@ -155,7 +157,7 @@ export function TutorialPlayer({ track, view, ctas, next }: Props) {
                 <button
                   type="button"
                   onClick={() => go({ type: 'goTo', step: index })}
-                  aria-label={`Ir para o passo ${index + 1}: ${step.title}`}
+                  aria-label={player.goToStep(index + 1, step.title)}
                   aria-current={isCurrent ? 'step' : undefined}
                   className={`flex size-7 items-center justify-center rounded-full text-xs font-semibold transition-colors sm:size-8 ${
                     isCurrent
@@ -180,7 +182,7 @@ export function TutorialPlayer({ track, view, ctas, next }: Props) {
             className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-40"
           >
             <ArrowLeft aria-hidden className="size-4" />
-            Voltar
+            {player.back}
           </button>
           {!state.done && (
             <button
@@ -188,7 +190,7 @@ export function TutorialPlayer({ track, view, ctas, next }: Props) {
               onClick={() => go({ type: 'next' })}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
             >
-              {state.step === total - 1 ? 'Concluir' : 'Próximo'}
+              {state.step === total - 1 ? player.finish : player.next}
               <ArrowRight aria-hidden className="size-4" />
             </button>
           )}
@@ -209,6 +211,8 @@ function DoneScreen({
   next?: NextTutorial
   onRestart: () => void
 }) {
+  const { player, ctaButtons } = useLpContent()
+
   return (
     <div className="flex h-full min-h-[inherit] flex-col items-center justify-center gap-5 p-6 text-center">
       <span className="flex size-14 items-center justify-center rounded-full bg-accent text-primary">
@@ -218,7 +222,7 @@ function DoneScreen({
         <p className="text-lg font-bold">{done.title}</p>
         <p className="mt-1 text-sm text-muted-foreground">{done.description}</p>
       </div>
-      <CtaButtons {...ctas} className="justify-center" />
+      <CtaButtons {...ctas} labels={ctaButtons} className="justify-center" />
       <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
         <button
           type="button"
@@ -227,7 +231,7 @@ function DoneScreen({
           className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
         >
           <RotateCcw aria-hidden className="size-4" />
-          Ver de novo
+          {player.restart}
         </button>
         {next && (
           <button
@@ -235,7 +239,7 @@ function DoneScreen({
             onClick={next.onGo}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
           >
-            Próximo tutorial: {next.label}
+            {player.nextTutorial(next.label)}
             <ArrowRight aria-hidden className="size-4" />
           </button>
         )}

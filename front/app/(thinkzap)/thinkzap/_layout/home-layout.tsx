@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { BadgeCheck, Globe } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { BX24Script } from '@/bitrix'
 import { useAplicationContext } from '@/providers/aplication-provider'
 import { listSubscriptionLines } from '@/shared/aplication/subscription-items'
@@ -43,6 +44,7 @@ type StatsState =
  * de uma segunda leitura: é o dado que `/thinkzap/conexoes` já resolve.
  */
 export default function ThinkzapHomeLayout() {
+  const { t } = useTranslation('thinkzap/home')
   const { state: aplicationState } = useAplicationContext()
   const [range, setRange] = useState(() => defaultRange())
   const [statsState, setStatsState] = useState<StatsState>({
@@ -76,10 +78,7 @@ export default function ThinkzapHomeLayout() {
         if (!cancelled) {
           setStatsState({
             status: 'error',
-            message: thinkzapApiErrorMessage(
-              error,
-              'Não foi possível carregar as estatísticas.',
-            ),
+            message: thinkzapApiErrorMessage(error, t('statsError')),
           })
         }
       })
@@ -87,6 +86,7 @@ export default function ThinkzapHomeLayout() {
     return () => {
       cancelled = true
     }
+    // `t` fica fora das deps de propósito: trocar de idioma não refaz a busca.
   }, [range])
 
   if (aplicationState.status === 'loading') {
@@ -96,7 +96,7 @@ export default function ThinkzapHomeLayout() {
         <div className="flex min-h-[50vh] items-center justify-center gap-2 py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
           <span className="animate-pulse text-sm font-medium text-muted-foreground">
-            Carregando...
+            {t('loading')}
           </span>
         </div>
       </>
@@ -108,9 +108,7 @@ export default function ThinkzapHomeLayout() {
       <>
         <BX24Script onLoad={() => setBx24Ready(true)} />
         <div className="mx-auto mt-10 max-w-2xl rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
-          <p className="text-sm font-medium">
-            Não foi possível carregar sua instalação
-          </p>
+          <p className="text-sm font-medium">{t('installationError')}</p>
         </div>
       </>
     )
@@ -165,7 +163,7 @@ export default function ThinkzapHomeLayout() {
       {hasAnyLine && (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold">Mensagens no período</h2>
+            <h2 className="text-lg font-semibold">{t('stats.title')}</h2>
             <MessageStatsPeriodPicker
               from={range.from}
               to={range.to}
@@ -179,7 +177,7 @@ export default function ThinkzapHomeLayout() {
 
           {statsState.status !== 'error' &&
             (isLoadingStats ? (
-              <p className="text-sm text-muted-foreground">Carregando...</p>
+              <p className="text-sm text-muted-foreground">{t('loading')}</p>
             ) : (
               <>
                 <MessageStatsSummary

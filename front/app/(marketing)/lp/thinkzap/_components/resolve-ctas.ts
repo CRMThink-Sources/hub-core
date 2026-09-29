@@ -1,5 +1,4 @@
 import { buildWhatsappLink } from '@/shared/whatsapp/build-whatsapp-link'
-import { WHATSAPP_MESSAGE } from './content'
 
 export type ThinkzapCtas = {
   /** Página do app no Bitrix24 Market; `null` esconde "Instalar no Bitrix24". */
@@ -9,15 +8,16 @@ export type ThinkzapCtas = {
 }
 
 /**
- * Destinos dos CTAs a partir das envs. Env vazia vira `null` — o botão some em
+ * Destinos dos CTAs a partir das envs e da mensagem do WhatsApp no idioma da LP. Env vazia vira `null` — o botão some em
  * vez de apontar para lugar nenhum.
  */
 export function resolveThinkzapCtas(env: {
   marketUrl: string
   salesWhatsapp: string
+  whatsappMessage: string
 }): ThinkzapCtas {
   return {
     marketUrl: env.marketUrl.trim() || null,
-    whatsappLink: buildWhatsappLink(env.salesWhatsapp, WHATSAPP_MESSAGE),
+    whatsappLink: buildWhatsappLink(env.salesWhatsapp, env.whatsappMessage),
   }
 }

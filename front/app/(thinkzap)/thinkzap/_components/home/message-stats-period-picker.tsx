@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -24,6 +25,7 @@ type Props = {
  * servidor continua sendo a autoridade, esta é só a experiência do usuário.
  */
 export function MessageStatsPeriodPicker({ from, to, onChange }: Props) {
+  const { t } = useTranslation('thinkzap/home')
   const maxTo = maxRangeEnd(from)
 
   function handleFromChange(value: string) {
@@ -39,7 +41,7 @@ export function MessageStatsPeriodPicker({ from, to, onChange }: Props) {
     <div className="flex flex-col items-end gap-1.5">
       <div className="flex flex-wrap items-end gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="home-stats-from">De</Label>
+          <Label htmlFor="home-stats-from">{t('period.from')}</Label>
           <Input
             id="home-stats-from"
             type="date"
@@ -49,7 +51,7 @@ export function MessageStatsPeriodPicker({ from, to, onChange }: Props) {
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="home-stats-to">Até</Label>
+          <Label htmlFor="home-stats-to">{t('period.to')}</Label>
           <Input
             id="home-stats-to"
             type="date"
@@ -60,7 +62,7 @@ export function MessageStatsPeriodPicker({ from, to, onChange }: Props) {
           />
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">Período máximo de 6 meses</p>
+      <p className="text-xs text-muted-foreground">{t('period.maxRange')}</p>
     </div>
   )
 }

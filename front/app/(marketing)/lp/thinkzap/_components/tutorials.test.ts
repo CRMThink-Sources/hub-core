@@ -2,10 +2,9 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import {
-  INSTALACAO,
-  ROBOS,
+  getLpContent,
   TUTORIAL_SLUGS,
-  TUTORIALS,
+  tutorialsOf,
   tutorialTracks,
 } from './content'
 import { HowItWorks } from './how-it-works'
@@ -14,9 +13,15 @@ import { TUTORIAL_VIEWS } from './tutorials'
 import { qrModules } from './tutorials/ativacao'
 
 const CTAS = { marketUrl: null, whatsappLink: null }
+const PT = getLpContent('pt')
+const TUTORIALS = tutorialsOf(PT)
+const INSTALACAO = PT.tutorials.instalacao.tutorial
+const ROBOS = PT.tutorials.robos.tutorial
 
 describe('seção Tutoriais', () => {
-  const html = renderToStaticMarkup(createElement(HowItWorks, CTAS))
+  const html = renderToStaticMarkup(
+    createElement(HowItWorks, { ...CTAS, content: PT }),
+  )
   const [instalacao] = tutorialTracks(INSTALACAO)
 
   it('sai do servidor com as seis abas e a primeira selecionada', () => {

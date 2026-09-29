@@ -1,7 +1,9 @@
 import { ArrowRight, MessageCircle } from 'lucide-react'
+import type { LpContent } from './content'
 import type { ThinkzapCtas } from './resolve-ctas'
 
 type Props = ThinkzapCtas & {
+  labels: LpContent['ctaButtons']
   /** `onPrimary` inverte as cores para usar sobre fundo `bg-primary`. */
   tone?: 'default' | 'onPrimary'
   className?: string
@@ -17,6 +19,7 @@ const EXTERNAL = { target: '_blank', rel: 'noopener noreferrer' } as const
 export function CtaButtons({
   marketUrl,
   whatsappLink,
+  labels,
   tone = 'default',
   className = '',
 }: Props) {
@@ -39,7 +42,7 @@ export function CtaButtons({
           {...EXTERNAL}
           className={`inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold shadow-sm transition-colors ${primary}`}
         >
-          Instalar no Bitrix24
+          {labels.install}
           <ArrowRight aria-hidden className="size-4" />
         </a>
       )}
@@ -50,7 +53,7 @@ export function CtaButtons({
           className={`inline-flex items-center justify-center gap-2 rounded-lg border px-6 py-3 text-sm font-semibold transition-colors ${secondary}`}
         >
           <MessageCircle aria-hidden className="size-4" />
-          Falar no WhatsApp
+          {labels.whatsapp}
         </a>
       )}
     </div>
