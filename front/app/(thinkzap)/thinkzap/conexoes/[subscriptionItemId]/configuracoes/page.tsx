@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
 import { useAplicationContext } from '@/providers/aplication-provider'
 import { listSubscriptionLines } from '@/shared/aplication/subscription-items'
@@ -12,8 +12,10 @@ import { AjustesTab } from '../../../_components/configuracoes/ajustes-tab'
 import { GruposTab } from '../../../_components/configuracoes/grupos-tab'
 import { ConexaoOficialTab } from '../../../_components/configuracoes/oficial/conexao-oficial-tab'
 import { TemplatesTab } from '../../../_components/configuracoes/oficial/templates-tab'
+import { CampanhaSmsTab } from '../../../_components/configuracoes/campanha-sms-tab'
+import { ConfirmModal } from '../../../_components/configuracoes/confirm-modal'
 
-type TabId = 'conexao' | 'grupos' | 'ajustes' | 'templates'
+type TabId = 'conexao' | 'grupos' | 'ajustes' | 'templates' | 'campanha'
 
 /**
  * Configuração de uma linha, identificada pelo **id do item de assinatura**.
@@ -31,6 +33,58 @@ export default function ConfiguracoesLinhaPage() {
   const [activeTab, setActiveTab] = useState<TabId>('conexao')
   /** Vem da aba Conexão para o cabeçalho não precisar da própria leitura. */
   const [connection, setConnection] = useState<LineConnection | null>(null)
+  const router = useRouter()
+
+  /**
+   * Alteração não salva em Ajustes. Trocar de aba desmonta a aba — e o que foi
+   * digitado some sem aviso —, então a troca passa por aqui antes.
+   */
+  const [ajustesDirty, setAjustesDirty] = useState(false)
+  /** Para onde o usuário queria ir quando a confirmação abriu. */
+  const [destinoPendente, setDestinoPendente] = useState<
+    TabId | 'voltar' | null
+  >(null)
+
+  const temPendencia = activeTab === 'ajustes' && ajustesDirty
+
+  function requestTab(id: TabId) {
+    if (temPendencia && id !== 'ajustes') {
+      setDestinoPendente(id)
+      return
+    }
+    setActiveTab(id)
+  }
+
+  /**
+   * "Voltar para conexões" é navegação client-side: `beforeunload` não dispara, e
+   * sem esta guarda o link seria a saída silenciosa que a da aba tenta evitar.
+   */
+  function handleVoltar(event: React.MouseEvent<HTMLAnchorElement>) {
+    if (!temPendencia) return
+    event.preventDefault()
+    setDestinoPendente('voltar')
+  }
+
+  function confirmarSaida() {
+    const destino = destinoPendente
+    setDestinoPendente(null)
+    setAjustesDirty(false)
+
+    if (destino === 'voltar') router.push('/thinkzap/conexoes')
+    else if (destino !== null) setActiveTab(destino)
+  }
+
+  const confirmacaoSaida = (
+    <ConfirmModal
+      isOpen={destinoPendente !== null}
+      title={t('sairSemSalvar.titulo')}
+      message={t('sairSemSalvar.descricao')}
+      confirmLabel={t('sairSemSalvar.confirmar')}
+      cancelLabel={t('sairSemSalvar.cancelar')}
+      onConfirm={confirmarSaida}
+      onClose={() => setDestinoPendente(null)}
+    />
+  )
 
   const linha = useMemo(() => {
     if (state.status !== 'ready') return null
@@ -99,12 +153,14 @@ export default function ConfiguracoesLinhaPage() {
       { id: 'conexao', label: t('tabs.conexao') },
       { id: 'templates', label: t('tabs.templates') },
       { id: 'ajustes', label: t('tabs.ajustes') },
+      { id: 'campanha', label: t('tabs.campanha') },
     ]
 
     return (
       <Shell
         titulo={linha.name}
         provider={t('provider.oficial')}
+        onVoltar={handleVoltar}
         status={
           connection === null
             ? undefined
@@ -116,29 +172,36 @@ export default function ConfiguracoesLinhaPage() {
         <Tabs
           tabs={oficialTabs}
           activeTab={activeTab}
-          onChange={setActiveTab}
+          onChange={requestTab}
           ariaLabel={t('tabsAriaLabel')}
         />
 
         <div className="mt-6">
           {activeTab === 'templates' && <TemplatesTab itemId={linha.id} />}
-          {activeTab === 'ajustes' && <AjustesTab itemId={linha.id} />}
+          {activeTab === 'ajustes' && (
+            <AjustesTab itemId={linha.id} onDirtyChange={setAjustesDirty} />
+          )}
+          {activeTab === 'campanha' && <CampanhaSmsTab itemId={linha.id} />}
           {/**
            * `conexao` é o default e também o destino de qualquer aba que não
            * pertença à linha oficial — `grupos` sobrevive na troca de linha.
            */}
-          {activeTab !== 'templates' && activeTab !== 'ajustes' && (
-            <ConexaoOficialTab
-              itemId={linha.id}
-              /**
-               * Nunca nulo aqui: item `HUBMESSAGE` sem canal é recusado na leitura
-               * do contexto — sem canal não há recurso no provider.
-               */
-              channelId={linha.providerRef ?? ''}
-              onConnectionChange={setConnection}
-            />
-          )}
+          {activeTab !== 'templates' &&
+            activeTab !== 'ajustes' &&
+            activeTab !== 'campanha' && (
+              <ConexaoOficialTab
+                itemId={linha.id}
+                /**
+                 * Nunca nulo aqui: item `HUBMESSAGE` sem canal é recusado na leitura
+                 * do contexto — sem canal não há recurso no provider.
+                 */
+                channelId={linha.providerRef ?? ''}
+                onConnectionChange={setConnection}
+              />
+            )}
         </div>
+
+        {confirmacaoSaida}
       </Shell>
     )
   }
@@ -155,6 +218,7 @@ export default function ConfiguracoesLinhaPage() {
     { id: 'conexao', label: t('tabs.conexao') },
     { id: 'grupos', label: t('tabs.grupos') },
     { id: 'ajustes', label: t('tabs.ajustes') },
+    { id: 'campanha', label: t('tabs.campanha') },
   ]
 
   return (
@@ -172,6 +236,7 @@ export default function ConfiguracoesLinhaPage() {
         connection?.name ? t('aparelho', { nome: connection.name }) : undefined
       }
       provider={t('provider.naoOficial')}
+      onVoltar={handleVoltar}
       status={
         connection === null
           ? undefined
@@ -183,7 +248,7 @@ export default function ConfiguracoesLinhaPage() {
       <Tabs
         tabs={tabs}
         activeTab={activeTab}
-        onChange={setActiveTab}
+        onChange={requestTab}
         ariaLabel={t('tabsAriaLabel')}
       />
 
@@ -206,8 +271,13 @@ export default function ConfiguracoesLinhaPage() {
             isConnected={connection?.connected === true}
           />
         )}
-        {activeTab === 'ajustes' && <AjustesTab itemId={linha.id} />}
+        {activeTab === 'ajustes' && (
+          <AjustesTab itemId={linha.id} onDirtyChange={setAjustesDirty} />
+        )}
+        {activeTab === 'campanha' && <CampanhaSmsTab itemId={linha.id} />}
       </div>
+
+      {confirmacaoSaida}
     </Shell>
   )
 }
@@ -217,6 +287,7 @@ function Shell({
   subtitulo,
   provider,
   status,
+  onVoltar,
   children,
 }: {
   titulo?: string
@@ -224,6 +295,8 @@ function Shell({
   subtitulo?: string
   provider?: string
   status?: { label: string; tone: 'ok' | 'warn' }
+  /** Pode cancelar a navegação (`preventDefault`) — ex.: alteração não salva. */
+  onVoltar?: (event: React.MouseEvent<HTMLAnchorElement>) => void
   children: React.ReactNode
 }) {
   const { t } = useTranslation('thinkzap/configuracoes/page')
@@ -233,6 +306,7 @@ function Shell({
       <header className="flex flex-col gap-3">
         <Link
           href="/thinkzap/conexoes"
+          onClick={onVoltar}
           className="w-fit text-sm text-primary hover:underline"
         >
           ← {t('voltar')}

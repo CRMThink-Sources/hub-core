@@ -15,7 +15,8 @@
     "conexao": "Connection",
     "grupos": "Groups",
     "templates": "Templates",
-    "ajustes": "Settings"
+    "ajustes": "Settings",
+    "campanha": "SMS campaign"
   },
   "provider": {
     "oficial": "Official",
@@ -24,5 +25,11 @@
   "status": {
     "conectada": "Connected",
     "desconectada": "Disconnected"
+  },
+  "sairSemSalvar": {
+    "titulo": "Leave without saving?",
+    "descricao": "There are changes to this line settings that have not been saved yet. If you leave now, they will be discarded.",
+    "confirmar": "Discard and leave",
+    "cancelar": "Keep editing"
   }
 }
