@@ -40,9 +40,6 @@ const flows = new PrismaBotFlowRepository()
 const bindings = new PrismaBotFlowBindingRepository()
 const bots = new PrismaBotFlowBotRepository()
 
-// Um evento `ONIMBOTV2*` do bot do fluxo. Só orquestra: aqui ficam as resoluções que
-// exigem I/O — instalação pelo domínio, linha pelo chat, e o `botToken` das chamadas de
-// volta.
 export async function processBitrixBotEvent(
   body: unknown,
   ctx: { appendJobLog: AppendJobLog },
@@ -50,9 +47,7 @@ export async function processBitrixBotEvent(
   const event = parseBotEvent(body, BOT_CODE)
 
   if (event.kind === 'ignore') {
-    // Caminho normal, não erro: mensagem do operador, aviso de sistema e evento de outro
-    // bot chegam no mesmo endereço. Vai para o log do job para distinguir "não devia
-    // rodar" de "devia e não rodou".
+    // Caminho normal: operador, sistema e outros bots chegam no mesmo endereço.
     await ctx.appendJobLog(`Evento ignorado | motivo=${event.ignoreReason}`)
     return
   }
@@ -115,8 +110,7 @@ export async function processBitrixBotEvent(
     return
   }
 
-  // `botToken` do banco, não do evento: é a chave que geramos no registro e a única cópia
-  // dela. Sem ela `transfer` e `finish` não identificam o bot chamador.
+  // `botToken` vem do banco (única cópia); sem ele `transfer`/`finish` não identificam o bot.
   const bot = await bots.getByAppId(installedApp.id)
   if (!bot) {
     logThinkzapError(
@@ -136,17 +130,8 @@ export async function processBitrixBotEvent(
     domain: domain.name,
   })
 
-  /**
-   * Um turno por chat de cada vez, do `dialog.get` até a última fala.
-   *
-   * O Bitrix dispara `MESSAGEADD` e `JOINCHAT` no mesmo instante na abertura da conversa
-   * (medido: 4 ms), e a fila roda com `concurrency: 10`. Os dois jobs entravam em
-   * paralelo, **nenhum via a sessão criada pelo outro**, e os dois rodavam o fluxo do
-   * início — o cliente recebia a saudação duas vezes.
-   *
-   * Descarta o concorrente em vez de esperar: é justamente o evento que não deve rodar de
-   * novo, e segurar um slot bloqueado reduziria dez workers a um.
-   */
+  // `MESSAGEADD` e `JOINCHAT` chegam juntos e duplicariam a saudação: um turno por chat,
+  // concorrente descartado (esperar prenderia slots do worker).
   const lock = await acquireBotChatLock(
     redisConnection,
     installedApp.id,
@@ -160,8 +145,7 @@ export async function processBitrixBotEvent(
   }
 
   try {
-    // O evento traz `chat.id` e o vínculo é por `CONFIG_ID` da linha: `dialog.get` é a
-    // única ponte entre os dois, uma chamada por evento.
+    // Única ponte entre `chat.id` do evento e o `CONFIG_ID` da linha.
     const dialog = await client.callMethod('imopenlines.dialog.get', {
       CHAT_ID: event.chatId,
     })
@@ -184,9 +168,7 @@ export async function processBitrixBotEvent(
       `Turno do bot | chat=${event.chatId} | linha=${lineId} | tipo=${event.kind}`,
     )
 
-    // Da mesma resposta do `dialog.get`, sem chamada extra: o `entity_data_2` traz os
-    // vínculos de CRM do chat, e é o que o bloco "Já é cliente?" compara.
-    // Nome do chat como reserva: o `JOINCHAT` não traz o autor, e é o turno da saudação.
+    // Nome do chat como reserva: o `JOINCHAT` (turno da saudação) não traz o autor.
     const crm = crmVars(crmEntitiesFromDialog(dialog), {
       name: event.authorName || contactNameFromDialog(dialog),
     })
@@ -209,7 +191,6 @@ export async function processBitrixBotEvent(
       sessions,
       flows,
       bindings,
-      // Só chamado se o fluxo tem bloco de horário — ver `runBotTurn`.
       workingHours: async (id: string) => {
         try {
           const config = await client.getOpenChannel(id)
@@ -226,7 +207,13 @@ export async function processBitrixBotEvent(
           await ctx.appendJobLog(
             `Horário do canal indisponível | linha=${id} — fluxo segue como dentro do expediente.`,
           )
-          console.error('[bot-event] getOpenChannel error:', error)
+          logThinkzapError(log, 'thinkzap.bot.working_hours_unavailable', {
+            domain: domain.name,
+            chatId: event.chatId,
+            lineId: id,
+            appId: installedApp.id,
+            err: error,
+          })
           return null
         }
       },
@@ -234,14 +221,8 @@ export async function processBitrixBotEvent(
 
     let outcome = await runBotTurn(event, lineId, installedApp.id, deps, crm)
 
-    /**
-     * Canal ligado pelo painel do Bitrix, e não pela nossa tela: registra o vínculo e roda
-     * o turno que acabou de não ter fluxo.
-     *
-     * `sem-vinculo` só, das razões de skip: as outras dizem que o vínculo existe e está
-     * impedido (inativo, fluxo fora do ar), e criar outro por cima passaria por cima de
-     * uma decisão que o cliente tomou.
-     */
+    // Canal ligado pelo painel do Bitrix: adota só em `sem-vinculo`; os outros skips são
+    // decisão do cliente (vínculo inativo, fluxo fora do ar).
     if (outcome.kind === 'skipped' && outcome.reason === 'sem-vinculo') {
       const adotado = await adoptLineBinding(installedApp.id, lineId, {
         flows,
@@ -258,15 +239,13 @@ export async function processBitrixBotEvent(
     }
 
     if (outcome.kind === 'duplicado') {
-      // Rede de segurança do lock: cobre o evento que chega depois de o lock ter sido
-      // liberado, quando a sessão do turno anterior já está gravada.
+      // Rede de segurança para evento que chega depois de o lock ser liberado.
       await ctx.appendJobLog(`Evento repetido | motivo=${outcome.reason}`)
       return
     }
 
     if (outcome.kind === 'entregue') {
-      // Antes do `skipped` de propósito: lá o desfecho é transferir para a fila, e aqui a
-      // conversa já está com um atendente — transferir de novo a tiraria dele.
+      // Antes do `skipped`: transferir para a fila tiraria a conversa do atendente.
       await ctx.appendJobLog(
         `Chat com atendimento humano desde ${outcome.desde.toISOString()} — bot calado.`,
       )
@@ -274,16 +253,13 @@ export async function processBitrixBotEvent(
     }
 
     if (outcome.kind === 'gone') {
-      // Sem handoff para a fila: o bot não fala mais neste chat, então transferir
-      // falharia pelo mesmo motivo. Quem assumiu a conversa já está com ela.
+      // Sem handoff: o bot saiu do chat, transferir falharia pelo mesmo motivo.
       await ctx.appendJobLog(`Bot fora da sessão | código=${outcome.code}`)
       return
     }
 
     if (outcome.kind === 'skipped') {
-      // Bot na linha e nenhum fluxo para rodar: vai para a fila em vez de chat mudo.
-      // Acontece se o `unbind` falhou, se o fluxo foi despublicado com vínculo ativo, ou
-      // se o vínculo foi apagado direto no banco.
+      // Bot na linha sem fluxo: vai para a fila em vez de deixar o chat mudo.
       logThinkzapError(
         log,
         'thinkzap.bot.turn_skipped',
@@ -312,20 +288,8 @@ export async function processBitrixBotEvent(
   }
 }
 
-/**
- * Envolve o adapter do bot no `HybridBotSessionAdapter`, que entrega a fala ao contato
- * pelo mesmo caminho do operador.
- *
- * Escrever no chat do canal aberto **não** faz a mensagem chegar ao WhatsApp: o Bitrix não
- * dispara `ONIMCONNECTORMESSAGEADD` pela fala do bot, e é esse evento que o ThinkZap
- * escuta para despachar ao provider. Sem isto a saudação aparece no chat, o operador a lê,
- * e o cliente nunca recebe nada — ver `HybridBotSessionAdapter`.
- *
- * O contexto é resolvido pela linha, a mesma chave do fluxo de mensagem do operador.
- * Quando não resolve (canal aberto sem conector do ThinkZap — Telegram, site, outro app),
- * segue só com o eco: o Bitrix entrega ao conector daquele canal por conta própria, e um
- * envio nosso não teria para onde ir.
- */
+// A fala do bot não dispara `ONIMCONNECTORMESSAGEADD`, então entregamos ao contato direto;
+// canal sem conector ThinkZap fica só no eco (o Bitrix repassa ao conector dele).
 async function comEntregaAoContato(
   eco: BotSessionPort,
   input: {

@@ -5,22 +5,16 @@ import { httpResponse } from '@/shared/helpers/http'
 import { mapLineBlockedError } from './handle-line-error'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
+import { AppError } from '@/shared/domain/errors/app-error'
 
-/**
- * Traduz a falha de uma operação de grupo em resposta HTTP.
- *
- * A discriminação é por **classe** de erro, não por texto da mensagem: as
- * mensagens de `LineNotFoundError` e `LineProviderNotSupportedError` são
- * interpoladas com o id e o provider, então comparar strings nunca casaria e
- * todo erro de resolução caía em `400`.
- */
+// Discrimina por classe, não por texto: as mensagens são interpoladas.
 export function mapGroupServiceError(
   error: unknown,
   fallbackMessage: string,
 ): httpResponse {
   const message = error instanceof Error ? error.message : fallbackMessage
 
-  /** Id fora da instalação do token é indistinguível de id inexistente. */
+  // Id fora da instalação do token é indistinguível de id inexistente.
   if (error instanceof LineNotFoundError) {
     logThinkzapError(
       apiLogger,
@@ -31,19 +25,12 @@ export function mapGroupServiceError(
     return { status: 404, result: { error: message } }
   }
 
-  /**
-   * Mesma resposta das rotas de linha, de propósito: operação de grupo recusada
-   * por linha bloqueada é o mesmo caso, e o `400` genérico deste mapper faria a
-   * tela tratá-la como entrada inválida.
-   */
+  // Mesma resposta das rotas de linha; o 400 genérico faria a tela tratar como entrada inválida.
   if (error instanceof LineBlockedError) {
     return mapLineBlockedError(error)
   }
 
-  /**
-   * `400` e não `404`: a linha existe (HubMessage, por exemplo), o que não se
-   * aplica é a operação de grupo. Mesma regra vale para linha desconectada.
-   */
+  // 400 e não 404: a linha existe, a operação de grupo é que não se aplica.
   if (error instanceof LineProviderNotSupportedError) {
     logThinkzapError(
       apiLogger,
@@ -53,6 +40,9 @@ export function mapGroupServiceError(
     )
     return { status: 400, result: { error: message } }
   }
+
+  // Já catalogado (z-api, 502): o funil loga o code e responde o status certo.
+  if (error instanceof AppError) throw error
 
   return { status: 400, result: { error: message } }
 }

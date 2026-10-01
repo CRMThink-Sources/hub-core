@@ -17,14 +17,7 @@ import { mapLineBlockedError } from '@/modules/thinkzap/presentation/helpers/han
 import { apiLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
-/**
- * Conclui a conexão de um canal HubMessage (WhatsApp Oficial). O SDK roda no
- * iframe Bitrix, onde o cliente autentica a própria conta Meta e obtém
- * `wabaId/phoneId/code`. `coexistence` é fixo `false` nesta entrega.
- *
- * É o par oficial do QR code, e recusa pela mesma razão: conectar é abrir sessão,
- * e linha de trial vencido que reconecta volta a funcionar por fora do bloqueio.
- */
+// Recusa linha bloqueada como o QR code: reconectar trial vencido furaria o bloqueio.
 export class ConnectChannelController extends Controller {
   constructor(
     private readonly hubMessageClient: HubMessageClient,
@@ -38,22 +31,7 @@ export class ConnectChannelController extends Controller {
     super()
   }
 
-  /**
-   * Grava a WABA no item de assinatura da linha.
-   *
-   * **É aqui que a WABA passa a existir para o produto.** O provisionamento cria só o
-   * canal; a WABA vem do embedded signup, nesta requisição. Antes disso ela era
-   * gravada apenas na `Instance`, e o item — que é a linha do ponto de vista do
-   * cliente, e a fonte que templates leem — nunca a recebia.
-   *
-   * Só o `metadata`: `settings` e `vinculatedChannel` são configuração do cliente e
-   * não têm nada a ver com conectar um número.
-   *
-   * **Não é fatal.** O canal já está conectado no provider neste ponto, e falhar aqui
-   * transformaria uma conexão bem-sucedida em erro na cara do cliente. O que se perde
-   * é a WABA no item — que os templates recusam nomeando —, e a recuperação é
-   * reconectar ou gravar à mão no CRM.
-   */
+  // Único ponto onde a WABA chega ao item (fonte dos templates). Não fatal: o canal já está conectado.
   private async saveWabaOnLine(
     channelId: string,
     wabaId: string,
@@ -75,24 +53,16 @@ export class ConnectChannelController extends Controller {
         metadata: { ...metadata, wabaId },
       })
     } catch (error) {
-      apiLogger.error(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.line.waba_persist_failed',
         { app: 'thinkzap', channelId, wabaId, err: error },
-        'Canal conectado e a WABA não foi gravada no item da linha — templates vão recusar até ela existir; gravar à mão no CRM',
+        { level: 'error' },
       )
     }
   }
 
-  /**
-   * Recusa a conexão quando o canal pertence a uma linha bloqueada.
-   *
-   * A resolução é pelo `channelId` porque esta rota é keyed por `connectorId`, não
-   * pelo item — ela nasceu antes de a linha ser o item da SPA.
-   *
-   * **Canal sem item correspondente segue conectando**, com warning: `Connector`
-   * ainda tem rows anteriores à SPA, e recusar todas elas transformaria um bloqueio
-   * de trial em quebra do caminho legado. A linha sem item já é barrada em todo
-   * caminho de mensagem, que resolve `inactive` na ausência de assinatura pai.
-   */
+  // Canal sem item segue conectando: há Connectors legados anteriores à SPA, barrados no caminho de mensagem.
   private async assertChannelEnabled(
     channelId: string,
     domainId: string,
@@ -116,10 +86,7 @@ export class ConnectChannelController extends Controller {
     }
   }
 
-  /**
-   * Cria o webhook do canal quando o provisionamento não conseguiu criá-lo.
-   * Não é fatal: o canal já está conectado e o vínculo pode ser refeito depois.
-   */
+  // Não fatal: o canal já está conectado e o vínculo pode ser refeito depois.
   private async createWebhookIfMissing(
     channelId: string,
     existingWebhookId: string | null | undefined,
@@ -162,11 +129,7 @@ export class ConnectChannelController extends Controller {
       )
     }
 
-    /**
-     * A instalação vem do JWT, nunca do corpo — do mesmo jeito que nas rotas de
-     * linha. Ausente é erro de rota (o `authMiddleware` já roda antes), não algo a
-     * degradar para "não verificado".
-     */
+    // Instalação vem do JWT, nunca do corpo.
     const scope = z
       .object({ domainId: z.string().min(1), appCode: z.string().min(1) })
       .safeParse({ domainId: req.domainId, appCode: req.appId })
@@ -203,7 +166,7 @@ export class ConnectChannelController extends Controller {
       return this.badRequest(new Error('Conector HubMessage sem channelId'))
     }
 
-    /** Antes de tocar a HubMessage: recusada não gasta autenticação Meta. */
+    // Antes da HubMessage: recusada não gasta autenticação Meta.
     try {
       await this.assertChannelEnabled(
         channelId,
@@ -235,10 +198,7 @@ export class ConnectChannelController extends Controller {
       webhookId,
     })
 
-    /**
-     * Depois de a conexão estar gravada: a `Instance` é o que o caminho legado lê, e o
-     * item é o que a linha do cliente é hoje. Os dois precisam da WABA.
-     */
+    // Instance (legado) e item precisam da WABA.
     await this.saveWabaOnLine(channelId, wabaId, scope.data)
 
     return this.ok({ message: 'Channel connected successfully' })

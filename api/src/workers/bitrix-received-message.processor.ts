@@ -39,7 +39,10 @@ import {
   findLineItemByInstanceId,
 } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
-import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import {
+  logThinkzapError,
+  thinkzapError,
+} from '@/modules/thinkzap/errors/catalog'
 import {
   AppendJobLog,
   noopJobLog,
@@ -69,43 +72,17 @@ type PersistOutboundMessageInput = {
   instanceId: string
   providerMessageId: string
   bitrixMessageId: string
-  /**
-   * A identidade do contato — o `chat.id` do evento, usado verbatim como destino no
-   * provider.
-   *
-   * **Não é telefone.** A doc antiga aqui dizia que era "telefone canônico sempre que o
-   * contato tem um", e isso deixou de valer: em linha Z-API a identidade passou a ser o
-   * LID do contato, porque o `phone` que a Z-API entrega vem ora número, ora `@lid`, e
-   * usá-lo como chave abria duas conversas para a mesma pessoa.
-   *
-   * O que **continua** valendo é a invariante que importa: o valor é o mesmo em todas as
-   * direções que escrevem `chat.id`, então a resposta do operador disca o mesmo
-   * identificador que o inbound usou. A Z-API aceita um `@lid` no campo `phone` do envio
-   * — é o mecanismo documentado por eles.
-   *
-   * As formas possíveis, todas aceitas pelo provider: LID (Z-API, contato novo),
-   * telefone normalizado (Z-API legado, e HubMessage) e jid de grupo.
-   */
+  // `chat.id` do evento, verbatim: não é telefone (pode ser LID, telefone ou jid de grupo);
+  // é o mesmo valor que o inbound usa, então a resposta disca o mesmo destino.
   chatId: string
-  /**
-   * Chat do canal aberto (`im.chat_id`), onde o operador escreveu.
-   *
-   * Passou a ser gravado porque é o único endereço para avisar o operador quando o
-   * provider aceita o envio e a Meta o recusa depois — o callback de status conhece a
-   * mensagem por `providerMessageId` e precisa daqui o `DIALOG_ID`. Sem isto, a recusa
-   * não tem onde aparecer.
-   */
+  // Único endereço (DIALOG_ID) para avisar o operador quando a Meta recusa após o aceite.
   bitrixChatId: string
   type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'INTERACTIVE_BUTTON'
   text?: string
   fileName?: string
 }
 
-/**
- * Objeto em vez de sete posicionais: os quatro primeiros campos são todos ids em
- * string, e a ordem deles era a única coisa separando "gravou o chat certo" de "gravou
- * o telefone no lugar do chat".
- */
+// Objeto em vez de posicionais: vários ids em string, fácil trocar a ordem sem o tipo acusar.
 async function persistOutboundMessage(
   input: PersistOutboundMessageInput,
 ): Promise<void> {
@@ -122,39 +99,21 @@ async function persistOutboundMessage(
       chatId: input.chatId,
     })
   } catch (err) {
-    log.warn(
-      {
-        instanceId: input.instanceId,
-        providerMessageId: input.providerMessageId,
-        bitrixMessageId: input.bitrixMessageId,
-        err,
-        dbWriteFailed: true,
-      },
-      'Failed to persist outbound message to DB',
-    )
+    logThinkzapError(log, 'thinkzap.message.outbound_persist_failed', {
+      instanceId: input.instanceId,
+      providerMessageId: input.providerMessageId,
+      bitrixMessageId: input.bitrixMessageId,
+      err,
+      dbWriteFailed: true,
+    })
   }
 }
 
-/** Tipos em que o WhatsApp aceita legenda junto da mídia. */
 const CAPTIONABLE_KINDS: ReadonlySet<OutboundMessageDescriptor['kind']> =
   new Set(['image', 'video', 'document'])
 
-/**
- * Converte o evento do Bitrix em descritores neutros de envio. O provider
- * concreto é decidido depois, no resolver — aqui nada sabe de Z-API ou
- * HubMessage.
- *
- * O evento traz `text` e `files` no **mesmo** objeto quando o operador anexa um
- * arquivo e escreve um comentário no mesmo envio. Aqui havia um `return` no
- * primeiro `if (text)`, antes do laço de anexos: o arquivo era descartado em
- * silêncio e o contato recebia só o texto, com o job em `completed` e o Bitrix
- * já confirmado. Por isso os dois são percorridos.
- *
- * Onde o tipo aceita legenda (imagem, vídeo, documento), o texto vira legenda do
- * **primeiro** anexo — uma mensagem só, como o operador vê no Bitrix. Onde não
- * aceita (áudio), sai como texto separado **antes** da mídia, que é a ordem em
- * que o comentário aparece acima do anexo no canal aberto.
- */
+// `text` e `files` podem vir juntos: o texto vira legenda do primeiro anexo legendável,
+// senão sai como texto separado antes da mídia (ordem do canal aberto).
 function toOutboundDescriptors(
   message: IBX24MessageEvent['data']['MESSAGES'][number],
   logContext: { domain: string },
@@ -181,8 +140,7 @@ function toOutboundDescriptors(
     })
   }
 
-  // Anexo de tipo desconhecido não leva o texto embora: sem mídia sobrando, o
-  // comentário ainda é a mensagem que o operador quis enviar.
+  // Anexo desconhecido descartado não pode levar o texto embora.
   if (!media.length) return text ? [{ kind: 'text', text }] : []
 
   if (!text) return media
@@ -196,14 +154,12 @@ function toOutboundDescriptors(
   return [{ kind: 'text', text }, ...media]
 }
 
-/** Rótulo do descritor para a aba Logs: distingue mídia legendada de mídia crua. */
 function describeDescriptor(descriptor: OutboundMessageDescriptor): string {
   return descriptor.kind !== 'text' && descriptor.text
     ? `${descriptor.kind} com legenda`
     : descriptor.kind
 }
 
-/** `null` = tipo não suportado; o chamador loga e ignora sem derrubar o job. */
 function toOutboundKind(file: {
   name: string
   type: string
@@ -225,15 +181,7 @@ function toOutboundKind(file: {
   }
 }
 
-/**
- * Envia ao contato no WhatsApp a mensagem que o operador escreveu no canal aberto do
- * Bitrix, pelo provider do conector daquela linha.
- *
- * Além do log de processo (stdout → Promtail → Loki), escreve a história desta execução
- * na **aba Logs do job** via `appendJobLog`: é onde quem abre um job específico no Bull
- * Board procura "por que esta mensagem não chegou", sem montar query no Loki. Uma linha
- * por decisão e por desfecho, não por passo — cada chamada é um round-trip ao Redis.
- */
+// appendJobLog: uma linha por decisão/desfecho, não por passo — cada chamada vai ao Redis.
 export async function processBitrixReceivedMessage(
   event: IBX24MessageEvent,
   deps: { appendJobLog: AppendJobLog } = { appendJobLog: noopJobLog },
@@ -284,15 +232,7 @@ export async function processBitrixReceivedMessage(
     'Bitrix messages parsed',
   )
 
-  /**
-   * Os tipos **depois** da tradução, não os do evento: anexo de tipo desconhecido é
-   * descartado no parse, e sem esta linha um job que não enviou nada parece um job que
-   * enviou. `nenhum` aqui já é a resposta inteira para "a mensagem não chegou".
-   *
-   * `com legenda` está aqui porque a linha antiga dizia só `text` quando o operador
-   * mandava imagem com comentário — o mesmo log de um envio que era realmente só
-   * texto, escondendo o anexo perdido.
-   */
+  // Tipos após o parse (anexo desconhecido já descartado), não os do evento.
   await appendJobLog(
     `Conteúdo a enviar: ${
       descriptors.map(describeDescriptor).join(', ') ||
@@ -311,19 +251,20 @@ export async function processBitrixReceivedMessage(
       line: event.data.LINE,
     })
   } catch (error) {
-    /**
-     * Ambiguidade de vínculo é dado errado no CRM, não falha técnica: duas linhas
-     * ativas dizendo responder pelo mesmo canal aberto. Nomeada aqui porque o
-     * "Contexto não encontrado" genérico mandaria o suporte procurar linha que existe.
-     */
+    // Dado errado no CRM (duas linhas ativas no mesmo canal), não "contexto ausente".
     if (error instanceof AmbiguousChannelBindingError) {
-      log.error(
+      logThinkzapError(
+        log,
+        'thinkzap.line.channel_binding_ambiguous',
         {
           domain: event.auth.domain,
           line: event.data.LINE,
           subscriptionItemIds: error.subscriptionItemIds,
         },
-        'Canal aberto vinculado a mais de uma linha ativa',
+        {
+          level: 'error',
+          msg: 'Canal aberto vinculado a mais de uma linha ativa',
+        },
       )
       await appendJobLog(
         `${error.message}. Cada linha sai de um número diferente — enviar pela primeira ` +
@@ -331,20 +272,23 @@ export async function processBitrixReceivedMessage(
           'Conserto é no CRM: desvincular o canal do item que não deve responder ' +
           '(`ufCrm93Conector` na SPA 1146). Job vai falhar; retentativa cai no mesmo lugar.',
       )
+      throw thinkzapError('thinkzap.line.channel_binding_ambiguous', error)
     }
     throw error
   }
 
   if (!context) {
-    log.error(
+    logThinkzapError(
+      log,
+      'thinkzap.message.outbound_context_missing',
       { domain: event.auth.domain, line: event.data.LINE },
-      'Bitrix webhook context not found',
+      { level: 'error' },
     )
     await appendJobLog(
       `Contexto do webhook não encontrado (domínio=${event.auth.domain}, linha=${event.data.LINE}). ` +
         'Sem instância/conector não há para onde enviar — job vai falhar.',
     )
-    throw new Error('Context not found')
+    throw thinkzapError('thinkzap.message.outbound_context_missing')
   }
 
   const provider = context.connector.provider
@@ -366,11 +310,7 @@ export async function processBitrixReceivedMessage(
       `destino(chatId)=${chatId}`,
   )
 
-  /**
-   * Linha resolvida **uma vez**, no topo: dá o entitlement e os `settings` na mesma
-   * leitura. Antes os settings eram resolvidos lá embaixo, dentro do branch de
-   * texto, o que fazia uma segunda leitura do contexto por mensagem de texto.
-   */
+  // Resolvida uma vez: entitlement e settings na mesma leitura.
   const appCode =
     resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId ?? ''
   const line =
@@ -392,29 +332,25 @@ export async function processBitrixReceivedMessage(
           makeGetAplicationContext(),
         )
 
-  /**
-   * Recusa **visível**, não descarte silencioso: aqui existe um operador no Bitrix
-   * esperando que a mensagem saia. Lançar deixa o job falhar e o erro aparecer.
-   *
-   * Linha não resolvida cai no mesmo caminho: sem item não há assinatura que
-   * autorize o envio.
-   */
+  // Lança em vez de descartar: há um operador esperando, a falha precisa aparecer.
   if (!line || line.entitlement !== 'active') {
-    log.error(
+    logThinkzapError(
+      log,
+      'thinkzap.line.blocked',
       {
         domain: event.auth.domain,
         instanceId: context.instance.instanceId,
         subscriptionItemId: line?.item.id ?? null,
         entitlement: line?.entitlement ?? 'unresolved',
       },
-      'Envio recusado: linha sem assinatura ativa',
+      { level: 'error', msg: 'Envio recusado: linha sem assinatura ativa' },
     )
     await appendJobLog(
       `Envio recusado: linha sem assinatura ativa | item=${line?.item.id ?? 'não resolvido'} | ` +
         `entitlement=${line?.entitlement ?? 'unresolved'}. É assinatura, não falha técnica — ` +
         'retentativa cai no mesmo lugar.',
     )
-    throw new Error('Line is not enabled for outbound messages')
+    throw thinkzapError('thinkzap.line.blocked')
   }
 
   const bitrixClient = new BitrixClient({
@@ -429,14 +365,8 @@ export async function processBitrixReceivedMessage(
     env.appCodes.thinkzap,
   )
 
-  /**
-   * A tela de botões do canal aberto não conhece o provider da linha (só o
-   * `dialogId` — ver design.md, Open Questions), então ela posta este texto
-   * especial, **como o operador**, no lugar de chamar o contrato neutro
-   * direto. Interceptado aqui, antes de qualquer descritor de texto/mídia ser
-   * montado ou enviado — é aqui que provider e destino já estão resolvidos,
-   * exatamente o que a tela não tinha.
-   */
+  // A tela de botões não conhece o provider, então posta um código como o operador;
+  // interceptado aqui, onde provider e destino já estão resolvidos.
   if (isButtonActionCode(message.message.text ?? '')) {
     await sendButtonActionMessage({
       event,
@@ -468,8 +398,7 @@ export async function processBitrixReceivedMessage(
 
   const replyId = response.result?.message?.params?.REPLY_ID
 
-  // Provider sem suporte a citar mensagem não resolve a referência: evita uma
-  // consulta ao banco cujo resultado seria descartado no adapter.
+  // Sem suporte a reply, pula a consulta ao banco que o adapter descartaria.
   let referencedMessageId: string | undefined
   if (replyId && !sender.supportsReply) {
     log.debug(
@@ -524,39 +453,18 @@ export async function processBitrixReceivedMessage(
           : ''),
     )
 
-    /**
-     * O texto do operador passa pelo preparo do canal aberto (assinatura etc.);
-     * midia e documento seguem com o link cru do Bitrix.
-     *
-     * A condição é "tem texto", não "é do tipo `text`": a legenda de uma mídia é o
-     * mesmo texto do operador e precisa do mesmo prefixo de nome, senão a mesma
-     * configuração de linha produziria duas saídas diferentes.
-     */
+    // "Tem texto", não "é text": a legenda também precisa do prefixo de nome.
     const toSend = descriptor.text
       ? {
           ...descriptor,
           text: await prepareOpenLineOutboundText({
             text: descriptor.text || '',
-            /**
-             * Do item da SPA, não de `context.instance.settings`: a coluna do
-             * banco não é mais escrita desde que a configuração passou para
-             * `ufCrm93Settings`, então ler dela devolveria o valor congelado de
-             * antes da migração — o prefixo de nome se comportaria ao contrário
-             * do que a tela mostra.
-             *
-             * Vem da resolução do topo, que já leu o contexto para decidir o
-             * entitlement — não há segunda ida ao Bitrix por mensagem.
-             */
+            // Do item da SPA: `context.instance.settings` não é mais escrito (valor congelado).
             settings: line.settings,
             operatorUserId: message.message.user_id,
             appId: context.app.id,
             getBitrixUserDisplayName,
             getAllowedUser,
-            /**
-             * O prefixo ligado e não aplicado é invisível no texto que sai — e era
-             * invisível no log também. Aqui existe uma aba onde o cliente olha:
-             * sem esta linha, "liguei o toggle e nada acontece" não tem resposta.
-             */
             onPrefixUnresolved: info =>
               appendJobLog(describePrefixUnresolved(info)),
           }),
@@ -567,9 +475,7 @@ export async function processBitrixReceivedMessage(
     try {
       result = await sender.send(toSend, { referencedMessageId })
     } catch (err) {
-      // Janela de 24h fechada e uma falha permanente: nenhuma retentativa passa,
-      // so um template aprovado. Avisa o operador e encerra sem relancar, para o
-      // BullMQ nao retentar. Sem persistir e sem confirmar entrega.
+      // Janela de 24h fechada é permanente: avisa o operador e não relança (sem retentativa).
       if (isConversationWindowClosedError(err)) {
         logThinkzapError(
           log,
@@ -610,12 +516,7 @@ export async function processBitrixReceivedMessage(
         },
         { level: 'error' },
       )
-      /**
-       * A mensagem do erro é o que interessa aqui: `HubMessageApiError` já traz método,
-       * URL, status HTTP e corpo da resposta no `message`. É a linha que diz se o
-       * provider recusou (4xx com motivo) ou caiu (5xx) — sem ela, a aba mostraria só
-       * que o job falhou.
-       */
+      // `HubMessageApiError.message` já traz método, URL, status e corpo da resposta.
       await appendJobLog(
         `Falha no envio via ${provider}: ${err instanceof Error ? err.message : String(err)}. ` +
           'Job vai falhar — BullMQ retenta conforme as tentativas configuradas.',
@@ -635,12 +536,6 @@ export async function processBitrixReceivedMessage(
       'Message sent to contact',
     )
 
-    /**
-     * **Aceite do provider, não entrega ao contato.** O que houve aqui foi um 2xx na
-     * API; ninguém trata callback de status de entrega, então este id é o fim da nossa
-     * visibilidade. Job `completed` com esta linha e contato sem a mensagem = investigar
-     * do lado do provider, por este `providerMessageId` — não no nosso código.
-     */
     await appendJobLog(
       `${provider} aceitou (HTTP 2xx): providerMessageId=${result.messageId} | ` +
         `tipoPersistido=${result.persistedType}. Aceite ≠ entrega — não há callback de ` +
@@ -654,14 +549,7 @@ export async function processBitrixReceivedMessage(
       chatId,
       bitrixChatId: message.im.chat_id,
       type: result.persistedType,
-      /**
-       * Mídia legendada grava aqui a legenda que o adapter devolveu em `sentText`,
-       * mantendo `type` da mídia. Mídia sem legenda continua gravando `null`.
-       */
       text: result.sentText,
-      // Só documento persiste `fileName` — imagem/vídeo/áudio nunca gravaram o
-      // nome do arquivo, e nem a extração do adapter nem a legenda mudam isso:
-      // quem procura o registro de uma imagem procura por id, não por arquivo.
       fileName:
         result.persistedType === 'DOCUMENT' ? descriptor.fileName : undefined,
     })
@@ -690,22 +578,7 @@ export async function processBitrixReceivedMessage(
   )
 }
 
-/**
- * O envio de botões disparado pela tela do canal aberto, uma vez decodificado
- * o texto especial que ela posta (ver `parse-button-action-code.ts`).
- *
- * Provider e destino já vêm resolvidos por quem chama — o mesmo contexto que
- * toda mensagem de saída resolve —, então esta função não repete nada disso.
- * Reaproveita a classificação de janela de 24h fechada
- * (`isConversationWindowClosedError`) porque o adapter de botão propaga o
- * mesmo `HubMessageApiError` cru que o de texto livre propaga — a
- * distinção é do formato do erro, não de qual sender o lançou.
- *
- * Código malformado e tipo de botão inválido para o provider são os dois
- * motivos permanentes: nenhum se resolve com retentativa, então os dois
- * terminam com aviso ao operador no chat e **sem relançar** — mesmo
- * tratamento da janela fechada.
- */
+// Código malformado, botão inválido e janela fechada são permanentes: avisa o operador e não relança.
 async function sendButtonActionMessage(params: {
   event: IBX24MessageEvent
   message: IBX24MessageEvent['data']['MESSAGES'][number]
