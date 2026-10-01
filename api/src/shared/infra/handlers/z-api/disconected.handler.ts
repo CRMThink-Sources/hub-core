@@ -2,25 +2,11 @@ import { ZApiEventHandler } from '../z-api-event-handler'
 import { ZApiDisconectedEvent } from './z-api'
 import { getIo } from '@/shared/infra/socket'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { enqueueThinkzapConnectionEvent } from '@/queue/thinkzap-connection-events.queue'
 import { enqueueThinkzapLineConnectedSync } from '@/queue/thinkzap-line-connected-sync.queue'
 
-/**
- * `DisconnectedCallback` da Z-API: avisa **a sala da instância**, não todo mundo.
- *
- * A versão anterior fazia `getIo().emit(...)` — broadcast para todos os sockets
- * conectados, com o evento cru. Só era inofensivo enquanto nenhum cliente
- * escutava; com um listener ligado, a desconexão de um cliente chegaria à tela de
- * todos os outros.
- *
- * Payload mínimo pela mesma razão do handler de conexão: ver `connected.handler.ts`.
- *
- * Além do socket, enfileira o aviso de desconexão aos destinatários configurados
- * (ver `thinkzap-connection-notify.processor.ts`, consumido pela fila
- * `thinkzap-connection-events`) — resolver domínio/app/destinatários e chamar o
- * Bitrix não acontece mais aqui dentro do webhook: se falhar, quem retenta é o
- * BullMQ, não este handler.
- */
+// Emite só para a sala da instância e com payload mínimo (ver connected.handler.ts).
 export class ZApiDisconectedHandler implements ZApiEventHandler {
   eventType = 'DisconnectedCallback'
 
@@ -43,10 +29,7 @@ export class ZApiDisconectedHandler implements ZApiEventHandler {
     await this.enqueueLineConnectedSync(event)
   }
 
-  /**
-   * Grava o campo Conectado do item da linha. Enfileiramento próprio, com
-   * `try/catch` próprio: falhar o aviso não pode impedir a gravação, e vice-versa.
-   */
+  // try/catch próprio: falhar o aviso não pode impedir a gravação, e vice-versa.
   private async enqueueLineConnectedSync(
     event: ZApiDisconectedEvent,
   ): Promise<void> {
@@ -58,15 +41,17 @@ export class ZApiDisconectedHandler implements ZApiEventHandler {
         momment: event.momment,
       })
     } catch (error) {
-      apiLogger.warn(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.line.connected_sync_enqueue_failed',
         {
           app: 'thinkzap',
           source: 'z-api',
           eventType: this.eventType,
           instanceId: event.instanceId,
-          error,
+          err: error,
         },
-        'Falha ao enfileirar gravação do campo Conectado (desconexão)',
+        { msg: 'Falha ao enfileirar gravação do campo Conectado (desconexão)' },
       )
     }
   }
@@ -80,15 +65,17 @@ export class ZApiDisconectedHandler implements ZApiEventHandler {
         error: event.error,
       })
     } catch (error) {
-      apiLogger.warn(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.line.connection_notify_enqueue_failed',
         {
           app: 'thinkzap',
           source: 'z-api',
           eventType: this.eventType,
           instanceId: event.instanceId,
-          error,
+          err: error,
         },
-        'Falha ao enfileirar aviso de desconexão Z-API',
+        { msg: 'Falha ao enfileirar aviso de desconexão Z-API' },
       )
     }
   }

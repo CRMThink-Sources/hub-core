@@ -3,16 +3,8 @@ import {
   type ErrorMeta,
 } from '@/shared/domain/errors/error-catalog'
 
-// Fonte única dos errorCode do thinkzap (metadados = summary do runbook + ação).
-// Via A (exceção que borbulha pro funil HTTP) usa thinkzapError(); via B/C
-// (webhook/worker/side-effect logado, sem exceção) usa logThinkzapError().
-// Todo code aqui tem runbook em mcp/kb/runbooks/hubcore/thinkzap/<area>/<causa>.md
-// (cruzado por teste). errorCode é contrato — estável, nunca renomear.
-//
-// Categorias: integration (terceiro falhou) · auth · validation (entrada ruim) ·
-// internal (bug/estado nosso) · config (ambiente/instalação incompleta).
+// errorCode é contrato: nunca renomear. Cada code exige runbook em mcp/kb/runbooks/hubcore/thinkzap/ (cruzado por teste).
 export const THINKZAP_ERRORS = {
-  // ── app: resolução da instalação (portal + app) em controllers/webhooks ──
   'thinkzap.app.context_missing': {
     category: 'validation',
     userCause: 'Não foi possível identificar a instalação na sua sessão.',
@@ -30,7 +22,6 @@ export const THINKZAP_ERRORS = {
     httpStatus: 404,
   },
 
-  // ── zapi: transporte do cliente z-api (WhatsApp não-oficial) ──
   'thinkzap.zapi.instance_create_failed': {
     category: 'integration',
     userCause: 'A z-api não conseguiu criar a linha de WhatsApp.',
@@ -112,7 +103,6 @@ export const THINKZAP_ERRORS = {
     httpStatus: 502,
   },
 
-  // ── hubmessage: transporte do WhatsApp Oficial ──
   'thinkzap.hubmessage.not_configured': {
     category: 'config',
     userCause: 'A integração com o WhatsApp Oficial não está configurada.',
@@ -152,7 +142,6 @@ export const THINKZAP_ERRORS = {
     retriable: false,
   },
 
-  // ── gateway: contratação/cobrança (provider de pagamento; hoje Stripe) ──
   'thinkzap.gateway.not_configured': {
     category: 'config',
     userCause: 'A contratação por cartão está indisponível no momento.',
@@ -228,7 +217,6 @@ export const THINKZAP_ERRORS = {
     httpStatus: 500,
   },
 
-  // ── bitrix: robô Bizproc, bot de atendimento, contexto de reply ──
   'thinkzap.bitrix.robot_webhook_failed': {
     category: 'integration',
     userCause:
@@ -312,14 +300,7 @@ export const THINKZAP_ERRORS = {
     retriable: true,
     httpStatus: 502,
   },
-  /**
-   * `code` do bot já usado por outra instalação no mesmo portal.
-   *
-   * Nomeado porque o `BOT_CODE_ALREADY_TAKEN` cru chegava como "Não foi possível vincular"
-   * e não dizia o que fazer: o `code` é único no portal, e `imbot.v2.Bot.register` só é
-   * idempotente para o app que registrou o bot. Acontece quando dois ambientes nossos
-   * apontam para o mesmo Bitrix24.
-   */
+  // `BOT_CODE_ALREADY_TAKEN`: dois ambientes nossos no mesmo Bitrix24 (register só é idempotente pro mesmo app).
   'thinkzap.bot.code_taken': {
     category: 'config',
     userCause:
@@ -329,9 +310,7 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 409,
   },
-  // Antes do registro, e não depois de o Bitrix recusar: sem o escopo a chamada volta com
-  // `ACCESS_DENIED` genérico, que manda o suporte investigar canal aberto e bot em vez da
-  // permissão do app. `retriable: false` porque só reinstalar o app resolve.
+  // Checado antes do registro: o Bitrix devolveria `ACCESS_DENIED` genérico, que despista o suporte.
   'thinkzap.bot.scope_missing': {
     category: 'config',
     userCause:
@@ -350,8 +329,7 @@ export const THINKZAP_ERRORS = {
     retriable: true,
     httpStatus: 502,
   },
-  // Recusa deliberada, não falha: o Bitrix guarda um bot de saudação por linha, e
-  // sobrescrever o de outro app o tiraria de operação sem aviso e sem volta.
+  // Recusa deliberada: sobrescrever o bot de outro app o derrubaria sem aviso.
   'thinkzap.bot.line_has_other_bot': {
     category: 'config',
     userCause:
@@ -385,10 +363,7 @@ export const THINKZAP_ERRORS = {
       'Conferir se o canal aberto está ativo e o bot instalado na linha; a conversa segue com o atendimento humano.',
     retriable: true,
   },
-  // O contato já recebeu quando isto acontece: só o registro no chat do canal aberto
-  // falhou, e o operador perde o histórico da fala, não a conversa.
-  // Degradação deliberada: sem sender o turno roda só com o eco no chat, e o operador vê
-  // a conversa em vez de o job falhar sem nada acontecer.
+  // Degradação deliberada: sem sender o turno roda só com eco no chat, em vez de o job falhar.
   'thinkzap.bot.contact_sender_unresolved': {
     category: 'config',
     userCause:
@@ -452,6 +427,14 @@ export const THINKZAP_ERRORS = {
       'Conferir se a instalação do ThinkZap ainda está ativa no portal e se o canal aberto do evento existe. Reinstalar o app recria a credencial e o registro do bot.',
     retriable: false,
   },
+  'thinkzap.bot.working_hours_unavailable': {
+    category: 'integration',
+    userCause:
+      'O bot não conseguiu ler o horário de atendimento do canal aberto e tratou a conversa como dentro do expediente.',
+    remediation:
+      'Conferir se o canal aberto do log ainda existe e se o app tem o escopo `imopenlines`; enquanto falhar, o bloco de horário do fluxo não tem efeito.',
+    retriable: true,
+  },
   'thinkzap.bot.turn_skipped': {
     category: 'config',
     userCause:
@@ -475,7 +458,6 @@ export const THINKZAP_ERRORS = {
     retriable: false,
   },
 
-  // ── subscription: ciclo de vida de linha/cobrança ──
   'thinkzap.subscription.activation_failed': {
     category: 'internal',
     userCause:
@@ -560,9 +542,7 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 404,
   },
-  // Item de assinatura criado à mão no CRM interno: sem cliente esperando resposta,
-  // então os três são observabilidade pura — não há `httpStatus`, o webhook já
-  // respondeu 200 antes de o job rodar.
+  // Sem `httpStatus`: o webhook já respondeu 200 antes de o job rodar.
   'thinkzap.subscription.manual_line_not_provisioned': {
     category: 'internal',
     userCause:
@@ -588,7 +568,6 @@ export const THINKZAP_ERRORS = {
     retriable: false,
   },
 
-  // ── provisioning: ciclo de vida da instância z-api ──
   'thinkzap.provisioning.instance_ensure_failed': {
     category: 'integration',
     userCause: 'Não foi possível preparar a linha para o envio.',
@@ -620,13 +599,7 @@ export const THINKZAP_ERRORS = {
     retriable: true,
   },
 
-  // ── message: orquestração de envio/recebimento (camada de use-case) ──
-  /**
-   * O toggle "Prefixar nome do operador" está ligado e o nome não foi resolvido por
-   * nenhuma origem — a mensagem saiu **sem** prefixo. O payload diz qual origem
-   * falhou (`prefixFailure`) e, quando houve recusa do portal, a mensagem dela
-   * (`refusal`): é o que separa escopo faltando na instalação de cadastro incompleto.
-   */
+  // `prefixFailure`/`refusal` no payload separam escopo faltando de cadastro incompleto.
   'thinkzap.message.operator_prefix_unresolved': {
     category: 'config',
     userCause:
@@ -669,13 +642,7 @@ export const THINKZAP_ERRORS = {
     retriable: true,
     httpStatus: 503,
   },
-  /**
-   * Emitido pelo processor de saída do canal aberto (`bitrix-received-message.processor`)
-   * quando o texto do operador é o código de botões da tela do canal aberto — não um
-   * envio pelo provider ainda. Cobre os dois motivos permanentes (código malformado,
-   * tipo de botão que a linha não aceita); nenhum dos dois se resolve com retentativa,
-   * então o job encerra sem relançar e o operador é avisado no próprio chat.
-   */
+  // Falha permanente (código malformado ou botão não aceito): o job encerra sem relançar.
   'thinkzap.message.button_action_failed': {
     category: 'validation',
     userCause:
@@ -684,11 +651,7 @@ export const THINKZAP_ERRORS = {
       'Conferir se os botões preenchidos são aceitos pela linha e reenviar pela tela.',
     retriable: false,
   },
-  /**
-   * O envio enfileirado esgotou as tentativas sem que o provider aceitasse a mensagem.
-   * **Nada foi entregue** — todas as falhas do caminho tiveram resposta HTTP do
-   * provider, o que prova recusa e não incerteza. O operador pode reenviar.
-   */
+  // Nada foi entregue: toda falha teve resposta HTTP do provider (recusa, não incerteza).
   'thinkzap.message.widget_send_exhausted': {
     category: 'integration',
     userCause:
@@ -697,11 +660,7 @@ export const THINKZAP_ERRORS = {
       'Conferir a conexão da linha e o número do destinatário; o operador foi avisado na timeline e pode reenviar.',
     retriable: false,
   },
-  /**
-   * O pior desfecho possível e o motivo de o outbox existir: o processo morreu, ou a
-   * rede caiu, **durante** a chamada ao provider. Pode ter entregue ou não, e não há
-   * como saber localmente. Não é retentado de propósito.
-   */
+  // Caiu durante a chamada ao provider: pode ter entregue, então não é retentado de propósito.
   'thinkzap.message.widget_send_unknown': {
     category: 'integration',
     userCause:
@@ -718,12 +677,7 @@ export const THINKZAP_ERRORS = {
       'Conferir as permissões de CRM do app no Bitrix24; o desfecho do envio está no log.',
     retriable: false,
   },
-  /**
-   * Sem `httpStatus` de propósito: este erro **não** vira resposta HTTP. A mensagem
-   * já foi entregue ao contato quando a abertura da conversa roda, e devolver falha
-   * faria o operador reenviar — o contato receberia duas vezes. O envio responde
-   * sucesso e o problema aparece aqui.
-   */
+  // Sem `httpStatus`: a mensagem já foi entregue, e responder falha faria o operador reenviar em duplicidade.
   'thinkzap.message.open_channel_failed': {
     category: 'integration',
     userCause:
@@ -731,6 +685,22 @@ export const THINKZAP_ERRORS = {
     remediation:
       'Conferir se a linha está vinculada a um canal aberto e se o conector está ativo naquela linha; a próxima mensagem tenta de novo.',
     retriable: true,
+  },
+  'thinkzap.message.outbound_context_missing': {
+    category: 'config',
+    userCause:
+      'Uma mensagem do operador no canal aberto não foi enviada: o canal não está ligado a nenhuma linha ativa desta instalação.',
+    remediation:
+      'Conferir se o canal aberto do log está vinculado a uma linha na aba Ajustes e se o app segue instalado no portal; o operador reenvia depois do vínculo.',
+    retriable: false,
+  },
+  'thinkzap.message.outbound_persist_failed': {
+    category: 'internal',
+    userCause:
+      'Observabilidade — a mensagem do operador foi entregue, mas não foi registrada no nosso banco; status de entrega e citações dela não vão casar.',
+    remediation:
+      'Nenhuma ação de suporte para a conversa. Se recorrente, acionar o time responsável (disponibilidade do banco).',
+    retriable: false,
   },
   'thinkzap.message.inbound_zapi_failed': {
     category: 'integration',
@@ -763,7 +733,6 @@ export const THINKZAP_ERRORS = {
     httpStatus: 400,
   },
 
-  // ── template: catálogo/envio de template do WhatsApp Oficial ──
   'thinkzap.template.provider_unsupported': {
     category: 'validation',
     userCause:
@@ -807,7 +776,6 @@ export const THINKZAP_ERRORS = {
     httpStatus: 400,
   },
 
-  // ── line: estado da linha no envio/leitura pelo widget ──
   'thinkzap.line.blocked': {
     category: 'validation',
     userCause:
@@ -853,7 +821,6 @@ export const THINKZAP_ERRORS = {
     httpStatus: 409,
   },
 
-  // ── subscription: resolução de plano / regras de contratação ──
   'thinkzap.subscription.plan_not_offerable': {
     category: 'validation',
     userCause: 'O plano escolhido não está disponível para esta linha.',
@@ -914,7 +881,6 @@ export const THINKZAP_ERRORS = {
     httpStatus: 400,
   },
 
-  // ── provisioning: credencial da linha recém-provisionada ──
   'thinkzap.provisioning.credential_missing': {
     category: 'integration',
     userCause:
@@ -925,7 +891,6 @@ export const THINKZAP_ERRORS = {
     httpStatus: 502,
   },
 
-  // ── gateway: normalização de evento de assinatura ──
   'thinkzap.gateway.period_missing': {
     category: 'integration',
     userCause:
@@ -935,7 +900,6 @@ export const THINKZAP_ERRORS = {
     retriable: false,
   },
 
-  // ── config/install: ambiente e instalação ──
   'thinkzap.config.missing_env': {
     category: 'config',
     userCause:
@@ -952,11 +916,133 @@ export const THINKZAP_ERRORS = {
       'Reinstalar o app no portal; se persistir, conferir permissões e acionar o suporte.',
     retriable: true,
   },
+  'thinkzap.install.placement_unbind_failed': {
+    category: 'integration',
+    userCause:
+      'Observabilidade — uma tela do app não foi removida do Bitrix24 na desinstalação; ela pode continuar aparecendo no portal.',
+    remediation:
+      'Se o parceiro reclamar da tela órfã, removê-la pela reinstalação seguida de nova desinstalação, ou pelas configurações de aplicativos do portal.',
+    retriable: true,
+  },
+
+  'thinkzap.bitrix.contact_read_failed': {
+    category: 'integration',
+    userCause:
+      'Um contato do CRM não pôde ser lido; ele ficou fora da busca, ou a conversa abriu com o telefone no lugar do nome.',
+    remediation:
+      'Conferir se o contato do log existe e se o app tem escopo de CRM no portal; repetir a busca.',
+    retriable: true,
+  },
+  'thinkzap.zapi.phone_data_failed': {
+    category: 'integration',
+    userCause:
+      'Observabilidade — a z-api não devolveu o número do aparelho da linha; a tela mostra a linha sem telefone.',
+    remediation:
+      'Nenhuma ação se for pontual. Recorrente para a mesma instância: conferir a conexão da linha na z-api.',
+    retriable: true,
+  },
+  'thinkzap.line.billing_read_failed': {
+    category: 'integration',
+    userCause:
+      'Os dados da linha não puderam ser lidos agora (CRM interno ou provider não respondeu como esperado).',
+    remediation:
+      'Recarregar a tela em instantes; se persistir, ver no log qual leitura falhou (`err`) e acionar o suporte.',
+    retriable: true,
+    httpStatus: 502,
+  },
+  'thinkzap.line.waba_persist_failed': {
+    category: 'internal',
+    userCause:
+      'O WhatsApp Oficial foi conectado, mas a conta (WABA) não foi gravada na linha; os templates vão recusar até ela existir.',
+    remediation:
+      'URGENTE: copiar o `wabaId` do log para o `metadata` do item da linha na SPA 1146, ou reconectar o canal pela tela.',
+    retriable: false,
+  },
+  'thinkzap.line.connected_flag_write_failed': {
+    category: 'internal',
+    userCause:
+      'Observabilidade — o canal conectou, mas o campo Conectado do item da linha não foi atualizado no CRM.',
+    remediation:
+      'Nenhuma ação para o cliente; o próximo evento de conexão regrava. Se o CRM precisar refletir agora, marcar o campo no item à mão.',
+    retriable: true,
+  },
+  'thinkzap.line.connected_sync_enqueue_failed': {
+    category: 'internal',
+    userCause:
+      'Observabilidade — um evento de conexão/desconexão da z-api não foi enfileirado para atualizar o campo Conectado no CRM.',
+    remediation:
+      'Nenhuma ação para o cliente; o campo corrige no próximo evento. Recorrente: verificar a disponibilidade do Redis.',
+    retriable: true,
+  },
+  'thinkzap.line.connection_notify_enqueue_failed': {
+    category: 'internal',
+    userCause:
+      'O aviso de conexão/desconexão da linha não foi enviado aos destinatários configurados.',
+    remediation:
+      'Confirmar o estado da linha na aba Conexão. Recorrente: verificar a disponibilidade do Redis.',
+    retriable: true,
+  },
+  'thinkzap.gateway.price_read_failed': {
+    category: 'integration',
+    userCause:
+      'O preço de um plano não pôde ser lido no gateway de pagamento; o plano ficou fora da oferta ou aparece sem valor.',
+    remediation:
+      'Conferir no gateway se o price do log existe e está ativo; se for instabilidade, recarregar em instantes.',
+    retriable: true,
+  },
+  'thinkzap.gateway.subscription_read_failed': {
+    category: 'integration',
+    userCause:
+      'A assinatura não pôde ser lida no gateway de pagamento; a tela mostra só o período vigente, sem valores.',
+    remediation:
+      'Conferir no gateway se a assinatura do log existe; se for instabilidade, recarregar em instantes.',
+    retriable: true,
+  },
+  'thinkzap.subscription.plan_price_invalid': {
+    category: 'config',
+    userCause:
+      'O preço configurado de um plano não pôde ser calculado; o plano ficou fora da oferta ou aparece sem valor.',
+    remediation:
+      'Acionar o time responsável para revisar o price do plano no gateway (modo de cobrança ou faixas não suportados).',
+    retriable: false,
+  },
+  'thinkzap.gateway.quantity_divergence': {
+    category: 'internal',
+    userCause:
+      'Observabilidade — o gateway cobra uma quantidade de linhas diferente das linhas ativas no CRM; nada foi criado nem cancelado.',
+    remediation:
+      'Reconciliar à mão: comparar a quantidade do item no gateway com as linhas ativas na SPA 1146 e ajustar o lado errado.',
+    retriable: false,
+  },
+  'thinkzap.message.widget_timeline_stamp_failed': {
+    category: 'internal',
+    userCause:
+      'Observabilidade — o comentário do envio foi publicado na timeline, mas a marca que evita repeti-lo não foi gravada.',
+    remediation:
+      'Nenhuma ação; se o envio for retentado, o comentário pode aparecer duplicado na timeline.',
+    retriable: false,
+  },
+  'thinkzap.message.open_channel_guard_failed': {
+    category: 'internal',
+    userCause:
+      'Observabilidade — a proteção contra abrir a mesma conversa duas vezes no canal aberto falhou para uma mensagem.',
+    remediation:
+      'Nenhuma ação; no pior caso a mesma mensagem aparece duas vezes no chat do canal aberto.',
+    retriable: false,
+  },
+  'thinkzap.message.button_action_post_failed': {
+    category: 'integration',
+    userCause:
+      'A mensagem com botões não pôde ser postada no canal aberto; nada foi enviado ao contato.',
+    remediation:
+      'Conferir se o operador ainda participa do chat e se o app tem escopo `im`; reenviar pela tela.',
+    retriable: true,
+    httpStatus: 502,
+  },
 } as const satisfies Record<string, ErrorMeta>
 
 export type ThinkzapErrorCode = keyof typeof THINKZAP_ERRORS
 
 const catalog = makeErrorCatalog(THINKZAP_ERRORS)
-// Via A: exceção que borbulha pro funil. Via B/C: desfecho não-exceção logado.
 export const thinkzapError = catalog.appError
 export const logThinkzapError = catalog.logError

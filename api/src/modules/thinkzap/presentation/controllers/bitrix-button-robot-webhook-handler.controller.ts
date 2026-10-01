@@ -21,20 +21,8 @@ import {
 } from './bitrix-robot-webhook-handler.controller'
 import { toParameterList } from './bitrix-template-robot-webhook-handler.controller'
 
-/**
- * Base compartilhada dos dois robôs de botão (`POST
- * /api/thinkzap/webhooks/bitrix/button-robot-official` e `-unofficial`).
- *
- * Uma classe só, parametrizada por `expectedProvider`: as `PROPERTIES` e o
- * fluxo de resolução são idênticos nos dois robôs (mirror de
- * `EnsureButtonRobot`); o que diverge é qual provider aquele robô aceita — e é
- * essa checagem, feita logo após resolver a linha, que impede o robô oficial
- * de disparar numa linha Z-API (e vice-versa).
- *
- * Mesmas três decisões do robô de template, pelos mesmos motivos: nada é
- * entregue aqui (o outbox e o worker cuidam disso), e recusa de negócio
- * responde `200` — o Bitrix não retenta handler de robô.
- */
+// Serve os robôs oficial e não oficial; `expectedProvider` impede disparo na linha do outro provider.
+// Mesmas decisões do robô de template (ver lá): só enfileira e recusa de negócio responde 200.
 export class BitrixButtonRobotWebhookHandlerController extends Controller {
   constructor(
     private readonly getDomain: GetDomainRepository,
@@ -166,11 +154,7 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
         })
         queued.push(result.destination)
       } catch (error) {
-        /**
-         * Falha de um destinatário não derruba os outros: telefone inválido num
-         * contato relacionado é o caso comum, e ele não pode cancelar o envio para os
-         * demais.
-         */
+        // Falha de um destinatário (ex.: telefone inválido) não cancela os demais.
         logThinkzapError(
           apiLogger,
           'thinkzap.bitrix.button_robot_enqueue_failed',
@@ -201,10 +185,6 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
     return this.ok({ received: true, queued: queued.length })
   }
 
-  /**
-   * Recusa de negócio: `200` com `queued: 0` e o motivo na timeline. Mirror do
-   * robô de template — mesmo raciocínio.
-   */
   private async refuse(
     document: BizprocDocument | null,
     message: string,
@@ -233,14 +213,15 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
         message,
       })
     } catch (error) {
-      apiLogger.warn(
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.message.widget_send_notice_failed',
         { app: 'thinkzap', source: 'bitrix', err: error },
-        'falha ao comentar o desfecho do robô de botão na timeline',
+        { msg: 'falha ao comentar o desfecho do robô de botão na timeline' },
       )
     }
   }
 
-  /** Destinatários do disparo — mesma regra dos outros dois robôs. */
   private async resolveRecipients(
     data: BitrixButtonRobotWebhookRequest,
     document: BizprocDocument | null,
@@ -274,11 +255,7 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
   }
 }
 
-/**
- * Cada entrada da propriedade múltipla `buttons` é `"tipo|label|url-ou-telefone"`
- * — o terceiro campo vazio para `REPLY`, que não usa valor extra. Entrada sem
- * tipo reconhecido ou sem label é descartada, não derruba as demais.
- */
+// Entrada `"tipo|label|url-ou-telefone"`; inválida é descartada sem derrubar as demais.
 export function parseButtonList(value: unknown): ButtonAction[] {
   return toParameterList(value)
     .map((raw, index) => parseButtonEntry(raw, index))
@@ -317,15 +294,13 @@ export interface BitrixButtonRobotWebhookRequest {
   document_type: string[]
   event_token: string
   properties: {
-    /** Id do item de assinatura — a linha, como a tela grava. */
+    /** Id do item de assinatura (a linha). */
     connector: string
-    /** Telefone literal, ou o valor que o Bitrix já resolveu do campo do documento. */
     destination?: string
     sendToAllRelatedContacts?: string
     body: string
     header?: string
     footer?: string
-    /** Um por linha, `"tipo|label|url-ou-telefone"`. */
     buttons?: string[] | Record<string, string> | string
   }
   use_subscription: 'N' | 'Y'

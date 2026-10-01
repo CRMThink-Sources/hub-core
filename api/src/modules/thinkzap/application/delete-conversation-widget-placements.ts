@@ -1,5 +1,7 @@
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { env } from '@/config/env'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 import { CRM_DETAIL_PLACEMENTS } from './build-crm-detail-placement-bind-params'
 
 export type DeleteConversationWidgetPlacementsResult = 'deleted' | 'not_found'
@@ -35,8 +37,12 @@ export async function deleteConversationWidgetPlacements(
       })
 
       totalRemoved += parseUnbindCount(result)
-    } catch {
-      // continue unbinding remaining placements
+    } catch (error) {
+      logThinkzapError(apiLogger, 'thinkzap.install.placement_unbind_failed', {
+        app: 'thinkzap',
+        placement,
+        err: error,
+      })
     }
   }
 

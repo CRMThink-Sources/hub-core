@@ -78,10 +78,8 @@ const paid = (overrides: Partial<Subscription> = {}): Subscription => ({
 const makeHandler = (
   options: {
     found?: Subscription | null
-    /** As assinaturas do contrato, quando o teste é sobre o conjunto. */
     contract?: Subscription[]
     items?: SubscriptionItem[]
-    /** Ids de assinatura cuja escrita falha, para testar a tolerância por irmã. */
     failWriteOn?: string[]
   } = {},
 ) => {
@@ -92,10 +90,7 @@ const makeHandler = (
     execute: activateExecute,
   } as unknown as ActivateLineSubscription
 
-  /**
-   * `found` continua existindo para os testes de uma assinatura só: `null` significa
-   * contrato ausente na SPA, que é o caso de evento fora de ordem.
-   */
+  // `found: null` = contrato ausente na SPA (evento fora de ordem).
   const contract =
     options.contract ??
     ('found' in options ? (options.found ? [options.found] : []) : [paid()])
@@ -164,11 +159,7 @@ const CHECKOUT = {
   currentPeriodEnd: plusDays(30),
 }
 
-/**
- * `totalLineQuantity` default 1 casa com a linha única do `lineItem`: divergência é
- * o caso sob teste em um lugar só, e default divergente encheria os outros testes de
- * `warn` que eles não estão afirmando.
- */
+// Default 1 casa com o `lineItem` único: evita log de divergência nos outros testes.
 const updated = (status: Subscription['status'], totalLineQuantity = 1) => ({
   type: 'subscription.updated' as const,
   gatewaySubscriptionId: 'sub_1',
@@ -201,10 +192,6 @@ describe('HandleGatewayWebhookEvent', () => {
       })
     })
 
-    /**
-     * A intenção atravessa sem interpretação: quem sabe o que fazer com ela é a
-     * ativação, e um handler que a traduzisse teria a regra em dois lugares.
-     */
     it('repassa a intenção de acrescentar linha', async () => {
       const deps = makeHandler()
 
@@ -236,11 +223,6 @@ describe('HandleGatewayWebhookEvent', () => {
       })
     })
 
-    /**
-     * Inadimplência é falha transitória de cartão: desassinar e reassinar a cada
-     * recusa churna a cobrança do provider, e desconectar obrigaria o cliente a ler
-     * o QR de novo por um pagamento que se resolve em dias.
-     */
     it('entrar em past_due não toca o provider', async () => {
       const deps = makeHandler({ found: paid({ status: 'active' }) })
 
@@ -250,7 +232,6 @@ describe('HandleGatewayWebhookEvent', () => {
       expect(deps.unsubscribe).not.toHaveBeenCalled()
     })
 
-    /** Nunca desassinou, então não há o que reassinar. */
     it('sair de past_due para active não chama subscribe de novo', async () => {
       const deps = makeHandler({ found: paid({ status: 'past_due' }) })
 
@@ -264,12 +245,6 @@ describe('HandleGatewayWebhookEvent', () => {
       expect(deps.unsubscribe).not.toHaveBeenCalled()
     })
 
-    /**
-     * Reativar assinatura cancelada dentro do período custa **só** um `subscribe` —
-     * o recurso continua vivo porque `unsubscribe` agendou para o vencimento.
-     * Aqui, quem religa é o `checkout.completed` da nova contratação; este evento
-     * só reflete o estado.
-     */
     it('reentrega do mesmo evento não reescreve', async () => {
       const deps = makeHandler({
         found: paid({ status: 'past_due', currentPeriodEnd: plusDays(30) }),
@@ -280,11 +255,6 @@ describe('HandleGatewayWebhookEvent', () => {
       expect(deps.updateSubscription).not.toHaveBeenCalled()
     })
 
-    /**
-     * Fora de ordem: ignorado com log, não erro. Falhar faria o gateway reentregar
-     * em backoff até desistir, e o `checkout.completed` que vem depois resolve o
-     * estado de qualquer forma.
-     */
     it('gatewayId desconhecido é ignorado com log', async () => {
       const deps = makeHandler({ found: null })
 
@@ -309,7 +279,6 @@ describe('HandleGatewayWebhookEvent', () => {
       expect(deps.unsubscribe).toHaveBeenCalledWith(lineItem)
     })
 
-    /** A SPA primeiro: é o que bloqueia a linha. */
     it('cancela na SPA antes de desassinar', async () => {
       const order: string[] = []
       const deps = makeHandler({ found: paid({ status: 'active' }) })
@@ -375,10 +344,6 @@ describe('HandleGatewayWebhookEvent', () => {
     })
   })
 
-  /**
-   * O `gatewayId` identifica o contrato inteiro. Escrever numa irmã só deixaria
-   * metade das linhas do cliente com o status errado.
-   */
   describe('contrato com mais de uma assinatura', () => {
     const sibling = paid({ id: '100', status: 'active' })
 
@@ -439,11 +404,6 @@ describe('HandleGatewayWebhookEvent', () => {
       expect(deps.unsubscribe).toHaveBeenCalledTimes(2)
     })
 
-    /**
-     * O caminho real da divergência é o portal de faturamento, onde o cliente edita
-     * quantidade. Criar ou cancelar linha por um número vindo do gateway apagaria a
-     * linha que ele usa — então o handler só registra.
-     */
     it('registra quantidade divergente sem criar nem cancelar linha', async () => {
       const deps = makeHandler({ contract: [paid()] })
 

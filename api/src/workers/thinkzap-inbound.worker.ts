@@ -20,36 +20,20 @@ import { AppendJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { makeAppendJobLog } from './append-job-log'
 import { installBitrixLimits } from '@/shared/infra/bitrix-limits/install-bitrix-limits'
 import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
-// Efeito colateral: registra o Worker da fila `thinkzap-connection-events` neste
-// mesmo processo. Ver docstring em `thinkzap-connection-events.worker.ts` para o
-// porquê de não ter processo/serviço de compose próprio.
+// Efeito colateral: registram esses Workers neste mesmo processo.
 import './thinkzap-connection-events.worker'
-// Idem para `thinkzap-line-connected-sync` (campo Conectado do item da linha).
 import './thinkzap-line-connected-sync.worker'
+import { jobFailureLogFields } from '@/shared/infra/log-error'
 
-// O worker compartilha o balde do portal com a API: o limite do Bitrix conta por
-// instalação, não por processo.
+// O limite do Bitrix conta por instalação, não por processo: compartilha o balde com a API.
 installBitrixLimits()
 
-// Só inbound: a fila `thinkzap-widget-outbound` saiu para processo próprio (serviço
-// `worker-widget-outbound` no compose) para que um envio lento não segure slot de
-// mensagem recebida, nem um reinício derrube os dois fluxos.
+// Widget outbound roda em processo próprio para envio lento não segurar slot do inbound.
 async function processJob(
   data: ThinkzapInboundJob,
   appendJobLog: AppendJobLog,
 ) {
-  /**
-   * Primeira linha da aba Logs, igual para todo `source`: enquadra o resto e, sozinha,
-   * já distingue "o job nem chegou ao processor certo" de "chegou e o envio falhou".
-   *
-   * `type` cai em marcador quando falta. A união do job declara `type: string`, mas o
-   * controller da HubMessage o preenche com o `messageEventType` do envelope, que o
-   * provider não manda sempre — e `type=undefined` cru lê como bug nosso quando o que
-   * houve foi campo ausente do provider.
-   *
-   * O `traceKey` sai aqui e não nas linhas dos use cases: ele vive no job, não no corpo
-   * da mensagem, e é a única ponte entre esta aba e a query no Loki do enfileiramento.
-   */
+  // `type` pode faltar (HubMessage nem sempre manda); `traceKey` liga esta aba ao Loki.
   await appendJobLog(
     `Job recebido | source=${data.source} | type=${data.type || '—'} | ` +
       `traceKey=${data.traceKey || '—'}`,
@@ -73,8 +57,7 @@ async function processJob(
       { appendJobLog },
     )
   } else if (data.source === 'hubmessage-status') {
-    // Desfecho de mensagem nossa, não recebida: corpo com outra forma (sem `sender`,
-    // com `contents[].state`), por isso `source` próprio.
+    // Status de mensagem nossa: corpo sem `sender`, com `contents[].state`.
     workerLogger.debug(
       { app: 'thinkzap', source: data.source, type: data.type },
       'Processing inbound job',
@@ -110,9 +93,7 @@ export const thinkzapInboundWorker = new Worker(
     try {
       await processJob(job.data as ThinkzapInboundJob, makeAppendJobLog(job))
     } catch (err) {
-      // Método pausado por `OPERATION_TIME_LIMIT` só volta quando a cesta de minuto do
-      // Bitrix vence — mais que as 3 tentativas com backoff de 1s da fila. Reagendar
-      // para o instante da liberação não gasta tentativa.
+      // Pausa por `OPERATION_TIME_LIMIT` dura mais que o backoff: reagenda sem gastar tentativa.
       if (err instanceof BitrixMethodPausedError) {
         workerLogger.warn(
           {
@@ -128,7 +109,7 @@ export const thinkzapInboundWorker = new Worker(
         )
 
         await job.moveToDelayed(err.untilMs, token)
-        // Sinal que o BullMQ exige para nao tratar o job como concluido.
+        // Exigido pelo BullMQ para não tratar o job como concluído.
         throw new DelayedError()
       }
 
@@ -152,7 +133,7 @@ thinkzapInboundWorker.on('failed', (job, err) => {
       source: data?.source,
       type: data?.type,
       attemptsMade: job?.attemptsMade,
-      error: err,
+      ...jobFailureLogFields(err),
     },
     'Worker job failed',
   )

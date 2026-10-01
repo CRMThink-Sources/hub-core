@@ -8,6 +8,10 @@ import type { GetDomainRepository } from '@/shared/domain/repositories/domain/ge
 import { validateImbotIframeAuth } from '@/modules/audio/application/validate-imbot-iframe-auth'
 import { encodeButtonActionCode } from '@/modules/thinkzap/application/parse-button-action-code'
 import { apiLogger } from '@/shared/infra/logger'
+import {
+  logThinkzapError,
+  THINKZAP_ERRORS,
+} from '@/modules/thinkzap/errors/catalog'
 
 export type CreateBitrixClientWithUserToken = (
   domain: string,
@@ -48,11 +52,7 @@ const buttonSchema = z.discriminatedUnion('type', [
   }),
 ])
 
-/**
- * Mesmo par de auth do upload de áudio: `accessToken` direto, ou
- * `userId`/`userHash`/`domainHash` do iframe imbot — nunca os dois, nunca
- * nenhum.
- */
+// Exatamente um: `accessToken` ou auth do iframe imbot.
 const sendButtonRequestSchema = z
   .object({
     dialogId: z.string(),
@@ -81,26 +81,8 @@ const sendButtonRequestSchema = z
     }
   })
 
-/**
- * `POST /api/open-channel-button/send` — a tela de botões do widget do
- * canal aberto. Mirror de `UploadAudioController`: mesma autenticação
- * (accessToken direto ou iframe imbot), mesma resolução de domínio e de
- * token do operador.
- *
- * **O que diverge do áudio, e por quê.** Áudio faz upload de arquivo
- * (`im.v2.File.upload`) porque arquivo é tipo nativo do Bitrix — a mensagem
- * cai no canal aberto e o próprio `ONIMCONNECTORMESSAGEADD` a repassa ao
- * provider como sempre repassou. **Botão não é tipo nativo** — não existe
- * forma de o Bitrix saber que aquele texto deveria virar botão do WhatsApp.
- *
- * A saída: este controller posta, **como o operador** (`im.message.add`,
- * com o token dele — não o bot), o código de `parse-button-action-code.ts`
- * no lugar de um texto comum. Isso dispara o mesmo `ONIMCONNECTORMESSAGEADD`
- * de qualquer resposta digitada, e é `processBitrixReceivedMessage` —
- * que já resolve provider e destino para toda mensagem de saída — quem
- * detecta o código antes de ele virar mensagem livre e chama o contrato
- * neutro de botões. Esta tela nunca precisa saber o provider da linha.
- */
+// Botão não é tipo nativo do Bitrix: posta o código codificado como o operador, e
+// `processBitrixReceivedMessage` o detecta no ONIMCONNECTORMESSAGEADD e envia pelo provider.
 export class SendOpenChannelButtonController extends Controller {
   constructor(
     private readonly getDomainRepository: GetDomainRepository,
@@ -199,7 +181,10 @@ export class SendOpenChannelButtonController extends Controller {
         MESSAGE: code,
       })
     } catch (error) {
-      apiLogger.error(
+      // Relançado, `BitrixError` vira 400 sem log no funil.
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.message.button_action_post_failed',
         {
           app: 'thinkzap',
           domain: parsedDomain,
@@ -207,9 +192,14 @@ export class SendOpenChannelButtonController extends Controller {
           phase: 'im.message.add',
           err: error,
         },
-        'open-channel-button: falha ao postar o código no canal aberto',
+        { level: 'error' },
       )
-      throw error
+      return this.badGateway(
+        new Error(
+          THINKZAP_ERRORS['thinkzap.message.button_action_post_failed']
+            .userCause,
+        ),
+      )
     }
 
     apiLogger.info(

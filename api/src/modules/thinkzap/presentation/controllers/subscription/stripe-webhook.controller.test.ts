@@ -64,7 +64,6 @@ describe('StripeWebhookController', () => {
     expect(response.status).toBe(200)
   })
 
-  /** Assinatura inválida: erro na resposta, e **nada** processado. */
   it('recusa e não processa quando a assinatura não confere', async () => {
     const { gateway } = makeGateway(
       new GatewaySignatureError('no signatures found'),
@@ -80,11 +79,7 @@ describe('StripeWebhookController', () => {
     expect(execute).not.toHaveBeenCalled()
   })
 
-  /**
-   * A regressão que o registro na ordem errada causa: depois do `express.json()` o
-   * corpo chega como objeto, e o controller recusa em vez de remontar bytes que
-   * ninguém assinou.
-   */
+  // Regressão de ordem de registro: após `express.json()` o corpo vira objeto.
   it('recusa corpo já parseado, sem chamar a validação', async () => {
     const { gateway, verifyWebhookEvent } = makeGateway(IGNORED)
     const { handler, execute } = makeHandler()
@@ -116,7 +111,7 @@ describe('StripeWebhookController', () => {
     expect(response.status).toBe(200)
   })
 
-  /** Erro que não é de assinatura sobe: o gateway deve reentregar. */
+  // Erro que não é de assinatura sobe para o gateway reentregar.
   it('propaga erro inesperado da validação', async () => {
     const { gateway } = makeGateway(new Error('rede fora'))
     const { handler } = makeHandler()
@@ -129,14 +124,7 @@ describe('StripeWebhookController', () => {
   })
 })
 
-/**
- * A prova de que a ordem de registro importa, contra a biblioteca real: o mesmo
- * payload assinado passa como `Buffer` e **falha** depois de um round-trip por
- * `JSON.parse`/`JSON.stringify` — que é exatamente o que o `express.json()` faz.
- *
- * Sem este teste, "registre antes do parser" é um comentário; com ele, é uma
- * afirmação verificada.
- */
+// Prova, com a lib real, que o round-trip do `express.json()` invalida a assinatura.
 describe('validação de assinatura sobre o corpo cru', () => {
   const SECRET = 'whsec_test_secret'
   const payload = JSON.stringify({
@@ -179,22 +167,19 @@ describe('validação de assinatura sobre o corpo cru', () => {
     ).rejects.toBeInstanceOf(GatewaySignatureError)
   })
 
-  /** Sem segredo não há como autenticar a origem: recusa, não passe livre. */
   it('rejeita quando o segredo de webhook não está configurado', async () => {
     const gateway = new StripePaymentGateway('sk_test_x', '')
 
     await expect(
       gateway.verifyWebhookEvent(Buffer.from(payload), sign(payload)),
-    ).rejects.toBeInstanceOf(GatewaySignatureError)
+    ).rejects.toMatchObject({
+      errorCode: 'thinkzap.gateway.webhook_secret_missing',
+      httpStatus: 401,
+    })
   })
 })
 
-/**
- * A ordem de registro em `app.ts`, verificada sobre o texto: a rota do gateway tem
- * que aparecer **antes** da linha que instala o `express.json()`. É a única
- * verificação possível sem subir o app inteiro, e o custo de errar é 100% dos
- * eventos recusados.
- */
+// Verificado sobre o texto para não subir o app; errar a ordem recusa 100% dos eventos.
 describe('app.ts (ordem de registro)', () => {
   const source = readFileSync(
     join(__dirname, '..', '..', '..', '..', '..', 'app.ts'),

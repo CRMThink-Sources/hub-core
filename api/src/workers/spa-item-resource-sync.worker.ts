@@ -11,19 +11,10 @@ import {
   processSpaItemCleanup,
   processSpaItemStatusSync,
 } from './spa-item-resource-sync.processor'
+import { jobFailureLogFields } from '@/shared/infra/log-error'
 
-/**
- * Worker da reconciliação entre o item da SPA 1146 e o recurso remoto dele.
- *
- * `concurrency: 2`, como o do provisionamento: cada job fala com o Bitrix, com o provider
- * e às vezes com o gateway, os três com rate limit próprio. A sincronização de status tem
- * volume maior que o provisionamento — toda edição de campo gera um evento —, e é
- * justamente por isso que a vazão não sobe: empilhar chamadas a terceiros por uma edição
- * em massa no CRM seria pior que a fila crescer.
- *
- * O nome do job escolhe o processor. Nome desconhecido é `error` e **não** propaga: um
- * job de um deploy futuro chegando a um worker antigo não deve virar retry infinito.
- */
+// concurrency baixa: Bitrix, provider e gateway têm rate limit; melhor a fila crescer.
+// Nome de job desconhecido não propaga: job de deploy futuro em worker antigo não deve retentar.
 export const spaItemResourceSyncWorker = new Worker(
   SPA_ITEM_RESOURCE_SYNC,
   async job => {
@@ -59,11 +50,7 @@ export const spaItemResourceSyncWorker = new Worker(
 spaItemResourceSyncWorker.on('failed', (job, err) => {
   const data = job?.data as SpaItemResourceSyncJob | undefined
 
-  /**
-   * O caso de uso já registrou o detalhe antes de propagar. Este log é o do **transporte**:
-   * qual tentativa foi, e se ainda vem outra — é por ele que se distingue "falhou e vai
-   * repetir" de "esgotou as tentativas, e o recurso ficou cobrado de nós".
-   */
+  // Log de transporte (tentativas); o detalhe já foi logado no caso de uso.
   workerLogger.error(
     {
       event: 'worker.job.failed',
@@ -75,7 +62,7 @@ spaItemResourceSyncWorker.on('failed', (job, err) => {
       traceKey: data?.traceKey,
       attemptsMade: job?.attemptsMade,
       attemptsAllowed: job?.opts.attempts,
-      error: err,
+      ...jobFailureLogFields(err),
     },
     'Job de recurso do item da SPA falhou',
   )

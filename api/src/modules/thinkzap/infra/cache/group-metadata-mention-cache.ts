@@ -2,6 +2,7 @@ import type IORedis from 'ioredis'
 import z from 'zod'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 const GROUP_METADATA_MENTION_TTL_SECONDS = 60
 
@@ -26,15 +27,7 @@ function safeJsonParse(raw: string): unknown {
   }
 }
 
-/**
- * Cache só do necessário para resolver menção (`phone`+`lid`) — não é o
- * `group-metadata` completo do painel admin (`get-group-metadata.service.ts`),
- * que enriquece com fotos por participante. Aquele caminho não é tocado por
- * este cache.
- *
- * Falha de Redis ou da Z-API nunca propaga: quem chama recebe `null` e trata
- * como "não deu para resolver agora" — nunca bloqueia a entrega da mensagem.
- */
+// Nunca propaga falha (Redis/Z-API): retorna null para não bloquear a entrega da mensagem.
 export async function getGroupParticipantsForMentions(
   redis: IORedis,
   zApiClient: ZApiClient,
@@ -69,9 +62,11 @@ export async function getGroupParticipantsForMentions(
       lid: p.lid,
     }))
   } catch (error) {
-    apiLogger.warn(
-      { app: 'thinkzap', instanceId, groupId, error },
-      'Group metadata fetch for mention resolution failed',
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.zapi.group_op_failed',
+      { app: 'thinkzap', instanceId, groupId, err: error },
+      { msg: 'Group metadata fetch for mention resolution failed' },
     )
     return null
   }

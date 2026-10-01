@@ -191,22 +191,22 @@ describe('SendOpenChannelButtonController', () => {
     expect(resolveOperatorAccessToken).not.toHaveBeenCalled()
   })
 
-  it('propagates BitrixError from im.message.add', async () => {
+  it('responde 502 catalogado quando o im.message.add falha', async () => {
     callMethod.mockRejectedValue(
       new BitrixError('Bitrix error: 403 - {"error":"ACCESS_DENIED"}'),
     )
 
-    await expect(
-      controller.perform(
-        makeRequest({
-          dialogId: 'chat80619',
-          domain,
-          accessToken: 'operator-token',
-          body: 'Escolha uma opção',
-          buttons: [{ id: '1', label: 'Sim', type: 'REPLY' }],
-        }),
-        {} as never,
-      ),
-    ).rejects.toThrow(BitrixError)
+    const response = await controller.perform(
+      makeRequest({
+        dialogId: 'chat80619',
+        domain,
+        accessToken: 'operator-token',
+        body: 'Escolha uma opção',
+        buttons: [{ id: '1', label: 'Sim', type: 'REPLY' }],
+      }),
+      {} as never,
+    )
+
+    expect(response.status).toBe(502)
   })
 })

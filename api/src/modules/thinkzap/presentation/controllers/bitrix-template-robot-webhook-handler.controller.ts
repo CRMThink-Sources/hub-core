@@ -19,25 +19,8 @@ import {
   parseBizprocDocumentId,
 } from './bitrix-robot-webhook-handler.controller'
 
-/**
- * `POST /api/thinkzap/webhooks/bitrix/template-robot` — o disparo do robô de **envio
- * de template**.
- *
- * Três coisas o separam do robô de envio livre, e todas as três vêm de template ser um
- * recurso cobrado do WhatsApp Oficial:
- *
- * 1. **Só linha HubMessage conectada dispara.** Z-API não tem template, e canal em
- *    conexão não tem catálogo. As duas recusas acontecem antes de qualquer
- *    destinatário ser resolvido.
- * 2. **Nada é entregue aqui.** O handler grava a intenção no outbox e enfileira; quem
- *    chama o provider é o worker, que já tem retentativa, lock por destino, histórico,
- *    conversa no canal aberto e aviso de falha na timeline. Um `500` transitório da
- *    HubMessage no meio de uma automação perderia uma mensagem paga.
- * 3. **Recusa de negócio responde `200`.** O Bitrix não retenta handler de robô, e um
- *    `5xx` só produziria um passo de automação com falha opaca. Quem configurou a
- *    automação lê a timeline da entidade, e é lá que o motivo é escrito. `404` fica
- *    para domínio e app inexistentes — aí não há timeline onde escrever.
- */
+// Só enfileira no outbox (o worker retenta): um 500 transitório perderia mensagem paga.
+// Recusa de negócio responde 200 com motivo na timeline: o Bitrix não retenta robô; 404 só sem domínio/app.
 export class BitrixTemplateRobotWebhookHandlerController extends Controller {
   constructor(
     private readonly getDomain: GetDomainRepository,
@@ -81,11 +64,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
       return this.badRequest(new Error('Document ID not found'))
     }
 
-    /**
-     * `null` para workflow que não roda sobre entidade de CRM (lista universal, por
-     * exemplo). Esses ainda enviam para destino manual; só não têm timeline onde
-     * reportar, nem contatos relacionados a resolver.
-     */
+    // null fora de entidade CRM: ainda envia ao destino manual, só sem timeline nem relacionados.
     const crmDocument = parseBizprocDocumentId(documentId)
 
     const subscriptionItemId = data.properties.connector?.trim()
@@ -106,12 +85,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
       appCode: app.appCodeId,
     }
 
-    /**
-     * Escopo → habilitação → capacidade de provider → canal conectado, tudo antes de
-     * resolver destinatário: um robô apontando para linha que não envia template não
-     * deve gastar leitura de contatos, e o motivo tem de chegar ao usuário em vez de
-     * virar envio silenciosamente perdido.
-     */
+    // Valida a linha antes de resolver destinatários, para não gastar leitura de contatos.
     let target
     try {
       target = await this.enqueueTemplateSend.resolveTarget(scope)
@@ -139,11 +113,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
       )
     }
 
-    /**
-     * O corpo é resolvido **uma vez** por disparo, não por destinatário: ele não
-     * depende de para quem se envia, e o fallback de catálogo custa uma consulta ao
-     * provider.
-     */
+    // Uma vez por disparo: o fallback de catálogo custa uma consulta ao provider.
     const templateBody = await resolveRobotTemplateBody(
       {
         ...scope,
@@ -171,11 +141,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
         })
         queued.push(result.destination)
       } catch (error) {
-        /**
-         * Falha de um destinatário não derruba os outros: telefone inválido num
-         * contato relacionado é o caso comum, e ele não pode cancelar o envio para os
-         * demais.
-         */
+        // Falha de um destinatário (ex.: telefone inválido) não cancela os demais.
         logThinkzapError(
           apiLogger,
           'thinkzap.bitrix.template_robot_enqueue_failed',
@@ -206,13 +172,6 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     return this.ok({ received: true, queued: queued.length })
   }
 
-  /**
-   * Recusa de negócio: `200` com `queued: 0` e o motivo na timeline.
-   *
-   * O Bitrix não retenta o handler de robô e não mostra corpo de resposta ao usuário —
-   * responder erro aqui só trocaria uma explicação legível por um passo de automação
-   * marcado como falho, sem dizer o quê.
-   */
   private async refuse(
     document: BizprocDocument | null,
     message: string,
@@ -228,10 +187,6 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     return this.ok({ received: true, queued: 0 })
   }
 
-  /**
-   * Registra o desfecho na entidade do workflow. No-op quando o workflow não roda
-   * sobre entidade de CRM — não há dono para comentar.
-   */
   private async comment(
     document: BizprocDocument | null,
     message: string,
@@ -245,22 +200,17 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
         message,
       })
     } catch (error) {
-      // O aviso é observabilidade do usuário, não parte do envio: falhar aqui não
-      // pode transformar um disparo enfileirado em erro de automação.
-      apiLogger.warn(
+      // O aviso não é parte do envio: falhar aqui não vira erro de automação.
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.message.widget_send_notice_failed',
         { app: 'thinkzap', source: 'bitrix', err: error },
-        'falha ao comentar o desfecho do robô de template na timeline',
+        { msg: 'falha ao comentar o desfecho do robô de template na timeline' },
       )
     }
   }
 
-  /**
-   * Destinatários do disparo — mesma regra do robô de envio livre.
-   *
-   * Com a alternância ligada, resolve todos os telefones da entidade e **ignora** o
-   * destino manual; desligada, usa só o destino manual. A alternância nasce desligada
-   * porque cada destinatário resolvido é um template cobrado.
-   */
+  // Alternância ligada ignora o destino manual; nasce desligada porque cada destinatário é template cobrado.
   private async resolveRecipients(
     data: BitrixTemplateRobotWebhookRequest,
     document: BizprocDocument | null,
@@ -294,11 +244,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
   }
 }
 
-/**
- * Propriedade múltipla do Bitrix chega como array, mas também como objeto indexado
- * (`{ '0': 'a', '1': 'b' }`) e, com um valor só, como string crua. As três formas
- * viram a mesma lista posicional — a ordem é o que liga cada valor ao seu placeholder.
- */
+// Bitrix manda array, objeto indexado ou string crua; a ordem liga cada valor ao placeholder.
 export function toParameterList(value: unknown): string[] {
   if (Array.isArray(value)) return (value as unknown[]).map(toParameterText)
 
@@ -313,11 +259,7 @@ export function toParameterList(value: unknown): string[] {
   return []
 }
 
-/**
- * Só primitivo vira texto. Valor aninhado — que o Bitrix não deveria mandar numa
- * propriedade de string — vira vazio em vez de `[object Object]`, que iria parar
- * dentro da mensagem que o contato lê.
- */
+// Valor aninhado vira vazio para `[object Object]` não chegar ao contato.
 function toParameterText(item: unknown): string {
   if (typeof item === 'string') return item
   if (typeof item === 'number' || typeof item === 'boolean') return String(item)
@@ -340,16 +282,15 @@ export interface BitrixTemplateRobotWebhookRequest {
   document_type: string[]
   event_token: string
   properties: {
-    /** Id do item de assinatura — a linha, como a tela grava. */
+    /** Id do item de assinatura (a linha). */
     connector: string
-    /** Telefone literal, ou o valor que o Bitrix já resolveu do campo do documento. */
     destination?: string
     sendToAllRelatedContacts?: string
     templateName: string
     templateLanguage: string
-    /** Corpo gravado pela tela; vazio cai no fallback de catálogo. */
+    /** Vazio cai no fallback de catálogo. */
     templateBody?: string
-    /** Valores das variáveis, na ordem de aparição no corpo. */
+    /** Na ordem de aparição no corpo. */
     templateParameters?: string[] | Record<string, string> | string
   }
   use_subscription: 'N' | 'Y'
