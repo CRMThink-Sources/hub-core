@@ -9,6 +9,18 @@ type CrmEntityResult = {
   }
 }
 
+type CrmItemResult = {
+  result?: {
+    item?: { title?: unknown }
+  }
+}
+
+/**
+ * Item de SPA chega como `DYNAMIC_<entityTypeId>` (widget e robôs). Não existe
+ * `crm.dynamic_<id>.get`: SPA só é lida por `crm.item.get`, e lá o nome é o `title`.
+ */
+const DYNAMIC_ENTITY_PATTERN = /^DYNAMIC_(\d+)$/i
+
 /**
  * O nome do contato no CRM, para nomear a conversa aberta pelo widget.
  *
@@ -29,6 +41,16 @@ export function makeGetCrmContactName(
   return async ({ entity, entityId }) => {
     const id = Number(entityId)
     if (!id || Number.isNaN(id)) return null
+
+    const dynamicMatch = DYNAMIC_ENTITY_PATTERN.exec(entity)
+    if (dynamicMatch) {
+      const response = await bitrixClient.callMethod<CrmItemResult>(
+        'crm.item.get',
+        { entityTypeId: Number(dynamicMatch[1]), id },
+      )
+      const title = response?.result?.item?.title
+      return typeof title === 'string' && title.trim() ? title.trim() : null
+    }
 
     const response = await bitrixClient.callMethod<CrmEntityResult>(
       `crm.${entity.toLowerCase()}.get`,

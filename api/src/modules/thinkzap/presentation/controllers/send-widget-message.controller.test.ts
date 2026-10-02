@@ -61,6 +61,44 @@ describe('SendWidgetMessageController', () => {
     })
   })
 
+  /** Widget aberto em item de SPA envia o owner type `DYNAMIC_<entityTypeId>`. */
+  it('aceita envio a partir de item de SPA', async () => {
+    const fromSpa = {
+      ...req,
+      body: {
+        subscriptionItemId: 'i1',
+        destination: '5511999999999',
+        message: 'Teste',
+        entity: 'DYNAMIC_1060',
+        entityId: '1613',
+      },
+    } as unknown as Request
+
+    const response = await controller.perform(fromSpa, {} as never)
+
+    expect(response.status).toBe(202)
+    expect(execute).toHaveBeenCalledWith(
+      expect.objectContaining({ entity: 'DYNAMIC_1060', entityId: '1613' }),
+    )
+  })
+
+  it('recusa com 400 quando entity não vem no corpo', async () => {
+    const withoutEntity = {
+      ...req,
+      body: {
+        subscriptionItemId: 'i1',
+        destination: '5511999999999',
+        message: 'Olá',
+        entityId: '42',
+      },
+    } as unknown as Request
+
+    const response = await controller.perform(withoutEntity, {} as never)
+
+    expect(response.status).toBe(400)
+    expect(execute).not.toHaveBeenCalled()
+  })
+
   /**
    * O operador sai do token, não do corpo: aceitá-lo do cliente deixaria um envio
    * assinar com o nome de outro operador.

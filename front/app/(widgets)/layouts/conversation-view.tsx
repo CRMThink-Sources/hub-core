@@ -33,6 +33,7 @@ import {
   type WidgetButtonType,
 } from './button-composer'
 import { buildSendWidgetFormData } from './send-widget-message.client'
+import { resolveWidgetEntity } from './resolve-widget-entity'
 import { TemplateComposer, templateKey } from './template-composer'
 import {
   hasAllTemplateVariables,
@@ -100,13 +101,6 @@ const normalizePhoneNumber = (value: string): string => {
   }
 
   return digits
-}
-
-const PLACEMENT_TO_ENTITY = {
-  CRM_DEAL_DETAIL_TAB: 'deal',
-  CRM_CONTACT_DETAIL_TAB: 'contact',
-  CRM_COMPANY_DETAIL_TAB: 'company',
-  CRM_LEAD_DETAIL_TAB: 'lead',
 }
 
 /**
@@ -523,15 +517,24 @@ export const ConversationView = () => {
       return
     }
 
+    /**
+     * Antes do `try`: sem entidade, nenhum envio sai. A API recusaria com erro de
+     * validação cru; aqui o operador recebe uma mensagem que entende, e o rascunho
+     * fica intacto porque só o caminho de sucesso limpa o formulário.
+     */
+    const info = window.BX24?.placement?.info?.()
+    const crmEntity = resolveWidgetEntity(info?.placement, info?.options)
+    if (!crmEntity) {
+      setErrorFeedback(
+        'Não foi possível identificar a ficha do CRM em que o widget está aberto.',
+      )
+      return
+    }
+    const { entity, entityId } = crmEntity
+
     try {
       setIsSending(true)
       setFeedbackMessage('')
-      const info = window.BX24?.placement?.info?.()
-      const placement = info?.placement
-      const placementOptions = info?.options ?? {}
-      const entity =
-        PLACEMENT_TO_ENTITY[placement as keyof typeof PLACEMENT_TO_ENTITY]
-      const entityId = placementOptions.ID
 
       const payloadBase = {
         // Id do item de assinatura, direto do `id` da linha selecionada — a mesma
