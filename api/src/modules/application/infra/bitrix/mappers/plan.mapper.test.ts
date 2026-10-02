@@ -379,4 +379,50 @@ describe('collectBitrixSpaPlanToRawPlan', () => {
   it('devolve lista vazia para entrada vazia', () => {
     expect(collectBitrixSpaPlanToRawPlan([])).toEqual([])
   })
+
+  it.each([
+    ['vazio', ''],
+    ['nulo', null],
+  ])(
+    'ignora plano com intervalo %s e devolve os válidos na ordem',
+    (_label, interval) => {
+      const plans = collectBitrixSpaPlanToRawPlan([
+        validItem,
+        itemWith({ id: 15, ufCrm89Interval: interval }),
+        itemWith({ id: 9, ufCrm89Interval: '13615' }),
+      ])
+
+      expect(plans.map(plan => plan.id)).toEqual(['7', '9'])
+    },
+  )
+
+  it('ignora plano com intervalo desconhecido', () => {
+    const plans = collectBitrixSpaPlanToRawPlan([
+      itemWith({ id: 15, ufCrm89Interval: '99999' }),
+      validItem,
+    ])
+
+    expect(plans.map(plan => plan.id)).toEqual(['7'])
+  })
+
+  it('devolve lista vazia quando todos os planos são inválidos', () => {
+    expect(
+      collectBitrixSpaPlanToRawPlan([
+        itemWith({ id: 15, ufCrm89Interval: '' }),
+        itemWith({ id: 16, ufCrm89Value: null }),
+      ]),
+    ).toEqual([])
+  })
+
+  it('avisa no log o plano descartado e o campo com problema', () => {
+    collectBitrixSpaPlanToRawPlan([itemWith({ id: 15, ufCrm89Interval: '' })])
+
+    expect(apiLogger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        planId: 15,
+        fields: ['ufCrm89Interval'],
+      }),
+      expect.any(String),
+    )
+  })
 })
