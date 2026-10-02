@@ -12,6 +12,7 @@ import { setTenantLogContext } from '@/shared/infra/log-tenant'
 import { safeErrorMessage } from '../clients/clicksign-error'
 import { AppError } from '@/shared/domain/errors/app-error'
 import { appErrorLogFields } from '@/shared/infra/log-error'
+import { logClicksignError } from '../../errors/catalog'
 import {
   CLICKSIGN_DOCUMENT_CLOSED,
   type ClicksignDocumentClosedJob,
@@ -21,8 +22,7 @@ const log = createWorkerLogger('clicksign')
 
 const settingsRepository = new PrismaClickSignSettingsRepository()
 
-// O balde de request do Bitrix e por portal: worker que chama o Bitrix sem
-// instalar o controle gasta a cota dos outros sem contar.
+// O balde de requests do Bitrix é por portal: sem isso o worker gasta a cota dos outros.
 installBitrixLimits()
 
 const worker = new Worker<ClicksignDocumentClosedJob>(
@@ -36,9 +36,11 @@ const worker = new Worker<ClicksignDocumentClosedJob>(
 
         const settings = await settingsRepository.findByAppId(appId)
         if (!settings) {
-          log.warn(
+          logClicksignError(
+            log,
+            'clicksign.worker.settings_missing',
             { event: 'worker.job.skipped' },
-            'Settings não encontradas — pulando document_closed',
+            { msg: 'Settings não encontradas — pulando document_closed' },
           )
           return
         }
@@ -59,11 +61,19 @@ worker.on('failed', (job, err) => {
     jobId: job?.id,
     appId: job?.data?.appId,
   }
-  const fields =
-    err instanceof AppError
-      ? appErrorLogFields(err, base)
-      : { ...base, errorCode: 'UNCLASSIFIED', err: safeErrorMessage(err) }
-  log.error(fields, 'Clicksign document_closed job failed')
+  if (err instanceof AppError) {
+    log.error(
+      appErrorLogFields(err, base),
+      'Clicksign document_closed job failed',
+    )
+    return
+  }
+  logClicksignError(
+    log,
+    'clicksign.worker.job_failed',
+    { ...base, err: safeErrorMessage(err) },
+    { level: 'error', msg: 'Clicksign document_closed job failed' },
+  )
 })
 
 log.info({ event: 'worker.ready' }, 'Clicksign worker is ready')

@@ -85,16 +85,14 @@ export class SendEnvelopeUseCase {
       bitrix,
     })
 
-    // sequencia=Y remapeia o `group` de cada signer pela ordem (assinatura
-    // sequencial v3); =N mantém todos no mesmo grupo (paralelo).
+    // sequencia=Y: `group` pela ordem (sequencial v3); =N: mesmo grupo (paralelo).
     if (props.sequencia === 'Y') {
       signers.forEach((s, i) => {
         s.group = i + 1
       })
     }
 
-    // Aborta antes de criar envelope: sem signer a ativação falha com 422
-    // "existem documentos sem requisitos".
+    // Sem signer a ativação falha com 422 "existem documentos sem requisitos".
     if (signers.length === 0) {
       logClicksignError(apiLogger, 'clicksign.envelope.no_signers', {
         entity,
@@ -151,7 +149,7 @@ export class SendEnvelopeUseCase {
         failedDownload
           ? 'clicksign.envelope.file_download_failed'
           : 'clicksign.envelope.file_missing',
-        { entity, entityId },
+        { entity, entityId, err: safeErrorMessage(error) },
       )
       await this.comment(
         bitrix,
@@ -164,8 +162,7 @@ export class SendEnvelopeUseCase {
       return
     }
 
-    // Falha daqui pra frente deixa o envelope órfão na Clicksign → comenta na
-    // timeline e para o fluxo.
+    // Falha daqui em diante deixa o envelope órfão na Clicksign: comenta e para.
     let created: Array<{ signerKey: string; spec: SignerSpec }>
     let documentId: string
     let documentSelfUrl: string | undefined
@@ -214,8 +211,7 @@ export class SendEnvelopeUseCase {
       'Envelope ativado e documento enviado para assinatura',
     )
 
-    // Antes do notify: se a notificação falhar, o card de tracking/cancelamento
-    // ainda precisa existir.
+    // Antes do notify: o card de tracking/cancelamento deve existir mesmo se ele falhar.
     await this.writeBack({
       bitrix,
       entity,

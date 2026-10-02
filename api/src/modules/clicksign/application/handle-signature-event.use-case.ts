@@ -263,8 +263,7 @@ export class HandleSignatureEventUseCase {
   async handleDocumentClosed(payload: WebhookPayload): Promise<void> {
     const documentKey = payload.document.key
 
-    // Lock + idempotência: reentregas não podem reanexar o PDF nem reescrever
-    // os campos do deal.
+    // Lock + idempotência: reentrega não pode reanexar o PDF nem reescrever o deal.
     await withDocumentLock(documentKey, async () => {
       if (await isProcessed('document_closed', documentKey)) {
         logClicksignError(apiLogger, 'clicksign.event.already_processed', {
@@ -288,6 +287,13 @@ export class HandleSignatureEventUseCase {
       const layout = parseJson(row.PROVIDER_DATA)
       const originId = parseJson(row.ORIGIN_ID)
       const group = this.findGroup(originId?.group)
+      if (!layout || !originId) {
+        logClicksignError(
+          apiLogger,
+          'clicksign.event.layout_or_origin_unparseable',
+          { app: 'clicksign', event: 'document_closed', documentKey },
+        )
+      }
       if (layout) {
         setHeaderStatus(layout, 'Finalizado', 'success')
         clearFooterButtons(layout)
@@ -397,8 +403,7 @@ function setBlockStatus(
     | undefined
   const block = body?.blocks?.[signerKey]
   if (!block?.properties) return
-  // Bloco é `nome - email - status`. Substitui só o último segmento para não
-  // quebrar quando nome/email contêm "-".
+  // Troca só o último segmento de `nome - email - status`: nome/email podem conter "-".
   const current = String(block.properties.value ?? '')
   const idx = current.lastIndexOf(' - ')
   const prefix = idx >= 0 ? current.slice(0, idx) : current.trim()

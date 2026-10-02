@@ -8,7 +8,7 @@ import { CLICKSIGN_APP_CODE_ID } from '../../clicksign.constants'
 import { ClickSignSettingsRepository } from '../../domain/repositories/clicksign-settings.repository'
 import { CancelEnvelopeUseCase } from '../../application/cancel-envelope.use-case'
 import { safeErrorMessage } from '../../infra/clients/clicksign-error'
-import { clicksignError } from '../../errors/catalog'
+import { clicksignError, logClicksignError } from '../../errors/catalog'
 import { setLogContext } from '@/shared/infra/log-context'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -33,8 +33,7 @@ export class CancelDocumentController extends Controller {
 
     setLogContext({ domain: domainStr })
 
-    // Guards fora do try → borbulham pro funil (Via A). O try cobre só o use-case,
-    // que degrada em comentário na timeline sem derrubar a resposta (200).
+    // Guards borbulham pro funil; falha do use-case vira comentário na timeline (200).
     const domain = await this.getDomain.getDomain(domainStr)
     if (!domain) throw clicksignError('clicksign.cancel.domain_not_found')
 
@@ -63,9 +62,11 @@ export class CancelDocumentController extends Controller {
         userId: body.auth?.user_id,
       })
     } catch (error) {
-      apiLogger.error(
+      logClicksignError(
+        apiLogger,
+        'clicksign.cancel.execution_failed',
         { app: 'clicksign', err: safeErrorMessage(error) },
-        'Cancelamento falhou',
+        { level: 'error' },
       )
     }
 
