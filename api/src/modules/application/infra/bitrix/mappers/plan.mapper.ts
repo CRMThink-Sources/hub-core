@@ -236,6 +236,32 @@ export const mapBitrixSpaPlanToRawPlan = (raw: unknown): RawPlan => {
   }
 }
 
+/**
+ * Na listagem, plano mal cadastrado (ex.: intervalo vazio) é **descartado**, não
+ * propagado: um registro ruim na SPA não pode derrubar o catálogo inteiro. É falha
+ * fechada — o plano só some da oferta — e o `warn` nomeia o registro e os campos
+ * para alguém corrigir no CRM.
+ *
+ * `mapBitrixSpaPlanToRawPlan` continua lançando: quem pede um plano específico
+ * precisa saber que ele é inválido.
+ */
 export const collectBitrixSpaPlanToRawPlan = (raw: unknown[]): RawPlan[] => {
-  return raw.map(mapBitrixSpaPlanToRawPlan)
+  return raw.flatMap(item => {
+    try {
+      return [mapBitrixSpaPlanToRawPlan(item)]
+    } catch (error) {
+      if (!(error instanceof InvalidBitrixPlanError)) throw error
+
+      apiLogger.warn(
+        {
+          app: 'payments',
+          planId: (item as { id?: unknown } | null)?.id,
+          fields: error.issues.map(issue => issue.path.join('.')),
+        },
+        'Plano inválido na SPA ignorado na listagem',
+      )
+
+      return []
+    }
+  })
 }
