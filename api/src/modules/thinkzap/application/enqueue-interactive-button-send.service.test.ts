@@ -229,6 +229,28 @@ describe('EnqueueInteractiveButtonSendService.enqueue', () => {
     expect(outbox.create).not.toHaveBeenCalled()
   })
 
+  it('recusa o 6º botão para provider ZAPI antes de gravar a intenção — teto geral de 5', async () => {
+    const { service, outbox } = makeSut(zapiItem())
+    const target = await service.resolveTarget(baseInput)
+
+    await expect(
+      service.enqueue(target, {
+        ...baseInput,
+        destination: '11999999999',
+        body: 'uma mensagem',
+        buttons: ['A', 'B', 'C', 'D', 'E', 'F'].map((label, index) => ({
+          id: String(index + 1),
+          label,
+          type: 'REPLY' as const,
+        })),
+        entity: 'deal',
+        entityId: '42',
+      }),
+    ).rejects.toBeInstanceOf(TooManyButtonsError)
+
+    expect(outbox.create).not.toHaveBeenCalled()
+  })
+
   it('recusa mistura de REPLY com URL para provider ZAPI antes de gravar a intenção', async () => {
     const { service, outbox } = makeSut(zapiItem())
     const target = await service.resolveTarget(baseInput)

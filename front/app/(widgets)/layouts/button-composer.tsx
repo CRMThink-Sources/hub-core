@@ -30,24 +30,48 @@ export const newWidgetButtonEntry = (
 })
 
 /**
+ * Teto de botões por envio, em qualquer linha — espelha
+ * `MAX_BUTTONS_PER_SEND` do backend. Linhas com limite próprio menor (a
+ * oficial) passam `maxButtons`, que prevalece.
+ */
+export const MAX_WIDGET_BUTTONS = 5
+
+/**
+ * Acrescenta um botão vazio do tipo pedido. `REPLY` não convive com
+ * `URL`/`CALL` no mesmo envio — só a troca de família reinicia a lista; outro
+ * botão da mesma família é acumulado, preservando o que já foi digitado.
+ */
+export function appendWidgetButton(
+  previous: WidgetButtonEntry[],
+  type: WidgetButtonType,
+): WidgetButtonEntry[] {
+  const hasReply = previous.some(button => button.type === 'REPLY')
+  const switchingKind = previous.length > 0 && hasReply !== (type === 'REPLY')
+
+  return switchingKind
+    ? [newWidgetButtonEntry(type)]
+    : [...previous, newWidgetButtonEntry(type)]
+}
+
+/**
  * O que ainda falta para o envio de botões poder ser feito. Mirror de
  * `hasAllTemplateVariables`: usado tanto para habilitar o Enviar quanto para
  * a mensagem exibida acima do formulário.
  *
  * `maxButtons` só a linha oficial define (`1`): a Cloud API da Meta não
  * combina múltiplos botões de URL numa mensagem de sessão livre — confirmado
- * contra a API real em 2026-09-15.
+ * contra a API real em 2026-09-15. Sem ele vale `MAX_WIDGET_BUTTONS`.
  */
 export function buttonComposerValidationMessage(
   body: string,
   buttons: WidgetButtonEntry[],
   allowedTypes: WidgetButtonType[],
-  maxButtons?: number,
+  maxButtons: number = MAX_WIDGET_BUTTONS,
 ): string | null {
   if (!body.trim()) return 'Escreva o corpo da mensagem.'
   if (buttons.length === 0) return 'Adicione ao menos um botão.'
 
-  if (maxButtons !== undefined && buttons.length > maxButtons) {
+  if (buttons.length > maxButtons) {
     return `Esta linha aceita no máximo ${maxButtons} botão(ões) por envio.`
   }
 
@@ -118,7 +142,7 @@ type ButtonComposerProps = {
   buttons: WidgetButtonEntry[]
   /** Tipos que a linha selecionada aceita — `HUBMESSAGE`: só URL; `ZAPI`: os três. */
   allowedTypes: WidgetButtonType[]
-  /** Máximo de botões por envio — só a linha oficial define (`1`). */
+  /** Máximo de botões por envio — só a linha oficial define (`1`); sem ele vale `MAX_WIDGET_BUTTONS`. */
   maxButtons?: number
   onAddButton: (type: WidgetButtonType) => void
   onUpdateButton: (id: string, patch: Partial<WidgetButtonEntry>) => void
@@ -141,14 +165,14 @@ export const ButtonComposer = ({
   onChangeFooter,
   buttons,
   allowedTypes,
-  maxButtons,
+  maxButtons = MAX_WIDGET_BUTTONS,
   onAddButton,
   onUpdateButton,
   onRemoveButton,
   disabled,
 }: ButtonComposerProps) => {
   const hasReply = buttons.some(button => button.type === 'REPLY')
-  const atMaxButtons = maxButtons !== undefined && buttons.length >= maxButtons
+  const atMaxButtons = buttons.length >= maxButtons
 
   return (
     <div className="mt-4 grid gap-4">

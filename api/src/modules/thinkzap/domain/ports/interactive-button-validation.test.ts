@@ -5,7 +5,10 @@ import {
   TooManyButtonsError,
   UnsupportedButtonTypeError,
 } from './button-errors'
-import { assertValidButtonsForProvider } from './interactive-button-validation'
+import {
+  assertValidButtonsForProvider,
+  MAX_BUTTONS_PER_SEND,
+} from './interactive-button-validation'
 import { ButtonAction } from './interactive-button-sender.port'
 
 const reply: ButtonAction = { id: '1', label: 'Sim', type: 'REPLY' }
@@ -102,5 +105,41 @@ describe('assertValidButtonsForProvider', () => {
     expect(() =>
       assertValidButtonsForProvider(ConnectorProvider.ZAPI, [reply, call]),
     ).toThrow(InvalidButtonCombinationError)
+  })
+
+  const replies = (count: number): ButtonAction[] =>
+    Array.from({ length: count }, (_, index) => ({
+      ...reply,
+      id: String(index + 1),
+    }))
+
+  it('ZAPI aceita até MAX_BUTTONS_PER_SEND (5) botões', () => {
+    expect(MAX_BUTTONS_PER_SEND).toBe(5)
+    expect(() =>
+      assertValidButtonsForProvider(ConnectorProvider.ZAPI, replies(5)),
+    ).not.toThrow()
+  })
+
+  it('ZAPI recusa o 6º botão com o máximo geral', () => {
+    let thrown: unknown
+    try {
+      assertValidButtonsForProvider(ConnectorProvider.ZAPI, replies(6))
+    } catch (error) {
+      thrown = error
+    }
+
+    expect(thrown).toBeInstanceOf(TooManyButtonsError)
+    expect((thrown as TooManyButtonsError).max).toBe(5)
+  })
+
+  it('HUBMESSAGE mantém o máximo próprio de 3 REPLY abaixo do geral', () => {
+    let thrown: unknown
+    try {
+      assertValidButtonsForProvider(ConnectorProvider.HUBMESSAGE, replies(4))
+    } catch (error) {
+      thrown = error
+    }
+
+    expect((thrown as TooManyButtonsError).max).toBe(3)
   })
 })
