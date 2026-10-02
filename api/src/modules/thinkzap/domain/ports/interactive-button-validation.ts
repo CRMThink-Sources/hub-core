@@ -23,6 +23,14 @@ const HUBMESSAGE_MAX_URL_BUTTONS = 1
 const HUBMESSAGE_MAX_REPLY_BUTTONS = 3
 
 /**
+ * Teto de botões por envio em qualquer provider — decisão de produto, não
+ * limite de API: evita mensagens com botões demais para o contato. Os limites
+ * da HubMessage acima são menores e prevalecem. Espelhado no front
+ * (`MAX_WIDGET_BUTTONS`/`MAX_ROBOT_BUTTONS`).
+ */
+export const MAX_BUTTONS_PER_SEND = 5
+
+/**
  * Valida a lista de botões contra o que o provider aceita. Fonte única desta
  * regra: usada tanto no pré-check síncrono do enfileiramento (antes de
  * qualquer row nascer) quanto dentro de cada adapter (defesa contra um
@@ -34,6 +42,8 @@ const HUBMESSAGE_MAX_REPLY_BUTTONS = 3
  * Meta não tem botão de ligação em mensagem de sessão livre, só em template
  * aprovado). `ZAPI` aceita os três tipos, mas recusa misturar `REPLY` com
  * `CALL`/`URL` no mesmo envio; `CALL` e `URL` entre si podem conviver.
+ * Fora da HubMessage (cujo limite já é menor), todo envio fica em
+ * `MAX_BUTTONS_PER_SEND`.
  */
 export function assertValidButtonsForProvider(
   provider: ConnectorProvider,
@@ -68,5 +78,9 @@ export function assertValidButtonsForProvider(
     if (hasReply && hasOther) {
       throw new InvalidButtonCombinationError('ZAPI')
     }
+  }
+
+  if (buttons.length > MAX_BUTTONS_PER_SEND) {
+    throw new TooManyButtonsError(provider, MAX_BUTTONS_PER_SEND)
   }
 }

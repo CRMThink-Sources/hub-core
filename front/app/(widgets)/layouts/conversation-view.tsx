@@ -25,9 +25,9 @@ import {
   useState,
 } from 'react'
 import {
+  appendWidgetButton,
   ButtonComposer,
   buttonComposerValidationMessage,
-  newWidgetButtonEntry,
   toButtonPayload,
   type WidgetButtonEntry,
   type WidgetButtonType,
@@ -245,8 +245,9 @@ export const ConversationView = () => {
    * API real em 2026-09-15 que a Cloud API da Meta não tem botão de ligação
    * em mensagem de sessão livre, e que o botão de URL (`cta_url`) não
    * combina com outro no mesmo envio (`maxButtons` abaixo). `ZAPI` tem os
-   * três, sem limite de quantidade, mas não pode misturar `REPLY` com os
-   * outros dois no mesmo envio — a mistura é recusada por
+   * três, até `MAX_WIDGET_BUTTONS` (o default quando `maxButtons` fica
+   * `undefined`), mas não pode misturar `REPLY` com os outros dois no mesmo
+   * envio — a mistura é recusada por
    * `buttonComposerValidationMessage`, não por este array.
    */
   const allowedButtonTypes: WidgetButtonType[] = !selectedLine
@@ -456,16 +457,12 @@ export const ConversationView = () => {
   }
 
   /**
-   * `REPLY` não convive com `URL`/`CALL` no mesmo envio — trocar de tipo
+   * `REPLY` não convive com `URL`/`CALL` no mesmo envio — trocar de família
    * reinicia a lista, em vez de deixar o operador montar uma combinação que
-   * o envio vai recusar.
+   * o envio vai recusar. Mesma família acumula (`appendWidgetButton`).
    */
   const addButton = (type: WidgetButtonType) => {
-    setButtons(previous =>
-      type === 'REPLY' || previous.some(button => button.type === 'REPLY')
-        ? [newWidgetButtonEntry(type)]
-        : [...previous, newWidgetButtonEntry(type)],
-    )
+    setButtons(previous => appendWidgetButton(previous, type))
   }
 
   const updateButton = (id: string, patch: Partial<WidgetButtonEntry>) => {

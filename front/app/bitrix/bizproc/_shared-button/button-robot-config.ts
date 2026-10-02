@@ -47,6 +47,13 @@ export const EMPTY_BUTTON_CONFIG: ButtonRobotConfigState = {
   buttons: [],
 }
 
+/**
+ * Teto de botões por envio para qualquer tipo sem limite próprio em
+ * `maxButtonsByType` — espelha `MAX_BUTTONS_PER_SEND` do backend, que recusa
+ * o disparo acima disso.
+ */
+export const MAX_ROBOT_BUTTONS = 5
+
 let nextEntryId = 1
 
 /** Só para a key do React na lista — o backend não recebe este id. */
@@ -123,7 +130,8 @@ function parseButtonEntry(raw: string, index: number): ButtonEntry | null {
  * com combinação restrita — só ele pode misturar `URL`/`CALL`. `maxButtonsByType`
  * só o oficial define: a Cloud API da Meta aceita um único botão `URL` mas até
  * 3 `REPLY` por mensagem de sessão livre — confirmado contra a API real em
- * 2026-09-15 (URL) e 2026-09-18 (REPLY).
+ * 2026-09-15 (URL) e 2026-09-18 (REPLY). Tipo sem limite próprio cai em
+ * `MAX_ROBOT_BUTTONS`.
  */
 export function validateButtonConfig(
   config: ButtonRobotConfigState,
@@ -143,8 +151,10 @@ export function validateButtonConfig(
   }
 
   const currentType = config.buttons[0]?.type
-  const maxButtons = currentType ? maxButtonsByType?.[currentType] : undefined
-  if (maxButtons !== undefined && config.buttons.length > maxButtons) {
+  const maxButtons =
+    (currentType ? maxButtonsByType?.[currentType] : undefined) ??
+    MAX_ROBOT_BUTTONS
+  if (config.buttons.length > maxButtons) {
     return `Esta linha aceita no máximo ${maxButtons} botão(ões) por envio.`
   }
 

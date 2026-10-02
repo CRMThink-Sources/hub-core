@@ -14,6 +14,7 @@ import {
 import { ValueField } from '../template/_components/value-field'
 import {
   buildButtonRobotProperties,
+  MAX_ROBOT_BUTTONS,
   newButtonEntry,
   parseStoredButtonProperties,
   validateButtonConfig,
@@ -172,8 +173,8 @@ export const ButtonRobotForm = ({
   const missing = validateButtonConfig(config, allowedTypes, maxButtonsByType)
 
   const isTypeAtMax = (type: ButtonType) => {
-    const max = maxButtonsByType?.[type]
-    return max !== undefined && config.buttons.length >= max
+    const max = maxButtonsByType?.[type] ?? MAX_ROBOT_BUTTONS
+    return config.buttons.length >= max
   }
 
   return (
