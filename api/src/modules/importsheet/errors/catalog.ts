@@ -3,9 +3,7 @@ import {
   type ErrorMeta,
 } from '@/shared/domain/errors/error-catalog'
 
-// Fonte única dos errorCode do importsheet. Via A (exceção HTTP/worker) usa
-// importsheetError(); via B/C usa logImportsheetError(). httpStatus só importa na via A.
-// Todo code aqui tem runbook em mcp/kb/runbooks/importsheet/** (cruzado por teste).
+// Todo code aqui precisa de runbook em mcp/kb/runbooks/importsheet/** (validado por teste).
 export const IMPORTSHEET_ERRORS = {
   'importsheet.run.fatal': {
     category: 'internal',
@@ -23,7 +21,6 @@ export const IMPORTSHEET_ERRORS = {
     retriable: false,
   },
 
-  // --- Via C: pulo por-linha silencioso (1 warn agregada por code/página) ---
   'importsheet.import.status_no_match': {
     category: 'validation',
     userCause:
@@ -57,7 +54,6 @@ export const IMPORTSHEET_ERRORS = {
     retriable: false,
   },
 
-  // --- Planilha/aba (via A ao configurar; via B no meio da run) ---
   'importsheet.sheet.not_found_or_forbidden': {
     category: 'integration',
     userCause:
@@ -104,7 +100,6 @@ export const IMPORTSHEET_ERRORS = {
     httpStatus: 400,
   },
 
-  // --- OAuth Google (via A no callback) ---
   'importsheet.oauth.state_invalid_or_expired': {
     category: 'auth',
     userCause:
@@ -123,7 +118,6 @@ export const IMPORTSHEET_ERRORS = {
     httpStatus: 500,
   },
 
-  // --- Guards de execução (via A, 409) ---
   'importsheet.run.in_flight': {
     category: 'validation',
     userCause:
@@ -141,7 +135,6 @@ export const IMPORTSHEET_ERRORS = {
     httpStatus: 409,
   },
 
-  // --- Bitrix meta (via A ao montar a importação) ---
   'importsheet.bitrix.field_meta_error': {
     category: 'integration',
     userCause:
@@ -152,7 +145,6 @@ export const IMPORTSHEET_ERRORS = {
     httpStatus: 502,
   },
 
-  // --- Validações de configuração da importação (via A, 400) ---
   'importsheet.import.mapping_empty': {
     category: 'validation',
     userCause:
@@ -204,18 +196,107 @@ export const IMPORTSHEET_ERRORS = {
     retriable: false,
     httpStatus: 400,
   },
+  'importsheet.reprocess.failed': {
+    category: 'integration',
+    userCause:
+      'O reprocessamento das linhas com erro não pôde ser concluído; nenhuma linha foi alterada nesta tentativa.',
+    remediation:
+      'Tentar reprocessar de novo em instantes; se persistir, ler o erro do log (Bitrix24 recusou ou ficou fora) e acionar o suporte.',
+    retriable: true,
+  },
+  'importsheet.settings.bitrix_error': {
+    category: 'integration',
+    userCause:
+      'O Bitrix24 recusou ler ou salvar as configurações de notificação.',
+    remediation:
+      'Conferir as permissões do app no portal; ler a mensagem do Bitrix24 no log.',
+    retriable: true,
+  },
+  'importsheet.bitrix.user_lookup_failed': {
+    category: 'integration',
+    userCause:
+      'A busca do responsável da linha no Bitrix24 falhou, então a importação usou o responsável padrão.',
+    remediation:
+      'Se recorrente, conferir o escopo `user` do app; falha pontual se resolve na próxima execução.',
+    retriable: true,
+  },
+  'importsheet.bitrix.currency_base_failed': {
+    category: 'integration',
+    userCause:
+      'A leitura da moeda base do Bitrix24 falhou e os campos de dinheiro seguiram sem moeda.',
+    remediation: 'Conferir a permissão/escopo de moeda do app no Bitrix24.',
+    retriable: true,
+  },
+  'importsheet.bitrix.field_meta_cache_read_failed': {
+    category: 'internal',
+    userCause:
+      'Falha ao ler os dados de campos guardados temporariamente; o app buscou direto no Bitrix24.',
+    remediation: 'Nenhuma ação; se recorrente, verificar o Redis.',
+    retriable: true,
+  },
+  'importsheet.bitrix.field_meta_cache_write_failed': {
+    category: 'internal',
+    userCause:
+      'Falha ao guardar temporariamente os dados de campos; o app seguiu buscando direto no Bitrix24.',
+    remediation: 'Nenhuma ação; se recorrente, verificar o Redis.',
+    retriable: true,
+  },
+  'importsheet.import.page_marker_degraded': {
+    category: 'internal',
+    userCause:
+      'Falha ao registrar o controle de progresso da importação; há risco de reprocessar a mesma parte da planilha.',
+    remediation: 'Verificar a disponibilidade do Redis.',
+    retriable: false,
+  },
+  'importsheet.import.reprocess_marker_degraded': {
+    category: 'internal',
+    userCause:
+      'Falha ao registrar o controle do reprocessamento; há risco de repetir o mesmo trabalho.',
+    remediation: 'Verificar a disponibilidade do Redis.',
+    retriable: false,
+  },
+  'importsheet.run.lock_renew_failed': {
+    category: 'internal',
+    userCause:
+      'A trava da importação não foi renovada durante a execução; se expirar, outra execução pode rodar em paralelo.',
+    remediation:
+      'Verificar a disponibilidade do Redis; se houver linhas duplicadas na janela do log, revisar o lote.',
+    retriable: false,
+  },
+  'importsheet.run.continuation_enqueue_failed': {
+    category: 'internal',
+    userCause:
+      'Falha ao reenfileirar a próxima página da importação; a rodada pode travar no meio.',
+    remediation:
+      'Verificar fila e Redis; a retomada automática de importações presas resolve em ~20min.',
+    retriable: true,
+  },
+  'importsheet.run.stale_reclaimed': {
+    category: 'internal',
+    userCause:
+      'Importação presa em "running" por muito tempo foi retomada automaticamente pelo cursor.',
+    remediation:
+      'Nenhuma ação; se recorrente, investigar por que o worker cai no meio da execução.',
+    retriable: false,
+  },
+  'importsheet.notify.failed': {
+    category: 'integration',
+    userCause:
+      'Falha ao notificar os usuários sobre erros da importação; a importação não foi interrompida.',
+    remediation:
+      'Conferir a configuração de notificação e os usuários alvo; os erros seguem visíveis na tela da importação.',
+    retriable: false,
+  },
 } as const satisfies Record<string, ErrorMeta>
 
 export type ImportsheetErrorCode = keyof typeof IMPORTSHEET_ERRORS
 
-// Codes emitidos via subclasse de AppError (metadados na subclasse). Só pro cruzamento.
+// Emitidos por subclasses de AppError; listados só pro cruzamento com os runbooks.
 export const IMPORTSHEET_THROWN_CODES = [
   'importsheet.google.auth_required',
   'importsheet.google.unavailable',
 ] as const
 
 const catalog = makeErrorCatalog(IMPORTSHEET_ERRORS)
-// Via A: exceção que borbulha pro funil. Via B/C: desfecho não-exceção logado
-// (via B fatal passa {level:'error', msg} com a mensagem real; via C usa userCause).
 export const importsheetError = catalog.appError
 export const logImportsheetError = catalog.logError

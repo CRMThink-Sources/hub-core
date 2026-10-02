@@ -3,6 +3,7 @@ import { Worker } from 'bullmq'
 import { bullBaseOptions } from '@/queue/redis-connection'
 import { env } from '@/config/env'
 import { createWorkerLogger } from '@/shared/infra/logger'
+import { logImportsheetError } from '@/modules/importsheet/errors/catalog'
 import { installBitrixLimits } from '@/shared/infra/bitrix-limits/install-bitrix-limits'
 import { AppError } from '@/shared/domain/errors/app-error'
 import { appErrorLogFields } from '@/shared/infra/log-error'
@@ -53,9 +54,7 @@ const runImportService = new RunImportService(
     (await makeBitrixClientByAppId(appId)) as BitrixClient,
 )
 
-// --- Worker de execução: processa UMA página por job. ---
-// concurrency 1: o limite de intensidade do Bitrix é por IP (compartilhado entre
-// todas as contas a partir deste servidor), então paralelizar só antecipa o 503.
+// concurrency 1: o limite de intensidade do Bitrix é por IP, paralelizar só antecipa o 503.
 const runWorker = new Worker<ImportSheetRunJob, ImportRunOutcome>(
   IMPORTSHEET_RUN,
   async job =>
@@ -67,8 +66,7 @@ const runWorker = new Worker<ImportSheetRunJob, ImportRunOutcome>(
 
         const outcome = await runImportService.execute(job.data.importId)
 
-        // 503 de intensidade (por IP): pausa a fila inteira por um instante e re-roda
-        // o MESMO job sem contar como falha. `RateLimitError` é o mecanismo nativo.
+        // Pausa a fila e re-roda o mesmo job sem contar como falha.
         if (outcome.status === 'throttled-intensity') {
           await runWorker.rateLimit(outcome.pauseMs)
           throw Worker.RateLimitError()
@@ -79,37 +77,38 @@ const runWorker = new Worker<ImportSheetRunJob, ImportRunOutcome>(
   { ...bullBaseOptions, concurrency: 1 },
 )
 
-// Continuação da paginação: re-enfileira a PRÓXIMA página. Roda no evento
-// `completed` (jobId `import-${id}` já liberado pelo removeOnComplete), então a
-// continuação entra no FIM da fila → round-robin natural entre importações.
+// No `completed` o jobId já foi liberado: a próxima página vai pro fim da fila (round-robin).
 runWorker.on('completed', (job, outcome) => {
   const importId = job.data.importId
-  // Enqueue da continuação não pode falhar calado: sem ela a importação trava
-  // em `running` (cursor parado no meio). Loga pra detectar o órfão.
+  // Sem a continuação a importação trava em `running`; loga pra detectar o órfão.
   const enqueueContinuation = (delay?: number): void => {
     enqueueImportRun(
       { importId, trigger: 'continuation' },
       delay ? { delay } : undefined,
     ).catch(error =>
-      log.error(
+      logImportsheetError(
+        log,
+        'importsheet.run.continuation_enqueue_failed',
         {
           event: 'worker.job.enqueue_continuation_failed',
           queue: IMPORTSHEET_RUN,
           importId,
           err: error,
         },
-        'Failed to enqueue import continuation — import may be stuck',
+        {
+          level: 'error',
+          msg: 'Failed to enqueue import continuation — import may be stuck',
+        },
       ),
     )
   }
 
   if (outcome?.status === 'continue') {
-    // Vai pro fim da fila (round-robin); delay opcional espalha sob o limite do Bitrix.
     enqueueContinuation(env.importsheet.pageDelayMs || undefined)
     return
   }
   if (outcome?.status === 'throttled-operating') {
-    // Budget de operating (por conta) → segura SÓ esta importação até o reset.
+    // Budget de operating é por conta: segura só esta importação até o reset.
     const delay = outcome.resetAt
       ? Math.max(0, outcome.resetAt * 1000 - Date.now())
       : OPERATING_DEFAULT_DELAY_MS
@@ -118,7 +117,6 @@ runWorker.on('completed', (job, outcome) => {
 })
 
 runWorker.on('failed', (job, err) => {
-  // AppError → errorCode estruturado (casa com runbook/MCP); senão UNCLASSIFIED.
   const base = {
     event: 'worker.job.failed',
     queue: IMPORTSHEET_RUN,
@@ -133,19 +131,17 @@ runWorker.on('failed', (job, err) => {
   log.error(fields, 'Import run job failed')
 })
 
-// Órfã de crash: `running` com `lastRunAt` velho. 20min dá folga acima do delay
-// legítimo do operating throttle (janela ~10min).
+// Folga acima do delay legítimo do operating throttle (~10min).
 const STALE_RUNNING_MS = 20 * 60 * 1000
 
-// Reclama imports presas em `running` (worker morto mid-página): marca `error` e
-// reenfileira (retoma do cursor; `jobId import-${id}` evita duplicar).
+// Retoma do cursor; o jobId `import-${id}` evita enfileirar em duplicidade.
 async function reclaimStaleRunning(): Promise<void> {
   const staleBefore = new Date(Date.now() - STALE_RUNNING_MS)
   const orphans = await importRepository.findStaleRunning(staleBefore)
   if (orphans.length === 0) return
 
   for (const imp of orphans) {
-    // Preserva os erros por-linha acumulados pra seguirem reprocessáveis.
+    // Preserva os erros por linha pra seguirem reprocessáveis.
     const parsed = parseImportError(imp.lastError)
     const prior =
       parsed?.kind === 'partial'
@@ -171,27 +167,26 @@ async function reclaimStaleRunning(): Promise<void> {
     }
   }
 
-  log.warn(
+  logImportsheetError(
+    log,
+    'importsheet.run.stale_reclaimed',
     {
       event: 'worker.job.reclaimed',
       queue: IMPORTSHEET_SCHEDULER,
       reclaimed: orphans.length,
       importIds: orphans.map(o => o.id),
     },
-    'Reclaimed stale running imports (worker crash recovery)',
+    { msg: 'Reclaimed stale running imports (worker crash recovery)' },
   )
 }
 
-// --- Worker do scheduler: tick do poller (busca vencidas e enfileira). ---
-// O balde de request do Bitrix e por portal: worker que chama o Bitrix sem
-// instalar o controle gasta a cota dos outros sem contar.
+// O balde do Bitrix é por portal: sem o controle este worker gasta a cota dos outros.
 installBitrixLimits()
 
 const schedulerWorker = new Worker(
   IMPORTSHEET_SCHEDULER,
   async () =>
     runWithLogContext({ traceKey: randomUUID() }, async () => {
-      // Lock garante tick único entre workers; auto-renova p/ não expirar no meio.
       await withRenewingLock(
         'importsheet:tick',
         SCHEDULER_TICK_EVERY_MS - 5000,
@@ -233,8 +228,7 @@ schedulerWorker.on('failed', (job, err) => {
 
 async function bootstrap(): Promise<void> {
   await ensureSchedulerTick()
-  // Token Bitrix: a rota lê a credential fresca do banco por página; o refresh do
-  // access_token é responsabilidade da rotina central da API (cron + buffer).
+  // Refresh do token Bitrix é da rotina central da API; aqui só lê a credential por página.
   log.info(
     { event: 'worker.ready' },
     'ImportSheet worker is ready (run + scheduler)',

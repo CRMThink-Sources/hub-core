@@ -3,9 +3,7 @@ import {
   type ErrorMeta,
 } from '@/shared/domain/errors/error-catalog'
 
-// Fonte única dos errorCode do clicksign (metadados = summary do runbook + ação).
-// Via A (exceção HTTP) usa clicksignError(); via B/C (webhook/worker/side-effect)
-// usa logClicksignError(). Todo code aqui tem runbook (cruzado por teste).
+// Todo code aqui precisa ter runbook (cruzado por teste).
 export const CLICKSIGN_ERRORS = {
   'clicksign.api.request_failed': {
     category: 'integration',
@@ -254,7 +252,7 @@ export const CLICKSIGN_ERRORS = {
     httpStatus: 401,
   },
 
-  // --- audience dev/observabilidade (emitidos, escalam pro dev) ---
+  // Daqui em diante: audience dev (escalam pro dev).
   'clicksign.webhook.payload_invalid': {
     category: 'validation',
     userCause: 'Corpo do webhook não é JSON válido ou sem nome de evento.',
@@ -310,6 +308,80 @@ export const CLICKSIGN_ERRORS = {
     category: 'integration',
     userCause: 'Liberação da automação no Bitrix (bizproc.event.send) falhou.',
     remediation: 'Ler a linha de log; acionar a equipe de desenvolvimento.',
+    retriable: false,
+  },
+  'clicksign.send.settings_not_found': {
+    category: 'config',
+    userCause:
+      'O robô de envio rodou, mas o portal não tem o app Clicksign instalado ou configurado; nenhum documento foi enviado.',
+    remediation:
+      'Conferir se o app está instalado no portal e se a configuração (tokens) foi salva; depois reexecutar a automação.',
+    retriable: false,
+  },
+  'clicksign.cancel.execution_failed': {
+    category: 'internal',
+    userCause: 'Exceção não tratada durante o cancelamento.',
+    remediation: 'Ler a linha de log; acionar a equipe de desenvolvimento.',
+    retriable: false,
+  },
+  'clicksign.document.envelope_missing': {
+    category: 'internal',
+    userCause: 'originId do documento não contém uma chave de envelope válida.',
+    remediation: 'Ler a linha de log; acionar a equipe de desenvolvimento.',
+    retriable: false,
+  },
+  'clicksign.event.bitrix_update_failed': {
+    category: 'integration',
+    userCause:
+      'O evento da Clicksign chegou, mas a atualização do card ou do negócio no Bitrix24 falhou.',
+    remediation:
+      'Conferir as permissões de CRM do app no portal; a Clicksign reenvia o evento conforme a política dela.',
+    retriable: true,
+  },
+  'clicksign.lock.acquire_failed': {
+    category: 'internal',
+    userCause:
+      'Não foi possível processar o documento porque ele estava travado por outra operação e o tempo de espera se esgotou.',
+    remediation: 'Ler a linha de log; acionar a equipe de desenvolvimento.',
+    retriable: true,
+  },
+  'clicksign.worker.settings_missing': {
+    category: 'config',
+    userCause:
+      'Processamento em segundo plano sem configurações do app — foi pulado.',
+    remediation: 'Observabilidade — nenhuma ação de suporte.',
+    retriable: false,
+  },
+  'clicksign.worker.job_failed': {
+    category: 'internal',
+    userCause: 'O processamento em segundo plano falhou.',
+    remediation: 'Ler a linha de log; acionar a equipe de desenvolvimento.',
+    retriable: true,
+  },
+  'clicksign.provisioning.webhook_delete_failed': {
+    category: 'integration',
+    userCause: 'Remoção de webhook antigo (correção de drift) falhou.',
+    remediation: 'Ler a linha de log; acionar a equipe de desenvolvimento.',
+    retriable: true,
+  },
+  'clicksign.provisioning.bitrix_error': {
+    category: 'integration',
+    userCause: 'A verificação ou o reparo da instalação no Bitrix24 falhou.',
+    remediation:
+      'Conferir as permissões do app no portal e tentar de novo; ler a resposta do Bitrix24 no log.',
+    retriable: true,
+  },
+  'clicksign.settings.body_invalid': {
+    category: 'validation',
+    userCause:
+      'Os dados enviados ao salvar as configurações estão inválidos ou incompletos.',
+    remediation: 'Corrigir o campo apontado no log e salvar de novo.',
+    retriable: false,
+  },
+  'clicksign.fields.entity_invalid': {
+    category: 'validation',
+    userCause: 'Tipo de entidade inválido (use deal ou contact).',
+    remediation: 'Acionar a equipe de desenvolvimento (chamada da tela).',
     retriable: false,
   },
 } as const satisfies Record<string, ErrorMeta>

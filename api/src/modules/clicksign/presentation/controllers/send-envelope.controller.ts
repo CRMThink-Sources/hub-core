@@ -59,6 +59,10 @@ export class SendEnvelopeController extends Controller {
           token: body.auth.access_token,
           bitrix,
         })
+      } else {
+        logClicksignError(apiLogger, 'clicksign.send.settings_not_found', {
+          app: 'clicksign',
+        })
       }
     } catch (error) {
       logClicksignError(

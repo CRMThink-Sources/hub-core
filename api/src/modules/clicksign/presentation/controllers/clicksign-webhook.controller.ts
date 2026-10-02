@@ -11,11 +11,13 @@ import {
   WebhookPayload,
 } from '../../application/handle-signature-event.use-case'
 import { enqueueDocumentClosed } from '../../infra/queue/clicksign-document-closed.queue'
-import { clicksignError } from '../../errors/catalog'
+import { clicksignError, logClicksignError } from '../../errors/catalog'
+import { BitrixError } from '@/shared/infra/clients/errors/bitrix-client.error'
+import { safeErrorMessage } from '../../infra/clients/clicksign-error'
+import { apiLogger } from '@/shared/infra/logger'
 import { setTenantLogContext } from '@/shared/infra/log-tenant'
 
-// Usa raw body para validar o HMAC; resolve tenant por `:appId` e conta/secret
-// por `:ref`.
+// Raw body para validar o HMAC; tenant por `:appId`, conta/secret por `:ref`.
 export class ClicksignWebhookController extends Controller {
   constructor(private readonly settings: ClickSignSettingsRepository) {
     super()
@@ -58,7 +60,20 @@ export class ClicksignWebhookController extends Controller {
     }
 
     const bitrix = await makeBitrixClientByAppId(appId)
-    await new HandleSignatureEventUseCase(bitrix, settings).handle(payload)
+    try {
+      await new HandleSignatureEventUseCase(bitrix, settings).handle(payload)
+    } catch (error) {
+      // BitrixError cai no funil como 400 sem log.
+      if (error instanceof BitrixError) {
+        logClicksignError(apiLogger, 'clicksign.event.bitrix_update_failed', {
+          app: 'clicksign',
+          event: payload.event.name,
+          documentKey: payload.document?.key,
+          err: safeErrorMessage(error),
+        })
+      }
+      throw error
+    }
 
     return this.ok({ received: true })
   }

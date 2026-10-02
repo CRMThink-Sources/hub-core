@@ -1,5 +1,6 @@
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { apiLogger } from '@/shared/infra/logger'
+import { logImportsheetError } from '../errors/catalog'
 
 export type ResponsibleMatchBy = 'id' | 'email' | 'phone'
 
@@ -7,8 +8,7 @@ type UserGetResponse = { result?: { ID?: string | number }[] }
 
 const PHONE_FIELDS = ['PERSONAL_MOBILE', 'WORK_PHONE', 'UF_PHONE_INNER']
 
-// Resolve o id do usuário responsável (id/email/telefone) via user.get.
-// Cache de Promise por run; não encontrado → null (mantém o responsável default).
+// Não encontrado → null, mantendo o responsável default.
 export class ResponsibleResolver {
   private readonly cache = new Map<string, Promise<string | null>>()
 
@@ -43,9 +43,11 @@ export class ResponsibleResolver {
       }
       return null
     } catch (error) {
-      apiLogger.warn(
-        { app: 'importsheet', matchBy, value, error },
-        'Falha ao resolver responsável — mantém o default',
+      logImportsheetError(
+        apiLogger,
+        'importsheet.bitrix.user_lookup_failed',
+        { app: 'importsheet', matchBy, value, err: error },
+        { msg: 'Falha ao resolver responsável — mantém o default' },
       )
       return null
     }

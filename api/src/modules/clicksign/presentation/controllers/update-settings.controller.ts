@@ -32,6 +32,10 @@ export class UpdateSettingsController extends Controller {
 
     const parsed = settingsPatchSchema.safeParse(req.body)
     if (!parsed.success) {
+      logClicksignError(apiLogger, 'clicksign.settings.body_invalid', {
+        app: 'clicksign',
+        issue: parsed.error.issues[0]?.message,
+      })
       return this.badRequest(
         new Error(parsed.error.issues[0]?.message ?? 'Body inválido'),
       )
@@ -43,9 +47,7 @@ export class UpdateSettingsController extends Controller {
     )
     if (!app) throw clicksignError('clicksign.settings.app_not_found')
 
-    // Lê o estado anterior antes do upsert: o front salva tokens sem o campo
-    // `webhook` e o upsert sobrescreve o fields inteiro, então recuperamos o
-    // webhook já registrado (casado por token) para não re-registrar a cada save.
+    // O upsert apaga o `webhook` dos tokens: o anterior evita re-registrar a cada save.
     const previous = await this.settings.findByAppId(app.id)
 
     let settings = await this.settings.upsertByAppId(app.id, parsed.data)
@@ -86,7 +88,6 @@ export class UpdateSettingsController extends Controller {
       const tokens = Array.isArray(fields?.tokens) ? fields.tokens : []
       if (tokens.length === 0) return settings
 
-      // Recupera o webhook já registrado (perdido no upsert) casando por token.
       const prevByToken = webhookByToken(previous)
       const merged = tokens.map(t =>
         t.webhook ? t : { ...t, webhook: prevByToken.get(t.token) },
@@ -101,8 +102,7 @@ export class UpdateSettingsController extends Controller {
         )
       }
 
-      // Sempre re-persiste: o upsert derrubou o webhook, então mesmo em no-op
-      // gravamos o webhook (mesclado ou recém-criado) de volta.
+      // Sempre re-persiste: o upsert derrubou o webhook, mesmo em no-op.
       return this.settings.upsertByAppId(appId, {
         fields: { ...fields, tokens: result.tokens },
       })
