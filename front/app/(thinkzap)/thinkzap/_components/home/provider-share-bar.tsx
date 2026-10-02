@@ -1,4 +1,7 @@
-const numberFormatter = new Intl.NumberFormat('pt-BR')
+'use client'
+
+import { useTranslation } from 'react-i18next'
+import { useNumberFormatter } from '../../_lib/use-number-formatter'
 
 type Props = {
   zapiTotal: number
@@ -16,6 +19,7 @@ type Props = {
  * não depende de distinguir matizes.
  */
 export function ProviderShareBar({ zapiTotal, hubmessageTotal }: Props) {
+  const { t } = useTranslation('thinkzap/home')
   const total = zapiTotal + hubmessageTotal
   if (total === 0) return null
 
@@ -25,7 +29,7 @@ export function ProviderShareBar({ zapiTotal, hubmessageTotal }: Props) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <h3 className="text-sm font-medium text-muted-foreground">
-        Web vs Business no período
+        {t('stats.share')}
       </h3>
 
       <div className="mt-3 flex h-6 w-full overflow-hidden rounded-full bg-muted">
@@ -75,6 +79,8 @@ function LegendItem({
   value: number
   percent: number
 }) {
+  const numberFormatter = useNumberFormatter()
+
   return (
     <div className="flex items-center gap-2 text-sm">
       <span className={`size-2.5 shrink-0 rounded-full ${swatchClassName}`} />

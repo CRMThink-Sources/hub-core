@@ -12,6 +12,9 @@ const montserrat = Montserrat({
  * Usa `theme-thinkzap` para herdar os tokens de cor da marca (`--primary` etc.)
  * em vez de repetir cor fixa. Quando entrar LP de outro app, o tema passa a vir
  * do layout da própria LP.
+ *
+ * Sem `lang` aqui: o layout não conhece `?lang=`, então cada página declara o
+ * idioma do próprio conteúdo.
  */
 export default function MarketingLayout({
   children,
@@ -20,7 +23,6 @@ export default function MarketingLayout({
 }) {
   return (
     <div
-      lang="pt-BR"
       className={`theme-thinkzap ${montserrat.variable} min-h-screen overflow-x-hidden bg-background text-foreground`}
       style={{ fontFamily: 'var(--font-montserrat)' }}
     >

@@ -1,7 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { TUTORIALS, tutorialTracks, type TutorialSlug } from './content'
+import {
+  getLpContent,
+  tutorialsOf,
+  tutorialTracks,
+  type LpLocale,
+  type TutorialSlug,
+} from './content'
+import { LpContentProvider } from './content/locale-context'
 import type { ThinkzapCtas } from './resolve-ctas'
 import {
   DEFAULT_TUTORIAL,
@@ -27,7 +34,16 @@ export const TUTORIALS_SECTION_ID = 'tutoriais'
  *
  * O servidor sempre renderiza o primeiro tutorial; o hash só é lido no cliente.
  */
-export function TutorialTabs({ ctas }: { ctas: ThinkzapCtas }) {
+export function TutorialTabs({
+  ctas,
+  locale,
+}: {
+  ctas: ThinkzapCtas
+  /** Só o idioma cruza a fronteira server/client; o dicionário é importado aqui. */
+  locale: LpLocale
+}) {
+  const content = getLpContent(locale)
+  const TUTORIALS = tutorialsOf(content)
   const [location, setLocation] = useState<TutorialLocation>({
     slug: DEFAULT_TUTORIAL,
     variant: '',
@@ -60,72 +76,74 @@ export function TutorialTabs({ ctas }: { ctas: ThinkzapCtas }) {
   const nextTutorial = TUTORIALS[tutorialIndex + 1]
 
   return (
-    <div ref={topRef}>
-      <TabStrip
-        label="Tutoriais"
-        items={TUTORIALS.map(item => ({
-          id: item.slug,
-          label: item.label,
-          href: tutorialHash(item.slug),
-        }))}
-        active={tutorial.slug}
-        onSelect={slug => go({ slug: slug as TutorialSlug, variant: '' })}
-        idPrefix="tab"
-      />
+    <LpContentProvider content={content}>
+      <div ref={topRef}>
+        <TabStrip
+          label={content.player.tabsLabel}
+          items={TUTORIALS.map(item => ({
+            id: item.slug,
+            label: item.label,
+            href: tutorialHash(item.slug),
+          }))}
+          active={tutorial.slug}
+          onSelect={slug => go({ slug: slug as TutorialSlug, variant: '' })}
+          idPrefix="tab"
+        />
 
-      <div
-        role="tabpanel"
-        id="tutorial-panel"
-        aria-labelledby={`tab-${tutorial.slug}`}
-        className="mt-6"
-      >
-        {tracks.length > 1 && (
-          <TabStrip
-            label={`Tipos de ${tutorial.label.toLowerCase()}`}
-            items={tracks.map(item => ({
-              id: item.key,
-              label: item.label,
-              href: tutorialHash(tutorial.slug, item.key),
-            }))}
-            active={track.key}
-            onSelect={key => go({ slug: tutorial.slug, variant: key })}
-            idPrefix={`subtab-${tutorial.slug}`}
-            controls="tutorial-track"
-            size="sm"
-          />
-        )}
         <div
-          id="tutorial-track"
-          {...(tracks.length > 1 && {
-            role: 'tabpanel',
-            'aria-labelledby': `subtab-${tutorial.slug}-${track.key}`,
-          })}
+          role="tabpanel"
+          id="tutorial-panel"
+          aria-labelledby={`tab-${tutorial.slug}`}
+          className="mt-6"
         >
-          <p className="mb-8 mt-4 text-center text-sm text-muted-foreground">
-            {track.summary}
-          </p>
-          <TutorialPlayer
-            key={`${tutorial.slug}:${track.key}`}
-            track={track}
-            view={TUTORIAL_VIEWS[tutorial.slug]}
-            ctas={ctas}
-            next={
-              nextTutorial && {
-                label: nextTutorial.label,
-                onGo: () => {
-                  go({ slug: nextTutorial.slug, variant: '' })
-                  document.getElementById(`tab-${nextTutorial.slug}`)?.focus()
-                  topRef.current?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                  })
-                },
+          {tracks.length > 1 && (
+            <TabStrip
+              label={content.player.variantsLabel(tutorial.label)}
+              items={tracks.map(item => ({
+                id: item.key,
+                label: item.label,
+                href: tutorialHash(tutorial.slug, item.key),
+              }))}
+              active={track.key}
+              onSelect={key => go({ slug: tutorial.slug, variant: key })}
+              idPrefix={`subtab-${tutorial.slug}`}
+              controls="tutorial-track"
+              size="sm"
+            />
+          )}
+          <div
+            id="tutorial-track"
+            {...(tracks.length > 1 && {
+              role: 'tabpanel',
+              'aria-labelledby': `subtab-${tutorial.slug}-${track.key}`,
+            })}
+          >
+            <p className="mb-8 mt-4 text-center text-sm text-muted-foreground">
+              {track.summary}
+            </p>
+            <TutorialPlayer
+              key={`${tutorial.slug}:${track.key}`}
+              track={track}
+              view={TUTORIAL_VIEWS[tutorial.slug]}
+              ctas={ctas}
+              next={
+                nextTutorial && {
+                  label: nextTutorial.label,
+                  onGo: () => {
+                    go({ slug: nextTutorial.slug, variant: '' })
+                    document.getElementById(`tab-${nextTutorial.slug}`)?.focus()
+                    topRef.current?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start',
+                    })
+                  },
+                }
               }
-            }
-          />
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </LpContentProvider>
   )
 }
 

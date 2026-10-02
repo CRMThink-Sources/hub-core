@@ -9,7 +9,7 @@ import {
   Workflow,
   type LucideIcon,
 } from 'lucide-react'
-import { FEATURES, type FeatureIcon } from './content'
+import type { FeatureIcon, LpContent } from './content'
 
 const ICONS: Record<FeatureIcon, LucideIcon> = {
   channels: BadgeCheck,
@@ -22,16 +22,13 @@ const ICONS: Record<FeatureIcon, LucideIcon> = {
   media: ImageIcon,
 }
 
-export function Features() {
+export function Features({ copy }: { copy: LpContent['features'] }) {
   return (
     <section id="funcionalidades" className="scroll-mt-8 py-16 md:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <SectionHeading
-          title="Tudo o que sua equipe precisa no WhatsApp"
-          subtitle="Do primeiro contato ao pós-venda, com o histórico no CRM."
-        />
+        <SectionHeading title={copy.title} subtitle={copy.subtitle} />
         <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map(feature => {
+          {copy.items.map(feature => {
             const Icon = ICONS[feature.icon]
             return (
               <li

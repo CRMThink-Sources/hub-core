@@ -1,11 +1,19 @@
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+import {
+  APP_MENU_IDS,
+  BITRIX_MENU_IDS,
+  type AppMenuId,
+  type BitrixMenuId,
+} from '../../content'
+import { useLpContent } from '../../content/locale-context'
 
 /**
  * Peças comuns às telas simuladas dos tutoriais: contrato de tela, moldura
  * (menu do Bitrix24 ou menu lateral do app), destaque clicável e elementos
  * inertes. As telas são desenhadas em HTML — não são prints — mas copiam a
- * estrutura, as classes e os textos dos componentes reais.
+ * estrutura, as classes e os textos dos componentes reais. Os textos vêm da
+ * copy do idioma (`useLpContent`); menus e abas usam ids que não se traduzem.
  *
  * Cada tela recebe `action` (rótulo acessível do elemento destacado) e
  * `onAdvance`, e decide ela mesma qual elemento destacar — o botão, a linha da
@@ -20,8 +28,8 @@ export type Screen = (props: ScreenProps) => React.ReactNode
  * portal (menu lateral do app) ou tela cheia sem menu (instalação).
  */
 export type ScreenFrame =
-  | { kind: 'bitrix'; path: string; menu: BitrixMenuItem }
-  | { kind: 'app'; path: string; menu: AppMenuItem }
+  | { kind: 'bitrix'; path: string; menu: BitrixMenuId }
+  | { kind: 'app'; path: string; menu: AppMenuId }
   | { kind: 'bare'; path: string }
 
 export const APP_PATH = 'marketplace/app/thinkzap/'
@@ -127,44 +135,27 @@ export function OutlineButton({ children }: { children: React.ReactNode }) {
 
 // ─── Molduras ──────────────────────────────────────────────────────────────
 
-export const BITRIX_MENU = [
-  'CRM',
-  'Canais abertos',
-  'ThinkZap',
-  'Market',
-] as const
-export type BitrixMenuItem = (typeof BITRIX_MENU)[number]
-
 /** Menu do portal Bitrix24 — só o necessário para situar a tela. */
-export function BitrixMenu({ active }: { active: BitrixMenuItem }) {
+export function BitrixMenu({ active }: { active: BitrixMenuId }) {
+  const { bitrixMenu } = useLpContent().frame
+
   return (
     <nav
       aria-hidden
       className="hidden w-36 shrink-0 space-y-1 bg-[#1f2d3d] p-3 text-xs text-white/70 sm:block"
     >
       <p className="mb-3 px-2 text-sm font-bold text-white">Bitrix24</p>
-      {BITRIX_MENU.map(item => (
+      {BITRIX_MENU_IDS.map(item => (
         <p
           key={item}
           className={`rounded-md px-2 py-1.5 ${item === active ? 'bg-white/15 font-semibold text-white' : ''}`}
         >
-          {item}
+          {bitrixMenu[item]}
         </p>
       ))}
     </nav>
   )
 }
-
-/** Itens do menu do app, na ordem e com os rótulos de `thinkzap/aside.json`. */
-export const APP_MENU = [
-  'Início',
-  'Conexões',
-  'Administração',
-  'ThinkBot',
-  'Logs',
-  'Ajuda',
-] as const
-export type AppMenuItem = (typeof APP_MENU)[number]
 
 const FLAGS = ['br', 'us', 'es'] as const
 
@@ -172,7 +163,9 @@ const FLAGS = ['br', 'us', 'es'] as const
  * Menu lateral do ThinkZap (`Aside` com `THINKZAP_ASIDE_CONFIG`), em escala menor:
  * no app ele tem 256px fixos, aqui divide a janela com a tela.
  */
-export function AppAside({ active }: { active: AppMenuItem }) {
+export function AppAside({ active }: { active: AppMenuId }) {
+  const { appMenu, poweredBy, beta } = useLpContent().frame
+
   return (
     <aside
       aria-hidden
@@ -187,7 +180,7 @@ export function AppAside({ active }: { active: AppMenuItem }) {
           className="h-auto w-full"
         />
         <span className="text-[9px] font-medium leading-none text-[#6b7280]">
-          Desenvolvido por CRMThink
+          {poweredBy}
         </span>
         <span className="flex gap-1.5">
           {FLAGS.map(code => (
@@ -203,18 +196,18 @@ export function AppAside({ active }: { active: AppMenuItem }) {
         </span>
       </div>
       <nav className="mt-2 flex flex-1 flex-col gap-1 text-[11px] text-black">
-        {APP_MENU.map(item => (
+        {APP_MENU_IDS.map(item => (
           <span
             key={item}
             className={`rounded-lg px-2.5 py-2 ${item === active ? 'bg-[#d9fce6] font-bold' : ''}`}
           >
-            {item}
+            {appMenu[item]}
           </span>
         ))}
       </nav>
       <div className="flex justify-center py-3">
         <span className="rounded-full border border-[#bfdbfe] bg-[#eff6ff] px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.08em] text-[#3b82f6]">
-          Versão Beta
+          {beta}
         </span>
       </div>
     </aside>

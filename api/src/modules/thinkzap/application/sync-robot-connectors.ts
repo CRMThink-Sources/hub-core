@@ -9,6 +9,7 @@ import { PrismaConnectorRepository } from '@/modules/thinkzap/infra/persistence/
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { apiLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { ZApiClient } from '../infra/clients/z-api.client'
 import { buildThinkzapRobotUpdateParams } from './build-thinkzap-robot-add-params'
 import type { Connector } from '../domain/entities/connector'
@@ -19,13 +20,7 @@ function labelFromInstanceName(name: string | undefined): string | null {
   return name.split(' | ')[1] ?? name
 }
 
-/**
- * Rótulo da linha no robô.
- *
- * Só Z-API tem nome remoto consultável; a HubMessage não expõe leitura de canal,
- * então ali o rótulo é o nome do próprio item. Falha na leitura do provider degrada
- * para o nome do item em vez de derrubar a sincronização inteira.
- */
+// Falha na leitura da Z-API degrada para o nome do item em vez de derrubar o sync.
 async function lineLabel(
   item: SubscriptionItem,
   zApiClient: ZApiClient,
@@ -40,9 +35,11 @@ async function lineLabel(
 
     return labelFromInstanceName(remote?.name) ?? item.name
   } catch (error) {
-    apiLogger.warn(
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.zapi.instance_get_failed',
       { app: 'thinkzap', err: error, subscriptionItemId: item.id },
-      'failed to read z-api instance name while syncing robot options',
+      { msg: 'failed to read z-api instance name while syncing robot options' },
     )
 
     return item.name
@@ -54,14 +51,7 @@ export async function syncThinkzapRobotConnectorOptions(
 ): Promise<void> {
   const zApiClient = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
 
-  /**
-   * Opções montadas pelos **itens de assinatura**, keyed pelo id do item.
-   *
-   * Era `listConnectors`, que devolvia vazio para linha nascida na SPA — o robô
-   * ficava sem opção de linha e o usuário não conseguia configurar o envio.
-   * O valor da opção é o que o webhook do robô devolve, então a chave tem que ser
-   * a mesma que `BitrixRobotWebhookHandlerController` resolve.
-   */
+  // Chave = id do item: tem que bater com o que `BitrixRobotWebhookHandlerController` resolve.
   const installedApp = await new PrismaInstalledAppRepository().getById(appId)
   if (!installedApp) return
 

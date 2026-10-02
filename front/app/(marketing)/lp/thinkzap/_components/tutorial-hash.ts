@@ -1,6 +1,12 @@
-import { TUTORIALS, type TutorialSlug } from './content'
+import { getLpContent, tutorialsOf, type TutorialSlug } from './content'
 
 const PREFIX = '#tutorial-'
+
+/**
+ * Slugs e chaves de variante são iguais nos dois idiomas (o teste de paridade
+ * garante), então as âncoras saem da estrutura em português.
+ */
+const TUTORIALS = tutorialsOf(getLpContent('pt'))
 
 /** Aba e variante; `variant` vazio é a trilha padrão (a primeira). */
 export type TutorialLocation = { slug: TutorialSlug; variant: string }

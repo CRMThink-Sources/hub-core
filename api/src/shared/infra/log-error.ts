@@ -1,6 +1,10 @@
-import type { AppError, ErrorCategory } from '@/shared/domain/errors/app-error'
+import {
+  isAppError,
+  type AppError,
+  type ErrorCategory,
+} from '@/shared/domain/errors/app-error'
 
-// Campos estruturados de erro pro Loki. Saída idêntica nas 3 vias — o MCP só lê o errorCode.
+// Saída idêntica nas 3 vias: o MCP lê o errorCode daqui.
 export type ErrorLogFields = {
   errorCode: string
   category: ErrorCategory
@@ -21,7 +25,13 @@ export function errorLogFields(
   }
 }
 
-/** Atalho pra AppError (via A): reaproveita os campos + anexa o err cru serializado. */
+// `causeErrorCode`: o processor já logou o code; repetir em `errorCode` contaria duas vezes.
+export function jobFailureLogFields(err: unknown): Record<string, unknown> {
+  return isAppError(err)
+    ? { causeErrorCode: err.errorCode, category: err.category, err }
+    : { errorCode: 'UNCLASSIFIED', err }
+}
+
 export function appErrorLogFields(
   error: AppError,
   extra?: Record<string, unknown>,

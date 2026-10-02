@@ -11,12 +11,7 @@ export type EnsureSpaPlacements = {
 }
 
 export type EnsureSpaPlacementsOptions = {
-  /**
-   * `true` no fluxo de instalação, que é fail-fast: a primeira SPA que falhar
-   * por motivo diferente de "já vinculado" derruba a instalação, nomeando o
-   * placement. `false` no sync sob demanda, que percorre todas as SPAs e reporta
-   * quantas falharam — ali derrubar a rota por causa de uma SPA seria pior.
-   */
+  /** `true` na instalação (primeira falha derruba); `false` no sync, que só conta falhas. */
   failFast?: boolean
 }
 
@@ -32,8 +27,7 @@ export async function ensureSpaPlacements(
 
   for (const params of paramsList) {
     try {
-      // Placement já vinculado conta como registrado: reinstalar num portal já
-      // configurado não é falha.
+      // Já vinculado conta como registrado: reinstalar não é falha.
       await callBitrixIdempotent(client, 'placement.bind', params)
       registered++
     } catch (error) {
@@ -56,9 +50,11 @@ export async function ensureSpaPlacements(
         )
       }
 
-      apiLogger.error(
-        { err: error, placement: params.PLACEMENT },
-        'failed to bind SPA placement',
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.install.placement_bind_failed',
+        { app: 'thinkzap', err: error, placement: params.PLACEMENT },
+        { level: 'error', msg: 'failed to bind SPA placement' },
       )
       failed++
     }

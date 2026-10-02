@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client'
 import { deleteImbotButtonApp } from './delete-imbot-button-app'
 
+vi.mock('@/shared/infra/logger', () => ({
+  apiLogger: { warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
+}))
+
 vi.mock('@/config/env', () => ({
   env: {
     bitrix: {

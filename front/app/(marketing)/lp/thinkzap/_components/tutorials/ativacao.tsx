@@ -1,13 +1,12 @@
 import type { AtivacaoScreen } from '../content'
+import { useLpContent, useTutorialScreens } from '../content/locale-context'
 import {
   ActiveLinesBadge,
   ConexoesPage,
   ConfigCard,
   LinesTable,
   LinhaPage,
-  OFICIAL_HINT,
   ProviderOption,
-  WEB_HINT,
 } from './shared/app-pages'
 import {
   APP_PATH,
@@ -33,7 +32,7 @@ import { OpenChannelChat } from './shared/open-channel-chat'
  *
  * Mudou uma dessas telas no app, mude aqui também.
  */
-const APP = { kind: 'app', path: APP_PATH, menu: 'Conexões' } as const
+const APP = { kind: 'app', path: APP_PATH, menu: 'conexoes' } as const
 
 export const ATIVACAO_VIEW: TutorialView<AtivacaoScreen> = {
   frames: {
@@ -43,7 +42,7 @@ export const ATIVACAO_VIEW: TutorialView<AtivacaoScreen> = {
     qrcode: APP,
     connected: APP,
     channel: APP,
-    chat: { kind: 'bitrix', path: 'online/', menu: 'Canais abertos' },
+    chat: { kind: 'bitrix', path: 'online/', menu: 'openChannels' },
   },
   screens: {
     trial: TrialScreen,
@@ -56,47 +55,40 @@ export const ATIVACAO_VIEW: TutorialView<AtivacaoScreen> = {
   },
 }
 
-const DEVICE = 'Aparelho conectado: Joana Silva'
-
 function TrialInvite({ children }: { children?: React.ReactNode }) {
+  const { trial } = useTutorialScreens('ativacao')
+
   return (
     <div className="w-full rounded-xl border border-border bg-card p-5">
-      <p className="text-base font-semibold text-foreground">
-        Teste o ThinkZap por 3 dias
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Escolha um tipo de conector para criar sua primeira linha. O teste é
-        único por instalação e vale 3 dias.
-      </p>
+      <p className="text-base font-semibold text-foreground">{trial.title}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{trial.description}</p>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">{children}</div>
     </div>
   )
 }
 
 function TrialScreen({ action, onAdvance }: ScreenProps) {
+  const { shared } = useLpContent()
+  const { trial } = useTutorialScreens('ativacao')
+
   return (
     <ConexoesPage>
       <TrialInvite>
-        <ProviderOption label="WhatsApp Web" hint={WEB_HINT}>
+        <ProviderOption label={shared.providerLabel.web} hint={shared.webHint}>
           <HotspotButton action={action} onAdvance={onAdvance} />
         </ProviderOption>
-        <ProviderOption label="WhatsApp Oficial" hint={OFICIAL_HINT}>
-          <PrimaryButton>Começar teste</PrimaryButton>
+        <ProviderOption label={trial.oficialLabel} hint={shared.oficialHint}>
+          <PrimaryButton>{trial.start}</PrimaryButton>
         </ProviderOption>
       </TrialInvite>
     </ConexoesPage>
   )
 }
 
-const CONTACT_FIELDS = [
-  ['Seu nome', 'Joana Silva'],
-  ['E-mail', 'joana@empresa.com.br'],
-  ['Telefone', '(11) 99999-8888'],
-  ['Empresa', 'Acme LTDA'],
-] as const
-
 /** `trial-contact-dialog` sobre a tela de conexões esmaecida. */
 function ContactScreen({ action, onAdvance }: ScreenProps) {
+  const { contact } = useTutorialScreens('ativacao')
+
   return (
     <DialogOver
       background={
@@ -105,18 +97,17 @@ function ContactScreen({ action, onAdvance }: ScreenProps) {
         </ConexoesPage>
       }
     >
-      <p className="text-base font-medium">Confirme seus dados de contato</p>
+      <p className="text-base font-medium">{contact.title}</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Usamos esses dados para falar com você durante o teste. Confira e
-        corrija se precisar.
+        {contact.description}
       </p>
       <div className="mt-4 flex flex-col gap-3">
-        {CONTACT_FIELDS.map(([label, value]) => (
+        {contact.fields.map(({ label, value }) => (
           <FakeField key={label} label={label} value={value} />
         ))}
       </div>
       <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <OutlineButton>Cancelar</OutlineButton>
+        <OutlineButton>{contact.cancel}</OutlineButton>
         <HotspotButton action={action} onAdvance={onAdvance} />
       </div>
     </DialogOver>
@@ -124,23 +115,23 @@ function ContactScreen({ action, onAdvance }: ScreenProps) {
 }
 
 function LinesScreen({ action, onAdvance }: ScreenProps) {
+  const { shared } = useLpContent()
+  const { lines } = useTutorialScreens('ativacao')
+
   return (
     <ConexoesPage>
       <div className="w-full rounded-xl border border-blue-200 bg-blue-50 p-5 text-blue-900">
-        <p className="text-sm font-medium">Teste em andamento</p>
-        <p className="mt-1 text-sm">
-          Seu período de teste vai até sexta-feira. Depois disso a linha
-          continua visível, mas para de enviar e receber mensagens.
-        </p>
+        <p className="text-sm font-medium">{lines.trialTitle}</p>
+        <p className="mt-1 text-sm">{lines.trialDescription}</p>
       </div>
       <ActiveLinesBadge count="1/1" />
       <LinesTable
         rows={[
           {
-            name: 'Linha 1',
+            name: shared.defaultLineName,
             provider: 'web',
-            subtitle: 'Período de teste',
-            status: 'Ativo',
+            subtitle: lines.rowSubtitle,
+            status: lines.rowStatus,
           },
         ]}
         hotspot={{ index: 0, action, onAdvance }}
@@ -150,53 +141,46 @@ function LinesScreen({ action, onAdvance }: ScreenProps) {
 }
 
 function QrCodeScreen({ action, onAdvance }: ScreenProps) {
+  const { line, qrcode } = useTutorialScreens('ativacao')
+
   return (
-    <LinhaPage connected={false} activeTab="Conexão">
-      <ConfigCard
-        title="Conexão"
-        description="Leia o QR code com o WhatsApp do número desta linha."
-      >
+    <LinhaPage connected={false} activeTab="conexao">
+      <ConfigCard title={line.connectionTitle} description={qrcode.description}>
         <div className="flex flex-col items-center gap-3">
           {/* O QR é o destaque: "ler" é clicar nele. */}
           <Hotspot action={action} onAdvance={onAdvance} className="rounded-lg">
             <FakeQrCode />
           </Hotspot>
           <p className="max-w-sm text-center text-sm text-muted-foreground">
-            No WhatsApp: Aparelhos conectados → Conectar um aparelho, e aponte
-            para o código.
+            {qrcode.instruction}
           </p>
-          <OutlineButton>Atualizar QR code</OutlineButton>
+          <OutlineButton>{qrcode.refresh}</OutlineButton>
         </div>
       </ConfigCard>
     </LinhaPage>
   )
 }
 
-const DEVICE_FIELDS = [
-  ['Nome', 'Joana Silva'],
-  ['Telefone', '+55 11 99999-8888'],
-  ['Aparelho', 'iPhone'],
-  ['Conta', 'Business'],
-] as const
-
 function ConnectedScreen({ action, onAdvance }: ScreenProps) {
+  const { line, connected } = useTutorialScreens('ativacao')
+
   return (
     <LinhaPage
       connected
-      device={DEVICE}
-      activeTab="Conexão"
-      tabHotspot={{ tab: 'Ajustes', action, onAdvance }}
+      device={line.device}
+      activeTab="conexao"
+      tabHotspot={{ tab: 'ajustes', action, onAdvance }}
     >
       <ConfigCard
-        title="Conexão"
-        description="Esta linha está conectada ao WhatsApp."
+        title={line.connectionTitle}
+        description={connected.description}
       >
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <span className="flex size-16 shrink-0 items-center justify-center rounded-full border border-border bg-accent text-lg font-bold text-primary">
-            JS
+            {connected.initials}
           </span>
           <dl className="grid flex-1 gap-x-8 gap-y-3 sm:grid-cols-2">
-            {DEVICE_FIELDS.map(([label, value]) => (
+            {connected.fields.map(({ label, value }) => (
               <div key={label}>
                 <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {label}
@@ -208,10 +192,9 @@ function ConnectedScreen({ action, onAdvance }: ScreenProps) {
         </div>
         <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
-            Desconectar encerra a sessão do WhatsApp desta linha. A assinatura
-            não é afetada.
+            {connected.disconnectHint}
           </p>
-          <OutlineButton>Desconectar</OutlineButton>
+          <OutlineButton>{connected.disconnect}</OutlineButton>
         </div>
       </ConfigCard>
     </LinhaPage>
@@ -219,32 +202,29 @@ function ConnectedScreen({ action, onAdvance }: ScreenProps) {
 }
 
 function ChannelScreen({ action, onAdvance }: ScreenProps) {
+  const { line, channel } = useTutorialScreens('ativacao')
+
   return (
-    <LinhaPage connected device={DEVICE} activeTab="Ajustes">
-      <ConfigCard
-        title="Canal aberto do Bitrix"
-        description="É o vínculo que faz a mensagem chegar ao CRM."
-      >
+    <LinhaPage connected device={line.device} activeTab="ajustes">
+      <ConfigCard title={channel.title} description={channel.description}>
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-muted-foreground">
-            Nenhum canal vinculado. Sem vínculo, a mensagem não chega ao CRM.
-          </p>
+          <p className="text-sm text-muted-foreground">{channel.empty}</p>
           <div className="flex flex-wrap items-center gap-3">
-            <FakeSelect value="Vendas" />
+            <FakeSelect value={channel.selected} />
             <HotspotButton action={action} onAdvance={onAdvance} />
           </div>
         </div>
       </ConfigCard>
-      <ConfigCard title="Comportamento">
+      <ConfigCard title={channel.behaviorTitle}>
         <div className="flex flex-col gap-3 text-sm">
           <FakeToggle
-            label="Prefixar nome do operador"
-            hint="Inclui o nome de quem atende antes da mensagem enviada."
+            label={channel.prefixLabel}
+            hint={channel.prefixHint}
             on
           />
           <FakeToggle
-            label="Enviar para canal aberto"
-            hint="Vincule um canal aberto para habilitar."
+            label={channel.openChannelLabel}
+            hint={channel.openChannelHint}
           />
         </div>
       </ConfigCard>
@@ -253,19 +233,16 @@ function ChannelScreen({ action, onAdvance }: ScreenProps) {
 }
 
 function ChatScreen(props: ScreenProps) {
+  const { chat } = useTutorialScreens('ativacao')
+
   return (
     <OpenChannelChat
       {...props}
-      chats={[
-        { name: 'Maria Clara', detail: 'WhatsApp · Vendas' },
-        { name: 'Rafael Souza', detail: 'WhatsApp · Vendas' },
-      ]}
-      title="Maria Clara"
-      subtitle="WhatsApp · Canal Vendas · Contato no CRM"
-      messages={[
-        { from: 'in', text: 'Oi! Vi o anúncio de vocês. Tem horário amanhã?' },
-      ]}
-      reply="Temos sim, Maria! Às 10h ou às 15h?"
+      chats={chat.chats}
+      title={chat.title}
+      subtitle={chat.subtitle}
+      messages={[{ from: 'in', text: chat.incoming }]}
+      reply={chat.reply}
     />
   )
 }

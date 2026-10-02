@@ -45,8 +45,7 @@ vi.mock('@/modules/thinkzap/infra/clients/hubmessage.client', async () => {
     typeof import('@/modules/thinkzap/infra/clients/hubmessage.client')
   >('@/modules/thinkzap/infra/clients/hubmessage.client')
   return {
-    // `HubMessageApiError` Ã© real: o classificador de janela fechada usa
-    // `instanceof`, entÃ£o um mock de classe quebraria a detecÃ§Ã£o.
+    // Real: o classificador de janela fechada usa `instanceof`.
     HubMessageApiError: actual.HubMessageApiError,
     HubMessageClient: class {
       sendMessage = sendHubMessageMock
@@ -66,8 +65,7 @@ vi.mock(
   }),
 )
 
-// O processor importa `redisConnection` no topo, e o mÃ³dulo lanÃ§a
-// `REDIS_URL is required` no import quando a env nÃ£o existe (caso do teste).
+// O módulo lança `REDIS_URL is required` no import sem a env.
 vi.mock('@/queue/redis-connection', () => ({
   redisConnection: { get: vi.fn(), set: vi.fn() },
 }))
@@ -124,13 +122,7 @@ vi.mock(
   }),
 )
 
-/**
- * A resoluÃ§Ã£o da linha pelo id de provider tem os prÃ³prios testes; aqui ela Ã©
- * dublada para o teste nÃ£o montar a Ã¡rvore de repositÃ³rios de billing (Prisma,
- * Redis e Bitrix) sÃ³ para decidir habilitaÃ§Ã£o e preparar o texto de saÃ­da.
- *
- * `resolveLineMock` Ã© exposto para os testes que precisam de linha bloqueada.
- */
+// Dublado para não montar a árvore de repositórios de billing (Prisma, Redis, Bitrix).
 const { resolveLineMock } = vi.hoisted(() => ({
   resolveLineMock: vi.fn(),
 }))
@@ -183,8 +175,7 @@ vi.mock('@/config/env', () => ({
       webhookUrl: 'https://app.test/webhooks/hubmessage',
     },
     appCodes: { thinkzap: 'thinkzap' },
-    // O preparo do texto resolve `settings` pelo contexto da aplicaÃ§Ã£o, que lÃª as
-    // SPAs de billing â€” sem isso a Ã¡rvore de repositÃ³rios nÃ£o monta no import.
+    // Sem as SPAs de billing a árvore de repositórios não monta no import.
     payments: {
       spa: {
         aplicationEntityType: 1060,
@@ -283,19 +274,15 @@ describe('processBitrixReceivedMessage DB persistence', () => {
     getContextMock.mockResolvedValue(baseContext)
   })
 
-  /**
-   * Recusa **visível**, não descarte: aqui existe um operador no Bitrix esperando a
-   * mensagem sair. Lançar deixa o job falhar e o erro aparecer.
-   */
   it('recusa o envio quando o trial venceu', async () => {
     resolveLineMock.mockResolvedValue({
       ...ACTIVE_LINE,
       entitlement: 'trial-expired',
     })
 
-    await expect(processBitrixReceivedMessage(makeEvent())).rejects.toThrow(
-      /not enabled/i,
-    )
+    await expect(
+      processBitrixReceivedMessage(makeEvent()),
+    ).rejects.toMatchObject({ errorCode: 'thinkzap.line.blocked' })
 
     expect(sendMessageZApiMock).not.toHaveBeenCalled()
     expect(createMock).not.toHaveBeenCalled()
@@ -311,7 +298,6 @@ describe('processBitrixReceivedMessage DB persistence', () => {
     expect(sendMessageZApiMock).not.toHaveBeenCalled()
   })
 
-  /** Sem item resolvido não há assinatura que autorize o envio. */
   it('recusa o envio quando a linha não resolve item', async () => {
     resolveLineMock.mockResolvedValue(null)
 
@@ -331,8 +317,6 @@ describe('processBitrixReceivedMessage DB persistence', () => {
         bitrixMessageId: 'BITRIX-MSG-1',
         type: 'TEXT',
         chatId: '5511999999999',
-        // `im.chat_id`, nao o telefone: e o unico endereco para avisar o operador
-        // quando o provider aceita e a Meta recusa depois (callback de status).
         bitrixChatId: '100',
       }),
     )
@@ -463,8 +447,6 @@ describe('processBitrixReceivedMessage provider routing', () => {
         providerMessageId: 'HM-1',
         bitrixMessageId: 'BITRIX-MSG-1',
         type: 'TEXT',
-        // Sem isto o callback de status da HubMessage nao tem DIALOG_ID para avisar
-        // o operador quando a Meta recusa a entrega depois do aceite.
         bitrixChatId: '100',
       }),
     )
@@ -573,11 +555,6 @@ describe('processBitrixReceivedMessage janela de 24h fechada', () => {
   })
 })
 
-/**
- * A aba Logs do job e' o unico lugar onde quem abre UM job especifico ve o que
- * aconteceu com ELE. Estes testes travam as duas linhas que respondem "a mensagem nao
- * chegou": o aceite do provider (com o id para rastrear do lado dele) e a recusa.
- */
 describe('processBitrixReceivedMessage aba Logs do job', () => {
   beforeEach(() => {
     resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
@@ -606,8 +583,6 @@ describe('processBitrixReceivedMessage aba Logs do job', () => {
         l => l.includes('provider=HUBMESSAGE') && l.includes('CH-123'),
       ),
     ).toBe(true)
-    // O id do provider e' o fim da nossa visibilidade: sem ele na aba, nao ha por
-    // onde continuar a investigacao do lado da HubMessage.
     expect(lines.some(l => l.includes('providerMessageId=HM-1'))).toBe(true)
     expect(lines.some(l => l.includes('setMessageDelivered'))).toBe(true)
   })
@@ -653,12 +628,6 @@ function makeFile(
   }
 }
 
-/**
- * Texto e anexo chegam no MESMO objeto de mensagem quando o operador anexa um
- * arquivo e escreve um comentário. O parse retornava no primeiro `if (text)` e o
- * anexo era descartado em silêncio — job `completed`, Bitrix confirmado, contato
- * sem o arquivo.
- */
 describe('processBitrixReceivedMessage texto + anexo', () => {
   beforeEach(() => {
     resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
@@ -690,8 +659,7 @@ describe('processBitrixReceivedMessage texto + anexo', () => {
 
     expect(sendImageMock).toHaveBeenCalledTimes(1)
     expect(sendMessageZApiMock).not.toHaveBeenCalled()
-    // A legenda passa pelo preparo do canal aberto, igual ao texto puro — o mock
-    // de `prepareOpenLineOutboundText` devolve `texto enviado`.
+    // `texto enviado` vem do mock de `prepareOpenLineOutboundText`.
     expect(sendImageMock).toHaveBeenCalledWith(
       'INST-A',
       'token',
@@ -763,7 +731,6 @@ describe('processBitrixReceivedMessage texto + anexo', () => {
     expect(sendMessageZApiMock).not.toHaveBeenCalled()
   })
 
-  /** Áudio não tem campo de legenda no WhatsApp: o texto sai como mensagem própria. */
   it('áudio com comentário sai em dois envios, texto primeiro', async () => {
     const order: string[] = []
     sendMessageZApiMock.mockImplementation(() => {
@@ -816,7 +783,6 @@ describe('processBitrixReceivedMessage texto + anexo', () => {
     expect(sendImageMock.mock.calls[1]?.[4]).toEqual({ caption: undefined })
   })
 
-  /** Anexo descartado no parse não pode levar o comentário do operador embora. */
   it('texto com anexo de tipo desconhecido ainda envia o texto', async () => {
     await processBitrixReceivedMessage(
       makeEvent({

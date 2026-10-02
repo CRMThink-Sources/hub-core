@@ -21,23 +21,13 @@ import {
   SyncSubscriptionLineItemsInput,
 } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
 import { apiLogger } from '@/shared/infra/logger'
-import { logThinkzapError } from '../../errors/catalog'
+import { logThinkzapError, thinkzapError } from '../../errors/catalog'
 import {
   SubscriptionPeriod,
   readSubscriptionPeriod,
 } from './read-subscription-period'
 
-/**
- * Status do Stripe → status da SPA.
- *
- * `incomplete`, `incomplete_expired` e `unpaid` caem em `past_due`: são todos
- * "cobrança não fechou", e a linha bloqueia igual. `paused` também bloqueia —
- * assinatura pausada não é serviço prestado.
- *
- * Status desconhecido **não** entra num default: um mapa parcial que assumisse
- * `active` destravaria linha por um status novo do gateway, e assumir `cancelled`
- * cortaria cliente pagante. Fora deste mapa o evento é ignorado com log.
- */
+// Decide habilitação. Sem default: `active` destravaria linha e `cancelled` cortaria pagante; fora do mapa, ignora com log.
 const STATUS_BY_STRIPE_STATUS: Record<string, Subscription['status']> = {
   active: 'active',
   trialing: 'active',
@@ -49,17 +39,7 @@ const STATUS_BY_STRIPE_STATUS: Record<string, Subscription['status']> = {
   canceled: 'cancelled',
 }
 
-/**
- * Status do Stripe → status da SPA, **para diagnóstico**.
- *
- * Mapa separado do de cima de propósito. Aquele decide habilitação, e achatar
- * `unpaid` e `paused` em `past_due` é a decisão certa lá: a linha bloqueia igual. Este
- * alimenta a leitura de cobrança, onde o campo só é olhado por quem está investigando
- * — e ali "pausada" e "inadimplente" são perguntas diferentes.
- *
- * Status fora do mapa vira `unknown`, nunca um dos quatro por default: inventar
- * `active` para um status novo do gateway afirmaria contrato vivo sem base.
- */
+// Só diagnóstico, por isso não achata `paused`/`unpaid`; fora do mapa vira `unknown`.
 const STATUS_BY_STRIPE_STATUS_DIAGNOSTIC: Record<
   string,
   GatewaySubscription['status']
@@ -70,7 +50,6 @@ const STATUS_BY_STRIPE_STATUS_DIAGNOSTIC: Record<
   canceled: 'cancelled',
 }
 
-/** Os três eventos tratados. Qualquer outro é `ignored`. */
 const HANDLED_EVENTS = new Set([
   'checkout.session.completed',
   'customer.subscription.updated',
@@ -98,32 +77,13 @@ export class StripeWrongKeyTypeError extends Error {
   }
 }
 
-/**
- * Recusa chave do tipo errado no construtor.
- *
- * Comprimento não distingue: `pk_test_…` e `sk_test_…` têm o mesmo tamanho. Sem esta
- * checagem, a publicável passa por "configurado" e o erro aparece **no Stripe**, no
- * meio de uma contratação, como "cannot be made with a publishable API key" — longe
- * da causa e depois de já ter ido à rede.
- *
- * Só o prefixo entra na mensagem. O resto da chave nunca é registrado: log é
- * exatamente onde credencial não deve acabar.
- */
+// Sem isto a chave publicável só falha no Stripe, no meio da contratação. Só o prefixo vai pro log.
 function assertServerKey(secretKey: string): void {
   if (secretKey.startsWith('sk_') || secretKey.startsWith('rk_')) return
 
   throw new StripeWrongKeyTypeError(secretKey.slice(0, 3))
 }
 
-/**
- * Adapter do Stripe.
- *
- * **Não é chamado do caminho quente de mensagem.** As leituras que ele faz
- * (`subscriptions.retrieve`) acontecem só no processamento de webhook e na
- * contratação, onde a latência de um terceiro é aceitável — diferente de cada
- * mensagem recebida, onde ela seria multiplicada por todo o tráfego.
- */
-/** Os intervalos que o domínio conhece, para validar a união aberta do SDK. */
 const RECURRENCE_INTERVALS: readonly PriceRecurrence['interval'][] = [
   'day',
   'week',
@@ -131,6 +91,7 @@ const RECURRENCE_INTERVALS: readonly PriceRecurrence['interval'][] = [
   'year',
 ]
 
+// Nunca chamar do caminho quente de mensagem: a latência do Stripe só cabe em webhook e contratação.
 export class StripePaymentGateway implements PaymentGateway {
   private readonly stripe: Stripe
 
@@ -148,13 +109,9 @@ export class StripePaymentGateway implements PaymentGateway {
     rawBody: Buffer,
     signature: string | undefined,
   ): Promise<GatewayEvent> {
-    /**
-     * Segredo ausente é recusa, não passe livre: sem validação qualquer um
-     * postaria um `checkout.session.completed` forjado e destravaria uma linha
-     * sem pagar.
-     */
+    // Segredo ausente recusa: senão um evento forjado destravaria linha sem pagar.
     if (!this.webhookSecret) {
-      throw new GatewaySignatureError('STRIPE_WEBHOOK_SECRET não configurado')
+      throw thinkzapError('thinkzap.gateway.webhook_secret_missing')
     }
 
     if (!signature) {
@@ -194,41 +151,15 @@ export class StripePaymentGateway implements PaymentGateway {
 
     const session = await this.stripe.checkout.sessions.create({
       mode: 'subscription',
-      /**
-       * Embedado, não hospedado: o app vive no iframe do Bitrix, e a página
-       * hospedada não monta em contexto de terceiro — trava nos placeholders sem
-       * montar o formulário. Neste modo `success_url` e `cancel_url` não são aceitos.
-       *
-       * `embedded_page`, não `embedded`: o valor antigo foi descontinuado. E o tipo
-       * `UiMode` do SDK termina em `OtherString`, para tolerar valores novos da API —
-       * o que significa que **o compilador não pega** um valor inválido aqui. Só a
-       * chamada real reclama.
-       */
+      // Hospedado não monta no iframe do Bitrix. `embedded` foi descontinuado e o tipo do SDK não pega valor inválido.
       ui_mode: 'embedded_page',
-      /**
-       * Sem redirecionamento: o SDK avisa a conclusão por callback e a nossa tela
-       * decide o que mostrar. Com o default (`always`) o Stripe navegaria o frame
-       * dele para uma `return_url` — mais uma navegação dentro de um iframe que já
-       * está aninhado, e nenhum ganho, já que quem observa a ativação é a tela.
-       *
-       * `return_url` **não** pode ser enviada junto: a API recusa as duas.
-       */
+      // A tela observa a conclusão por callback; a API recusa `return_url` junto.
       redirect_on_completion: 'never',
-      /**
-       * Um item por plano a cobrar. Com linhas de conectores diferentes são dois,
-       * cada um com a quantidade do conector dele — é o que permite cobrar os dois
-       * preços na mesma assinatura, em vez de multiplicar um só.
-       */
       line_items: input.lineItems.map(item => ({
         price: item.priceId,
         quantity: item.quantity,
       })),
-      /**
-       * O mesmo metadata nos dois lugares: a sessão o carrega para o
-       * `checkout.session.completed`, e a assinatura o carrega para os eventos de
-       * ciclo de vida. Sem o segundo, um `customer.subscription.updated` não teria
-       * como voltar à instalação se o espelho na SPA falhasse.
-       */
+      // Também na assinatura: eventos de ciclo de vida precisam voltar à instalação.
       metadata,
       subscription_data: { metadata },
     })
@@ -242,21 +173,7 @@ export class StripePaymentGateway implements PaymentGateway {
     return { clientSecret: session.client_secret }
   }
 
-  /**
-   * Leva os itens da assinatura ao estado desejado, sem checkout.
-   *
-   * Preço que já tem item **atualiza a quantidade**; preço novo **entra como item
-   * novo**. Preço ausente da lista não é tocado: reduzir cobrança é cancelar linha,
-   * operação própria — e um `items` completo com `deleted: true` implícito apagaria
-   * a cobrança de linhas que continuam existindo.
-   *
-   * Uma chamada só, com todos os itens: duas chamadas gerariam duas faturas
-   * proporcionais para uma única mudança do cliente.
-   *
-   * `proration_behavior` fica no default do gateway. A política própria de crédito
-   * proporcional é decisão que o produto ainda não tomou, e inventá-la aqui
-   * esconderia isso.
-   */
+  // Preço fora da lista não é tocado (reduzir é cancelar linha). Uma chamada só: duas gerariam duas faturas proporcionais.
   async syncSubscriptionLineItems(
     input: SyncSubscriptionLineItemsInput,
   ): Promise<void> {
@@ -276,11 +193,7 @@ export class StripePaymentGateway implements PaymentGateway {
         : { price: desired.priceId, quantity: desired.quantity }
     })
 
-    /**
-     * Nada a mudar: toda quantidade desejada já é a atual. Devolver sem ir à rede
-     * é o que faz a operação ser segura de repetir — o gateway aceitaria a chamada,
-     * mas cada uma dessas idas gera avaliação de proration por nada.
-     */
+    // Evita update vazio, que dispararia avaliação de proration à toa.
     const unchanged = input.lineItems.every(
       desired =>
         itemByPrice.get(desired.priceId)?.quantity === desired.quantity,
@@ -292,16 +205,7 @@ export class StripePaymentGateway implements PaymentGateway {
     })
   }
 
-  /**
-   * Marca o contrato para encerrar no vencimento.
-   *
-   * `cancel_at_period_end` e não `subscriptions.cancel()`: o segundo corta na hora, e
-   * o cliente perde o período que já pagou. Ver o port para o porquê da política.
-   *
-   * Idempotente por construção — o campo é um estado desejado, não um evento —, então
-   * não há verificação prévia. Uma leitura antes só criaria uma ida a mais à rede e
-   * uma janela entre ler e escrever.
-   */
+  // Não `subscriptions.cancel()`: cortaria na hora o período já pago.
   async cancelSubscriptionAtPeriodEnd(
     gatewaySubscriptionId: string,
   ): Promise<void> {
@@ -313,11 +217,7 @@ export class StripePaymentGateway implements PaymentGateway {
   async createBillingPortalSession(
     input: CreateBillingPortalSessionInput,
   ): Promise<{ url: string }> {
-    /**
-     * O id do cliente é resolvido a partir da assinatura, no servidor. A tela
-     * nunca vê nem manda id de cliente do gateway — se mandasse, mandar o de
-     * outra instalação abriria o portal alheio.
-     */
+    // Cliente resolvido no servidor: id vindo da tela abriria portal alheio.
     const subscription = await this.stripe.subscriptions.retrieve(
       input.gatewaySubscriptionId,
     )
@@ -335,13 +235,7 @@ export class StripePaymentGateway implements PaymentGateway {
     return { url: session.url }
   }
 
-  /**
-   * Lê o price e traduz para o vocabulário do domínio.
-   *
-   * `expand: ['tiers']` é obrigatório: em price escalonado o `unit_amount` vem
-   * `null` e o valor mora nos degraus, que **não** vêm por padrão. Sem o expand a
-   * resposta é um price sem preço nenhum, indistinguível de plano gratuito.
-   */
+  // `expand: ['tiers']` obrigatório: price escalonado vem sem `unit_amount` e os degraus não vêm por padrão.
   async readPrice(priceId: string): Promise<PlanPrice> {
     let price: Stripe.Price
     try {
@@ -359,12 +253,6 @@ export class StripePaymentGateway implements PaymentGateway {
     const currency = price.currency
 
     if (price.billing_scheme === 'tiered') {
-      /**
-       * Escalonado sem degraus na resposta é falha de leitura, não preço vazio: pode
-       * ser expand ausente numa chamada futura ou permissão de chave restrita. Cair
-       * para "sem preço" faria o plano sumir do checkout com o sintoma apontando para
-       * cadastro, e a causa sendo a chamada.
-       */
       if (!price.tiers || price.tiers.length === 0) {
         throw new GatewayPriceUnreadableError(
           priceId,
@@ -395,23 +283,7 @@ export class StripePaymentGateway implements PaymentGateway {
     return { kind: 'unit', currency, recurrence, unitAmount: price.unit_amount }
   }
 
-  /**
-   * Lê a assinatura e traduz para o vocabulário do domínio.
-   *
-   * O que interessa é a `quantity` de cada item: é ela que diz quantas linhas a
-   * fatura cobra, e a diferença para a contagem da SPA é o que a tela chama de
-   * bonificado.
-   *
-   * O status **não** é forçado nos quatro da SPA aqui, ao contrário de
-   * `STATUS_BY_STRIPE_STATUS` no webhook. Lá o mapa existe para decidir habilitação, e
-   * `unpaid` bloquear como `past_due` é a decisão certa. Aqui o campo é diagnóstico —
-   * quem decide habilitação é a SPA —, e achatar `paused` em `past_due` numa leitura
-   * de diagnóstico esconderia justamente o estado que se foi olhar.
-   *
-   * Item sem preço resolvível é descartado, não vira erro: o contrato pode carregar
-   * item de cobrança que não é linha, e derrubar a leitura inteira por causa dele
-   * tiraria o valor da tela por um item que não a interessa.
-   */
+  // Item sem price é descartado: pode ser cobrança que não é linha.
   async readSubscription(
     gatewaySubscriptionId: string,
   ): Promise<GatewaySubscription> {
@@ -449,10 +321,6 @@ export class StripePaymentGateway implements PaymentGateway {
     }
   }
 
-  /**
-   * Recorrência é obrigatória: assinatura precisa de price recorrente, e um price
-   * avulso aqui é cadastro que o gateway recusaria no checkout — longe daqui.
-   */
   private readRecurrence(price: Stripe.Price): PriceRecurrence {
     if (!price.recurring) {
       throw new GatewayPriceUnreadableError(
@@ -461,12 +329,7 @@ export class StripePaymentGateway implements PaymentGateway {
       )
     }
 
-    /**
-     * O `interval` do SDK é união **aberta** (`'month' | ... | OtherString`), então
-     * castar aceitaria em silêncio um valor que o domínio não conhece — a mesma
-     * armadilha que o mapa de status já documenta. A validação explícita é o que
-     * transforma "intervalo novo do gateway" em recusa nomeada.
-     */
+    // União aberta no SDK (`OtherString`): cast aceitaria intervalo desconhecido em silêncio.
     const interval = RECURRENCE_INTERVALS.find(
       candidate => candidate === price.recurring?.interval,
     )
@@ -481,13 +344,7 @@ export class StripePaymentGateway implements PaymentGateway {
     return { interval, intervalCount: price.recurring.interval_count }
   }
 
-  /**
-   * `tiers_mode` do gateway → modo do domínio.
-   *
-   * Modo desconhecido **recusa**, e não vira `undefined`: `undefined` seria lido
-   * como "não escalonado" e o cálculo cobraria o degrau errado calado. A recusa
-   * esconde o plano, que é a falha fechada desejada.
-   */
+  // Modo desconhecido recusa: `undefined` cobraria o degrau errado calado.
   private readTieringMode(
     priceId: string,
     mode: Stripe.Price.TiersMode | null,
@@ -512,12 +369,7 @@ export class StripePaymentGateway implements PaymentGateway {
 
       const installation = this.readInstallation(session.metadata)
 
-      /**
-       * Sessão sem assinatura ou sem metadata não é nossa para processar: pode ser
-       * checkout de pagamento único, ou uma sessão criada fora deste fluxo.
-       * Ignorada com log em vez de erro — falhar faria o gateway reentregar em
-       * backoff por algo que nunca vai completar.
-       */
+      // Ignora em vez de falhar: erro faria o gateway reentregar algo que nunca completa.
       if (!gatewaySubscriptionId || !installation) {
         logThinkzapError(
           apiLogger,
@@ -536,10 +388,6 @@ export class StripePaymentGateway implements PaymentGateway {
         return { type: 'ignored', name: event.type }
       }
 
-      /**
-       * O período vem da assinatura, que a sessão não carrega. É uma leitura ao
-       * gateway, no caminho de webhook — não no de mensagem.
-       */
       const subscription = await this.stripe.subscriptions.retrieve(
         gatewaySubscriptionId,
       )
@@ -594,12 +442,6 @@ export class StripePaymentGateway implements PaymentGateway {
     }
   }
 
-  /**
-   * O metadata da instalação, ou `null` quando incompleto.
-   *
-   * Os três campos juntos ou nada: com `domainId` sem `appCode` não há instalação
-   * a resolver, e adivinhar o app code ativaria a assinatura no app errado.
-   */
   private readInstallation(
     metadata: Stripe.Metadata | null,
   ): GatewayInstallationRef | null {
@@ -612,15 +454,7 @@ export class StripePaymentGateway implements PaymentGateway {
     return { domainId, appCode, planId }
   }
 
-  /**
-   * A intenção da sessão, ou `convert`.
-   *
-   * O default **preserva o comportamento anterior**: sessão criada antes deste
-   * deploy não tem o campo, e ler ausência como `add-line` faria uma contratação
-   * comum criar uma linha que ninguém pediu. Intenção `add-line` sem provider ou
-   * sem plano também cai em `convert`, pelo mesmo motivo — metadata pela metade não
-   * autoriza provisionar recurso.
-   */
+  // Na dúvida, `convert`: metadata ausente ou pela metade não autoriza provisionar linha.
   private readIntent(metadata: Stripe.Metadata | null): CheckoutIntent {
     if (metadata?.intent !== 'add-line') return { kind: 'convert' }
 
@@ -652,29 +486,13 @@ export class StripePaymentGateway implements PaymentGateway {
       appCode: installation.appCode,
       planId: installation.planId,
       intent: intent.kind,
-      /**
-       * Chaves só no caminho que as usa: o metadata do gateway é um mapa plano de
-       * strings, e gravar `null` deixaria a leitura sem como distinguir "não é
-       * add-line" de "é add-line com campo vazio".
-       */
       ...(intent.kind === 'add-line'
         ? { newLineProvider: intent.provider, newLinePlanId: intent.planId }
         : {}),
     }
   }
 
-  /**
-   * O período da assinatura, com a política de falha do webhook.
-   *
-   * A leitura em si é `readSubscriptionPeriod`, compartilhada com o backfill de
-   * cobrança legada: a tolerância a período na assinatura **e** no item de linha é
-   * uma regra só, e duplicá-la significaria que a próxima versão da API do Stripe
-   * quebra um dos dois lados em silêncio.
-   *
-   * O que fica aqui é a política: no processamento de webhook, período ausente é um
-   * pagamento que não pode ser espelhado, então registra e lança. O backfill trata a
-   * mesma ausência pulando a instalação.
-   */
+  // No webhook, período ausente lança (pagamento não espelhável); o backfill só pula.
   private readPeriod(subscription: Stripe.Subscription): SubscriptionPeriod {
     const period = readSubscriptionPeriod(subscription)
 

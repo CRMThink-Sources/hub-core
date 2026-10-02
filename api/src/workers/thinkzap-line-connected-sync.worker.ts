@@ -8,20 +8,15 @@ import { makeLineConnectedSyncDeps } from '@/modules/thinkzap/main/make-sync-lin
 import { processLineConnectedSyncJob } from './thinkzap-line-connected-sync.processor'
 import { workerLogger } from '@/shared/infra/logger'
 import { makeAppendJobLog } from './append-job-log'
+import { jobFailureLogFields } from '@/shared/infra/log-error'
 
-/**
- * Worker da gravação de `UF_CRM_93_CONNECTED` — sem entrypoint próprio, importado
- * por efeito colateral em `thinkzap-inbound.worker.ts`, pelo mesmo motivo de
- * `thinkzap-connection-events.worker.ts`: um job por queda/subida de linha, não por
- * mensagem.
- */
+// Sem entrypoint próprio: job raro, importado em thinkzap-inbound.worker.ts.
 let deps: ReturnType<typeof makeLineConnectedSyncDeps> | undefined
 
 async function processJob(
   job: Job<ThinkzapLineConnectedSyncJob>,
 ): Promise<void> {
-  // Montado no primeiro job, não no import: o worker é importado por efeito
-  // colateral, e os clients leem `env` na construção.
+  // Lazy: importado por efeito colateral e os clients leem `env` na construção.
   deps ??= makeLineConnectedSyncDeps()
 
   await processLineConnectedSyncJob(job.data, deps, {
@@ -61,7 +56,7 @@ thinkzapLineConnectedSyncWorker.on('failed', (job, err) => {
       ...jobBaseFields(job),
       willRetry: attemptsMade < maxAttempts,
       maxAttempts,
-      error: err,
+      ...jobFailureLogFields(err),
     },
     'Line connected sync job failed',
   )

@@ -1,4 +1,6 @@
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 
 const CONTACT_ENTITY_TYPE_ID = 3
 const MAX_RESULTS = 20
@@ -42,8 +44,12 @@ export class ListContactsService {
           name: this.getEntityDisplayName(entity),
           phones: this.extractPhoneNumbers(entity),
         })
-      } catch {
-        // skip contacts that fail to load
+      } catch (error) {
+        logThinkzapError(apiLogger, 'thinkzap.bitrix.contact_read_failed', {
+          app: 'thinkzap',
+          contactId: item.id,
+          err: error,
+        })
       }
     }
 

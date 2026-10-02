@@ -28,22 +28,13 @@ import { BitrixLivefeedNotificationService } from '@/shared/application/send-bit
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { makeBitrixClientByDomainAndAppCoode } from '@/shared/main/make-bitrix-client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 const log = createWorkerSourceLogger('bitrix')
 
 export type WidgetSendJobOutcome = 'done' | 'reschedule'
 
-/**
- * Entrega uma mensagem do widget que está no outbox.
- *
- * O processor só **resolve o contexto** e traduz o desfecho; a regra de entrega vive em
- * `DispatchWidgetOutboxMessage`, para ser testável sem Redis, sem Prisma e sem Bitrix.
- *
- * Devolve `reschedule` quando o destino está ocupado — o chamador move o job para
- * atrasado **sem gastar tentativa**. Gastar tentativa por contenção esgotaria as três
- * retentativas numa conversa movimentada e marcaria como falha um envio que nunca foi
- * tentado.
- */
+// `reschedule` (destino ocupado) adia sem gastar tentativa: contenção não é falha de envio.
 export async function processWidgetSendJob(
   job: ThinkzapWidgetSendJob,
   context: { isLastAttempt: boolean; appendJobLog: AppendJobLog },
@@ -63,14 +54,7 @@ export async function processWidgetSendJob(
     return 'done'
   }
 
-  /**
-   * O estado da intenção **antes** de qualquer coisa acontecer com ela.
-   *
-   * É a linha que responde "esta execução ia enviar ou ia retomar?" — sem ela, um
-   * `resumed` no fim parece um envio que aconteceu, e um `unknown` parece decisão
-   * arbitrária. `attempts` e `lastError` mostram o histórico da intenção, que é
-   * independente do `attemptsMade` do job: a row sobrevive ao job.
-   */
+  // `attempts` é da intenção, não do job: a row sobrevive ao job.
   log.info(
     {
       app: 'thinkzap',
@@ -88,11 +72,6 @@ export async function processWidgetSendJob(
     'Despachando intenção de envio do widget',
   )
 
-  /**
-   * A primeira linha da aba Logs é a que enquadra tudo que vem depois: quem lê precisa
-   * saber, antes de qualquer coisa, se esta execução ia **enviar** ou apenas **retomar**
-   * efeitos colaterais de um envio que já aconteceu.
-   */
   await appendJobLog(
     `Intenção ${row.id} | tipo=${row.kind}` +
       (row.kind === 'TEMPLATE' ? ` (${row.templateName})` : '') +
@@ -106,11 +85,7 @@ export async function processWidgetSendJob(
 
   const line = await resolveLineTarget(row)
   if (!line) {
-    /**
-     * Sem linha resolvível não há o que tentar, e retentar não resolve: o item saiu da
-     * instalação ou o portal foi apagado. Estado terminal com aviso ao operador, e não
-     * job falho que o BullMQ vai reprocessar três vezes para chegar no mesmo lugar.
-     */
+    // Terminal: retentar não traz a linha de volta.
     await appendJobLog(
       `Linha ${row.subscriptionItemId} não está mais na instalação. ` +
         'Estado terminal (FAILED) — retentativa não resolveria. Operador avisado na timeline.',
@@ -135,11 +110,7 @@ export async function processWidgetSendJob(
       acquireDestinationLock(redisConnection, instanceId, destination),
     notifyOutcome: (outcome, record) => notifyOutcomeFor(record, outcome),
     notifySent: record => notifySentFor(record),
-    /**
-     * Só as rows de campanha chegam aqui — o despacho já filtra pelas âncoras. O
-     * cliente Bitrix nasce por domínio/app code pela mesma razão do preparo de texto:
-     * no worker não há `req`.
-     */
+    // Só rows de campanha chegam aqui (o despacho filtra pelas âncoras).
     reportSmsStatus: async (record, status) => {
       const domainName =
         (await new PrismaDomainRepository().getDomainById(record.domainId))
@@ -157,13 +128,7 @@ export async function processWidgetSendJob(
       })
     },
     appendJobLog,
-    /**
-     * O mesmo preparo do canal aberto: é o que faz o ajuste "Prefixar nome do
-     * operador" valer no widget também. Enquanto ele não existia aqui, a mesma
-     * configuração de linha prefixava no Bitrix e não prefixava no widget.
-     *
-     * O cliente Bitrix nasce por domínio/app code porque no worker não há `req`.
-     */
+    // Mesmo preparo do canal aberto, para "Prefixar nome do operador" valer no widget.
     prepareOutboundText: async input => {
       const bitrix = await makeBitrixClientByDomainAndAppCoode(
         (await new PrismaDomainRepository().getDomainById(row.domainId))
@@ -202,13 +167,6 @@ export async function processWidgetSendJob(
   return result.status === 'locked' ? 'reschedule' : 'done'
 }
 
-/**
- * Traduz o desfecho do despacho para quem está lendo a aba Logs do job.
- *
- * O código do desfecho sozinho engana: `resumed` parece envio que aconteceu agora, e
- * `skipped` parece que o trabalho foi ignorado por engano. A frase diz o que de fato
- * aconteceu com a mensagem do cliente.
- */
 function describeOutcome(status: string): string {
   const descriptions: Record<string, string> = {
     sent: 'ENTREGUE ao contato nesta execução.',
@@ -225,11 +183,7 @@ function describeOutcome(status: string): string {
   return descriptions[status] ?? status
 }
 
-/**
- * A credencial da linha, do item da SPA — **relida a cada execução**, não guardada no
- * job. Uma linha reprovisionada entre o clique e a retentativa passa a valer com a
- * credencial nova.
- */
+// Relida a cada execução, não guardada no job: linha reprovisionada vale na retentativa.
 async function resolveLineTarget(
   row: WidgetOutboxRecord,
 ): Promise<DispatchLineTarget | null> {
@@ -241,11 +195,6 @@ async function resolveLineTarget(
 
     const item = findItemInContext(context, row.subscriptionItemId)
 
-    /**
-     * Os toggles saem da mesma resolução da credencial: quem achou o item para saber
-     * por onde enviar já sabe como enviar. Uma segunda leitura do contexto por
-     * mensagem seria o preço de esquecer isto aqui.
-     */
     const line = { settings: item.settings, appId: context.aplication.id }
 
     if (item.metadata.provider === 'ZAPI') {
@@ -281,10 +230,7 @@ async function resolveLineTarget(
   }
 }
 
-/**
- * O cliente Bitrix nasce por domínio e app code — no worker não existe `req`, e
- * `makeBitrixClient(req)` não serve aqui.
- */
+// Cliente por domínio/app code: no worker não há `req`.
 async function makeNotifier(row: WidgetOutboxRecord) {
   const domain = await new PrismaDomainRepository().getDomainById(row.domainId)
   if (!domain) return null
@@ -313,22 +259,16 @@ async function notifyOutcomeFor(
       text: row.text,
     })
   } catch (err) {
-    log.warn(
+    logThinkzapError(
+      log,
+      'thinkzap.message.widget_send_notice_failed',
       { app: 'thinkzap', outboxId: row.id, outcome, err },
-      'Falha ao montar o cliente Bitrix para avisar o operador',
+      { msg: 'Falha ao montar o cliente Bitrix para avisar o operador' },
     )
   }
 }
 
-/**
- * O comentário de timeline do envio bem-sucedido, com o mesmo texto de antes — e o de
- * template continua nomeando o template.
- *
- * A linha `Template:` não é decoração: o corpo resolvido sozinho não diz qual versão
- * aprovada saiu, e é por ela que o cliente concilia o que a Meta cobrou. Perder essa
- * linha ao mover o envio para o worker seria uma regressão silenciosa no único registro
- * que o operador enxerga.
- */
+// A linha `Template:` é por onde o cliente concilia o que a Meta cobrou — não remover.
 async function notifySentFor(row: WidgetOutboxRecord): Promise<void> {
   try {
     const notifier = await makeNotifier(row)
@@ -343,9 +283,11 @@ async function notifySentFor(row: WidgetOutboxRecord): Promise<void> {
       message: `Para: ${row.destination}${templateLine}\nMensagem: ${row.text}`,
     })
   } catch (err) {
-    log.warn(
+    logThinkzapError(
+      log,
+      'thinkzap.message.widget_send_notice_failed',
       { app: 'thinkzap', outboxId: row.id, err },
-      'Falha ao publicar o comentário de timeline do envio',
+      { msg: 'Falha ao publicar o comentário de timeline do envio' },
     )
   }
 }

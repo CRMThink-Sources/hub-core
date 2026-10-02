@@ -1,4 +1,6 @@
 import { InfoIcon, MoreHorizontal } from 'lucide-react'
+import type { LineProvider, LineTabId } from '../../content'
+import { useLpContent } from '../../content/locale-context'
 import { HOTSPOT_RING, PingDot, type ScreenProps } from './frame'
 
 /**
@@ -8,23 +10,20 @@ import { HOTSPOT_RING, PingDot, type ScreenProps } from './frame'
  * - linha: `conexoes/[subscriptionItemId]/configuracoes/page.tsx`, `config-card.tsx`
  */
 
-export type LineProvider = 'web' | 'oficial'
-
-const PROVIDER_LABEL: Record<LineProvider, string> = {
-  web: 'WhatsApp Web',
-  oficial: 'Oficial',
-}
+export type { LineProvider, LineTabId }
 
 /** Casca da tela de conexões (`conexoes-layout`) com o cabeçalho real. */
 export function ConexoesPage({ children }: { children: React.ReactNode }) {
+  const { shared } = useLpContent()
+
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-5">
       <div className="rounded-xl border border-border bg-card p-5">
         <p className="text-lg font-bold tracking-tight text-foreground">
-          Configurações
+          {shared.conexoesTitle}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Gerencie os números de WhatsApp conectados ao Bitrix24
+          {shared.conexoesSubtitle}
         </p>
       </div>
       {children}
@@ -37,18 +36,22 @@ export function ProviderBadge({
 }: {
   provider?: LineProvider
 }) {
+  const { providerLabel } = useLpContent().shared
+
   return (
     <span className="shrink-0 rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-      {PROVIDER_LABEL[provider]}
+      {providerLabel[provider]}
     </span>
   )
 }
 
 export function ActiveLinesBadge({ count }: { count: string }) {
+  const { shared } = useLpContent()
+
   return (
     <div className="inline-flex w-fit items-center gap-2 rounded-md border border-primary/20 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
       <InfoIcon aria-hidden className="size-4" />
-      Linhas ativas: {count}
+      {shared.activeLines(count)}
     </div>
   )
 }
@@ -71,14 +74,16 @@ export function LinesTable({
   rows: LineRowData[]
   hotspot?: ScreenProps & { index: number }
 }) {
+  const { shared } = useLpContent()
+
   return (
     <div className="w-full rounded-xl border border-border bg-card">
       <div className="flex items-center justify-between gap-4 rounded-t-xl border-b border-border bg-muted px-4 py-2.5">
         <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Nome
+          {shared.tableName}
         </span>
         <span className="flex flex-1 justify-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Status
+          {shared.tableStatus}
         </span>
         <span className="w-10" />
       </div>
@@ -134,9 +139,9 @@ export function LinesTable({
   )
 }
 
-export const LINE_TABS: Record<LineProvider, readonly string[]> = {
-  web: ['Conexão', 'Grupos', 'Ajustes'],
-  oficial: ['Conexão', 'Templates', 'Ajustes'],
+export const LINE_TABS: Record<LineProvider, readonly LineTabId[]> = {
+  web: ['conexao', 'grupos', 'ajustes'],
+  oficial: ['conexao', 'templates', 'ajustes'],
 }
 
 /**
@@ -144,7 +149,7 @@ export const LINE_TABS: Record<LineProvider, readonly string[]> = {
  * mudam com o provedor). `tabHotspot` transforma uma aba no elemento destacado.
  */
 export function LinhaPage({
-  name = 'Linha 1',
+  name,
   provider = 'web',
   connected,
   device,
@@ -157,19 +162,21 @@ export function LinhaPage({
   connected: boolean
   /** Linha abaixo do título quando conectada ("Aparelho conectado: …"). */
   device?: string
-  activeTab: string
-  tabHotspot?: ScreenProps & { tab: string }
+  activeTab: LineTabId
+  tabHotspot?: ScreenProps & { tab: LineTabId }
   children: React.ReactNode
 }) {
+  const { shared } = useLpContent()
+
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-5">
       <div className="flex flex-col gap-2">
         <span className="w-fit text-sm text-primary">
-          ← Voltar para conexões
+          {shared.backToConnections}
         </span>
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-lg font-bold tracking-tight text-foreground">
-            {name}
+            {name ?? shared.defaultLineName}
           </p>
           <ProviderBadge provider={provider} />
           <span
@@ -179,7 +186,7 @@ export function LinhaPage({
                 : 'bg-destructive/10 text-destructive'
             }`}
           >
-            {connected ? 'Conectada' : 'Desconectada'}
+            {connected ? shared.connected : shared.disconnected}
           </span>
         </div>
         {connected && device && (
@@ -205,14 +212,14 @@ export function LinhaPage({
                 onClick={tabHotspot.onAdvance}
                 className={`${base} hover:bg-accent hover:text-foreground ${HOTSPOT_RING}`}
               >
-                {tab}
+                {shared.lineTabs[tab]}
                 <PingDot />
               </button>
             )
           }
           return (
             <span key={tab} className={base}>
-              {tab}
+              {shared.lineTabs[tab]}
               {active && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
               )}
@@ -256,11 +263,6 @@ export function ConfigCard({
     </section>
   )
 }
-
-export const WEB_HINT =
-  'Conecta lendo o QR code no seu celular. Mais rápido de começar.'
-export const OFICIAL_HINT =
-  'Canal oficial da Meta, com número verificado e templates.'
 
 /** Card de escolha do conector (`ProviderOption` do `trial-card` e da nova linha). */
 export function ProviderOption({

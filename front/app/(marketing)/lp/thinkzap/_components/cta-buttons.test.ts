@@ -3,30 +3,50 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { CtaButtons } from './cta-buttons'
 import { FinalCta } from './final-cta'
+import { getLpContent } from './content'
 import { resolveThinkzapCtas } from './resolve-ctas'
 
 const MARKET = 'https://www.bitrix24.com.br/apps/app/crmthink.thinkzap/'
+const PT = getLpContent('pt')
+const EN = getLpContent('en')
 
 describe('resolveThinkzapCtas', () => {
   it('monta os dois destinos com as envs definidas', () => {
     const ctas = resolveThinkzapCtas({
       marketUrl: ` ${MARKET} `,
       salesWhatsapp: '+55 (11) 99999-0000',
+      whatsappMessage: PT.whatsappMessage,
     })
     expect(ctas.marketUrl).toBe(MARKET)
     expect(ctas.whatsappLink).toMatch(/^https:\/\/wa\.me\/5511999990000\?text=/)
   })
 
+  it('leva a mensagem do WhatsApp no idioma da LP', () => {
+    const ctas = resolveThinkzapCtas({
+      marketUrl: MARKET,
+      salesWhatsapp: '+55 (11) 99999-0000',
+      whatsappMessage: EN.whatsappMessage,
+    })
+    const text = new URL(ctas.whatsappLink!).searchParams.get('text')
+    expect(text).toBe(EN.whatsappMessage)
+  })
+
   it('vira null com envs vazias', () => {
-    expect(resolveThinkzapCtas({ marketUrl: '  ', salesWhatsapp: '' })).toEqual(
-      { marketUrl: null, whatsappLink: null },
-    )
+    expect(
+      resolveThinkzapCtas({
+        marketUrl: '  ',
+        salesWhatsapp: '',
+        whatsappMessage: PT.whatsappMessage,
+      }),
+    ).toEqual({ marketUrl: null, whatsappLink: null })
   })
 })
 
 describe('CtaButtons', () => {
-  const render = (ctas: Parameters<typeof CtaButtons>[0]) =>
-    renderToStaticMarkup(createElement(CtaButtons, ctas))
+  const render = (ctas: Omit<Parameters<typeof CtaButtons>[0], 'labels'>) =>
+    renderToStaticMarkup(
+      createElement(CtaButtons, { ...ctas, labels: PT.ctaButtons }),
+    )
 
   it('renderiza os dois botões em nova aba com rel seguro', () => {
     const html = render({
@@ -55,7 +75,11 @@ describe('CtaButtons', () => {
 describe('FinalCta', () => {
   it('cai no texto informativo sem nenhum CTA', () => {
     const html = renderToStaticMarkup(
-      createElement(FinalCta, { marketUrl: null, whatsappLink: null }),
+      createElement(FinalCta, {
+        marketUrl: null,
+        whatsappLink: null,
+        content: PT,
+      }),
     )
     expect(html).toContain('Procure o ThinkZap no Bitrix24 Market')
     expect(html).not.toContain('<a')

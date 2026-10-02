@@ -1,51 +1,55 @@
 /**
  * Telas do CRM do Bitrix24 simplificadas: card de um negócio com abas e o funil
  * (kanban) de Negócios. Só o necessário para situar a tela — o Bitrix24 muda o
- * visual com frequência, então aqui vale a estrutura, não o pixel.
+ * visual com frequência, então aqui vale a estrutura, não o pixel. Título,
+ * contato e valor do negócio de exemplo ficam em `shared.deal` da copy.
  */
 
-export const DEAL = {
-  id: 1042,
-  title: 'Pedido Maria Clara',
-  contact: 'Maria Clara',
-  value: 'R$ 2.400,00',
-}
+import {
+  DEAL_TAB_IDS,
+  STAGE_IDS,
+  type DealTabId,
+  type StageId,
+} from '../../content'
+import { useLpContent } from '../../content/locale-context'
 
-const DEAL_TABS = ['Geral', 'Produtos', 'ThinkZap', 'Histórico'] as const
+export const DEAL_ID = 1042
 
 /** Card do negócio com cabeçalho, etapas e a aba aberta. */
 export function CrmDealPage({
   tab,
   children,
 }: {
-  tab: (typeof DEAL_TABS)[number]
+  tab: DealTabId
   children: React.ReactNode
 }) {
+  const { shared } = useLpContent()
+
   return (
     <div className="flex flex-col gap-3 bg-[#eef2f4] p-4 sm:p-5">
       <div>
-        <p className="text-lg font-semibold text-[#333]">{DEAL.title}</p>
+        <p className="text-lg font-semibold text-[#333]">{shared.deal.title}</p>
         <p className="text-xs text-[#828b95]">
-          Negócio #{DEAL.id} · {DEAL.value}
+          {shared.dealLabel(DEAL_ID, shared.deal.value)}
         </p>
       </div>
       <div className="flex gap-0.5 overflow-hidden rounded-md text-[10px] font-medium text-white">
-        {STAGES.map((stage, index) => (
+        {STAGE_IDS.map((stage, index) => (
           <span
             key={stage}
             className={`flex-1 truncate px-2 py-1 ${index <= 1 ? 'bg-[#2fc6f6]' : 'bg-[#c6cdd3]'}`}
           >
-            {stage}
+            {shared.stages[stage]}
           </span>
         ))}
       </div>
       <div className="flex gap-4 border-b border-[#dfe3e6] text-sm">
-        {DEAL_TABS.map(item => (
+        {DEAL_TAB_IDS.map(item => (
           <span
             key={item}
             className={`pb-1.5 ${item === tab ? 'border-b-2 border-[#2fc6f6] font-semibold text-[#333]' : 'text-[#828b95]'}`}
           >
-            {item}
+            {shared.dealTabs[item]}
           </span>
         ))}
       </div>
@@ -54,21 +58,18 @@ export function CrmDealPage({
   )
 }
 
-export const STAGES = [
-  'Novo',
-  'Proposta enviada',
-  'Negociação',
-  'Fechado',
-] as const
-export type Stage = (typeof STAGES)[number]
+export const STAGES = STAGE_IDS
+export type Stage = StageId
 
 /** Cabeçalho da página de Negócios com a barra de ações sobre o papel de parede. */
 export function DealsHeader({ children }: { children?: React.ReactNode }) {
+  const { shared } = useLpContent()
+
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <p className="text-lg font-semibold text-white">Negócios</p>
+      <p className="text-lg font-semibold text-white">{shared.dealsTitle}</p>
       <span className="h-8 min-w-24 flex-1 rounded-lg border border-white/20 bg-white/10 px-2 text-xs leading-8 text-white/60">
-        Filtro + pesquisa
+        {shared.filterSearch}
       </span>
       {children}
     </div>
@@ -84,6 +85,7 @@ export const GLASS_BUTTON =
  * Bitrix24.
  */
 export function StageArrow({ stage }: { stage: Stage }) {
+  const { stages } = useLpContent().shared
   const index = STAGES.indexOf(stage)
   return (
     <p
@@ -94,7 +96,7 @@ export function StageArrow({ stage }: { stage: Stage }) {
           'polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%, 8px 50%)',
       }}
     >
-      {stage}
+      {stages[stage]}
     </p>
   )
 }

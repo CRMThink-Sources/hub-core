@@ -23,24 +23,11 @@ import {
   ZApiListResponse,
 } from './types/z-api.types'
 import { UpdateInstanceGateway } from '../../domain/repositories/update-instance.gateway'
-import { thinkzapError } from '../../errors/catalog'
+import { logThinkzapError, thinkzapError } from '../../errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 import { attachProviderHttpLogging } from '@/shared/infra/clients/provider-http-logging'
 
-/**
- * Registra o que a Z-API respondeu a um envio.
- *
- * Existe por causa do caso "o widget disse que enviou e não chegou no telefone": sem
- * este log não há prova de nada. Não se sabe se a Z-API aceitou, com qual id, nem para
- * qual número — e sem o id não há como consultar a mensagem no painel dela.
- *
- * O aceite da Z-API significa apenas **"recebi a ordem de enviar"**. A entrega ao
- * aparelho é assíncrona e chega depois pelo webhook `MessageStatusCallback`. Uma
- * mensagem com `zaapId` e `messageId` que nunca chegou é problema do outro lado, e
- * `messageId` é o que permite provar isso para o suporte da Z-API.
- *
- * **Nunca loga o token** — só o `instanceId`, que não é credencial.
- */
+// Prova de aceite (não de entrega) para o suporte Z-API via `messageId`. Nunca logar o token.
 function logZApiSend(
   operation: string,
   instanceId: string,
@@ -57,11 +44,7 @@ function logZApiSend(
       zaapId: response.zaapId,
       messageId: response.messageId,
       zApiId: response.id,
-      /**
-       * Resposta `200` sem `messageId` é estado que a tipagem não admite mas a rede
-       * produz. Sem esta marca, o `undefined` viraria `providerMessageId` nulo lá na
-       * frente e ninguém saberia que veio daqui.
-       */
+      // 200 sem `messageId`: a tipagem não admite, mas a rede produz.
       missingMessageId: !response.messageId,
     },
     'Z-API aceitou o envio',
@@ -72,17 +55,7 @@ export class ZApiClient {
   private readonly zApiToken: string
   private readonly clientToken: string | null = null
 
-  /**
-   * Instância própria em vez do `axios` global, só para carregar os interceptors de
-   * log.
-   *
-   * O global é compartilhado com todo o processo: registrar interceptor nele instrumen-
-   * taria também as chamadas ao Bitrix, à Stripe e ao Google — e o mascaramento de
-   * token aqui é específico do formato de URL da Z-API.
-   *
-   * Sem `baseURL`: os métodos montam a URL absoluta, e mudar isso agora seria refactor
-   * sem ganho. O interceptor funciona igual.
-   */
+  // Instância própria: interceptor no axios global instrumentaria Bitrix/Stripe/Google também.
   private readonly http = axios.create()
 
   constructor(zApiToken: string, clientToken: string | null = null) {
@@ -246,7 +219,12 @@ export class ZApiClient {
       )
 
       return data
-    } catch {
+    } catch (error) {
+      logThinkzapError(apiLogger, 'thinkzap.zapi.phone_data_failed', {
+        app: 'thinkzap',
+        instanceId,
+        err: error,
+      })
       return null
     }
   }
@@ -331,11 +309,6 @@ export class ZApiClient {
     }
   }
 
-  /**
-   * Envia mensagem com botões de ação. Endpoint separado dos outros `send-*`:
-   * o corpo inteiro (`message`, `title`, `footer`, `buttonActions`) vai junto,
-   * não só o payload do que está sendo enviado.
-   */
   async sendButtonActions(
     instanceId: string,
     instanceToken: string,
@@ -429,7 +402,7 @@ export class ZApiClient {
       )
       return
     } catch {
-      // endpoint de cancel falhou → fallback pra disconnect abaixo
+      // fallback para disconnect abaixo
     }
 
     await this.disconnectInstance(instanceId, instanceToken)
@@ -554,23 +527,7 @@ export class ZApiClient {
     }
   }
 
-  /**
-   * Descobre o LID de um telefone.
-   *
-   * **A única direção de conversão que existe.** O WhatsApp não permite ir de LID para
-   * telefone — a Z-API é explícita sobre isso, e a razão é privacidade. Este método é o
-   * que torna possível o widget, que só conhece o número digitado pelo operador,
-   * alcançar a mesma identidade de canal aberto que o inbound resolve pelo `chatLid`.
-   * Sem ele, a identidade por LID duplicaria toda conversa iniciada pelo CRM.
-   *
-   * Não lança e devolve `null` no erro, como `getProfilePicture`: o chamador trata a
-   * ausência caindo para o próximo elo da cadeia, e uma indisponibilidade da Z-API não
-   * pode derrubar a entrega de uma mensagem que já chegou.
-   *
-   * `exists: false` (número sem WhatsApp) vem com `lid` nulo e é devolvido como está —
-   * é informação, não erro, e o backfill a usa para saber que aquele contato não tem
-   * conversa a proteger.
-   */
+  // Só existe telefone→LID (nunca o inverso); sem isso conversas do CRM duplicariam. Erro → null, não lança.
   async phoneExists(
     instanceId: string,
     instanceToken: string,
@@ -585,8 +542,7 @@ export class ZApiClient {
         },
       )
 
-      // A Z-API devolve array mesmo para um número só; tolerar objeto solto porque a
-      // forma não está fixada por contrato e um 200 inesperado não deve virar exceção.
+      // Normalmente array; tolera objeto solto porque a forma não é contratual.
       const entry = Array.isArray(data) ? data[0] : data
       if (!entry || typeof entry !== 'object') return null
 

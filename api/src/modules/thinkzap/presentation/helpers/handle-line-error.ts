@@ -14,10 +14,7 @@ import { MessageServiceScopeMissingError } from '@/modules/thinkzap/application/
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 
-/**
- * Leitura de billing falhou: o Bitrix não respondeu, ou respondeu com shape que o
- * domínio não aceita. Vira `502`, nunca `404` — a linha pode existir.
- */
+// Falha de leitura de billing vira 502, nunca 404: a linha pode existir.
 const isLineReadFailure = (error: unknown): boolean =>
   error instanceof BitrixError ||
   error instanceof InvalidBitrixSubscriptionError ||
@@ -25,11 +22,7 @@ const isLineReadFailure = (error: unknown): boolean =>
   error instanceof InvalidBitrixPlanError ||
   error instanceof InvalidBitrixProductError
 
-/**
- * Erro do provider Z-API. O `ZApiClient` lança `Error` com mensagem própria, sem
- * tipo dedicado, então a detecção é por mensagem — frágil, mas é o contrato atual
- * do client e trocá-lo é escopo dele, não desta superfície.
- */
+// Frágil: o ZApiClient lança Error sem tipo dedicado, então detecta pela mensagem.
 const ZAPI_FAILURES = [
   'Failed to get instance data',
   'Failed to get instance status',
@@ -40,22 +33,7 @@ const ZAPI_FAILURES = [
 const isZApiFailure = (error: unknown): boolean =>
   error instanceof Error && ZAPI_FAILURES.includes(error.message)
 
-/**
- * Linha bloqueada, em qualquer superfície: ajustes, canal, QR code, grupos,
- * templates.
- *
- * **`402` e não `403`.** O `403` desta api significa "você não pode fazer isso" —
- * é o que o guard de permissão devolve. Linha bloqueada é outra coisa: o usuário
- * pode, a instalação é que não tem mais direito à linha. A tela precisa separar os
- * dois para oferecer contratar em vez de mandar falar com o administrador.
- *
- * O corpo carrega `code` e `entitlement` porque a mensagem é interpolada com o id
- * do item: comparar texto no front nunca casaria.
- *
- * Exportado e reusado pelas outras traduções de erro desta superfície — linha
- * bloqueada é um caso só, e responder diferente por rota faria a tela ter que
- * aprender cada uma.
- */
+// 402 e não 403 (403 = guard de permissão): a tela oferece contratar. `code` porque a mensagem é interpolada.
 export function mapLineBlockedError(error: LineBlockedError): httpResponse {
   logThinkzapError(
     apiLogger,
@@ -73,22 +51,11 @@ export function mapLineBlockedError(error: LineBlockedError): httpResponse {
   }
 }
 
-/**
- * Tradução de erro para status nas rotas de linha (`/api/thinkzap/lines/*`).
- *
- * Compartilhado porque todas essas rotas passam pela mesma resolução e precisam
- * dar a mesma resposta para a mesma causa — `404` para linha fora do escopo do
- * token, `400` para provider incompatível, `502` para upstream fora.
- */
 export function mapLineError(
   error: unknown,
   fallbackMessage: string,
 ): httpResponse {
-  /**
-   * Linha que não está na árvore da instalação do token. Também cobre o item de
-   * outro cliente: indistinguível de inexistente de propósito, para não confirmar
-   * a existência de recurso alheio.
-   */
+  // Item de outro cliente responde igual a inexistente, para não confirmar recurso alheio.
   if (error instanceof LineNotFoundError) {
     logThinkzapError(
       apiLogger,
@@ -99,27 +66,26 @@ export function mapLineError(
     return { status: 404, result: { error: error.message } }
   }
 
-  /**
-   * Antes do provider e do upstream: a linha existe e o escopo já foi conferido,
-   * então nada abaixo pode dar resposta melhor que "seu teste acabou".
-   */
+  // Antes do provider/upstream: nada abaixo dá resposta melhor que "seu teste acabou".
   if (error instanceof LineBlockedError) {
     return mapLineBlockedError(error)
   }
 
-  /** Token válido de instalação que não existe mais. */
+  // Token válido de instalação que não existe mais.
   if (
     error instanceof CustomerNotFoundError ||
     error instanceof AplicationNotFoundError
   ) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.app.not_found',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
     return { status: 404, result: { error: error.message } }
   }
 
-  /**
-   * Canal aberto já ocupado por outra linha: `409`, porque o pedido é válido e é o
-   * estado do recurso que impede. A mensagem do erro nomeia a linha que ocupa e o que
-   * fazer — desvincular ou criar outro canal —, então a tela pode exibi-la direto.
-   */
+  // A mensagem já diz qual linha ocupa e o que fazer; a tela exibe direto.
   if (error instanceof ChannelAlreadyLinkedError) {
     logThinkzapError(
       apiLogger,
@@ -135,14 +101,7 @@ export function mapLineError(
     return { status: 409, result: { error: error.message } }
   }
 
-  /**
-   * O portal não concedeu o escopo `messageservice` ao app.
-   *
-   * `409` e não `502`: nada está errado com a linha, com a credencial nem com o
-   * Bitrix — falta um passo de publicação do app que nenhuma retentativa resolve. O
-   * `code` vai no corpo para a tela distinguir isto de falha de rede, que ela trata
-   * oferecendo "tentar de novo".
-   */
+  // 409 e não 502: retentativa não resolve; `code` separa de falha de rede na tela.
   if (error instanceof MessageServiceScopeMissingError) {
     logThinkzapError(
       apiLogger,
@@ -159,7 +118,6 @@ export function mapLineError(
     }
   }
 
-  /** Recurso existe, operação não se aplica. */
   if (error instanceof LineProviderNotSupportedError) {
     logThinkzapError(
       apiLogger,
@@ -171,6 +129,12 @@ export function mapLineError(
   }
 
   if (isLineReadFailure(error) || isZApiFailure(error)) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.line.billing_read_failed',
+      { app: 'thinkzap', err: error },
+      { level: 'error', msg: fallbackMessage },
+    )
     return {
       status: 502,
       result: {

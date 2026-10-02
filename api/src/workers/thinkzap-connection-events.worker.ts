@@ -7,18 +7,9 @@ import {
 import { processConnectionEventJob } from './thinkzap-connection-notify.processor'
 import { workerLogger } from '@/shared/infra/logger'
 import { makeAppendJobLog } from './append-job-log'
+import { jobFailureLogFields } from '@/shared/infra/log-error'
 
-/**
- * Worker do aviso de conexão/desconexão — **sem entrypoint próprio de propósito**.
- *
- * Ao contrário do outbound do widget (que saiu para processo/container dedicado
- * porque entrega ao contato não pode competir por slot com mensagem recebida), este
- * job é raro (um por queda/subida de linha, não por mensagem) e o efeito colateral é
- * best-effort — o mesmo perfil de risco que o outbound tinha **antes** de precisar de
- * isolamento. Fica importado (efeito colateral) em `thinkzap-inbound.worker.ts`, pelo
- * mesmo motivo que evitou o serviço novo no compose da vez passada: se o volume ou a
- * latência virarem problema, o precedente pra separar já está escrito ali do lado.
- */
+// Sem entrypoint próprio de propósito: job raro e best-effort, importado em thinkzap-inbound.worker.ts.
 async function processJob(job: Job<ThinkzapConnectionEventJob>): Promise<void> {
   await processConnectionEventJob(job.data, {
     appendJobLog: makeAppendJobLog(job),
@@ -63,7 +54,7 @@ thinkzapConnectionEventsWorker.on('failed', (job, err) => {
       ...jobBaseFields(job),
       willRetry: attemptsMade < maxAttempts,
       maxAttempts,
-      error: err,
+      ...jobFailureLogFields(err),
     },
     'Connection event job failed',
   )
