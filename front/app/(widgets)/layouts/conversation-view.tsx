@@ -25,14 +25,15 @@ import {
   useState,
 } from 'react'
 import {
+  appendWidgetButton,
   ButtonComposer,
   buttonComposerValidationMessage,
-  newWidgetButtonEntry,
   toButtonPayload,
   type WidgetButtonEntry,
   type WidgetButtonType,
 } from './button-composer'
 import { buildSendWidgetFormData } from './send-widget-message.client'
+import { resolveWidgetEntity } from './resolve-widget-entity'
 import { TemplateComposer, templateKey } from './template-composer'
 import {
   hasAllTemplateVariables,
@@ -100,13 +101,6 @@ const normalizePhoneNumber = (value: string): string => {
   }
 
   return digits
-}
-
-const PLACEMENT_TO_ENTITY = {
-  CRM_DEAL_DETAIL_TAB: 'deal',
-  CRM_CONTACT_DETAIL_TAB: 'contact',
-  CRM_COMPANY_DETAIL_TAB: 'company',
-  CRM_LEAD_DETAIL_TAB: 'lead',
 }
 
 /**
@@ -245,8 +239,9 @@ export const ConversationView = () => {
    * API real em 2026-09-15 que a Cloud API da Meta não tem botão de ligação
    * em mensagem de sessão livre, e que o botão de URL (`cta_url`) não
    * combina com outro no mesmo envio (`maxButtons` abaixo). `ZAPI` tem os
-   * três, sem limite de quantidade, mas não pode misturar `REPLY` com os
-   * outros dois no mesmo envio — a mistura é recusada por
+   * três, até `MAX_WIDGET_BUTTONS` (o default quando `maxButtons` fica
+   * `undefined`), mas não pode misturar `REPLY` com os outros dois no mesmo
+   * envio — a mistura é recusada por
    * `buttonComposerValidationMessage`, não por este array.
    */
   const allowedButtonTypes: WidgetButtonType[] = !selectedLine
@@ -456,16 +451,12 @@ export const ConversationView = () => {
   }
 
   /**
-   * `REPLY` não convive com `URL`/`CALL` no mesmo envio — trocar de tipo
+   * `REPLY` não convive com `URL`/`CALL` no mesmo envio — trocar de família
    * reinicia a lista, em vez de deixar o operador montar uma combinação que
-   * o envio vai recusar.
+   * o envio vai recusar. Mesma família acumula (`appendWidgetButton`).
    */
   const addButton = (type: WidgetButtonType) => {
-    setButtons(previous =>
-      type === 'REPLY' || previous.some(button => button.type === 'REPLY')
-        ? [newWidgetButtonEntry(type)]
-        : [...previous, newWidgetButtonEntry(type)],
-    )
+    setButtons(previous => appendWidgetButton(previous, type))
   }
 
   const updateButton = (id: string, patch: Partial<WidgetButtonEntry>) => {
@@ -526,15 +517,24 @@ export const ConversationView = () => {
       return
     }
 
+    /**
+     * Antes do `try`: sem entidade, nenhum envio sai. A API recusaria com erro de
+     * validação cru; aqui o operador recebe uma mensagem que entende, e o rascunho
+     * fica intacto porque só o caminho de sucesso limpa o formulário.
+     */
+    const info = window.BX24?.placement?.info?.()
+    const crmEntity = resolveWidgetEntity(info?.placement, info?.options)
+    if (!crmEntity) {
+      setErrorFeedback(
+        'Não foi possível identificar a ficha do CRM em que o widget está aberto.',
+      )
+      return
+    }
+    const { entity, entityId } = crmEntity
+
     try {
       setIsSending(true)
       setFeedbackMessage('')
-      const info = window.BX24?.placement?.info?.()
-      const placement = info?.placement
-      const placementOptions = info?.options ?? {}
-      const entity =
-        PLACEMENT_TO_ENTITY[placement as keyof typeof PLACEMENT_TO_ENTITY]
-      const entityId = placementOptions.ID
 
       const payloadBase = {
         // Id do item de assinatura, direto do `id` da linha selecionada — a mesma

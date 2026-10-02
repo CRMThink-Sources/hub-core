@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  appendWidgetButton,
   buttonComposerValidationMessage,
+  MAX_WIDGET_BUTTONS,
   toButtonPayload,
   type WidgetButtonEntry,
 } from './button-composer'
@@ -103,6 +105,76 @@ describe('buttonComposerValidationMessage', () => {
     expect(
       buttonComposerValidationMessage('Oi', buttons, ['URL'], 1),
     ).toBeNull()
+  })
+})
+
+describe('limite geral de botões', () => {
+  const replies = (count: number): WidgetButtonEntry[] =>
+    Array.from({ length: count }, (_, index) => ({
+      id: String(index + 1),
+      label: `Opção ${index + 1}`,
+      type: 'REPLY' as const,
+      value: '',
+    }))
+
+  it('é 5', () => {
+    expect(MAX_WIDGET_BUTTONS).toBe(5)
+  })
+
+  it('aceita 5 botões sem maxButtons', () => {
+    expect(
+      buttonComposerValidationMessage('Oi', replies(5), allTypes),
+    ).toBeNull()
+  })
+
+  it('recusa o 6º botão sem maxButtons', () => {
+    expect(buttonComposerValidationMessage('Oi', replies(6), allTypes)).toBe(
+      'Esta linha aceita no máximo 5 botão(ões) por envio.',
+    )
+  })
+})
+
+describe('appendWidgetButton', () => {
+  it('acrescenta resposta rápida preservando a anterior', () => {
+    const previous: WidgetButtonEntry[] = [
+      { id: '1', label: 'Sim', type: 'REPLY', value: '' },
+    ]
+
+    const next = appendWidgetButton(previous, 'REPLY')
+
+    expect(next).toHaveLength(2)
+    expect(next[0]).toEqual(previous[0])
+    expect(next[1]).toMatchObject({ label: '', type: 'REPLY' })
+  })
+
+  it('cria a primeira resposta rápida numa lista vazia', () => {
+    const next = appendWidgetButton([], 'REPLY')
+
+    expect(next).toHaveLength(1)
+    expect(next[0]).toMatchObject({ label: '', type: 'REPLY' })
+  })
+
+  it('acumula link e ligação', () => {
+    const previous: WidgetButtonEntry[] = [
+      { id: '1', label: 'Site', type: 'URL', value: 'https://x.io' },
+    ]
+
+    const next = appendWidgetButton(previous, 'CALL')
+
+    expect(next).toHaveLength(2)
+    expect(next[0]).toEqual(previous[0])
+    expect(next[1]).toMatchObject({ type: 'CALL' })
+  })
+
+  it('reinicia a lista ao trocar de família', () => {
+    const previous: WidgetButtonEntry[] = [
+      { id: '1', label: 'Site', type: 'URL', value: 'https://x.io' },
+    ]
+
+    const next = appendWidgetButton(previous, 'REPLY')
+
+    expect(next).toHaveLength(1)
+    expect(next[0]).toMatchObject({ label: '', type: 'REPLY' })
   })
 })
 

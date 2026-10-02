@@ -43,7 +43,8 @@ export class InvalidButtonCombinationError extends Error {
 /**
  * O envio tem mais botões do que o provider aceita numa mensagem só.
  *
- * Hoje só a HubMessage recusa: o botão de URL da Meta (`cta_url`) é uma
+ * Todo provider recusa acima de `MAX_BUTTONS_PER_SEND` (5). A HubMessage tem
+ * limites menores: o botão de URL da Meta (`cta_url`) é uma
  * mensagem interativa de **um botão só** — não existe combinação de vários
  * botões de URL/CALL numa mensagem de sessão livre, ao contrário do que a doc
  * da HubMessage sugere (confirmado contra a API real em 2026-09-15). O quick

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildButtonRobotProperties,
+  MAX_ROBOT_BUTTONS,
   parseStoredButtonProperties,
   validateButtonConfig,
   type ButtonRobotConfigState,
@@ -262,5 +263,31 @@ describe('validateButtonConfig', () => {
     expect(
       validateButtonConfig(config, ['REPLY', 'URL'], { REPLY: 3, URL: 1 }),
     ).toMatch(/máximo/i)
+  })
+
+  describe('limite geral de botões', () => {
+    const replies = (count: number): ButtonRobotConfigState => ({
+      ...base,
+      buttons: Array.from({ length: count }, (_, index) => ({
+        id: String(index + 1),
+        label: `Opção ${index + 1}`,
+        type: 'REPLY' as const,
+        value: '',
+      })),
+    })
+
+    it('é 5', () => {
+      expect(MAX_ROBOT_BUTTONS).toBe(5)
+    })
+
+    it('aceita 5 botões sem maxButtonsByType', () => {
+      expect(validateButtonConfig(replies(5), allowedAll)).toBeNull()
+    })
+
+    it('recusa o 6º botão sem maxButtonsByType', () => {
+      expect(validateButtonConfig(replies(6), allowedAll)).toBe(
+        'Esta linha aceita no máximo 5 botão(ões) por envio.',
+      )
+    })
   })
 })
