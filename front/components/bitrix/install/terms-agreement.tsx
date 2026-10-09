@@ -1,5 +1,7 @@
 'use client'
 
+import { useMemo } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import {
   BITRIX_EULA_URL,
   BITRIX_MARKET_TERMS_URL,
@@ -21,15 +23,14 @@ interface TermsAgreementProps {
   title?: string
 }
 
-const DEFAULT_TITLE = 'Termos e aceite'
+export function TermsAgreement({ terms, title }: TermsAgreementProps) {
+  const { t } = useTranslation('bitrix/install')
 
-export function TermsAgreement({
-  terms,
-  title = DEFAULT_TITLE,
-}: TermsAgreementProps) {
   return (
     <div className="space-y-4">
-      <p className="text-sm font-semibold text-slate-700">{title}</p>
+      <p className="text-sm font-semibold text-slate-700">
+        {title ?? t('terms.title')}
+      </p>
       <div className="space-y-3 rounded-xl bg-slate-50/80 p-4">
         {terms.map(({ id, checked, onCheckedChange, label }) => (
           <label
@@ -50,62 +51,40 @@ export function TermsAgreement({
   )
 }
 
-/** Configuração dos termos padrão Bitrix24 (referência estável para uso na instalação) */
-export const BITRIX_TERMS_CONFIG = [
+const BITRIX_TERMS = [
   {
     id: 'market-terms',
-    label: (
-      <>
-        Li e aceito os{' '}
-        <a
-          href={BITRIX_MARKET_TERMS_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={LINK_CLASS}
-        >
-          Termos de uso do Bitrix24 Market
-        </a>
-        .
-      </>
-    ),
+    key: 'terms.marketTerms',
+    href: BITRIX_MARKET_TERMS_URL,
   },
-  {
-    id: 'eula',
-    label: (
-      <>
-        Li e aceito o{' '}
-        <a
-          href={BITRIX_EULA_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={LINK_CLASS}
-        >
-          Contrato de licença (EULA)
-        </a>{' '}
-        do Bitrix24.
-      </>
-    ),
-  },
-  {
-    id: 'privacy',
-    label: (
-      <>
-        Li e aceito a{' '}
-        <a
-          href={BITRIX_PRIVACY_POLICY_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={LINK_CLASS}
-        >
-          Política de privacidade
-        </a>{' '}
-        do Bitrix24.
-      </>
-    ),
-  },
+  { id: 'eula', key: 'terms.eula', href: BITRIX_EULA_URL },
+  { id: 'privacy', key: 'terms.privacy', href: BITRIX_PRIVACY_POLICY_URL },
 ] as const
 
-/** Retorna a configuração dos termos Bitrix24 (alias para BITRIX_TERMS_CONFIG) */
 export function useBitrixTermsAgreement() {
-  return BITRIX_TERMS_CONFIG
+  const { t } = useTranslation('bitrix/install')
+
+  return useMemo(
+    () =>
+      BITRIX_TERMS.map(({ id, key, href }) => ({
+        id,
+        label: (
+          <Trans
+            t={t}
+            i18nKey={key}
+            components={{
+              link: (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={LINK_CLASS}
+                />
+              ),
+            }}
+          />
+        ),
+      })),
+    [t],
+  )
 }

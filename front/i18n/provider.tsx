@@ -6,7 +6,7 @@ import resourcesToBackend from 'i18next-resources-to-backend'
 import { useEffect } from 'react'
 import { DEFAULT_LOCALE, LOCALE_COOKIE, LOCALES, type Locale } from './config'
 
-function readStoredLocale(): Locale | null {
+export function readStoredLocale(): Locale | null {
   if (typeof window === 'undefined') return null
   try {
     const stored =

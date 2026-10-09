@@ -1,5 +1,11 @@
 {
   "title": "Help Center",
   "subtitle": "Access the complete manual with tutorials, FAQs, and configuration guides.",
-  "abrirManual": "Open Manual"
+  "abrirManual": "Open Manual",
+  "suporte": {
+    "title": "Support hours",
+    "horario": "Monday to Friday, 9 AM to 6 PM",
+    "fuso": "(Brasília time, UTC-3).",
+    "tempoEspera": "The average wait time for support is <b>30 minutes</b>."
+  }
 }
