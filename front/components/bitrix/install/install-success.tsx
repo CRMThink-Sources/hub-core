@@ -1,3 +1,6 @@
+'use client'
+
+import { useTranslation } from 'react-i18next'
 import { InstallLayout, InstallCard } from './install-layout'
 
 interface InstallSuccessProps {
@@ -5,14 +8,9 @@ interface InstallSuccessProps {
   description?: string
 }
 
-const DEFAULT_TITLE = 'Instalação concluída'
-const DEFAULT_DESCRIPTION =
-  'O aplicativo foi instalado com sucesso. Você já pode utilizá-lo no Bitrix24.'
+export function InstallSuccess({ title, description }: InstallSuccessProps) {
+  const { t } = useTranslation('bitrix/install')
 
-export function InstallSuccess({
-  title = DEFAULT_TITLE,
-  description = DEFAULT_DESCRIPTION,
-}: InstallSuccessProps) {
   return (
     <InstallLayout>
       <InstallCard className="p-10 text-center">
@@ -34,8 +32,12 @@ export function InstallSuccess({
             />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
-        <p className="mt-3 text-slate-600">{description}</p>
+        <h1 className="text-2xl font-bold text-slate-800">
+          {title ?? t('success.title')}
+        </h1>
+        <p className="mt-3 text-slate-600">
+          {description ?? t('success.description')}
+        </p>
       </InstallCard>
     </InstallLayout>
   )

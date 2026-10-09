@@ -1,0 +1,42 @@
+{
+  "loading": "Cargando...",
+  "connecting": "Conectando a Bitrix24...",
+  "form": {
+    "title": "Instalación de la aplicación",
+    "subtitle": "Complete los datos y acepte los términos para finalizar.",
+    "emailLabel": "Correo electrónico de instalación (opcional)",
+    "emailPlaceholder": "tu@empresa.com",
+    "submit": "Finalizar instalación",
+    "submitting": "Finalizando..."
+  },
+  "terms": {
+    "title": "Términos y aceptación",
+    "marketTerms": "He leído y acepto los <link>Términos de uso de Bitrix24 Market</link>.",
+    "eula": "He leído y acepto el <link>Contrato de licencia (EULA)</link> de Bitrix24.",
+    "privacy": "He leído y acepto la <link>Política de privacidad</link> de Bitrix24."
+  },
+  "success": {
+    "title": "Instalación completada",
+    "description": "La aplicación se instaló correctamente. Ya puede utilizarla en Bitrix24."
+  },
+  "error": {
+    "title": "Atención"
+  },
+  "errors": {
+    "acceptAll": "Es necesario aceptar los términos, el contrato de licencia y la política de privacidad.",
+    "outsideBitrix": "Esta página debe abrirse dentro de Bitrix24.",
+    "bx24Unavailable": "BX24 no está disponible. Abra esta página en Bitrix24.",
+    "install": "Error al finalizar la instalación.",
+    "api": "No se pudo registrar la instalación. Inténtelo de nuevo.",
+    "stepFailed": "No se pudo {{step}}: {{message}}"
+  },
+  "steps": {
+    "resolve-app-code": "identificar la aplicación",
+    "upsert-domain": "registrar el portal",
+    "upsert-app": "registrar la instalación",
+    "upsert-credential": "guardar las credenciales de acceso",
+    "resolve-spa-item": "registrar el cliente en el CRM",
+    "link-spa-item": "vincular la instalación al cliente",
+    "run-installer": "configurar la aplicación en el portal"
+  }
+}
