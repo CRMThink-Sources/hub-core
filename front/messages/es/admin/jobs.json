@@ -1,0 +1,70 @@
+{
+  "title": "Jobs",
+  "description": "Historial del barrido de expiración de suscripciones (SPA 1142), que se ejecuta cada hora.",
+  "notCancelNotice": "El barrido no cancela suscripciones. Solo pasa \"En prueba\" a \"Prueba expirada\" y \"Activa\" manual a \"Vencida\" cuando termina el período.",
+  "runNow": "Ejecutar ahora",
+  "refresh": "Actualizar",
+  "confirmTitle": "¿Ejecutar el barrido ahora?",
+  "confirmDescription": "Todas las suscripciones de la SPA 1142 con el período terminado tendrán su estado grabado en el CRM, igual que en la ejecución programada.",
+  "confirm": "Ejecutar ahora",
+  "cancel": "Cancelar",
+  "startedToast": "Ejecución iniciada.",
+  "busyToast": "Ya hay una ejecución en curso. Inténtalo de nuevo en unos instantes.",
+  "disabledToast": "El barrido está desactivado en este entorno.",
+  "startErrorToast": "No fue posible iniciar la ejecución.",
+  "filterOnlyWithChanges": "Solo con cambios o fallos",
+  "filterTrigger": "Disparador",
+  "filterAllTriggers": "Todos",
+  "trigger": {
+    "scheduled": "Programada",
+    "manual": "Manual"
+  },
+  "runStatus": {
+    "running": "En curso",
+    "success": "Completada",
+    "failed": "Falló",
+    "abandoned": "Abandonada"
+  },
+  "pausedBadge": "Pausada por Bitrix",
+  "table": {
+    "startedAt": "Inicio",
+    "duration": "Duración",
+    "trigger": "Disparador",
+    "triggeredBy": "Disparada por",
+    "status": "Resultado",
+    "checked": "Verificadas",
+    "trialExpired": "Pruebas expiradas",
+    "pastDue": "Vencidas",
+    "failed": "Fallos"
+  },
+  "system": "Sistema",
+  "durationSeconds": "{{value}} s",
+  "detailTitle": "Ejecución del {{date}}",
+  "detailEmpty": "Ninguna suscripción fue modificada en esta ejecución.",
+  "detailError": "Error de la ejecución: {{error}}",
+  "change": {
+    "subscription": "Suscripción",
+    "transition": "Estado",
+    "periodEnd": "Fin del período",
+    "result": "Resultado",
+    "succeeded": "Grabado",
+    "failed": "Falló",
+    "openCrm": "Abrir en el CRM"
+  },
+  "subscriptionStatus": {
+    "active": "Activa",
+    "trialing": "En prueba",
+    "past_due": "Vencida",
+    "cancelled": "Cancelada",
+    "trial_expired": "Prueba expirada"
+  },
+  "emptyTitle": "No se encontraron ejecuciones",
+  "emptyDescription": "Ninguna ejecución coincide con los filtros.",
+  "errorTitle": "Error al cargar las ejecuciones",
+  "errorDescription": "No fue posible cargar el historial. Inténtalo de nuevo.",
+  "detailLoadError": "No fue posible cargar la ejecución.",
+  "retry": "Intentar de nuevo",
+  "page": "Página {{current}} de {{total}}",
+  "previous": "Anterior",
+  "next": "Siguiente"
+}

@@ -727,7 +727,68 @@ model PortalUser {
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
 
+  subscriptionExpirationRuns SubscriptionExpirationRun[]
+
   @@map("portal_users")
+}
+
+// ============================================
+// EXPIRAÇÃO DE ASSINATURAS — histórico das rodadas da varredura
+// Uma linha por rodada (agendada ou manual), mesmo sem alteração, e uma por
+// assinatura alterada ou com falha. Guardado por 90 dias.
+// ============================================
+
+enum SubscriptionExpirationTrigger {
+  SCHEDULED
+  MANUAL
+}
+
+/// `RUNNING` órfão (processo morto) não é gravado como abandonado: é derivado na
+/// leitura pela idade de `startedAt`.
+enum SubscriptionExpirationRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+model SubscriptionExpirationRun {
+  id                      String                          @id @default(uuid())
+  trigger                 SubscriptionExpirationTrigger
+  triggeredByPortalUserId String?                         @map("triggered_by_portal_user_id")
+  status                  SubscriptionExpirationRunStatus @default(RUNNING)
+  startedAt               DateTime                        @default(now()) @map("started_at")
+  finishedAt              DateTime?                       @map("finished_at")
+  checked                 Int                             @default(0)
+  trialExpired            Int                             @default(0) @map("trial_expired")
+  pastDue                 Int                             @default(0) @map("past_due")
+  failed                  Int                             @default(0)
+  paused                  Boolean                         @default(false)
+  error                   String?                         @db.Text
+
+  triggeredBy PortalUser?                    @relation(fields: [triggeredByPortalUserId], references: [id], onDelete: SetNull)
+  changes     SubscriptionExpirationChange[]
+
+  @@index([startedAt])
+  @@index([triggeredByPortalUserId])
+  @@map("core_subscription_expiration_runs")
+}
+
+/// Status em texto, não enum: são valores do domínio da SPA, e um status novo
+/// não deve exigir migration.
+model SubscriptionExpirationChange {
+  id             String   @id @default(uuid())
+  runId          String   @map("run_id")
+  subscriptionId String   @map("subscription_id")
+  fromStatus     String   @map("from_status")
+  toStatus       String   @map("to_status")
+  periodEnd      DateTime @map("period_end")
+  succeeded      Boolean
+  error          String?  @db.Text
+
+  run SubscriptionExpirationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@map("core_subscription_expiration_changes")
 }
 
 // ============================================

@@ -31,6 +31,11 @@ import { createRegisterSmsProviderAppController } from './main/factories/create-
 import { createDeleteSmsProviderAppController } from './main/factories/create-delete-sms-provider-app-controller'
 import { createListSmsProvidersAppController } from './main/factories/create-list-sms-providers-app-controller'
 import { createDeleteSmsProviderByCodeAppController } from './main/factories/create-delete-sms-provider-by-code-app-controller'
+import {
+  createGetSubscriptionExpirationRunController,
+  createListSubscriptionExpirationRunsController,
+  createStartSubscriptionExpirationRunController,
+} from './main/factories/create-subscription-expiration-runs-controllers'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -213,6 +218,26 @@ export const createPortalRoutes = (
     '/apps/:appId/subscriptions',
     portalAuthMiddleware,
     adaptControllerFactory(createListAppSubscriptionsController),
+  )
+
+  /**
+   * Histórico da varredura de expiração de assinaturas (SPA 1142) e o "Rodar
+   * agora" do backoffice. O disparo respeita o mesmo lock e a mesma flag do cron.
+   */
+  router.get(
+    '/subscription-expiration/runs',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListSubscriptionExpirationRunsController),
+  )
+  router.get(
+    '/subscription-expiration/runs/:id',
+    portalAuthMiddleware,
+    adaptControllerFactory(createGetSubscriptionExpirationRunController),
+  )
+  router.post(
+    '/subscription-expiration/runs',
+    portalAuthMiddleware,
+    adaptControllerFactory(createStartSubscriptionExpirationRunController),
   )
 
   return router
