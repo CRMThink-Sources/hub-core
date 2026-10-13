@@ -68,7 +68,7 @@ export type ActivateConnectorTrialOutput = {
 }
 
 /**
- * Ativa o período de teste de uma instalação: uma assinatura `trialing` de 3 dias e
+ * Ativa o período de teste de uma instalação: uma assinatura `trialing` de 7 dias e
  * **uma** linha, com o recurso já provisionado no provider escolhido.
  *
  * Nada disso toca gateway de pagamento — o trial existe só na SPA.
@@ -139,7 +139,7 @@ export class ActivateConnectorTrial {
 
     /**
      * `provisionConnector` sim, `subscribe` **não**: `subscribe` liga a cobrança do
-     * recurso no provider, e trial não é recurso pago. Sem essa distinção, 3 dias de
+     * recurso no provider, e trial não é recurso pago. Sem essa distinção, 7 dias de
      * teste viram uma instância cobrada por mês.
      */
     const providerAdapter = this.providerResolver.resolve(input.provider)

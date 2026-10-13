@@ -34,12 +34,11 @@ describe('buildConnectorRegisterParams', () => {
   })
 
   /**
-   * O evento não dispara para mensagem vinda do canal externo, por documentação do
-   * Bitrix. Ligar permitiria apagar a mensagem do contato no CRM sem nada acontecer
-   * no WhatsApp dele.
+   * Necessário para remover do canal aberto a mensagem que o contato apagou no
+   * WhatsApp (`REVOKE` da Z-API).
    */
-  it('não declara suporte a exclusão de mensagem recebida', () => {
-    expect(buildConnectorRegisterParams().DEL_EXTERNAL_MESSAGES).toBe('N')
+  it('declara suporte a exclusão de mensagem recebida', () => {
+    expect(buildConnectorRegisterParams().DEL_EXTERNAL_MESSAGES).toBe('Y')
   })
 
   /**

@@ -161,6 +161,28 @@ describe('HubMessageClient.sendTemplateMessage', () => {
   })
 })
 
+describe('HubMessageClient.cancelChannel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  /** Sem `cancel=true` na query a HubMessage responde sem cancelar nada. */
+  it('envia cancel=true na query e o motivo no corpo', async () => {
+    const client = makeClient()
+    const http = mockedAxios.create.mock.results[0]?.value as {
+      delete: ReturnType<typeof vi.fn>
+    }
+    http.delete.mockResolvedValueOnce({ status: 204, data: '' })
+
+    await client.cancelChannel('chan-1', 'Assinatura cancelada no CRM')
+
+    expect(http.delete).toHaveBeenCalledWith('/v1/channels/chan-1/cancel', {
+      params: { cancel: true },
+      data: { cancelReason: 'Assinatura cancelada no CRM' },
+    })
+  })
+})
+
 describe('HubMessageClient', () => {
   beforeEach(() => {
     vi.clearAllMocks()

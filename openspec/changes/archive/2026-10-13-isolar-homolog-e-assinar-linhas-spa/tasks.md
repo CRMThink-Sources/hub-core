@@ -64,4 +64,4 @@
 - [x] 6.1 Validar em sandbox a resposta da Z-API (`/integrator/on-demand/subscription`) e da HubMessage (`GET /v1/channels/:id/subscribe`) para um recurso já assinado. Se houver erro de "já assinado", tratá-lo como sucesso nos adapters, com teste. Resultado: Z-API responde `subscriptionStatus: ALREADY_ACTIVE` e HubMessage responde `type: ALREADY_PAID`. Os clients passam a tratar as duas respostas como sucesso (`isZApiAlreadySubscribed`, `isHubMessageAlreadyPaid`)
 - [x] 6.2 (Se 6.1 não for idempotente) Script de backfill: grava `subscribedAt` no espelho dos itens `active` sob assinaturas Stripe `active`, com dry-run. Dispensado: o subscribe repetido é tolerado nos clients (6.1)
 - [x] 6.3 Rodar `pnpm`/`npm` lint, typecheck e testes da API
-- [ ] 6.4 Deploy em staging com a flag `false` e verificar no log que os eventos são recusados e que nenhuma instância nova é criada ao criar um item na SPA 1146
+- [x] 6.4 Deploy em staging com a flag `false` e verificar no log que os eventos são recusados e que nenhuma instância nova é criada ao criar um item na SPA 1146
