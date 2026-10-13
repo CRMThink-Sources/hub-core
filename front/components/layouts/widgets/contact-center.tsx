@@ -1,198 +1,306 @@
 'use client'
-import { useBX24 } from '../../../bitrix/use-bx24'
-import { authenticateBitrixWithBackend } from '../../../bitrix/authenticate-with-backend'
-import { writeAppToken } from '@/shared/auth/app-token-storage'
-import { resolveThinkzapClient } from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
-import { useEffect, useState } from 'react'
+import {
+  resolveThinkzapClient,
+  thinkzapApiErrorMessage,
+} from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
+import { useLineApi } from '@/app/hooks/use-line-api'
+import {
+  type ContactCenterChannel,
+  type ContactCenterChannelOption,
+  type ContactCenterLine,
+  resolvePlacementLine,
+  toChannelOptions,
+  toLineOptions,
+} from '@/shared/thinkzap/contact-center-placement'
+import { InstallLanguageSwitcher } from '@/components/bitrix/install/install-language-switcher'
+import type { TFunction } from 'i18next'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
-interface PlacementInfo {
-  placement: string
-  options: Record<string, string>
+type ErrorKey = 'sessaoExpirada' | 'erroLinhas' | 'erroCanais' | 'erroVincular'
+
+/**
+ * Erro como chave de tradução ou como mensagem da API (já vem no idioma do
+ * backend). Guardar a chave, e não o texto, deixa a tradução para a renderização:
+ * os carregamentos não dependem de `t` e não refazem nada quando o idioma muda.
+ */
+type ErrorText = { key: ErrorKey } | { message: string } | null
+
+const apiError = (e: unknown, fallback: ErrorKey): ErrorText => {
+  const message = thinkzapApiErrorMessage(e, '')
+  return message ? { message } : { key: fallback }
 }
 
-export const ContactCenterView = ({
-  scriptLoaded,
-}: {
-  scriptLoaded: boolean
-}) => {
-  const {
-    ready,
-    error: bx24Error,
-    getInstallPayload,
-    finishInstall,
-  } = useBX24(scriptLoaded)
-
-  const [connectors, setConnectors] = useState<any[]>([])
-  const [selectedConnectorId, setSelectedConnectorId] = useState<string>('')
-  const [placementInfo, setPlacementInfo] = useState<PlacementInfo | null>(null)
+/**
+ * Configuração do conector aberta pelo Contact Center: o usuário escolhe a linha
+ * e o canal aberto que ela vai atender.
+ *
+ * O canal é escolhido aqui, e não tirado do placement: o Bitrix manda um `LINE`
+ * até quando o usuário clica em "Conectar" sem escolher canal, e usá-lo como
+ * destino vinculava a linha a um canal que ninguém escolheu. Ele só pré-seleciona
+ * quando já há vínculo nele — ver `toChannelOptions`.
+ *
+ * Assume token gravado — quem monta é a página do placement, depois de autenticar.
+ * O vínculo é o mesmo da tela da linha (`POST /lines/:itemId/channel`): o backend
+ * ativa o conector no canal antes de gravar, e recusa canal de outra linha.
+ */
+export const ContactCenterView = () => {
+  const [placementLine, setPlacementLine] = useState<number | null>(null)
+  const [placementResolved, setPlacementResolved] = useState(false)
+  const [lines, setLines] = useState<ContactCenterLine[] | null>(null)
+  const [channels, setChannels] = useState<ContactCenterChannel[] | null>(null)
+  const [loadError, setLoadError] = useState<ErrorText>(null)
+  const [channelsError, setChannelsError] = useState<ErrorText>(null)
+  const [selectedId, setSelectedId] = useState('')
+  const [selectedChannelId, setSelectedChannelId] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [authenticated, setAuthenticated] = useState(false)
-  const [authError, setAuthError] = useState('')
+  const [saveError, setSaveError] = useState<ErrorText>(null)
+
+  const lineApi = useLineApi(selectedId)
+  const { t } = useTranslation('thinkzap/contact-center')
+
+  const errorText = (error: ErrorText): string | null =>
+    error === null ? null : 'key' in error ? t(error.key) : error.message
 
   useEffect(() => {
-    if (!ready || !window.BX24) return
-
     window.BX24?.fitWindow?.(() => {
-      window.BX24?.resizeWindow?.(600, 400)
+      window.BX24?.resizeWindow?.(600, 520)
     })
 
-    const info = window.BX24?.placement?.info?.()
-    if (info) {
-      setPlacementInfo(info)
-      console.log('Placement info:', info)
-    }
-  }, [ready])
+    setPlacementLine(resolvePlacementLine(window.BX24?.placement?.info?.()))
+    setPlacementResolved(true)
+  }, [])
 
-  const loadConnectors = async () => {
-    const client = resolveThinkzapClient()
-    if (!client.ok) {
-      setAuthError(client.message)
-      return
+  const loadLines = useCallback(async () => {
+    const resolved = resolveThinkzapClient()
+    if (!resolved.ok) {
+      setLoadError({ key: 'sessaoExpirada' })
+      return null
     }
 
-    const { connectors } = await client.client.get<{ connectors: any[] }>(
-      '/thinkzap/connector/list',
-    )
+    try {
+      const { connectors } = await resolved.client.get<{
+        connectors: ContactCenterLine[]
+      }>('/thinkzap/connector/list')
+      setLoadError(null)
+      setLines(connectors)
+      return connectors
+    } catch (e) {
+      setLoadError(apiError(e, 'erroLinhas'))
+      return null
+    }
+  }, [])
 
-    setConnectors(connectors.filter((connector: any) => connector.phoneData))
-  }
+  const loadChannels = useCallback(async () => {
+    const resolved = resolveThinkzapClient()
+    if (!resolved.ok) {
+      setChannelsError({ key: 'sessaoExpirada' })
+      return null
+    }
 
-  /** Autentica no backend antes de qualquer chamada ao thinkzap — mirror de `BizprocButtonOfficialRobotPage`. */
+    try {
+      const res = await resolved.client.get<{
+        channels?: ContactCenterChannel[]
+      }>('/thinkzap/openchannels')
+      const loaded = res.channels ?? []
+      setChannelsError(null)
+      setChannels(loaded)
+      return loaded
+    } catch (e) {
+      setChannelsError(apiError(e, 'erroCanais'))
+      return null
+    }
+  }, [])
+
   useEffect(() => {
-    if (!ready || typeof window === 'undefined') return
+    if (!placementResolved) return
 
     let cancelled = false
-
-    const start = async () => {
-      const result = await authenticateBitrixWithBackend()
-      if (cancelled) return
-
-      if (!result.ok) {
-        setAuthError(result.error)
-        return
-      }
-
-      writeAppToken(result.app.appCode, result.token)
-      setAuthenticated(true)
-    }
-
-    void start()
+    void Promise.all([loadLines(), loadChannels()]).then(
+      ([loadedLines, loadedChannels]) => {
+        if (cancelled || !loadedLines) return
+        setSelectedId(toLineOptions(loadedLines, placementLine).preselectedId)
+        if (loadedChannels) {
+          setSelectedChannelId(
+            toChannelOptions(loadedChannels, loadedLines, placementLine)
+              .preselectedChannelId,
+          )
+        }
+      },
+    )
 
     return () => {
       cancelled = true
     }
-  }, [ready])
+  }, [placementResolved, placementLine, loadLines, loadChannels])
 
-  useEffect(() => {
-    if (!authenticated) return
-    void loadConnectors()
-  }, [authenticated])
+  const { options } = useMemo(
+    () => toLineOptions(lines ?? [], placementLine),
+    [lines, placementLine],
+  )
 
-  const handleSave = () => {
-    if (!selectedConnectorId || !placementInfo) return
+  const { options: channelOptions } = useMemo(
+    () => toChannelOptions(channels ?? [], lines ?? [], placementLine),
+    [channels, lines, placementLine],
+  )
+
+  const resetFeedback = () => {
+    setSaved(false)
+    setSaveError(null)
+  }
+
+  const handleSave = async () => {
+    if (!selectedId || !selectedChannelId) return
+
     setSaving(true)
+    resetFeedback()
     try {
-      const lineId = placementInfo.options?.LINE
-      const connector = placementInfo.options?.CONNECTOR
-      // console.log({ placementInfo })
-      // console.log("Vinculando connector", selectedConnectorId, "ao canal aberto", lineId);
-      // console.log("Placement options completas:", placementInfo.options);
-
-      console.log({
-        selectedConnectorId,
-        lineId,
-        connector,
-      })
-
-      // window.BX24?.callMethod("imconnector.activate", {
-      //   CONNECTOR: placementInfo.options.CONNECTOR,
-      //   LINE: placementInfo.options.LINE,
-      //   ACTIVE: 1
-      // }, result => {
-      //   window.BX24.reloadWindow()
-      // })
-
-      setTimeout(() => setSaved(false), 3000)
-    } catch (err) {
-      console.error('Erro ao vincular:', err)
+      await lineApi.linkChannel(Number(selectedChannelId))
+      setSaved(true)
+      await loadLines()
+    } catch (e) {
+      setSaveError(apiError(e, 'erroVincular'))
     } finally {
       setSaving(false)
     }
   }
 
-  const lineId = placementInfo?.options?.LINE_ID
+  const alreadyLinked =
+    !!selectedChannelId &&
+    lines?.find(line => line.id === selectedId)?.instance.vinculatedChannel ===
+      selectedChannelId
+
+  const loadErrorText = errorText(loadError)
+  const channelsErrorText = errorText(channelsError)
+  const saveErrorText = errorText(saveError)
+
+  const selectClassName =
+    'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-colors'
 
   return (
     <div className="w-full min-h-full p-5 bg-neutral-950 text-white flex flex-col gap-5">
-      <h1 className="text-xl font-bold tracking-tight">Vincular WhatsApp</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold tracking-tight">{t('titulo')}</h1>
+        <InstallLanguageSwitcher className="shrink-0" />
+      </div>
 
-      {authError ? (
+      {loadErrorText ? (
         <p className="rounded-lg border border-red-400/40 bg-red-950/40 px-3 py-2 text-sm text-red-300">
-          {authError}
+          {loadErrorText}
         </p>
       ) : null}
 
       <section className="rounded-xl bg-white p-5 shadow-sm border border-neutral-200 flex flex-col gap-4">
         <div>
           <h2 className="text-base font-semibold text-neutral-900 mb-1">
-            Vincular ao Canal Aberto
+            {t('secaoTitulo')}
           </h2>
           <p className="text-sm text-neutral-500 leading-relaxed">
-            Selecione qual número de WhatsApp será vinculado
-            {lineId
-              ? ` ao Canal Aberto ${lineId}`
-              : ' ao canal aberto selecionado'}
-            .
+            {t('secaoDescricao')}
           </p>
         </div>
 
-        {connectors.length === 0 ? (
-          <p className="text-sm text-neutral-400 italic">
-            Nenhum número disponível. Cadastre um conector primeiro.
-          </p>
+        {lines === null ? (
+          loadErrorText ? null : (
+            <p className="text-sm text-neutral-400">{t('carregandoLinhas')}</p>
+          )
+        ) : options.length === 0 ? (
+          <p className="text-sm text-neutral-400 italic">{t('nenhumNumero')}</p>
         ) : (
           <div className="flex flex-col gap-3">
             <label
               htmlFor="connector-select"
               className="text-sm font-medium text-neutral-700"
             >
-              Número WhatsApp
+              {t('numeroWhatsapp')}
             </label>
             <select
               id="connector-select"
-              value={selectedConnectorId}
+              value={selectedId}
               onChange={e => {
-                setSelectedConnectorId(e.target.value)
-                setSaved(false)
+                setSelectedId(e.target.value)
+                resetFeedback()
               }}
-              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-colors"
+              className={selectClassName}
             >
-              <option value="">Selecione um número...</option>
-              {connectors.map((connector: any) => (
-                <option key={connector.id} value={connector.id}>
-                  {connector.phoneData.phone} — {connector.phoneData.name}
+              <option value="">{t('selecioneNumero')}</option>
+              {options.map(option => (
+                <option key={option.id} value={option.id}>
+                  {option.label ?? t('linhaSemNome')}
                 </option>
               ))}
             </select>
 
+            <label
+              htmlFor="channel-select"
+              className="text-sm font-medium text-neutral-700"
+            >
+              {t('canalAberto')}
+            </label>
+            {channelsErrorText ? (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {channelsErrorText}
+              </p>
+            ) : channels === null ? (
+              <p className="text-sm text-neutral-400">
+                {t('carregandoCanais')}
+              </p>
+            ) : (
+              <select
+                id="channel-select"
+                value={selectedChannelId}
+                onChange={e => {
+                  setSelectedChannelId(e.target.value)
+                  resetFeedback()
+                }}
+                className={selectClassName}
+              >
+                <option value="">{t('selecioneCanal')}</option>
+                {channelOptions.map(option => (
+                  <option key={option.id} value={option.id}>
+                    {channelLabel(option, t)}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {alreadyLinked && !saved ? (
+              <p className="text-sm text-emerald-700">{t('jaVinculado')}</p>
+            ) : null}
+
+            {saveErrorText ? (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {saveErrorText}
+              </p>
+            ) : null}
+
             <button
-              onClick={handleSave}
-              disabled={!selectedConnectorId || saving}
+              onClick={() => void handleSave()}
+              disabled={
+                !selectedId || !selectedChannelId || !!channelsError || saving
+              }
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {saving ? 'Vinculando...' : saved ? 'Vinculado!' : 'Vincular'}
+              {saving
+                ? t('vinculando')
+                : saved
+                  ? t('vinculado')
+                  : t('vincular')}
             </button>
           </div>
         )}
       </section>
-
-      {placementInfo && (
-        <p className="text-xs text-neutral-500">
-          Placement: {placementInfo.placement}
-          {lineId && ` · Canal Aberto: ${lineId}`}
-        </p>
-      )}
     </div>
   )
+}
+
+function channelLabel(option: ContactCenterChannelOption, t: TFunction) {
+  const name = option.name ?? t('canalSemNome', { id: option.id })
+  const channel = option.active ? name : t('canalInativo', { name })
+  if (!option.occupiedBy) return channel
+  return t('vinculadoA', {
+    channel,
+    line: option.occupiedBy.label ?? t('linhaSemNome'),
+  })
 }

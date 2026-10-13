@@ -62,8 +62,7 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
     if (
       (pathname === '/thinkzap' ||
         pathname.startsWith('/thinkzap/conexoes') ||
-        pathname.startsWith('/thinkzap/bots') ||
-        pathname.startsWith('/thinkzap/connector')) &&
+        pathname.startsWith('/thinkzap/bots')) &&
       !thinkzapAccess.canAccess
     ) {
       return true
