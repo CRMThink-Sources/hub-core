@@ -99,3 +99,7 @@ Todos os textos próprios da tela — títulos, rótulos, estados de carregament
 #### Scenario: Idioma do portal não suportado
 - **WHEN** o portal está num idioma diferente de português, inglês e espanhol e não há escolha no app
 - **THEN** a tela aparece em português
+
+#### Scenario: Troca de idioma pelas bandeiras
+- **WHEN** o usuário clica numa das bandeiras (Brasil, EUA, Espanha) no topo da tela
+- **THEN** a tela passa para o idioma escolhido sem perder a seleção de linha e canal, e a escolha fica gravada como idioma do app

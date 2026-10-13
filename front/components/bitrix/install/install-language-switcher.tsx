@@ -9,11 +9,16 @@ const LANGUAGES = [
   { code: 'es', flag: '/images/i18n-icon/4x3/es.svg' },
 ] as const
 
-export function InstallLanguageSwitcher() {
+/** `className` posiciona o seletor; o padrão é o canto da tela de instalação. */
+export function InstallLanguageSwitcher({
+  className = 'absolute left-4 top-4',
+}: {
+  className?: string
+}) {
   const { i18n } = useTranslation()
 
   return (
-    <div className="absolute left-4 top-4 flex items-center gap-2">
+    <div className={`${className} flex items-center gap-2`}>
       {LANGUAGES.map(({ code, flag }) => (
         <button
           key={code}

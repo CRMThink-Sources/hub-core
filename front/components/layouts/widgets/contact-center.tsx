@@ -12,6 +12,7 @@ import {
   toChannelOptions,
   toLineOptions,
 } from '@/shared/thinkzap/contact-center-placement'
+import { InstallLanguageSwitcher } from '@/components/bitrix/install/install-language-switcher'
 import type { TFunction } from 'i18next'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -179,7 +180,10 @@ export const ContactCenterView = () => {
 
   return (
     <div className="w-full min-h-full p-5 bg-neutral-950 text-white flex flex-col gap-5">
-      <h1 className="text-xl font-bold tracking-tight">{t('titulo')}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold tracking-tight">{t('titulo')}</h1>
+        <InstallLanguageSwitcher className="shrink-0" />
+      </div>
 
       {loadErrorText ? (
         <p className="rounded-lg border border-red-400/40 bg-red-950/40 px-3 py-2 text-sm text-red-300">
