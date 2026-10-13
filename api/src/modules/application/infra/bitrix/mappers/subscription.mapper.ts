@@ -7,6 +7,7 @@ import {
   CreateSubscriptionInput,
   UpdateSubscriptionInput,
 } from '@/modules/application/domain/repositories/subscription.repository'
+import { ExpirableSubscription } from '@/modules/application/domain/subscription-expiration'
 import { env } from '@/config/env'
 import { apiLogger } from '@/shared/infra/logger'
 import { SUBSCRIPTION_MODALITY_FIELD } from '../ensure-subscription-modality-field'
@@ -57,7 +58,7 @@ const STATUS_BY_BITRIX_ID: Record<string, Subscription['status']> = {
  * Derivado por inversão em tempo de módulo: um mapa só, impossível de
  * dessincronizar do de leitura.
  */
-const BITRIX_ID_BY_STATUS = Object.fromEntries(
+export const BITRIX_ID_BY_STATUS = Object.fromEntries(
   Object.entries(STATUS_BY_BITRIX_ID).map(([id, status]) => [status, id]),
 ) as Record<Subscription['status'], string>
 
@@ -224,6 +225,43 @@ export const mapBitrixSpaSubscriptionToRawSubscription = (
     currentPeriodStart: parsed.data.ufCrm91CurrentPeriodStart,
     currentPeriodEnd: parsed.data.ufCrm91CurrentPeriodEnd,
     gatewayId: parsed.data.ufCrm91GatewayId,
+    modality: parsed.data[SUBSCRIPTION_MODALITY_FIELD],
+  }
+}
+
+/**
+ * Recorte do schema para a varredura de expiração: só id, status, fim do período e
+ * modalidade. Mesmos validadores da leitura completa — um status desconhecido ou
+ * uma data inválida reprova aqui pelo mesmo motivo que reprovaria lá.
+ */
+const bitrixExpirableSubscriptionSchema = bitrixSubscriptionSchema.pick({
+  id: true,
+  ufCrm91Status: true,
+  ufCrm91CurrentPeriodEnd: true,
+  [SUBSCRIPTION_MODALITY_FIELD]: true,
+})
+
+/** Os campos que `crm.item.list` precisa devolver para o recorte acima. */
+export const EXPIRABLE_SUBSCRIPTION_SELECT = [
+  'id',
+  'ufCrm91Status',
+  'ufCrm91CurrentPeriodEnd',
+  SUBSCRIPTION_MODALITY_FIELD,
+]
+
+export const mapBitrixSpaSubscriptionToExpirable = (
+  raw: unknown,
+): ExpirableSubscription => {
+  const parsed = bitrixExpirableSubscriptionSchema.safeParse(raw)
+
+  if (!parsed.success) {
+    throw new InvalidBitrixSubscriptionError(parsed.error.issues)
+  }
+
+  return {
+    id: parsed.data.id,
+    status: parsed.data.ufCrm91Status,
+    currentPeriodEnd: parsed.data.ufCrm91CurrentPeriodEnd,
     modality: parsed.data[SUBSCRIPTION_MODALITY_FIELD],
   }
 }
