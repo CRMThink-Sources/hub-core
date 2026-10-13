@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   type ContactCenterLine,
   resolvePlacementLine,
+  toChannelOptions,
   toLineOptions,
 } from './contact-center-placement'
 
@@ -83,5 +84,67 @@ describe('toLineOptions', () => {
 
   it('aceita lista vazia', () => {
     expect(toLineOptions([], 7)).toEqual({ options: [], preselectedId: '' })
+  })
+})
+
+describe('toChannelOptions', () => {
+  const channels = [
+    { id: '3', active: true, name: 'Vendas' },
+    { id: '7', active: true, name: 'Suporte' },
+    { id: 9, active: false, name: 'Antigo' },
+  ]
+
+  it('"Conectar" sem vínculo no canal do placement não pré-seleciona', () => {
+    const { preselectedChannelId } = toChannelOptions(channels, [line()], 7)
+    expect(preselectedChannelId).toBe('')
+  })
+
+  it('"Alterar" pré-seleciona o canal do placement já vinculado', () => {
+    const { preselectedChannelId } = toChannelOptions(
+      channels,
+      [line({ instance: { name: 'A', vinculatedChannel: '7' } })],
+      7,
+    )
+    expect(preselectedChannelId).toBe('7')
+  })
+
+  it('não pré-seleciona sem canal do placement', () => {
+    const { preselectedChannelId } = toChannelOptions(
+      channels,
+      [line({ instance: { name: 'A', vinculatedChannel: '7' } })],
+      null,
+    )
+    expect(preselectedChannelId).toBe('')
+  })
+
+  it('identifica o canal ocupado pela linha', () => {
+    const { options } = toChannelOptions(
+      channels,
+      [line({ instance: { name: 'A', vinculatedChannel: '3' } })],
+      null,
+    )
+    expect(options[0].occupiedBy).toBe('5511999990000 — Comercial')
+    expect(options[1].occupiedBy).toBeNull()
+  })
+
+  it('marca canal inativo e normaliza id numérico', () => {
+    const { options } = toChannelOptions(channels, [], null)
+    expect(options[2]).toEqual({
+      id: '9',
+      label: 'Antigo (inativo)',
+      occupiedBy: null,
+    })
+  })
+
+  it('usa o id quando o canal não tem nome', () => {
+    const { options } = toChannelOptions([{ id: '4', active: true }], [], null)
+    expect(options[0].label).toBe('Canal 4')
+  })
+
+  it('aceita lista vazia', () => {
+    expect(toChannelOptions([], [line()], 7)).toEqual({
+      options: [],
+      preselectedChannelId: '',
+    })
   })
 })
