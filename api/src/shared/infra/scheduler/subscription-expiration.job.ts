@@ -1,51 +1,30 @@
 import cron from 'node-cron'
-import { randomUUID } from 'crypto'
 import { env } from '@/config/env'
-import { redisConnection } from '@/queue/redis-connection'
-import { makeExpireSubscriptions } from '@/modules/application/main/make-expire-subscriptions'
+import { SubscriptionExpirationLock } from '@/modules/application/domain/subscription-expiration-lock'
+import {
+  makeRunSubscriptionExpiration,
+  makeSubscriptionExpirationRunRepository,
+} from '@/modules/application/main/make-run-subscription-expiration'
 import { apiLogger } from '@/shared/infra/logger'
+import { redisSubscriptionExpirationLock } from './subscription-expiration.lock'
 
 /** Toda hora cheia: o atraso entre o fim do período e o status gravado fica < 1h. */
 const SCHEDULE = '0 * * * *'
 
-/**
- * Lock por rodada: várias instâncias da API agendam o mesmo cron, e só uma varre.
- * TTL abaixo do intervalo para um processo morto no meio não segurar a rodada
- * seguinte.
- */
-const LOCK_KEY = 'subscription-expiration:tick'
-const LOCK_TTL_MS = 55 * 60 * 1000
-const RELEASE_SCRIPT = `
-if redis.call("get", KEYS[1]) == ARGV[1] then
-  return redis.call("del", KEYS[1])
-else
-  return 0
-end
-`
-
-async function withExpirationLock(fn: () => Promise<void>): Promise<boolean> {
-  const token = randomUUID()
-  const acquired = await redisConnection.set(
-    LOCK_KEY,
-    token,
-    'PX',
-    LOCK_TTL_MS,
-    'NX',
-  )
-  if (acquired !== 'OK') return false
-  try {
-    await fn()
-  } finally {
-    await redisConnection.eval(RELEASE_SCRIPT, 1, LOCK_KEY, token)
-  }
-  return true
-}
+/** Quanto tempo o histórico de rodadas fica guardado. */
+export const RUN_RETENTION_DAYS = 90
+const DAY_MS = 24 * 60 * 60 * 1000
 
 export type SubscriptionExpirationJobDeps = {
   enabled: boolean
   schedule: (expression: string, task: () => Promise<void>) => void
-  withLock: (fn: () => Promise<void>) => Promise<boolean>
-  makeUseCase: () => { execute(): Promise<unknown> }
+  lock: SubscriptionExpirationLock
+  makeService: () => {
+    run(input: { trigger: 'scheduled' }): Promise<unknown>
+  }
+  /** Apaga rodadas iniciadas antes da data; devolve quantas. */
+  cleanup: (startedBefore: Date) => Promise<number>
+  clock: () => Date
 }
 
 const defaultDeps = (): SubscriptionExpirationJobDeps => ({
@@ -53,16 +32,20 @@ const defaultDeps = (): SubscriptionExpirationJobDeps => ({
   schedule: (expression, task) => {
     cron.schedule(expression, task)
   },
-  withLock: withExpirationLock,
-  makeUseCase: makeExpireSubscriptions,
+  lock: redisSubscriptionExpirationLock,
+  makeService: makeRunSubscriptionExpiration,
+  cleanup: date =>
+    makeSubscriptionExpirationRunRepository().deleteStartedBefore(date),
+  clock: () => new Date(),
 })
 
 /**
  * Agenda a varredura que grava `trial_expired`/`past_due` nas assinaturas da SPA
- * 1142 com período encerrado.
+ * 1142 com período encerrado, registrando cada rodada no histórico.
  *
  * Desligada, nem agenda: homologação divide o portal com produção, e só um
- * ambiente pode gravar status.
+ * ambiente pode gravar status. Rodada que não pega o lock não é registrada — outra
+ * instância (ou o "Rodar agora") já está varrendo.
  */
 export function startSubscriptionExpirationJob(
   overrides: Partial<SubscriptionExpirationJobDeps> = {},
@@ -77,24 +60,39 @@ export function startSubscriptionExpirationJob(
     return
   }
 
-  const useCase = deps.makeUseCase()
+  const service = deps.makeService()
 
   deps.schedule(SCHEDULE, async () => {
+    let token: string | null = null
+
     try {
-      const ran = await deps.withLock(async () => {
-        await useCase.execute()
-      })
-      if (!ran) {
+      token = await deps.lock.tryAcquire()
+      if (!token) {
         apiLogger.info(
           { app: 'shared' },
           '[SubscriptionExpirationJob] Rodada pulada (outro processo tem o lock)',
         )
+        return
       }
+
+      await service.run({ trigger: 'scheduled' })
     } catch (error) {
       apiLogger.error(
         { app: 'shared', err: error },
         '[SubscriptionExpirationJob] Erro inesperado na rodada',
       )
+    } finally {
+      if (token) {
+        await purgeOldRuns(deps)
+        await deps.lock
+          .release(token)
+          .catch(error =>
+            apiLogger.warn(
+              { app: 'shared', err: error },
+              '[SubscriptionExpirationJob] Falha ao soltar o lock — expira pelo TTL',
+            ),
+          )
+      }
     }
   })
 
@@ -102,4 +100,19 @@ export function startSubscriptionExpirationJob(
     { app: 'shared', schedule: SCHEDULE },
     '[SubscriptionExpirationJob] Agendado',
   )
+}
+
+/** Limpeza do histórico. Falha só vai para o log: a próxima rodada tenta de novo. */
+async function purgeOldRuns(deps: SubscriptionExpirationJobDeps) {
+  try {
+    const cutoff = new Date(
+      deps.clock().getTime() - RUN_RETENTION_DAYS * DAY_MS,
+    )
+    await deps.cleanup(cutoff)
+  } catch (error) {
+    apiLogger.warn(
+      { app: 'shared', err: error },
+      '[SubscriptionExpirationJob] Falha ao limpar histórico antigo',
+    )
+  }
 }

@@ -49,6 +49,22 @@ describe('ExpireSubscriptions', () => {
       pastDue: 1,
       failed: 0,
       paused: false,
+      changes: [
+        {
+          subscriptionId: '1',
+          from: 'trialing',
+          to: 'trial_expired',
+          periodEnd: YESTERDAY_END,
+          succeeded: true,
+        },
+        {
+          subscriptionId: '2',
+          from: 'active',
+          to: 'past_due',
+          periodEnd: YESTERDAY_END,
+          succeeded: true,
+        },
+      ],
     })
   })
 
@@ -63,9 +79,11 @@ describe('ExpireSubscriptions', () => {
       3,
     )
 
-    await useCase.execute(NOW)
+    const summary = await useCase.execute(NOW)
 
     expect(updateSubscription).not.toHaveBeenCalled()
+    expect(summary.checked).toBe(3)
+    expect(summary.changes).toEqual([])
   })
 
   it('falha em uma não impede a seguinte', async () => {
@@ -82,6 +100,14 @@ describe('ExpireSubscriptions', () => {
       status: 'past_due',
     })
     expect(summary).toMatchObject({ pastDue: 1, failed: 1 })
+    expect(summary.changes).toEqual([
+      expect.objectContaining({
+        subscriptionId: '1',
+        succeeded: false,
+        error: 'bitrix fora',
+      }),
+      expect.objectContaining({ subscriptionId: '2', succeeded: true }),
+    ])
   })
 
   it('pausa do Bitrix encerra a rodada', async () => {

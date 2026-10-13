@@ -1,0 +1,70 @@
+{
+  "title": "Jobs",
+  "description": "History of the subscription expiration sweep (SPA 1142), which runs every hour.",
+  "notCancelNotice": "The sweep does not cancel subscriptions. It only moves \"Trialing\" to \"Trial expired\" and manual \"Active\" to \"Past due\" when the period ends.",
+  "runNow": "Run now",
+  "refresh": "Refresh",
+  "confirmTitle": "Run the sweep now?",
+  "confirmDescription": "Every SPA 1142 subscription whose period has ended will have its status written to the CRM, just like the scheduled run.",
+  "confirm": "Run now",
+  "cancel": "Cancel",
+  "startedToast": "Run started.",
+  "busyToast": "A run is already in progress. Try again shortly.",
+  "disabledToast": "The sweep is disabled in this environment.",
+  "startErrorToast": "Could not start the run.",
+  "filterOnlyWithChanges": "Only with changes or failures",
+  "filterTrigger": "Trigger",
+  "filterAllTriggers": "All",
+  "trigger": {
+    "scheduled": "Scheduled",
+    "manual": "Manual"
+  },
+  "runStatus": {
+    "running": "Running",
+    "success": "Completed",
+    "failed": "Failed",
+    "abandoned": "Abandoned"
+  },
+  "pausedBadge": "Paused by Bitrix",
+  "table": {
+    "startedAt": "Started",
+    "duration": "Duration",
+    "trigger": "Trigger",
+    "triggeredBy": "Triggered by",
+    "status": "Result",
+    "checked": "Checked",
+    "trialExpired": "Trials expired",
+    "pastDue": "Past due",
+    "failed": "Failures"
+  },
+  "system": "System",
+  "durationSeconds": "{{value}} s",
+  "detailTitle": "Run of {{date}}",
+  "detailEmpty": "No subscription was changed in this run.",
+  "detailError": "Run error: {{error}}",
+  "change": {
+    "subscription": "Subscription",
+    "transition": "Status",
+    "periodEnd": "Period end",
+    "result": "Result",
+    "succeeded": "Written",
+    "failed": "Failed",
+    "openCrm": "Open in CRM"
+  },
+  "subscriptionStatus": {
+    "active": "Active",
+    "trialing": "Trialing",
+    "past_due": "Past due",
+    "cancelled": "Cancelled",
+    "trial_expired": "Trial expired"
+  },
+  "emptyTitle": "No runs found",
+  "emptyDescription": "No run matches the filters.",
+  "errorTitle": "Error loading runs",
+  "errorDescription": "Could not load the history. Please try again.",
+  "detailLoadError": "Could not load the run.",
+  "retry": "Try again",
+  "page": "Page {{current}} of {{total}}",
+  "previous": "Previous",
+  "next": "Next"
+}
