@@ -21,8 +21,9 @@ import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
  *
  * ## Por que dispara de uma leitura
  *
- * A expiração é avaliada na leitura, não por job — não há momento em que "o trial
- * vence", só requisições que percebem que venceu. Então quem percebe age, e para
+ * O bloqueio é avaliado na leitura, e é a leitura que percebe o trial vencido
+ * primeiro — a varredura horária (`ExpireSubscriptions`) só grava `trial_expired`
+ * na SPA depois, e não desconecta nada. Então quem percebe age, e para
  * isso não pode fazer o chamador esperar: `schedule` **não** é `await`ado, não
  * lança, e falha só registra warning. O bloqueio no app já aconteceu de qualquer
  * forma; o `disconnect` é o efeito no mundo, e ele pode chegar atrasado.
