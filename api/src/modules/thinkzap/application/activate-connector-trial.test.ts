@@ -25,7 +25,7 @@ const { apiLogger } = vi.hoisted(() => ({
 const MIRRORS_DOUBLE = {
   find: vi.fn(() => Promise.resolve(null)),
   save: vi.fn(() => Promise.resolve()),
-  setUnsubscribed: vi.fn(() => Promise.resolve()),
+  setBillingState: vi.fn(() => Promise.resolve()),
   remove: vi.fn(() => Promise.resolve()),
 }
 

@@ -1,4 +1,5 @@
 import { BitrixRawSubscriptionItemReader } from '@/modules/application/infra/bitrix/readers/bitrix-raw-subscription-item.reader'
+import { BitrixSubscriptionStatusReader } from '@/modules/application/infra/bitrix/readers/bitrix-subscription-status.reader'
 import { SyncSpaItemResourceStatus } from '@/modules/thinkzap/application/sync-spa-item-resource-status'
 import { makeSubscriptionDeps } from '@/modules/thinkzap/main/subscription/make-subscription-deps'
 
@@ -15,6 +16,9 @@ import { makeSubscriptionDeps } from '@/modules/thinkzap/main/subscription/make-
  * A leitura crua também não passa por cache, e isso é o que se quer: o job decide a
  * partir do status **de agora**, e o evento que o disparou acabou de invalidar a entrada.
  *
+ * O status da assinatura pai também é lido cru (`BitrixSubscriptionStatusReader`), pelo
+ * mesmo motivo: a mudança de status dela é o que dispara este job pela SPA 1142.
+ *
  * Sem gateway na fiação, de propósito: o caminho de status não reconcilia cobrança do
  * contrato — o item continua existindo e continua contando como linha.
  */
@@ -25,5 +29,6 @@ export const makeSyncSpaItemResourceStatus = (): SyncSpaItemResourceStatus => {
     new BitrixRawSubscriptionItemReader(deps.bitrixClient),
     deps.mirrors,
     deps.providerBilling,
+    new BitrixSubscriptionStatusReader(deps.bitrixClient),
   )
 }

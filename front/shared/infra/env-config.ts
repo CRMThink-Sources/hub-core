@@ -1,22 +1,13 @@
 import type { LineProvider } from '@/app/hooks/use-line-subscription'
 
-/** Os conectores que o produto conhece, para descartar nome inválido na env. */
 const KNOWN_LINE_PROVIDERS: readonly LineProvider[] = ['ZAPI', 'HUBMESSAGE']
 
-/**
- * Conectores liberados quando o ambiente não diz nada.
- *
- * Padrão conservador de propósito: ambiente que esquecer a variável não pode
- * passar a oferecer um conector que estava bloqueado.
- */
+// Conservador: ambiente que esquecer a env não pode liberar conector bloqueado.
 const DEFAULT_ENABLED_LINE_PROVIDERS: readonly LineProvider[] = ['ZAPI']
 
 /**
- * Lê a lista de conectores liberados para contratação.
- *
- * Tolerante de propósito — espaço, caixa e nome desconhecido não derrubam a
- * tela. Um typo na configuração vira "esse conector não está liberado", que é
- * o pior caso aceitável; quebrar a página de conexões por causa dele não é.
+ * Tolerante de propósito: typo na env vira "conector não liberado" em vez de
+ * quebrar a página de conexões.
  */
 export function parseEnabledLineProviders(
   raw: string | undefined,
@@ -32,22 +23,16 @@ export function parseEnabledLineProviders(
 }
 
 export const envConfig = {
+  appUrl:
+    process.env.NEXT_PUBLIC_APP_URL ??
+    'https://homolog-hubthink.crmthink.com.br',
   apiUrl: process.env.NEXT_PUBLIC_API_URL ?? '',
-  /**
-   * Publishable key do Stripe — exposta no frontend por desenho, é o par público da
-   * secret. Necessária para montar o checkout embedado: o SDK precisa dela junto do
-   * `client_secret` que o servidor devolve.
-   */
+  // Chaves públicas por desenho: seguras no frontend.
   stripePublishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '',
-  // Public Key do SDK @hubmessage/connect — pode ser exposta no frontend.
   hubMessagePublicKey: process.env.NEXT_PUBLIC_HUBMESSAGE_PUBLIC_KEY ?? '',
   hubMessageApiUrl:
     process.env.NEXT_PUBLIC_HUBMESSAGE_API_URL ?? 'https://api.hubmessage.io',
-  /**
-   * Conectores que a interface deixa contratar (convite ao teste e criação de
-   * linha nova). Por ser `NEXT_PUBLIC_*`, o valor é inlinado no build: trocar a
-   * lista exige rebuildar a imagem daquele ambiente, não reiniciar o container.
-   */
+  // Inlinado no build: trocar a lista exige rebuildar a imagem, não reiniciar.
   enabledLineProviders: parseEnabledLineProviders(
     process.env.NEXT_PUBLIC_THINKZAP_ENABLED_PROVIDERS,
   ),
@@ -57,22 +42,11 @@ export const envConfig = {
     importsheet: process.env.NEXT_PUBLIC_IMPORTSHEET_APP_CODE ?? '',
     clicksign: process.env.NEXT_PUBLIC_CLICKSIGN_APP_CODE ?? '',
   },
-  /**
-   * Menu lateral do ThinkBot no thinkzap — visível por padrão. Só some se a env
-   * disser explicitamente `'false'`, pra ambiente que esquecer a variável não
-   * perder o menu.
-   */
+  // Só some com `'false'` explícito: ambiente sem a env não perde o menu.
   thinkbotMenuEnabled:
     process.env.NEXT_PUBLIC_THINKZAP_THINKBOT_MENU_ENABLED !== 'false',
-  /**
-   * Página do ThinkZap no Bitrix24 Market — destino do "Instalar no Bitrix24" da
-   * LP e da tela de página restrita. Vazia = o botão não aparece.
-   */
+  // Vazio esconde o botão "Instalar no Bitrix24".
   thinkzapMarketUrl: (process.env.NEXT_PUBLIC_THINKZAP_MARKET_URL ?? '').trim(),
-  /**
-   * WhatsApp do comercial para o "Falar no WhatsApp" da LP. Aceita formatação
-   * (`+55 (11) 99999-0000`); `buildWhatsappLink` fica só com os dígitos. Vazio =
-   * o botão não aparece.
-   */
+  // Aceita formatação; `buildWhatsappLink` extrai os dígitos. Vazio esconde o botão.
   thinkzapSalesWhatsapp: process.env.NEXT_PUBLIC_THINKZAP_SALES_WHATSAPP ?? '',
 }

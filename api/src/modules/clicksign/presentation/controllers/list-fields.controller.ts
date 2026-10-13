@@ -3,7 +3,8 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixError } from '@/shared/infra/clients/errors/bitrix-client.error'
 import { ClickSignBitrixFieldsService } from '../../application/bitrix-fields.service'
-import { clicksignError } from '../../errors/catalog'
+import { clicksignError, logClicksignError } from '../../errors/catalog'
+import { apiLogger } from '@/shared/infra/logger'
 
 export class ListFieldsController extends Controller {
   constructor(private readonly fields: ClickSignBitrixFieldsService) {
@@ -21,6 +22,10 @@ export class ListFieldsController extends Controller {
       if (entity === 'deal') {
         return this.ok({ fields: await this.fields.listDealFields() })
       }
+      logClicksignError(apiLogger, 'clicksign.fields.entity_invalid', {
+        app: 'clicksign',
+        entity,
+      })
       return this.badRequest(new Error('Invalid entity (use deal|contact)'))
     } catch (error) {
       if (error instanceof BitrixError)

@@ -5,6 +5,7 @@ import { GRUPOS_EN } from './tutorials/grupos'
 import { INSTALACAO_EN } from './tutorials/instalacao'
 import { ROBOS_EN } from './tutorials/robos'
 import { THINKBOT_EN } from './tutorials/thinkbot'
+import { THINKZAP_TRIAL_DURATION_DAYS } from '@/shared/constants/thinkzap-trial'
 
 /**
  * Copy da LP em inglês — espelho de `pt/index.ts`. Primeira versão, a revisar
@@ -215,8 +216,7 @@ export const EN: LpContent = {
       },
       {
         question: 'Can I try it before buying?',
-        answer:
-          'Yes. After installing, you start a free 3-day trial right on the Connections screen, without talking to anyone. The trial is one per installation.',
+        answer: `Yes. After installing, you start a free ${THINKZAP_TRIAL_DURATION_DAYS}-day trial right on the Connections screen, without talking to anyone. The trial is one per installation.`,
       },
       {
         question: 'Does ThinkZap have a chatbot?',

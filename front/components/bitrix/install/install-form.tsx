@@ -1,7 +1,9 @@
 'use client'
 
 import { type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { InstallLayout, InstallCard } from './install-layout'
+import { InstallLanguageSwitcher } from './install-language-switcher'
 
 const INPUT_CLASS =
   'mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-800 placeholder-slate-400 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
@@ -27,13 +29,16 @@ export function InstallForm({
   errorMessage,
   isSubmitting,
   onSubmit,
-  submitLabel = 'Concluir instalação',
-  submittingLabel = 'Concluindo...',
+  submitLabel,
+  submittingLabel,
 }: InstallFormProps) {
+  const { t } = useTranslation('bitrix/install')
+
   return (
     <InstallLayout>
       <InstallCard>
-        <div className="bg-linear-to-r from-indigo-600 to-indigo-700 px-8 py-10 text-white">
+        <div className="relative bg-linear-to-r from-indigo-600 to-indigo-700 px-8 py-10 text-white">
+          <InstallLanguageSwitcher />
           <div
             className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur"
             aria-hidden
@@ -53,10 +58,10 @@ export function InstallForm({
             </svg>
           </div>
           <h1 className="text-center text-2xl font-bold tracking-tight">
-            Instalação do aplicativo
+            {t('form.title')}
           </h1>
           <p className="mt-2 text-center text-sm text-indigo-100">
-            Preencha os dados e aceite os termos para concluir.
+            {t('form.subtitle')}
           </p>
         </div>
         <div className="p-8">
@@ -66,14 +71,14 @@ export function InstallForm({
                 htmlFor="install-email"
                 className="block text-sm font-semibold text-slate-700"
               >
-                E-mail de instalação (opcional)
+                {t('form.emailLabel')}
               </label>
               <input
                 id="install-email"
                 type="email"
                 value={email}
                 onChange={e => onEmailChange(e.target.value)}
-                placeholder="seu@empresa.com"
+                placeholder={t('form.emailPlaceholder')}
                 className={INPUT_CLASS}
                 disabled={isSubmitting}
               />
@@ -114,10 +119,10 @@ export function InstallForm({
                     className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
                     aria-hidden
                   />
-                  {submittingLabel}
+                  {submittingLabel ?? t('form.submitting')}
                 </span>
               ) : (
-                submitLabel
+                (submitLabel ?? t('form.submit'))
               )}
             </button>
           </form>

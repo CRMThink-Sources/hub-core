@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { redisConnection } from '@/queue/redis-connection'
+import { clicksignError } from '../errors/catalog'
 
 const LOCK_TTL_MS = 10_000
 const RETRY_DELAY_MS = 100
@@ -8,8 +9,7 @@ const MAX_RETRIES = 100
 const sleep = (ms: number): Promise<void> =>
   new Promise(resolve => setTimeout(resolve, ms))
 
-// Serializa o read-modify-write do `originId` quando vários `sign` chegam
-// concorrentes (evita last-write-wins).
+// Evita last-write-wins no `originId` quando vários `sign` chegam juntos.
 export async function withDocumentLock<T>(
   documentKey: string,
   fn: () => Promise<T>,
@@ -35,8 +35,9 @@ export async function withDocumentLock<T>(
 
   // Aborta em vez de rodar fn() sem proteção (reintroduziria o race).
   if (!acquired) {
-    throw new Error(
-      `Não foi possível adquirir o lock do documento ${documentKey}`,
+    throw clicksignError(
+      'clicksign.lock.acquire_failed',
+      new Error(`Não foi possível adquirir o lock do documento ${documentKey}`),
     )
   }
 

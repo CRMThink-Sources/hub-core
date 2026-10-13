@@ -2,7 +2,7 @@ import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { redisConnection } from '@/queue/redis-connection'
 import { apiLogger } from '@/shared/infra/logger'
 import { AppError } from '@/shared/domain/errors/app-error'
-import { importsheetError } from '../errors/catalog'
+import { importsheetError, logImportsheetError } from '../errors/catalog'
 import type { BitrixFieldMeta, StatusLists } from './field-value-transform'
 
 export type FieldMetaResult = {
@@ -10,8 +10,7 @@ export type FieldMetaResult = {
   statusLists: StatusLists
 }
 
-// Field meta muda raramente; cache Redis corta os N `*.fields` por run (1/página).
-// Chave por portal + entidade.
+// Field meta muda raramente; o cache evita um `*.fields` por página.
 const FIELD_META_TTL_SECONDS = 10 * 60
 
 type SerializedMeta = {
@@ -31,7 +30,6 @@ function deserialize(raw: string): FieldMetaResult {
   return { metas: new Map(parsed.metas), statusLists: parsed.statusLists }
 }
 
-/** Lê do cache; em miss carrega via `loader` e grava. Falha de cache não quebra o run. */
 async function cached(
   key: string,
   loader: () => Promise<FieldMetaResult>,
@@ -40,9 +38,14 @@ async function cached(
     const hit = await redisConnection.get(key)
     if (hit) return deserialize(hit)
   } catch (error) {
-    apiLogger.warn(
-      { app: 'importsheet', key, error },
-      'Field meta cache read failed — reloading',
+    logImportsheetError(
+      apiLogger,
+      'importsheet.bitrix.field_meta_cache_read_failed',
+      {
+        app: 'importsheet',
+        key,
+        err: error,
+      },
     )
   }
   let fresh: FieldMetaResult
@@ -60,9 +63,14 @@ async function cached(
       FIELD_META_TTL_SECONDS,
     )
   } catch (error) {
-    apiLogger.warn(
-      { app: 'importsheet', key, error },
-      'Field meta cache write failed — ignoring',
+    logImportsheetError(
+      apiLogger,
+      'importsheet.bitrix.field_meta_cache_write_failed',
+      {
+        app: 'importsheet',
+        key,
+        err: error,
+      },
     )
   }
   return fresh
@@ -85,11 +93,7 @@ type StatusItemsResponse = {
 
 type BaseCurrencyResponse = { result?: string }
 
-/**
- * Anexa a moeda base do portal aos metas de campos `money` (Bitrix exige
- * `valor|MOEDA`). Busca `crm.currency.base.get` só se houver campo money; falha
- * na chamada não quebra o run (campo money segue sem sufixo, como antes).
- */
+// Bitrix exige `valor|MOEDA` em campos money; sem a moeda base o valor segue sem sufixo.
 async function attachBaseCurrency(
   bitrix: BitrixClient,
   metas: Map<string, BitrixFieldMeta>,
@@ -107,10 +111,10 @@ async function attachBaseCurrency(
       if (meta.type === 'money') meta.currency = currency
     }
   } catch (error) {
-    apiLogger.warn(
-      { app: 'importsheet', error },
-      'crm.currency.base.get failed — money fields sem moeda',
-    )
+    logImportsheetError(apiLogger, 'importsheet.bitrix.currency_base_failed', {
+      app: 'importsheet',
+      err: error,
+    })
   }
 }
 
@@ -151,7 +155,6 @@ async function loadStatusLists(
   return lists
 }
 
-/** Metadados dos campos de uma entidade CRM (crm.item.fields) + status lists. */
 export async function loadCrmFieldMeta(
   bitrix: BitrixClient,
   appId: string,
@@ -171,7 +174,6 @@ export async function loadCrmFieldMeta(
   )
 }
 
-/** Metadados dos campos de Tarefa (tasks.task.getFields). */
 export async function loadTaskFieldMeta(
   bitrix: BitrixClient,
   appId: string,

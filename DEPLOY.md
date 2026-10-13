@@ -166,6 +166,24 @@ camada. Sem nenhuma das duas, produção serve a entrada gravada pela homologaç
 assinatura paga aparece como trial — `isTrialSubscription` deriva "é trial" da ausência
 de price id.
 
+### Eventos das SPAs 1146/1142 só agem no provider em produção
+
+O portal tem **um webhook de saída por ambiente**, cada um com seu
+`BITRIX_SPA_WEBHOOK_TOKEN`, então todo evento das SPAs de assinatura (1142) e item de
+assinatura (1146) chega a produção **e** a homologação. Sem isolamento, um item criado à
+mão no CRM provisiona duas instâncias Z-API / dois canais HubMessage (uma fica órfã e
+cobrada), e homologação assina, desassina e limpa recurso de cliente de produção.
+
+`THINKZAP_SPA_PROVIDER_EFFECTS_ENABLED=false` desliga esses efeitos. Em staging ele vem
+fixado no `docker-compose.staging.yml` (API e os dois workers de SPA), por cima do
+`api/.env`. Produção fica **sem** a variável — ausente é ligado.
+
+Com a flag desligada o webhook continua validando o token, invalidando cache e
+respondendo 200; só não enfileira provisionamento, sincronização de status, limpeza nem
+a cobrança por assinatura. Os workers também descartam job vindo do webhook (o que
+estivesse enfileirado antes do deploy), mas processam a limpeza enfileirada pelo próprio
+app (`DeleteLine`). O valor efetivo sai no log de boot (`spaProviderEffectsEnabled`).
+
 ### Robô de template do Bizproc — ordem de deploy e registro
 
 O robô de envio de template (`thinkzap_template_robot`) é registrado no portal com um

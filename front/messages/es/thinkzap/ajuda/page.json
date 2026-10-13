@@ -1,5 +1,11 @@
 {
   "title": "Centro de Ayuda",
   "subtitle": "Accede al manual completo con tutoriales, preguntas frecuentes y guías de configuración.",
-  "abrirManual": "Abrir Manual"
+  "abrirManual": "Abrir Manual",
+  "suporte": {
+    "title": "Horario de atención del soporte",
+    "horario": "De lunes a viernes, de 9 h a 18 h",
+    "fuso": "(hora de Brasilia, UTC-3).",
+    "tempoEspera": "El tiempo medio de espera para la atención es de <b>30 minutos</b>."
+  }
 }

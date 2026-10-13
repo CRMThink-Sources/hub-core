@@ -13,6 +13,7 @@ import { enqueueSpaItemProvisioningJob } from '@/queue/spa-item-provisioning.que
 import {
   enqueueSpaItemCleanupJob,
   enqueueSpaItemStatusSyncJob,
+  enqueueSubscriptionBillingSyncJob,
 } from '@/queue/spa-item-resource-sync.queue'
 
 /**
@@ -45,10 +46,16 @@ export const makeSpaWebhookController = (): Controller => {
    * módulo, então o caso de uso é montado aqui mesmo — mas entra reduzido a uma função,
    * para o controller não ganhar acesso aos outros métodos do repositório.
    */
-  return new SpaWebhookController(invalidate, env.bitrixSpaWebhookToken, {
-    enqueueProvisioning: enqueueSpaItemProvisioningJob,
-    enqueueCleanup: enqueueSpaItemCleanupJob,
-    enqueueStatusSync: enqueueSpaItemStatusSyncJob,
-    unlinkAplicationSpaItem: itemId => unlink.execute(itemId),
-  })
+  return new SpaWebhookController(
+    invalidate,
+    env.bitrixSpaWebhookToken,
+    {
+      enqueueProvisioning: enqueueSpaItemProvisioningJob,
+      enqueueCleanup: enqueueSpaItemCleanupJob,
+      enqueueStatusSync: enqueueSpaItemStatusSyncJob,
+      enqueueSubscriptionBillingSync: enqueueSubscriptionBillingSyncJob,
+      unlinkAplicationSpaItem: itemId => unlink.execute(itemId),
+    },
+    env.payments.spa.providerEffectsEnabled,
+  )
 }

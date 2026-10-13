@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { BX24Script, useBX24 } from '@/bitrix'
 import {
   InstallLoading,
@@ -12,28 +14,15 @@ import {
   useBitrixTermsAgreement,
 } from '@/components/bitrix/install'
 import type { InstallStatus } from '@/bitrix'
+import { i18n, readStoredLocale } from '@/i18n/provider'
 import axios from 'axios'
 
-/** URL da sua API que recebe o payload da instalação (auth + appInfo + email). Configure em .env.local. */
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
 
-const MESSAGES = {
-  acceptAll:
-    'É necessário aceitar os termos, o contrato de licença e a política de privacidade.',
-  bx24Unavailable: 'BX24 não disponível. Abra esta página no Bitrix24.',
-  installError: 'Erro ao concluir instalação.',
-  apiError: 'Falha ao registrar a instalação. Tente novamente.',
-} as const
-
-/** Nome de passo → o que o usuário precisa entender que falhou. */
-const STEP_LABELS: Record<string, string> = {
-  'resolve-app-code': 'identificar o aplicativo',
-  'upsert-domain': 'registrar o portal',
-  'upsert-app': 'registrar a instalação',
-  'upsert-credential': 'salvar as credenciais de acesso',
-  'resolve-spa-item': 'registrar o cliente no CRM',
-  'link-spa-item': 'vincular a instalação ao cliente',
-  'run-installer': 'configurar o aplicativo no portal',
+const BITRIX_LANG_TO_LOCALE: Record<string, string> = {
+  br: 'pt',
+  en: 'en',
+  la: 'es',
 }
 
 /**
@@ -41,9 +30,9 @@ const STEP_LABELS: Record<string, string> = {
  * aborta. Sem ler o passo, toda falha vira a mesma mensagem genérica e o suporte
  * precisa do log para saber onde parou.
  */
-function installErrorMessage(err: unknown): string {
+function installErrorMessage(err: unknown, t: TFunction): string {
   if (!axios.isAxiosError(err)) {
-    return err instanceof Error ? err.message : MESSAGES.installError
+    return err instanceof Error ? err.message : t('errors.install')
   }
 
   const payload = err.response?.data as
@@ -51,14 +40,16 @@ function installErrorMessage(err: unknown): string {
     | undefined
   const failure = payload?.result?.error
 
-  if (!failure?.step) return MESSAGES.apiError
+  if (!failure?.step) return t('errors.api')
 
-  const label = STEP_LABELS[failure.step] ?? failure.step
-
-  return `Falha ao ${label}: ${failure.message ?? MESSAGES.apiError}`
+  return t('errors.stepFailed', {
+    step: t(`steps.${failure.step}`, { defaultValue: failure.step }),
+    message: failure.message ?? t('errors.api'),
+  })
 }
 
 export default function BitrixInstallPage() {
+  const { t } = useTranslation('bitrix/install')
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const {
     ready,
@@ -73,6 +64,14 @@ export default function BitrixInstallPage() {
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false)
   const [status, setStatus] = useState<InstallStatus>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  // Primeiro acesso não tem idioma escolhido: o do portal é melhor palpite que
+  // o do navegador. Escolha explícita (bandeira) prevalece.
+  useEffect(() => {
+    if (!ready || readStoredLocale()) return
+    const locale = BITRIX_LANG_TO_LOCALE[window.BX24?.getLang?.() ?? '']
+    if (locale) void i18n.changeLanguage(locale)
+  }, [ready])
 
   const termsConfig = useBitrixTermsAgreement()
   const termsItems = useMemo(
@@ -104,12 +103,12 @@ export default function BitrixInstallPage() {
     setErrorMessage(null)
 
     if (!agreedToTerms || !agreedToEula || !agreedToPrivacy) {
-      setErrorMessage(MESSAGES.acceptAll)
+      setErrorMessage(t('errors.acceptAll'))
       return
     }
     const trimmedEmail = email.trim()
     if (!window.BX24) {
-      setErrorMessage(MESSAGES.bx24Unavailable)
+      setErrorMessage(t('errors.bx24Unavailable'))
       return
     }
 
@@ -117,7 +116,7 @@ export default function BitrixInstallPage() {
     try {
       const payload = await getInstallPayload(trimmedEmail)
       if (!payload) {
-        setErrorMessage(MESSAGES.bx24Unavailable)
+        setErrorMessage(t('errors.bx24Unavailable'))
         setStatus('idle')
         return
       }
@@ -135,19 +134,19 @@ export default function BitrixInstallPage() {
       setStatus('success')
     } catch (err) {
       setStatus('error')
-      setErrorMessage(installErrorMessage(err))
+      setErrorMessage(installErrorMessage(err, t))
     }
   }
 
   const renderContent = () => {
     if (!scriptLoaded) {
-      return <InstallLoading message="Carregando..." />
+      return <InstallLoading message={t('loading')} />
     }
     if (!ready && !bx24Error) {
-      return <InstallLoading message="Conectando ao Bitrix24..." />
+      return <InstallLoading message={t('connecting')} />
     }
     if (bx24Error && !ready) {
-      return <InstallError message={bx24Error} />
+      return <InstallError message={t('errors.outsideBitrix')} />
     }
     if (status === 'success') {
       return <InstallSuccess />

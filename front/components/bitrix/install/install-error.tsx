@@ -1,3 +1,6 @@
+'use client'
+
+import { useTranslation } from 'react-i18next'
 import { InstallLayout, InstallCard } from './install-layout'
 
 interface InstallErrorProps {
@@ -5,12 +8,9 @@ interface InstallErrorProps {
   message: string
 }
 
-const DEFAULT_TITLE = 'Atenção'
+export function InstallError({ title, message }: InstallErrorProps) {
+  const { t } = useTranslation('bitrix/install')
 
-export function InstallError({
-  title = DEFAULT_TITLE,
-  message,
-}: InstallErrorProps) {
   return (
     <InstallLayout>
       <InstallCard className="p-8 text-center">
@@ -32,7 +32,9 @@ export function InstallError({
             />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
+        <h2 className="text-lg font-semibold text-slate-800">
+          {title ?? t('error.title')}
+        </h2>
         <p className="mt-2 text-sm text-slate-600">{message}</p>
       </InstallCard>
     </InstallLayout>

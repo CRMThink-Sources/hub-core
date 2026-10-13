@@ -22,8 +22,7 @@ export interface ProvisionableToken {
   [key: string]: unknown
 }
 
-// Por conta: cria o webhook se não existe; re-registra (delete+create) se
-// url/env/eventos divergem; senão no-op. Best-effort — o caller engole erros.
+// Recria (delete+create) se url/env/eventos divergem. Best-effort: o caller engole erros.
 export class WebhookProvisioningService {
   constructor(private readonly appId: string) {}
 
@@ -75,9 +74,10 @@ export class WebhookProvisioningService {
       try {
         await client.deleteWebhook(token.token, token.webhook.id)
       } catch (error) {
-        apiLogger.warn(
+        logClicksignError(
+          apiLogger,
+          'clicksign.provisioning.webhook_delete_failed',
           { app: 'clicksign', err: safeErrorMessage(error) },
-          'Delete do webhook antigo falhou',
         )
       }
     }

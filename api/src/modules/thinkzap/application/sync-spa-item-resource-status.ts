@@ -9,6 +9,8 @@ import {
   ProviderResourceRef,
 } from './provider-resource-billing'
 import { resolveRawItemResource } from './helpers/raw-item-resource'
+import { resolveProviderBillingAction } from './helpers/resolve-provider-billing-action'
+import type { SubscriptionStatusReader } from '@/modules/thinkzap/domain/ports/subscription-status-reader.port'
 
 export type SyncSpaItemResourceStatusInput = {
   /** Id do item na SPA 1146. */
@@ -18,11 +20,17 @@ export type SyncSpaItemResourceStatusInput = {
 }
 
 export type SyncSpaItemResourceStatusOutcome =
-  /** Status `cancelled` sem marca: recurso desassinado agora. */
+  /** Status `cancelled` sem marca de desassinado: recurso desassinado agora. */
   | 'unsubscribed'
-  /** Status `active` com marca: recurso reassinado agora. */
-  | 'resubscribed'
-  /** Status e marca já concordam — o caso de longe mais comum. */
+  /**
+   * Status `active` sob assinatura ativa e não trial, sem marca de assinado: recurso
+   * assinado agora — a primeira assinatura de uma linha manual, ou a reassinatura.
+   */
+  | 'subscribed'
+  /**
+   * Status e marca já concordam — o caso de longe mais comum —, ou a assinatura pai não
+   * permite assinar (trial, inativa, inexistente).
+   */
   | 'noop'
   /** Item apagado entre o evento e a leitura: a exclusão tem caminho próprio. */
   | 'item-missing'
@@ -44,10 +52,15 @@ export type SyncSpaItemResourceStatusResult = {
  * linha que ninguém usa.
  *
  * **A transição não vem do evento.** O payload do webhook traz só o id do item — nunca o
- * valor anterior do campo. A comparação é entre o status **lido no item** e a marca de
- * desassinado no espelho do recurso, e é essa marca que
+ * valor anterior do campo. A comparação é entre o status **lido no item** e as marcas de
+ * cobrança no espelho do recurso, e é essa marca que
  * `provider-resource-billing-lifecycle` cita como o estado que faltava para haver
- * gatilho fora do gateway.
+ * gatilho fora do gateway. A regra está em `resolveProviderBillingAction`.
+ *
+ * **Também assina.** Item ativo sob assinatura ativa e não trial, sem marca de assinado,
+ * é assinado no provider — é o caminho da assinatura manual, que nenhum outro fluxo
+ * assina. O mesmo caso de uso roda por item quando a assinatura (SPA 1142) é editada
+ * (`SyncSubscriptionLinesBilling`).
  *
  * **Só o eixo do dinheiro.** `unsubscribe` e `subscribe`, nunca `disconnect`: cancelar o
  * status é reversível — o item continua lá —, e desconectar custaria ao cliente uma
@@ -68,6 +81,7 @@ export class SyncSpaItemResourceStatus {
     private readonly items: RawSubscriptionItemReader,
     private readonly mirrors: SpaItemResourceMirrorRepository,
     private readonly billing: ProviderResourceBilling,
+    private readonly subscriptions: SubscriptionStatusReader,
   ) {}
 
   async execute(
@@ -122,14 +136,43 @@ export class SyncSpaItemResourceStatus {
     }
 
     const mirror = await this.mirrors.find(input.itemId)
-    const alreadyUnsubscribed = mirror?.unsubscribedAt !== undefined
 
-    if (item.status === 'cancelled' && !alreadyUnsubscribed) {
+    /**
+     * O pai só é lido quando a decisão depende dele — item ativo ainda não assinado. Este
+     * job roda a cada edição de campo do item, e a imensa maioria termina em `noop` sem
+     * precisar de uma segunda ida ao Bitrix.
+     */
+    const needsParent =
+      item.status === 'active' && mirror?.subscribedAt === undefined
+    const parentStatus =
+      needsParent && item.subscriptionId
+        ? await this.subscriptions.getSubscriptionStatus(item.subscriptionId)
+        : null
+
+    const decision = resolveProviderBillingAction({
+      itemStatus: item.status,
+      parentStatus,
+      mirror,
+    })
+
+    if (decision.action === 'unsubscribe') {
       return this.unsubscribe({ log, input, item, resource })
     }
 
-    if (item.status === 'active' && alreadyUnsubscribed) {
-      return this.resubscribe({ log, input, resource })
+    if (decision.action === 'subscribe') {
+      return this.subscribe({ log, input, item, resource })
+    }
+
+    if (decision.reason === 'parent-missing') {
+      /**
+       * `warn`: item ativo com credencial e sem assinatura pai legível é linha
+       * funcionando que ninguém cobra de nós — nem do cliente.
+       */
+      apiLogger.warn(
+        { ...log, subscriptionId: item.subscriptionId },
+        'Item ativo sem assinatura pai legível — recurso não assinado no provider',
+      )
+      return { outcome: 'noop' }
     }
 
     /**
@@ -137,8 +180,13 @@ export class SyncSpaItemResourceStatus {
      * nome, canal vinculado, e as escritas da própria API. Em `info` ele afogaria o log.
      */
     apiLogger.debug(
-      { ...log, status: item.status, alreadyUnsubscribed },
-      'Status do item e estado de cobrança já concordam — nada a fazer no provider',
+      {
+        ...log,
+        status: item.status,
+        parentStatus,
+        reason: decision.reason,
+      },
+      'Nada a fazer no provider — estado de cobrança já concorda, ou a assinatura não permite assinar',
     )
 
     return { outcome: 'noop' }
@@ -166,7 +214,7 @@ export class SyncSpaItemResourceStatus {
       args.resource,
       args.item.subscriptionId,
     )
-    await this.mirrors.setUnsubscribed(args.input.itemId, true)
+    await this.mirrors.setBillingState(args.input.itemId, 'unsubscribed')
 
     apiLogger.info(
       {
@@ -180,9 +228,15 @@ export class SyncSpaItemResourceStatus {
     return { outcome: 'unsubscribed' }
   }
 
-  private async resubscribe(args: {
+  /**
+   * Mesma ordem do `unsubscribe`: chamada ao provider, espelho garantido, marca. A marca
+   * só depois do sucesso — marcar sem assinar esconderia para sempre uma linha que o
+   * provider trata como não paga.
+   */
+  private async subscribe(args: {
     log: Record<string, unknown>
     input: SyncSpaItemResourceStatusInput
+    item: { subscriptionId: string | null }
     resource: ProviderResourceRef
   }): Promise<SyncSpaItemResourceStatusResult> {
     await this.billing.subscribeResource(args.resource, {
@@ -190,7 +244,12 @@ export class SyncSpaItemResourceStatus {
       propagate: true,
     })
 
-    await this.mirrors.setUnsubscribed(args.input.itemId, false)
+    await this.ensureMirror(
+      args.input.itemId,
+      args.resource,
+      args.item.subscriptionId,
+    )
+    await this.mirrors.setBillingState(args.input.itemId, 'subscribed')
 
     apiLogger.info(
       {
@@ -198,10 +257,10 @@ export class SyncSpaItemResourceStatus {
         provider: args.resource.provider,
         resourceId: args.resource.instanceId,
       },
-      'Item devolvido a ativo na SPA — recurso reassinado no provider',
+      'Item ativo sob assinatura ativa — recurso assinado no provider',
     )
 
-    return { outcome: 'resubscribed' }
+    return { outcome: 'subscribed' }
   }
 
   /**

@@ -39,18 +39,18 @@ import { BitrixAppOptionService } from '@/shared/application/bitrix-app-option.s
 import { BitrixSystemNotificationService } from '@/shared/application/bitrix-system-notification.service'
 import { NotifySettingsService } from './notify-settings.service'
 
-// Linhas por página (≤50 = teto do batch Bitrix). Default 20 via env.
+// ≤50: teto do batch Bitrix.
 const PAGE_SIZE = env.importsheet.pageSize
 const CONTACT_ENTITY_TYPE_ID = 3
 const COMPANY_ENTITY_TYPE_ID = 4
 const RUN_LOCK_TTL_MS = 5 * 60 * 1000
 const TAB_TITLE_TTL_SECONDS = 10 * 60
 const PAGE_MARKER_TTL_SECONDS = 24 * 60 * 60
-// Teto de linhas com erro guardadas por run (evita estourar o last_error).
+// Evita estourar o last_error.
 const MAX_ERROR_ROWS = 50
-// TTL do marcador de reprocess: cobre retry pós-crash sem travar reprocess futuro.
+// Cobre retry pós-crash sem travar reprocess futuro.
 const REPROCESS_MARKER_TTL_SECONDS = 60 * 60
-// Janela anti-spam da notificação de erro: 1 por importação por janela.
+// Anti-spam: 1 notificação de erro por importação por janela.
 const NOTIFY_COOLDOWN_SECONDS = 6 * 60 * 60
 
 type WrittenPageMarker = {
@@ -59,7 +59,6 @@ type WrittenPageMarker = {
   errorRows: ImportErrorRow[]
 }
 
-// Deps de escrita carregadas 1x por run (cliente Bitrix, metas, mapeamentos).
 type WriteContext = {
   bitrix: BitrixClient
   writer: BitrixImportWriter
@@ -73,7 +72,7 @@ type WriteContext = {
 
 type ResolvedSub = { contactId?: string; companyId?: string }
 
-// Via C: pulos por-linha acumulados por code na página → 1 warn agregada, não 1 por célula.
+// Pulos agregados por code na página: 1 warn, não 1 por célula.
 type SkipCounts = Map<ImportsheetErrorCode, number>
 const FIELD_SKIP_TO_CODE: Record<FieldSkipCode, ImportsheetErrorCode> = {
   status_no_match: 'importsheet.import.status_no_match',
@@ -83,20 +82,12 @@ const FIELD_SKIP_TO_CODE: Record<FieldSkipCode, ImportsheetErrorCode> = {
 type WritePageResult = {
   results: RowResult[]
   throttle: ThrottleSignal[]
-  // Ids de sub por linha — guardados no errorRow pro reprocess não recriar contato/empresa.
+  // Guardados no errorRow pro reprocess não recriar contato/empresa.
   subIds: Map<number, ResolvedSub>
 }
 
 export type MakeBitrixClient = (appId: string) => Promise<BitrixClient>
 
-/**
- * Resultado de processar UMA página. O worker usa pra decidir o próximo passo:
- * - `done`        → importação terminou (sem mais páginas).
- * - `continue`    → re-enfileira a próxima página no fim da fila (round-robin).
- * - `throttled-operating` → budget de operating (por conta) → re-enfileira com delay.
- * - `throttled-intensity` → 503 (por IP) → worker pausa a fila e re-roda o mesmo job.
- * - `skipped`     → lock ocupado / desabilitada / inexistente.
- */
 export type ImportRunOutcome =
   | { status: 'skipped' }
   | { status: 'done' }
@@ -133,8 +124,6 @@ export class RunImportService {
     return outcome
   }
 
-  // Reprocessa linhas isoladas que falharam. Sub já criado (contato/empresa) é
-  // reusado via id guardado no errorRow → não recria.
   async reprocessRows(
     importId: number,
     requestedRows: number[],
@@ -155,14 +144,13 @@ export class RunImportService {
     if (!imp) return { status: 'skipped', errorRows: [] }
 
     const current = this.existingErrorRows(imp)
-    // Guard server-side: dedup + só linhas que estão na lista de erro (não confia na UI).
+    // Não confia na UI: só linhas que estão na lista de erro.
     const allowed = [...new Set(requestedRows)].filter(r =>
       current.some(e => e.row === r),
     )
     if (allowed.length === 0) return { status: 'ok', errorRows: current }
 
-    // Idempotência: se o persist falhar após escrever no Bitrix, o replay aplica
-    // o resultado gravado sem reescrever. Marcador por conjunto de linhas (mesmo pedido).
+    // Se o persist falhar após escrever no Bitrix, o replay aplica o resultado sem reescrever.
     const markerKey = this.reprocessMarkerKey(importId, allowed)
     const replay = await this.peekReprocessResult(markerKey)
     if (replay) {
@@ -188,13 +176,19 @@ export class RunImportService {
             1,
           ),
       )
+      if (got === null) {
+        logImportsheetError(apiLogger, 'importsheet.sheet.inaccessible', {
+          app: 'importsheet',
+          importId,
+          row,
+        })
+      }
       const cells = got?.[0]?.values
       if (cells && !isRowEmpty(cells, ctx.mainMappings)) {
         dataRows.push({ row, values: cells })
       }
     }
 
-    // Reusa contato/empresa já criados (guardados no errorRow) → não duplica sub.
     const resolved = new Map<number, ResolvedSub>()
     for (const e of current) {
       if (e.contactId || e.companyId) {
@@ -215,6 +209,11 @@ export class RunImportService {
         ) {
           return { status: 'throttled', errorRows: current }
         }
+        logImportsheetError(apiLogger, 'importsheet.reprocess.failed', {
+          app: 'importsheet',
+          importId,
+          err: error,
+        })
         throw error
       }
       for (const r of written.results) {
@@ -224,7 +223,6 @@ export class RunImportService {
       for (const [row, sub] of written.subIds) writtenSubIds.set(row, sub)
     }
 
-    // Linha que esvaziou na planilha sai da lista; a que falhou de novo atualiza msg + subs.
     const next = current
       .filter(e => !allowed.includes(e.row) || errored.has(e.row))
       .map(e => {
@@ -239,7 +237,7 @@ export class RunImportService {
         }
       })
 
-    // Marcador ANTES de persistir: se o markRunResult falhar, o replay reconstrói.
+    // Marcador antes de persistir: se o markRunResult falhar, o replay reconstrói.
     await this.setReprocessResult(markerKey, next)
     await this.persistReprocessResult(imp, next)
     await this.clearMarkerKey(markerKey)
@@ -295,9 +293,13 @@ export class RunImportService {
         REPROCESS_MARKER_TTL_SECONDS,
       )
     } catch (error) {
-      apiLogger.warn(
-        { app: 'importsheet', error },
-        'Failed to persist reprocess marker (idempotency degraded)',
+      logImportsheetError(
+        apiLogger,
+        'importsheet.import.reprocess_marker_degraded',
+        {
+          app: 'importsheet',
+          err: error,
+        },
       )
     }
   }
@@ -339,12 +341,11 @@ export class RunImportService {
       const current = await this.repository.findByIdAny(imp.id)
       const cursorRow = current?.startRow ?? imp.startRow
       const message = error instanceof Error ? error.message : 'Unknown error'
-      // Parceiro vê pt-br; o detalhe cru (pode ser inglês/técnico) fica só no log/lastError.
+      // Parceiro vê pt-br; o detalhe técnico fica só no log/lastError.
       const partnerMessage =
         error instanceof AppError
           ? error.userCause
           : 'Erro inesperado durante a importação.'
-      // AppError (ex: sheet.*, google.*) loga o próprio code; senão run.fatal genérico.
       if (error instanceof AppError) {
         const level = error.httpStatus >= 500 ? 'error' : 'warn'
         apiLogger[level](
@@ -360,11 +361,8 @@ export class RunImportService {
         )
       }
       const isScheduled = imp.scheduleMode !== 'MANUAL'
-      // Preserva os erros por-linha já acumulados pra seguirem reprocessáveis.
       const prior = this.existingErrorRows(current ?? imp)
-      // Agendado: pausa (enabled=false) — já basta pra sair do poller (findDue
-      // exige enabled). Mantém nextRunAt pra religar o toggle retomar de onde
-      // parou; sem isso o re-enable ficaria preso (nextRunAt null nunca vence).
+      // Agendado só pausa e mantém nextRunAt: com null o re-enable nunca venceria.
       await this.repository.markRunResult(imp.id, {
         startRow: cursorRow,
         lastRunAt: new Date(),
@@ -384,16 +382,14 @@ export class RunImportService {
   }
 
   private async runOnePage(imp: ImportSheetImport): Promise<ImportRunOutcome> {
-    // Idempotência: página já escrita num retry/crash anterior → só avança o
-    // cursor, sem reescrever (senão linhas add-only duplicariam).
+    // Página já escrita num retry/crash só avança o cursor; reescrever duplicaria add-only.
     const replay = await this.peekPageMarker(imp.id, imp.startRow)
     if (replay) return this.replayPage(imp, replay)
 
     const ctx = await this.loadWriteContext(imp)
 
     const fromRow = imp.startRow
-    // Preserva os erros não resolvidos entre runs (só o reprocess os remove);
-    // o worker segue em ordem da planilha sem voltar pras linhas que erraram.
+    // Erros persistem entre runs; só o reprocess os remove.
     const errorRows: ImportErrorRow[] = this.existingErrorRows(imp)
     const throttleSignals: ThrottleSignal[] = []
 
@@ -430,14 +426,13 @@ export class RunImportService {
         ),
     )
 
-    // Planilha/aba inacessível (404/403). Pode ser rename → invalida cache.
+    // Pode ser rename da aba: invalida o cache do título.
     if (rows === null) {
       await this.invalidateTabTitleCache(imp.id)
       throw importsheetError('importsheet.sheet.inaccessible')
     }
 
-    // A API omite as linhas vazias do FIM do range, mas devolve as do MEIO
-    // como []. Pula as vazias e detecta o fim por página incompleta.
+    // A API omite as vazias do fim do range mas devolve as do meio como []; fim = página incompleta.
     const dataRows = rows.filter(r => !isRowEmpty(r.values, ctx.mainMappings))
     const hasMore = rows.length >= PAGE_SIZE
     const nextRow = fromRow + rows.length
@@ -455,7 +450,6 @@ export class RunImportService {
     accountErrors(written.results, written.subIds)
     throttleSignals.push(...written.throttle)
 
-    // Match ambíguo (linha não escrita) entra na agregação junto dos pulos.
     const ambiguousRows = new Set<number>()
     for (const r of written.results) {
       if (r.errorCode === 'importsheet.import.ambiguous_match')
@@ -469,7 +463,7 @@ export class RunImportService {
       logImportsheetError(apiLogger, code, { importId: imp.id, count })
     }
 
-    // Marcador ANTES do cursor: crash/retry daqui pra frente vira replay.
+    // Marcador antes do cursor: crash/retry daqui pra frente vira replay.
     await this.setPageMarker(imp.id, fromRow, { nextRow, hasMore, errorRows })
 
     if (!hasMore) return this.finishImport(imp, nextRow, errorRows)
@@ -504,7 +498,6 @@ export class RunImportService {
     return { status: 'continue' }
   }
 
-  // Carrega cliente Bitrix, metas e mapeamentos agrupados por entidade-destino.
   private async loadWriteContext(
     imp: ImportSheetImport,
   ): Promise<WriteContext> {
@@ -542,7 +535,7 @@ export class RunImportService {
     }
   }
 
-  // Escreve linhas (contato/empresa → principal). Usado pelo run de página e pelo reprocess.
+  // Contato/empresa antes do principal, pra vincular os ids.
   private async writeDataRows(
     imp: ImportSheetImport,
     ctx: WriteContext,
@@ -560,7 +553,7 @@ export class RunImportService {
     }
     const onFieldSkip: OnFieldSkip = s => bump(FIELD_SKIP_TO_CODE[s])
 
-    // Sub-entidade já criada num run/tentativa anterior → reusa o id (não reescreve).
+    // Sub já criada em tentativa anterior: reusa o id pra não duplicar.
     const resolvedContact = new Map<number, string>()
     const resolvedCompany = new Map<number, string>()
     if (resolved) {
@@ -628,7 +621,6 @@ export class RunImportService {
             raw,
           )
           if (userId) m.params.push({ path: responsiblePath, value: userId })
-          // Responsável indicado mas não resolvido → cai no default (via C).
           else if (raw.trim() !== '')
             bump('importsheet.import.responsible_unresolved')
         }
@@ -666,7 +658,7 @@ export class RunImportService {
   private existingErrorRows(imp: ImportSheetImport): ImportErrorRow[] {
     const parsed = parseImportError(imp.lastError)
     if (!parsed) return []
-    // Fatal também pode carregar rows acumuladas (preservadas no catch do run).
+    // Fatal também carrega as rows acumuladas antes da falha.
     return parsed.kind === 'partial' ? parsed.rows : (parsed.rows ?? [])
   }
 
@@ -757,14 +749,7 @@ export class RunImportService {
     return { status: 'done' }
   }
 
-  /**
-   * Notifica (best-effort) os usuários configurados quando a importação termina
-   * com erro. Lista app-level via app.option (com cache). Nunca quebra o run.
-   *
-   * Anti-spam: um import agendado que falha/erra a cada run (planilha sumida,
-   * token, 3 linhas ruins fixas) notificaria toda execução. Cooldown por import
-   * limita a 1 notificação por janela; erro novo após a janela volta a notificar.
-   */
+  // Best-effort; o cooldown evita notificar a cada run de um agendado que sempre erra.
   private async notifyErrors(
     imp: ImportSheetImport,
     errorCount: number,
@@ -794,10 +779,11 @@ export class RunImportService {
       }
       await this.markNotifyCooldown(imp.id)
     } catch (error) {
-      apiLogger.warn(
-        { app: 'importsheet', importId: imp.id, error },
-        'Failed to notify import errors',
-      )
+      logImportsheetError(apiLogger, 'importsheet.notify.failed', {
+        app: 'importsheet',
+        importId: imp.id,
+        err: error,
+      })
     }
   }
 
@@ -825,7 +811,7 @@ export class RunImportService {
         NOTIFY_COOLDOWN_SECONDS,
       )
     } catch {
-      // sem cooldown persistido → pior caso re-notifica; aceitável
+      // pior caso re-notifica
     }
   }
 
@@ -864,9 +850,15 @@ export class RunImportService {
         PAGE_MARKER_TTL_SECONDS,
       )
     } catch (error) {
-      apiLogger.warn(
-        { app: 'importsheet', importId, fromRow, error },
-        'Failed to persist written-page marker (idempotency degraded)',
+      logImportsheetError(
+        apiLogger,
+        'importsheet.import.page_marker_degraded',
+        {
+          app: 'importsheet',
+          importId,
+          fromRow,
+          err: error,
+        },
       )
     }
   }
@@ -904,10 +896,6 @@ export class RunImportService {
     return { status: 'continue' }
   }
 
-  /**
-   * Cria/atualiza uma sub-entidade (contato/empresa) pra a página e devolve o
-   * id por linha (pra vincular no principal), os resultados e o throttle.
-   */
   private async writeSub(
     entityTypeId: number,
     entityCode: EntityCode,
@@ -922,7 +910,6 @@ export class RunImportService {
     results: RowResult[]
     throttle: ThrottleSignal | null
   }> {
-    // Começa com os ids já resolvidos (reprocess) e só escreve quem falta.
     const ids = new Map<number, string>(resolvedIds)
     const mapped = dataRows
       .filter(r => !resolvedIds.has(r.row))

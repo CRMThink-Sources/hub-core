@@ -30,6 +30,10 @@ export class CancelEnvelopeUseCase {
     const parsed = parseOriginId(input.originId)
     const envelopeKey = parsed.envelopeKey
     if (!envelopeKey) {
+      logClicksignError(apiLogger, 'clicksign.document.envelope_missing', {
+        app: 'clicksign',
+        dealId,
+      })
       await this.comment(
         bitrix,
         dealId,

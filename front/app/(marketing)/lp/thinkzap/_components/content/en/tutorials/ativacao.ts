@@ -1,4 +1,5 @@
 import type { AtivacaoCopy } from '../../pt/tutorials/ativacao'
+import { THINKZAP_TRIAL_DURATION_DAYS } from '@/shared/constants/thinkzap-trial'
 
 export const ATIVACAO_EN: AtivacaoCopy = {
   tutorial: {
@@ -9,7 +10,7 @@ export const ATIVACAO_EN: AtivacaoCopy = {
     steps: [
       {
         screen: 'trial',
-        title: 'Start the 3-day free trial',
+        title: `Start the ${THINKZAP_TRIAL_DURATION_DAYS}-day free trial`,
         description:
           'ThinkZap opens on Connections. Pick the connector type — here, WhatsApp Web, which connects with a QR code.',
         action: 'Start trial',
@@ -65,9 +66,8 @@ export const ATIVACAO_EN: AtivacaoCopy = {
   },
   screens: {
     trial: {
-      title: 'Try ThinkZap for 3 days',
-      description:
-        'Pick a connector type to create your first line. The trial is one per installation and lasts 3 days.',
+      title: `Try ThinkZap for ${THINKZAP_TRIAL_DURATION_DAYS} days`,
+      description: `Pick a connector type to create your first line. The trial is one per installation and lasts ${THINKZAP_TRIAL_DURATION_DAYS} days.`,
       oficialLabel: 'Official WhatsApp',
       start: 'Start trial',
     },

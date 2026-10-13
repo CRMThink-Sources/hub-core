@@ -5,14 +5,13 @@ import { BookOpen, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { buttonVariants } from '@/components/ui/button'
 import { DiretrizesSection } from '../_components/diretrizes-section'
+import { SuporteSection } from '../_components/suporte-section'
+import { envConfig } from '@/shared/infra/env-config'
 
-/**
- * Ajuda: o manual (um card com o link para a documentação) e as diretrizes de uso,
- * numa página só. Eram dois itens no menu; o manual sozinho não sustentava uma
- * página, e sub-abas para um card seriam navegação sem conteúdo.
- */
 export default function AjudaPage() {
   const { t } = useTranslation('thinkzap/ajuda/page')
+
+  const manualUrl = envConfig.appUrl + '/lp/thinkzap'
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-10 pt-8 sm:px-6 lg:px-8">
@@ -33,7 +32,7 @@ export default function AjudaPage() {
 
           <div className="shrink-0">
             <Link
-              href="https://crmthink.gitbook.io/thinkzap"
+              href={manualUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={buttonVariants({ size: 'lg' })}
@@ -46,6 +45,7 @@ export default function AjudaPage() {
       </div>
 
       <DiretrizesSection />
+      <SuporteSection />
     </div>
   )
 }

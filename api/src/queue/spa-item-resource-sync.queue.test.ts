@@ -27,6 +27,7 @@ import {
   enqueueSpaItemCleanupJob,
   spaItemCleanupJobId,
   spaItemStatusJobId,
+  subscriptionBillingSyncJobId,
 } from './spa-item-resource-sync.queue'
 import { spaItemProvisioningJobId } from './spa-item-provisioning.queue'
 
@@ -39,6 +40,7 @@ describe('ids de job da fila de recurso do item', () => {
   it('não usam dois-pontos, que o BullMQ recusa em id custom', () => {
     expect(spaItemCleanupJobId('27')).not.toContain(':')
     expect(spaItemStatusJobId('27')).not.toContain(':')
+    expect(subscriptionBillingSyncJobId('27')).not.toContain(':')
   })
 
   it('são determinísticos por item — é o que colapsa reentrega do Bitrix', () => {
@@ -58,9 +60,11 @@ describe('ids de job da fila de recurso do item', () => {
       spaItemCleanupJobId('27'),
       spaItemStatusJobId('27'),
       spaItemProvisioningJobId('27'),
+      // Ids das SPAs 1142 e 1146 são sequências distintas e podem coincidir.
+      subscriptionBillingSyncJobId('27'),
     ])
 
-    expect(ids.size).toBe(3)
+    expect(ids.size).toBe(4)
   })
 
   it('carregam o id do item, para o job ser rastreável pelo painel', () => {
