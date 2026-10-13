@@ -8,9 +8,13 @@ export type ContactCenterLine = {
   instance: { name: string | null; vinculatedChannel: string | null }
 }
 
+/**
+ * Os helpers devolvem dados, não texto: o rótulo final é montado pela tela, no
+ * idioma dela. `null` em `label`/`name` é "sem nome" — a tela traduz.
+ */
 export type ContactCenterLineOption = {
   id: string
-  label: string
+  label: string | null
   /** A linha já é a deste canal aberto. */
   linkedHere: boolean
 }
@@ -73,11 +77,11 @@ export function toLineOptions(
   }
 }
 
-function lineLabel(line: ContactCenterLine): string {
+function lineLabel(line: ContactCenterLine): string | null {
   const phone = line.phoneData?.phone?.trim()
   const name = line.phoneData?.name?.trim()
   if (phone) return name ? `${phone} — ${name}` : phone
-  return line.instance.name?.trim() || 'Linha sem nome'
+  return line.instance.name?.trim() || null
 }
 
 /** O que `/thinkzap/openchannels` devolve por canal. */
@@ -89,9 +93,10 @@ export type ContactCenterChannel = {
 
 export type ContactCenterChannelOption = {
   id: string
-  label: string
-  /** Rótulo da linha que já ocupa o canal, se houver. */
-  occupiedBy: string | null
+  name: string | null
+  active: boolean
+  /** Linha que já ocupa o canal, se houver; `label` `null` é linha sem nome. */
+  occupiedBy: { label: string | null } | null
 }
 
 /**
@@ -108,20 +113,20 @@ export function toChannelOptions(
   lines: ContactCenterLine[],
   placementLine: number | null,
 ): { options: ContactCenterChannelOption[]; preselectedChannelId: string } {
-  const occupants = new Map<string, string>()
+  const occupants = new Map<string, { label: string | null }>()
   for (const line of lines) {
     const channel = line.instance.vinculatedChannel
     if (channel && !occupants.has(channel)) {
-      occupants.set(channel, lineLabel(line))
+      occupants.set(channel, { label: lineLabel(line) })
     }
   }
 
   const options = channels.map(channel => {
     const id = String(channel.id)
-    const name = channel.name?.trim() || `Canal ${id}`
     return {
       id,
-      label: channel.active ? name : `${name} (inativo)`,
+      name: channel.name?.trim() || null,
+      active: channel.active,
       occupiedBy: occupants.get(id) ?? null,
     }
   })

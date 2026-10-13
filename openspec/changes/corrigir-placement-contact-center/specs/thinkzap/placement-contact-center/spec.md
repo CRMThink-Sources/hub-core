@@ -80,3 +80,22 @@ Ao confirmar, a tela SHALL vincular a linha escolhida ao canal aberto escolhido,
 #### Scenario: Falha na ativação do conector
 - **WHEN** a ativação do conector no Bitrix24 falha
 - **THEN** o vínculo não é gravado e a tela mostra o erro, mantendo a seleção para nova tentativa
+
+### Requirement: Idioma da tela
+Todos os textos próprios da tela — títulos, rótulos, estados de carregamento, avisos e mensagens de erro padrão — SHALL estar disponíveis em português, inglês e espanhol. O idioma SHALL ser o escolhido pelo usuário no app quando houver; sem escolha, SHALL ser o idioma do portal Bitrix24 (português, inglês ou espanhol), e português nos demais casos. Mensagens de erro devolvidas pela API SHALL ser exibidas como vêm.
+
+#### Scenario: Portal em inglês sem idioma escolhido
+- **WHEN** a tela é aberta num portal Bitrix24 em inglês e o usuário nunca escolheu idioma no app
+- **THEN** todos os textos da tela aparecem em inglês
+
+#### Scenario: Portal em espanhol
+- **WHEN** a tela é aberta num portal Bitrix24 em espanhol e o usuário nunca escolheu idioma no app
+- **THEN** todos os textos da tela aparecem em espanhol
+
+#### Scenario: Idioma escolhido no app prevalece
+- **WHEN** o usuário já escolheu um idioma no app
+- **THEN** a tela usa esse idioma, independentemente do idioma do portal
+
+#### Scenario: Idioma do portal não suportado
+- **WHEN** o portal está num idioma diferente de português, inglês e espanhol e não há escolha no app
+- **THEN** a tela aparece em português

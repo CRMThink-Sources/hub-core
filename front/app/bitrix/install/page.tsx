@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { BX24Script, useBX24 } from '@/bitrix'
+import { BX24Script, localeFromBitrixLang, useBX24 } from '@/bitrix'
 import {
   InstallLoading,
   InstallError,
@@ -18,12 +18,6 @@ import { i18n, readStoredLocale } from '@/i18n/provider'
 import axios from 'axios'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
-
-const BITRIX_LANG_TO_LOCALE: Record<string, string> = {
-  br: 'pt',
-  en: 'en',
-  la: 'es',
-}
 
 /**
  * A API devolve `{ result: { error: { step, message } } }` quando a instalação
@@ -69,7 +63,7 @@ export default function BitrixInstallPage() {
   // o do navegador. Escolha explícita (bandeira) prevalece.
   useEffect(() => {
     if (!ready || readStoredLocale()) return
-    const locale = BITRIX_LANG_TO_LOCALE[window.BX24?.getLang?.() ?? '']
+    const locale = localeFromBitrixLang(window.BX24?.getLang?.())
     if (locale) void i18n.changeLanguage(locale)
   }, [ready])
 

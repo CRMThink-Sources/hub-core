@@ -6,12 +6,29 @@ import {
 import { useLineApi } from '@/app/hooks/use-line-api'
 import {
   type ContactCenterChannel,
+  type ContactCenterChannelOption,
   type ContactCenterLine,
   resolvePlacementLine,
   toChannelOptions,
   toLineOptions,
 } from '@/shared/thinkzap/contact-center-placement'
+import type { TFunction } from 'i18next'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+
+type ErrorKey = 'sessaoExpirada' | 'erroLinhas' | 'erroCanais' | 'erroVincular'
+
+/**
+ * Erro como chave de tradução ou como mensagem da API (já vem no idioma do
+ * backend). Guardar a chave, e não o texto, deixa a tradução para a renderização:
+ * os carregamentos não dependem de `t` e não refazem nada quando o idioma muda.
+ */
+type ErrorText = { key: ErrorKey } | { message: string } | null
+
+const apiError = (e: unknown, fallback: ErrorKey): ErrorText => {
+  const message = thinkzapApiErrorMessage(e, '')
+  return message ? { message } : { key: fallback }
+}
 
 /**
  * Configuração do conector aberta pelo Contact Center: o usuário escolhe a linha
@@ -31,15 +48,19 @@ export const ContactCenterView = () => {
   const [placementResolved, setPlacementResolved] = useState(false)
   const [lines, setLines] = useState<ContactCenterLine[] | null>(null)
   const [channels, setChannels] = useState<ContactCenterChannel[] | null>(null)
-  const [loadError, setLoadError] = useState('')
-  const [channelsError, setChannelsError] = useState('')
+  const [loadError, setLoadError] = useState<ErrorText>(null)
+  const [channelsError, setChannelsError] = useState<ErrorText>(null)
   const [selectedId, setSelectedId] = useState('')
   const [selectedChannelId, setSelectedChannelId] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [saveError, setSaveError] = useState('')
+  const [saveError, setSaveError] = useState<ErrorText>(null)
 
   const lineApi = useLineApi(selectedId)
+  const { t } = useTranslation('thinkzap/contact-center')
+
+  const errorText = (error: ErrorText): string | null =>
+    error === null ? null : 'key' in error ? t(error.key) : error.message
 
   useEffect(() => {
     window.BX24?.fitWindow?.(() => {
@@ -53,7 +74,7 @@ export const ContactCenterView = () => {
   const loadLines = useCallback(async () => {
     const resolved = resolveThinkzapClient()
     if (!resolved.ok) {
-      setLoadError(resolved.message)
+      setLoadError({ key: 'sessaoExpirada' })
       return null
     }
 
@@ -61,11 +82,11 @@ export const ContactCenterView = () => {
       const { connectors } = await resolved.client.get<{
         connectors: ContactCenterLine[]
       }>('/thinkzap/connector/list')
-      setLoadError('')
+      setLoadError(null)
       setLines(connectors)
       return connectors
     } catch (e) {
-      setLoadError(thinkzapApiErrorMessage(e, 'Falha ao carregar as linhas'))
+      setLoadError(apiError(e, 'erroLinhas'))
       return null
     }
   }, [])
@@ -73,7 +94,7 @@ export const ContactCenterView = () => {
   const loadChannels = useCallback(async () => {
     const resolved = resolveThinkzapClient()
     if (!resolved.ok) {
-      setChannelsError(resolved.message)
+      setChannelsError({ key: 'sessaoExpirada' })
       return null
     }
 
@@ -82,13 +103,11 @@ export const ContactCenterView = () => {
         channels?: ContactCenterChannel[]
       }>('/thinkzap/openchannels')
       const loaded = res.channels ?? []
-      setChannelsError('')
+      setChannelsError(null)
       setChannels(loaded)
       return loaded
     } catch (e) {
-      setChannelsError(
-        thinkzapApiErrorMessage(e, 'Falha ao carregar os canais abertos'),
-      )
+      setChannelsError(apiError(e, 'erroCanais'))
       return null
     }
   }, [])
@@ -127,7 +146,7 @@ export const ContactCenterView = () => {
 
   const resetFeedback = () => {
     setSaved(false)
-    setSaveError('')
+    setSaveError(null)
   }
 
   const handleSave = async () => {
@@ -140,9 +159,7 @@ export const ContactCenterView = () => {
       setSaved(true)
       await loadLines()
     } catch (e) {
-      setSaveError(
-        thinkzapApiErrorMessage(e, 'Falha ao vincular o canal aberto'),
-      )
+      setSaveError(apiError(e, 'erroVincular'))
     } finally {
       setSaving(false)
     }
@@ -153,44 +170,46 @@ export const ContactCenterView = () => {
     lines?.find(line => line.id === selectedId)?.instance.vinculatedChannel ===
       selectedChannelId
 
+  const loadErrorText = errorText(loadError)
+  const channelsErrorText = errorText(channelsError)
+  const saveErrorText = errorText(saveError)
+
   const selectClassName =
     'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-sm text-neutral-900 shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none transition-colors'
 
   return (
     <div className="w-full min-h-full p-5 bg-neutral-950 text-white flex flex-col gap-5">
-      <h1 className="text-xl font-bold tracking-tight">Vincular WhatsApp</h1>
+      <h1 className="text-xl font-bold tracking-tight">{t('titulo')}</h1>
 
-      {loadError ? (
+      {loadErrorText ? (
         <p className="rounded-lg border border-red-400/40 bg-red-950/40 px-3 py-2 text-sm text-red-300">
-          {loadError}
+          {loadErrorText}
         </p>
       ) : null}
 
       <section className="rounded-xl bg-white p-5 shadow-sm border border-neutral-200 flex flex-col gap-4">
         <div>
           <h2 className="text-base font-semibold text-neutral-900 mb-1">
-            Vincular ao Canal Aberto
+            {t('secaoTitulo')}
           </h2>
           <p className="text-sm text-neutral-500 leading-relaxed">
-            Selecione o número de WhatsApp e o canal aberto que ele vai atender.
+            {t('secaoDescricao')}
           </p>
         </div>
 
         {lines === null ? (
-          loadError ? null : (
-            <p className="text-sm text-neutral-400">Carregando linhas...</p>
+          loadErrorText ? null : (
+            <p className="text-sm text-neutral-400">{t('carregandoLinhas')}</p>
           )
         ) : options.length === 0 ? (
-          <p className="text-sm text-neutral-400 italic">
-            Nenhum número disponível. Cadastre um conector primeiro.
-          </p>
+          <p className="text-sm text-neutral-400 italic">{t('nenhumNumero')}</p>
         ) : (
           <div className="flex flex-col gap-3">
             <label
               htmlFor="connector-select"
               className="text-sm font-medium text-neutral-700"
             >
-              Número WhatsApp
+              {t('numeroWhatsapp')}
             </label>
             <select
               id="connector-select"
@@ -201,10 +220,10 @@ export const ContactCenterView = () => {
               }}
               className={selectClassName}
             >
-              <option value="">Selecione um número...</option>
+              <option value="">{t('selecioneNumero')}</option>
               {options.map(option => (
                 <option key={option.id} value={option.id}>
-                  {option.label}
+                  {option.label ?? t('linhaSemNome')}
                 </option>
               ))}
             </select>
@@ -213,14 +232,16 @@ export const ContactCenterView = () => {
               htmlFor="channel-select"
               className="text-sm font-medium text-neutral-700"
             >
-              Canal aberto
+              {t('canalAberto')}
             </label>
-            {channelsError ? (
+            {channelsErrorText ? (
               <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {channelsError}
+                {channelsErrorText}
               </p>
             ) : channels === null ? (
-              <p className="text-sm text-neutral-400">Carregando canais...</p>
+              <p className="text-sm text-neutral-400">
+                {t('carregandoCanais')}
+              </p>
             ) : (
               <select
                 id="channel-select"
@@ -231,27 +252,22 @@ export const ContactCenterView = () => {
                 }}
                 className={selectClassName}
               >
-                <option value="">Selecione um canal aberto...</option>
+                <option value="">{t('selecioneCanal')}</option>
                 {channelOptions.map(option => (
                   <option key={option.id} value={option.id}>
-                    {option.label}
-                    {option.occupiedBy
-                      ? ` — vinculado a ${option.occupiedBy}`
-                      : ''}
+                    {channelLabel(option, t)}
                   </option>
                 ))}
               </select>
             )}
 
             {alreadyLinked && !saved ? (
-              <p className="text-sm text-emerald-700">
-                Este número já está vinculado a este canal aberto.
-              </p>
+              <p className="text-sm text-emerald-700">{t('jaVinculado')}</p>
             ) : null}
 
-            {saveError ? (
+            {saveErrorText ? (
               <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {saveError}
+                {saveErrorText}
               </p>
             ) : null}
 
@@ -262,11 +278,25 @@ export const ContactCenterView = () => {
               }
               className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {saving ? 'Vinculando...' : saved ? 'Vinculado!' : 'Vincular'}
+              {saving
+                ? t('vinculando')
+                : saved
+                  ? t('vinculado')
+                  : t('vincular')}
             </button>
           </div>
         )}
       </section>
     </div>
   )
+}
+
+function channelLabel(option: ContactCenterChannelOption, t: TFunction) {
+  const name = option.name ?? t('canalSemNome', { id: option.id })
+  const channel = option.active ? name : t('canalInativo', { name })
+  if (!option.occupiedBy) return channel
+  return t('vinculadoA', {
+    channel,
+    line: option.occupiedBy.label ?? t('linhaSemNome'),
+  })
 }

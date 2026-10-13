@@ -19,6 +19,12 @@
 
 ## 4. Verificação integrada no Bitrix24 (homolog)
 
-- [ ] 4.1 Em homolog, abrir Contact Center → conector ThinkZap → clicar em "Conectar" numa janela anônima (sem token prévio). Verificar: a tela carrega sem `Token not found` no console, sem aside do app, lista as linhas e os canais, e nada vem selecionado.
-- [ ] 4.2 Escolher uma linha livre e um canal e vincular. Verificar: confirmação na tela, conector ativo no canal no painel do Bitrix, e a linha mostra o canal vinculado em `/thinkzap/conexoes`; reabrindo por "Alterar" naquele canal, linha e canal vêm pré-selecionados.
-- [ ] 4.3 Tentar vincular outra linha ao mesmo canal e repetir com usuário sem permissão `connectors:update`. Verificar: mensagens do backend aparecem na tela e nada é gravado.
+- [x] 4.1 Em homolog, abrir Contact Center → conector ThinkZap → clicar em "Conectar" numa janela anônima (sem token prévio). Verificar: a tela carrega sem `Token not found` no console, sem aside do app, lista as linhas e os canais, e nada vem selecionado.
+- [x] 4.2 Escolher uma linha livre e um canal e vincular. Verificar: confirmação na tela, conector ativo no canal no painel do Bitrix, e a linha mostra o canal vinculado em `/thinkzap/conexoes`; reabrindo por "Alterar" naquele canal, linha e canal vêm pré-selecionados.
+- [x] 4.3 Tentar vincular outra linha ao mesmo canal e repetir com usuário sem permissão `connectors:update`. Verificar: mensagens do backend aparecem na tela e nada é gravado.
+
+## 5. Tradução da tela
+
+- [x] 5.1 Mover `BITRIX_LANG_TO_LOCALE` de `front/app/bitrix/install/page.tsx` para `front/bitrix/` com um helper `localeFromBitrixLang` (testado: `br`, `en`, `la`, desconhecido) e usá-lo na instalação e na página do placement (aplica só sem `readStoredLocale()`). Verificar: teste do helper passa e a instalação continua compilando.
+- [x] 5.2 Criar `messages/{pt,en,es}/thinkzap/contact-center.json` e trocar todos os textos fixos da página do placement e de `ContactCenterView` por `t(...)`. Os helpers de `contact-center-placement.ts` passam a devolver dados (nome, inativo, ocupante) em vez de texto em português, e a view monta os rótulos. Falhas de autenticação com causa conhecida (`reason`) e a falha do BX24 também são traduzidas na página; falhas do backend mostram a mensagem da API. Verificar: testes dos helpers ajustados passam; `grep` sem texto em português fixo nos dois componentes; os três JSON com as mesmas chaves; `tsc`, `eslint` e `next build` passam.
+- [ ] 5.3 Em homolog, abrir o placement com o portal em inglês e em espanhol (sem idioma escolhido no app). Verificar: todos os textos da tela no idioma do portal.

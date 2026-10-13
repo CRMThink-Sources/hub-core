@@ -53,6 +53,19 @@ describe('toLineOptions', () => {
     expect(options[0].label).toBe('Linha comercial')
   })
 
+  it('devolve label null para linha sem nome', () => {
+    const { options } = toLineOptions(
+      [
+        line({
+          phoneData: null,
+          instance: { name: ' ', vinculatedChannel: null },
+        }),
+      ],
+      7,
+    )
+    expect(options[0].label).toBeNull()
+  })
+
   it('marca e pré-seleciona a linha vinculada a este canal', () => {
     const { options, preselectedId } = toLineOptions(
       [
@@ -123,7 +136,9 @@ describe('toChannelOptions', () => {
       [line({ instance: { name: 'A', vinculatedChannel: '3' } })],
       null,
     )
-    expect(options[0].occupiedBy).toBe('5511999990000 — Comercial')
+    expect(options[0].occupiedBy).toEqual({
+      label: '5511999990000 — Comercial',
+    })
     expect(options[1].occupiedBy).toBeNull()
   })
 
@@ -131,14 +146,15 @@ describe('toChannelOptions', () => {
     const { options } = toChannelOptions(channels, [], null)
     expect(options[2]).toEqual({
       id: '9',
-      label: 'Antigo (inativo)',
+      name: 'Antigo',
+      active: false,
       occupiedBy: null,
     })
   })
 
-  it('usa o id quando o canal não tem nome', () => {
+  it('devolve name null quando o canal não tem nome', () => {
     const { options } = toChannelOptions([{ id: '4', active: true }], [], null)
-    expect(options[0].label).toBe('Canal 4')
+    expect(options[0].name).toBeNull()
   })
 
   it('aceita lista vazia', () => {
