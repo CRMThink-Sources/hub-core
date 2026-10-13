@@ -1,4 +1,5 @@
 import type { Tutorial, AtivacaoScreen } from '../../types'
+import { THINKZAP_TRIAL_DURATION_DAYS } from '@/shared/constants/thinkzap-trial'
 
 const tutorial: Tutorial<AtivacaoScreen> = {
   slug: 'ativacao',
@@ -8,7 +9,7 @@ const tutorial: Tutorial<AtivacaoScreen> = {
   steps: [
     {
       screen: 'trial',
-      title: 'Comece o teste grátis de 3 dias',
+      title: `Comece o teste grátis de ${THINKZAP_TRIAL_DURATION_DAYS} dias`,
       description:
         'O ThinkZap abre em Conexões. Escolha o tipo de conector — aqui, WhatsApp Web, que conecta pelo QR code.',
       action: 'Começar teste',
@@ -70,9 +71,8 @@ const tutorial: Tutorial<AtivacaoScreen> = {
 const screens = {
   /** Convite do teste, usado nas telas `trial` e `contact`. */
   trial: {
-    title: 'Teste o ThinkZap por 3 dias',
-    description:
-      'Escolha um tipo de conector para criar sua primeira linha. O teste é único por instalação e vale 3 dias.',
+    title: `Teste o ThinkZap por ${THINKZAP_TRIAL_DURATION_DAYS} dias`,
+    description: `Escolha um tipo de conector para criar sua primeira linha. O teste é único por instalação e vale ${THINKZAP_TRIAL_DURATION_DAYS} dias.`,
     oficialLabel: 'WhatsApp Oficial',
     start: 'Começar teste',
   },

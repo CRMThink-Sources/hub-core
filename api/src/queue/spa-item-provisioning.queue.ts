@@ -1,6 +1,7 @@
 import { Queue } from 'bullmq'
 import { bullBaseOptions } from './redis-connection'
 import { apiLogger } from '@/shared/infra/logger'
+import type { SpaEffectSource } from './spa-item-resource-sync.queue'
 
 export const SPA_ITEM_PROVISIONING = 'spa-item-provisioning'
 
@@ -9,6 +10,8 @@ export type SpaItemProvisioningJob = {
   itemId: string
   /** Correlação com a linha do webhook que originou o job. */
   traceKey: string
+  /** Ver `SpaEffectSource`: o provisionamento só nasce do webhook da SPA. */
+  source?: SpaEffectSource
 }
 
 /**

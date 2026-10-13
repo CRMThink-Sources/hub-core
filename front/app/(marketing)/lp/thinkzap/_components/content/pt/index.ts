@@ -5,6 +5,7 @@ import { GRUPOS_PT } from './tutorials/grupos'
 import { INSTALACAO_PT } from './tutorials/instalacao'
 import { ROBOS_PT } from './tutorials/robos'
 import { THINKBOT_PT } from './tutorials/thinkbot'
+import { THINKZAP_TRIAL_DURATION_DAYS } from '@/shared/constants/thinkzap-trial'
 
 /**
  * Toda a copy da LP do ThinkZap em português, num lugar só, para o comercial
@@ -213,8 +214,7 @@ export const PT: LpContent = {
       },
       {
         question: 'Consigo testar antes de contratar?',
-        answer:
-          'Sim. Depois de instalar, você ativa um teste grátis de 3 dias direto na tela de Conexões, sem falar com ninguém. O teste é único por instalação.',
+        answer: `Sim. Depois de instalar, você ativa um teste grátis de ${THINKZAP_TRIAL_DURATION_DAYS} dias direto na tela de Conexões, sem falar com ninguém. O teste é único por instalação.`,
       },
       {
         question: 'O ThinkZap tem chatbot?',

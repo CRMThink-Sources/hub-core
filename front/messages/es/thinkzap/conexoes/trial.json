@@ -1,7 +1,7 @@
 {
   "convite": {
-    "titulo": "Prueba ThinkZap por 3 días",
-    "descricao": "Elija un tipo de conector para crear su primera línea. La prueba es única por instalación y dura 3 días.",
+    "titulo": "Prueba ThinkZap por {{dias}} días",
+    "descricao": "Elija un tipo de conector para crear su primera línea. La prueba es única por instalación y dura {{dias}} días.",
     "escolher": "Comenzar prueba",
     "ZAPI": {
       "titulo": "WhatsApp Web",

@@ -310,6 +310,20 @@ export const env = {
       // O que uma assinatura provisiona, na prática um conector. Sem campo de provider:
       // o par de credenciais preenchido diz qual é (ver `subscription-item.mapper.ts`).
       subscriptionItemEntityType: 1146,
+      /**
+       * Liga os efeitos de provider dos eventos das SPAs 1146 e 1142 — provisionar,
+       * assinar, desassinar, limpar.
+       *
+       * Existe porque produção e homologação compartilham o portal, e o portal tem um
+       * webhook de saída para cada API: sem isto, o mesmo item criado no CRM provisiona
+       * duas instâncias, e homologação desassina recurso de cliente de produção.
+       *
+       * **Ligada por padrão**, e só o literal `'false'` desliga: desligar por engano em
+       * produção é linha que não provisiona; ligar por engano em homologação é o bug que
+       * isto corrige. Homologação seta `false`.
+       */
+      providerEffectsEnabled:
+        process.env.THINKZAP_SPA_PROVIDER_EFFECTS_ENABLED !== 'false',
     },
     // Item de plano na SPA 1138 que as assinaturas de trial referenciam. É configuração,
     // não dado de runtime: `PlanRepository` é só leitura, e `getPlan` lança quando o item

@@ -87,7 +87,7 @@ describe('RedisSpaItemResourceMirrorRepository', () => {
     const { redis } = makeRedis({ [KEY]: JSON.stringify(ZAPI) })
     const repo = new RedisSpaItemResourceMirrorRepository(redis)
 
-    await repo.setUnsubscribed('77', true)
+    await repo.setBillingState('77', 'unsubscribed')
 
     const mirror = await repo.find('77')
     expect(mirror?.unsubscribedAt).toEqual(expect.any(String))
@@ -96,7 +96,7 @@ describe('RedisSpaItemResourceMirrorRepository', () => {
     expect(mirror?.subscriptionId).toBe('42')
   })
 
-  it('limpa a marca removendo o campo do JSON, não gravando undefined', async () => {
+  it('marca assinado apagando a marca de desassinado — as duas são exclusivas', async () => {
     const { redis, store } = makeRedis({
       [KEY]: JSON.stringify({
         ...ZAPI,
@@ -105,20 +105,59 @@ describe('RedisSpaItemResourceMirrorRepository', () => {
     })
     const repo = new RedisSpaItemResourceMirrorRepository(redis)
 
-    await repo.setUnsubscribed('77', false)
+    await repo.setBillingState('77', 'subscribed')
 
     const stored = JSON.parse(store.get(KEY)!) as Record<string, unknown>
 
+    // O campo sai do JSON, não vira `undefined`.
     expect(Object.keys(stored)).not.toContain('unsubscribedAt')
-    expect((await repo.find('77'))?.unsubscribedAt).toBeUndefined()
+    expect((await repo.find('77'))?.subscribedAt).toEqual(expect.any(String))
+    expect((await repo.find('77'))?.instanceId).toBe('inst-1')
+  })
+
+  it('marca desassinado apagando a marca de assinado', async () => {
+    const { redis, store } = makeRedis({
+      [KEY]: JSON.stringify({ ...ZAPI, subscribedAt: '2026-08-01T00:00:00Z' }),
+    })
+    const repo = new RedisSpaItemResourceMirrorRepository(redis)
+
+    await repo.setBillingState('77', 'unsubscribed')
+
+    const stored = JSON.parse(store.get(KEY)!) as Record<string, unknown>
+    expect(Object.keys(stored)).not.toContain('subscribedAt')
+    expect(stored.unsubscribedAt).toEqual(expect.any(String))
+  })
+
+  it('regravar o mesmo recurso preserva a marca de assinado', async () => {
+    const { redis } = makeRedis({
+      [KEY]: JSON.stringify({ ...ZAPI, subscribedAt: '2026-08-01T00:00:00Z' }),
+    })
+    const repo = new RedisSpaItemResourceMirrorRepository(redis)
+
+    await repo.save('77', ZAPI)
+
+    expect((await repo.find('77'))?.subscribedAt).toBe('2026-08-01T00:00:00Z')
+  })
+
+  it('gravar recurso diferente no mesmo item começa sem marca', async () => {
+    const { redis } = makeRedis({
+      [KEY]: JSON.stringify({ ...ZAPI, subscribedAt: '2026-08-01T00:00:00Z' }),
+    })
+    const repo = new RedisSpaItemResourceMirrorRepository(redis)
+
+    await repo.save('77', { ...ZAPI, instanceId: 'inst-2' })
+
+    const mirror = await repo.find('77')
+    expect(mirror?.instanceId).toBe('inst-2')
+    expect(mirror?.subscribedAt).toBeUndefined()
   })
 
   it('marcar item sem espelho é no-op, sem criar chave', async () => {
     const { redis, set, store } = makeRedis()
 
-    await new RedisSpaItemResourceMirrorRepository(redis).setUnsubscribed(
+    await new RedisSpaItemResourceMirrorRepository(redis).setBillingState(
       '77',
-      true,
+      'subscribed',
     )
 
     expect(set).not.toHaveBeenCalled()

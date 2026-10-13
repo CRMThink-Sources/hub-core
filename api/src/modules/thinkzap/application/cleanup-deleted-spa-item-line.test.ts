@@ -138,7 +138,7 @@ const makeUseCase = (options: Options = {}) => {
   const mirrors = {
     find,
     save: vi.fn(() => Promise.resolve()),
-    setUnsubscribed: vi.fn(() => Promise.resolve()),
+    setBillingState: vi.fn(() => Promise.resolve()),
     remove,
   } as unknown as SpaItemResourceMirrorRepository
 

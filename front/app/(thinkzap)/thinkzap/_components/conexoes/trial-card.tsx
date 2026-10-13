@@ -11,6 +11,7 @@ import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
 import { formatSpaDate } from '@/lib/format-date'
 import { TrialContactDialog, type TrialContact } from './trial-contact-dialog'
 import { isProviderUnavailable } from './provider-availability'
+import { THINKZAP_TRIAL_DURATION_DAYS } from '@/shared/constants/thinkzap-trial'
 
 type TrialProvider = 'ZAPI' | 'HUBMESSAGE'
 
@@ -147,10 +148,10 @@ export function TrialCard({ onActivated }: { onActivated: () => void }) {
   return (
     <Shell tone="neutral">
       <p className="text-base font-semibold text-foreground">
-        {t('convite.titulo')}
+        {t('convite.titulo', { dias: THINKZAP_TRIAL_DURATION_DAYS })}
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
-        {t('convite.descricao')}
+        {t('convite.descricao', { dias: THINKZAP_TRIAL_DURATION_DAYS })}
       </p>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">

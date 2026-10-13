@@ -33,7 +33,7 @@ import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-obje
 const MIRRORS_DOUBLE = {
   find: vi.fn(() => Promise.resolve(null)),
   save: vi.fn(() => Promise.resolve()),
-  setUnsubscribed: vi.fn(() => Promise.resolve()),
+  setBillingState: vi.fn(() => Promise.resolve()),
   remove: vi.fn(() => Promise.resolve()),
 }
 

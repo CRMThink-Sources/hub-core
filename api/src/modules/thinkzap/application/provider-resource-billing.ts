@@ -1,4 +1,5 @@
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import type { SpaItemResourceMirrorRepository } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { ConnectorResourceRef } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
@@ -30,11 +31,18 @@ import { logThinkzapError } from '../errors/catalog'
  * **Trial nunca desassina**, porque nunca assinou (decisão 4 de
  * `add-connector-trial`). Trial expirado continua em `disconnect`.
  *
- * **O estado da assinatura manual não tem gatilho aqui.** O ciclo dela é mantido por
- * automação fora do produto. Os gatilhos são os eventos do gateway e os eventos da SPA
- * sobre o **item** — exclusão e mudança de status —, e a diferença entre os dois níveis é
- * o que separa recurso de contrato: item cancelado é uma instância ou canal que ninguém
- * usa; assinatura manual cancelada é um contrato que outra automação administra.
+ * **A assinatura manual é assinada pelos eventos da SPA.** O UPDATE do item (1146) e o
+ * da assinatura (1142) assinam a linha ativa sob contrato ativo e não trial que ainda não
+ * tenha a marca de assinado (`SyncSpaItemResourceStatus`). O **cancelamento** do
+ * contrato manual continua fora daqui: é administrado por outra automação, e o que este
+ * módulo desassina pela SPA é o item — exclusão e mudança de status. Item cancelado é
+ * uma instância ou canal que ninguém usa; contrato manual cancelado é de quem o
+ * administra.
+ *
+ * **Toda operação bem-sucedida sobre um item grava a marca de cobrança no espelho**
+ * (`subscribedAt`/`unsubscribedAt`). É o que impede os UPDATEs seguintes do item —
+ * inclusive os gerados pelas escritas da própria API — de assinar de novo o que o
+ * checkout ou a linha adicional acabaram de assinar.
  */
 
 /**
@@ -84,7 +92,14 @@ type SkipReason =
 type BillingOperation = 'subscribe' | 'unsubscribe'
 
 export class ProviderResourceBilling {
-  constructor(private readonly providerResolver: ConnectorProviderResolver) {}
+  constructor(
+    private readonly providerResolver: ConnectorProviderResolver,
+    /**
+     * Opcional: sem ele as operações seguem iguais, só sem marca. Existe como opcional
+     * para quem monta a cobrança sem Redis (scripts de operação).
+     */
+    private readonly mirrors?: SpaItemResourceMirrorRepository,
+  ) {}
 
   /**
    * Assina o recurso da linha no provider.
@@ -171,7 +186,32 @@ export class ProviderResourceBilling {
       return
     }
 
-    await this.run(operation, resolved, options, item.id)
+    const succeeded = await this.run(operation, resolved, options, item.id)
+    if (succeeded) await this.mark(item.id, operation)
+  }
+
+  /**
+   * A marca é melhor esforço: a operação no provider já aconteceu, e falhar aqui custa no
+   * máximo um subscribe repetido no próximo UPDATE do item. Propagar desfaria, para o
+   * chamador, uma ativação que deu certo.
+   */
+  private async mark(
+    itemId: string,
+    operation: BillingOperation,
+  ): Promise<void> {
+    if (!this.mirrors) return
+
+    try {
+      await this.mirrors.setBillingState(
+        itemId,
+        operation === 'subscribe' ? 'subscribed' : 'unsubscribed',
+      )
+    } catch (error) {
+      apiLogger.warn(
+        { app: 'thinkzap', subscriptionItemId: itemId, operation, err: error },
+        'Operação no provider concluída, mas a marca de cobrança não foi gravada no espelho',
+      )
+    }
   }
 
   private async run(
@@ -179,7 +219,7 @@ export class ProviderResourceBilling {
     resource: ProviderResourceRef,
     options?: ProviderBillingOptions,
     subscriptionItemId?: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const provider = providerOf(resource)
     /**
      * Só os campos que **aquele** provider usa. Mandar `channelId: null` para a Z-API
@@ -205,6 +245,8 @@ export class ProviderResourceBilling {
       } else {
         await adapter.unsubscribe(ref, reason)
       }
+
+      return true
     } catch (error) {
       logThinkzapError(
         apiLogger,
@@ -229,6 +271,7 @@ export class ProviderResourceBilling {
 
       // O log já saiu; propagar é sobre **quem retenta**, não sobre observabilidade.
       if (options?.propagate) throw error
+      return false
     }
   }
 }

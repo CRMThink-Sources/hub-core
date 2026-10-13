@@ -49,4 +49,5 @@ export const spaItemResourceMirrorSchema: z.ZodType<SpaItemResourceMirror> =
     channelId: z.string().min(1).optional(),
     subscriptionId: z.string().min(1),
     unsubscribedAt: z.string().min(1).optional(),
+    subscribedAt: z.string().min(1).optional(),
   })

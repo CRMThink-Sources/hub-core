@@ -21,6 +21,11 @@ export type EnqueueDeleteLineCleanup = (job: {
   traceKey: string
   deletedBy: string
   deletedAt: string
+  /**
+   * `app`: a limpeza é do próprio ambiente, sobre um recurso dele — roda mesmo onde os
+   * efeitos de provider do webhook da SPA estão desligados.
+   */
+  source: 'app'
 }) => Promise<unknown>
 
 export type DeleteLineInput = {
@@ -149,6 +154,7 @@ export class DeleteLine {
       traceKey: randomUUID(),
       deletedBy,
       deletedAt: deletedAt.toISOString(),
+      source: 'app',
     })
   }
 }

@@ -95,6 +95,14 @@ function parseEvent(
     : null
 }
 
+/** As SPAs cujos eventos têm efeito sobre o recurso no provider. */
+function isProviderEffectSpa(entityTypeId: number): boolean {
+  return (
+    entityTypeId === env.payments.spa.subscriptionItemEntityType ||
+    entityTypeId === env.payments.spa.subscriptionEntityType
+  )
+}
+
 /**
  * Comparação de tempo constante entre o token recebido e o configurado.
  *
@@ -120,6 +128,18 @@ function tokenMatches(received: string, expected: string): boolean {
 export type EnqueueSpaItemProvisioning = (job: {
   itemId: string
   traceKey: string
+  /**
+   * Sempre `spa-webhook` daqui. Vai no job para o worker distinguir o efeito pedido pelo
+   * evento da SPA — que só produção executa — do pedido pelo próprio app.
+   */
+  source: 'spa-webhook'
+}) => Promise<unknown>
+
+/** Enfileira a reconciliação de cobrança das linhas de uma assinatura da SPA 1142. */
+export type EnqueueSubscriptionBillingSync = (job: {
+  subscriptionId: string
+  traceKey: string
+  source: 'spa-webhook'
 }) => Promise<unknown>
 
 /**
@@ -145,6 +165,8 @@ export type SpaWebhookEffects = {
   enqueueCleanup: EnqueueSpaItemProvisioning
   /** `UPDATE` na SPA 1146: reconcilia o recurso com o status do item. */
   enqueueStatusSync: EnqueueSpaItemProvisioning
+  /** `UPDATE` na SPA 1142: reconcilia a cobrança de cada linha da assinatura. */
+  enqueueSubscriptionBillingSync: EnqueueSubscriptionBillingSync
   /** `DELETE` na SPA 1060: devolve `core_apps.spa_id` a `NULL`. */
   unlinkAplicationSpaItem: UnlinkAplicationSpaItem
 }
@@ -170,6 +192,12 @@ export class SpaWebhookController extends Controller {
     private readonly invalidate: InvalidateSpaCache,
     private readonly expectedToken: string,
     private readonly effects: SpaWebhookEffects,
+    /**
+     * `false` em homologação: o portal é o mesmo de produção, e os dois ambientes recebem
+     * os mesmos eventos. Desligado, nenhum efeito que toque o provider é enfileirado — a
+     * invalidação continua, porque o cache é de cada ambiente.
+     */
+    private readonly providerEffectsEnabled: boolean = true,
   ) {
     super()
   }
@@ -231,7 +259,20 @@ export class SpaWebhookController extends Controller {
      * releem o item do Bitrix. Enfileirar antes deixaria o worker correndo contra uma
      * entrada de cache velha da própria SPA que ele acabou de ler.
      */
-    await this.dispatchItemEffect({ entityTypeId, verb, itemId, event })
+    if (this.providerEffectsEnabled) {
+      await this.dispatchItemEffect({ entityTypeId, verb, itemId, event })
+      await this.dispatchSubscriptionEffect({
+        entityTypeId,
+        verb,
+        itemId,
+        event,
+      })
+    } else if (isProviderEffectSpa(entityTypeId)) {
+      apiLogger.debug(
+        { app: 'payments', verb, entityTypeId, itemId },
+        'Efeitos de provider desligados neste ambiente — evento da SPA só invalida cache',
+      )
+    }
     await this.dispatchAplicationUnlink({ entityTypeId, verb, itemId, event })
 
     return this.ok(result)
@@ -303,6 +344,7 @@ export class SpaWebhookController extends Controller {
       await effect.enqueue({
         itemId: args.itemId,
         traceKey: `spa-item-${args.itemId}`,
+        source: 'spa-webhook',
       })
     } catch (error) {
       /**
@@ -314,6 +356,47 @@ export class SpaWebhookController extends Controller {
       apiLogger.error(
         { app: 'payments', itemId: args.itemId, verb: args.verb, err: error },
         effect.failureMessage,
+      )
+    }
+  }
+
+  /**
+   * Reconcilia a cobrança das linhas quando a assinatura (SPA 1142) é editada.
+   *
+   * Existe pela assinatura manual: ela costuma nascer com os itens antes de virar
+   * "Ativo", e a mudança de status acontece na 1142 — sem evento nenhum na 1146. Sem
+   * este gatilho a linha só seria assinada no provider no próximo toque no item.
+   *
+   * Só `UPDATE`: na criação a assinatura ainda não tem itens, e a exclusão de contrato
+   * é administrada pelo gateway ou pela automação da modalidade manual.
+   */
+  private async dispatchSubscriptionEffect(args: {
+    entityTypeId: number
+    verb: EventVerb
+    itemId: string | undefined
+    event: string | undefined
+  }): Promise<void> {
+    if (args.verb !== 'UPDATE') return
+    if (args.entityTypeId !== env.payments.spa.subscriptionEntityType) return
+
+    if (!args.itemId) {
+      apiLogger.warn(
+        { app: 'payments', event: args.event },
+        'Atualização de assinatura sem id — nada a reconciliar',
+      )
+      return
+    }
+
+    try {
+      await this.effects.enqueueSubscriptionBillingSync({
+        subscriptionId: args.itemId,
+        traceKey: `spa-subscription-${args.itemId}`,
+        source: 'spa-webhook',
+      })
+    } catch (error) {
+      apiLogger.error(
+        { app: 'payments', subscriptionId: args.itemId, err: error },
+        'Não foi possível enfileirar a cobrança das linhas da assinatura — linhas podem ficar sem assinar no provider',
       )
     }
   }
