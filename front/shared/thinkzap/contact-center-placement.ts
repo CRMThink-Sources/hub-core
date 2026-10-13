@@ -79,3 +79,60 @@ function lineLabel(line: ContactCenterLine): string {
   if (phone) return name ? `${phone} — ${name}` : phone
   return line.instance.name?.trim() || 'Linha sem nome'
 }
+
+/** O que `/thinkzap/openchannels` devolve por canal. */
+export type ContactCenterChannel = {
+  id: string | number
+  active: boolean
+  name?: string | null
+}
+
+export type ContactCenterChannelOption = {
+  id: string
+  label: string
+  /** Rótulo da linha que já ocupa o canal, se houver. */
+  occupiedBy: string | null
+}
+
+/**
+ * Canais abertos para o seletor e a pré-seleção.
+ *
+ * O `LINE` do placement **não** é a escolha do usuário: o Bitrix manda um canal
+ * mesmo quando o usuário clica em "Conectar" sem escolher nenhum — é o que o
+ * painel dele deixa selecionado por padrão. Usá-lo como destino vinculava a linha
+ * a um canal que ninguém escolheu. Ele só pré-seleciona quando uma linha já está
+ * vinculada a ele: aí é "Alterar", e o vínculo gravado confirma o canal.
+ */
+export function toChannelOptions(
+  channels: ContactCenterChannel[],
+  lines: ContactCenterLine[],
+  placementLine: number | null,
+): { options: ContactCenterChannelOption[]; preselectedChannelId: string } {
+  const occupants = new Map<string, string>()
+  for (const line of lines) {
+    const channel = line.instance.vinculatedChannel
+    if (channel && !occupants.has(channel)) {
+      occupants.set(channel, lineLabel(line))
+    }
+  }
+
+  const options = channels.map(channel => {
+    const id = String(channel.id)
+    const name = channel.name?.trim() || `Canal ${id}`
+    return {
+      id,
+      label: channel.active ? name : `${name} (inativo)`,
+      occupiedBy: occupants.get(id) ?? null,
+    }
+  })
+
+  const placement = placementLine === null ? null : String(placementLine)
+  const preselectedChannelId =
+    placement !== null &&
+    occupants.has(placement) &&
+    options.some(option => option.id === placement)
+      ? placement
+      : ''
+
+  return { options, preselectedChannelId }
+}

@@ -27,17 +27,19 @@
 
 2. **Fluxo da página igual ao de `/widgets/conversations`.** `isInsideIframe()` falso → `BitrixOnlyNotice`. Dentro: `BX24Script` → `useBX24` → `authenticateBitrixWithBackend` → `writeAppToken(result.app.appCode, token)` → renderiza `ContactCenterView` só autenticado. `ContactCenterView` deixa de autenticar por conta própria (vira componente que assume token presente) e mantém `fitWindow`/leitura de `placement.info()`.
 
-3. **Canal aberto: `options.LINE`, com fallback para `LINE_ID`.** Normaliza para número; ausente ou não numérico → botão desabilitado com aviso (spec "Placement sem canal aberto identificado").
+3. **Canal do placement só como dica de pré-seleção.** `resolvePlacementLine` lê `options.LINE` (fallback `LINE_ID`). No teste em homolog, clicar em "Conectar" sem escolher canal vinculou a linha ao canal que o painel do Bitrix deixa selecionado por padrão: o Bitrix **sempre** manda um `LINE`, então ele não expressa escolha do usuário. Ele só pré-seleciona quando já existe linha com `instance.vinculatedChannel === String(LINE)` — o caso "Alterar".
+   - *Alternativa:* usar `ACTIVE_STATUS` do placement para distinguir "Conectar" de "Alterar". Rejeitada: o vínculo gravado na linha é a fonte que o produto já usa e não depende de semântica não documentada do placement.
 
-4. **Lista e pré-seleção a partir de `/thinkzap/connector/list`.** Mostrar todas as linhas devolvidas (o endpoint já filtra bloqueadas e sem provider), rotuladas por `phoneData.phone — phoneData.name` ou `instance.name`. A linha com `instance.vinculatedChannel === String(LINE)` aparece como "vinculada a este canal" e vem pré-selecionada. Deixa de filtrar por `phoneData`: linha desconectada no provider ainda pode ser vinculada, igual à tela da linha.
+4. **Seletor de canal com `GET /thinkzap/openchannels`.** Mesmo endpoint e mesma permissão (`connectors:read`) da aba Ajustes da linha. Rótulo pelo nome do canal (`(inativo)` quando `active === false`); canal com `vinculatedChannel` de outra linha mostra `— vinculado a <linha>`, montado a partir da própria lista de linhas, sem chamada extra. O backend continua sendo quem recusa canal ocupado. Linhas e canais carregam em paralelo; falha nos canais desabilita o botão. Lista de linhas como antes (`/thinkzap/connector/list`, rótulo `phone — name` ou `instance.name`, sem filtrar por `phoneData`).
 
-5. **Vincular via `useLineApi(id).linkChannel(line)`.** Sucesso só após resposta `ok`; atualiza a linha marcada como vinculada recarregando a lista. Erro → `thinkzapApiErrorMessage(e, 'Falha ao vincular o canal aberto')`, mantendo a seleção. Sem `BX24.reloadWindow()` automático — o usuário vê a confirmação; o painel do Contact Center reflete o conector ativo ao reabrir.
+5. **Vincular via `useLineApi(lineId).linkChannel(Number(channelId))`.** Botão exige linha **e** canal escolhidos. Sucesso só após resposta `ok`; recarrega as linhas para refletir o vínculo e os canais ocupados. Erro → `thinkzapApiErrorMessage(e, 'Falha ao vincular o canal aberto')`, mantendo a seleção. Sem `BX24.reloadWindow()` automático.
 
 6. **Erros de permissão.** `403` dos dois endpoints viram a mensagem da API (já em pt-br) via `thinkzapApiErrorMessage`; nada de `throw` no render ou em efeitos.
 
 ## Risks / Trade-offs
 
-- [Formato de `placement.info().options` diferente do esperado (string JSON em vez de objeto) em algum portal] → normalizar: se `options` for string, fazer `JSON.parse` protegido; registrar em `console.warn` quando o canal não for identificado.
+- [Formato de `placement.info().options` diferente do esperado (string JSON em vez de objeto) em algum portal] → normalizar: se `options` for string, fazer `JSON.parse` protegido; canal não identificado só deixa de pré-selecionar.
+- [Usuário escolhe um canal diferente do que o painel do Bitrix mostra no topo] → é o comportamento pedido; o conector é ativado no canal escolhido e o painel reflete isso ao reabrir.
 - [Duas pastas `thinkzap/` em groups diferentes confundem quem procura a página] → comentário no topo da nova página explicando por que ela vive em `(widgets)` e que a URL é o handler registrado.
 - [Placement aberto por operador sem permissão `connectors:update`] → spec cobre: mensagem de permissão, sem vínculo.
 
