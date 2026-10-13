@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { Worker } from 'bullmq'
 import { bullBaseOptions } from '@/queue/redis-connection'
 import {
@@ -5,11 +6,14 @@ import {
   SPA_ITEM_RESOURCE_SYNC,
   SPA_ITEM_STATUS_JOB,
   SpaItemResourceSyncJob,
+  SUBSCRIPTION_BILLING_SYNC_JOB,
+  SubscriptionBillingSyncJob,
 } from '@/queue/spa-item-resource-sync.queue'
 import { workerLogger } from '@/shared/infra/logger'
 import {
   processSpaItemCleanup,
   processSpaItemStatusSync,
+  processSubscriptionBillingSync,
 } from './spa-item-resource-sync.processor'
 import { jobFailureLogFields } from '@/shared/infra/log-error'
 
@@ -27,6 +31,13 @@ export const spaItemResourceSyncWorker = new Worker(
 
     if (job.name === SPA_ITEM_STATUS_JOB) {
       await processSpaItemStatusSync(data)
+      return
+    }
+
+    if (job.name === SUBSCRIPTION_BILLING_SYNC_JOB) {
+      await processSubscriptionBillingSync(
+        job.data as SubscriptionBillingSyncJob,
+      )
       return
     }
 
@@ -48,7 +59,9 @@ export const spaItemResourceSyncWorker = new Worker(
 )
 
 spaItemResourceSyncWorker.on('failed', (job, err) => {
-  const data = job?.data as SpaItemResourceSyncJob | undefined
+  const data = job?.data as
+    | (Partial<SpaItemResourceSyncJob> & Partial<SubscriptionBillingSyncJob>)
+    | undefined
 
   // Log de transporte (tentativas); o detalhe já foi logado no caso de uso.
   workerLogger.error(
@@ -59,6 +72,7 @@ spaItemResourceSyncWorker.on('failed', (job, err) => {
       jobId: job?.id,
       jobName: job?.name,
       itemId: data?.itemId,
+      subscriptionId: data?.subscriptionId,
       traceKey: data?.traceKey,
       attemptsMade: job?.attemptsMade,
       attemptsAllowed: job?.opts.attempts,
@@ -70,7 +84,12 @@ spaItemResourceSyncWorker.on('failed', (job, err) => {
 
 spaItemResourceSyncWorker.on('ready', () => {
   workerLogger.info(
-    { event: 'worker.ready', app: 'thinkzap', queue: SPA_ITEM_RESOURCE_SYNC },
+    {
+      event: 'worker.ready',
+      app: 'thinkzap',
+      queue: SPA_ITEM_RESOURCE_SYNC,
+      spaProviderEffectsEnabled: env.payments.spa.providerEffectsEnabled,
+    },
     'SPA item resource sync worker is ready',
   )
 })

@@ -5,6 +5,7 @@ import { ProviderResourceBilling } from './provider-resource-billing'
 import { apiLogger } from '@/shared/infra/logger'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import type { SpaItemResourceMirrorRepository } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 
@@ -294,6 +295,72 @@ describe('ProviderResourceBilling', () => {
         instanceId: 'inst-1',
         zApiToken: 'tok-1',
       })
+    })
+  })
+
+  /**
+   * A marca é o que impede o UPDATE seguinte do item — o próprio checkout escreve na
+   * SPA — de assinar de novo o que acabou de ser assinado aqui.
+   */
+  describe('marca de cobrança no espelho', () => {
+    const makeMirrors = (failing = false) => {
+      const setBillingState = vi.fn(() =>
+        failing ? Promise.reject(new Error('redis fora')) : Promise.resolve(),
+      )
+      return {
+        mirrors: {
+          setBillingState,
+        } as unknown as SpaItemResourceMirrorRepository,
+        setBillingState,
+      }
+    }
+
+    it('marca assinado depois do subscribe bem-sucedido', async () => {
+      const { resolver } = makeResolver()
+      const { mirrors, setBillingState } = makeMirrors()
+
+      await new ProviderResourceBilling(resolver, mirrors).subscribe(zApiItem)
+
+      expect(setBillingState).toHaveBeenCalledWith('77', 'subscribed')
+    })
+
+    it('marca desassinado depois do unsubscribe bem-sucedido', async () => {
+      const { resolver } = makeResolver()
+      const { mirrors, setBillingState } = makeMirrors()
+
+      await new ProviderResourceBilling(resolver, mirrors).unsubscribe(hubItem)
+
+      expect(setBillingState).toHaveBeenCalledWith('77', 'unsubscribed')
+    })
+
+    it('não marca quando o provider falha', async () => {
+      const { resolver } = makeResolver({ failing: true })
+      const { mirrors, setBillingState } = makeMirrors()
+
+      await new ProviderResourceBilling(resolver, mirrors).subscribe(zApiItem)
+
+      expect(setBillingState).not.toHaveBeenCalled()
+    })
+
+    it('não marca item sem credencial', async () => {
+      const { resolver } = makeResolver()
+      const { mirrors, setBillingState } = makeMirrors()
+
+      await new ProviderResourceBilling(resolver, mirrors).subscribe(noneItem)
+
+      expect(setBillingState).not.toHaveBeenCalled()
+    })
+
+    it('falha ao marcar vira warn e não desfaz a ativação', async () => {
+      const { resolver, adapter } = makeResolver()
+      const { mirrors } = makeMirrors(true)
+
+      await expect(
+        new ProviderResourceBilling(resolver, mirrors).subscribe(zApiItem),
+      ).resolves.toBeUndefined()
+
+      expect(adapter.subscribe).toHaveBeenCalled()
+      expect(apiLogger.warn).toHaveBeenCalled()
     })
   })
 })

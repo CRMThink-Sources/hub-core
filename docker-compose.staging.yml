@@ -7,6 +7,10 @@ services:
       - "4001:4001"
     env_file:
       - ./api/.env
+    # Portal compartilhado com produção: homologação não provisiona, não assina e não
+    # limpa recurso de provider a partir dos eventos das SPAs 1146/1142. Ver DEPLOY.md.
+    environment:
+      - THINKZAP_SPA_PROVIDER_EFFECTS_ENABLED=false
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -36,6 +40,8 @@ services:
     container_name: hubthink-worker-spa-provisioning-staging
     env_file:
       - ./api/.env
+    environment:
+      - THINKZAP_SPA_PROVIDER_EFFECTS_ENABLED=false
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/workers/spa-item-provisioning.worker.js"]
@@ -48,6 +54,8 @@ services:
     container_name: hubthink-worker-spa-resource-sync-staging
     env_file:
       - ./api/.env
+    environment:
+      - THINKZAP_SPA_PROVIDER_EFFECTS_ENABLED=false
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/workers/spa-item-resource-sync.worker.js"]

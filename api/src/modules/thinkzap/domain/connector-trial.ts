@@ -9,8 +9,13 @@ import type { Subscription } from '@/modules/application/domain/entities/subscri
  * chamador já tem em mãos.
  */
 
-/** Duração do trial, em dias de calendário. Regra de negócio, não parâmetro. */
-export const TRIAL_DURATION_DAYS = 3
+/**
+ * Duração do trial, em dias de calendário. Regra de negócio, não parâmetro.
+ *
+ * Espelhada em `THINKZAP_TRIAL_DURATION_DAYS` no front (`shared/constants/thinkzap-trial.ts`),
+ * de onde saem os textos que citam a duração — mudar aqui exige mudar lá.
+ */
+export const TRIAL_DURATION_DAYS = 7
 
 /**
  * Fuso do contrato.

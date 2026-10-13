@@ -21,7 +21,7 @@ const makeMirrors = (options: { failing?: boolean } = {}) => {
     mirrors: {
       find: vi.fn(),
       save,
-      setUnsubscribed: vi.fn(),
+      setBillingState: vi.fn(),
       remove: vi.fn(),
     } as unknown as SpaItemResourceMirrorRepository,
     save,

@@ -124,6 +124,8 @@ describe('DeleteLineController', () => {
       traceKey: expect.any(String) as string,
       deletedBy: 'Ana Souza',
       deletedAt: expect.any(String) as string,
+      // Limpeza do próprio ambiente: roda mesmo com efeitos do webhook desligados.
+      source: 'app',
     })
   })
 

@@ -1,3 +1,4 @@
+import { env } from '@/config/env'
 import { Worker } from 'bullmq'
 import { bullBaseOptions } from '@/queue/redis-connection'
 import {
@@ -42,7 +43,12 @@ spaItemProvisioningWorker.on('failed', (job, err) => {
 
 spaItemProvisioningWorker.on('ready', () => {
   workerLogger.info(
-    { event: 'worker.ready', app: 'thinkzap', queue: SPA_ITEM_PROVISIONING },
+    {
+      event: 'worker.ready',
+      app: 'thinkzap',
+      queue: SPA_ITEM_PROVISIONING,
+      spaProviderEffectsEnabled: env.payments.spa.providerEffectsEnabled,
+    },
     'SPA item provisioning worker is ready',
   )
 })

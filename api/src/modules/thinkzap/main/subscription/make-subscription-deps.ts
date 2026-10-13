@@ -71,6 +71,14 @@ export function makeSubscriptionDeps() {
     instanceGateway: new ZApiInstanceGateway(zApiClient),
   })
 
+  /**
+   * O espelho do recurso, no mesmo Redis do cache — mas **sem TTL**, porque ele não é
+   * cache: é a única cópia da credencial que sobrevive ao item apagado, e as marcas de
+   * cobrança que tornam os gatilhos da SPA idempotentes. Entra também na cobrança, que
+   * grava a marca a cada operação bem-sucedida.
+   */
+  const mirrors = new RedisSpaItemResourceMirrorRepository(redisConnection)
+
   return {
     bitrixClient,
     getAplicationContext: makeGetAplicationContext(),
@@ -78,13 +86,8 @@ export function makeSubscriptionDeps() {
     subscriptions,
     items: makeSubscriptionItemRepository(),
     providerResolver,
-    providerBilling: new ProviderResourceBilling(providerResolver),
-    /**
-     * O espelho do recurso, no mesmo Redis do cache — mas **sem TTL**, porque ele não é
-     * cache: é a única cópia da credencial que sobrevive ao item apagado, e a marca de
-     * desassinado que torna o gatilho de status idempotente.
-     */
-    mirrors: new RedisSpaItemResourceMirrorRepository(redisConnection),
+    providerBilling: new ProviderResourceBilling(providerResolver, mirrors),
+    mirrors,
   }
 }
 

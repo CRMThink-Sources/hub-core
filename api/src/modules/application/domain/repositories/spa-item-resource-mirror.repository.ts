@@ -9,6 +9,11 @@
  * para o log, não para lógica — comparar datas aqui exigiria confiar no relógio de dois
  * processos.
  *
+ * `subscribedAt` é a **marca de assinado**, o par dela: presente significa que um caminho
+ * nosso assinou o recurso no provider. É o que torna o subscribe idempotente frente aos
+ * UPDATEs repetidos do item — o payload do evento não traz o valor anterior. As duas
+ * marcas são **mutuamente exclusivas**: gravar uma apaga a outra (`setBillingState`).
+ *
  * Não há `status` do item aqui, de propósito. O status é do item, muda por edição no CRM,
  * e guardá-lo criaria um segundo lugar para ele divergir — o job lê o item de qualquer
  * forma.
@@ -22,15 +27,19 @@ export type SpaItemResourceMirror = {
   /** Id do item pai na SPA 1142. */
   subscriptionId: string
   unsubscribedAt?: string
+  subscribedAt?: string
 }
 
+/** O estado de cobrança do recurso no provider que um caminho nosso confirmou. */
+export type SpaItemResourceBillingState = 'subscribed' | 'unsubscribed'
+
 /**
- * O que se grava ao provisionar: tudo menos a marca de desassinado, que só o ciclo de
+ * O que se grava ao provisionar: tudo menos as marcas de cobrança, que só o ciclo de
  * cobrança escreve.
  */
 export type SaveSpaItemResourceMirrorInput = Omit<
   SpaItemResourceMirror,
-  'unsubscribedAt'
+  'unsubscribedAt' | 'subscribedAt'
 >
 
 /**
@@ -47,14 +56,21 @@ export type SaveSpaItemResourceMirrorInput = Omit<
  */
 export interface SpaItemResourceMirrorRepository {
   find(itemId: string): Promise<SpaItemResourceMirror | null>
-  /** Sobrescreve o valor inteiro, **sem TTL**. Perde a marca de desassinado. */
+  /**
+   * Sobrescreve o valor, **sem TTL**. Preserva as marcas de cobrança quando o recurso é o
+   * mesmo (mesmo provider e id remoto): regravar a credencial não muda o que o provider
+   * cobra. Recurso diferente começa sem marca.
+   */
   save(itemId: string, mirror: SaveSpaItemResourceMirrorInput): Promise<void>
   /**
-   * Grava ou limpa a marca de desassinado, preservando o resto do valor.
+   * Grava a marca do estado de cobrança e apaga a outra, preservando o resto do valor.
    *
    * Espelho ausente é no-op: sem credencial não há o que marcar, e criar o espelho aqui
    * gravaria um recurso que ninguém confirmou existir.
    */
-  setUnsubscribed(itemId: string, unsubscribed: boolean): Promise<void>
+  setBillingState(
+    itemId: string,
+    state: SpaItemResourceBillingState,
+  ): Promise<void>
   remove(itemId: string): Promise<void>
 }

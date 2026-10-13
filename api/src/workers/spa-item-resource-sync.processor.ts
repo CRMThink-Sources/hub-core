@@ -1,8 +1,13 @@
+import { env } from '@/config/env'
 import { makeCleanupDeletedSpaItemLine } from '@/modules/thinkzap/main/make-cleanup-deleted-spa-item-line'
 import { makeSyncSpaItemResourceStatus } from '@/modules/thinkzap/main/make-sync-spa-item-resource-status'
+import { makeSyncSubscriptionLinesBilling } from '@/modules/thinkzap/main/make-sync-subscription-lines-billing'
 import {
+  isDisabledSpaEffect,
   SPA_ITEM_RESOURCE_SYNC,
+  type SpaEffectSource,
   type SpaItemResourceSyncJob,
+  type SubscriptionBillingSyncJob,
 } from '@/queue/spa-item-resource-sync.queue'
 import { workerLogger } from '@/shared/infra/logger'
 
@@ -14,6 +19,25 @@ import { workerLogger } from '@/shared/infra/logger'
 const log = workerLogger.child({ queue: SPA_ITEM_RESOURCE_SYNC })
 
 /**
+ * `true` quando o job veio do webhook da SPA num ambiente com efeitos de provider
+ * desligados — o que estava enfileirado antes da flag. Descartado sem erro: retentar não
+ * muda o ambiente. A limpeza pedida pelo próprio app (`source: 'app'`) passa.
+ */
+function skipDisabled(
+  job: { source?: SpaEffectSource; traceKey: string },
+  ids: Record<string, string>,
+  providerEffectsEnabled: boolean,
+): boolean {
+  if (!isDisabledSpaEffect(job.source, providerEffectsEnabled)) return false
+
+  log.info(
+    { app: 'thinkzap', ...ids, traceKey: job.traceKey, outcome: 'disabled' },
+    'Efeitos de provider desligados neste ambiente — job do webhook da SPA descartado',
+  )
+  return true
+}
+
+/**
  * Limpa o recurso remoto de um item apagado na SPA 1146.
  *
  * A fábrica é chamada **por job**, e não uma vez no módulo, pelo mesmo motivo dos outros
@@ -23,7 +47,10 @@ const log = workerLogger.child({ queue: SPA_ITEM_RESOURCE_SYNC })
  */
 export async function processSpaItemCleanup(
   job: SpaItemResourceSyncJob,
+  providerEffectsEnabled = env.payments.spa.providerEffectsEnabled,
 ): Promise<void> {
+  if (skipDisabled(job, { itemId: job.itemId }, providerEffectsEnabled)) return
+
   const result = await makeCleanupDeletedSpaItemLine().execute({
     itemId: job.itemId,
     traceKey: job.traceKey,
@@ -54,7 +81,10 @@ export async function processSpaItemCleanup(
  */
 export async function processSpaItemStatusSync(
   job: SpaItemResourceSyncJob,
+  providerEffectsEnabled = env.payments.spa.providerEffectsEnabled,
 ): Promise<void> {
+  if (skipDisabled(job, { itemId: job.itemId }, providerEffectsEnabled)) return
+
   const result = await makeSyncSpaItemResourceStatus().execute({
     itemId: job.itemId,
     traceKey: job.traceKey,
@@ -68,5 +98,41 @@ export async function processSpaItemStatusSync(
       outcome: result.outcome,
     },
     'Sincronização de status do item concluída',
+  )
+}
+
+/**
+ * Reconcilia a cobrança no provider de cada linha de uma assinatura editada na SPA 1142.
+ *
+ * Desfecho em `debug`, como o do item: o caso de uso já registra em `info` quando
+ * assinou algo, e a falha parcial sobe para a fila retentar.
+ */
+export async function processSubscriptionBillingSync(
+  job: SubscriptionBillingSyncJob,
+  providerEffectsEnabled = env.payments.spa.providerEffectsEnabled,
+): Promise<void> {
+  if (
+    skipDisabled(
+      job,
+      { subscriptionId: job.subscriptionId },
+      providerEffectsEnabled,
+    )
+  ) {
+    return
+  }
+
+  const result = await makeSyncSubscriptionLinesBilling().execute({
+    subscriptionId: job.subscriptionId,
+    traceKey: job.traceKey,
+  })
+
+  log.debug(
+    {
+      app: 'thinkzap',
+      subscriptionId: job.subscriptionId,
+      traceKey: job.traceKey,
+      ...result,
+    },
+    'Cobrança das linhas da assinatura concluída',
   )
 }

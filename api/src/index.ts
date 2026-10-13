@@ -33,5 +33,11 @@ io.on('connection', socket => {
 })
 
 httpServer.listen(env.port, () => {
-  apiLogger.info({ port: env.port }, 'API running')
+  apiLogger.info(
+    {
+      port: env.port,
+      spaProviderEffectsEnabled: env.payments.spa.providerEffectsEnabled,
+    },
+    'API running',
+  )
 })

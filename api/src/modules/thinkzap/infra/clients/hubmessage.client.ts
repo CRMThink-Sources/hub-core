@@ -54,6 +54,18 @@ export class HubMessageApiError extends Error {
  * Cliente REST da HubMessage (WhatsApp Oficial). Credenciais vêm da configuração
  * de ambiente; nada é hardcoded. Base: `https://api.hubmessage.io`.
  */
+/** A resposta da HubMessage para subscribe em canal que já está pago. */
+export function isHubMessageAlreadyPaid(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false
+  const data: unknown = error.response?.data
+
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as { type?: unknown }).type === 'ALREADY_PAID'
+  )
+}
+
 export class HubMessageClient {
   private readonly http: AxiosInstance
 
@@ -207,8 +219,20 @@ export class HubMessageClient {
     return data
   }
 
+  /**
+   * Assinar canal **já pago** é sucesso, não falha. A HubMessage responde
+   * `{ type: 'ALREADY_PAID', message: 'Instância já está ativa.' }` (confirmado em
+   * 2026-10-13); se vier como erro HTTP, é engolido aqui. Os gatilhos da SPA dependem
+   * disto: linha assinada antes da marca de assinado existir recebe um subscribe
+   * repetido no primeiro UPDATE.
+   */
   async subscribeChannel(channelId: string): Promise<void> {
-    await this.http.get(`/v1/channels/${channelId}/subscribe`)
+    try {
+      await this.http.get(`/v1/channels/${channelId}/subscribe`)
+    } catch (error) {
+      if (isHubMessageAlreadyPaid(error)) return
+      throw error
+    }
   }
 
   async disconnectChannel(channelId: string): Promise<void> {

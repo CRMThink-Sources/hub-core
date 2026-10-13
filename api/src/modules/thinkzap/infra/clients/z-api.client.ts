@@ -51,6 +51,19 @@ function logZApiSend(
   )
 }
 
+/** A resposta da Z-API para subscribe em instância que já tem assinatura paga. */
+export function isZApiAlreadySubscribed(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false
+  const data: unknown = error.response?.data
+
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as { subscriptionStatus?: unknown }).subscriptionStatus ===
+      'ALREADY_ACTIVE'
+  )
+}
+
 export class ZApiClient {
   private readonly zApiToken: string
   private readonly clientToken: string | null = null
@@ -86,9 +99,17 @@ export class ZApiClient {
     }
   }
 
+  /**
+   * Assinar instância **já assinada** é sucesso, não falha. A Z-API responde
+   * `{ subscriptionStatus: 'ALREADY_ACTIVE', error: 'there is already a paid subscription
+   * for this instance' }` (confirmado em 2026-10-13), e o estado que o chamador quer —
+   * instância paga — já vale. Os gatilhos da SPA dependem disto: linha assinada antes da
+   * marca de assinado existir recebe um subscribe repetido no primeiro UPDATE, e tratar
+   * isso como falha deixaria o job retentando até esgotar.
+   */
   async subscribe(id: string, token: string): Promise<void> {
     try {
-      const { data } = await this.http.post<void>(
+      await this.http.post(
         `https://api.z-api.io/instances/${id}/token/${token}/integrator/on-demand/subscription`,
         {},
         {
@@ -97,8 +118,14 @@ export class ZApiClient {
           },
         },
       )
-      return data
     } catch (error) {
+      if (isZApiAlreadySubscribed(error)) {
+        apiLogger.info(
+          { app: 'thinkzap', provider: 'ZAPI', instanceId: id },
+          'Instância já assinada na Z-API — subscribe tratado como concluído',
+        )
+        return
+      }
       throw thinkzapError('thinkzap.zapi.instance_subscribe_failed', error)
     }
   }

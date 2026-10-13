@@ -1,6 +1,7 @@
 import type IORedis from 'ioredis'
 import {
   SaveSpaItemResourceMirrorInput,
+  SpaItemResourceBillingState,
   SpaItemResourceMirror,
   SpaItemResourceMirrorRepository,
 } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
@@ -45,14 +46,34 @@ export class RedisSpaItemResourceMirrorRepository implements SpaItemResourceMirr
     return parsed.data
   }
 
+  /**
+   * Lê antes de gravar para carregar as marcas de cobrança do mesmo recurso: o
+   * provisionamento e o `ensureMirror` regravam a credencial, e perder a marca de
+   * assinado ali faria o próximo UPDATE do item assinar de novo.
+   */
   async save(
     itemId: string,
     mirror: SaveSpaItemResourceMirrorInput,
   ): Promise<void> {
-    await this.redis.set(
-      spaItemResourceMirrorKey(itemId),
-      JSON.stringify(mirror),
-    )
+    const current = await this.find(itemId)
+    const sameResource =
+      current !== null &&
+      current.provider === mirror.provider &&
+      current.instanceId === mirror.instanceId
+
+    const next: SpaItemResourceMirror = {
+      ...mirror,
+      ...(sameResource &&
+        current.subscribedAt !== undefined && {
+          subscribedAt: current.subscribedAt,
+        }),
+      ...(sameResource &&
+        current.unsubscribedAt !== undefined && {
+          unsubscribedAt: current.unsubscribedAt,
+        }),
+    }
+
+    await this.redis.set(spaItemResourceMirrorKey(itemId), JSON.stringify(next))
   }
 
   /**
@@ -62,22 +83,27 @@ export class RedisSpaItemResourceMirrorRepository implements SpaItemResourceMirr
    * determinístico por item, então duas marcações concorrentes do **mesmo** item não
    * acontecem pelo caminho normal. Se acontecerem, as duas escrevem o mesmo valor.
    */
-  async setUnsubscribed(itemId: string, unsubscribed: boolean): Promise<void> {
+  async setBillingState(
+    itemId: string,
+    state: SpaItemResourceBillingState,
+  ): Promise<void> {
     const current = await this.find(itemId)
 
     // Espelho ausente: nada a marcar. Criá-lo aqui gravaria um recurso cuja credencial
     // este repositório não tem.
     if (!current) {
       apiLogger.debug(
-        { app: 'payments', itemId, unsubscribed },
-        'Espelho do recurso ausente — marca de desassinado não gravada',
+        { app: 'payments', itemId, state },
+        'Espelho do recurso ausente — marca de cobrança não gravada',
       )
       return
     }
 
-    const next: SpaItemResourceMirror = unsubscribed
-      ? { ...current, unsubscribedAt: new Date().toISOString() }
-      : withoutMark(current)
+    const now = new Date().toISOString()
+    const next: SpaItemResourceMirror =
+      state === 'subscribed'
+        ? { ...withoutMarks(current), subscribedAt: now }
+        : { ...withoutMarks(current), unsubscribedAt: now }
 
     await this.redis.set(spaItemResourceMirrorKey(itemId), JSON.stringify(next))
   }
@@ -88,9 +114,10 @@ export class RedisSpaItemResourceMirrorRepository implements SpaItemResourceMirr
 }
 
 /** `delete` num objeto novo: o campo tem que **sair**, não virar `undefined` no JSON. */
-function withoutMark(mirror: SpaItemResourceMirror): SpaItemResourceMirror {
+function withoutMarks(mirror: SpaItemResourceMirror): SpaItemResourceMirror {
   const next = { ...mirror }
   delete next.unsubscribedAt
+  delete next.subscribedAt
 
   return next
 }
