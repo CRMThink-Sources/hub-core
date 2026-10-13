@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveStripeEnvironment } from './env'
+import {
+  parseManualSubscriptionGraceDays,
+  parseSubscriptionExpirationEnabled,
+  resolveStripeEnvironment,
+} from './env'
 
 /**
  * O ambiente do gateway é lido do prefixo da chave, e não de `NODE_ENV`. Estes casos
@@ -41,5 +45,37 @@ describe('resolveStripeEnvironment', () => {
     expect(resolveStripeEnvironment('sk_live')).toBe('homolog')
     expect(resolveStripeEnvironment('live_sk_abc')).toBe('homolog')
     expect(resolveStripeEnvironment('  sk_live_abc123')).toBe('homolog')
+  })
+})
+
+describe('parseSubscriptionExpirationEnabled', () => {
+  it('segue os efeitos de provider quando ausente', () => {
+    expect(parseSubscriptionExpirationEnabled(undefined, true)).toBe(true)
+    expect(parseSubscriptionExpirationEnabled(undefined, false)).toBe(false)
+  })
+
+  it('só os literais explícitos sobrescrevem', () => {
+    expect(parseSubscriptionExpirationEnabled('true', false)).toBe(true)
+    expect(parseSubscriptionExpirationEnabled('false', true)).toBe(false)
+    expect(parseSubscriptionExpirationEnabled('', false)).toBe(false)
+    expect(parseSubscriptionExpirationEnabled('yes', false)).toBe(false)
+  })
+})
+
+describe('parseManualSubscriptionGraceDays', () => {
+  it('ausente ou vazio é 0', () => {
+    expect(parseManualSubscriptionGraceDays(undefined)).toBe(0)
+    expect(parseManualSubscriptionGraceDays('')).toBe(0)
+  })
+
+  it('aceita inteiros não negativos', () => {
+    expect(parseManualSubscriptionGraceDays('0')).toBe(0)
+    expect(parseManualSubscriptionGraceDays('3')).toBe(3)
+  })
+
+  it('inválido vira 0', () => {
+    expect(parseManualSubscriptionGraceDays('-1')).toBe(0)
+    expect(parseManualSubscriptionGraceDays('abc')).toBe(0)
+    expect(parseManualSubscriptionGraceDays('1.5')).toBe(0)
   })
 })

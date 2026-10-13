@@ -20,14 +20,18 @@ export interface Subscription {
   plan: Plan
   /**
    * `trial_expired` (enum `14353`, "Teste expirado" na SPA) é o teste encerrado
-   * **por marcação**, feita de fora do produto — operação ou automação do CRM.
-   * Nenhum caminho daqui o escreve; o produto só o lê. Ele é gravável pelo mesmo
-   * mapa que o lê para não existir um segundo mapa capaz de dessincronizar.
+   * **por marcação**: pela operação no CRM ou pela varredura horária de
+   * `ExpireSubscriptions`, que marca o `trialing` cujo período terminou. É gravado
+   * pelo mesmo mapa que o lê para não existir um segundo mapa capaz de
+   * dessincronizar.
    *
-   * Não confundir com `trialing` fora da janela, que é o teste expirado **pelo
-   * tempo**. Os dois são de teste e resolvem o mesmo entitlement; a diferença é
-   * quem encerrou. Use o predicado de `connector-trial.ts` em vez de comparar
-   * com literais — é o que evita um status novo virar um bug por chamador.
+   * `trialing` fora da janela é o teste expirado **pelo tempo**, antes de a
+   * varredura alcançá-lo. Os dois são de teste e resolvem o mesmo entitlement; a
+   * diferença é quem encerrou. Use o predicado de `connector-trial.ts` em vez de
+   * comparar com literais — é o que evita um status novo virar um bug por chamador.
+   *
+   * A mesma varredura passa a `past_due` a assinatura **manual** `active` cujo
+   * período terminou há mais que a carência (`env.payments.expiration`).
    */
   status: 'active' | 'past_due' | 'cancelled' | 'trialing' | 'trial_expired'
   /**

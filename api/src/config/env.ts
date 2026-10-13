@@ -54,6 +54,46 @@ export function bitrixBotWebhookFromApiUrl(apiUrl: string | undefined): string {
   return `${base}${prefixo}/webhooks/bitrix-bot`
 }
 
+/**
+ * Liga o job de expiração de assinaturas. Só os literais `'true'` e `'false'`
+ * sobrescrevem; ausente ou qualquer outro valor segue `fallback` — os efeitos de
+ * provider da SPA. Homologação, que já desliga aqueles, fica desligada aqui sem
+ * configuração nova: o portal é o mesmo de produção, e só um ambiente grava status.
+ */
+export function parseSubscriptionExpirationEnabled(
+  raw: string | undefined,
+  fallback: boolean,
+): boolean {
+  if (raw === 'true') return true
+  if (raw === 'false') return false
+  return fallback
+}
+
+/**
+ * Carência, em dias inteiros, antes de a assinatura manual vencida virar
+ * `past_due`. Inválido vira `0` com aviso: o valor seguro é o que a spec chama de
+ * padrão, e derrubar o boot por isso pararia a API inteira.
+ *
+ * `console.warn` e não o logger: o logger lê este módulo, e importá-lo aqui seria
+ * ciclo.
+ */
+export function parseManualSubscriptionGraceDays(
+  raw: string | undefined,
+): number {
+  if (raw === undefined || raw.trim() === '') return 0
+
+  const days = Number(raw)
+  if (Number.isInteger(days) && days >= 0) return days
+
+  console.warn(
+    `[env] MANUAL_SUBSCRIPTION_GRACE_DAYS inválido (${JSON.stringify(raw)}) — usando 0`,
+  )
+  return 0
+}
+
+const providerEffectsEnabled =
+  process.env.THINKZAP_SPA_PROVIDER_EFFECTS_ENABLED !== 'false'
+
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   logLevel: process.env.LOG_LEVEL ?? 'info',
@@ -322,8 +362,20 @@ export const env = {
        * produção é linha que não provisiona; ligar por engano em homologação é o bug que
        * isto corrige. Homologação seta `false`.
        */
-      providerEffectsEnabled:
-        process.env.THINKZAP_SPA_PROVIDER_EFFECTS_ENABLED !== 'false',
+      providerEffectsEnabled,
+    },
+    /**
+     * Job que grava o status das assinaturas da SPA 1142 cujo período terminou:
+     * trial vira `trial_expired`, manual vira `past_due` depois da carência.
+     */
+    expiration: {
+      enabled: parseSubscriptionExpirationEnabled(
+        process.env.SUBSCRIPTION_EXPIRATION_ENABLED,
+        providerEffectsEnabled,
+      ),
+      manualGraceDays: parseManualSubscriptionGraceDays(
+        process.env.MANUAL_SUBSCRIPTION_GRACE_DAYS,
+      ),
     },
     // Item de plano na SPA 1138 que as assinaturas de trial referenciam. É configuração,
     // não dado de runtime: `PlanRepository` é só leitura, e `getPlan` lança quando o item
