@@ -4,6 +4,7 @@
   "navClients": "Clients",
   "navUsers": "Users",
   "navMcpUsers": "MCP Users",
+  "navJobs": "Jobs",
   "greeting": "Hello, {{name}}",
   "description": "Manage Hubthink clients, applications, and settings.",
   "clientsCardDescription": "Browse Bitrix24 portals and installed applications per domain.",

@@ -1,17 +1,12 @@
+import { SubscriptionExpirationResult } from '@/modules/application/domain/entities/subscription-expiration-run'
 import { ExpiringSubscriptionLister } from '@/modules/application/domain/repositories/expiring-subscription.lister'
 import { SubscriptionRepository } from '@/modules/application/domain/repositories/subscription.repository'
 import { resolveExpiredSubscriptionStatus } from '@/modules/application/domain/subscription-expiration'
 import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
 import { apiLogger } from '@/shared/infra/logger'
 
-export type ExpireSubscriptionsSummary = {
-  checked: number
-  trialExpired: number
-  pastDue: number
-  failed: number
-  /** A rodada parou no meio porque o Bitrix pausou o método. */
-  paused: boolean
-}
+/** Contadores e o detalhe do que mudou ou falhou — o que o histórico grava. */
+export type ExpireSubscriptionsSummary = SubscriptionExpirationResult
 
 /**
  * Grava na SPA 1142 o status das assinaturas cujo período terminou: trial vira
@@ -43,6 +38,7 @@ export class ExpireSubscriptions {
       pastDue: 0,
       failed: 0,
       paused: false,
+      changes: [],
     }
 
     try {
@@ -66,6 +62,14 @@ export class ExpireSubscriptions {
           if (status === 'trial_expired') summary.trialExpired++
           else summary.pastDue++
 
+          summary.changes.push({
+            subscriptionId: subscription.id,
+            from: subscription.status,
+            to: status,
+            periodEnd: subscription.currentPeriodEnd,
+            succeeded: true,
+          })
+
           apiLogger.info(
             {
               app: 'shared',
@@ -80,6 +84,14 @@ export class ExpireSubscriptions {
           if (error instanceof BitrixMethodPausedError) throw error
 
           summary.failed++
+          summary.changes.push({
+            subscriptionId: subscription.id,
+            from: subscription.status,
+            to: status,
+            periodEnd: subscription.currentPeriodEnd,
+            succeeded: false,
+            error: error instanceof Error ? error.message : String(error),
+          })
           apiLogger.error(
             {
               app: 'shared',
@@ -101,8 +113,10 @@ export class ExpireSubscriptions {
       )
     }
 
+    /** Só os contadores: o detalhe por assinatura já saiu linha a linha acima. */
+    const { changes: _changes, ...counters } = summary
     apiLogger.info(
-      { app: 'shared', ...summary },
+      { app: 'shared', ...counters },
       'Varredura de expiração de assinaturas concluída',
     )
 

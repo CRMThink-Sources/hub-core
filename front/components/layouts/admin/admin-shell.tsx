@@ -17,6 +17,7 @@ const navItems = [
     labelKey: 'navMcpUsers' as const,
     exact: false,
   },
+  { href: '/admin/jobs', labelKey: 'navJobs' as const, exact: false },
 ]
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

@@ -1,0 +1,70 @@
+{
+  "title": "Jobs",
+  "description": "Histórico da varredura de expiração de assinaturas (SPA 1142), que roda a cada hora.",
+  "notCancelNotice": "A varredura não cancela assinaturas. Ela só passa \"Em teste\" para \"Teste expirado\" e manual \"Ativo\" para \"Vencido\" quando o período termina.",
+  "runNow": "Rodar agora",
+  "refresh": "Atualizar",
+  "confirmTitle": "Rodar a varredura agora?",
+  "confirmDescription": "Todas as assinaturas da SPA 1142 com período encerrado terão o status gravado no CRM, como na rodada agendada.",
+  "confirm": "Rodar agora",
+  "cancel": "Cancelar",
+  "startedToast": "Rodada iniciada.",
+  "busyToast": "Já existe uma rodada em andamento. Tente de novo em instantes.",
+  "disabledToast": "A varredura está desligada neste ambiente.",
+  "startErrorToast": "Não foi possível iniciar a rodada.",
+  "filterOnlyWithChanges": "Só com alterações ou falhas",
+  "filterTrigger": "Gatilho",
+  "filterAllTriggers": "Todos",
+  "trigger": {
+    "scheduled": "Agendada",
+    "manual": "Manual"
+  },
+  "runStatus": {
+    "running": "Em andamento",
+    "success": "Concluída",
+    "failed": "Falhou",
+    "abandoned": "Abandonada"
+  },
+  "pausedBadge": "Pausada pelo Bitrix",
+  "table": {
+    "startedAt": "Início",
+    "duration": "Duração",
+    "trigger": "Gatilho",
+    "triggeredBy": "Disparada por",
+    "status": "Resultado",
+    "checked": "Verificadas",
+    "trialExpired": "Testes expirados",
+    "pastDue": "Vencidas",
+    "failed": "Falhas"
+  },
+  "system": "Sistema",
+  "durationSeconds": "{{value}} s",
+  "detailTitle": "Rodada de {{date}}",
+  "detailEmpty": "Nenhuma assinatura foi alterada nesta rodada.",
+  "detailError": "Erro da rodada: {{error}}",
+  "change": {
+    "subscription": "Assinatura",
+    "transition": "Status",
+    "periodEnd": "Fim do período",
+    "result": "Resultado",
+    "succeeded": "Gravado",
+    "failed": "Falhou",
+    "openCrm": "Abrir no CRM"
+  },
+  "subscriptionStatus": {
+    "active": "Ativo",
+    "trialing": "Em teste",
+    "past_due": "Vencido",
+    "cancelled": "Cancelado",
+    "trial_expired": "Teste expirado"
+  },
+  "emptyTitle": "Nenhuma rodada encontrada",
+  "emptyDescription": "Nenhuma rodada corresponde aos filtros.",
+  "errorTitle": "Erro ao carregar as rodadas",
+  "errorDescription": "Não foi possível carregar o histórico. Tente novamente.",
+  "detailLoadError": "Não foi possível carregar a rodada.",
+  "retry": "Tentar novamente",
+  "page": "Página {{current}} de {{total}}",
+  "previous": "Anterior",
+  "next": "Próxima"
+}
