@@ -300,25 +300,24 @@ describe('SyncSpaItemResourceStatus', () => {
     },
   )
 
-  it.each(['past_due', 'cancelled'] as const)(
-    'não assina sob assinatura %s',
-    async status => {
-      const items = makeItems(rawItem())
-      const mirrors = makeMirrors(MIRROR)
-      const billing = makeBilling()
-      const parents = makeParents(status)
+  /** Sob assinatura cancelada a linha é desassinada — ver `assinatura pai cancelada`. */
+  it('não assina nem desassina sob assinatura past_due', async () => {
+    const items = makeItems(rawItem())
+    const mirrors = makeMirrors(MIRROR)
+    const billing = makeBilling()
+    const parents = makeParents('past_due')
 
-      const result = await new SyncSpaItemResourceStatus(
-        items.items,
-        mirrors.mirrors,
-        billing.billing,
-        parents.reader,
-      ).execute(INPUT)
+    const result = await new SyncSpaItemResourceStatus(
+      items.items,
+      mirrors.mirrors,
+      billing.billing,
+      parents.reader,
+    ).execute(INPUT)
 
-      expect(result.outcome).toBe('noop')
-      expect(billing.subscribeResource).not.toHaveBeenCalled()
-    },
-  )
+    expect(result.outcome).toBe('noop')
+    expect(billing.subscribeResource).not.toHaveBeenCalled()
+    expect(billing.unsubscribeResource).not.toHaveBeenCalled()
+  })
 
   it('reassina quando o item volta a ativo sob assinatura ativa', async () => {
     const items = makeItems(rawItem())
@@ -363,6 +362,99 @@ describe('SyncSpaItemResourceStatus', () => {
 
     expect(result.outcome).toBe('noop')
     expect(billing.subscribeResource).not.toHaveBeenCalled()
+  })
+
+  describe('assinatura pai cancelada', () => {
+    it('desassina linha assinada com o status vindo do fan-out, sem reler o pai', async () => {
+      const items = makeItems(rawItem())
+      const mirrors = makeMirrors({
+        ...MIRROR,
+        subscribedAt: '2026-08-01T00:00:00.000Z',
+      })
+      const billing = makeBilling()
+      const parents = makeParents('active')
+
+      const result = await new SyncSpaItemResourceStatus(
+        items.items,
+        mirrors.mirrors,
+        billing.billing,
+        parents.reader,
+      ).execute({ ...INPUT, parentStatus: 'cancelled' })
+
+      expect(result.outcome).toBe('unsubscribed')
+      expect(parents.getSubscriptionStatus).not.toHaveBeenCalled()
+      expect(billing.unsubscribeResource).toHaveBeenCalledWith(
+        { provider: 'ZAPI', instanceId: 'inst-1', zApiToken: 'tok-1' },
+        { origin: 'subscription-cancelled', propagate: true },
+      )
+      expect(mirrors.setBillingState).toHaveBeenCalledWith('77', 'unsubscribed')
+      expect(mirrors.current()?.subscribedAt).toBeUndefined()
+      expect(mirrors.current()?.unsubscribedAt).toBeDefined()
+    })
+
+    /** O UPDATE do item não ganha ida extra ao Bitrix: quem desassina é o fan-out. */
+    it('sem o status do fan-out, não lê o pai de linha já assinada', async () => {
+      const items = makeItems(rawItem())
+      const mirrors = makeMirrors({
+        ...MIRROR,
+        subscribedAt: '2026-08-01T00:00:00.000Z',
+      })
+      const billing = makeBilling()
+      const parents = makeParents('cancelled')
+
+      const result = await new SyncSpaItemResourceStatus(
+        items.items,
+        mirrors.mirrors,
+        billing.billing,
+        parents.reader,
+      ).execute(INPUT)
+
+      expect(result.outcome).toBe('noop')
+      expect(parents.getSubscriptionStatus).not.toHaveBeenCalled()
+      expect(billing.unsubscribeResource).not.toHaveBeenCalled()
+    })
+
+    it('sem o status do fan-out, desassina linha ativa sem marca sob pai lido como cancelado', async () => {
+      const items = makeItems(rawItem())
+      const mirrors = makeMirrors(MIRROR)
+      const billing = makeBilling()
+      const parents = makeParents('cancelled')
+
+      const result = await new SyncSpaItemResourceStatus(
+        items.items,
+        mirrors.mirrors,
+        billing.billing,
+        parents.reader,
+      ).execute(INPUT)
+
+      expect(result.outcome).toBe('unsubscribed')
+      expect(parents.getSubscriptionStatus).toHaveBeenCalledWith('42')
+      expect(billing.unsubscribeResource).toHaveBeenCalledWith(
+        expect.anything(),
+        { origin: 'subscription-cancelled', propagate: true },
+      )
+    })
+
+    it('não grava a marca quando a desassinatura falha, e propaga', async () => {
+      const items = makeItems(rawItem())
+      const mirrors = makeMirrors({
+        ...MIRROR,
+        subscribedAt: '2026-08-01T00:00:00.000Z',
+      })
+      const billing = makeBilling({ failing: true })
+
+      await expect(
+        new SyncSpaItemResourceStatus(
+          items.items,
+          mirrors.mirrors,
+          billing.billing,
+          makeParents().reader,
+        ).execute({ ...INPUT, parentStatus: 'cancelled' }),
+      ).rejects.toThrow('provider fora')
+
+      expect(mirrors.setBillingState).not.toHaveBeenCalled()
+      expect(mirrors.current()?.subscribedAt).toBeDefined()
+    })
   })
 
   it('não assina item ativo sem assinatura pai, e registra warn', async () => {

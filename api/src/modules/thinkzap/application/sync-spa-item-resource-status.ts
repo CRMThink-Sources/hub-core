@@ -2,6 +2,7 @@ import {
   SaveSpaItemResourceMirrorInput,
   SpaItemResourceMirrorRepository,
 } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
+import type { Subscription } from '@/modules/application/domain/entities/subscription'
 import { RawSubscriptionItemReader } from '@/modules/thinkzap/domain/ports/raw-subscription-item-reader.port'
 import { apiLogger } from '@/shared/infra/logger'
 import {
@@ -9,7 +10,10 @@ import {
   ProviderResourceRef,
 } from './provider-resource-billing'
 import { resolveRawItemResource } from './helpers/raw-item-resource'
-import { resolveProviderBillingAction } from './helpers/resolve-provider-billing-action'
+import {
+  resolveProviderBillingAction,
+  type ProviderUnsubscribeReason,
+} from './helpers/resolve-provider-billing-action'
 import type { SubscriptionStatusReader } from '@/modules/thinkzap/domain/ports/subscription-status-reader.port'
 
 export type SyncSpaItemResourceStatusInput = {
@@ -17,10 +21,22 @@ export type SyncSpaItemResourceStatusInput = {
   itemId: string
   /** Correlação com a linha do webhook que originou o job. */
   traceKey: string
+  /**
+   * Status da assinatura pai já lido por quem chama — `null` quando ela não existe.
+   *
+   * Presente, ele vale sempre e o pai não é relido. É o caso do fan-out da assinatura
+   * (`SyncSubscriptionLinesBilling`): a decisão de desassinar por pai cancelado depende
+   * dele também para linha já assinada, que no UPDATE do item não lê o pai. Ausente,
+   * vale a leitura preguiçosa de sempre.
+   */
+  parentStatus?: Subscription['status'] | null
 }
 
 export type SyncSpaItemResourceStatusOutcome =
-  /** Status `cancelled` sem marca de desassinado: recurso desassinado agora. */
+  /**
+   * Item `cancelled`, ou assinatura pai `cancelled`, sem marca de desassinado: recurso
+   * desassinado agora.
+   */
   | 'unsubscribed'
   /**
    * Status `active` sob assinatura ativa e não trial, sem marca de assinado: recurso
@@ -61,6 +77,10 @@ export type SyncSpaItemResourceStatusResult = {
  * é assinado no provider — é o caminho da assinatura manual, que nenhum outro fluxo
  * assina. O mesmo caso de uso roda por item quando a assinatura (SPA 1142) é editada
  * (`SyncSubscriptionLinesBilling`).
+ *
+ * **E desassina por contrato cancelado.** Assinatura pai `cancelled` desassina a linha,
+ * ativa ou não. O fan-out da assinatura passa o status do pai, e é por ele que linha já
+ * assinada é desassinada — o UPDATE do item não relê o pai dessas linhas.
  *
  * **Só o eixo do dinheiro.** `unsubscribe` e `subscribe`, nunca `disconnect`: cancelar o
  * status é reversível — o item continua lá —, e desconectar custaria ao cliente uma
@@ -138,16 +158,20 @@ export class SyncSpaItemResourceStatus {
     const mirror = await this.mirrors.find(input.itemId)
 
     /**
-     * O pai só é lido quando a decisão depende dele — item ativo ainda não assinado. Este
-     * job roda a cada edição de campo do item, e a imensa maioria termina em `noop` sem
-     * precisar de uma segunda ida ao Bitrix.
+     * Sem o status vindo de quem chama, o pai só é lido quando a decisão depende dele —
+     * item ativo ainda não assinado. Este job roda a cada edição de campo do item, e a
+     * imensa maioria termina em `noop` sem precisar de uma segunda ida ao Bitrix. Linha
+     * assinada sob pai cancelado é desassinada pelo fan-out da assinatura, que passa o
+     * status.
      */
     const needsParent =
       item.status === 'active' && mirror?.subscribedAt === undefined
     const parentStatus =
-      needsParent && item.subscriptionId
-        ? await this.subscriptions.getSubscriptionStatus(item.subscriptionId)
-        : null
+      input.parentStatus !== undefined
+        ? input.parentStatus
+        : needsParent && item.subscriptionId
+          ? await this.subscriptions.getSubscriptionStatus(item.subscriptionId)
+          : null
 
     const decision = resolveProviderBillingAction({
       itemStatus: item.status,
@@ -156,7 +180,13 @@ export class SyncSpaItemResourceStatus {
     })
 
     if (decision.action === 'unsubscribe') {
-      return this.unsubscribe({ log, input, item, resource })
+      return this.unsubscribe({
+        log,
+        input,
+        item,
+        resource,
+        reason: decision.reason,
+      })
     }
 
     if (decision.action === 'subscribe') {
@@ -197,9 +227,12 @@ export class SyncSpaItemResourceStatus {
     input: SyncSpaItemResourceStatusInput
     item: { subscriptionId: string | null }
     resource: ProviderResourceRef
+    reason: ProviderUnsubscribeReason
   }): Promise<SyncSpaItemResourceStatusResult> {
+    const parentCancelled = args.reason === 'parent-cancelled'
+
     await this.billing.unsubscribeResource(args.resource, {
-      origin: 'spa-item-status',
+      origin: parentCancelled ? 'subscription-cancelled' : 'spa-item-status',
       propagate: true,
     })
 
@@ -221,8 +254,11 @@ export class SyncSpaItemResourceStatus {
         ...args.log,
         provider: args.resource.provider,
         resourceId: args.resource.instanceId,
+        reason: args.reason,
       },
-      'Item cancelado na SPA — recurso desassinado no provider',
+      parentCancelled
+        ? 'Assinatura cancelada na SPA — recurso desassinado no provider'
+        : 'Item cancelado na SPA — recurso desassinado no provider',
     )
 
     return { outcome: 'unsubscribed' }

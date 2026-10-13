@@ -1,4 +1,5 @@
 import type { SubscriptionItemIdLister } from '@/modules/thinkzap/domain/ports/subscription-item-id-lister.port'
+import type { SubscriptionStatusReader } from '@/modules/thinkzap/domain/ports/subscription-status-reader.port'
 import { apiLogger } from '@/shared/infra/logger'
 import type {
   SyncSpaItemResourceStatus,
@@ -14,30 +15,36 @@ export type SyncSubscriptionLinesBillingInput = {
 export type SyncSubscriptionLinesBillingResult = {
   items: number
   subscribed: number
+  unsubscribed: number
   failed: number
 }
 
 /**
- * Reconcilia a cobrança no provider de **cada** linha de uma assinatura editada.
+ * Reconcilia a cobrança no provider de **cada** linha de uma assinatura editada, nos
+ * dois sentidos.
  *
- * Existe pela assinatura manual: ela é criada no CRM com os itens, e só depois o time
- * muda o status dela para "Ativo" — uma edição na SPA 1142, que não gera evento nenhum
- * nos itens. Sem isto, as linhas ficariam provisionadas e funcionando sem nunca serem
- * assinadas no provider, até alguém tocar em cada item.
+ * Existe pela assinatura manual, cujo status é mudado à mão no CRM — uma edição na SPA
+ * 1142, que não gera evento nenhum nos itens:
+ *
+ * - **"Ativo"**: ela é criada com os itens e só depois ativada. Sem isto, as linhas
+ *   ficariam provisionadas e funcionando sem nunca serem assinadas no provider.
+ * - **"Cancelado"**: sem isto, seguiríamos pagando ao provider pelas linhas de quem saiu.
+ *   Vale também para a Stripe, onde o gateway já desassinou e marcou, e então é `noop`.
  *
  * **Não reimplementa a regra.** Cada item passa por `SyncSpaItemResourceStatus`, o mesmo
- * caso de uso do UPDATE do item: a decisão de assinar, a marca e a idempotência ficam num
- * lugar só. O custo é reler a assinatura uma vez por item, que é pouco perto de duas
- * regras se dessincronizando.
+ * caso de uso do UPDATE do item: a decisão, a marca e a idempotência ficam num lugar só.
+ * O status da assinatura é lido **uma vez** aqui e repassado a cada item — é ele que faz
+ * a linha já assinada ser desassinada, porque o UPDATE do item não relê o pai dela.
  *
  * **Uma linha falhando não trava as outras.** As falhas são coletadas e o job lança no
- * fim, para a fila retentar. No retry, as linhas já assinadas têm a marca e terminam em
- * `noop` — só a que falhou chama o provider de novo.
+ * fim, para a fila retentar. No retry, as linhas já reconciliadas têm a marca e terminam
+ * em `noop` — só a que falhou chama o provider de novo.
  */
 export class SyncSubscriptionLinesBilling {
   constructor(
     private readonly itemIds: SubscriptionItemIdLister,
     private readonly syncItem: Pick<SyncSpaItemResourceStatus, 'execute'>,
+    private readonly subscriptions: SubscriptionStatusReader,
   ) {}
 
   async execute(
@@ -51,6 +58,12 @@ export class SyncSubscriptionLinesBilling {
 
     const ids = await this.itemIds.listSubscriptionItemIds(input.subscriptionId)
 
+    /** `null` (assinatura sumiu) é repassado: cada item cai em `parent-missing`. */
+    const parentStatus =
+      ids.length > 0
+        ? await this.subscriptions.getSubscriptionStatus(input.subscriptionId)
+        : null
+
     const outcomes: SyncSpaItemResourceStatusOutcome[] = []
     const failures: Array<{ itemId: string; error: unknown }> = []
 
@@ -59,6 +72,7 @@ export class SyncSubscriptionLinesBilling {
         const result = await this.syncItem.execute({
           itemId,
           traceKey: input.traceKey,
+          parentStatus,
         })
         outcomes.push(result.outcome)
       } catch (error) {
@@ -69,6 +83,8 @@ export class SyncSubscriptionLinesBilling {
     const result: SyncSubscriptionLinesBillingResult = {
       items: ids.length,
       subscribed: outcomes.filter(outcome => outcome === 'subscribed').length,
+      unsubscribed: outcomes.filter(outcome => outcome === 'unsubscribed')
+        .length,
       failed: failures.length,
     }
 
@@ -89,13 +105,13 @@ export class SyncSubscriptionLinesBilling {
     }
 
     /**
-     * `info` só quando algo foi assinado: o UPDATE da 1142 também é o caminho de toda
-     * escrita do gateway na assinatura, e quase sempre termina sem efeito.
+     * `info` só quando algo mudou no provider: o UPDATE da 1142 também é o caminho de
+     * toda escrita do gateway na assinatura, e quase sempre termina sem efeito.
      */
-    if (result.subscribed > 0) {
+    if (result.subscribed + result.unsubscribed > 0) {
       apiLogger.info(
-        { ...log, ...result },
-        'Linhas da assinatura assinadas no provider',
+        { ...log, ...result, parentStatus },
+        'Cobrança das linhas da assinatura reconciliada no provider',
       )
     } else {
       apiLogger.debug(

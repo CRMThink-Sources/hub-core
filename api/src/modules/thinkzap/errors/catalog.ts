@@ -38,6 +38,14 @@ export const THINKZAP_ERRORS = {
     retriable: true,
     httpStatus: 502,
   },
+  'thinkzap.zapi.instance_unsubscribe_failed': {
+    category: 'integration',
+    userCause: 'Cancelar a assinatura da linha na z-api falhou.',
+    remediation:
+      'Tentar de novo em instantes; se persistir, verificar status da z-api e cancelar a assinatura da instância no painel.',
+    retriable: true,
+    httpStatus: 502,
+  },
   'thinkzap.zapi.instance_update_failed': {
     category: 'integration',
     userCause: 'Atualizar os dados da linha na z-api falhou.',

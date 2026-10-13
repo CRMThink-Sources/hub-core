@@ -245,6 +245,20 @@ describe('ProviderResourceBilling', () => {
       expect(deletedReason).toEqual(expect.any(String))
     })
 
+    it('identifica o cancelamento da assinatura no CRM', async () => {
+      const { resolver, adapter } = makeResolver()
+
+      await new ProviderResourceBilling(resolver).unsubscribeResource(
+        { provider: 'HUBMESSAGE', instanceId: 'chan-1', channelId: 'chan-1' },
+        { origin: 'subscription-cancelled' },
+      )
+
+      expect(adapter.unsubscribe).toHaveBeenCalledWith(
+        { instanceId: 'chan-1', channelId: 'chan-1' },
+        'Assinatura cancelada no CRM',
+      )
+    })
+
     it('engole a falha por padrão — o chamador do gateway está dentro de um webhook', async () => {
       const { resolver } = makeResolver({ failing: true })
 

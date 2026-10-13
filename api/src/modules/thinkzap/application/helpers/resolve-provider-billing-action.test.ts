@@ -53,18 +53,26 @@ describe('resolveProviderBillingAction', () => {
       },
     )
 
-    it.each(['past_due', 'cancelled'] as const)(
-      'não assina sob pai %s',
-      parentStatus => {
-        expect(
-          resolveProviderBillingAction({
-            itemStatus: 'active',
-            parentStatus,
-            mirror: null,
-          }),
-        ).toEqual({ action: 'noop', reason: 'parent-inactive' })
-      },
-    )
+    it('não assina sob pai past_due', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'active',
+          parentStatus: 'past_due',
+          mirror: null,
+        }),
+      ).toEqual({ action: 'noop', reason: 'parent-inactive' })
+    })
+
+    /** Inadimplência é transitória: linha já assinada continua assinada. */
+    it('não desassina sob pai past_due', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'active',
+          parentStatus: 'past_due',
+          mirror: SUBSCRIBED,
+        }),
+      ).toEqual({ action: 'noop', reason: 'in-sync' })
+    })
 
     it('não reassina sob pai cancelado — mudança de comportamento intencional', () => {
       expect(
@@ -73,7 +81,17 @@ describe('resolveProviderBillingAction', () => {
           parentStatus: 'cancelled',
           mirror: UNSUBSCRIBED,
         }),
-      ).toEqual({ action: 'noop', reason: 'parent-inactive' })
+      ).toEqual({ action: 'noop', reason: 'in-sync' })
+    })
+
+    it('não desassina linha assinada sem pai legível', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'active',
+          parentStatus: null,
+          mirror: SUBSCRIBED,
+        }),
+      ).toEqual({ action: 'noop', reason: 'in-sync' })
     })
 
     it('não assina sem pai', () => {
@@ -87,16 +105,64 @@ describe('resolveProviderBillingAction', () => {
     })
   })
 
+  describe('pai cancelado', () => {
+    it('desassina linha ativa marcada como assinada', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'active',
+          parentStatus: 'cancelled',
+          mirror: SUBSCRIBED,
+        }),
+      ).toEqual({ action: 'unsubscribe', reason: 'parent-cancelled' })
+    })
+
+    /**
+     * Sem marca nenhuma: linha Stripe anterior à marca, ou manual assinada fora do
+     * produto. Exigir `subscribedAt` deixaria essas linhas cobradas para sempre.
+     */
+    it('desassina linha ativa sem marca', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'active',
+          parentStatus: 'cancelled',
+          mirror: null,
+        }),
+      ).toEqual({ action: 'unsubscribe', reason: 'parent-cancelled' })
+    })
+
+    it('desassina linha cancelada sem marca', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'cancelled',
+          parentStatus: 'cancelled',
+          mirror: null,
+        }),
+      ).toEqual({ action: 'unsubscribe', reason: 'parent-cancelled' })
+    })
+
+    it('não desassina de novo o que já está marcado', () => {
+      for (const itemStatus of ['active', 'cancelled'] as const) {
+        expect(
+          resolveProviderBillingAction({
+            itemStatus,
+            parentStatus: 'cancelled',
+            mirror: UNSUBSCRIBED,
+          }),
+        ).toEqual({ action: 'noop', reason: 'in-sync' })
+      }
+    })
+  })
+
   describe('item cancelado', () => {
-    it('desassina sem marca, qualquer que seja o pai', () => {
-      for (const parentStatus of ['active', 'cancelled', null] as const) {
+    it('desassina sem marca, sob pai não cancelado', () => {
+      for (const parentStatus of ['active', 'past_due', null] as const) {
         expect(
           resolveProviderBillingAction({
             itemStatus: 'cancelled',
             parentStatus,
             mirror: null,
           }),
-        ).toEqual({ action: 'unsubscribe' })
+        ).toEqual({ action: 'unsubscribe', reason: 'item-cancelled' })
       }
     })
 
@@ -107,7 +173,7 @@ describe('resolveProviderBillingAction', () => {
           parentStatus: 'active',
           mirror: SUBSCRIBED,
         }),
-      ).toEqual({ action: 'unsubscribe' })
+      ).toEqual({ action: 'unsubscribe', reason: 'item-cancelled' })
     })
 
     it('não desassina de novo o que já está marcado', () => {

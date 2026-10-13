@@ -130,6 +130,12 @@ export class ZApiClient {
     }
   }
 
+  /**
+   * Agenda o cancelamento da assinatura on-demand para o fim do período. A Z-API
+   * responde `200` com `{ due, id, token }` — `due` é o fim do período pago, em epoch
+   * ms — também para instância já cancelada (confirmado em 2026-10-13), então repetir
+   * o cancelamento é seguro e não há resposta de "já cancelado" a tratar.
+   */
   async unsubscribe(id: string, token: string): Promise<void> {
     try {
       const { data } = await this.http.post<void>(
@@ -143,7 +149,7 @@ export class ZApiClient {
       )
       return data
     } catch (error) {
-      throw thinkzapError('thinkzap.zapi.instance_subscribe_failed', error)
+      throw thinkzapError('thinkzap.zapi.instance_unsubscribe_failed', error)
     }
   }
 
