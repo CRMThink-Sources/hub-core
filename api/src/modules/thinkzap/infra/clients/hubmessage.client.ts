@@ -239,8 +239,14 @@ export class HubMessageClient {
     await this.http.put(`/v1/channels/${channelId}/disconnect`, {})
   }
 
+  /**
+   * Cancela a assinatura do canal. A query `cancel=true` é obrigatória: sem ela a
+   * HubMessage não cancela. A resposta é `204` também para canal já cancelado ou nunca
+   * assinado (confirmado em 2026-10-13), então repetir o cancelamento é seguro.
+   */
   async cancelChannel(channelId: string, cancelReason: string): Promise<void> {
     await this.http.delete(`/v1/channels/${channelId}/cancel`, {
+      params: { cancel: true },
       data: { cancelReason },
     })
   }

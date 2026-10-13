@@ -31,13 +31,13 @@ import { logThinkzapError } from '../errors/catalog'
  * **Trial nunca desassina**, porque nunca assinou (decisão 4 de
  * `add-connector-trial`). Trial expirado continua em `disconnect`.
  *
- * **A assinatura manual é assinada pelos eventos da SPA.** O UPDATE do item (1146) e o
- * da assinatura (1142) assinam a linha ativa sob contrato ativo e não trial que ainda não
- * tenha a marca de assinado (`SyncSpaItemResourceStatus`). O **cancelamento** do
- * contrato manual continua fora daqui: é administrado por outra automação, e o que este
- * módulo desassina pela SPA é o item — exclusão e mudança de status. Item cancelado é
- * uma instância ou canal que ninguém usa; contrato manual cancelado é de quem o
- * administra.
+ * **A assinatura manual é assinada e desassinada pelos eventos da SPA.** O UPDATE do
+ * item (1146) e o da assinatura (1142) assinam a linha ativa sob contrato ativo e não
+ * trial que ainda não tenha a marca de assinado (`SyncSpaItemResourceStatus`). O UPDATE
+ * da assinatura com status `cancelled` desassina todas as linhas dela
+ * (`SyncSubscriptionLinesBilling`), de qualquer modalidade — na Stripe, quase sempre já
+ * desassinadas pelo gateway, e então sem efeito. Pela SPA, o item também é desassinado
+ * na exclusão e na mudança de status.
  *
  * **Toda operação bem-sucedida sobre um item grava a marca de cobrança no espelho**
  * (`subscribedAt`/`unsubscribedAt`). É o que impede os UPDATEs seguintes do item —
@@ -54,12 +54,15 @@ export type ProviderBillingOrigin =
   | 'gateway-event'
   | 'spa-item-status'
   | 'spa-item-deleted'
+  /** Status da assinatura (SPA 1142) mudado para cancelado no CRM. */
+  | 'subscription-cancelled'
 
 /** O campo de motivo é texto livre no provider. */
 const REASON_BY_ORIGIN: Record<ProviderBillingOrigin, string> = {
   'gateway-event': 'Assinatura cancelada no ThinkZap',
   'spa-item-status': 'Linha cancelada no ThinkZap',
   'spa-item-deleted': 'Linha removida no ThinkZap',
+  'subscription-cancelled': 'Assinatura cancelada no CRM',
 }
 
 export type ProviderBillingOptions = {

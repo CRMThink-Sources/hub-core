@@ -55,12 +55,16 @@ export function buildConnectorRegisterParams(): Record<string, unknown> {
     EDIT_INTERNAL_MESSAGES: 'N',
 
     /**
-     * **Exclusão de mensagem recebida: desligada.**
+     * **Exclusão de mensagem recebida: ligada.**
      *
-     * O evento de exclusão do Bitrix **não dispara** para mensagem vinda do canal
-     * externo, por documentação. Ligar permitiria apagar a mensagem do contato no
-     * CRM sem nada acontecer no WhatsApp dele — e a mensagem continuaria no aparelho
-     * de quem a enviou, que é onde ela vive.
+     * É o que deixa o conector remover do canal aberto a mensagem que o contato apagou
+     * no WhatsApp (`REVOKE` da Z-API → `imconnector.delete.messages`, no processamento
+     * da mensagem recebida).
+     *
+     * Efeito colateral aceito: o operador também passa a poder apagar mensagem recebida
+     * no CRM. Isso não propaga para o WhatsApp — o evento de exclusão do Bitrix não
+     * dispara para mensagem vinda do canal externo, por documentação —, e a mensagem
+     * continua no aparelho de quem a enviou.
      */
     DEL_EXTERNAL_MESSAGES: 'Y',
 

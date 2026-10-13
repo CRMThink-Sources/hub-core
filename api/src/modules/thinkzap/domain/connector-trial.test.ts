@@ -24,14 +24,14 @@ const plusDays = (from: Date, days: number) =>
   new Date(from.getTime() + days * 24 * 60 * 60 * 1000)
 
 describe('trialWindow', () => {
-  it('abre no começo do dia da ativação e fecha no fim do terceiro dia', () => {
+  it('abre no começo do dia da ativação e fecha no fim do sétimo dia seguinte', () => {
     const window = trialWindow(NOW)
 
     expect(window.currentPeriodStart.toISOString()).toBe(
       '2026-08-03T00:00:00.000Z',
     )
     expect(window.currentPeriodEnd.toISOString()).toBe(
-      '2026-08-06T23:59:59.999Z',
+      '2026-08-10T23:59:59.999Z',
     )
   })
 
@@ -56,7 +56,7 @@ describe('trialWindow', () => {
       '2026-08-03T00:00:00.000Z',
     )
     expect(window.currentPeriodEnd.toISOString()).toBe(
-      '2026-08-06T23:59:59.999Z',
+      '2026-08-10T23:59:59.999Z',
     )
   })
 
@@ -64,7 +64,7 @@ describe('trialWindow', () => {
     const window = trialWindow(new Date('2026-08-30T15:00:00.000Z'))
 
     expect(window.currentPeriodEnd.toISOString()).toBe(
-      '2026-09-02T23:59:59.999Z',
+      '2026-09-06T23:59:59.999Z',
     )
   })
 

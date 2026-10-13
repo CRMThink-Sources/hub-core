@@ -5,6 +5,8 @@ import { ProductRepository } from '@/modules/application/domain/repositories/get
 import { Product } from '@/modules/application/domain/entities/product'
 import { PlanNotFoundError } from '@/modules/application/domain/errors/plan-not-found.error'
 import { ProductNotFoundError } from '@/modules/application/domain/errors/product-not-found.error'
+import { PLAN_GATEWAY_ID_FIELDS } from '../ensure-plan-gateway-id-fields'
+import { PLAN_PROVIDER_FIELD } from '../ensure-plan-provider-field'
 
 const productOf = (id: string): Product => ({
   id,
@@ -20,7 +22,14 @@ const planItem = (id: number, productId: string) => ({
   ufCrm89Product: productId,
   ufCrm89Value: 4990,
   ufCrm89Interval: '13609',
-  ufCrm89GatewayId: `price_${id}`,
+  /**
+   * O mesmo price id nos dois campos: o mapper lê o do ambiente do gateway, deduzido
+   * da chave Stripe do `.env`. Com um campo só, o teste dependeria da chave da máquina.
+   * A escolha entre os campos é testada em `plan.mapper.test.ts`.
+   */
+  [PLAN_GATEWAY_ID_FIELDS.production]: `price_${id}`,
+  [PLAN_GATEWAY_ID_FIELDS.homolog]: `price_${id}`,
+  [PLAN_PROVIDER_FIELD]: 'ZAPI',
   ufCrm89Active: true,
 })
 
@@ -69,6 +78,7 @@ describe('BitrixPlanRepository', () => {
         amount: 4990,
         interval: 'monthly',
         gatewayId: 'price_7',
+        provider: 'ZAPI',
         active: true,
       })
     })

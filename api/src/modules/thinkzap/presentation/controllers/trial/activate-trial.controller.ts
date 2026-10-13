@@ -43,7 +43,7 @@ const installSchema = z.object({
   appCode: z.string().min(1),
 })
 
-/** `POST /api/thinkzap/trial` — ativa o teste de 3 dias com o provider escolhido. */
+/** `POST /api/thinkzap/trial` — ativa o teste de 7 dias com o provider escolhido. */
 export class ActivateTrialController extends Controller {
   constructor(private readonly activate: ActivateConnectorTrial) {
     super()

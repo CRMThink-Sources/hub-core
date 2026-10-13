@@ -644,7 +644,7 @@ describe('ActivateLineSubscription', () => {
     })
 
     /**
-     * O recurso do trial **nunca foi assinado** no provider — é o que impede 3 dias
+     * O recurso do trial **nunca foi assinado** no provider — é o que impede 7 dias
      * de teste de virar instância cobrada por mês. Converter sem assiná-lo deixaria
      * o recurso rodando fora do nosso contrato com o provider.
      */

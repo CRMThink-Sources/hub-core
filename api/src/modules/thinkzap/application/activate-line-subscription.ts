@@ -298,7 +298,7 @@ export class ActivateLineSubscription {
      * ativação de quem já pagou.
      *
      * **Cada** linha cobrada, não só a nova nem só a movida: o recurso do trial nunca
-     * foi assinado no provider (é o que impede 3 dias de teste de virar instância
+     * foi assinado no provider (é o que impede 7 dias de teste de virar instância
      * cobrada por mês), então converter sem assiná-lo deixaria o recurso rodando
      * fora do nosso contrato com o provider — invisível até o provider cortar.
      */
