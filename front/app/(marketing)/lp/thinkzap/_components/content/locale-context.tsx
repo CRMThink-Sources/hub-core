@@ -1,35 +1,14 @@
 'use client'
 
-import { createContext, useContext } from 'react'
+import { createLpContentHook } from '../../../_shared/lp-content-context'
 import { PT } from './pt'
 import type { LpContent, TutorialSlug } from './types'
 
-/**
- * Copy do idioma para as telas simuladas dos tutoriais, que ficam várias
- * camadas abaixo do player. Sem provider (testes que renderizam uma tela
- * solta) vale o português.
- */
-const LpContentContext = createContext<LpContent>(PT)
+export { LpContentProvider } from '../../../_shared/lp-content-context'
 
-export function LpContentProvider({
-  content,
-  children,
-}: {
-  content: LpContent
-  children: React.ReactNode
-}) {
-  return (
-    <LpContentContext.Provider value={content}>
-      {children}
-    </LpContentContext.Provider>
-  )
-}
+// Sem provider (testes com tela solta) cai no português.
+export const useLpContent = createLpContentHook<LpContent>(PT)
 
-export function useLpContent(): LpContent {
-  return useContext(LpContentContext)
-}
-
-/** Textos das telas de um tutorial. */
 export function useTutorialScreens<Slug extends TutorialSlug>(
   slug: Slug,
 ): LpContent['tutorials'][Slug]['screens'] {

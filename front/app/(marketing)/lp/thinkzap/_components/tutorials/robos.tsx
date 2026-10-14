@@ -38,18 +38,6 @@ import {
   type TutorialView,
 } from './shared/frame'
 
-/**
- * Tutorial "Robôs de automação". Os robôs são registrados na instalação
- * (`api/src/modules/thinkzap/install/thinkzap.installer.ts`) e configurados no
- * "Regras de automação" nativo do Bitrix24. O de mensagem livre usa o formulário
- * padrão do Bitrix com os parâmetros de `build-thinkzap-robot-add-params.ts`
- * ("Connector", "Destination", "Send to all related contacts", "Message"); o
- * nome em produção vem de `BITRIX_ROBOT_NAME` ("Enviar mensagem"), e o
- * Bitrix24 lista como "[ThinkZap] Enviar mensagem" na janela "Adicionar à
- * etapa". Visual das telas tirado de prints do portal.
- *
- * Mudou um robô ou um parâmetro, mude aqui também.
- */
 const CRM: ScreenFrame = {
   kind: 'bitrix',
   path: 'crm/deal/kanban/',
@@ -81,12 +69,9 @@ export const ROBOS_VIEW: TutorialView<RobosScreen> = {
   },
 }
 
-/** Robôs do app, pela chave em `screens.robots` do texto. */
 type RobotKey = 'message' | 'template'
 
 const TARGET_STAGE = 'proposta'
-
-// ─── Funil ─────────────────────────────────────────────────────────────────
 
 function Board({ robots, deal }: { robots?: ScreenProps; deal?: ScreenProps }) {
   const { shared } = useLpContent()
@@ -143,12 +128,6 @@ function MoveDealScreen(props: ScreenProps) {
   return <Board deal={props} />
 }
 
-// ─── Regras de automação ───────────────────────────────────────────────────
-
-/**
- * Regras de automação do funil: setas das etapas e, embaixo, a faixa
- * translúcida de robôs de cada etapa com o "+" para adicionar.
- */
 function RobotStages({ add }: { add?: ScreenProps }) {
   const { stages } = useTutorialScreens('robos')
 
@@ -156,7 +135,7 @@ function RobotStages({ add }: { add?: ScreenProps }) {
     <CrmBoard>
       <p className="text-lg font-semibold text-white">{stages.title}</p>
       <div className="overflow-x-auto">
-        <div className="grid min-w-[420px] grid-cols-3 gap-1 border-y border-white/40 p-2">
+        <div className="grid min-w-105 grid-cols-3 gap-1 border-y border-white/40 p-2">
           {STAGES.slice(0, 3).map(stage => (
             <StageArrow key={stage} stage={stage} />
           ))}
@@ -189,7 +168,6 @@ function StagesScreen(props: ScreenProps) {
   return <RobotStages add={props} />
 }
 
-/** Painel lateral do Bitrix24 (slider) sobre as regras de automação. */
 function Slider({
   title,
   children,
@@ -213,7 +191,6 @@ function Slider({
   )
 }
 
-/** Grupos da janela "Adicionar", na ordem do Bitrix24. */
 const GROUPS: {
   key: 'products' | 'tasks' | 'data' | 'workflow' | 'other'
   icon: LucideIcon
@@ -225,11 +202,6 @@ const GROUPS: {
   { key: 'other', icon: Bot },
 ]
 
-/**
- * Janela "Adicionar à etapa" que o "+" abre: grupos à esquerda e, à direita, as
- * regras que batem com a busca — aqui "thinkzap", que traz os robôs do app com o
- * nome entre colchetes. `pick` é o robô destacado.
- */
 function CatalogScreen({
   action,
   onAdvance,
@@ -367,7 +339,6 @@ function RuleItem({
   )
 }
 
-/** Formulário padrão de robô do Bitrix24, com os parâmetros do app. */
 function RobotFormScreen({ action, onAdvance }: ScreenProps) {
   const { shared } = useLpContent()
   const { robotForm, robots } = useTutorialScreens('robos')
@@ -410,10 +381,6 @@ function RobotFormScreen({ action, onAdvance }: ScreenProps) {
   )
 }
 
-/**
- * Tela própria do robô de template (`bitrix/bizproc/template/_components/
- * template-robot-form.tsx`), aberta dentro do diálogo do robô no Bitrix24.
- */
 function TemplateFormScreen({ action, onAdvance }: ScreenProps) {
   const { templateForm: form, robots } = useTutorialScreens('robos')
 
@@ -488,7 +455,6 @@ function FormSelect({ value }: { value: string }) {
   )
 }
 
-/** Campo do CRM escolhido no `ValueField`, com o "Trocar". */
 function FieldChip({ label, change }: { label: string; change: string }) {
   return (
     <p className="flex justify-between gap-2 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs">
@@ -525,8 +491,6 @@ function BitrixField({
     </div>
   )
 }
-
-// ─── Resultado ─────────────────────────────────────────────────────────────
 
 function ResultScreen({
   action,
@@ -569,10 +533,9 @@ function ResultScreen({
             )}
           </div>
         </div>
-        {/* Celular do cliente. */}
         <div
           aria-hidden
-          className="mx-auto w-full max-w-[200px] rounded-3xl border-4 border-[#333] bg-[#efeae2] p-2"
+          className="mx-auto w-full max-w-50 rounded-3xl border-4 border-[#333] bg-[#efeae2] p-2"
         >
           <p className="rounded-t-2xl bg-[#075e54] px-3 py-2 text-xs font-semibold text-white">
             {result.store}

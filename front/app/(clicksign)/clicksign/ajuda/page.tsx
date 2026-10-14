@@ -4,9 +4,13 @@ import Link from 'next/link'
 import { BookOpen, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
+import { envConfig } from '@/shared/infra/env-config'
 
 export default function AjudaPage() {
   const { t } = useTranslation('clicksign/ajuda')
+
+  const manualUrl = envConfig.appUrl + '/lp/clicksign'
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 pt-8 pb-10 sm:px-6 lg:px-8">
       <div className="flex w-full gap-6 rounded-xl border border-border bg-card p-6">
@@ -28,8 +32,11 @@ export default function AjudaPage() {
             <Button
               nativeButton={false}
               render={
-                // TODO: preencher HREF do manual da Clicksign
-                <Link href="" target="_blank" rel="noopener noreferrer" />
+                <Link
+                  href={manualUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
               }
             >
               {t('openManual')}

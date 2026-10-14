@@ -6,7 +6,7 @@ describe('resolveLpLocale', () => {
     expect(resolveLpLocale('en')).toBe('en')
   })
 
-  it.each([undefined, 'pt', 'fr', '', 'EN', ['en']])(
+  it.each([undefined, 'pt', 'es', 'fr', '', 'EN', ['en']])(
     'fica em português com %j',
     raw => {
       expect(resolveLpLocale(raw)).toBe('pt')

@@ -17,10 +17,10 @@ export function BitrixOnlyNotice({ marketUrl }: Props) {
     <div className="flex min-h-screen w-full items-center justify-center bg-muted px-4 py-12">
       <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
         <Image
-          src="/images/thinkzap/logo.png"
+          src="/images/thinkzap/logo-aside.svg"
           alt="ThinkZap"
           width={130}
-          height={60}
+          height={36}
           className="mx-auto h-10 w-auto"
         />
         <span className="mx-auto mt-6 flex size-12 items-center justify-center rounded-full bg-accent text-primary">

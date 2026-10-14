@@ -5,10 +5,7 @@ const KNOWN_LINE_PROVIDERS: readonly LineProvider[] = ['ZAPI', 'HUBMESSAGE']
 // Conservador: ambiente que esquecer a env não pode liberar conector bloqueado.
 const DEFAULT_ENABLED_LINE_PROVIDERS: readonly LineProvider[] = ['ZAPI']
 
-/**
- * Tolerante de propósito: typo na env vira "conector não liberado" em vez de
- * quebrar a página de conexões.
- */
+// Tolerante: typo na env vira "conector não liberado" em vez de quebrar a página.
 export function parseEnabledLineProviders(
   raw: string | undefined,
 ): LineProvider[] {
@@ -49,4 +46,18 @@ export const envConfig = {
   thinkzapMarketUrl: (process.env.NEXT_PUBLIC_THINKZAP_MARKET_URL ?? '').trim(),
   // Aceita formatação; `buildWhatsappLink` extrai os dígitos. Vazio esconde o botão.
   thinkzapSalesWhatsapp: process.env.NEXT_PUBLIC_THINKZAP_SALES_WHATSAPP ?? '',
+  // Vazio esconde o botão "Instalar no Bitrix24".
+  importsheetMarketUrl: (
+    process.env.NEXT_PUBLIC_IMPORTSHEET_MARKET_URL ?? ''
+  ).trim(),
+  // Aceita formatação; `buildWhatsappLink` extrai os dígitos. Vazio esconde o botão.
+  importsheetSalesWhatsapp:
+    process.env.NEXT_PUBLIC_IMPORTSHEET_SALES_WHATSAPP ?? '',
+  // Vazio esconde o botão "Instalar no Bitrix24".
+  clicksignMarketUrl: (
+    process.env.NEXT_PUBLIC_CLICKSIGN_MARKET_URL ?? ''
+  ).trim(),
+  // Aceita formatação; `buildWhatsappLink` extrai os dígitos. Vazio esconde o botão.
+  clicksignSalesWhatsapp:
+    process.env.NEXT_PUBLIC_CLICKSIGN_SALES_WHATSAPP ?? '',
 }

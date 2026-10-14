@@ -36,19 +36,7 @@ import {
 } from './shared/frame'
 import { OpenChannelChat } from './shared/open-channel-chat'
 
-/**
- * Tutorial "ThinkBot". Espelha:
- * - lista: `_layout/bots-layout.tsx`, `bots/bot-flow-list.tsx`, `bots/canal-cell.tsx`
- * - criação: `bots/novo-fluxo-dialog.tsx` e o fluxo inicial de
- *   `api/src/modules/thinkzap/domain/bot-flow/empty-flow.ts`
- * - editor: `bots/bot-flow-editor.tsx`, `bots/canvas/flow-block.tsx`,
- *   `bots/canvas/kind-menu.tsx`, `bots/canvas/kind-visual.ts`, `bots/block-panel.tsx`
- * - simulador: `bots/bot-flow-simulator.tsx`
- * - textos: `messages/pt/thinkzap/bots/*.json`
- *
- * O canvas real é React Flow; aqui os blocos são desenhados em linha, só para
- * reconhecer o formato. Mudou uma dessas telas no app, mude aqui também.
- */
+// O canvas real é React Flow; aqui os blocos são desenhados à mão, só para reconhecer o formato.
 const APP: ScreenFrame = { kind: 'app', path: APP_PATH, menu: 'thinkbot' }
 
 export const THINKBOT_VIEW: TutorialView<ThinkbotScreen> = {
@@ -80,15 +68,11 @@ export const THINKBOT_VIEW: TutorialView<ThinkbotScreen> = {
 
 type FlowCopy = ThinkbotCopy['screens']['flow']
 
-/** A pergunta do menu com as opções numeradas, como o bot envia. */
 function questionWithOptions(flow: FlowCopy) {
   const { support, finish } = flow.options
   return `${flow.question}\n1. ${support.label}\n2. ${finish.label}`
 }
 
-// ─── Lista ─────────────────────────────────────────────────────────────────
-
-/** Casca de `bots-layout`: cabeçalho com ícone, título e subtítulo. */
 function BotsPage({ children }: { children: React.ReactNode }) {
   const { list } = useTutorialScreens('thinkbot')
   return (
@@ -169,7 +153,7 @@ function BindScreen({ action, onAdvance }: ScreenProps) {
         {bind.inert(flow.name)}
       </p>
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
-        <table className="w-full min-w-[440px] text-left text-sm">
+        <table className="w-full min-w-110 text-left text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-[11px] uppercase tracking-wide text-muted-foreground [&>th]:px-4 [&>th]:py-3 [&>th]:font-semibold">
               <th>{bind.columns.flow}</th>
@@ -216,11 +200,8 @@ function BindScreen({ action, onAdvance }: ScreenProps) {
   )
 }
 
-// ─── Editor ────────────────────────────────────────────────────────────────
-
 type EditorHotspot = ScreenProps & { target: 'simulador' | 'Publicar' }
 
-/** Barra do `bot-flow-editor`, canvas e painel lateral (empilhado aqui). */
 function EditorShell({
   saved = false,
   panel,
@@ -335,7 +316,6 @@ function PanelToggle({
   )
 }
 
-/** Fundo pontilhado do canvas com a legenda do app. */
 function Canvas({ children }: { children: React.ReactNode }) {
   const { editor } = useTutorialScreens('thinkbot')
   return (
@@ -357,7 +337,6 @@ const KIND = {
 
 type Kind = keyof typeof KIND
 
-/** Cartão do `flow-block`: ícone, nome e fala, centrados. */
 function FlowBlock({
   kind,
   name,
@@ -401,7 +380,6 @@ function Edge() {
   return <span aria-hidden className="h-0.5 w-6 shrink-0 bg-primary/60" />
 }
 
-/** Bolinha âmbar da saída sem destino, com o `+` ao lado. */
 function PendingPort({ hotspot }: { hotspot?: ScreenProps }) {
   return (
     <span className="flex items-center gap-1.5">
@@ -435,7 +413,6 @@ function WelcomeBlock() {
   )
 }
 
-/** Fluxo montado: boas-vindas → pergunta → transferir / encerrar. */
 function FullFlow({ selected = false }: { selected?: boolean }) {
   const { flow } = useTutorialScreens('thinkbot')
   return (
@@ -488,7 +465,6 @@ function KindMenuScreen({ action, onAdvance }: ScreenProps) {
       <Canvas>
         <WelcomeBlock />
         <PendingPort />
-        {/* `kind-menu`: grade de dois por grupo e a coluna de prontos. */}
         <span className="ml-3 w-56 overflow-hidden rounded-xl border border-border bg-card shadow-xl">
           <span className="flex items-center gap-2 px-3 pb-1 pt-2.5">
             <span className="flex-1 text-[12px] font-semibold text-foreground">
@@ -572,7 +548,6 @@ function BlockPanelScreen({ action, onAdvance }: ScreenProps) {
       <Canvas>
         <FullFlow selected />
       </Canvas>
-      {/* `block-panel` da Pergunta. */}
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4">
         <p className="flex items-center gap-1.5 text-sm font-semibold">
           <ListChecks aria-hidden className="size-4 text-violet-600" />
@@ -607,11 +582,8 @@ function BlockPanelScreen({ action, onAdvance }: ScreenProps) {
   )
 }
 
-// ─── Simulador ─────────────────────────────────────────────────────────────
-
 type Bubble = { from: 'cliente' | 'bot' | 'sistema'; text: string }
 
-/** O começo da conversa: boas-vindas e a pergunta com as opções. */
 function conversation(flow: FlowCopy): Bubble[] {
   return [
     { from: 'bot', text: flow.welcome },
@@ -619,7 +591,6 @@ function conversation(flow: FlowCopy): Bubble[] {
   ]
 }
 
-/** `bot-flow-simulator`: bolhas e caixa de resposta. */
 function Simulator({
   bubbles,
   typed = '',
@@ -749,8 +720,6 @@ function PublishScreen({ action, onAdvance }: ScreenProps) {
     </EditorShell>
   )
 }
-
-// ─── Chat do canal aberto ──────────────────────────────────────────────────
 
 function BotChatScreen(props: ScreenProps) {
   const { botChat, flow } = useTutorialScreens('thinkbot')
