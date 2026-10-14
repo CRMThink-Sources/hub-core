@@ -57,7 +57,20 @@ export class GetAplicationContextController extends Controller {
         appCode,
       })
 
-      return this.ok(mapAplicationContextToView(context))
+      /**
+       * Assinatura cancelada não sai no `/me`: os conectores dela não são mais do
+       * cliente, e a tela de conexões não deve exibi-los. O filtro é desta rota, e
+       * não do caso de uso — os fluxos de linha e de mensagem que usam
+       * `GetAplicationContext` precisam ver o status `cancelled` para recusar.
+       */
+      return this.ok(
+        mapAplicationContextToView({
+          ...context,
+          subscriptions: context.subscriptions.filter(
+            subscription => subscription.status !== 'cancelled',
+          ),
+        }),
+      )
     } catch (error) {
       /**
        * Token válido cujo cliente ou instalação não existe mais (app
