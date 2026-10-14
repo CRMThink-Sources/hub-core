@@ -9,12 +9,11 @@ import {
   type LpContent,
 } from './content'
 import { LpContentProvider } from './content/locale-context'
-import { Faq } from './faq'
+import { Faq } from '../../_shared/faq'
 import { Features } from './features'
-import { FinalCta, LpFooter } from './final-cta'
+import { FinalCta, LpFooter } from '../../_shared/final-cta'
 import { Hero, LpHeader } from './hero'
 import { HowItWorks } from './how-it-works'
-import { LanguageSwitch } from './language-switch'
 import { TUTORIAL_VIEWS } from './tutorials'
 
 const PT = getLpContent('pt')
@@ -29,7 +28,6 @@ const withContent = (content: LpContent, node: ReactElement) =>
     createElement(LpContentProvider, { content, children: node }),
   )
 
-/** Texto visível e rótulos acessíveis, sem tags nem outros atributos. */
 function visibleText(html: string): string {
   const labels = [...html.matchAll(/(?:aria-label|alt|title)="([^"]*)"/g)].map(
     match => match[1],
@@ -38,10 +36,6 @@ function visibleText(html: string): string {
   return [text, ...labels].join(' ').replace(/&#x27;|&quot;|&amp;/g, ' ')
 }
 
-/**
- * Português que sobrou no inglês: palavras de interface do app e acentos. Os
- * nomes próprios de exemplo (pessoas, cidades) ficam de fora pela lista.
- */
 const PT_MARKERS =
   /\b(Passo|Próximo|Concluir|Voltar|Tutoriais|Dúvidas|Conexões|Configurações|Negócio|Linha|Enviar|Criar|Salvar|para|você|não)\b/
 const ACCENTS = /[ãõçáéíóúâêôàÃÕÇÁÉÍÓÚÂÊÔÀ]/
@@ -127,28 +121,18 @@ describe('LP em inglês', () => {
 })
 
 describe('LanguageSwitch', () => {
-  const render = (locale: 'pt' | 'en') =>
-    renderToStaticMarkup(
-      createElement(LanguageSwitch, { locale, label: 'Idioma' }),
+  const header = (content: LpContent) =>
+    renderToStaticMarkup(createElement(LpHeader, { marketUrl: null, content }))
+
+  it('linka as URLs da LP do ThinkZap', () => {
+    expect(header(EN)).toMatch(/<a[^>]*href="\/lp\/thinkzap"[^>]*>PT<\/a>/)
+    expect(header(PT)).toMatch(
+      /<a[^>]*href="\/lp\/thinkzap\?lang=en"[^>]*>EN<\/a>/,
     )
-
-  it('marca o idioma atual e linka o outro', () => {
-    const html = render('en')
-    expect(html).toMatch(/<span[^>]*aria-current="true"[^>]*>EN<\/span>/)
-    expect(html).toMatch(/<a[^>]*href="\/lp\/thinkzap"[^>]*>PT<\/a>/)
-    expect(html).toContain('aria-label="Idioma"')
-  })
-
-  it('em português, linka para ?lang=en', () => {
-    const html = render('pt')
-    expect(html).toMatch(/<span[^>]*aria-current="true"[^>]*>PT<\/span>/)
-    expect(html).toMatch(/<a[^>]*href="\/lp\/thinkzap\?lang=en"[^>]*>EN<\/a>/)
   })
 
   it('fica no header, fora da navegação escondida no celular', () => {
-    const html = renderToStaticMarkup(
-      createElement(LpHeader, { marketUrl: null, content: PT }),
-    )
+    const html = header(PT)
     const nav = html.match(/<nav[\s\S]*?<\/nav>/)?.[0] ?? ''
     expect(html).toContain('aria-current="true"')
     expect(nav).not.toContain('aria-current')

@@ -7,10 +7,6 @@ import { ROBOS_EN } from './tutorials/robos'
 import { THINKBOT_EN } from './tutorials/thinkbot'
 import { THINKZAP_TRIAL_DURATION_DAYS } from '@/shared/constants/thinkzap-trial'
 
-/**
- * Copy da LP em inglês — espelho de `pt/index.ts`. Primeira versão, a revisar
- * pelo comercial.
- */
 export const EN: LpContent = {
   locale: 'en',
   htmlLang: 'en',
@@ -125,7 +121,7 @@ export const EN: LpContent = {
     bitrixMenu: {
       crm: 'CRM',
       openChannels: 'Open Channels',
-      thinkzap: 'ThinkZap',
+      app: 'ThinkZap',
       market: 'Market',
     },
     appMenu: {

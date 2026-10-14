@@ -1,8 +1,9 @@
-/**
- * Tipos da copy da LP do ThinkZap. A estrutura (slugs, telas, variantes, ids de
- * menus e abas) é a mesma nos dois idiomas e mora aqui; os dicionários `pt/` e
- * `en/` preenchem `LpContent` com o texto.
- */
+import type {
+  DefaultLpLocale,
+  LpBaseContent,
+  LpFrameCopy,
+  Tutorial as LpTutorial,
+} from '../../../_shared/content'
 import type { ApiOficialCopy } from './pt/tutorials/api-oficial'
 import type { AtivacaoCopy } from './pt/tutorials/ativacao'
 import type { GruposCopy } from './pt/tutorials/grupos'
@@ -10,8 +11,16 @@ import type { InstalacaoCopy } from './pt/tutorials/instalacao'
 import type { RobosCopy } from './pt/tutorials/robos'
 import type { ThinkbotCopy } from './pt/tutorials/thinkbot'
 
-export const LP_LOCALES = ['pt', 'en'] as const
-export type LpLocale = (typeof LP_LOCALES)[number]
+export {
+  DEFAULT_LP_LOCALES as LP_LOCALES,
+  resolveLpLocale,
+  tutorialTracks,
+  type BitrixMenuId,
+  type DefaultLpLocale as LpLocale,
+  type TutorialStep,
+  type TutorialTrack,
+  type TutorialVariant,
+} from '../../../_shared/content'
 
 export type FeatureIcon =
   | 'channels'
@@ -23,56 +32,10 @@ export type FeatureIcon =
   | 'permissions'
   | 'media'
 
-/**
- * Tutoriais da seção "Tutoriais": cada um é uma simulação clicável que espelha o
- * fluxo e os textos reais do app e do Bitrix24. `screen` é o id da tela que
- * `tutorials/<slug>.tsx` desenha; `action` é o rótulo acessível do elemento
- * destacado que o visitante clica. Se o fluxo mudar no app, mude aqui e no
- * arquivo de telas do tutorial.
- */
-export type TutorialStep<Screen extends string = string> = {
-  screen: Screen
-  title: string
-  description: string
-  action: string
-}
-
-/** Uma sequência de passos com a tela de conclusão. */
-export type TutorialTrack<Screen extends string = string> = {
-  /** Uma frase abaixo das abas, dizendo o que o tutorial cobre. */
-  summary: string
-  steps: TutorialStep<Screen>[]
-  done: { title: string; description: string }
-}
-
-/** Variante de um tutorial, escolhida no submenu da aba. */
-export type TutorialVariant<Screen extends string = string> =
-  TutorialTrack<Screen> & {
-    /** Sufixo da âncora: `#tutorial-<slug>-<key>`. */
-    key: string
-    /** Texto do submenu. */
-    label: string
-  }
-
-/**
- * Tutorial de uma aba: uma trilha só ou, com `variants`, um submenu com uma
- * trilha por variante (a primeira abre por padrão).
- */
-export type Tutorial<Screen extends string = string> = {
-  slug: TutorialSlug
-  /** Texto da aba. */
-  label: string
-} & (
-  | (TutorialTrack<Screen> & { variants?: undefined })
-  | { variants: TutorialVariant<Screen>[] }
-)
-
-/** Trilhas de um tutorial: as variantes ou a trilha única (sem `key`). */
-export function tutorialTracks(tutorial: Tutorial): TutorialVariant[] {
-  if (tutorial.variants) return tutorial.variants
-  const { summary, steps, done, label } = tutorial
-  return [{ key: '', label, summary, steps, done }]
-}
+export type Tutorial<Screen extends string = string> = LpTutorial<
+  Screen,
+  TutorialSlug
+>
 
 export const TUTORIAL_SLUGS = [
   'instalacao',
@@ -84,7 +47,7 @@ export const TUTORIAL_SLUGS = [
 ] as const
 export type TutorialSlug = (typeof TUTORIAL_SLUGS)[number]
 
-export type InstalacaoScreen = 'market' | 'install'
+export type InstalacaoScreen = 'market' | 'market-app' | 'install'
 
 export type AtivacaoScreen =
   | 'trial'
@@ -137,17 +100,7 @@ export type GruposScreen =
   | 'group-created'
   | 'group-chat'
 
-// ─── Ids das peças simuladas (não se traduzem; o rótulo vem da copy) ────────
-
-export const BITRIX_MENU_IDS = [
-  'crm',
-  'openChannels',
-  'thinkzap',
-  'market',
-] as const
-export type BitrixMenuId = (typeof BITRIX_MENU_IDS)[number]
-
-/** Ordem do menu do app, a mesma de `THINKZAP_ASIDE_CONFIG`. */
+// Mesma ordem de `THINKZAP_ASIDE_CONFIG`.
 export const APP_MENU_IDS = [
   'home',
   'conexoes',
@@ -172,22 +125,7 @@ export type DealTabId = (typeof DEAL_TAB_IDS)[number]
 export const STAGE_IDS = ['novo', 'proposta', 'negociacao', 'fechado'] as const
 export type StageId = (typeof STAGE_IDS)[number]
 
-// ─── Dicionário ────────────────────────────────────────────────────────────
-
-export type LpContent = {
-  locale: LpLocale
-  /** Valor do atributo `lang` do conteúdo. */
-  htmlLang: string
-  metadata: { title: string; description: string; ogLocale: string }
-  /** Mensagem pré-preenchida do botão de WhatsApp. */
-  whatsappMessage: string
-  nav: {
-    features: string
-    tutorials: string
-    faq: string
-    install: string
-  }
-  languageSwitch: { label: string }
+export type LpContent = LpBaseContent<FeatureIcon, DefaultLpLocale> & {
   hero: { eyebrow: string; title: string; subtitle: string }
   chatPreview: {
     contactDetail: string
@@ -198,37 +136,12 @@ export type LpContent = {
       options: [string, string]
       reply: string
     }
-    /** Aviso do robô, com a etapa em negrito no meio. */
     robot: { before: string; stage: string }
   }
-  features: {
-    title: string
-    subtitle: string
-    items: { icon: FeatureIcon; title: string; description: string }[]
-  }
-  tutorialsSection: { title: string; subtitle: string }
-  player: {
-    tabsLabel: string
-    variantsLabel: (tutorial: string) => string
-    done: string
-    stepOf: (step: number, total: number) => string
-    /** "Clique no destaque laranja da tela:" — seguido do rótulo da ação. */
-    hint: string
-    back: string
-    next: string
-    finish: string
-    goToStep: (step: number, title: string) => string
-    restart: string
-    nextTutorial: (label: string) => string
-  }
-  /** Molduras e peças comuns às telas dos tutoriais (`tutorials/shared/`). */
-  frame: {
-    bitrixMenu: Record<BitrixMenuId, string>
+  frame: LpFrameCopy & {
     appMenu: Record<AppMenuId, string>
     poweredBy: string
     beta: string
-    /** Domínio de exemplo na barra de endereço, sem a barra final. */
-    portalHost: string
   }
   shared: {
     conexoesTitle: string
@@ -259,16 +172,4 @@ export type LpContent = {
     robos: RobosCopy
     grupos: GruposCopy
   }
-  faq: {
-    title: string
-    /** `link` opcional: âncora dentro da LP, mostrada depois da resposta. */
-    items: {
-      question: string
-      answer: string
-      link?: { href: string; label: string }
-    }[]
-  }
-  finalCta: { title: string; subtitle: string; fallback: string }
-  ctaButtons: { install: string; whatsapp: string }
-  footer: (year: number) => string
 }

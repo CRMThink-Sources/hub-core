@@ -15,18 +15,6 @@ import {
 } from './shared/frame'
 import { OpenChannelChat } from './shared/open-channel-chat'
 
-/**
- * Tutorial "Grupos do WhatsApp" (só linhas WhatsApp Web). Espelha:
- * - `configuracoes/grupos-tab.tsx` (views lista / criar / detalhe),
- *   `grupos-lista.tsx`, `criar-grupo-tab.tsx`, `participantes-picker.tsx`,
- *   `grupo-criado-sucesso.tsx`
- * - chat: cada grupo vira uma conversa no canal aberto, com o autor em negrito
- *   (`process-z-api-inbound-message.use-case.ts`)
- * - textos: `messages/{pt,en}/thinkzap/configuracoes/grupos.json`,
- *   `criar-grupo.json`; a copy das telas fica em `content/{pt,en}/tutorials/grupos.ts`
- *
- * Mudou uma dessas telas no app, mude aqui também.
- */
 const APP: ScreenFrame = { kind: 'app', path: APP_PATH, menu: 'conexoes' }
 
 export const GRUPOS_VIEW: TutorialView<GruposScreen> = {
@@ -95,7 +83,7 @@ function GroupsListScreen({ action, onAdvance }: ScreenProps) {
         action={<HotspotButton action={action} onAdvance={onAdvance} />}
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[360px] text-left text-sm">
+          <table className="w-full min-w-90 text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground [&>th]:py-2 [&>th]:font-semibold">
                 <th>{groupsList.colName}</th>

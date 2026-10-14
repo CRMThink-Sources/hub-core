@@ -9,7 +9,14 @@ const tutorial: Tutorial<InstalacaoScreen> = {
       screen: 'market',
       title: 'Encontre o ThinkZap no Market',
       description:
-        'No seu Bitrix24, abra o Market, busque por ThinkZap e clique em Instalar.',
+        'No seu Bitrix24, abra o Market, busque por ThinkZap e clique no card do app.',
+      action: 'ThinkZap',
+    },
+    {
+      screen: 'market-app',
+      title: 'Instale pela página do app',
+      description:
+        'A página do ThinkZap abre por cima do catálogo, com o desenvolvedor (CRMThink) e a categoria. Clique em Instalar.',
       action: 'Instalar',
     },
     {
@@ -27,15 +34,26 @@ const tutorial: Tutorial<InstalacaoScreen> = {
   },
 }
 
-/**
- * Textos das telas simuladas de `tutorials/instalacao.tsx`. O tipo sai daqui: a
- * versão em inglês precisa ter exatamente as mesmas chaves.
- */
+// O tipo sai daqui: os outros idiomas precisam ter as mesmas chaves.
 const screens = {
   market: {
-    title: 'Market',
     appTagline: 'WhatsApp Web e API oficial integrados ao Bitrix24',
-    category: 'Comunicação',
+    appCategory: 'Comunicação',
+    appsCount: '830+ aplicativos',
+    catalog: 'Catálogo',
+    scope: 'Todo o Market',
+    favorites: 'Favoritos',
+    more: 'Mais',
+    searchResults: 'Resultados da busca',
+    seeAll: 'Todas',
+    install: 'Instalar',
+    priceTag: 'Grátis',
+    inAppPurchases: 'Compras no aplicativo',
+    rating: 'Avaliação',
+    installs: 'Instalações',
+    developer: 'Desenvolvedor',
+    category: 'Categoria',
+    description: 'Descrição',
   },
   install: {
     title: 'Instalação do aplicativo',
