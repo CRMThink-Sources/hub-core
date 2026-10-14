@@ -5,6 +5,7 @@ import { GetAplicationContextController } from './get-aplication-context.control
 import {
   AplicationContext,
   GetAplicationContext,
+  SubscriptionWithItems,
 } from '@/modules/application/application/get-aplication-context'
 import { Aplication } from '@/modules/application/domain/entities/aplication'
 import { Customer } from '@/modules/application/domain/entities/customer'
@@ -83,6 +84,58 @@ describe('GetAplicationContextController', () => {
       },
       subscriptions: [],
     })
+  })
+
+  it('omite assinaturas canceladas e mantém as demais', async () => {
+    const subscriptionWith = (
+      id: string,
+      status: SubscriptionWithItems['status'],
+    ): SubscriptionWithItems => ({
+      id,
+      name: `Assinatura ${id}`,
+      plan: {
+        id: '7',
+        name: 'ThinkZap Pro',
+        product: {
+          id: '42',
+          name: 'ThinkZap',
+          billingModel: 'subscription',
+          active: true,
+        },
+        amount: 4990,
+        interval: 'monthly',
+        active: true,
+      },
+      status,
+      currentPeriodStart: new Date('2026-07-01T00:00:00.000Z'),
+      currentPeriodEnd: new Date('2026-08-01T00:00:00.000Z'),
+      aplication,
+      modality: 'stripe',
+      items: [],
+    })
+
+    const { useCase } = makeUseCase({
+      ...context,
+      subscriptions: [
+        subscriptionWith('1', 'cancelled'),
+        subscriptionWith('2', 'active'),
+        subscriptionWith('3', 'trialing'),
+        subscriptionWith('4', 'trial_expired'),
+        subscriptionWith('5', 'past_due'),
+      ],
+    })
+
+    const result = await new GetAplicationContextController(useCase).perform(
+      makeRequest(),
+      response,
+    )
+
+    expect(result.status).toBe(200)
+    expect(
+      (result.result as { subscriptions: { id: string }[] }).subscriptions.map(
+        s => s.id,
+      ),
+    ).toEqual(['2', '3', '4', '5'])
   })
 
   describe('validação da entrada vinda do JWT', () => {
