@@ -7,11 +7,6 @@ import { ROBOS_PT } from './tutorials/robos'
 import { THINKBOT_PT } from './tutorials/thinkbot'
 import { THINKZAP_TRIAL_DURATION_DAYS } from '@/shared/constants/thinkzap-trial'
 
-/**
- * Toda a copy da LP do ThinkZap em português, num lugar só, para o comercial
- * revisar sem procurar texto no JSX. Os textos de cada tutorial ficam em
- * `tutorials/<slug>.ts`. Os ícones ficam nos componentes; aqui só a chave.
- */
 export const PT: LpContent = {
   locale: 'pt',
   htmlLang: 'pt-BR',
@@ -126,7 +121,7 @@ export const PT: LpContent = {
     bitrixMenu: {
       crm: 'CRM',
       openChannels: 'Canais abertos',
-      thinkzap: 'ThinkZap',
+      app: 'ThinkZap',
       market: 'Market',
     },
     appMenu: {

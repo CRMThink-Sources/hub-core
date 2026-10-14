@@ -5,17 +5,7 @@ const montserrat = Montserrat({
   variable: '--font-montserrat',
 })
 
-/**
- * Layout das páginas públicas de marketing. Server component e sem nenhum
- * provider do app: nada aqui depende de sessão, token ou BX24.
- *
- * Usa `theme-thinkzap` para herdar os tokens de cor da marca (`--primary` etc.)
- * em vez de repetir cor fixa. Quando entrar LP de outro app, o tema passa a vir
- * do layout da própria LP.
- *
- * Sem `lang` aqui: o layout não conhece `?lang=`, então cada página declara o
- * idioma do próprio conteúdo.
- */
+// Sem `lang`: o layout não vê `?lang=`, então cada página declara o idioma.
 export default function MarketingLayout({
   children,
 }: {
@@ -23,7 +13,7 @@ export default function MarketingLayout({
 }) {
   return (
     <div
-      className={`theme-thinkzap ${montserrat.variable} min-h-screen overflow-x-hidden bg-background text-foreground`}
+      className={`${montserrat.variable} min-h-screen overflow-x-hidden`}
       style={{ fontFamily: 'var(--font-montserrat)' }}
     >
       {children}

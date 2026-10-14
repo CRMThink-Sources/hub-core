@@ -1,23 +1,19 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { envConfig } from '@/shared/infra/env-config'
+import { Faq } from '../_shared/faq'
+import { FinalCta, LpFooter } from '../_shared/final-cta'
+import { resolveLpCtas } from '../_shared/resolve-ctas'
 import { getLpContent, lpPath, resolveLpLocale } from './_components/content'
-import { Faq } from './_components/faq'
 import { Features } from './_components/features'
-import { FinalCta, LpFooter } from './_components/final-cta'
 import { Hero, LpHeader } from './_components/hero'
 import { HowItWorks } from './_components/how-it-works'
-import { resolveThinkzapCtas } from './_components/resolve-ctas'
 
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-/**
- * `og:image` precisa de URL absoluta e o front não tem env com o próprio domínio:
- * a base sai do host da request (o proxy repassa `x-forwarded-*`). Sem isso o Next
- * cai em `localhost` e o preview do link quebra.
- */
+// og:image exige URL absoluta e não há env com o domínio: sem a base do host o Next cai em localhost.
 export async function generateMetadata({
   searchParams,
 }: Props): Promise<Metadata> {
@@ -45,20 +41,14 @@ export async function generateMetadata({
       description: metadata.description,
       type: 'website',
       locale: metadata.ogLocale,
-      images: [{ url: '/images/thinkzap/logo.png', width: 584, height: 270 }],
     },
   }
 }
 
-/**
- * LP pública do ThinkZap. Sem sessão, BX24 ou API — as envs dos CTAs são
- * `NEXT_PUBLIC_*` e já chegam inlinadas no build. O idioma vem de `?lang=en`
- * (padrão português) e a página já sai do servidor nele.
- */
 export default async function ThinkzapLandingPage({ searchParams }: Props) {
   const locale = resolveLpLocale((await searchParams).lang)
   const content = getLpContent(locale)
-  const ctas = resolveThinkzapCtas({
+  const ctas = resolveLpCtas({
     marketUrl: envConfig.thinkzapMarketUrl,
     salesWhatsapp: envConfig.thinkzapSalesWhatsapp,
     whatsappMessage: content.whatsappMessage,

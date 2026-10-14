@@ -1,74 +1,55 @@
-import Image from 'next/image'
-import { Check, Search } from 'lucide-react'
+import { Check } from 'lucide-react'
+import { MarketAppDetail, MarketCatalog } from '../../../_shared/market'
 import type { InstalacaoScreen } from '../content'
 import { useTutorialScreens } from '../content/locale-context'
 import {
   APP_PATH,
-  HotspotButton,
   Hotspot,
-  SkeletonCard,
   type ScreenProps,
   type TutorialView,
 } from './shared/frame'
 
-/**
- * Tutorial "Instalação". Espelha:
- * - Market do Bitrix24 (busca e card do app)
- * - instalação: `components/bitrix/install/install-form.tsx` + `terms-agreement.tsx`
- *
- * Mudou uma dessas telas, mude aqui também.
- */
 export const INSTALACAO_VIEW: TutorialView<InstalacaoScreen> = {
   frames: {
-    market: { kind: 'bitrix', path: 'market/', menu: 'market' },
+    market: { kind: 'bare', path: 'market/' },
+    'market-app': { kind: 'bare', path: 'market/' },
     install: { kind: 'bare', path: APP_PATH },
   },
   screens: {
     market: MarketScreen,
+    'market-app': MarketAppScreen,
     install: InstallScreen,
   },
 }
 
-function MarketScreen({ action, onAdvance }: ScreenProps) {
-  const { market } = useTutorialScreens('instalacao')
+const MARKET_APP = {
+  name: 'ThinkZap',
+  developer: 'CRMThink',
+  logo: { src: '/images/thinkzap/logo-aside.svg', width: 600, height: 168 },
+}
 
-  return (
-    <div className="space-y-4 p-4 sm:p-6">
-      <p className="text-base font-semibold">{market.title}</p>
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm">
-        <Search aria-hidden className="size-4 text-muted-foreground" />
-        <span>ThinkZap</span>
-      </div>
-      <div className="flex flex-col gap-4 rounded-xl border-2 border-primary/40 bg-background p-4 sm:flex-row sm:items-center">
-        <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-lg border border-border bg-white p-1.5">
-          <Image
-            src="/images/thinkzap/logo.png"
-            alt=""
-            width={90}
-            height={42}
-            className="h-auto w-full"
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold">ThinkZap</p>
-          <p className="text-sm text-muted-foreground">{market.appTagline}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {market.category}
-          </p>
-        </div>
-        <HotspotButton action={action} onAdvance={onAdvance} />
-      </div>
-      <SkeletonCard />
-      <SkeletonCard />
-    </div>
-  )
+function useMarket() {
+  const { market } = useTutorialScreens('instalacao')
+  const { appTagline, appCategory, ...copy } = market
+  return {
+    copy,
+    app: { ...MARKET_APP, tagline: appTagline, category: appCategory },
+  }
+}
+
+function MarketScreen(props: ScreenProps) {
+  return <MarketCatalog {...useMarket()} {...props} />
+}
+
+function MarketAppScreen(props: ScreenProps) {
+  return <MarketAppDetail {...useMarket()} {...props} />
 }
 
 function InstallScreen({ action, onAdvance }: ScreenProps) {
   const { install } = useTutorialScreens('instalacao')
 
   return (
-    <div className="flex h-full min-h-[inherit] items-center justify-center bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-4 sm:p-6">
+    <div className="flex h-full min-h-[inherit] items-center justify-center bg-linear-to-br from-slate-50 via-white to-indigo-50/40 p-4 sm:p-6">
       <div className="w-full max-w-sm overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-xl shadow-slate-200/50">
         <div className="bg-linear-to-r from-indigo-600 to-indigo-700 px-6 py-5 text-center text-white">
           <p className="text-lg font-bold tracking-tight">{install.title}</p>

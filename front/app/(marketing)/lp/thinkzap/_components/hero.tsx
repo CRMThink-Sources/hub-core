@@ -1,65 +1,37 @@
 import Image from 'next/image'
 import { CheckCheck } from 'lucide-react'
-import type { LpContent } from './content'
-import { CtaButtons } from './cta-buttons'
-import { LanguageSwitch } from './language-switch'
-import type { ThinkzapCtas } from './resolve-ctas'
+import { CtaButtons } from '../../_shared/cta-buttons'
+import { LpHeader as LpHeaderBase } from '../../_shared/lp-header'
+import type { LpCtas } from '../../_shared/resolve-ctas'
+import { LP_BASE_PATH, type LpContent } from './content'
 
 export function LpHeader({
   marketUrl,
   content,
-}: Pick<ThinkzapCtas, 'marketUrl'> & { content: LpContent }) {
-  const { nav } = content
+}: Pick<LpCtas, 'marketUrl'> & { content: LpContent }) {
   return (
-    <header className="border-b border-border/60 bg-background/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+    <LpHeaderBase
+      logo={
         <Image
-          src="/images/thinkzap/logo.png"
+          src="/images/thinkzap/logo-aside.svg"
           alt="ThinkZap"
           width={130}
-          height={60}
+          height={36}
           priority
           className="h-9 w-auto"
         />
-        <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
-          <a href="#funcionalidades" className="hover:text-foreground">
-            {nav.features}
-          </a>
-          <a href="#tutoriais" className="hover:text-foreground">
-            {nav.tutorials}
-          </a>
-          <a href="#duvidas" className="hover:text-foreground">
-            {nav.faq}
-          </a>
-        </nav>
-        <div className="flex items-center gap-3">
-          <LanguageSwitch
-            locale={content.locale}
-            label={content.languageSwitch.label}
-          />
-          {marketUrl && (
-            <a
-              href={marketUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-            >
-              {nav.install}
-            </a>
-          )}
-        </div>
-      </div>
-    </header>
+      }
+      basePath={LP_BASE_PATH}
+      marketUrl={marketUrl}
+      content={content}
+    />
   )
 }
 
-export function Hero({
-  content,
-  ...ctas
-}: ThinkzapCtas & { content: LpContent }) {
+export function Hero({ content, ...ctas }: LpCtas & { content: LpContent }) {
   const hero = content.hero
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-primary/15 via-primary/5 to-transparent">
+    <section className="relative overflow-hidden bg-linear-to-br from-primary/15 via-primary/5 to-transparent">
       <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 md:py-24 lg:grid-cols-2">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-primary">
@@ -79,10 +51,6 @@ export function Hero({
   )
 }
 
-/**
- * Ilustração de uma conversa no chat da linha aberta. Decorativa — não é print
- * de produto, então fica fora da árvore de acessibilidade.
- */
 function ChatPreview({ copy }: { copy: LpContent['chatPreview'] }) {
   const { messages, robot } = copy
   return (
