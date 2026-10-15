@@ -48,16 +48,30 @@ export const thinkzapInboundQueue = new Queue<ThinkzapInboundJob>(
   bullBaseOptions,
 )
 
+/**
+ * Retenção dos jobs terminados. Sem ela todo job concluído fica no Redis para sempre
+ * (eram ~265 mil em produção) e todo `jobId` determinístico já usado vira chave
+ * ocupada: o `add` com o mesmo id devolve o job antigo em vez de criar o novo.
+ *
+ * A janela de 24h é o que a deduplicação precisa — reentrega do mesmo evento chega
+ * em minutos. Falhos ficam mais tempo, para investigação.
+ */
+export const THINKZAP_INBOUND_JOB_OPTIONS = {
+  attempts: 3,
+  backoff: {
+    type: 'exponential',
+    delay: 1000,
+  },
+  removeOnComplete: { age: 24 * 60 * 60 },
+  removeOnFail: { age: 7 * 24 * 60 * 60 },
+} as const
+
 export async function enqueueThinkzapInboundJob(
   job: ThinkzapInboundJob,
   opts?: { jobId?: string },
 ) {
   const createdJob = await thinkzapInboundQueue.add('process-inbound', job, {
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 1000,
-    },
+    ...THINKZAP_INBOUND_JOB_OPTIONS,
     // Chave determinística: reentrega do mesmo evento é colapsada pelo BullMQ.
     ...(opts?.jobId ? { jobId: opts.jobId } : {}),
   })
