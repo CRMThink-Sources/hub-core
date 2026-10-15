@@ -8,6 +8,10 @@ import { randomUUID } from 'crypto'
  * `jobId` determinístico pra colapsar reentrega do mesmo evento no BullMQ,
  * derivado do `message_id` que o Bitrix atribui à mensagem do canal aberto.
  *
+ * O `message_id` é sequencial **por portal**, então o domínio entra na chave: sem
+ * ele, a mensagem 95354 de um portal colide com a 95354 que outro portal já usou, e
+ * o BullMQ devolve o job antigo em vez de criar o novo — a mensagem some sem erro.
+ *
  * `undefined` quando o evento chega sem mensagens (`MESSAGES` vazio) — sem id
  * não há chave estável, e o enfileiramento cai no comportamento de hoje
  * (`jobId` aleatório do BullMQ), que o processor já trata sem falha.
@@ -16,7 +20,7 @@ export function resolveBitrixInboundJobId(
   event: IBX24MessageEvent,
 ): string | undefined {
   const messageId = event.data.MESSAGES[0]?.im.message_id
-  return messageId ? `bitrix-${messageId}` : undefined
+  return messageId ? `bitrix-${event.auth.domain}-${messageId}` : undefined
 }
 
 export class BitrixReceivedMessageHandler implements BitrixEventHandler {
