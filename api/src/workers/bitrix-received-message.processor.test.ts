@@ -70,9 +70,21 @@ vi.mock('@/queue/redis-connection', () => ({
   redisConnection: { get: vi.fn(), set: vi.fn() },
 }))
 
-vi.mock('@/modules/thinkzap/application/ensure-bitrix-bot-id', () => ({
-  ensureBitrixBotId: ensureBitrixBotIdMock,
+const { invalidateBitrixBotIdMock } = vi.hoisted(() => ({
+  invalidateBitrixBotIdMock: vi.fn().mockResolvedValue(undefined),
 }))
+
+vi.mock('@/modules/thinkzap/application/ensure-bitrix-bot-id', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/modules/thinkzap/application/ensure-bitrix-bot-id')
+  >('@/modules/thinkzap/application/ensure-bitrix-bot-id')
+  return {
+    // Real: o classificador decide pelo código no corpo do erro.
+    isBotNotFoundError: actual.isBotNotFoundError,
+    ensureBitrixBotId: ensureBitrixBotIdMock,
+    invalidateBitrixBotId: invalidateBitrixBotIdMock,
+  }
+})
 
 vi.mock('@/modules/thinkzap/infra/clients/z-api.client', () => ({
   ZApiClient: class {
@@ -206,6 +218,7 @@ import { processBitrixReceivedMessage } from './bitrix-received-message.processo
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import { encodeButtonActionCode } from '@/modules/thinkzap/application/parse-button-action-code'
+import { BitrixError } from '@/shared/infra/clients/errors/bitrix-client.error'
 
 const baseContext = {
   name: 'acme.bitrix24.com',
@@ -552,6 +565,65 @@ describe('processBitrixReceivedMessage janela de 24h fechada', () => {
 
     await expect(processBitrixReceivedMessage(makeEvent())).rejects.toThrow()
     expect(createMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('processBitrixReceivedMessage bot removido do portal', () => {
+  const botNotFound = new BitrixError(
+    'Bitrix error: 400 - {"error":"BOT_NOT_FOUND","error_description":"Bot not found"}',
+  )
+
+  beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
+    getContextMock.mockResolvedValue(baseContext)
+    createMock.mockClear()
+    sendMessageZApiMock.mockClear()
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockReset()
+    callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
+    invalidateBitrixBotIdMock.mockClear()
+    ensureBitrixBotIdMock.mockReset()
+    ensureBitrixBotIdMock.mockResolvedValueOnce(22).mockResolvedValue(1958)
+  })
+
+  it('descarta o cache, resolve o bot de novo e envia', async () => {
+    callMethodMock.mockRejectedValueOnce(botNotFound)
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(invalidateBitrixBotIdMock).toHaveBeenCalledTimes(1)
+    expect(ensureBitrixBotIdMock).toHaveBeenCalledTimes(2)
+    expect(callMethodMock).toHaveBeenNthCalledWith(
+      1,
+      'imbot.v2.Chat.Message.get',
+      expect.objectContaining({ botId: 22 }),
+    )
+    expect(callMethodMock).toHaveBeenNthCalledWith(
+      2,
+      'imbot.v2.Chat.Message.get',
+      expect.objectContaining({ botId: 1958 }),
+    )
+    expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('outro erro do Bitrix relança sem mexer no cache', async () => {
+    callMethodMock.mockRejectedValueOnce(
+      new BitrixError('Bitrix error: 500 - {"error":"INTERNAL"}'),
+    )
+
+    await expect(processBitrixReceivedMessage(makeEvent())).rejects.toThrow()
+    expect(invalidateBitrixBotIdMock).not.toHaveBeenCalled()
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+  })
+
+  it('bot ainda ausente depois de resolver de novo relança para a fila', async () => {
+    callMethodMock.mockRejectedValue(botNotFound)
+
+    await expect(processBitrixReceivedMessage(makeEvent())).rejects.toThrow(
+      'BOT_NOT_FOUND',
+    )
+    expect(invalidateBitrixBotIdMock).toHaveBeenCalledTimes(1)
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
   })
 })
 
