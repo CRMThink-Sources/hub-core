@@ -21,7 +21,11 @@ import {
   prepareOpenLineOutboundText,
 } from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
-import { ensureBitrixBotId } from '@/modules/thinkzap/application/ensure-bitrix-bot-id'
+import {
+  ensureBitrixBotId,
+  invalidateBitrixBotId,
+  isBotNotFoundError,
+} from '@/modules/thinkzap/application/ensure-bitrix-bot-id'
 import { notifyOperatorWindowClosed } from '@/modules/thinkzap/application/notify-operator-window-closed'
 import { resolveBitrixReplyContext } from '@/modules/thinkzap/application/resolve-bitrix-reply-context'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
@@ -358,7 +362,7 @@ export async function processBitrixReceivedMessage(
     domain: context.name,
   })
 
-  const botId = await ensureBitrixBotId(
+  let botId = await ensureBitrixBotId(
     bitrixClient,
     redisConnection,
     context.name,
@@ -388,13 +392,54 @@ export async function processBitrixReceivedMessage(
     chatId,
   })
 
-  const response = await bitrixClient.callMethod<BitrixMessageGetResult>(
-    'imbot.v2.Chat.Message.get',
-    {
-      botId,
-      messageId: message.im.message_id,
-    },
-  )
+  const getBitrixMessage = (id: number) =>
+    bitrixClient.callMethod<BitrixMessageGetResult>(
+      'imbot.v2.Chat.Message.get',
+      {
+        botId: id,
+        messageId: message.im.message_id,
+      },
+    )
+
+  let response: BitrixMessageGetResult
+  try {
+    response = await getBitrixMessage(botId)
+  } catch (err) {
+    if (!isBotNotFoundError(err)) throw err
+
+    // Bot cacheado foi removido do portal: sem invalidar, toda retentativa lê o
+    // mesmo id do cache e o envio fica quebrado até a chave expirar. Nada foi
+    // enviado ao contato ainda, então repetir a leitura é seguro.
+    logThinkzapError(
+      log,
+      'thinkzap.bitrix.bot_id_failed',
+      {
+        domain: event.auth.domain,
+        staleBotId: botId,
+        botNotFound: true,
+      },
+      {
+        level: 'warn',
+        msg: 'Cached bot not found in Bitrix — invalidating cache and resolving again',
+      },
+    )
+    await appendJobLog(
+      `Bot ${botId} não existe mais no portal (BOT_NOT_FOUND). Cache descartado; ` +
+        'resolvendo/registrando o bot de novo.',
+    )
+    await invalidateBitrixBotId(
+      redisConnection,
+      context.name,
+      env.appCodes.thinkzap,
+    )
+    botId = await ensureBitrixBotId(
+      bitrixClient,
+      redisConnection,
+      context.name,
+      env.appCodes.thinkzap,
+    )
+    response = await getBitrixMessage(botId)
+  }
 
   const replyId = response.result?.message?.params?.REPLY_ID
 
