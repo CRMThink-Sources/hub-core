@@ -63,8 +63,8 @@ const DEFINITIONS: readonly AppCatalogDefinition[] = [
   },
   {
     marketplaceCode: env.appCodes.clicksign,
-    appCode: 'crmthink.clicksign',
-    appCodeId: 'crmthink.clicksign',
+    appCode: 'crmthink.clicksign2',
+    appCodeId: 'crmthink.clicksign2',
     slug: 'clicksign',
     requiresOperatorOAuth: false,
   },

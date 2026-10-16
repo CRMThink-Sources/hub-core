@@ -12,6 +12,7 @@ const welcomeBotFake = (): WelcomeBotPort => ({
   bindLine: vi.fn().mockResolvedValue(undefined),
   unbindLine: vi.fn().mockResolvedValue(undefined),
   removeBotIfUnused: vi.fn().mockResolvedValue(undefined),
+  removeBot: vi.fn().mockResolvedValue(undefined),
 })
 
 const APP = 'app-1'

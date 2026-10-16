@@ -74,6 +74,7 @@ const makeWelcomeBot = async (req: Request): Promise<WelcomeBotPort> => {
   const bots = new PrismaBotFlowBotRepository()
   return new BitrixWelcomeBotAdapter(await makeBitrixClient(req), {
     get: bots,
+    list: bots,
     save: bots,
     delete: bots,
     bindings: new PrismaBotFlowBindingRepository(),

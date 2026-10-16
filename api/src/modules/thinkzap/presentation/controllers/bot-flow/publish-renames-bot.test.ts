@@ -47,6 +47,7 @@ function setup(
     bindLine: vi.fn(),
     unbindLine: vi.fn(),
     removeBotIfUnused: vi.fn(),
+    removeBot: vi.fn(),
   } as unknown as WelcomeBotPort
 
   const controller = new PublishBotFlowController(
@@ -70,7 +71,18 @@ describe('publicar renomeia o bot no portal', () => {
     const out = await controller.perform(req(), res)
 
     expect(out.status).toBe(200)
-    expect(ensureBot).toHaveBeenCalledWith(APP, 'Comercial')
+    expect(ensureBot).toHaveBeenCalledWith(APP, 'f1', 'Comercial')
+  })
+
+  it('vínculo só de outro fluxo não registra bot para este', async () => {
+    const { controller, ensureBot } = setup({
+      vinculos: [{ ...binding(), flowId: 'f2' }],
+    })
+
+    const out = await controller.perform(req(), res)
+
+    expect(out.status).toBe(200)
+    expect(ensureBot).not.toHaveBeenCalled()
   })
 
   it('sem vínculo não registra bot nenhum', async () => {

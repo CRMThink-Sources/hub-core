@@ -8,6 +8,7 @@ const APP = 'app-1'
 
 const bot: BotFlowBot = {
   appId: APP,
+  flowId: 'f1',
   bitrixBotId: 42,
   botToken: 'token-1',
   webhookUrl: 'https://tunel.example/bot',
@@ -40,7 +41,8 @@ function setup(opts: {
   const adapter = new BitrixWelcomeBotAdapter(
     { callMethod } as unknown as BitrixClient,
     {
-      get: { getByAppId: vi.fn().mockResolvedValue(opts.bot ?? null) },
+      get: { getByFlowId: vi.fn().mockResolvedValue(opts.bot ?? null) },
+      list: { listByAppId: vi.fn().mockResolvedValue([]) },
       save: { save: vi.fn() },
       delete: { delete: del },
       bindings: {
@@ -52,20 +54,20 @@ function setup(opts: {
   return { adapter, callMethod, del }
 }
 
-// O bot é um por instalação, compartilhado por todos os fluxos: desregistrá-lo com um
+// O bot atende todas as linhas do fluxo: desregistrá-lo com um
 // canal ainda vinculado pararia aquele atendimento sem ninguém pedir.
 describe('removeBotIfUnused', () => {
   it('desregistra quando nenhuma linha usa mais', async () => {
     const { adapter, callMethod, del } = setup({ bot, bindings: [] })
 
-    await adapter.removeBotIfUnused(APP)
+    await adapter.removeBotIfUnused(APP, 'f1')
 
     expect(callMethod).toHaveBeenCalledWith('imbot.v2.Bot.unregister', {
       botId: 42,
       // `botToken` obrigatório: o bot é `eventMode: 'webhook'`.
       botToken: 'token-1',
     })
-    expect(del).toHaveBeenCalledWith(APP)
+    expect(del).toHaveBeenCalledWith(APP, 42)
   })
 
   it('NÃO desregistra com vínculo restante', async () => {
@@ -74,7 +76,7 @@ describe('removeBotIfUnused', () => {
       bindings: [vinculo()],
     })
 
-    await adapter.removeBotIfUnused(APP)
+    await adapter.removeBotIfUnused(APP, 'f1')
 
     expect(callMethod).not.toHaveBeenCalled()
     expect(del).not.toHaveBeenCalled()
@@ -83,7 +85,7 @@ describe('removeBotIfUnused', () => {
   it('sem bot gravado não faz nada', async () => {
     const { adapter, callMethod } = setup({ bot: null })
 
-    await adapter.removeBotIfUnused(APP)
+    await adapter.removeBotIfUnused(APP, 'f1')
 
     expect(callMethod).not.toHaveBeenCalled()
   })
@@ -96,9 +98,9 @@ describe('removeBotIfUnused', () => {
       callMethod: vi.fn().mockResolvedValue({ result: true }),
     })
 
-    await adapter.removeBotIfUnused(APP)
+    await adapter.removeBotIfUnused(APP, 'f1')
 
-    expect(del).toHaveBeenCalledWith(APP)
+    expect(del).toHaveBeenCalledWith(APP, 42)
   })
 
   it('`result: false` NÃO apaga do banco', async () => {
@@ -110,7 +112,7 @@ describe('removeBotIfUnused', () => {
       callMethod: vi.fn().mockResolvedValue({ result: { result: false } }),
     })
 
-    await adapter.removeBotIfUnused(APP)
+    await adapter.removeBotIfUnused(APP, 'f1')
 
     expect(del).not.toHaveBeenCalled()
   })
@@ -122,7 +124,7 @@ describe('removeBotIfUnused', () => {
       callMethod: vi.fn().mockResolvedValue({}),
     })
 
-    await adapter.removeBotIfUnused(APP)
+    await adapter.removeBotIfUnused(APP, 'f1')
 
     expect(del).not.toHaveBeenCalled()
   })
@@ -137,7 +139,8 @@ describe('removeBotIfUnused', () => {
     const adapter = new BitrixWelcomeBotAdapter(
       { callMethod } as unknown as BitrixClient,
       {
-        get: { getByAppId: vi.fn().mockResolvedValue(bot) },
+        get: { getByFlowId: vi.fn().mockResolvedValue(bot) },
+        list: { listByAppId: vi.fn().mockResolvedValue([]) },
         save: { save: vi.fn() },
         delete: {
           delete: vi.fn().mockImplementation(() => {
@@ -149,7 +152,7 @@ describe('removeBotIfUnused', () => {
       },
     )
 
-    await adapter.removeBotIfUnused(APP)
+    await adapter.removeBotIfUnused(APP, 'f1')
 
     expect(ordem).toEqual(['unregister', 'delete'])
   })
@@ -163,7 +166,7 @@ describe('removeBotIfUnused', () => {
       callMethod: vi.fn().mockRejectedValue(new Error('boom')),
     })
 
-    await expect(adapter.removeBotIfUnused(APP)).resolves.toBeUndefined()
+    await expect(adapter.removeBotIfUnused(APP, 'f1')).resolves.toBeUndefined()
     // Não apaga do nosso banco: o bot ainda está no portal.
     expect(del).not.toHaveBeenCalled()
   })
@@ -204,5 +207,52 @@ describe('removeBotIfUnused', () => {
     const { adapter } = setup({ bot, callMethod })
 
     await expect(adapter.unbindLine({ lineId: '7' })).rejects.toThrow()
+  })
+})
+
+describe('um bot por fluxo', () => {
+  it('vínculo de outro fluxo não segura o bot deste', async () => {
+    const { adapter, callMethod, del } = setup({
+      bot,
+      bindings: [{ ...vinculo(), flowId: 'f2' }],
+    })
+
+    await adapter.removeBotIfUnused(APP, 'f1')
+
+    expect(callMethod).toHaveBeenCalledWith('imbot.v2.Bot.unregister', {
+      botId: 42,
+      botToken: 'token-1',
+    })
+    expect(del).toHaveBeenCalledWith(APP, 42)
+  })
+
+  it('linha com o bot de outro fluxo nosso não é recusada', async () => {
+    // Bot do fluxo A posto pelo painel numa linha que agora vai para o fluxo B: é nosso,
+    // não de outro app.
+    const callMethod = vi.fn().mockImplementation((metodo: string) =>
+      metodo === 'imopenlines.config.get'
+        ? Promise.resolve({
+            result: {
+              WELCOME_BOT_ENABLE: 'Y',
+              WELCOME_BOT_ID: callMethod.mock.calls.length > 2 ? 43 : 42,
+            },
+          })
+        : Promise.resolve({ result: true }),
+    )
+
+    const adapter = new BitrixWelcomeBotAdapter(
+      { callMethod } as unknown as BitrixClient,
+      {
+        get: { getByFlowId: vi.fn() },
+        list: { listByAppId: vi.fn().mockResolvedValue([bot]) },
+        save: { save: vi.fn() },
+        delete: { delete: vi.fn() },
+        bindings: { listByAppId: vi.fn().mockResolvedValue([]) },
+      },
+    )
+
+    await expect(
+      adapter.bindLine({ appId: APP, lineId: '7', bitrixBotId: 43 }),
+    ).resolves.toBeUndefined()
   })
 })

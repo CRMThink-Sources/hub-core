@@ -6,6 +6,9 @@ export type NodeId = string
 /** Espelha `MAX_QUESTION_OPTIONS` do servidor: acima disso o `PATCH` recusa. */
 export const MAX_QUESTION_OPTIONS = 20
 
+/** Espelha `MAX_FLOWS_POR_APP` do servidor: acima disso o `POST` recusa. */
+export const MAX_FLOWS_PER_APP = 5
+
 /** Nome que o usuário dá ao bloco. Só organização — o cliente nunca vê. */
 export type NodeName = string
 
