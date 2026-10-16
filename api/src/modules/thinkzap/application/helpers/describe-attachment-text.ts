@@ -1,4 +1,9 @@
 import { WidgetAttachmentKind } from '@/modules/thinkzap/application/send-widget-message.types'
+import {
+  DEFAULT_NOTICE_LOCALE,
+  type NoticeLocale,
+} from '@/modules/thinkzap/domain/notices/notice-locale'
+import { historyNotices } from '@/modules/thinkzap/domain/notices/history-notices'
 
 /**
  * Texto descritivo do anexo, para quando o envio pelo widget não tem texto nenhum.
@@ -9,17 +14,14 @@ import { WidgetAttachmentKind } from '@/modules/thinkzap/application/send-widget
  * literal `"[Mensagem enviada a partir do CRM]\nnull"` no histórico do cliente.
  *
  * Função pura. O tipo do anexo é o do widget (`kind`), não o `type` persistido: é o
- * que o chamador tem em mãos no momento do envio.
+ * que o chamador tem em mãos no momento do envio. O texto sai no idioma da instalação
+ * (`domain/notices/history-notices.ts`).
  */
-const DESCRIPTION_BY_KIND: Record<WidgetAttachmentKind, string> = {
-  image: '[Imagem enviada]',
-  video: '[Vídeo enviado]',
-  audio: '[Áudio enviado]',
-  file: '[Arquivo enviado]',
-}
-
-export function describeAttachmentText(kind: WidgetAttachmentKind): string {
-  return DESCRIPTION_BY_KIND[kind]
+export function describeAttachmentText(
+  kind: WidgetAttachmentKind,
+  locale: NoticeLocale = DEFAULT_NOTICE_LOCALE,
+): string {
+  return historyNotices(locale).attachment[kind]
 }
 
 /**
@@ -34,10 +36,11 @@ export function describeAttachmentText(kind: WidgetAttachmentKind): string {
 export function resolveOpenChannelText(
   message: string | undefined,
   attachmentKinds: readonly WidgetAttachmentKind[],
+  locale: NoticeLocale = DEFAULT_NOTICE_LOCALE,
 ): string | null {
   const trimmed = message?.trim()
   if (trimmed) return trimmed
 
   const [first] = attachmentKinds
-  return first ? describeAttachmentText(first) : null
+  return first ? describeAttachmentText(first, locale) : null
 }

@@ -36,6 +36,7 @@ import {
 import type { DailyLimitPolicy } from '@/modules/thinkzap/domain/daily-send-limit'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
+import { openChannelNotices } from '@/modules/thinkzap/domain/notices/open-channel-notices'
 import { resolveBitrixReplyContext } from '@/modules/thinkzap/application/resolve-bitrix-reply-context'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
 import { makeInteractiveButtonSenderResolver } from '@/modules/thinkzap/main/connector/make-interactive-button-sender-resolver'
@@ -627,6 +628,7 @@ export async function processBitrixReceivedMessage(
           bitrixClient,
           botId,
           message.im.chat_id,
+          await installationLocales.byAppId(context.app.id),
         )
         return
       }
@@ -753,11 +755,13 @@ async function sendButtonActionMessage(params: {
       'Código de botões da tela do canal aberto não pôde ser decodificado. ' +
         'Nada foi enviado ao contato. Job encerrado SEM retentativa — o motivo é permanente.',
     )
+    const locale = await installationLocales.byAppId(context.app.id)
     await notifyOperatorButtonActionFailed(
       bitrixClient,
       botId,
       message.im.chat_id,
-      'a mensagem chegou corrompida. Tente novamente pela tela de botões.',
+      openChannelNotices(locale).buttonCodeCorrupted,
+      locale,
     )
     return
   }
@@ -787,6 +791,7 @@ async function sendButtonActionMessage(params: {
       botId,
       message.im.chat_id,
       (err as Error).message,
+      await installationLocales.byAppId(context.app.id),
     )
     return
   }
@@ -830,7 +835,12 @@ async function sendButtonActionMessage(params: {
         'Provider recusou: janela de conversa de 24h fechada. Só template aprovado reabre — ' +
           'operador avisado no chat, job encerrado SEM retentativa e sem entrega.',
       )
-      await notifyOperatorWindowClosed(bitrixClient, botId, message.im.chat_id)
+      await notifyOperatorWindowClosed(
+        bitrixClient,
+        botId,
+        message.im.chat_id,
+        await installationLocales.byAppId(context.app.id),
+      )
       return
     }
 

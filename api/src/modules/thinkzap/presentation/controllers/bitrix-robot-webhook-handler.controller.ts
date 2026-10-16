@@ -4,6 +4,7 @@ import {
   DEFAULT_NOTICE_LOCALE,
   dailyLimitNotices,
 } from '@/modules/thinkzap/domain/daily-limit-notices'
+import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import {
   dailyLimitPolicyOf,
@@ -111,12 +112,16 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       line.zApiInstanceId,
       line.zApiInstanceToken,
     )
-    const fromPhone = phoneData?.phone ?? 'desconhecido'
+    // Idioma da instalação para o comentário da timeline (sempre há um, com documento).
+    const locale =
+      (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE
+    const notices = timelineNotices(locale)
+    const fromPhone = phoneData?.phone ?? notices.sendRobot.unknownPhone
 
     if (recipients.length === 0) {
       await this.commentOnCrmTimeline(
         crmDocument,
-        `De: ${fromPhone}\nNenhum destinatário encontrado para o envio.`,
+        notices.sendRobot.noRecipients(fromPhone),
       )
       return this.ok({ received: true, sent: 0 })
     }
@@ -172,12 +177,13 @@ export class BitrixRobotWebhookHandlerController extends Controller {
 
     await this.commentOnCrmTimeline(
       crmDocument,
-      `De: ${fromPhone}\nPara: ${sent.join(', ')}\nMensagem: ${data.properties.message}` +
+      notices.sendRobot.result({
+        fromPhone,
+        sent,
+        message: data.properties.message,
+      }) +
         (refusedByLimit.length > 0
-          ? '\n' +
-            dailyLimitNotices(
-              (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE,
-            ).robotRefused(refusedByLimit)
+          ? '\n' + dailyLimitNotices(locale).robotRefused(refusedByLimit)
           : ''),
     )
 

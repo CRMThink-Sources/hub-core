@@ -11,6 +11,7 @@ import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persisten
 import { reportSmsMessageStatus } from '@/modules/thinkzap/application/report-sms-message-status'
 import { redisConnection } from '@/queue/redis-connection'
 import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { makeBitrixClientByDomainAndAppCoode } from '@/shared/main/make-bitrix-client'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 
@@ -45,6 +46,11 @@ export async function processHubMessageDeliveryStatus(
         env.appCodes.thinkzap,
       ),
     notifyOperator: notifyOperatorDeliveryFailed,
+    resolveLocale: domainId =>
+      makeInstallationLocaleRepository().byInstallation(
+        domainId,
+        thinkzapAppCodeId(),
+      ),
     outboxRepo: new PrismaWidgetOutboxRepository(),
     /**
      * `delivered` / `undelivered` na tela de campanha. Só a linha oficial passa por

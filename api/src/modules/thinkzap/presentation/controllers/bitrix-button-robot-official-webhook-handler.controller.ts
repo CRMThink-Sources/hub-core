@@ -1,3 +1,4 @@
+import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/ports/installation-locale.port'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { SendNotification } from '@/shared/data/contracts/send-notification'
@@ -18,6 +19,7 @@ export class BitrixButtonRobotOfficialWebhookHandlerController extends BitrixBut
     enqueueButtonSend: EnqueueInteractiveButtonSendService,
     sendNotification: SendNotification,
     bitrix: BitrixClient,
+    locales: InstallationLocaleRepository | null = null,
   ) {
     super(
       getDomain,
@@ -26,6 +28,7 @@ export class BitrixButtonRobotOfficialWebhookHandlerController extends BitrixBut
       sendNotification,
       bitrix,
       ConnectorProvider.HUBMESSAGE,
+      locales,
     )
   }
 }

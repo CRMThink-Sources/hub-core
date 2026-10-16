@@ -1240,3 +1240,80 @@ describe('processBitrixReceivedMessage limite diário', () => {
     )
   })
 })
+
+describe('processBitrixReceivedMessage avisos no idioma da instalação', () => {
+  beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
+    createMock.mockClear()
+    sendHubMessageMock.mockClear()
+    sendButtonActionsMock.mockClear()
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockClear()
+    callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
+    localeByAppIdMock.mockReset().mockResolvedValue('pt')
+  })
+
+  const noticeSent = () =>
+    callMethodMock.mock.calls
+      .filter(([method]) => method === 'imbot.message.add')
+      .map(([, params]) => (params as { MESSAGE: string }).MESSAGE)
+
+  it('janela de 24h fechada em inglês', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+    localeByAppIdMock.mockResolvedValue('en')
+    sendHubMessageMock.mockRejectedValueOnce(
+      new HubMessageApiError(
+        422,
+        'POST',
+        '/v1/channels/CH-123/messages',
+        { message: 'A janela de conversa de 24 horas está fechada' },
+        null,
+      ),
+    )
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(localeByAppIdMock).toHaveBeenCalledWith('app-1')
+    expect(noticeSent()[0]).toContain('Your message was not delivered')
+  })
+
+  it('código de botões corrompido em espanhol', async () => {
+    getContextMock.mockResolvedValue(baseContext)
+    localeByAppIdMock.mockResolvedValue('es')
+
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: '##THINKZAP_BUTTON_ACTION##not-valid-base64-json',
+          files: undefined,
+        },
+      }),
+    )
+
+    const [notice] = noticeSent()
+    expect(notice).toContain('El envío de botones no fue entregado')
+    expect(notice).toContain('el mensaje llegó dañado')
+  })
+
+  it('sem idioma escolhido: o aviso da janela fica no texto de hoje', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+    sendHubMessageMock.mockRejectedValueOnce(
+      new HubMessageApiError(
+        422,
+        'POST',
+        '/v1/channels/CH-123/messages',
+        { message: 'A janela de conversa de 24 horas está fechada' },
+        null,
+      ),
+    )
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(noticeSent()[0]).toBe(
+      '⚠️ Sua mensagem não foi entregue: o contato não interage há mais de 24 horas ' +
+        'e o WhatsApp Oficial só permite mensagem livre dentro dessa janela. ' +
+        'Para retomar a conversa, é preciso enviar um template aprovado.',
+    )
+  })
+})

@@ -472,3 +472,25 @@ describe('BitrixRobotWebhookHandlerController limite diário (idioma)', () => {
     )
   })
 })
+
+describe('BitrixRobotWebhookHandlerController idioma da timeline', () => {
+  it('sem destinatário em inglês', async () => {
+    const deps = makeDeps()
+    const controller = new BitrixRobotWebhookHandlerController(
+      deps.getDomain as never,
+      deps.getApp as never,
+      deps.getAplicationContext as never,
+      deps.sendNotification as never,
+      deps.bitrix as never,
+      null,
+      { byAppId: vi.fn().mockResolvedValue('en') } as never,
+    )
+
+    await controller.perform(makeReq({ connector: 'conn', message: 'oi' }), res)
+
+    const comment = (
+      deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string }
+    ).message
+    expect(comment).toBe('From: 5599\nNo recipients found for this send.')
+  })
+})

@@ -4,6 +4,7 @@ import {
   DEFAULT_NOTICE_LOCALE,
   dailyLimitNotices,
 } from '@/modules/thinkzap/domain/daily-limit-notices'
+import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import {
@@ -345,6 +346,11 @@ export class SendWidgetMessageUseCase {
      * conversa já está aberta. Enfileirar antes abriria uma corrida com a própria
      * escrita — exatamente o defeito que o callback de status tinha.
      */
+    // Idioma da instalação: marcador de anexo no histórico e comentário da timeline.
+    const locale =
+      (await this.locales?.byAppId(context.aplication.id)) ??
+      DEFAULT_NOTICE_LOCALE
+
     await this.openConversation({
       subscriptionItemId,
       domainId,
@@ -355,6 +361,7 @@ export class SendWidgetMessageUseCase {
       text: resolveOpenChannelText(
         message,
         attachments.map(attachment => attachment.kind),
+        locale,
       ),
       entity,
       entityId,
@@ -364,13 +371,14 @@ export class SendWidgetMessageUseCase {
       contextId: entityId,
       entity,
       message:
-        `De: ${phoneData?.phone ?? ''}\nPara: ${destination}\nMensagem: ${message?.trim() || ''}` +
+        timelineNotices(locale).widgetSentSync({
+          fromPhone: phoneData?.phone ?? '',
+          destination,
+          text: message?.trim() || '',
+        }) +
         (skippedByDailyLimit > 0
           ? '\n' +
-            dailyLimitNotices(
-              (await this.locales?.byAppId(context.aplication.id)) ??
-                DEFAULT_NOTICE_LOCALE,
-            ).attachmentsSkipped(skippedByDailyLimit)
+            dailyLimitNotices(locale).attachmentsSkipped(skippedByDailyLimit)
           : ''),
     })
 

@@ -1,3 +1,4 @@
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { Request } from 'express'
 import { env } from '@/config/env'
@@ -53,5 +54,6 @@ export const makeBitrixButtonRobotUnofficialWebhookHandlerController = async (
     enqueueButtonSend,
     new BitrixLivefeedNotificationService(bx),
     bx,
+    makeInstallationLocaleRepository(),
   )
 }

@@ -683,3 +683,45 @@ describe('SendWidgetMessageUseCase limite diário (idioma)', () => {
     )
   })
 })
+
+describe('SendWidgetMessageUseCase timeline e histórico por idioma', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('comentário da timeline em inglês', async () => {
+    const sut = makeSut([zapiItem()], null, 'en')
+
+    await sut.send()
+
+    const comment = (
+      sut.sendBitrixNotification.execute.mock.calls[0]?.[0] as {
+        message: string
+      }
+    ).message
+    expect(comment).toBe('From: 5511911111111\nTo: 5511999999999\nMessage: Olá')
+  })
+
+  it('envio só com imagem: marcador do histórico em espanhol', async () => {
+    const sut = makeSut([zapiItem()], null, 'es')
+
+    await sut.send({
+      message: '',
+      attachments: [{ kind: 'image', content: 'data:image/png;base64,aa' }],
+    } as never)
+
+    expect(sut.openChannelQueue.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ text: '[Imagen enviada]' }),
+    )
+  })
+
+  it('sem idioma: comentário de hoje', async () => {
+    const sut = makeSut()
+
+    await sut.send()
+
+    expect(sut.sendBitrixNotification.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'De: 5511911111111\nPara: 5511999999999\nMensagem: Olá',
+      }),
+    )
+  })
+})

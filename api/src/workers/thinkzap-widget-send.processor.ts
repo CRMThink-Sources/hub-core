@@ -13,6 +13,7 @@ import {
 } from '@/modules/thinkzap/application/notify-widget-send-outcome'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
+import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import { reportSmsMessageStatus } from '@/modules/thinkzap/application/report-sms-message-status'
 import { findItemInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
@@ -263,13 +264,11 @@ async function notifyOutcomeFor(
       entityId: row.entityId,
       destination: row.destination,
       text: row.text,
-      // Só o aviso de limite é traduzido: lê o idioma só quando vai usá-lo.
-      ...(outcome === 'daily-limit' && {
-        locale: await makeInstallationLocaleRepository().byInstallation(
-          row.domainId,
-          row.appCode,
-        ),
-      }),
+      // Lido só aqui, quando o comentário vai mesmo sair.
+      locale: await makeInstallationLocaleRepository().byInstallation(
+        row.domainId,
+        row.appCode,
+      ),
     })
   } catch (err) {
     logThinkzapError(
@@ -287,13 +286,20 @@ async function notifySentFor(row: WidgetOutboxRecord): Promise<void> {
     const notifier = await makeNotifier(row)
     if (!notifier) return
 
-    const templateLine =
-      row.kind === 'TEMPLATE' ? `\nTemplate: ${row.templateName}` : ''
+    const locale = await makeInstallationLocaleRepository().byInstallation(
+      row.domainId,
+      row.appCode,
+    )
 
     await notifier.execute({
       contextId: row.entityId,
       entity: row.entity,
-      message: `Para: ${row.destination}${templateLine}\nMensagem: ${row.text}`,
+      message: timelineNotices(locale).widgetSentQueued({
+        destination: row.destination,
+        templateName:
+          row.kind === 'TEMPLATE' ? String(row.templateName) : undefined,
+        text: row.text,
+      }),
     })
   } catch (err) {
     logThinkzapError(

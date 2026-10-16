@@ -1,3 +1,6 @@
+import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/ports/installation-locale.port'
+import { DEFAULT_NOTICE_LOCALE } from '@/modules/thinkzap/domain/notices/notice-locale'
+import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import { Request, Response } from 'express'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
@@ -31,6 +34,8 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
     private readonly sendNotification: SendNotification,
     private readonly bitrix: BitrixClient,
     private readonly expectedProvider: ConnectorProvider,
+    /** Idioma dos comentários de timeline. Ausente, português. */
+    private readonly locales: InstallationLocaleRepository | null = null,
   ) {
     super()
   }
@@ -66,6 +71,11 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
       return this.badRequest(new Error('Document ID not found'))
     }
 
+    // Todo desfecho daqui em diante comenta na timeline, no idioma da instalação.
+    const notices = timelineNotices(
+      (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE,
+    ).buttonRobot
+
     const crmDocument = parseBizprocDocumentId(documentId)
 
     const subscriptionItemId = data.properties.connector?.trim()
@@ -73,11 +83,9 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
     const buttons = parseButtonList(data.properties.buttons)
 
     if (!subscriptionItemId || !body || buttons.length === 0) {
-      return this.refuse(
-        crmDocument,
-        'A automação está sem linha, sem corpo ou sem nenhum botão configurado. Abra a configuração do robô e preencha os três.',
-        { reason: 'incomplete-configuration' },
-      )
+      return this.refuse(crmDocument, notices.incomplete, {
+        reason: 'incomplete-configuration',
+      })
     }
 
     const scope = {
@@ -99,7 +107,7 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
 
       return this.refuse(
         crmDocument,
-        `A linha configurada não pode enviar botões: ${(error as Error).message}`,
+        notices.lineCannotSend((error as Error).message),
         { reason: 'line-refused' },
       )
     }
@@ -107,7 +115,7 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
     if (target.provider !== this.expectedProvider) {
       return this.refuse(
         crmDocument,
-        `A linha configurada é ${target.provider}, mas este robô só dispara para linha ${this.expectedProvider}.`,
+        notices.providerMismatch(target.provider, this.expectedProvider),
         { reason: 'provider-mismatch' },
       )
     }
@@ -129,11 +137,9 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
 
     const recipients = await this.resolveRecipients(data, crmDocument)
     if (recipients.length === 0) {
-      return this.refuse(
-        crmDocument,
-        'Nenhum destinatário encontrado para o envio da mensagem com botões.',
-        { reason: 'no-recipients' },
-      )
+      return this.refuse(crmDocument, notices.noRecipients, {
+        reason: 'no-recipients',
+      })
     }
 
     const header = data.properties.header?.trim() || undefined
@@ -170,17 +176,12 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
     }
 
     if (queued.length === 0) {
-      return this.refuse(
-        crmDocument,
-        'Nenhum destinatário válido para o envio da mensagem com botões.',
-        { reason: 'no-valid-recipients' },
-      )
+      return this.refuse(crmDocument, notices.noValidRecipients, {
+        reason: 'no-valid-recipients',
+      })
     }
 
-    await this.comment(
-      crmDocument,
-      `Mensagem com botões enfileirada para: ${queued.join(', ')}`,
-    )
+    await this.comment(crmDocument, notices.queued(queued))
 
     return this.ok({ received: true, queued: queued.length })
   }

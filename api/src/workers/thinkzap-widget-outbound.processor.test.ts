@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+/** Prefixo do histórico em português — o padrão sem idioma da instalação. */
+const PT_PREFIX = '[Mensagem enviada a partir do CRM]\n'
 const {
   getDomainByIdMock,
   getAplicationContextMock,
@@ -82,6 +84,15 @@ vi.mock('@/modules/thinkzap/application/get-crm-contact-name', () => ({
 
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
+// Idioma da instalação: português por padrão, sem tocar no banco.
+const { localeByAppIdMock } = vi.hoisted(() => ({
+  localeByAppIdMock: vi.fn().mockResolvedValue('pt'),
+}))
+
+vi.mock('@/modules/thinkzap/main/make-installation-locale', () => ({
+  makeInstallationLocaleRepository: () => ({ byAppId: localeByAppIdMock }),
+}))
+
 import { processWidgetOpenChannelJob } from './thinkzap-widget-outbound.processor'
 
 const zapiItem = (
@@ -160,6 +171,7 @@ describe('processWidgetOpenChannelJob', () => {
       'hubthink_thinkzap',
       { id: '5511999999999', name: '5511999999999', phone: '5511999999999' },
       'Olá',
+      PT_PREFIX,
     )
     expect(updateOpenChannelRefsMock).toHaveBeenCalledWith(
       'inst-db-1',

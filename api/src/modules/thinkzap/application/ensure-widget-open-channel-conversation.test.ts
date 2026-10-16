@@ -3,6 +3,8 @@ import type { SubscriptionItem } from '@/modules/application/domain/entities/sub
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { EnsureWidgetOpenChannelConversation } from './ensure-widget-open-channel-conversation'
 
+/** Prefixo do histórico em português — o padrão sem idioma da instalação. */
+const PT_PREFIX = '[Mensagem enviada a partir do CRM]\n'
 const item = (overrides: Partial<SubscriptionItem> = {}): SubscriptionItem => ({
   id: 'item-1',
   name: 'Linha comercial',
@@ -63,6 +65,7 @@ describe('EnsureWidgetOpenChannelConversation', () => {
       expect.any(String),
       { id: '5511999999999', name: '5511999999999', phone: '5511999999999' },
       'Olá',
+      PT_PREFIX,
     )
   })
 
@@ -120,6 +123,7 @@ describe('EnsureWidgetOpenChannelConversation', () => {
       expect.any(String),
       expect.any(Object),
       expect.any(String),
+      PT_PREFIX,
     )
   })
 
@@ -150,6 +154,7 @@ describe('EnsureWidgetOpenChannelConversation', () => {
       expect.any(String),
       expect.objectContaining({ id: '3577724534928@lid' }),
       'Olá',
+      PT_PREFIX,
     )
   })
 
@@ -182,6 +187,7 @@ describe('EnsureWidgetOpenChannelConversation', () => {
       expect.any(String),
       expect.objectContaining({ name: 'Maria Souza' }),
       'Olá',
+      PT_PREFIX,
     )
   })
 
@@ -217,6 +223,7 @@ describe('EnsureWidgetOpenChannelConversation', () => {
       expect.any(String),
       expect.objectContaining({ name: '5511999999999' }),
       'Olá',
+      PT_PREFIX,
     )
   })
 
@@ -409,5 +416,58 @@ describe('EnsureWidgetOpenChannelConversation', () => {
 
     expect(result.outcome).toBe('opened')
     expect(sendToOpenChannel).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('EnsureWidgetOpenChannelConversation idioma do histórico', () => {
+  const sutWith = (resolveLocale: () => Promise<'pt' | 'en' | 'es'>) => {
+    const sendToOpenChannel = vi
+      .fn()
+      .mockResolvedValue({ chatId: '4242', bitrixMessageId: '99' })
+    const sut = new EnsureWidgetOpenChannelConversation(
+      { sendToOpenChannel },
+      {
+        findByProviderMessageId: vi.fn().mockResolvedValue(null),
+        updateOpenChannelRefs: vi.fn().mockResolvedValue(undefined),
+      },
+      undefined,
+      undefined,
+      resolveLocale,
+    )
+    return { sut, sendToOpenChannel }
+  }
+
+  it('prefixo em inglês, mensagem como foi escrita', async () => {
+    const { sut, sendToOpenChannel } = sutWith(() => Promise.resolve('en'))
+
+    await sut.execute({ ...baseInput, item: item() })
+
+    expect(sendToOpenChannel.mock.calls[0]?.[3]).toBe('Olá')
+    expect(sendToOpenChannel.mock.calls[0]?.[4]).toBe(
+      '[Message sent from the CRM]\n',
+    )
+  })
+
+  it('idioma não é lido quando a conversa não vai ser postada', async () => {
+    const resolveLocale = vi.fn(() => Promise.resolve('en' as const))
+    const { sut } = sutWith(resolveLocale)
+
+    await sut.execute({
+      ...baseInput,
+      item: item({ vinculatedChannel: null }),
+    })
+
+    expect(resolveLocale).not.toHaveBeenCalled()
+  })
+
+  it('falha ao ler o idioma: posta em português, sem falhar', async () => {
+    const { sut, sendToOpenChannel } = sutWith(() =>
+      Promise.reject(new Error('db fora')),
+    )
+
+    const result = await sut.execute({ ...baseInput, item: item() })
+
+    expect(result.outcome).toBe('opened')
+    expect(sendToOpenChannel.mock.calls[0]?.[4]).toBe(PT_PREFIX)
   })
 })
