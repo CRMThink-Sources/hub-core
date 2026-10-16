@@ -539,6 +539,11 @@ export class BitrixClient {
       phone: string | null
     },
     message: string,
+    /**
+     * Vai antes da mensagem no histórico. Parâmetro porque o cliente é compartilhado e não
+     * conhece idioma de instalação: o chamador do ThinkZap passa o traduzido.
+     */
+    prefix = '[Mensagem enviada a partir do CRM]\n',
   ): Promise<{
     chatId: string | null
     bitrixMessageId: string | null
@@ -561,7 +566,7 @@ export class BitrixClient {
           message: {
             id: messageId,
             date: new Date().toISOString(),
-            text: '[Mensagem enviada a partir do CRM]\n' + message,
+            text: prefix + message,
           },
         },
       ],

@@ -6,17 +6,15 @@
  * está olhando. Instalação que nunca escolheu fica em português, como antes.
  */
 
-export const NOTICE_LOCALES = ['pt', 'en', 'es'] as const
-export type NoticeLocale = (typeof NOTICE_LOCALES)[number]
+import type { NoticeLocale } from './notices/notice-locale'
 
-export const DEFAULT_NOTICE_LOCALE: NoticeLocale = 'pt'
-
-/** Qualquer valor fora dos três — inclusive nulo — vira português. */
-export function parseNoticeLocale(raw: unknown): NoticeLocale {
-  return (NOTICE_LOCALES as readonly unknown[]).includes(raw)
-    ? (raw as NoticeLocale)
-    : DEFAULT_NOTICE_LOCALE
-}
+// O idioma é dos avisos do servidor em geral; reexportado para os chamadores do limite.
+export {
+  DEFAULT_NOTICE_LOCALE,
+  NOTICE_LOCALES,
+  parseNoticeLocale,
+} from './notices/notice-locale'
+export type { NoticeLocale } from './notices/notice-locale'
 
 type DailyLimitNotices = {
   /** Aviso no chat do canal aberto, para o operador que respondeu. */

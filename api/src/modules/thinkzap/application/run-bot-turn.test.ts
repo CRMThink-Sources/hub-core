@@ -561,3 +561,44 @@ describe('runBotTurn', () => {
     expect(handoff).toHaveBeenCalledWith(CHAT, { type: 'queue' })
   })
 })
+
+describe('runBotTurn idioma do resumo', () => {
+  const sessaoNaPergunta = {
+    id: 'sess-1',
+    appId: APP,
+    chatId: CHAT,
+    flowId: 'flow-1',
+    flowVersion: 3,
+    currentNodeId: 'ask',
+    vars: {},
+    attempts: 0,
+    graph,
+    bindingId: 'bind-1',
+    status: 'ACTIVE',
+    createdAt: new Date('2026-08-31T11:59:00Z'),
+    updatedAt: new Date('2026-08-31T11:59:00Z'),
+  } as unknown as BotSession
+
+  it('o idioma da instalação chega ao resumo sussurrado na transferência', async () => {
+    const { deps } = makeDeps({ sessaoAtiva: sessaoNaPergunta })
+
+    await runBotTurn(evento({ text: 'maria@x.com' }), LINE, APP, {
+      ...deps,
+      locale: 'en',
+    })
+
+    const whisper = vi.mocked(deps.session).whisper.mock
+    const resumo = whisper.calls[0]?.[1]
+    expect(resumo?.split('\n')[0]).toBe('Automated service summary')
+    expect(resumo).toContain('maria@x.com')
+  })
+
+  it('sem idioma: resumo em português', async () => {
+    const { deps } = makeDeps({ sessaoAtiva: sessaoNaPergunta })
+
+    await runBotTurn(evento({ text: 'maria@x.com' }), LINE, APP, deps)
+
+    const whisper = vi.mocked(deps.session).whisper.mock
+    expect(whisper.calls[0]?.[1]).toMatch(/^Resumo do atendimento automático/)
+  })
+})

@@ -1,3 +1,4 @@
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { findItemInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { EnsureWidgetOpenChannelConversation } from '@/modules/thinkzap/application/ensure-widget-open-channel-conversation'
@@ -122,6 +123,10 @@ export async function processWidgetOpenChannelJob(
     new PrismaThinkzapMessageRepository(),
     makeResolveWidgetOpenChannelContact(),
     makeGetCrmContactName(bitrix),
+    () =>
+      makeInstallationLocaleRepository().byAppId(
+        applicationContext.aplication.id,
+      ),
   )
 
   const { outcome, chatId, payload, error } = await ensureOpenChannel.execute({

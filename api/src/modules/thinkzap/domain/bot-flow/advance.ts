@@ -10,6 +10,10 @@ import {
   shouldWhisperSummary,
 } from './flow'
 import { handoffSummary } from './handoff-summary'
+import {
+  DEFAULT_NOTICE_LOCALE,
+  type NoticeLocale,
+} from '../notices/notice-locale'
 import { matchOption, matchesEscape, normalizeAnswer } from './match-answer'
 import { WORKING_HOURS_VAR, captureVar, choiceVar, renderVars } from './vars'
 
@@ -71,16 +75,18 @@ export function advance(
   input: BotInput,
   // Vínculos de CRM do chat e nome do contato. Valem em todo turno — ver `seedPortalVars`.
   initialVars: Record<string, string> = {},
+  // Idioma da instalação: só o texto fixo do resumo na transferência depende dele.
+  locale: NoticeLocale = DEFAULT_NOTICE_LOCALE,
 ): AdvanceResult {
   const effects: BotEffect[] = []
 
   if (input.kind === 'start') {
-    return walk(graph, graph.entryNodeId, { ...initialVars }, effects)
+    return walk(graph, graph.entryNodeId, { ...initialVars }, effects, locale)
   }
 
   /** Sem estado: mensagem de sessão que já terminou ou expirou — recomeça. */
   if (!state) {
-    return walk(graph, graph.entryNodeId, { ...initialVars }, effects)
+    return walk(graph, graph.entryNodeId, { ...initialVars }, effects, locale)
   }
 
   const current = findNode(graph, state.currentNodeId)
@@ -93,7 +99,7 @@ export function advance(
 
   // Resposta para nó que não perguntou nada: retoma em vez de descartar.
   if (!isWaiting(current)) {
-    return walk(graph, current.id, vars, effects)
+    return walk(graph, current.id, vars, effects, locale)
   }
 
   // Transfere na hora, sem passar por bloco: a saída de emergência é um handoff avulso.
@@ -106,12 +112,19 @@ export function advance(
     if (despedida) {
       effects.push({ kind: 'say', text: renderVars(despedida, vars) })
     }
-    pushSummary(graph, vars, effects)
+    pushSummary(graph, vars, effects, locale)
     effects.push({ kind: 'handoff', target: escapeTarget })
     return { effects, state: null, awaiting: null }
   }
 
-  return answerWaiting(graph, current, { ...state, vars }, input.text, effects)
+  return answerWaiting(
+    graph,
+    current,
+    { ...state, vars },
+    input.text,
+    effects,
+    locale,
+  )
 }
 
 /** Vale para os dois caminhos de handoff: bloco terminal e saída de emergência. */
@@ -119,9 +132,10 @@ function pushSummary(
   graph: BotFlowGraph,
   vars: Record<string, string>,
   effects: BotEffect[],
+  locale: NoticeLocale,
 ): void {
   if (!shouldWhisperSummary(graph.settings)) return
-  effects.push({ kind: 'whisper', text: handoffSummary(graph, vars) })
+  effects.push({ kind: 'whisper', text: handoffSummary(graph, vars, locale) })
 }
 
 function answerWaiting(
@@ -130,13 +144,14 @@ function answerWaiting(
   state: BotSessionState,
   text: string,
   effects: BotEffect[],
+  locale: NoticeLocale,
 ): AdvanceResult {
   const vars = { ...state.vars }
 
   // Sem opção para casar, não há o que reperguntar: toda resposta serve.
   if (node.kind === 'message') {
     vars[captureVar(node.capture)] = text.trim()
-    return walk(graph, node.next, vars, effects)
+    return walk(graph, node.next, vars, effects, locale)
   }
 
   const match = matchOption(node, text)
@@ -148,14 +163,14 @@ function answerWaiting(
       // operador sem os menus que o cliente percorreu. Guarda o rótulo, que é o que ele leu.
       vars[choiceVar(node.id)] = match.option.label
     }
-    return walk(graph, match.option.next, vars, effects)
+    return walk(graph, match.option.next, vars, effects, locale)
   }
 
   // `maxAttempts` conta falhas toleradas, incluindo esta: com 2, o cliente é perguntado de
   // novo uma vez e a segunda falha desvia.
   const attempts = state.attempts + 1
   if (attempts >= node.maxAttempts) {
-    return walk(graph, node.onExhausted, vars, effects)
+    return walk(graph, node.onExhausted, vars, effects, locale)
   }
 
   effects.push({ kind: 'say', text: askText(node, vars, node.retryText) })
@@ -173,6 +188,7 @@ function walk(
   from: NodeId,
   vars: Record<string, string>,
   effects: BotEffect[],
+  locale: NoticeLocale,
 ): AdvanceResult {
   let cursor: NodeId = from
 
@@ -218,7 +234,7 @@ function walk(
         if (node.text) {
           effects.push({ kind: 'say', text: renderVars(node.text, vars) })
         }
-        pushSummary(graph, vars, effects)
+        pushSummary(graph, vars, effects, locale)
         effects.push({ kind: 'handoff', target: node.target })
         return { effects, state: null, awaiting: null }
 

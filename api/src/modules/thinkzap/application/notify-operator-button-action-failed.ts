@@ -1,6 +1,11 @@
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import {
+  DEFAULT_NOTICE_LOCALE,
+  type NoticeLocale,
+} from '@/modules/thinkzap/domain/notices/notice-locale'
+import { openChannelNotices } from '@/modules/thinkzap/domain/notices/open-channel-notices'
 
 const log = createWorkerSourceLogger('bitrix')
 
@@ -19,13 +24,15 @@ export async function notifyOperatorButtonActionFailed(
   bitrixClient: BitrixClient,
   botId: number,
   bitrixChatId: string,
+  /** Motivo como veio (validador) — só a parte fixa do aviso é traduzida. */
   reason: string,
+  locale: NoticeLocale = DEFAULT_NOTICE_LOCALE,
 ): Promise<void> {
   try {
     await bitrixClient.callMethod('imbot.message.add', {
       BOT_ID: botId,
       DIALOG_ID: `chat${bitrixChatId}`,
-      MESSAGE: `⚠️ O envio de botões não foi entregue: ${reason}`,
+      MESSAGE: openChannelNotices(locale).buttonActionFailed(reason),
     })
     log.info(
       { bitrixChatId, buttonActionFailedNoticeSent: true },

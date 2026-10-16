@@ -1,3 +1,4 @@
+import type { NoticeLocale } from '@/modules/thinkzap/domain/notices/notice-locale'
 import {
   advance,
   collapseSays,
@@ -76,6 +77,8 @@ export type RunBotTurnDeps = {
   workingHours?: (lineId: string) => Promise<boolean | null>
   /** Injetado para o teste fixar o prazo sem mexer no relógio do processo. */
   now?: () => Date
+  /** Idioma da instalação, para o texto fixo do resumo na transferência. Ausente, `pt`. */
+  locale?: NoticeLocale
 }
 
 // Um turno da conversa: evento do portal → falas do bot → novo estado da sessão.
@@ -168,6 +171,7 @@ export async function runBotTurn(
       ? { kind: 'start' }
       : { kind: 'text', text: event.text },
     await comHorarioDeAtendimento(crmVars, contexto.graph, lineId, deps),
+    deps.locale,
   )
 
   const effects = collapseSays(resultado.effects)

@@ -40,7 +40,7 @@ describe('notifyWidgetSendOutcome', () => {
     expect(messageOf(execute)).toContain('A mensagem abaixo NÃO foi entregue')
   })
 
-  it('outros desfechos não mudam com o idioma', async () => {
+  it('falha em inglês', async () => {
     const execute = vi.fn().mockResolvedValue(undefined)
 
     await notifyWidgetSendOutcome(
@@ -48,6 +48,35 @@ describe('notifyWidgetSendOutcome', () => {
       { ...base, outcome: 'failed', locale: 'en' },
     )
 
-    expect(messageOf(execute)).toContain('não será reenviada')
+    expect(messageOf(execute)).toContain(
+      'The message below was NOT delivered and will not be resent automatically.',
+    )
+    expect(messageOf(execute)).toContain('Message: Olá')
+  })
+
+  it('entrega incerta em espanhol', async () => {
+    const execute = vi.fn().mockResolvedValue(undefined)
+
+    await notifyWidgetSendOutcome(
+      { execute },
+      { ...base, outcome: 'unknown', locale: 'es' },
+    )
+
+    expect(messageOf(execute)).toContain(
+      'No fue posible confirmar si el mensaje de abajo salió.',
+    )
+  })
+
+  it('falha sem idioma: texto de hoje, palavra por palavra', async () => {
+    const execute = vi.fn().mockResolvedValue(undefined)
+
+    await notifyWidgetSendOutcome({ execute }, { ...base, outcome: 'failed' })
+
+    expect(messageOf(execute)).toBe(
+      '⚠️ A mensagem abaixo NÃO foi entregue e não será reenviada automaticamente.\n' +
+        'Para: 5511999999999\n' +
+        'Mensagem: Olá\n' +
+        'Confira a conexão da linha e envie novamente pelo widget.',
+    )
   })
 })

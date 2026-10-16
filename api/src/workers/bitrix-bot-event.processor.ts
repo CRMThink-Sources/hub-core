@@ -17,6 +17,7 @@ import { HybridBotSessionAdapter } from '@/modules/thinkzap/infra/adapters/hybri
 import { makeBitrixWebhookContextRepository } from '@/modules/thinkzap/main/make-bitrix-webhook-context-repository'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { findLineItemByInstanceId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
 import {
@@ -205,6 +206,8 @@ export async function processBitrixBotEvent(
       sessions,
       flows,
       bindings,
+      // Uma leitura por turno: o resumo da transferência sai no idioma da instalação.
+      locale: await makeInstallationLocaleRepository().byAppId(installedApp.id),
       workingHours: async (id: string) => {
         try {
           const config = await client.getOpenChannel(id)

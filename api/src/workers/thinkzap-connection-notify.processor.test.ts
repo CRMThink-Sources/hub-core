@@ -78,7 +78,19 @@ vi.mock('@/shared/application/bitrix-system-notification.service', () => ({
   },
 }))
 
-import { processConnectionEventJob } from './thinkzap-connection-notify.processor'
+// Idioma da instalação: português por padrão, sem tocar no banco.
+const { localeByAppIdMock } = vi.hoisted(() => ({
+  localeByAppIdMock: vi.fn().mockResolvedValue('pt'),
+}))
+
+vi.mock('@/modules/thinkzap/main/make-installation-locale', () => ({
+  makeInstallationLocaleRepository: () => ({ byAppId: localeByAppIdMock }),
+}))
+
+import {
+  buildMessage,
+  processConnectionEventJob,
+} from './thinkzap-connection-notify.processor'
 import type { ThinkzapConnectionEventJob } from '@/queue/thinkzap-connection-events.queue'
 
 const job = (
@@ -161,6 +173,16 @@ describe('processConnectionEventJob', () => {
     expect(call.message).toContain('token expirado')
   })
 
+  it('instalação em inglês: notificação de desconexão em inglês', async () => {
+    notifyServiceGetMock.mockResolvedValue([111])
+    localeByAppIdMock.mockResolvedValueOnce('en')
+
+    await processConnectionEventJob(job({ error: 'token expirado' }))
+
+    const call = notifyMock.mock.calls[0]?.[0] as { message: string }
+    expect(call.message).toContain('was disconnected: token expirado')
+  })
+
   it('instância não encontrada encerra sem tocar o Bitrix', async () => {
     getInstanceByInstanceIdMock.mockResolvedValue(null)
 
@@ -221,5 +243,39 @@ describe('processConnectionEventJob', () => {
     await processConnectionEventJob(job(), { appendJobLog })
 
     expect(appendJobLog).toHaveBeenCalled()
+  })
+})
+
+describe('buildMessage por idioma', () => {
+  it('desconexão em inglês, com o motivo como veio', () => {
+    expect(
+      buildMessage(
+        {
+          type: 'disconnected',
+          instanceId: 'INST-1',
+          error: 'Device has been disconnected',
+        } as never,
+        'en',
+      ),
+    ).toBe(
+      'Thinkzap WhatsApp (instance INST-1) was disconnected: Device has been disconnected. Reconnect as soon as possible.',
+    )
+  })
+
+  it('conexão em espanhol com telefone', () => {
+    expect(
+      buildMessage(
+        { type: 'connected', instanceId: 'INST-1', phone: '5511' } as never,
+        'es',
+      ),
+    ).toBe('El WhatsApp 5511 (instancia INST-1) se conectó con éxito.')
+  })
+
+  it('sem idioma: texto de hoje', () => {
+    expect(
+      buildMessage({ type: 'connected', instanceId: 'INST-1' } as never),
+    ).toBe(
+      'O WhatsApp do Thinkzap (instância INST-1) foi conectado com sucesso.',
+    )
   })
 })

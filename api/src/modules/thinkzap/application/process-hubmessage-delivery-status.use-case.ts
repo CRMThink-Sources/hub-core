@@ -15,6 +15,10 @@ import type { GetDomainRepository } from '@/shared/domain/repositories/domain/ge
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import {
+  DEFAULT_NOTICE_LOCALE,
+  type NoticeLocale,
+} from '@/modules/thinkzap/domain/notices/notice-locale'
+import {
   buildFailureText,
   describeHubMessageDeliveryFailure,
   readMetaErrorCode,
@@ -69,6 +73,11 @@ export type ProcessHubMessageDeliveryStatusDeps = {
     bitrixChatId: string,
     notice: string,
   ) => Promise<NotifyOutcome>
+  /**
+   * Idioma da instalação do ThinkZap no portal. Ausente, o aviso sai em português.
+   * Nunca lança (o repositório de idioma cai em `pt`).
+   */
+  resolveLocale?: (domainId: string) => Promise<NoticeLocale>
 }
 
 /**
@@ -255,7 +264,9 @@ export class ProcessHubMessageDeliveryStatusUseCase {
      * explicou — o mesmo silêncio que o chat tinha.
      */
     const failureText = buildFailureText(stateItem)
-    const notice = describeHubMessageDeliveryFailure(stateItem)
+    const locale =
+      (await this.deps.resolveLocale?.(domainId)) ?? DEFAULT_NOTICE_LOCALE
+    const notice = describeHubMessageDeliveryFailure(stateItem, locale)
 
     /** Cru sempre no log: é a pista quando o padrão traduzido é novo. */
     log.error(

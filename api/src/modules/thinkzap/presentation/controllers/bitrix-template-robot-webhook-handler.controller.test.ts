@@ -398,3 +398,25 @@ describe('toParameterList', () => {
     expect(toParameterList('')).toEqual([])
   })
 })
+
+describe('BitrixTemplateRobotWebhookHandlerController idioma da timeline', () => {
+  it('enfileirado em inglês, com template e idioma do template como estão', async () => {
+    const deps = makeDeps()
+    const controller = new BitrixTemplateRobotWebhookHandlerController(
+      deps.getDomain as never,
+      deps.getApp as never,
+      deps.enqueueTemplateSend as never,
+      deps.listTemplates as never,
+      deps.sendNotification as never,
+      deps.bitrix as never,
+      { byAppId: vi.fn().mockResolvedValue('en') } as never,
+    )
+
+    await controller.perform(makeReq(fullProperties), res)
+
+    const comment = (
+      deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string }
+    ).message
+    expect(comment).toMatch(/^Template "order_update" \(pt_BR\) queued for: /)
+  })
+})

@@ -210,3 +210,42 @@ describe('describeHubMessageDeliveryFailure', () => {
     expect(notice).toContain('não informou o motivo')
   })
 })
+
+describe('describeHubMessageDeliveryFailure por idioma', () => {
+  it('131026 em espanhol', () => {
+    const notice = describeHubMessageDeliveryFailure(
+      {
+        external_information: { errors: [{ code: 131026 }] },
+      } as never,
+      'es',
+    )
+
+    expect(notice).toBe(
+      '⚠️ Su mensaje no fue entregado: WhatsApp no pudo entregar el mensaje a este ' +
+        'número. En general es un número sin WhatsApp activo, o una cuenta que no ' +
+        'acepta recibir de este remitente. Revise el teléfono en el CRM antes de ' +
+        'intentar de nuevo.',
+    )
+  })
+
+  it('sem motivo em inglês', () => {
+    expect(describeHubMessageDeliveryFailure(undefined, 'en')).toBe(
+      '⚠️ Your message was not delivered: WhatsApp Official declined the message ' +
+        'and did not give a reason. Check the line connection and try again.',
+    )
+  })
+
+  it('genérica em inglês com código e retorno cru', () => {
+    const notice = describeHubMessageDeliveryFailure(
+      {
+        external_information: {
+          errors: [{ code: 131099, message: 'raw provider text' }],
+        },
+      } as never,
+      'en',
+    )
+
+    expect(notice).toContain('(error 131099)')
+    expect(notice).toContain('Provider response: raw provider text')
+  })
+})

@@ -6,6 +6,7 @@ import {
   NoticeLocale,
   dailyLimitNotices,
 } from '@/modules/thinkzap/domain/daily-limit-notices'
+import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 
 /** `daily-limit` é um `failed` com motivo conhecido: nada saiu, e o texto diz por quê. */
 export type WidgetSendOutcome = 'failed' | 'unknown' | 'daily-limit'
@@ -16,7 +17,7 @@ export type NotifyWidgetSendOutcomeInput = {
   entityId: string
   destination: string
   text: string
-  /** Só o aviso de limite diário é traduzido; os demais seguem em português. */
+  /** Idioma da instalação. Ausente, português. */
   locale?: NoticeLocale
 }
 
@@ -34,16 +35,10 @@ const NOTICE_BY_OUTCOME: Record<
   WidgetSendOutcome,
   (destination: string, text: string, locale: NoticeLocale) => string
 > = {
-  failed: (destination, text) =>
-    '⚠️ A mensagem abaixo NÃO foi entregue e não será reenviada automaticamente.\n' +
-    `Para: ${destination}\n` +
-    `Mensagem: ${text}\n` +
-    'Confira a conexão da linha e envie novamente pelo widget.',
-  unknown: (destination, text) =>
-    '⚠️ Não foi possível confirmar se a mensagem abaixo saiu.\n' +
-    `Para: ${destination}\n` +
-    `Mensagem: ${text}\n` +
-    'Confira a conversa com o contato ANTES de reenviar — ela pode ter sido entregue.',
+  failed: (destination, text, locale) =>
+    timelineNotices(locale).widgetFailed(destination, text),
+  unknown: (destination, text, locale) =>
+    timelineNotices(locale).widgetUnknown(destination, text),
   'daily-limit': (destination, text, locale) =>
     dailyLimitNotices(locale).queuedRefused(destination, text),
 }

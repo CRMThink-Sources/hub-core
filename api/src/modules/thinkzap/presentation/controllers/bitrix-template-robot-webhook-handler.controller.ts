@@ -1,3 +1,6 @@
+import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/ports/installation-locale.port'
+import { DEFAULT_NOTICE_LOCALE } from '@/modules/thinkzap/domain/notices/notice-locale'
+import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import { Request, Response } from 'express'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
@@ -29,6 +32,8 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     private readonly listTemplates: ListWidgetTemplatesUseCase,
     private readonly sendNotification: SendNotification,
     private readonly bitrix: BitrixClient,
+    /** Idioma dos comentários de timeline. Ausente, português. */
+    private readonly locales: InstallationLocaleRepository | null = null,
   ) {
     super()
   }
@@ -64,6 +69,11 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
       return this.badRequest(new Error('Document ID not found'))
     }
 
+    // Todo desfecho daqui em diante comenta na timeline, no idioma da instalação.
+    const notices = timelineNotices(
+      (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE,
+    ).templateRobot
+
     // null fora de entidade CRM: ainda envia ao destino manual, só sem timeline nem relacionados.
     const crmDocument = parseBizprocDocumentId(documentId)
 
@@ -72,11 +82,9 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     const language = data.properties.templateLanguage?.trim()
 
     if (!subscriptionItemId || !templateName || !language) {
-      return this.refuse(
-        crmDocument,
-        'A automação está sem linha ou sem template escolhido. Abra a configuração do robô e escolha os dois.',
-        { reason: 'incomplete-configuration' },
-      )
+      return this.refuse(crmDocument, notices.incomplete, {
+        reason: 'incomplete-configuration',
+      })
     }
 
     const scope = {
@@ -99,18 +107,16 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
 
       return this.refuse(
         crmDocument,
-        `A linha configurada não pode enviar template: ${(error as Error).message}`,
+        notices.lineCannotSend((error as Error).message),
         { reason: 'line-refused' },
       )
     }
 
     const recipients = await this.resolveRecipients(data, crmDocument)
     if (recipients.length === 0) {
-      return this.refuse(
-        crmDocument,
-        'Nenhum destinatário encontrado para o envio do template.',
-        { reason: 'no-recipients' },
-      )
+      return this.refuse(crmDocument, notices.noRecipients, {
+        reason: 'no-recipients',
+      })
     }
 
     // Uma vez por disparo: o fallback de catálogo custa uma consulta ao provider.
@@ -157,16 +163,14 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     }
 
     if (queued.length === 0) {
-      return this.refuse(
-        crmDocument,
-        'Nenhum destinatário válido para o envio do template.',
-        { reason: 'no-valid-recipients' },
-      )
+      return this.refuse(crmDocument, notices.noValidRecipients, {
+        reason: 'no-valid-recipients',
+      })
     }
 
     await this.comment(
       crmDocument,
-      `Template "${templateName}" (${language}) enfileirado para: ${queued.join(', ')}`,
+      notices.queued({ templateName, language, destinations: queued }),
     )
 
     return this.ok({ received: true, queued: queued.length })
