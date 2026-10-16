@@ -90,12 +90,19 @@ async function handleDailyLimitReached(params: {
   )
   await params.appendJobLog(
     'Envio recusado: a linha atingiu o limite diário de mensagens. Nada foi enviado ao ' +
-      'provider — operador avisado no chat, job encerrado SEM retentativa.',
+      'provider — job encerrado SEM retentativa.',
   )
-  await notifyOperatorDailyLimitReached(
+  const notice = await notifyOperatorDailyLimitReached(
     params.bitrixClient,
     params.botId,
     params.bitrixChatId,
+  )
+  // O desfecho do aviso vai para a aba Logs: sem isto, "não apareceu no chat" só se
+  // descobre no log do container.
+  await params.appendJobLog(
+    notice.posted
+      ? `Operador avisado no chat (mensagem de sistema via ${notice.method}, id=${notice.bitrixMessageId}).`
+      : `Aviso ao operador NÃO postado — o Bitrix recusou todas as tentativas: ${notice.reason}`,
   )
 }
 
