@@ -31,7 +31,7 @@
   "erroSalvar": "Could not save the settings.",
   "limiteDiario": {
     "titulo": "Daily message limit",
-    "descricao": "Protects the line from being blocked for sending too much. Applies to everything sent through it: agents, widget, robots, SMS Campaign and bot.",
+    "descricao": "Using this feature does not guarantee the line is protected from blocks caused by excessive sending. All sending methods are included: cards, automations, campaigns and bot.",
     "ativar": "Enable daily limit",
     "ativarHint": "Once the limit is reached, new messages from this line are refused until the day turns over (Brasília time).",
     "limite": "Messages per day",

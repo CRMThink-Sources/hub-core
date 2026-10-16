@@ -31,7 +31,7 @@
   "erroSalvar": "Não foi possível salvar os ajustes.",
   "limiteDiario": {
     "titulo": "Limite diário de mensagens",
-    "descricao": "Protege a linha contra bloqueio por excesso de envio. Vale para tudo que sai por ela: operador, widget, robôs, Campanha de SMS e bot.",
+    "descricao": "O uso do recurso não garante proteção da linha contra bloqueios por excesso de envio. Todos os modos de envio estão inclusos: cards, automações, campanhas e bot.",
     "ativar": "Ativar limite diário",
     "ativarHint": "Atingido o limite, novos envios desta linha são recusados até a virada do dia (horário de Brasília).",
     "limite": "Mensagens por dia",

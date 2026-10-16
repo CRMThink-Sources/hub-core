@@ -1,3 +1,4 @@
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { env } from '@/config/env'
@@ -41,5 +42,6 @@ export const makeSendWidgetMessageUseCase = async (
         getAllowedUser: new PrismaAllowedUserRepository(),
       }),
     makeDailySendQuota(),
+    makeInstallationLocaleRepository(),
   )
 }

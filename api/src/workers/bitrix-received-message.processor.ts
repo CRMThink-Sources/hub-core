@@ -35,6 +35,7 @@ import {
 } from '@/modules/thinkzap/application/helpers/send-within-daily-quota'
 import type { DailyLimitPolicy } from '@/modules/thinkzap/domain/daily-send-limit'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { resolveBitrixReplyContext } from '@/modules/thinkzap/application/resolve-bitrix-reply-context'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
 import { makeInteractiveButtonSenderResolver } from '@/modules/thinkzap/main/connector/make-interactive-button-sender-resolver'
@@ -66,6 +67,7 @@ const messageRepo = new PrismaThinkzapMessageRepository()
 const outboundSenderResolver = makeOutboundSenderResolver()
 const interactiveButtonSenderResolver = makeInteractiveButtonSenderResolver()
 const dailySendQuota = makeDailySendQuota()
+const installationLocales = makeInstallationLocaleRepository()
 
 /**
  * Recusa por limite diário: permanente até a virada do dia (ou liberação), então
@@ -77,6 +79,8 @@ async function handleDailyLimitReached(params: {
   bitrixClient: BitrixClient
   botId: number
   bitrixChatId: string
+  /** `core_apps.id`: o aviso sai no idioma escolhido no app para a instalação. */
+  appId: string
   appendJobLog: AppendJobLog
 }): Promise<void> {
   logThinkzapError(
@@ -92,16 +96,18 @@ async function handleDailyLimitReached(params: {
     'Envio recusado: a linha atingiu o limite diário de mensagens. Nada foi enviado ao ' +
       'provider — job encerrado SEM retentativa.',
   )
+  const locale = await installationLocales.byAppId(params.appId)
   const notice = await notifyOperatorDailyLimitReached(
     params.bitrixClient,
     params.botId,
     params.bitrixChatId,
+    locale,
   )
   // O desfecho do aviso vai para a aba Logs: sem isto, "não apareceu no chat" só se
   // descobre no log do container.
   await params.appendJobLog(
     notice.posted
-      ? `Operador avisado no chat (mensagem de sistema via ${notice.method}, id=${notice.bitrixMessageId}).`
+      ? `Operador avisado no chat (mensagem de sistema via ${notice.method}, id=${notice.bitrixMessageId}, idioma=${locale}).`
       : `Aviso ao operador NÃO postado — o Bitrix recusou todas as tentativas: ${notice.reason}`,
   )
 }
@@ -591,6 +597,7 @@ export async function processBitrixReceivedMessage(
           bitrixClient,
           botId,
           bitrixChatId: message.im.chat_id,
+          appId: context.app.id,
           appendJobLog,
         })
         return
@@ -803,6 +810,7 @@ async function sendButtonActionMessage(params: {
         bitrixClient,
         botId,
         bitrixChatId: message.im.chat_id,
+        appId: context.app.id,
         appendJobLog,
       })
       return

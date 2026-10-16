@@ -114,3 +114,9 @@
 - [ ] 6.2 Rodar `yarn test` e lint no `api/` e no `front/` e verificar que tudo passa. Rodar `openspec validate limite-diario-mensagens-linha --strict` e verificar que passa.
 
   Estado: api 3524/3524 testes e lint ok; front lint e typecheck ok; `openspec validate --strict` ok. No front, 984/985 testes passam: a falha é `bots/issue-text.test.ts`, que já falhava sem esta change.
+
+## 7. Idioma dos avisos
+
+- [x] 7.1 Gravar o idioma por instalação em `core_apps.locale` (migration `20261016120000_add_app_locale`) com o endpoint `PUT /api/thinkzap/locale`, chamado pelo menu do ThinkZap na troca de idioma. Verificar com teste do controller: grava pela instalação do JWT, recusa idioma inválido e responde 404 para instalação inexistente.
+- [x] 7.2 Textos dos avisos em pt, en e es (`domain/daily-limit-notices.ts`), lidos por `PrismaInstallationLocaleRepository`, que cai em português se falhar, e aplicados no chat do canal aberto, na timeline do outbox, no envio com anexo e no robô "Enviar mensagem". Verificar com testes de cada caminho em inglês ou espanhol e do padrão em português.
+- [ ] 7.3 Em staging, trocar o idioma do app para inglês, atingir o limite e confirmar o aviso em inglês no chat e na timeline.

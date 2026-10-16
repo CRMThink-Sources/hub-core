@@ -1,4 +1,9 @@
 import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
+import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/ports/installation-locale.port'
+import {
+  DEFAULT_NOTICE_LOCALE,
+  dailyLimitNotices,
+} from '@/modules/thinkzap/domain/daily-limit-notices'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import {
@@ -94,6 +99,8 @@ export class SendWidgetMessageUseCase {
     }) => Promise<string>,
     /** Ausente, o envio não é contado nem limitado. A factory sempre injeta. */
     private readonly quota: DailySendQuota | null = null,
+    /** Idioma do aviso de limite na timeline. Ausente, português. */
+    private readonly locales: InstallationLocaleRepository | null = null,
   ) {}
 
   async execute(
@@ -359,7 +366,11 @@ export class SendWidgetMessageUseCase {
       message:
         `De: ${phoneData?.phone ?? ''}\nPara: ${destination}\nMensagem: ${message?.trim() || ''}` +
         (skippedByDailyLimit > 0
-          ? `\n⚠️ ${skippedByDailyLimit} anexo(s) NÃO enviado(s): a linha atingiu o limite diário de mensagens.`
+          ? '\n' +
+            dailyLimitNotices(
+              (await this.locales?.byAppId(context.aplication.id)) ??
+                DEFAULT_NOTICE_LOCALE,
+            ).attachmentsSkipped(skippedByDailyLimit)
           : ''),
     })
 

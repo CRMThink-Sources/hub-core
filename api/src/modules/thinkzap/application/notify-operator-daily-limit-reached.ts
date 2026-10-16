@@ -2,17 +2,16 @@ import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import {
+  DEFAULT_NOTICE_LOCALE,
+  NoticeLocale,
+  dailyLimitNotices,
+} from '@/modules/thinkzap/domain/daily-limit-notices'
+import {
   describeSystemNoticeAttempts,
   postOpenChannelSystemNotice,
 } from './post-open-channel-system-notice'
 
 const log = createWorkerSourceLogger('bitrix')
-
-export const DAILY_LIMIT_NOTICE =
-  '⚠️ Sua mensagem não foi entregue: esta linha atingiu o limite diário de ' +
-  'mensagens configurado no ThinkZap. Os envios voltam na virada do dia, ou ' +
-  'antes, se o limite for aumentado ou um limite temporário for liberado na ' +
-  'aba Ajustes da linha.'
 
 export type DailyLimitNoticeOutcome =
   | { posted: true; method: string; bitrixMessageId: string }
@@ -29,6 +28,8 @@ export type DailyLimitNoticeOutcome =
  * mensagens para o bate-papo especificado`, porque ele não é participante da sessão
  * de canal aberto. A segunda tentativa, pelo usuário do app, é a que chega.
  *
+ * O texto sai no idioma da instalação (`core_apps.locale`); sem escolha, português.
+ *
  * Nunca lança: o job já vai encerrar sem retentativa. Devolve o desfecho para o
  * chamador registrar no log do job.
  */
@@ -36,11 +37,12 @@ export async function notifyOperatorDailyLimitReached(
   bitrixClient: BitrixClient,
   botId: number,
   bitrixChatId: string,
+  locale: NoticeLocale = DEFAULT_NOTICE_LOCALE,
 ): Promise<DailyLimitNoticeOutcome> {
   const outcome = await postOpenChannelSystemNotice(bitrixClient, {
     botId,
     bitrixChatId,
-    text: DAILY_LIMIT_NOTICE,
+    text: dailyLimitNotices(locale).chat,
   })
 
   if (outcome.posted) {
@@ -50,6 +52,7 @@ export async function notifyOperatorDailyLimitReached(
         botId,
         method: outcome.method,
         bitrixMessageId: outcome.bitrixMessageId,
+        locale,
         dailyLimitNoticeSent: true,
       },
       'Operator notified about daily send limit reached',

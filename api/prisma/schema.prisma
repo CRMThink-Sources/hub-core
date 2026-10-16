@@ -45,6 +45,10 @@ model App {
   spaId       String?   @unique @map("spa_id")
   email       String    @map("email")
   status      AppStatus @default(ACTIVE)
+  /// Idioma escolhido no app (`pt` | `en` | `es`), por instalacao. E o que o
+  /// servidor usa nos avisos que gera sem tela aberta (ex.: limite diario do
+  /// ThinkZap). `null` = nunca escolhido; os avisos saem em portugues.
+  locale      String?   @map("locale") @db.VarChar(5)
   installedAt DateTime  @default(now()) @map("installed_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 

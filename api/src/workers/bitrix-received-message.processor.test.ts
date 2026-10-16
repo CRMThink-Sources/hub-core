@@ -230,6 +230,15 @@ vi.mock('@/modules/thinkzap/main/make-daily-send-quota', () => ({
   makeDailySendQuota: () => ({ reserve: reserveQuotaMock }),
 }))
 
+// Idioma da instalação: português por padrão, sem tocar no banco.
+const { localeByAppIdMock } = vi.hoisted(() => ({
+  localeByAppIdMock: vi.fn().mockResolvedValue('pt'),
+}))
+
+vi.mock('@/modules/thinkzap/main/make-installation-locale', () => ({
+  makeInstallationLocaleRepository: () => ({ byAppId: localeByAppIdMock }),
+}))
+
 import axios from 'axios'
 import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
@@ -1212,5 +1221,22 @@ describe('processBitrixReceivedMessage limite diário', () => {
 
     expect(reserveQuotaMock).not.toHaveBeenCalled()
     expect(sendHubMessageMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('instalação em inglês: o aviso no chat sai em inglês', async () => {
+    reserveQuotaMock.mockResolvedValueOnce(refused)
+    localeByAppIdMock.mockResolvedValueOnce('en')
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(localeByAppIdMock).toHaveBeenCalledWith('app-1')
+    expect(callMethodMock).toHaveBeenCalledWith(
+      'imbot.message.add',
+      expect.objectContaining({
+        MESSAGE: expect.stringContaining(
+          'Your message was not delivered',
+        ) as unknown,
+      }),
+    )
   })
 })

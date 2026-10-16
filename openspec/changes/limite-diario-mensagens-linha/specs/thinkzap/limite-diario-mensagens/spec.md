@@ -216,3 +216,21 @@ Com o limite desativado, SHALL mostrar as mensagens enviadas hoje e a indicaçã
 #### Scenario: Limite desativado
 - **WHEN** a linha está com o limite desativado e enviou 40 hoje
 - **THEN** a tela mostra 40 enviadas hoje e que não há limite ativo, sem percentual
+
+### Requirement: Idioma dos avisos de limite
+Os avisos de limite diário gerados pelo servidor SHALL sair no idioma escolhido no app para a instalação, entre `pt`, `en` e `es`:
+
+- o aviso no chat do canal aberto para o operador;
+- o comentário de timeline da mensagem que estava na fila e foi recusada;
+- a linha de timeline dos anexos não enviados;
+- a linha de timeline dos destinatários do robô "Enviar mensagem" não atendidos.
+
+Quando um usuário troca o idioma no menu do ThinkZap, o idioma SHALL ser gravado para a instalação. Vale a última escolha. Instalação que nunca escolheu idioma, ou cujo idioma não pôde ser lido, SHALL receber os avisos em português.
+
+#### Scenario: Instalação em inglês
+- **WHEN** o idioma do app foi trocado para inglês e um operador responde por uma linha que atingiu o limite
+- **THEN** o aviso no chat do canal aberto aparece em inglês
+
+#### Scenario: Instalação sem idioma escolhido
+- **WHEN** ninguém trocou o idioma do app na instalação
+- **THEN** os avisos de limite saem em português

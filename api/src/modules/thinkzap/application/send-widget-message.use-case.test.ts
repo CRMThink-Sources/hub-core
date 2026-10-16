@@ -94,6 +94,7 @@ const openChannelCall = (
 function makeSut(
   items: SubscriptionItem[] = [zapiItem()],
   quota: DailySendQuota | null = null,
+  locale: 'pt' | 'en' | 'es' | null = null,
 ) {
   const execute = vi.fn().mockResolvedValue({
     customer: { id: 'domain-1', name: 'acme.bitrix24.com.br' },
@@ -153,6 +154,7 @@ function makeSut(
     openChannelQueue as never,
     prepareOutboundText as never,
     quota,
+    (locale ? { byAppId: vi.fn().mockResolvedValue(locale) } : null) as never,
   )
 
   return {
@@ -645,6 +647,38 @@ describe('SendWidgetMessageUseCase limite diário', () => {
         message: expect.stringContaining(
           '2 anexo(s) NÃO enviado(s)',
         ) as unknown,
+      }),
+    )
+  })
+})
+
+describe('SendWidgetMessageUseCase limite diário (idioma)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('instalação em inglês: aviso de anexos não enviados em inglês', async () => {
+    const quota = {
+      wouldRefuse: vi.fn().mockResolvedValue(false),
+      reserve: vi
+        .fn()
+        .mockResolvedValueOnce({
+          status: 'reserved',
+          reservation: { release: vi.fn() },
+        })
+        .mockResolvedValueOnce({
+          status: 'refused',
+          counts: { sent: 1, extra: 0 },
+          effectiveLimit: 1,
+        }),
+    }
+    const sut = makeSut([zapiItem()], quota as never, 'en')
+
+    await sut.send({
+      attachments: [{ kind: 'image', content: 'data:image/png;base64,aa' }],
+    } as never)
+
+    expect(sut.sendBitrixNotification.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('1 attachment(s) NOT sent') as unknown,
       }),
     )
   })

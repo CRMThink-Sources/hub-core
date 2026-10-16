@@ -1,6 +1,11 @@
 import { SendNotification } from '@/shared/data/contracts/send-notification'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
+import {
+  DEFAULT_NOTICE_LOCALE,
+  NoticeLocale,
+  dailyLimitNotices,
+} from '@/modules/thinkzap/domain/daily-limit-notices'
 
 /** `daily-limit` é um `failed` com motivo conhecido: nada saiu, e o texto diz por quê. */
 export type WidgetSendOutcome = 'failed' | 'unknown' | 'daily-limit'
@@ -11,6 +16,8 @@ export type NotifyWidgetSendOutcomeInput = {
   entityId: string
   destination: string
   text: string
+  /** Só o aviso de limite diário é traduzido; os demais seguem em português. */
+  locale?: NoticeLocale
 }
 
 /**
@@ -25,7 +32,7 @@ export type NotifyWidgetSendOutcomeInput = {
  */
 const NOTICE_BY_OUTCOME: Record<
   WidgetSendOutcome,
-  (destination: string, text: string) => string
+  (destination: string, text: string, locale: NoticeLocale) => string
 > = {
   failed: (destination, text) =>
     '⚠️ A mensagem abaixo NÃO foi entregue e não será reenviada automaticamente.\n' +
@@ -37,12 +44,8 @@ const NOTICE_BY_OUTCOME: Record<
     `Para: ${destination}\n` +
     `Mensagem: ${text}\n` +
     'Confira a conversa com o contato ANTES de reenviar — ela pode ter sido entregue.',
-  'daily-limit': (destination, text) =>
-    '⚠️ A mensagem abaixo NÃO foi entregue: a linha atingiu o limite diário de mensagens.\n' +
-    `Para: ${destination}\n` +
-    `Mensagem: ${text}\n` +
-    'Ela não será reenviada automaticamente. Os envios voltam na virada do dia, ou antes, ' +
-    'se o limite for aumentado ou um limite temporário for liberado na aba Ajustes da linha.',
+  'daily-limit': (destination, text, locale) =>
+    dailyLimitNotices(locale).queuedRefused(destination, text),
 }
 
 /**
@@ -63,13 +66,20 @@ export async function notifyWidgetSendOutcome(
   sendNotification: SendNotification,
   input: NotifyWidgetSendOutcomeInput,
 ): Promise<void> {
-  const { outcome, entity, entityId, destination, text } = input
+  const {
+    outcome,
+    entity,
+    entityId,
+    destination,
+    text,
+    locale = DEFAULT_NOTICE_LOCALE,
+  } = input
 
   try {
     await sendNotification.execute({
       contextId: entityId,
       entity,
-      message: NOTICE_BY_OUTCOME[outcome](destination, text),
+      message: NOTICE_BY_OUTCOME[outcome](destination, text, locale),
     })
 
     apiLogger.info(
