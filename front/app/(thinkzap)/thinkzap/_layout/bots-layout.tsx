@@ -160,10 +160,7 @@ export default function BotsLayout() {
         {/* Lista vazia já tem o próprio botão de criar */}
         {state.kind === 'ready' && state.flows.length > 0 ? (
           <div className="flex shrink-0 flex-col items-end gap-1">
-            <Button
-              onClick={() => setCriando(true)}
-              disabled={noLimite}
-            >
+            <Button onClick={() => setCriando(true)} disabled={noLimite}>
               <Plus className="h-4 w-4" />
               {t('novoFluxo')}
             </Button>

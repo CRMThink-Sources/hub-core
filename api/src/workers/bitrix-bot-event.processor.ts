@@ -228,10 +228,15 @@ export async function processBitrixBotEvent(
     // Canal ligado pelo painel do Bitrix: adota só em `sem-vinculo`; os outros skips são
     // decisão do cliente (vínculo inativo, fluxo fora do ar).
     if (outcome.kind === 'skipped' && outcome.reason === 'sem-vinculo') {
-      const adotado = await adoptLineBinding(installedApp.id, lineId, bot.flowId, {
-        flows,
-        bindings,
-      })
+      const adotado = await adoptLineBinding(
+        installedApp.id,
+        lineId,
+        bot.flowId,
+        {
+          flows,
+          bindings,
+        },
+      )
 
       if (adotado) {
         await ctx.appendJobLog(

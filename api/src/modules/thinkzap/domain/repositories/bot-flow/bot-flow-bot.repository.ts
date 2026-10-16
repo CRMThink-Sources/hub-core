@@ -14,7 +14,10 @@ export interface GetBotFlowBotRepository {
 }
 
 export interface GetBotFlowBotByBitrixIdRepository {
-  getByBitrixBotId(appId: string, bitrixBotId: number): Promise<BotFlowBot | null>
+  getByBitrixBotId(
+    appId: string,
+    bitrixBotId: number,
+  ): Promise<BotFlowBot | null>
 }
 
 export interface ListBotFlowBotsRepository {

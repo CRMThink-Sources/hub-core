@@ -80,6 +80,8 @@ export class PrismaBotFlowBotRepository
 
   async delete(appId: string, bitrixBotId: number): Promise<void> {
     // `deleteMany`: apagar o que não existe é sucesso, não erro.
-    await prisma.thinkzapBotFlowBot.deleteMany({ where: { appId, bitrixBotId } })
+    await prisma.thinkzapBotFlowBot.deleteMany({
+      where: { appId, bitrixBotId },
+    })
   }
 }

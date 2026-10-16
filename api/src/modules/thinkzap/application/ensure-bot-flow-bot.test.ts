@@ -186,7 +186,11 @@ describe('ensureBotFlowBot', () => {
     })
 
     await expect(
-      ensureBotFlowBot(client, repos, { appId: APP, flowId: FLOW, webhookUrl: HOOK }),
+      ensureBotFlowBot(client, repos, {
+        appId: APP,
+        flowId: FLOW,
+        webhookUrl: HOOK,
+      }),
     ).rejects.toThrow()
 
     // Gravar id 0 deixaria `WELCOME_BOT_ID: 0` na linha.
@@ -217,7 +221,11 @@ describe('nome do bot no portal', () => {
   it('sem nome de fluxo cai no rótulo do app', async () => {
     const { client, repos, chamadasBitrix } = setup({})
 
-    await ensureBotFlowBot(client, repos, { appId: APP, flowId: FLOW, webhookUrl: HOOK })
+    await ensureBotFlowBot(client, repos, {
+      appId: APP,
+      flowId: FLOW,
+      webhookUrl: HOOK,
+    })
 
     const [, params] = chamadasBitrix()[0] as [
       string,
@@ -299,7 +307,11 @@ describe('escopos antes do registro', () => {
     })
 
     await expect(
-      ensureBotFlowBot(client, repos, { appId: APP, flowId: FLOW, webhookUrl: HOOK }),
+      ensureBotFlowBot(client, repos, {
+        appId: APP,
+        flowId: FLOW,
+        webhookUrl: HOOK,
+      }),
     ).rejects.toThrow(/permiss|escopo/i)
 
     expect(chamadasBitrix()).toHaveLength(0)
@@ -312,7 +324,11 @@ describe('escopos antes do registro', () => {
     })
 
     await expect(
-      ensureBotFlowBot(client, repos, { appId: APP, flowId: FLOW, webhookUrl: HOOK }),
+      ensureBotFlowBot(client, repos, {
+        appId: APP,
+        flowId: FLOW,
+        webhookUrl: HOOK,
+      }),
     ).rejects.toThrow()
 
     expect(chamadasBitrix()).toHaveLength(0)
@@ -323,7 +339,11 @@ describe('escopos antes do registro', () => {
     // uma chamada para não descobrir nada.
     const { client, repos, callMethod } = setup({ existing: gravado() })
 
-    await ensureBotFlowBot(client, repos, { appId: APP, flowId: FLOW, webhookUrl: HOOK })
+    await ensureBotFlowBot(client, repos, {
+      appId: APP,
+      flowId: FLOW,
+      webhookUrl: HOOK,
+    })
 
     expect(callMethod).not.toHaveBeenCalled()
   })
