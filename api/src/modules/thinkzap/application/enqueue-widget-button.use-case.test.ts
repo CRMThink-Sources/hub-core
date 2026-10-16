@@ -69,6 +69,7 @@ function makeSut(
     subscriptionStatus?: string
     currentPeriodEnd?: Date
     zApiConnected?: boolean
+    quota?: { wouldRefuse: ReturnType<typeof vi.fn> }
   } = {},
 ) {
   const execute = vi.fn().mockResolvedValue({
@@ -108,6 +109,7 @@ function makeSut(
     zApiClient as never,
     outbox as never,
     sendQueue,
+    (options.quota ?? null) as never,
   )
 
   return {
@@ -244,5 +246,48 @@ describe('EnqueueWidgetButtonUseCase', () => {
       ).rejects.toBeInstanceOf(TooManyButtonsError)
       expect(sut.outbox.create).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('EnqueueWidgetButtonUseCase limite diário', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('linha não oficial no limite: recusa na hora e nada é enfileirado', async () => {
+    const quota = { wouldRefuse: vi.fn().mockResolvedValue(true) }
+    const item = zapiItem()
+    const sut = makeSut({
+      items: [
+        {
+          ...item,
+          settings: {
+            ...DEFAULT_CONNECTOR_SETTINGS,
+            dailyLimitEnabled: true,
+            dailyLimit: 10,
+          },
+        },
+      ],
+      quota,
+    })
+
+    await expect(
+      sut.enqueueButton({ subscriptionItemId: 'i_zapi' }),
+    ).rejects.toMatchObject({
+      errorCode: 'thinkzap.line.daily_limit_reached',
+    })
+    expect(quota.wouldRefuse).toHaveBeenCalledWith(
+      { lineKey: 'Z-1', enabled: true, limit: 10 },
+      expect.any(Date),
+    )
+    expect(sut.outbox.create).not.toHaveBeenCalled()
+  })
+
+  it('linha oficial não consulta a cota', async () => {
+    const quota = { wouldRefuse: vi.fn().mockResolvedValue(true) }
+    const sut = makeSut({ items: [hubItem()], quota })
+
+    await sut.enqueueButton()
+
+    expect(quota.wouldRefuse).not.toHaveBeenCalled()
+    expect(sut.sendQueue.enqueue).toHaveBeenCalledTimes(1)
   })
 })

@@ -31,13 +31,15 @@ const metadataSchema = z.discriminatedUnion('provider', [
 ])
 
 /**
- * Os dois toggles são obrigatórios aqui, apesar de opcionais no schema de
+ * Os campos são obrigatórios aqui, apesar de opcionais no schema de
  * domínio: a entidade sempre os resolve antes de virar cache, então uma entrada
  * sem eles é de um deploy anterior e tem que virar miss.
  */
 const settingsSchema = z.object({
   prefixOperatorNameEnabled: z.boolean(),
   widgetOpenChannelEnabled: z.boolean(),
+  dailyLimitEnabled: z.boolean(),
+  dailyLimit: z.number().nullable(),
 })
 
 const subscriptionItemSchema = z.object({

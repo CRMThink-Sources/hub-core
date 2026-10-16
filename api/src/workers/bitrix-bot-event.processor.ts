@@ -16,6 +16,16 @@ import { BitrixBotSessionAdapter } from '@/modules/thinkzap/infra/adapters/bitri
 import { HybridBotSessionAdapter } from '@/modules/thinkzap/infra/adapters/hybrid-bot-session.adapter'
 import { makeBitrixWebhookContextRepository } from '@/modules/thinkzap/main/make-bitrix-webhook-context-repository'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
+import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
+import { findLineItemByInstanceId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
+import {
+  dailyLimitPolicyOf,
+  sendWithinDailyQuota,
+} from '@/modules/thinkzap/application/helpers/send-within-daily-quota'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import type { OutboundMessageSender } from '@/modules/thinkzap/domain/ports/outbound-message-sender.port'
+import type { BitrixWebhookContext } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
 import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
 import { env } from '@/config/env'
 import type { BotSessionPort } from '@/modules/thinkzap/domain/ports/bot-session.port'
@@ -332,5 +342,49 @@ async function comEntregaAoContato(
       `instância=${context.instance.instanceId}`,
   )
 
-  return new HybridBotSessionAdapter(eco, contato)
+  return new HybridBotSessionAdapter(
+    eco,
+    await comCotaDiaria(contato, context, appCode),
+    () =>
+      input.appendJobLog(
+        'Fala do bot NÃO entregue: a linha atingiu o limite diário de mensagens. ' +
+          'Provider não foi chamado, eco no chat suprimido, turno segue sem retentativa.',
+      ),
+  )
+}
+
+/**
+ * A fala do bot conta no limite diário como qualquer outra saída da linha. Settings
+ * do item pelo contexto da aplicação — os do contexto do webhook são congelados.
+ * Linha não resolvida continua contada, mas sem limite: não há configuração para aplicar.
+ */
+async function comCotaDiaria(
+  contato: OutboundMessageSender,
+  context: BitrixWebhookContext,
+  appCode: string,
+): Promise<OutboundMessageSender> {
+  // Só a linha não oficial tem limite diário.
+  if (context.connector.provider !== ConnectorProvider.ZAPI) {
+    return contato
+  }
+
+  const lineKey = context.instance.instanceId
+  const line = await findLineItemByInstanceId(
+    { instanceId: lineKey, domainId: context.id, appCode },
+    makeGetAplicationContext(),
+  )
+  const policy = dailyLimitPolicyOf({
+    provider: ConnectorProvider.ZAPI,
+    lineKey,
+    settings: line?.settings,
+  })
+  const quota = makeDailySendQuota()
+
+  return {
+    supportsReply: contato.supportsReply,
+    send: (descriptor, options) =>
+      sendWithinDailyQuota(quota, policy, () =>
+        contato.send(descriptor, options),
+      ),
+  }
 }

@@ -1,3 +1,4 @@
+import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { env } from '@/config/env'
 import { EnqueueWidgetMessageUseCase } from '@/modules/thinkzap/application/enqueue-widget-message.use-case'
@@ -18,5 +19,6 @@ export const makeEnqueueWidgetMessageUseCase =
       new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken),
       new PrismaWidgetOutboxRepository(),
       new BullMqWidgetSendQueue(),
+      makeDailySendQuota(),
     )
   }

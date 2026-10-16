@@ -1,3 +1,4 @@
+import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
@@ -29,6 +30,7 @@ export class EnqueueWidgetButtonUseCase {
     zApiClient: ZApiClient,
     outbox: PrismaWidgetOutboxRepository,
     sendQueue: WidgetSendQueue,
+    quota: DailySendQuota | null = null,
   ) {
     this.service = new EnqueueInteractiveButtonSendService(
       getAplicationContext,
@@ -36,6 +38,7 @@ export class EnqueueWidgetButtonUseCase {
       zApiClient,
       outbox,
       sendQueue,
+      quota,
     )
   }
 

@@ -1,3 +1,10 @@
+import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import {
+  dailyLimitPolicyOf,
+  isDailyLimitReachedError,
+  sendWithinDailyQuota,
+} from '@/modules/thinkzap/application/helpers/send-within-daily-quota'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { httpResponse } from '@/shared/helpers/http'
@@ -30,6 +37,8 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     private readonly getAplicationContext: GetAplicationContext,
     private readonly sendNotification: SendNotification,
     private readonly bitrix: BitrixClient,
+    /** Ausente, o envio não é contado nem limitado. A factory sempre injeta. */
+    private readonly quota: DailySendQuota | null = null,
   ) {
     super()
   }
@@ -105,17 +114,33 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       return this.ok({ received: true, sent: 0 })
     }
 
+    const dailyLimitPolicy = dailyLimitPolicyOf({
+      provider: ConnectorProvider.ZAPI,
+      lineKey: line.zApiInstanceId,
+      settings: line.item.settings,
+    })
+
     const sent: string[] = []
+    // Recusados pelo limite diário: listados na timeline, para o cliente saber quem ficou sem.
+    const refusedByLimit: string[] = []
     for (const phone of recipients) {
       try {
-        await this.zApiClient.sendMessage(
-          line.zApiInstanceId,
-          line.zApiInstanceToken,
-          data.properties.message,
-          phone,
-        )
+        const send = () =>
+          this.zApiClient.sendMessage(
+            line.zApiInstanceId,
+            line.zApiInstanceToken,
+            data.properties.message,
+            phone,
+          )
+        await (this.quota
+          ? sendWithinDailyQuota(this.quota, dailyLimitPolicy, send)
+          : send())
         sent.push(phone)
       } catch (error) {
+        if (isDailyLimitReachedError(error)) {
+          refusedByLimit.push(phone)
+          continue
+        }
         logThinkzapError(apiLogger, 'thinkzap.bitrix.robot_webhook_failed', {
           app: 'thinkzap',
           source: 'bitrix',
@@ -125,12 +150,34 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       }
     }
 
+    if (refusedByLimit.length > 0) {
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.line.daily_limit_reached',
+        {
+          app: 'thinkzap',
+          source: 'bitrix',
+          refusedCount: refusedByLimit.length,
+        },
+        { msg: 'Robô de envio: destinatários recusados pelo limite diário' },
+      )
+    }
+
     await this.commentOnCrmTimeline(
       crmDocument,
-      `De: ${fromPhone}\nPara: ${sent.join(', ')}\nMensagem: ${data.properties.message}`,
+      `De: ${fromPhone}\nPara: ${sent.join(', ')}\nMensagem: ${data.properties.message}` +
+        (refusedByLimit.length > 0
+          ? `\n⚠️ NÃO enviado (limite diário da linha atingido): ${refusedByLimit.join(', ')}`
+          : ''),
     )
 
-    return this.ok({ received: true, sent: sent.length })
+    return this.ok({
+      received: true,
+      sent: sent.length,
+      ...(refusedByLimit.length > 0 && {
+        refusedByDailyLimit: refusedByLimit.length,
+      }),
+    })
   }
 
   /**

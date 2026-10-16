@@ -15,13 +15,24 @@ import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
 import { extractLineBlocked } from '@/app/hooks/extract-line-blocked'
 import {
   useLineApi,
+  type DailyLimitUsage,
   type LineEntitlement,
   type LineSettings,
   type LineSettingsToggles,
 } from '@/app/hooks/use-line-api'
-import { contarAlteracoes, TOGGLE_KEYS } from './ajustes-alteracoes'
+import {
+  contarAlteracoes,
+  limiteDiarioDe,
+  limiteDiarioValido,
+  patchLimiteDiario,
+  TOGGLE_KEYS,
+  type AjustesEditaveis,
+  type LimiteDiarioEditavel,
+  type ToggleKey,
+} from './ajustes-alteracoes'
 import { ConfigCard } from './config-card'
 import { ConfirmModal } from './confirm-modal'
+import { LimiteDiarioCard } from './limite-diario-card'
 import { LinhaBloqueadaAviso } from './linha-bloqueada-aviso'
 import { SaveChangesBar } from './save-changes-bar'
 
@@ -34,6 +45,12 @@ type Props = {
    * aba é a página, então é ela que precisa saber para pedir confirmação.
    */
   onDirtyChange?: (dirty: boolean) => void
+  /**
+   * O limite diário só existe na linha não oficial (Z-API). Vem da página, que já sabe o
+   * provider para escolher as abas — inferir pela resposta esconderia o card sem
+   * motivo visível se a api mudasse.
+   */
+  provider?: 'ZAPI' | 'HUBMESSAGE'
 }
 
 type OpenChannel = { id: string; name: string }
@@ -56,6 +73,10 @@ type State =
        * dado.
        */
       entitlement: LineEntitlement
+      /** Só na linha não oficial. */
+      limiteDiario?: LimiteDiarioEditavel
+      /** Uso do dia; `null` quando o contador não pôde ser lido. */
+      uso: DailyLimitUsage | null
     }
 
 /**
@@ -65,16 +86,13 @@ type State =
  * vincular e desvincular canal aberto. Sem isso, uma linha nova não teria como ser
  * ligada ao canal do Bitrix, e mensagem nenhuma chegaria ao CRM.
  */
-export function AjustesTab({ itemId, onDirtyChange }: Props) {
+export function AjustesTab({ itemId, onDirtyChange, provider }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/ajustes')
   const api = useLineApi(itemId)
   const { refresh } = useAplicationContext()
 
   const [state, setState] = useState<State>({ status: 'loading' })
-  const [inicial, setInicial] = useState<{
-    name: string
-    settings: LineSettingsToggles
-  } | null>(null)
+  const [inicial, setInicial] = useState<AjustesEditaveis | null>(null)
   const [salvando, setSalvando] = useState(false)
 
   const [canais, setCanais] = useState<OpenChannel[]>([])
@@ -83,16 +101,30 @@ export function AjustesTab({ itemId, onDirtyChange }: Props) {
   const [vinculando, setVinculando] = useState(false)
   const [confirmarDesvincular, setConfirmarDesvincular] = useState(false)
 
-  const aplicar = useCallback((data: LineSettings) => {
-    setState({
-      status: 'ready',
-      name: data.name,
-      vinculatedChannel: data.vinculatedChannel,
-      settings: data.settings,
-      entitlement: data.entitlement,
-    })
-    setInicial({ name: data.name, settings: data.settings })
-  }, [])
+  const aplicar = useCallback(
+    (data: LineSettings) => {
+      // Defensivo: api anterior ao limite não manda os campos.
+      const limiteDiario =
+        provider === 'ZAPI'
+          ? limiteDiarioDe({
+              dailyLimitEnabled: data.settings.dailyLimitEnabled === true,
+              dailyLimit: data.settings.dailyLimit ?? null,
+            })
+          : undefined
+
+      setState({
+        status: 'ready',
+        name: data.name,
+        vinculatedChannel: data.vinculatedChannel,
+        settings: data.settings,
+        entitlement: data.entitlement,
+        limiteDiario,
+        uso: data.dailyLimit ?? null,
+      })
+      setInicial({ name: data.name, settings: data.settings, limiteDiario })
+    },
+    [provider],
+  )
 
   /**
    * Recusa que chegou da api, e não do estado lido.
@@ -242,9 +274,22 @@ export function AjustesTab({ itemId, onDirtyChange }: Props) {
   const nomeMudou =
     inicial !== null && state.name.trim() !== inicial.name.trim()
   const nomeValido = state.name.trim().length > 0
-  const podeSalvar = dirty && nomeValido && !bloqueada
+  const limiteValido = limiteDiarioValido(state.limiteDiario)
+  const podeSalvar = dirty && nomeValido && limiteValido && !bloqueada
+  const limiteGravadoAtivo =
+    inicial?.limiteDiario !== undefined &&
+    inicial.limiteDiario.ativo &&
+    limiteDiarioValido(inicial.limiteDiario)
 
-  function setToggle(key: keyof LineSettingsToggles, value: boolean) {
+  function setLimiteDiario(patch: Partial<LimiteDiarioEditavel>) {
+    setState(prev =>
+      prev.status === 'ready' && prev.limiteDiario
+        ? { ...prev, limiteDiario: { ...prev.limiteDiario, ...patch } }
+        : prev,
+    )
+  }
+
+  function setToggle(key: ToggleKey, value: boolean) {
     setState(prev =>
       prev.status === 'ready'
         ? { ...prev, settings: { ...prev.settings, [key]: value } }
@@ -256,12 +301,16 @@ export function AjustesTab({ itemId, onDirtyChange }: Props) {
     if (!podeSalvar || inicial === null || state.status !== 'ready') return
 
     // Só o que mudou vai no payload.
-    const settings: Partial<LineSettingsToggles> = {}
+    const settings: Partial<LineSettingsToggles> = {
+      ...patchLimiteDiario(inicial, state),
+    }
     for (const key of TOGGLE_KEYS) {
       if (state.settings[key] !== inicial.settings[key]) {
         settings[key] = state.settings[key]
       }
     }
+    const limiteMudou =
+      'dailyLimitEnabled' in settings || 'dailyLimit' in settings
 
     setSalvando(true)
     try {
@@ -270,8 +319,18 @@ export function AjustesTab({ itemId, onDirtyChange }: Props) {
         ...(Object.keys(settings).length > 0 && { settings }),
       })
       // Salvou: o que está na tela passa a ser o estado inicial.
-      setInicial({ name: state.name.trim(), settings: state.settings })
+      setInicial({
+        name: state.name.trim(),
+        settings: state.settings,
+        limiteDiario: state.limiteDiario && {
+          ativo: state.limiteDiario.ativo,
+          valor: state.limiteDiario.valor.trim(),
+        },
+      })
       toast.success(t('salvo'))
+
+      // Limite novo muda o efetivo e o percentual: relê o uso, que a api calcula.
+      if (limiteMudou) void recarregarUso()
 
       /**
        * Nome novo: recarrega o contexto da instalação.
@@ -304,9 +363,42 @@ export function AjustesTab({ itemId, onDirtyChange }: Props) {
 
     setState(prev =>
       prev.status === 'ready'
-        ? { ...prev, name: inicial.name, settings: inicial.settings }
+        ? {
+            ...prev,
+            name: inicial.name,
+            settings: { ...prev.settings, ...inicial.settings },
+            limiteDiario: inicial.limiteDiario,
+          }
         : prev,
     )
+  }
+
+  /** Só o uso: o resto da tela pode ter edição pendente, que não pode ser apagada. */
+  async function recarregarUso() {
+    try {
+      const data = await api.getSettings()
+      setState(prev =>
+        prev.status === 'ready'
+          ? { ...prev, uso: data.dailyLimit ?? null }
+          : prev,
+      )
+    } catch {
+      // Uso desatualizado é o estado de antes do salvamento; não vale um erro.
+    }
+  }
+
+  /** Ação imediata: não passa pela barra. Relança para o diálogo ficar aberto. */
+  async function handleLiberar(quantidade: number) {
+    try {
+      const { dailyLimit } = await api.releaseDailyLimitExtra(quantidade)
+      setState(prev =>
+        prev.status === 'ready' ? { ...prev, uso: dailyLimit } : prev,
+      )
+      toast.success(t('limiteDiario.liberado', { amount: quantidade }))
+    } catch (err: unknown) {
+      tratarRecusa(err, t('limiteDiario.erroLiberar'))
+      throw err
+    }
   }
 
   async function handleVincular() {
@@ -495,8 +587,21 @@ export function AjustesTab({ itemId, onDirtyChange }: Props) {
           </div>
         </ConfigCard>
 
-        {/* Uma barra para a aba inteira: nome e toggles saem juntos. Vincular canal
-            continua ação imediata e não passa por ela. */}
+        {state.limiteDiario && (
+          <LimiteDiarioCard
+            ativo={state.limiteDiario.ativo}
+            valor={state.limiteDiario.valor}
+            onAtivoChange={ativo => setLimiteDiario({ ativo })}
+            onValorChange={valor => setLimiteDiario({ valor })}
+            uso={state.uso}
+            limiteGravadoAtivo={limiteGravadoAtivo}
+            bloqueada={bloqueada}
+            onLiberar={handleLiberar}
+          />
+        )}
+
+        {/* Uma barra para a aba inteira: nome, toggles e limite diário saem juntos.
+            Vincular canal e liberar limite temporário continuam ações imediatas. */}
         <SaveChangesBar
           dirtyCount={dirtyCount}
           saving={salvando}

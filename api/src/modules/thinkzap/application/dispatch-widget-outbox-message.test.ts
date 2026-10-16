@@ -16,6 +16,12 @@ import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import type { WidgetOutboxRecord } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { DispatchWidgetOutboxMessage } from './dispatch-widget-outbox-message'
+import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
+import {
+  RELEASE_SCRIPT,
+  RESERVE_SCRIPT,
+  RedisDailySendQuota,
+} from '@/modules/thinkzap/infra/queue/redis-daily-send-quota'
 
 const row = (
   overrides: Partial<WidgetOutboxRecord> = {},
@@ -744,5 +750,185 @@ describe('DispatchWidgetOutboxMessage', () => {
       expect(result).toEqual({ status: 'unknown' })
       expect(sut.outbox.markUnknown).toHaveBeenCalled()
     })
+  })
+})
+
+describe('DispatchWidgetOutboxMessage limite diário', () => {
+  /** Redis em memória com a semântica dos scripts da cota (ver o teste do adapter). */
+  function memoryQuota() {
+    const store = new Map<string, number>()
+    const redis = {
+      eval: (script: string, _n: number, ...args: string[]) => {
+        if (script === RESERVE_SCRIPT) {
+          const [sentKey, extraKey, enabled, limit] = args as [
+            string,
+            string,
+            string,
+            string,
+          ]
+          const sent = store.get(sentKey) ?? 0
+          const extra = store.get(extraKey) ?? 0
+          if (enabled === '1' && sent >= Number(limit) + extra) {
+            return Promise.resolve([0, sent, extra])
+          }
+          store.set(sentKey, sent + 1)
+          return Promise.resolve([1, sent + 1, extra])
+        }
+        if (script === RELEASE_SCRIPT) {
+          const [sentKey] = args as [string]
+          store.set(sentKey, Math.max(0, (store.get(sentKey) ?? 0) - 1))
+          return Promise.resolve(0)
+        }
+        throw new Error('script inesperado')
+      },
+      mget: (...keys: string[]) =>
+        Promise.resolve(keys.map(key => String(store.get(key) ?? 0))),
+    }
+    const quota = new RedisDailySendQuota(redis as never)
+    const sentToday = async (channelId: string) =>
+      (await quota.usage(channelId, new Date())).sent
+    return { quota, sentToday, store }
+  }
+
+  function makeLimitedSut(record: WidgetOutboxRecord) {
+    const { quota, sentToday } = memoryQuota()
+    const outbox = {
+      findById: vi.fn().mockResolvedValue(record),
+      claimForSending: vi.fn().mockResolvedValue(true),
+      markSent: vi.fn().mockResolvedValue(undefined),
+      markFailed: vi.fn().mockResolvedValue(undefined),
+      markUnknown: vi.fn().mockResolvedValue(undefined),
+      releaseToPending: vi.fn().mockResolvedValue(undefined),
+      markTimelineNotified: vi.fn().mockResolvedValue(undefined),
+    }
+    const send = vi
+      .fn()
+      .mockResolvedValue({ messageId: 'msg-1', persistedType: 'TEXT' })
+    const sendTemplate = vi.fn().mockResolvedValue({ messageId: 'tpl-1' })
+    const notifyOutcome = vi.fn().mockResolvedValue(undefined)
+    const reportSmsStatus = vi.fn().mockResolvedValue(undefined)
+
+    const sut = new DispatchWidgetOutboxMessage({
+      outbox: outbox as never,
+      senderResolver: { resolve: vi.fn().mockReturnValue({ send }) } as never,
+      templateSenderResolver: {
+        resolve: vi.fn().mockReturnValue({ send: sendTemplate }),
+      } as never,
+      interactiveButtonSenderResolver: { resolve: vi.fn() } as never,
+      messages: { create: vi.fn().mockResolvedValue(undefined) } as never,
+      openChannelQueue: { enqueue: vi.fn().mockResolvedValue(undefined) },
+      acquireLock: vi
+        .fn()
+        .mockResolvedValue({ release: vi.fn().mockResolvedValue(undefined) }),
+      notifyOutcome,
+      notifySent: vi.fn().mockResolvedValue(undefined),
+      reportSmsStatus,
+      quota,
+    })
+
+    const zapiLineWith = (dailyLimitEnabled: boolean, dailyLimit: number) => ({
+      ...line,
+      settings: {
+        ...DEFAULT_CONNECTOR_SETTINGS,
+        dailyLimitEnabled,
+        dailyLimit,
+      },
+    })
+
+    return {
+      sut,
+      outbox,
+      send,
+      sendTemplate,
+      notifyOutcome,
+      reportSmsStatus,
+      sentToday,
+      dispatch: (target: object, isLastAttempt = false) =>
+        sut.execute({
+          outboxId: record.id,
+          line: target as never,
+          isLastAttempt,
+        }),
+      zapiLineWith,
+    }
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it('limite desligado: envio bem-sucedido incrementa a contagem do dia', async () => {
+    const sut = makeLimitedSut(row())
+
+    const result = await sut.dispatch(sut.zapiLineWith(false, 300))
+
+    expect(result.status).toBe('sent')
+    expect(await sut.sentToday('Z-1')).toBe(1)
+  })
+
+  it('linha oficial não toca no contador', async () => {
+    const sut = makeLimitedSut(templateRow())
+
+    const result = await sut.dispatch(hubLine)
+
+    expect(result.status).toBe('sent')
+    expect(await sut.sentToday('C-9')).toBe(0)
+  })
+
+  it('mensagem já na fila quando a última vaga foi consumida: FAILED sem retentativa e aviso na timeline', async () => {
+    const sut = makeLimitedSut(row())
+    const limited = sut.zapiLineWith(true, 1)
+
+    // Outra mensagem consome a única vaga do dia antes desta ser despachada.
+    expect((await sut.dispatch(limited)).status).toBe('sent')
+    sut.send.mockClear()
+
+    const result = await sut.dispatch(limited)
+
+    expect(result).toEqual({ status: 'failed' })
+    expect(sut.send).not.toHaveBeenCalled()
+    expect(sut.outbox.markFailed).toHaveBeenCalledWith(
+      'outbox-1',
+      expect.stringContaining('limite diário'),
+    )
+    expect(sut.outbox.releaseToPending).not.toHaveBeenCalled()
+    expect(sut.notifyOutcome).toHaveBeenCalledWith(
+      'daily-limit',
+      expect.objectContaining({ id: 'outbox-1' }),
+    )
+    expect(await sut.sentToday('Z-1')).toBe(1)
+  })
+
+  it('Campanha de SMS recusada pelo limite reporta failed ao Bitrix24', async () => {
+    const sut = makeLimitedSut(
+      row({ smsSenderCode: 'thinkzap_sms', smsMessageId: 'sms-1' }),
+    )
+    const limited = sut.zapiLineWith(true, 1)
+    await sut.dispatch(limited)
+    sut.reportSmsStatus.mockClear()
+
+    await sut.dispatch(limited)
+
+    expect(sut.reportSmsStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ smsMessageId: 'sms-1' }),
+      'failed',
+    )
+  })
+
+  it('recusa com resposta do provider devolve a vaga', async () => {
+    const sut = makeLimitedSut(row())
+    sut.send.mockRejectedValueOnce(refusedError())
+
+    await expect(sut.dispatch(sut.zapiLineWith(true, 5))).rejects.toThrow()
+
+    expect(await sut.sentToday('Z-1')).toBe(0)
+  })
+
+  it('falha sem resposta mantém a vaga contada', async () => {
+    const sut = makeLimitedSut(row())
+    sut.send.mockRejectedValueOnce(indeterminateError())
+
+    const result = await sut.dispatch(sut.zapiLineWith(true, 5))
+
+    expect(result).toEqual({ status: 'unknown' })
+    expect(await sut.sentToday('Z-1')).toBe(1)
   })
 })

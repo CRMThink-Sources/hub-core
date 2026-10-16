@@ -27,6 +27,14 @@ import {
   isBotNotFoundError,
 } from '@/modules/thinkzap/application/ensure-bitrix-bot-id'
 import { notifyOperatorWindowClosed } from '@/modules/thinkzap/application/notify-operator-window-closed'
+import { notifyOperatorDailyLimitReached } from '@/modules/thinkzap/application/notify-operator-daily-limit-reached'
+import {
+  dailyLimitPolicyOf,
+  isDailyLimitReachedError,
+  sendWithinDailyQuota,
+} from '@/modules/thinkzap/application/helpers/send-within-daily-quota'
+import type { DailyLimitPolicy } from '@/modules/thinkzap/domain/daily-send-limit'
+import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { resolveBitrixReplyContext } from '@/modules/thinkzap/application/resolve-bitrix-reply-context'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
 import { makeInteractiveButtonSenderResolver } from '@/modules/thinkzap/main/connector/make-interactive-button-sender-resolver'
@@ -57,6 +65,39 @@ const log = createWorkerSourceLogger('bitrix')
 const messageRepo = new PrismaThinkzapMessageRepository()
 const outboundSenderResolver = makeOutboundSenderResolver()
 const interactiveButtonSenderResolver = makeInteractiveButtonSenderResolver()
+const dailySendQuota = makeDailySendQuota()
+
+/**
+ * Recusa por limite diário: permanente até a virada do dia (ou liberação), então
+ * avisa o operador e encerra **sem relançar** — retentar cairia no mesmo limite e
+ * não há `setDelivered`, porque nada saiu.
+ */
+async function handleDailyLimitReached(params: {
+  logContext: Record<string, unknown>
+  bitrixClient: BitrixClient
+  botId: number
+  bitrixChatId: string
+  appendJobLog: AppendJobLog
+}): Promise<void> {
+  logThinkzapError(
+    log,
+    'thinkzap.line.daily_limit_reached',
+    params.logContext,
+    {
+      level: 'warn',
+      msg: 'Envio do operador recusado pelo limite diário da linha',
+    },
+  )
+  await params.appendJobLog(
+    'Envio recusado: a linha atingiu o limite diário de mensagens. Nada foi enviado ao ' +
+      'provider — operador avisado no chat, job encerrado SEM retentativa.',
+  )
+  await notifyOperatorDailyLimitReached(
+    params.bitrixClient,
+    params.botId,
+    params.bitrixChatId,
+  )
+}
 
 type BitrixMessageGetResult = {
   result: {
@@ -357,6 +398,13 @@ export async function processBitrixReceivedMessage(
     throw thinkzapError('thinkzap.line.blocked')
   }
 
+  // Settings do item (via contexto da aplicação), não os congelados do contexto do webhook.
+  const dailyLimitPolicy = dailyLimitPolicyOf({
+    provider,
+    lineKey: context.instance.instanceId,
+    settings: line.settings,
+  })
+
   const bitrixClient = new BitrixClient({
     bitrixCredential: context.app.credential,
     domain: context.name,
@@ -381,6 +429,7 @@ export async function processBitrixReceivedMessage(
       botId,
       bitrixClient,
       appendJobLog,
+      dailyLimitPolicy,
     })
     return
   }
@@ -518,8 +567,27 @@ export async function processBitrixReceivedMessage(
 
     let result: OutboundSendResult
     try {
-      result = await sender.send(toSend, { referencedMessageId })
+      result = await sendWithinDailyQuota(
+        dailySendQuota,
+        dailyLimitPolicy,
+        () => sender.send(toSend, { referencedMessageId }),
+      )
     } catch (err) {
+      if (isDailyLimitReachedError(err)) {
+        await handleDailyLimitReached({
+          logContext: {
+            domain: event.auth.domain,
+            instanceId: context.instance.instanceId,
+            chatId,
+            bitrixMessageId,
+          },
+          bitrixClient,
+          botId,
+          bitrixChatId: message.im.chat_id,
+          appendJobLog,
+        })
+        return
+      }
       // Janela de 24h fechada é permanente: avisa o operador e não relança (sem retentativa).
       if (isConversationWindowClosedError(err)) {
         logThinkzapError(
@@ -633,6 +701,7 @@ async function sendButtonActionMessage(params: {
   botId: number
   bitrixClient: BitrixClient
   appendJobLog: AppendJobLog
+  dailyLimitPolicy: DailyLimitPolicy | null
 }): Promise<void> {
   const {
     event,
@@ -643,6 +712,7 @@ async function sendButtonActionMessage(params: {
     botId,
     bitrixClient,
     appendJobLog,
+    dailyLimitPolicy,
   } = params
 
   const logContext = {
@@ -716,8 +786,21 @@ async function sendButtonActionMessage(params: {
 
   let result: InteractiveButtonSendResult
   try {
-    result = await sender.send(descriptor)
+    result = await sendWithinDailyQuota(dailySendQuota, dailyLimitPolicy, () =>
+      sender.send(descriptor),
+    )
   } catch (err) {
+    if (isDailyLimitReachedError(err)) {
+      await handleDailyLimitReached({
+        logContext,
+        bitrixClient,
+        botId,
+        bitrixChatId: message.im.chat_id,
+        appendJobLog,
+      })
+      return
+    }
+
     if (isConversationWindowClosedError(err)) {
       logThinkzapError(
         log,

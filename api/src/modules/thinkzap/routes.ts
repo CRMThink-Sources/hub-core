@@ -90,6 +90,7 @@ import {
   makeRegisterTemplateSmsProviderController,
   makeDeleteTemplateSmsProviderController,
   makeUpdateLineSettingsController,
+  makeReleaseDailyLimitExtraController,
 } from './main/line/make-line-controllers'
 
 export const createThinkerszapRoutes = (): Router => {
@@ -334,6 +335,12 @@ export const createThinkerszapRoutes = (): Router => {
     '/lines/:itemId/settings',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeUpdateLineSettingsController),
+  )
+  /** Libera extras do limite diário só para hoje. Mesma permissão de editar os ajustes. */
+  router.post(
+    '/lines/:itemId/daily-limit/extra',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeReleaseDailyLimitExtraController),
   )
   router.post(
     '/lines/:itemId/channel',

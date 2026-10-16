@@ -12,6 +12,8 @@ const PREFIX_ON = {
   messageUpdateEventEnabled: false,
   messageDeleteEventEnabled: false,
   widgetOpenChannelEnabled: false,
+  dailyLimitEnabled: false,
+  dailyLimit: null,
 }
 
 describe('prepareOpenLineOutboundText', () => {

@@ -177,6 +177,7 @@ describe('UpdateLineSettings', () => {
 
     expect(sut.updateSubscriptionItem).toHaveBeenCalledWith('i1', {
       settings: {
+        ...DEFAULT_CONNECTOR_SETTINGS,
         prefixOperatorNameEnabled: true,
         widgetOpenChannelEnabled: false,
       },
@@ -189,5 +190,88 @@ describe('UpdateLineSettings', () => {
     await sut.execute({ settings: {} })
 
     expect(sut.updateSubscriptionItem).not.toHaveBeenCalled()
+  })
+
+  describe('limite diário', () => {
+    it('ativa o limite de 300 na linha não oficial', async () => {
+      const sut = makeSut()
+
+      await sut.execute({
+        settings: { dailyLimitEnabled: true, dailyLimit: 300 },
+      })
+
+      expect(sut.updateSubscriptionItem).toHaveBeenCalledWith('i1', {
+        settings: {
+          ...DEFAULT_CONNECTOR_SETTINGS,
+          dailyLimitEnabled: true,
+          dailyLimit: 300,
+        },
+      })
+    })
+
+    it('recusa limite 0 e não grava nada, nem o nome', async () => {
+      const sut = makeSut()
+
+      await expect(
+        sut.execute({
+          name: 'Novo nome',
+          settings: { dailyLimitEnabled: true, dailyLimit: 0 },
+        }),
+      ).rejects.toMatchObject({
+        errorCode: 'thinkzap.line.daily_limit_invalid',
+      })
+      expect(sut.updateSubscriptionItem).not.toHaveBeenCalled()
+      expect(sut.rename.execute).not.toHaveBeenCalled()
+    })
+
+    it('recusa ligar o toggle sem limite gravado nem enviado', async () => {
+      const sut = makeSut()
+
+      await expect(
+        sut.execute({ settings: { dailyLimitEnabled: true } }),
+      ).rejects.toMatchObject({
+        errorCode: 'thinkzap.line.daily_limit_invalid',
+      })
+    })
+
+    it('aceita ligar o toggle quando a linha já tem limite gravado', async () => {
+      const current = { ...DEFAULT_CONNECTOR_SETTINGS, dailyLimit: 250 }
+      const sut = makeSut(current)
+
+      await sut.execute({ settings: { dailyLimitEnabled: true } })
+
+      expect(sut.updateSubscriptionItem).toHaveBeenCalledWith('i1', {
+        settings: { ...current, dailyLimitEnabled: true },
+      })
+    })
+
+    it('desligar mantém o valor gravado', async () => {
+      const current = {
+        ...DEFAULT_CONNECTOR_SETTINGS,
+        dailyLimitEnabled: true,
+        dailyLimit: 300,
+      }
+      const sut = makeSut(current)
+
+      await sut.execute({ settings: { dailyLimitEnabled: false } })
+
+      expect(sut.updateSubscriptionItem).toHaveBeenCalledWith('i1', {
+        settings: { ...current, dailyLimitEnabled: false },
+      })
+    })
+
+    it('recusa o limite na linha oficial', async () => {
+      const sut = makeSut()
+
+      await expect(
+        sut.execute({
+          item: oficial(),
+          settings: { dailyLimitEnabled: true, dailyLimit: 300 },
+        }),
+      ).rejects.toMatchObject({
+        errorCode: 'thinkzap.line.daily_limit_invalid',
+      })
+      expect(sut.updateSubscriptionItem).not.toHaveBeenCalled()
+    })
   })
 })

@@ -19,6 +19,7 @@ vi.mock('@/shared/infra/logger', () => ({
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { BitrixSmsProviderWebhookHandlerController } from './bitrix-sms-provider-webhook-handler.controller'
+import { thinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 const ZAPI_LINE: SubscriptionItem = {
   id: '4821',
@@ -337,6 +338,22 @@ describe('linha HubMessage', () => {
         smsMessageId: 'msg-1',
       }),
     )
+  })
+
+  it('linha no limite diário: reporta failed ao Bitrix24 sem enfileirar', async () => {
+    const deps = hubDeps({
+      enqueueTemplate: vi
+        .fn()
+        .mockRejectedValue(thinkzapError('thinkzap.line.daily_limit_reached')),
+    })
+
+    const result = await deps.controller.perform(
+      templateRequest('João\n10/09'),
+      response,
+    )
+
+    expect(result.status).toBe(200)
+    expect(statusReported(deps.bitrix)).toEqual(['failed'])
   })
 
   it('aceita valores separados por ponto e vírgula numa linha só', async () => {

@@ -60,6 +60,18 @@ function billingDayOf(instant: Date): {
 }
 
 /**
+ * O dia de calendário de um instante, no fuso do contrato, como `YYYY-MM-DD`.
+ *
+ * Mesma leitura do `billingDayOf`, para que o dia da cota diária de envio e o dia
+ * do contrato nunca divirjam: a cota vira à meia-noite de Brasília, não à do UTC.
+ */
+export function dayKeyOf(instant: Date): string {
+  const { year, month, day } = billingDayOf(instant)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${year}-${pad(month)}-${pad(day)}`
+}
+
+/**
  * Habilitação de uma linha.
  *
  * `trial-expired` é separado de `inactive` porque a tela trata os dois de forma
