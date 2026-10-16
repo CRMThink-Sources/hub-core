@@ -499,6 +499,10 @@ model ThinkzapWidgetOutbox {
   templateName       String? @map("template_name")
   templateLanguage   String? @map("template_language")
   templateParameters Json?   @map("template_parameters")
+  /// Valores dos botões dinâmicos do template (link com variável e copiar código),
+  /// como `{ index, subType, value }[]` — `index` é a posição do botão entre todos
+  /// os botões do template. `NULL` em row anterior aos botões: envia sem botão.
+  templateButtonParameters Json? @map("template_button_parameters")
 
   /// Só existe em `kind = INTERACTIVE_BUTTON`: corpo, header/footer opcionais e a
   /// lista de botões, no formato de `InteractiveButtonDescriptor`. Guardado como

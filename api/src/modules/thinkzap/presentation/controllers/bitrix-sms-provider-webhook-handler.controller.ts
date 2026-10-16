@@ -310,6 +310,24 @@ export class BitrixSmsProviderWebhookHandlerController extends Controller {
       })
     }
 
+    /**
+     * O corpo da campanha só carrega os valores das variáveis; não há como informar
+     * o final de um link ou o código de um cupom. Enviar sem eles faria a Meta
+     * recusar depois do aceite — e cobrar a tentativa como erro na campanha.
+     */
+    if (template.buttons.some(button => button.dynamic)) {
+      return this.refuse(
+        senderCode,
+        messageId,
+        'template-dynamic-button-unsupported',
+        {
+          subscriptionItemId: scope.subscriptionItemId,
+          templateName,
+          language,
+        },
+      )
+    }
+
     const expected = countTemplatePlaceholders(template.body)
     if (expected !== bodyParameters.length) {
       return this.refuse(senderCode, messageId, 'parameter-count-mismatch', {

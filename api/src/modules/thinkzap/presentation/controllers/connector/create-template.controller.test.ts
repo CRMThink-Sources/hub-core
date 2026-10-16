@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { describe, expect, it, vi } from 'vitest'
 import { Request } from 'express'
-import { CreateConnectorTemplateUseCase } from '@/modules/thinkzap/application/create-connector-template'
+import {
+  CreateConnectorTemplateUseCase,
+  InvalidTemplateError,
+} from '@/modules/thinkzap/application/create-connector-template'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { CreateTemplateController } from './create-template.controller'
 
@@ -56,6 +59,65 @@ describe('CreateTemplateController', () => {
 
     expect(res.status).toBe(400)
     expect(useCase.execute).not.toHaveBeenCalled()
+  })
+
+  it('repassa ao use case o componente de botões com URL e exemplo', async () => {
+    const { controller, useCase } = makeController(() =>
+      Promise.resolve({ id: 'tpl_1', status: 'PENDING', category: 'UTILITY' }),
+    )
+    const buttons = {
+      type: 'BUTTONS',
+      buttons: [
+        { type: 'QUICK_REPLY', text: 'Sim' },
+        {
+          type: 'URL',
+          text: 'Rastrear',
+          url: 'https://loja.com/p/{{1}}',
+          example: ['https://loja.com/p/1'],
+        },
+      ],
+    }
+
+    const res = await controller.perform(
+      makeReq({ ...validBody, components: [...validBody.components, buttons] }),
+    )
+
+    expect(res.status).toBe(200)
+    expect(useCase.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        components: [{ type: 'BODY', text: 'Olá {{1}}' }, buttons],
+      }),
+    )
+  })
+
+  it('400 sem chamar o use case quando o tipo de botão não é suportado', async () => {
+    const { controller, useCase } = makeController(() => Promise.resolve({}))
+
+    const res = await controller.perform(
+      makeReq({
+        ...validBody,
+        components: [
+          ...validBody.components,
+          { type: 'BUTTONS', buttons: [{ type: 'FLOW', text: 'Abrir' }] },
+        ],
+      }),
+    )
+
+    expect(res.status).toBe(400)
+    expect(useCase.execute).not.toHaveBeenCalled()
+  })
+
+  it('400 com a mensagem quando o use case recusa os botões', async () => {
+    const { controller } = makeController(() =>
+      Promise.reject(
+        new InvalidTemplateError('Template aceita no máximo 2 botões de link'),
+      ),
+    )
+
+    const res = await controller.perform(makeReq(validBody))
+
+    expect(res.status).toBe(400)
+    expect((res.result as { error: string }).error).toContain('botões de link')
   })
 
   it('400 propagando mensagem da Meta em HubMessageApiError', async () => {

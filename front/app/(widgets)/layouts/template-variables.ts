@@ -1,3 +1,5 @@
+import type { WidgetTemplateButton } from '@/app/hooks/use-widget-templates'
+
 /**
  * Placeholder de variável de template: `{{1}}`, `{{nome}}`, com ou sem espaços
  * internos.
@@ -63,4 +65,33 @@ export function hasAllTemplateVariables(
   return extractTemplateVariables(body).every(
     key => (values[key] ?? '').trim().length > 0,
   )
+}
+
+/** Botões que pedem valor no envio (link com variável e copiar código). */
+export function dynamicButtons(
+  buttons: WidgetTemplateButton[] | undefined,
+): WidgetTemplateButton[] {
+  return (buttons ?? []).filter(button => button.dynamic)
+}
+
+/** Todo botão dinâmico com valor (só espaço não conta). Chave: `index` do botão. */
+export function hasAllButtonValues(
+  buttons: WidgetTemplateButton[] | undefined,
+  values: Record<number, string>,
+): boolean {
+  return dynamicButtons(buttons).every(
+    button => (values[button.index] ?? '').trim().length > 0,
+  )
+}
+
+/** O `buttonParameters` do envio: um item por botão dinâmico, amarrado ao `index`. */
+export function templateButtonParameters(
+  buttons: WidgetTemplateButton[] | undefined,
+  values: Record<number, string>,
+): { index: number; subType: 'URL' | 'COPY_CODE'; value: string }[] {
+  return dynamicButtons(buttons).map(button => ({
+    index: button.index,
+    subType: button.type === 'COPY_CODE' ? 'COPY_CODE' : 'URL',
+    value: (values[button.index] ?? '').trim(),
+  }))
 }

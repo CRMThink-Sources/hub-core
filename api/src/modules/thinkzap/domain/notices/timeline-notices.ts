@@ -41,6 +41,8 @@ export type TimelineNotices = {
   }
   templateRobot: {
     incomplete: string
+    /** Template com botão dinâmico e robô sem valor para algum deles. */
+    missingButtonValues: string
     lineCannotSend: (error: string) => string
     noRecipients: string
     noValidRecipients: string
@@ -94,6 +96,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
     templateRobot: {
       incomplete:
         'A automação está sem linha ou sem template escolhido. Abra a configuração do robô e escolha os dois.',
+      missingButtonValues:
+        'O template escolhido tem botões que precisam de valor (link ou código), e a automação não informou todos. Abra a configuração do robô e preencha os botões.',
       lineCannotSend: error =>
         `A linha configurada não pode enviar template: ${error}`,
       noRecipients: 'Nenhum destinatário encontrado para o envio do template.',
@@ -141,6 +145,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
     templateRobot: {
       incomplete:
         'The automation has no line or no template selected. Open the robot settings and choose both.',
+      missingButtonValues:
+        'The selected template has buttons that need a value (link or code), and the automation did not provide all of them. Open the robot settings and fill in the buttons.',
       lineCannotSend: error =>
         `The configured line cannot send templates: ${error}`,
       noRecipients: 'No recipients found for the template.',
@@ -190,6 +196,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
     templateRobot: {
       incomplete:
         'La automatización no tiene línea ni plantilla elegida. Abra la configuración del robot y elija las dos.',
+      missingButtonValues:
+        'La plantilla elegida tiene botones que necesitan un valor (enlace o código), y la automatización no los informó todos. Abra la configuración del robot y complete los botones.',
       lineCannotSend: error =>
         `La línea configurada no puede enviar plantillas: ${error}`,
       noRecipients: 'No se encontró ningún destinatario para la plantilla.',

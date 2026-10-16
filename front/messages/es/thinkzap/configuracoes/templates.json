@@ -34,7 +34,38 @@
     "enviando": "Enviando...",
     "cancelar": "Cancelar",
     "erroNome": "Nombre inválido: usa snake_case (a-z, 0-9, _).",
-    "erroBody": "El cuerpo del mensaje es obligatorio."
+    "erroBody": "El cuerpo del mensaje es obligatorio.",
+    "botoes": {
+      "titulo": "Botones (opcional)",
+      "hint": "Hasta {{max}} botones. Las respuestas rápidas aparecen antes que los demás.",
+      "texto": "Texto del botón",
+      "url": "URL",
+      "urlHint": "Para un enlace distinto en cada envío, termine la URL con {{1}}.",
+      "urlExemplo": "URL de ejemplo completa",
+      "telefone": "Teléfono",
+      "telefoneHint": "Con código de país, solo números. Ej.: +5511999999999",
+      "codigo": "Código de ejemplo",
+      "codigoHint": "El código real se informa en cada envío.",
+      "remover": "Quitar botón",
+      "erroGeral": "Corrija los botones destacados.",
+      "erros": {
+        "buttons_not_allowed": "Las plantillas de autenticación no aceptan botones.",
+        "copy_code_not_allowed": "Copiar código solo se permite en plantillas de marketing.",
+        "too_many_buttons": "Una plantilla acepta como máximo 10 botones.",
+        "too_many_of_type": "Una plantilla acepta como máximo 2 enlaces, 1 llamada y 1 copiar código.",
+        "unsupported_type": "Tipo de botón no compatible.",
+        "text_required": "Informe el texto del botón.",
+        "text_too_long": "El texto del botón debe tener hasta 25 caracteres.",
+        "url_required": "Informe la URL.",
+        "url_too_long": "La URL debe tener hasta 2000 caracteres.",
+        "url_variable_position": "La variable solo puede ser {{1}}, al final de la URL.",
+        "url_example_required": "Informe una URL de ejemplo completa.",
+        "phone_required": "Informe el teléfono.",
+        "phone_invalid": "Teléfono inválido: use código de país y solo números, hasta 20 caracteres.",
+        "code_required": "Informe un código de ejemplo.",
+        "code_too_long": "El código debe tener hasta 15 caracteres."
+      }
+    }
   },
   "campanha": {
     "titulo": "Campaña de SMS de Bitrix24",
@@ -54,6 +85,16 @@
     "indisponivelAmbiente": "El envío por campaña no está disponible en este entorno. Hable con el soporte.",
     "erroLeitura": "No se pudieron leer las plantillas de esta línea.",
     "erroAcao": "No se pudo cambiar el proveedor de esta plantilla.",
-    "bloqueada": "La suscripción de esta línea no está activa, así que las plantillas no pueden ofrecerse en las campañas."
+    "bloqueada": "La suscripción de esta línea no está activa, así que las plantillas no pueden ofrecerse en las campañas.",
+    "botaoDinamico": "Esta plantilla tiene un botón que necesita un valor en cada envío (enlace o código), y la campaña no puede informarlo."
+  },
+  "botoes": {
+    "tipo": {
+      "QUICK_REPLY": "Respuesta rápida",
+      "URL": "Enlace",
+      "PHONE_NUMBER": "Llamada",
+      "COPY_CODE": "Copiar código",
+      "OTHER": "Otro"
+    }
   }
 }

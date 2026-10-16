@@ -94,6 +94,40 @@ describe('HubMessageTemplateProvider', () => {
     })
   })
 
+  it('repassa o componente BUTTONS sem perder url, example e phone_number', async () => {
+    const client = makeClient()
+    const provider = new HubMessageTemplateProvider(client)
+    const buttons = {
+      type: 'BUTTONS' as const,
+      buttons: [
+        { type: 'QUICK_REPLY', text: 'Sim' },
+        {
+          type: 'URL',
+          text: 'Rastrear',
+          url: 'https://loja.com/p/{{1}}',
+          example: ['https://loja.com/p/1'],
+        },
+        { type: 'PHONE_NUMBER', text: 'Ligar', phone_number: '+5511999999999' },
+        { type: 'COPY_CODE', example: 'BLACK10' },
+      ],
+    }
+
+    await provider.createTemplate({
+      wabaId: 'waba_1',
+      name: 'promo',
+      category: 'MARKETING',
+      language: 'pt_BR',
+      components: [{ type: 'BODY', text: 'Oi' }, buttons],
+    })
+
+    expect(client.createTemplate).toHaveBeenCalledWith(
+      'waba_1',
+      expect.objectContaining({
+        components: [{ type: 'BODY', text: 'Oi' }, buttons],
+      }),
+    )
+  })
+
   it('sincroniza templates', async () => {
     const client = makeClient({
       syncTemplates: vi

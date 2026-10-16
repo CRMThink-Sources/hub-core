@@ -3,8 +3,8 @@ import { env } from '@/config/env'
 /**
  * Propriedade de robô, no shape que `bizproc.robot.add` aceita.
  *
- * `Multiple` só aparece em `templateParameters`: é a única propriedade que carrega
- * uma lista, e o Bitrix trata a ausência da chave como `'N'`.
+ * `Multiple` só aparece em `templateParameters` e `templateButtonParameters`: são as
+ * propriedades que carregam lista, e o Bitrix trata a ausência da chave como `'N'`.
  */
 type RobotProperty = {
   Name: string
@@ -23,6 +23,7 @@ export type TemplateRobotProperties = {
   templateLanguage: RobotProperty
   templateBody: RobotProperty
   templateParameters: RobotProperty
+  templateButtonParameters: RobotProperty
 }
 
 export type TemplateRobotAddParams = {
@@ -107,6 +108,19 @@ function templateRobotProperties(): TemplateRobotProperties {
     templateParameters: {
       Name: 'Valores das variáveis',
       Description: 'Na ordem em que as variáveis aparecem no corpo',
+      Type: 'string',
+      Required: 'N',
+      Multiple: 'Y',
+      Default: '',
+    },
+    /**
+     * Um valor por botão dinâmico (link com variável ou copiar código), na ordem em
+     * que esses botões aparecem no template. O handler amarra cada valor ao `index`
+     * do botão pelo catálogo — o Bitrix só guarda a ordem.
+     */
+    templateButtonParameters: {
+      Name: 'Valores dos botões',
+      Description: 'Na ordem em que os botões dinâmicos aparecem no template',
       Type: 'string',
       Required: 'N',
       Multiple: 'Y',

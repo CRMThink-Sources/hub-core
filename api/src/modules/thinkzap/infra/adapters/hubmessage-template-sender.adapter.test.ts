@@ -90,6 +90,65 @@ describe('HubMessageTemplateSender', () => {
     )
   })
 
+  it('acrescenta o botão de link dinâmico com o index da posição no template', async () => {
+    const client = makeClient()
+
+    await makeSender(client).send({
+      templateName: 'order_shipped',
+      language: 'pt_BR',
+      bodyParameters: ['PED-1'],
+      buttonParameters: [{ index: 1, subType: 'URL', value: 'PED-1' }],
+    })
+
+    const params = vi.mocked(client.sendTemplateMessage).mock.calls[0]?.[1]
+    expect(params?.content.attachments[0]?.template.components).toEqual([
+      { type: 'BODY', parameters: [{ type: 'text', text: 'PED-1' }] },
+      {
+        type: 'BUTTON',
+        sub_type: 'url',
+        index: '1',
+        parameters: [{ type: 'text', text: 'PED-1' }],
+      },
+    ])
+  })
+
+  it('envia o código do cupom em botão de copiar código', async () => {
+    const client = makeClient()
+
+    await makeSender(client).send({
+      templateName: 'promo',
+      language: 'pt_BR',
+      bodyParameters: [],
+      buttonParameters: [{ index: 0, subType: 'COPY_CODE', value: 'BLACK10' }],
+    })
+
+    const params = vi.mocked(client.sendTemplateMessage).mock.calls[0]?.[1]
+    expect(params?.content.attachments[0]?.template.components).toEqual([
+      {
+        type: 'BUTTON',
+        sub_type: 'copy_code',
+        index: '0',
+        parameters: [{ type: 'coupon_code', coupon_code: 'BLACK10' }],
+      },
+    ])
+  })
+
+  it('omite components sem variável e com lista de botões vazia', async () => {
+    const client = makeClient()
+
+    await makeSender(client).send({
+      templateName: 'welcome',
+      language: 'pt_BR',
+      bodyParameters: [],
+      buttonParameters: [],
+    })
+
+    const params = vi.mocked(client.sendTemplateMessage).mock.calls[0]?.[1]
+    expect(params?.content.attachments[0]?.template).not.toHaveProperty(
+      'components',
+    )
+  })
+
   /**
    * `deterministic` e não `policy` ausente: o fallback de idioma da Meta enviaria
    * outra versão aprovada do template, e o contato receberia texto diferente do que o

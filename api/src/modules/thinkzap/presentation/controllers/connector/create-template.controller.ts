@@ -15,16 +15,43 @@ import { apiLogger } from '@/shared/infra/logger'
 
 const componentSchema = z
   .object({
-    type: z.enum(['HEADER', 'BODY', 'FOOTER', 'BUTTONS']),
+    type: z.enum(['HEADER', 'BODY', 'FOOTER']),
     text: z.string().optional(),
   })
   .passthrough()
+
+/**
+ * Forma de cada tipo de botão. Os limites (quantidade, tamanho, categoria) ficam em
+ * `validateTemplateButtons`, no use case — aqui só o formato do pedido.
+ */
+const buttonSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('QUICK_REPLY'), text: z.string() }),
+  z.object({
+    type: z.literal('URL'),
+    text: z.string(),
+    url: z.string(),
+    example: z.array(z.string()).optional(),
+  }),
+  z.object({
+    type: z.literal('PHONE_NUMBER'),
+    text: z.string(),
+    phone_number: z.string(),
+  }),
+  z.object({ type: z.literal('COPY_CODE'), example: z.string() }),
+])
+
+const buttonsComponentSchema = z.object({
+  type: z.literal('BUTTONS'),
+  buttons: z.array(buttonSchema).min(1),
+})
 
 const bodySchema = z.object({
   name: z.string().min(1),
   category: z.enum(['UTILITY', 'MARKETING', 'AUTHENTICATION']),
   language: z.string().min(1),
-  components: z.array(componentSchema).min(1),
+  components: z
+    .array(z.union([buttonsComponentSchema, componentSchema]))
+    .min(1),
 })
 
 /** `POST /thinkzap/lines/:itemId/templates` — cadastra template da linha. */

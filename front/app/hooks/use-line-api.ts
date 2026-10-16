@@ -121,6 +121,8 @@ export type TemplateProvider = {
   body: string
   /** Quantos valores o texto da campanha precisa trazer. */
   parameterCount: number
+  /** Link dinâmico ou copiar código: a campanha não consegue enviar. */
+  hasDynamicButton: boolean
   registered: boolean
   code: string
 }

@@ -5,6 +5,11 @@ import {
   TemplateComponent,
 } from '@/modules/thinkzap/domain/ports/whatsapp-template-provider.port'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import {
+  TEMPLATE_BUTTON_LIMITS,
+  TemplateButtonViolation,
+  validateTemplateButtons,
+} from '@/modules/thinkzap/domain/template-buttons'
 import { resolveTemplateContext } from './helpers/resolve-template-context'
 
 /** Erro de validação de dados do template antes de submeter ao provider. */
@@ -83,5 +88,43 @@ export class CreateConnectorTemplateUseCase {
         'Template deve conter ao menos um componente BODY',
       )
     }
+
+    const buttons = input.components.find(c => c.type === 'BUTTONS')?.buttons
+    const [violation] = validateTemplateButtons(
+      Array.isArray(buttons) ? buttons : [],
+      input.category,
+    )
+    if (violation) {
+      throw new InvalidTemplateError(buttonViolationMessage(violation))
+    }
   }
+}
+
+const BUTTON_VIOLATION_MESSAGES: Record<
+  TemplateButtonViolation['code'],
+  string
+> = {
+  buttons_not_allowed: 'Templates de autenticação não aceitam botões',
+  copy_code_not_allowed:
+    'Botão de copiar código só é permitido em templates de marketing',
+  too_many_buttons: `Template aceita no máximo ${TEMPLATE_BUTTON_LIMITS.total} botões`,
+  too_many_of_type: `Template aceita no máximo ${TEMPLATE_BUTTON_LIMITS.URL} botões de link, ${TEMPLATE_BUTTON_LIMITS.PHONE_NUMBER} de ligação e ${TEMPLATE_BUTTON_LIMITS.COPY_CODE} de copiar código`,
+  unsupported_type: 'Tipo de botão não suportado',
+  text_required: 'Texto do botão é obrigatório',
+  text_too_long: `Texto do botão deve ter até ${TEMPLATE_BUTTON_LIMITS.textLength} caracteres`,
+  url_required: 'URL do botão é obrigatória',
+  url_too_long: `URL do botão deve ter até ${TEMPLATE_BUTTON_LIMITS.urlLength} caracteres`,
+  url_variable_position: 'A variável da URL só pode ser {{1}}, no final da URL',
+  url_example_required: 'URL com variável exige uma URL de exemplo completa',
+  phone_required: 'Telefone do botão é obrigatório',
+  phone_invalid: `Telefone do botão deve ter só dígitos, com código do país, e até ${TEMPLATE_BUTTON_LIMITS.phoneLength} caracteres`,
+  code_required: 'Código de exemplo do botão é obrigatório',
+  code_too_long: `Código de exemplo deve ter até ${TEMPLATE_BUTTON_LIMITS.codeLength} caracteres`,
+}
+
+function buttonViolationMessage(violation: TemplateButtonViolation): string {
+  const message = BUTTON_VIOLATION_MESSAGES[violation.code]
+  return violation.index === undefined
+    ? message
+    : `Botão ${violation.index + 1}: ${message}`
 }

@@ -47,6 +47,7 @@ describe('buildTemplateRobotAddParams', () => {
       'templateLanguage',
       'templateBody',
       'templateParameters',
+      'templateButtonParameters',
     ])
   })
 
@@ -63,6 +64,15 @@ describe('buildTemplateRobotAddParams', () => {
     const { PROPERTIES } = buildTemplateRobotAddParams()
 
     expect(PROPERTIES.templateParameters.Multiple).toBe('Y')
+  })
+
+  it('takes the dynamic button values as an optional ordered list', () => {
+    const { PROPERTIES } = buildTemplateRobotAddParams()
+
+    expect(PROPERTIES.templateButtonParameters).toMatchObject({
+      Multiple: 'Y',
+      Required: 'N',
+    })
   })
 
   // Sem a tela o robô ainda tem de ser configurável: o Bitrix cai no formulário
@@ -98,6 +108,14 @@ describe('buildTemplateRobotUpdateParams', () => {
         PLACEMENT_HANDLER: 'https://app.test/bitrix/bizproc/template',
       },
     })
+  })
+
+  // Portal que já tinha o robô só recebe a propriedade nova por este update.
+  it('carries the button values property to existing robots', () => {
+    expect(
+      buildTemplateRobotUpdateParams().FIELDS.PROPERTIES
+        .templateButtonParameters,
+    ).toMatchObject({ Multiple: 'Y' })
   })
 
   // Portal registrado com tela e ambiente que depois a desliga: o update tem de

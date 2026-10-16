@@ -4,12 +4,26 @@ import {
   thinkzapApiErrorMessage,
 } from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
 
-/** O que a rota do widget devolve por template — três campos, sem credencial. */
+/**
+ * Botão do template como o catálogo do widget informa. `index` é a posição entre
+ * todos os botões — é ele que vai no envio; `dynamic` diz se o operador precisa
+ * informar um valor (final do link ou código do cupom).
+ */
+export type WidgetTemplateButton = {
+  index: number
+  type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER' | 'COPY_CODE' | 'OTHER'
+  text: string
+  dynamic: boolean
+}
+
+/** O que a rota do widget devolve por template, sem credencial. */
 export type WidgetTemplate = {
   name: string
   language: string
   /** Corpo com os placeholders intactos: o widget deriva os campos dele. */
   body: string
+  /** Na ordem do template. Vazio em template sem botão. */
+  buttons: WidgetTemplateButton[]
 }
 
 type WidgetTemplatesState = {

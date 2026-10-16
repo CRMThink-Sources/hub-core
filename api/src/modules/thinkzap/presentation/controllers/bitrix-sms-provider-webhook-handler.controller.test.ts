@@ -17,6 +17,7 @@ vi.mock('@/shared/infra/logger', () => ({
 }))
 
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import type { WidgetTemplate } from '@/modules/thinkzap/application/list-widget-templates'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { BitrixSmsProviderWebhookHandlerController } from './bitrix-sms-provider-webhook-handler.controller'
 import { thinkzapError } from '@/modules/thinkzap/errors/catalog'
@@ -53,7 +54,7 @@ type DepOverrides = {
   item?: SubscriptionItem
   /** `active` por padrão; qualquer outro valor deriva de assinatura sem período. */
   subscriptionStatus?: 'active' | 'cancelled'
-  templates?: { name: string; language: string; body: string }[]
+  templates?: WidgetTemplate[]
   existingRow?: unknown
   domain?: unknown
   app?: unknown
@@ -304,11 +305,27 @@ describe('linha Z-API', () => {
 })
 
 describe('linha HubMessage', () => {
-  const templates = [
+  const templates: WidgetTemplate[] = [
     {
       name: 'boas_vindas',
       language: 'pt_BR',
       body: 'Olá {{1}}, sua consulta é dia {{2}}.',
+      buttons: [],
+    },
+    {
+      name: 'rastreio',
+      language: 'pt_BR',
+      body: 'Seu pedido {{1}} saiu.',
+      buttons: [{ index: 0, type: 'URL', text: 'Rastrear', dynamic: true }],
+    },
+    {
+      name: 'pesquisa',
+      language: 'pt_BR',
+      body: 'Gostou do atendimento, {{1}}?',
+      buttons: [
+        { index: 0, type: 'QUICK_REPLY', text: 'Sim', dynamic: false },
+        { index: 1, type: 'QUICK_REPLY', text: 'Não', dynamic: false },
+      ],
     },
   ]
 
@@ -377,6 +394,35 @@ describe('linha HubMessage', () => {
 
     expect(result.result).toMatchObject({ reason: 'template-not-in-catalog' })
     expect(statusReported(deps.bitrix)).toEqual(['failed'])
+  })
+
+  it('recusa template com botão dinâmico, sem enfileirar', async () => {
+    const deps = hubDeps()
+
+    const result = await deps.controller.perform(
+      templateRequest('PED-1', 'thinkzap_sms.4821.rastreio.pt_BR'),
+      response,
+    )
+
+    expect(result.result).toMatchObject({
+      reason: 'template-dynamic-button-unsupported',
+    })
+    expect(deps.enqueueTemplateSend.enqueue).not.toHaveBeenCalled()
+    expect(statusReported(deps.bitrix)).toEqual(['failed'])
+  })
+
+  it('enfileira template só com respostas rápidas', async () => {
+    const deps = hubDeps()
+
+    await deps.controller.perform(
+      templateRequest('João', 'thinkzap_sms.4821.pesquisa.pt_BR'),
+      response,
+    )
+
+    expect(deps.enqueueTemplateSend.enqueue).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ templateName: 'pesquisa' }),
+    )
   })
 
   it('recusa contagem de valores divergente', async () => {

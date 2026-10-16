@@ -12,6 +12,7 @@ import { apiLogger } from '@/shared/infra/logger'
 import { EnqueueTemplateSendService } from '@/modules/thinkzap/application/enqueue-template-send.service'
 import { ListWidgetTemplatesUseCase } from '@/modules/thinkzap/application/list-widget-templates'
 import { resolveRobotTemplateBody } from '@/modules/thinkzap/application/resolve-robot-template-body'
+import { resolveRobotButtonParameters } from '@/modules/thinkzap/application/resolve-robot-button-parameters'
 import {
   bizprocEntityToPlacement,
   resolveRelatedDestinations,
@@ -119,7 +120,11 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
       })
     }
 
-    // Uma vez por disparo: o fallback de catálogo custa uma consulta ao provider.
+    // Uma consulta ao catálogo por disparo, no máximo: corpo e botões dividem a mesma.
+    let catalog: ReturnType<ListWidgetTemplatesUseCase['execute']> | undefined
+    const lookup = (input: typeof scope) =>
+      (catalog ??= this.listTemplates.execute(input))
+
     const templateBody = await resolveRobotTemplateBody(
       {
         ...scope,
@@ -127,10 +132,42 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
         language,
         configuredBody: data.properties.templateBody ?? '',
       },
-      input => this.listTemplates.execute(input),
+      lookup,
     )
 
     const bodyParameters = toParameterList(data.properties.templateParameters)
+
+    let buttonParameters
+    try {
+      buttonParameters = await resolveRobotButtonParameters(
+        {
+          ...scope,
+          name: templateName,
+          language,
+          values: toParameterList(data.properties.templateButtonParameters),
+        },
+        lookup,
+      )
+    } catch (error) {
+      logThinkzapError(apiLogger, 'thinkzap.bitrix.template_robot_refused', {
+        app: 'thinkzap',
+        source: 'bitrix',
+        subscriptionItemId,
+        err: (error as Error).message,
+      })
+
+      return this.refuse(
+        crmDocument,
+        notices.lineCannotSend((error as Error).message),
+        { reason: 'button-catalog-unavailable' },
+      )
+    }
+
+    if ('missing' in buttonParameters) {
+      return this.refuse(crmDocument, notices.missingButtonValues, {
+        reason: 'missing-button-values',
+      })
+    }
 
     const queued: string[] = []
     for (const destination of recipients) {
@@ -141,6 +178,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
           templateName,
           language,
           bodyParameters,
+          buttonParameters,
           templateBody,
           entity: crmDocument?.entity ?? '',
           entityId: crmDocument?.entityId ?? '',
@@ -296,6 +334,8 @@ export interface BitrixTemplateRobotWebhookRequest {
     templateBody?: string
     /** Na ordem de aparição no corpo. */
     templateParameters?: string[] | Record<string, string> | string
+    /** Na ordem dos botões dinâmicos do template. Ausente em robô anterior a eles. */
+    templateButtonParameters?: string[] | Record<string, string> | string
   }
   use_subscription: 'N' | 'Y'
   timeout_duration: string

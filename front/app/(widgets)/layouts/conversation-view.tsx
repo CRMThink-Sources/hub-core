@@ -36,8 +36,10 @@ import { buildSendWidgetFormData } from './send-widget-message.client'
 import { resolveWidgetEntity } from './resolve-widget-entity'
 import { TemplateComposer, templateKey } from './template-composer'
 import {
+  hasAllButtonValues,
   hasAllTemplateVariables,
   orderedTemplateParameters,
+  templateButtonParameters,
 } from './template-variables'
 import {
   attachmentSizeErrorMessage,
@@ -148,6 +150,9 @@ export const ConversationView = () => {
   const [templateValues, setTemplateValues] = useState<Record<string, string>>(
     {},
   )
+  const [templateButtonValues, setTemplateButtonValues] = useState<
+    Record<number, string>
+  >({})
   /**
    * Estado do modo botões — mesmo raciocínio do modo template: campos
    * separados do modo livre, para que trocar de modo não misture rascunhos.
@@ -293,6 +298,7 @@ export const ConversationView = () => {
   useEffect(() => {
     setSelectedTemplateKey('')
     setTemplateValues({})
+    setTemplateButtonValues({})
   }, [selectedConnectorId])
 
   /**
@@ -382,7 +388,8 @@ export const ConversationView = () => {
 
   const canSubmitTemplate =
     !!selectedTemplate &&
-    hasAllTemplateVariables(selectedTemplate.body, templateValues)
+    hasAllTemplateVariables(selectedTemplate.body, templateValues) &&
+    hasAllButtonValues(selectedTemplate.buttons, templateButtonValues)
 
   const buttonValidationMessage = buttonComposerValidationMessage(
     buttonBody,
@@ -571,12 +578,17 @@ export const ConversationView = () => {
            * envio só para descobrir onde os parâmetros entram.
            */
           templateBody: selectedTemplate.body,
+          buttonParameters: templateButtonParameters(
+            selectedTemplate.buttons,
+            templateButtonValues,
+          ),
           entity,
           entityId,
         })
 
         setSelectedTemplateKey('')
         setTemplateValues({})
+        setTemplateButtonValues({})
         /**
          * O template passou a ser enfileirado, como o texto livre: o servidor responde
          * `202` e a entrega acontece logo depois, com retentativa. Dizer "enviado com
@@ -862,10 +874,18 @@ export const ConversationView = () => {
                    * placeholder pode significar outra coisa no template novo.
                    */
                   setTemplateValues({})
+                  setTemplateButtonValues({})
                 }}
                 values={templateValues}
                 onChangeValue={(key, value) =>
                   setTemplateValues(previous => ({ ...previous, [key]: value }))
+                }
+                buttonValues={templateButtonValues}
+                onChangeButtonValue={(index, value) =>
+                  setTemplateButtonValues(previous => ({
+                    ...previous,
+                    [index]: value,
+                  }))
                 }
                 disabled={isSending}
               />

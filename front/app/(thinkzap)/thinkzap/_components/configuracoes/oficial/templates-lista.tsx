@@ -5,6 +5,7 @@ import type {
   ConnectorTemplate,
   TemplateStatus,
 } from '@/app/hooks/use-connector-templates'
+import { templateButtonsOf } from './template-buttons'
 
 const STATUS_CLASS: Record<TemplateStatus, string> = {
   APPROVED:
@@ -33,6 +34,7 @@ export function TemplatesLista({ templates }: Props) {
     <ul className="flex flex-col gap-2">
       {templates.map(template => {
         const body = template.components.find(c => c.type === 'BODY')?.text
+        const buttons = templateButtonsOf(template.components)
         return (
           <li
             key={template.id}
@@ -55,6 +57,19 @@ export function TemplatesLista({ templates }: Props) {
               <span className="line-clamp-2 text-sm text-muted-foreground">
                 {body}
               </span>
+            )}
+            {buttons.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {buttons.map(button => (
+                  <span
+                    key={button.index}
+                    className="rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground"
+                  >
+                    {button.text ? `${button.text} · ` : ''}
+                    {t(`botoes.tipo.${button.type}`)}
+                  </span>
+                ))}
+              </div>
             )}
           </li>
         )
