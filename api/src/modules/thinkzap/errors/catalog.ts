@@ -793,6 +793,51 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 402,
   },
+  'thinkzap.line.daily_limit_reached': {
+    category: 'validation',
+    userCause:
+      'Esta linha atingiu o limite diário de mensagens configurado. A mensagem não foi enviada.',
+    remediation:
+      'Aguardar a virada do dia, liberar um limite temporário ou aumentar o limite na aba Ajustes da linha.',
+    retriable: false,
+    httpStatus: 429,
+  },
+  'thinkzap.line.daily_limit_invalid': {
+    category: 'validation',
+    userCause:
+      'O limite diário precisa ser um número inteiro maior que zero, e só existe para linha não oficial (Web).',
+    remediation:
+      'Informar um número inteiro maior que zero no limite diário da linha não oficial (Web) e salvar de novo.',
+    retriable: false,
+    httpStatus: 400,
+  },
+  'thinkzap.line.daily_limit_usage_read_failed': {
+    category: 'internal',
+    userCause:
+      'O uso de hoje do limite diário não pôde ser lido agora. Os ajustes da linha continuam disponíveis.',
+    remediation:
+      'Recarregar a tela em instantes; se persistir, verificar a disponibilidade do Redis e acionar o suporte.',
+    retriable: true,
+    httpStatus: 500,
+  },
+  'thinkzap.line.daily_limit_notify_failed': {
+    category: 'integration',
+    userCause:
+      'A mensagem foi recusada pelo limite diário, mas o aviso ao operador no chat não pôde ser enviado.',
+    remediation:
+      'Conferir no card "Limite diário" da linha se o limite foi atingido; o operador deve repetir o envio depois de liberar.',
+    retriable: false,
+    httpStatus: 502,
+  },
+  'thinkzap.line.daily_limit_disabled': {
+    category: 'validation',
+    userCause:
+      'O limite temporário só pode ser liberado com o limite diário ativado e salvo.',
+    remediation:
+      'Ativar e salvar o limite diário na aba Ajustes da linha antes de liberar o limite temporário.',
+    retriable: false,
+    httpStatus: 409,
+  },
   'thinkzap.line.disconnected': {
     category: 'validation',
     userCause: 'A linha não está conectada no WhatsApp.',

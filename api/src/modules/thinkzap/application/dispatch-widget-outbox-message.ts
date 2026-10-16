@@ -20,6 +20,12 @@ import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 import type { SmsMessageStatus } from './report-sms-message-status'
 import { WidgetSendOutcome } from './notify-widget-send-outcome'
+import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
+import {
+  dailyLimitPolicyOf,
+  isDailyLimitReachedError,
+  sendWithinDailyQuota,
+} from './helpers/send-within-daily-quota'
 
 export type DispatchLineTarget = {
   provider: ConnectorProvider
@@ -65,6 +71,11 @@ export type DispatchDeps = {
     row: WidgetOutboxRecord,
     status: SmsMessageStatus,
   ) => Promise<void>
+  /**
+   * Cota diária da linha. Ausente, o envio não é contado nem limitado — só os
+   * testes que não falam de limite a omitem; o worker sempre injeta.
+   */
+  quota?: DailySendQuota
   /** Cada chamada é um round-trip ao Redis: registre decisões, não passos. */
   appendJobLog?: AppendJobLog
   /** Ausente, o texto sai cru. */
@@ -258,10 +269,26 @@ export class DispatchWidgetOutboxMessage {
             : '...'),
     )
 
+    // Settings da linha resolvidos pelo worker a cada execução: limite alterado vale já.
+    const policy = this.deps.quota
+      ? dailyLimitPolicyOf({
+          provider: line.provider,
+          lineKey: line.instanceId,
+          settings: line.settings,
+        })
+      : null
+
     let providerMessageId: string
     try {
-      providerMessageId = await this.callProvider(row, line)
+      providerMessageId = this.deps.quota
+        ? await sendWithinDailyQuota(this.deps.quota, policy, () =>
+            this.callProvider(row, line),
+          )
+        : await this.callProvider(row, line)
     } catch (err) {
+      if (isDailyLimitReachedError(err)) {
+        return this.handleDailyLimitReached(row, logContext)
+      }
       return this.handleSendFailure(row, logContext, isLastAttempt, err)
     }
 
@@ -372,6 +399,34 @@ export class DispatchWidgetOutboxMessage {
       operatorUserId: row.operatorBitrixUserId,
       appId: line.appId,
     })
+  }
+
+  /**
+   * Recusa por limite diário: terminal em **qualquer** tentativa. Retentar cairia no
+   * mesmo limite até a virada do dia, e reenviar sozinho horas depois surpreenderia o
+   * operador — que já foi avisado de que a mensagem não saiu.
+   */
+  private async handleDailyLimitReached(
+    row: WidgetOutboxRecord,
+    logContext: Record<string, unknown>,
+  ): Promise<DispatchOutcome> {
+    await this.deps.outbox.markFailed(
+      row.id,
+      'Recusado pelo limite diário de mensagens da linha',
+    )
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.line.daily_limit_reached',
+      { ...logContext, outboxKind: row.kind },
+      { level: 'warn', msg: 'Envio do widget recusado pelo limite diário' },
+    )
+    await this.jobLog(
+      'Recusado: a linha atingiu o limite diário de mensagens. Provider NÃO foi chamado. ' +
+        'Estado terminal (FAILED), sem retentativa — operador avisado na timeline.',
+    )
+    await this.deps.notifyOutcome('daily-limit', row)
+    await this.reportCampaignStatus(row, 'failed')
+    return { status: 'failed' }
   }
 
   private async handleSendFailure(

@@ -369,3 +369,72 @@ describe('parseBizprocDocumentId', () => {
     expect(parseBizprocDocumentId('DEAL_abc')).toBeNull()
   })
 })
+
+describe('BitrixRobotWebhookHandlerController limite diário', () => {
+  const reserved = {
+    status: 'reserved' as const,
+    reservation: { release: vi.fn().mockResolvedValue(undefined) },
+  }
+  const refused = {
+    status: 'refused' as const,
+    counts: { sent: 1, extra: 0 },
+    effectiveLimit: 1,
+  }
+
+  const relatedDeps = () =>
+    makeDeps({
+      bitrix: {
+        getCrmItem: vi
+          .fn()
+          .mockImplementation((entityTypeId: number, id: string) => {
+            if (entityTypeId === 2 && id === '10')
+              return Promise.resolve(crmItem('10', 'Deal'))
+            if (entityTypeId === 3 && id === '100')
+              return Promise.resolve(crmItem('100', 'A', '551100'))
+            if (entityTypeId === 3 && id === '101')
+              return Promise.resolve(crmItem('101', 'B', '552200'))
+            return Promise.reject(new Error('unexpected'))
+          }),
+        getDealContactIds: vi.fn().mockResolvedValue(['100', '101']),
+      },
+    })
+
+  it('destinatários depois do limite não recebem e aparecem na timeline', async () => {
+    const deps = relatedDeps()
+    const reserve = vi
+      .fn()
+      .mockResolvedValueOnce(reserved)
+      .mockResolvedValueOnce(refused)
+    const controller = new BitrixRobotWebhookHandlerController(
+      deps.getDomain as never,
+      deps.getApp as never,
+      deps.getAplicationContext as never,
+      deps.sendNotification as never,
+      deps.bitrix as never,
+      { reserve } as never,
+    )
+
+    const response = await controller.perform(
+      makeReq({
+        connector: 'conn',
+        sendToAllRelatedContacts: 'Y',
+        message: 'oi',
+      }),
+      res,
+    )
+
+    expect(reserve).toHaveBeenCalledWith(
+      { lineKey: 'zapi-inst', enabled: false, limit: 0 },
+      expect.any(Date),
+    )
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+    expect(response.result).toMatchObject({
+      sent: 1,
+      refusedByDailyLimit: 1,
+    })
+    const comment = (
+      deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string }
+    ).message
+    expect(comment).toContain('NÃO enviado (limite diário da linha atingido)')
+  })
+})

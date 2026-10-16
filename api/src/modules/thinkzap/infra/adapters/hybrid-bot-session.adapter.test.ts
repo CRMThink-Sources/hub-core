@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import type { BotSessionPort } from '@/modules/thinkzap/domain/ports/bot-session.port'
 import type { OutboundMessageSender } from '@/modules/thinkzap/domain/ports/outbound-message-sender.port'
 import { HybridBotSessionAdapter } from './hybrid-bot-session.adapter'
+import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
+import { sendWithinDailyQuota } from '@/modules/thinkzap/application/helpers/send-within-daily-quota'
 
 const CHAT = '1822'
 
@@ -103,5 +105,46 @@ describe('HybridBotSessionAdapter', () => {
     expect(ecoHandoff).toHaveBeenCalledWith(CHAT, { type: 'queue' })
     expect(ecoFinish).toHaveBeenCalledWith(CHAT)
     expect(send).not.toHaveBeenCalled()
+  })
+})
+
+describe('HybridBotSessionAdapter limite diário', () => {
+  it('fala recusada pelo limite: contato não recebe, eco não acontece e não lança', async () => {
+    const ecoSay = vi.fn(() => Promise.resolve())
+    const eco: BotSessionPort = {
+      say: ecoSay,
+      whisper: vi.fn(),
+      handoff: vi.fn(),
+      finish: vi.fn(),
+    }
+    const send = vi.fn<OutboundMessageSender['send']>()
+    const quota = {
+      reserve: vi.fn().mockResolvedValue({
+        status: 'refused',
+        counts: { sent: 10, extra: 0 },
+        effectiveLimit: 10,
+      }),
+    } as unknown as DailySendQuota
+    const contato: OutboundMessageSender = {
+      supportsReply: false,
+      send: (descriptor, options) =>
+        sendWithinDailyQuota(
+          quota,
+          { lineKey: 'Z-1', enabled: true, limit: 10 },
+          () => send(descriptor, options),
+        ),
+    }
+    const onDailyLimitReached = vi.fn(() => Promise.resolve())
+    const adapter = new HybridBotSessionAdapter(
+      eco,
+      contato,
+      onDailyLimitReached,
+    )
+
+    await expect(adapter.say(CHAT, 'Olá!')).resolves.toBeUndefined()
+
+    expect(send).not.toHaveBeenCalled()
+    expect(ecoSay).not.toHaveBeenCalled()
+    expect(onDailyLimitReached).toHaveBeenCalledWith(CHAT)
   })
 })

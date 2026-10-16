@@ -20,6 +20,7 @@ import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-fou
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import type { SendWidgetMessageInput } from './send-widget-message.types'
+import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
 
 /**
  * O bloco anterior deste arquivo testava `sendToOpenChannel`, que **migrou** para
@@ -90,7 +91,10 @@ const openChannelCall = (
 ): OpenChannelCall =>
   sut.openChannelQueue.enqueue.mock.calls[index]?.[0] as OpenChannelCall
 
-function makeSut(items: SubscriptionItem[] = [zapiItem()]) {
+function makeSut(
+  items: SubscriptionItem[] = [zapiItem()],
+  quota: DailySendQuota | null = null,
+) {
   const execute = vi.fn().mockResolvedValue({
     customer: { id: 'domain-1', name: 'acme.bitrix24.com.br' },
     aplication: { id: 'installed-1', spaId: '42' },
@@ -148,6 +152,7 @@ function makeSut(items: SubscriptionItem[] = [zapiItem()]) {
     messageRepository as never,
     openChannelQueue as never,
     prepareOutboundText as never,
+    quota,
   )
 
   return {
@@ -556,5 +561,91 @@ describe('SendWidgetMessageUseCase', () => {
 
       expect(result.sentMessageIds).toEqual(['msg-1', 'msg-vid'])
     })
+  })
+})
+
+describe('SendWidgetMessageUseCase limite diário', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const limitedItem = (): SubscriptionItem => ({
+    ...zapiItem(),
+    settings: {
+      ...DEFAULT_CONNECTOR_SETTINGS,
+      dailyLimitEnabled: true,
+      dailyLimit: 2,
+    },
+  })
+
+  const reserved = {
+    status: 'reserved' as const,
+    reservation: { release: vi.fn().mockResolvedValue(undefined) },
+  }
+  const refused = {
+    status: 'refused' as const,
+    counts: { sent: 2, extra: 0 },
+    effectiveLimit: 2,
+  }
+
+  const quotaWith = (wouldRefuse: boolean, ...reserves: object[]) => {
+    const reserve = vi.fn()
+    for (const result of reserves) reserve.mockResolvedValueOnce(result)
+    return {
+      wouldRefuse: vi.fn().mockResolvedValue(wouldRefuse),
+      reserve,
+      addExtra: vi.fn(),
+      usage: vi.fn(),
+    }
+  }
+
+  it('limite já atingido: recusa sem enviar nada', async () => {
+    const quota = quotaWith(true)
+    const sut = makeSut([limitedItem()], quota as never)
+
+    await expect(sut.send()).rejects.toMatchObject({
+      errorCode: 'thinkzap.line.daily_limit_reached',
+    })
+    expect(sut.zApiClient.sendMessage).not.toHaveBeenCalled()
+    expect(sut.messageRepository.create).not.toHaveBeenCalled()
+  })
+
+  it('cada parte conta: texto e anexo reservam uma vaga cada', async () => {
+    const quota = quotaWith(false, reserved, reserved)
+    const sut = makeSut([limitedItem()], quota as never)
+
+    await sut.send({
+      attachments: [{ kind: 'image', content: 'data:image/png;base64,aa' }],
+    } as never)
+
+    expect(quota.reserve).toHaveBeenCalledTimes(2)
+    expect(quota.reserve).toHaveBeenCalledWith(
+      { lineKey: 'Z-1', enabled: true, limit: 2 },
+      expect.any(Date),
+    )
+  })
+
+  it('limite acaba no meio: o que saiu é registrado e a timeline avisa os anexos não enviados', async () => {
+    const quota = quotaWith(false, reserved, refused)
+    const sut = makeSut([limitedItem()], quota as never)
+
+    await expect(
+      sut.send({
+        attachments: [
+          { kind: 'image', content: 'data:image/png;base64,aa' },
+          { kind: 'video', content: 'data:video/mp4;base64,aa' },
+        ],
+      } as never),
+    ).resolves.toBeDefined()
+
+    expect(sut.zApiClient.sendMessage).toHaveBeenCalledTimes(1)
+    expect(sut.zApiClient.sendImage).not.toHaveBeenCalled()
+    expect(sut.zApiClient.sendVideo).not.toHaveBeenCalled()
+    expect(sut.messageRepository.create).toHaveBeenCalledTimes(1)
+    expect(sut.sendBitrixNotification.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining(
+          '2 anexo(s) NÃO enviado(s)',
+        ) as unknown,
+      }),
+    )
   })
 })

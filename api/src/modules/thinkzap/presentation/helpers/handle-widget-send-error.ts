@@ -4,6 +4,7 @@ import { LineDisconnectedError } from '@/modules/thinkzap/domain/errors/line-dis
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import { mapLineBlockedError } from './handle-line-error'
+import { isDailyLimitReachedError } from '@/modules/thinkzap/application/helpers/send-within-daily-quota'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -49,6 +50,26 @@ export function mapWidgetSendError(error: unknown): httpResponse {
       result: {
         error: error.message,
         code: 'line-disconnected',
+      },
+    }
+  }
+
+  /**
+   * `429` com `code`: o widget mostra o motivo e que o envio volta na virada do dia
+   * ou com liberação — sem isto cairia no `400` genérico e pareceria falha técnica.
+   */
+  if (isDailyLimitReachedError(error)) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.line.daily_limit_reached',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
+    return {
+      status: 429,
+      result: {
+        error: message,
+        code: 'daily-limit-reached',
       },
     }
   }

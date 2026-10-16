@@ -1,3 +1,5 @@
+import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
+import { assertDailyLimitNotReached } from './helpers/send-within-daily-quota'
 import { randomUUID } from 'node:crypto'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
@@ -79,6 +81,8 @@ export class EnqueueInteractiveButtonSendService {
     private readonly zApiClient: ZApiClient,
     private readonly outbox: PrismaWidgetOutboxRepository,
     private readonly sendQueue: WidgetSendQueue,
+    /** Ausente, não há pré-checagem do limite diário (a reserva no despacho continua). */
+    private readonly quota: DailySendQuota | null = null,
   ) {}
 
   /**
@@ -155,6 +159,9 @@ export class EnqueueInteractiveButtonSendService {
     }
 
     assertValidButtonsForProvider(target.provider, input.buttons)
+
+    // Por destinatário: os robôs enfileiram N, e a vaga pode acabar no meio.
+    await assertDailyLimitNotReached(this.quota, target.item)
 
     const clientMessageId = randomUUID()
 

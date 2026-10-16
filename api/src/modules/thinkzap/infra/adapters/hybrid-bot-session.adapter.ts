@@ -3,6 +3,7 @@ import type { HandoffTarget } from '@/modules/thinkzap/domain/bot-flow/flow'
 import type { BotSessionPort } from '@/modules/thinkzap/domain/ports/bot-session.port'
 import type { OutboundMessageSender } from '@/modules/thinkzap/domain/ports/outbound-message-sender.port'
 import { logThinkzapError } from '../../errors/catalog'
+import { isDailyLimitReachedError } from '@/modules/thinkzap/application/helpers/send-within-daily-quota'
 
 const log = createWorkerSourceLogger('bitrix')
 
@@ -30,12 +31,38 @@ export class HybridBotSessionAdapter implements BotSessionPort {
     /** Faz o eco no chat do canal aberto — normalmente o `BitrixBotSessionAdapter`. */
     private readonly eco: BotSessionPort,
     private readonly contato: OutboundMessageSender,
+    /** Registro da recusa por limite diário no log do job. Nunca deve lançar. */
+    private readonly onDailyLimitReached: (
+      chatId: string,
+    ) => Promise<void> = () => Promise.resolve(),
   ) {}
 
   async say(chatId: string, text: string): Promise<void> {
     // Contato primeiro: é a entrega que não pode faltar, e o eco depois dela mantém o
     // histórico na ordem em que o cliente viu.
-    await this.contato.send({ kind: 'text', text })
+    try {
+      await this.contato.send({ kind: 'text', text })
+    } catch (err) {
+      /**
+       * Limite diário: a fala não sai e **também não é ecoada** — o histórico do chat
+       * não pode mostrar ao operador algo que o contato nunca recebeu. Não relança:
+       * retentar o turno cairia no mesmo limite.
+       */
+      if (isDailyLimitReachedError(err)) {
+        logThinkzapError(
+          log,
+          'thinkzap.line.daily_limit_reached',
+          { chatId },
+          {
+            level: 'warn',
+            msg: 'Fala do bot não entregue: limite diário da linha atingido',
+          },
+        )
+        await this.onDailyLimitReached(chatId)
+        return
+      }
+      throw err
+    }
 
     try {
       await this.eco.say(chatId, text)

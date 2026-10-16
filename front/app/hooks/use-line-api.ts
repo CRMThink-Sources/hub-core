@@ -48,6 +48,26 @@ export type LineConnection = {
 export type LineSettingsToggles = {
   prefixOperatorNameEnabled: boolean
   widgetOpenChannelEnabled: boolean
+  /** Limite diário de envio — só a linha não oficial (Z-API) aceita gravar. */
+  dailyLimitEnabled: boolean
+  /** Inteiro > 0 quando ligado; `null` = nunca configurado. */
+  dailyLimit: number | null
+}
+
+/**
+ * Uso do limite diário de hoje, como a api calcula. A tela só exibe: o percentual
+ * tem uma fórmula só, no backend.
+ */
+export type DailyLimitUsage = {
+  enabled: boolean
+  limit: number | null
+  sentToday: number
+  extraToday: number
+  /** Limite + extras de hoje. `null` com o limite desligado. */
+  effectiveLimit: number | null
+  /** Quanto falta até o limite efetivo, em %. `null` com o limite desligado. */
+  remainingPercent: number | null
+  reached: boolean
 }
 
 /**
@@ -60,6 +80,11 @@ export type LineSettings = {
   settings: LineSettingsToggles
   /** Bloqueada abre a aba em só-leitura: a gravação recusaria com `402`. */
   entitlement: LineEntitlement
+  /**
+   * Uso do dia. Ausente na linha oficial (sem limite); `null` na Z-API quando o
+   * contador não pôde ser lido — o card abre sem o uso.
+   */
+  dailyLimit?: DailyLimitUsage | null
 }
 
 export type SmsProviderResult = 'created' | 'updated' | 'skipped' | 'deleted'
@@ -120,6 +145,12 @@ export function useLineApi(itemId: string) {
         name?: string
         settings?: Partial<LineSettingsToggles>
       }) => client().patch<{ saved: boolean }>(`${base}/settings`, payload),
+      /** Soma mensagens extras ao limite **só de hoje**; devolve o uso atualizado. */
+      releaseDailyLimitExtra: (amount: number) =>
+        client().post<{ dailyLimit: DailyLimitUsage }>(
+          `${base}/daily-limit/extra`,
+          { amount },
+        ),
       linkChannel: (lineId: number) =>
         client().post<{ vinculatedChannel: string | null }>(`${base}/channel`, {
           lineId,

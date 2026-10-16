@@ -12,6 +12,9 @@ import { ConnectOfficialLine } from '@/modules/thinkzap/application/connect-offi
 import { GetLineConnection } from '@/modules/thinkzap/application/get-line-connection'
 import { GetLineSettings } from '@/modules/thinkzap/application/get-line-settings'
 import { UpdateLineSettings } from '@/modules/thinkzap/application/update-line-settings'
+import { ReleaseDailyLimitExtra } from '@/modules/thinkzap/application/release-daily-limit-extra'
+import { ReleaseDailyLimitExtraController } from '@/modules/thinkzap/presentation/controllers/line/release-daily-limit-extra.controller'
+import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { RenameLineOnProviderUseCase } from '@/modules/thinkzap/application/rename-line-on-provider.use-case'
 import { ZApiInstanceGateway } from '@/modules/thinkzap/infra/persistence/gateway/instance.gateway'
 import { ConnectLineChannelController } from '@/modules/thinkzap/presentation/controllers/line/connect-line-channel.controller'
@@ -132,7 +135,15 @@ export const makeGetLineSettingsController = (): Controller => {
   const { getAplicationContext } = makeLineDeps()
 
   return new GetLineSettingsController(
-    new GetLineSettings(getAplicationContext),
+    new GetLineSettings(getAplicationContext, makeDailySendQuota()),
+  )
+}
+
+export const makeReleaseDailyLimitExtraController = (): Controller => {
+  const { getAplicationContext } = makeLineDeps()
+
+  return new ReleaseDailyLimitExtraController(
+    new ReleaseDailyLimitExtra(getAplicationContext, makeDailySendQuota()),
   )
 }
 

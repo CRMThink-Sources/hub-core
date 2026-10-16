@@ -254,6 +254,31 @@ describe('UpdateLineSettingsController', () => {
     expect(response.status).toBe(400)
   })
 
+  it('repassa o limite diário ao caso de uso', async () => {
+    const response = await controller.perform(
+      req('i2', { settings: { dailyLimitEnabled: true, dailyLimit: 300 } }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(updateLineSettings.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: { dailyLimitEnabled: true, dailyLimit: 300 },
+      }),
+    )
+  })
+
+  it.each([0, -1, 2.5, '300'])(
+    'devolve 400 para limite diário %s',
+    async dailyLimit => {
+      const response = await controller.perform(
+        req('i2', { settings: { dailyLimitEnabled: true, dailyLimit } }),
+      )
+
+      expect(response.status).toBe(400)
+      expect(updateLineSettings.execute).not.toHaveBeenCalled()
+    },
+  )
+
   it('devolve 400 para toggle desconhecido', async () => {
     const response = await controller.perform(
       req('i1', { settings: { naoExiste: true } }),

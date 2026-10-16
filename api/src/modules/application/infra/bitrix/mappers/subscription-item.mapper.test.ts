@@ -402,8 +402,26 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
           }),
         ),
       ).toEqual({
+        ...DEFAULT_CONNECTOR_SETTINGS,
         prefixOperatorNameEnabled: true,
         widgetOpenChannelEnabled: true,
+      })
+    })
+
+    it('lê o limite diário gravado', () => {
+      expect(
+        settingsOf(
+          JSON.stringify({
+            prefixOperatorNameEnabled: false,
+            widgetOpenChannelEnabled: false,
+            dailyLimitEnabled: true,
+            dailyLimit: 300,
+          }),
+        ),
+      ).toEqual({
+        ...DEFAULT_CONNECTOR_SETTINGS,
+        dailyLimitEnabled: true,
+        dailyLimit: 300,
       })
     })
 
@@ -423,6 +441,7 @@ describe('mapBitrixSpaSubscriptionItemToSubscriptionItem', () => {
           }),
         ),
       ).toEqual({
+        ...DEFAULT_CONNECTOR_SETTINGS,
         prefixOperatorNameEnabled: true,
         widgetOpenChannelEnabled: true,
       })
@@ -648,13 +667,13 @@ describe('mapSubscriptionItemInputToBitrixFields', () => {
       widgetOpenChannelEnabled: true,
     }
 
-    it('serializa o objeto completo dos dois toggles', () => {
+    it('serializa o objeto completo: os dois toggles e o limite diário', () => {
       const fields = mapSubscriptionItemInputToBitrixFields({ settings })
 
       expect(fields).toEqual({ ufCrm93Settings: JSON.stringify(settings) })
       expect(
         Object.keys(JSON.parse(String(fields.ufCrm93Settings)) as object),
-      ).toHaveLength(2)
+      ).toHaveLength(4)
     })
 
     it('não toca nos campos de credencial', () => {

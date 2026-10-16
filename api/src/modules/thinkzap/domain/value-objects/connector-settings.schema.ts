@@ -14,7 +14,29 @@ import {
 const connectorSettingsSchema = z.object({
   prefixOperatorNameEnabled: z.boolean().optional(),
   widgetOpenChannelEnabled: z.boolean().optional(),
+  /**
+   * `.catch(undefined)` nos dois: valor estranho gravado à mão na SPA cai no default
+   * só deste campo, em vez de reprovar o objeto e zerar os outros toggles.
+   */
+  dailyLimitEnabled: z.boolean().optional().catch(undefined),
+  dailyLimit: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .optional()
+    .catch(undefined),
 })
+
+/**
+ * O `.catch(undefined)` deixa a chave presente com `undefined`; espalhada por cima
+ * do default ou do valor atual, ela apagaria o que devia preservar.
+ */
+function definedOnly<T extends object>(value: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, v]) => v !== undefined),
+  ) as Partial<T>
+}
 
 export function parseConnectorSettings(raw: unknown): ConnectorSettings {
   if (
@@ -31,7 +53,7 @@ export function parseConnectorSettings(raw: unknown): ConnectorSettings {
 
   return {
     ...DEFAULT_CONNECTOR_SETTINGS,
-    ...parsed.data,
+    ...definedOnly(parsed.data),
   }
 }
 
@@ -46,6 +68,6 @@ export function mergeConnectorSettings(
 
   return {
     ...current,
-    ...parsedPartial.data,
+    ...definedOnly(parsedPartial.data),
   }
 }
