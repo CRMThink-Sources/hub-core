@@ -92,9 +92,20 @@ import {
   makeUpdateLineSettingsController,
   makeReleaseDailyLimitExtraController,
 } from './main/line/make-line-controllers'
+import { makeSaveInstallationLocaleController } from './main/make-installation-locale'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
+
+  /**
+   * Idioma escolhido no app, gravado para a instalação: é o que o servidor usa nos
+   * avisos que gera sem tela aberta (limite diário). Qualquer usuário com acesso ao app
+   * troca o idioma no menu, então qualquer um grava — vale a última escolha.
+   */
+  router.put(
+    '/locale',
+    adaptControllerFactory(makeSaveInstallationLocaleController),
+  )
 
   // Widget CRM: any Bitrix user with valid JWT (authMiddleware on /api/thinkzap).
   router.get(

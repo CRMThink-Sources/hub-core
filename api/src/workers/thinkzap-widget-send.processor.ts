@@ -12,6 +12,7 @@ import {
   WidgetSendOutcome,
 } from '@/modules/thinkzap/application/notify-widget-send-outcome'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { reportSmsMessageStatus } from '@/modules/thinkzap/application/report-sms-message-status'
 import { findItemInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
@@ -262,6 +263,13 @@ async function notifyOutcomeFor(
       entityId: row.entityId,
       destination: row.destination,
       text: row.text,
+      // Só o aviso de limite é traduzido: lê o idioma só quando vai usá-lo.
+      ...(outcome === 'daily-limit' && {
+        locale: await makeInstallationLocaleRepository().byInstallation(
+          row.domainId,
+          row.appCode,
+        ),
+      }),
     })
   } catch (err) {
     logThinkzapError(

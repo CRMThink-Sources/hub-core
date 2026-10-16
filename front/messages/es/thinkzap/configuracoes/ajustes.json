@@ -31,7 +31,7 @@
   "erroSalvar": "No se pudieron guardar los ajustes.",
   "limiteDiario": {
     "titulo": "Límite diario de mensajes",
-    "descricao": "Protege la línea contra el bloqueo por exceso de envíos. Vale para todo lo que sale por ella: operador, widget, robots, Campaña de SMS y bot.",
+    "descricao": "El uso del recurso no garantiza la protección de la línea contra bloqueos por exceso de envíos. Todos los modos de envío están incluidos: tarjetas, automatizaciones, campañas y bot.",
     "ativar": "Activar límite diario",
     "ativarHint": "Al alcanzar el límite, los nuevos envíos de esta línea se rechazan hasta el cambio de día (hora de Brasilia).",
     "limite": "Mensajes por día",

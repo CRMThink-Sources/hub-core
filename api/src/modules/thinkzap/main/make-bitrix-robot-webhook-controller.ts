@@ -1,3 +1,4 @@
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { Controller } from '@/shared/presentation/controller'
@@ -43,5 +44,6 @@ export const makeBitrixRobotWebhookHandlerController = async (
     sendNotification,
     bx,
     makeDailySendQuota(),
+    makeInstallationLocaleRepository(),
   )
 }

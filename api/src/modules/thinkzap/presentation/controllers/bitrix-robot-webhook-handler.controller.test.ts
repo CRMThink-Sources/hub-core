@@ -438,3 +438,37 @@ describe('BitrixRobotWebhookHandlerController limite diário', () => {
     expect(comment).toContain('NÃO enviado (limite diário da linha atingido)')
   })
 })
+
+describe('BitrixRobotWebhookHandlerController limite diário (idioma)', () => {
+  it('instalação em espanhol: destinatários recusados listados em espanhol', async () => {
+    const deps = makeDeps()
+    const reserve = vi.fn().mockResolvedValue({
+      status: 'refused',
+      counts: { sent: 1, extra: 0 },
+      effectiveLimit: 1,
+    })
+    const byAppId = vi.fn().mockResolvedValue('es')
+    const controller = new BitrixRobotWebhookHandlerController(
+      deps.getDomain as never,
+      deps.getApp as never,
+      deps.getAplicationContext as never,
+      deps.sendNotification as never,
+      deps.bitrix as never,
+      { reserve } as never,
+      { byAppId } as never,
+    )
+
+    await controller.perform(
+      makeReq({ connector: 'conn', destination: '5511', message: 'oi' }),
+      res,
+    )
+
+    expect(byAppId).toHaveBeenCalledWith('app-1')
+    const comment = (
+      deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string }
+    ).message
+    expect(comment).toContain(
+      'NO enviado (límite diario de la línea alcanzado)',
+    )
+  })
+})

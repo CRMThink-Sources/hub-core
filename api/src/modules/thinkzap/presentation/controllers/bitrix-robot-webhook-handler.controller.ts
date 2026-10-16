@@ -1,4 +1,9 @@
 import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
+import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/ports/installation-locale.port'
+import {
+  DEFAULT_NOTICE_LOCALE,
+  dailyLimitNotices,
+} from '@/modules/thinkzap/domain/daily-limit-notices'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import {
   dailyLimitPolicyOf,
@@ -39,6 +44,8 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     private readonly bitrix: BitrixClient,
     /** Ausente, o envio não é contado nem limitado. A factory sempre injeta. */
     private readonly quota: DailySendQuota | null = null,
+    /** Idioma do aviso de limite na timeline. Ausente, português. */
+    private readonly locales: InstallationLocaleRepository | null = null,
   ) {
     super()
   }
@@ -167,7 +174,10 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       crmDocument,
       `De: ${fromPhone}\nPara: ${sent.join(', ')}\nMensagem: ${data.properties.message}` +
         (refusedByLimit.length > 0
-          ? `\n⚠️ NÃO enviado (limite diário da linha atingido): ${refusedByLimit.join(', ')}`
+          ? '\n' +
+            dailyLimitNotices(
+              (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE,
+            ).robotRefused(refusedByLimit)
           : ''),
     )
 

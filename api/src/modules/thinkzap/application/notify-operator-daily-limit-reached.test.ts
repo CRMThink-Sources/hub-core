@@ -10,10 +10,10 @@ vi.mock('@/shared/infra/logger', () => ({
 }))
 
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
-import {
-  DAILY_LIMIT_NOTICE,
-  notifyOperatorDailyLimitReached,
-} from './notify-operator-daily-limit-reached'
+import { dailyLimitNotices } from '@/modules/thinkzap/domain/daily-limit-notices'
+import { notifyOperatorDailyLimitReached } from './notify-operator-daily-limit-reached'
+
+const DAILY_LIMIT_NOTICE = dailyLimitNotices('pt').chat
 
 const clientWith = (callMethod: ReturnType<typeof vi.fn>) =>
   ({ callMethod }) as unknown as BitrixClient
@@ -84,5 +84,36 @@ describe('notifyOperatorDailyLimitReached', () => {
       expect(outcome.reason).toContain('im.message.add')
       expect(outcome.reason).toContain('CANCELED')
     }
+  })
+
+  it('instalação em inglês: o aviso sai em inglês', async () => {
+    const callMethod = vi.fn().mockResolvedValue({ result: 900 })
+
+    await notifyOperatorDailyLimitReached(
+      clientWith(callMethod),
+      1958,
+      '9500',
+      'en',
+    )
+
+    expect(callMethod).toHaveBeenCalledWith(
+      'imbot.message.add',
+      expect.objectContaining({
+        MESSAGE: expect.stringContaining(
+          'Your message was not delivered',
+        ) as unknown,
+      }),
+    )
+  })
+
+  it('sem idioma informado: português', async () => {
+    const callMethod = vi.fn().mockResolvedValue({ result: 901 })
+
+    await notifyOperatorDailyLimitReached(clientWith(callMethod), 1958, '9500')
+
+    expect(callMethod).toHaveBeenCalledWith(
+      'imbot.message.add',
+      expect.objectContaining({ MESSAGE: DAILY_LIMIT_NOTICE }),
+    )
   })
 })
