@@ -1,12 +1,17 @@
 import { TemplateProviderUnavailableError } from '@/modules/thinkzap/domain/ports/template-errors'
 import {
+  TemplateButtonParameter,
   TemplateMessageDescriptor,
   TemplateMessageSender,
   TemplateSendResult,
 } from '@/modules/thinkzap/domain/ports/template-message-sender.port'
 import { isProviderUnavailableError } from './is-provider-unavailable-error'
 import { HubMessageClient } from '@/modules/thinkzap/infra/clients/hubmessage.client'
-import { SendHubMessageTemplateParams } from '@/modules/thinkzap/infra/clients/types/hubmessage.types'
+import {
+  HubMessageTemplateSendButtonComponent,
+  HubMessageTemplateSendComponent,
+  SendHubMessageTemplateParams,
+} from '@/modules/thinkzap/infra/clients/types/hubmessage.types'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 
 const log = createWorkerSourceLogger('hubmessage')
@@ -48,6 +53,21 @@ export class HubMessageTemplateSender implements TemplateMessageSender {
   ): Promise<TemplateSendResult> {
     const { channelId, recipientIdentifier } = this.config
 
+    const components: HubMessageTemplateSendComponent[] = [
+      ...(descriptor.bodyParameters.length > 0
+        ? [
+            {
+              type: 'BODY' as const,
+              parameters: descriptor.bodyParameters.map(text => ({
+                type: 'text' as const,
+                text,
+              })),
+            },
+          ]
+        : []),
+      ...(descriptor.buttonParameters ?? []).map(toButtonComponent),
+    ]
+
     const params: SendHubMessageTemplateParams = {
       recipient: { identifier: recipientIdentifier },
       content: {
@@ -68,22 +88,10 @@ export class HubMessageTemplateSender implements TemplateMessageSender {
               language: { policy: 'deterministic', code: descriptor.language },
               /**
                * Ordem preservada como recebida — é o contrato do port. Template sem
-               * variável omite `components` em vez de mandar array vazio: o corpo já
-               * está aprovado sem placeholder e não há o que parametrizar.
+               * variável nem botão dinâmico omite `components` em vez de mandar
+               * array vazio: não há o que parametrizar.
                */
-              ...(descriptor.bodyParameters.length > 0
-                ? {
-                    components: [
-                      {
-                        type: 'BODY' as const,
-                        parameters: descriptor.bodyParameters.map(text => ({
-                          type: 'text' as const,
-                          text,
-                        })),
-                      },
-                    ],
-                  }
-                : {}),
+              ...(components.length > 0 ? { components } : {}),
             },
           },
         ],
@@ -120,6 +128,7 @@ export class HubMessageTemplateSender implements TemplateMessageSender {
         templateName: descriptor.templateName,
         language: descriptor.language,
         parameterCount: descriptor.bodyParameters.length,
+        buttonParameterCount: descriptor.buttonParameters?.length ?? 0,
         messageId,
       },
       'Template enviado pela HubMessage',
@@ -127,4 +136,24 @@ export class HubMessageTemplateSender implements TemplateMessageSender {
 
     return { messageId }
   }
+}
+
+function toButtonComponent(
+  button: TemplateButtonParameter,
+): HubMessageTemplateSendButtonComponent {
+  const index = String(button.index)
+
+  return button.subType === 'COPY_CODE'
+    ? {
+        type: 'BUTTON',
+        sub_type: 'copy_code',
+        index,
+        parameters: [{ type: 'coupon_code', coupon_code: button.value }],
+      }
+    : {
+        type: 'BUTTON',
+        sub_type: 'url',
+        index,
+        parameters: [{ type: 'text', text: button.value }],
+      }
 }

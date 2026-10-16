@@ -124,6 +124,64 @@ describe('CreateConnectorTemplateUseCase', () => {
     ).rejects.toBeInstanceOf(InvalidTemplateError)
   })
 
+  it('repassa botões válidos ao provider', async () => {
+    const sut = makeSut()
+    const buttons = {
+      type: 'BUTTONS' as const,
+      buttons: [
+        { type: 'QUICK_REPLY', text: 'Quero saber mais' },
+        {
+          type: 'URL',
+          text: 'Rastrear',
+          url: 'https://loja.com/p/{{1}}',
+          example: ['https://loja.com/p/1'],
+        },
+      ],
+    }
+
+    await sut.useCase.execute({
+      ...validInput,
+      components: [...validInput.components, buttons],
+    })
+
+    expect(sut.provider.createTemplate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        components: [{ type: 'BODY', text: 'Olá {{1}}' }, buttons],
+      }),
+    )
+  })
+
+  it('rejeita três botões de link sem chamar o provider', async () => {
+    const sut = makeSut()
+    const link = { type: 'URL', text: 'Ver', url: 'https://loja.com' }
+
+    await expect(
+      sut.useCase.execute({
+        ...validInput,
+        components: [
+          ...validInput.components,
+          { type: 'BUTTONS', buttons: [link, link, link] },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(InvalidTemplateError)
+    expect(sut.provider.createTemplate).not.toHaveBeenCalled()
+  })
+
+  it('rejeita botões em template de autenticação', async () => {
+    const sut = makeSut()
+
+    await expect(
+      sut.useCase.execute({
+        ...validInput,
+        category: 'AUTHENTICATION',
+        components: [
+          ...validInput.components,
+          { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Sim' }] },
+        ],
+      }),
+    ).rejects.toThrow('Templates de autenticação não aceitam botões')
+  })
+
   it('rejeita idioma vazio', async () => {
     const sut = makeSut()
 

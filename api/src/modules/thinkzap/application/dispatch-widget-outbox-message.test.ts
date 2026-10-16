@@ -40,6 +40,7 @@ const row = (
   templateName: null,
   templateLanguage: null,
   templateParameters: null,
+  templateButtonParameters: null,
   buttonPayload: null,
   status: 'PENDING',
   providerMessageId: null,
@@ -533,8 +534,22 @@ describe('DispatchWidgetOutboxMessage', () => {
         templateName: 'order_update',
         language: 'pt_BR',
         bodyParameters: ['Maria', '1234'],
+        buttonParameters: [],
       })
       expect(result).toEqual({ status: 'sent', providerMessageId: 'tpl-1' })
+    })
+
+    it('reprocessamento reenvia os mesmos valores de botão gravados na row', async () => {
+      const buttons = [{ index: 1, subType: 'URL' as const, value: 'PED-1' }]
+      const sut = makeSut(
+        templateRow({ templateButtonParameters: buttons, attempts: 1 }),
+      )
+
+      await sut.dispatchTemplate()
+
+      expect(sut.sendTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({ buttonParameters: buttons }),
+      )
     })
 
     it('resolve o sender pelo canal da linha e pelo destino', async () => {

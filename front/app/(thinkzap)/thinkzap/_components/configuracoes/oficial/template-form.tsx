@@ -7,8 +7,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   useCreateTemplate,
+  type TemplateButton,
   type TemplateCategory,
 } from '@/app/hooks/use-connector-templates'
+import { TemplateButtonsEditor } from './template-buttons-editor'
+import {
+  allowedButtonTypes,
+  buildButtonsComponent,
+  validateTemplateButtons,
+} from './template-buttons'
 
 const CATEGORIES: TemplateCategory[] = [
   'UTILITY',
@@ -48,7 +55,21 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
   const [body, setBody] = useState('')
   const [footer, setFooter] = useState('')
   const [examples, setExamples] = useState<Record<number, string>>({})
+  const [buttons, setButtons] = useState<TemplateButton[]>([])
+  const [showButtonErrors, setShowButtonErrors] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+
+  const buttonViolations = useMemo(
+    () => validateTemplateButtons(buttons, category),
+    [buttons, category],
+  )
+
+  // Botão que a nova categoria não aceita sai da lista em vez de travar o envio.
+  const changeCategory = (next: TemplateCategory) => {
+    const allowed = allowedButtonTypes(next)
+    setCategory(next)
+    setButtons(prev => prev.filter(button => allowed.includes(button.type)))
+  }
 
   const variables = useMemo(() => extractVariables(body), [body])
   const examplesFilled = variables.every(v => (examples[v] ?? '').trim())
@@ -74,6 +95,12 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
       return
     }
 
+    if (buttonViolations.length > 0) {
+      setShowButtonErrors(true)
+      setLocalError(t('form.botoes.erroGeral'))
+      return
+    }
+
     // A Meta exige `example.body_text` com um valor por variável, na ordem em
     // que aparecem no texto. Sem isso o template é reprovado na revisão.
     const bodyComponent = {
@@ -88,11 +115,13 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
         : {}),
     }
 
+    const buttonsComponent = buildButtonsComponent(buttons)
     const components = [
       bodyComponent,
       ...(footer.trim()
         ? [{ type: 'FOOTER' as const, text: footer.trim() }]
         : []),
+      ...(buttonsComponent ? [buttonsComponent] : []),
     ]
 
     const ok = await createTemplate(itemId, {
@@ -125,7 +154,7 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
         <Label>{t('form.categoria')}</Label>
         <select
           value={category}
-          onChange={e => setCategory(e.target.value as TemplateCategory)}
+          onChange={e => changeCategory(e.target.value as TemplateCategory)}
           className="rounded-md border border-border bg-background px-3 py-2 text-sm"
         >
           {CATEGORIES.map(c => (
@@ -196,6 +225,13 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
           onChange={e => setFooter(e.target.value)}
         />
       </div>
+
+      <TemplateButtonsEditor
+        buttons={buttons}
+        category={category}
+        violations={showButtonErrors ? buttonViolations : []}
+        onChange={setButtons}
+      />
 
       <div className="flex items-center gap-3">
         <Button

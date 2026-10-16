@@ -5,6 +5,7 @@ import { InteractiveButtonSenderResolver } from '@/modules/thinkzap/domain/ports
 import { OpenChannelConversationQueue } from '@/modules/thinkzap/domain/ports/open-channel-queue.port'
 import { OutboundSenderResolver } from '@/modules/thinkzap/domain/ports/outbound-sender-resolver.port'
 import { TemplateMessageSenderResolver } from '@/modules/thinkzap/domain/ports/template-sender-resolver.port'
+import { TemplateMessageDescriptor } from '@/modules/thinkzap/domain/ports/template-message-sender.port'
 import { classifyProviderSendFailure } from '@/modules/thinkzap/infra/adapters/classify-provider-send-failure'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import {
@@ -95,15 +96,18 @@ export type DispatchInput = {
 
 // Usada no guard (antes do lock) e na chamada, para as duas checagens não divergirem.
 // Sem parâmetros é legítimo: a Meta valida a contagem contra a versão aprovada.
+// Os botões vêm da row, não de nova leitura do catálogo: o reprocessamento reenvia
+// exatamente os valores aceitos no pedido.
 function templateDescriptorOf(
   row: WidgetOutboxRecord,
-): { templateName: string; language: string; bodyParameters: string[] } | null {
+): TemplateMessageDescriptor | null {
   if (!row.templateName || !row.templateLanguage) return null
 
   return {
     templateName: row.templateName,
     language: row.templateLanguage,
     bodyParameters: row.templateParameters ?? [],
+    buttonParameters: row.templateButtonParameters ?? [],
   }
 }
 

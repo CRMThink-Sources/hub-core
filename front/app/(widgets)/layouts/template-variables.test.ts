@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  dynamicButtons,
   extractTemplateVariables,
+  hasAllButtonValues,
+  templateButtonParameters,
   hasAllTemplateVariables,
   orderedTemplateParameters,
   resolveTemplatePreview,
@@ -109,5 +112,43 @@ describe('hasAllTemplateVariables', () => {
 
   it('true para template sem variável', () => {
     expect(hasAllTemplateVariables('Bom dia!', {})).toBe(true)
+  })
+})
+
+describe('botões dinâmicos', () => {
+  const buttons = [
+    {
+      index: 0,
+      type: 'QUICK_REPLY' as const,
+      text: 'Obrigado',
+      dynamic: false,
+    },
+    { index: 1, type: 'URL' as const, text: 'Rastrear', dynamic: true },
+    { index: 2, type: 'COPY_CODE' as const, text: '', dynamic: true },
+  ]
+
+  it('separa os botões que pedem valor', () => {
+    expect(dynamicButtons(buttons).map(b => b.index)).toEqual([1, 2])
+    expect(dynamicButtons(undefined)).toEqual([])
+  })
+
+  it('exige valor em todo botão dinâmico', () => {
+    expect(hasAllButtonValues(buttons, { 1: 'PED-1' })).toBe(false)
+    expect(hasAllButtonValues(buttons, { 1: 'PED-1', 2: '  ' })).toBe(false)
+    expect(hasAllButtonValues(buttons, { 1: 'PED-1', 2: 'BLACK10' })).toBe(true)
+  })
+
+  it('template só com botões estáticos não pede nada', () => {
+    expect(hasAllButtonValues([buttons[0]], {})).toBe(true)
+    expect(templateButtonParameters([buttons[0]], {})).toEqual([])
+  })
+
+  it('monta os parâmetros com index e subtipo', () => {
+    expect(
+      templateButtonParameters(buttons, { 1: ' PED-1 ', 2: 'BLACK10' }),
+    ).toEqual([
+      { index: 1, subType: 'URL', value: 'PED-1' },
+      { index: 2, subType: 'COPY_CODE', value: 'BLACK10' },
+    ])
   })
 })

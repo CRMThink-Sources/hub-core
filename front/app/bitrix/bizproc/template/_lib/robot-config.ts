@@ -1,4 +1,6 @@
+import type { WidgetTemplateButton } from '@/app/hooks/use-widget-templates'
 import {
+  dynamicButtons,
   extractTemplateVariables,
   orderedTemplateParameters,
 } from '@/app/(widgets)/layouts/template-variables'
@@ -97,6 +99,11 @@ export type TemplateChoice = {
   name: string
   language: string
   body: string
+  /**
+   * Só no template vindo do catálogo. O gravado no robô não guarda botões: a tela
+   * os lê do catálogo carregado, e o disparo, do catálogo do provider.
+   */
+  buttons?: WidgetTemplateButton[]
 }
 
 /** Identidade do template: `name` sozinho não basta, a mesma WABA repete idiomas. */
@@ -113,6 +120,12 @@ export type RobotConfigState = {
   template: TemplateChoice | null
   /** Um valor por variável distinta do corpo, keyed pela chave do placeholder. */
   values: Record<string, FieldValue>
+  /**
+   * Um valor por botão dinâmico do template, **na ordem** em que esses botões
+   * aparecem. Posicional porque é o que o Bitrix guarda; o handler amarra cada valor
+   * ao `index` do botão pelo catálogo.
+   */
+  buttonValues: FieldValue[]
 }
 
 export const EMPTY_CONFIG: RobotConfigState = {
@@ -121,6 +134,7 @@ export const EMPTY_CONFIG: RobotConfigState = {
   sendToAllRelatedContacts: false,
   template: null,
   values: {},
+  buttonValues: [],
 }
 
 /**
@@ -155,6 +169,7 @@ export function buildRobotProperties(
         ]),
       ),
     ),
+    templateButtonParameters: config.buttonValues.map(toStoredValue),
   }
 }
 
@@ -187,11 +202,23 @@ export function parseStoredProperties(
         fromStoredValue(parameters[index], knownFieldIds),
       ]),
     ),
+    buttonValues: asStringList(stored.templateButtonParameters).map(value =>
+      fromStoredValue(value, knownFieldIds),
+    ),
   }
 }
 
-/** O que ainda falta para a configuração poder ser salva. */
-export function validateConfig(config: RobotConfigState): string | null {
+/**
+ * O que ainda falta para a configuração poder ser salva.
+ *
+ * `dynamicButtonCount` vem do catálogo carregado; sem ele (catálogo ainda não
+ * chegou ou falhou) os botões não são conferidos, em vez de acusar falta que pode
+ * não existir.
+ */
+export function validateConfig(
+  config: RobotConfigState,
+  dynamicButtonCount?: number,
+): string | null {
   if (!config.connector) {
     return 'Escolha a linha do WhatsApp Oficial que vai enviar.'
   }
@@ -211,7 +238,32 @@ export function validateConfig(config: RobotConfigState): string | null {
     return 'Informe o destino, ou ligue o envio para todos os contatos relacionados.'
   }
 
+  /**
+   * Botão dinâmico sem valor faria o disparo recusar em toda execução — link sem o
+   * final ou cupom sem código não podem ser enviados.
+   */
+  if (dynamicButtonCount) {
+    const filled = config.buttonValues
+      .slice(0, dynamicButtonCount)
+      .filter(field => toStoredValue(field).trim()).length
+
+    if (filled < dynamicButtonCount) {
+      return 'Preencha o valor de todos os botões do template.'
+    }
+  }
+
   return null
+}
+
+/**
+ * Os campos dos botões dinâmicos de um template recém-escolhido. Não reaproveita
+ * valores do template anterior: botão na mesma posição pode ser outro link ou um
+ * cupom, e o valor antigo iria parar no lugar errado.
+ */
+export function rebuildButtonValues(
+  buttons: WidgetTemplateButton[] | undefined,
+): FieldValue[] {
+  return dynamicButtons(buttons).map(() => EMPTY_FIELD)
 }
 
 /**

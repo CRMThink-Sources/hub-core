@@ -5,12 +5,16 @@ import {
   TemplateComponent,
 } from '@/modules/thinkzap/domain/ports/whatsapp-template-provider.port'
 import {
+  TemplateButtonSummary,
+  templateButtonsOf,
+} from '@/modules/thinkzap/domain/template-buttons'
+import {
   resolveTemplateContext,
   type ResolveTemplateContextInput,
 } from './helpers/resolve-template-context'
 
 /**
- * O mínimo que o widget precisa para compor um template — três campos.
+ * O mínimo que o widget precisa para compor um template.
  *
  * Shape próprio e não `Template`: a rota é aberta a qualquer usuário Bitrix com
  * JWT (bloco do widget), e `Template` carrega `id` remoto, `category`, `status` e
@@ -23,6 +27,11 @@ export type WidgetTemplate = {
   language: string
   /** Texto do `BODY`, com os placeholders intactos: o widget deriva os campos dele. */
   body: string
+  /**
+   * Botões na ordem do template. Sem `url` nem exemplo: o widget só precisa do
+   * rótulo para o preview e de `dynamic`/`index` para pedir e enviar o valor.
+   */
+  buttons: TemplateButtonSummary[]
 }
 
 /**
@@ -64,6 +73,7 @@ function toWidgetTemplate(template: Template): WidgetTemplate {
     name: template.name,
     language: template.language,
     body: bodyText(template.components),
+    buttons: templateButtonsOf(template.components),
   }
 }
 

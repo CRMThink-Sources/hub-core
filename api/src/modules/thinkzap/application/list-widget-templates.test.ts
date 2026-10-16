@@ -106,6 +106,7 @@ describe('ListWidgetTemplatesUseCase', () => {
         name: 'order_update',
         language: 'pt_BR',
         body: 'Olá {{1}}, seu pedido {{2}} saiu.',
+        buttons: [],
       },
     ])
   })
@@ -117,8 +118,40 @@ describe('ListWidgetTemplatesUseCase', () => {
 
     expect(Object.keys(first ?? {}).sort()).toEqual([
       'body',
+      'buttons',
       'language',
       'name',
+    ])
+  })
+
+  it('devolve os botões marcando só o link com variável como dinâmico', async () => {
+    const { useCase } = build({
+      templates: [
+        template({
+          components: [
+            { type: 'BODY', text: 'Seu pedido saiu' },
+            {
+              type: 'BUTTONS',
+              buttons: [
+                { type: 'QUICK_REPLY', text: 'Obrigado' },
+                {
+                  type: 'URL',
+                  text: 'Rastrear',
+                  url: 'https://loja.com/pedido/{{1}}',
+                  example: ['https://loja.com/pedido/1'],
+                },
+              ],
+            },
+          ],
+        }),
+      ],
+    })
+
+    const [first] = await useCase.execute(input)
+
+    expect(first?.buttons).toEqual([
+      { index: 0, type: 'QUICK_REPLY', text: 'Obrigado', dynamic: false },
+      { index: 1, type: 'URL', text: 'Rastrear', dynamic: true },
     ])
   })
 

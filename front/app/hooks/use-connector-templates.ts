@@ -7,9 +7,23 @@ import { extractThinkzapError } from './extract-thinkzap-error'
 export type TemplateCategory = 'UTILITY' | 'MARKETING' | 'AUTHENTICATION'
 export type TemplateStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
+/**
+ * Botão no formato de cadastro da Meta. `COPY_CODE` não tem `text`: o rótulo é do
+ * WhatsApp. URL dinâmica termina em `{{1}}` e leva `example` com a URL completa.
+ */
+export type TemplateButton =
+  | { type: 'QUICK_REPLY'; text: string }
+  | { type: 'URL'; text: string; url: string; example?: string[] }
+  | { type: 'PHONE_NUMBER'; text: string; phone_number: string }
+  | { type: 'COPY_CODE'; example: string }
+
+export type TemplateButtonType = TemplateButton['type']
+
 export type TemplateComponent = {
   type: 'HEADER' | 'BODY' | 'FOOTER' | 'BUTTONS'
   text?: string
+  /** Só em `BUTTONS`. Template sincronizado pode trazer tipos fora de `TemplateButton`. */
+  buttons?: TemplateButton[]
   [key: string]: unknown
 }
 

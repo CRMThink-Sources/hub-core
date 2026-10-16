@@ -34,7 +34,38 @@
     "enviando": "Submitting...",
     "cancelar": "Cancel",
     "erroNome": "Invalid name: use snake_case (a-z, 0-9, _).",
-    "erroBody": "Message body is required."
+    "erroBody": "Message body is required.",
+    "botoes": {
+      "titulo": "Buttons (optional)",
+      "hint": "Up to {{max}} buttons. Quick replies are shown before the others.",
+      "texto": "Button text",
+      "url": "URL",
+      "urlHint": "For a different link per send, end the URL with {{1}}.",
+      "urlExemplo": "Full example URL",
+      "telefone": "Phone",
+      "telefoneHint": "With country code, digits only. E.g.: +5511999999999",
+      "codigo": "Example code",
+      "codigoHint": "The actual code is provided on each send.",
+      "remover": "Remove button",
+      "erroGeral": "Fix the highlighted buttons.",
+      "erros": {
+        "buttons_not_allowed": "Authentication templates do not accept buttons.",
+        "copy_code_not_allowed": "Copy code is only allowed in marketing templates.",
+        "too_many_buttons": "A template accepts at most 10 buttons.",
+        "too_many_of_type": "A template accepts at most 2 links, 1 call and 1 copy code.",
+        "unsupported_type": "Unsupported button type.",
+        "text_required": "Enter the button text.",
+        "text_too_long": "Button text must be up to 25 characters.",
+        "url_required": "Enter the URL.",
+        "url_too_long": "The URL must be up to 2000 characters.",
+        "url_variable_position": "The variable can only be {{1}}, at the end of the URL.",
+        "url_example_required": "Enter a full example URL.",
+        "phone_required": "Enter the phone number.",
+        "phone_invalid": "Invalid phone: use country code and digits only, up to 20 characters.",
+        "code_required": "Enter an example code.",
+        "code_too_long": "The code must be up to 15 characters."
+      }
+    }
   },
   "campanha": {
     "titulo": "Bitrix24 SMS campaign",
@@ -54,6 +85,16 @@
     "indisponivelAmbiente": "Campaign sending is not available in this environment. Contact support.",
     "erroLeitura": "Could not read the templates for this line.",
     "erroAcao": "Could not change the provider for this template.",
-    "bloqueada": "This line has no active subscription, so its templates cannot be offered in campaigns."
+    "bloqueada": "This line has no active subscription, so its templates cannot be offered in campaigns.",
+    "botaoDinamico": "This template has a button that needs a value on each send (link or code), and the campaign cannot provide it."
+  },
+  "botoes": {
+    "tipo": {
+      "QUICK_REPLY": "Quick reply",
+      "URL": "Link",
+      "PHONE_NUMBER": "Call",
+      "COPY_CODE": "Copy code",
+      "OTHER": "Other"
+    }
   }
 }

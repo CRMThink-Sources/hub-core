@@ -34,7 +34,38 @@
     "enviando": "Enviando...",
     "cancelar": "Cancelar",
     "erroNome": "Nome inválido: use snake_case (a-z, 0-9, _).",
-    "erroBody": "O corpo da mensagem é obrigatório."
+    "erroBody": "O corpo da mensagem é obrigatório.",
+    "botoes": {
+      "titulo": "Botões (opcional)",
+      "hint": "Até {{max}} botões. As respostas rápidas aparecem antes dos demais.",
+      "texto": "Texto do botão",
+      "url": "URL",
+      "urlHint": "Para um link diferente por envio, termine a URL com {{1}}.",
+      "urlExemplo": "URL de exemplo completa",
+      "telefone": "Telefone",
+      "telefoneHint": "Com código do país, só números. Ex.: +5511999999999",
+      "codigo": "Código de exemplo",
+      "codigoHint": "O código real é informado em cada envio.",
+      "remover": "Remover botão",
+      "erroGeral": "Corrija os botões destacados.",
+      "erros": {
+        "buttons_not_allowed": "Templates de autenticação não aceitam botões.",
+        "copy_code_not_allowed": "Copiar código só é permitido em templates de marketing.",
+        "too_many_buttons": "Template aceita no máximo 10 botões.",
+        "too_many_of_type": "Template aceita no máximo 2 links, 1 ligação e 1 copiar código.",
+        "unsupported_type": "Tipo de botão não suportado.",
+        "text_required": "Informe o texto do botão.",
+        "text_too_long": "O texto do botão deve ter até 25 caracteres.",
+        "url_required": "Informe a URL.",
+        "url_too_long": "A URL deve ter até 2000 caracteres.",
+        "url_variable_position": "A variável só pode ser {{1}}, no final da URL.",
+        "url_example_required": "Informe uma URL de exemplo completa.",
+        "phone_required": "Informe o telefone.",
+        "phone_invalid": "Telefone inválido: use código do país e só números, até 20 caracteres.",
+        "code_required": "Informe um código de exemplo.",
+        "code_too_long": "O código deve ter até 15 caracteres."
+      }
+    }
   },
   "campanha": {
     "titulo": "Campanha de SMS do Bitrix24",
@@ -54,6 +85,16 @@
     "indisponivelAmbiente": "O envio por campanha não está disponível neste ambiente. Fale com o suporte.",
     "erroLeitura": "Não foi possível ler os templates desta linha.",
     "erroAcao": "Não foi possível alterar o provedor deste template.",
-    "bloqueada": "A assinatura desta linha não está ativa, então os templates não podem ser oferecidos às campanhas."
+    "bloqueada": "A assinatura desta linha não está ativa, então os templates não podem ser oferecidos às campanhas.",
+    "botaoDinamico": "Este template tem botão que precisa de valor em cada envio (link ou código), e a campanha não consegue informá-lo."
+  },
+  "botoes": {
+    "tipo": {
+      "QUICK_REPLY": "Resposta rápida",
+      "URL": "Link",
+      "PHONE_NUMBER": "Ligação",
+      "COPY_CODE": "Copiar código",
+      "OTHER": "Outro"
+    }
   }
 }

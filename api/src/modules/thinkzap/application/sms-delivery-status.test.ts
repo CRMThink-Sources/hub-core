@@ -33,6 +33,7 @@ const row = (
   templateName: null,
   templateLanguage: null,
   templateParameters: null,
+  templateButtonParameters: null,
   buttonPayload: null,
   status: 'PENDING',
   providerMessageId: null,

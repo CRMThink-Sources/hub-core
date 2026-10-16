@@ -161,7 +161,12 @@ describe('provedor por template', () => {
   const HUB = item({ provider: 'HUBMESSAGE', hubmessageChannelId: 'C-9' })
 
   const catalog = (
-    templates = [
+    templates: {
+      name: string
+      language: string
+      body: string
+      buttons?: { dynamic: boolean }[]
+    }[] = [
       { name: 'boas_vindas', language: 'pt_BR', body: 'Olá {{1}}, dia {{2}}.' },
       { name: 'aviso', language: 'pt_BR', body: 'Aviso sem variável.' },
     ],
@@ -190,6 +195,31 @@ describe('provedor por template', () => {
         parameterCount: 0,
         registered: false,
       }),
+    ])
+  })
+
+  it('marca o template com botão dinâmico, que a campanha não consegue enviar', async () => {
+    const reading = await new GetLineTemplateProviders(
+      context(HUB) as never,
+      catalog([
+        {
+          name: 'rastreio',
+          language: 'pt_BR',
+          body: 'Pedido {{1}}',
+          buttons: [{ dynamic: false }, { dynamic: true }],
+        },
+        {
+          name: 'pesquisa',
+          language: 'pt_BR',
+          body: 'Gostou?',
+          buttons: [{ dynamic: false }],
+        },
+      ]),
+    ).execute(scope, caller(vi.fn().mockResolvedValue([])))
+
+    expect(reading.templates.map(t => t.hasDynamicButton)).toEqual([
+      true,
+      false,
     ])
   })
 

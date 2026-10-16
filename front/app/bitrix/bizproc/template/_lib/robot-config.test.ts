@@ -4,6 +4,7 @@ import {
   buildRobotProperties,
   fromStoredValue,
   parseStoredProperties,
+  rebuildButtonValues,
   rebuildValues,
   toStoredValue,
   validateConfig,
@@ -23,6 +24,7 @@ const base: RobotConfigState = {
     nome: { mode: 'document', value: 'TITLE' },
     numero: { mode: 'literal', value: '42' },
   },
+  buttonValues: [],
 }
 
 describe('toStoredValue / fromStoredValue', () => {
@@ -67,7 +69,20 @@ describe('buildRobotProperties', () => {
       templateLanguage: 'pt_BR',
       templateBody: 'Olá {{nome}}, pedido {{numero}} — obrigado, {{nome}}.',
       templateParameters: ['{{=Document:TITLE}}', '42'],
+      templateButtonParameters: [],
     })
+  })
+
+  it('grava os valores dos botões dinâmicos na ordem, com campo do documento', () => {
+    expect(
+      buildRobotProperties({
+        ...base,
+        buttonValues: [
+          { mode: 'document', value: 'UF_CRM_CUPOM' },
+          { mode: 'literal', value: 'PED-1' },
+        ],
+      }).templateButtonParameters,
+    ).toEqual(['{{=Document:UF_CRM_CUPOM}}', 'PED-1'])
   })
 
   // Ordem de aparição das variáveis distintas: é ela que liga cada valor ao seu
@@ -127,6 +142,21 @@ describe('parseStoredProperties', () => {
     })
   })
 
+  it('recompõe os valores dos botões gravados', () => {
+    const withButtons = {
+      ...base,
+      buttonValues: [{ mode: 'document' as const, value: 'UF_CRM_CUPOM' }],
+    }
+
+    expect(
+      parseStoredProperties(buildRobotProperties(withButtons)).buttonValues,
+    ).toEqual(withButtons.buttonValues)
+  })
+
+  it('robô salvo antes dos botões abre sem valores de botão', () => {
+    expect(parseStoredProperties({}).buttonValues).toEqual([])
+  })
+
   it('sem template gravado, não inventa campos de variável', () => {
     expect(parseStoredProperties({}).values).toEqual({})
     expect(parseStoredProperties({}).template).toBeNull()
@@ -164,8 +194,39 @@ describe('rebuildValues', () => {
   })
 })
 
+describe('rebuildButtonValues', () => {
+  it('um campo vazio por botão dinâmico do template escolhido', () => {
+    expect(
+      rebuildButtonValues([
+        { index: 0, type: 'QUICK_REPLY', text: 'Sim', dynamic: false },
+        { index: 1, type: 'COPY_CODE', text: '', dynamic: true },
+      ]),
+    ).toEqual([{ mode: 'literal', value: '' }])
+    expect(rebuildButtonValues(undefined)).toEqual([])
+  })
+})
+
 describe('validateConfig', () => {
   it('aceita a configuração completa', () => {
+    expect(validateConfig(base)).toBeNull()
+  })
+
+  it('impede salvar com botão dinâmico vazio', () => {
+    expect(
+      validateConfig(
+        { ...base, buttonValues: [{ mode: 'literal', value: ' ' }] },
+        1,
+      ),
+    ).toBe('Preencha o valor de todos os botões do template.')
+    expect(
+      validateConfig(
+        { ...base, buttonValues: [{ mode: 'literal', value: 'X' }] },
+        1,
+      ),
+    ).toBeNull()
+  })
+
+  it('sem catálogo carregado, não confere os botões', () => {
     expect(validateConfig(base)).toBeNull()
   })
 

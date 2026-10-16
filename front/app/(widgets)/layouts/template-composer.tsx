@@ -1,7 +1,11 @@
 'use client'
 
-import type { WidgetTemplate } from '@/app/hooks/use-widget-templates'
+import type {
+  WidgetTemplate,
+  WidgetTemplateButton,
+} from '@/app/hooks/use-widget-templates'
 import {
+  dynamicButtons,
   extractTemplateVariables,
   resolveTemplatePreview,
 } from './template-variables'
@@ -16,8 +20,21 @@ type TemplateComposerProps = {
   onSelectTemplate: (key: string) => void
   values: Record<string, string>
   onChangeValue: (key: string, value: string) => void
+  /** Valores dos botões dinâmicos, pela posição (`index`) do botão no template. */
+  buttonValues: Record<number, string>
+  onChangeButtonValue: (index: number, value: string) => void
   disabled: boolean
 }
+
+/** Rótulo do botão no preview — copiar código não tem texto próprio. */
+const buttonLabel = (button: WidgetTemplateButton): string =>
+  button.text || (button.type === 'COPY_CODE' ? 'Copiar código' : 'Botão')
+
+/** O que o campo do botão dinâmico pede ao operador. */
+const buttonFieldLabel = (button: WidgetTemplateButton): string =>
+  button.type === 'COPY_CODE'
+    ? 'Código do cupom'
+    : `Final do link "${buttonLabel(button)}"`
 
 /**
  * Chave de seleção do template.
@@ -46,12 +63,15 @@ export const TemplateComposer = ({
   onSelectTemplate,
   values,
   onChangeValue,
+  buttonValues,
+  onChangeButtonValue,
   disabled,
 }: TemplateComposerProps) => {
   const selected = templates.find(
     template => templateKey(template) === selectedKey,
   )
   const variables = selected ? extractTemplateVariables(selected.body) : []
+  const buttonFields = dynamicButtons(selected?.buttons)
 
   return (
     <div className="mt-4 grid gap-4">
@@ -136,6 +156,29 @@ export const TemplateComposer = ({
             </p>
           )}
 
+          {buttonFields.length > 0 ? (
+            <div className="grid gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Botões
+              </p>
+              {buttonFields.map(button => (
+                <label key={button.index} className="grid gap-1">
+                  <span className="text-xs font-medium text-slate-600">
+                    {buttonFieldLabel(button)}
+                  </span>
+                  <input
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    value={buttonValues[button.index] ?? ''}
+                    onChange={event =>
+                      onChangeButtonValue(button.index, event.target.value)
+                    }
+                    disabled={disabled}
+                  />
+                </label>
+              ))}
+            </div>
+          ) : null}
+
           <div className="grid gap-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Preview
@@ -147,6 +190,18 @@ export const TemplateComposer = ({
             <p className="whitespace-pre-wrap rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-800">
               {resolveTemplatePreview(selected.body, values)}
             </p>
+            {selected.buttons?.length ? (
+              <div className="mt-1 flex flex-wrap gap-2">
+                {selected.buttons.map(button => (
+                  <span
+                    key={button.index}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-700"
+                  >
+                    {buttonLabel(button)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
