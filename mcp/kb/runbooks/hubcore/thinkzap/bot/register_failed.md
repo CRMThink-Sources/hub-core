@@ -8,7 +8,7 @@ summary: Não foi possível registrar o bot de atendimento no Bitrix24; o fluxo 
 ## O que significa
 Para um fluxo atender num canal aberto, o app precisa registrar um bot de mensageria dentro do Bitrix24. Este erro indica que o registro não foi concluído, então o vínculo entre o fluxo e o canal **não** foi criado — nada mudou no portal, e o canal continua no atendimento humano.
 
-O bot é um por portal, não um por fluxo: se outro fluxo já foi vinculada antes com sucesso, o bot existe e este erro não deve aparecer.
+Cada fluxo tem o seu próprio bot, registrado no primeiro vínculo daquele fluxo. Se o fluxo já está vinculado a outro canal com sucesso, o bot dele existe e este erro não deve aparecer.
 
 ## Causa provável
 - **Permissões do app**: falta o escopo `imbot` (bot de mensageria) liberado para o app no portal. É a causa mais comum.

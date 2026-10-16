@@ -6,7 +6,7 @@ summary: O identificador do bot de atendimento já está registrado por outra in
 # thinkzap.bot.code_taken
 
 ## O que significa
-Para um fluxo atender sozinho num canal aberto, o app registra um bot de mensageria dentro do Bitrix24. Esse bot é identificado por um código, e o código é único **no portal** — não por instalação do app.
+Para um fluxo atender sozinho num canal aberto, o app registra um bot de mensageria dentro do Bitrix24. Cada fluxo tem o seu bot, identificado por um código (um prefixo do ambiente mais um trecho do identificador do fluxo), e o código é único **no portal** — não por instalação do app.
 
 O portal recusou o registro porque já existe um bot com esse código, criado por **outra** instalação. O registro só é reaproveitado quando quem pede é a mesma instalação que criou o bot; de outra instalação, o portal responde que o código já está tomado.
 
@@ -24,7 +24,7 @@ O banco do ambiente que falhou não tem registro do bot (se tivesse, o app reapr
 4. Confirme qual ambiente atendeu a requisição e se o portal em questão também é usado por outro ambiente.
 
 ## Como resolver
-1. No ambiente que falhou, defina `BITRIX_BOT_FLOW_CODE` com um valor próprio — por exemplo `thinkzap-flow-dev` ou `thinkzap-flow-homolog`.
+1. No ambiente que falhou, defina `BITRIX_BOT_FLOW_CODE` (o prefixo do código) com um valor próprio — por exemplo `thinkzap-flow-dev` ou `thinkzap-flow-homolog`.
 2. Reinicie a API para o valor entrar em vigor.
 3. Vincule o fluxo ao canal novamente. O registro passa a criar um bot próprio daquele ambiente, e o bot de produção segue intacto.
 

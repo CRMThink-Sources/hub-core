@@ -10,8 +10,8 @@ import type {
 } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow.repository'
 import { EMPTY_GRAPH } from '@/modules/thinkzap/domain/bot-flow/empty-flow'
 
-/** Um fluxo por instalação: para atender de outro jeito, edita-se o que existe. */
-const MAX_FLOWS_POR_APP = 1
+/** Espelhado em `front/shared/thinkzap-bot-flow.ts`, que esconde o botão de criar no teto. */
+export const MAX_FLOWS_POR_APP = 5
 
 export class CreateBotFlowController extends Controller {
   constructor(
@@ -44,12 +44,12 @@ export class CreateBotFlowController extends Controller {
 
     const { name, graph } = parsed.data
 
-    // Antes da checagem de nome: quem já tem fluxo receberia "já existe um fluxo com
+    // Antes da checagem de nome: quem está no teto receberia "já existe um fluxo com
     // esse nome" ao repetir o nome, o que manda procurar no lugar errado.
     if ((await this.countFlows.countByAppId(appId)) >= MAX_FLOWS_POR_APP) {
       return this.badRequest(
         new Error(
-          'Esta instalação já tem um fluxo. Edite o fluxo existente ou exclua-o antes de criar outro.',
+          `Esta instalação já atingiu o limite de ${MAX_FLOWS_POR_APP} fluxos. Edite um fluxo existente ou exclua um antes de criar outro.`,
         ),
       )
     }

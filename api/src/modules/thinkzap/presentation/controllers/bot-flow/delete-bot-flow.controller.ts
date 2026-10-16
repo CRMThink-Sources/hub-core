@@ -56,10 +56,11 @@ export class DeleteBotFlowController extends Controller {
       await this.welcomeBot.unbindLine({ lineId: binding.lineId })
     }
 
-    await this.deleteFlow.delete(appId, flowId)
+    // Antes de apagar o fluxo: depois o bot perde o `flowId` (`SetNull`) e não há mais como
+    // achá-lo pelo fluxo.
+    await this.welcomeBot.removeBot(appId, flowId)
 
-    // Último fluxo do app: o bot deixa de ter função e sai do portal.
-    await this.welcomeBot.removeBotIfUnused(appId)
+    await this.deleteFlow.delete(appId, flowId)
 
     return this.ok({ deleted: true })
   }

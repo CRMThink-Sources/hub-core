@@ -67,10 +67,10 @@ function nomeDoUsuario(user: Raw): string {
     .join(' ')
 }
 
-// `expectedBotCode` vem de fora para o parser não conhecer a constante do registro.
+// `isOwnBotCode` vem de fora para o parser não conhecer a regra do registro.
 export function parseBotEvent(
   body: unknown,
-  expectedBotCode: string,
+  isOwnBotCode: (code: string) => boolean,
 ): ParsedBotEvent {
   const payload = asRecord(body)
   const evento = asText(payload.event).toUpperCase()
@@ -108,8 +108,8 @@ export function parseBotEvent(
   }
 
   // Um app pode ter vários bots (o `thinkzap-connector`, por exemplo) com webhooks que
-  // coincidem; só o bot deste fluxo pode rodá-lo.
-  if (base.botCode && base.botCode !== expectedBotCode) {
+  // coincidem; só bot de fluxo roda fluxo.
+  if (base.botCode && !isOwnBotCode(base.botCode)) {
     return ignorar('bot-de-outro-code')
   }
 

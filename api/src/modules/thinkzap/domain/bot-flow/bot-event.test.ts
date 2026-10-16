@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { bitrixBool, parseBotEvent } from './bot-event'
 
 const CODE = 'thinkzap-flow'
+const isOwn = (code: string) => code === CODE
 
 /** Evento como o webhook entrega: todo escalar em string (`http_build_query`). */
 function messageEvent(over: {
@@ -57,7 +58,7 @@ describe('parseBotEvent', () => {
   it('mensagem de contato externo avança o fluxo', () => {
     const parsed = parseBotEvent(
       messageEvent({ text: 'quero orçamento' }),
-      CODE,
+      isOwn,
     )
 
     expect(parsed.kind).toBe('message')
@@ -69,14 +70,14 @@ describe('parseBotEvent', () => {
 
   it('ignora mensagem de quem não é contato', () => {
     // Operador humano escrevendo no mesmo chat: `connector: '0'`.
-    const parsed = parseBotEvent(messageEvent({ connector: '0' }), CODE)
+    const parsed = parseBotEvent(messageEvent({ connector: '0' }), isOwn)
 
     expect(parsed.kind).toBe('ignore')
     expect(parsed.ignoreReason).toBe('autor-nao-e-contato')
   })
 
   it('ignora mensagem de sistema', () => {
-    const parsed = parseBotEvent(messageEvent({ isSystem: '1' }), CODE)
+    const parsed = parseBotEvent(messageEvent({ isSystem: '1' }), isOwn)
 
     expect(parsed.ignoreReason).toBe('mensagem-de-sistema')
   })
@@ -84,7 +85,7 @@ describe('parseBotEvent', () => {
   it('ignora anexo sem legenda', () => {
     // Mandar `''` para `advance` reprovaria a validação do nó como se o cliente tivesse
     // respondido errado, gastando tentativa.
-    const parsed = parseBotEvent(messageEvent({ text: '   ' }), CODE)
+    const parsed = parseBotEvent(messageEvent({ text: '   ' }), isOwn)
 
     expect(parsed.ignoreReason).toBe('texto-vazio')
   })
@@ -93,7 +94,7 @@ describe('parseBotEvent', () => {
     // `thinkzap-connector` é `type: supervisor` e não roda fluxo.
     const parsed = parseBotEvent(
       messageEvent({ botCode: 'thinkzap-connector' }),
-      CODE,
+      isOwn,
     )
 
     expect(parsed.ignoreReason).toBe('bot-de-outro-code')
@@ -102,7 +103,7 @@ describe('parseBotEvent', () => {
   it('ignora evento que não tratamos', () => {
     const parsed = parseBotEvent(
       { event: 'ONIMBOTV2REACTIONCHANGE', data: { chat: { id: '5' } } },
-      CODE,
+      isOwn,
     )
 
     expect(parsed.ignoreReason).toBe('evento-nao-tratado')
@@ -120,7 +121,7 @@ describe('parseBotEvent', () => {
           user: { id: '31', connector: '1' },
         },
       },
-      CODE,
+      isOwn,
     )
 
     expect(parsed.kind).toBe('join')
@@ -139,7 +140,7 @@ describe('parseBotEvent', () => {
         chat: { id: '9' },
         user: { id: '31', connector: '1' },
       },
-      CODE,
+      isOwn,
     )
 
     expect(parsed.kind).toBe('message')
@@ -150,7 +151,7 @@ describe('parseBotEvent', () => {
     // Sem `CHAT_ID` não há como falar de volta: `bot.session.*` exige ele.
     const parsed = parseBotEvent(
       { event: 'ONIMBOTV2MESSAGEADD', data: { bot: { code: CODE } } },
-      CODE,
+      isOwn,
     )
 
     expect(parsed.ignoreReason).toBe('sem-chat-id')

@@ -23,7 +23,7 @@ const context = {
 describe('appInstallerRegistry', () => {
   it.each([
     'crmthink.thinkzap',
-    'crmthink.clicksign',
+    'crmthink.clicksign2',
     'crmthink.thinkanalise',
     'crmthink.importsheet',
   ])('tem installer registrado para %s', appCode => {

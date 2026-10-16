@@ -19,7 +19,7 @@ const APP_CODE_BY_LABEL: Partial<Record<LogApp, string>> = {
   thinkzap: 'crmthink.thinkzap',
   thinkanalise: 'crmthink.thinkanalise',
   importsheet: 'crmthink.importsheet',
-  clicksign: 'crmthink.clicksign',
+  clicksign: 'crmthink.clicksign2',
 }
 
 const querySchema = z

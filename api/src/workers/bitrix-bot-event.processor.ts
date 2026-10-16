@@ -1,5 +1,5 @@
 import { adoptLineBinding } from '@/modules/thinkzap/application/adopt-line-binding'
-import { BOT_CODE } from '@/modules/thinkzap/application/ensure-bot-flow-bot'
+import { isFlowBotCode } from '@/modules/thinkzap/application/ensure-bot-flow-bot'
 import { runBotTurn } from '@/modules/thinkzap/application/run-bot-turn'
 import { parseBotEvent } from '@/modules/thinkzap/domain/bot-flow/bot-event'
 import {
@@ -44,7 +44,7 @@ export async function processBitrixBotEvent(
   body: unknown,
   ctx: { appendJobLog: AppendJobLog },
 ): Promise<void> {
-  const event = parseBotEvent(body, BOT_CODE)
+  const event = parseBotEvent(body, isFlowBotCode)
 
   if (event.kind === 'ignore') {
     // Caminho normal: operador, sistema e outros bots chegam no mesmo endereço.
@@ -111,12 +111,16 @@ export async function processBitrixBotEvent(
   }
 
   // `botToken` vem do banco (única cópia); sem ele `transfer`/`finish` não identificam o bot.
-  const bot = await bots.getByAppId(installedApp.id)
+  const bot = await bots.getByBitrixBotId(installedApp.id, event.bitrixBotId)
   if (!bot) {
     logThinkzapError(
       log,
       'thinkzap.bot.event_unresolved',
-      { appId: installedApp.id, chatId: event.chatId },
+      {
+        appId: installedApp.id,
+        chatId: event.chatId,
+        bitrixBotId: event.bitrixBotId,
+      },
       {
         level: 'error',
         msg: 'Evento de bot sem registro nosso — o bot existe no portal e não no banco',
@@ -224,7 +228,7 @@ export async function processBitrixBotEvent(
     // Canal ligado pelo painel do Bitrix: adota só em `sem-vinculo`; os outros skips são
     // decisão do cliente (vínculo inativo, fluxo fora do ar).
     if (outcome.kind === 'skipped' && outcome.reason === 'sem-vinculo') {
-      const adotado = await adoptLineBinding(installedApp.id, lineId, {
+      const adotado = await adoptLineBinding(installedApp.id, lineId, bot.flowId, {
         flows,
         bindings,
       })

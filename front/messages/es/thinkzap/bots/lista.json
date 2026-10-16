@@ -2,6 +2,9 @@
   "titulo": "ThinkBot",
   "subtitulo": "Arma el flujo de atención: define cómo el bot debe conducir la conversación.",
   "carregando": "Cargando",
+  "novoFluxo": "Nuevo flujo",
+  "contagem": "{{total}} de {{max}} flujos",
+  "limiteAtingido": "Límite de {{max}} flujos alcanzado",
   "erro": {
     "titulo": "No fue posible cargar los flujos",
     "carregar": "No fue posible cargar los flujos.",

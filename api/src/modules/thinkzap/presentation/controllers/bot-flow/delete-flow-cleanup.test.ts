@@ -35,16 +35,16 @@ const res = {} as Response
 
 function welcomeBot(over: Partial<WelcomeBotPort> = {}) {
   const unbindLine = over.unbindLine ?? vi.fn().mockResolvedValue(undefined)
-  const removeBotIfUnused =
-    over.removeBotIfUnused ?? vi.fn().mockResolvedValue(undefined)
+  const removeBot = over.removeBot ?? vi.fn().mockResolvedValue(undefined)
 
   const port: WelcomeBotPort = {
     ensureBot: vi.fn().mockResolvedValue({ bitrixBotId: 7 }),
     bindLine: vi.fn().mockResolvedValue(undefined),
     unbindLine,
-    removeBotIfUnused,
+    removeBotIfUnused: vi.fn().mockResolvedValue(undefined),
+    removeBot,
   }
-  return { port, unbindLine, removeBotIfUnused }
+  return { port, unbindLine, removeBot }
 }
 
 function controller(opts: {
@@ -143,12 +143,23 @@ describe('excluir fluxo limpa o Bitrix', () => {
     expect(del).not.toHaveBeenCalled()
   })
 
-  it('tenta remover o bot do portal depois de apagar', async () => {
-    const bot = welcomeBot()
+  it('remove o bot do fluxo antes de apagar o fluxo', async () => {
+    const ordem: string[] = []
+    const bot = welcomeBot({
+      removeBot: vi.fn().mockImplementation(() => {
+        ordem.push('removeBot')
+        return Promise.resolve()
+      }),
+    })
+    const del = vi.fn().mockImplementation(() => {
+      ordem.push('delete')
+      return Promise.resolve()
+    })
 
-    await controller({ bindings: [], bot: bot.port }).perform(req(), res)
+    await controller({ bindings: [], bot: bot.port, del }).perform(req(), res)
 
-    expect(bot.removeBotIfUnused).toHaveBeenCalledWith(APP)
+    expect(bot.removeBot).toHaveBeenCalledWith(APP, FLOW)
+    expect(ordem).toEqual(['removeBot', 'delete'])
   })
 
   it('fluxo sem vínculo nenhum apaga direto', async () => {

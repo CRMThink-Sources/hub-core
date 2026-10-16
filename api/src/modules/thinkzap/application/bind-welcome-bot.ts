@@ -29,7 +29,7 @@ type ConfigGetResponse = {
  */
 async function assertLinhaLivre(
   client: BitrixClient,
-  input: { lineId: string; bitrixBotId: number },
+  input: { lineId: string; bitrixBotId: number; ownBotIds?: number[] },
 ): Promise<void> {
   const response = await client.callMethod<ConfigGetResponse>(
     'imopenlines.config.get',
@@ -40,9 +40,10 @@ async function assertLinhaLivre(
   const ocupada = String(config?.WELCOME_BOT_ENABLE ?? '') === 'Y'
   const botDaLinha = Number(config?.WELCOME_BOT_ID ?? 0)
 
-  // O nosso próprio não conta: revincular a mesma linha é idempotente, e é o que
-  // acontece ao reativar um vínculo desligado.
+  // Bot nosso não conta: revincular a mesma linha é idempotente (reativar vínculo
+  // desligado), e o bot de outro fluxo do mesmo app pode ter sido posto pelo painel.
   if (!ocupada || !botDaLinha || botDaLinha === input.bitrixBotId) return
+  if (input.ownBotIds?.includes(botDaLinha)) return
 
   log.warn(
     {
@@ -61,7 +62,7 @@ async function assertLinhaLivre(
 // contato; `LEFT: queue` é a rede de segurança se o fluxo morrer no meio.
 export async function bindWelcomeBot(
   client: BitrixClient,
-  input: { lineId: string; bitrixBotId: number },
+  input: { lineId: string; bitrixBotId: number; ownBotIds?: number[] },
 ): Promise<void> {
   await assertLinhaLivre(client, input)
 
@@ -79,7 +80,7 @@ export async function bindWelcomeBot(
   await assertWelcomeBot(client, input)
 }
 
-// Desliga o bot da linha; ele segue registrado no portal para outras linhas. Relê pelo
+// Desliga o bot da linha; ele segue registrado para outras linhas do fluxo. Relê pelo
 // mesmo motivo do `bind`, com consequência pior: quem chama apaga o vínculo em seguida, e
 // um `update` que não persistiu deixaria o bot ativo numa linha sem fluxo.
 export async function unbindWelcomeBot(

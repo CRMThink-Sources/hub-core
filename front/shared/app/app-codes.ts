@@ -14,7 +14,7 @@ export const APP_CODES = {
   thinkzap: 'crmthink.thinkzap',
   thinkanalise: 'crmthink.thinkanalise',
   importsheet: 'crmthink.importsheet',
-  clicksign: 'crmthink.clicksign',
+  clicksign: 'crmthink.clicksign2',
   gptmaker: 'crmthink.gptmaker',
 } as const
 

@@ -61,7 +61,7 @@ model App {
   thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
   thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
   thinkzapBotFlows           ThinkzapBotFlow[]
-  thinkzapBotFlowBot         ThinkzapBotFlowBot?
+  thinkzapBotFlowBots        ThinkzapBotFlowBot[]
   thinkzapBotFlowBindings    ThinkzapBotFlowBinding[]
   thinkzapBotSessions        ThinkzapBotSession[]
   importSheetAuthToken       ImportSheetAuthToken?
@@ -894,16 +894,16 @@ model McpRefreshToken {
 // ThinkZap — gerador de bot (fluxo de atendimento)
 // ============================================
 
-/// Bot de canal aberto desta instalacao, registrado por `imbot.v2.Bot.register`.
+/// Bot de canal aberto de um fluxo, registrado por `imbot.v2.Bot.register`.
 ///
-/// Um por instalacao, nao um por fluxo: o bot e infraestrutura (como o conector), e o
-/// que decide qual fluxo roda e o vinculo por linha. Tabela propria e nao cache em
-/// Redis porque `botToken` sai **uma vez** no registro e `imbot.v2.Bot.list` pode nao
-/// repeti-lo — cache expirado perderia o token para sempre, e sem ele `transfer` e
-/// `finish` nao identificam o bot chamador.
+/// Tabela e nao cache em Redis: `botToken` sai **uma vez** no registro e
+/// `imbot.v2.Bot.list` nao o repete. Sem ele `transfer` e `finish` nao identificam o bot.
 model ThinkzapBotFlowBot {
   id    String @id @default(uuid())
-  appId String @unique @map("app_id")
+  appId String @map("app_id")
+  /// `SetNull` e nao `Cascade`: se o portal recusar o `unregister`, o token e a unica
+  /// forma de alcancar o bot que ficou la.
+  flowId String? @unique @map("flow_id")
   /// `id` do bot no portal, usado em `WELCOME_BOT_ID`.
   bitrixBotId Int @map("bitrix_bot_id")
   /// `CLIENT_ID` de `bot.session.transfer` / `.finish`. Obrigatorio: bot e webhook.
@@ -914,8 +914,12 @@ model ThinkzapBotFlowBot {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+  app  App              @relation(fields: [appId], references: [id], onDelete: Cascade)
+  flow ThinkzapBotFlow? @relation(fields: [flowId], references: [id], onDelete: SetNull)
 
+  /// `bot.id` do evento resolve o bot; o id e sequencial por portal, nao global.
+  @@unique([appId, bitrixBotId])
+  @@index([appId])
   @@map("thinkzap_bot_flow_bots")
 }
 
@@ -935,6 +939,7 @@ model ThinkzapBotFlow {
   app      App                      @relation(fields: [appId], references: [id], onDelete: Cascade)
   bindings ThinkzapBotFlowBinding[]
   sessions ThinkzapBotSession[]
+  bot      ThinkzapBotFlowBot?
 
   @@unique([appId, name])
   @@index([appId])

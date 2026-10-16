@@ -1,13 +1,20 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import type { BotFlowBot } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow-bot.repository'
-import { ensureBotFlowBot } from './ensure-bot-flow-bot'
+import {
+  BOT_CODE,
+  ensureBotFlowBot,
+  flowBotCode,
+  isFlowBotCode,
+} from './ensure-bot-flow-bot'
 
 const APP = 'app-1'
+const FLOW = '0a1b2c3d-4e5f-6789-abcd-ef0123456789'
 const HOOK = 'https://tunel.example/bitrix/bot'
 
 const gravado = (over: Partial<BotFlowBot> = {}): BotFlowBot => ({
   appId: APP,
+  flowId: FLOW,
   bitrixBotId: 42,
   botToken: 'token-guardado',
   webhookUrl: HOOK,
@@ -40,7 +47,7 @@ function setup(opts: {
   return {
     client: { callMethod } as unknown as BitrixClient,
     repos: {
-      get: { getByAppId: vi.fn().mockResolvedValue(opts.existing ?? null) },
+      get: { getByFlowId: vi.fn().mockResolvedValue(opts.existing ?? null) },
       save: { save },
     },
     callMethod,
@@ -57,6 +64,7 @@ describe('ensureBotFlowBot', () => {
 
     const bot = await ensureBotFlowBot(client, repos, {
       appId: APP,
+      flowId: FLOW,
       webhookUrl: HOOK,
     })
 
@@ -71,7 +79,26 @@ describe('ensureBotFlowBot', () => {
     expect(params.fields.webhookUrl).toBe(HOOK)
 
     expect(bot.bitrixBotId).toBe(99)
+    expect(bot.flowId).toBe(FLOW)
     expect(save).toHaveBeenCalledOnce()
+  })
+
+  it('code é por fluxo: register é idempotente por code', async () => {
+    // Com o mesmo `code`, o segundo fluxo receberia de volta o bot do primeiro.
+    const { client, repos, chamadasBitrix } = setup({})
+
+    await ensureBotFlowBot(client, repos, {
+      appId: APP,
+      flowId: FLOW,
+      webhookUrl: HOOK,
+    })
+
+    const [, params] = chamadasBitrix()[0] as [
+      string,
+      { fields: { code: string } },
+    ]
+    expect(params.fields.code).toBe(flowBotCode(FLOW))
+    expect(params.fields.code).toMatch(/-0a1b2c3d$/)
   })
 
   it('manda o botToken no registro — é entrada, não retorno', async () => {
@@ -81,6 +108,7 @@ describe('ensureBotFlowBot', () => {
 
     const bot = await ensureBotFlowBot(client, repos, {
       appId: APP,
+      flowId: FLOW,
       webhookUrl: HOOK,
     })
 
@@ -100,10 +128,12 @@ describe('ensureBotFlowBot', () => {
 
     const um = await ensureBotFlowBot(a.client, a.repos, {
       appId: APP,
+      flowId: FLOW,
       webhookUrl: HOOK,
     })
     const dois = await ensureBotFlowBot(b.client, b.repos, {
       appId: 'app-2',
+      flowId: FLOW,
       webhookUrl: HOOK,
     })
 
@@ -116,6 +146,7 @@ describe('ensureBotFlowBot', () => {
 
     const bot = await ensureBotFlowBot(client, repos, {
       appId: APP,
+      flowId: FLOW,
       webhookUrl: HOOK,
     })
 
@@ -130,6 +161,7 @@ describe('ensureBotFlowBot', () => {
 
     const bot = await ensureBotFlowBot(client, repos, {
       appId: APP,
+      flowId: FLOW,
       webhookUrl: HOOK,
     })
 
@@ -154,7 +186,7 @@ describe('ensureBotFlowBot', () => {
     })
 
     await expect(
-      ensureBotFlowBot(client, repos, { appId: APP, webhookUrl: HOOK }),
+      ensureBotFlowBot(client, repos, { appId: APP, flowId: FLOW, webhookUrl: HOOK }),
     ).rejects.toThrow()
 
     // Gravar id 0 deixaria `WELCOME_BOT_ID: 0` na linha.
@@ -168,6 +200,7 @@ describe('nome do bot no portal', () => {
 
     await ensureBotFlowBot(client, repos, {
       appId: APP,
+      flowId: FLOW,
       webhookUrl: HOOK,
       flowName: 'Atendimento comercial',
     })
@@ -184,7 +217,7 @@ describe('nome do bot no portal', () => {
   it('sem nome de fluxo cai no rótulo do app', async () => {
     const { client, repos, chamadasBitrix } = setup({})
 
-    await ensureBotFlowBot(client, repos, { appId: APP, webhookUrl: HOOK })
+    await ensureBotFlowBot(client, repos, { appId: APP, flowId: FLOW, webhookUrl: HOOK })
 
     const [, params] = chamadasBitrix()[0] as [
       string,
@@ -200,6 +233,7 @@ describe('nome do bot no portal', () => {
 
     await ensureBotFlowBot(client, repos, {
       appId: APP,
+      flowId: FLOW,
       webhookUrl: HOOK,
       flowName: 'Suporte N1',
     })
@@ -224,6 +258,7 @@ describe('nome do bot no portal', () => {
 
     await ensureBotFlowBot(client, repos, {
       appId: APP,
+      flowId: FLOW,
       webhookUrl: HOOK,
       flowName: 'Comercial',
     })
@@ -242,6 +277,7 @@ describe('nome do bot no portal', () => {
 
     await ensureBotFlowBot(client, repos, {
       appId: APP,
+      flowId: FLOW,
       webhookUrl: HOOK,
       flowName: '   ',
     })
@@ -263,7 +299,7 @@ describe('escopos antes do registro', () => {
     })
 
     await expect(
-      ensureBotFlowBot(client, repos, { appId: APP, webhookUrl: HOOK }),
+      ensureBotFlowBot(client, repos, { appId: APP, flowId: FLOW, webhookUrl: HOOK }),
     ).rejects.toThrow(/permiss|escopo/i)
 
     expect(chamadasBitrix()).toHaveLength(0)
@@ -276,7 +312,7 @@ describe('escopos antes do registro', () => {
     })
 
     await expect(
-      ensureBotFlowBot(client, repos, { appId: APP, webhookUrl: HOOK }),
+      ensureBotFlowBot(client, repos, { appId: APP, flowId: FLOW, webhookUrl: HOOK }),
     ).rejects.toThrow()
 
     expect(chamadasBitrix()).toHaveLength(0)
@@ -287,7 +323,7 @@ describe('escopos antes do registro', () => {
     // uma chamada para não descobrir nada.
     const { client, repos, callMethod } = setup({ existing: gravado() })
 
-    await ensureBotFlowBot(client, repos, { appId: APP, webhookUrl: HOOK })
+    await ensureBotFlowBot(client, repos, { appId: APP, flowId: FLOW, webhookUrl: HOOK })
 
     expect(callMethod).not.toHaveBeenCalled()
   })
@@ -304,9 +340,25 @@ describe('escopos antes do registro', () => {
 
     const bot = await ensureBotFlowBot(client, repos, {
       appId: APP,
+      flowId: FLOW,
       webhookUrl: HOOK,
     })
 
     expect(bot.bitrixBotId).toBe(99)
+  })
+})
+
+describe('isFlowBotCode', () => {
+  it('aceita o code puro dos bots anteriores ao bot por fluxo', () => {
+    expect(isFlowBotCode(BOT_CODE)).toBe(true)
+  })
+
+  it('aceita o code de qualquer fluxo', () => {
+    expect(isFlowBotCode(flowBotCode(FLOW))).toBe(true)
+  })
+
+  it('recusa bot de outro code', () => {
+    expect(isFlowBotCode('thinkzap-connector')).toBe(false)
+    expect(isFlowBotCode(`${BOT_CODE}x`)).toBe(false)
   })
 })

@@ -16,14 +16,22 @@ import type { GetBotFlowRepository } from '@/modules/thinkzap/domain/repositorie
 // Injetado para o controller não conhecer o Bitrix. `bindLine` grava o `WELCOME_BOT_ID`
 // na linha e confirma por leitura de volta.
 export type WelcomeBotPort = {
-  // `flowName` vai para o perfil do bot no portal: é o que o cliente vê na configuração
-  // do canal aberto. Um bot e um fluxo por instalação, então o nome não é ambíguo.
-  ensureBot(appId: string, flowName?: string): Promise<{ bitrixBotId: number }>
-  bindLine(input: { lineId: string; bitrixBotId: number }): Promise<void>
+  // `flowName` vira o nome do bot que o cliente vê na configuração do canal aberto.
+  ensureBot(
+    appId: string,
+    flowId: string,
+    flowName?: string,
+  ): Promise<{ bitrixBotId: number }>
+  bindLine(input: {
+    appId: string
+    lineId: string
+    bitrixBotId: number
+  }): Promise<void>
   unbindLine(input: { lineId: string }): Promise<void>
-  // Só quando nenhuma linha usa mais: o bot é um por instalação, e desregistrá-lo com
-  // outro canal vinculado pararia aquele atendimento.
-  removeBotIfUnused(appId: string): Promise<void>
+  // Só quando nenhuma linha do fluxo usa mais: desregistrar com outro canal vinculado
+  // pararia aquele atendimento.
+  removeBotIfUnused(appId: string, flowId: string): Promise<void>
+  removeBot(appId: string, flowId: string): Promise<void>
 }
 
 export class ListBotFlowBindingsController extends Controller {
@@ -99,8 +107,13 @@ export class CreateBotFlowBindingController extends Controller {
     // Portal antes do banco: gravar primeiro deixaria o vínculo salvo com a linha sem
     // bot (tela mostra fluxo ativo, nada entra). Falhar aqui só custa um bot registrado
     // sem uso, reaproveitado no próximo vínculo.
-    const { bitrixBotId } = await this.welcomeBot.ensureBot(appId, flow.name)
+    const { bitrixBotId } = await this.welcomeBot.ensureBot(
+      appId,
+      flow.id,
+      flow.name,
+    )
     await this.welcomeBot.bindLine({
+      appId,
       lineId: parsed.data.lineId,
       bitrixBotId,
     })
@@ -174,8 +187,15 @@ export class UpdateBotFlowBindingController extends Controller {
       await this.welcomeBot.unbindLine({ lineId: existing.lineId })
 
       if (deveEstarAtivo) {
-        const { bitrixBotId } = await this.welcomeBot.ensureBot(appId)
-        await this.welcomeBot.bindLine({ lineId: novaLinha, bitrixBotId })
+        const { bitrixBotId } = await this.welcomeBot.ensureBot(
+          appId,
+          existing.flowId,
+        )
+        await this.welcomeBot.bindLine({
+          appId,
+          lineId: novaLinha,
+          bitrixBotId,
+        })
       }
     } else if (desativando) {
       await this.welcomeBot.unbindLine({ lineId: existing.lineId })
@@ -194,8 +214,12 @@ export class UpdateBotFlowBindingController extends Controller {
        * nosso), então repetir custa duas chamadas num gesto raro e devolve o portal ao
        * estado que a tela mostra.
        */
-      const { bitrixBotId } = await this.welcomeBot.ensureBot(appId)
+      const { bitrixBotId } = await this.welcomeBot.ensureBot(
+        appId,
+        existing.flowId,
+      )
       await this.welcomeBot.bindLine({
+        appId,
         lineId: existing.lineId,
         bitrixBotId,
       })
@@ -242,8 +266,7 @@ export class DeleteBotFlowBindingController extends Controller {
 
     await this.deleteBinding.delete(appId, parsed.data.bindingId)
 
-    // Era o último vínculo: o bot não atende mais nada e sai do portal.
-    await this.welcomeBot.removeBotIfUnused(appId)
+    await this.welcomeBot.removeBotIfUnused(appId, existing.flowId)
 
     return this.ok({ deleted: true })
   }

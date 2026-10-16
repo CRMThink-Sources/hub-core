@@ -16,15 +16,25 @@ const log = createWorkerSourceLogger('bitrix')
 // `type: supervisor` / `eventMode: fetch` e não recebe evento. Este participa da conversa.
 //
 // Do env: o `code` é único no portal, não por app — ver `bitrix.botFlowCode`. O evento que
-// chega é casado por este mesmo valor, então trocá-lo troca as duas pontas de uma vez.
+// chega é casado por este mesmo prefixo, então trocá-lo troca as duas pontas de uma vez.
 export const BOT_CODE = env.bitrix.botFlowCode
 const BOT_NAME_FALLBACK = 'ThinkBot'
+
+/** Um `code` por fluxo: `register` é idempotente por `code` e devolveria o bot de outro. */
+export function flowBotCode(flowId: string): string {
+  return `${BOT_CODE}-${flowId.slice(0, 8)}`
+}
+
+/** `BOT_CODE` puro é o dos bots registrados antes de haver um bot por fluxo. */
+export function isFlowBotCode(code: string): boolean {
+  return code === BOT_CODE || code.startsWith(`${BOT_CODE}-`)
+}
 
 /**
  * Nome do bot como o cliente o vê na configuração do canal aberto.
  *
  * O prefixo identifica o app entre os outros bots do portal; o sufixo é o nome que o
- * cliente deu ao fluxo. Um bot e um fluxo por instalação, então não há ambiguidade.
+ * cliente deu ao fluxo.
  */
 export function botDisplayName(flowName?: string): string {
   const nome = flowName?.trim()
@@ -41,14 +51,19 @@ function novoBotToken(): string {
   return randomBytes(32).toString('hex')
 }
 
-// Um bot por instalação (quem escolhe o fluxo é o vínculo por linha), chamado no vínculo e
-// não na instalação: `Bot.register` exige o escopo `imbot`, e aqui a recusa é localizada.
+// Chamado no vínculo e não na criação do fluxo: `Bot.register` exige o escopo `imbot`, e
+// aqui a recusa é localizada.
 export async function ensureBotFlowBot(
   client: BitrixClient,
   repos: { get: GetBotFlowBotRepository; save: SaveBotFlowBotRepository },
-  input: { appId: string; webhookUrl: string; flowName?: string },
+  input: {
+    appId: string
+    flowId: string
+    webhookUrl: string
+    flowName?: string
+  },
 ): Promise<BotFlowBot> {
-  const existing = await repos.get.getByAppId(input.appId)
+  const existing = await repos.get.getByFlowId(input.appId, input.flowId)
 
   if (existing) {
     const webhookMudou = existing.webhookUrl !== input.webhookUrl
@@ -79,6 +94,7 @@ export async function ensureBotFlowBot(
       log.info(
         {
           appId: input.appId,
+          flowId: input.flowId,
           bitrixBotId: existing.bitrixBotId,
           webhookMudou,
         },
@@ -86,7 +102,11 @@ export async function ensureBotFlowBot(
       )
 
       return webhookMudou
-        ? repos.save.save({ ...existing, webhookUrl: input.webhookUrl })
+        ? repos.save.save({
+            ...existing,
+            flowId: input.flowId,
+            webhookUrl: input.webhookUrl,
+          })
         : existing
     }
 
@@ -113,7 +133,7 @@ export async function ensureBotFlowBot(
   // registro anterior que não foi gravado aqui volta com o token antigo, e o novo
   // `botToken` não vale. Daí a gravação na mesma request.
   const response = await registrar(client, {
-    code: BOT_CODE,
+    code: flowBotCode(input.flowId),
     botToken,
     webhookUrl: input.webhookUrl,
     flowName: input.flowName,
@@ -130,10 +150,14 @@ export async function ensureBotFlowBot(
     throw thinkzapError('thinkzap.bot.register_failed')
   }
 
-  log.info({ appId: input.appId, bitrixBotId }, 'Bot do fluxo registrado')
+  log.info(
+    { appId: input.appId, flowId: input.flowId, bitrixBotId },
+    'Bot do fluxo registrado',
+  )
 
   return repos.save.save({
     appId: input.appId,
+    flowId: input.flowId,
     bitrixBotId,
     botToken,
     webhookUrl: input.webhookUrl,

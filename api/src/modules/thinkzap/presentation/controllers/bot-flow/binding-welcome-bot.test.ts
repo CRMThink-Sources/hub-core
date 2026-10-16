@@ -46,6 +46,7 @@ function welcomeBot(over: Partial<WelcomeBotPort> = {}) {
     bindLine,
     unbindLine,
     removeBotIfUnused,
+    removeBot: vi.fn().mockResolvedValue(undefined),
   }
   return { port, ensureBot, bindLine, unbindLine, removeBotIfUnused }
 }
@@ -79,9 +80,39 @@ describe('vínculo: efeito no portal', () => {
 
     expect(ordem).toEqual(['ensureBot', 'bindLine', 'create'])
     expect(bot.bindLine).toHaveBeenCalledWith({
+      appId: APP,
       lineId: '9',
       bitrixBotId: BOT_ID,
     })
+  })
+
+  it('usa o bot do fluxo vinculado, com o nome dele', async () => {
+    const bot = welcomeBot()
+
+    await new CreateBotFlowBindingController(
+      { create: vi.fn().mockResolvedValue(binding()) },
+      {
+        getById: vi
+          .fn()
+          .mockResolvedValue({ ...publicada, id: 'f2', name: 'Suporte' }),
+      } as never,
+      { getByLineId: vi.fn().mockResolvedValue(null) },
+      bot.port,
+    ).perform(req({ flowId: 'f2', lineId: '9' }), res)
+
+    expect(bot.ensureBot).toHaveBeenCalledWith(APP, 'f2', 'Suporte')
+  })
+
+  it('último vínculo do fluxo removido tenta tirar o bot dele', async () => {
+    const bot = welcomeBot()
+
+    await new DeleteBotFlowBindingController(
+      { delete: vi.fn().mockResolvedValue(undefined) },
+      { getById: vi.fn().mockResolvedValue(binding({ flowId: 'f2' })) },
+      bot.port,
+    ).perform(req({}, { bindingId: 'b1' }), res)
+
+    expect(bot.removeBotIfUnused).toHaveBeenCalledWith(APP, 'f2')
   })
 
   it('portal falhou: nada é gravado no banco', async () => {
@@ -155,6 +186,7 @@ describe('vínculo: efeito no portal', () => {
 
     expect(bot.unbindLine).toHaveBeenCalledWith({ lineId: '7' })
     expect(bot.bindLine).toHaveBeenCalledWith({
+      appId: APP,
       lineId: '9',
       bitrixBotId: BOT_ID,
     })
@@ -204,6 +236,7 @@ describe('vínculo: efeito no portal', () => {
     ).perform(req({ active: true }, { bindingId: 'b1' }), res)
 
     expect(bot.bindLine).toHaveBeenCalledWith({
+      appId: APP,
       lineId: '7',
       bitrixBotId: BOT_ID,
     })
@@ -229,6 +262,7 @@ describe('vínculo: efeito no portal', () => {
     ).perform(req({ priority: 50 }, { bindingId: 'b1' }), res)
 
     expect(bot.bindLine).toHaveBeenCalledWith({
+      appId: APP,
       lineId: '7',
       bitrixBotId: BOT_ID,
     })
