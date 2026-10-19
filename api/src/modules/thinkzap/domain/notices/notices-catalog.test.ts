@@ -146,6 +146,51 @@ describe('catálogo de avisos do servidor', () => {
     )
   })
 
+  it('robô de envio com todos os arquivos falhando omite a linha de enviados', () => {
+    expect(
+      timelineNotices('pt').sendRobot.result({
+        fromPhone: '5599',
+        sent: ['551'],
+        message: 'Segue',
+        files: {
+          sent: [],
+          failed: [
+            { name: 'a.pdf', reason: 'send_failed' },
+            { name: 'b.mp4', reason: 'too_large' },
+          ],
+        },
+      }),
+    ).toBe(
+      'De: 5599\nPara: 551\nMensagem: Segue\n' +
+        'Arquivos não enviados: a.pdf (falha no envio), b.mp4 (maior que 30 MB)',
+    )
+  })
+
+  it('robô de envio com arquivos em inglês e espanhol', () => {
+    const input = {
+      fromPhone: '5599',
+      sent: ['551'],
+      message: 'oi',
+      files: {
+        sent: ['proposta.pdf'],
+        failed: [
+          { name: 'x.png', reason: 'unavailable' as const },
+          { name: 'y.pdf', reason: 'send_failed' as const },
+        ],
+      },
+    }
+    expect(timelineNotices('en').sendRobot.result(input)).toBe(
+      'From: 5599\nTo: 551\nMessage: oi\n' +
+        'Files sent: proposta.pdf\n' +
+        'Files not sent: x.png (could not get the file), y.pdf (send failed)',
+    )
+    expect(timelineNotices('es').sendRobot.result(input)).toBe(
+      'De: 5599\nPara: 551\nMensaje: oi\n' +
+        'Archivos enviados: proposta.pdf\n' +
+        'Archivos no enviados: x.png (no fue posible obtener el archivo), y.pdf (falla en el envío)',
+    )
+  })
+
   it('robô de envio só com arquivos omite a linha da mensagem', () => {
     expect(
       timelineNotices('pt').sendRobot.result({

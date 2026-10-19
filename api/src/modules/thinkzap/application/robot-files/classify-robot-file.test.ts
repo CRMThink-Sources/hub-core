@@ -2,6 +2,29 @@ import { describe, expect, it } from 'vitest'
 import { classifyRobotFile } from './classify-robot-file'
 
 describe('classifyRobotFile', () => {
+  // Tabela do spec: cada extensão de mídia, pelo nome e pelo mime que ela gera.
+  it.each([
+    ['jpg', 'image', 'image/jpeg'],
+    ['jpeg', 'image', 'image/jpeg'],
+    ['png', 'image', 'image/png'],
+    ['webp', 'image', 'image/webp'],
+    ['mp4', 'video', 'video/mp4'],
+    ['3gp', 'video', 'video/3gpp'],
+    ['mp3', 'audio', 'audio/mpeg'],
+    ['ogg', 'audio', 'audio/ogg'],
+    ['oga', 'audio', 'audio/ogg'],
+    ['opus', 'audio', 'audio/opus'],
+    ['wav', 'audio', 'audio/wav'],
+    ['m4a', 'audio', 'audio/mp4'],
+    ['aac', 'audio', 'audio/aac'],
+  ])('.%s → %s', (extension, kind, mime) => {
+    expect(classifyRobotFile({ name: `arquivo.${extension}` })).toEqual({
+      kind,
+      mime,
+    })
+    expect(classifyRobotFile({ name: 'sem-extensao', mime }).kind).toBe(kind)
+  })
+
   it('classifies by extension when there is no mime', () => {
     expect(classifyRobotFile({ name: 'fachada.png' })).toEqual({
       kind: 'image',
