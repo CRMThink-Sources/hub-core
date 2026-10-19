@@ -25,10 +25,14 @@ export type TimelineNotices = {
     /** Telefone de origem que não pôde ser lido. */
     unknownPhone: string
     noRecipients: (fromPhone: string) => string
+    /** Disparo sem mensagem e sem arquivo. */
+    noContent: string
+    /** Sem `files`, o texto é o de antes desta mudança. */
     result: (input: {
       fromPhone: string
       sent: string[]
       message: string
+      files?: SendRobotFilesResult
     }) => string
   }
   buttonRobot: {
@@ -54,6 +58,43 @@ export type TimelineNotices = {
   }
 }
 
+/** Por que um arquivo do robô não saiu. */
+export type SendRobotFileFailure = 'unavailable' | 'too_large' | 'send_failed'
+
+export type SendRobotFilesResult = {
+  /** Arquivos aceitos pelo provider para pelo menos um destinatário. */
+  sent: string[]
+  failed: { name: string; reason: SendRobotFileFailure }[]
+}
+
+type SendRobotFileLabels = {
+  message: string
+  sentFiles: string
+  failedFiles: string
+  reasons: Record<SendRobotFileFailure, string>
+}
+
+function sendRobotResult(
+  labels: SendRobotFileLabels,
+  base: string,
+  input: { message: string; files?: SendRobotFilesResult },
+): string {
+  if (!input.files) return `${base}\n${labels.message}: ${input.message}`
+
+  const lines = [base]
+  if (input.message) lines.push(`${labels.message}: ${input.message}`)
+  if (input.files.sent.length > 0) {
+    lines.push(`${labels.sentFiles}: ${input.files.sent.join(', ')}`)
+  }
+  if (input.files.failed.length > 0) {
+    const failed = input.files.failed
+      .map(f => `${f.name} (${labels.reasons[f.reason]})`)
+      .join(', ')
+    lines.push(`${labels.failedFiles}: ${failed}`)
+  }
+  return lines.join('\n')
+}
+
 const NOTICES: Record<NoticeLocale, TimelineNotices> = {
   pt: {
     widgetFailed: (destination, text) =>
@@ -76,8 +117,23 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       unknownPhone: 'desconhecido',
       noRecipients: fromPhone =>
         `De: ${fromPhone}\nNenhum destinatário encontrado para o envio.`,
-      result: ({ fromPhone, sent, message }) =>
-        `De: ${fromPhone}\nPara: ${sent.join(', ')}\nMensagem: ${message}`,
+      noContent:
+        'A automação não tem mensagem nem arquivo para enviar. Abra a configuração do robô e preencha a mensagem ou o arquivo.',
+      result: ({ fromPhone, sent, ...rest }) =>
+        sendRobotResult(
+          {
+            message: 'Mensagem',
+            sentFiles: 'Arquivos enviados',
+            failedFiles: 'Arquivos não enviados',
+            reasons: {
+              unavailable: 'não foi possível obter o arquivo',
+              too_large: 'maior que 30 MB',
+              send_failed: 'falha no envio',
+            },
+          },
+          `De: ${fromPhone}\nPara: ${sent.join(', ')}`,
+          rest,
+        ),
     },
     buttonRobot: {
       incomplete:
@@ -127,8 +183,23 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       unknownPhone: 'unknown',
       noRecipients: fromPhone =>
         `From: ${fromPhone}\nNo recipients found for this send.`,
-      result: ({ fromPhone, sent, message }) =>
-        `From: ${fromPhone}\nTo: ${sent.join(', ')}\nMessage: ${message}`,
+      noContent:
+        'The automation has no message and no file to send. Open the robot settings and fill in the message or the file.',
+      result: ({ fromPhone, sent, ...rest }) =>
+        sendRobotResult(
+          {
+            message: 'Message',
+            sentFiles: 'Files sent',
+            failedFiles: 'Files not sent',
+            reasons: {
+              unavailable: 'could not get the file',
+              too_large: 'larger than 30 MB',
+              send_failed: 'send failed',
+            },
+          },
+          `From: ${fromPhone}\nTo: ${sent.join(', ')}`,
+          rest,
+        ),
     },
     buttonRobot: {
       incomplete:
@@ -176,8 +247,23 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       unknownPhone: 'desconocido',
       noRecipients: fromPhone =>
         `De: ${fromPhone}\nNo se encontró ningún destinatario para el envío.`,
-      result: ({ fromPhone, sent, message }) =>
-        `De: ${fromPhone}\nPara: ${sent.join(', ')}\nMensaje: ${message}`,
+      noContent:
+        'La automatización no tiene mensaje ni archivo para enviar. Abra la configuración del robot y complete el mensaje o el archivo.',
+      result: ({ fromPhone, sent, ...rest }) =>
+        sendRobotResult(
+          {
+            message: 'Mensaje',
+            sentFiles: 'Archivos enviados',
+            failedFiles: 'Archivos no enviados',
+            reasons: {
+              unavailable: 'no fue posible obtener el archivo',
+              too_large: 'mayor que 30 MB',
+              send_failed: 'falla en el envío',
+            },
+          },
+          `De: ${fromPhone}\nPara: ${sent.join(', ')}`,
+          rest,
+        ),
     },
     buttonRobot: {
       incomplete:
