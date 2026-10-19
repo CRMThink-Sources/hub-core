@@ -53,6 +53,17 @@ export class BitrixRobotWebhookHandlerController extends Controller {
 
   async perform(req: Request, res: Response): Promise<httpResponse> {
     const data = req.body as BitrixRobotWebhookHandlerRequest
+    // TEMPORÁRIO (tarefa 1.2 de envio-arquivos-robo-thinkzap): captura o formato
+    // cru da propriedade `file`. Remover ao implementar `parse-robot-files.ts`.
+    apiLogger.info(
+      {
+        app: 'thinkzap',
+        source: 'bitrix',
+        robotFileRaw: (req.body as { properties?: { file?: unknown } })
+          .properties?.file,
+      },
+      'Robô de envio: valor cru da propriedade file',
+    )
     const domain = await this.getDomain.getDomain(data.auth.domain)
     if (!domain) {
       logThinkzapError(apiLogger, 'thinkzap.app.not_found', {
