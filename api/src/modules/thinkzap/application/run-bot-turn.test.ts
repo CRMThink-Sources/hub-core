@@ -11,8 +11,7 @@ const APP = 'app-1'
 const LINE = '224'
 const CHAT = '5'
 
-// Captura seguida de fala: a captura aceita qualquer resposta, então é o `eco` que mostra
-// de qual grafo o turno saiu.
+// O `eco` mostra de qual grafo o turno saiu.
 const graph: BotFlowGraph = {
   entryNodeId: 'ask',
   settings: { escapeKeywords: [], escapeTarget: null },
@@ -76,8 +75,7 @@ function evento(over: Partial<ParsedBotEvent> = {}): ParsedBotEvent {
   }
 }
 
-// Spies retornados à parte: `expect(port.say)` destacaria o método do objeto e o lint
-// (`unbound-method`) recusa.
+// Spies à parte por causa do lint `unbound-method`.
 function makeDeps(
   over: {
     sessaoAtiva?: BotSession | null
@@ -85,6 +83,7 @@ function makeDeps(
     bindingAtual?: BotFlowBinding | null
     /** Quando o chat foi entregue a um atendente, se foi. */
     entregueEm?: Date | null
+    connectorAtivo?: boolean
   } = {},
 ) {
   // Args declarados: sem eles o TS infere `calls` como tupla vazia e `calls[0][1]` não existe.
@@ -99,6 +98,9 @@ function makeDeps(
   )
   const advanceSession = vi.fn(() => Promise.resolve())
   const close = vi.fn(() => Promise.resolve())
+  const connectorAtivo = vi.fn(() =>
+    Promise.resolve(over.connectorAtivo ?? true),
+  )
 
   const deps: RunBotTurnDeps = {
     session: { say, whisper, handoff, finish },
@@ -119,10 +121,20 @@ function makeDeps(
           over.bindingAtual === undefined ? binding : over.bindingAtual,
         ),
     },
+    connectorAtivo,
     now: () => new Date('2026-08-31T12:00:00Z'),
   }
 
-  return { deps, say, handoff, finish, create, advanceSession, close }
+  return {
+    deps,
+    say,
+    handoff,
+    finish,
+    create,
+    advanceSession,
+    close,
+    connectorAtivo,
+  }
 }
 
 describe('runBotTurn', () => {
@@ -156,8 +168,7 @@ describe('runBotTurn', () => {
       )
 
     it('encerra a sessão nova como EXPIRED em vez de propagar', async () => {
-      // Propagar geraria retry de uma chamada que nunca passa, e a sessão ficaria `ACTIVE`
-      // prendendo o chat até o TTL.
+      // Propagar: retry eterno e sessão `ACTIVE` presa até o TTL.
       const { deps, say, close } = makeDeps()
       say.mockRejectedValue(gone())
 
@@ -173,8 +184,7 @@ describe('runBotTurn', () => {
     })
 
     it('encerra a sessão que já existia', async () => {
-      // Grafo com duas capturas: o turno para na segunda, então a sessão continua viva —
-      // é ela que precisa virar `EXPIRED`. Terminando em entrega, já fecharia sozinha.
+      // Duas capturas: a sessão segue viva e precisa virar `EXPIRED`.
       const graphDuasCapturas = {
         ...graph,
         nodes: [
@@ -237,11 +247,7 @@ describe('runBotTurn', () => {
     })
   })
 
-  /**
-   * O Bitrix dispara `MESSAGEADD` e `JOINCHAT` no mesmo instante na abertura da conversa
-   * — medido com 4 ms entre os dois, em ordem invertida. Rodar o fluxo nos dois mandava a
-   * saudação duas vezes ao cliente.
-   */
+  // `MESSAGEADD` e `JOINCHAT` chegam juntos (4 ms) e duplicavam a saudação.
   describe('eco do join na abertura da conversa', () => {
     const sessaoRecem = (nascidaEm: string): BotSession =>
       ({
@@ -327,8 +333,7 @@ describe('runBotTurn', () => {
   })
 
   it('grava o estado antes de falar', async () => {
-    // Fala antes de gravar: se a gravação caísse, a resposta do cliente seria lida como
-    // resposta da pergunta anterior.
+    // Falar antes leria a resposta contra a pergunta anterior.
     const ordem: string[] = []
     const { deps, say, create } = makeDeps()
     say.mockImplementation(() => {
@@ -376,8 +381,7 @@ describe('runBotTurn', () => {
   })
 
   it('chat já entregue a atendente não recomeça o fluxo', async () => {
-    // Era o bug: o handoff fecha a sessão, `getActiveByChatId` só vê `ACTIVE`, e a
-    // resposta seguinte do cliente — dirigida ao atendente — abria sessão nova.
+    // Bug: a resposta ao atendente abria sessão nova.
     const { deps, say, create, handoff } = makeDeps({
       entregueEm: new Date('2026-08-31T11:30:00Z'),
     })
@@ -395,8 +399,7 @@ describe('runBotTurn', () => {
   })
 
   it('transferência que falha não fica gravada como entrega', async () => {
-    // Senão a guarda de reinício leria o `HANDED_OFF` como atendimento em curso e o retry
-    // deste job ficaria mudo: nem bot, nem atendente.
+    // Senão o retry leria `HANDED_OFF` e ficaria mudo.
     const sessao: BotSession = {
       id: 'sess-1',
       appId: APP,
@@ -452,8 +455,7 @@ describe('runBotTurn', () => {
   })
 
   it('sessão viva roda o snapshot, não o fluxo republicado', async () => {
-    // Republicar no meio do atendimento mudaria as opções sob os pés de quem já
-    // respondeu: o `graph` da sessão é a fonte, o do repositório não é lido.
+    // O `graph` da sessão é a fonte, não o republicado.
     const outroGraph = {
       ...graph,
       nodes: [
@@ -484,8 +486,7 @@ describe('runBotTurn', () => {
       flowAtual: { ...flow, version: 4, graph: outroGraph },
     })
 
-    // A resposta avança para a fala seguinte, que é o que distingue o snapshot do fluxo
-    // republicado: o texto dito vem do grafo da sessão.
+    // A fala seguinte distingue snapshot de republicado.
     await runBotTurn(evento({ text: 'x' }), LINE, APP, deps)
 
     const falas = say.mock.calls.map(c => String(c[1])).join(' ')
@@ -519,6 +520,50 @@ describe('runBotTurn', () => {
     expect(out).toEqual({ kind: 'skipped', reason: 'fluxo-nao-publicado' })
   })
 
+  it('sem conector ThinkZap ativo não abre sessão', async () => {
+    const { deps, say, create } = makeDeps({ connectorAtivo: false })
+
+    const out = await runBotTurn(evento(), LINE, APP, deps)
+
+    expect(out).toEqual({ kind: 'skipped', reason: 'sem-conector-ativo' })
+    expect(say).not.toHaveBeenCalled()
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it('sessão em andamento termina mesmo com o conector vencido', async () => {
+    const sessao = {
+      id: 'sess-1',
+      appId: APP,
+      bitrixChatId: CHAT,
+      flowId: 'flow-1',
+      flowVersion: 3,
+      graph,
+      bindingId: 'bind-1',
+      currentNodeId: 'ask',
+      vars: {},
+      attempts: 0,
+      status: 'ACTIVE',
+      createdAt: new Date('2026-08-31T11:00:00Z'),
+    } as BotSession
+    const { deps, connectorAtivo } = makeDeps({
+      sessaoAtiva: sessao,
+      connectorAtivo: false,
+    })
+
+    const out = await runBotTurn(evento(), LINE, APP, deps)
+
+    expect(out.kind).toBe('ran')
+    expect(connectorAtivo).not.toHaveBeenCalled()
+  })
+
+  it('não consulta o conector quando o vínculo já barrou', async () => {
+    const { deps, connectorAtivo } = makeDeps({ bindingAtual: null })
+
+    await runBotTurn(evento(), LINE, APP, deps)
+
+    expect(connectorAtivo).not.toHaveBeenCalled()
+  })
+
   it('não cria sessão quando o fluxo termina no primeiro passo', async () => {
     // Row `ACTIVE` sem próximo nó bloquearia o chat até expirar.
     const soHandoff = {
@@ -538,8 +583,7 @@ describe('runBotTurn', () => {
   })
 
   it('alvo de handoff inexecutável cai na fila', async () => {
-    // A publicação valida o grafo, mas o operador pode ter sido apagado no Bitrix
-    // depois: transferir para id vazio deixaria o chat órfão.
+    // Operador apagado no Bitrix após a publicação: id vazio deixaria o chat órfão.
     const alvoVazio = {
       entryNodeId: 'entrega',
       settings: { escapeKeywords: [], escapeTarget: null },

@@ -37,9 +37,9 @@ const res = {} as Response
 
 const publicada = { id: 'f1', status: 'PUBLISHED' as const }
 
-// O Bitrix guarda um `WELCOME_BOT_ID` por linha, então o segundo vínculo na mesma linha
-// sobrescreveria o primeiro em silêncio. A recusa tem que vir antes da `@@unique`, senão
-// a tela recebe erro de constraint do MySQL.
+const conectado = () => Promise.resolve(true)
+
+// Um `WELCOME_BOT_ID` por linha: recusa antes da `@@unique`, cujo erro é ilegível.
 describe('vínculo: um fluxo por canal', () => {
   it('recusa vincular numa linha já ocupada', async () => {
     const create = vi.fn()
@@ -48,6 +48,7 @@ describe('vínculo: um fluxo por canal', () => {
       { getById: vi.fn().mockResolvedValue(publicada) } as never,
       { getByLineId: vi.fn().mockResolvedValue(binding()) },
       welcomeBotFake(),
+      conectado,
     )
 
     const result = await controller.perform(
@@ -67,6 +68,7 @@ describe('vínculo: um fluxo por canal', () => {
       { getById: vi.fn().mockResolvedValue(publicada) } as never,
       { getByLineId: vi.fn().mockResolvedValue(null) },
       welcomeBotFake(),
+      conectado,
     )
 
     const result = await controller.perform(
@@ -87,6 +89,7 @@ describe('vínculo: um fluxo por canal', () => {
       } as never,
       { getByLineId },
       welcomeBotFake(),
+      conectado,
     )
 
     const result = await controller.perform(
@@ -105,6 +108,7 @@ describe('vínculo: um fluxo por canal', () => {
       { getById: vi.fn().mockResolvedValue(binding({ lineId: '7' })) },
       { getByLineId: vi.fn().mockResolvedValue(binding({ id: 'b2' })) },
       welcomeBotFake(),
+      conectado,
     )
 
     const result = await controller.perform(
@@ -124,6 +128,7 @@ describe('vínculo: um fluxo por canal', () => {
       { getById: vi.fn().mockResolvedValue(binding({ lineId: '7' })) },
       { getByLineId },
       welcomeBotFake(),
+      conectado,
     )
 
     const result = await controller.perform(
@@ -144,6 +149,7 @@ describe('vínculo: um fluxo por canal', () => {
       { getById: vi.fn().mockResolvedValue(binding()) },
       { getByLineId },
       welcomeBotFake(),
+      conectado,
     )
 
     await controller.perform(req({ active: true }, { bindingId: 'b1' }), res)

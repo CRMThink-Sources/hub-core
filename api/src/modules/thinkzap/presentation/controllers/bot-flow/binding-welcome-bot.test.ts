@@ -31,8 +31,10 @@ const res = {} as Response
 
 const publicada = { id: 'f1', status: 'PUBLISHED' as const }
 
-// Spies expostos à parte: `expect(port.bindLine)` desanexaria o método do objeto e o
-// lint (`unbound-method`) recusa.
+const conectado = () => Promise.resolve(true)
+const semConector = () => Promise.resolve(false)
+
+// Spies à parte por causa do lint `unbound-method`.
 function welcomeBot(over: Partial<WelcomeBotPort> = {}) {
   const ensureBot =
     over.ensureBot ?? vi.fn().mockResolvedValue({ bitrixBotId: BOT_ID })
@@ -51,8 +53,59 @@ function welcomeBot(over: Partial<WelcomeBotPort> = {}) {
   return { port, ensureBot, bindLine, unbindLine, removeBotIfUnused }
 }
 
-// Vincular mexe no portal e no nosso banco: a ordem decide o que sobra quando um dos
-// dois falha.
+describe('vínculo: exige conector ThinkZap ativo', () => {
+  it('recusa vincular sem conector e não toca portal nem banco', async () => {
+    const bot = welcomeBot()
+    const create = vi.fn()
+
+    await expect(
+      new CreateBotFlowBindingController(
+        { create },
+        { getById: vi.fn().mockResolvedValue(publicada) } as never,
+        { getByLineId: vi.fn().mockResolvedValue(null) },
+        bot.port,
+        semConector,
+      ).perform(req({ flowId: 'f1', lineId: '9' }), res),
+    ).rejects.toMatchObject({ errorCode: 'thinkzap.bot.connector_inactive' })
+
+    expect(bot.ensureBot).not.toHaveBeenCalled()
+    expect(bot.bindLine).not.toHaveBeenCalled()
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it('recusa religar vínculo sem conector', async () => {
+    const bot = welcomeBot()
+
+    await expect(
+      new UpdateBotFlowBindingController(
+        { update: vi.fn() },
+        { getById: vi.fn().mockResolvedValue(binding({ active: false })) },
+        { getByLineId: vi.fn() },
+        bot.port,
+        semConector,
+      ).perform(req({ active: true }, { bindingId: 'b1' }), res),
+    ).rejects.toMatchObject({ errorCode: 'thinkzap.bot.connector_inactive' })
+
+    expect(bot.bindLine).not.toHaveBeenCalled()
+  })
+
+  // Conector vencido não pode prender o bot no canal.
+  it('desligar vínculo segue livre sem conector', async () => {
+    const bot = welcomeBot()
+
+    await new UpdateBotFlowBindingController(
+      { update: vi.fn().mockResolvedValue(binding({ active: false })) },
+      { getById: vi.fn().mockResolvedValue(binding({ active: true })) },
+      { getByLineId: vi.fn() },
+      bot.port,
+      semConector,
+    ).perform(req({ active: false }, { bindingId: 'b1' }), res)
+
+    expect(bot.unbindLine).toHaveBeenCalledWith({ lineId: '7' })
+  })
+})
+
+// A ordem portal/banco decide o que sobra quando um falha.
 describe('vínculo: efeito no portal', () => {
   it('registra o bot e grava na linha antes de gravar no banco', async () => {
     const ordem: string[] = []
@@ -76,6 +129,7 @@ describe('vínculo: efeito no portal', () => {
       { getById: vi.fn().mockResolvedValue(publicada) } as never,
       { getByLineId: vi.fn().mockResolvedValue(null) },
       bot.port,
+      conectado,
     ).perform(req({ flowId: 'f1', lineId: '9' }), res)
 
     expect(ordem).toEqual(['ensureBot', 'bindLine', 'create'])
@@ -98,6 +152,7 @@ describe('vínculo: efeito no portal', () => {
       } as never,
       { getByLineId: vi.fn().mockResolvedValue(null) },
       bot.port,
+      conectado,
     ).perform(req({ flowId: 'f2', lineId: '9' }), res)
 
     expect(bot.ensureBot).toHaveBeenCalledWith(APP, 'f2', 'Suporte')
@@ -116,8 +171,7 @@ describe('vínculo: efeito no portal', () => {
   })
 
   it('portal falhou: nada é gravado no banco', async () => {
-    // O oposto deixaria vínculo no banco com a linha sem bot: a tela mostraria o fluxo
-    // ativo e nenhuma mensagem entraria na linha.
+    // O oposto deixaria vínculo salvo com linha sem bot.
     const create = vi.fn()
 
     await expect(
@@ -128,6 +182,7 @@ describe('vínculo: efeito no portal', () => {
         welcomeBot({
           bindLine: vi.fn().mockRejectedValue(new Error('não persistiu')),
         }).port,
+        conectado,
       ).perform(req({ flowId: 'f1', lineId: '9' }), res),
     ).rejects.toThrow('não persistiu')
 
@@ -182,6 +237,7 @@ describe('vínculo: efeito no portal', () => {
       { getById: vi.fn().mockResolvedValue(binding({ lineId: '7' })) },
       { getByLineId: vi.fn().mockResolvedValue(null) },
       bot.port,
+      conectado,
     ).perform(req({ lineId: '9' }, { bindingId: 'b1' }), res)
 
     expect(bot.unbindLine).toHaveBeenCalledWith({ lineId: '7' })
@@ -205,6 +261,7 @@ describe('vínculo: efeito no portal', () => {
       },
       { getByLineId: vi.fn().mockResolvedValue(null) },
       bot.port,
+      conectado,
     ).perform(req({ lineId: '9' }, { bindingId: 'b1' }), res)
 
     expect(bot.unbindLine).toHaveBeenCalledWith({ lineId: '7' })
@@ -219,6 +276,7 @@ describe('vínculo: efeito no portal', () => {
       { getById: vi.fn().mockResolvedValue(binding({ active: true })) },
       { getByLineId: vi.fn() },
       bot.port,
+      conectado,
     ).perform(req({ active: false }, { bindingId: 'b1' }), res)
 
     expect(bot.unbindLine).toHaveBeenCalledWith({ lineId: '7' })
@@ -233,6 +291,7 @@ describe('vínculo: efeito no portal', () => {
       { getById: vi.fn().mockResolvedValue(binding({ active: false })) },
       { getByLineId: vi.fn() },
       bot.port,
+      conectado,
     ).perform(req({ active: true }, { bindingId: 'b1' }), res)
 
     expect(bot.bindLine).toHaveBeenCalledWith({
@@ -242,15 +301,7 @@ describe('vínculo: efeito no portal', () => {
     })
   })
 
-  /**
-   * O `WELCOME_BOT_ID` da linha é editável pelo painel do Bitrix, e mexer na configuração
-   * do canal desliga a saudação sem avisar. O vínculo continua `active` aqui, o portal
-   * para de convocar o bot e nada aparece em log — só o silêncio.
-   *
-   * Salvar o vínculo é o gesto de quem quer consertar isso, então reatrela mesmo sem
-   * mudança de estado: chamar o portal à toa custa duas chamadas num gesto raro, e não
-   * chamar deixava a tela sem como devolver o bot à linha.
-   */
+  // O painel do Bitrix pode limpar o `WELCOME_BOT_ID` em silêncio; salvar conserta.
   it('salvar vínculo ativo reatrela o portal', async () => {
     const bot = welcomeBot()
 
@@ -259,6 +310,7 @@ describe('vínculo: efeito no portal', () => {
       { getById: vi.fn().mockResolvedValue(binding({ active: true })) },
       { getByLineId: vi.fn() },
       bot.port,
+      conectado,
     ).perform(req({ priority: 50 }, { bindingId: 'b1' }), res)
 
     expect(bot.bindLine).toHaveBeenCalledWith({
@@ -277,6 +329,7 @@ describe('vínculo: efeito no portal', () => {
       { getById: vi.fn().mockResolvedValue(binding({ active: false })) },
       { getByLineId: vi.fn() },
       bot.port,
+      conectado,
     ).perform(req({ priority: 50 }, { bindingId: 'b1' }), res)
 
     expect(bot.ensureBot).not.toHaveBeenCalled()
