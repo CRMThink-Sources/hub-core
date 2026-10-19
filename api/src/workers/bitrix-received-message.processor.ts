@@ -33,6 +33,7 @@ import {
   isDailyLimitReachedError,
   sendWithinDailyQuota,
 } from '@/modules/thinkzap/application/helpers/send-within-daily-quota'
+import { buildCaptionedParts } from '@/modules/thinkzap/application/helpers/build-captioned-parts'
 import type { DailyLimitPolicy } from '@/modules/thinkzap/domain/daily-send-limit'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
@@ -168,11 +169,7 @@ async function persistOutboundMessage(
   }
 }
 
-const CAPTIONABLE_KINDS: ReadonlySet<OutboundMessageDescriptor['kind']> =
-  new Set(['image', 'video', 'document'])
-
-// `text` e `files` podem vir juntos: o texto vira legenda do primeiro anexo legendável,
-// senão sai como texto separado antes da mídia (ordem do canal aberto).
+// `text` e `files` podem vir juntos: a regra de legenda está em `buildCaptionedParts`.
 function toOutboundDescriptors(
   message: IBX24MessageEvent['data']['MESSAGES'][number],
   logContext: { domain: string },
@@ -200,17 +197,7 @@ function toOutboundDescriptors(
   }
 
   // Anexo desconhecido descartado não pode levar o texto embora.
-  if (!media.length) return text ? [{ kind: 'text', text }] : []
-
-  if (!text) return media
-
-  const first = media[0]
-
-  if (first && CAPTIONABLE_KINDS.has(first.kind)) {
-    return [{ ...first, text }, ...media.slice(1)]
-  }
-
-  return [{ kind: 'text', text }, ...media]
+  return buildCaptionedParts(text, media)
 }
 
 function describeDescriptor(descriptor: OutboundMessageDescriptor): string {

@@ -74,6 +74,18 @@ describe('catálogo de avisos do servidor', () => {
           message: 'oi',
         }),
       ).toContain('551, 552')
+      const withFiles = timeline.sendRobot.result({
+        fromPhone: '5599',
+        sent: ['551'],
+        message: '',
+        files: {
+          sent: ['proposta.pdf'],
+          failed: [{ name: 'video.mp4', reason: 'too_large' }],
+        },
+      })
+      expect(withFiles).toContain('proposta.pdf')
+      expect(withFiles).toContain('video.mp4 (')
+      expect(withFiles).toContain('30 MB')
       expect(timeline.buttonRobot.lineCannotSend('erro X')).toContain('erro X')
       expect(
         timeline.buttonRobot.providerMismatch('ZAPI', 'HUBMESSAGE'),
@@ -101,6 +113,49 @@ describe('catálogo de avisos do servidor', () => {
       ).toContain('motivo cru')
     },
   )
+
+  // Robô sem arquivo: o comentário tem que sair igual ao de antes da mudança.
+  it('robô de envio sem arquivos mantém o comentário anterior', () => {
+    const input = { fromPhone: '5599', sent: ['551', '552'], message: 'oi' }
+    expect(timelineNotices('pt').sendRobot.result(input)).toBe(
+      'De: 5599\nPara: 551, 552\nMensagem: oi',
+    )
+    expect(timelineNotices('en').sendRobot.result(input)).toBe(
+      'From: 5599\nTo: 551, 552\nMessage: oi',
+    )
+    expect(timelineNotices('es').sendRobot.result(input)).toBe(
+      'De: 5599\nPara: 551, 552\nMensaje: oi',
+    )
+  })
+
+  it('robô de envio com arquivos lista enviados e não enviados', () => {
+    expect(
+      timelineNotices('pt').sendRobot.result({
+        fromPhone: '5599',
+        sent: ['551'],
+        message: 'Segue sua proposta',
+        files: {
+          sent: ['proposta.pdf'],
+          failed: [{ name: 'anexo.png', reason: 'unavailable' }],
+        },
+      }),
+    ).toBe(
+      'De: 5599\nPara: 551\nMensagem: Segue sua proposta\n' +
+        'Arquivos enviados: proposta.pdf\n' +
+        'Arquivos não enviados: anexo.png (não foi possível obter o arquivo)',
+    )
+  })
+
+  it('robô de envio só com arquivos omite a linha da mensagem', () => {
+    expect(
+      timelineNotices('pt').sendRobot.result({
+        fromPhone: '5599',
+        sent: ['551'],
+        message: '',
+        files: { sent: ['proposta.pdf'], failed: [] },
+      }),
+    ).toBe('De: 5599\nPara: 551\nArquivos enviados: proposta.pdf')
+  })
 
   it('inglês e espanhol não repetem o português', () => {
     for (const name of Object.keys(CATALOGS)) {

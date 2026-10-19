@@ -29,6 +29,15 @@ describe('buildThinkzapRobotAddParams', () => {
           Type: 'bool',
           Default: 'N',
         },
+        message: {
+          Name: 'Message',
+          Type: 'text',
+        },
+        file: {
+          Name: 'File',
+          Type: 'file',
+          Multiple: 'Y',
+        },
       },
     })
   })
