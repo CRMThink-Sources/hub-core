@@ -30,9 +30,9 @@ describe('classifyRobotFile', () => {
   })
 
   it('prefers the mime reported by Bitrix over the extension', () => {
-    expect(
-      classifyRobotFile({ name: 'foto.bin', mime: 'image/jpeg' }),
-    ).toEqual({ kind: 'image', mime: 'image/jpeg' })
+    expect(classifyRobotFile({ name: 'foto.bin', mime: 'image/jpeg' })).toEqual(
+      { kind: 'image', mime: 'image/jpeg' },
+    )
     expect(
       classifyRobotFile({ name: 'foto.png', mime: 'application/pdf' }),
     ).toEqual({ kind: 'document', mime: 'application/pdf' })
