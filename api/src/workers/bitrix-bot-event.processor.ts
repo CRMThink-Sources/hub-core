@@ -1,4 +1,5 @@
 import { adoptLineBinding } from '@/modules/thinkzap/application/adopt-line-binding'
+import { CheckThinkbotConnector } from '@/modules/thinkzap/application/check-thinkbot-connector'
 import { isFlowBotCode } from '@/modules/thinkzap/application/ensure-bot-flow-bot'
 import { runBotTurn } from '@/modules/thinkzap/application/run-bot-turn'
 import { parseBotEvent } from '@/modules/thinkzap/domain/bot-flow/bot-event'
@@ -145,8 +146,7 @@ export async function processBitrixBotEvent(
     domain: domain.name,
   })
 
-  // `MESSAGEADD` e `JOINCHAT` chegam juntos e duplicariam a saudação: um turno por chat,
-  // concorrente descartado (esperar prenderia slots do worker).
+  // Um turno por chat; concorrente descartado (esperar prenderia slots do worker).
   const lock = await acquireBotChatLock(
     redisConnection,
     installedApp.id,
@@ -208,6 +208,11 @@ export async function processBitrixBotEvent(
       bindings,
       // Uma leitura por turno: o resumo da transferência sai no idioma da instalação.
       locale: await makeInstallationLocaleRepository().byAppId(installedApp.id),
+      connectorAtivo: () =>
+        new CheckThinkbotConnector(makeGetAplicationContext()).execute({
+          domainId: domain.id,
+          appCode: thinkzapAppCodeId(),
+        }),
       workingHours: async (id: string) => {
         try {
           const config = await client.getOpenChannel(id)
@@ -238,8 +243,7 @@ export async function processBitrixBotEvent(
 
     let outcome = await runBotTurn(event, lineId, installedApp.id, deps, crm)
 
-    // Canal ligado pelo painel do Bitrix: adota só em `sem-vinculo`; os outros skips são
-    // decisão do cliente (vínculo inativo, fluxo fora do ar).
+    // Bot ligado pelo painel do Bitrix: adota só em `sem-vinculo`.
     if (outcome.kind === 'skipped' && outcome.reason === 'sem-vinculo') {
       const adotado = await adoptLineBinding(
         installedApp.id,
@@ -281,7 +285,7 @@ export async function processBitrixBotEvent(
     }
 
     if (outcome.kind === 'skipped') {
-      // Bot na linha sem fluxo: vai para a fila em vez de deixar o chat mudo.
+      // Fila em vez de chat mudo.
       logThinkzapError(
         log,
         'thinkzap.bot.turn_skipped',
@@ -293,7 +297,7 @@ export async function processBitrixBotEvent(
         },
         {
           level: 'warn',
-          msg: `Turno sem fluxo (${outcome.reason}) — entregando para a fila`,
+          msg: `Turno não executado (${outcome.reason}) — entregando para a fila`,
         },
       )
 
@@ -310,8 +314,8 @@ export async function processBitrixBotEvent(
   }
 }
 
-// A fala do bot não dispara `ONIMCONNECTORMESSAGEADD`, então entregamos ao contato direto;
-// canal sem conector ThinkZap fica só no eco (o Bitrix repassa ao conector dele).
+// Fala do bot não dispara `ONIMCONNECTORMESSAGEADD`: entrega direto ao contato.
+// Canal de outro conector fica só no eco.
 async function comEntregaAoContato(
   eco: BotSessionPort,
   input: {

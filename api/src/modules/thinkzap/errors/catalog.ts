@@ -328,6 +328,15 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 409,
   },
+  'thinkzap.bot.connector_inactive': {
+    category: 'config',
+    userCause:
+      'O ThinkBot só funciona com um conector ThinkZap contratado e ativo, e esta instalação não tem nenhum.',
+    remediation:
+      'Contratar ou reativar uma linha ThinkZap (assinatura ativa ou teste dentro do prazo) e vincular o fluxo de novo.',
+    retriable: false,
+    httpStatus: 403,
+  },
   'thinkzap.bot.line_bind_failed': {
     category: 'integration',
     userCause:
@@ -446,9 +455,9 @@ export const THINKZAP_ERRORS = {
   'thinkzap.bot.turn_skipped': {
     category: 'config',
     userCause:
-      'O bot está ligado num canal aberto que não tem fluxo para rodar; a conversa foi entregue à fila da linha.',
+      'O bot está ligado num canal aberto que não tem fluxo para rodar, ou a instalação está sem conector ThinkZap ativo; a conversa foi entregue à fila da linha.',
     remediation:
-      'Abrir o ThinkBot e vincular um fluxo publicado ao canal, ou remover o vínculo para o canal voltar ao atendimento humano direto.',
+      'Conferir o `reason` do log: sem conector ativo, contratar ou reativar uma linha ThinkZap; nos outros casos, vincular um fluxo publicado ao canal pelo ThinkBot ou remover o vínculo.',
     retriable: false,
   },
   'thinkzap.bitrix.reply_context_failed': {

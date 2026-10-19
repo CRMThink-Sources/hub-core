@@ -12,11 +12,11 @@ import type {
   UpdateBotFlowBindingRepository,
 } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow-binding.repository'
 import type { GetBotFlowRepository } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow.repository'
+import { thinkzapError } from '@/modules/thinkzap/errors/catalog'
 
-// Injetado para o controller não conhecer o Bitrix. `bindLine` grava o `WELCOME_BOT_ID`
-// na linha e confirma por leitura de volta.
+// `bindLine` grava o `WELCOME_BOT_ID` na linha e confirma por leitura.
 export type WelcomeBotPort = {
-  // `flowName` vira o nome do bot que o cliente vê na configuração do canal aberto.
+  // `flowName` vira o nome do bot no canal aberto.
   ensureBot(
     appId: string,
     flowId: string,
@@ -28,10 +28,18 @@ export type WelcomeBotPort = {
     bitrixBotId: number
   }): Promise<void>
   unbindLine(input: { lineId: string }): Promise<void>
-  // Só quando nenhuma linha do fluxo usa mais: desregistrar com outro canal vinculado
-  // pararia aquele atendimento.
+  // Só sem outra linha usando o bot.
   removeBotIfUnused(appId: string, flowId: string): Promise<void>
   removeBot(appId: string, flowId: string): Promise<void>
+}
+
+export type ConnectorAtivoPort = () => Promise<boolean>
+
+// Só ao atrelar: desligar/remover seguem livres para não prender o bot no canal.
+async function exigirConnectorAtivo(connectorAtivo: ConnectorAtivoPort) {
+  if (!(await connectorAtivo())) {
+    throw thinkzapError('thinkzap.bot.connector_inactive')
+  }
 }
 
 export class ListBotFlowBindingsController extends Controller {
@@ -58,6 +66,7 @@ export class CreateBotFlowBindingController extends Controller {
     private readonly getFlow: GetBotFlowRepository,
     private readonly getBindingByLine: GetBotFlowBindingByLineRepository,
     private readonly welcomeBot: WelcomeBotPort,
+    private readonly connectorAtivo: ConnectorAtivoPort,
   ) {
     super()
   }
@@ -87,15 +96,14 @@ export class CreateBotFlowBindingController extends Controller {
       return this.notFound(new Error('Flow not found'))
     }
 
-    // Só publicado entra em linha: rascunho não passou pela validação do grafo.
+    // Rascunho não passou pela validação do grafo.
     if (flow.status !== 'PUBLISHED') {
       return this.badRequest(
         new Error('Publique o fluxo antes de vinculá-lo a uma linha'),
       )
     }
 
-    // Antes da `@@unique` estourar: o erro de constraint do MySQL não diz que a linha
-    // já está ocupada.
+    // Antes da `@@unique`, cujo erro não diz que a linha está ocupada.
     const ocupada = await this.getBindingByLine.getByLineId(
       appId,
       parsed.data.lineId,
@@ -104,9 +112,9 @@ export class CreateBotFlowBindingController extends Controller {
       return this.badRequest(new Error(LINHA_OCUPADA))
     }
 
-    // Portal antes do banco: gravar primeiro deixaria o vínculo salvo com a linha sem
-    // bot (tela mostra fluxo ativo, nada entra). Falhar aqui só custa um bot registrado
-    // sem uso, reaproveitado no próximo vínculo.
+    await exigirConnectorAtivo(this.connectorAtivo)
+
+    // Portal antes do banco: o inverso deixaria vínculo salvo com linha sem bot.
     const { bitrixBotId } = await this.welcomeBot.ensureBot(
       appId,
       flow.id,
@@ -137,6 +145,7 @@ export class UpdateBotFlowBindingController extends Controller {
     private readonly getBinding: GetBotFlowBindingRepository,
     private readonly getBindingByLine: GetBotFlowBindingByLineRepository,
     private readonly welcomeBot: WelcomeBotPort,
+    private readonly connectorAtivo: ConnectorAtivoPort,
   ) {
     super()
   }
@@ -177,11 +186,14 @@ export class UpdateBotFlowBindingController extends Controller {
       }
     }
 
-    // Mudança de linha e alternância de `active` precisam chegar ao portal antes de
-    // gravar: falha depois do banco deixaria linha antiga com bot sem fluxo (bot mudo)
-    // ou bot atendendo por um vínculo que a tela mostra como desligado.
+    // Portal antes do banco, como na criação.
     const desativando = body.data.active === false && existing.active
     const deveEstarAtivo = body.data.active ?? existing.active
+
+    // Vínculo ativo sempre reatrela o bot.
+    if (deveEstarAtivo) {
+      await exigirConnectorAtivo(this.connectorAtivo)
+    }
 
     if (mudouLinha && novaLinha) {
       await this.welcomeBot.unbindLine({ lineId: existing.lineId })
@@ -200,20 +212,8 @@ export class UpdateBotFlowBindingController extends Controller {
     } else if (desativando) {
       await this.welcomeBot.unbindLine({ lineId: existing.lineId })
     } else if (deveEstarAtivo) {
-      /**
-       * Reatrela sempre que o vínculo deve estar ativo, e não só na transição
-       * desligado→ligado.
-       *
-       * O `WELCOME_BOT_ID` da linha é editável pelo painel do Bitrix: mexer na
-       * configuração do canal desliga a saudação sem avisar ninguém, e o vínculo segue
-       * `active` aqui. O portal para de convocar o bot, nenhum evento é gerado e não há
-       * o que aparecer em log — só o silêncio. Reagir à transição não cobria isso: com o
-       * vínculo já ativo, salvar não chamava o portal e a tela não tinha como consertar.
-       *
-       * `bindWelcomeBot` é idempotente (`assertLinhaLivre` libera a linha cujo bot já é o
-       * nosso), então repetir custa duas chamadas num gesto raro e devolve o portal ao
-       * estado que a tela mostra.
-       */
+      // Reatrela mesmo sem transição: o painel do Bitrix pode ter limpado o
+      // `WELCOME_BOT_ID` em silêncio. `bindWelcomeBot` é idempotente.
       const { bitrixBotId } = await this.welcomeBot.ensureBot(
         appId,
         existing.flowId,
@@ -259,9 +259,7 @@ export class DeleteBotFlowBindingController extends Controller {
       return this.notFound(new Error('Binding not found'))
     }
 
-    // Desligar o bot vem antes de apagar o vínculo, por ser o passo que pode falhar:
-    // vínculo apagado com bot ainda ativo na linha deixaria o bot mudo (o Bitrix
-    // entrega ao bot e não há fluxo para rodar). Nesta ordem a falha é repetível.
+    // Desliga antes de apagar: o inverso deixaria bot mudo na linha se falhar.
     await this.welcomeBot.unbindLine({ lineId: existing.lineId })
 
     await this.deleteBinding.delete(appId, parsed.data.bindingId)
