@@ -24,11 +24,17 @@ O envio de mídia ao Z-API já existe em dois lugares: `ZApiOutboundSender` (res
 ### 1. Propriedade `file` múltipla no robô existente
 `PROPERTIES.file = { Name: 'File', Type: 'file', Multiple: 'Y' }`, e `message` deixa de ser tratado como obrigatório no handler. Escolhido pelo usuário em vez de um robô separado: um fluxo que já envia texto ganha arquivo sem trocar de robô, e o robô antigo é atualizado pelo `bizproc.robot.update` existente.
 
-### 2. Ler o valor do arquivo por um normalizador tolerante
-A documentação do Bitrix não detalha o formato que chega ao handler REST para `Type: 'file'`. Antes de escrever o parser, a primeira tarefa captura um disparo real (valor fixo enviado na configuração e campo de arquivo do negócio, com um e com vários arquivos). Um `parseRobotFiles(raw)` isolado converte o que chegar — string, array ou objeto por índice (formato do `express.urlencoded` com `extended: true`) — numa lista de referências `{ url, name? }`. Se o valor for id de arquivo do Disk em vez de URL, o normalizador resolve via REST (`disk.file.get` → `DOWNLOAD_URL`) com o token do próprio evento. Isolar a leitura deixa o resto do fluxo igual qualquer que seja o formato confirmado.
+### 2. O valor do robô é uma lista de ids de arquivo do portal
+Capturado em homolog (tarefa 1.2): com o campo File ligado a um campo de arquivo múltiplo do negócio, o handler recebe `properties.file = ["422204", "422206"]` — ids da tabela de arquivos do portal (`b_file`), sem nome, tipo nem link. Não são ids do Disk (`disk.file.get` responde "Could not find entity"), e o REST não tem método para baixar um arquivo só pelo id.
 
-### 3. Baixar no servidor e enviar como base64
-As URLs de arquivo do Bitrix exigem autenticação do portal, e o Z-API baixa a URL sem credencial. Por isso o handler baixa cada arquivo uma vez (com o `access_token` do evento quando a URL não for pública), obtém nome, mime e tamanho, e passa ao Z-API como data URL base64 — o mesmo formato que o widget já usa. Alternativa descartada: repassar a URL ao Z-API, que falharia para arquivos privados do portal.
+`parseRobotFiles(raw)` normaliza o valor — array, string única, objeto por índice (forma do `express.urlencoded` com `extended: true`), vazio — em ids numéricos únicos, na ordem recebida.
+
+### 3. Achar os ids nos campos de arquivo do documento e baixar pelo `urlMachine`
+`crm.item.get` do documento do disparo devolve cada campo de arquivo como `[{ id, url, urlMachine }]`; o `urlMachine` é um link REST que já leva o token do app e responde com o conteúdo, `content-type` e `content-disposition` (nome em `filename*` UTF-8). Validado com os dois arquivos do negócio 39802.
+
+O handler mapeia a entidade do `document_id` para o `entityTypeId` (`DEAL`→2, `LEAD`→1, `CONTACT`→3, `COMPANY`→4, `DYNAMIC_<n>`→n), lê o item uma vez, procura os ids em **todos** os valores de campo com esse formato — o robô não diz de qual campo veio o arquivo — e baixa cada um uma vez. Id que não aparece no item (arquivo enviado na configuração do robô, ou fluxo fora do CRM) vira `unavailable`. Alternativa descartada: `disk.file.get`, que não reconhece esses ids.
+
+O arquivo baixado vai ao Z-API como data URL base64, o mesmo formato que o widget usa: o `urlMachine` carrega o token do portal e não pode ser repassado ao provider.
 
 Limite de 30 MB por arquivo, alinhado ao `limit: '30mb'` do body parser da API e ao tamanho que o JSON base64 para o Z-API suporta com folga. Arquivo maior é descartado com motivo.
 
@@ -49,10 +55,10 @@ Uma recusa por limite numa parte interrompe as partes restantes daquele destinat
 
 ## Risks / Trade-offs
 
-- [Formato do valor `file` diferente do esperado] → tarefa 1.1 captura o payload real antes do parser; o normalizador é a única peça que depende disso.
+- [Arquivo enviado na configuração do robô não tem caminho de download] → fora do escopo do spec; aparece na timeline como não obtido, e o texto segue.
+- [`urlMachine` com token na URL] → nunca é logado nem repassado ao provider; só o conteúdo baixado sai do servidor.
 - [Webhook do bizproc com timeout em arquivos grandes ou muitos destinatários] → arquivos baixados uma vez só; limite de 30 MB. Se virar problema, mover o robô para a fila é uma mudança separada.
 - [Memória: arquivo em base64 em memória durante o disparo] → limite de 30 MB e download sequencial dos arquivos.
-- [Token do evento sem escopo `disk`] → o Thinkzap já instala com escopo de CRM; se `disk.file.get` for necessário e o escopo faltar, o arquivo é descartado com motivo e o caso é registrado no catálogo de erros.
 
 ## Migration Plan
 

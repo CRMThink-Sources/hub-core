@@ -7,7 +7,9 @@ Define como o robô "Enviar mensagem" do ThinkZap no bizproc do Bitrix24 envia a
 ## ADDED Requirements
 
 ### Requirement: Robô aceita arquivos
-O robô "Enviar mensagem" SHALL ter uma propriedade opcional **Arquivo**, do tipo arquivo do bizproc e múltipla, que aceite arquivo enviado na configuração do robô ou campo de arquivo do documento (negócio, lead, contato, empresa, SPA).
+O robô "Enviar mensagem" SHALL ter uma propriedade opcional **Arquivo**, do tipo arquivo do bizproc e múltipla, ligada a um campo de arquivo do documento do CRM em que o fluxo roda (negócio, lead, contato, empresa ou SPA).
+
+Só arquivos que estão num campo de arquivo desse documento SHALL ser enviados. Um arquivo enviado direto na configuração do robô, ou um arquivo de fluxo que não roda sobre um documento do CRM (lista universal, por exemplo), SHALL ser tratado como arquivo que não pôde ser obtido (ver "Falha por arquivo não interrompe o disparo"): não é enviado e aparece na timeline com esse motivo, quando há timeline.
 
 A propriedade Mensagem SHALL poder ficar vazia quando houver pelo menos um arquivo. Um disparo sem mensagem e sem arquivo SHALL NOT enviar nada e SHALL registrar na timeline que a automação não tem conteúdo para enviar.
 
@@ -21,6 +23,10 @@ Robôs configurados antes desta mudança, sem a propriedade Arquivo, SHALL conti
 - **WHEN** o robô está configurado com a propriedade Arquivo ligada a um campo de arquivo do negócio que contém `proposta.pdf`, e é disparado
 - **THEN** o destinatário recebe o documento `proposta.pdf`
 
+#### Scenario: Arquivo enviado na configuração do robô
+- **WHEN** o robô tem a Mensagem "Segue o boleto" e, na propriedade Arquivo, um arquivo enviado direto na configuração, e é disparado num negócio
+- **THEN** o destinatário recebe só o texto "Segue o boleto" e a timeline do negócio indica que o arquivo não pôde ser obtido
+
 #### Scenario: Sem mensagem e sem arquivo
 - **WHEN** o robô é disparado com a Mensagem vazia e o campo de arquivo do negócio vazio
 - **THEN** nada é enviado e a timeline do negócio registra que a automação não tem conteúdo para enviar
@@ -32,7 +38,7 @@ Cada arquivo SHALL ser enviado ao WhatsApp no tipo correspondente ao seu formato
 - **áudio**: mp3, ogg, oga, opus, wav, m4a, aac — enviado como mensagem de voz;
 - **documento**: qualquer outro formato, preservando o nome do arquivo.
 
-O formato SHALL ser identificado pelo tipo do arquivo informado pelo Bitrix e, na falta dele, pela extensão do nome.
+O formato SHALL ser identificado pelo tipo do arquivo informado pelo Bitrix no download e, na falta dele (ou sendo genérico), pela extensão do nome.
 
 #### Scenario: Imagem
 - **WHEN** o robô dispara com o arquivo `fachada.png`
@@ -62,9 +68,9 @@ Quando o disparo tem Mensagem e arquivos, o texto SHALL ir como legenda do prime
 - **THEN** o destinatário recebe `contrato.pdf` com a legenda e, em seguida, `anexo.png` sem legenda
 
 ### Requirement: Falha por arquivo não interrompe o disparo
-O robô SHALL enviar cada parte (texto e cada arquivo) a cada destinatário de forma independente. A falha de uma parte — arquivo que não pôde ser baixado do Bitrix, arquivo acima de 30 MB ou erro do provider — SHALL NOT impedir o envio das demais partes nem dos demais destinatários.
+O robô SHALL enviar cada parte (texto e cada arquivo) a cada destinatário de forma independente. A falha de uma parte — arquivo que não pôde ser obtido do Bitrix, arquivo acima de 30 MB ou erro do provider — SHALL NOT impedir o envio das demais partes nem dos demais destinatários.
 
-Um arquivo que não pôde ser baixado ou que excede 30 MB SHALL ser descartado antes do envio, para todos os destinatários.
+Um arquivo que não pôde ser obtido (não está em campo de arquivo do documento, ou o download falhou) ou que excede 30 MB SHALL ser descartado antes do envio, para todos os destinatários.
 
 #### Scenario: Um dos arquivos indisponível
 - **WHEN** o robô dispara com `contrato.pdf` e um segundo arquivo que o Bitrix não entrega
