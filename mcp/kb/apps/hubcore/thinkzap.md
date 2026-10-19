@@ -29,6 +29,7 @@ contratação por cartão/manual, com linhas adicionais).
 - **Contratação por cartão indisponível** → `thinkzap.gateway.not_configured` /
   `thinkzap.gateway.checkout_create_failed`.
 - **Disparo pelo robô não saiu** → `thinkzap.bitrix.robot_webhook_failed`.
+- **Arquivo do robô de envio não chegou, o texto sim** → `thinkzap.bitrix.robot_file_unavailable`.
 - **App não instalado no portal** → `thinkzap.app.not_found`.
 
 ## Dicas de triagem

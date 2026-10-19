@@ -233,6 +233,14 @@ export const THINKZAP_ERRORS = {
       'Conferir se a linha está ativa e conectada; revisar a configuração do robô no fluxo.',
     retriable: false,
   },
+  'thinkzap.bitrix.robot_file_unavailable': {
+    category: 'integration',
+    userCause:
+      'Um arquivo do robô de envio não pôde ser obtido do Bitrix24 e não foi enviado; o texto e os demais arquivos seguiram.',
+    remediation:
+      'Conferir se a propriedade Arquivo do robô está ligada a um campo de arquivo do próprio card (arquivo enviado direto na configuração do robô não é suportado) e se o arquivo ainda existe no campo.',
+    retriable: false,
+  },
   'thinkzap.bitrix.template_robot_refused': {
     category: 'config',
     userCause:

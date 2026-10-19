@@ -31,6 +31,20 @@ import {
 } from '../../application/related-destinations.resolver'
 import { apiLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '../../errors/catalog'
+import type {
+  SendRobotFileFailure,
+  SendRobotFilesResult,
+} from '@/modules/thinkzap/domain/notices/timeline-notices'
+import type { OutboundMessageDescriptor } from '@/modules/thinkzap/domain/ports/outbound-message-sender.port'
+import { buildCaptionedParts } from '../../application/helpers/build-captioned-parts'
+import { parseRobotFiles } from '../../application/robot-files/parse-robot-files'
+import {
+  downloadRobotFile,
+  fetchRobotFiles,
+  type RobotFileDeps,
+  type RobotFileResult,
+} from '../../application/robot-files/fetch-robot-files'
+import { ZApiOutboundSender } from '../../infra/adapters/z-api-outbound-sender.adapter'
 
 export class BitrixRobotWebhookHandlerController extends Controller {
   private readonly zApiClient: ZApiClient = new ZApiClient(
@@ -47,23 +61,14 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     private readonly quota: DailySendQuota | null = null,
     /** Idioma do aviso de limite na timeline. Ausente, português. */
     private readonly locales: InstallationLocaleRepository | null = null,
+    /** Leitura dos arquivos do robô. Ausente, `crm.item.get` deste portal + download HTTP. */
+    private readonly files: RobotFileDeps | null = null,
   ) {
     super()
   }
 
   async perform(req: Request, res: Response): Promise<httpResponse> {
     const data = req.body as BitrixRobotWebhookHandlerRequest
-    // TEMPORÁRIO (tarefa 1.2 de envio-arquivos-robo-thinkzap): captura o formato
-    // cru da propriedade `file`. Remover ao implementar `parse-robot-files.ts`.
-    apiLogger.info(
-      {
-        app: 'thinkzap',
-        source: 'bitrix',
-        robotFileRaw: (req.body as { properties?: { file?: unknown } })
-          .properties?.file,
-      },
-      'Robô de envio: valor cru da propriedade file',
-    )
     const domain = await this.getDomain.getDomain(data.auth.domain)
     if (!domain) {
       logThinkzapError(apiLogger, 'thinkzap.app.not_found', {
@@ -117,16 +122,28 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     // CRM timeline to comment on.
     const crmDocument = parseBizprocDocumentId(documentId)
 
+    // Idioma da instalação para o comentário da timeline (sempre há um, com documento).
+    const locale =
+      (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE
+    const notices = timelineNotices(locale)
+
+    // Mensagem só de espaços conta como vazia: com arquivo, eles vão sem legenda.
+    const message = data.properties.message?.trim()
+      ? data.properties.message
+      : ''
+    const fileIds = parseRobotFiles(data.properties.file)
+
+    if (!message && fileIds.length === 0) {
+      await this.commentOnCrmTimeline(crmDocument, notices.sendRobot.noContent)
+      return this.ok({ received: true, sent: 0 })
+    }
+
     const recipients = await this.resolveRecipients(data, crmDocument)
 
     const phoneData = await this.zApiClient.getPhoneData(
       line.zApiInstanceId,
       line.zApiInstanceToken,
     )
-    // Idioma da instalação para o comentário da timeline (sempre há um, com documento).
-    const locale =
-      (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE
-    const notices = timelineNotices(locale)
     const fromPhone = phoneData?.phone ?? notices.sendRobot.unknownPhone
 
     if (recipients.length === 0) {
@@ -143,34 +160,64 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       settings: line.item.settings,
     })
 
+    // Uma vez por disparo, não por destinatário.
+    const files = await fetchRobotFiles(this.fileDeps(), crmDocument, fileIds)
+    const parts = buildCaptionedParts(message || undefined, toMedia(files))
+
     const sent: string[] = []
     // Recusados pelo limite diário: listados na timeline, para o cliente saber quem ficou sem.
     const refusedByLimit: string[] = []
+    const acceptedFiles = new Set<string>()
+    const providerFailedFiles = new Set<string>()
+
     for (const phone of recipients) {
-      try {
-        const send = () =>
-          this.zApiClient.sendMessage(
-            line.zApiInstanceId,
-            line.zApiInstanceToken,
-            data.properties.message,
+      const sender = new ZApiOutboundSender(this.zApiClient, {
+        instanceId: line.zApiInstanceId,
+        instanceToken: line.zApiInstanceToken,
+        phone,
+      })
+      let delivered = false
+      let refused = false
+
+      // Cada parte reserva a sua vaga: uma recusa interrompe só este destinatário.
+      for (const part of parts) {
+        try {
+          const send = (): Promise<unknown> =>
+            part.kind === 'text'
+              ? this.zApiClient.sendMessage(
+                  line.zApiInstanceId,
+                  line.zApiInstanceToken,
+                  part.text ?? '',
+                  phone,
+                )
+              : sender.send(part)
+          await (this.quota
+            ? sendWithinDailyQuota(this.quota, dailyLimitPolicy, send)
+            : send())
+          delivered = true
+          if (part.kind !== 'text' && part.fileName) {
+            acceptedFiles.add(part.fileName)
+          }
+        } catch (error) {
+          if (isDailyLimitReachedError(error)) {
+            refused = true
+            break
+          }
+          if (part.kind !== 'text' && part.fileName) {
+            providerFailedFiles.add(part.fileName)
+          }
+          logThinkzapError(apiLogger, 'thinkzap.bitrix.robot_webhook_failed', {
+            app: 'thinkzap',
+            source: 'bitrix',
             phone,
-          )
-        await (this.quota
-          ? sendWithinDailyQuota(this.quota, dailyLimitPolicy, send)
-          : send())
-        sent.push(phone)
-      } catch (error) {
-        if (isDailyLimitReachedError(error)) {
-          refusedByLimit.push(phone)
-          continue
+            kind: part.kind,
+            err: (error as Error).message,
+          })
         }
-        logThinkzapError(apiLogger, 'thinkzap.bitrix.robot_webhook_failed', {
-          app: 'thinkzap',
-          source: 'bitrix',
-          phone,
-          err: (error as Error).message,
-        })
       }
+
+      if (refused) refusedByLimit.push(phone)
+      else if (delivered) sent.push(phone)
     }
 
     if (refusedByLimit.length > 0) {
@@ -191,7 +238,10 @@ export class BitrixRobotWebhookHandlerController extends Controller {
       notices.sendRobot.result({
         fromPhone,
         sent,
-        message: data.properties.message,
+        message,
+        ...(fileIds.length > 0 && {
+          files: filesOutcome(files, acceptedFiles, providerFailedFiles),
+        }),
       }) +
         (refusedByLimit.length > 0
           ? '\n' + dailyLimitNotices(locale).robotRefused(refusedByLimit)
@@ -205,6 +255,16 @@ export class BitrixRobotWebhookHandlerController extends Controller {
         refusedByDailyLimit: refusedByLimit.length,
       }),
     })
+  }
+
+  private fileDeps(): RobotFileDeps {
+    return (
+      this.files ?? {
+        getCrmItem: (entityTypeId, id) =>
+          this.bitrix.getCrmItem(entityTypeId, id),
+        download: downloadRobotFile,
+      }
+    )
   }
 
   /**
@@ -291,6 +351,48 @@ export function parseBizprocDocumentId(
   return { entity, entityId }
 }
 
+/** Arquivos baixados viram partes de mídia; o nome identifica o arquivo na timeline. */
+function toMedia(files: RobotFileResult[]): OutboundMessageDescriptor[] {
+  return files.flatMap(file =>
+    file.status === 'ok'
+      ? [
+          {
+            kind: file.kind,
+            url: file.dataUrl,
+            fileName: file.name,
+            mime: file.mime,
+          },
+        ]
+      : [],
+  )
+}
+
+/**
+ * Enviados: aceitos pelo provider para algum destinatário. Não enviados: os que não
+ * saíram do Bitrix e os que o provider recusou para todos. Arquivo que ficou para
+ * trás só pelo limite diário não entra — o destinatário já aparece como recusado.
+ */
+function filesOutcome(
+  files: RobotFileResult[],
+  accepted: Set<string>,
+  providerFailed: Set<string>,
+): SendRobotFilesResult {
+  const failed: { name: string; reason: SendRobotFileFailure }[] = []
+  const sent: string[] = []
+
+  for (const file of files) {
+    if (file.status === 'failed') {
+      failed.push({ name: file.name, reason: file.reason })
+    } else if (accepted.has(file.name)) {
+      sent.push(file.name)
+    } else if (providerFailed.has(file.name)) {
+      failed.push({ name: file.name, reason: 'send_failed' })
+    }
+  }
+
+  return { sent, failed }
+}
+
 function isToggleOn(value: unknown): boolean {
   if (value === true) return true
   if (typeof value !== 'string') return false
@@ -308,7 +410,10 @@ interface BitrixRobotWebhookHandlerRequest {
     connector: string //'82c08c50-f8f6-425c-9887-286029eb05e0',
     destination?: string //'11984342685',
     sendToAllRelatedContacts?: string //'Y' | 'N'
-    message: string //'Testando envio user_870'
+    /** Opcional com arquivo: vira legenda, ou fica de fora. */
+    message?: string //'Testando envio user_870'
+    /** Ids de arquivo do portal — ver `parseRobotFiles`. */
+    file?: unknown //['422204', '422206']
   }
   use_subscription: 'N' | 'Y'
   timeout_duration: string
