@@ -17,7 +17,11 @@ const DATA_URL_BASE64 = ';base64,'
  * Imagem, vídeo e documento não precisam disso: o Z-API aceita os dois formatos.
  */
 async function loadAudio(url: string): Promise<Buffer> {
-  if (url.startsWith('data:') && url.includes(DATA_URL_BASE64)) {
+  if (url.startsWith('data:')) {
+    // Data URL sem base64 não tem como virar bytes — e não é URL para baixar.
+    if (!url.includes(DATA_URL_BASE64)) {
+      throw new Error('Invalid audio payload')
+    }
     return Buffer.from(url.split(DATA_URL_BASE64)[1] ?? '', 'base64')
   }
 
