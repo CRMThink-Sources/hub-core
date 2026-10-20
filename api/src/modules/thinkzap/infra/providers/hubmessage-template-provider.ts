@@ -28,6 +28,23 @@ export class HubMessageTemplateProvider implements WhatsAppTemplateProvider {
   }
 
   async createTemplate(input: CreateTemplateInput): Promise<CreatedTemplate> {
+    /**
+     * Arquivo: sobe primeiro e cria logo em seguida, no mesmo request — o `h` que a
+     * Omni devolve expira. Link: vai direto em `header_handle`.
+     */
+    const uploadedHandle = input.headerSampleImage
+      ? (
+          await this.client.uploadTemplateMedia(input.wabaId, {
+            data: input.headerSampleImage.data,
+            contentType: input.headerSampleImage.contentType,
+            fileName:
+              input.headerSampleImage.contentType === 'image/png'
+                ? 'header.png'
+                : 'header.jpg',
+          })
+        ).h
+      : undefined
+
     const created = await this.client.createTemplate(input.wabaId, {
       name: input.name,
       category: input.category,
@@ -37,7 +54,9 @@ export class HubMessageTemplateProvider implements WhatsAppTemplateProvider {
       // reclassifica a categoria por conta própria.
       allow_category_change: true,
       parameter_format: 'POSITIONAL',
-      components: input.components.map(toRawComponent),
+      components: input.components.map(component =>
+        toRawComponent(component, uploadedHandle),
+      ),
     })
     return {
       id: created.id,
@@ -70,18 +89,21 @@ function toDomainComponent(
 }
 
 /**
- * Cabeçalho de imagem neutro (`example.imageUrl`) → `example.header_handle` com o
- * link público, que a Omni converte no identificador da Meta antes de criar o
- * template (ver `CreateTemplateParams`). O resto vai como veio.
+ * Cabeçalho de imagem neutro → `example.header_handle`: o `h` do upload quando a
+ * imagem veio como arquivo, ou o link público (`example.imageUrl`), que a Omni
+ * converte no identificador da Meta (ver `CreateTemplateParams`). O resto vai como
+ * veio.
  */
 function toRawComponent(
   component: TemplateComponent,
+  uploadedHandle: string | undefined,
 ): HubMessageTemplateComponent {
-  const imageUrl =
-    component.type === 'HEADER' && component.format === 'IMAGE'
-      ? headerImageExampleOf([component])
-      : undefined
-  if (!imageUrl) return { ...component }
+  if (component.type !== 'HEADER' || component.format !== 'IMAGE') {
+    return { ...component }
+  }
 
-  return { ...component, example: { header_handle: [imageUrl] } }
+  const handle = uploadedHandle ?? headerImageExampleOf([component])
+  if (!handle) return { ...component }
+
+  return { ...component, example: { header_handle: [handle] } }
 }

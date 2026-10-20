@@ -792,6 +792,15 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 400,
   },
+  'thinkzap.template.header_image_app_credentials_missing': {
+    category: 'config',
+    userCause:
+      'A conta do WhatsApp Oficial não tem as credenciais do app da Meta cadastradas, então o envio de arquivo da imagem do cabeçalho não está disponível.',
+    remediation:
+      'Criar o template usando um link público da imagem; ou cadastrar App ID e App Secret da Meta no painel da Z-API Omni para liberar o envio de arquivo.',
+    retriable: false,
+    httpStatus: 400,
+  },
   'thinkzap.template.image_header_not_supported': {
     category: 'validation',
     userCause:

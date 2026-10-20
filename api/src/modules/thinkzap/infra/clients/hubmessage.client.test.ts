@@ -198,3 +198,34 @@ describe('HubMessageClient', () => {
     ).toThrow('A integração com o WhatsApp Oficial não está configurada.')
   })
 })
+
+describe('HubMessageClient.uploadTemplateMedia', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('envia o arquivo em multipart na rota de mídia de template e devolve o h', async () => {
+    const client = makeClient()
+    instance().post.mockResolvedValue({ data: { h: '4::abc' } })
+
+    const result = await client.uploadTemplateMedia('waba_1', {
+      data: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      contentType: 'image/png',
+      fileName: 'header.png',
+    })
+
+    const [url, body, config] = instance().post.mock.calls[0] as [
+      string,
+      FormData,
+      { headers: Record<string, string> },
+    ]
+    expect(url).toBe('/whatsapp/businesses/waba_1/templates/media')
+    expect(body).toBeInstanceOf(FormData)
+    expect(body.get('type')).toBe('image/png')
+    const file = body.get('file') as File
+    expect(file.name).toBe('header.png')
+    expect(file.size).toBe(4)
+    expect(config.headers['Content-Type']).toBe('multipart/form-data')
+    expect(result).toEqual({ h: '4::abc' })
+  })
+})

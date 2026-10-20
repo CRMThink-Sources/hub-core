@@ -20,6 +20,7 @@ import {
 import { makeSendWidgetTemplateController } from './main/make-send-widget-template-controller'
 import { makeSendWidgetButtonController } from './main/make-send-widget-button-controller'
 import { widgetMessageUploadParser } from './infra/http/widget-message-upload.multer'
+import { templateHeaderImageUpload } from './infra/http/template-header-image-upload.multer'
 import { makeAddGroupParticipantsController } from './main/make-add-group-participants-controller'
 import { makeCreateGroupController } from './main/make-create-group-controller'
 import { makeGetGroupMetadataController } from './main/make-get-group-metadata-controller'
@@ -432,6 +433,8 @@ export const createThinkerszapRoutes = (): Router => {
   router.post(
     '/lines/:itemId/templates',
     requireThinkzapPermission('connectors', 'update'),
+    // JSON como antes, ou multipart com a imagem de exemplo em `headerImage`.
+    templateHeaderImageUpload,
     adaptControllerFactory(makeCreateTemplateController),
   )
   router.post(

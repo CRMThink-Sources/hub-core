@@ -3,6 +3,7 @@ import {
   buildHeaderComponent,
   templateHeaderOf,
   validateTemplateHeader,
+  validateTemplateHeaderFile,
 } from './template-header'
 
 describe('validateTemplateHeader', () => {
@@ -52,17 +53,72 @@ describe('validateTemplateHeader', () => {
   })
 })
 
+describe('validateTemplateHeaderFile', () => {
+  const png = (size = 300 * 1024) => ({ type: 'image/png', size })
+
+  it('exige o arquivo', () => {
+    expect(validateTemplateHeaderFile('IMAGE', null, 'MARKETING')).toBe(
+      'file_required',
+    )
+  })
+
+  it('aceita PNG e JPEG de até 5 MB', () => {
+    expect(validateTemplateHeaderFile('IMAGE', png(), 'MARKETING')).toBeNull()
+    expect(
+      validateTemplateHeaderFile(
+        'IMAGE',
+        { type: 'image/jpeg', size: 5 * 1024 * 1024 },
+        'UTILITY',
+      ),
+    ).toBeNull()
+  })
+
+  it('recusa arquivo de 7 MB', () => {
+    expect(
+      validateTemplateHeaderFile('IMAGE', png(7 * 1024 * 1024), 'MARKETING'),
+    ).toBe('file_too_large')
+  })
+
+  it('recusa PDF', () => {
+    expect(
+      validateTemplateHeaderFile(
+        'IMAGE',
+        { type: 'application/pdf', size: 1000 },
+        'MARKETING',
+      ),
+    ).toBe('file_invalid_type')
+  })
+
+  it('Autenticação e sem cabeçalho', () => {
+    expect(validateTemplateHeaderFile('IMAGE', png(), 'AUTHENTICATION')).toBe(
+      'header_not_allowed',
+    )
+    expect(validateTemplateHeaderFile('NONE', null, 'MARKETING')).toBeNull()
+  })
+})
+
 describe('buildHeaderComponent', () => {
-  it('monta o cabeçalho neutro com a URL limpa', () => {
-    expect(buildHeaderComponent('IMAGE', ' https://loja.com/a.png ')).toEqual({
+  it('com link, monta o cabeçalho neutro com a URL limpa', () => {
+    expect(
+      buildHeaderComponent('IMAGE', 'LINK', ' https://loja.com/a.png '),
+    ).toEqual({
       type: 'HEADER',
       format: 'IMAGE',
       example: { imageUrl: 'https://loja.com/a.png' },
     })
   })
 
+  it('com arquivo, monta o cabeçalho sem example', () => {
+    expect(buildHeaderComponent('IMAGE', 'FILE', '')).toEqual({
+      type: 'HEADER',
+      format: 'IMAGE',
+    })
+  })
+
   it('sem cabeçalho não monta nada', () => {
-    expect(buildHeaderComponent('NONE', 'https://loja.com/a.png')).toBeNull()
+    expect(
+      buildHeaderComponent('NONE', 'LINK', 'https://loja.com/a.png'),
+    ).toBeNull()
   })
 })
 

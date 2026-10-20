@@ -7,7 +7,7 @@ Define como o ThinkZap cria templates do WhatsApp Oficial com cabeçalho de imag
 ## ADDED Requirements
 
 ### Requirement: Criar template com cabeçalho de imagem na linha oficial
-O formulário de criação de template de uma linha oficial SHALL oferecer um cabeçalho opcional do tipo imagem. Com o cabeçalho de imagem escolhido, o formulário SHALL exigir uma imagem de exemplo, informada como URL pública `https` de um arquivo JPEG ou PNG, e SHALL mostrar a imagem no preview acima do corpo.
+O formulário de criação de template de uma linha oficial SHALL oferecer um cabeçalho opcional do tipo imagem. Com o cabeçalho de imagem escolhido, o formulário SHALL exigir uma imagem de exemplo, enviada como arquivo JPEG ou PNG de até 5 MB ou informada como URL pública `https` de um arquivo JPEG ou PNG, e SHALL mostrar a imagem no preview acima do corpo.
 
 O cabeçalho de imagem SHALL NOT ser oferecido na categoria Autenticação. Ao trocar para Autenticação, o cabeçalho escolhido SHALL ser removido.
 
@@ -16,6 +16,14 @@ Template sem cabeçalho SHALL continuar sendo criado exatamente como hoje, e o c
 #### Scenario: Template de Marketing com imagem
 - **WHEN** o operador cria um template de Marketing com cabeçalho de imagem, exemplo `https://loja.com/banner.png` e corpo `Oferta {{1}}`
 - **THEN** o template é enviado ao provedor com o cabeçalho de imagem e aparece na lista como pendente
+
+#### Scenario: Template com imagem por arquivo
+- **WHEN** o operador escolhe o cabeçalho de imagem e anexa o arquivo `banner.png` de 300 KB
+- **THEN** o template é enviado ao provedor com a imagem e aparece na lista como pendente
+
+#### Scenario: Arquivo inválido no formulário
+- **WHEN** o operador anexa um arquivo de 7 MB ou um PDF como imagem de exemplo
+- **THEN** o formulário não permite criar o template e informa que a imagem precisa ser JPEG ou PNG de até 5 MB
 
 #### Scenario: Cabeçalho de imagem sem exemplo
 - **WHEN** o operador escolhe o cabeçalho de imagem e deixa o exemplo vazio
@@ -30,7 +38,9 @@ Template sem cabeçalho SHALL continuar sendo criado exatamente como hoje, e o c
 - **THEN** o cabeçalho é removido e a opção deixa de ser oferecida
 
 ### Requirement: API valida o cabeçalho de imagem na criação
-A API de criação de template SHALL aceitar no máximo um componente de cabeçalho com formato imagem e uma imagem de exemplo. SHALL recusar com o erro de definição inválida de template, sem chamar o provedor, um pedido com mais de um cabeçalho, com cabeçalho de formato diferente de imagem, sem exemplo, com exemplo que não seja URL `https`, com exemplo hospedado no CDN da Meta (`whatsapp.net`, `fbcdn.net`, `fbsbx.com`), ou com cabeçalho em template de Autenticação.
+A API de criação de template SHALL aceitar no máximo um componente de cabeçalho com formato imagem e uma imagem de exemplo, enviada como arquivo ou informada como URL — exatamente uma das duas. SHALL recusar com o erro de definição inválida de template, sem chamar o provedor, um pedido com mais de um cabeçalho, com cabeçalho de formato diferente de imagem, sem exemplo, com arquivo e URL ao mesmo tempo, com exemplo que não seja URL `https`, com exemplo hospedado no CDN da Meta (`whatsapp.net`, `fbcdn.net`, `fbsbx.com`), com arquivo que não seja JPEG/PNG pelo conteúdo ou maior que 5 MB, ou com cabeçalho em template de Autenticação.
+
+Se o provedor recusar o envio do arquivo por falta das credenciais da Meta na conta, a API SHALL responder com uma mensagem dizendo que o envio de arquivo não está disponível e que o operador pode usar um link.
 
 Se a imagem de exemplo não puder ser obtida (URL inacessível, arquivo que não é JPEG/PNG ou maior que 5 MB), a API SHALL recusar com o erro de definição inválida de template e uma mensagem que identifique o problema com a imagem.
 
@@ -51,6 +61,14 @@ Uma recusa da Meta ao cabeçalho SHALL chegar ao operador com a mensagem legíve
 #### Scenario: API repassa cabeçalho válido
 - **WHEN** um pedido de criação chega com cabeçalho de imagem, exemplo PNG acessível de 300 KB e corpo
 - **THEN** a API envia ao provedor o template com o cabeçalho de imagem e a imagem de exemplo
+
+#### Scenario: API envia o arquivo ao provedor
+- **WHEN** um pedido de criação chega com cabeçalho de imagem e um arquivo PNG de 300 KB
+- **THEN** a API envia o arquivo ao provedor e cria o template com o identificador devolvido
+
+#### Scenario: Upload indisponível na conta
+- **WHEN** o provedor recusa o envio do arquivo porque a conta não tem as credenciais da Meta cadastradas
+- **THEN** a API responde com um erro dizendo que o envio de arquivo não está disponível e que o operador pode usar um link
 
 ### Requirement: Lista de templates indica o cabeçalho de imagem
 A lista de templates da linha oficial SHALL indicar quais templates têm cabeçalho de imagem. Isso SHALL valer também para templates criados fora do ThinkZap e trazidos pela sincronização.

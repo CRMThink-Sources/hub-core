@@ -93,6 +93,20 @@ export function useConnectorTemplates() {
 }
 
 /**
+ * Pedido multipart da criação com arquivo: o JSON de sempre em `payload` e a
+ * imagem em `headerImage` — os nomes que a API lê.
+ */
+export function buildCreateTemplateFormData(
+  payload: CreateTemplatePayload,
+  headerImageFile: Blob,
+): FormData {
+  const form = new FormData()
+  form.append('payload', JSON.stringify(payload))
+  form.append('headerImage', headerImageFile)
+  return form
+}
+
+/**
  * Cadastro de template isolado do estado da lista para permitir tratamento de
  * erro próprio (mantendo os dados do formulário ao falhar).
  */
@@ -101,14 +115,21 @@ export function useCreateTemplate() {
   const [error, setError] = useState<string | null>(null)
 
   const createTemplate = useCallback(
-    async (itemId: string, payload: CreateTemplatePayload) => {
+    async (
+      itemId: string,
+      payload: CreateTemplatePayload,
+      /** Imagem de exemplo do cabeçalho como arquivo; ausente = pedido JSON. */
+      headerImageFile?: File,
+    ) => {
       setSaving(true)
       setError(null)
       try {
         const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
         await client.post(
           `/thinkzap/lines/${encodeURIComponent(itemId)}/templates`,
-          payload,
+          headerImageFile
+            ? buildCreateTemplateFormData(payload, headerImageFile)
+            : payload,
         )
         return true
       } catch (err: unknown) {

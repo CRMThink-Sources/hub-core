@@ -77,8 +77,15 @@
         "header_not_allowed": "Authentication templates do not accept a header.",
         "example_required": "Enter the URL of the sample image.",
         "example_not_https": "The image URL must start with https://.",
-        "example_meta_cdn": "WhatsApp/Meta links are not valid samples: use the link to the image file itself."
-      }
+        "example_meta_cdn": "WhatsApp/Meta links are not valid samples: use the link to the image file itself.",
+        "file_required": "Choose the sample image file.",
+        "file_too_large": "The sample image is larger than 5 MB.",
+        "file_invalid_type": "The sample image must be JPEG or PNG."
+      },
+      "fonteArquivo": "Upload file",
+      "fonteLink": "Use link",
+      "arquivo": "Sample image file",
+      "arquivoHint": "JPEG or PNG, up to 5 MB. Recommended ratio 1.91:1. Meta uses this image only to approve the template; the image for each send is provided when sending."
     }
   },
   "campanha": {

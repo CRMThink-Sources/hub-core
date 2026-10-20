@@ -80,20 +80,26 @@ export type TemplateHeaderViolation = {
     | 'too_many_headers'
     | 'unsupported_format'
     | 'example_required'
+    | 'example_conflict'
+    | 'file_without_header'
     | 'example_not_https'
     | 'example_meta_cdn'
 }
 
 /**
  * Valida o cabeçalho de um template novo. Só cabeçalho de imagem é criado pelo
- * ThinkZap, e nunca em Autenticação. Devolve todas as violações; vazio é válido.
+ * ThinkZap, e nunca em Autenticação. A imagem de exemplo vem de **uma** fonte: o
+ * arquivo enviado (`hasFile`) ou `example.imageUrl`. Vazio é válido.
  */
 export function validateTemplateHeader(
   components: TemplateComponent[],
   category: TemplateCategory,
+  { hasFile = false }: { hasFile?: boolean } = {},
 ): TemplateHeaderViolation[] {
   const headers = components.filter(c => c.type === 'HEADER')
-  if (headers.length === 0) return []
+  if (headers.length === 0) {
+    return hasFile ? [{ code: 'file_without_header' }] : []
+  }
   if (category === 'AUTHENTICATION') return [{ code: 'header_not_allowed' }]
   if (headers.length > 1) return [{ code: 'too_many_headers' }]
 
@@ -103,10 +109,33 @@ export function validateTemplateHeader(
   const example = (header.example ?? {}) as Record<string, unknown>
   const imageUrl =
     typeof example.imageUrl === 'string' ? example.imageUrl.trim() : ''
+  if (hasFile) return imageUrl ? [{ code: 'example_conflict' }] : []
   if (!imageUrl) return [{ code: 'example_required' }]
   if (!isHttpsUrl(imageUrl)) return [{ code: 'example_not_https' }]
   if (isMetaCdnUrl(imageUrl)) return [{ code: 'example_meta_cdn' }]
   return []
+}
+
+/**
+ * Tipo da imagem pelos primeiros bytes — o `mimetype` do upload é o que o navegador
+ * declara, e um arquivo qualquer renomeado para `.png` chegaria como `image/png`.
+ */
+export function sniffTemplateImageType(
+  data: Buffer,
+): 'image/jpeg' | 'image/png' | null {
+  if (
+    data.length >= 3 &&
+    data[0] === 0xff &&
+    data[1] === 0xd8 &&
+    data[2] === 0xff
+  ) {
+    return 'image/jpeg'
+  }
+  const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+  if (data.length >= png.length && png.every((byte, i) => data[i] === byte)) {
+    return 'image/png'
+  }
+  return null
 }
 
 /** URL de exemplo do cabeçalho de imagem de um template novo, se houver. */

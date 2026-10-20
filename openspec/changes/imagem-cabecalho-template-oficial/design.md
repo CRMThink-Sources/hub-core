@@ -17,24 +17,35 @@
 ## Goals / Non-Goals
 
 **Goals:**
-- Isolar o formato da imagem de exemplo no adapter HubMessage, para que trocar link por upload (plano B de D1) mude só o adapter, e não o domínio nem o front.
+- Isolar o formato da imagem de exemplo no adapter HubMessage: o domínio só conhece "arquivo" ou "link", e quem decide entre upload e `header_handle` com link é o adapter.
+- Permitir que o operador envie o arquivo da imagem de exemplo, sem o ThinkZap guardar nada.
 - Usar o mesmo caminho de valor por envio dos botões dinâmicos: do catálogo ao front, do front à fila e da fila ao adapter.
 
 **Non-Goals:**
-- Hospedar arquivos no ThinkZap (bucket, rota pública de mídia). Tanto a imagem de exemplo quanto a de envio são URLs públicas fornecidas pelo cliente.
+- Hospedar arquivos no ThinkZap (bucket, rota pública de mídia). O upload da criação vai da memória direto para a Omni e não é persistido; a imagem de envio continua sendo URL pública fornecida pelo cliente.
 - Reaproveitar a imagem de exemplo como padrão no envio. O catálogo não guarda a URL que o cliente usou, e o `header_handle` devolvido pela Meta em templates sincronizados não é uma URL estável.
 
 ## Decisions
 
-### D1. Link público direto em `header_handle`, com contrato neutro no domínio
-O formulário e a API trabalham com um componente neutro: `{ type: 'HEADER', format: 'IMAGE', example: { imageUrl } }`. O adapter traduz isso para `{ type: 'HEADER', format: 'IMAGE', example: { header_handle: [imageUrl] } }`, o formato documentado pela Omni para link público. O ThinkZap não guarda nem sobe arquivo.
+### D1. Imagem de exemplo por arquivo (upload à Omni) ou por link, com contrato neutro no domínio
+O operador escolhe entre enviar o arquivo e informar um link. Pedido com arquivo vai em multipart: o campo `payload` leva o JSON (nome, categoria, idioma, componentes) e o arquivo vai em `headerImage`. Sem arquivo, o pedido continua JSON como hoje.
 
-A tarefa 1 confirma isso com um template de teste numa WABA de teste e anota o resultado no JSDoc de `CreateTemplateParams` em `hubmessage.types.ts`. Se a conversão do link falhar por falta de credenciais do app (o mesmo pré-requisito do upload), o adapter passa a chamar a rota `templates/media` com o arquivo já baixado em D2 e usa o `h` devolvido. A troca fica restrita ao adapter, e o erro `MISSING_APP_CREDENTIALS` vira uma mensagem para o operador pedir a configuração no painel da Omni.
+O componente neutro é `{ type: 'HEADER', format: 'IMAGE', example?: { imageUrl } }`, e o pedido tem **exatamente uma** fonte: o arquivo ou `imageUrl`. `CreateTemplateInput` ganha `headerSampleImage?: TemplateSampleImage` (bytes + tipo).
 
-*Alternativas descartadas*: (a) chamar sempre a rota `templates/media`. Ela soma um passo, um identificador que expira e a dependência de App ID/App Secret, sem ganho enquanto o link funcionar. (b) Integrar direto com a Resumable Upload API da Meta. Exige um app da Meta que não controlamos, e é exatamente o que a Omni já faz por nós.
+O adapter decide o formato:
+- **Arquivo**: `uploadTemplateMedia` (`POST /whatsapp/businesses/{wabaId}/templates/media`, multipart `file` + `type`) → `h` → `example: { header_handle: [h] }`. Upload e criação acontecem no mesmo request, porque o `h` expira.
+- **Link**: `example: { header_handle: [imageUrl] }`, o formato documentado pela Omni para link público, que ela converte no identificador da Meta.
+
+O `422 MISSING_APP_CREDENTIALS` do upload vira `thinkzap.template.header_image_app_credentials_missing`, com mensagem dizendo que o envio de arquivo não está disponível na conta e que o operador pode usar o link (ou pedir a configuração de App ID/App Secret no painel da Omni).
+
+A tarefa 1 confirma os dois caminhos numa WABA de teste e anota o resultado no JSDoc de `CreateTemplateParams` em `hubmessage.types.ts`.
+
+*Alternativas descartadas*: (a) sempre fazer upload, inclusive para o link (a API baixaria a imagem e subiria). Faria a criação por link também depender das credenciais da Meta. (b) Integrar direto com a Resumable Upload API da Meta. Exige um app da Meta que não controlamos, e é exatamente o que a Omni já faz por nós.
 
 ### D2. Validar e baixar a imagem de exemplo na API
-A API recusa link do CDN da Meta (`whatsapp.net`, `fbcdn.net`, `fbsbx.com`) e depois baixa a URL de exemplo antes de chamar o provider, com limite de 5 MB e conferindo o `Content-Type` (`image/jpeg`, `image/png`). Isso transforma `2388215` e `380` (recusas da Meta difíceis de entender) em um erro de definição inválida que o operador consegue corrigir. Se o plano B de D1 for necessário, o mesmo download alimenta o upload. O download segue o padrão de `fetchRobotFiles` (axios com `maxContentLength`, que encerra quando passa do limite).
+A API recusa link do CDN da Meta (`whatsapp.net`, `fbcdn.net`, `fbsbx.com`) e depois baixa a URL de exemplo antes de chamar o provider, com limite de 5 MB e conferindo o `Content-Type` (`image/jpeg`, `image/png`). Isso transforma `2388215` e `380` (recusas da Meta difíceis de entender) em um erro de definição inválida que o operador consegue corrigir. O download segue o padrão de `fetchRobotFiles` (axios com `maxContentLength`, que encerra quando passa do limite).
+
+O arquivo enviado passa pelas mesmas travas: no máximo 5 MB (limite do multer, em memória) e JPEG/PNG **pela assinatura do arquivo** (`FF D8 FF` / `89 50 4E 47`), não pelo tipo que o navegador declara.
 
 ### D3. Imagem do envio por URL, guardada em coluna nova
 A URL da imagem do envio entra em `TemplateMessageDescriptor.headerImageUrl?: string` e numa coluna anulável nova, `template_header_image_url`, em `core_thinkerszap_widget_outbox`. Um campo próprio, e não um item em `templateButtonParameters`, porque o cabeçalho não tem `index` e misturar os dois confundiria o despacho.
@@ -53,11 +64,14 @@ Nova propriedade `Type: 'string'`, não múltipla, em `templateRobotProperties()
 `manage-line-sms-provider.ts` ganha `hasImageHeader` ao lado de `hasDynamicButton`, e o handler da campanha recusa pelo mesmo caminho da recusa de botão dinâmico, com um código de motivo novo no catálogo de erros (`thinkzap.template.image_header_not_supported`).
 
 ### D7. Validação no front espelha a API
-`template-form.tsx` ganha a seção de cabeçalho (nenhum / imagem). A validação de URL `https` e a regra "não em Autenticação" ficam num helper puro, no mesmo arquivo de regras que os botões usam, para o front e os testes compartilharem a lógica. A checagem de tamanho e tipo só acontece na API (o front não baixa a imagem).
+`template-form.tsx` ganha a seção de cabeçalho (nenhum / imagem). A validação de URL `https` e a regra "não em Autenticação" ficam num helper puro, no mesmo arquivo de regras que os botões usam, para o front e os testes compartilharem a lógica. A checagem de tamanho e tipo do link só acontece na API (o front não baixa a imagem).
+
+A imagem de exemplo tem duas opções: "Enviar arquivo" e "Usar link". O arquivo é conferido também no cliente (tipo e 5 MB), o preview usa object URL, e o pedido sai em multipart quando há arquivo.
 
 ## Risks / Trade-offs
 
-- [A conversão do link na criação exige App ID/App Secret que a conta não tem] → O plano B de D1 vale só para o adapter. Sem credenciais, a criação devolve uma mensagem pedindo a configuração no painel da Omni. Envio, lista e catálogo não dependem disso.
+- [O upload exige App ID/App Secret da Meta cadastrados no painel da Omni, e ainda não se sabe se são da nossa conta ou de cada WABA] → Sem eles, o envio de arquivo falha com mensagem legível e o link continua disponível. Envio, lista e catálogo não dependem disso.
+- [Arquivo malicioso com extensão de imagem] → O tipo é decidido pela assinatura do arquivo, não pelo `mimetype` do navegador, e o arquivo nunca é gravado em disco nem servido pelo ThinkZap.
 - [Base URL] → A doc nova usa `https://api.omni.z-api.io`, e o padrão de `env.hubMessage.baseUrl` ainda é `https://api.hubmessage.io`. Não muda nesta mudança, mas a tarefa 1 registra se o domínio antigo continua respondendo.
 - [A Meta não consegue baixar a URL no envio (host bloqueado, URL expirada, link de Drive)] → A falha chega à timeline pelo caminho atual de falha de template. A tela e a ajuda dizem que a URL precisa ser pública e direta para o arquivo.
 - [URL do Bitrix (`urlMachine`) usada como imagem no robô] → Ela leva um token que expira, e um reenvio tardio falharia. Fica documentado que o campo espera uma URL pública. Não tentamos converter campo de arquivo em URL.
@@ -74,3 +88,4 @@ Nova propriedade `Type: 'string'`, não múltipla, em `templateRobotProperties()
 ## Open Questions
 
 - Se o domínio `api.hubmessage.io` vai ser desligado em favor de `api.omni.z-api.io`. Isso é troca de variável de ambiente e não muda este plano.
+- Quem cadastra App ID/App Secret na Omni (nós ou cada cliente), e se o cadastro é por conta ou por WABA.

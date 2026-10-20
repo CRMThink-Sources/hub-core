@@ -77,8 +77,15 @@
         "header_not_allowed": "Templates de autenticação não aceitam cabeçalho.",
         "example_required": "Informe a URL da imagem de exemplo.",
         "example_not_https": "A URL da imagem precisa começar com https://.",
-        "example_meta_cdn": "Link do WhatsApp/Meta não vale como exemplo: use o link do próprio arquivo da imagem."
-      }
+        "example_meta_cdn": "Link do WhatsApp/Meta não vale como exemplo: use o link do próprio arquivo da imagem.",
+        "file_required": "Escolha o arquivo da imagem de exemplo.",
+        "file_too_large": "A imagem de exemplo passa de 5 MB.",
+        "file_invalid_type": "A imagem de exemplo precisa ser JPEG ou PNG."
+      },
+      "fonteArquivo": "Enviar arquivo",
+      "fonteLink": "Usar link",
+      "arquivo": "Arquivo da imagem de exemplo",
+      "arquivoHint": "JPEG ou PNG, até 5 MB. Proporção recomendada 1.91:1. A Meta usa esta imagem só para aprovar o template; a imagem de cada envio é informada no envio."
     }
   },
   "campanha": {

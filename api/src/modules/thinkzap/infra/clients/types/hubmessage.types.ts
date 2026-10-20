@@ -383,9 +383,9 @@ export type ListTemplatesResponse = {
  * Cabeçalho de imagem: `{ type: 'HEADER', format: 'IMAGE', example: { header_handle:
  * ['<url https pública>'] } }`. Segundo a doc da Z-API Omni
  * (`https://developer.omni.z-api.io/templates/validation`), `header_handle` aceita
- * o link público, que a Omni converte no identificador da Meta antes de criar.
- * FORMATO A CONFIRMAR com um template real — se vier `422 MISSING_APP_CREDENTIALS`,
- * o caminho é a rota de upload `templates/media` (plano B do design).
+ * o link público, que a Omni converte no identificador da Meta antes de criar, ou o
+ * `h` devolvido pela rota de upload (`templates/media`) quando o operador envia o
+ * arquivo. FORMATO A CONFIRMAR com um template real nos dois caminhos.
  */
 export type CreateTemplateParams = {
   name: string
@@ -402,6 +402,14 @@ export type CreateTemplateResponse = {
   id: string
   status: HubMessageTemplateStatus
   category: HubMessageTemplateCategory
+}
+
+/**
+ * `POST /whatsapp/businesses/{wabaId}/templates/media` — identificador da Meta para
+ * `example.header_handle`. Expira; usar no cadastro logo em seguida.
+ */
+export type UploadTemplateMediaResponse = {
+  h: string
 }
 
 /** `POST /whatsapp/businesses/{wabaId}/templates/sync`. */

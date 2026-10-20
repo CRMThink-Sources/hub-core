@@ -40,6 +40,16 @@ export type TemplateHeaderViolationCode =
   | 'example_required'
   | 'example_not_https'
   | 'example_meta_cdn'
+  | 'file_required'
+  | 'file_too_large'
+  | 'file_invalid_type'
+
+/** De onde vem a imagem de exemplo: arquivo enviado (upload) ou link público. */
+export type TemplateHeaderSource = 'FILE' | 'LINK'
+
+/** Teto da Meta para imagem de cabeçalho — o mesmo da API. */
+export const HEADER_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+export const HEADER_IMAGE_TYPES = ['image/jpeg', 'image/png']
 
 /** Cabeçalho só existe fora de Autenticação. */
 export function headerAllowed(category: TemplateCategory): boolean {
@@ -62,6 +72,23 @@ export function validateTemplateHeader(
   return null
 }
 
+/**
+ * Valida o arquivo escolhido como imagem de exemplo; `null` é válido. O tipo aqui
+ * é o que o navegador informa — a API confere de novo pelo conteúdo do arquivo.
+ */
+export function validateTemplateHeaderFile(
+  choice: TemplateHeaderChoice,
+  file: { type: string; size: number } | null,
+  category: TemplateCategory,
+): TemplateHeaderViolationCode | null {
+  if (choice === 'NONE') return null
+  if (!headerAllowed(category)) return 'header_not_allowed'
+  if (!file) return 'file_required'
+  if (!HEADER_IMAGE_TYPES.includes(file.type)) return 'file_invalid_type'
+  if (file.size > HEADER_IMAGE_MAX_BYTES) return 'file_too_large'
+  return null
+}
+
 function isMetaCdnUrl(value: string): boolean {
   let host: string
   try {
@@ -74,12 +101,17 @@ function isMetaCdnUrl(value: string): boolean {
   )
 }
 
-/** Componente neutro de cabeçalho de imagem, como a API de criação espera. */
+/**
+ * Componente neutro de cabeçalho de imagem, como a API de criação espera. Com
+ * arquivo, o componente vai sem `example`: a imagem segue à parte, no multipart.
+ */
 export function buildHeaderComponent(
   choice: TemplateHeaderChoice,
+  source: TemplateHeaderSource,
   imageUrl: string,
 ): TemplateComponent | null {
   if (choice !== 'IMAGE') return null
+  if (source === 'FILE') return { type: 'HEADER', format: 'IMAGE' }
   return {
     type: 'HEADER',
     format: 'IMAGE',
