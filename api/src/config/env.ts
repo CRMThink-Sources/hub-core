@@ -157,6 +157,17 @@ export const env = {
     baseUrl: process.env.HUBMESSAGE_BASE_URL ?? 'https://api.hubmessage.io',
     webhookUrl: process.env.HUBMESSAGE_WEBHOOK_URL ?? '',
   },
+  /**
+   * Bucket Cloudflare R2 da imagem do cabeçalho enviada pelo widget. Sem as cinco
+   * variáveis o upload fica desligado e o widget mostra só o campo de link.
+   */
+  r2: {
+    accountId: process.env.R2_ACCOUNT_ID ?? '',
+    accessKeyId: process.env.R2_ACCESS_KEY_ID ?? '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
+    bucket: process.env.R2_BUCKET ?? '',
+    publicBaseUrl: process.env.R2_PUBLIC_BASE_URL ?? '',
+  },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',

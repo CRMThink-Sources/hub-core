@@ -1,7 +1,10 @@
 import type { AddressInfo } from 'node:net'
 import express from 'express'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { templateHeaderImageUpload } from './template-header-image-upload.multer'
+import {
+  templateHeaderImageUpload,
+  widgetHeaderImageUpload,
+} from './template-header-image-upload.multer'
 
 /**
  * Servidor de verdade (porta aleatória): o que importa aqui é o multer real lendo
@@ -18,6 +21,9 @@ beforeAll(async () => {
       body: req.body as unknown,
       fileSize: req.file?.size ?? null,
     })
+  })
+  app.post('/widget', widgetHeaderImageUpload, (req, res) => {
+    res.json({ fileSize: req.file?.size ?? null })
   })
   await new Promise<void>(resolve => {
     const server = app.listen(0, () => {
@@ -72,5 +78,38 @@ describe('templateHeaderImageUpload', () => {
       body: { name: 'promo' },
       fileSize: null,
     })
+  })
+})
+
+describe('widgetHeaderImageUpload', () => {
+  function widgetUpload(size: number | null) {
+    const form = new FormData()
+    if (size !== null) {
+      form.append(
+        'image',
+        new Blob([new Uint8Array(size)], { type: 'image/png' }),
+        'promo.png',
+      )
+    }
+    return fetch(`${baseUrl}/widget`, { method: 'POST', body: form })
+  }
+
+  it('entrega o arquivo do campo image', async () => {
+    const res = await widgetUpload(2048)
+
+    expect(await res.json()).toEqual({ fileSize: 2048 })
+  })
+
+  it('400 com mensagem quando passa de 5 MB', async () => {
+    const res = await widgetUpload(6 * 1024 * 1024)
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: 'A imagem passa de 5 MB' })
+  })
+
+  it('sem arquivo chega ao handler sem file', async () => {
+    const res = await widgetUpload(null)
+
+    expect(await res.json()).toEqual({ fileSize: null })
   })
 })

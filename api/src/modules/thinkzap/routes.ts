@@ -20,7 +20,11 @@ import {
 import { makeSendWidgetTemplateController } from './main/make-send-widget-template-controller'
 import { makeSendWidgetButtonController } from './main/make-send-widget-button-controller'
 import { widgetMessageUploadParser } from './infra/http/widget-message-upload.multer'
-import { templateHeaderImageUpload } from './infra/http/template-header-image-upload.multer'
+import {
+  templateHeaderImageUpload,
+  widgetHeaderImageUpload,
+} from './infra/http/template-header-image-upload.multer'
+import { makeUploadWidgetTemplateHeaderImageController } from './main/make-upload-widget-template-header-image-controller'
 import { makeAddGroupParticipantsController } from './main/make-add-group-participants-controller'
 import { makeCreateGroupController } from './main/make-create-group-controller'
 import { makeGetGroupMetadataController } from './main/make-get-group-metadata-controller'
@@ -151,6 +155,13 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/messages/widget-templates/:subscriptionItemId',
     adaptControllerFactory(makeListWidgetTemplatesController),
+  )
+  // Imagem do cabeçalho escolhida como arquivo no widget: hospeda e devolve a URL
+  // que o envio manda em `headerImageUrl`.
+  router.post(
+    '/messages/widget-template-header-image',
+    widgetHeaderImageUpload,
+    adaptControllerFactory(makeUploadWidgetTemplateHeaderImageController),
   )
   // Linhas capazes de enviar template, para a tela do robô de Bizproc
   // (`USE_PLACEMENT`). `/connector/list` não serve: devolve a linha inteira.

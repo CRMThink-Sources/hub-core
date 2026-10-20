@@ -35,12 +35,18 @@ type WidgetTemplatesState = {
   templates: WidgetTemplate[]
   loading: boolean
   error: string
+  /**
+   * Se o ambiente hospeda a imagem do cabeçalho enviada como arquivo. Ausente na
+   * resposta (API anterior) vale `false`: o widget oferece só o link.
+   */
+  headerImageUpload: boolean
 }
 
 const IDLE: WidgetTemplatesState = {
   templates: [],
   loading: false,
   error: '',
+  headerImageUpload: false,
 }
 
 /**
@@ -74,17 +80,18 @@ export function useWidgetTemplates(lineId: string) {
 
     const client = resolveThinkzapClient()
     if (!client.ok) {
-      setState({ templates: [], loading: false, error: client.message })
+      setState({ ...IDLE, error: client.message })
       return
     }
 
     const controller = new AbortController()
-    setState({ templates: [], loading: true, error: '' })
+    setState({ ...IDLE, loading: true })
 
     const fetchTemplates = async () => {
       try {
         const response = await client.client.get<{
           templates: WidgetTemplate[]
+          headerImageUpload?: boolean
         }>(
           `/thinkzap/messages/widget-templates/${encodeURIComponent(lineId)}`,
           {
@@ -99,6 +106,7 @@ export function useWidgetTemplates(lineId: string) {
           templates: response.templates,
           loading: false,
           error: '',
+          headerImageUpload: response.headerImageUpload === true,
         })
       } catch (error) {
         if (controller.signal.aborted) return
@@ -113,8 +121,7 @@ export function useWidgetTemplates(lineId: string) {
          * ofertado depois de uma falha.
          */
         setState({
-          templates: [],
-          loading: false,
+          ...IDLE,
           error: thinkzapApiErrorMessage(
             error,
             'Não foi possível carregar os templates desta linha.',

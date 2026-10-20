@@ -641,6 +641,24 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 400,
   },
+  'thinkzap.message.widget_header_image_invalid': {
+    category: 'validation',
+    userCause:
+      'O arquivo escolhido como imagem do cabeçalho no widget não é JPEG/PNG ou passa de 5 MB.',
+    remediation:
+      'Escolher uma imagem JPEG ou PNG de até 5 MB, ou informar um link público da imagem.',
+    retriable: false,
+    httpStatus: 400,
+  },
+  'thinkzap.message.widget_header_image_storage_unavailable': {
+    category: 'integration',
+    userCause:
+      'O envio de arquivo da imagem do cabeçalho está indisponível (armazenamento não configurado ou fora do ar).',
+    remediation:
+      'Enviar o template informando um link público da imagem; se persistir, conferir a configuração do armazenamento de imagens.',
+    retriable: true,
+    httpStatus: 503,
+  },
   'thinkzap.message.widget_template_failed': {
     category: 'validation',
     userCause: 'Não foi possível enviar o template pelo WhatsApp Oficial.',

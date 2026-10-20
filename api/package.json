@@ -43,6 +43,7 @@
     "smoke:bot-flow": "tsx src/scripts/smoke-bot-flow.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1153.0",
     "@bull-board/api": "^7.0.0",
     "@bull-board/express": "^7.0.0",
     "@modelcontextprotocol/sdk": "^1.29.0",

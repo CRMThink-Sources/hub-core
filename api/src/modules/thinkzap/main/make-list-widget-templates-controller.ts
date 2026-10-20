@@ -4,6 +4,7 @@ import { Controller } from '@/shared/presentation/controller'
 import { ListWidgetTemplatesUseCase } from '../application/list-widget-templates'
 import { WidgetTemplatesController } from '../presentation/controllers/widget-templates.controller'
 import { makeTemplateProviderResolver } from './connector/make-template-provider-resolver'
+import { makeTemplateImageStorage } from './make-template-image-storage'
 
 export const makeListWidgetTemplatesController = (
   _req: Request,
@@ -12,5 +13,7 @@ export const makeListWidgetTemplatesController = (
     makeGetAplicationContext(),
     makeTemplateProviderResolver(),
   )
-  return Promise.resolve(new WidgetTemplatesController(useCase))
+  return Promise.resolve(
+    new WidgetTemplatesController(useCase, makeTemplateImageStorage() !== null),
+  )
 }
