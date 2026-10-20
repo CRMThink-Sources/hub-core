@@ -171,3 +171,29 @@ describe('GetLineSettings (limite diário)', () => {
     expect(mapLineSettingsToView(reading)).toHaveProperty('dailyLimit', null)
   })
 })
+
+describe('mapLineSettingsToView (espelhamento do aparelho)', () => {
+  it('expõe o toggle gravado na view', async () => {
+    const mirrored: SubscriptionItem = {
+      ...zapiItem,
+      settings: { ...zapiItem.settings, deviceMessageMirrorEnabled: true },
+    }
+    const quota = {
+      usage: vi.fn().mockResolvedValue({ sent: 0, extra: 0 }),
+    } as unknown as DailySendQuota
+    const context = {
+      execute: vi.fn().mockResolvedValue({
+        customer: { id: 'domain-1', name: 'acme.bitrix24.com.br' },
+        aplication: { id: 'installed-1', spaId: '42' },
+        subscriptions: [{ id: 'sub-1', status: 'active', items: [mirrored] }],
+      }),
+    }
+    const sut = new GetLineSettings(context as never, quota)
+
+    const reading = await sut.execute(input)
+
+    expect(mapLineSettingsToView(reading).settings).toMatchObject({
+      deviceMessageMirrorEnabled: true,
+    })
+  })
+})

@@ -399,6 +399,9 @@ model ThinkzapMessage {
   /// `WHERE instance_id IN (...) AND created_at BETWEEN ...` filtra a data sem
   /// índice.
   @@index([instanceId, createdAt])
+  /// Busca de "conversa existente" do espelhamento de mensagens enviadas pelo
+  /// aparelho: a row mais recente da identidade com `bitrixChatId` gravado.
+  @@index([instanceId, chatId])
   @@map("core_thinkerszap_messages")
 }
 

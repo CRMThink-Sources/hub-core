@@ -176,6 +176,32 @@ export class ZApiClient {
     }
   }
 
+  /**
+   * Liga ou desliga a entrega, no `ReceivedCallback`, das mensagens enviadas pelo
+   * próprio número — inclusive as do celular e do WhatsApp Web (`fromApi=false`).
+   * Sem isso a Z-API nem manda o evento, e o espelhamento no canal aberto não tem o
+   * que espelhar.
+   */
+  async updateNotifySentByMe(
+    instanceId: string,
+    token: string,
+    enabled: boolean,
+  ): Promise<void> {
+    try {
+      await this.http.put(
+        `${this.instanceBaseUrl(instanceId, token)}/update-notify-sent-by-me`,
+        { notifySentByMe: enabled },
+        {
+          headers: {
+            'Client-Token': this.clientToken,
+          },
+        },
+      )
+    } catch (error) {
+      throw thinkzapError('thinkzap.zapi.notify_sent_by_me_failed', error)
+    }
+  }
+
   async listInstances(): Promise<ListZApiInstancesResponse> {
     try {
       const { data } = await this.http.get<ListZApiInstancesResponse>(

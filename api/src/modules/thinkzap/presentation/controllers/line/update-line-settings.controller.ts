@@ -25,6 +25,8 @@ const bodySchema = z
         // Forma aqui; regra (provider, inteiro > 0 quando ligado) no caso de uso.
         dailyLimitEnabled: z.boolean().optional(),
         dailyLimit: z.number().int().positive().nullable().optional(),
+        // Só Z-API; a recusa em linha oficial é do caso de uso.
+        deviceMessageMirrorEnabled: z.boolean().optional(),
       })
       .strict()
       .optional(),

@@ -130,3 +130,31 @@ describe('mergeConnectorSettings', () => {
     ).toEqual(DEFAULT_CONNECTOR_SETTINGS)
   })
 })
+
+describe('parseConnectorSettings (espelhamento do aparelho)', () => {
+  it('item sem a chave lê o espelhamento desligado', () => {
+    expect(
+      parseConnectorSettings({ prefixOperatorNameEnabled: true })
+        .deviceMessageMirrorEnabled,
+    ).toBe(false)
+  })
+
+  it('lê o valor gravado', () => {
+    expect(
+      parseConnectorSettings({ deviceMessageMirrorEnabled: true })
+        .deviceMessageMirrorEnabled,
+    ).toBe(true)
+  })
+
+  it('merge preserva o valor gravado quando o patch não traz a chave', () => {
+    const current = {
+      ...DEFAULT_CONNECTOR_SETTINGS,
+      deviceMessageMirrorEnabled: true,
+    }
+
+    expect(
+      mergeConnectorSettings(current, { prefixOperatorNameEnabled: true })
+        .deviceMessageMirrorEnabled,
+    ).toBe(true)
+  })
+})

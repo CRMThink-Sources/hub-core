@@ -26,6 +26,7 @@ const connectorSettingsSchema = z.object({
     .nullable()
     .optional()
     .catch(undefined),
+  deviceMessageMirrorEnabled: z.boolean().optional().catch(undefined),
 })
 
 /**

@@ -14,6 +14,7 @@ const PREFIX_ON = {
   widgetOpenChannelEnabled: false,
   dailyLimitEnabled: false,
   dailyLimit: null,
+  deviceMessageMirrorEnabled: false,
 }
 
 describe('prepareOpenLineOutboundText', () => {

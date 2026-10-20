@@ -15,16 +15,27 @@ import { randomUUID } from 'crypto'
  * `:` fica de fora de propósito — BullMQ rejeita ("Custom Id cannot contain :").
  */
 export function resolveZApiInboundJobId(event: ReceivedMessageEvent): string {
-  if (event.isEdit) return `zapi-edit-${event.editMessageId}`
-  if (event.notification === 'REVOKE') return `zapi-revoke-${event.messageId}`
-  return `zapi-${event.messageId}`
+  // Namespace próprio para o enviado pelo aparelho: o `messageId` é do mesmo espaço
+  // do inbound, e colidir colapsaria eventos de significados diferentes.
+  const prefix = event.fromMe ? 'zapi-me' : 'zapi'
+  if (event.isEdit) return `${prefix}-edit-${event.editMessageId}`
+  if (event.notification === 'REVOKE') {
+    return `${prefix}-revoke-${event.messageId}`
+  }
+  return `${prefix}-${event.messageId}`
 }
+
+/** `type` do job de mensagem enviada pelo próprio aparelho (celular/WhatsApp Web). */
+export const ZAPI_SENT_BY_ME_JOB_TYPE = 'sent-by-me'
 
 export class ReceivedMessageHandler implements ZApiEventHandler {
   eventType = 'ReceivedCallback'
 
   async handle(event: ReceivedMessageEvent): Promise<void> {
-    if (event.fromMe) return
+    if (event.fromMe) {
+      await this.handleSentByMe(event)
+      return
+    }
 
     const traceKey = randomUUID()
     apiLogger.info(
@@ -50,6 +61,58 @@ export class ReceivedMessageHandler implements ZApiEventHandler {
       {
         source: 'z-api',
         type: 'received-message',
+        body: event,
+        traceKey,
+      },
+      { jobId: resolveZApiInboundJobId(event) },
+    )
+  }
+
+  /**
+   * Enviada pelo próprio número. Só chega com `notifySentByMe` ligado na instância,
+   * que é o toggle de espelhamento da linha.
+   *
+   * `fromApi` descarta aqui, sem I/O: é a mensagem que **nós** mandamos (canal aberto,
+   * widget, robôs) voltando — ela já está no Bitrix. O toggle não é checado aqui: exige
+   * resolver o item da SPA, e o webhook tem de responder rápido; o worker checa.
+   */
+  private async handleSentByMe(event: ReceivedMessageEvent): Promise<void> {
+    if (event.fromApi) {
+      apiLogger.debug(
+        {
+          app: 'thinkzap',
+          source: 'z-api',
+          instanceId: event.instanceId,
+          messageId: event.messageId,
+          fromMe: true,
+          fromApi: true,
+        },
+        'Z-API message sent through the API — discarding',
+      )
+      return
+    }
+
+    const traceKey = randomUUID()
+    apiLogger.info(
+      {
+        event: 'webhook.received',
+        app: 'thinkzap',
+        source: 'z-api',
+        eventType: this.eventType,
+        instanceId: event.instanceId,
+        messageId: event.messageId,
+        phone: event.phone,
+        isGroup: event.isGroup,
+        fromMe: true,
+        traceKey,
+      },
+      'Received Z-API message sent from the device',
+    )
+
+    await enqueueThinkzapInboundJob(
+      {
+        source: 'z-api',
+        type: ZAPI_SENT_BY_ME_JOB_TYPE,
         body: event,
         traceKey,
       },

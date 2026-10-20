@@ -7,12 +7,18 @@ import type { NoticeLocale } from './notice-locale'
 export type HistoryNotices = {
   /** Vai antes da mensagem, com a quebra de linha já incluída. */
   sentFromCrmPrefix: string
+  /**
+   * Antes da mensagem que o cliente enviou do próprio aparelho (celular ou WhatsApp
+   * Web), espelhada no canal aberto. Quebra de linha já incluída.
+   */
+  sentFromDevicePrefix: string
   attachment: Record<'image' | 'video' | 'audio' | 'file', string>
 }
 
 const NOTICES: Record<NoticeLocale, HistoryNotices> = {
   pt: {
     sentFromCrmPrefix: '[Mensagem enviada a partir do CRM]\n',
+    sentFromDevicePrefix: '[Mensagem enviada pelo WhatsApp do aparelho]\n',
     attachment: {
       image: '[Imagem enviada]',
       video: '[Vídeo enviado]',
@@ -22,6 +28,7 @@ const NOTICES: Record<NoticeLocale, HistoryNotices> = {
   },
   en: {
     sentFromCrmPrefix: '[Message sent from the CRM]\n',
+    sentFromDevicePrefix: "[Message sent from the device's WhatsApp]\n",
     attachment: {
       image: '[Image sent]',
       video: '[Video sent]',
@@ -31,6 +38,8 @@ const NOTICES: Record<NoticeLocale, HistoryNotices> = {
   },
   es: {
     sentFromCrmPrefix: '[Mensaje enviado desde el CRM]\n',
+    sentFromDevicePrefix:
+      '[Mensaje enviado desde el WhatsApp del dispositivo]\n',
     attachment: {
       image: '[Imagen enviada]',
       video: '[Video enviado]',

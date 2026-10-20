@@ -87,3 +87,53 @@ describe('ReceivedMessageHandler', () => {
     expect(opts.jobId).toBe('zapi-MSG-1')
   })
 })
+
+describe('ReceivedMessageHandler (enviadas pelo próprio número)', () => {
+  it('descarta a enviada pela API sem enfileirar', async () => {
+    enqueueMock.mockClear()
+
+    await new ReceivedMessageHandler().handle(
+      baseEvent({ fromMe: true, fromApi: true }),
+    )
+
+    expect(enqueueMock).not.toHaveBeenCalled()
+  })
+
+  it('enfileira a enviada pelo aparelho com tipo e jobId próprios', async () => {
+    enqueueMock.mockClear()
+
+    await new ReceivedMessageHandler().handle(
+      baseEvent({ fromMe: true, fromApi: false, messageId: 'MSG-9' }),
+    )
+
+    expect(enqueueMock).toHaveBeenCalledTimes(1)
+    const [job, opts] = enqueueMock.mock.calls[0] as [
+      { source: string; type: string },
+      { jobId: string },
+    ]
+    expect(job).toMatchObject({ source: 'z-api', type: 'sent-by-me' })
+    expect(opts.jobId).toBe('zapi-me-MSG-9')
+  })
+
+  it('edição e remoção do aparelho não colidem com as do contato', () => {
+    const edit = { isEdit: true, editMessageId: 'MSG-1' }
+    const revoke = { notification: 'REVOKE', messageId: 'MSG-1' }
+
+    expect(resolveZApiInboundJobId(baseEvent({ fromMe: true, ...edit }))).toBe(
+      'zapi-me-edit-MSG-1',
+    )
+    expect(
+      resolveZApiInboundJobId(baseEvent({ fromMe: true, ...revoke })),
+    ).toBe('zapi-me-revoke-MSG-1')
+    expect(resolveZApiInboundJobId(baseEvent(edit))).toBe('zapi-edit-MSG-1')
+  })
+
+  it('mensagem do contato segue com tipo de recebida', async () => {
+    enqueueMock.mockClear()
+
+    await new ReceivedMessageHandler().handle(baseEvent())
+
+    const [job] = enqueueMock.mock.calls[0] as [{ type: string }]
+    expect(job.type).toBe('received-message')
+  })
+})

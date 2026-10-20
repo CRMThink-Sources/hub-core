@@ -51,15 +51,35 @@ function assertDailyLimitPatch(
   }
 }
 
+/**
+ * Liga/desliga, na Z-API, a notificação das mensagens enviadas pelo próprio número.
+ * Porta estreita para o teste não precisar do client inteiro.
+ */
+export type NotifySentByMeGateway = {
+  updateNotifySentByMe(
+    instanceId: string,
+    token: string,
+    enabled: boolean,
+  ): Promise<void>
+}
+
 export class UpdateLineSettings {
   constructor(
     private readonly renameLineOnProvider: RenameLineOnProviderUseCase,
     private readonly items: SubscriptionItemRepository,
+    private readonly notifySentByMe: NotifySentByMeGateway,
   ) {}
 
   async execute(input: UpdateLineSettingsInput): Promise<void> {
     // Antes de qualquer escrita: limite inválido não pode deixar o nome gravado pela metade.
     assertDailyLimitPatch(input.item, input.settings)
+
+    /**
+     * Também antes de qualquer escrita, e **estrito** — o oposto do rename. Toggle
+     * gravado ligado sem a Z-API entregar os eventos é um recurso "ligado" que nunca
+     * funciona; falhar aqui deixa tudo como estava, nome incluso.
+     */
+    await this.syncDeviceMessageMirror(input.item, input.settings)
 
     // O item é a fonte do nome para todo provider; o provider só recebe espelho.
     if (input.name !== undefined) {
@@ -103,5 +123,45 @@ export class UpdateLineSettings {
     await this.items.updateSubscriptionItem(input.item.id, {
       settings: mergeConnectorSettings(input.item.settings, patch),
     })
+  }
+
+  private async syncDeviceMessageMirror(
+    item: SubscriptionItem,
+    patch: Partial<ConnectorSettings> | undefined,
+  ): Promise<void> {
+    const wanted = patch?.deviceMessageMirrorEnabled
+    if (wanted === undefined) return
+
+    if (item.metadata.provider !== 'ZAPI') {
+      throw thinkzapError('thinkzap.line.provider_unsupported')
+    }
+
+    // Sem mudança, sem chamada: salvar o mesmo valor não pode depender da Z-API.
+    if (wanted === item.settings.deviceMessageMirrorEnabled) return
+
+    const { zApiInstanceId, zApiInstanceToken } = item.metadata
+    try {
+      await this.notifySentByMe.updateNotifySentByMe(
+        zApiInstanceId,
+        zApiInstanceToken,
+        wanted,
+      )
+    } catch (error) {
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.zapi.notify_sent_by_me_failed',
+        {
+          app: 'thinkzap',
+          subscriptionItemId: item.id,
+          zApiInstanceId,
+          enabled: wanted,
+          err: error,
+        },
+        {
+          msg: 'Espelhamento do aparelho não alterado na Z-API — nada foi gravado',
+        },
+      )
+      throw error
+    }
   }
 }

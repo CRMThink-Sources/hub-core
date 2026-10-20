@@ -112,16 +112,24 @@ export function AjustesTab({ itemId, onDirtyChange, provider }: Props) {
             })
           : undefined
 
+      // Defensivo como o limite: api anterior ao toggle não manda o campo, e
+      // `undefined` x `false` contaria como alteração.
+      const settings = {
+        ...data.settings,
+        deviceMessageMirrorEnabled:
+          data.settings.deviceMessageMirrorEnabled === true,
+      }
+
       setState({
         status: 'ready',
         name: data.name,
         vinculatedChannel: data.vinculatedChannel,
-        settings: data.settings,
+        settings,
         entitlement: data.entitlement,
         limiteDiario,
         uso: data.dailyLimit ?? null,
       })
-      setInicial({ name: data.name, settings: data.settings, limiteDiario })
+      setInicial({ name: data.name, settings, limiteDiario })
     },
     [provider],
   )
@@ -584,6 +592,22 @@ export function AjustesTab({ itemId, onDirtyChange, provider }: Props) {
                   : t('toggles.widgetOpenChannelSemCanal')
               }
             />
+
+            {/* A notificação de "enviadas por mim" só existe na Z-API. */}
+            {provider === 'ZAPI' && (
+              <Toggle
+                id="device-message-mirror"
+                checked={state.settings.deviceMessageMirrorEnabled}
+                onChange={v => setToggle('deviceMessageMirrorEnabled', v)}
+                label={t('toggles.deviceMessageMirror')}
+                disabled={!temCanal || bloqueada}
+                hint={
+                  temCanal
+                    ? t('toggles.deviceMessageMirrorHint')
+                    : t('toggles.widgetOpenChannelSemCanal')
+                }
+              />
+            )}
           </div>
         </ConfigCard>
 
