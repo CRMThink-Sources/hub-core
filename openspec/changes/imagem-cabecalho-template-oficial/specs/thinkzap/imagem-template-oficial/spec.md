@@ -64,7 +64,11 @@ Uma recusa da Meta ao cabeçalho SHALL chegar ao operador com a mensagem legíve
 
 #### Scenario: API envia o arquivo ao provedor
 - **WHEN** um pedido de criação chega com cabeçalho de imagem e um arquivo PNG de 300 KB
-- **THEN** a API envia o arquivo ao provedor e cria o template com o identificador devolvido
+- **THEN** a API entrega a imagem ao provedor e cria o template com o cabeçalho de imagem
+
+#### Scenario: Armazenamento da imagem indisponível
+- **WHEN** um pedido de criação chega com arquivo e o armazenamento da imagem está fora do ar
+- **THEN** a API responde com erro dizendo que o envio de arquivo está indisponível e que o operador pode usar um link, e nada é enviado ao provedor
 
 #### Scenario: Upload indisponível na conta
 - **WHEN** o provedor recusa o envio do arquivo porque a conta não tem as credenciais da Meta cadastradas

@@ -32,9 +32,11 @@ O operador escolhe entre enviar o arquivo e informar um link. Pedido com arquivo
 
 O componente neutro é `{ type: 'HEADER', format: 'IMAGE', example?: { imageUrl } }`, e o pedido tem **exatamente uma** fonte: o arquivo ou `imageUrl`. `CreateTemplateInput` ganha `headerSampleImage?: TemplateSampleImage` (bytes + tipo).
 
-O adapter decide o formato:
-- **Arquivo**: `uploadTemplateMedia` (`POST /whatsapp/businesses/{wabaId}/templates/media`, multipart `file` + `type`) → `h` → `example: { header_handle: [h] }`. Upload e criação acontecem no mesmo request, porque o `h` expira.
-- **Link**: `example: { header_handle: [imageUrl] }`, o formato documentado pela Omni para link público, que ela converte no identificador da Meta.
+O caminho do arquivo:
+- **Com o bucket R2 configurado** (mudança `upload-imagem-envio-widget`): o use case grava o arquivo no bucket, troca o cabeçalho por `example.imageUrl` com a URL pública e segue pelo caminho do link. Não depende das credenciais da Meta nem da rota de upload da Omni. A gravação acontece depois das recusas de linha, para um pedido recusado não deixar arquivo.
+- **Sem o bucket**: o adapter usa `uploadTemplateMedia` (`POST /whatsapp/businesses/{wabaId}/templates/media`, multipart `file` + `type`) → `h` → `example: { header_handle: [h] }`, no mesmo request porque o `h` expira. Em 2026-10-20 essa rota respondia `405` (documentada, não publicada); a resposta `404`/`405` dela vira mensagem pedindo o link.
+
+O link vai em `example: { header_handle: [imageUrl] }`, o formato documentado pela Omni para link público, que ela converte no identificador da Meta.
 
 O `422 MISSING_APP_CREDENTIALS` do upload vira `thinkzap.template.header_image_app_credentials_missing`, com mensagem dizendo que o envio de arquivo não está disponível na conta e que o operador pode usar o link (ou pedir a configuração de App ID/App Secret no painel da Omni).
 

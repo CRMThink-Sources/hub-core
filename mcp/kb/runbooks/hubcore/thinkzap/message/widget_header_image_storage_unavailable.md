@@ -1,12 +1,12 @@
 ---
 category: integration
 audience: suporte
-summary: O envio de arquivo da imagem do cabeçalho no widget está indisponível.
+summary: O envio de arquivo da imagem do cabeçalho (widget ou criação de template) está indisponível.
 ---
 # thinkzap.message.widget_header_image_storage_unavailable
 
 ## O que significa
-No widget do CRM, o operador tentou enviar um arquivo como imagem do cabeçalho de um template, mas o app thinkzap não conseguiu guardar a imagem. Nada foi enviado. O envio do template continua possível informando um link da imagem.
+No widget do CRM ou na criação de um template do WhatsApp Oficial, o operador enviou um arquivo como imagem do cabeçalho, mas o app thinkzap não conseguiu guardar a imagem. Nada foi enviado à Meta. O envio (ou a criação) do template continua possível informando um link da imagem.
 
 ## Causa provável
 - **Instabilidade momentânea** do serviço que guarda as imagens.

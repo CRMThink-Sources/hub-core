@@ -26,5 +26,5 @@
 
 ## 5. Integração
 
-- [ ] 5.1 Em staging: subir uma imagem pelo widget, abrir a URL devolvida numa janela anônima, enviar o template e conferir a imagem no aparelho e o histórico no CRM; conferir que a regra de 30 dias está ativa no bucket. Verificação: checklist anexado ao PR.
+- [x] 5.1 Em staging: subir uma imagem pelo widget, abrir a URL devolvida numa janela anônima, enviar o template e conferir a imagem no aparelho e o histórico no CRM; conferir que a regra de 30 dias está ativa no bucket. Verificação: checklist anexado ao PR.
 - [x] 5.2 Rodar lint, testes e `tsc` na API e no front. Verificação: tudo verde (exceto falhas pré-existentes documentadas no PR).

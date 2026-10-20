@@ -5,6 +5,7 @@ import { CreateConnectorTemplateUseCase } from '../../application/create-connect
 import { CreateTemplateController } from '../../presentation/controllers/connector/create-template.controller'
 import { makeTemplateProviderResolver } from './make-template-provider-resolver'
 import { AxiosTemplateSampleImageFetcher } from '../../infra/adapters/axios-template-sample-image-fetcher.adapter'
+import { makeTemplateImageStorage } from '../make-template-image-storage'
 
 export const makeCreateTemplateController = (
   _req: Request,
@@ -13,6 +14,7 @@ export const makeCreateTemplateController = (
     makeGetAplicationContext(),
     makeTemplateProviderResolver(),
     new AxiosTemplateSampleImageFetcher(),
+    makeTemplateImageStorage(),
   )
   return Promise.resolve(new CreateTemplateController(useCase))
 }

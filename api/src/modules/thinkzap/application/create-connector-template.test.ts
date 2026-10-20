@@ -12,6 +12,10 @@ import {
   TemplateSampleImageFetcher,
 } from '@/modules/thinkzap/domain/ports/template-sample-image-fetcher.port'
 import {
+  TemplateImageStorage,
+  TemplateImageStorageUnavailableError,
+} from '@/modules/thinkzap/domain/ports/template-image-storage.port'
+import {
   CreateConnectorTemplateUseCase,
   InvalidTemplateError,
   InvalidTemplateHeaderImageError,
@@ -61,7 +65,11 @@ function makeProvider(overrides: Partial<WhatsAppTemplateProvider> = {}) {
 }
 
 function makeSut(
-  opts: { items?: SubscriptionItem[]; fetch?: ReturnType<typeof vi.fn> } = {},
+  opts: {
+    items?: SubscriptionItem[]
+    fetch?: ReturnType<typeof vi.fn>
+    imageStorage?: TemplateImageStorage | null
+  } = {},
 ) {
   const provider = makeProvider()
 
@@ -95,6 +103,7 @@ function makeSut(
       getAplicationContext,
       templateProviderResolver,
       sampleImageFetcher,
+      opts.imageStorage ?? null,
     ),
   }
 }
@@ -300,6 +309,74 @@ describe('CreateConnectorTemplateUseCase', () => {
       }),
     ).rejects.toThrow('A imagem de exemplo passa de 5 MB')
     expect(sut.provider.createTemplate).not.toHaveBeenCalled()
+  })
+
+  describe('imagem de exemplo por arquivo, com o bucket configurado', () => {
+    const png = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00,
+    ])
+    const url = 'https://imagens.loja.com/template-headers/domain_1/x.png'
+    const fileInput = {
+      ...validInput,
+      category: 'MARKETING' as const,
+      components: [
+        { type: 'HEADER' as const, format: 'IMAGE' },
+        ...validInput.components,
+      ],
+      headerImageFile: { data: png },
+    }
+    const storage = () => {
+      const store = vi.fn().mockResolvedValue({ url, key: 'x.png' })
+      return { store, storage: { store } as unknown as TemplateImageStorage }
+    }
+
+    it('hospeda o arquivo e cria pelo caminho do link', async () => {
+      const { store, storage: imageStorage } = storage()
+      const sut = makeSut({ imageStorage })
+
+      await sut.useCase.execute(fileInput)
+
+      expect(store).toHaveBeenCalledWith({
+        data: png,
+        contentType: 'image/png',
+        scope: { domainId: 'domain_1' },
+      })
+      const [created] =
+        vi.mocked(sut.provider.createTemplate).mock.calls[0] ?? []
+      expect(created?.components[0]).toEqual({
+        type: 'HEADER',
+        format: 'IMAGE',
+        example: { imageUrl: url },
+      })
+      expect(created).not.toHaveProperty('headerSampleImage')
+      // A URL é nossa: não é baixada de novo para conferência.
+      expect(sut.sampleImageFetcher.fetch).not.toHaveBeenCalled()
+    })
+
+    it('não hospeda nada quando a linha recusa', async () => {
+      const { store, storage: imageStorage } = storage()
+      const sut = makeSut({ imageStorage })
+
+      await expect(
+        sut.useCase.execute({ ...fileInput, subscriptionItemId: 'de-outro' }),
+      ).rejects.toBeInstanceOf(LineNotFoundError)
+      expect(store).not.toHaveBeenCalled()
+    })
+
+    it('bucket fora do ar não chama o provider', async () => {
+      const sut = makeSut({
+        imageStorage: {
+          store: vi
+            .fn()
+            .mockRejectedValue(new TemplateImageStorageUnavailableError('x')),
+        },
+      })
+
+      await expect(sut.useCase.execute(fileInput)).rejects.toBeInstanceOf(
+        TemplateImageStorageUnavailableError,
+      )
+      expect(sut.provider.createTemplate).not.toHaveBeenCalled()
+    })
   })
 
   describe('imagem de exemplo por arquivo', () => {
