@@ -27,6 +27,17 @@ import {
   isBotNotFoundError,
 } from '@/modules/thinkzap/application/ensure-bitrix-bot-id'
 import { notifyOperatorWindowClosed } from '@/modules/thinkzap/application/notify-operator-window-closed'
+import { notifyOperatorDailyLimitReached } from '@/modules/thinkzap/application/notify-operator-daily-limit-reached'
+import {
+  dailyLimitPolicyOf,
+  isDailyLimitReachedError,
+  sendWithinDailyQuota,
+} from '@/modules/thinkzap/application/helpers/send-within-daily-quota'
+import { buildCaptionedParts } from '@/modules/thinkzap/application/helpers/build-captioned-parts'
+import type { DailyLimitPolicy } from '@/modules/thinkzap/domain/daily-send-limit'
+import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
+import { openChannelNotices } from '@/modules/thinkzap/domain/notices/open-channel-notices'
 import { resolveBitrixReplyContext } from '@/modules/thinkzap/application/resolve-bitrix-reply-context'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
 import { makeInteractiveButtonSenderResolver } from '@/modules/thinkzap/main/connector/make-interactive-button-sender-resolver'
@@ -57,6 +68,51 @@ const log = createWorkerSourceLogger('bitrix')
 const messageRepo = new PrismaThinkzapMessageRepository()
 const outboundSenderResolver = makeOutboundSenderResolver()
 const interactiveButtonSenderResolver = makeInteractiveButtonSenderResolver()
+const dailySendQuota = makeDailySendQuota()
+const installationLocales = makeInstallationLocaleRepository()
+
+/**
+ * Recusa por limite diário: permanente até a virada do dia (ou liberação), então
+ * avisa o operador e encerra **sem relançar** — retentar cairia no mesmo limite e
+ * não há `setDelivered`, porque nada saiu.
+ */
+async function handleDailyLimitReached(params: {
+  logContext: Record<string, unknown>
+  bitrixClient: BitrixClient
+  botId: number
+  bitrixChatId: string
+  /** `core_apps.id`: o aviso sai no idioma escolhido no app para a instalação. */
+  appId: string
+  appendJobLog: AppendJobLog
+}): Promise<void> {
+  logThinkzapError(
+    log,
+    'thinkzap.line.daily_limit_reached',
+    params.logContext,
+    {
+      level: 'warn',
+      msg: 'Envio do operador recusado pelo limite diário da linha',
+    },
+  )
+  await params.appendJobLog(
+    'Envio recusado: a linha atingiu o limite diário de mensagens. Nada foi enviado ao ' +
+      'provider — job encerrado SEM retentativa.',
+  )
+  const locale = await installationLocales.byAppId(params.appId)
+  const notice = await notifyOperatorDailyLimitReached(
+    params.bitrixClient,
+    params.botId,
+    params.bitrixChatId,
+    locale,
+  )
+  // O desfecho do aviso vai para a aba Logs: sem isto, "não apareceu no chat" só se
+  // descobre no log do container.
+  await params.appendJobLog(
+    notice.posted
+      ? `Operador avisado no chat (mensagem de sistema via ${notice.method}, id=${notice.bitrixMessageId}, idioma=${locale}).`
+      : `Aviso ao operador NÃO postado — o Bitrix recusou todas as tentativas: ${notice.reason}`,
+  )
+}
 
 type BitrixMessageGetResult = {
   result: {
@@ -113,11 +169,7 @@ async function persistOutboundMessage(
   }
 }
 
-const CAPTIONABLE_KINDS: ReadonlySet<OutboundMessageDescriptor['kind']> =
-  new Set(['image', 'video', 'document'])
-
-// `text` e `files` podem vir juntos: o texto vira legenda do primeiro anexo legendável,
-// senão sai como texto separado antes da mídia (ordem do canal aberto).
+// `text` e `files` podem vir juntos: a regra de legenda está em `buildCaptionedParts`.
 function toOutboundDescriptors(
   message: IBX24MessageEvent['data']['MESSAGES'][number],
   logContext: { domain: string },
@@ -145,17 +197,7 @@ function toOutboundDescriptors(
   }
 
   // Anexo desconhecido descartado não pode levar o texto embora.
-  if (!media.length) return text ? [{ kind: 'text', text }] : []
-
-  if (!text) return media
-
-  const first = media[0]
-
-  if (first && CAPTIONABLE_KINDS.has(first.kind)) {
-    return [{ ...first, text }, ...media.slice(1)]
-  }
-
-  return [{ kind: 'text', text }, ...media]
+  return buildCaptionedParts(text, media)
 }
 
 function describeDescriptor(descriptor: OutboundMessageDescriptor): string {
@@ -357,6 +399,13 @@ export async function processBitrixReceivedMessage(
     throw thinkzapError('thinkzap.line.blocked')
   }
 
+  // Settings do item (via contexto da aplicação), não os congelados do contexto do webhook.
+  const dailyLimitPolicy = dailyLimitPolicyOf({
+    provider,
+    lineKey: context.instance.instanceId,
+    settings: line.settings,
+  })
+
   const bitrixClient = new BitrixClient({
     bitrixCredential: context.app.credential,
     domain: context.name,
@@ -381,6 +430,7 @@ export async function processBitrixReceivedMessage(
       botId,
       bitrixClient,
       appendJobLog,
+      dailyLimitPolicy,
     })
     return
   }
@@ -518,8 +568,28 @@ export async function processBitrixReceivedMessage(
 
     let result: OutboundSendResult
     try {
-      result = await sender.send(toSend, { referencedMessageId })
+      result = await sendWithinDailyQuota(
+        dailySendQuota,
+        dailyLimitPolicy,
+        () => sender.send(toSend, { referencedMessageId }),
+      )
     } catch (err) {
+      if (isDailyLimitReachedError(err)) {
+        await handleDailyLimitReached({
+          logContext: {
+            domain: event.auth.domain,
+            instanceId: context.instance.instanceId,
+            chatId,
+            bitrixMessageId,
+          },
+          bitrixClient,
+          botId,
+          bitrixChatId: message.im.chat_id,
+          appId: context.app.id,
+          appendJobLog,
+        })
+        return
+      }
       // Janela de 24h fechada é permanente: avisa o operador e não relança (sem retentativa).
       if (isConversationWindowClosedError(err)) {
         logThinkzapError(
@@ -545,6 +615,7 @@ export async function processBitrixReceivedMessage(
           bitrixClient,
           botId,
           message.im.chat_id,
+          await installationLocales.byAppId(context.app.id),
         )
         return
       }
@@ -633,6 +704,7 @@ async function sendButtonActionMessage(params: {
   botId: number
   bitrixClient: BitrixClient
   appendJobLog: AppendJobLog
+  dailyLimitPolicy: DailyLimitPolicy | null
 }): Promise<void> {
   const {
     event,
@@ -643,6 +715,7 @@ async function sendButtonActionMessage(params: {
     botId,
     bitrixClient,
     appendJobLog,
+    dailyLimitPolicy,
   } = params
 
   const logContext = {
@@ -669,11 +742,13 @@ async function sendButtonActionMessage(params: {
       'Código de botões da tela do canal aberto não pôde ser decodificado. ' +
         'Nada foi enviado ao contato. Job encerrado SEM retentativa — o motivo é permanente.',
     )
+    const locale = await installationLocales.byAppId(context.app.id)
     await notifyOperatorButtonActionFailed(
       bitrixClient,
       botId,
       message.im.chat_id,
-      'a mensagem chegou corrompida. Tente novamente pela tela de botões.',
+      openChannelNotices(locale).buttonCodeCorrupted,
+      locale,
     )
     return
   }
@@ -703,6 +778,7 @@ async function sendButtonActionMessage(params: {
       botId,
       message.im.chat_id,
       (err as Error).message,
+      await installationLocales.byAppId(context.app.id),
     )
     return
   }
@@ -716,8 +792,22 @@ async function sendButtonActionMessage(params: {
 
   let result: InteractiveButtonSendResult
   try {
-    result = await sender.send(descriptor)
+    result = await sendWithinDailyQuota(dailySendQuota, dailyLimitPolicy, () =>
+      sender.send(descriptor),
+    )
   } catch (err) {
+    if (isDailyLimitReachedError(err)) {
+      await handleDailyLimitReached({
+        logContext,
+        bitrixClient,
+        botId,
+        bitrixChatId: message.im.chat_id,
+        appId: context.app.id,
+        appendJobLog,
+      })
+      return
+    }
+
     if (isConversationWindowClosedError(err)) {
       logThinkzapError(
         log,
@@ -732,7 +822,12 @@ async function sendButtonActionMessage(params: {
         'Provider recusou: janela de conversa de 24h fechada. Só template aprovado reabre — ' +
           'operador avisado no chat, job encerrado SEM retentativa e sem entrega.',
       )
-      await notifyOperatorWindowClosed(bitrixClient, botId, message.im.chat_id)
+      await notifyOperatorWindowClosed(
+        bitrixClient,
+        botId,
+        message.im.chat_id,
+        await installationLocales.byAppId(context.app.id),
+      )
       return
     }
 

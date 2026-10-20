@@ -1,5 +1,6 @@
 import { adoptLineBinding } from '@/modules/thinkzap/application/adopt-line-binding'
-import { BOT_CODE } from '@/modules/thinkzap/application/ensure-bot-flow-bot'
+import { CheckThinkbotConnector } from '@/modules/thinkzap/application/check-thinkbot-connector'
+import { isFlowBotCode } from '@/modules/thinkzap/application/ensure-bot-flow-bot'
 import { runBotTurn } from '@/modules/thinkzap/application/run-bot-turn'
 import { parseBotEvent } from '@/modules/thinkzap/domain/bot-flow/bot-event'
 import {
@@ -16,6 +17,17 @@ import { BitrixBotSessionAdapter } from '@/modules/thinkzap/infra/adapters/bitri
 import { HybridBotSessionAdapter } from '@/modules/thinkzap/infra/adapters/hybrid-bot-session.adapter'
 import { makeBitrixWebhookContextRepository } from '@/modules/thinkzap/main/make-bitrix-webhook-context-repository'
 import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outbound-sender-resolver'
+import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
+import { findLineItemByInstanceId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
+import {
+  dailyLimitPolicyOf,
+  sendWithinDailyQuota,
+} from '@/modules/thinkzap/application/helpers/send-within-daily-quota'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import type { OutboundMessageSender } from '@/modules/thinkzap/domain/ports/outbound-message-sender.port'
+import type { BitrixWebhookContext } from '@/modules/thinkzap/domain/repositories/get-bitrix-webhook-context.repository'
 import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
 import { env } from '@/config/env'
 import type { BotSessionPort } from '@/modules/thinkzap/domain/ports/bot-session.port'
@@ -44,7 +56,7 @@ export async function processBitrixBotEvent(
   body: unknown,
   ctx: { appendJobLog: AppendJobLog },
 ): Promise<void> {
-  const event = parseBotEvent(body, BOT_CODE)
+  const event = parseBotEvent(body, isFlowBotCode)
 
   if (event.kind === 'ignore') {
     // Caminho normal: operador, sistema e outros bots chegam no mesmo endereço.
@@ -111,12 +123,16 @@ export async function processBitrixBotEvent(
   }
 
   // `botToken` vem do banco (única cópia); sem ele `transfer`/`finish` não identificam o bot.
-  const bot = await bots.getByAppId(installedApp.id)
+  const bot = await bots.getByBitrixBotId(installedApp.id, event.bitrixBotId)
   if (!bot) {
     logThinkzapError(
       log,
       'thinkzap.bot.event_unresolved',
-      { appId: installedApp.id, chatId: event.chatId },
+      {
+        appId: installedApp.id,
+        chatId: event.chatId,
+        bitrixBotId: event.bitrixBotId,
+      },
       {
         level: 'error',
         msg: 'Evento de bot sem registro nosso — o bot existe no portal e não no banco',
@@ -130,8 +146,7 @@ export async function processBitrixBotEvent(
     domain: domain.name,
   })
 
-  // `MESSAGEADD` e `JOINCHAT` chegam juntos e duplicariam a saudação: um turno por chat,
-  // concorrente descartado (esperar prenderia slots do worker).
+  // Um turno por chat; concorrente descartado (esperar prenderia slots do worker).
   const lock = await acquireBotChatLock(
     redisConnection,
     installedApp.id,
@@ -191,6 +206,13 @@ export async function processBitrixBotEvent(
       sessions,
       flows,
       bindings,
+      // Uma leitura por turno: o resumo da transferência sai no idioma da instalação.
+      locale: await makeInstallationLocaleRepository().byAppId(installedApp.id),
+      connectorAtivo: () =>
+        new CheckThinkbotConnector(makeGetAplicationContext()).execute({
+          domainId: domain.id,
+          appCode: thinkzapAppCodeId(),
+        }),
       workingHours: async (id: string) => {
         try {
           const config = await client.getOpenChannel(id)
@@ -221,13 +243,17 @@ export async function processBitrixBotEvent(
 
     let outcome = await runBotTurn(event, lineId, installedApp.id, deps, crm)
 
-    // Canal ligado pelo painel do Bitrix: adota só em `sem-vinculo`; os outros skips são
-    // decisão do cliente (vínculo inativo, fluxo fora do ar).
+    // Bot ligado pelo painel do Bitrix: adota só em `sem-vinculo`.
     if (outcome.kind === 'skipped' && outcome.reason === 'sem-vinculo') {
-      const adotado = await adoptLineBinding(installedApp.id, lineId, {
-        flows,
-        bindings,
-      })
+      const adotado = await adoptLineBinding(
+        installedApp.id,
+        lineId,
+        bot.flowId,
+        {
+          flows,
+          bindings,
+        },
+      )
 
       if (adotado) {
         await ctx.appendJobLog(
@@ -259,7 +285,7 @@ export async function processBitrixBotEvent(
     }
 
     if (outcome.kind === 'skipped') {
-      // Bot na linha sem fluxo: vai para a fila em vez de deixar o chat mudo.
+      // Fila em vez de chat mudo.
       logThinkzapError(
         log,
         'thinkzap.bot.turn_skipped',
@@ -271,7 +297,7 @@ export async function processBitrixBotEvent(
         },
         {
           level: 'warn',
-          msg: `Turno sem fluxo (${outcome.reason}) — entregando para a fila`,
+          msg: `Turno não executado (${outcome.reason}) — entregando para a fila`,
         },
       )
 
@@ -288,8 +314,8 @@ export async function processBitrixBotEvent(
   }
 }
 
-// A fala do bot não dispara `ONIMCONNECTORMESSAGEADD`, então entregamos ao contato direto;
-// canal sem conector ThinkZap fica só no eco (o Bitrix repassa ao conector dele).
+// Fala do bot não dispara `ONIMCONNECTORMESSAGEADD`: entrega direto ao contato.
+// Canal de outro conector fica só no eco.
 async function comEntregaAoContato(
   eco: BotSessionPort,
   input: {
@@ -332,5 +358,49 @@ async function comEntregaAoContato(
       `instância=${context.instance.instanceId}`,
   )
 
-  return new HybridBotSessionAdapter(eco, contato)
+  return new HybridBotSessionAdapter(
+    eco,
+    await comCotaDiaria(contato, context, appCode),
+    () =>
+      input.appendJobLog(
+        'Fala do bot NÃO entregue: a linha atingiu o limite diário de mensagens. ' +
+          'Provider não foi chamado, eco no chat suprimido, turno segue sem retentativa.',
+      ),
+  )
+}
+
+/**
+ * A fala do bot conta no limite diário como qualquer outra saída da linha. Settings
+ * do item pelo contexto da aplicação — os do contexto do webhook são congelados.
+ * Linha não resolvida continua contada, mas sem limite: não há configuração para aplicar.
+ */
+async function comCotaDiaria(
+  contato: OutboundMessageSender,
+  context: BitrixWebhookContext,
+  appCode: string,
+): Promise<OutboundMessageSender> {
+  // Só a linha não oficial tem limite diário.
+  if (context.connector.provider !== ConnectorProvider.ZAPI) {
+    return contato
+  }
+
+  const lineKey = context.instance.instanceId
+  const line = await findLineItemByInstanceId(
+    { instanceId: lineKey, domainId: context.id, appCode },
+    makeGetAplicationContext(),
+  )
+  const policy = dailyLimitPolicyOf({
+    provider: ConnectorProvider.ZAPI,
+    lineKey,
+    settings: line?.settings,
+  })
+  const quota = makeDailySendQuota()
+
+  return {
+    supportsReply: contato.supportsReply,
+    send: (descriptor, options) =>
+      sendWithinDailyQuota(quota, policy, () =>
+        contato.send(descriptor, options),
+      ),
+  }
 }

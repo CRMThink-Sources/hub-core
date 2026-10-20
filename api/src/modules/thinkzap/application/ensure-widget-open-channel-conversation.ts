@@ -1,3 +1,8 @@
+import {
+  DEFAULT_NOTICE_LOCALE,
+  type NoticeLocale,
+} from '@/modules/thinkzap/domain/notices/notice-locale'
+import { historyNotices } from '@/modules/thinkzap/domain/notices/history-notices'
 import { env } from '@/config/env'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
@@ -74,6 +79,11 @@ export class EnsureWidgetOpenChannelConversation {
         phone: normalizePhoneNumber(destination),
       }),
     private readonly getCrmContactName?: GetCrmContactName,
+    /**
+     * Idioma da instalação para o prefixo do histórico. Chamado só quando a conversa vai
+     * mesmo ser postada. Ausente, português.
+     */
+    private readonly resolveLocale?: () => Promise<NoticeLocale>,
   ) {}
 
   async execute(
@@ -120,11 +130,13 @@ export class EnsureWidgetOpenChannelConversation {
     const contactName = await this.resolveDisplayName(input, contact.phone)
 
     try {
+      const locale = await this.localeOrDefault()
       const { chatId, payload } = await this.bitrixClient.sendToOpenChannel(
         vinculatedChannel,
         env.bitrix.connector.code,
         { id: contactId, name: contactName, phone: contact.phone },
         text,
+        historyNotices(locale).sentFromCrmPrefix,
       )
 
       // Sem `session.CHAT_ID` não é erro: a mensagem entrou; retentar duplicaria.
@@ -163,6 +175,18 @@ export class EnsureWidgetOpenChannelConversation {
   }
 
   /** Falha no CRM cai no telefone: nome é cosmético, não pode impedir a conversa. */
+  /**
+   * Idioma do prefixo, sem nunca derrubar a postagem: falha aqui viraria `failed` e
+   * retentativa de uma conversa que só precisava de um texto em português.
+   */
+  private async localeOrDefault(): Promise<NoticeLocale> {
+    try {
+      return (await this.resolveLocale?.()) ?? DEFAULT_NOTICE_LOCALE
+    } catch {
+      return DEFAULT_NOTICE_LOCALE
+    }
+  }
+
   private async resolveDisplayName(
     input: EnsureWidgetOpenChannelInput,
     phone: string | null,

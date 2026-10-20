@@ -1,3 +1,5 @@
+import type { TemplateButtonParameter } from '@/modules/thinkzap/domain/ports/template-message-sender.port'
+
 export type SendWidgetTemplateInput = {
   /** Id do item de assinatura — a linha, mesma chave do envio livre do widget. */
   subscriptionItemId: string
@@ -14,6 +16,13 @@ export type SendWidgetTemplateInput = {
    * front monta a ordem; aqui ela só é repassada.
    */
   bodyParameters: string[]
+  /**
+   * Valores dos botões dinâmicos, com o `index` que o catálogo informou. Ausente em
+   * template sem botão dinâmico.
+   */
+  buttonParameters?: TemplateButtonParameter[]
+  /** URL `https` da imagem do cabeçalho; ausente em template sem imagem. */
+  headerImageUrl?: string
   /** Corpo do template como listado, com os placeholders intactos. */
   templateBody: string
   entity: string

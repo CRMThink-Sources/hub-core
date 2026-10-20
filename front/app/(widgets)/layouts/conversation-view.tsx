@@ -34,11 +34,19 @@ import {
 } from './button-composer'
 import { buildSendWidgetFormData } from './send-widget-message.client'
 import { resolveWidgetEntity } from './resolve-widget-entity'
-import { TemplateComposer, templateKey } from './template-composer'
 import {
-  hasAllTemplateVariables,
+  TemplateComposer,
+  templateKey,
+  type HeaderImageSource,
+} from './template-composer'
+import {
+  canSendWidgetTemplate,
+  needsHeaderImage,
   orderedTemplateParameters,
+  templateButtonParameters,
+  widgetHeaderImageFileError,
 } from './template-variables'
+import { uploadWidgetHeaderImage } from './upload-widget-header-image.client'
 import {
   attachmentSizeErrorMessage,
   isAttachmentWithinSizeLimit,
@@ -148,6 +156,21 @@ export const ConversationView = () => {
   const [templateValues, setTemplateValues] = useState<Record<string, string>>(
     {},
   )
+  const [templateButtonValues, setTemplateButtonValues] = useState<
+    Record<number, string>
+  >({})
+  const [templateHeaderImageUrl, setTemplateHeaderImageUrl] = useState('')
+  /**
+   * Imagem do cabeçalho por arquivo: o arquivo sobe assim que é escolhido, e a URL
+   * devolvida entra em `templateHeaderImageUrl` — o envio é o mesmo do link.
+   */
+  const [headerImageSource, setHeaderImageSource] =
+    useState<HeaderImageSource>('FILE')
+  const [headerImageFileName, setHeaderImageFileName] = useState('')
+  const [headerImageUploading, setHeaderImageUploading] = useState(false)
+  const [headerImageUploadError, setHeaderImageUploadError] = useState('')
+  /** Upload de um arquivo/template anterior que termine depois é descartado. */
+  const headerImageUploadTokenRef = useRef(0)
   /**
    * Estado do modo botões — mesmo raciocínio do modo template: campos
    * separados do modo livre, para que trocar de modo não misture rascunhos.
@@ -293,7 +316,48 @@ export const ConversationView = () => {
   useEffect(() => {
     setSelectedTemplateKey('')
     setTemplateValues({})
+    setTemplateButtonValues({})
+    resetHeaderImage()
   }, [selectedConnectorId])
+
+  /**
+   * Limpa a imagem do cabeçalho (troca de linha, de template, de modo, ou envio
+   * concluído). O token invalida um upload ainda em andamento.
+   */
+  function resetHeaderImage(source: HeaderImageSource = 'FILE') {
+    headerImageUploadTokenRef.current += 1
+    setHeaderImageSource(source)
+    setTemplateHeaderImageUrl('')
+    setHeaderImageFileName('')
+    setHeaderImageUploading(false)
+    setHeaderImageUploadError('')
+  }
+
+  async function pickHeaderImageFile(file: File) {
+    const rejection = widgetHeaderImageFileError(file)
+    const token = ++headerImageUploadTokenRef.current
+    setTemplateHeaderImageUrl('')
+    setHeaderImageFileName(file.name)
+    if (rejection) {
+      setHeaderImageUploadError(rejection)
+      return
+    }
+
+    setHeaderImageUploadError('')
+    setHeaderImageUploading(true)
+    try {
+      const url = await uploadWidgetHeaderImage(file)
+      if (headerImageUploadTokenRef.current !== token) return
+      setTemplateHeaderImageUrl(url)
+    } catch (error) {
+      if (headerImageUploadTokenRef.current !== token) return
+      setHeaderImageUploadError((error as Error).message)
+    } finally {
+      if (headerImageUploadTokenRef.current === token) {
+        setHeaderImageUploading(false)
+      }
+    }
+  }
 
   /**
    * Status da linha selecionada, **uma consulta por seleção**.
@@ -382,7 +446,13 @@ export const ConversationView = () => {
 
   const canSubmitTemplate =
     !!selectedTemplate &&
-    hasAllTemplateVariables(selectedTemplate.body, templateValues)
+    canSendWidgetTemplate({
+      template: selectedTemplate,
+      values: templateValues,
+      buttonValues: templateButtonValues,
+      headerImageUrl: templateHeaderImageUrl,
+      headerImageUploading,
+    })
 
   const buttonValidationMessage = buttonComposerValidationMessage(
     buttonBody,
@@ -571,12 +641,21 @@ export const ConversationView = () => {
            * envio só para descobrir onde os parâmetros entram.
            */
           templateBody: selectedTemplate.body,
+          buttonParameters: templateButtonParameters(
+            selectedTemplate.buttons,
+            templateButtonValues,
+          ),
+          ...(needsHeaderImage(selectedTemplate)
+            ? { headerImageUrl: templateHeaderImageUrl.trim() }
+            : {}),
           entity,
           entityId,
         })
 
         setSelectedTemplateKey('')
         setTemplateValues({})
+        setTemplateButtonValues({})
+        resetHeaderImage(headerImageSource)
         /**
          * O template passou a ser enfileirado, como o texto livre: o servidor responde
          * `202` e a entrega acontece logo depois, com retentativa. Dizer "enviado com
@@ -862,11 +941,31 @@ export const ConversationView = () => {
                    * placeholder pode significar outra coisa no template novo.
                    */
                   setTemplateValues({})
+                  setTemplateButtonValues({})
+                  resetHeaderImage(headerImageSource)
                 }}
                 values={templateValues}
                 onChangeValue={(key, value) =>
                   setTemplateValues(previous => ({ ...previous, [key]: value }))
                 }
+                buttonValues={templateButtonValues}
+                onChangeButtonValue={(index, value) =>
+                  setTemplateButtonValues(previous => ({
+                    ...previous,
+                    [index]: value,
+                  }))
+                }
+                headerImageUrl={templateHeaderImageUrl}
+                onChangeHeaderImageUrl={setTemplateHeaderImageUrl}
+                headerImageUploadAvailable={widgetTemplates.headerImageUpload}
+                headerImageSource={
+                  widgetTemplates.headerImageUpload ? headerImageSource : 'LINK'
+                }
+                onChangeHeaderImageSource={source => resetHeaderImage(source)}
+                onPickHeaderImageFile={file => void pickHeaderImageFile(file)}
+                headerImageFileName={headerImageFileName}
+                headerImageUploading={headerImageUploading}
+                headerImageUploadError={headerImageUploadError}
                 disabled={isSending}
               />
             ) : composerMode === 'button' ? (

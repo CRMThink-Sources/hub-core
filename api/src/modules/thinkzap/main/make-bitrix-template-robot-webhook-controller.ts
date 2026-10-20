@@ -1,3 +1,4 @@
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { Request } from 'express'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { Controller } from '@/shared/presentation/controller'
@@ -61,5 +62,6 @@ export const makeBitrixTemplateRobotWebhookHandlerController = async (
     ),
     new BitrixLivefeedNotificationService(bx),
     bx,
+    makeInstallationLocaleRepository(),
   )
 }

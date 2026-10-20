@@ -22,6 +22,7 @@ O campo `reason` no log diz qual é o caso:
 | `vinculo-inativo` | existe vínculo, marcado como desativado |
 | `fluxo-ausente` | o vínculo aponta para um fluxo que foi apagada |
 | `fluxo-nao-publicado` | o fluxo voltou a rascunho com o vínculo ainda ativo |
+| `sem-conector-ativo` | a instalação não tem nenhuma linha ThinkZap contratada e ativa (teste vencido, assinatura cancelada ou `past_due`, ou todas as linhas removidas) |
 
 O log traz também `lineId` (o `CONFIG_ID` do canal aberto no Bitrix) e `chatId`.
 
@@ -35,6 +36,11 @@ indicado por `lineId`.
 
 **Não quer mais o bot** — remover o vínculo pelo ThinkBot. Isso desliga o bot do canal no
 portal, e o canal volta ao atendimento humano direto, sem a passagem pela fila.
+
+Se `reason` for `sem-conector-ativo`, o fluxo e o vínculo estão certos: o ThinkBot só atende
+com uma linha ThinkZap ativa na instalação. Contratar ou reativar a linha basta — o bot volta
+a atender na próxima conversa, sem mexer no vínculo. Ver o runbook de
+`thinkzap.bot.connector_inactive`.
 
 Se `reason` for `sem-vinculo` e o parceiro disser que nunca vinculou nada àquele canal: o
 bot foi ligado ali fora do ThinkBot, ou a remoção de um vínculo antigo falhou pela metade.

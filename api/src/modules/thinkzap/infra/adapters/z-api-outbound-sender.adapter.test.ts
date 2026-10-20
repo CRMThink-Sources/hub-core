@@ -252,4 +252,86 @@ describe('ZApiOutboundSender', () => {
     )
     expect(result.persistedType).toBe('AUDIO')
   })
+
+  // Robô "Enviar mensagem": o arquivo já chega baixado, como data URL.
+  it('audio em data URL converte sem baixar', async () => {
+    const client = makeClient()
+    const sender = new ZApiOutboundSender(client as never, config)
+    const ogg = Buffer.from('ogg-from-robot')
+
+    await sender.send({
+      kind: 'audio',
+      url: `data:audio/ogg;base64,${ogg.toString('base64')}`,
+    })
+
+    expect(axiosGetMock).not.toHaveBeenCalled()
+    expect(convertToMp3Mock).toHaveBeenCalledWith(ogg)
+    expect(client.sendAudio).toHaveBeenCalledTimes(1)
+  })
+
+  it('audio em data URL sem base64 é recusado sem baixar nem enviar', async () => {
+    const client = makeClient()
+    const sender = new ZApiOutboundSender(client as never, config)
+
+    await expect(
+      sender.send({ kind: 'audio', url: 'data:audio/ogg,texto-cru' }),
+    ).rejects.toThrow('Invalid audio payload')
+
+    expect(axiosGetMock).not.toHaveBeenCalled()
+    expect(convertToMp3Mock).not.toHaveBeenCalled()
+    expect(client.sendAudio).not.toHaveBeenCalled()
+  })
+
+  it('video em data URL vai ao Z-API como está, com legenda', async () => {
+    const client = makeClient()
+    const sender = new ZApiOutboundSender(client as never, config)
+    const video = 'data:video/mp4;base64,dmlk'
+
+    const result = await sender.send({
+      kind: 'video',
+      url: video,
+      text: 'veja',
+    })
+
+    expect(axiosGetMock).not.toHaveBeenCalled()
+    expect(client.sendVideo).toHaveBeenCalledWith(
+      'INST-A',
+      'token',
+      video,
+      '5511999999999',
+      { caption: 'veja' },
+    )
+    expect(result.persistedType).toBe('VIDEO')
+  })
+
+  it('imagem e documento em data URL vão ao Z-API como estão', async () => {
+    const client = makeClient()
+    const sender = new ZApiOutboundSender(client as never, config)
+    const image = 'data:image/png;base64,aW1n'
+    const document = 'data:application/pdf;base64,cGRm'
+
+    await sender.send({ kind: 'image', url: image, text: 'legenda' })
+    await sender.send({
+      kind: 'document',
+      url: document,
+      fileName: 'proposta.pdf',
+    })
+
+    expect(axiosGetMock).not.toHaveBeenCalled()
+    expect(client.sendImage).toHaveBeenCalledWith(
+      'INST-A',
+      'token',
+      image,
+      '5511999999999',
+      { caption: 'legenda' },
+    )
+    expect(client.sendDocument).toHaveBeenCalledWith(
+      'INST-A',
+      'token',
+      document,
+      '5511999999999',
+      'proposta.pdf',
+      { caption: undefined },
+    )
+  })
 })

@@ -24,6 +24,11 @@ export type ThinkzapRobotAddParams = {
       Name: string
       Type: string
     }
+    file: {
+      Name: string
+      Type: string
+      Multiple: string
+    }
   }
 }
 
@@ -52,6 +57,12 @@ export function buildThinkzapRobotAddParams(): ThinkzapRobotAddParams {
       message: {
         Name: 'Message',
         Type: 'text',
+      },
+      // optional: with files, message becomes the caption and may be empty
+      file: {
+        Name: 'File',
+        Type: 'file',
+        Multiple: 'Y',
       },
     },
   }

@@ -272,7 +272,11 @@ export default function ConfiguracoesLinhaPage() {
           />
         )}
         {activeTab === 'ajustes' && (
-          <AjustesTab itemId={linha.id} onDirtyChange={setAjustesDirty} />
+          <AjustesTab
+            itemId={linha.id}
+            onDirtyChange={setAjustesDirty}
+            provider="ZAPI"
+          />
         )}
         {activeTab === 'campanha' && <CampanhaSmsTab itemId={linha.id} />}
       </div>

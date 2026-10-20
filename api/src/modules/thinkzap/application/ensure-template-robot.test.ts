@@ -63,7 +63,6 @@ describe('EnsureTemplateRobot', () => {
       expect.objectContaining({ CODE: 'thinkzap_template_robot' }),
     )
   })
-
   it('converges when the description is translated and has no marker, by code', async () => {
     callMethod
       .mockRejectedValueOnce(

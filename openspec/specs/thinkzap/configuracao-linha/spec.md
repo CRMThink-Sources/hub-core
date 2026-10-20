@@ -26,7 +26,7 @@ A configuração da linha como provedor da Campanha de SMS do Bitrix24 SHALL fic
 
 #### Scenario: Aba Ajustes sem Campanha de SMS
 - **WHEN** o usuário abre a aba Ajustes de qualquer linha
-- **THEN** a aba mostra Identificação, Canal aberto e Comportamento, e nenhum conteúdo de Campanha de SMS
+- **THEN** a aba mostra Identificação, Canal aberto e Comportamento (e, na linha não oficial, Limite diário), e nenhum conteúdo de Campanha de SMS
 
 #### Scenario: Oferecer linha não oficial nas campanhas
 - **WHEN** o usuário, na aba Campanha de SMS de uma linha Z-API ativa e não registrada, clica em "Oferecer nas campanhas"
@@ -43,16 +43,56 @@ Quando a assinatura da linha não estiver ativa (teste encerrado ou sem assinatu
 - **WHEN** o usuário abre a aba Campanha de SMS de uma linha cujo período de teste terminou
 - **THEN** a aba mostra o aviso de período de teste encerrado, o estado atual do provedor, e os botões de oferecer/remover desabilitados
 
+### Requirement: Card Limite diário na aba Ajustes da linha não oficial
+A aba Ajustes de uma linha não oficial (Z-API) SHALL exibir o card "Limite diário" depois do card Comportamento. O card SHALL conter:
+
+- o toggle para ativar ou desativar o limite diário;
+- o campo numérico do limite, editável só com o toggle ativado. Com o toggle ativado, o campo vazio, zero ou não inteiro SHALL mostrar mensagem de valor inválido;
+- o uso do dia, conforme a capability `thinkzap/limite-diario-mensagens`;
+- a ação "Liberar limite temporário", disponível só com o limite **gravado** como ativado. A ação SHALL pedir a quantidade de mensagens extras e confirmar que elas valem só para hoje.
+
+A aba Ajustes de uma linha oficial (HubMessage) SHALL NOT exibir o card.
+
+A liberação temporária é uma ação imediata. SHALL NOT depender da barra de salvamento e SHALL NOT contar como alteração pendente. Depois de liberar, o uso do dia exibido SHALL ser atualizado.
+
+Com a linha bloqueada, o card SHALL ficar com o toggle, o campo e a ação de liberação desabilitados. O uso do dia SHALL continuar visível.
+
+#### Scenario: Linha não oficial mostra o card
+- **WHEN** o usuário abre a aba Ajustes de uma linha Z-API
+- **THEN** a aba mostra os cards Identificação, Canal aberto, Comportamento e Limite diário
+
+#### Scenario: Linha oficial não mostra o card
+- **WHEN** o usuário abre a aba Ajustes de uma linha HubMessage
+- **THEN** a aba não mostra o card Limite diário
+
+#### Scenario: Liberar limite temporário
+- **WHEN** o usuário, numa linha com limite gravado como ativo, clica em "Liberar limite temporário", informa 100 e confirma
+- **THEN** os extras são gravados na hora e o uso do dia passa a mostrar o novo limite efetivo
+- **AND** a barra de salvamento continua sem alterações pendentes
+
+#### Scenario: Liberação indisponível com limite não gravado
+- **WHEN** o usuário ativa o toggle do limite mas ainda não salvou
+- **THEN** a ação "Liberar limite temporário" continua desabilitada
+
 ### Requirement: Barra de salvamento da aba Ajustes
-A aba Ajustes SHALL oferecer uma única barra de salvamento, visível no rodapé da área da aba independentemente da rolagem e fora de qualquer card, que cobre todos os campos editáveis da aba (nome da linha e toggles de comportamento). A barra SHALL:
+A aba Ajustes SHALL oferecer uma única barra de salvamento. A barra SHALL ficar visível no rodapé da área da aba independentemente da rolagem, fora de qualquer card. Ela cobre todos os campos editáveis da aba:
+
+- o nome da linha;
+- os toggles de comportamento;
+- na linha não oficial, o toggle e o valor do limite diário.
+
+A barra SHALL:
 - indicar se há alterações não salvas e quantos campos foram alterados;
-- ter a ação "Salvar alterações", habilitada somente quando houver alteração, o nome for válido (não vazio) e a linha não estiver bloqueada;
+- ter a ação "Salvar alterações", habilitada somente quando houver alteração, a linha não estiver bloqueada e os campos forem válidos: nome não vazio e, com o limite diário ativado, valor de limite inteiro maior que zero;
 - ter a ação "Descartar", habilitada somente quando houver alteração, que restaura os valores gravados;
 - mostrar estado de salvamento em andamento e impedir clique duplo enquanto salva.
 
-Ações imediatas da aba (vincular/desvincular canal aberto) NÃO SHALL depender da barra e NÃO SHALL contar como alteração pendente.
+Ações imediatas da aba NÃO SHALL depender da barra e NÃO SHALL contar como alteração pendente. São elas:
 
-O card Comportamento NÃO SHALL conter botão de salvar.
+- vincular e desvincular o canal aberto;
+- liberar o limite temporário.
+
+O card Comportamento e o card Limite diário NÃO SHALL conter botão de salvar.
 
 #### Scenario: Sem alterações
 - **WHEN** o usuário abre a aba Ajustes e não altera nada
@@ -65,6 +105,14 @@ O card Comportamento NÃO SHALL conter botão de salvar.
 #### Scenario: Contagem de alterações
 - **WHEN** o usuário altera o nome e um toggle
 - **THEN** a barra indica 2 alterações não salvas
+
+#### Scenario: Limite diário conta como alteração
+- **WHEN** o usuário de uma linha não oficial ativa o limite diário e informa 300
+- **THEN** a barra indica 2 alterações não salvas, e salvar grava os dois numa única operação
+
+#### Scenario: Limite inválido impede salvar
+- **WHEN** o usuário ativa o limite diário e deixa o valor vazio
+- **THEN** a mensagem de valor inválido aparece e Salvar alterações fica desabilitado, enquanto Descartar continua disponível
 
 #### Scenario: Desfazer manualmente zera a pendência
 - **WHEN** o usuário marca um toggle e depois o desmarca, voltando ao valor gravado

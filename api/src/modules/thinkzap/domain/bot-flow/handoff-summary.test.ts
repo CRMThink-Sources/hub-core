@@ -138,3 +138,22 @@ describe('handoffSummary — menus sem captura', () => {
     )
   })
 })
+
+describe('handoffSummary por idioma', () => {
+  it('em inglês: título traduzido, rótulos e respostas como foram escritos', () => {
+    const texto = handoffSummary(
+      graph,
+      { 'capture.assunto': 'quero pedir' },
+      'en',
+    )
+
+    expect(texto.split('\n')[0]).toBe('Automated service summary')
+    expect(texto).toContain('• Boas-vindas: quero pedir')
+  })
+
+  it('em espanhol, sem respostas', () => {
+    expect(handoffSummary(graph, {}, 'es')).toBe(
+      'Resumen de la atención automática\n\nEl cliente no respondió nada antes de la transferencia.',
+    )
+  })
+})

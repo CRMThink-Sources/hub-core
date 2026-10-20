@@ -1,13 +1,13 @@
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import {
+  DEFAULT_NOTICE_LOCALE,
+  type NoticeLocale,
+} from '@/modules/thinkzap/domain/notices/notice-locale'
+import { openChannelNotices } from '@/modules/thinkzap/domain/notices/open-channel-notices'
 
 const log = createWorkerSourceLogger('hubmessage')
-
-const WINDOW_CLOSED_NOTICE =
-  '⚠️ Sua mensagem não foi entregue: o contato não interage há mais de 24 horas ' +
-  'e o WhatsApp Oficial só permite mensagem livre dentro dessa janela. ' +
-  'Para retomar a conversa, é preciso enviar um template aprovado.'
 
 /**
  * Avisa o operador, no próprio chat do canal aberto, que a mensagem não foi
@@ -24,12 +24,14 @@ export async function notifyOperatorWindowClosed(
   bitrixClient: BitrixClient,
   botId: number,
   bitrixChatId: string,
+  /** Idioma da instalação; o texto vem do catálogo `open-channel-notices`. */
+  locale: NoticeLocale = DEFAULT_NOTICE_LOCALE,
 ): Promise<void> {
   try {
     await bitrixClient.callMethod('imbot.message.add', {
       BOT_ID: botId,
       DIALOG_ID: `chat${bitrixChatId}`,
-      MESSAGE: WINDOW_CLOSED_NOTICE,
+      MESSAGE: openChannelNotices(locale).windowClosed,
     })
     log.info(
       { bitrixChatId, windowClosedNoticeSent: true },

@@ -1,4 +1,4 @@
-export const CLICKSIGN_APP_CODE_ID = 'crmthink.clicksign'
+export const CLICKSIGN_APP_CODE_ID = 'crmthink.clicksign2'
 
 // Handlers em rota pública (sem authMiddleware); relativos a `env.apiUrl`.
 export const CLICKSIGN_ROBOT_HANDLER_PATH = '/clicksign/bitrix/enviar-documento'

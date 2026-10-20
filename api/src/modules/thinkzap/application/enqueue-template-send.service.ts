@@ -6,6 +6,7 @@ import { Instance } from '@/modules/thinkzap/domain/entities/instance'
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
 import { GetInstanceRepository } from '@/modules/thinkzap/domain/repositories/get-instance.repository'
 import { TemplateMessageSenderResolver } from '@/modules/thinkzap/domain/ports/template-sender-resolver.port'
+import { TemplateButtonParameter } from '@/modules/thinkzap/domain/ports/template-message-sender.port'
 import { WidgetSendQueue } from '@/modules/thinkzap/domain/ports/widget-send-queue.port'
 import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import {
@@ -41,6 +42,10 @@ export type EnqueueTemplateIntentInput = {
   templateName: string
   language: string
   bodyParameters: string[]
+  /** Valores dos botões dinâmicos; ausente = template sem botão dinâmico. */
+  buttonParameters?: TemplateButtonParameter[]
+  /** URL da imagem do cabeçalho; ausente = template sem cabeçalho de imagem. */
+  headerImageUrl?: string
   templateBody: string
   entity: string
   entityId: string
@@ -181,6 +186,8 @@ export class EnqueueTemplateSendService {
       templateName: input.templateName,
       templateLanguage: input.language,
       templateParameters: input.bodyParameters,
+      templateButtonParameters: input.buttonParameters ?? [],
+      templateHeaderImageUrl: input.headerImageUrl ?? null,
       /**
        * Guardado para rastro, não para prefixo: o despacho de template não passa pelo
        * preparo de texto. Nulo no caminho do robô de Bizproc, que não tem operador.

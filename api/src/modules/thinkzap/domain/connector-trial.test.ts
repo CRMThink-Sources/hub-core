@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   TRIAL_DURATION_DAYS,
   checkTrialEligibility,
+  dayKeyOf,
   isTrialStatus,
   resolveLineEntitlement,
   trialWindow,
@@ -314,6 +315,17 @@ describe('checkTrialEligibility', () => {
  * Verificado sobre o texto do módulo: o único import é `import type`, apagado na
  * compilação. Um `import` de valor de qualquer coisa reprova.
  */
+describe('dayKeyOf', () => {
+  it('lê o dia no fuso do contrato, não no UTC', () => {
+    expect(dayKeyOf(new Date('2026-10-16T02:30:00.000Z'))).toBe('2026-10-15')
+    expect(dayKeyOf(new Date('2026-10-16T03:30:00.000Z'))).toBe('2026-10-16')
+  })
+
+  it('preenche mês e dia com dois dígitos', () => {
+    expect(dayKeyOf(new Date('2026-01-05T12:00:00.000Z'))).toBe('2026-01-05')
+  })
+})
+
 describe('connector-trial (estrutura)', () => {
   const source = readFileSync(join(__dirname, 'connector-trial.ts'), 'utf8')
   // Só as linhas de import: o corpo menciona Prisma e Redis em comentário, de

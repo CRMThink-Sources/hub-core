@@ -327,3 +327,50 @@ describe('ProcessHubMessageDeliveryStatusUseCase', () => {
     )
   })
 })
+
+describe('ProcessHubMessageDeliveryStatusUseCase idioma do aviso', () => {
+  const noticeOf = (deps: ReturnType<typeof makeDeps>['deps']) =>
+    (deps.notifyOperator as ReturnType<typeof vi.fn>).mock
+      .calls[0]?.[3] as string
+
+  it('instalação em espanhol: aviso de nome de exibição em espanhol', async () => {
+    const resolveLocale = vi.fn().mockResolvedValue('es')
+    const { useCase, deps } = makeDeps({ resolveLocale })
+
+    await useCase.execute(makeEnvelope(), {
+      appendJobLog: vi.fn(async () => {}),
+    })
+
+    expect(resolveLocale).toHaveBeenCalledOnce()
+    expect(noticeOf(deps)).toContain('Su mensaje no fue entregado')
+    expect(noticeOf(deps)).toContain('nombre visible')
+  })
+
+  it('genérica em inglês preserva o retorno do provedor', async () => {
+    const { useCase, deps } = makeDeps({
+      resolveLocale: vi.fn().mockResolvedValue('en'),
+    })
+
+    await useCase.execute(
+      makeEnvelope({
+        '@class': '.Failed',
+        name: 'ERROR',
+        failedDescription: 'algo inédito do provedor xyz',
+      }),
+      { appendJobLog: vi.fn(async () => {}) },
+    )
+
+    expect(noticeOf(deps)).toContain('WhatsApp Official declined the message')
+    expect(noticeOf(deps)).toContain('algo inédito do provedor xyz')
+  })
+
+  it('sem resolver de idioma: português, como hoje', async () => {
+    const { useCase, deps } = makeDeps()
+
+    await useCase.execute(makeEnvelope(), {
+      appendJobLog: vi.fn(async () => {}),
+    })
+
+    expect(noticeOf(deps)).toContain('Sua mensagem não foi entregue')
+  })
+})

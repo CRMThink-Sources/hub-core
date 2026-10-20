@@ -4,6 +4,7 @@ import {
   buildRobotProperties,
   fromStoredValue,
   parseStoredProperties,
+  rebuildButtonValues,
   rebuildValues,
   toStoredValue,
   validateConfig,
@@ -23,6 +24,8 @@ const base: RobotConfigState = {
     nome: { mode: 'document', value: 'TITLE' },
     numero: { mode: 'literal', value: '42' },
   },
+  buttonValues: [],
+  headerImage: { mode: 'literal', value: '' },
 }
 
 describe('toStoredValue / fromStoredValue', () => {
@@ -67,7 +70,30 @@ describe('buildRobotProperties', () => {
       templateLanguage: 'pt_BR',
       templateBody: 'Olá {{nome}}, pedido {{numero}} — obrigado, {{nome}}.',
       templateParameters: ['{{=Document:TITLE}}', '42'],
+      templateButtonParameters: [],
+      templateHeaderImageUrl: '',
     })
+  })
+
+  it('grava a imagem do cabeçalho como campo do documento', () => {
+    expect(
+      buildRobotProperties({
+        ...base,
+        headerImage: { mode: 'document', value: 'UF_CRM_IMAGEM' },
+      }).templateHeaderImageUrl,
+    ).toBe('{{=Document:UF_CRM_IMAGEM}}')
+  })
+
+  it('grava os valores dos botões dinâmicos na ordem, com campo do documento', () => {
+    expect(
+      buildRobotProperties({
+        ...base,
+        buttonValues: [
+          { mode: 'document', value: 'UF_CRM_CUPOM' },
+          { mode: 'literal', value: 'PED-1' },
+        ],
+      }).templateButtonParameters,
+    ).toEqual(['{{=Document:UF_CRM_CUPOM}}', 'PED-1'])
   })
 
   // Ordem de aparição das variáveis distintas: é ela que liga cada valor ao seu
@@ -112,6 +138,25 @@ describe('parseStoredProperties', () => {
     expect(parseStoredProperties(stored)).toEqual(base)
   })
 
+  it('recompõe a imagem do cabeçalho gravada', () => {
+    const headerImage = {
+      mode: 'literal' as const,
+      value: 'https://loja.com/a.png',
+    }
+    const stored = buildRobotProperties({ ...base, headerImage })
+
+    expect(parseStoredProperties(stored).headerImage).toEqual(headerImage)
+  })
+
+  it('robô salvo antes da imagem abre com o campo vazio', () => {
+    const { templateHeaderImageUrl: _, ...stored } = buildRobotProperties(base)
+
+    expect(parseStoredProperties(stored).headerImage).toEqual({
+      mode: 'literal',
+      value: '',
+    })
+  })
+
   it('aceita propriedade múltipla como objeto indexado', () => {
     const parsed = parseStoredProperties({
       connector: 'item_1',
@@ -125,6 +170,21 @@ describe('parseStoredProperties', () => {
       a: { mode: 'literal', value: 'A' },
       b: { mode: 'literal', value: 'B' },
     })
+  })
+
+  it('recompõe os valores dos botões gravados', () => {
+    const withButtons = {
+      ...base,
+      buttonValues: [{ mode: 'document' as const, value: 'UF_CRM_CUPOM' }],
+    }
+
+    expect(
+      parseStoredProperties(buildRobotProperties(withButtons)).buttonValues,
+    ).toEqual(withButtons.buttonValues)
+  })
+
+  it('robô salvo antes dos botões abre sem valores de botão', () => {
+    expect(parseStoredProperties({}).buttonValues).toEqual([])
   })
 
   it('sem template gravado, não inventa campos de variável', () => {
@@ -164,9 +224,83 @@ describe('rebuildValues', () => {
   })
 })
 
+describe('rebuildButtonValues', () => {
+  it('um campo vazio por botão dinâmico do template escolhido', () => {
+    expect(
+      rebuildButtonValues([
+        { index: 0, type: 'QUICK_REPLY', text: 'Sim', dynamic: false },
+        { index: 1, type: 'COPY_CODE', text: '', dynamic: true },
+      ]),
+    ).toEqual([{ mode: 'literal', value: '' }])
+    expect(rebuildButtonValues(undefined)).toEqual([])
+  })
+})
+
 describe('validateConfig', () => {
   it('aceita a configuração completa', () => {
     expect(validateConfig(base)).toBeNull()
+  })
+
+  it('impede salvar com botão dinâmico vazio', () => {
+    expect(
+      validateConfig(
+        { ...base, buttonValues: [{ mode: 'literal', value: ' ' }] },
+        1,
+      ),
+    ).toBe('Preencha o valor de todos os botões do template.')
+    expect(
+      validateConfig(
+        { ...base, buttonValues: [{ mode: 'literal', value: 'X' }] },
+        1,
+      ),
+    ).toBeNull()
+  })
+
+  it('sem catálogo carregado, não confere os botões', () => {
+    expect(validateConfig(base)).toBeNull()
+  })
+
+  it('impede salvar template com imagem sem a URL', () => {
+    expect(validateConfig(base, 0, true)).toContain(
+      'Informe a imagem do cabeçalho',
+    )
+  })
+
+  it('impede salvar imagem fixa sem https', () => {
+    expect(
+      validateConfig(
+        {
+          ...base,
+          headerImage: { mode: 'literal', value: 'http://loja.com/a.png' },
+        },
+        0,
+        true,
+      ),
+    ).toBe('A imagem do cabeçalho precisa ser uma URL https.')
+  })
+
+  it('aceita imagem fixa https ou campo do documento', () => {
+    expect(
+      validateConfig(
+        {
+          ...base,
+          headerImage: { mode: 'literal', value: 'https://loja.com/a.png' },
+        },
+        0,
+        true,
+      ),
+    ).toBeNull()
+    expect(
+      validateConfig(
+        { ...base, headerImage: { mode: 'document', value: 'UF_CRM_IMG' } },
+        0,
+        true,
+      ),
+    ).toBeNull()
+  })
+
+  it('template sem imagem não exige o campo', () => {
+    expect(validateConfig(base, 0, false)).toBeNull()
   })
 
   it('exige a linha', () => {

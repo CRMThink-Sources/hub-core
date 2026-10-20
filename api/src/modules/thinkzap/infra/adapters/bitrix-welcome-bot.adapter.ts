@@ -8,6 +8,7 @@ import { ensureBotFlowBot } from '@/modules/thinkzap/application/ensure-bot-flow
 import type {
   DeleteBotFlowBotRepository,
   GetBotFlowBotRepository,
+  ListBotFlowBotsRepository,
   SaveBotFlowBotRepository,
 } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow-bot.repository'
 import type { ListBotFlowBindingsRepository } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow-binding.repository'
@@ -22,6 +23,7 @@ export class BitrixWelcomeBotAdapter implements WelcomeBotPort {
     private readonly client: BitrixClient,
     private readonly repos: {
       get: GetBotFlowBotRepository
+      list: ListBotFlowBotsRepository
       save: SaveBotFlowBotRepository
       delete: DeleteBotFlowBotRepository
       bindings: ListBotFlowBindingsRepository
@@ -30,6 +32,7 @@ export class BitrixWelcomeBotAdapter implements WelcomeBotPort {
 
   async ensureBot(
     appId: string,
+    flowId: string,
     flowName?: string,
   ): Promise<{ bitrixBotId: number }> {
     const webhookUrl = env.bitrix.botWebhookUrl
@@ -42,6 +45,7 @@ export class BitrixWelcomeBotAdapter implements WelcomeBotPort {
 
     const bot = await ensureBotFlowBot(this.client, this.repos, {
       appId,
+      flowId,
       webhookUrl,
       flowName,
     })
@@ -49,28 +53,40 @@ export class BitrixWelcomeBotAdapter implements WelcomeBotPort {
     return { bitrixBotId: bot.bitrixBotId }
   }
 
-  bindLine(input: { lineId: string; bitrixBotId: number }): Promise<void> {
-    return bindWelcomeBot(this.client, input)
+  async bindLine(input: {
+    appId: string
+    lineId: string
+    bitrixBotId: number
+  }): Promise<void> {
+    const nossos = await this.repos.list.listByAppId(input.appId)
+
+    return bindWelcomeBot(this.client, {
+      lineId: input.lineId,
+      bitrixBotId: input.bitrixBotId,
+      ownBotIds: nossos.map(bot => bot.bitrixBotId),
+    })
   }
 
   unbindLine(input: { lineId: string }): Promise<void> {
     return unbindWelcomeBot(this.client, input)
   }
 
-  // O bot é um por instalação, daí a checagem de vínculo restante antes de desregistrar.
-  //
+  async removeBotIfUnused(appId: string, flowId: string): Promise<void> {
+    const restantes = await this.repos.bindings.listByAppId(appId)
+    if (restantes.some(binding => binding.flowId === flowId)) return
+
+    await this.removeBot(appId, flowId)
+  }
+
   // Portal antes do banco, e só com sucesso confirmado: nosso registro é a única cópia do
   // `botToken` (`imbot.v2.Bot.list` não o devolve), então apagar a row com o bot ainda no
   // portal o tornaria inalcançável para sempre.
   //
-  // Falha não sobe: o fluxo já foi apagado e as linhas já foram desligadas; sobra um bot
-  // sem uso, que o próximo vínculo reaproveita.
-  async removeBotIfUnused(appId: string): Promise<void> {
-    const bot = await this.repos.get.getByAppId(appId)
+  // Falha não sobe: as linhas já foram desligadas; sobra um bot sem uso, que o próximo
+  // vínculo do fluxo reaproveita.
+  async removeBot(appId: string, flowId: string): Promise<void> {
+    const bot = await this.repos.get.getByFlowId(appId, flowId)
     if (!bot) return
-
-    const restantes = await this.repos.bindings.listByAppId(appId)
-    if (restantes.length > 0) return
 
     try {
       const response = await this.client.callMethod<UnregisterResponse>(
@@ -86,6 +102,7 @@ export class BitrixWelcomeBotAdapter implements WelcomeBotPort {
           'thinkzap.bot.unregister_failed',
           {
             appId,
+            flowId,
             bitrixBotId: bot.bitrixBotId,
             resposta: JSON.stringify(response),
           },
@@ -94,17 +111,17 @@ export class BitrixWelcomeBotAdapter implements WelcomeBotPort {
         return
       }
 
-      await this.repos.delete.delete(appId)
+      await this.repos.delete.delete(appId, bot.bitrixBotId)
 
       log.info(
-        { appId, bitrixBotId: bot.bitrixBotId },
+        { appId, flowId, bitrixBotId: bot.bitrixBotId },
         'Bot do fluxo removido do portal: nenhuma linha usa mais',
       )
     } catch (err) {
       logThinkzapError(
         log,
         'thinkzap.bot.unregister_failed',
-        { appId, bitrixBotId: bot.bitrixBotId, err },
+        { appId, flowId, bitrixBotId: bot.bitrixBotId, err },
         { level: 'warn' },
       )
     }

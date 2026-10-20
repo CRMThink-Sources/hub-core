@@ -11,6 +11,7 @@ import {
 import { APP_CODES } from '@/shared/app/app-codes'
 import { Montserrat } from 'next/font/google'
 import { setLocale } from '@/i18n/provider'
+import { saveInstallationLocale } from './thinkzap/_components/save-installation-locale'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
@@ -81,6 +82,8 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
   function handleLanguageChange(code: string) {
     setLocale(code)
     window.sessionStorage.setItem('locale', code)
+    // Só na troca explícita: é o idioma dos avisos que o servidor gera sozinho.
+    void saveInstallationLocale(code)
   }
 
   useEffect(() => {

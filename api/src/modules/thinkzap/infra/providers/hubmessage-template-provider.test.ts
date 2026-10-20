@@ -94,6 +94,137 @@ describe('HubMessageTemplateProvider', () => {
     })
   })
 
+  it('traduz o cabeçalho de imagem neutro para header_handle com o link', async () => {
+    const client = makeClient()
+    const provider = new HubMessageTemplateProvider(client)
+
+    await provider.createTemplate({
+      wabaId: 'waba_1',
+      name: 'promo',
+      category: 'MARKETING',
+      language: 'pt_BR',
+      components: [
+        {
+          type: 'HEADER',
+          format: 'IMAGE',
+          example: { imageUrl: 'https://loja.com/banner.png' },
+        },
+        { type: 'BODY', text: 'Oferta {{1}}' },
+      ],
+    })
+
+    expect(client.createTemplate).toHaveBeenCalledWith(
+      'waba_1',
+      expect.objectContaining({
+        components: [
+          {
+            type: 'HEADER',
+            format: 'IMAGE',
+            example: { header_handle: ['https://loja.com/banner.png'] },
+          },
+          { type: 'BODY', text: 'Oferta {{1}}' },
+        ],
+      }),
+    )
+  })
+
+  it('sobe o arquivo e cria com o h devolvido em header_handle', async () => {
+    const uploadTemplateMedia = vi.fn().mockResolvedValue({ h: '4::aW1hZ2U=' })
+    const client = makeClient({ uploadTemplateMedia })
+    const provider = new HubMessageTemplateProvider(client)
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+
+    await provider.createTemplate({
+      wabaId: 'waba_1',
+      name: 'promo',
+      category: 'MARKETING',
+      language: 'pt_BR',
+      components: [
+        { type: 'HEADER', format: 'IMAGE' },
+        { type: 'BODY', text: 'Oferta {{1}}' },
+      ],
+      headerSampleImage: { data: png, contentType: 'image/png' },
+    })
+
+    expect(uploadTemplateMedia).toHaveBeenCalledWith('waba_1', {
+      data: png,
+      contentType: 'image/png',
+      fileName: 'header.png',
+    })
+    expect(client.createTemplate).toHaveBeenCalledWith(
+      'waba_1',
+      expect.objectContaining({
+        components: [
+          {
+            type: 'HEADER',
+            format: 'IMAGE',
+            example: { header_handle: ['4::aW1hZ2U='] },
+          },
+          { type: 'BODY', text: 'Oferta {{1}}' },
+        ],
+      }),
+    )
+  })
+
+  it('não cria o template quando o upload falha', async () => {
+    const client = makeClient({
+      uploadTemplateMedia: vi.fn().mockRejectedValue(new Error('422')),
+    })
+    const provider = new HubMessageTemplateProvider(client)
+
+    await expect(
+      provider.createTemplate({
+        wabaId: 'waba_1',
+        name: 'promo',
+        category: 'MARKETING',
+        language: 'pt_BR',
+        components: [
+          { type: 'HEADER', format: 'IMAGE' },
+          { type: 'BODY', text: 'Oferta' },
+        ],
+        headerSampleImage: {
+          data: Buffer.from('x'),
+          contentType: 'image/jpeg',
+        },
+      }),
+    ).rejects.toThrow('422')
+    expect(client.createTemplate).not.toHaveBeenCalled()
+  })
+
+  it('repassa o componente BUTTONS sem perder url, example e phone_number', async () => {
+    const client = makeClient()
+    const provider = new HubMessageTemplateProvider(client)
+    const buttons = {
+      type: 'BUTTONS' as const,
+      buttons: [
+        { type: 'QUICK_REPLY', text: 'Sim' },
+        {
+          type: 'URL',
+          text: 'Rastrear',
+          url: 'https://loja.com/p/{{1}}',
+          example: ['https://loja.com/p/1'],
+        },
+        { type: 'PHONE_NUMBER', text: 'Ligar', phone_number: '+5511999999999' },
+        { type: 'COPY_CODE', example: 'BLACK10' },
+      ],
+    }
+
+    await provider.createTemplate({
+      wabaId: 'waba_1',
+      name: 'promo',
+      category: 'MARKETING',
+      language: 'pt_BR',
+      components: [{ type: 'BODY', text: 'Oi' }, buttons],
+    })
+
+    expect(client.createTemplate).toHaveBeenCalledWith(
+      'waba_1',
+      expect.objectContaining({
+        components: [{ type: 'BODY', text: 'Oi' }, buttons],
+      }),
+    )
+  })
+
   it('sincroniza templates', async () => {
     const client = makeClient({
       syncTemplates: vi

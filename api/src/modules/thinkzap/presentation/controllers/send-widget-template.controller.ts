@@ -8,6 +8,7 @@ import {
   TemplateSendNotSupportedError,
   TemplatesNotSupportedError,
 } from '@/modules/thinkzap/domain/ports/template-errors'
+import { isHttpsUrl } from '@/modules/thinkzap/domain/template-header'
 import { mapWidgetSendError } from '@/modules/thinkzap/presentation/helpers/handle-widget-send-error'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
@@ -35,6 +36,26 @@ const schema = z.object({
   templateName: z.string().min(1),
   language: z.string().min(1),
   bodyParameters: z.array(z.string()).default([]),
+  /**
+   * Um item por botão dinâmico, com o `index` que o catálogo informou. Aqui o vazio
+   * é recusado, ao contrário do corpo: valor vazio viraria link quebrado ou cupom
+   * sem código, e o front nunca manda um.
+   */
+  buttonParameters: z
+    .array(
+      z.object({
+        index: z.number().int().min(0),
+        subType: z.enum(['URL', 'COPY_CODE']),
+        value: z.string().trim().min(1),
+      }),
+    )
+    .default([]),
+  /** Imagem do cabeçalho, só em template com cabeçalho de imagem. Só `https`. */
+  headerImageUrl: z
+    .string()
+    .trim()
+    .refine(isHttpsUrl, 'headerImageUrl must be an https URL')
+    .optional(),
   templateBody: z.string().default(''),
   entity: z.string().min(1),
   entityId: z.string().min(1),

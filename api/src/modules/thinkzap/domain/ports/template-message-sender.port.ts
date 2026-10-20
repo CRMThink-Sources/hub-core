@@ -28,6 +28,30 @@ export type TemplateMessageDescriptor = {
    * aparição no corpo. Vazio em template sem variável.
    */
   bodyParameters: string[]
+  /**
+   * Valores dos botões dinâmicos, cada um amarrado à posição do botão no template.
+   * Vazio ou ausente em template sem botão dinâmico — botão estático não leva
+   * parâmetro.
+   */
+  buttonParameters?: TemplateButtonParameter[]
+  /**
+   * URL pública `https` da imagem do cabeçalho, em template com cabeçalho de imagem
+   * (a Meta exige a imagem em todo envio). Ausente em template sem esse cabeçalho.
+   */
+  headerImageUrl?: string
+}
+
+/**
+ * Valor de um botão dinâmico no envio.
+ *
+ * `index` é a posição do botão entre **todos** os botões do template aprovado, a
+ * partir de 0 — é o que a Meta usa para saber qual botão recebe o valor. `URL`
+ * completa a variável do fim da URL; `COPY_CODE` é o código do cupom.
+ */
+export type TemplateButtonParameter = {
+  index: number
+  subType: 'URL' | 'COPY_CODE'
+  value: string
 }
 
 export type TemplateSendResult = {

@@ -1,9 +1,16 @@
 'use client'
 
-import type { WidgetTemplate } from '@/app/hooks/use-widget-templates'
+import type {
+  WidgetTemplate,
+  WidgetTemplateButton,
+} from '@/app/hooks/use-widget-templates'
 import {
+  dynamicButtons,
   extractTemplateVariables,
+  isHttpsUrl,
+  needsHeaderImage,
   resolveTemplatePreview,
+  WIDGET_HEADER_IMAGE_TYPES,
 } from './template-variables'
 
 type TemplateComposerProps = {
@@ -16,8 +23,39 @@ type TemplateComposerProps = {
   onSelectTemplate: (key: string) => void
   values: Record<string, string>
   onChangeValue: (key: string, value: string) => void
+  /** Valores dos botões dinâmicos, pela posição (`index`) do botão no template. */
+  buttonValues: Record<number, string>
+  onChangeButtonValue: (index: number, value: string) => void
+  /**
+   * URL da imagem do cabeçalho, em template com cabeçalho de imagem: digitada no
+   * modo link, ou devolvida pelo upload no modo arquivo.
+   */
+  headerImageUrl: string
+  onChangeHeaderImageUrl: (value: string) => void
+  /** O ambiente hospeda arquivo; sem isso só o link é oferecido. */
+  headerImageUploadAvailable: boolean
+  headerImageSource: HeaderImageSource
+  onChangeHeaderImageSource: (source: HeaderImageSource) => void
+  /** Arquivo escolhido no modo arquivo; o pai valida e sobe. */
+  onPickHeaderImageFile: (file: File) => void
+  headerImageFileName: string
+  headerImageUploading: boolean
+  /** Motivo da recusa ou da falha do upload, já legível. */
+  headerImageUploadError: string
   disabled: boolean
 }
+
+export type HeaderImageSource = 'FILE' | 'LINK'
+
+/** Rótulo do botão no preview — copiar código não tem texto próprio. */
+const buttonLabel = (button: WidgetTemplateButton): string =>
+  button.text || (button.type === 'COPY_CODE' ? 'Copiar código' : 'Botão')
+
+/** O que o campo do botão dinâmico pede ao operador. */
+const buttonFieldLabel = (button: WidgetTemplateButton): string =>
+  button.type === 'COPY_CODE'
+    ? 'Código do cupom'
+    : `Final do link "${buttonLabel(button)}"`
 
 /**
  * Chave de seleção do template.
@@ -46,12 +84,27 @@ export const TemplateComposer = ({
   onSelectTemplate,
   values,
   onChangeValue,
+  buttonValues,
+  onChangeButtonValue,
+  headerImageUrl,
+  onChangeHeaderImageUrl,
+  headerImageUploadAvailable,
+  headerImageSource,
+  onChangeHeaderImageSource,
+  onPickHeaderImageFile,
+  headerImageFileName,
+  headerImageUploading,
+  headerImageUploadError,
   disabled,
 }: TemplateComposerProps) => {
   const selected = templates.find(
     template => templateKey(template) === selectedKey,
   )
+  const showHeaderImage = needsHeaderImage(selected)
+  const headerImageValid = isHttpsUrl(headerImageUrl)
+  const fileMode = headerImageUploadAvailable && headerImageSource === 'FILE'
   const variables = selected ? extractTemplateVariables(selected.body) : []
+  const buttonFields = dynamicButtons(selected?.buttons)
 
   return (
     <div className="mt-4 grid gap-4">
@@ -106,6 +159,93 @@ export const TemplateComposer = ({
 
       {selected ? (
         <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white/70 p-4">
+          {showHeaderImage ? (
+            <div className="grid gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Imagem do cabeçalho
+              </span>
+
+              {headerImageUploadAvailable ? (
+                <div className="flex gap-4 text-sm text-slate-700">
+                  {(
+                    [
+                      ['FILE', 'Enviar arquivo'],
+                      ['LINK', 'Usar link'],
+                    ] as const
+                  ).map(([source, label]) => (
+                    <label key={source} className="flex items-center gap-1.5">
+                      <input
+                        type="radio"
+                        name="header-image-source"
+                        checked={headerImageSource === source}
+                        onChange={() => onChangeHeaderImageSource(source)}
+                        disabled={disabled || headerImageUploading}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+
+              {fileMode ? (
+                <>
+                  <input
+                    type="file"
+                    accept={WIDGET_HEADER_IMAGE_TYPES.join(',')}
+                    className="text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700 disabled:opacity-60"
+                    disabled={disabled || headerImageUploading}
+                    onChange={event => {
+                      const file = event.target.files?.[0]
+                      // Mesmo arquivo de novo também dispara: o input é limpo.
+                      event.target.value = ''
+                      if (file) onPickHeaderImageFile(file)
+                    }}
+                  />
+                  <span
+                    className={`text-xs ${
+                      headerImageUploadError ? 'text-red-600' : 'text-slate-500'
+                    }`}
+                  >
+                    {headerImageUploading
+                      ? `Enviando ${headerImageFileName}...`
+                      : headerImageUploadError ||
+                        (headerImageValid && headerImageFileName
+                          ? `${headerImageFileName} pronta para o envio.`
+                          : 'JPEG ou PNG, até 5 MB.')}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    A imagem fica acessível por link para quem tiver o endereço
+                    e é apagada em 30 dias.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <input
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    value={headerImageUrl}
+                    onChange={event =>
+                      onChangeHeaderImageUrl(event.target.value)
+                    }
+                    disabled={disabled}
+                    placeholder="https://..."
+                    inputMode="url"
+                  />
+                  <span
+                    className={`text-xs ${
+                      headerImageUrl && !headerImageValid
+                        ? 'text-red-600'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    {headerImageUrl && !headerImageValid
+                      ? 'A URL precisa começar com https://'
+                      : 'Link público e direto para o arquivo JPEG ou PNG.'}
+                  </span>
+                </>
+              )}
+            </div>
+          ) : null}
+
           {variables.length > 0 ? (
             <div className="grid gap-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -136,6 +276,29 @@ export const TemplateComposer = ({
             </p>
           )}
 
+          {buttonFields.length > 0 ? (
+            <div className="grid gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Botões
+              </p>
+              {buttonFields.map(button => (
+                <label key={button.index} className="grid gap-1">
+                  <span className="text-xs font-medium text-slate-600">
+                    {buttonFieldLabel(button)}
+                  </span>
+                  <input
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    value={buttonValues[button.index] ?? ''}
+                    onChange={event =>
+                      onChangeButtonValue(button.index, event.target.value)
+                    }
+                    disabled={disabled}
+                  />
+                </label>
+              ))}
+            </div>
+          ) : null}
+
           <div className="grid gap-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Preview
@@ -144,9 +307,34 @@ export const TemplateComposer = ({
               `whitespace-pre-wrap` porque o corpo aprovado pode ter quebra de
               linha, e é exatamente assim que o contato vai receber.
             */}
+            {showHeaderImage ? (
+              headerImageValid ? (
+                <img
+                  src={headerImageUrl.trim()}
+                  alt="Imagem do cabeçalho"
+                  className="max-h-48 w-full rounded-xl bg-slate-100 object-cover"
+                />
+              ) : (
+                <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-xs text-slate-500">
+                  Imagem do cabeçalho
+                </div>
+              )
+            ) : null}
             <p className="whitespace-pre-wrap rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-800">
               {resolveTemplatePreview(selected.body, values)}
             </p>
+            {selected.buttons?.length ? (
+              <div className="mt-1 flex flex-wrap gap-2">
+                {selected.buttons.map(button => (
+                  <span
+                    key={button.index}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-700"
+                  >
+                    {buttonLabel(button)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

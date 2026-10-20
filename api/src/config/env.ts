@@ -157,6 +157,17 @@ export const env = {
     baseUrl: process.env.HUBMESSAGE_BASE_URL ?? 'https://api.hubmessage.io',
     webhookUrl: process.env.HUBMESSAGE_WEBHOOK_URL ?? '',
   },
+  /**
+   * Bucket Cloudflare R2 da imagem do cabeçalho enviada pelo widget. Sem as cinco
+   * variáveis o upload fica desligado e o widget mostra só o campo de link.
+   */
+  r2: {
+    accountId: process.env.R2_ACCOUNT_ID ?? '',
+    accessKeyId: process.env.R2_ACCESS_KEY_ID ?? '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
+    bucket: process.env.R2_BUCKET ?? '',
+    publicBaseUrl: process.env.R2_PUBLIC_BASE_URL ?? '',
+  },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
@@ -206,7 +217,7 @@ export const env = {
       process.env.BITRIX_BOT_WEBHOOK_URL ??
       bitrixBotWebhookFromApiUrl(process.env.API_URL),
     /**
-     * `code` do bot do ThinkBot no portal.
+     * Prefixo do `code` dos bots do ThinkBot no portal; cada fluxo soma um sufixo seu.
      *
      * Configurável porque o `code` é único **no portal**, e não por app: dois ambientes
      * nossos apontados para o mesmo Bitrix24 disputam o mesmo nome, e o segundo a
@@ -305,7 +316,7 @@ export const env = {
     thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',
     thinkanalise: process.env.THINKANALISE_APP_CODE ?? 'crmthink.thinkanalise',
     importsheet: process.env.IMPORTSHEET_APP_CODE ?? 'crmthink.importsheet',
-    clicksign: process.env.CLICKSIGN_APP_CODE ?? 'crmthink.clicksign',
+    clicksign: process.env.CLICKSIGN_APP_CODE ?? 'crmthink.clicksign2',
     gptmaker: process.env.GPTMAKER_APP_CODE ?? 'crmthink.gptmaker',
   },
   importsheet: {

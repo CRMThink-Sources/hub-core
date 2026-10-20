@@ -2,29 +2,28 @@ import { describe, expect, it, vi } from 'vitest'
 import { adoptLineBinding } from './adopt-line-binding'
 import type { CreateBotFlowBindingRepository } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow-binding.repository'
 import type {
-  BotFlowSummary,
-  ListBotFlowsRepository,
+  BotFlow,
+  GetBotFlowRepository,
 } from '@/modules/thinkzap/domain/repositories/bot-flow/bot-flow.repository'
 
 const APP = 'app-1'
 const LINE = '300'
 
-function flow(over: Partial<BotFlowSummary> = {}): BotFlowSummary {
+function flow(over: Partial<BotFlow> = {}): BotFlow {
   return {
     id: 'f1',
     appId: APP,
     name: 'Atendimento',
     status: 'PUBLISHED',
     version: 1,
-    nodeCount: 3,
     publishedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
     ...over,
-  }
+  } as BotFlow
 }
 
-function deps(flows: BotFlowSummary[]) {
+function deps(flows: BotFlow[]) {
   // Tipado pelo contrato do repositório: `vi.fn()` cru devolve `any`, e o mock deixaria de
   // acusar mudança na assinatura de `create` — o teste passaria com o código quebrado.
   const create = vi.fn<CreateBotFlowBindingRepository['create']>(input =>
@@ -40,8 +39,8 @@ function deps(flows: BotFlowSummary[]) {
     create,
     deps: {
       flows: {
-        listByAppId: vi.fn<ListBotFlowsRepository['listByAppId']>(() =>
-          Promise.resolve(flows),
+        getById: vi.fn<GetBotFlowRepository['getById']>((_app, id) =>
+          Promise.resolve(flows.find(item => item.id === id) ?? null),
         ),
       },
       bindings: { create },
@@ -50,15 +49,15 @@ function deps(flows: BotFlowSummary[]) {
 }
 
 describe('adoptLineBinding', () => {
-  it('adota o canal quando há um fluxo publicado', async () => {
-    const { create, deps: d } = deps([flow()])
+  it('adota o canal com o fluxo dono do bot', async () => {
+    const { create, deps: d } = deps([flow(), flow({ id: 'f2' })])
 
-    const binding = await adoptLineBinding(APP, LINE, d)
+    const binding = await adoptLineBinding(APP, LINE, 'f2', d)
 
     expect(binding).not.toBeNull()
     expect(create).toHaveBeenCalledWith({
       appId: APP,
-      flowId: 'f1',
+      flowId: 'f2',
       lineId: LINE,
       priority: 100,
       active: true,
@@ -66,39 +65,25 @@ describe('adoptLineBinding', () => {
     })
   })
 
-  it('não adota sem fluxo publicado', async () => {
+  it('não adota fluxo em rascunho', async () => {
     const { create, deps: d } = deps([flow({ status: 'DRAFT' })])
 
-    expect(await adoptLineBinding(APP, LINE, d)).toBeNull()
+    expect(await adoptLineBinding(APP, LINE, 'f1', d)).toBeNull()
     expect(create).not.toHaveBeenCalled()
   })
 
-  // Escolher um dos dois seria palpitar sobre a intenção do cliente, e o palpite errado
-  // atende o cliente dele com o fluxo errado.
-  it('não adota com mais de um fluxo publicado', async () => {
-    const { create, deps: d } = deps([flow(), flow({ id: 'f2' })])
+  it('bot órfão não adota', async () => {
+    // O fluxo foi apagado e o portal recusou o `unregister`: não há fluxo a rodar.
+    const { create, deps: d } = deps([flow()])
 
-    expect(await adoptLineBinding(APP, LINE, d)).toBeNull()
+    expect(await adoptLineBinding(APP, LINE, null, d)).toBeNull()
     expect(create).not.toHaveBeenCalled()
   })
 
-  it('rascunho e arquivado não contam para o desempate', async () => {
-    const { create, deps: d } = deps([
-      flow(),
-      flow({ id: 'f2', status: 'DRAFT' }),
-      flow({ id: 'f3', status: 'ARCHIVED' }),
-    ])
-
-    expect(await adoptLineBinding(APP, LINE, d)).not.toBeNull()
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ flowId: 'f1' }),
-    )
-  })
-
-  it('nenhum fluxo cadastrado não adota', async () => {
+  it('fluxo que não existe mais não adota', async () => {
     const { create, deps: d } = deps([])
 
-    expect(await adoptLineBinding(APP, LINE, d)).toBeNull()
+    expect(await adoptLineBinding(APP, LINE, 'f1', d)).toBeNull()
     expect(create).not.toHaveBeenCalled()
   })
 })

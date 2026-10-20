@@ -30,7 +30,13 @@ const makeDeps = (
   overrides: {
     resolveTarget?: ReturnType<typeof vi.fn>
     enqueue?: ReturnType<typeof vi.fn>
-    templates?: { name: string; language: string; body: string }[]
+    templates?: {
+      name: string
+      language: string
+      body: string
+      buttons?: unknown[]
+      header?: { type: string }
+    }[]
     domain?: unknown
     app?: unknown
   } = {},
@@ -149,14 +155,18 @@ describe('BitrixTemplateRobotWebhookHandlerController', () => {
     )
   })
 
-  // Corpo gravado pela tela: consultar o catálogo por disparo poria uma chamada
-  // remota no caminho de cada execução de workflow.
-  it('não consulta o catálogo quando a configuração tem o corpo', async () => {
+  // Corpo gravado pela tela não vai ao catálogo; a consulta que sobra é a do
+  // cabeçalho (só o catálogo sabe se o template exige imagem), uma vez por disparo.
+  it('consulta o catálogo uma vez só quando a configuração tem o corpo', async () => {
     const deps = makeDeps()
 
     await makeController(deps).perform(makeReq(fullProperties), res)
 
-    expect(deps.listTemplates.execute).not.toHaveBeenCalled()
+    expect(deps.listTemplates.execute).toHaveBeenCalledTimes(1)
+    expect(deps.enqueue).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({ templateBody: 'Olá {{1}}, pedido {{2}}.' }),
+    )
   })
 
   it('busca o corpo no catálogo quando a configuração não tem', async () => {
@@ -175,6 +185,159 @@ describe('BitrixTemplateRobotWebhookHandlerController', () => {
       target,
       expect.objectContaining({ templateBody: 'Corpo do catálogo' }),
     )
+  })
+
+  describe('botões dinâmicos', () => {
+    const promo = {
+      name: 'order_update',
+      language: 'pt_BR',
+      body: 'Olá {{1}}, pedido {{2}}.',
+      buttons: [
+        { index: 0, type: 'QUICK_REPLY', text: 'Obrigado', dynamic: false },
+        { index: 1, type: 'COPY_CODE', text: '', dynamic: true },
+      ],
+    }
+
+    it('envia o cupom vindo do negócio com o index do botão no template', async () => {
+      const deps = makeDeps({ templates: [promo] })
+
+      await makeController(deps).perform(
+        makeReq({ ...fullProperties, templateButtonParameters: ['BLACK10'] }),
+        res,
+      )
+
+      expect(deps.enqueue).toHaveBeenCalledWith(
+        target,
+        expect.objectContaining({
+          buttonParameters: [
+            { index: 1, subType: 'COPY_CODE', value: 'BLACK10' },
+          ],
+        }),
+      )
+    })
+
+    it('robô antigo, sem a propriedade, envia sem botão', async () => {
+      const deps = makeDeps({ templates: [promo] })
+
+      await makeController(deps).perform(makeReq(fullProperties), res)
+
+      expect(deps.enqueue).toHaveBeenCalledWith(
+        target,
+        expect.objectContaining({ buttonParameters: [] }),
+      )
+    })
+
+    it('recusa sem enfileirar quando falta valor para um botão dinâmico', async () => {
+      const deps = makeDeps({
+        templates: [
+          {
+            ...promo,
+            buttons: [
+              ...promo.buttons,
+              { index: 2, type: 'URL', text: 'Rastrear', dynamic: true },
+            ],
+          },
+        ],
+      })
+
+      const response = await makeController(deps).perform(
+        makeReq({ ...fullProperties, templateButtonParameters: ['BLACK10'] }),
+        res,
+      )
+
+      expect(response.result).toEqual({ received: true, queued: 0 })
+      expect(deps.enqueue).not.toHaveBeenCalled()
+      const [notice] = deps.sendNotification.execute.mock.calls[0] as [
+        { message: string },
+      ]
+      expect(notice.message).toContain('botões que precisam de valor')
+    })
+
+    it('consulta o catálogo uma vez só para corpo e botões', async () => {
+      const deps = makeDeps({ templates: [promo] })
+
+      await makeController(deps).perform(
+        makeReq({
+          ...fullProperties,
+          templateBody: '',
+          templateButtonParameters: ['BLACK10'],
+        }),
+        res,
+      )
+
+      expect(deps.listTemplates.execute).toHaveBeenCalledTimes(1)
+    })
+
+    it('recusa quando o catálogo não responde e há valores de botão', async () => {
+      const deps = makeDeps()
+      deps.listTemplates.execute.mockRejectedValue(new Error('fora do ar'))
+
+      const response = await makeController(deps).perform(
+        makeReq({ ...fullProperties, templateButtonParameters: ['BLACK10'] }),
+        res,
+      )
+
+      expect(response.result).toEqual({ received: true, queued: 0 })
+      expect(deps.enqueue).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('imagem do cabeçalho', () => {
+    const promo = {
+      name: 'order_update',
+      language: 'pt_BR',
+      body: 'Olá {{1}}, pedido {{2}}.',
+      buttons: [],
+      header: { type: 'IMAGE' },
+    }
+
+    it('envia a imagem vinda do campo do negócio', async () => {
+      const deps = makeDeps({ templates: [promo] })
+
+      await makeController(deps).perform(
+        makeReq({
+          ...fullProperties,
+          templateHeaderImageUrl: 'https://loja.com/produto-42.png',
+        }),
+        res,
+      )
+
+      expect(deps.enqueue).toHaveBeenCalledWith(
+        target,
+        expect.objectContaining({
+          headerImageUrl: 'https://loja.com/produto-42.png',
+        }),
+      )
+    })
+
+    it('recusa sem enfileirar quando o campo do negócio está vazio', async () => {
+      const deps = makeDeps({ templates: [promo] })
+
+      const response = await makeController(deps).perform(
+        makeReq({ ...fullProperties, templateHeaderImageUrl: '' }),
+        res,
+      )
+
+      expect(response.result).toEqual({ received: true, queued: 0 })
+      expect(deps.enqueue).not.toHaveBeenCalled()
+      const [notice] = deps.sendNotification.execute.mock.calls[0] as [
+        { message: string },
+      ]
+      expect(notice.message).toContain('exige uma imagem no cabeçalho')
+    })
+
+    it('robô antigo sem a propriedade, com template sem imagem, envia normalmente', async () => {
+      const deps = makeDeps({
+        templates: [{ ...promo, header: { type: 'NONE' } }],
+      })
+
+      await makeController(deps).perform(makeReq(fullProperties), res)
+
+      expect(deps.enqueue).toHaveBeenCalledTimes(1)
+      expect(deps.enqueue.mock.calls[0]?.[1]).not.toHaveProperty(
+        'headerImageUrl',
+      )
+    })
   })
 
   it('envia para todos os contatos relacionados, deduplicados', async () => {
@@ -396,5 +559,27 @@ describe('toParameterList', () => {
   it('trata ausência como lista vazia', () => {
     expect(toParameterList(undefined)).toEqual([])
     expect(toParameterList('')).toEqual([])
+  })
+})
+
+describe('BitrixTemplateRobotWebhookHandlerController idioma da timeline', () => {
+  it('enfileirado em inglês, com template e idioma do template como estão', async () => {
+    const deps = makeDeps()
+    const controller = new BitrixTemplateRobotWebhookHandlerController(
+      deps.getDomain as never,
+      deps.getApp as never,
+      deps.enqueueTemplateSend as never,
+      deps.listTemplates as never,
+      deps.sendNotification as never,
+      deps.bitrix as never,
+      { byAppId: vi.fn().mockResolvedValue('en') } as never,
+    )
+
+    await controller.perform(makeReq(fullProperties), res)
+
+    const comment = (
+      deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string }
+    ).message
+    expect(comment).toMatch(/^Template "order_update" \(pt_BR\) queued for: /)
   })
 })

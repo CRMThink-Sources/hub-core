@@ -1,5 +1,6 @@
 import type { LineSettingsReading } from '@/modules/thinkzap/application/get-line-settings'
 import type { LineEntitlement } from '@/modules/thinkzap/domain/connector-trial'
+import type { DailyLimitUsage } from '@/modules/thinkzap/domain/daily-send-limit'
 import type { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 
 /**
@@ -21,6 +22,11 @@ export type LineSettingsView = {
    * dois últimos ela renderiza só-leitura, porque a gravação recusa com `402`.
    */
   entitlement: LineEntitlement
+  /**
+   * Uso do limite diário de hoje. Ausente na linha oficial (que não tem limite);
+   * `null` na Z-API quando o contador não pôde ser lido.
+   */
+  dailyLimit?: DailyLimitUsage | null
 }
 
 export const mapLineSettingsToView = (
@@ -34,5 +40,8 @@ export const mapLineSettingsToView = (
       reading.settings.prefixOperatorNameEnabled === true,
     widgetOpenChannelEnabled:
       reading.settings.widgetOpenChannelEnabled === true,
+    dailyLimitEnabled: reading.settings.dailyLimitEnabled === true,
+    dailyLimit: reading.settings.dailyLimit ?? null,
   },
+  ...(reading.provider === 'ZAPI' ? { dailyLimit: reading.dailyLimit } : {}),
 })

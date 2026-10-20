@@ -1,3 +1,9 @@
+import {
+  DEFAULT_NOTICE_LOCALE,
+  type NoticeLocale,
+} from '@/modules/thinkzap/domain/notices/notice-locale'
+import { connectionNotices } from '@/modules/thinkzap/domain/notices/connection-notices'
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
@@ -13,16 +19,19 @@ import {
 } from '@/modules/thinkzap/domain/ports/job-log.port'
 import type { ThinkzapConnectionEventJob } from '@/queue/thinkzap-connection-events.queue'
 
-function buildMessage(job: ThinkzapConnectionEventJob): string {
-  const target = job.phone ? `WhatsApp ${job.phone}` : `WhatsApp do Thinkzap`
+/** No idioma da instalação; o motivo da desconexão (do provedor) aparece como veio. */
+export function buildMessage(
+  job: ThinkzapConnectionEventJob,
+  locale: NoticeLocale = DEFAULT_NOTICE_LOCALE,
+): string {
+  const notices = connectionNotices(locale)
+  const target = notices.target(job.phone ?? undefined)
 
   if (job.type === 'connected') {
-    return `O ${target} (instância ${job.instanceId}) foi conectado com sucesso.`
+    return notices.connected(target, job.instanceId)
   }
 
-  return job.error
-    ? `O ${target} (instância ${job.instanceId}) foi desconectado: ${job.error}. Reconecte o quanto antes.`
-    : `O ${target} (instância ${job.instanceId}) foi desconectado. Reconecte o quanto antes.`
+  return notices.disconnected(target, job.instanceId, job.error ?? undefined)
 }
 
 export type ProcessConnectionEventOutcome =
@@ -108,7 +117,10 @@ export async function processConnectionEventJob(
     thinkzapAppCodeId(),
   )
   const notifier = new BitrixSystemNotificationService(bitrix)
-  const message = buildMessage(job)
+  const message = buildMessage(
+    job,
+    await makeInstallationLocaleRepository().byAppId(app.id),
+  )
 
   const results = await Promise.allSettled(
     userIds.map(userId =>

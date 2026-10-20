@@ -1,8 +1,15 @@
 import { SendNotification } from '@/shared/data/contracts/send-notification'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
+import {
+  DEFAULT_NOTICE_LOCALE,
+  NoticeLocale,
+  dailyLimitNotices,
+} from '@/modules/thinkzap/domain/daily-limit-notices'
+import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 
-export type WidgetSendOutcome = 'failed' | 'unknown'
+/** `daily-limit` é um `failed` com motivo conhecido: nada saiu, e o texto diz por quê. */
+export type WidgetSendOutcome = 'failed' | 'unknown' | 'daily-limit'
 
 export type NotifyWidgetSendOutcomeInput = {
   outcome: WidgetSendOutcome
@@ -10,6 +17,8 @@ export type NotifyWidgetSendOutcomeInput = {
   entityId: string
   destination: string
   text: string
+  /** Idioma da instalação. Ausente, português. */
+  locale?: NoticeLocale
 }
 
 /**
@@ -24,18 +33,14 @@ export type NotifyWidgetSendOutcomeInput = {
  */
 const NOTICE_BY_OUTCOME: Record<
   WidgetSendOutcome,
-  (destination: string, text: string) => string
+  (destination: string, text: string, locale: NoticeLocale) => string
 > = {
-  failed: (destination, text) =>
-    '⚠️ A mensagem abaixo NÃO foi entregue e não será reenviada automaticamente.\n' +
-    `Para: ${destination}\n` +
-    `Mensagem: ${text}\n` +
-    'Confira a conexão da linha e envie novamente pelo widget.',
-  unknown: (destination, text) =>
-    '⚠️ Não foi possível confirmar se a mensagem abaixo saiu.\n' +
-    `Para: ${destination}\n` +
-    `Mensagem: ${text}\n` +
-    'Confira a conversa com o contato ANTES de reenviar — ela pode ter sido entregue.',
+  failed: (destination, text, locale) =>
+    timelineNotices(locale).widgetFailed(destination, text),
+  unknown: (destination, text, locale) =>
+    timelineNotices(locale).widgetUnknown(destination, text),
+  'daily-limit': (destination, text, locale) =>
+    dailyLimitNotices(locale).queuedRefused(destination, text),
 }
 
 /**
@@ -56,13 +61,20 @@ export async function notifyWidgetSendOutcome(
   sendNotification: SendNotification,
   input: NotifyWidgetSendOutcomeInput,
 ): Promise<void> {
-  const { outcome, entity, entityId, destination, text } = input
+  const {
+    outcome,
+    entity,
+    entityId,
+    destination,
+    text,
+    locale = DEFAULT_NOTICE_LOCALE,
+  } = input
 
   try {
     await sendNotification.execute({
       contextId: entityId,
       entity,
-      message: NOTICE_BY_OUTCOME[outcome](destination, text),
+      message: NOTICE_BY_OUTCOME[outcome](destination, text, locale),
     })
 
     apiLogger.info(

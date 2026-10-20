@@ -20,6 +20,7 @@ import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-fou
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import type { SendWidgetMessageInput } from './send-widget-message.types'
+import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
 
 /**
  * O bloco anterior deste arquivo testava `sendToOpenChannel`, que **migrou** para
@@ -90,7 +91,11 @@ const openChannelCall = (
 ): OpenChannelCall =>
   sut.openChannelQueue.enqueue.mock.calls[index]?.[0] as OpenChannelCall
 
-function makeSut(items: SubscriptionItem[] = [zapiItem()]) {
+function makeSut(
+  items: SubscriptionItem[] = [zapiItem()],
+  quota: DailySendQuota | null = null,
+  locale: 'pt' | 'en' | 'es' | null = null,
+) {
   const execute = vi.fn().mockResolvedValue({
     customer: { id: 'domain-1', name: 'acme.bitrix24.com.br' },
     aplication: { id: 'installed-1', spaId: '42' },
@@ -148,6 +153,8 @@ function makeSut(items: SubscriptionItem[] = [zapiItem()]) {
     messageRepository as never,
     openChannelQueue as never,
     prepareOutboundText as never,
+    quota,
+    (locale ? { byAppId: vi.fn().mockResolvedValue(locale) } : null) as never,
   )
 
   return {
@@ -556,5 +563,165 @@ describe('SendWidgetMessageUseCase', () => {
 
       expect(result.sentMessageIds).toEqual(['msg-1', 'msg-vid'])
     })
+  })
+})
+
+describe('SendWidgetMessageUseCase limite diário', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const limitedItem = (): SubscriptionItem => ({
+    ...zapiItem(),
+    settings: {
+      ...DEFAULT_CONNECTOR_SETTINGS,
+      dailyLimitEnabled: true,
+      dailyLimit: 2,
+    },
+  })
+
+  const reserved = {
+    status: 'reserved' as const,
+    reservation: { release: vi.fn().mockResolvedValue(undefined) },
+  }
+  const refused = {
+    status: 'refused' as const,
+    counts: { sent: 2, extra: 0 },
+    effectiveLimit: 2,
+  }
+
+  const quotaWith = (wouldRefuse: boolean, ...reserves: object[]) => {
+    const reserve = vi.fn()
+    for (const result of reserves) reserve.mockResolvedValueOnce(result)
+    return {
+      wouldRefuse: vi.fn().mockResolvedValue(wouldRefuse),
+      reserve,
+      addExtra: vi.fn(),
+      usage: vi.fn(),
+    }
+  }
+
+  it('limite já atingido: recusa sem enviar nada', async () => {
+    const quota = quotaWith(true)
+    const sut = makeSut([limitedItem()], quota as never)
+
+    await expect(sut.send()).rejects.toMatchObject({
+      errorCode: 'thinkzap.line.daily_limit_reached',
+    })
+    expect(sut.zApiClient.sendMessage).not.toHaveBeenCalled()
+    expect(sut.messageRepository.create).not.toHaveBeenCalled()
+  })
+
+  it('cada parte conta: texto e anexo reservam uma vaga cada', async () => {
+    const quota = quotaWith(false, reserved, reserved)
+    const sut = makeSut([limitedItem()], quota as never)
+
+    await sut.send({
+      attachments: [{ kind: 'image', content: 'data:image/png;base64,aa' }],
+    } as never)
+
+    expect(quota.reserve).toHaveBeenCalledTimes(2)
+    expect(quota.reserve).toHaveBeenCalledWith(
+      { lineKey: 'Z-1', enabled: true, limit: 2 },
+      expect.any(Date),
+    )
+  })
+
+  it('limite acaba no meio: o que saiu é registrado e a timeline avisa os anexos não enviados', async () => {
+    const quota = quotaWith(false, reserved, refused)
+    const sut = makeSut([limitedItem()], quota as never)
+
+    await expect(
+      sut.send({
+        attachments: [
+          { kind: 'image', content: 'data:image/png;base64,aa' },
+          { kind: 'video', content: 'data:video/mp4;base64,aa' },
+        ],
+      } as never),
+    ).resolves.toBeDefined()
+
+    expect(sut.zApiClient.sendMessage).toHaveBeenCalledTimes(1)
+    expect(sut.zApiClient.sendImage).not.toHaveBeenCalled()
+    expect(sut.zApiClient.sendVideo).not.toHaveBeenCalled()
+    expect(sut.messageRepository.create).toHaveBeenCalledTimes(1)
+    expect(sut.sendBitrixNotification.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining(
+          '2 anexo(s) NÃO enviado(s)',
+        ) as unknown,
+      }),
+    )
+  })
+})
+
+describe('SendWidgetMessageUseCase limite diário (idioma)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('instalação em inglês: aviso de anexos não enviados em inglês', async () => {
+    const quota = {
+      wouldRefuse: vi.fn().mockResolvedValue(false),
+      reserve: vi
+        .fn()
+        .mockResolvedValueOnce({
+          status: 'reserved',
+          reservation: { release: vi.fn() },
+        })
+        .mockResolvedValueOnce({
+          status: 'refused',
+          counts: { sent: 1, extra: 0 },
+          effectiveLimit: 1,
+        }),
+    }
+    const sut = makeSut([zapiItem()], quota as never, 'en')
+
+    await sut.send({
+      attachments: [{ kind: 'image', content: 'data:image/png;base64,aa' }],
+    } as never)
+
+    expect(sut.sendBitrixNotification.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('1 attachment(s) NOT sent') as unknown,
+      }),
+    )
+  })
+})
+
+describe('SendWidgetMessageUseCase timeline e histórico por idioma', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('comentário da timeline em inglês', async () => {
+    const sut = makeSut([zapiItem()], null, 'en')
+
+    await sut.send()
+
+    const comment = (
+      sut.sendBitrixNotification.execute.mock.calls[0]?.[0] as {
+        message: string
+      }
+    ).message
+    expect(comment).toBe('From: 5511911111111\nTo: 5511999999999\nMessage: Olá')
+  })
+
+  it('envio só com imagem: marcador do histórico em espanhol', async () => {
+    const sut = makeSut([zapiItem()], null, 'es')
+
+    await sut.send({
+      message: '',
+      attachments: [{ kind: 'image', content: 'data:image/png;base64,aa' }],
+    } as never)
+
+    expect(sut.openChannelQueue.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ text: '[Imagen enviada]' }),
+    )
+  })
+
+  it('sem idioma: comentário de hoje', async () => {
+    const sut = makeSut()
+
+    await sut.send()
+
+    expect(sut.sendBitrixNotification.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'De: 5511911111111\nPara: 5511999999999\nMensagem: Olá',
+      }),
+    )
   })
 })

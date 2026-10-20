@@ -2,6 +2,9 @@
   "titulo": "ThinkBot",
   "subtitulo": "Monte o fluxo de atendimento: defina como o bot deve conduzir a conversa.",
   "carregando": "Carregando",
+  "novoFluxo": "Novo fluxo",
+  "contagem": "{{total}} de {{max}} fluxos",
+  "limiteAtingido": "Limite de {{max}} fluxos atingido",
   "erro": {
     "titulo": "Não foi possível carregar os fluxos",
     "carregar": "Não foi possível carregar os fluxos.",

@@ -166,10 +166,54 @@ export type HubMessageTemplateSendParameter = {
   text: string
 }
 
-export type HubMessageTemplateSendComponent = {
-  type: 'BODY'
-  parameters: HubMessageTemplateSendParameter[]
+export type HubMessageTemplateCouponParameter = {
+  type: 'coupon_code'
+  coupon_code: string
 }
+
+/**
+ * Valor de um botão dinâmico. Formato da Cloud API da Meta: `sub_type` em
+ * minúsculo e `index` como **string** com a posição do botão no template. O `type`
+ * em MAIÚSCULO segue a armadilha 3 acima. A doc da HubMessage não detalha botão no
+ * envio — formato ainda a confirmar com envio real.
+ */
+export type HubMessageTemplateSendButtonComponent =
+  | {
+      type: 'BUTTON'
+      sub_type: 'url'
+      index: string
+      parameters: [HubMessageTemplateSendParameter]
+    }
+  | {
+      type: 'BUTTON'
+      sub_type: 'copy_code'
+      index: string
+      parameters: [HubMessageTemplateCouponParameter]
+    }
+
+/**
+ * Imagem do cabeçalho no envio. A doc da Z-API Omni
+ * (`https://developer.omni.z-api.io`) diz que cabeçalho de mídia exige o parâmetro,
+ * mas só exemplifica cabeçalho de texto; o formato segue o da Cloud API da Meta
+ * (`{ type: 'image', image: { link } }`). FORMATO A CONFIRMAR com envio real — se
+ * o `HEADER` maiúsculo for recusado, testar `header` minúsculo, como no exemplo
+ * da doc nova.
+ */
+export type HubMessageTemplateImageParameter = {
+  type: 'image'
+  image: { link: string }
+}
+
+export type HubMessageTemplateSendComponent =
+  | {
+      type: 'HEADER'
+      parameters: [HubMessageTemplateImageParameter]
+    }
+  | {
+      type: 'BODY'
+      parameters: HubMessageTemplateSendParameter[]
+    }
+  | HubMessageTemplateSendButtonComponent
 
 export type SendHubMessageTemplateParams = {
   recipient: {
@@ -190,8 +234,8 @@ export type SendHubMessageTemplateParams = {
           code: string
         }
         /**
-         * Parâmetros do corpo, na ordem posicional. Omitido em template sem
-         * variável.
+         * Parâmetros do corpo, na ordem posicional, seguidos de um componente por
+         * botão dinâmico. Omitido em template sem variável nem botão dinâmico.
          */
         components?: HubMessageTemplateSendComponent[]
       }
@@ -298,10 +342,22 @@ export type HubMessageTemplateCategory =
 
 export type HubMessageTemplateStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
+/**
+ * Botão do componente `BUTTONS` no cadastro — formato da Meta, repassado pela
+ * HubMessage (a doc deles só exemplifica `URL`).
+ */
+export type HubMessageTemplateButton =
+  | { type: 'QUICK_REPLY'; text: string }
+  | { type: 'URL'; text: string; url: string; example?: string[] }
+  | { type: 'PHONE_NUMBER'; text: string; phone_number: string }
+  | { type: 'COPY_CODE'; example: string }
+
 /** Componente cru do template retornado/enviado à API (estrutura varia por tipo). */
 export type HubMessageTemplateComponent = {
   type: 'HEADER' | 'BODY' | 'FOOTER' | 'BUTTONS'
   text?: string
+  /** Só em `BUTTONS`. Na leitura pode trazer tipos fora de `HubMessageTemplateButton`. */
+  buttons?: HubMessageTemplateButton[]
   [key: string]: unknown
 }
 
@@ -321,7 +377,16 @@ export type ListTemplatesResponse = {
   data: HubMessageTemplate[]
 }
 
-/** `POST /whatsapp/businesses/{wabaId}/templates`. */
+/**
+ * `POST /whatsapp/businesses/{wabaId}/templates`.
+ *
+ * Cabeçalho de imagem: `{ type: 'HEADER', format: 'IMAGE', example: { header_handle:
+ * ['<url https pública>'] } }`. Segundo a doc da Z-API Omni
+ * (`https://developer.omni.z-api.io/templates/validation`), `header_handle` aceita
+ * o link público, que a Omni converte no identificador da Meta antes de criar, ou o
+ * `h` devolvido pela rota de upload (`templates/media`) quando o operador envia o
+ * arquivo. FORMATO A CONFIRMAR com um template real nos dois caminhos.
+ */
 export type CreateTemplateParams = {
   name: string
   category: HubMessageTemplateCategory
@@ -337,6 +402,14 @@ export type CreateTemplateResponse = {
   id: string
   status: HubMessageTemplateStatus
   category: HubMessageTemplateCategory
+}
+
+/**
+ * `POST /whatsapp/businesses/{wabaId}/templates/media` — identificador da Meta para
+ * `example.header_handle`. Expira; usar no cadastro logo em seguida.
+ */
+export type UploadTemplateMediaResponse = {
+  h: string
 }
 
 /** `POST /whatsapp/businesses/{wabaId}/templates/sync`. */

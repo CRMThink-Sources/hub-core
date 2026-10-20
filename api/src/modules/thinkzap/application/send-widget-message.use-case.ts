@@ -1,3 +1,18 @@
+import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
+import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/ports/installation-locale.port'
+import {
+  DEFAULT_NOTICE_LOCALE,
+  dailyLimitNotices,
+} from '@/modules/thinkzap/domain/daily-limit-notices'
+import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import {
+  assertDailyLimitNotReached,
+  dailyLimitPolicyOf,
+  isDailyLimitReachedError,
+  sendWithinDailyQuota,
+} from './helpers/send-within-daily-quota'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
@@ -83,6 +98,10 @@ export class SendWidgetMessageUseCase {
       operatorUserId: string
       appId: string
     }) => Promise<string>,
+    /** Ausente, o envio não é contado nem limitado. A factory sempre injeta. */
+    private readonly quota: DailySendQuota | null = null,
+    /** Idioma do aviso de limite na timeline. Ausente, português. */
+    private readonly locales: InstallationLocaleRepository | null = null,
   ) {}
 
   async execute(
@@ -140,6 +159,22 @@ export class SendWidgetMessageUseCase {
      */
     await assertLineConnected(this.zApiClient, line, subscriptionItemId)
 
+    // Antes de enviar qualquer parte: limite já atingido recusa o envio inteiro.
+    await assertDailyLimitNotReached(this.quota, line.item)
+
+    const dailyLimitPolicy = this.quota
+      ? dailyLimitPolicyOf({
+          provider: ConnectorProvider.ZAPI,
+          lineKey: line.zApiInstanceId,
+          settings: line.item.settings,
+        })
+      : null
+    // Cada parte (texto e cada anexo) é uma mensagem no WhatsApp, e conta como tal.
+    const withinQuota = <T>(send: () => Promise<T>): Promise<T> =>
+      this.quota
+        ? sendWithinDailyQuota(this.quota, dailyLimitPolicy, send)
+        : send()
+
     /**
      * A âncora de `Instance` existe porque a mensagem persistida tem chave
      * estrangeira para `Instance.id`. Criada quando falta — ver `ensureLineInstance`.
@@ -189,11 +224,13 @@ export class SendWidgetMessageUseCase {
           })
         : message.trim()
 
-      const result = await this.zApiClient.sendMessage(
-        line.zApiInstanceId,
-        line.zApiInstanceToken,
-        textForContact,
-        normalizedPhone,
+      const result = await withinQuota(() =>
+        this.zApiClient.sendMessage(
+          line.zApiInstanceId,
+          line.zApiInstanceToken,
+          textForContact,
+          normalizedPhone,
+        ),
       )
 
       sentMessages.push({
@@ -204,13 +241,40 @@ export class SendWidgetMessageUseCase {
       })
     }
 
-    for (const attachment of attachments) {
-      const messageId = await this.sendAttachment(
-        attachment,
-        line.zApiInstanceId,
-        line.zApiInstanceToken,
-        normalizedPhone,
-      )
+    /**
+     * O limite pode acabar no meio do envio (texto saiu, anexo não). Com algo já
+     * entregue, para de enviar e segue com histórico e timeline do que saiu —
+     * recusar o request inteiro faria o operador reenviar o que o contato já tem.
+     * Sem nada entregue, a recusa sobe como sempre.
+     */
+    let skippedByDailyLimit = 0
+    for (const [index, attachment] of attachments.entries()) {
+      let messageId: string
+      try {
+        messageId = await withinQuota(() =>
+          this.sendAttachment(
+            attachment,
+            line.zApiInstanceId,
+            line.zApiInstanceToken,
+            normalizedPhone,
+          ),
+        )
+      } catch (err) {
+        if (!isDailyLimitReachedError(err) || sentMessages.length === 0) {
+          throw err
+        }
+        skippedByDailyLimit = attachments.length - index
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.line.daily_limit_reached',
+          { app: 'thinkzap', subscriptionItemId, skippedByDailyLimit },
+          {
+            level: 'warn',
+            msg: 'Limite diário atingido no meio do envio pelo widget — anexos restantes não enviados',
+          },
+        )
+        break
+      }
 
       const type = TYPE_BY_ATTACHMENT_KIND[attachment.kind]
 
@@ -282,6 +346,11 @@ export class SendWidgetMessageUseCase {
      * conversa já está aberta. Enfileirar antes abriria uma corrida com a própria
      * escrita — exatamente o defeito que o callback de status tinha.
      */
+    // Idioma da instalação: marcador de anexo no histórico e comentário da timeline.
+    const locale =
+      (await this.locales?.byAppId(context.aplication.id)) ??
+      DEFAULT_NOTICE_LOCALE
+
     await this.openConversation({
       subscriptionItemId,
       domainId,
@@ -292,6 +361,7 @@ export class SendWidgetMessageUseCase {
       text: resolveOpenChannelText(
         message,
         attachments.map(attachment => attachment.kind),
+        locale,
       ),
       entity,
       entityId,
@@ -300,7 +370,16 @@ export class SendWidgetMessageUseCase {
     await this.sendBitrixNotification.execute({
       contextId: entityId,
       entity,
-      message: `De: ${phoneData?.phone ?? ''}\nPara: ${destination}\nMensagem: ${message?.trim() || ''}`,
+      message:
+        timelineNotices(locale).widgetSentSync({
+          fromPhone: phoneData?.phone ?? '',
+          destination,
+          text: message?.trim() || '',
+        }) +
+        (skippedByDailyLimit > 0
+          ? '\n' +
+            dailyLimitNotices(locale).attachmentsSkipped(skippedByDailyLimit)
+          : ''),
     })
 
     return {

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { prisma } from '@/config/prisma'
 import type { ThinkzapOutboxKind, ThinkzapOutboxStatus } from '@/prisma/client'
 import type { InteractiveButtonDescriptor } from '@/modules/thinkzap/domain/ports/interactive-button-sender.port'
+import type { TemplateButtonParameter } from '@/modules/thinkzap/domain/ports/template-message-sender.port'
 
 export type WidgetOutboxStatus =
   | 'PENDING'
@@ -35,6 +36,10 @@ export type WidgetOutboxRecord = {
   templateName: string | null
   templateLanguage: string | null
   templateParameters: string[] | null
+  /** Botões dinâmicos do template; `null` em row anterior a eles. */
+  templateButtonParameters: TemplateButtonParameter[] | null
+  /** Imagem do cabeçalho do template; `null` = envio sem cabeçalho. */
+  templateHeaderImageUrl: string | null
   /** Preenchido só em `kind: 'INTERACTIVE_BUTTON'`. */
   buttonPayload: InteractiveButtonDescriptor | null
   status: WidgetOutboxStatus
@@ -73,6 +78,10 @@ export type CreateWidgetOutboxInput = {
   templateName?: string
   templateLanguage?: string
   templateParameters?: string[]
+  /** Vazio ou ausente = template sem botão dinâmico; a coluna fica nula. */
+  templateButtonParameters?: TemplateButtonParameter[]
+  /** Ausente = template sem cabeçalho de imagem; a coluna fica nula. */
+  templateHeaderImageUrl?: string | null
   /** Preenchido só em `kind: 'INTERACTIVE_BUTTON'`. */
   buttonPayload?: InteractiveButtonDescriptor
   /** Do token da requisição — é o que o worker usa para resolver o nome. */
@@ -97,6 +106,24 @@ export type CreateWidgetOutboxInput = {
 function toBodyParameters(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null
   return value.every(item => typeof item === 'string') ? value : null
+}
+
+/**
+ * O `template_button_parameters` volta como JSON livre, mirror de
+ * `toBodyParameters`: formato inesperado vira `null`, e o envio sai sem botão em
+ * vez de a leitura derrubar o despacho — a Meta recusa se o botão era obrigatório.
+ */
+function toButtonParameters(value: unknown): TemplateButtonParameter[] | null {
+  if (!Array.isArray(value)) return null
+  const valid = value.every(item => {
+    const candidate = (item ?? {}) as Record<string, unknown>
+    return (
+      Number.isInteger(candidate.index) &&
+      (candidate.subType === 'URL' || candidate.subType === 'COPY_CODE') &&
+      typeof candidate.value === 'string'
+    )
+  })
+  return valid ? (value as TemplateButtonParameter[]) : null
 }
 
 /**
@@ -128,6 +155,8 @@ function mapRow(row: {
   templateName: string | null
   templateLanguage: string | null
   templateParameters: unknown
+  templateButtonParameters: unknown
+  templateHeaderImageUrl: string | null
   buttonPayload: unknown
   status: ThinkzapOutboxStatus
   providerMessageId: string | null
@@ -155,6 +184,8 @@ function mapRow(row: {
     templateName: row.templateName,
     templateLanguage: row.templateLanguage,
     templateParameters: toBodyParameters(row.templateParameters),
+    templateButtonParameters: toButtonParameters(row.templateButtonParameters),
+    templateHeaderImageUrl: row.templateHeaderImageUrl,
     buttonPayload: toButtonPayload(row.buttonPayload),
     status: row.status as WidgetOutboxStatus,
     providerMessageId: row.providerMessageId,
@@ -180,20 +211,28 @@ function mapRow(row: {
  */
 export class PrismaWidgetOutboxRepository {
   async create(input: CreateWidgetOutboxInput): Promise<WidgetOutboxRecord> {
-    const { templateParameters, buttonPayload, ...rest } = input
+    const {
+      templateParameters,
+      templateButtonParameters,
+      buttonPayload,
+      ...rest
+    } = input
 
     /**
-     * `templateParameters`/`buttonPayload` ficam **fora** do spread quando são
-     * `undefined`: numa coluna `Json` do Prisma, `undefined` significa "não
-     * escreva" e `null` exigiria `Prisma.DbNull`. Omitir a chave é o único
-     * jeito de a row de outro `kind` nascer com a coluna nula sem importar o
-     * sentinela aqui.
+     * Os campos `Json` ficam **fora** do spread quando são `undefined`: numa
+     * coluna `Json` do Prisma, `undefined` significa "não escreva" e `null`
+     * exigiria `Prisma.DbNull`. Omitir a chave é o único jeito de a row de outro
+     * `kind` nascer com a coluna nula sem importar o sentinela aqui. Lista de
+     * botões vazia também fica nula: é o mesmo que "sem botão dinâmico".
      */
     const row = await prisma.thinkzapWidgetOutbox.create({
       data: {
         id: randomUUID(),
         ...rest,
         ...(templateParameters ? { templateParameters } : {}),
+        ...(templateButtonParameters?.length
+          ? { templateButtonParameters }
+          : {}),
         ...(buttonPayload ? { buttonPayload } : {}),
       },
     })

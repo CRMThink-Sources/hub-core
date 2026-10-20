@@ -233,6 +233,14 @@ export const THINKZAP_ERRORS = {
       'Conferir se a linha está ativa e conectada; revisar a configuração do robô no fluxo.',
     retriable: false,
   },
+  'thinkzap.bitrix.robot_file_unavailable': {
+    category: 'integration',
+    userCause:
+      'Um arquivo do robô de envio não pôde ser obtido do Bitrix24 e não foi enviado; o texto e os demais arquivos seguiram.',
+    remediation:
+      'Conferir se a propriedade Arquivo do robô está ligada a um campo de arquivo do próprio card (arquivo enviado direto na configuração do robô não é suportado) e se o arquivo ainda existe no campo.',
+    retriable: false,
+  },
   'thinkzap.bitrix.template_robot_refused': {
     category: 'config',
     userCause:
@@ -327,6 +335,15 @@ export const THINKZAP_ERRORS = {
       'Reinstalar o app no portal do parceiro liberando os escopos `imbot` e `imopenlines`; o log traz quais faltaram.',
     retriable: false,
     httpStatus: 409,
+  },
+  'thinkzap.bot.connector_inactive': {
+    category: 'config',
+    userCause:
+      'O ThinkBot só funciona com um conector ThinkZap contratado e ativo, e esta instalação não tem nenhum.',
+    remediation:
+      'Contratar ou reativar uma linha ThinkZap (assinatura ativa ou teste dentro do prazo) e vincular o fluxo de novo.',
+    retriable: false,
+    httpStatus: 403,
   },
   'thinkzap.bot.line_bind_failed': {
     category: 'integration',
@@ -446,9 +463,9 @@ export const THINKZAP_ERRORS = {
   'thinkzap.bot.turn_skipped': {
     category: 'config',
     userCause:
-      'O bot está ligado num canal aberto que não tem fluxo para rodar; a conversa foi entregue à fila da linha.',
+      'O bot está ligado num canal aberto que não tem fluxo para rodar, ou a instalação está sem conector ThinkZap ativo; a conversa foi entregue à fila da linha.',
     remediation:
-      'Abrir o ThinkBot e vincular um fluxo publicado ao canal, ou remover o vínculo para o canal voltar ao atendimento humano direto.',
+      'Conferir o `reason` do log: sem conector ativo, contratar ou reativar uma linha ThinkZap; nos outros casos, vincular um fluxo publicado ao canal pelo ThinkBot ou remover o vínculo.',
     retriable: false,
   },
   'thinkzap.bitrix.reply_context_failed': {
@@ -624,6 +641,24 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 400,
   },
+  'thinkzap.message.widget_header_image_invalid': {
+    category: 'validation',
+    userCause:
+      'O arquivo escolhido como imagem do cabeçalho no widget não é JPEG/PNG ou passa de 5 MB.',
+    remediation:
+      'Escolher uma imagem JPEG ou PNG de até 5 MB, ou informar um link público da imagem.',
+    retriable: false,
+    httpStatus: 400,
+  },
+  'thinkzap.message.widget_header_image_storage_unavailable': {
+    category: 'integration',
+    userCause:
+      'O envio de arquivo da imagem do cabeçalho está indisponível (armazenamento não configurado ou fora do ar).',
+    remediation:
+      'Enviar o template informando um link público da imagem; se persistir, conferir a configuração do armazenamento de imagens.',
+    retriable: true,
+    httpStatus: 503,
+  },
   'thinkzap.message.widget_template_failed': {
     category: 'validation',
     userCause: 'Não foi possível enviar o template pelo WhatsApp Oficial.',
@@ -775,6 +810,32 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 400,
   },
+  'thinkzap.template.header_image_invalid': {
+    category: 'validation',
+    userCause:
+      'A imagem do cabeçalho do template não pode ser usada (link fora do ar, não é JPEG/PNG, passa de 5 MB ou é um link do WhatsApp/Meta).',
+    remediation:
+      'Usar um link https público que aponte direto para um arquivo JPEG ou PNG de até 5 MB, hospedado fora do WhatsApp/Meta.',
+    retriable: false,
+    httpStatus: 400,
+  },
+  'thinkzap.template.header_image_app_credentials_missing': {
+    category: 'config',
+    userCause:
+      'A conta do WhatsApp Oficial não tem as credenciais do app da Meta cadastradas, então o envio de arquivo da imagem do cabeçalho não está disponível.',
+    remediation:
+      'Criar o template usando um link público da imagem; ou cadastrar App ID e App Secret da Meta no painel da Z-API Omni para liberar o envio de arquivo.',
+    retriable: false,
+    httpStatus: 400,
+  },
+  'thinkzap.template.image_header_not_supported': {
+    category: 'validation',
+    userCause:
+      'A campanha de SMS usou um template com imagem no cabeçalho; a campanha não tem como informar a imagem, então o envio foi recusado.',
+    remediation:
+      'Usar na campanha um template sem imagem no cabeçalho, ou enviar o template com imagem pelo robô ou pelo widget, que pedem a URL da imagem.',
+    retriable: false,
+  },
   'thinkzap.template.provider_rejected': {
     category: 'integration',
     userCause: 'O WhatsApp Oficial recusou a operação do template.',
@@ -792,6 +853,51 @@ export const THINKZAP_ERRORS = {
       'Contratar/reativar a assinatura da linha para voltar a usá-la.',
     retriable: false,
     httpStatus: 402,
+  },
+  'thinkzap.line.daily_limit_reached': {
+    category: 'validation',
+    userCause:
+      'Esta linha atingiu o limite diário de mensagens configurado. A mensagem não foi enviada.',
+    remediation:
+      'Aguardar a virada do dia, liberar um limite temporário ou aumentar o limite na aba Ajustes da linha.',
+    retriable: false,
+    httpStatus: 429,
+  },
+  'thinkzap.line.daily_limit_invalid': {
+    category: 'validation',
+    userCause:
+      'O limite diário precisa ser um número inteiro maior que zero, e só existe para linha não oficial (Web).',
+    remediation:
+      'Informar um número inteiro maior que zero no limite diário da linha não oficial (Web) e salvar de novo.',
+    retriable: false,
+    httpStatus: 400,
+  },
+  'thinkzap.line.daily_limit_usage_read_failed': {
+    category: 'internal',
+    userCause:
+      'O uso de hoje do limite diário não pôde ser lido agora. Os ajustes da linha continuam disponíveis.',
+    remediation:
+      'Recarregar a tela em instantes; se persistir, verificar a disponibilidade do Redis e acionar o suporte.',
+    retriable: true,
+    httpStatus: 500,
+  },
+  'thinkzap.line.daily_limit_notify_failed': {
+    category: 'integration',
+    userCause:
+      'A mensagem foi recusada pelo limite diário, mas o aviso ao operador no chat não pôde ser enviado.',
+    remediation:
+      'Conferir no card "Limite diário" da linha se o limite foi atingido; o operador deve repetir o envio depois de liberar.',
+    retriable: false,
+    httpStatus: 502,
+  },
+  'thinkzap.line.daily_limit_disabled': {
+    category: 'validation',
+    userCause:
+      'O limite temporário só pode ser liberado com o limite diário ativado e salvo.',
+    remediation:
+      'Ativar e salvar o limite diário na aba Ajustes da linha antes de liberar o limite temporário.',
+    retriable: false,
+    httpStatus: 409,
   },
   'thinkzap.line.disconnected': {
     category: 'validation',

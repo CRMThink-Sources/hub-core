@@ -1,3 +1,5 @@
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
+import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { env } from '@/config/env'
 import { BullMqOpenChannelConversationQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
@@ -39,5 +41,7 @@ export const makeSendWidgetMessageUseCase = async (
         getBitrixUserDisplayName: new BitrixGetUserDisplayNameAdapter(bitrix),
         getAllowedUser: new PrismaAllowedUserRepository(),
       }),
+    makeDailySendQuota(),
+    makeInstallationLocaleRepository(),
   )
 }

@@ -14,9 +14,18 @@
 export type ConnectorSettings = {
   prefixOperatorNameEnabled: boolean
   widgetOpenChannelEnabled: boolean
+  /**
+   * Limite diário de envio, só para linha não oficial (Z-API). Desligado por padrão: linha
+   * antiga não pode passar a recusar envio por um deploy.
+   */
+  dailyLimitEnabled: boolean
+  /** Inteiro > 0 quando ligado. `null` = nunca configurado. */
+  dailyLimit: number | null
 }
 
 export const DEFAULT_CONNECTOR_SETTINGS: ConnectorSettings = {
   prefixOperatorNameEnabled: false,
   widgetOpenChannelEnabled: false,
+  dailyLimitEnabled: false,
+  dailyLimit: null,
 }

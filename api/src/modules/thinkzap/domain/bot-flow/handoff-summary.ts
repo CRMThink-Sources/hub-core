@@ -1,5 +1,10 @@
 import { type BotFlowGraph, type FlowNode, type NodeId } from './flow'
 import { CAPTURE_NAMESPACE, CHOICE_NAMESPACE } from './vars'
+import {
+  DEFAULT_NOTICE_LOCALE,
+  type NoticeLocale,
+} from '../notices/notice-locale'
+import { openChannelNotices } from '../notices/open-channel-notices'
 
 /**
  * Resumo do que o bot já apurou, sussurrado ao operador no handoff.
@@ -11,9 +16,6 @@ import { CAPTURE_NAMESPACE, CHOICE_NAMESPACE } from './vars'
  * Duas origens, porque o cliente responde de dois jeitos: `capture.*` é o que ele
  * digitou, `choice.*` é o menu que ele escolheu numa pergunta sem captura.
  */
-
-const TITULO = 'Resumo do atendimento automático'
-const SEM_RESPOSTAS = 'O cliente não respondeu nada antes da transferência.'
 
 /** Teto por resposta: o sussurro é contexto de relance, não transcrição. */
 const LIMITE_RESPOSTA = 200
@@ -69,10 +71,16 @@ function rotulo(graph: BotFlowGraph, chave: string): string | null {
   return null
 }
 
+/**
+ * Título e "não respondeu nada" no idioma da instalação; rótulos (do autor do fluxo) e
+ * respostas (do contato) aparecem como foram escritos.
+ */
 export function handoffSummary(
   graph: BotFlowGraph,
   vars: Record<string, string>,
+  locale: NoticeLocale = DEFAULT_NOTICE_LOCALE,
 ): string {
+  const textos = openChannelNotices(locale)
   const linhas = Object.entries(vars).flatMap(([chave, valor]) => {
     if (!valor.trim()) return []
 
@@ -80,5 +88,9 @@ export function handoffSummary(
     return nome ? [`• ${nome}: ${encurta(valor)}`] : []
   })
 
-  return [TITULO, '', ...(linhas.length ? linhas : [SEM_RESPOSTAS])].join('\n')
+  return [
+    textos.handoffSummaryTitle,
+    '',
+    ...(linhas.length ? linhas : [textos.handoffSummaryNoAnswers]),
+  ].join('\n')
 }

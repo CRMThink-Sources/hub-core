@@ -5,6 +5,8 @@ import type {
   ConnectorTemplate,
   TemplateStatus,
 } from '@/app/hooks/use-connector-templates'
+import { templateButtonsOf } from './template-buttons'
+import { templateHeaderOf } from './template-header'
 
 const STATUS_CLASS: Record<TemplateStatus, string> = {
   APPROVED:
@@ -33,14 +35,20 @@ export function TemplatesLista({ templates }: Props) {
     <ul className="flex flex-col gap-2">
       {templates.map(template => {
         const body = template.components.find(c => c.type === 'BODY')?.text
+        const buttons = templateButtonsOf(template.components)
         return (
           <li
             key={template.id}
             className="flex flex-col gap-1 rounded-md border border-border bg-background px-4 py-3"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-foreground">
+              <span className="flex items-center gap-1.5 font-medium text-foreground">
                 {template.name}
+                {templateHeaderOf(template.components) === 'IMAGE' && (
+                  <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {t('lista.imagem')}
+                  </span>
+                )}
               </span>
               <span
                 className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${STATUS_CLASS[template.status]}`}
@@ -55,6 +63,19 @@ export function TemplatesLista({ templates }: Props) {
               <span className="line-clamp-2 text-sm text-muted-foreground">
                 {body}
               </span>
+            )}
+            {buttons.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {buttons.map(button => (
+                  <span
+                    key={button.index}
+                    className="rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground"
+                  >
+                    {button.text ? `${button.text} · ` : ''}
+                    {t(`botoes.tipo.${button.type}`)}
+                  </span>
+                ))}
+              </div>
             )}
           </li>
         )

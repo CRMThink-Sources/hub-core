@@ -2,6 +2,9 @@
   "titulo": "ThinkBot",
   "subtitulo": "Build the service flow: define how the bot should lead the conversation.",
   "carregando": "Loading",
+  "novoFluxo": "New flow",
+  "contagem": "{{total}} of {{max}} flows",
+  "limiteAtingido": "{{max}}-flow limit reached",
   "erro": {
     "titulo": "Could not load the flows",
     "carregar": "Could not load the flows.",

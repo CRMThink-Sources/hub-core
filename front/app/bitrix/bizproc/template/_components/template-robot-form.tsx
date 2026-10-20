@@ -6,7 +6,10 @@ import {
   thinkzapApiErrorMessage,
 } from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
 import {
+  dynamicButtons,
   extractTemplateVariables,
+  isHttpsUrl,
+  needsHeaderImage,
   resolveTemplatePreview,
 } from '@/app/(widgets)/layouts/template-variables'
 import {
@@ -18,6 +21,7 @@ import {
 import {
   buildRobotProperties,
   parseStoredProperties,
+  rebuildButtonValues,
   rebuildValues,
   templateKey,
   toStoredValue,
@@ -217,7 +221,23 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
     ),
   )
 
-  const missing = validateConfig(config)
+  /**
+   * Os botões vêm do catálogo carregado, não do gravado: o robô só guarda os valores.
+   * Enquanto o catálogo não chega, a tela não mostra nem confere campos de botão.
+   */
+  const catalogTemplate = templates.find(
+    item => templateKey(item) === selectedKey,
+  )
+  const buttonFields = dynamicButtons(catalogTemplate?.buttons)
+  const headerImageRequired = needsHeaderImage(catalogTemplate)
+  const headerImageLiteral =
+    config.headerImage.mode === 'literal' ? config.headerImage.value.trim() : ''
+
+  const missing = validateConfig(
+    config,
+    catalogTemplate ? buttonFields.length : undefined,
+    headerImageRequired,
+  )
 
   return (
     <div className="grid gap-5 p-4">
@@ -234,6 +254,8 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
               connector: event.target.value,
               template: null,
               values: {},
+              buttonValues: [],
+              headerImage: { mode: 'literal', value: '' },
             })
           }
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
@@ -280,6 +302,14 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
               ...config,
               template: chosen ?? null,
               values: rebuildValues(chosen?.body ?? '', config.values),
+              buttonValues: rebuildButtonValues(chosen?.buttons),
+              /**
+               * A imagem fica só se o template novo também pede uma; template sem
+               * imagem grava vazio, e o disparo não manda cabeçalho.
+               */
+              headerImage: needsHeaderImage(chosen)
+                ? config.headerImage
+                : { mode: 'literal', value: '' },
             })
           }}
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
@@ -336,6 +366,25 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
         />
       </section>
 
+      {headerImageRequired && (
+        <section className="grid gap-3">
+          <h2 className="text-sm font-semibold text-slate-800">
+            Imagem do cabeçalho
+          </h2>
+
+          <ValueField
+            label="URL da imagem"
+            hint="Link público https, direto para o arquivo JPEG ou PNG — fixo ou de um campo da entidade."
+            placeholder="https://..."
+            value={config.headerImage}
+            fields={documentFields}
+            onChange={(headerImage: FieldValue) =>
+              update({ ...config, headerImage })
+            }
+          />
+        </section>
+      )}
+
       {variables.length > 0 && (
         <section className="grid gap-3">
           <h2 className="text-sm font-semibold text-slate-800">
@@ -359,14 +408,74 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
         </section>
       )}
 
+      {buttonFields.length > 0 && (
+        <section className="grid gap-3">
+          <h2 className="text-sm font-semibold text-slate-800">
+            Botões do template
+          </h2>
+
+          {buttonFields.map((button, position) => (
+            <ValueField
+              key={button.index}
+              label={
+                button.type === 'COPY_CODE'
+                  ? 'Código do cupom'
+                  : `Final do link "${button.text}"`
+              }
+              value={
+                config.buttonValues[position] ?? { mode: 'literal', value: '' }
+              }
+              fields={documentFields}
+              onChange={(value: FieldValue) => {
+                const buttonValues = buttonFields.map(
+                  (_, i) =>
+                    (i === position ? value : config.buttonValues[i]) ?? {
+                      mode: 'literal' as const,
+                      value: '',
+                    },
+                )
+                update({ ...config, buttonValues })
+              }}
+            />
+          ))}
+        </section>
+      )}
+
       {config.template && (
         <section className="rounded-xl border border-blue-200 bg-blue-50/70 p-3">
           <p className="text-xs font-medium text-blue-900">
             Prévia da mensagem
           </p>
+          {headerImageRequired &&
+            (isHttpsUrl(headerImageLiteral) ? (
+              <img
+                src={headerImageLiteral}
+                alt="Imagem do cabeçalho"
+                className="mt-2 max-h-40 w-full rounded-lg bg-white object-cover"
+              />
+            ) : (
+              <div className="mt-2 flex h-20 items-center justify-center rounded-lg border border-dashed border-blue-200 bg-white text-xs text-blue-700">
+                {config.headerImage.mode === 'literal'
+                  ? 'Imagem do cabeçalho'
+                  : 'Imagem do cabeçalho (vem do campo da entidade)'}
+              </div>
+            ))}
           <p className="mt-1 whitespace-pre-wrap text-sm text-blue-950">
             {preview}
           </p>
+          {catalogTemplate?.buttons?.length ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {catalogTemplate.buttons.map(button => (
+                <span
+                  key={button.index}
+                  className="rounded-lg border border-blue-200 bg-white px-2.5 py-1 text-xs font-medium text-blue-700"
+                >
+                  {button.text ||
+                    (button.type === 'COPY_CODE' ? 'Copiar código' : 'Botão')}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </section>
       )}
 

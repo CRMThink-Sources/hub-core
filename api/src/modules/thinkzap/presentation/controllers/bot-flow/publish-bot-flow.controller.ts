@@ -55,7 +55,7 @@ export class PublishBotFlowController extends Controller {
 
     const flow = await this.publishFlow.publish(appId, parsed.data.flowId)
 
-    await this.sincronizarNomeNoPortal(appId, flow.name)
+    await this.sincronizarNomeNoPortal(appId, flow.id, flow.name)
 
     return this.ok({ flow })
   }
@@ -67,23 +67,24 @@ export class PublishBotFlowController extends Controller {
    * Aqui e não no `update`: renomear é edição de rascunho, e depender do portal ali faria
    * salvar falhar com o Bitrix fora. Publicar já é o momento de "vai ao ar".
    *
-   * Só com vínculo: sem canal ligado não existe bot registrado, e criar um para renomear
-   * poria um bot no portal do cliente sem nada para atender.
+   * Só com vínculo do fluxo: sem canal ligado não existe bot registrado, e criar um para
+   * renomear poria um bot no portal do cliente sem nada para atender.
    *
    * Falha não sobe: o fluxo **foi** publicado, e recusar a resposta faria o usuário
    * republicar atrás de um erro que é só cosmético no portal.
    */
   private async sincronizarNomeNoPortal(
     appId: string,
+    flowId: string,
     flowName: string,
   ): Promise<void> {
     if (!this.welcomeBot || !this.listBindings) return
 
     try {
       const vinculos = await this.listBindings.listByAppId(appId)
-      if (vinculos.length === 0) return
+      if (!vinculos.some(binding => binding.flowId === flowId)) return
 
-      await this.welcomeBot.ensureBot(appId, flowName)
+      await this.welcomeBot.ensureBot(appId, flowId, flowName)
     } catch (error) {
       logThinkzapError(
         log,

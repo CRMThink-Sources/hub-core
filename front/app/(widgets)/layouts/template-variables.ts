@@ -1,3 +1,8 @@
+import type {
+  WidgetTemplate,
+  WidgetTemplateButton,
+} from '@/app/hooks/use-widget-templates'
+
 /**
  * Placeholder de variável de template: `{{1}}`, `{{nome}}`, com ou sem espaços
  * internos.
@@ -63,4 +68,101 @@ export function hasAllTemplateVariables(
   return extractTemplateVariables(body).every(
     key => (values[key] ?? '').trim().length > 0,
   )
+}
+
+/** Botões que pedem valor no envio (link com variável e copiar código). */
+export function dynamicButtons(
+  buttons: WidgetTemplateButton[] | undefined,
+): WidgetTemplateButton[] {
+  return (buttons ?? []).filter(button => button.dynamic)
+}
+
+/** Todo botão dinâmico com valor (só espaço não conta). Chave: `index` do botão. */
+export function hasAllButtonValues(
+  buttons: WidgetTemplateButton[] | undefined,
+  values: Record<number, string>,
+): boolean {
+  return dynamicButtons(buttons).every(
+    button => (values[button.index] ?? '').trim().length > 0,
+  )
+}
+
+/** URL `https` válida — a única que a Meta baixa como imagem de cabeçalho. */
+export function isHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value.trim()).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/** O template exige a imagem do cabeçalho no envio. */
+export function needsHeaderImage(
+  template: Pick<WidgetTemplate, 'header'> | undefined,
+): boolean {
+  return template?.header?.type === 'IMAGE'
+}
+
+/**
+ * A imagem do cabeçalho está ok para enviar: template sem imagem não pede nada;
+ * com imagem, exige URL `https`.
+ */
+export function hasRequiredHeaderImage(
+  template: Pick<WidgetTemplate, 'header'> | undefined,
+  imageUrl: string,
+): boolean {
+  return !needsHeaderImage(template) || isHttpsUrl(imageUrl)
+}
+
+/** Teto da Meta para imagem de cabeçalho — o mesmo da API. */
+export const WIDGET_HEADER_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+export const WIDGET_HEADER_IMAGE_TYPES = ['image/jpeg', 'image/png']
+
+/**
+ * Motivo para recusar o arquivo escolhido antes de subir, ou `null` se serve. O
+ * tipo aqui é o que o navegador informa; a API confere de novo pelo conteúdo.
+ */
+export function widgetHeaderImageFileError(file: {
+  type: string
+  size: number
+}): string | null {
+  if (!WIDGET_HEADER_IMAGE_TYPES.includes(file.type)) {
+    return 'A imagem precisa ser JPEG ou PNG.'
+  }
+  if (file.size > WIDGET_HEADER_IMAGE_MAX_BYTES) {
+    return 'A imagem passa de 5 MB.'
+  }
+  return null
+}
+
+/**
+ * Pode enviar o template: variáveis, botões e — se o template pede imagem — uma URL
+ * `https` pronta. Com arquivo, a URL só existe depois do upload, então upload em
+ * andamento ou com falha bloqueia o envio.
+ */
+export function canSendWidgetTemplate(input: {
+  template: Pick<WidgetTemplate, 'body' | 'buttons' | 'header'>
+  values: Record<string, string>
+  buttonValues: Record<number, string>
+  headerImageUrl: string
+  headerImageUploading: boolean
+}): boolean {
+  return (
+    !input.headerImageUploading &&
+    hasAllTemplateVariables(input.template.body, input.values) &&
+    hasAllButtonValues(input.template.buttons, input.buttonValues) &&
+    hasRequiredHeaderImage(input.template, input.headerImageUrl)
+  )
+}
+
+/** O `buttonParameters` do envio: um item por botão dinâmico, amarrado ao `index`. */
+export function templateButtonParameters(
+  buttons: WidgetTemplateButton[] | undefined,
+  values: Record<number, string>,
+): { index: number; subType: 'URL' | 'COPY_CODE'; value: string }[] {
+  return dynamicButtons(buttons).map(button => ({
+    index: button.index,
+    subType: button.type === 'COPY_CODE' ? 'COPY_CODE' : 'URL',
+    value: (values[button.index] ?? '').trim(),
+  }))
 }

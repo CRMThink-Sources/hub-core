@@ -7,7 +7,13 @@ import {
 import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
 import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
 import type { DispatchLineTarget } from '@/modules/thinkzap/application/dispatch-widget-outbox-message'
-import { notifyWidgetSendOutcome } from '@/modules/thinkzap/application/notify-widget-send-outcome'
+import {
+  notifyWidgetSendOutcome,
+  WidgetSendOutcome,
+} from '@/modules/thinkzap/application/notify-widget-send-outcome'
+import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
+import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
+import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import { reportSmsMessageStatus } from '@/modules/thinkzap/application/report-sms-message-status'
 import { findItemInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
@@ -108,6 +114,7 @@ export async function processWidgetSendJob(
     openChannelQueue: new BullMqOpenChannelConversationQueue(),
     acquireLock: (instanceId, destination) =>
       acquireDestinationLock(redisConnection, instanceId, destination),
+    quota: makeDailySendQuota(),
     notifyOutcome: (outcome, record) => notifyOutcomeFor(record, outcome),
     notifySent: record => notifySentFor(record),
     // Só rows de campanha chegam aqui (o despacho filtra pelas âncoras).
@@ -245,7 +252,7 @@ async function makeNotifier(row: WidgetOutboxRecord) {
 
 async function notifyOutcomeFor(
   row: WidgetOutboxRecord,
-  outcome: 'failed' | 'unknown',
+  outcome: WidgetSendOutcome,
 ): Promise<void> {
   try {
     const notifier = await makeNotifier(row)
@@ -257,6 +264,11 @@ async function notifyOutcomeFor(
       entityId: row.entityId,
       destination: row.destination,
       text: row.text,
+      // Lido só aqui, quando o comentário vai mesmo sair.
+      locale: await makeInstallationLocaleRepository().byInstallation(
+        row.domainId,
+        row.appCode,
+      ),
     })
   } catch (err) {
     logThinkzapError(
@@ -274,13 +286,20 @@ async function notifySentFor(row: WidgetOutboxRecord): Promise<void> {
     const notifier = await makeNotifier(row)
     if (!notifier) return
 
-    const templateLine =
-      row.kind === 'TEMPLATE' ? `\nTemplate: ${row.templateName}` : ''
+    const locale = await makeInstallationLocaleRepository().byInstallation(
+      row.domainId,
+      row.appCode,
+    )
 
     await notifier.execute({
       contextId: row.entityId,
       entity: row.entity,
-      message: `Para: ${row.destination}${templateLine}\nMensagem: ${row.text}`,
+      message: timelineNotices(locale).widgetSentQueued({
+        destination: row.destination,
+        templateName:
+          row.kind === 'TEMPLATE' ? String(row.templateName) : undefined,
+        text: row.text,
+      }),
     })
   } catch (err) {
     logThinkzapError(

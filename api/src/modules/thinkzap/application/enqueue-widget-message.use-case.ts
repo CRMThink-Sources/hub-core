@@ -1,3 +1,5 @@
+import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
+import { assertDailyLimitNotReached } from './helpers/send-within-daily-quota'
 import { randomUUID } from 'node:crypto'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
@@ -48,6 +50,8 @@ export class EnqueueWidgetMessageUseCase {
     private readonly zApiClient: ZApiClient,
     private readonly outbox: PrismaWidgetOutboxRepository,
     private readonly sendQueue: WidgetSendQueue,
+    /** Ausente, não há pré-checagem do limite diário (a reserva no despacho continua). */
+    private readonly quota: DailySendQuota | null = null,
   ) {}
 
   async execute(
@@ -81,6 +85,9 @@ export class EnqueueWidgetMessageUseCase {
     const line = findLineInContext(context, subscriptionItemId)
 
     await assertLineConnected(this.zApiClient, line, subscriptionItemId)
+
+    // Recusa no clique, antes de a row nascer: a mensagem não sairia mesmo.
+    await assertDailyLimitNotReached(this.quota, line.item)
 
     const normalizedPhone = normalizePhoneNumber(destination)
     if (!isValidZApiPhoneNumber(normalizedPhone)) {

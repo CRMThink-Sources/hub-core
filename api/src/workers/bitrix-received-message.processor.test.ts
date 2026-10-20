@@ -214,6 +214,32 @@ vi.mock('@/shared/helpers/convert-to-mp3', () => ({
   convertToMp3: vi.fn().mockResolvedValue(Buffer.from('mp3')),
 }))
 
+// Cota diária: reserva concedida por padrão, para os cenários sem limite seguirem iguais.
+const { reserveQuotaMock, releaseQuotaMock } = vi.hoisted(() => {
+  const releaseQuotaMock = vi.fn().mockResolvedValue(undefined)
+  return {
+    releaseQuotaMock,
+    reserveQuotaMock: vi.fn().mockResolvedValue({
+      status: 'reserved',
+      reservation: { release: releaseQuotaMock },
+    }),
+  }
+})
+
+vi.mock('@/modules/thinkzap/main/make-daily-send-quota', () => ({
+  makeDailySendQuota: () => ({ reserve: reserveQuotaMock }),
+}))
+
+// Idioma da instalação: português por padrão, sem tocar no banco.
+const { localeByAppIdMock } = vi.hoisted(() => ({
+  localeByAppIdMock: vi.fn().mockResolvedValue('pt'),
+}))
+
+vi.mock('@/modules/thinkzap/main/make-installation-locale', () => ({
+  makeInstallationLocaleRepository: () => ({ byAppId: localeByAppIdMock }),
+}))
+
+import axios from 'axios'
 import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
@@ -1071,5 +1097,223 @@ describe('processBitrixReceivedMessage envio de botões via código do canal abe
 
     expect(sendButtonActionsMock).not.toHaveBeenCalled()
     expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('processBitrixReceivedMessage limite diário', () => {
+  const LIMITED_LINE = {
+    ...ACTIVE_LINE,
+    settings: {
+      ...ACTIVE_LINE.settings,
+      dailyLimitEnabled: true,
+      dailyLimit: 300,
+    },
+  }
+
+  const refused = {
+    status: 'refused',
+    counts: { sent: 300, extra: 0 },
+    effectiveLimit: 300,
+  }
+
+  beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(LIMITED_LINE)
+    createMock.mockClear()
+    sendHubMessageMock.mockClear()
+    sendMessageZApiMock.mockClear()
+    sendMessageZApiMock.mockResolvedValue({ messageId: 'ZAPI-1' })
+    sendButtonActionsMock.mockClear()
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockClear()
+    callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
+    reserveQuotaMock.mockClear()
+    releaseQuotaMock.mockClear()
+    getContextMock.mockResolvedValue(baseContext)
+  })
+
+  it('reserva a vaga na instância da linha com o limite dos settings do item', async () => {
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(reserveQuotaMock).toHaveBeenCalledWith(
+      { lineKey: 'INST-A', enabled: true, limit: 300 },
+      expect.any(Date),
+    )
+    expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('limite atingido: não chama o provider, avisa o operador e não relança', async () => {
+    reserveQuotaMock.mockResolvedValueOnce(refused)
+
+    await expect(
+      processBitrixReceivedMessage(makeEvent()),
+    ).resolves.toBeUndefined()
+
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+    expect(createMock).not.toHaveBeenCalled()
+    expect(setMessageDeliveredMock).not.toHaveBeenCalled()
+    expect(callMethodMock).toHaveBeenCalledWith(
+      'imbot.message.add',
+      expect.objectContaining({
+        BOT_ID: 1958,
+        DIALOG_ID: 'chat100',
+        MESSAGE: expect.stringContaining('limite diário') as unknown,
+      }),
+    )
+  })
+
+  it('limite atingido no envio de botões: mesmo desfecho', async () => {
+    reserveQuotaMock.mockResolvedValueOnce(refused)
+
+    await expect(
+      processBitrixReceivedMessage(
+        makeEvent({
+          message: {
+            user_id: '1',
+            text: encodeButtonActionCode({
+              body: 'Como podemos ajudar?',
+              buttons: [
+                {
+                  id: '1',
+                  label: 'Site',
+                  type: 'URL' as const,
+                  url: 'https://x.io',
+                },
+              ],
+            }),
+            files: undefined,
+          },
+        }),
+      ),
+    ).resolves.toBeUndefined()
+
+    expect(sendButtonActionsMock).not.toHaveBeenCalled()
+    expect(setMessageDeliveredMock).not.toHaveBeenCalled()
+    expect(callMethodMock).toHaveBeenCalledWith(
+      'imbot.message.add',
+      expect.objectContaining({
+        MESSAGE: expect.stringContaining('limite diário') as unknown,
+      }),
+    )
+  })
+
+  it('provider recusa com resposta: devolve a vaga e relança', async () => {
+    // Resposta HTTP de erro da Z-API: nada saiu, a vaga volta.
+    vi.mocked(axios.isAxiosError).mockReturnValue(true)
+    sendMessageZApiMock.mockRejectedValueOnce(
+      Object.assign(new Error('Request failed with status code 400'), {
+        response: { status: 400 },
+      }),
+    )
+
+    try {
+      await expect(processBitrixReceivedMessage(makeEvent())).rejects.toThrow()
+      expect(releaseQuotaMock).toHaveBeenCalledOnce()
+    } finally {
+      vi.mocked(axios.isAxiosError).mockReturnValue(false)
+    }
+  })
+
+  it('linha oficial não toca na cota', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+    sendHubMessageMock.mockResolvedValue({ messageId: 'HM-1' })
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(reserveQuotaMock).not.toHaveBeenCalled()
+    expect(sendHubMessageMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('instalação em inglês: o aviso no chat sai em inglês', async () => {
+    reserveQuotaMock.mockResolvedValueOnce(refused)
+    localeByAppIdMock.mockResolvedValueOnce('en')
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(localeByAppIdMock).toHaveBeenCalledWith('app-1')
+    expect(callMethodMock).toHaveBeenCalledWith(
+      'imbot.message.add',
+      expect.objectContaining({
+        MESSAGE: expect.stringContaining(
+          'Your message was not delivered',
+        ) as unknown,
+      }),
+    )
+  })
+})
+
+describe('processBitrixReceivedMessage avisos no idioma da instalação', () => {
+  beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
+    createMock.mockClear()
+    sendHubMessageMock.mockClear()
+    sendButtonActionsMock.mockClear()
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockClear()
+    callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
+    localeByAppIdMock.mockReset().mockResolvedValue('pt')
+  })
+
+  const noticeSent = () =>
+    callMethodMock.mock.calls
+      .filter(([method]) => method === 'imbot.message.add')
+      .map(([, params]) => (params as { MESSAGE: string }).MESSAGE)
+
+  it('janela de 24h fechada em inglês', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+    localeByAppIdMock.mockResolvedValue('en')
+    sendHubMessageMock.mockRejectedValueOnce(
+      new HubMessageApiError(
+        422,
+        'POST',
+        '/v1/channels/CH-123/messages',
+        { message: 'A janela de conversa de 24 horas está fechada' },
+        null,
+      ),
+    )
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(localeByAppIdMock).toHaveBeenCalledWith('app-1')
+    expect(noticeSent()[0]).toContain('Your message was not delivered')
+  })
+
+  it('código de botões corrompido em espanhol', async () => {
+    getContextMock.mockResolvedValue(baseContext)
+    localeByAppIdMock.mockResolvedValue('es')
+
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: '##THINKZAP_BUTTON_ACTION##not-valid-base64-json',
+          files: undefined,
+        },
+      }),
+    )
+
+    const [notice] = noticeSent()
+    expect(notice).toContain('El envío de botones no fue entregado')
+    expect(notice).toContain('el mensaje llegó dañado')
+  })
+
+  it('sem idioma escolhido: o aviso da janela fica no texto de hoje', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+    sendHubMessageMock.mockRejectedValueOnce(
+      new HubMessageApiError(
+        422,
+        'POST',
+        '/v1/channels/CH-123/messages',
+        { message: 'A janela de conversa de 24 horas está fechada' },
+        null,
+      ),
+    )
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(noticeSent()[0]).toBe(
+      '⚠️ Sua mensagem não foi entregue: o contato não interage há mais de 24 horas ' +
+        'e o WhatsApp Oficial só permite mensagem livre dentro dessa janela. ' +
+        'Para retomar a conversa, é preciso enviar um template aprovado.',
+    )
   })
 })

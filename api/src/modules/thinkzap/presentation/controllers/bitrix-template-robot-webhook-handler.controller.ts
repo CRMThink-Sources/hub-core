@@ -1,3 +1,6 @@
+import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/ports/installation-locale.port'
+import { DEFAULT_NOTICE_LOCALE } from '@/modules/thinkzap/domain/notices/notice-locale'
+import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import { Request, Response } from 'express'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
@@ -9,6 +12,8 @@ import { apiLogger } from '@/shared/infra/logger'
 import { EnqueueTemplateSendService } from '@/modules/thinkzap/application/enqueue-template-send.service'
 import { ListWidgetTemplatesUseCase } from '@/modules/thinkzap/application/list-widget-templates'
 import { resolveRobotTemplateBody } from '@/modules/thinkzap/application/resolve-robot-template-body'
+import { resolveRobotButtonParameters } from '@/modules/thinkzap/application/resolve-robot-button-parameters'
+import { resolveRobotHeaderImage } from '@/modules/thinkzap/application/resolve-robot-header-image'
 import {
   bizprocEntityToPlacement,
   resolveRelatedDestinations,
@@ -29,6 +34,8 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     private readonly listTemplates: ListWidgetTemplatesUseCase,
     private readonly sendNotification: SendNotification,
     private readonly bitrix: BitrixClient,
+    /** Idioma dos comentários de timeline. Ausente, português. */
+    private readonly locales: InstallationLocaleRepository | null = null,
   ) {
     super()
   }
@@ -64,6 +71,11 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
       return this.badRequest(new Error('Document ID not found'))
     }
 
+    // Todo desfecho daqui em diante comenta na timeline, no idioma da instalação.
+    const notices = timelineNotices(
+      (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE,
+    ).templateRobot
+
     // null fora de entidade CRM: ainda envia ao destino manual, só sem timeline nem relacionados.
     const crmDocument = parseBizprocDocumentId(documentId)
 
@@ -72,11 +84,9 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     const language = data.properties.templateLanguage?.trim()
 
     if (!subscriptionItemId || !templateName || !language) {
-      return this.refuse(
-        crmDocument,
-        'A automação está sem linha ou sem template escolhido. Abra a configuração do robô e escolha os dois.',
-        { reason: 'incomplete-configuration' },
-      )
+      return this.refuse(crmDocument, notices.incomplete, {
+        reason: 'incomplete-configuration',
+      })
     }
 
     const scope = {
@@ -99,21 +109,23 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
 
       return this.refuse(
         crmDocument,
-        `A linha configurada não pode enviar template: ${(error as Error).message}`,
+        notices.lineCannotSend((error as Error).message),
         { reason: 'line-refused' },
       )
     }
 
     const recipients = await this.resolveRecipients(data, crmDocument)
     if (recipients.length === 0) {
-      return this.refuse(
-        crmDocument,
-        'Nenhum destinatário encontrado para o envio do template.',
-        { reason: 'no-recipients' },
-      )
+      return this.refuse(crmDocument, notices.noRecipients, {
+        reason: 'no-recipients',
+      })
     }
 
-    // Uma vez por disparo: o fallback de catálogo custa uma consulta ao provider.
+    // Uma consulta ao catálogo por disparo, no máximo: corpo e botões dividem a mesma.
+    let catalog: ReturnType<ListWidgetTemplatesUseCase['execute']> | undefined
+    const lookup = (input: typeof scope) =>
+      (catalog ??= this.listTemplates.execute(input))
+
     const templateBody = await resolveRobotTemplateBody(
       {
         ...scope,
@@ -121,10 +133,57 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
         language,
         configuredBody: data.properties.templateBody ?? '',
       },
-      input => this.listTemplates.execute(input),
+      lookup,
     )
 
     const bodyParameters = toParameterList(data.properties.templateParameters)
+
+    let buttonParameters
+    try {
+      buttonParameters = await resolveRobotButtonParameters(
+        {
+          ...scope,
+          name: templateName,
+          language,
+          values: toParameterList(data.properties.templateButtonParameters),
+        },
+        lookup,
+      )
+    } catch (error) {
+      logThinkzapError(apiLogger, 'thinkzap.bitrix.template_robot_refused', {
+        app: 'thinkzap',
+        source: 'bitrix',
+        subscriptionItemId,
+        err: (error as Error).message,
+      })
+
+      return this.refuse(
+        crmDocument,
+        notices.lineCannotSend((error as Error).message),
+        { reason: 'button-catalog-unavailable' },
+      )
+    }
+
+    if ('missing' in buttonParameters) {
+      return this.refuse(crmDocument, notices.missingButtonValues, {
+        reason: 'missing-button-values',
+      })
+    }
+
+    const headerImage = await resolveRobotHeaderImage(
+      {
+        ...scope,
+        name: templateName,
+        language,
+        value: toParameterList(data.properties.templateHeaderImageUrl)[0] ?? '',
+      },
+      lookup,
+    )
+    if ('missing' in headerImage) {
+      return this.refuse(crmDocument, notices.missingHeaderImage, {
+        reason: 'missing-header-image',
+      })
+    }
 
     const queued: string[] = []
     for (const destination of recipients) {
@@ -135,6 +194,8 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
           templateName,
           language,
           bodyParameters,
+          buttonParameters,
+          ...headerImage,
           templateBody,
           entity: crmDocument?.entity ?? '',
           entityId: crmDocument?.entityId ?? '',
@@ -157,16 +218,14 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     }
 
     if (queued.length === 0) {
-      return this.refuse(
-        crmDocument,
-        'Nenhum destinatário válido para o envio do template.',
-        { reason: 'no-valid-recipients' },
-      )
+      return this.refuse(crmDocument, notices.noValidRecipients, {
+        reason: 'no-valid-recipients',
+      })
     }
 
     await this.comment(
       crmDocument,
-      `Template "${templateName}" (${language}) enfileirado para: ${queued.join(', ')}`,
+      notices.queued({ templateName, language, destinations: queued }),
     )
 
     return this.ok({ received: true, queued: queued.length })
@@ -292,6 +351,10 @@ export interface BitrixTemplateRobotWebhookRequest {
     templateBody?: string
     /** Na ordem de aparição no corpo. */
     templateParameters?: string[] | Record<string, string> | string
+    /** Na ordem dos botões dinâmicos do template. Ausente em robô anterior a eles. */
+    templateButtonParameters?: string[] | Record<string, string> | string
+    /** URL da imagem do cabeçalho. Ausente em robô anterior a ela. */
+    templateHeaderImageUrl?: string | string[] | Record<string, string>
   }
   use_subscription: 'N' | 'Y'
   timeout_duration: string

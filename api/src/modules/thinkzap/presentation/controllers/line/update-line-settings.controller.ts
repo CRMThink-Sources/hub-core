@@ -22,6 +22,9 @@ const bodySchema = z
         widgetOpenChannelEnabled: z.boolean().optional(),
         messageUpdateEventEnabled: z.boolean().optional(),
         messageDeleteEventEnabled: z.boolean().optional(),
+        // Forma aqui; regra (provider, inteiro > 0 quando ligado) no caso de uso.
+        dailyLimitEnabled: z.boolean().optional(),
+        dailyLimit: z.number().int().positive().nullable().optional(),
       })
       .strict()
       .optional(),

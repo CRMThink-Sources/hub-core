@@ -12,7 +12,7 @@ import type { AppInstallContext } from '@/shared/domain/app-installer'
 function makeContext(callMethod: ReturnType<typeof vi.fn>): AppInstallContext {
   return {
     client: { callMethod } as never,
-    appCode: 'crmthink.clicksign',
+    appCode: 'crmthink.clicksign2',
     installedAppId: 'app-2',
     spaItemId: '99',
     domain: 'acme.bitrix24.com.br',

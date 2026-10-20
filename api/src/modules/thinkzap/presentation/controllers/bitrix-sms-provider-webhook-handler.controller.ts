@@ -310,6 +310,42 @@ export class BitrixSmsProviderWebhookHandlerController extends Controller {
       })
     }
 
+    /**
+     * O corpo da campanha só carrega os valores das variáveis; não há como informar
+     * o final de um link ou o código de um cupom. Enviar sem eles faria a Meta
+     * recusar depois do aceite — e cobrar a tentativa como erro na campanha.
+     */
+    if (template.buttons.some(button => button.dynamic)) {
+      return this.refuse(
+        senderCode,
+        messageId,
+        'template-dynamic-button-unsupported',
+        {
+          subscriptionItemId: scope.subscriptionItemId,
+          templateName,
+          language,
+        },
+      )
+    }
+
+    /**
+     * Mesmo caso do botão dinâmico: a Meta exige a imagem em todo envio, e a
+     * campanha não tem onde informá-la.
+     */
+    if (template.header?.type === 'IMAGE') {
+      return this.refuse(
+        senderCode,
+        messageId,
+        'template-image-header-unsupported',
+        {
+          subscriptionItemId: scope.subscriptionItemId,
+          templateName,
+          language,
+        },
+        'thinkzap.template.image_header_not_supported',
+      )
+    }
+
     const expected = countTemplatePlaceholders(template.body)
     if (expected !== bodyParameters.length) {
       return this.refuse(senderCode, messageId, 'parameter-count-mismatch', {
@@ -381,8 +417,12 @@ export class BitrixSmsProviderWebhookHandlerController extends Controller {
     messageId: string,
     reason: string,
     context: Record<string, unknown>,
+    /** Código do log; o genérico da campanha, salvo recusa com runbook próprio. */
+    errorCode: Parameters<
+      typeof logThinkzapError
+    >[1] = 'thinkzap.bitrix.sms_campaign_refused',
   ): Promise<httpResponse> {
-    logThinkzapError(apiLogger, 'thinkzap.bitrix.sms_campaign_refused', {
+    logThinkzapError(apiLogger, errorCode, {
       app: 'thinkzap',
       source: 'bitrix',
       code: senderCode,

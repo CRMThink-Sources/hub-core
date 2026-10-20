@@ -20,6 +20,11 @@ import {
 import { makeSendWidgetTemplateController } from './main/make-send-widget-template-controller'
 import { makeSendWidgetButtonController } from './main/make-send-widget-button-controller'
 import { widgetMessageUploadParser } from './infra/http/widget-message-upload.multer'
+import {
+  templateHeaderImageUpload,
+  widgetHeaderImageUpload,
+} from './infra/http/template-header-image-upload.multer'
+import { makeUploadWidgetTemplateHeaderImageController } from './main/make-upload-widget-template-header-image-controller'
 import { makeAddGroupParticipantsController } from './main/make-add-group-participants-controller'
 import { makeCreateGroupController } from './main/make-create-group-controller'
 import { makeGetGroupMetadataController } from './main/make-get-group-metadata-controller'
@@ -90,10 +95,22 @@ import {
   makeRegisterTemplateSmsProviderController,
   makeDeleteTemplateSmsProviderController,
   makeUpdateLineSettingsController,
+  makeReleaseDailyLimitExtraController,
 } from './main/line/make-line-controllers'
+import { makeSaveInstallationLocaleController } from './main/make-installation-locale'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
+
+  /**
+   * Idioma escolhido no app, gravado para a instalação: é o que o servidor usa nos
+   * avisos que gera sem tela aberta (limite diário). Qualquer usuário com acesso ao app
+   * troca o idioma no menu, então qualquer um grava — vale a última escolha.
+   */
+  router.put(
+    '/locale',
+    adaptControllerFactory(makeSaveInstallationLocaleController),
+  )
 
   // Widget CRM: any Bitrix user with valid JWT (authMiddleware on /api/thinkzap).
   router.get(
@@ -138,6 +155,13 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/messages/widget-templates/:subscriptionItemId',
     adaptControllerFactory(makeListWidgetTemplatesController),
+  )
+  // Imagem do cabeçalho escolhida como arquivo no widget: hospeda e devolve a URL
+  // que o envio manda em `headerImageUrl`.
+  router.post(
+    '/messages/widget-template-header-image',
+    widgetHeaderImageUpload,
+    adaptControllerFactory(makeUploadWidgetTemplateHeaderImageController),
   )
   // Linhas capazes de enviar template, para a tela do robô de Bizproc
   // (`USE_PLACEMENT`). `/connector/list` não serve: devolve a linha inteira.
@@ -335,6 +359,12 @@ export const createThinkerszapRoutes = (): Router => {
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeUpdateLineSettingsController),
   )
+  /** Libera extras do limite diário só para hoje. Mesma permissão de editar os ajustes. */
+  router.post(
+    '/lines/:itemId/daily-limit/extra',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeReleaseDailyLimitExtraController),
+  )
   router.post(
     '/lines/:itemId/channel',
     requireThinkzapPermission('connectors', 'update'),
@@ -414,6 +444,8 @@ export const createThinkerszapRoutes = (): Router => {
   router.post(
     '/lines/:itemId/templates',
     requireThinkzapPermission('connectors', 'update'),
+    // JSON como antes, ou multipart com a imagem de exemplo em `headerImage`.
+    templateHeaderImageUpload,
     adaptControllerFactory(makeCreateTemplateController),
   )
   router.post(

@@ -106,6 +106,8 @@ describe('ListWidgetTemplatesUseCase', () => {
         name: 'order_update',
         language: 'pt_BR',
         body: 'Olá {{1}}, seu pedido {{2}} saiu.',
+        buttons: [],
+        header: { type: 'NONE' },
       },
     ])
   })
@@ -117,8 +119,41 @@ describe('ListWidgetTemplatesUseCase', () => {
 
     expect(Object.keys(first ?? {}).sort()).toEqual([
       'body',
+      'buttons',
+      'header',
       'language',
       'name',
+    ])
+  })
+
+  it('devolve os botões marcando só o link com variável como dinâmico', async () => {
+    const { useCase } = build({
+      templates: [
+        template({
+          components: [
+            { type: 'BODY', text: 'Seu pedido saiu' },
+            {
+              type: 'BUTTONS',
+              buttons: [
+                { type: 'QUICK_REPLY', text: 'Obrigado' },
+                {
+                  type: 'URL',
+                  text: 'Rastrear',
+                  url: 'https://loja.com/pedido/{{1}}',
+                  example: ['https://loja.com/pedido/1'],
+                },
+              ],
+            },
+          ],
+        }),
+      ],
+    })
+
+    const [first] = await useCase.execute(input)
+
+    expect(first?.buttons).toEqual([
+      { index: 0, type: 'QUICK_REPLY', text: 'Obrigado', dynamic: false },
+      { index: 1, type: 'URL', text: 'Rastrear', dynamic: true },
     ])
   })
 
@@ -134,6 +169,55 @@ describe('ListWidgetTemplatesUseCase', () => {
     const result = await useCase.execute(input)
 
     expect(result.map(item => item.name)).toEqual(['aprovado'])
+  })
+
+  it('oferece template com imagem marcando o cabeçalho', async () => {
+    const { useCase } = build({
+      templates: [
+        template({
+          components: [
+            {
+              type: 'HEADER',
+              format: 'IMAGE',
+              example: { header_handle: ['https://scontent.whatsapp.net/a'] },
+            },
+            { type: 'BODY', text: 'Oferta {{1}}' },
+          ],
+        }),
+      ],
+    })
+
+    const [first] = await useCase.execute(input)
+
+    expect(first?.header).toEqual({ type: 'IMAGE' })
+  })
+
+  it('filtra fora template com vídeo e com texto variável no cabeçalho', async () => {
+    const { useCase } = build({
+      templates: [
+        template({ name: 'sem_cabecalho' }),
+        template({
+          id: 'tpl_video',
+          name: 'video',
+          components: [
+            { type: 'HEADER', format: 'VIDEO' },
+            { type: 'BODY', text: 'Veja' },
+          ],
+        }),
+        template({
+          id: 'tpl_texto',
+          name: 'texto_variavel',
+          components: [
+            { type: 'HEADER', format: 'TEXT', text: 'Oi {{1}}' },
+            { type: 'BODY', text: 'Veja' },
+          ],
+        }),
+      ],
+    })
+
+    const result = await useCase.execute(input)
+
+    expect(result.map(item => item.name)).toEqual(['sem_cabecalho'])
   })
 
   it('corpo vazio quando o template não tem componente BODY', async () => {

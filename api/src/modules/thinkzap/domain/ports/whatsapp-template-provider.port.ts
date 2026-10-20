@@ -8,6 +8,8 @@
  * o `wabaId` já resolvido a partir do conector.
  */
 
+import type { TemplateSampleImage } from './template-sample-image-fetcher.port'
+
 /** Categoria exigida pela Meta na criação do template. */
 export type TemplateCategory = 'UTILITY' | 'MARKETING' | 'AUTHENTICATION'
 
@@ -26,6 +28,23 @@ export type TemplateComponent = {
   [key: string]: unknown
 }
 
+/**
+ * Botão de template no formato de **cadastro** da Meta — os quatro tipos que o
+ * formulário cria. Na leitura do catálogo o `BUTTONS` continua cru dentro de
+ * `TemplateComponent` (template criado direto na Meta pode ter tipos que não estão
+ * aqui); quem precisa dos botões lidos usa `templateButtonsOf`.
+ *
+ * `URL` dinâmica termina em `{{1}}` e exige `example` com a URL completa.
+ * `COPY_CODE` não tem `text`: o rótulo é fixo do WhatsApp.
+ */
+export type TemplateButton =
+  | { type: 'QUICK_REPLY'; text: string }
+  | { type: 'URL'; text: string; url: string; example?: string[] }
+  | { type: 'PHONE_NUMBER'; text: string; phone_number: string }
+  | { type: 'COPY_CODE'; example: string }
+
+export type TemplateButtonType = TemplateButton['type']
+
 /** Template já cadastrado, na forma neutra do domínio. */
 export type Template = {
   id: string
@@ -43,6 +62,12 @@ export type CreateTemplateInput = {
   category: TemplateCategory
   language: string
   components: TemplateComponent[]
+  /**
+   * Imagem de exemplo do cabeçalho enviada como arquivo (já validada). Ausente
+   * quando o exemplo vem por link, em `example.imageUrl` do `HEADER`. O adapter
+   * decide como entregá-la ao provider.
+   */
+  headerSampleImage?: TemplateSampleImage
 }
 
 /** Resultado do cadastro: id remoto criado e status inicial (normalmente PENDING). */

@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Bot } from 'lucide-react'
+import { Bot, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
 import {
   createBotFlow,
   createBotFlowBinding,
@@ -14,7 +15,11 @@ import {
   listOpenChannels,
   type OpenChannel,
 } from '../_lib/bot-flow-client'
-import type { BotFlowBinding, BotFlowSummary } from '@/shared/thinkzap-bot-flow'
+import {
+  MAX_FLOWS_PER_APP,
+  type BotFlowBinding,
+  type BotFlowSummary,
+} from '@/shared/thinkzap-bot-flow'
 import { BotFlowEditor } from '../_components/bots/bot-flow-editor'
 import { BotFlowList } from '../_components/bots/bot-flow-list'
 import { NovoFluxoDialog } from '../_components/bots/novo-fluxo-dialog'
@@ -137,6 +142,9 @@ export default function BotsLayout() {
     )
   }
 
+  const noLimite =
+    state.kind === 'ready' && state.flows.length >= MAX_FLOWS_PER_APP
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pb-10 pt-8 sm:px-6 lg:px-8">
       <div className="flex w-full items-center gap-4 rounded-xl border border-border bg-card p-6">
@@ -149,6 +157,23 @@ export default function BotsLayout() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitulo')}</p>
         </div>
+        {/* Lista vazia já tem o próprio botão de criar */}
+        {state.kind === 'ready' && state.flows.length > 0 ? (
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <Button onClick={() => setCriando(true)} disabled={noLimite}>
+              <Plus className="h-4 w-4" />
+              {t('novoFluxo')}
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              {noLimite
+                ? t('limiteAtingido', { max: MAX_FLOWS_PER_APP })
+                : t('contagem', {
+                    total: state.flows.length,
+                    max: MAX_FLOWS_PER_APP,
+                  })}
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {state.kind === 'loading' ? (

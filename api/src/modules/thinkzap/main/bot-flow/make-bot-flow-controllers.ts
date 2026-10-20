@@ -17,8 +17,11 @@ import {
   DeleteBotFlowBindingController,
   ListBotFlowBindingsController,
   UpdateBotFlowBindingController,
+  type ConnectorAtivoPort,
   type WelcomeBotPort,
 } from '../../presentation/controllers/bot-flow/bot-flow-binding.controllers'
+import { CheckThinkbotConnector } from '../../application/check-thinkbot-connector'
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 
 export const makeListBotFlowsController = (): Controller =>
   new ListBotFlowsController(new PrismaBotFlowRepository())
@@ -36,8 +39,7 @@ export const makeUpdateBotFlowController = (): Controller => {
   return new UpdateBotFlowController(repository, repository, repository)
 }
 
-// `async` com `req` por causa do rename do bot no portal: publicar leva o nome do fluxo
-// ao perfil do bot, e `makeBitrixClient` resolve a credencial a partir do request.
+// `async` com `req`: publicar renomeia o bot, e `makeBitrixClient` lê a credencial do request.
 export const makePublishBotFlowController = async (
   req: Request,
 ): Promise<Controller> => {
@@ -68,17 +70,30 @@ export const makeSimulateBotFlowController = (): Controller =>
 export const makeListBotFlowBindingsController = (): Controller =>
   new ListBotFlowBindingsController(new PrismaBotFlowBindingRepository())
 
-// As fábricas de vínculo são `async` e recebem `req` porque `makeBitrixClient` resolve a
-// credencial da instalação a partir do request.
+// `async` com `req`: `makeBitrixClient` lê a credencial do request.
 const makeWelcomeBot = async (req: Request): Promise<WelcomeBotPort> => {
   const bots = new PrismaBotFlowBotRepository()
   return new BitrixWelcomeBotAdapter(await makeBitrixClient(req), {
     get: bots,
+    list: bots,
     save: bots,
     delete: bots,
     bindings: new PrismaBotFlowBindingRepository(),
   })
 }
+
+const makeConnectorAtivo =
+  (req: Request): ConnectorAtivoPort =>
+  async () => {
+    const { domainId, appId: appCode } = req
+    // Middleware de acesso já recusa sem os dois.
+    if (!domainId || !appCode) return false
+
+    return new CheckThinkbotConnector(makeGetAplicationContext()).execute({
+      domainId,
+      appCode,
+    })
+  }
 
 export const makeCreateBotFlowBindingController = async (
   req: Request,
@@ -89,6 +104,7 @@ export const makeCreateBotFlowBindingController = async (
     new PrismaBotFlowRepository(),
     bindings,
     await makeWelcomeBot(req),
+    makeConnectorAtivo(req),
   )
 }
 
@@ -101,6 +117,7 @@ export const makeUpdateBotFlowBindingController = async (
     repository,
     repository,
     await makeWelcomeBot(req),
+    makeConnectorAtivo(req),
   )
 }
 

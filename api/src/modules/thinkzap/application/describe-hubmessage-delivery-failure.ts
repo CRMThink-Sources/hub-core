@@ -28,28 +28,21 @@ import type {
   HubMessageDeliveryError,
   HubMessageStateItem,
 } from '@/modules/thinkzap/domain/interfaces/hubmessage-events.interface'
+import {
+  DEFAULT_NOTICE_LOCALE,
+  type NoticeLocale,
+} from '@/modules/thinkzap/domain/notices/notice-locale'
+import {
+  type MetaErrorCode,
+  deliveryFailureNotices,
+} from '@/modules/thinkzap/domain/notices/delivery-failure-notices'
 
 /** Teto do trecho cru que vai ao chat. Linha longa vira parede de texto no canal. */
 const RAW_DESCRIPTION_MAX_CHARS = 300
 
-const PREFIX = '⚠️ Sua mensagem não foi entregue: '
-
 /**
- * A frase da janela fechada, compartilhada pelo casamento por código (`131047`) e pelo
- * casamento por texto. Uma constante só porque são o mesmo erro por duas portas, e
- * duas cópias divergiriam na primeira vez que alguém melhorasse o texto.
- *
- * Diz o que fazer, no imperativo, e não só qual é a regra: "só um template reabre a
- * conversa" deixa o operador deduzir a ação, e foi essa dedução que não aconteceu.
- */
-const REENGAGEMENT_NOTICE =
-  'a janela de 24 horas desta conversa está fechada — o contato respondeu por último ' +
-  'há mais de 24 horas, e o WhatsApp Oficial só aceita mensagem livre dentro dessa ' +
-  'janela. Envie um novo template aprovado pelo widget do CRMThink para reabrir a ' +
-  'conversa; depois que o contato responder, a mensagem livre volta a sair.'
-
-/**
- * Códigos de erro da Cloud API da Meta que têm ação distinta para o operador.
+ * Códigos de erro da Cloud API da Meta que têm ação distinta para o operador. As
+ * frases, por idioma, estão em `domain/notices/delivery-failure-notices.ts`.
  *
  * Igualdade **exata**, nunca faixa nem prefixo. `132000`–`132016` são todos de
  * template e a tentação é casar `132`, mas um código `132xxx` novo com outro
@@ -62,49 +55,32 @@ const REENGAGEMENT_NOTICE =
  * esta tabela. Código errado aqui produz frase errada, não exceção — e o código passou
  * a ir ao log, então a primeira ocorrência de cada um fica auditável.
  */
-const META_ERROR_NOTICES: Record<string, string> = {
-  '131047': REENGAGEMENT_NOTICE,
-  '131026':
-    'o WhatsApp não conseguiu entregar a mensagem a este número. Em geral é número ' +
-    'sem WhatsApp ativo, ou uma conta que não aceita receber deste remetente. ' +
-    'Confira o telefone no CRM antes de tentar de novo.',
-  '131048':
-    'a Meta bloqueou novos envios deste número por limite de spam. Aguarde antes de ' +
-    'tentar de novo e reveja o volume de mensagens disparadas.',
-  '131049':
-    'a Meta recusou esta mensagem de marketing para preservar o engajamento do ' +
-    'contato. Não é falha da linha: este contato não vai receber envios de marketing ' +
-    'agora.',
-  '131051':
-    'o tipo desta mensagem não é aceito pelo WhatsApp Oficial. Reenvie como texto ou ' +
-    'como um anexo de tipo suportado.',
-  '132000':
-    'o template foi enviado com um número de variáveis diferente do que a Meta ' +
-    'aprovou. Confira os campos do template antes de reenviar.',
-  '132001':
-    'este template não existe na conta do WhatsApp Oficial (ou não está aprovado no ' +
-    'idioma usado). Escolha um template aprovado na lista do widget.',
-  '132015':
-    'a Meta pausou este template por baixa qualidade, e ele não envia enquanto ' +
-    'estiver pausado. Use outro template aprovado.',
-  '132016':
-    'este template foi desativado pela Meta e não envia mais. Use outro template ' +
-    'aprovado.',
+const KNOWN_META_ERROR_CODES: readonly MetaErrorCode[] = [
+  '131047',
+  '131026',
+  '131048',
+  '131049',
+  '131051',
+  '132000',
+  '132001',
+  '132015',
+  '132016',
+]
+
+function isKnownMetaErrorCode(code: string): code is MetaErrorCode {
+  return (KNOWN_META_ERROR_CODES as readonly string[]).includes(code)
 }
 
 type FailurePattern = {
   /** Todos em minúsculas — a comparação normaliza o texto do erro. */
   match: string[]
-  notice: string
+  notice: 'displayName' | 'reengagement' | 'invalidRecipient' | 'rateLimit'
 }
 
 const PATTERNS: FailurePattern[] = [
   {
     match: ['display name approval', 'display name'],
-    notice:
-      'o número deste WhatsApp Oficial ainda não teve o nome de exibição aprovado ' +
-      'pela Meta, e nenhuma mensagem sai até a aprovação sair. A liberação é feita no ' +
-      'Gerenciador do WhatsApp da conta Meta do cliente.',
+    notice: 'displayName',
   },
   {
     match: [
@@ -115,7 +91,7 @@ const PATTERNS: FailurePattern[] = [
       'outside the allowed window',
       'conversation window',
     ],
-    notice: REENGAGEMENT_NOTICE,
+    notice: 'reengagement',
   },
   {
     match: [
@@ -125,15 +101,11 @@ const PATTERNS: FailurePattern[] = [
       'invalid recipient',
       'recipient phone number not in allowed list',
     ],
-    notice:
-      'o número do contato não tem WhatsApp ativo (ou está escrito de forma ' +
-      'inválida). Confira o telefone no CRM antes de tentar de novo.',
+    notice: 'invalidRecipient',
   },
   {
     match: ['rate limit', 'throughput', 'too many requests', 'limit reached'],
-    notice:
-      'o limite de envio da Meta para este número foi atingido. Tente de novo em ' +
-      'alguns instantes.',
+    notice: 'rateLimit',
   },
 ]
 
@@ -180,10 +152,10 @@ export function readMetaErrorCode(
  */
 function findKnownMetaErrorCode(
   errors: HubMessageDeliveryError[],
-): string | undefined {
+): MetaErrorCode | undefined {
   for (const error of errors) {
     const code = normalizeCode(error.code)
-    if (code && code in META_ERROR_NOTICES) return code
+    if (code && isKnownMetaErrorCode(code)) return code
   }
   return undefined
 }
@@ -230,30 +202,28 @@ export function buildFailureText(
  * Sem nenhuma fonte de motivo (callback de erro sem `errors[]` e sem
  * `failedDescription`) ainda produz aviso: "não foi entregue e não sabemos por quê" é
  * informação, e o silêncio é pior.
+ *
+ * No idioma da instalação; o retorno cru do provedor, na genérica, segue como veio.
  */
 export function describeHubMessageDeliveryFailure(
   stateItem: HubMessageStateItem | undefined,
+  locale: NoticeLocale = DEFAULT_NOTICE_LOCALE,
 ): string {
+  const notices = deliveryFailureNotices(locale)
   const errors = readMetaErrors(stateItem)
   const text = buildFailureText(stateItem)
 
   const knownCode = findKnownMetaErrorCode(errors)
-  if (knownCode) return PREFIX + META_ERROR_NOTICES[knownCode]
+  if (knownCode) return notices.prefix + notices.byCode[knownCode]
 
-  if (!text) {
-    return (
-      PREFIX +
-      'o WhatsApp Oficial recusou o envio e não informou o motivo. ' +
-      'Verifique a conexão da linha e tente novamente.'
-    )
-  }
+  if (!text) return notices.prefix + notices.noReason
 
   const haystack = text.toLowerCase()
   const pattern = PATTERNS.find(({ match }) =>
     match.some(term => haystack.includes(term)),
   )
 
-  if (pattern) return PREFIX + pattern.notice
+  if (pattern) return notices.prefix + notices[pattern.notice]
 
   /**
    * Genérico com o código à vista quando houver um: "erro 131099" é um número
@@ -261,12 +231,10 @@ export function describeHubMessageDeliveryFailure(
    * nem o código nem o texto são reconhecidos.
    */
   const code = readMetaErrorCode(stateItem)
-  const codeSuffix = code ? ` (erro ${code})` : ''
 
   return (
-    PREFIX +
-    `o WhatsApp Oficial recusou o envio${codeSuffix}. Retorno do provedor: ` +
-    truncate(text, RAW_DESCRIPTION_MAX_CHARS)
+    notices.prefix +
+    notices.generic(code, truncate(text, RAW_DESCRIPTION_MAX_CHARS))
   )
 }
 

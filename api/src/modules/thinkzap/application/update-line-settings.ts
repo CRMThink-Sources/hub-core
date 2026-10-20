@@ -3,7 +3,11 @@ import { SubscriptionItemRepository } from '@/modules/application/domain/reposit
 import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { mergeConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings.schema'
 import { apiLogger } from '@/shared/infra/logger'
-import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
+import { isValidDailyAmount } from '@/modules/thinkzap/domain/daily-send-limit'
+import {
+  logThinkzapError,
+  thinkzapError,
+} from '@/modules/thinkzap/errors/catalog'
 import { RenameLineOnProviderUseCase } from './rename-line-on-provider.use-case'
 
 export type UpdateLineSettingsInput = {
@@ -15,6 +19,38 @@ export type UpdateLineSettingsInput = {
   settings?: Partial<ConnectorSettings>
 }
 
+/**
+ * O limite diário só existe na linha não oficial (Z-API) e, ligado, exige inteiro > 0.
+ *
+ * Valida o **resultado** do merge, não só o patch: ligar o toggle sem mandar o valor
+ * é válido se a linha já tem um limite gravado, e inválido se não tem.
+ */
+function assertDailyLimitPatch(
+  item: SubscriptionItem,
+  patch: Partial<ConnectorSettings> | undefined,
+): void {
+  if (!patch) return
+  const touchesLimit = 'dailyLimitEnabled' in patch || 'dailyLimit' in patch
+  if (!touchesLimit) return
+
+  if (item.metadata.provider !== 'ZAPI') {
+    throw thinkzapError('thinkzap.line.daily_limit_invalid')
+  }
+
+  if (
+    patch.dailyLimit !== undefined &&
+    patch.dailyLimit !== null &&
+    !isValidDailyAmount(patch.dailyLimit)
+  ) {
+    throw thinkzapError('thinkzap.line.daily_limit_invalid')
+  }
+
+  const merged = { ...item.settings, ...patch }
+  if (merged.dailyLimitEnabled && !isValidDailyAmount(merged.dailyLimit)) {
+    throw thinkzapError('thinkzap.line.daily_limit_invalid')
+  }
+}
+
 export class UpdateLineSettings {
   constructor(
     private readonly renameLineOnProvider: RenameLineOnProviderUseCase,
@@ -22,6 +58,9 @@ export class UpdateLineSettings {
   ) {}
 
   async execute(input: UpdateLineSettingsInput): Promise<void> {
+    // Antes de qualquer escrita: limite inválido não pode deixar o nome gravado pela metade.
+    assertDailyLimitPatch(input.item, input.settings)
+
     // O item é a fonte do nome para todo provider; o provider só recebe espelho.
     if (input.name !== undefined) {
       await this.items.updateSubscriptionItem(input.item.id, {

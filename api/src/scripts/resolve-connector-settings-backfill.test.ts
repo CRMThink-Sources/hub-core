@@ -56,7 +56,12 @@ describe('settingsToMigrate', () => {
       widgetOpenChannelEnabled: true,
     }
 
-    expect(settingsToMigrate(full)).toEqual(full)
+    // Os campos do limite diário não existiam na coluna legada: saem com o default.
+    expect(settingsToMigrate(full)).toEqual({
+      ...full,
+      dailyLimitEnabled: false,
+      dailyLimit: null,
+    })
   })
 
   /**
@@ -75,6 +80,8 @@ describe('settingsToMigrate', () => {
     expect(settingsToMigrate(legado)).toEqual({
       prefixOperatorNameEnabled: true,
       widgetOpenChannelEnabled: true,
+      dailyLimitEnabled: false,
+      dailyLimit: null,
     })
   })
 

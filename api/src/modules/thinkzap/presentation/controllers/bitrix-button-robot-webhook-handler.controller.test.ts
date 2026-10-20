@@ -487,3 +487,44 @@ describe('parseButtonList', () => {
     expect(parseButtonList(undefined)).toEqual([])
   })
 })
+
+describe('BitrixButtonRobotWebhookHandlerController idioma da timeline', () => {
+  const withLocale = (
+    deps: ReturnType<typeof makeDeps>,
+    locale: 'pt' | 'en' | 'es',
+  ) =>
+    new BitrixButtonRobotWebhookHandlerController(
+      deps.getDomain as never,
+      deps.getApp as never,
+      deps.enqueueButtonSend as never,
+      deps.sendNotification as never,
+      deps.bitrix as never,
+      ConnectorProvider.HUBMESSAGE,
+      { byAppId: vi.fn().mockResolvedValue(locale) } as never,
+    )
+
+  const commentOf = (deps: ReturnType<typeof makeDeps>) =>
+    (deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string })
+      .message
+
+  it('enfileirado em espanhol, com os telefones como estão', async () => {
+    const deps = makeDeps()
+
+    await withLocale(deps, 'es').perform(makeReq(fullProperties), res)
+
+    expect(commentOf(deps)).toMatch(/^Mensaje con botones en cola para: /)
+  })
+
+  it('configuração incompleta em inglês', async () => {
+    const deps = makeDeps()
+
+    await withLocale(deps, 'en').perform(
+      makeReq({ ...fullProperties, body: '' }),
+      res,
+    )
+
+    expect(commentOf(deps)).toBe(
+      'The automation has no line, no body or no button configured. Open the robot settings and fill in all three.',
+    )
+  })
+})

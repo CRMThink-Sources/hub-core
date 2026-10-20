@@ -9,6 +9,7 @@ import {
   CreateHubMessageWebhookResponse,
   CreateTemplateParams,
   CreateTemplateResponse,
+  UploadTemplateMediaResponse,
   HubMessageBusiness,
   HubMessageWebhook,
   ListBusinessesResponse,
@@ -280,6 +281,38 @@ export class HubMessageClient {
     const { data } = await this.http.post<CreateTemplateResponse>(
       `/whatsapp/businesses/${wabaId}/templates`,
       params,
+    )
+    return data
+  }
+
+  /**
+   * Sobe a imagem de exemplo de um template e devolve o identificador (`h`) para
+   * `example.header_handle`. Multipart (`file` + `type`). O `h` expira: tem de ser
+   * usado no `createTemplate` logo em seguida. Sem App ID/App Secret da Meta no
+   * painel da Omni responde `422 MISSING_APP_CREDENTIALS`.
+   * Ref.: https://developer.omni.z-api.io/templates/upload-media
+   */
+  async uploadTemplateMedia(
+    wabaId: string,
+    file: { data: Buffer; contentType: string; fileName: string },
+  ): Promise<UploadTemplateMediaResponse> {
+    const form = new FormData()
+    form.append(
+      'file',
+      new Blob([new Uint8Array(file.data)], { type: file.contentType }),
+      file.fileName,
+    )
+    form.append('type', file.contentType)
+
+    const { data } = await this.http.post<UploadTemplateMediaResponse>(
+      `/whatsapp/businesses/${wabaId}/templates/media`,
+      form,
+      /**
+       * A instância nasce com `Content-Type: application/json`, e com ele o axios
+       * serializaria o `FormData` como JSON. Declarar multipart faz o axios gerar
+       * o corpo e o `boundary`.
+       */
+      { headers: { 'Content-Type': 'multipart/form-data' } },
     )
     return data
   }

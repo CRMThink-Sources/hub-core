@@ -9,6 +9,28 @@ import {
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { convertToMp3 } from '@/shared/helpers/convert-to-mp3'
 
+const DATA_URL_BASE64 = ';base64,'
+
+/**
+ * Bytes do áudio a converter. `url` vem como link do Bitrix (canal aberto) ou
+ * como data URL base64, já baixado por quem chamou (robô "Enviar mensagem").
+ * Imagem, vídeo e documento não precisam disso: o Z-API aceita os dois formatos.
+ */
+async function loadAudio(url: string): Promise<Buffer> {
+  if (url.startsWith('data:')) {
+    // Data URL sem base64 não tem como virar bytes — e não é URL para baixar.
+    if (!url.includes(DATA_URL_BASE64)) {
+      throw new Error('Invalid audio payload')
+    }
+    return Buffer.from(url.split(DATA_URL_BASE64)[1] ?? '', 'base64')
+  }
+
+  const response = await axios.get<ArrayBuffer>(url, {
+    responseType: 'arraybuffer',
+  })
+  return Buffer.from(response.data)
+}
+
 export type ZApiOutboundSenderConfig = {
   instanceId: string
   instanceToken: string
@@ -85,11 +107,9 @@ export class ZApiOutboundSender implements OutboundMessageSender {
       }
 
       case 'audio': {
-        const audioResponse = await axios.get<ArrayBuffer>(
-          descriptor.url ?? '',
-          { responseType: 'arraybuffer' },
+        const mp3Buffer = await convertToMp3(
+          await loadAudio(descriptor.url ?? ''),
         )
-        const mp3Buffer = await convertToMp3(Buffer.from(audioResponse.data))
         const base64Audio = `data:audio/mpeg;base64,${mp3Buffer.toString('base64')}`
 
         const result = await this.client.sendAudio(

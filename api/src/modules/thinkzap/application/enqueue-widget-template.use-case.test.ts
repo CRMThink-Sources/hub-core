@@ -157,6 +157,41 @@ describe('EnqueueWidgetTemplateUseCase', () => {
     })
   })
 
+  it('grava os valores dos botões dinâmicos com o index do catálogo', async () => {
+    const sut = makeSut()
+    const buttonParameters = [
+      { index: 1, subType: 'URL' as const, value: 'PED-1' },
+    ]
+
+    await sut.enqueueTemplate({ buttonParameters })
+
+    expect(outboxCall(sut)).toMatchObject({
+      templateButtonParameters: buttonParameters,
+    })
+  })
+
+  it('grava a URL da imagem do cabeçalho, e nulo quando não vem imagem', async () => {
+    const withImage = makeSut()
+    await withImage.enqueueTemplate({
+      headerImageUrl: 'https://loja.com/promo.jpg',
+    })
+    expect(outboxCall(withImage).templateHeaderImageUrl).toBe(
+      'https://loja.com/promo.jpg',
+    )
+
+    const withoutImage = makeSut()
+    await withoutImage.enqueueTemplate()
+    expect(outboxCall(withoutImage).templateHeaderImageUrl).toBeNull()
+  })
+
+  it('grava lista vazia de botões quando o envio não traz nenhum', async () => {
+    const sut = makeSut()
+
+    await sut.enqueueTemplate()
+
+    expect(outboxCall(sut)).toMatchObject({ templateButtonParameters: [] })
+  })
+
   it('grava o operador que disparou, e nulo quando não vem operador', async () => {
     const withOperator = makeSut()
     await withOperator.enqueueTemplate({ operatorBitrixUserId: '7' })

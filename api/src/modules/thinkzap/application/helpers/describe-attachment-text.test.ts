@@ -41,3 +41,20 @@ describe('resolveOpenChannelText', () => {
     expect(resolveOpenChannelText(undefined, [])).toBeNull()
   })
 })
+
+describe('marcadores de anexo por idioma', () => {
+  it('espanhol', () => {
+    expect(describeAttachmentText('video', 'es')).toBe('[Video enviado]')
+    expect(resolveOpenChannelText(undefined, ['file'], 'es')).toBe(
+      '[Archivo enviado]',
+    )
+  })
+
+  it('inglês', () => {
+    expect(describeAttachmentText('audio', 'en')).toBe('[Audio sent]')
+  })
+
+  it('texto do operador não é traduzido', () => {
+    expect(resolveOpenChannelText(' Olá ', ['image'], 'en')).toBe('Olá')
+  })
+})

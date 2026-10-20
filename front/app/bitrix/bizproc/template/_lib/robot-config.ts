@@ -1,5 +1,8 @@
+import type { WidgetTemplateButton } from '@/app/hooks/use-widget-templates'
 import {
+  dynamicButtons,
   extractTemplateVariables,
+  isHttpsUrl,
   orderedTemplateParameters,
 } from '@/app/(widgets)/layouts/template-variables'
 
@@ -97,6 +100,13 @@ export type TemplateChoice = {
   name: string
   language: string
   body: string
+  /**
+   * Só no template vindo do catálogo. O gravado no robô não guarda botões: a tela
+   * os lê do catálogo carregado, e o disparo, do catálogo do provider.
+   */
+  buttons?: WidgetTemplateButton[]
+  /** Só no template vindo do catálogo, como `buttons`. */
+  header?: { type: 'NONE' | 'TEXT' | 'IMAGE' }
 }
 
 /** Identidade do template: `name` sozinho não basta, a mesma WABA repete idiomas. */
@@ -113,6 +123,14 @@ export type RobotConfigState = {
   template: TemplateChoice | null
   /** Um valor por variável distinta do corpo, keyed pela chave do placeholder. */
   values: Record<string, FieldValue>
+  /**
+   * Um valor por botão dinâmico do template, **na ordem** em que esses botões
+   * aparecem. Posicional porque é o que o Bitrix guarda; o handler amarra cada valor
+   * ao `index` do botão pelo catálogo.
+   */
+  buttonValues: FieldValue[]
+  /** URL da imagem do cabeçalho, em template com cabeçalho de imagem. */
+  headerImage: FieldValue
 }
 
 export const EMPTY_CONFIG: RobotConfigState = {
@@ -121,6 +139,8 @@ export const EMPTY_CONFIG: RobotConfigState = {
   sendToAllRelatedContacts: false,
   template: null,
   values: {},
+  buttonValues: [],
+  headerImage: EMPTY_FIELD,
 }
 
 /**
@@ -155,6 +175,8 @@ export function buildRobotProperties(
         ]),
       ),
     ),
+    templateButtonParameters: config.buttonValues.map(toStoredValue),
+    templateHeaderImageUrl: toStoredValue(config.headerImage),
   }
 }
 
@@ -187,11 +209,28 @@ export function parseStoredProperties(
         fromStoredValue(parameters[index], knownFieldIds),
       ]),
     ),
+    buttonValues: asStringList(stored.templateButtonParameters).map(value =>
+      fromStoredValue(value, knownFieldIds),
+    ),
+    headerImage: fromStoredValue(
+      asString(stored.templateHeaderImageUrl),
+      knownFieldIds,
+    ),
   }
 }
 
-/** O que ainda falta para a configuração poder ser salva. */
-export function validateConfig(config: RobotConfigState): string | null {
+/**
+ * O que ainda falta para a configuração poder ser salva.
+ *
+ * `dynamicButtonCount` vem do catálogo carregado; sem ele (catálogo ainda não
+ * chegou ou falhou) os botões não são conferidos, em vez de acusar falta que pode
+ * não existir.
+ */
+export function validateConfig(
+  config: RobotConfigState,
+  dynamicButtonCount?: number,
+  requiresHeaderImage = false,
+): string | null {
   if (!config.connector) {
     return 'Escolha a linha do WhatsApp Oficial que vai enviar.'
   }
@@ -211,7 +250,47 @@ export function validateConfig(config: RobotConfigState): string | null {
     return 'Informe o destino, ou ligue o envio para todos os contatos relacionados.'
   }
 
+  /**
+   * Botão dinâmico sem valor faria o disparo recusar em toda execução — link sem o
+   * final ou cupom sem código não podem ser enviados.
+   */
+  if (dynamicButtonCount) {
+    const filled = config.buttonValues
+      .slice(0, dynamicButtonCount)
+      .filter(field => toStoredValue(field).trim()).length
+
+    if (filled < dynamicButtonCount) {
+      return 'Preencha o valor de todos os botões do template.'
+    }
+  }
+
+  /**
+   * Template com imagem sem URL faria o disparo recusar em toda execução. Valor
+   * fixo é conferido aqui; campo do documento só no disparo, quando o Bitrix o
+   * resolve.
+   */
+  if (requiresHeaderImage) {
+    const image = toStoredValue(config.headerImage).trim()
+    if (!image) {
+      return 'Informe a imagem do cabeçalho: uma URL https ou o campo do documento que a guarda.'
+    }
+    if (config.headerImage.mode === 'literal' && !isHttpsUrl(image)) {
+      return 'A imagem do cabeçalho precisa ser uma URL https.'
+    }
+  }
+
   return null
+}
+
+/**
+ * Os campos dos botões dinâmicos de um template recém-escolhido. Não reaproveita
+ * valores do template anterior: botão na mesma posição pode ser outro link ou um
+ * cupom, e o valor antigo iria parar no lugar errado.
+ */
+export function rebuildButtonValues(
+  buttons: WidgetTemplateButton[] | undefined,
+): FieldValue[] {
+  return dynamicButtons(buttons).map(() => EMPTY_FIELD)
 }
 
 /**

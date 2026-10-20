@@ -5,12 +5,20 @@ import {
   TemplateComponent,
 } from '@/modules/thinkzap/domain/ports/whatsapp-template-provider.port'
 import {
+  TemplateButtonSummary,
+  templateButtonsOf,
+} from '@/modules/thinkzap/domain/template-buttons'
+import {
+  TemplateHeaderType,
+  templateHeaderOf,
+} from '@/modules/thinkzap/domain/template-header'
+import {
   resolveTemplateContext,
   type ResolveTemplateContextInput,
 } from './helpers/resolve-template-context'
 
 /**
- * O mínimo que o widget precisa para compor um template — três campos.
+ * O mínimo que o widget precisa para compor um template.
  *
  * Shape próprio e não `Template`: a rota é aberta a qualquer usuário Bitrix com
  * JWT (bloco do widget), e `Template` carrega `id` remoto, `category`, `status` e
@@ -23,7 +31,20 @@ export type WidgetTemplate = {
   language: string
   /** Texto do `BODY`, com os placeholders intactos: o widget deriva os campos dele. */
   body: string
+  /**
+   * Botões na ordem do template. Sem `url` nem exemplo: o widget só precisa do
+   * rótulo para o preview e de `dynamic`/`index` para pedir e enviar o valor.
+   */
+  buttons: TemplateButtonSummary[]
+  /** Tipo do cabeçalho. `IMAGE` pede a URL da imagem no envio. */
+  header: { type: WidgetTemplateHeaderType }
 }
+
+/** `UNSUPPORTED` nunca chega aqui: esses templates saem do catálogo. */
+export type WidgetTemplateHeaderType = Exclude<
+  TemplateHeaderType,
+  'UNSUPPORTED'
+>
 
 /**
  * Templates de uma linha oficial, para o widget.
@@ -35,6 +56,9 @@ export type WidgetTemplate = {
  *    ofertá-lo no select transformaria a recusa da Meta em erro na cara do
  *    operador, depois de ele já ter preenchido as variáveis.
  * 2. **Payload mínimo.** Ver `WidgetTemplate`.
+ *
+ * Também saem os templates com cabeçalho que o ThinkZap não sabe preencher (vídeo,
+ * documento, localização, texto com variável): o envio falharia na Meta.
  *
  * `requireEnabled` fica em `false`: listar é leitura, e é o mesmo critério da tela
  * de conexões. Quem recusa linha bloqueada é o envio.
@@ -55,15 +79,25 @@ export class ListWidgetTemplatesUseCase {
 
     return templates
       .filter(template => template.status === 'APPROVED')
-      .map(toWidgetTemplate)
+      .flatMap(template => {
+        const header = templateHeaderOf(template.components)
+        return header === 'UNSUPPORTED'
+          ? []
+          : [toWidgetTemplate(template, header)]
+      })
   }
 }
 
-function toWidgetTemplate(template: Template): WidgetTemplate {
+function toWidgetTemplate(
+  template: Template,
+  header: WidgetTemplateHeaderType,
+): WidgetTemplate {
   return {
     name: template.name,
     language: template.language,
     body: bodyText(template.components),
+    buttons: templateButtonsOf(template.components),
+    header: { type: header },
   }
 }
 
