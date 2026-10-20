@@ -74,7 +74,12 @@ function makeEvent(
   } as ReceivedMessageEvent
 }
 
-type Record_ = { source: string; providerMessageId: string }
+type Record_ = {
+  source: string
+  providerMessageId: string
+  bitrixMessageId?: string | null
+  bitrixUserId?: string | null
+}
 
 function buildUseCase({
   mirrorEnabled = true,
@@ -83,6 +88,11 @@ function buildUseCase({
   conversation = { bitrixChatId: '777' } as unknown,
   records = {} as Partial<Record<string, Record_>>,
   locale = 'pt',
+  // Sem operador por padrão: os cenários do conector seguem como o contato.
+  operatorId = null as string | null,
+  operatorToken = 'op-token' as string | null | Error,
+  imResponse = { result: 9001 } as unknown,
+  markPendingFails = false,
 }: {
   mirrorEnabled?: boolean
   vinculatedChannel?: string | null
@@ -90,13 +100,35 @@ function buildUseCase({
   conversation?: unknown
   records?: Partial<Record<string, Record_>>
   locale?: string
+  operatorId?: string | null
+  operatorToken?: string | null | Error
+  imResponse?: unknown
+  markPendingFails?: boolean
 } = {}) {
   const messageRepo = {
     findByProviderMessageId: vi.fn((_: string, id: string) =>
       Promise.resolve(records[id] ?? null),
     ),
     findLatestOpenChannelChat: vi.fn().mockResolvedValue(conversation),
+    findLatestOperatorForChat: vi.fn().mockResolvedValue(operatorId),
     create: vi.fn().mockResolvedValue(undefined),
+  }
+
+  const imCallMethod = vi.fn().mockResolvedValue(imResponse)
+  const reservations = {
+    markPending: markPendingFails
+      ? vi.fn().mockRejectedValue(new Error('redis down'))
+      : vi.fn().mockResolvedValue(undefined),
+    clearPending: vi.fn().mockResolvedValue(undefined),
+    register: vi.fn().mockResolvedValue(undefined),
+  }
+  const operatorAuthor = {
+    resolveAccessToken:
+      operatorToken instanceof Error
+        ? vi.fn().mockRejectedValue(operatorToken)
+        : vi.fn().mockResolvedValue(operatorToken),
+    createClient: vi.fn(() => ({ callMethod: imCallMethod })),
+    reservations,
   }
 
   const resolveContactIdentity = vi.fn().mockResolvedValue({
@@ -164,6 +196,7 @@ function buildUseCase({
     resolveContactIdentity,
     vi.fn().mockImplementation((text: string) => Promise.resolve(text)),
     { byInstallation: vi.fn().mockResolvedValue(locale) },
+    operatorAuthor as never,
   )
 
   return {
@@ -172,6 +205,9 @@ function buildUseCase({
     messageRepo,
     resolveContactIdentity,
     disconnectExpiredLine,
+    operatorAuthor,
+    imCallMethod,
+    reservations,
   }
 }
 
@@ -417,6 +453,229 @@ describe('MirrorZApiSentByMeMessageUseCase', () => {
       await run(makeEvent({ isEdit: true, editMessageId: 'EDIT-1' }))
 
       expect(updateMessageMock).not.toHaveBeenCalled()
+    })
+  })
+})
+
+describe('MirrorZApiSentByMeMessageUseCase — autor operador da sessão', () => {
+  beforeEach(() => {
+    sendMessageMock.mockReset().mockResolvedValue(sessionResult)
+    updateMessageMock.mockClear()
+    deleteMessageMock.mockClear()
+  })
+
+  it('posta como o último operador da conversa, com o prefixo, sem passar pelo conector', async () => {
+    const { run, messageRepo, operatorAuthor, imCallMethod, reservations } =
+      buildUseCase({ operatorId: '27' })
+
+    await run(makeEvent())
+
+    expect(messageRepo.findLatestOperatorForChat).toHaveBeenCalledWith(
+      'instance-db-1',
+      '777',
+    )
+    expect(operatorAuthor.resolveAccessToken).toHaveBeenCalledWith(
+      'acme.bitrix24.com.br',
+      '27',
+    )
+    expect(operatorAuthor.createClient).toHaveBeenCalledWith(
+      'acme.bitrix24.com.br',
+      'op-token',
+    )
+    expect(imCallMethod).toHaveBeenCalledWith('im.message.add', {
+      DIALOG_ID: 'chat777',
+      MESSAGE: PREFIX_PT + 'Bom dia',
+    })
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(reservations.register).toHaveBeenCalledWith(
+      'acme.bitrix24.com.br',
+      '9001',
+      'ME-1',
+    )
+    expect(messageRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'ZAPI',
+        providerMessageId: 'ME-1',
+        bitrixMessageId: '9001',
+        bitrixChatId: '777',
+        chatId: LID,
+        bitrixUserId: '27',
+      }),
+    )
+  })
+
+  it('marca o chat pendente antes de postar e só limpa depois de gravar a row', async () => {
+    const { run, messageRepo, imCallMethod, reservations } = buildUseCase({
+      operatorId: '27',
+    })
+
+    await run(makeEvent())
+
+    const order = (fn: { mock: { invocationCallOrder: number[] } }) =>
+      fn.mock.invocationCallOrder[0]!
+    expect(order(reservations.markPending)).toBeLessThan(order(imCallMethod))
+    expect(order(reservations.register)).toBeLessThan(order(messageRepo.create))
+    expect(order(messageRepo.create)).toBeLessThan(
+      order(reservations.clearPending),
+    )
+  })
+
+  it('sem operador na conversa: posta como o contato e registra o motivo', async () => {
+    const { run, lines, imCallMethod } = buildUseCase({ operatorId: null })
+
+    await run(makeEvent())
+
+    expect(imCallMethod).not.toHaveBeenCalled()
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+    expect(lines.some(l => l.includes('sem operador na conversa'))).toBe(true)
+  })
+
+  it('operador sem autorização do app: posta como o contato', async () => {
+    const { run, lines, imCallMethod } = buildUseCase({
+      operatorId: '27',
+      operatorToken: null,
+    })
+
+    await run(makeEvent())
+
+    expect(imCallMethod).not.toHaveBeenCalled()
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+    expect(lines.some(l => l.includes('sem autorização do app'))).toBe(true)
+  })
+
+  it('refresh do token falha: posta como o contato', async () => {
+    const { run, imCallMethod } = buildUseCase({
+      operatorId: '27',
+      operatorToken: new Error('invalid_grant'),
+    })
+
+    await run(makeEvent())
+
+    expect(imCallMethod).not.toHaveBeenCalled()
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('Bitrix recusa a postagem do operador: posta como o contato e limpa o pendente', async () => {
+    const { run, lines, reservations, messageRepo } = buildUseCase({
+      operatorId: '27',
+      imResponse: {
+        error: 'CANCELED',
+        error_description: 'Você não pode enviar mensagens para o bate-papo',
+      },
+    })
+
+    await run(makeEvent())
+
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+    expect(reservations.register).not.toHaveBeenCalled()
+    expect(reservations.clearPending).toHaveBeenCalledTimes(1)
+    expect(messageRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ bitrixUserId: undefined }),
+    )
+    expect(
+      lines.some(l => l.includes('CANCELED') || l.includes('bate-papo')),
+    ).toBe(true)
+  })
+
+  it('sem reserva anti-loop não posta como operador', async () => {
+    const { run, imCallMethod } = buildUseCase({
+      operatorId: '27',
+      markPendingFails: true,
+    })
+
+    await run(makeEvent())
+
+    expect(imCallMethod).not.toHaveBeenCalled()
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('mídia segue como o contato nesta versão', async () => {
+    const { run, messageRepo, imCallMethod } = buildUseCase({
+      operatorId: '27',
+    })
+
+    await run(
+      makeEvent({
+        text: undefined,
+        image: {
+          imageUrl: 'https://img/orc.png',
+          caption: 'segue',
+          mimeType: 'image/png',
+        } as ReceivedMessageEvent['image'],
+      }),
+    )
+
+    expect(messageRepo.findLatestOperatorForChat).not.toHaveBeenCalled()
+    expect(imCallMethod).not.toHaveBeenCalled()
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
+  })
+
+  describe('edição e remoção de cópia postada como operador', () => {
+    const copiaDoOperador = {
+      'ME-1': {
+        source: 'ZAPI',
+        providerMessageId: 'ME-1',
+        bitrixMessageId: '9001',
+        bitrixUserId: '27',
+      },
+    }
+
+    it('edição usa im.message.update com o token do operador', async () => {
+      const { run, imCallMethod, operatorAuthor } = buildUseCase({
+        records: copiaDoOperador,
+        imResponse: { result: true },
+      })
+
+      await run(
+        makeEvent({
+          isEdit: true,
+          editMessageId: 'EDIT-1',
+          text: { message: 'Boa tarde' },
+        }),
+      )
+
+      expect(operatorAuthor.resolveAccessToken).toHaveBeenCalledWith(
+        'acme.bitrix24.com.br',
+        '27',
+      )
+      expect(imCallMethod).toHaveBeenCalledWith('im.message.update', {
+        MESSAGE_ID: '9001',
+        MESSAGE: PREFIX_PT + 'Boa tarde',
+      })
+      expect(updateMessageMock).not.toHaveBeenCalled()
+    })
+
+    it('remoção usa im.message.delete', async () => {
+      const { run, imCallMethod } = buildUseCase({
+        records: copiaDoOperador,
+        imResponse: { result: true },
+      })
+
+      await run(makeEvent({ notification: 'REVOKE' }))
+
+      expect(imCallMethod).toHaveBeenCalledWith('im.message.delete', {
+        MESSAGE_ID: '9001',
+      })
+      expect(deleteMessageMock).not.toHaveBeenCalled()
+    })
+
+    it('sem token do operador, a cópia fica como está', async () => {
+      const { run, imCallMethod, lines } = buildUseCase({
+        records: copiaDoOperador,
+        operatorToken: null,
+      })
+
+      await run(
+        makeEvent({
+          isEdit: true,
+          editMessageId: 'EDIT-1',
+          text: { message: 'Boa tarde' },
+        }),
+      )
+
+      expect(imCallMethod).not.toHaveBeenCalled()
+      expect(updateMessageMock).not.toHaveBeenCalled()
+      expect(lines.some(l => l.includes('autorização válida'))).toBe(true)
     })
   })
 })

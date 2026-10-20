@@ -114,14 +114,51 @@ A mensagem espelhada SHALL ser registrada para que respostas a ela, edição e r
 - **WHEN** o cliente envia pelo WhatsApp Web uma mensagem num grupo que já tem conversa no canal aberto
 - **THEN** a mensagem aparece na conversa do grupo, com o prefixo de mensagem enviada pelo aparelho
 
+### Requirement: Autor da mensagem espelhada
+A mensagem espelhada de texto ou contato encaminhado SHALL ser postada no canal aberto como o **operador da sessão**, isto é, o último operador que respondeu naquela conversa, do lado da empresa, mantendo o prefixo.
+
+A mensagem SHALL ser postada como o contato, com o prefixo, quando:
+- nenhum operador respondeu ainda naquela conversa;
+- o operador não tem autorização válida do app;
+- o Bitrix recusa a postagem como o operador;
+- não é possível garantir que a mensagem não será reenviada ao WhatsApp.
+
+O log do processamento SHALL indicar o autor usado e, quando for o contato, o motivo.
+
+Mídia (imagem, vídeo, áudio, documento, sticker) SHALL ser postada como o contato nesta versão.
+
+Uma mensagem espelhada postada como operador SHALL NOT ser reenviada ao contato no WhatsApp.
+
+#### Scenario: Operador com autorização
+- **WHEN** a operadora Ana respondeu por último na conversa de um contato, já autorizou o app, e o cliente envia "Bom dia" pelo celular a esse contato
+- **THEN** "Bom dia" aparece na conversa como mensagem da Ana, com o prefixo de mensagem enviada pelo aparelho
+
+#### Scenario: Conversa sem resposta de operador
+- **WHEN** a conversa do contato só tem mensagens recebidas e o cliente envia uma mensagem pelo celular a esse contato
+- **THEN** a mensagem aparece como o contato, com o prefixo, e o log indica "sem operador na conversa"
+
+#### Scenario: Operador sem autorização
+- **WHEN** o último operador da conversa nunca autorizou o app e o cliente envia uma mensagem pelo celular
+- **THEN** a mensagem aparece como o contato, com o prefixo, e o log indica o motivo
+
+#### Scenario: Sem reenvio ao WhatsApp
+- **WHEN** uma mensagem do aparelho é postada no canal aberto como o operador
+- **THEN** o contato não recebe essa mensagem uma segunda vez no WhatsApp
+
 ### Requirement: Edição e remoção de mensagem espelhada
-Quando o cliente edita, pelo aparelho, uma mensagem que foi espelhada, o sistema SHALL atualizar a cópia no canal aberto. Quando a apaga para todos, o sistema SHALL removê-la do canal aberto.
+Quando o cliente edita, pelo aparelho, uma mensagem que foi espelhada, o sistema SHALL atualizar a cópia no canal aberto. Quando a apaga para todos, o sistema SHALL removê-la do canal aberto. A cópia SHALL ser atualizada ou removida com o mesmo autor com que foi postada.
+
+Se a cópia foi postada como operador e a autorização desse operador não está mais válida, o evento SHALL ser descartado sem alterar a cópia, com o motivo no log do processamento.
 
 Edição ou remoção de uma mensagem que não foi espelhada SHALL ser descartada sem postar nada.
 
 #### Scenario: Edição de mensagem espelhada
 - **WHEN** o cliente edita pelo celular uma mensagem que já está espelhada no canal aberto
 - **THEN** a mensagem no canal aberto passa a mostrar o texto editado, com o prefixo
+
+#### Scenario: Edição sem autorização do operador
+- **WHEN** a cópia foi postada como um operador cuja autorização expirou e o cliente edita a mensagem pelo celular
+- **THEN** a cópia no canal aberto não muda e o log indica que o operador não tem autorização válida
 
 #### Scenario: Remoção de mensagem não espelhada
 - **WHEN** o cliente apaga pelo celular uma mensagem enviada a um contato sem conversa

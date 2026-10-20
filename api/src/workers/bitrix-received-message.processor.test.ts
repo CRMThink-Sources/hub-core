@@ -65,9 +65,41 @@ vi.mock(
   }),
 )
 
+const { upsertOperatorOAuthMock } = vi.hoisted(() => ({
+  upsertOperatorOAuthMock: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock(
+  '@/modules/thinkzap/infra/persistence/prisma-thinkzap-operator-oauth.repository',
+  () => ({
+    PrismaThinkzapOperatorOAuthRepository: class {
+      upsert = upsertOperatorOAuthMock
+    },
+  }),
+)
+
 // O módulo lança `REDIS_URL is required` no import sem a env.
+const { reservationGetMock } = vi.hoisted(() => ({
+  // Resultado do `MULTI GET+DEL` da reserva do espelhamento: sem reserva por padrão.
+  reservationGetMock: vi.fn().mockResolvedValue(null),
+}))
+
 vi.mock('@/queue/redis-connection', () => ({
-  redisConnection: { get: vi.fn(), set: vi.fn() },
+  redisConnection: {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn(),
+    multi: () => {
+      const chain = {
+        get: () => chain,
+        del: () => chain,
+        exec: async () => [
+          [null, await reservationGetMock()],
+          [null, 0],
+        ],
+      }
+      return chain
+    },
+  },
 }))
 
 const { invalidateBitrixBotIdMock } = vi.hoisted(() => ({
@@ -359,6 +391,43 @@ describe('processBitrixReceivedMessage DB persistence', () => {
         bitrixChatId: '100',
       }),
     )
+  })
+
+  it('grava o operador que respondeu (operador da sessão do espelhamento)', async () => {
+    await processBitrixReceivedMessage(
+      makeEvent({ message: { user_id: '27', text: 'Ola' } }),
+    )
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'BITRIX', bitrixUserId: '27' }),
+    )
+  })
+
+  it('guarda o token do operador quando o evento traz refresh_token', async () => {
+    upsertOperatorOAuthMock.mockClear()
+    const event = makeEvent()
+    event.auth = { ...event.auth, refresh_token: 'ref', expires_in: '3600' }
+
+    await processBitrixReceivedMessage(event)
+
+    expect(upsertOperatorOAuthMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appId: 'app-1',
+        bitrixUserId: '1',
+        accessToken: 'tok',
+        refreshToken: 'ref',
+      }),
+    )
+  })
+
+  it('falha ao guardar o token não impede o envio ao contato', async () => {
+    upsertOperatorOAuthMock.mockRejectedValueOnce(new Error('db down'))
+    const event = makeEvent()
+    event.auth = { ...event.auth, refresh_token: 'ref' }
+
+    await processBitrixReceivedMessage(event)
+
+    expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
   })
 
   it('persists image message with correct type', async () => {
@@ -1315,5 +1384,65 @@ describe('processBitrixReceivedMessage avisos no idioma da instalação', () => 
         'e o WhatsApp Oficial só permite mensagem livre dentro dessa janela. ' +
         'Para retomar a conversa, é preciso enviar um template aprovado.',
     )
+  })
+})
+
+describe('processBitrixReceivedMessage cópia espelhada do aparelho', () => {
+  beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
+    createMock.mockClear()
+    findByBitrixMessageIdMock.mockReset().mockResolvedValue(null)
+    sendMessageZApiMock.mockClear()
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockClear()
+    reservationGetMock.mockReset().mockResolvedValue(null)
+    getContextMock.mockResolvedValue(baseContext)
+  })
+
+  it('reserva presente: não reenvia ao WhatsApp e confirma a entrega com o id da Z-API', async () => {
+    reservationGetMock.mockResolvedValueOnce('ME-1')
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+    expect(createMock).not.toHaveBeenCalled()
+    expect(setMessageDeliveredMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        MESSAGES: [expect.objectContaining({ message: { id: 'ME-1' } })],
+      }),
+    )
+  })
+
+  it('row ZAPI com o bitrixMessageId: não reenvia (reserva já expirada)', async () => {
+    findByBitrixMessageIdMock.mockResolvedValueOnce({
+      source: 'ZAPI',
+      providerMessageId: 'ME-1',
+    })
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(findByBitrixMessageIdMock).toHaveBeenCalledWith(
+      'inst-db-1',
+      'BITRIX-MSG-1',
+    )
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+  })
+
+  it('resposta de operador sem reserva nem row ZAPI segue para o contato', async () => {
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('linha oficial não consulta a cópia espelhada', async () => {
+    getContextMock.mockResolvedValue({
+      ...baseContext,
+      connector: { provider: 'HUBMESSAGE' },
+      instance: { ...baseContext.instance, channelId: 'ch-1' },
+    })
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(findByBitrixMessageIdMock).not.toHaveBeenCalled()
   })
 })

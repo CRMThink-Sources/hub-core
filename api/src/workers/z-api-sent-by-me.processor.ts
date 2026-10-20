@@ -14,6 +14,7 @@ import { makeDisconnectExpiredLine } from '@/modules/thinkzap/main/make-disconne
 import { makeResolveContactIdentity } from '@/modules/thinkzap/main/make-resolve-contact-identity'
 import { makeResolveGroupMentions } from '@/modules/thinkzap/main/make-resolve-group-mentions'
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
+import { makeMirrorOperatorAuthor } from '@/modules/thinkzap/main/make-mirror-operator-author'
 
 /** Mensagem enviada pelo próprio aparelho da linha (celular/WhatsApp Web). */
 export async function processZApiSentByMeMessage(
@@ -31,6 +32,7 @@ export async function processZApiSentByMeMessage(
     makeResolveContactIdentity(),
     makeResolveGroupMentions(),
     makeInstallationLocaleRepository(),
+    makeMirrorOperatorAuthor(),
   )
 
   await useCase.execute(event, deps)

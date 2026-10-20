@@ -51,12 +51,20 @@ import {
   resolveZApiBitrixAccess,
   type ZApiInstanceContext,
 } from './z-api-delivery'
+import {
+  describeImMessageRefusal,
+  type ImMessageResponse,
+  type MirrorOperatorAuthor,
+} from './mirror-operator-author'
 
 const log = createWorkerSourceLogger('z-api')
 
 type MirrorMessageStore = Pick<
   PrismaThinkzapMessageRepository,
-  'findByProviderMessageId' | 'findLatestOpenChannelChat' | 'create'
+  | 'findByProviderMessageId'
+  | 'findLatestOpenChannelChat'
+  | 'findLatestOperatorForChat'
+  | 'create'
 >
 
 /**
@@ -67,11 +75,15 @@ type MirrorMessageStore = Pick<
  * celular para um número qualquer não pode abrir atendimento. "Existe" é o contato (ou
  * grupo) ter ao menos uma mensagem já entregue ao canal aberto por esta linha.
  *
- * Posta pelo `imconnector`, como fala do contato — é o único autor que o conector
- * aceita (ver `post-open-channel-system-notice`). O prefixo é o que diz ao operador que
- * a mensagem saiu do aparelho, no mesmo padrão do `[Mensagem enviada a partir do CRM]`
- * do widget. `imconnector.send.messages` não dispara `ONIMCONNECTORMESSAGEADD`, então
- * a mensagem não volta para o WhatsApp.
+ * Posta **como o operador da sessão** — o último que respondeu na conversa — com
+ * `im.message.add` e o token dele, do lado da empresa. Isso dispara
+ * `ONIMCONNECTORMESSAGEADD`, e a reserva anti-loop (`MirroredMessageReservations`) é o
+ * que faz o worker de saída não reenviar a cópia ao WhatsApp.
+ *
+ * Sem operador, sem token, com recusa do Bitrix, sem reserva, ou com mídia, posta pelo
+ * `imconnector`, como fala do contato — que não dispara o evento de saída. O prefixo é
+ * o que diz ao operador que a mensagem saiu do aparelho, no mesmo padrão do
+ * `[Mensagem enviada a partir do CRM]` do widget, com qualquer um dos dois autores.
  *
  * Todo descarte termina o job **sem falha** e com a razão na aba Logs: nenhum deles
  * melhora com retentativa.
@@ -91,6 +103,7 @@ export class MirrorZApiSentByMeMessageUseCase {
       InstallationLocaleRepository,
       'byInstallation'
     >,
+    private readonly operatorAuthor: MirrorOperatorAuthor,
   ) {}
 
   async execute(
@@ -208,11 +221,14 @@ export class MirrorZApiSentByMeMessageUseCase {
       return
     }
 
+    // O chat do canal aberto da conversa: é onde o operador posta.
+    let openChannelChatId: string | null = null
     if (!isUpdate) {
       const conversation = await this.messageRepo.findLatestOpenChannelChat(
         instance.id,
         target.chatId,
       )
+      openChannelChatId = conversation?.bitrixChatId ?? null
       if (!conversation) {
         await this.discard(
           event,
@@ -255,6 +271,35 @@ export class MirrorZApiSentByMeMessageUseCase {
     )
 
     const files = buildMessageFiles(event)
+
+    // Cópia postada como operador só se altera como ele: o conector não a encontraria.
+    if (original?.bitrixUserId) {
+      await this.alterAsOperator(
+        original,
+        event,
+        text,
+        domain.name,
+        appendJobLog,
+      )
+      return
+    }
+
+    if (
+      !isUpdate &&
+      (await this.postAsOperator({
+        event,
+        instanceDbId: instance.id,
+        domainName: domain.name,
+        bitrixChatId: openChannelChatId,
+        chatId: target.chatId,
+        text,
+        hasFiles: Boolean(files?.length),
+        appendJobLog,
+      }))
+    ) {
+      return
+    }
+
     const params: ISendMessageData = {
       CONNECTOR: env.bitrix.connector.code,
       LINE: Number(vinculatedChannel),
@@ -324,6 +369,232 @@ export class MirrorZApiSentByMeMessageUseCase {
     await appendJobLog(
       `Desfecho: ${describeZApiOperation(event)} espelhada no canal aberto ` +
         `${vinculatedChannel} do domínio ${domain.name}.`,
+    )
+  }
+
+  /**
+   * Posta a cópia como o operador da sessão. `true` = postada e registrada; `false` =
+   * o chamador segue pelo `imconnector`, como o contato, com o motivo já na aba Logs.
+   *
+   * A ordem protege contra reenvio ao WhatsApp: o chat fica **pendente** antes do
+   * `im.message.add`, a reserva por id entra assim que ele responde, e o pendente só
+   * sai depois de a row `ZAPI` estar gravada. Se a reserva falhar, o worker de saída
+   * espera o pendente e acha a row. Sem conseguir marcar o pendente, não posta como
+   * operador: autor errado é melhor que mensagem duplicada no WhatsApp do cliente.
+   */
+  private async postAsOperator(params: {
+    event: ReceivedMessageEvent
+    instanceDbId: string
+    domainName: string
+    bitrixChatId: string | null
+    chatId: string
+    text: string
+    hasFiles: boolean
+    appendJobLog: AppendJobLog
+  }): Promise<boolean> {
+    const { event, instanceDbId, domainName, bitrixChatId, appendJobLog } =
+      params
+
+    const asContact = async (reason: string): Promise<false> => {
+      await appendJobLog(
+        `Autor: o contato — ${reason}. Postando pelo conector.`,
+      )
+      return false
+    }
+
+    if (params.hasFiles) {
+      return asContact('mídia sai como o contato nesta versão')
+    }
+    if (!bitrixChatId) {
+      return asContact('conversa sem chat do canal aberto gravado')
+    }
+
+    const operatorId = await this.messageRepo.findLatestOperatorForChat(
+      instanceDbId,
+      bitrixChatId,
+    )
+    if (!operatorId) return asContact('sem operador na conversa')
+
+    let token: string | null
+    try {
+      token = await this.operatorAuthor.resolveAccessToken(
+        domainName,
+        operatorId,
+      )
+    } catch (err) {
+      return asContact(
+        `token do operador ${operatorId} não renovou (${describeError(err)})`,
+      )
+    }
+    if (!token) {
+      return asContact(
+        `operador ${operatorId} sem autorização do app (autoriza uma vez pelo ` +
+          'widget de áudio ou de botões)',
+      )
+    }
+
+    const { reservations } = this.operatorAuthor
+    try {
+      await reservations.markPending(domainName, bitrixChatId)
+    } catch (err) {
+      return asContact(
+        `reserva anti-loop indisponível (${describeError(err)}); postar como ` +
+          'operador poderia reenviar a mensagem ao WhatsApp',
+      )
+    }
+
+    try {
+      let response: ImMessageResponse
+      try {
+        response = await this.operatorAuthor
+          .createClient(domainName, token)
+          .callMethod<ImMessageResponse>('im.message.add', {
+            DIALOG_ID: `chat${bitrixChatId}`,
+            MESSAGE: params.text,
+          })
+      } catch (err) {
+        return asContact(
+          `Bitrix recusou postar como o operador ${operatorId} (${describeError(err)})`,
+        )
+      }
+
+      const messageId = response?.result
+      if (!messageId || messageId === true) {
+        return asContact(
+          `Bitrix recusou postar como o operador ${operatorId} ` +
+            `(${describeImMessageRefusal(response)})`,
+        )
+      }
+      const bitrixMessageId = String(messageId)
+
+      try {
+        await reservations.register(
+          domainName,
+          bitrixMessageId,
+          event.messageId,
+        )
+      } catch (err) {
+        log.warn(
+          { instanceId: event.instanceId, bitrixMessageId, err },
+          'Reserva do espelhamento não gravada — o worker de saída cai na row',
+        )
+        await appendJobLog(
+          `Reserva anti-loop não gravada (${describeError(err)}). O worker de ` +
+            'saída reconhece a cópia pela row gravada a seguir.',
+        )
+      }
+
+      await persistInboundSnapshot(
+        this.messageRepo,
+        event,
+        instanceDbId,
+        bitrixMessageId,
+        bitrixChatId,
+        params.chatId,
+        null,
+        appendJobLog,
+        operatorId,
+      )
+
+      log.info(
+        {
+          instanceId: event.instanceId,
+          messageId: event.messageId,
+          bitrixChatId,
+          bitrixMessageId,
+          operatorId,
+        },
+        'Device-sent message mirrored to Bitrix as the session operator',
+      )
+      await appendJobLog(
+        `Desfecho: mensagem do aparelho espelhada como o operador ${operatorId} no ` +
+          `chat ${bitrixChatId} (bitrixMessageId=${bitrixMessageId}).`,
+      )
+      return true
+    } finally {
+      await reservations
+        .clearPending(domainName, bitrixChatId)
+        .catch((err: unknown) =>
+          log.warn(
+            { instanceId: event.instanceId, bitrixChatId, err },
+            'Falha ao limpar o pendente do espelhamento — expira sozinho',
+          ),
+        )
+    }
+  }
+
+  /**
+   * Edita ou remove uma cópia que foi postada como operador, com o token **dele**: a
+   * credencial do app não altera mensagem de outro usuário (ver
+   * `parse-button-action-code`). Sem o token, a cópia fica como está.
+   *
+   * Erro lançado pelo Bitrix sobe e o job retenta — editar e apagar são idempotentes.
+   */
+  private async alterAsOperator(
+    original: ThinkzapMessageRecord,
+    event: ReceivedMessageEvent,
+    text: string,
+    domainName: string,
+    appendJobLog: AppendJobLog,
+  ): Promise<void> {
+    const operatorId = original.bitrixUserId as string
+    const operation = describeZApiOperation(event)
+
+    if (!original.bitrixMessageId) {
+      await this.discard(
+        event,
+        appendJobLog,
+        `${operation} de cópia sem bitrixMessageId gravado — não há como achá-la.`,
+      )
+      return
+    }
+
+    let token: string | null
+    try {
+      token = await this.operatorAuthor.resolveAccessToken(
+        domainName,
+        operatorId,
+      )
+    } catch (err) {
+      token = null
+      await appendJobLog(
+        `Token do operador ${operatorId} não renovou (${describeError(err)}).`,
+      )
+    }
+    if (!token) {
+      await this.discard(
+        event,
+        appendJobLog,
+        `${operation} de cópia postada como o operador ${operatorId}, que não tem ` +
+          'autorização válida do app — só ele pode alterá-la.',
+      )
+      return
+    }
+
+    const isRevoke = event.notification === 'REVOKE'
+    const method = isRevoke ? 'im.message.delete' : 'im.message.update'
+    const response = await this.operatorAuthor
+      .createClient(domainName, token)
+      .callMethod<ImMessageResponse>(
+        method,
+        isRevoke
+          ? { MESSAGE_ID: original.bitrixMessageId }
+          : { MESSAGE_ID: original.bitrixMessageId, MESSAGE: text },
+      )
+
+    if (!response?.result) {
+      await this.discard(
+        event,
+        appendJobLog,
+        `Bitrix recusou ${method} como o operador ${operatorId} ` +
+          `(${describeImMessageRefusal(response)}).`,
+      )
+      return
+    }
+
+    await appendJobLog(
+      `Desfecho: ${operation} aplicada à cópia do operador ${operatorId} ` +
+        `(bitrixMessageId=${original.bitrixMessageId}) via ${method}.`,
     )
   }
 
@@ -454,6 +725,10 @@ export class MirrorZApiSentByMeMessageUseCase {
       `Mensagem do aparelho NÃO espelhada: ${reason} Job encerrado sem falha.`,
     )
   }
+}
+
+function describeError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
 }
 
 type MirrorTarget = {

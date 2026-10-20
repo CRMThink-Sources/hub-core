@@ -15,8 +15,10 @@ Hoje o `ReceivedMessageHandler` descarta todo evento com `fromMe=true`, e nenhum
   - `fromMe=true` e `fromApi=false` (enviada do aparelho ou do WhatsApp Web) segue para um caminho novo de espelhamento.
 - O espelhamento posta a mensagem no canal aberto **só quando o contato (ou grupo) já tem conversa no canal aberto** daquela linha. Sem conversa conhecida, o evento é descartado com log, e nenhuma conversa nova é aberta por mensagem saída do aparelho.
 - Vale para conversas 1:1 e para grupos.
-- A mensagem espelhada leva um prefixo que a identifica como enviada pelo WhatsApp do aparelho, no idioma da instalação (pt/en/es). É o mesmo padrão do `[Mensagem enviada a partir do CRM]` do widget.
-- Texto, legenda, mídia (imagem, vídeo, áudio, documento, sticker) e contato encaminhado são espelhados. Edição e remoção de uma mensagem já espelhada atualizam ou removem a cópia no canal aberto.
+- A mensagem espelhada é postada **como o operador da sessão**, do lado da empresa no canal aberto: o último operador que respondeu naquela conversa, usando o token OAuth dele (`ThinkzapOperatorOAuth`). Sem operador conhecido, sem token válido ou com recusa do Bitrix, ela sai como o contato (comportamento da primeira versão), e o log do job diz qual autor foi usado.
+- A mensagem espelhada leva um prefixo que a identifica como enviada pelo WhatsApp do aparelho, no idioma da instalação (pt/en/es), qualquer que seja o autor. É o mesmo padrão do `[Mensagem enviada a partir do CRM]` do widget.
+- Postar como operador dispara `ONIMCONNECTORMESSAGEADD`. O worker de saída reconhece a mensagem espelhada e a descarta, para nunca reenviá-la ao WhatsApp.
+- Texto, legenda, mídia (imagem, vídeo, áudio, documento, sticker) e contato encaminhado são espelhados. Nesta iteração, a mídia continua saindo como o contato (ver design, Open Questions). Edição e remoção de uma mensagem já espelhada atualizam ou removem a cópia no canal aberto, com o mesmo autor.
 
 ## Capabilities
 
@@ -37,7 +39,10 @@ Hoje o `ReceivedMessageHandler` descarta todo evento com `fromMe=true`, e nenhum
   - `PrismaThinkzapMessageRepository`: nova busca da conversa existente por `(instanceId, chatId)`.
   - `history-notices.ts`: novo prefixo nos 3 idiomas.
   - `line-settings.mapper.ts` e `update-line-settings.controller.ts`.
+  - `workers/bitrix-received-message.processor.ts`: gravar o operador (`message.user_id`) na row `BITRIX`, upsert oportunista do token do operador quando o evento traz `refresh_token`, e guard anti-loop da mensagem espelhada.
+  - `ResolveOperatorBitrixAccessToken` (reuso) para postar, editar e remover como o operador.
+- **Redis**: reserva de curta duração por mensagem espelhada postada como operador, consumida pelo worker de saída.
 - **Front (`front/`)**: o toggle no card Comportamento (`ajustes-tab.tsx`, `ajustes-alteracoes.ts`, `use-line-api.ts`) e os textos em `messages/{pt,en,es}/thinkzap/configuracoes/ajustes.json`. Só aparece em linha Z-API.
 - **Z-API**: chamada `PUT /update-notify-sent-by-me` por instância. Com ela ligada, aumenta o volume de webhooks `ReceivedCallback` na fila `thinkzap-inbound`.
-- **Banco**: uma migration só de índice, `(instance_id, chat_id)` em `core_thinkerszap_messages`, para a busca de conversa existente. Sem coluna nova (ver design).
+- **Banco**: migration de índice `(instance_id, chat_id)` em `core_thinkerszap_messages`, para a busca de conversa existente; e coluna nullable `bitrix_user_id` na mesma tabela, com índice `(bitrix_chat_id, created_at)`, para saber o operador da sessão e o autor de cada mensagem espelhada (ver design, Decisões 7 e 10).
 - Sem impacto na linha oficial (HubMessage).

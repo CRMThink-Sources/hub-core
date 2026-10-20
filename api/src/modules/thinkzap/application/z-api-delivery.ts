@@ -433,6 +433,11 @@ export async function persistInboundSnapshot(
    */
   resolvedText: string | null = null,
   appendJobLog: AppendJobLog = noopJobLog,
+  /**
+   * Só no espelhamento do aparelho: o operador como quem a cópia foi postada, para
+   * edição e remoção saírem com o mesmo autor. `null` = postada como o contato.
+   */
+  bitrixUserId: string | null = null,
 ): Promise<void> {
   if (event.notification === 'REVOKE' || event.isEdit) {
     /**
@@ -463,6 +468,8 @@ export async function persistInboundSnapshot(
       text,
       fileName: quoteInput.fileName ?? null,
       chatId,
+      // `undefined` sem autor: o upsert parcial não apaga um autor já gravado.
+      bitrixUserId: bitrixUserId ?? undefined,
     })
   } catch (err) {
     log.warn(

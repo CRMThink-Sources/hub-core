@@ -63,9 +63,20 @@ import {
   noopJobLog,
 } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { redisConnection } from '@/queue/redis-connection'
+import { captureOperatorOAuthFromEvent } from '@/modules/thinkzap/application/capture-operator-oauth-from-event'
+import { UpsertOperatorBitrixOAuth } from '@/modules/thinkzap/application/upsert-operator-bitrix-oauth'
+import { PrismaThinkzapOperatorOAuthRepository } from '@/modules/thinkzap/infra/persistence/prisma-thinkzap-operator-oauth.repository'
+import {
+  findMirroredDeviceMessage,
+  MirroredMessageReservations,
+} from '@/modules/thinkzap/infra/cache/mirrored-message-reservations'
 
 const log = createWorkerSourceLogger('bitrix')
 const messageRepo = new PrismaThinkzapMessageRepository()
+const mirroredReservations = new MirroredMessageReservations(redisConnection)
+const upsertOperatorOAuth = new UpsertOperatorBitrixOAuth(
+  new PrismaThinkzapOperatorOAuthRepository(),
+)
 const outboundSenderResolver = makeOutboundSenderResolver()
 const interactiveButtonSenderResolver = makeInteractiveButtonSenderResolver()
 const dailySendQuota = makeDailySendQuota()
@@ -137,6 +148,8 @@ type PersistOutboundMessageInput = {
   chatId: string
   // Único endereço (DIALOG_ID) para avisar o operador quando a Meta recusa após o aceite.
   bitrixChatId: string
+  // Quem respondeu (`message.user_id`): é o "operador da sessão" do espelhamento.
+  bitrixUserId: string
   type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'INTERACTIVE_BUTTON'
   text?: string
   fileName?: string
@@ -157,6 +170,7 @@ async function persistOutboundMessage(
       text: input.text ?? null,
       fileName: input.fileName ?? null,
       chatId: input.chatId,
+      bitrixUserId: input.bitrixUserId,
     })
   } catch (err) {
     logThinkzapError(log, 'thinkzap.message.outbound_persist_failed', {
@@ -356,6 +370,21 @@ export async function processBitrixReceivedMessage(
       `destino(chatId)=${chatId}`,
   )
 
+  // Token do operador para o espelhamento postar como ele; só complementa o OAuth dos widgets.
+  const operatorOAuth = await captureOperatorOAuthFromEvent(
+    upsertOperatorOAuth,
+    {
+      appId: context.app.id,
+      auth: event.auth,
+      messageUserId: message.message.user_id,
+    },
+  )
+  await appendJobLog(
+    operatorOAuth.captured
+      ? `Token do operador ${operatorOAuth.bitrixUserId} atualizado a partir do evento.`
+      : `Token do operador não atualizado pelo evento: ${operatorOAuth.reason}.`,
+  )
+
   // Resolvida uma vez: entitlement e settings na mesma leitura.
   const appCode =
     resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId ?? ''
@@ -410,6 +439,29 @@ export async function processBitrixReceivedMessage(
     bitrixCredential: context.app.credential,
     domain: context.name,
   })
+
+  // Cópia que o espelhamento postou como operador: já está no WhatsApp (saiu do aparelho).
+  // Só Z-API tem espelhamento; a linha oficial não paga a consulta.
+  const mirrored =
+    provider === ConnectorProvider.HUBMESSAGE
+      ? null
+      : await findMirroredCopy(event, message, context.instance.id)
+  if (mirrored) {
+    await appendJobLog(
+      `Mensagem espelhada do aparelho (identificada por ${mirrored.via}) — já está no ` +
+        'WhatsApp do contato; NÃO reenviada. Job encerrado sem falha.',
+    )
+    if (mirrored.providerMessageId) {
+      await setDelivered(
+        bitrixClient,
+        event,
+        message,
+        chatId,
+        mirrored.providerMessageId,
+      )
+    }
+    return
+  }
 
   let botId = await ensureBitrixBotId(
     bitrixClient,
@@ -664,6 +716,7 @@ export async function processBitrixReceivedMessage(
       bitrixMessageId,
       chatId,
       bitrixChatId: message.im.chat_id,
+      bitrixUserId: String(message.message.user_id),
       type: result.persistedType,
       text: result.sentText,
       fileName:
@@ -860,6 +913,7 @@ async function sendButtonActionMessage(params: {
     bitrixMessageId: message.im.message_id,
     chatId,
     bitrixChatId: message.im.chat_id,
+    bitrixUserId: String(message.message.user_id),
     type: 'INTERACTIVE_BUTTON',
     text: descriptor.body,
   })
@@ -870,6 +924,44 @@ async function sendButtonActionMessage(params: {
     `Persistido no banco e confirmado no Bitrix (setMessageDelivered) | ` +
       `bitrixMessageId=${message.im.message_id} → ${result.messageId}`,
   )
+}
+
+/**
+ * A cópia de uma mensagem do aparelho que o espelhamento postou como operador: pela
+ * reserva no Redis e, se ela já expirou ou o Redis falhou, pela row `ZAPI` com este
+ * `bitrixMessageId`. `null` é resposta de operador, que segue para o envio.
+ *
+ * Falha do Redis não lança: a resposta do operador não pode ficar presa nele, e a row
+ * ainda cobre a cópia gravada a tempo.
+ */
+async function findMirroredCopy(
+  event: IBX24MessageEvent,
+  message: IBX24MessageEvent['data']['MESSAGES'][number],
+  instanceDbId: string,
+): Promise<{ via: string; providerMessageId: string | null } | null> {
+  const bitrixMessageId = String(message.im.message_id)
+
+  try {
+    const reserved = await findMirroredDeviceMessage(mirroredReservations, {
+      domain: event.auth.domain,
+      bitrixChatId: String(message.im.chat_id),
+      bitrixMessageId,
+    })
+    if (reserved) return { via: 'reserva', providerMessageId: reserved }
+  } catch (err) {
+    log.warn(
+      { domain: event.auth.domain, bitrixMessageId, err },
+      'Falha ao consultar a reserva do espelhamento — seguindo pela row',
+    )
+  }
+
+  const record = await messageRepo.findByBitrixMessageId(
+    instanceDbId,
+    bitrixMessageId,
+  )
+  return record?.source === 'ZAPI'
+    ? { via: 'registro', providerMessageId: record.providerMessageId }
+    : null
 }
 
 async function setDelivered(
