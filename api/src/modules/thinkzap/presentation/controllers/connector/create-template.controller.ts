@@ -9,6 +9,7 @@ import {
   InvalidTemplateHeaderImageError,
 } from '@/modules/thinkzap/application/create-connector-template'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
+import { TemplateImageStorageUnavailableError } from '@/modules/thinkzap/domain/ports/template-image-storage.port'
 import { handleTemplateError } from './list-templates.controller'
 import { parseLineRequest } from '../line/line-request'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
@@ -98,6 +99,23 @@ export function isMissingAppCredentials(error: HubMessageApiError): boolean {
   )
 }
 
+const MEDIA_ROUTE_UNAVAILABLE_MESSAGE =
+  'O envio de arquivo da imagem não está disponível no momento. Use um link público da imagem.'
+
+/**
+ * Rota de upload da Omni (`templates/media`) inexistente no servidor: documentada,
+ * mas respondendo `405`/`404` (constatado em 2026-10-20). Só é chamada em ambiente
+ * sem o bucket R2.
+ */
+export function isTemplateMediaRouteUnavailable(
+  error: HubMessageApiError,
+): boolean {
+  return (
+    (error.status === 404 || error.status === 405) &&
+    error.url.endsWith('/templates/media')
+  )
+}
+
 /**
  * Corpo do pedido nos dois formatos: JSON direto, ou multipart com o JSON em
  * `payload` (o multer entrega campos de texto como string) e o arquivo à parte.
@@ -159,6 +177,22 @@ export class CreateTemplateController extends Controller {
         )
         return this.badRequest(error)
       }
+      // Bucket fora do ar: nada foi enviado à Meta, e o link continua funcionando.
+      if (error instanceof TemplateImageStorageUnavailableError) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.message.widget_header_image_storage_unavailable',
+          { app: 'thinkzap', err: error, detail: error.detail },
+          { level: 'error' },
+        )
+        return {
+          status: 503,
+          result: {
+            error: error.message,
+            code: 'header-image-upload-unavailable',
+          },
+        }
+      }
       // Rejeição de negócio da Meta: propaga a mensagem legível sem mascarar.
       if (error instanceof HubMessageApiError) {
         if (isMissingAppCredentials(error)) {
@@ -169,6 +203,15 @@ export class CreateTemplateController extends Controller {
             { level: 'warn' },
           )
           return this.badRequest(new Error(MISSING_APP_CREDENTIALS_MESSAGE))
+        }
+        if (isTemplateMediaRouteUnavailable(error)) {
+          logThinkzapError(
+            apiLogger,
+            'thinkzap.template.provider_rejected',
+            { app: 'thinkzap', err: error, reason: 'media-route-unavailable' },
+            { level: 'warn' },
+          )
+          return this.badRequest(new Error(MEDIA_ROUTE_UNAVAILABLE_MESSAGE))
         }
         const imageRejection = headerImageRejectionMessage(error.body)
         if (imageRejection) {
