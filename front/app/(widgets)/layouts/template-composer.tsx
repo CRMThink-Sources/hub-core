@@ -10,6 +10,7 @@ import {
   isHttpsUrl,
   needsHeaderImage,
   resolveTemplatePreview,
+  WIDGET_HEADER_IMAGE_TYPES,
 } from './template-variables'
 
 type TemplateComposerProps = {
@@ -25,11 +26,26 @@ type TemplateComposerProps = {
   /** Valores dos botões dinâmicos, pela posição (`index`) do botão no template. */
   buttonValues: Record<number, string>
   onChangeButtonValue: (index: number, value: string) => void
-  /** URL da imagem do cabeçalho, em template com cabeçalho de imagem. */
+  /**
+   * URL da imagem do cabeçalho, em template com cabeçalho de imagem: digitada no
+   * modo link, ou devolvida pelo upload no modo arquivo.
+   */
   headerImageUrl: string
   onChangeHeaderImageUrl: (value: string) => void
+  /** O ambiente hospeda arquivo; sem isso só o link é oferecido. */
+  headerImageUploadAvailable: boolean
+  headerImageSource: HeaderImageSource
+  onChangeHeaderImageSource: (source: HeaderImageSource) => void
+  /** Arquivo escolhido no modo arquivo; o pai valida e sobe. */
+  onPickHeaderImageFile: (file: File) => void
+  headerImageFileName: string
+  headerImageUploading: boolean
+  /** Motivo da recusa ou da falha do upload, já legível. */
+  headerImageUploadError: string
   disabled: boolean
 }
+
+export type HeaderImageSource = 'FILE' | 'LINK'
 
 /** Rótulo do botão no preview — copiar código não tem texto próprio. */
 const buttonLabel = (button: WidgetTemplateButton): string =>
@@ -72,6 +88,13 @@ export const TemplateComposer = ({
   onChangeButtonValue,
   headerImageUrl,
   onChangeHeaderImageUrl,
+  headerImageUploadAvailable,
+  headerImageSource,
+  onChangeHeaderImageSource,
+  onPickHeaderImageFile,
+  headerImageFileName,
+  headerImageUploading,
+  headerImageUploadError,
   disabled,
 }: TemplateComposerProps) => {
   const selected = templates.find(
@@ -79,6 +102,7 @@ export const TemplateComposer = ({
   )
   const showHeaderImage = needsHeaderImage(selected)
   const headerImageValid = isHttpsUrl(headerImageUrl)
+  const fileMode = headerImageUploadAvailable && headerImageSource === 'FILE'
   const variables = selected ? extractTemplateVariables(selected.body) : []
   const buttonFields = dynamicButtons(selected?.buttons)
 
@@ -136,30 +160,90 @@ export const TemplateComposer = ({
       {selected ? (
         <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white/70 p-4">
           {showHeaderImage ? (
-            <label className="grid gap-1">
+            <div className="grid gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Imagem do cabeçalho
               </span>
-              <input
-                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-                value={headerImageUrl}
-                onChange={event => onChangeHeaderImageUrl(event.target.value)}
-                disabled={disabled}
-                placeholder="https://..."
-                inputMode="url"
-              />
-              <span
-                className={`text-xs ${
-                  headerImageUrl && !headerImageValid
-                    ? 'text-red-600'
-                    : 'text-slate-500'
-                }`}
-              >
-                {headerImageUrl && !headerImageValid
-                  ? 'A URL precisa começar com https://'
-                  : 'Link público e direto para o arquivo JPEG ou PNG.'}
-              </span>
-            </label>
+
+              {headerImageUploadAvailable ? (
+                <div className="flex gap-4 text-sm text-slate-700">
+                  {(
+                    [
+                      ['FILE', 'Enviar arquivo'],
+                      ['LINK', 'Usar link'],
+                    ] as const
+                  ).map(([source, label]) => (
+                    <label key={source} className="flex items-center gap-1.5">
+                      <input
+                        type="radio"
+                        name="header-image-source"
+                        checked={headerImageSource === source}
+                        onChange={() => onChangeHeaderImageSource(source)}
+                        disabled={disabled || headerImageUploading}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+
+              {fileMode ? (
+                <>
+                  <input
+                    type="file"
+                    accept={WIDGET_HEADER_IMAGE_TYPES.join(',')}
+                    className="text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700 disabled:opacity-60"
+                    disabled={disabled || headerImageUploading}
+                    onChange={event => {
+                      const file = event.target.files?.[0]
+                      // Mesmo arquivo de novo também dispara: o input é limpo.
+                      event.target.value = ''
+                      if (file) onPickHeaderImageFile(file)
+                    }}
+                  />
+                  <span
+                    className={`text-xs ${
+                      headerImageUploadError ? 'text-red-600' : 'text-slate-500'
+                    }`}
+                  >
+                    {headerImageUploading
+                      ? `Enviando ${headerImageFileName}...`
+                      : headerImageUploadError ||
+                        (headerImageValid && headerImageFileName
+                          ? `${headerImageFileName} pronta para o envio.`
+                          : 'JPEG ou PNG, até 5 MB.')}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    A imagem fica acessível por link para quem tiver o endereço
+                    e é apagada em 30 dias.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <input
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    value={headerImageUrl}
+                    onChange={event =>
+                      onChangeHeaderImageUrl(event.target.value)
+                    }
+                    disabled={disabled}
+                    placeholder="https://..."
+                    inputMode="url"
+                  />
+                  <span
+                    className={`text-xs ${
+                      headerImageUrl && !headerImageValid
+                        ? 'text-red-600'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    {headerImageUrl && !headerImageValid
+                      ? 'A URL precisa começar com https://'
+                      : 'Link público e direto para o arquivo JPEG ou PNG.'}
+                  </span>
+                </>
+              )}
+            </div>
           ) : null}
 
           {variables.length > 0 ? (

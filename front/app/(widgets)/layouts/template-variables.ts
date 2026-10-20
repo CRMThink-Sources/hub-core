@@ -114,6 +114,47 @@ export function hasRequiredHeaderImage(
   return !needsHeaderImage(template) || isHttpsUrl(imageUrl)
 }
 
+/** Teto da Meta para imagem de cabeçalho — o mesmo da API. */
+export const WIDGET_HEADER_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+export const WIDGET_HEADER_IMAGE_TYPES = ['image/jpeg', 'image/png']
+
+/**
+ * Motivo para recusar o arquivo escolhido antes de subir, ou `null` se serve. O
+ * tipo aqui é o que o navegador informa; a API confere de novo pelo conteúdo.
+ */
+export function widgetHeaderImageFileError(file: {
+  type: string
+  size: number
+}): string | null {
+  if (!WIDGET_HEADER_IMAGE_TYPES.includes(file.type)) {
+    return 'A imagem precisa ser JPEG ou PNG.'
+  }
+  if (file.size > WIDGET_HEADER_IMAGE_MAX_BYTES) {
+    return 'A imagem passa de 5 MB.'
+  }
+  return null
+}
+
+/**
+ * Pode enviar o template: variáveis, botões e — se o template pede imagem — uma URL
+ * `https` pronta. Com arquivo, a URL só existe depois do upload, então upload em
+ * andamento ou com falha bloqueia o envio.
+ */
+export function canSendWidgetTemplate(input: {
+  template: Pick<WidgetTemplate, 'body' | 'buttons' | 'header'>
+  values: Record<string, string>
+  buttonValues: Record<number, string>
+  headerImageUrl: string
+  headerImageUploading: boolean
+}): boolean {
+  return (
+    !input.headerImageUploading &&
+    hasAllTemplateVariables(input.template.body, input.values) &&
+    hasAllButtonValues(input.template.buttons, input.buttonValues) &&
+    hasRequiredHeaderImage(input.template, input.headerImageUrl)
+  )
+}
+
 /** O `buttonParameters` do envio: um item por botão dinâmico, amarrado ao `index`. */
 export function templateButtonParameters(
   buttons: WidgetTemplateButton[] | undefined,

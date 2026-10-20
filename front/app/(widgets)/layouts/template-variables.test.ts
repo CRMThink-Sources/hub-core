@@ -3,9 +3,11 @@ import {
   dynamicButtons,
   extractTemplateVariables,
   hasAllButtonValues,
+  canSendWidgetTemplate,
   hasRequiredHeaderImage,
   needsHeaderImage,
   templateButtonParameters,
+  widgetHeaderImageFileError,
   hasAllTemplateVariables,
   orderedTemplateParameters,
   resolveTemplatePreview,
@@ -177,5 +179,50 @@ describe('imagem do cabeçalho', () => {
   it('template sem imagem não exige nada', () => {
     expect(hasRequiredHeaderImage(none, '')).toBe(true)
     expect(hasRequiredHeaderImage(undefined, '')).toBe(true)
+  })
+})
+
+describe('upload da imagem do cabeçalho', () => {
+  it('recusa PDF e arquivo de 7 MB antes de subir', () => {
+    expect(
+      widgetHeaderImageFileError({ type: 'application/pdf', size: 10 }),
+    ).toBe('A imagem precisa ser JPEG ou PNG.')
+    expect(
+      widgetHeaderImageFileError({ type: 'image/png', size: 7 * 1024 * 1024 }),
+    ).toBe('A imagem passa de 5 MB.')
+    expect(
+      widgetHeaderImageFileError({ type: 'image/jpeg', size: 1024 }),
+    ).toBeNull()
+  })
+
+  const template = {
+    body: 'Oferta {{1}}',
+    buttons: [],
+    header: { type: 'IMAGE' as const },
+  }
+  const ready = {
+    template,
+    values: { 1: 'Ana' },
+    buttonValues: {},
+    headerImageUrl: 'https://imagens.loja.com/x.png',
+    headerImageUploading: false,
+  }
+
+  it('pode enviar com a URL do upload pronta', () => {
+    expect(canSendWidgetTemplate(ready)).toBe(true)
+  })
+
+  it('bloqueia com upload em andamento', () => {
+    expect(
+      canSendWidgetTemplate({ ...ready, headerImageUploading: true }),
+    ).toBe(false)
+  })
+
+  it('bloqueia sem URL (upload falhou ou não feito)', () => {
+    expect(canSendWidgetTemplate({ ...ready, headerImageUrl: '' })).toBe(false)
+  })
+
+  it('bloqueia com variável vazia', () => {
+    expect(canSendWidgetTemplate({ ...ready, values: { 1: ' ' } })).toBe(false)
   })
 })

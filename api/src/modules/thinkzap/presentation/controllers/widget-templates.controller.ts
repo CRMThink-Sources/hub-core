@@ -33,7 +33,14 @@ const schema = z.object({
  * em `400` com mensagem própria.
  */
 export class WidgetTemplatesController extends Controller {
-  constructor(private readonly useCase: ListWidgetTemplatesUseCase) {
+  constructor(
+    private readonly useCase: ListWidgetTemplatesUseCase,
+    /**
+     * Se o ambiente hospeda a imagem do cabeçalho enviada como arquivo. Vai junto
+     * da lista para o widget decidir se oferece "Enviar arquivo" ou só o link.
+     */
+    private readonly headerImageUpload = false,
+  ) {
     super()
   }
 
@@ -46,7 +53,10 @@ export class WidgetTemplatesController extends Controller {
 
     try {
       const templates = await this.useCase.execute(input)
-      return this.ok({ templates })
+      return this.ok({
+        templates,
+        headerImageUpload: this.headerImageUpload,
+      })
     } catch (error) {
       return handleTemplateError.call(this, error)
     }
