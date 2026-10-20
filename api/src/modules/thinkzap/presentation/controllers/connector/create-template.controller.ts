@@ -22,13 +22,14 @@ const componentSchema = z
   .passthrough()
 
 /**
- * Cabeçalho: só imagem, no formato neutro (`example.imageUrl`). As regras (https,
- * CDN da Meta, categoria) ficam em `validateTemplateHeader`, no use case.
+ * Cabeçalho: só imagem, no formato neutro. `example.imageUrl` falta quando a imagem
+ * vem como arquivo (multipart). As regras (uma fonte só, https, CDN da Meta,
+ * categoria) ficam em `validateTemplateHeader`, no use case.
  */
 const headerSchema = z.object({
   type: z.literal('HEADER'),
   format: z.literal('IMAGE'),
-  example: z.object({ imageUrl: z.string() }),
+  example: z.object({ imageUrl: z.string() }).optional(),
 })
 
 /**
@@ -82,6 +83,36 @@ export function headerImageRejectionMessage(body: unknown): string | null {
   return null
 }
 
+const MISSING_APP_CREDENTIALS_MESSAGE =
+  'O envio de arquivo da imagem não está disponível nesta conta do WhatsApp Oficial (faltam as credenciais do app da Meta no painel da Z-API Omni). Use um link público da imagem.'
+
+/**
+ * Upload da imagem recusado pela Omni porque a conta não tem App ID/App Secret da
+ * Meta cadastrados (`422 MISSING_APP_CREDENTIALS`). O código vem no corpo; o
+ * formato exato não é documentado, então procuramos no JSON inteiro.
+ */
+export function isMissingAppCredentials(error: HubMessageApiError): boolean {
+  return (
+    error.status === 422 &&
+    JSON.stringify(error.body ?? '').includes('MISSING_APP_CREDENTIALS')
+  )
+}
+
+/**
+ * Corpo do pedido nos dois formatos: JSON direto, ou multipart com o JSON em
+ * `payload` (o multer entrega campos de texto como string) e o arquivo à parte.
+ */
+function requestBody(req: Request): unknown {
+  const body = req.body as Record<string, unknown> | undefined
+  if (typeof body?.payload !== 'string') return body
+
+  try {
+    return JSON.parse(body.payload) as unknown
+  } catch {
+    return new Error('Invalid request: payload is not valid JSON')
+  }
+}
+
 /** `POST /thinkzap/lines/:itemId/templates` — cadastra template da linha. */
 export class CreateTemplateController extends Controller {
   constructor(private readonly useCase: CreateConnectorTemplateUseCase) {
@@ -89,7 +120,10 @@ export class CreateTemplateController extends Controller {
   }
 
   async perform(req: Request): Promise<httpResponse> {
-    const body = bodySchema.safeParse(req.body)
+    const raw = requestBody(req)
+    if (raw instanceof Error) return this.badRequest(raw)
+
+    const body = bodySchema.safeParse(raw)
     if (!body.success) {
       return this.badRequest(
         new Error('Invalid request: ' + body.error.message),
@@ -103,6 +137,7 @@ export class CreateTemplateController extends Controller {
         category: body.data.category,
         language: body.data.language,
         components: body.data.components,
+        ...(req.file ? { headerImageFile: { data: req.file.buffer } } : {}),
       })
       return this.ok({ template: created })
     } catch (error) {
@@ -126,6 +161,15 @@ export class CreateTemplateController extends Controller {
       }
       // Rejeição de negócio da Meta: propaga a mensagem legível sem mascarar.
       if (error instanceof HubMessageApiError) {
+        if (isMissingAppCredentials(error)) {
+          logThinkzapError(
+            apiLogger,
+            'thinkzap.template.header_image_app_credentials_missing',
+            { app: 'thinkzap', err: error },
+            { level: 'warn' },
+          )
+          return this.badRequest(new Error(MISSING_APP_CREDENTIALS_MESSAGE))
+        }
         const imageRejection = headerImageRejectionMessage(error.body)
         if (imageRejection) {
           logThinkzapError(

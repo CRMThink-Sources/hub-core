@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,9 +18,12 @@ import {
 } from './template-buttons'
 import {
   buildHeaderComponent,
+  HEADER_IMAGE_TYPES,
   headerAllowed,
   validateTemplateHeader,
+  validateTemplateHeaderFile,
   type TemplateHeaderChoice,
+  type TemplateHeaderSource,
 } from './template-header'
 
 const CATEGORIES: TemplateCategory[] = [
@@ -62,6 +65,10 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
   const [footer, setFooter] = useState('')
   const [header, setHeader] = useState<TemplateHeaderChoice>('NONE')
   const [headerImageUrl, setHeaderImageUrl] = useState('')
+  // Arquivo é o padrão: é o caminho que evita link do Drive ou copiado da Meta.
+  const [headerSource, setHeaderSource] = useState<TemplateHeaderSource>('FILE')
+  const [headerImageFile, setHeaderImageFile] = useState<File | null>(null)
+  const [headerFilePreview, setHeaderFilePreview] = useState('')
   const [examples, setExamples] = useState<Record<number, string>>({})
   const [buttons, setButtons] = useState<TemplateButton[]>([])
   const [showButtonErrors, setShowButtonErrors] = useState(false)
@@ -81,17 +88,37 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
     if (!headerAllowed(next)) setHeader('NONE')
   }
 
-  const headerViolation = validateTemplateHeader(
-    header,
-    headerImageUrl,
-    category,
-  )
+  /** Preview do arquivo por object URL, liberada ao trocar de arquivo ou sair. */
+  useEffect(() => {
+    if (!headerImageFile) {
+      setHeaderFilePreview('')
+      return
+    }
+    const url = URL.createObjectURL(headerImageFile)
+    setHeaderFilePreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [headerImageFile])
+
+  const headerViolation =
+    headerSource === 'FILE'
+      ? validateTemplateHeaderFile(header, headerImageFile, category)
+      : validateTemplateHeader(header, headerImageUrl, category)
   const headerPreviewUrl =
-    header === 'IMAGE' &&
-    headerViolation !== 'example_required' &&
-    headerViolation !== 'example_not_https'
-      ? headerImageUrl.trim()
-      : ''
+    header !== 'IMAGE'
+      ? ''
+      : headerSource === 'FILE'
+        ? headerViolation === null
+          ? headerFilePreview
+          : ''
+        : headerViolation !== 'example_required' &&
+            headerViolation !== 'example_not_https'
+          ? headerImageUrl.trim()
+          : ''
+  /** Erro do cabeçalho só aparece depois que o operador preencheu algo. */
+  const headerTouched =
+    headerSource === 'FILE'
+      ? headerImageFile !== null
+      : headerImageUrl.trim() !== ''
 
   const variables = useMemo(() => extractVariables(body), [body])
   const examplesFilled = variables.every(v => (examples[v] ?? '').trim())
@@ -147,7 +174,11 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
     }
 
     const buttonsComponent = buildButtonsComponent(buttons)
-    const headerComponent = buildHeaderComponent(header, headerImageUrl)
+    const headerComponent = buildHeaderComponent(
+      header,
+      headerSource,
+      headerImageUrl,
+    )
     // A ordem é a da Meta: cabeçalho, corpo, rodapé, botões.
     const components = [
       ...(headerComponent ? [headerComponent] : []),
@@ -158,12 +189,13 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
       ...(buttonsComponent ? [buttonsComponent] : []),
     ]
 
-    const ok = await createTemplate(itemId, {
-      name,
-      category,
-      language,
-      components,
-    })
+    const ok = await createTemplate(
+      itemId,
+      { name, category, language, components },
+      header === 'IMAGE' && headerSource === 'FILE' && headerImageFile
+        ? headerImageFile
+        : undefined,
+    )
     if (ok) onCreated()
   }
 
@@ -228,23 +260,60 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
 
           {header === 'IMAGE' && (
             <>
-              <Label>{t('form.cabecalho.exemplo')}</Label>
-              <Input
-                type="url"
-                value={headerImageUrl}
-                placeholder="https://..."
-                onChange={e => setHeaderImageUrl(e.target.value)}
-              />
+              <div className="flex gap-4 text-sm">
+                {(['FILE', 'LINK'] as const).map(source => (
+                  <label key={source} className="flex items-center gap-1.5">
+                    <input
+                      type="radio"
+                      name="header-source"
+                      checked={headerSource === source}
+                      onChange={() => setHeaderSource(source)}
+                    />
+                    {t(
+                      source === 'FILE'
+                        ? 'form.cabecalho.fonteArquivo'
+                        : 'form.cabecalho.fonteLink',
+                    )}
+                  </label>
+                ))}
+              </div>
+
+              {headerSource === 'FILE' ? (
+                <>
+                  <Label>{t('form.cabecalho.arquivo')}</Label>
+                  <Input
+                    type="file"
+                    accept={HEADER_IMAGE_TYPES.join(',')}
+                    onChange={e =>
+                      setHeaderImageFile(e.target.files?.[0] ?? null)
+                    }
+                  />
+                </>
+              ) : (
+                <>
+                  <Label>{t('form.cabecalho.exemplo')}</Label>
+                  <Input
+                    type="url"
+                    value={headerImageUrl}
+                    placeholder="https://..."
+                    onChange={e => setHeaderImageUrl(e.target.value)}
+                  />
+                </>
+              )}
               <span
                 className={`text-xs ${
-                  headerImageUrl.trim() && headerViolation
+                  headerTouched && headerViolation
                     ? 'text-destructive'
                     : 'text-muted-foreground'
                 }`}
               >
-                {headerImageUrl.trim() && headerViolation
+                {headerTouched && headerViolation
                   ? t(`form.cabecalho.erros.${headerViolation}`)
-                  : t('form.cabecalho.exemploHint')}
+                  : t(
+                      headerSource === 'FILE'
+                        ? 'form.cabecalho.arquivoHint'
+                        : 'form.cabecalho.exemploHint',
+                    )}
               </span>
               {headerPreviewUrl ? (
                 <img

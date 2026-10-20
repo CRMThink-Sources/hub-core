@@ -4,6 +4,7 @@ import { Request } from 'express'
 import {
   CreateConnectorTemplateUseCase,
   InvalidTemplateError,
+  InvalidTemplateHeaderImageError,
 } from '@/modules/thinkzap/application/create-connector-template'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import {
@@ -201,6 +202,122 @@ describe('CreateTemplateController', () => {
     )
     expect(headerImageRejectionMessage({ error: { code: 3801 } })).toBeNull()
     expect(headerImageRejectionMessage({ message: 'invalid' })).toBeNull()
+  })
+
+  describe('multipart com arquivo', () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47])
+    const multipartReq = (payload: unknown) =>
+      Object.assign(makeReq({ payload: JSON.stringify(payload) }), {
+        file: { buffer: png },
+      }) as unknown as Request
+
+    it('lê o JSON de payload e repassa os bytes do arquivo', async () => {
+      const { controller, useCase } = makeController(() =>
+        Promise.resolve({
+          id: 'tpl_1',
+          status: 'PENDING',
+          category: 'MARKETING',
+        }),
+      )
+
+      const res = await controller.perform(
+        multipartReq({
+          ...validBody,
+          category: 'MARKETING',
+          components: [
+            { type: 'HEADER', format: 'IMAGE' },
+            ...validBody.components,
+          ],
+        }),
+      )
+
+      expect(res.status).toBe(200)
+      expect(useCase.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          components: [
+            { type: 'HEADER', format: 'IMAGE' },
+            { type: 'BODY', text: 'Olá {{1}}' },
+          ],
+          headerImageFile: { data: png },
+        }),
+      )
+    })
+
+    it('400 com payload que não é JSON', async () => {
+      const { controller, useCase } = makeController(() => Promise.resolve({}))
+
+      const res = await controller.perform(
+        Object.assign(makeReq({ payload: '{quebrado' }), {
+          file: { buffer: png },
+        }) as unknown as Request,
+      )
+
+      expect(res.status).toBe(400)
+      expect(useCase.execute).not.toHaveBeenCalled()
+    })
+
+    it('400 com arquivo e link ao mesmo tempo, vindo do use case', async () => {
+      const { controller } = makeController(() =>
+        Promise.reject(
+          new InvalidTemplateHeaderImageError(
+            'Envie o arquivo da imagem de exemplo ou informe o link, não os dois',
+          ),
+        ),
+      )
+
+      const res = await controller.perform(
+        multipartReq({
+          ...validBody,
+          components: [
+            {
+              type: 'HEADER',
+              format: 'IMAGE',
+              example: { imageUrl: 'https://loja.com/a.png' },
+            },
+            ...validBody.components,
+          ],
+        }),
+      )
+
+      expect(res.status).toBe(400)
+      expect((res.result as { error: string }).error).toContain('não os dois')
+    })
+
+    it('JSON sem arquivo continua igual', async () => {
+      const { controller, useCase } = makeController(() =>
+        Promise.resolve({
+          id: 'tpl_1',
+          status: 'PENDING',
+          category: 'UTILITY',
+        }),
+      )
+
+      await controller.perform(makeReq(validBody))
+
+      const [input] = vi.mocked(useCase.execute).mock.calls[0] ?? []
+      expect(input).not.toHaveProperty('headerImageFile')
+    })
+  })
+
+  it('400 sugerindo o link quando falta credencial do app da Meta no upload', async () => {
+    const { controller } = makeController(() =>
+      Promise.reject(
+        new HubMessageApiError(
+          422,
+          'POST',
+          '/whatsapp/businesses/w/templates/media',
+          { code: 'MISSING_APP_CREDENTIALS' },
+          new Error('x'),
+        ),
+      ),
+    )
+
+    const res = await controller.perform(makeReq(validBody))
+
+    expect(res.status).toBe(400)
+    expect((res.result as { error: string }).error).toContain(
+      'Use um link público',
+    )
   })
 
   it('400 propagando mensagem da Meta em HubMessageApiError', async () => {

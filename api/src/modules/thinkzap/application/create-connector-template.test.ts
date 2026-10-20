@@ -302,6 +302,69 @@ describe('CreateConnectorTemplateUseCase', () => {
     expect(sut.provider.createTemplate).not.toHaveBeenCalled()
   })
 
+  describe('imagem de exemplo por arquivo', () => {
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(300 * 1024),
+    ])
+    const fileInput = (data: Buffer) => ({
+      ...validInput,
+      category: 'MARKETING' as const,
+      components: [
+        { type: 'HEADER' as const, format: 'IMAGE' },
+        ...validInput.components,
+      ],
+      headerImageFile: { data },
+    })
+
+    it('repassa o PNG ao provider sem baixar link', async () => {
+      const sut = makeSut()
+
+      await sut.useCase.execute(fileInput(png))
+
+      expect(sut.sampleImageFetcher.fetch).not.toHaveBeenCalled()
+      expect(sut.provider.createTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headerSampleImage: { data: png, contentType: 'image/png' },
+        }),
+      )
+    })
+
+    it('recusa PDF renomeado para .png sem chamar o provider', async () => {
+      const sut = makeSut()
+
+      await expect(
+        sut.useCase.execute(fileInput(Buffer.from('%PDF-1.7 ...'))),
+      ).rejects.toThrow('JPEG ou PNG')
+      expect(sut.provider.createTemplate).not.toHaveBeenCalled()
+    })
+
+    it('recusa arquivo de 6 MB', async () => {
+      const sut = makeSut()
+      const big = Buffer.concat([png, Buffer.alloc(6 * 1024 * 1024)])
+
+      await expect(sut.useCase.execute(fileInput(big))).rejects.toThrow(
+        'passa de 5 MB',
+      )
+      expect(sut.provider.createTemplate).not.toHaveBeenCalled()
+    })
+
+    it('recusa arquivo junto com link', async () => {
+      const sut = makeSut()
+
+      await expect(
+        sut.useCase.execute({
+          ...fileInput(png),
+          components: [
+            imageHeader('https://loja.com/a.png'),
+            ...validInput.components,
+          ],
+        }),
+      ).rejects.toBeInstanceOf(InvalidTemplateHeaderImageError)
+      expect(sut.provider.createTemplate).not.toHaveBeenCalled()
+    })
+  })
+
   it('rejeita idioma vazio', async () => {
     const sut = makeSut()
 

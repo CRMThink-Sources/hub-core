@@ -8,6 +8,8 @@
  * o `wabaId` já resolvido a partir do conector.
  */
 
+import type { TemplateSampleImage } from './template-sample-image-fetcher.port'
+
 /** Categoria exigida pela Meta na criação do template. */
 export type TemplateCategory = 'UTILITY' | 'MARKETING' | 'AUTHENTICATION'
 
@@ -60,6 +62,12 @@ export type CreateTemplateInput = {
   category: TemplateCategory
   language: string
   components: TemplateComponent[]
+  /**
+   * Imagem de exemplo do cabeçalho enviada como arquivo (já validada). Ausente
+   * quando o exemplo vem por link, em `example.imageUrl` do `HEADER`. O adapter
+   * decide como entregá-la ao provider.
+   */
+  headerSampleImage?: TemplateSampleImage
 }
 
 /** Resultado do cadastro: id remoto criado e status inicial (normalmente PENDING). */

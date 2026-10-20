@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   headerImageExampleOf,
   isMetaCdnUrl,
+  sniffTemplateImageType,
   templateHeaderOf,
   validateTemplateHeader,
 } from './template-header'
@@ -110,6 +111,55 @@ describe('validateTemplateHeader', () => {
     expect(
       codes([imageHeader('https://scontent.whatsapp.net/v/t61/abc.jpg'), body]),
     ).toEqual(['example_meta_cdn'])
+  })
+})
+
+describe('validateTemplateHeader com arquivo', () => {
+  const withFile = (components: Parameters<typeof validateTemplateHeader>[0]) =>
+    validateTemplateHeader(components, 'MARKETING', { hasFile: true }).map(
+      v => v.code,
+    )
+
+  it('cabeçalho de imagem sem imageUrl é válido com arquivo', () => {
+    expect(withFile([{ type: 'HEADER', format: 'IMAGE' }, body])).toEqual([])
+  })
+
+  it('example_conflict com arquivo e URL ao mesmo tempo', () => {
+    expect(withFile([imageHeader('https://loja.com/a.png'), body])).toEqual([
+      'example_conflict',
+    ])
+  })
+
+  it('file_without_header com arquivo e sem cabeçalho', () => {
+    expect(withFile([body])).toEqual(['file_without_header'])
+  })
+
+  it('Autenticação continua recusada', () => {
+    expect(
+      validateTemplateHeader(
+        [{ type: 'HEADER', format: 'IMAGE' }, body],
+        'AUTHENTICATION',
+        { hasFile: true },
+      ).map(v => v.code),
+    ).toEqual(['header_not_allowed'])
+  })
+})
+
+describe('sniffTemplateImageType', () => {
+  it('reconhece JPEG e PNG pela assinatura', () => {
+    expect(sniffTemplateImageType(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBe(
+      'image/jpeg',
+    )
+    expect(
+      sniffTemplateImageType(
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]),
+      ),
+    ).toBe('image/png')
+  })
+
+  it('PDF renomeado não passa', () => {
+    expect(sniffTemplateImageType(Buffer.from('%PDF-1.7'))).toBeNull()
+    expect(sniffTemplateImageType(Buffer.alloc(0))).toBeNull()
   })
 })
 

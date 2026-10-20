@@ -12,10 +12,13 @@ import {
 } from '@/modules/thinkzap/domain/template-buttons'
 import {
   headerImageExampleOf,
+  sniffTemplateImageType,
   TemplateHeaderViolation,
   validateTemplateHeader,
 } from '@/modules/thinkzap/domain/template-header'
 import {
+  TEMPLATE_SAMPLE_IMAGE_MAX_BYTES,
+  TemplateSampleImage,
   TemplateSampleImageError,
   TemplateSampleImageFailure,
   TemplateSampleImageFetcher,
@@ -57,6 +60,12 @@ export type CreateConnectorTemplateInput = {
   category: TemplateCategory
   language: string
   components: TemplateComponent[]
+  /**
+   * Arquivo da imagem de exemplo, quando o operador enviou um em vez do link.
+   * Só os bytes: o tipo é decidido pela assinatura, não pelo que o navegador
+   * declarou.
+   */
+  headerImageFile?: { data: Buffer }
 }
 
 /** Cadastra um template de um conector oficial (submete à aprovação da Meta). */
@@ -69,7 +78,10 @@ export class CreateConnectorTemplateUseCase {
 
   async execute(input: CreateConnectorTemplateInput): Promise<CreatedTemplate> {
     this.validate(input)
-    await this.assertSampleImage(input.components)
+    const headerSampleImage = input.headerImageFile
+      ? sampleImageFromFile(input.headerImageFile.data)
+      : undefined
+    if (!headerSampleImage) await this.assertSampleImage(input.components)
 
     /**
      * `requireEnabled`: cadastrar template é escrita no provider, e a linha
@@ -90,6 +102,7 @@ export class CreateConnectorTemplateUseCase {
       category: input.category,
       language: input.language,
       components: input.components,
+      ...(headerSampleImage ? { headerSampleImage } : {}),
     })
   }
 
@@ -124,6 +137,7 @@ export class CreateConnectorTemplateUseCase {
     const [headerViolation] = validateTemplateHeader(
       input.components,
       input.category,
+      { hasFile: Boolean(input.headerImageFile) },
     )
     if (headerViolation) {
       throw new InvalidTemplateHeaderImageError(
@@ -155,6 +169,24 @@ export class CreateConnectorTemplateUseCase {
   }
 }
 
+/**
+ * O arquivo enviado passa pelas mesmas travas da imagem baixada pelo link: até
+ * 5 MB e JPEG/PNG — aqui pela assinatura, porque o tipo do upload é declarado
+ * pelo navegador.
+ */
+function sampleImageFromFile(data: Buffer): TemplateSampleImage {
+  if (data.length > TEMPLATE_SAMPLE_IMAGE_MAX_BYTES) {
+    throw new InvalidTemplateHeaderImageError(SAMPLE_IMAGE_MESSAGES.too_large)
+  }
+  const contentType = sniffTemplateImageType(data)
+  if (!contentType) {
+    throw new InvalidTemplateHeaderImageError(
+      SAMPLE_IMAGE_MESSAGES.invalid_type,
+    )
+  }
+  return { data, contentType }
+}
+
 const META_CDN_MESSAGE =
   'Link do WhatsApp/Meta não vale como imagem de exemplo: use o link do próprio arquivo da imagem'
 
@@ -166,6 +198,10 @@ const HEADER_VIOLATION_MESSAGES: Record<
   too_many_headers: 'Template aceita no máximo um cabeçalho',
   unsupported_format: 'O cabeçalho do template só pode ser uma imagem',
   example_required: 'Cabeçalho de imagem exige uma imagem de exemplo',
+  example_conflict:
+    'Envie o arquivo da imagem de exemplo ou informe o link, não os dois',
+  file_without_header:
+    'Arquivo de imagem enviado sem cabeçalho de imagem no template',
   example_not_https: 'A imagem de exemplo precisa ser uma URL https',
   example_meta_cdn: META_CDN_MESSAGE,
 }
