@@ -9,6 +9,8 @@ type IBX24Auth = {
   client_endpoint: string
   member_id: string
   user_id: string
+  /** Opcional pela doc do evento: os tokens nem sempre vêm. */
+  refresh_token?: string
   application_token: string
 }
 

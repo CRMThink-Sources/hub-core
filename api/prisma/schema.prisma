@@ -387,6 +387,10 @@ model ThinkzapMessage {
   text              String?               @db.Text
   fileName          String?               @map("file_name")
   chatId            String?               @map("chat_id")
+  /// Autor no Bitrix: em row `BITRIX`, o operador que respondeu (`message.user_id` do
+  /// `ONIMCONNECTORMESSAGEADD`); em row `ZAPI` espelhada do aparelho, o operador como
+  /// quem a cópia foi postada (`null` = postada como o contato).
+  bitrixUserId      String?               @map("bitrix_user_id")
   createdAt         DateTime              @default(now()) @map("created_at")
   updatedAt         DateTime              @updatedAt @map("updated_at")
 
@@ -402,6 +406,9 @@ model ThinkzapMessage {
   /// Busca de "conversa existente" do espelhamento de mensagens enviadas pelo
   /// aparelho: a row mais recente da identidade com `bitrixChatId` gravado.
   @@index([instanceId, chatId])
+  /// Operador da sessão do espelhamento: a row `BITRIX` mais recente do chat do canal
+  /// aberto com `bitrixUserId` gravado.
+  @@index([bitrixChatId, createdAt])
   @@map("core_thinkerszap_messages")
 }
 

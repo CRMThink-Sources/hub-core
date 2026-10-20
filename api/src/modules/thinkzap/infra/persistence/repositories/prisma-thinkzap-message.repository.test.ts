@@ -246,3 +246,50 @@ describe('PrismaThinkzapMessageRepository.findLatestOpenChannelChat', () => {
     expect(await sut().findLatestOpenChannelChat('inst-1', 'x')).toBeNull()
   })
 })
+
+describe('PrismaThinkzapMessageRepository.findLatestOperatorForChat', () => {
+  beforeEach(() => {
+    findFirstMock.mockReset()
+  })
+
+  it('busca a resposta de operador mais recente do chat, só em row BITRIX', async () => {
+    findFirstMock.mockResolvedValueOnce({ bitrixUserId: '27' })
+
+    expect(await sut().findLatestOperatorForChat('inst-1', '777')).toBe('27')
+    expect(findFirstMock).toHaveBeenCalledWith({
+      where: {
+        bitrixChatId: '777',
+        instanceId: 'inst-1',
+        source: 'BITRIX',
+        bitrixUserId: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { bitrixUserId: true },
+    })
+  })
+
+  it('devolve null quando nenhum operador respondeu', async () => {
+    findFirstMock.mockResolvedValueOnce(null)
+
+    expect(await sut().findLatestOperatorForChat('inst-1', '777')).toBeNull()
+  })
+})
+
+describe('PrismaThinkzapMessageRepository.create — autor no Bitrix', () => {
+  beforeEach(() => {
+    upsertMock.mockReset()
+  })
+
+  it('grava o autor e o deixa atualizável por um segundo write', async () => {
+    await sut().create({
+      instanceId: 'inst-1',
+      source: 'BITRIX',
+      providerMessageId: 'Z-1',
+      type: 'TEXT',
+      bitrixUserId: '27',
+    })
+
+    expect(upsertArgs().create).toMatchObject({ bitrixUserId: '27' })
+    expect(updatePayload()).toMatchObject({ bitrixUserId: '27' })
+  })
+})
