@@ -12,6 +12,7 @@ const gravado: AjustesEditaveis = {
   settings: {
     prefixOperatorNameEnabled: false,
     widgetOpenChannelEnabled: true,
+    deviceMessageMirrorEnabled: false,
   },
 }
 
@@ -149,5 +150,16 @@ describe('limite diário', () => {
       ativo: false,
       valor: '',
     })
+  })
+})
+
+describe('contarAlteracoes (espelhamento do aparelho)', () => {
+  it('conta o toggle de espelhamento como uma alteração', () => {
+    expect(
+      contarAlteracoes(
+        gravado,
+        com({ settings: { deviceMessageMirrorEnabled: true } }),
+      ),
+    ).toBe(1)
   })
 })

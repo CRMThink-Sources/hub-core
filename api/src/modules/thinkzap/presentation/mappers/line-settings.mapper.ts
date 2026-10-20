@@ -42,6 +42,8 @@ export const mapLineSettingsToView = (
       reading.settings.widgetOpenChannelEnabled === true,
     dailyLimitEnabled: reading.settings.dailyLimitEnabled === true,
     dailyLimit: reading.settings.dailyLimit ?? null,
+    deviceMessageMirrorEnabled:
+      reading.settings.deviceMessageMirrorEnabled === true,
   },
   ...(reading.provider === 'ZAPI' ? { dailyLimit: reading.dailyLimit } : {}),
 })

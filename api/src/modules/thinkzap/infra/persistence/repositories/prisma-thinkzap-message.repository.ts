@@ -207,6 +207,25 @@ export class PrismaThinkzapMessageRepository {
     return row ? mapRow(row) : null
   }
 
+  /**
+   * A conversa do canal aberto que esta identidade já tem na linha: a row mais
+   * recente com `bitrixChatId` gravado, ou `null` quando o contato (ou grupo) nunca
+   * chegou ao canal aberto por esta linha.
+   *
+   * É o critério de "conversa existente" do espelhamento de mensagens enviadas pelo
+   * aparelho — mensagem saída do celular não abre conversa nova.
+   */
+  async findLatestOpenChannelChat(
+    instanceId: string,
+    chatId: string,
+  ): Promise<ThinkzapMessageRecord | null> {
+    const row = await prisma.thinkzapMessage.findFirst({
+      where: { instanceId, chatId, bitrixChatId: { not: null } },
+      orderBy: { createdAt: 'desc' },
+    })
+    return row ? mapRow(row) : null
+  }
+
   async updateBitrixMessageId(
     id: string,
     bitrixMessageId: string,

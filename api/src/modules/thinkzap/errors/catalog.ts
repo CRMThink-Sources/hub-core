@@ -54,6 +54,15 @@ export const THINKZAP_ERRORS = {
     retriable: true,
     httpStatus: 502,
   },
+  'thinkzap.zapi.notify_sent_by_me_failed': {
+    category: 'integration',
+    userCause:
+      'A z-api recusou a alteração do espelhamento das mensagens enviadas pelo aparelho.',
+    remediation:
+      'Tentar de novo em instantes; se persistir, verificar status da z-api. Nada foi gravado nos ajustes da linha.',
+    retriable: true,
+    httpStatus: 502,
+  },
   'thinkzap.zapi.instance_list_failed': {
     category: 'integration',
     userCause: 'A z-api não respondeu à listagem de linhas.',

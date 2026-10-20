@@ -61,6 +61,7 @@ describe('settingsToMigrate', () => {
       ...full,
       dailyLimitEnabled: false,
       dailyLimit: null,
+      deviceMessageMirrorEnabled: false,
     })
   })
 
@@ -82,6 +83,7 @@ describe('settingsToMigrate', () => {
       widgetOpenChannelEnabled: true,
       dailyLimitEnabled: false,
       dailyLimit: null,
+      deviceMessageMirrorEnabled: false,
     })
   })
 

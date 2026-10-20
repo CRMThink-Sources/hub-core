@@ -4,6 +4,7 @@ import type { LineSettingsToggles } from '@/app/hooks/use-line-api'
 export const TOGGLE_KEYS = [
   'prefixOperatorNameEnabled',
   'widgetOpenChannelEnabled',
+  'deviceMessageMirrorEnabled',
 ] as const
 
 export type ToggleKey = (typeof TOGGLE_KEYS)[number]

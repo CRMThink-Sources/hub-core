@@ -52,6 +52,8 @@ export type LineSettingsToggles = {
   dailyLimitEnabled: boolean
   /** Inteiro > 0 quando ligado; `null` = nunca configurado. */
   dailyLimit: number | null
+  /** Espelha no canal aberto o que é enviado do aparelho — só a linha não oficial. */
+  deviceMessageMirrorEnabled: boolean
 }
 
 /**

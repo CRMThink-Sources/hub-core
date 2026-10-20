@@ -153,6 +153,7 @@ export const makeUpdateLineSettingsController = (): Controller => {
   const updateLineSettings = new UpdateLineSettings(
     new RenameLineOnProviderUseCase(new ZApiInstanceGateway(zApiClient)),
     subscriptionItems,
+    zApiClient,
   )
 
   return new UpdateLineSettingsController(

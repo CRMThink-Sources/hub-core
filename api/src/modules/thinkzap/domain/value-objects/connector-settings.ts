@@ -21,6 +21,12 @@ export type ConnectorSettings = {
   dailyLimitEnabled: boolean
   /** Inteiro > 0 quando ligado. `null` = nunca configurado. */
   dailyLimit: number | null
+  /**
+   * Espelha no canal aberto o que o cliente envia do próprio aparelho (celular ou
+   * WhatsApp Web), só na linha não oficial (Z-API). Desligado por padrão: ligar exige
+   * ativar na instância a notificação de "enviadas por mim".
+   */
+  deviceMessageMirrorEnabled: boolean
 }
 
 export const DEFAULT_CONNECTOR_SETTINGS: ConnectorSettings = {
@@ -28,4 +34,5 @@ export const DEFAULT_CONNECTOR_SETTINGS: ConnectorSettings = {
   widgetOpenChannelEnabled: false,
   dailyLimitEnabled: false,
   dailyLimit: null,
+  deviceMessageMirrorEnabled: false,
 }

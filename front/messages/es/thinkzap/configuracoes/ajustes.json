@@ -58,7 +58,9 @@
     "prefixOperatorNameHint": "Incluye el nombre de quien atiende antes del mensaje enviado.",
     "widgetOpenChannel": "Enviar al canal abierto",
     "widgetOpenChannelHint": "Los mensajes enviados por el widget también van al canal abierto.",
-    "widgetOpenChannelSemCanal": "Vincula un canal abierto para habilitar."
+    "widgetOpenChannelSemCanal": "Vincula un canal abierto para habilitar.",
+    "deviceMessageMirror": "Reflejar mensajes enviados desde el dispositivo",
+    "deviceMessageMirrorHint": "Los mensajes enviados desde el celular o WhatsApp Web aparecen en el canal abierto, solo en conversaciones que ya existen en él."
   },
   "bloqueada": {
     "trialTitulo": "Período de prueba finalizado",
