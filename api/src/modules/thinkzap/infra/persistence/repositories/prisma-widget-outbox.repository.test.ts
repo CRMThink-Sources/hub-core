@@ -37,6 +37,7 @@ const dbRow = (overrides: Record<string, unknown> = {}) => ({
   templateLanguage: 'pt_BR',
   templateParameters: ['Maria'],
   templateButtonParameters: null,
+  templateHeaderImageUrl: null,
   buttonPayload: null,
   status: 'PENDING',
   providerMessageId: null,

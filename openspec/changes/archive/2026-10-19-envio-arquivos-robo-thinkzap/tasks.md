@@ -23,5 +23,5 @@
 
 ## 5. Integração
 
-- [ ] 5.1 Em homologação, reexecutar o registro do robô num portal que já tinha o robô e confirmar que a propriedade Arquivo aparece e que um robô antigo continua enviando só texto. Disparar os cenários do spec (pdf com legenda, áudio, dois arquivos, arquivo de campo do negócio) numa linha Z-API. Verificar: mensagens chegam no WhatsApp com tipo e legenda corretos, e o comentário na timeline lista os arquivos.
+- [x] 5.1 Em homologação, reexecutar o registro do robô num portal que já tinha o robô e confirmar que a propriedade Arquivo aparece e que um robô antigo continua enviando só texto. Disparar os cenários do spec (pdf com legenda, áudio, dois arquivos, arquivo de campo do negócio) numa linha Z-API. Verificar: mensagens chegam no WhatsApp com tipo e legenda corretos, e o comentário na timeline lista os arquivos.
 - [x] 5.2 Rodar `yarn test` e `yarn lint` em `api/`. Verificar: tudo passa.

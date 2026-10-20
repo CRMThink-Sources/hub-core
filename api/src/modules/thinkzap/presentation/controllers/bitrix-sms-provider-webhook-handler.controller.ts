@@ -328,6 +328,24 @@ export class BitrixSmsProviderWebhookHandlerController extends Controller {
       )
     }
 
+    /**
+     * Mesmo caso do botão dinâmico: a Meta exige a imagem em todo envio, e a
+     * campanha não tem onde informá-la.
+     */
+    if (template.header?.type === 'IMAGE') {
+      return this.refuse(
+        senderCode,
+        messageId,
+        'template-image-header-unsupported',
+        {
+          subscriptionItemId: scope.subscriptionItemId,
+          templateName,
+          language,
+        },
+        'thinkzap.template.image_header_not_supported',
+      )
+    }
+
     const expected = countTemplatePlaceholders(template.body)
     if (expected !== bodyParameters.length) {
       return this.refuse(senderCode, messageId, 'parameter-count-mismatch', {
@@ -399,8 +417,12 @@ export class BitrixSmsProviderWebhookHandlerController extends Controller {
     messageId: string,
     reason: string,
     context: Record<string, unknown>,
+    /** Código do log; o genérico da campanha, salvo recusa com runbook próprio. */
+    errorCode: Parameters<
+      typeof logThinkzapError
+    >[1] = 'thinkzap.bitrix.sms_campaign_refused',
   ): Promise<httpResponse> {
-    logThinkzapError(apiLogger, 'thinkzap.bitrix.sms_campaign_refused', {
+    logThinkzapError(apiLogger, errorCode, {
       app: 'thinkzap',
       source: 'bitrix',
       code: senderCode,

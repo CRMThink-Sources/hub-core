@@ -112,6 +112,56 @@ describe('HubMessageTemplateSender', () => {
     ])
   })
 
+  it('monta HEADER de imagem antes de BODY e BUTTON', async () => {
+    const client = makeClient()
+
+    await makeSender(client).send({
+      templateName: 'promo',
+      language: 'pt_BR',
+      bodyParameters: ['Ana'],
+      buttonParameters: [{ index: 0, subType: 'URL', value: 'PED-1' }],
+      headerImageUrl: 'https://loja.com/a.png',
+    })
+
+    const params = vi.mocked(client.sendTemplateMessage).mock.calls[0]?.[1]
+    expect(params?.content.attachments[0]?.template.components).toEqual([
+      {
+        type: 'HEADER',
+        parameters: [
+          { type: 'image', image: { link: 'https://loja.com/a.png' } },
+        ],
+      },
+      { type: 'BODY', parameters: [{ type: 'text', text: 'Ana' }] },
+      {
+        type: 'BUTTON',
+        sub_type: 'url',
+        index: '0',
+        parameters: [{ type: 'text', text: 'PED-1' }],
+      },
+    ])
+  })
+
+  it('envia só o HEADER em template de imagem sem variável', async () => {
+    const client = makeClient()
+
+    await makeSender(client).send({
+      templateName: 'promo',
+      language: 'pt_BR',
+      bodyParameters: [],
+      headerImageUrl: 'https://loja.com/a.png',
+    })
+
+    const params = vi.mocked(client.sendTemplateMessage).mock.calls[0]?.[1]
+    expect(params?.content.attachments[0]?.template.components).toEqual([
+      {
+        type: 'HEADER',
+        parameters: [
+          { type: 'image', image: { link: 'https://loja.com/a.png' } },
+        ],
+      },
+    ])
+  })
+
   it('envia o código do cupom em botão de copiar código', async () => {
     const client = makeClient()
 

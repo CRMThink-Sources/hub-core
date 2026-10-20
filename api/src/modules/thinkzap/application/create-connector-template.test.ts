@@ -8,8 +8,13 @@ import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-fou
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import {
+  TemplateSampleImageError,
+  TemplateSampleImageFetcher,
+} from '@/modules/thinkzap/domain/ports/template-sample-image-fetcher.port'
+import {
   CreateConnectorTemplateUseCase,
   InvalidTemplateError,
+  InvalidTemplateHeaderImageError,
 } from './create-connector-template'
 
 /** `wabaId` vem do item da SPA — nem `Connector` nem `Instance` participam. */
@@ -55,7 +60,9 @@ function makeProvider(overrides: Partial<WhatsAppTemplateProvider> = {}) {
   } as unknown as WhatsAppTemplateProvider
 }
 
-function makeSut(opts: { items?: SubscriptionItem[] } = {}) {
+function makeSut(
+  opts: { items?: SubscriptionItem[]; fetch?: ReturnType<typeof vi.fn> } = {},
+) {
   const provider = makeProvider()
 
   const getAplicationContext = {
@@ -72,14 +79,31 @@ function makeSut(opts: { items?: SubscriptionItem[] } = {}) {
     resolve: vi.fn().mockReturnValue(provider),
   } as unknown as TemplateProviderResolver
 
+  const sampleImageFetcher = {
+    fetch:
+      opts.fetch ??
+      vi.fn().mockResolvedValue({
+        data: Buffer.from('png'),
+        contentType: 'image/png',
+      }),
+  } as unknown as TemplateSampleImageFetcher
+
   return {
     provider,
+    sampleImageFetcher,
     useCase: new CreateConnectorTemplateUseCase(
       getAplicationContext,
       templateProviderResolver,
+      sampleImageFetcher,
     ),
   }
 }
+
+const imageHeader = (imageUrl: string) => ({
+  type: 'HEADER' as const,
+  format: 'IMAGE',
+  example: { imageUrl },
+})
 
 const validInput = {
   subscriptionItemId: 'item_1',
@@ -180,6 +204,102 @@ describe('CreateConnectorTemplateUseCase', () => {
         ],
       }),
     ).rejects.toThrow('Templates de autenticação não aceitam botões')
+  })
+
+  it('baixa a imagem de exemplo e repassa o cabeçalho ao provider', async () => {
+    const sut = makeSut()
+    const header = imageHeader('https://loja.com/banner.png')
+
+    await sut.useCase.execute({
+      ...validInput,
+      category: 'MARKETING',
+      components: [header, ...validInput.components],
+    })
+
+    expect(sut.sampleImageFetcher.fetch).toHaveBeenCalledWith(
+      'https://loja.com/banner.png',
+    )
+    expect(sut.provider.createTemplate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        components: [header, { type: 'BODY', text: 'Olá {{1}}' }],
+      }),
+    )
+  })
+
+  it('não baixa nada em template sem cabeçalho', async () => {
+    const sut = makeSut()
+
+    await sut.useCase.execute(validInput)
+
+    expect(sut.sampleImageFetcher.fetch).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      'cabeçalho em Autenticação',
+      'AUTHENTICATION' as const,
+      [imageHeader('https://loja.com/a.png')],
+      'Templates de autenticação não aceitam cabeçalho',
+    ],
+    [
+      'dois cabeçalhos',
+      'MARKETING' as const,
+      [
+        imageHeader('https://loja.com/a.png'),
+        imageHeader('https://loja.com/b.png'),
+      ],
+      'no máximo um cabeçalho',
+    ],
+    [
+      'exemplo sem https',
+      'MARKETING' as const,
+      [imageHeader('http://loja.com/a.png')],
+      'URL https',
+    ],
+    [
+      'exemplo do CDN da Meta',
+      'MARKETING' as const,
+      [imageHeader('https://scontent.whatsapp.net/v/t61/abc.jpg')],
+      'Link do WhatsApp/Meta',
+    ],
+  ])(
+    'rejeita %s sem baixar nem chamar o provider',
+    async (_, category, headers, message) => {
+      const sut = makeSut()
+
+      const error: unknown = await sut.useCase
+        .execute({
+          ...validInput,
+          category,
+          components: [...headers, ...validInput.components],
+        })
+        .catch((e: unknown) => e)
+
+      expect(error).toBeInstanceOf(InvalidTemplateHeaderImageError)
+      expect((error as Error).message).toContain(message)
+      expect(sut.sampleImageFetcher.fetch).not.toHaveBeenCalled()
+      expect(sut.provider.createTemplate).not.toHaveBeenCalled()
+    },
+  )
+
+  it('rejeita imagem de exemplo maior que 5 MB sem chamar o provider', async () => {
+    const sut = makeSut({
+      fetch: vi
+        .fn()
+        .mockRejectedValue(new TemplateSampleImageError('too_large')),
+    })
+
+    await expect(
+      sut.useCase.execute({
+        ...validInput,
+        category: 'MARKETING',
+        components: [
+          imageHeader('https://loja.com/grande.png'),
+          ...validInput.components,
+        ],
+      }),
+    ).rejects.toThrow('A imagem de exemplo passa de 5 MB')
+    expect(sut.provider.createTemplate).not.toHaveBeenCalled()
   })
 
   it('rejeita idioma vazio', async () => {

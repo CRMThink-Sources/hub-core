@@ -24,6 +24,7 @@ export type TemplateRobotProperties = {
   templateBody: RobotProperty
   templateParameters: RobotProperty
   templateButtonParameters: RobotProperty
+  templateHeaderImageUrl: RobotProperty
 }
 
 export type TemplateRobotAddParams = {
@@ -124,6 +125,18 @@ function templateRobotProperties(): TemplateRobotProperties {
       Type: 'string',
       Required: 'N',
       Multiple: 'Y',
+      Default: '',
+    },
+    /**
+     * URL pública `https` da imagem do cabeçalho, para template com cabeçalho de
+     * imagem — valor fixo ou campo do documento. Robô instalado antes dela ganha a
+     * propriedade no próximo `bizproc.robot.update`.
+     */
+    templateHeaderImageUrl: {
+      Name: 'Imagem do cabeçalho',
+      Description: 'URL pública (https) da imagem, para template com imagem',
+      Type: 'string',
+      Required: 'N',
       Default: '',
     },
   }

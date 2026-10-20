@@ -8,6 +8,7 @@ import {
   TemplateSendNotSupportedError,
   TemplatesNotSupportedError,
 } from '@/modules/thinkzap/domain/ports/template-errors'
+import { isHttpsUrl } from '@/modules/thinkzap/domain/template-header'
 import { mapWidgetSendError } from '@/modules/thinkzap/presentation/helpers/handle-widget-send-error'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
@@ -49,6 +50,12 @@ const schema = z.object({
       }),
     )
     .default([]),
+  /** Imagem do cabeçalho, só em template com cabeçalho de imagem. Só `https`. */
+  headerImageUrl: z
+    .string()
+    .trim()
+    .refine(isHttpsUrl, 'headerImageUrl must be an https URL')
+    .optional(),
   templateBody: z.string().default(''),
   entity: z.string().min(1),
   entityId: z.string().min(1),

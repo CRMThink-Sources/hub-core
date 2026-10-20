@@ -21,6 +21,8 @@ export type SendWidgetTemplateInput = {
    * template sem botão dinâmico.
    */
   buttonParameters?: TemplateButtonParameter[]
+  /** URL `https` da imagem do cabeçalho; ausente em template sem imagem. */
+  headerImageUrl?: string
   /** Corpo do template como listado, com os placeholders intactos. */
   templateBody: string
   entity: string

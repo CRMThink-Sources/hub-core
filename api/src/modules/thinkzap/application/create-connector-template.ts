@@ -10,6 +10,16 @@ import {
   TemplateButtonViolation,
   validateTemplateButtons,
 } from '@/modules/thinkzap/domain/template-buttons'
+import {
+  headerImageExampleOf,
+  TemplateHeaderViolation,
+  validateTemplateHeader,
+} from '@/modules/thinkzap/domain/template-header'
+import {
+  TemplateSampleImageError,
+  TemplateSampleImageFailure,
+  TemplateSampleImageFetcher,
+} from '@/modules/thinkzap/domain/ports/template-sample-image-fetcher.port'
 import { resolveTemplateContext } from './helpers/resolve-template-context'
 
 /** Erro de validação de dados do template antes de submeter ao provider. */
@@ -17,6 +27,17 @@ export class InvalidTemplateError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'InvalidTemplateError'
+  }
+}
+
+/**
+ * Cabeçalho de imagem inválido ou imagem de exemplo que não serve. Subclasse para o
+ * controller registrar o código próprio do log, sem mudar a resposta (400).
+ */
+export class InvalidTemplateHeaderImageError extends InvalidTemplateError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'InvalidTemplateHeaderImageError'
   }
 }
 
@@ -43,10 +64,12 @@ export class CreateConnectorTemplateUseCase {
   constructor(
     private readonly getAplicationContext: GetAplicationContext,
     private readonly templateProviderResolver: TemplateProviderResolver,
+    private readonly sampleImageFetcher: TemplateSampleImageFetcher,
   ) {}
 
   async execute(input: CreateConnectorTemplateInput): Promise<CreatedTemplate> {
     this.validate(input)
+    await this.assertSampleImage(input.components)
 
     /**
      * `requireEnabled`: cadastrar template é escrita no provider, e a linha
@@ -97,7 +120,64 @@ export class CreateConnectorTemplateUseCase {
     if (violation) {
       throw new InvalidTemplateError(buttonViolationMessage(violation))
     }
+
+    const [headerViolation] = validateTemplateHeader(
+      input.components,
+      input.category,
+    )
+    if (headerViolation) {
+      throw new InvalidTemplateHeaderImageError(
+        HEADER_VIOLATION_MESSAGES[headerViolation.code],
+      )
+    }
   }
+
+  /**
+   * Baixa a imagem de exemplo antes de chamar o provider: link que a Meta não
+   * consegue usar vira erro corrigível aqui, e não `2388215`/`380` depois.
+   */
+  private async assertSampleImage(
+    components: TemplateComponent[],
+  ): Promise<void> {
+    const imageUrl = headerImageExampleOf(components)
+    if (!imageUrl) return
+
+    try {
+      await this.sampleImageFetcher.fetch(imageUrl)
+    } catch (error) {
+      if (error instanceof TemplateSampleImageError) {
+        throw new InvalidTemplateHeaderImageError(
+          SAMPLE_IMAGE_MESSAGES[error.reason],
+        )
+      }
+      throw error
+    }
+  }
+}
+
+const META_CDN_MESSAGE =
+  'Link do WhatsApp/Meta não vale como imagem de exemplo: use o link do próprio arquivo da imagem'
+
+const HEADER_VIOLATION_MESSAGES: Record<
+  TemplateHeaderViolation['code'],
+  string
+> = {
+  header_not_allowed: 'Templates de autenticação não aceitam cabeçalho',
+  too_many_headers: 'Template aceita no máximo um cabeçalho',
+  unsupported_format: 'O cabeçalho do template só pode ser uma imagem',
+  example_required: 'Cabeçalho de imagem exige uma imagem de exemplo',
+  example_not_https: 'A imagem de exemplo precisa ser uma URL https',
+  example_meta_cdn: META_CDN_MESSAGE,
+}
+
+const SAMPLE_IMAGE_MESSAGES: Record<TemplateSampleImageFailure, string> = {
+  not_https: 'A imagem de exemplo precisa ser uma URL https',
+  meta_cdn: META_CDN_MESSAGE,
+  private_host: 'A imagem de exemplo precisa estar num endereço público',
+  unreachable:
+    'Não foi possível baixar a imagem de exemplo: confira se o link é público e aponta direto para o arquivo',
+  too_large: 'A imagem de exemplo passa de 5 MB',
+  invalid_type: 'A imagem de exemplo precisa ser um arquivo JPEG ou PNG',
 }
 
 const BUTTON_VIOLATION_MESSAGES: Record<

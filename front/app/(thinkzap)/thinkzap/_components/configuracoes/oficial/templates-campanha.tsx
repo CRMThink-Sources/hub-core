@@ -201,6 +201,11 @@ export function TemplatesCampanha({ itemId, bloqueada }: Props) {
                       {t('campanha.botaoDinamico')}
                     </p>
                   )}
+                  {template.hasImageHeader && (
+                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                      {t('campanha.cabecalhoImagem')}
+                    </p>
+                  )}
                 </div>
 
                 {/* Remover continua liberado: o provedor pode ter sido registrado antes dos botões. */}
@@ -211,7 +216,8 @@ export function TemplatesCampanha({ itemId, bloqueada }: Props) {
                     !available ||
                     bloqueada ||
                     pendente !== null ||
-                    (template.hasDynamicButton && !template.registered)
+                    ((template.hasDynamicButton || template.hasImageHeader) &&
+                      !template.registered)
                   }
                   onClick={() => {
                     void alternar(template)

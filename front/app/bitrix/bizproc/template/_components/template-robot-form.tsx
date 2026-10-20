@@ -8,6 +8,8 @@ import {
 import {
   dynamicButtons,
   extractTemplateVariables,
+  isHttpsUrl,
+  needsHeaderImage,
   resolveTemplatePreview,
 } from '@/app/(widgets)/layouts/template-variables'
 import {
@@ -227,10 +229,14 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
     item => templateKey(item) === selectedKey,
   )
   const buttonFields = dynamicButtons(catalogTemplate?.buttons)
+  const headerImageRequired = needsHeaderImage(catalogTemplate)
+  const headerImageLiteral =
+    config.headerImage.mode === 'literal' ? config.headerImage.value.trim() : ''
 
   const missing = validateConfig(
     config,
     catalogTemplate ? buttonFields.length : undefined,
+    headerImageRequired,
   )
 
   return (
@@ -249,6 +255,7 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
               template: null,
               values: {},
               buttonValues: [],
+              headerImage: { mode: 'literal', value: '' },
             })
           }
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
@@ -296,6 +303,13 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
               template: chosen ?? null,
               values: rebuildValues(chosen?.body ?? '', config.values),
               buttonValues: rebuildButtonValues(chosen?.buttons),
+              /**
+               * A imagem fica só se o template novo também pede uma; template sem
+               * imagem grava vazio, e o disparo não manda cabeçalho.
+               */
+              headerImage: needsHeaderImage(chosen)
+                ? config.headerImage
+                : { mode: 'literal', value: '' },
             })
           }}
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
@@ -351,6 +365,25 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
           onChange={destination => update({ ...config, destination })}
         />
       </section>
+
+      {headerImageRequired && (
+        <section className="grid gap-3">
+          <h2 className="text-sm font-semibold text-slate-800">
+            Imagem do cabeçalho
+          </h2>
+
+          <ValueField
+            label="URL da imagem"
+            hint="Link público https, direto para o arquivo JPEG ou PNG — fixo ou de um campo da entidade."
+            placeholder="https://..."
+            value={config.headerImage}
+            fields={documentFields}
+            onChange={(headerImage: FieldValue) =>
+              update({ ...config, headerImage })
+            }
+          />
+        </section>
+      )}
 
       {variables.length > 0 && (
         <section className="grid gap-3">
@@ -413,6 +446,20 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
           <p className="text-xs font-medium text-blue-900">
             Prévia da mensagem
           </p>
+          {headerImageRequired &&
+            (isHttpsUrl(headerImageLiteral) ? (
+              <img
+                src={headerImageLiteral}
+                alt="Imagem do cabeçalho"
+                className="mt-2 max-h-40 w-full rounded-lg bg-white object-cover"
+              />
+            ) : (
+              <div className="mt-2 flex h-20 items-center justify-center rounded-lg border border-dashed border-blue-200 bg-white text-xs text-blue-700">
+                {config.headerImage.mode === 'literal'
+                  ? 'Imagem do cabeçalho'
+                  : 'Imagem do cabeçalho (vem do campo da entidade)'}
+              </div>
+            ))}
           <p className="mt-1 whitespace-pre-wrap text-sm text-blue-950">
             {preview}
           </p>

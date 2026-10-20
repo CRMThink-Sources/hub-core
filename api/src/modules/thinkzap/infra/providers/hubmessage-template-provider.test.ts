@@ -94,6 +94,40 @@ describe('HubMessageTemplateProvider', () => {
     })
   })
 
+  it('traduz o cabeçalho de imagem neutro para header_handle com o link', async () => {
+    const client = makeClient()
+    const provider = new HubMessageTemplateProvider(client)
+
+    await provider.createTemplate({
+      wabaId: 'waba_1',
+      name: 'promo',
+      category: 'MARKETING',
+      language: 'pt_BR',
+      components: [
+        {
+          type: 'HEADER',
+          format: 'IMAGE',
+          example: { imageUrl: 'https://loja.com/banner.png' },
+        },
+        { type: 'BODY', text: 'Oferta {{1}}' },
+      ],
+    })
+
+    expect(client.createTemplate).toHaveBeenCalledWith(
+      'waba_1',
+      expect.objectContaining({
+        components: [
+          {
+            type: 'HEADER',
+            format: 'IMAGE',
+            example: { header_handle: ['https://loja.com/banner.png'] },
+          },
+          { type: 'BODY', text: 'Oferta {{1}}' },
+        ],
+      }),
+    )
+  })
+
   it('repassa o componente BUTTONS sem perder url, example e phone_number', async () => {
     const client = makeClient()
     const provider = new HubMessageTemplateProvider(client)

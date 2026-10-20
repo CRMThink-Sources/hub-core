@@ -38,6 +38,8 @@ import { TemplateComposer, templateKey } from './template-composer'
 import {
   hasAllButtonValues,
   hasAllTemplateVariables,
+  hasRequiredHeaderImage,
+  needsHeaderImage,
   orderedTemplateParameters,
   templateButtonParameters,
 } from './template-variables'
@@ -153,6 +155,7 @@ export const ConversationView = () => {
   const [templateButtonValues, setTemplateButtonValues] = useState<
     Record<number, string>
   >({})
+  const [templateHeaderImageUrl, setTemplateHeaderImageUrl] = useState('')
   /**
    * Estado do modo botões — mesmo raciocínio do modo template: campos
    * separados do modo livre, para que trocar de modo não misture rascunhos.
@@ -299,6 +302,7 @@ export const ConversationView = () => {
     setSelectedTemplateKey('')
     setTemplateValues({})
     setTemplateButtonValues({})
+    setTemplateHeaderImageUrl('')
   }, [selectedConnectorId])
 
   /**
@@ -389,7 +393,8 @@ export const ConversationView = () => {
   const canSubmitTemplate =
     !!selectedTemplate &&
     hasAllTemplateVariables(selectedTemplate.body, templateValues) &&
-    hasAllButtonValues(selectedTemplate.buttons, templateButtonValues)
+    hasAllButtonValues(selectedTemplate.buttons, templateButtonValues) &&
+    hasRequiredHeaderImage(selectedTemplate, templateHeaderImageUrl)
 
   const buttonValidationMessage = buttonComposerValidationMessage(
     buttonBody,
@@ -582,6 +587,9 @@ export const ConversationView = () => {
             selectedTemplate.buttons,
             templateButtonValues,
           ),
+          ...(needsHeaderImage(selectedTemplate)
+            ? { headerImageUrl: templateHeaderImageUrl.trim() }
+            : {}),
           entity,
           entityId,
         })
@@ -589,6 +597,7 @@ export const ConversationView = () => {
         setSelectedTemplateKey('')
         setTemplateValues({})
         setTemplateButtonValues({})
+        setTemplateHeaderImageUrl('')
         /**
          * O template passou a ser enfileirado, como o texto livre: o servidor responde
          * `202` e a entrega acontece logo depois, com retentativa. Dizer "enviado com
@@ -875,6 +884,7 @@ export const ConversationView = () => {
                    */
                   setTemplateValues({})
                   setTemplateButtonValues({})
+                  setTemplateHeaderImageUrl('')
                 }}
                 values={templateValues}
                 onChangeValue={(key, value) =>
@@ -887,6 +897,8 @@ export const ConversationView = () => {
                     [index]: value,
                   }))
                 }
+                headerImageUrl={templateHeaderImageUrl}
+                onChangeHeaderImageUrl={setTemplateHeaderImageUrl}
                 disabled={isSending}
               />
             ) : composerMode === 'button' ? (

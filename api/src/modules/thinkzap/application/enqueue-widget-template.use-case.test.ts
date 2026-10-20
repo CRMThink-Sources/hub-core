@@ -170,6 +170,20 @@ describe('EnqueueWidgetTemplateUseCase', () => {
     })
   })
 
+  it('grava a URL da imagem do cabeçalho, e nulo quando não vem imagem', async () => {
+    const withImage = makeSut()
+    await withImage.enqueueTemplate({
+      headerImageUrl: 'https://loja.com/promo.jpg',
+    })
+    expect(outboxCall(withImage).templateHeaderImageUrl).toBe(
+      'https://loja.com/promo.jpg',
+    )
+
+    const withoutImage = makeSut()
+    await withoutImage.enqueueTemplate()
+    expect(outboxCall(withoutImage).templateHeaderImageUrl).toBeNull()
+  })
+
   it('grava lista vazia de botões quando o envio não traz nenhum', async () => {
     const sut = makeSut()
 

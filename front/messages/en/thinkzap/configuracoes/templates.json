@@ -15,7 +15,8 @@
     "AUTHENTICATION": "Authentication"
   },
   "lista": {
-    "vazio": "No templates registered yet."
+    "vazio": "No templates registered yet.",
+    "imagem": "Image"
   },
   "form": {
     "nome": "Template name",
@@ -65,6 +66,19 @@
         "code_required": "Enter an example code.",
         "code_too_long": "The code must be up to 15 characters."
       }
+    },
+    "cabecalho": {
+      "titulo": "Header (optional)",
+      "nenhum": "None",
+      "imagem": "Image",
+      "exemplo": "Public URL of the sample image",
+      "exemploHint": "Direct https link to the JPEG or PNG file, up to 5 MB. Recommended ratio 1.91:1. Meta uses this image only to approve the template; the image for each send is provided when sending.",
+      "erros": {
+        "header_not_allowed": "Authentication templates do not accept a header.",
+        "example_required": "Enter the URL of the sample image.",
+        "example_not_https": "The image URL must start with https://.",
+        "example_meta_cdn": "WhatsApp/Meta links are not valid samples: use the link to the image file itself."
+      }
     }
   },
   "campanha": {
@@ -86,7 +100,8 @@
     "erroLeitura": "Could not read the templates for this line.",
     "erroAcao": "Could not change the provider for this template.",
     "bloqueada": "This line has no active subscription, so its templates cannot be offered in campaigns.",
-    "botaoDinamico": "This template has a button that needs a value on each send (link or code), and the campaign cannot provide it."
+    "botaoDinamico": "This template has a button that needs a value on each send (link or code), and the campaign cannot provide it.",
+    "cabecalhoImagem": "This template has an image header, and the campaign cannot provide it."
   },
   "botoes": {
     "tipo": {

@@ -792,6 +792,23 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 400,
   },
+  'thinkzap.template.header_image_invalid': {
+    category: 'validation',
+    userCause:
+      'A imagem do cabeçalho do template não pode ser usada (link fora do ar, não é JPEG/PNG, passa de 5 MB ou é um link do WhatsApp/Meta).',
+    remediation:
+      'Usar um link https público que aponte direto para um arquivo JPEG ou PNG de até 5 MB, hospedado fora do WhatsApp/Meta.',
+    retriable: false,
+    httpStatus: 400,
+  },
+  'thinkzap.template.image_header_not_supported': {
+    category: 'validation',
+    userCause:
+      'A campanha de SMS usou um template com imagem no cabeçalho; a campanha não tem como informar a imagem, então o envio foi recusado.',
+    remediation:
+      'Usar na campanha um template sem imagem no cabeçalho, ou enviar o template com imagem pelo robô ou pelo widget, que pedem a URL da imagem.',
+    retriable: false,
+  },
   'thinkzap.template.provider_rejected': {
     category: 'integration',
     userCause: 'O WhatsApp Oficial recusou a operação do template.',
