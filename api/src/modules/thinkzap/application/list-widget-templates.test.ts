@@ -107,6 +107,7 @@ describe('ListWidgetTemplatesUseCase', () => {
         language: 'pt_BR',
         body: 'Olá {{1}}, seu pedido {{2}} saiu.',
         buttons: [],
+        header: { type: 'NONE' },
       },
     ])
   })
@@ -119,6 +120,7 @@ describe('ListWidgetTemplatesUseCase', () => {
     expect(Object.keys(first ?? {}).sort()).toEqual([
       'body',
       'buttons',
+      'header',
       'language',
       'name',
     ])
@@ -167,6 +169,55 @@ describe('ListWidgetTemplatesUseCase', () => {
     const result = await useCase.execute(input)
 
     expect(result.map(item => item.name)).toEqual(['aprovado'])
+  })
+
+  it('oferece template com imagem marcando o cabeçalho', async () => {
+    const { useCase } = build({
+      templates: [
+        template({
+          components: [
+            {
+              type: 'HEADER',
+              format: 'IMAGE',
+              example: { header_handle: ['https://scontent.whatsapp.net/a'] },
+            },
+            { type: 'BODY', text: 'Oferta {{1}}' },
+          ],
+        }),
+      ],
+    })
+
+    const [first] = await useCase.execute(input)
+
+    expect(first?.header).toEqual({ type: 'IMAGE' })
+  })
+
+  it('filtra fora template com vídeo e com texto variável no cabeçalho', async () => {
+    const { useCase } = build({
+      templates: [
+        template({ name: 'sem_cabecalho' }),
+        template({
+          id: 'tpl_video',
+          name: 'video',
+          components: [
+            { type: 'HEADER', format: 'VIDEO' },
+            { type: 'BODY', text: 'Veja' },
+          ],
+        }),
+        template({
+          id: 'tpl_texto',
+          name: 'texto_variavel',
+          components: [
+            { type: 'HEADER', format: 'TEXT', text: 'Oi {{1}}' },
+            { type: 'BODY', text: 'Veja' },
+          ],
+        }),
+      ],
+    })
+
+    const result = await useCase.execute(input)
+
+    expect(result.map(item => item.name)).toEqual(['sem_cabecalho'])
   })
 
   it('corpo vazio quando o template não tem componente BODY', async () => {

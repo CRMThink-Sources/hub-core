@@ -16,6 +16,12 @@ import {
   buildButtonsComponent,
   validateTemplateButtons,
 } from './template-buttons'
+import {
+  buildHeaderComponent,
+  headerAllowed,
+  validateTemplateHeader,
+  type TemplateHeaderChoice,
+} from './template-header'
 
 const CATEGORIES: TemplateCategory[] = [
   'UTILITY',
@@ -54,6 +60,8 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
   const [language, setLanguage] = useState('pt_BR')
   const [body, setBody] = useState('')
   const [footer, setFooter] = useState('')
+  const [header, setHeader] = useState<TemplateHeaderChoice>('NONE')
+  const [headerImageUrl, setHeaderImageUrl] = useState('')
   const [examples, setExamples] = useState<Record<number, string>>({})
   const [buttons, setButtons] = useState<TemplateButton[]>([])
   const [showButtonErrors, setShowButtonErrors] = useState(false)
@@ -69,14 +77,32 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
     const allowed = allowedButtonTypes(next)
     setCategory(next)
     setButtons(prev => prev.filter(button => allowed.includes(button.type)))
+    // Autenticação não tem cabeçalho: ele sai junto, como os botões.
+    if (!headerAllowed(next)) setHeader('NONE')
   }
+
+  const headerViolation = validateTemplateHeader(
+    header,
+    headerImageUrl,
+    category,
+  )
+  const headerPreviewUrl =
+    header === 'IMAGE' &&
+    headerViolation !== 'example_required' &&
+    headerViolation !== 'example_not_https'
+      ? headerImageUrl.trim()
+      : ''
 
   const variables = useMemo(() => extractVariables(body), [body])
   const examplesFilled = variables.every(v => (examples[v] ?? '').trim())
 
   const nameValid = NAME_REGEX.test(name)
   const canSubmit =
-    nameValid && body.trim().length > 0 && examplesFilled && !saving
+    nameValid &&
+    body.trim().length > 0 &&
+    examplesFilled &&
+    headerViolation === null &&
+    !saving
 
   const handleSubmit = async () => {
     setLocalError(null)
@@ -92,6 +118,11 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
 
     if (!examplesFilled) {
       setLocalError(t('form.erroExemplo'))
+      return
+    }
+
+    if (headerViolation) {
+      setLocalError(t(`form.cabecalho.erros.${headerViolation}`))
       return
     }
 
@@ -116,7 +147,10 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
     }
 
     const buttonsComponent = buildButtonsComponent(buttons)
+    const headerComponent = buildHeaderComponent(header, headerImageUrl)
+    // A ordem é a da Meta: cabeçalho, corpo, rodapé, botões.
     const components = [
+      ...(headerComponent ? [headerComponent] : []),
       bodyComponent,
       ...(footer.trim()
         ? [{ type: 'FOOTER' as const, text: footer.trim() }]
@@ -179,6 +213,50 @@ export function TemplateForm({ itemId, onCreated, onCancel }: Props) {
           ))}
         </select>
       </div>
+
+      {headerAllowed(category) && (
+        <div className="flex flex-col gap-2">
+          <Label>{t('form.cabecalho.titulo')}</Label>
+          <select
+            value={header}
+            onChange={e => setHeader(e.target.value as TemplateHeaderChoice)}
+            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="NONE">{t('form.cabecalho.nenhum')}</option>
+            <option value="IMAGE">{t('form.cabecalho.imagem')}</option>
+          </select>
+
+          {header === 'IMAGE' && (
+            <>
+              <Label>{t('form.cabecalho.exemplo')}</Label>
+              <Input
+                type="url"
+                value={headerImageUrl}
+                placeholder="https://..."
+                onChange={e => setHeaderImageUrl(e.target.value)}
+              />
+              <span
+                className={`text-xs ${
+                  headerImageUrl.trim() && headerViolation
+                    ? 'text-destructive'
+                    : 'text-muted-foreground'
+                }`}
+              >
+                {headerImageUrl.trim() && headerViolation
+                  ? t(`form.cabecalho.erros.${headerViolation}`)
+                  : t('form.cabecalho.exemploHint')}
+              </span>
+              {headerPreviewUrl ? (
+                <img
+                  src={headerPreviewUrl}
+                  alt={t('form.cabecalho.imagem')}
+                  className="aspect-[1.91/1] w-full rounded-md border border-border bg-muted object-cover"
+                />
+              ) : null}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <Label>{t('form.body')}</Label>

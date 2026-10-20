@@ -222,6 +222,7 @@ function makeDeps(entitlement: LineEntitlement) {
       new CreateConnectorTemplateUseCase(
         ctx,
         templateProviderResolver as never,
+        { fetch: vi.fn() },
       ),
     ),
     listTemplates: new ListTemplatesController(

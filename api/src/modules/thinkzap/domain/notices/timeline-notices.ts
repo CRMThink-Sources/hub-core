@@ -47,6 +47,8 @@ export type TimelineNotices = {
     incomplete: string
     /** Template com botão dinâmico e robô sem valor para algum deles. */
     missingButtonValues: string
+    /** Template com imagem no cabeçalho e robô sem URL `https` para ela. */
+    missingHeaderImage: string
     lineCannotSend: (error: string) => string
     noRecipients: string
     noValidRecipients: string
@@ -154,6 +156,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         'A automação está sem linha ou sem template escolhido. Abra a configuração do robô e escolha os dois.',
       missingButtonValues:
         'O template escolhido tem botões que precisam de valor (link ou código), e a automação não informou todos. Abra a configuração do robô e preencha os botões.',
+      missingHeaderImage:
+        'O template escolhido exige uma imagem no cabeçalho, e a automação não informou uma URL https para ela. Nada foi enviado. Confira o campo da imagem na configuração do robô.',
       lineCannotSend: error =>
         `A linha configurada não pode enviar template: ${error}`,
       noRecipients: 'Nenhum destinatário encontrado para o envio do template.',
@@ -218,6 +222,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         'The automation has no line or no template selected. Open the robot settings and choose both.',
       missingButtonValues:
         'The selected template has buttons that need a value (link or code), and the automation did not provide all of them. Open the robot settings and fill in the buttons.',
+      missingHeaderImage:
+        'The selected template requires a header image, and the automation did not provide an https URL for it. Nothing was sent. Check the image field in the robot settings.',
       lineCannotSend: error =>
         `The configured line cannot send templates: ${error}`,
       noRecipients: 'No recipients found for the template.',
@@ -284,6 +290,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         'La automatización no tiene línea ni plantilla elegida. Abra la configuración del robot y elija las dos.',
       missingButtonValues:
         'La plantilla elegida tiene botones que necesitan un valor (enlace o código), y la automatización no los informó todos. Abra la configuración del robot y complete los botones.',
+      missingHeaderImage:
+        'La plantilla elegida exige una imagen en el encabezado, y la automatización no informó una URL https para ella. No se envió nada. Revise el campo de la imagen en la configuración del robot.',
       lineCannotSend: error =>
         `La línea configurada no puede enviar plantillas: ${error}`,
       noRecipients: 'No se encontró ningún destinatario para la plantilla.',

@@ -123,6 +123,11 @@ export type TemplateProvider = {
   parameterCount: number
   /** Link dinâmico ou copiar código: a campanha não consegue enviar. */
   hasDynamicButton: boolean
+  /**
+   * Imagem no cabeçalho: a campanha não consegue enviar. Opcional porque uma API
+   * anterior a este campo não o manda.
+   */
+  hasImageHeader?: boolean
   registered: boolean
   code: string
 }

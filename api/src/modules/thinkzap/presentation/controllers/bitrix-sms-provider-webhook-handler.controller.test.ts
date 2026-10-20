@@ -311,12 +311,21 @@ describe('linha HubMessage', () => {
       language: 'pt_BR',
       body: 'Olá {{1}}, sua consulta é dia {{2}}.',
       buttons: [],
+      header: { type: 'NONE' },
     },
     {
       name: 'rastreio',
       language: 'pt_BR',
       body: 'Seu pedido {{1}} saiu.',
       buttons: [{ index: 0, type: 'URL', text: 'Rastrear', dynamic: true }],
+      header: { type: 'NONE' },
+    },
+    {
+      name: 'promo_imagem',
+      language: 'pt_BR',
+      body: 'Oferta para você, {{1}}!',
+      buttons: [],
+      header: { type: 'IMAGE' },
     },
     {
       name: 'pesquisa',
@@ -326,6 +335,7 @@ describe('linha HubMessage', () => {
         { index: 0, type: 'QUICK_REPLY', text: 'Sim', dynamic: false },
         { index: 1, type: 'QUICK_REPLY', text: 'Não', dynamic: false },
       ],
+      header: { type: 'NONE' },
     },
   ]
 
@@ -406,6 +416,21 @@ describe('linha HubMessage', () => {
 
     expect(result.result).toMatchObject({
       reason: 'template-dynamic-button-unsupported',
+    })
+    expect(deps.enqueueTemplateSend.enqueue).not.toHaveBeenCalled()
+    expect(statusReported(deps.bitrix)).toEqual(['failed'])
+  })
+
+  it('recusa template com cabeçalho de imagem, sem enfileirar', async () => {
+    const deps = hubDeps()
+
+    const result = await deps.controller.perform(
+      templateRequest('Ana', 'thinkzap_sms.4821.promo_imagem.pt_BR'),
+      response,
+    )
+
+    expect(result.result).toMatchObject({
+      reason: 'template-image-header-unsupported',
     })
     expect(deps.enqueueTemplateSend.enqueue).not.toHaveBeenCalled()
     expect(statusReported(deps.bitrix)).toEqual(['failed'])

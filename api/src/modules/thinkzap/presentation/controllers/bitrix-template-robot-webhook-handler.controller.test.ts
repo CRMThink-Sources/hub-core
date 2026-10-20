@@ -35,6 +35,7 @@ const makeDeps = (
       language: string
       body: string
       buttons?: unknown[]
+      header?: { type: string }
     }[]
     domain?: unknown
     app?: unknown
@@ -154,14 +155,18 @@ describe('BitrixTemplateRobotWebhookHandlerController', () => {
     )
   })
 
-  // Corpo gravado pela tela: consultar o catálogo por disparo poria uma chamada
-  // remota no caminho de cada execução de workflow.
-  it('não consulta o catálogo quando a configuração tem o corpo', async () => {
+  // Corpo gravado pela tela não vai ao catálogo; a consulta que sobra é a do
+  // cabeçalho (só o catálogo sabe se o template exige imagem), uma vez por disparo.
+  it('consulta o catálogo uma vez só quando a configuração tem o corpo', async () => {
     const deps = makeDeps()
 
     await makeController(deps).perform(makeReq(fullProperties), res)
 
-    expect(deps.listTemplates.execute).not.toHaveBeenCalled()
+    expect(deps.listTemplates.execute).toHaveBeenCalledTimes(1)
+    expect(deps.enqueue).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({ templateBody: 'Olá {{1}}, pedido {{2}}.' }),
+    )
   })
 
   it('busca o corpo no catálogo quando a configuração não tem', async () => {
@@ -211,12 +216,11 @@ describe('BitrixTemplateRobotWebhookHandlerController', () => {
       )
     })
 
-    it('robô antigo, sem a propriedade, envia sem botão e sem consultar o catálogo', async () => {
+    it('robô antigo, sem a propriedade, envia sem botão', async () => {
       const deps = makeDeps({ templates: [promo] })
 
       await makeController(deps).perform(makeReq(fullProperties), res)
 
-      expect(deps.listTemplates.execute).not.toHaveBeenCalled()
       expect(deps.enqueue).toHaveBeenCalledWith(
         target,
         expect.objectContaining({ buttonParameters: [] }),
@@ -275,6 +279,64 @@ describe('BitrixTemplateRobotWebhookHandlerController', () => {
 
       expect(response.result).toEqual({ received: true, queued: 0 })
       expect(deps.enqueue).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('imagem do cabeçalho', () => {
+    const promo = {
+      name: 'order_update',
+      language: 'pt_BR',
+      body: 'Olá {{1}}, pedido {{2}}.',
+      buttons: [],
+      header: { type: 'IMAGE' },
+    }
+
+    it('envia a imagem vinda do campo do negócio', async () => {
+      const deps = makeDeps({ templates: [promo] })
+
+      await makeController(deps).perform(
+        makeReq({
+          ...fullProperties,
+          templateHeaderImageUrl: 'https://loja.com/produto-42.png',
+        }),
+        res,
+      )
+
+      expect(deps.enqueue).toHaveBeenCalledWith(
+        target,
+        expect.objectContaining({
+          headerImageUrl: 'https://loja.com/produto-42.png',
+        }),
+      )
+    })
+
+    it('recusa sem enfileirar quando o campo do negócio está vazio', async () => {
+      const deps = makeDeps({ templates: [promo] })
+
+      const response = await makeController(deps).perform(
+        makeReq({ ...fullProperties, templateHeaderImageUrl: '' }),
+        res,
+      )
+
+      expect(response.result).toEqual({ received: true, queued: 0 })
+      expect(deps.enqueue).not.toHaveBeenCalled()
+      const [notice] = deps.sendNotification.execute.mock.calls[0] as [
+        { message: string },
+      ]
+      expect(notice.message).toContain('exige uma imagem no cabeçalho')
+    })
+
+    it('robô antigo sem a propriedade, com template sem imagem, envia normalmente', async () => {
+      const deps = makeDeps({
+        templates: [{ ...promo, header: { type: 'NONE' } }],
+      })
+
+      await makeController(deps).perform(makeReq(fullProperties), res)
+
+      expect(deps.enqueue).toHaveBeenCalledTimes(1)
+      expect(deps.enqueue.mock.calls[0]?.[1]).not.toHaveProperty(
+        'headerImageUrl',
+      )
     })
   })
 

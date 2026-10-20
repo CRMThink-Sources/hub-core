@@ -7,6 +7,8 @@ import type {
 import {
   dynamicButtons,
   extractTemplateVariables,
+  isHttpsUrl,
+  needsHeaderImage,
   resolveTemplatePreview,
 } from './template-variables'
 
@@ -23,6 +25,9 @@ type TemplateComposerProps = {
   /** Valores dos botões dinâmicos, pela posição (`index`) do botão no template. */
   buttonValues: Record<number, string>
   onChangeButtonValue: (index: number, value: string) => void
+  /** URL da imagem do cabeçalho, em template com cabeçalho de imagem. */
+  headerImageUrl: string
+  onChangeHeaderImageUrl: (value: string) => void
   disabled: boolean
 }
 
@@ -65,11 +70,15 @@ export const TemplateComposer = ({
   onChangeValue,
   buttonValues,
   onChangeButtonValue,
+  headerImageUrl,
+  onChangeHeaderImageUrl,
   disabled,
 }: TemplateComposerProps) => {
   const selected = templates.find(
     template => templateKey(template) === selectedKey,
   )
+  const showHeaderImage = needsHeaderImage(selected)
+  const headerImageValid = isHttpsUrl(headerImageUrl)
   const variables = selected ? extractTemplateVariables(selected.body) : []
   const buttonFields = dynamicButtons(selected?.buttons)
 
@@ -126,6 +135,33 @@ export const TemplateComposer = ({
 
       {selected ? (
         <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white/70 p-4">
+          {showHeaderImage ? (
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Imagem do cabeçalho
+              </span>
+              <input
+                className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                value={headerImageUrl}
+                onChange={event => onChangeHeaderImageUrl(event.target.value)}
+                disabled={disabled}
+                placeholder="https://..."
+                inputMode="url"
+              />
+              <span
+                className={`text-xs ${
+                  headerImageUrl && !headerImageValid
+                    ? 'text-red-600'
+                    : 'text-slate-500'
+                }`}
+              >
+                {headerImageUrl && !headerImageValid
+                  ? 'A URL precisa começar com https://'
+                  : 'Link público e direto para o arquivo JPEG ou PNG.'}
+              </span>
+            </label>
+          ) : null}
+
           {variables.length > 0 ? (
             <div className="grid gap-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -187,6 +223,19 @@ export const TemplateComposer = ({
               `whitespace-pre-wrap` porque o corpo aprovado pode ter quebra de
               linha, e é exatamente assim que o contato vai receber.
             */}
+            {showHeaderImage ? (
+              headerImageValid ? (
+                <img
+                  src={headerImageUrl.trim()}
+                  alt="Imagem do cabeçalho"
+                  className="max-h-48 w-full rounded-xl bg-slate-100 object-cover"
+                />
+              ) : (
+                <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-xs text-slate-500">
+                  Imagem do cabeçalho
+                </div>
+              )
+            ) : null}
             <p className="whitespace-pre-wrap rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-800">
               {resolveTemplatePreview(selected.body, values)}
             </p>

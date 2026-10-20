@@ -191,7 +191,24 @@ export type HubMessageTemplateSendButtonComponent =
       parameters: [HubMessageTemplateCouponParameter]
     }
 
+/**
+ * Imagem do cabeçalho no envio. A doc da Z-API Omni
+ * (`https://developer.omni.z-api.io`) diz que cabeçalho de mídia exige o parâmetro,
+ * mas só exemplifica cabeçalho de texto; o formato segue o da Cloud API da Meta
+ * (`{ type: 'image', image: { link } }`). FORMATO A CONFIRMAR com envio real — se
+ * o `HEADER` maiúsculo for recusado, testar `header` minúsculo, como no exemplo
+ * da doc nova.
+ */
+export type HubMessageTemplateImageParameter = {
+  type: 'image'
+  image: { link: string }
+}
+
 export type HubMessageTemplateSendComponent =
+  | {
+      type: 'HEADER'
+      parameters: [HubMessageTemplateImageParameter]
+    }
   | {
       type: 'BODY'
       parameters: HubMessageTemplateSendParameter[]
@@ -360,7 +377,16 @@ export type ListTemplatesResponse = {
   data: HubMessageTemplate[]
 }
 
-/** `POST /whatsapp/businesses/{wabaId}/templates`. */
+/**
+ * `POST /whatsapp/businesses/{wabaId}/templates`.
+ *
+ * Cabeçalho de imagem: `{ type: 'HEADER', format: 'IMAGE', example: { header_handle:
+ * ['<url https pública>'] } }`. Segundo a doc da Z-API Omni
+ * (`https://developer.omni.z-api.io/templates/validation`), `header_handle` aceita
+ * o link público, que a Omni converte no identificador da Meta antes de criar.
+ * FORMATO A CONFIRMAR com um template real — se vier `422 MISSING_APP_CREDENTIALS`,
+ * o caminho é a rota de upload `templates/media` (plano B do design).
+ */
 export type CreateTemplateParams = {
   name: string
   category: HubMessageTemplateCategory

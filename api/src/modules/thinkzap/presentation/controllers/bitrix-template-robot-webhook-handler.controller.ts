@@ -13,6 +13,7 @@ import { EnqueueTemplateSendService } from '@/modules/thinkzap/application/enque
 import { ListWidgetTemplatesUseCase } from '@/modules/thinkzap/application/list-widget-templates'
 import { resolveRobotTemplateBody } from '@/modules/thinkzap/application/resolve-robot-template-body'
 import { resolveRobotButtonParameters } from '@/modules/thinkzap/application/resolve-robot-button-parameters'
+import { resolveRobotHeaderImage } from '@/modules/thinkzap/application/resolve-robot-header-image'
 import {
   bizprocEntityToPlacement,
   resolveRelatedDestinations,
@@ -169,6 +170,21 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
       })
     }
 
+    const headerImage = await resolveRobotHeaderImage(
+      {
+        ...scope,
+        name: templateName,
+        language,
+        value: toParameterList(data.properties.templateHeaderImageUrl)[0] ?? '',
+      },
+      lookup,
+    )
+    if ('missing' in headerImage) {
+      return this.refuse(crmDocument, notices.missingHeaderImage, {
+        reason: 'missing-header-image',
+      })
+    }
+
     const queued: string[] = []
     for (const destination of recipients) {
       try {
@@ -179,6 +195,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
           language,
           bodyParameters,
           buttonParameters,
+          ...headerImage,
           templateBody,
           entity: crmDocument?.entity ?? '',
           entityId: crmDocument?.entityId ?? '',
@@ -336,6 +353,8 @@ export interface BitrixTemplateRobotWebhookRequest {
     templateParameters?: string[] | Record<string, string> | string
     /** Na ordem dos botões dinâmicos do template. Ausente em robô anterior a eles. */
     templateButtonParameters?: string[] | Record<string, string> | string
+    /** URL da imagem do cabeçalho. Ausente em robô anterior a ela. */
+    templateHeaderImageUrl?: string | string[] | Record<string, string>
   }
   use_subscription: 'N' | 'Y'
   timeout_duration: string

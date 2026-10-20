@@ -124,6 +124,11 @@ export type TemplateProviderReading = {
    * esses valores e o envio é recusado, então a tela não o oferece.
    */
   hasDynamicButton: boolean
+  /**
+   * Template com imagem no cabeçalho: a Meta exige a imagem em todo envio, e a
+   * campanha não tem onde informá-la — mesmo tratamento do botão dinâmico.
+   */
+  hasImageHeader: boolean
   registered: boolean
   code: string
 }
@@ -199,6 +204,7 @@ export class GetLineTemplateProviders {
           body: template.body,
           parameterCount: countTemplatePlaceholders(template.body),
           hasDynamicButton: (template.buttons ?? []).some(b => b.dynamic),
+          hasImageHeader: template.header?.type === 'IMAGE',
           registered: registeredCodes.has(code),
           code,
         }
@@ -215,6 +221,7 @@ export type ListTemplatesForLine = {
       language: string
       body: string
       buttons?: { dynamic: boolean }[]
+      header?: { type: string }
     }[]
   >
 }

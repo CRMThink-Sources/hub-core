@@ -44,6 +44,8 @@ export type EnqueueTemplateIntentInput = {
   bodyParameters: string[]
   /** Valores dos botões dinâmicos; ausente = template sem botão dinâmico. */
   buttonParameters?: TemplateButtonParameter[]
+  /** URL da imagem do cabeçalho; ausente = template sem cabeçalho de imagem. */
+  headerImageUrl?: string
   templateBody: string
   entity: string
   entityId: string
@@ -185,6 +187,7 @@ export class EnqueueTemplateSendService {
       templateLanguage: input.language,
       templateParameters: input.bodyParameters,
       templateButtonParameters: input.buttonParameters ?? [],
+      templateHeaderImageUrl: input.headerImageUrl ?? null,
       /**
        * Guardado para rastro, não para prefixo: o despacho de template não passa pelo
        * preparo de texto. Nulo no caminho do robô de Bizproc, que não tem operador.

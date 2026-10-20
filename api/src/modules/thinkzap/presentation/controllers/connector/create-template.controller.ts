@@ -6,6 +6,7 @@ import z from 'zod'
 import {
   CreateConnectorTemplateUseCase,
   InvalidTemplateError,
+  InvalidTemplateHeaderImageError,
 } from '@/modules/thinkzap/application/create-connector-template'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { handleTemplateError } from './list-templates.controller'
@@ -15,10 +16,20 @@ import { apiLogger } from '@/shared/infra/logger'
 
 const componentSchema = z
   .object({
-    type: z.enum(['HEADER', 'BODY', 'FOOTER']),
+    type: z.enum(['BODY', 'FOOTER']),
     text: z.string().optional(),
   })
   .passthrough()
+
+/**
+ * Cabeçalho: só imagem, no formato neutro (`example.imageUrl`). As regras (https,
+ * CDN da Meta, categoria) ficam em `validateTemplateHeader`, no use case.
+ */
+const headerSchema = z.object({
+  type: z.literal('HEADER'),
+  format: z.literal('IMAGE'),
+  example: z.object({ imageUrl: z.string() }),
+})
 
 /**
  * Forma de cada tipo de botão. Os limites (quantidade, tamanho, categoria) ficam em
@@ -50,9 +61,26 @@ const bodySchema = z.object({
   category: z.enum(['UTILITY', 'MARKETING', 'AUTHENTICATION']),
   language: z.string().min(1),
   components: z
-    .array(z.union([buttonsComponentSchema, componentSchema]))
+    .array(z.union([buttonsComponentSchema, headerSchema, componentSchema]))
     .min(1),
 })
+
+/**
+ * Recusas da Meta à imagem de exemplo, que chegam cruas no corpo do erro:
+ * `2388215` (amostra inválida — típico de link do CDN da própria Meta) e `380`
+ * (a Meta não conseguiu baixar o link). O formato exato do corpo da Omni não é
+ * documentado, então procuramos o código no JSON inteiro.
+ */
+export function headerImageRejectionMessage(body: unknown): string | null {
+  const raw = JSON.stringify(body ?? '')
+  if (/\b2388215\b/.test(raw)) {
+    return 'A Meta recusou a imagem de exemplo do cabeçalho. Use o link de um arquivo JPEG ou PNG hospedado fora do WhatsApp/Meta.'
+  }
+  if (/"(code|error_subcode|errorCode)"\s*:\s*"?380\b/.test(raw)) {
+    return 'A Meta não conseguiu baixar a imagem de exemplo do cabeçalho. Confira se o link é público e aponta direto para o arquivo.'
+  }
+  return null
+}
 
 /** `POST /thinkzap/lines/:itemId/templates` — cadastra template da linha. */
 export class CreateTemplateController extends Controller {
@@ -78,6 +106,15 @@ export class CreateTemplateController extends Controller {
       })
       return this.ok({ template: created })
     } catch (error) {
+      if (error instanceof InvalidTemplateHeaderImageError) {
+        logThinkzapError(
+          apiLogger,
+          'thinkzap.template.header_image_invalid',
+          { app: 'thinkzap', err: error },
+          { level: 'warn' },
+        )
+        return this.badRequest(error)
+      }
       if (error instanceof InvalidTemplateError) {
         logThinkzapError(
           apiLogger,
@@ -89,6 +126,16 @@ export class CreateTemplateController extends Controller {
       }
       // Rejeição de negócio da Meta: propaga a mensagem legível sem mascarar.
       if (error instanceof HubMessageApiError) {
+        const imageRejection = headerImageRejectionMessage(error.body)
+        if (imageRejection) {
+          logThinkzapError(
+            apiLogger,
+            'thinkzap.template.header_image_invalid',
+            { app: 'thinkzap', err: error },
+            { level: 'warn' },
+          )
+          return this.badRequest(new Error(imageRejection))
+        }
         logThinkzapError(
           apiLogger,
           'thinkzap.template.provider_rejected',

@@ -108,6 +108,9 @@ function templateDescriptorOf(
     language: row.templateLanguage,
     bodyParameters: row.templateParameters ?? [],
     buttonParameters: row.templateButtonParameters ?? [],
+    ...(row.templateHeaderImageUrl
+      ? { headerImageUrl: row.templateHeaderImageUrl }
+      : {}),
   }
 }
 

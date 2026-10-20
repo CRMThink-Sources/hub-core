@@ -41,6 +41,7 @@ const row = (
   templateLanguage: null,
   templateParameters: null,
   templateButtonParameters: null,
+  templateHeaderImageUrl: null,
   buttonPayload: null,
   status: 'PENDING',
   providerMessageId: null,
@@ -549,6 +550,21 @@ describe('DispatchWidgetOutboxMessage', () => {
 
       expect(sut.sendTemplate).toHaveBeenCalledWith(
         expect.objectContaining({ buttonParameters: buttons }),
+      )
+    })
+
+    it('reprocessamento reenvia a mesma imagem de cabeçalho gravada na row', async () => {
+      const sut = makeSut(
+        templateRow({
+          templateHeaderImageUrl: 'https://loja.com/a.png',
+          attempts: 1,
+        }),
+      )
+
+      await sut.dispatchTemplate()
+
+      expect(sut.sendTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({ headerImageUrl: 'https://loja.com/a.png' }),
       )
     })
 

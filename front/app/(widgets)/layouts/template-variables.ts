@@ -1,4 +1,7 @@
-import type { WidgetTemplateButton } from '@/app/hooks/use-widget-templates'
+import type {
+  WidgetTemplate,
+  WidgetTemplateButton,
+} from '@/app/hooks/use-widget-templates'
 
 /**
  * Placeholder de variável de template: `{{1}}`, `{{nome}}`, com ou sem espaços
@@ -82,6 +85,33 @@ export function hasAllButtonValues(
   return dynamicButtons(buttons).every(
     button => (values[button.index] ?? '').trim().length > 0,
   )
+}
+
+/** URL `https` válida — a única que a Meta baixa como imagem de cabeçalho. */
+export function isHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value.trim()).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/** O template exige a imagem do cabeçalho no envio. */
+export function needsHeaderImage(
+  template: Pick<WidgetTemplate, 'header'> | undefined,
+): boolean {
+  return template?.header?.type === 'IMAGE'
+}
+
+/**
+ * A imagem do cabeçalho está ok para enviar: template sem imagem não pede nada;
+ * com imagem, exige URL `https`.
+ */
+export function hasRequiredHeaderImage(
+  template: Pick<WidgetTemplate, 'header'> | undefined,
+  imageUrl: string,
+): boolean {
+  return !needsHeaderImage(template) || isHttpsUrl(imageUrl)
 }
 
 /** O `buttonParameters` do envio: um item por botão dinâmico, amarrado ao `index`. */

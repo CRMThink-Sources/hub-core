@@ -15,7 +15,8 @@
     "AUTHENTICATION": "Autenticação"
   },
   "lista": {
-    "vazio": "Nenhum template cadastrado ainda."
+    "vazio": "Nenhum template cadastrado ainda.",
+    "imagem": "Imagem"
   },
   "form": {
     "nome": "Nome do template",
@@ -65,6 +66,19 @@
         "code_required": "Informe um código de exemplo.",
         "code_too_long": "O código deve ter até 15 caracteres."
       }
+    },
+    "cabecalho": {
+      "titulo": "Cabeçalho (opcional)",
+      "nenhum": "Nenhum",
+      "imagem": "Imagem",
+      "exemplo": "URL pública da imagem de exemplo",
+      "exemploHint": "Link https direto para o arquivo JPEG ou PNG, até 5 MB. Proporção recomendada 1.91:1. A Meta usa esta imagem só para aprovar o template; a imagem de cada envio é informada no envio.",
+      "erros": {
+        "header_not_allowed": "Templates de autenticação não aceitam cabeçalho.",
+        "example_required": "Informe a URL da imagem de exemplo.",
+        "example_not_https": "A URL da imagem precisa começar com https://.",
+        "example_meta_cdn": "Link do WhatsApp/Meta não vale como exemplo: use o link do próprio arquivo da imagem."
+      }
     }
   },
   "campanha": {
@@ -86,7 +100,8 @@
     "erroLeitura": "Não foi possível ler os templates desta linha.",
     "erroAcao": "Não foi possível alterar o provedor deste template.",
     "bloqueada": "A assinatura desta linha não está ativa, então os templates não podem ser oferecidos às campanhas.",
-    "botaoDinamico": "Este template tem botão que precisa de valor em cada envio (link ou código), e a campanha não consegue informá-lo."
+    "botaoDinamico": "Este template tem botão que precisa de valor em cada envio (link ou código), e a campanha não consegue informá-lo.",
+    "cabecalhoImagem": "Este template tem imagem no cabeçalho, e a campanha não consegue informá-la."
   },
   "botoes": {
     "tipo": {

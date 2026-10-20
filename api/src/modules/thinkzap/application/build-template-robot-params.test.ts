@@ -48,7 +48,18 @@ describe('buildTemplateRobotAddParams', () => {
       'templateBody',
       'templateParameters',
       'templateButtonParameters',
+      'templateHeaderImageUrl',
     ])
+  })
+
+  it('takes the header image URL as an optional single string', () => {
+    const { PROPERTIES } = buildTemplateRobotAddParams()
+
+    expect(PROPERTIES.templateHeaderImageUrl).toMatchObject({
+      Type: 'string',
+      Required: 'N',
+    })
+    expect(PROPERTIES.templateHeaderImageUrl).not.toHaveProperty('Multiple')
   })
 
   it('keeps the related-contacts toggle off by default', () => {
@@ -116,6 +127,12 @@ describe('buildTemplateRobotUpdateParams', () => {
       buildTemplateRobotUpdateParams().FIELDS.PROPERTIES
         .templateButtonParameters,
     ).toMatchObject({ Multiple: 'Y' })
+  })
+
+  it('carries the header image property to existing robots', () => {
+    expect(
+      buildTemplateRobotUpdateParams().FIELDS.PROPERTIES.templateHeaderImageUrl,
+    ).toBeDefined()
   })
 
   // Portal registrado com tela e ambiente que depois a desliga: o update tem de

@@ -6,7 +6,10 @@ import {
   InvalidTemplateError,
 } from '@/modules/thinkzap/application/create-connector-template'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
-import { CreateTemplateController } from './create-template.controller'
+import {
+  CreateTemplateController,
+  headerImageRejectionMessage,
+} from './create-template.controller'
 
 /** A linha vem do path (`itemId`) e a instalação do JWT — ver `parseLineRequest`. */
 function makeReq(body: unknown, itemId = 'item_1'): Request {
@@ -90,6 +93,57 @@ describe('CreateTemplateController', () => {
     )
   })
 
+  it('repassa ao use case o cabeçalho de imagem antes do corpo', async () => {
+    const { controller, useCase } = makeController(() =>
+      Promise.resolve({
+        id: 'tpl_1',
+        status: 'PENDING',
+        category: 'MARKETING',
+      }),
+    )
+    const header = {
+      type: 'HEADER',
+      format: 'IMAGE',
+      example: { imageUrl: 'https://loja.com/banner.png' },
+    }
+
+    const res = await controller.perform(
+      makeReq({
+        ...validBody,
+        category: 'MARKETING',
+        components: [header, ...validBody.components],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    expect(useCase.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        components: [header, { type: 'BODY', text: 'Olá {{1}}' }],
+      }),
+    )
+  })
+
+  it('400 sem chamar o use case com cabeçalho de vídeo', async () => {
+    const { controller, useCase } = makeController(() => Promise.resolve({}))
+
+    const res = await controller.perform(
+      makeReq({
+        ...validBody,
+        components: [
+          {
+            type: 'HEADER',
+            format: 'VIDEO',
+            example: { imageUrl: 'https://loja.com/v.mp4' },
+          },
+          ...validBody.components,
+        ],
+      }),
+    )
+
+    expect(res.status).toBe(400)
+    expect(useCase.execute).not.toHaveBeenCalled()
+  })
+
   it('400 sem chamar o use case quando o tipo de botão não é suportado', async () => {
     const { controller, useCase } = makeController(() => Promise.resolve({}))
 
@@ -118,6 +172,35 @@ describe('CreateTemplateController', () => {
 
     expect(res.status).toBe(400)
     expect((res.result as { error: string }).error).toContain('botões de link')
+  })
+
+  it('400 com mensagem legível quando a Meta recusa a amostra (2388215)', async () => {
+    const { controller } = makeController(() =>
+      Promise.reject(
+        new HubMessageApiError(
+          400,
+          'POST',
+          '/whatsapp/businesses/w/templates',
+          { error: { code: 100, error_subcode: 2388215 } },
+          new Error('x'),
+        ),
+      ),
+    )
+
+    const res = await controller.perform(makeReq(validBody))
+
+    expect(res.status).toBe(400)
+    expect((res.result as { error: string }).error).toContain(
+      'recusou a imagem de exemplo',
+    )
+  })
+
+  it('headerImageRejectionMessage reconhece o 380 e ignora outros códigos', () => {
+    expect(headerImageRejectionMessage({ error: { code: 380 } })).toContain(
+      'não conseguiu baixar',
+    )
+    expect(headerImageRejectionMessage({ error: { code: 3801 } })).toBeNull()
+    expect(headerImageRejectionMessage({ message: 'invalid' })).toBeNull()
   })
 
   it('400 propagando mensagem da Meta em HubMessageApiError', async () => {

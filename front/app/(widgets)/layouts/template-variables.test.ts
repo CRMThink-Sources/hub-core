@@ -3,6 +3,8 @@ import {
   dynamicButtons,
   extractTemplateVariables,
   hasAllButtonValues,
+  hasRequiredHeaderImage,
+  needsHeaderImage,
   templateButtonParameters,
   hasAllTemplateVariables,
   orderedTemplateParameters,
@@ -150,5 +152,30 @@ describe('botões dinâmicos', () => {
       { index: 1, subType: 'URL', value: 'PED-1' },
       { index: 2, subType: 'COPY_CODE', value: 'BLACK10' },
     ])
+  })
+})
+
+describe('imagem do cabeçalho', () => {
+  const image = { header: { type: 'IMAGE' as const } }
+  const none = { header: { type: 'NONE' as const } }
+
+  it('só template com cabeçalho de imagem pede a URL', () => {
+    expect(needsHeaderImage(image)).toBe(true)
+    expect(needsHeaderImage(none)).toBe(false)
+    expect(needsHeaderImage({})).toBe(false)
+  })
+
+  it('bloqueia o envio com URL vazia ou sem https', () => {
+    expect(hasRequiredHeaderImage(image, '')).toBe(false)
+    expect(hasRequiredHeaderImage(image, 'http://loja.com/a.png')).toBe(false)
+    expect(hasRequiredHeaderImage(image, 'loja.com/a.png')).toBe(false)
+    expect(hasRequiredHeaderImage(image, 'https://loja.com/promo.jpg')).toBe(
+      true,
+    )
+  })
+
+  it('template sem imagem não exige nada', () => {
+    expect(hasRequiredHeaderImage(none, '')).toBe(true)
+    expect(hasRequiredHeaderImage(undefined, '')).toBe(true)
   })
 })

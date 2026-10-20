@@ -5,6 +5,7 @@ import {
   TemplateComponent,
   WhatsAppTemplateProvider,
 } from '@/modules/thinkzap/domain/ports/whatsapp-template-provider.port'
+import { headerImageExampleOf } from '@/modules/thinkzap/domain/template-header'
 import { HubMessageClient } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import {
   HubMessageTemplate,
@@ -68,8 +69,19 @@ function toDomainComponent(
   return { ...raw }
 }
 
+/**
+ * Cabeçalho de imagem neutro (`example.imageUrl`) → `example.header_handle` com o
+ * link público, que a Omni converte no identificador da Meta antes de criar o
+ * template (ver `CreateTemplateParams`). O resto vai como veio.
+ */
 function toRawComponent(
   component: TemplateComponent,
 ): HubMessageTemplateComponent {
-  return { ...component }
+  const imageUrl =
+    component.type === 'HEADER' && component.format === 'IMAGE'
+      ? headerImageExampleOf([component])
+      : undefined
+  if (!imageUrl) return { ...component }
+
+  return { ...component, example: { header_handle: [imageUrl] } }
 }

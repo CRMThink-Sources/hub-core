@@ -34,6 +34,11 @@ export type TemplateMessageDescriptor = {
    * parâmetro.
    */
   buttonParameters?: TemplateButtonParameter[]
+  /**
+   * URL pública `https` da imagem do cabeçalho, em template com cabeçalho de imagem
+   * (a Meta exige a imagem em todo envio). Ausente em template sem esse cabeçalho.
+   */
+  headerImageUrl?: string
 }
 
 /**

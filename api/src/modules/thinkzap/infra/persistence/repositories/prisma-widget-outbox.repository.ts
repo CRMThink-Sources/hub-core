@@ -38,6 +38,8 @@ export type WidgetOutboxRecord = {
   templateParameters: string[] | null
   /** Botões dinâmicos do template; `null` em row anterior a eles. */
   templateButtonParameters: TemplateButtonParameter[] | null
+  /** Imagem do cabeçalho do template; `null` = envio sem cabeçalho. */
+  templateHeaderImageUrl: string | null
   /** Preenchido só em `kind: 'INTERACTIVE_BUTTON'`. */
   buttonPayload: InteractiveButtonDescriptor | null
   status: WidgetOutboxStatus
@@ -78,6 +80,8 @@ export type CreateWidgetOutboxInput = {
   templateParameters?: string[]
   /** Vazio ou ausente = template sem botão dinâmico; a coluna fica nula. */
   templateButtonParameters?: TemplateButtonParameter[]
+  /** Ausente = template sem cabeçalho de imagem; a coluna fica nula. */
+  templateHeaderImageUrl?: string | null
   /** Preenchido só em `kind: 'INTERACTIVE_BUTTON'`. */
   buttonPayload?: InteractiveButtonDescriptor
   /** Do token da requisição — é o que o worker usa para resolver o nome. */
@@ -152,6 +156,7 @@ function mapRow(row: {
   templateLanguage: string | null
   templateParameters: unknown
   templateButtonParameters: unknown
+  templateHeaderImageUrl: string | null
   buttonPayload: unknown
   status: ThinkzapOutboxStatus
   providerMessageId: string | null
@@ -180,6 +185,7 @@ function mapRow(row: {
     templateLanguage: row.templateLanguage,
     templateParameters: toBodyParameters(row.templateParameters),
     templateButtonParameters: toButtonParameters(row.templateButtonParameters),
+    templateHeaderImageUrl: row.templateHeaderImageUrl,
     buttonPayload: toButtonPayload(row.buttonPayload),
     status: row.status as WidgetOutboxStatus,
     providerMessageId: row.providerMessageId,

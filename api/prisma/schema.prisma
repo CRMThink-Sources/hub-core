@@ -503,6 +503,9 @@ model ThinkzapWidgetOutbox {
   /// como `{ index, subType, value }[]` — `index` é a posição do botão entre todos
   /// os botões do template. `NULL` em row anterior aos botões: envia sem botão.
   templateButtonParameters Json? @map("template_button_parameters")
+  /// URL pública da imagem do cabeçalho, em template com cabeçalho de imagem.
+  /// `NULL` = envio sem cabeçalho, inclusive nas rows anteriores à coluna.
+  templateHeaderImageUrl String? @map("template_header_image_url") @db.Text
 
   /// Só existe em `kind = INTERACTIVE_BUTTON`: corpo, header/footer opcionais e a
   /// lista de botões, no formato de `InteractiveButtonDescriptor`. Guardado como

@@ -15,7 +15,8 @@
     "AUTHENTICATION": "Autenticación"
   },
   "lista": {
-    "vazio": "Aún no hay plantillas registradas."
+    "vazio": "Aún no hay plantillas registradas.",
+    "imagem": "Imagen"
   },
   "form": {
     "nome": "Nombre de la plantilla",
@@ -65,6 +66,19 @@
         "code_required": "Informe un código de ejemplo.",
         "code_too_long": "El código debe tener hasta 15 caracteres."
       }
+    },
+    "cabecalho": {
+      "titulo": "Encabezado (opcional)",
+      "nenhum": "Ninguno",
+      "imagem": "Imagen",
+      "exemplo": "URL pública de la imagen de ejemplo",
+      "exemploHint": "Enlace https directo al archivo JPEG o PNG, hasta 5 MB. Proporción recomendada 1.91:1. Meta usa esta imagen solo para aprobar la plantilla; la imagen de cada envío se informa al enviar.",
+      "erros": {
+        "header_not_allowed": "Las plantillas de autenticación no aceptan encabezado.",
+        "example_required": "Informe la URL de la imagen de ejemplo.",
+        "example_not_https": "La URL de la imagen debe empezar con https://.",
+        "example_meta_cdn": "Un enlace de WhatsApp/Meta no sirve como ejemplo: use el enlace del propio archivo de la imagen."
+      }
     }
   },
   "campanha": {
@@ -86,7 +100,8 @@
     "erroLeitura": "No se pudieron leer las plantillas de esta línea.",
     "erroAcao": "No se pudo cambiar el proveedor de esta plantilla.",
     "bloqueada": "La suscripción de esta línea no está activa, así que las plantillas no pueden ofrecerse en las campañas.",
-    "botaoDinamico": "Esta plantilla tiene un botón que necesita un valor en cada envío (enlace o código), y la campaña no puede informarlo."
+    "botaoDinamico": "Esta plantilla tiene un botón que necesita un valor en cada envío (enlace o código), y la campaña no puede informarlo.",
+    "cabecalhoImagem": "Esta plantilla tiene una imagen en el encabezado, y la campaña no puede informarla."
   },
   "botoes": {
     "tipo": {

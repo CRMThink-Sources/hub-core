@@ -25,6 +25,7 @@ const base: RobotConfigState = {
     numero: { mode: 'literal', value: '42' },
   },
   buttonValues: [],
+  headerImage: { mode: 'literal', value: '' },
 }
 
 describe('toStoredValue / fromStoredValue', () => {
@@ -70,7 +71,17 @@ describe('buildRobotProperties', () => {
       templateBody: 'Olá {{nome}}, pedido {{numero}} — obrigado, {{nome}}.',
       templateParameters: ['{{=Document:TITLE}}', '42'],
       templateButtonParameters: [],
+      templateHeaderImageUrl: '',
     })
+  })
+
+  it('grava a imagem do cabeçalho como campo do documento', () => {
+    expect(
+      buildRobotProperties({
+        ...base,
+        headerImage: { mode: 'document', value: 'UF_CRM_IMAGEM' },
+      }).templateHeaderImageUrl,
+    ).toBe('{{=Document:UF_CRM_IMAGEM}}')
   })
 
   it('grava os valores dos botões dinâmicos na ordem, com campo do documento', () => {
@@ -125,6 +136,25 @@ describe('parseStoredProperties', () => {
     const stored = buildRobotProperties(base)
 
     expect(parseStoredProperties(stored)).toEqual(base)
+  })
+
+  it('recompõe a imagem do cabeçalho gravada', () => {
+    const headerImage = {
+      mode: 'literal' as const,
+      value: 'https://loja.com/a.png',
+    }
+    const stored = buildRobotProperties({ ...base, headerImage })
+
+    expect(parseStoredProperties(stored).headerImage).toEqual(headerImage)
+  })
+
+  it('robô salvo antes da imagem abre com o campo vazio', () => {
+    const { templateHeaderImageUrl: _, ...stored } = buildRobotProperties(base)
+
+    expect(parseStoredProperties(stored).headerImage).toEqual({
+      mode: 'literal',
+      value: '',
+    })
   })
 
   it('aceita propriedade múltipla como objeto indexado', () => {
@@ -228,6 +258,49 @@ describe('validateConfig', () => {
 
   it('sem catálogo carregado, não confere os botões', () => {
     expect(validateConfig(base)).toBeNull()
+  })
+
+  it('impede salvar template com imagem sem a URL', () => {
+    expect(validateConfig(base, 0, true)).toContain(
+      'Informe a imagem do cabeçalho',
+    )
+  })
+
+  it('impede salvar imagem fixa sem https', () => {
+    expect(
+      validateConfig(
+        {
+          ...base,
+          headerImage: { mode: 'literal', value: 'http://loja.com/a.png' },
+        },
+        0,
+        true,
+      ),
+    ).toBe('A imagem do cabeçalho precisa ser uma URL https.')
+  })
+
+  it('aceita imagem fixa https ou campo do documento', () => {
+    expect(
+      validateConfig(
+        {
+          ...base,
+          headerImage: { mode: 'literal', value: 'https://loja.com/a.png' },
+        },
+        0,
+        true,
+      ),
+    ).toBeNull()
+    expect(
+      validateConfig(
+        { ...base, headerImage: { mode: 'document', value: 'UF_CRM_IMG' } },
+        0,
+        true,
+      ),
+    ).toBeNull()
+  })
+
+  it('template sem imagem não exige o campo', () => {
+    expect(validateConfig(base, 0, false)).toBeNull()
   })
 
   it('exige a linha', () => {

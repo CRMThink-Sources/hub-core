@@ -6,6 +6,7 @@ import type {
   TemplateStatus,
 } from '@/app/hooks/use-connector-templates'
 import { templateButtonsOf } from './template-buttons'
+import { templateHeaderOf } from './template-header'
 
 const STATUS_CLASS: Record<TemplateStatus, string> = {
   APPROVED:
@@ -41,8 +42,13 @@ export function TemplatesLista({ templates }: Props) {
             className="flex flex-col gap-1 rounded-md border border-border bg-background px-4 py-3"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-foreground">
+              <span className="flex items-center gap-1.5 font-medium text-foreground">
                 {template.name}
+                {templateHeaderOf(template.components) === 'IMAGE' && (
+                  <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {t('lista.imagem')}
+                  </span>
+                )}
               </span>
               <span
                 className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${STATUS_CLASS[template.status]}`}

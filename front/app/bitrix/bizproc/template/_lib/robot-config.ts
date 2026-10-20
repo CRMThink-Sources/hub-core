@@ -2,6 +2,7 @@ import type { WidgetTemplateButton } from '@/app/hooks/use-widget-templates'
 import {
   dynamicButtons,
   extractTemplateVariables,
+  isHttpsUrl,
   orderedTemplateParameters,
 } from '@/app/(widgets)/layouts/template-variables'
 
@@ -104,6 +105,8 @@ export type TemplateChoice = {
    * os lê do catálogo carregado, e o disparo, do catálogo do provider.
    */
   buttons?: WidgetTemplateButton[]
+  /** Só no template vindo do catálogo, como `buttons`. */
+  header?: { type: 'NONE' | 'TEXT' | 'IMAGE' }
 }
 
 /** Identidade do template: `name` sozinho não basta, a mesma WABA repete idiomas. */
@@ -126,6 +129,8 @@ export type RobotConfigState = {
    * ao `index` do botão pelo catálogo.
    */
   buttonValues: FieldValue[]
+  /** URL da imagem do cabeçalho, em template com cabeçalho de imagem. */
+  headerImage: FieldValue
 }
 
 export const EMPTY_CONFIG: RobotConfigState = {
@@ -135,6 +140,7 @@ export const EMPTY_CONFIG: RobotConfigState = {
   template: null,
   values: {},
   buttonValues: [],
+  headerImage: EMPTY_FIELD,
 }
 
 /**
@@ -170,6 +176,7 @@ export function buildRobotProperties(
       ),
     ),
     templateButtonParameters: config.buttonValues.map(toStoredValue),
+    templateHeaderImageUrl: toStoredValue(config.headerImage),
   }
 }
 
@@ -205,6 +212,10 @@ export function parseStoredProperties(
     buttonValues: asStringList(stored.templateButtonParameters).map(value =>
       fromStoredValue(value, knownFieldIds),
     ),
+    headerImage: fromStoredValue(
+      asString(stored.templateHeaderImageUrl),
+      knownFieldIds,
+    ),
   }
 }
 
@@ -218,6 +229,7 @@ export function parseStoredProperties(
 export function validateConfig(
   config: RobotConfigState,
   dynamicButtonCount?: number,
+  requiresHeaderImage = false,
 ): string | null {
   if (!config.connector) {
     return 'Escolha a linha do WhatsApp Oficial que vai enviar.'
@@ -249,6 +261,21 @@ export function validateConfig(
 
     if (filled < dynamicButtonCount) {
       return 'Preencha o valor de todos os botões do template.'
+    }
+  }
+
+  /**
+   * Template com imagem sem URL faria o disparo recusar em toda execução. Valor
+   * fixo é conferido aqui; campo do documento só no disparo, quando o Bitrix o
+   * resolve.
+   */
+  if (requiresHeaderImage) {
+    const image = toStoredValue(config.headerImage).trim()
+    if (!image) {
+      return 'Informe a imagem do cabeçalho: uma URL https ou o campo do documento que a guarda.'
+    }
+    if (config.headerImage.mode === 'literal' && !isHttpsUrl(image)) {
+      return 'A imagem do cabeçalho precisa ser uma URL https.'
     }
   }
 

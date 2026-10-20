@@ -9,6 +9,7 @@ import { isProviderUnavailableError } from './is-provider-unavailable-error'
 import { HubMessageClient } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import {
   HubMessageTemplateSendButtonComponent,
+  HubMessageTemplateImageParameter,
   HubMessageTemplateSendComponent,
   SendHubMessageTemplateParams,
 } from '@/modules/thinkzap/infra/clients/types/hubmessage.types'
@@ -54,6 +55,23 @@ export class HubMessageTemplateSender implements TemplateMessageSender {
     const { channelId, recipientIdentifier } = this.config
 
     const components: HubMessageTemplateSendComponent[] = [
+      /**
+       * Cabeçalho de imagem vem antes do corpo: a Meta exige a imagem em todo envio
+       * de template com cabeçalho de mídia. `type` em MAIÚSCULO como os demais.
+       */
+      ...(descriptor.headerImageUrl
+        ? [
+            {
+              type: 'HEADER' as const,
+              parameters: [
+                {
+                  type: 'image' as const,
+                  image: { link: descriptor.headerImageUrl },
+                },
+              ] as [HubMessageTemplateImageParameter],
+            },
+          ]
+        : []),
       ...(descriptor.bodyParameters.length > 0
         ? [
             {
@@ -129,6 +147,7 @@ export class HubMessageTemplateSender implements TemplateMessageSender {
         language: descriptor.language,
         parameterCount: descriptor.bodyParameters.length,
         buttonParameterCount: descriptor.buttonParameters?.length ?? 0,
+        hasHeaderImage: Boolean(descriptor.headerImageUrl),
         messageId,
       },
       'Template enviado pela HubMessage',

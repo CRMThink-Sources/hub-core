@@ -166,6 +166,7 @@ describe('provedor por template', () => {
       language: string
       body: string
       buttons?: { dynamic: boolean }[]
+      header?: { type: string }
     }[] = [
       { name: 'boas_vindas', language: 'pt_BR', body: 'Olá {{1}}, dia {{2}}.' },
       { name: 'aviso', language: 'pt_BR', body: 'Aviso sem variável.' },
@@ -219,6 +220,33 @@ describe('provedor por template', () => {
 
     expect(reading.templates.map(t => t.hasDynamicButton)).toEqual([
       true,
+      false,
+    ])
+  })
+
+  it('marca o template com imagem no cabeçalho, que a campanha não consegue enviar', async () => {
+    const reading = await new GetLineTemplateProviders(
+      context(HUB) as never,
+      catalog([
+        {
+          name: 'promo',
+          language: 'pt_BR',
+          body: 'Oferta {{1}}',
+          header: { type: 'IMAGE' },
+        },
+        {
+          name: 'aviso',
+          language: 'pt_BR',
+          body: 'Aviso',
+          header: { type: 'TEXT' },
+        },
+        { name: 'antigo', language: 'pt_BR', body: 'Sem header informado' },
+      ]),
+    ).execute(scope, caller(vi.fn().mockResolvedValue([])))
+
+    expect(reading.templates.map(t => t.hasImageHeader)).toEqual([
+      true,
+      false,
       false,
     ])
   })

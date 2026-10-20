@@ -74,6 +74,32 @@ describe('SendWidgetTemplateController — botões dinâmicos', () => {
     expect(sut.useCase.execute).not.toHaveBeenCalled()
   })
 
+  it('repassa a URL https da imagem do cabeçalho', async () => {
+    const sut = makeSut()
+
+    const res = await sut.perform({
+      ...baseBody,
+      headerImageUrl: 'https://loja.com/promo.jpg',
+    })
+
+    expect(res.status).toBe(202)
+    expect(sut.useCase.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ headerImageUrl: 'https://loja.com/promo.jpg' }),
+    )
+  })
+
+  it('400 com imagem do cabeçalho em http://', async () => {
+    const sut = makeSut()
+
+    const res = await sut.perform({
+      ...baseBody,
+      headerImageUrl: 'http://loja.com/promo.jpg',
+    })
+
+    expect(res.status).toBe(400)
+    expect(sut.useCase.execute).not.toHaveBeenCalled()
+  })
+
   it('400 com index negativo', async () => {
     const sut = makeSut()
 
