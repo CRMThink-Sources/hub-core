@@ -1,3 +1,5 @@
+import { EnqueueRobotMessage } from '@/modules/thinkzap/application/enqueue-robot-message'
+import { isUnifiedOutboxEnabled } from '@/modules/thinkzap/application/helpers/unified-outbox'
 import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
 import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/ports/installation-locale.port'
 import {
@@ -63,6 +65,11 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     private readonly locales: InstallationLocaleRepository | null = null,
     /** Leitura dos arquivos do robô. Ausente, `crm.item.get` deste portal + download HTTP. */
     private readonly files: RobotFileDeps | null = null,
+    /**
+     * O disparo pela fila (e pela cadência). Ausente — sem guarda privada dos
+     * arquivos —, o disparo segue síncrono mesmo com a flag ligada.
+     */
+    private readonly queued: EnqueueRobotMessage | null = null,
   ) {
     super()
   }
@@ -162,6 +169,28 @@ export class BitrixRobotWebhookHandlerController extends Controller {
 
     // Uma vez por disparo, não por destinatário.
     const files = await fetchRobotFiles(this.fileDeps(), crmDocument, fileIds)
+
+    /**
+     * Caminho unificado: as partes vão para a fila e o comentário da timeline sai
+     * quando todas terminarem (`settleRobotMessageGroup`), não aqui. A resposta ao
+     * Bitrix deixa de trazer `sent`/`refusedByDailyLimit` — ainda não se sabe.
+     */
+    if (this.queued && isUnifiedOutboxEnabled(context.customer.memberId)) {
+      const { queued } = await this.queued.execute({
+        item: line.item,
+        domainId: domain.id,
+        appCode: app.appCodeId,
+        workflowId: data.workflow_id,
+        message,
+        files,
+        requestedFiles: fileIds.length,
+        recipients,
+        fromPhone,
+        crmDocument,
+      })
+      return this.ok({ received: true, queued })
+    }
+
     const parts = buildCaptionedParts(message || undefined, toMedia(files))
 
     const sent: string[] = []

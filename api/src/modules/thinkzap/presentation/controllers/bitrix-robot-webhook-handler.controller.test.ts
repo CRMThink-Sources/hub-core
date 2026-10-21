@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Request, Response } from 'express'
+import { env } from '@/config/env'
 
 const {
   sendMessageMock,
@@ -812,5 +813,69 @@ describe('BitrixRobotWebhookHandlerController idioma da timeline', () => {
       deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string }
     ).message
     expect(comment).toBe('From: 5599\nNo recipients found for this send.')
+  })
+})
+
+describe('BitrixRobotWebhookHandlerController — caminho unificado (fila)', () => {
+  const setFlag = (value: string) => {
+    ;(
+      env as { thinkzapUnifiedOutboxDomains: string }
+    ).thinkzapUnifiedOutboxDomains = value
+  }
+  afterEach(() => setFlag(''))
+
+  function queuedController(deps: ReturnType<typeof makeDeps>) {
+    const queued = { execute: vi.fn().mockResolvedValue({ queued: 1 }) }
+    const controller = new BitrixRobotWebhookHandlerController(
+      deps.getDomain as never,
+      deps.getApp as never,
+      deps.getAplicationContext as never,
+      deps.sendNotification as never,
+      deps.bitrix as never,
+      null,
+      null,
+      null,
+      queued as never,
+    )
+    return { controller, queued }
+  }
+
+  it('com a flag: enfileira o disparo, não envia nem comenta na hora', async () => {
+    setFlag('*')
+    const deps = makeDeps()
+    const { controller, queued } = queuedController(deps)
+
+    const result = await controller.perform(
+      makeReq({ connector: 'conn', destination: '5511999', message: 'oi' }),
+      res,
+    )
+
+    expect(sendMessageMock).not.toHaveBeenCalled()
+    expect(deps.sendNotification.execute).not.toHaveBeenCalled()
+    expect(queued.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'oi',
+        recipients: ['5511999'],
+        fromPhone: '5599',
+        crmDocument: { entity: 'DEAL', entityId: '10' },
+      }),
+    )
+    expect(result).toMatchObject({
+      status: 200,
+      result: { received: true, queued: 1 },
+    })
+  })
+
+  it('sem a flag: segue o envio síncrono mesmo com a fila montada', async () => {
+    const deps = makeDeps()
+    const { controller, queued } = queuedController(deps)
+
+    await controller.perform(
+      makeReq({ connector: 'conn', destination: '5511999', message: 'oi' }),
+      res,
+    )
+
+    expect(queued.execute).not.toHaveBeenCalled()
+    expect(sendMessageMock).toHaveBeenCalledTimes(1)
   })
 })

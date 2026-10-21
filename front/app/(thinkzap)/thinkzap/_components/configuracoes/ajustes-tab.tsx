@@ -15,24 +15,18 @@ import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
 import { extractLineBlocked } from '@/app/hooks/extract-line-blocked'
 import {
   useLineApi,
-  type DailyLimitUsage,
   type LineEntitlement,
   type LineSettings,
   type LineSettingsToggles,
 } from '@/app/hooks/use-line-api'
 import {
   contarAlteracoes,
-  limiteDiarioDe,
-  limiteDiarioValido,
-  patchLimiteDiario,
   TOGGLE_KEYS,
   type AjustesEditaveis,
-  type LimiteDiarioEditavel,
   type ToggleKey,
 } from './ajustes-alteracoes'
 import { ConfigCard } from './config-card'
 import { ConfirmModal } from './confirm-modal'
-import { LimiteDiarioCard } from './limite-diario-card'
 import { LinhaBloqueadaAviso } from './linha-bloqueada-aviso'
 import { SaveChangesBar } from './save-changes-bar'
 
@@ -46,9 +40,9 @@ type Props = {
    */
   onDirtyChange?: (dirty: boolean) => void
   /**
-   * O limite diário só existe na linha não oficial (Z-API). Vem da página, que já sabe o
-   * provider para escolher as abas — inferir pela resposta esconderia o card sem
-   * motivo visível se a api mudasse.
+   * O espelhamento do aparelho só existe na linha não oficial (Z-API). Vem da página,
+   * que já sabe o provider para escolher as abas. O limite diário e o cadenciador
+   * ficam na aba Limites de envio.
    */
   provider?: 'ZAPI' | 'HUBMESSAGE'
 }
@@ -73,10 +67,6 @@ type State =
        * dado.
        */
       entitlement: LineEntitlement
-      /** Só na linha não oficial. */
-      limiteDiario?: LimiteDiarioEditavel
-      /** Uso do dia; `null` quando o contador não pôde ser lido. */
-      uso: DailyLimitUsage | null
     }
 
 /**
@@ -101,38 +91,24 @@ export function AjustesTab({ itemId, onDirtyChange, provider }: Props) {
   const [vinculando, setVinculando] = useState(false)
   const [confirmarDesvincular, setConfirmarDesvincular] = useState(false)
 
-  const aplicar = useCallback(
-    (data: LineSettings) => {
-      // Defensivo: api anterior ao limite não manda os campos.
-      const limiteDiario =
-        provider === 'ZAPI'
-          ? limiteDiarioDe({
-              dailyLimitEnabled: data.settings.dailyLimitEnabled === true,
-              dailyLimit: data.settings.dailyLimit ?? null,
-            })
-          : undefined
+  const aplicar = useCallback((data: LineSettings) => {
+    // Defensivo: api anterior ao toggle não manda o campo, e
+    // `undefined` x `false` contaria como alteração.
+    const settings = {
+      ...data.settings,
+      deviceMessageMirrorEnabled:
+        data.settings.deviceMessageMirrorEnabled === true,
+    }
 
-      // Defensivo como o limite: api anterior ao toggle não manda o campo, e
-      // `undefined` x `false` contaria como alteração.
-      const settings = {
-        ...data.settings,
-        deviceMessageMirrorEnabled:
-          data.settings.deviceMessageMirrorEnabled === true,
-      }
-
-      setState({
-        status: 'ready',
-        name: data.name,
-        vinculatedChannel: data.vinculatedChannel,
-        settings,
-        entitlement: data.entitlement,
-        limiteDiario,
-        uso: data.dailyLimit ?? null,
-      })
-      setInicial({ name: data.name, settings, limiteDiario })
-    },
-    [provider],
-  )
+    setState({
+      status: 'ready',
+      name: data.name,
+      vinculatedChannel: data.vinculatedChannel,
+      settings,
+      entitlement: data.entitlement,
+    })
+    setInicial({ name: data.name, settings })
+  }, [])
 
   /**
    * Recusa que chegou da api, e não do estado lido.
@@ -282,20 +258,7 @@ export function AjustesTab({ itemId, onDirtyChange, provider }: Props) {
   const nomeMudou =
     inicial !== null && state.name.trim() !== inicial.name.trim()
   const nomeValido = state.name.trim().length > 0
-  const limiteValido = limiteDiarioValido(state.limiteDiario)
-  const podeSalvar = dirty && nomeValido && limiteValido && !bloqueada
-  const limiteGravadoAtivo =
-    inicial?.limiteDiario !== undefined &&
-    inicial.limiteDiario.ativo &&
-    limiteDiarioValido(inicial.limiteDiario)
-
-  function setLimiteDiario(patch: Partial<LimiteDiarioEditavel>) {
-    setState(prev =>
-      prev.status === 'ready' && prev.limiteDiario
-        ? { ...prev, limiteDiario: { ...prev.limiteDiario, ...patch } }
-        : prev,
-    )
-  }
+  const podeSalvar = dirty && nomeValido && !bloqueada
 
   function setToggle(key: ToggleKey, value: boolean) {
     setState(prev =>
@@ -309,16 +272,12 @@ export function AjustesTab({ itemId, onDirtyChange, provider }: Props) {
     if (!podeSalvar || inicial === null || state.status !== 'ready') return
 
     // Só o que mudou vai no payload.
-    const settings: Partial<LineSettingsToggles> = {
-      ...patchLimiteDiario(inicial, state),
-    }
+    const settings: Partial<LineSettingsToggles> = {}
     for (const key of TOGGLE_KEYS) {
       if (state.settings[key] !== inicial.settings[key]) {
         settings[key] = state.settings[key]
       }
     }
-    const limiteMudou =
-      'dailyLimitEnabled' in settings || 'dailyLimit' in settings
 
     setSalvando(true)
     try {
@@ -327,18 +286,8 @@ export function AjustesTab({ itemId, onDirtyChange, provider }: Props) {
         ...(Object.keys(settings).length > 0 && { settings }),
       })
       // Salvou: o que está na tela passa a ser o estado inicial.
-      setInicial({
-        name: state.name.trim(),
-        settings: state.settings,
-        limiteDiario: state.limiteDiario && {
-          ativo: state.limiteDiario.ativo,
-          valor: state.limiteDiario.valor.trim(),
-        },
-      })
+      setInicial({ name: state.name.trim(), settings: state.settings })
       toast.success(t('salvo'))
-
-      // Limite novo muda o efetivo e o percentual: relê o uso, que a api calcula.
-      if (limiteMudou) void recarregarUso()
 
       /**
        * Nome novo: recarrega o contexto da instalação.
@@ -375,38 +324,9 @@ export function AjustesTab({ itemId, onDirtyChange, provider }: Props) {
             ...prev,
             name: inicial.name,
             settings: { ...prev.settings, ...inicial.settings },
-            limiteDiario: inicial.limiteDiario,
           }
         : prev,
     )
-  }
-
-  /** Só o uso: o resto da tela pode ter edição pendente, que não pode ser apagada. */
-  async function recarregarUso() {
-    try {
-      const data = await api.getSettings()
-      setState(prev =>
-        prev.status === 'ready'
-          ? { ...prev, uso: data.dailyLimit ?? null }
-          : prev,
-      )
-    } catch {
-      // Uso desatualizado é o estado de antes do salvamento; não vale um erro.
-    }
-  }
-
-  /** Ação imediata: não passa pela barra. Relança para o diálogo ficar aberto. */
-  async function handleLiberar(quantidade: number) {
-    try {
-      const { dailyLimit } = await api.releaseDailyLimitExtra(quantidade)
-      setState(prev =>
-        prev.status === 'ready' ? { ...prev, uso: dailyLimit } : prev,
-      )
-      toast.success(t('limiteDiario.liberado', { amount: quantidade }))
-    } catch (err: unknown) {
-      tratarRecusa(err, t('limiteDiario.erroLiberar'))
-      throw err
-    }
   }
 
   async function handleVincular() {
@@ -611,21 +531,8 @@ export function AjustesTab({ itemId, onDirtyChange, provider }: Props) {
           </div>
         </ConfigCard>
 
-        {state.limiteDiario && (
-          <LimiteDiarioCard
-            ativo={state.limiteDiario.ativo}
-            valor={state.limiteDiario.valor}
-            onAtivoChange={ativo => setLimiteDiario({ ativo })}
-            onValorChange={valor => setLimiteDiario({ valor })}
-            uso={state.uso}
-            limiteGravadoAtivo={limiteGravadoAtivo}
-            bloqueada={bloqueada}
-            onLiberar={handleLiberar}
-          />
-        )}
-
-        {/* Uma barra para a aba inteira: nome, toggles e limite diário saem juntos.
-            Vincular canal e liberar limite temporário continuam ações imediatas. */}
+        {/* Uma barra para a aba inteira: nome e toggles saem juntos. Vincular canal
+            continua ação imediata. */}
         <SaveChangesBar
           dirtyCount={dirtyCount}
           saving={salvando}

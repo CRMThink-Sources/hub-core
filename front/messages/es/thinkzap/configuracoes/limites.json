@@ -1,0 +1,31 @@
+{
+  "titulo": "Límites de envío",
+  "descricao": "Cuánto y a qué ritmo envía mensajes esta línea.",
+  "carregando": "Cargando...",
+  "erroLeitura": "No fue posible cargar los límites de envío de la línea.",
+  "erroLeituraTitulo": "No fue posible cargar los límites",
+  "tentarNovamente": "Intentar de nuevo",
+  "salvo": "Límites de envío guardados.",
+  "erroSalvar": "No fue posible guardar los límites de envío.",
+  "cadenciador": {
+    "titulo": "Cadenciador",
+    "descricao": "Controla el ritmo de envío de la línea para reducir el riesgo de bloqueo por ráfagas. Los mensajes por encima del ritmo no se rechazan: esperan en la cola y salen solos en la próxima ventana. Todos los modos de envío están incluidos, también las respuestas de los operadores y los mensajes del bot.",
+    "indisponivel": "El Cadenciador aún no está habilitado para esta instalación. El límite diario sigue disponible.",
+    "ativar": "Activar cadenciador",
+    "ativarHint": "La ventana empieza en el primer envío y acepta hasta la cantidad de mensajes configurada.",
+    "mensagens": "Mensajes por ventana",
+    "janela": "Duración de la ventana (minutos)",
+    "pausa": "Pausar al alcanzar el límite de la ventana",
+    "pausaHint": "La pausa empieza cuando la ventana alcanza el límite y reemplaza el resto de ella.",
+    "duracaoPausa": "Duración de la pausa (minutos)",
+    "valorInvalido": "Ingresa un número entero mayor que cero.",
+    "proximaJanela": "Los cambios valen a partir de la próxima ventana. La ventana o pausa en curso termina con los valores actuales.",
+    "estadoIndisponivel": "No fue posible leer el estado de la cadencia ahora. Recarga la página en unos instantes.",
+    "emPausa": "En pausa hasta las {{hora}}.",
+    "janelaAtiva": "Ventana activa: {{count}} de {{max}} mensajes, termina a las {{hora}}.",
+    "semJanela": "Ninguna ventana abierta: el próximo mensaje abre una ventana nueva.",
+    "aguardando_one": "{{count}} mensaje esperando en la cola.",
+    "aguardando_other": "{{count}} mensajes esperando en la cola.",
+    "alteracaoPendente": "Los nuevos valores entran en la próxima ventana."
+  }
+}

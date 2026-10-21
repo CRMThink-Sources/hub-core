@@ -1,3 +1,7 @@
+import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import type { SendCadence } from '@/modules/thinkzap/domain/ports/send-cadence.port'
+import { cadencePolicyOf } from '@/modules/thinkzap/domain/send-cadence'
 import { env } from '@/config/env'
 import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
@@ -104,7 +108,39 @@ export class MirrorZApiSentByMeMessageUseCase {
       'byInstallation'
     >,
     private readonly operatorAuthor: MirrorOperatorAuthor,
+    /** Ausente, a mensagem do aparelho não conta na janela da cadência. */
+    private readonly cadence: SendCadence | null = null,
   ) {}
+
+  /**
+   * A mensagem saiu do aparelho: já está no WhatsApp, então **conta** na janela da
+   * cadência (é volume real da linha) mas não espera — `registerExternal` nunca
+   * nega nem estende a pausa. Conta mesmo que a cópia não chegue ao canal aberto.
+   * Falha do Redis só vai para o log: o espelhamento segue.
+   */
+  private async registerInCadence(
+    item: SubscriptionItem,
+    event: ReceivedMessageEvent,
+    appendJobLog: AppendJobLog,
+  ): Promise<void> {
+    if (!this.cadence) return
+    const policy = cadencePolicyOf({
+      provider: ConnectorProvider.ZAPI,
+      lineKey: event.instanceId,
+      settings: item.settings,
+    })
+    if (!policy) return
+
+    try {
+      await this.cadence.registerExternal(policy, new Date())
+      await appendJobLog('Envio do aparelho contado na janela da cadência.')
+    } catch (err) {
+      log.warn(
+        { instanceId: event.instanceId, messageId: event.messageId, err },
+        'Envio do aparelho não contado na cadência',
+      )
+    }
+  }
 
   async execute(
     event: ReceivedMessageEvent,
@@ -207,6 +243,9 @@ export class MirrorZApiSentByMeMessageUseCase {
       )
       return
     }
+
+    // Mensagem nova do aparelho — edição e remoção não são envio novo.
+    if (!isUpdate) await this.registerInCadence(item, event, appendJobLog)
 
     const target = event.isGroup
       ? this.resolveGroupTarget(event)

@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it, vi } from 'vitest'
+﻿import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   createMock,
@@ -230,6 +230,7 @@ vi.mock('@/config/env', () => ({
       },
     },
     crmthinkWebhookUrl: 'https://crmthink.test/rest/1/token/',
+    thinkzapUnifiedOutboxDomains: '',
     logLevel: 'silent',
     nodeEnv: 'test',
   },
@@ -271,7 +272,44 @@ vi.mock('@/modules/thinkzap/main/make-installation-locale', () => ({
   makeInstallationLocaleRepository: () => ({ byAppId: localeByAppIdMock }),
 }))
 
+const { createPartsMock, enqueueOutboundMock } = vi.hoisted(() => ({
+  createPartsMock: vi.fn((inputs: { clientMessageId: string }[]) =>
+    Promise.resolve(
+      inputs.map((input, i) => ({ ...input, id: `row-${i}`, queueSeq: 1 })),
+    ),
+  ),
+  enqueueOutboundMock: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock(
+  '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository',
+  () => ({
+    PrismaWidgetOutboxRepository: class {
+      createParts = createPartsMock
+      setQueueSeq = vi.fn()
+    },
+  }),
+)
+
+vi.mock(
+  '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue',
+  () => ({
+    BullMqWidgetSendQueue: class {
+      enqueue = enqueueOutboundMock
+    },
+  }),
+)
+
+vi.mock('@/modules/thinkzap/main/make-send-cadence', () => ({
+  makeSendCadence: () => null,
+}))
+
+vi.mock('@/modules/thinkzap/main/make-outbound-media-storage', () => ({
+  makeOutboundMediaStorage: () => null,
+}))
+
 import axios from 'axios'
+import { env } from '@/config/env'
 import { processBitrixReceivedMessage } from './bitrix-received-message.processor'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
@@ -1444,5 +1482,108 @@ describe('processBitrixReceivedMessage cópia espelhada do aparelho', () => {
     await processBitrixReceivedMessage(makeEvent())
 
     expect(findByBitrixMessageIdMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('processBitrixReceivedMessage caminho unificado (fila de saída)', () => {
+  beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
+    createMock.mockClear()
+    createPartsMock.mockClear()
+    enqueueOutboundMock.mockClear()
+    findByBitrixMessageIdMock.mockReset().mockResolvedValue(null)
+    sendMessageZApiMock.mockClear()
+    sendImageMock.mockClear()
+    sendButtonActionsMock.mockClear()
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockClear()
+    callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
+    reservationGetMock.mockReset().mockResolvedValue(null)
+    getContextMock.mockResolvedValue(baseContext)
+    ;(
+      env as { thinkzapUnifiedOutboxDomains: string }
+    ).thinkzapUnifiedOutboxDomains = '*'
+  })
+
+  afterAll(() => {
+    ;(
+      env as { thinkzapUnifiedOutboxDomains: string }
+    ).thinkzapUnifiedOutboxDomains = ''
+  })
+
+  it('grava as partes na fila e não chama nenhum sender', async () => {
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+    expect(setMessageDeliveredMock).not.toHaveBeenCalled()
+    expect(createMock).not.toHaveBeenCalled()
+    expect(createPartsMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        clientMessageId: 'op:BITRIX-MSG-1:0',
+        origin: 'OPERATOR',
+        kind: 'TEXT',
+        text: 'Ola',
+        destination: '5511999999999',
+        bitrixMessageId: 'BITRIX-MSG-1',
+        bitrixChatId: '100',
+        operatorBitrixUserId: '1',
+        originContext: expect.objectContaining({
+          kind: 'operator',
+          line: '10',
+          connectorChatId: '5511999999999',
+        }) as object,
+      }),
+    ])
+    expect(enqueueOutboundMock).toHaveBeenCalledWith({ outboxId: 'row-0' })
+  })
+
+  it('reprocessar o mesmo evento usa o mesmo clientMessageId (não duplica)', async () => {
+    await processBitrixReceivedMessage(makeEvent())
+    await processBitrixReceivedMessage(makeEvent())
+
+    const ids = createPartsMock.mock.calls.map(
+      ([parts]) => (parts as { clientMessageId: string }[])[0]!.clientMessageId,
+    )
+    expect(ids).toEqual(['op:BITRIX-MSG-1:0', 'op:BITRIX-MSG-1:0'])
+  })
+
+  it('a mensagem espelhada continua descartada', async () => {
+    reservationGetMock.mockResolvedValueOnce('ME-1')
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(createPartsMock).not.toHaveBeenCalled()
+  })
+
+  it('botões do canal aberto vão para a fila como INTERACTIVE_BUTTON', async () => {
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: {
+          user_id: '1',
+          text: encodeButtonActionCode({
+            body: 'Escolha',
+            buttons: [{ id: '1', label: 'Sim', type: 'REPLY' }],
+          }),
+        },
+      }),
+    )
+
+    expect(sendButtonActionsMock).not.toHaveBeenCalled()
+    expect(createPartsMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        kind: 'INTERACTIVE_BUTTON',
+        origin: 'OPERATOR',
+        buttonPayload: expect.objectContaining({ body: 'Escolha' }) as object,
+      }),
+    ])
+  })
+
+  it('linha oficial segue o envio direto', async () => {
+    getContextMock.mockResolvedValue(hubMessageContext)
+
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(createPartsMock).not.toHaveBeenCalled()
+    expect(sendHubMessageMock).toHaveBeenCalled()
   })
 })

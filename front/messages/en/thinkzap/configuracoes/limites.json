@@ -1,0 +1,31 @@
+{
+  "titulo": "Sending limits",
+  "descricao": "How much and at what pace this line sends messages.",
+  "carregando": "Loading...",
+  "erroLeitura": "Could not load the line's sending limits.",
+  "erroLeituraTitulo": "Could not load the limits",
+  "tentarNovamente": "Try again",
+  "salvo": "Sending limits saved.",
+  "erroSalvar": "Could not save the sending limits.",
+  "cadenciador": {
+    "titulo": "Cadence",
+    "descricao": "Controls the line's sending pace to reduce the risk of being blocked for bursts. Messages above the pace are not refused: they wait in the queue and go out on their own in the next window. Every sending mode is included, including operator replies and bot messages.",
+    "indisponivel": "Cadence is not yet available for this installation. The daily limit is still available.",
+    "ativar": "Enable cadence",
+    "ativarHint": "The window starts at the first send and accepts up to the configured number of messages.",
+    "mensagens": "Messages per window",
+    "janela": "Window length (minutes)",
+    "pausa": "Pause when the window limit is reached",
+    "pausaHint": "The pause starts when the window reaches its limit and replaces the rest of it.",
+    "duracaoPausa": "Pause length (minutes)",
+    "valorInvalido": "Enter a whole number greater than zero.",
+    "proximaJanela": "Changes take effect from the next window. The current window or pause ends with the current values.",
+    "estadoIndisponivel": "Could not read the cadence state right now. Reload the page in a moment.",
+    "emPausa": "Paused until {{hora}}.",
+    "janelaAtiva": "Window open: {{count}} of {{max}} messages, ends at {{hora}}.",
+    "semJanela": "No window open: the next message opens a new window.",
+    "aguardando_one": "{{count}} message waiting in the queue.",
+    "aguardando_other": "{{count}} messages waiting in the queue.",
+    "alteracaoPendente": "The new values take effect in the next window."
+  }
+}

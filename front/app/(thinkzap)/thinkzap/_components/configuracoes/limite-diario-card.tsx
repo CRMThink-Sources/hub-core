@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { DailyLimitUsage } from '@/app/hooks/use-line-api'
 import { ConfigCard } from './config-card'
-import { limiteDiarioValido } from './ajustes-alteracoes'
+import { limiteDiarioValido } from './limites-alteracoes'
 
 type Props = {
   ativo: boolean

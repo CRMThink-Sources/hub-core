@@ -158,3 +158,57 @@ describe('parseConnectorSettings (espelhamento do aparelho)', () => {
     ).toBe(true)
   })
 })
+
+describe('parseConnectorSettings (cadência)', () => {
+  it('settings antigos sem os campos leem a cadência desligada', () => {
+    const parsed = parseConnectorSettings({
+      prefixOperatorNameEnabled: true,
+      dailyLimitEnabled: true,
+      dailyLimit: 300,
+    })
+
+    expect(parsed.cadenceEnabled).toBe(false)
+    expect(parsed.cadencePauseEnabled).toBe(false)
+    expect(parsed.cadenceMaxMessages).toBeNull()
+    expect(parsed.cadenceWindowMinutes).toBeNull()
+    expect(parsed.cadencePauseMinutes).toBeNull()
+    expect(parsed.dailyLimit).toBe(300)
+  })
+
+  it('valor estranho num campo da cadência cai no default só daquele campo', () => {
+    const parsed = parseConnectorSettings({
+      cadenceEnabled: true,
+      cadenceMaxMessages: 0,
+      cadenceWindowMinutes: 1,
+      cadencePauseMinutes: 'cinco',
+    })
+
+    expect(parsed).toEqual({
+      ...DEFAULT_CONNECTOR_SETTINGS,
+      cadenceEnabled: true,
+      cadenceWindowMinutes: 1,
+    })
+  })
+
+  it('o merge da cadência preserva os toggles e o limite diário', () => {
+    const current = {
+      ...DEFAULT_CONNECTOR_SETTINGS,
+      prefixOperatorNameEnabled: true,
+      dailyLimitEnabled: true,
+      dailyLimit: 300,
+    }
+
+    expect(
+      mergeConnectorSettings(current, {
+        cadenceEnabled: true,
+        cadenceMaxMessages: 20,
+        cadenceWindowMinutes: 1,
+      }),
+    ).toEqual({
+      ...current,
+      cadenceEnabled: true,
+      cadenceMaxMessages: 20,
+      cadenceWindowMinutes: 1,
+    })
+  })
+})

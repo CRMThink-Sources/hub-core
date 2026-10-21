@@ -27,6 +27,19 @@ export type ConnectorSettings = {
    * ativar na instância a notificação de "enviadas por mim".
    */
   deviceMessageMirrorEnabled: boolean
+  /**
+   * Cadência de envio, só para linha não oficial (Z-API): no máximo
+   * `cadenceMaxMessages` envios por janela de `cadenceWindowMinutes`, com pausa
+   * opcional de `cadencePauseMinutes` ao atingir o limite. Desligada por padrão.
+   */
+  cadenceEnabled: boolean
+  /** Inteiro >= 1 quando ligada. `null` = nunca configurado. */
+  cadenceMaxMessages: number | null
+  /** Inteiro >= 1 (minutos) quando ligada. */
+  cadenceWindowMinutes: number | null
+  cadencePauseEnabled: boolean
+  /** Inteiro >= 1 (minutos) quando a pausa está ligada. */
+  cadencePauseMinutes: number | null
 }
 
 export const DEFAULT_CONNECTOR_SETTINGS: ConnectorSettings = {
@@ -35,4 +48,9 @@ export const DEFAULT_CONNECTOR_SETTINGS: ConnectorSettings = {
   dailyLimitEnabled: false,
   dailyLimit: null,
   deviceMessageMirrorEnabled: false,
+  cadenceEnabled: false,
+  cadenceMaxMessages: null,
+  cadenceWindowMinutes: null,
+  cadencePauseEnabled: false,
+  cadencePauseMinutes: null,
 }

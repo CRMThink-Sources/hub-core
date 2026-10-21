@@ -1,3 +1,4 @@
+import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { Request } from 'express'
@@ -46,6 +47,7 @@ export const makeBitrixButtonRobotUnofficialWebhookHandlerController = async (
     new PrismaWidgetOutboxRepository(),
     new BullMqWidgetSendQueue(),
     makeDailySendQuota(),
+    makeSendCadence(),
   )
 
   return new BitrixButtonRobotUnofficialWebhookHandlerController(

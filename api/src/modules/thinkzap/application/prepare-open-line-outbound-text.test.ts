@@ -8,13 +8,10 @@ vi.mock('@/shared/infra/logger', () => ({
 }))
 
 const PREFIX_ON = {
+  ...DEFAULT_CONNECTOR_SETTINGS,
   prefixOperatorNameEnabled: true,
   messageUpdateEventEnabled: false,
   messageDeleteEventEnabled: false,
-  widgetOpenChannelEnabled: false,
-  dailyLimitEnabled: false,
-  dailyLimit: null,
-  deviceMessageMirrorEnabled: false,
 }
 
 describe('prepareOpenLineOutboundText', () => {

@@ -5,6 +5,7 @@ import { Controller } from '@/shared/presentation/controller'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { assertConnectorLineEnabled } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
 import { UpdateLineSettings } from '@/modules/thinkzap/application/update-line-settings'
+import { isUnifiedOutboxEnabled } from '@/modules/thinkzap/application/helpers/unified-outbox'
 import { mapLineError } from '@/modules/thinkzap/presentation/helpers/handle-line-error'
 import { parseLineRequest } from './line-request'
 
@@ -27,6 +28,12 @@ const bodySchema = z
         dailyLimit: z.number().int().positive().nullable().optional(),
         // Só Z-API; a recusa em linha oficial é do caso de uso.
         deviceMessageMirrorEnabled: z.boolean().optional(),
+        // Forma aqui; regra (provider, inteiros >= 1 quando ligada, flag) no caso de uso.
+        cadenceEnabled: z.boolean().optional(),
+        cadenceMaxMessages: z.number().int().positive().nullable().optional(),
+        cadenceWindowMinutes: z.number().int().positive().nullable().optional(),
+        cadencePauseEnabled: z.boolean().optional(),
+        cadencePauseMinutes: z.number().int().positive().nullable().optional(),
       })
       .strict()
       .optional(),
@@ -93,6 +100,7 @@ export class UpdateLineSettingsController extends Controller {
         appId: context.aplication.id,
         name: body.data.name,
         settings: body.data.settings,
+        cadenceAvailable: isUnifiedOutboxEnabled(context.customer.memberId),
       })
 
       return this.ok({ saved: true })

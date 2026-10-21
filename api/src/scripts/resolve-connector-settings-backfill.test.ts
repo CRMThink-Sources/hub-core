@@ -62,6 +62,11 @@ describe('settingsToMigrate', () => {
       dailyLimitEnabled: false,
       dailyLimit: null,
       deviceMessageMirrorEnabled: false,
+      cadenceEnabled: false,
+      cadenceMaxMessages: null,
+      cadenceWindowMinutes: null,
+      cadencePauseEnabled: false,
+      cadencePauseMinutes: null,
     })
   })
 
@@ -84,6 +89,11 @@ describe('settingsToMigrate', () => {
       dailyLimitEnabled: false,
       dailyLimit: null,
       deviceMessageMirrorEnabled: false,
+      cadenceEnabled: false,
+      cadenceMaxMessages: null,
+      cadenceWindowMinutes: null,
+      cadencePauseEnabled: false,
+      cadencePauseMinutes: null,
     })
   })
 

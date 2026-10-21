@@ -1,3 +1,4 @@
+import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { MirrorZApiSentByMeMessageUseCase } from '@/modules/thinkzap/application/mirror-z-api-sent-by-me-message.use-case'
 import {
@@ -33,6 +34,7 @@ export async function processZApiSentByMeMessage(
     makeResolveGroupMentions(),
     makeInstallationLocaleRepository(),
     makeMirrorOperatorAuthor(),
+    makeSendCadence(),
   )
 
   await useCase.execute(event, deps)

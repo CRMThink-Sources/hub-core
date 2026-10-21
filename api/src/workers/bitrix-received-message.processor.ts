@@ -1,3 +1,14 @@
+import { EnqueueOperatorReply } from '@/modules/thinkzap/application/enqueue-operator-reply'
+import { isUnifiedOutboxEnabled } from '@/modules/thinkzap/application/helpers/unified-outbox'
+import {
+  ROBOT_FILE_MAX_BYTES,
+  downloadRobotFile,
+} from '@/modules/thinkzap/application/robot-files/fetch-robot-files'
+import { makeOutboundMediaStorage } from '@/modules/thinkzap/main/make-outbound-media-storage'
+import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
+import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
+import { BullMqWidgetSendQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
+import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { env } from '@/config/env'
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import {
@@ -81,6 +92,13 @@ const outboundSenderResolver = makeOutboundSenderResolver()
 const interactiveButtonSenderResolver = makeInteractiveButtonSenderResolver()
 const dailySendQuota = makeDailySendQuota()
 const installationLocales = makeInstallationLocaleRepository()
+const enqueueOperatorReply = new EnqueueOperatorReply({
+  outbox: new PrismaWidgetOutboxRepository(),
+  sendQueue: new BullMqWidgetSendQueue(),
+  cadence: makeSendCadence(),
+  storage: makeOutboundMediaStorage(),
+  download: url => downloadRobotFile(url, ROBOT_FILE_MAX_BYTES),
+})
 
 /**
  * Recusa por limite diário: permanente até a virada do dia (ou liberação), então
@@ -483,6 +501,8 @@ export async function processBitrixReceivedMessage(
       bitrixClient,
       appendJobLog,
       dailyLimitPolicy,
+      line,
+      appCode,
     })
     return
   }
@@ -572,13 +592,34 @@ export async function processBitrixReceivedMessage(
     )
   }
 
+  const bitrixMessageId = message.im.message_id
+  const instanceDbId = context.instance.id
+
+  /**
+   * Caminho unificado (linha Z-API com a flag da instalação): a resposta vai para a
+   * fila e passa pela cadência. O job termina com sucesso quando as partes estão
+   * gravadas — a entrega, a confirmação no Bitrix e os avisos são do despacho.
+   */
+  if (usesUnifiedOutbox(provider, event)) {
+    const { parts } = await enqueueOperatorReply.execute({
+      item: line.item,
+      instanceDbId,
+      domainId: context.id,
+      appCode,
+      context: operatorContextOf(event, message, chatId, referencedMessageId),
+      parts: descriptors,
+    })
+    await appendJobLog(
+      `Caminho unificado: ${parts} parte(s) gravada(s) na fila de saída da linha. ` +
+        'A entrega (e a espera da cadência, se houver) é do worker de envio.',
+    )
+    return
+  }
+
   const getBitrixUserDisplayName = new BitrixGetUserDisplayNameAdapter(
     bitrixClient,
   )
   const getAllowedUser = new PrismaAllowedUserRepository()
-
-  const bitrixMessageId = message.im.message_id
-  const instanceDbId = context.instance.id
 
   for (const [index, descriptor] of descriptors.entries()) {
     log.debug(
@@ -758,6 +799,9 @@ async function sendButtonActionMessage(params: {
   bitrixClient: BitrixClient
   appendJobLog: AppendJobLog
   dailyLimitPolicy: DailyLimitPolicy | null
+  /** Para o caminho unificado; ausente nos testes antigos. */
+  line?: { item: SubscriptionItem }
+  appCode: string
 }): Promise<void> {
   const {
     event,
@@ -832,6 +876,21 @@ async function sendButtonActionMessage(params: {
       message.im.chat_id,
       (err as Error).message,
       await installationLocales.byAppId(context.app.id),
+    )
+    return
+  }
+
+  if (usesUnifiedOutbox(provider, event) && params.line) {
+    await enqueueOperatorReply.execute({
+      item: params.line.item,
+      instanceDbId: context.instance.id,
+      domainId: context.id,
+      appCode: params.appCode,
+      context: operatorContextOf(event, message, chatId),
+      buttons: descriptor,
+    })
+    await appendJobLog(
+      'Caminho unificado: botões gravados na fila de saída da linha.',
     )
     return
   }
@@ -962,6 +1021,35 @@ async function findMirroredCopy(
   return record?.source === 'ZAPI'
     ? { via: 'registro', providerMessageId: record.providerMessageId }
     : null
+}
+
+/** Linha Z-API de instalação com a flag do caminho unificado da outbox. */
+function usesUnifiedOutbox(
+  provider: ConnectorProvider,
+  event: IBX24MessageEvent,
+): boolean {
+  return (
+    provider === ConnectorProvider.ZAPI &&
+    isUnifiedOutboxEnabled(event.auth.member_id)
+  )
+}
+
+function operatorContextOf(
+  event: IBX24MessageEvent,
+  message: IBX24MessageEvent['data']['MESSAGES'][number],
+  chatId: string,
+  referencedMessageId?: string,
+) {
+  return {
+    line: event.data.LINE,
+    im: {
+      chat_id: String(message.im.chat_id),
+      message_id: String(message.im.message_id),
+    },
+    connectorChatId: chatId,
+    bitrixUserId: String(message.message.user_id),
+    ...(referencedMessageId ? { referencedMessageId } : {}),
+  }
 }
 
 async function setDelivered(

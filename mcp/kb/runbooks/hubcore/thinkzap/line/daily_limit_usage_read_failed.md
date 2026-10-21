@@ -6,7 +6,7 @@ summary: O uso de hoje do limite diário não pôde ser lido agora. Os ajustes d
 # thinkzap.line.daily_limit_usage_read_failed
 
 ## O que significa
-Ao abrir a aba Ajustes de uma linha Web (não oficial), a quantidade de mensagens enviadas hoje não pôde ser consultada. A aba abre normalmente e a configuração do limite continua editável, mas o card "Limite diário" aparece sem o uso do dia. Os envios da linha não são afetados por este aviso.
+Ao abrir a aba Limites de envio de uma linha Web (não oficial), a quantidade de mensagens enviadas hoje não pôde ser consultada. A aba abre normalmente e a configuração do limite continua editável, mas o card "Limite diário" aparece sem o uso do dia. Os envios da linha não são afetados por este aviso.
 
 ## Causa provável
 - **Instabilidade momentânea** no serviço interno que guarda a contagem do dia.

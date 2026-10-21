@@ -15,7 +15,7 @@ A linha Web (não oficial) tem um limite diário de mensagens ativado, e a quant
 ## Como verificar
 1. Na tela de Logs do app thinkzap, filtre pelo `traceKey` do ticket.
 2. Confirme `código de erro: thinkzap.line.daily_limit_reached`.
-3. Na configuração da linha, aba Ajustes, card "Limite diário": confira enviadas hoje, limite efetivo e a indicação de limite atingido.
+3. Na configuração da linha, aba Limites de envio, card "Limite diário": confira enviadas hoje, limite efetivo e a indicação de limite atingido.
 
 ## Como resolver
 1. Explique ao parceiro que o envio foi recusado pelo limite diário que ele configurou.
