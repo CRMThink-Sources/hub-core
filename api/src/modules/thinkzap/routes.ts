@@ -87,6 +87,7 @@ import {
   makeGetLineConnectionController,
   makeGetLineQrCodeController,
   makeGetLineSettingsController,
+  makeGetLineCadenceQueueController,
   makeLinkLineChannelController,
   makeUnlinkLineChannelController,
   makeGetLineSmsProviderController,
@@ -359,6 +360,12 @@ export const createThinkerszapRoutes = (): Router => {
     '/lines/:itemId/settings',
     requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeGetLineSettingsController),
+  )
+  /** Mensagens aguardando na fila da linha (cadenciador). Mesma permissão de ler os ajustes. */
+  router.get(
+    '/lines/:itemId/cadence/queue',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetLineCadenceQueueController),
   )
   router.patch(
     '/lines/:itemId/settings',

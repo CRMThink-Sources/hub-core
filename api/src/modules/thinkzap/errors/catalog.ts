@@ -953,6 +953,15 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 500,
   },
+  'thinkzap.outbox.sequencer_head_rescheduled': {
+    category: 'internal',
+    userCause:
+      'A próxima mensagem da fila da linha estava parada, sem envio agendado, e foi reagendada automaticamente. As mensagens atrás dela voltam a sair.',
+    remediation:
+      'Nenhuma ação na mensagem. Investigar no log do job por que o agendamento anterior se perdeu (falha antes do envio ou no enfileiramento).',
+    retriable: false,
+    httpStatus: 500,
+  },
   'thinkzap.line.disconnected': {
     category: 'validation',
     userCause: 'A linha não está conectada no WhatsApp.',

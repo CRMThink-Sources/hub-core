@@ -47,6 +47,7 @@
   - um ticket removido e reinserido mantém a posição pelo `queueSeq`.
 - [x] 2.5 Verificar a atomicidade com um teste de duas reservas concorrentes na última vaga da janela: exatamente uma é aceita e a outra recebe `retryAt` (cenário "Envios simultâneos na última vaga da janela").
 - [x] 2.6 Criar a varredura (node-cron, a cada 60 s, em `shared/infra/scheduler/`), que remove do ZSET ids sem linha na outbox ou em estado terminal e registra `thinkzap.outbox.sequencer_stale_removed`. Verificar com teste da varredura usando repositório e Redis fakes.
+- [x] 2.7 Na varredura, recriar o job da **cabeça viva sem job**: a row está PENDING/SENDING, a mesma cabeça aparece em duas rodadas seguidas e não há job `widget-send-<id>` esperando, atrasado ou rodando. Registrar `thinkzap.outbox.sequencer_head_rescheduled`. A varredura passa a rodar no processo do worker de envio (`thinkzap-widget-outbound.worker.ts`), e não na API. Verificar com testes da varredura (duas rodadas, job vivo não é recriado, cabeça que mudou espera, falha de uma linha não para as outras) e do `ensureScheduled` (sem job, job falho, job atrasado).
 
 ## 3. Outbox: origem, mídia e grupo
 
@@ -185,3 +186,8 @@
 - [ ] 13.3 Rodar `yarn test` na `api` e no `front` e `openspec validate cadenciador-mensagens-linha --strict`, todos sem falhas.
 
   _Estado atual: api 4097/4097 testes, lint e `tsc` limpos; `openspec validate --strict` ok. Front: `tsc` e lint limpos; 1 falha **anterior a esta change** em `bots/issue-text.test.ts` (catálogo de códigos do editor de fluxo, sem relação com a cadência)._
+
+## 14. Lista das mensagens aguardando
+
+- [x] 14.1 Criar `GET /api/thinkzap/lines/:itemId/cadence/queue` (`connectors:read`): os 50 primeiros tickets da fila da linha (ZSET, em ordem) cruzados com as rows da outbox, mais o total (`ZCARD`). Cada item traz posição, origem, destinatário, trecho do conteúdo, entrada na fila e `cadenceWaitUntil`. Linha oficial devolve lista vazia; ticket sem row é ignorado. Verificar com testes do caso de uso: ordem da fila, limite de 50 com `total`, trecho de mídia sem legenda e linha oficial.
+- [x] 14.2 No card Cadenciador, mostrar a tabela das mensagens aguardando, com botão "Atualizar" que relê a lista e o estado. Ela é lida ao abrir a aba, some com a fila vazia e indica quantas ficaram além das 50. Incluir textos pt, en e es. Verificar com testes da lógica pura (rótulo de origem, trecho e "mais N") e com `tsc` e lint do front.

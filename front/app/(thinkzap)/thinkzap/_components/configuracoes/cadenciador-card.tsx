@@ -4,8 +4,14 @@ import { useTranslation } from 'react-i18next'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { CadenceState } from '@/app/hooks/use-line-api'
+import { Button } from '@/components/ui/button'
+import type {
+  CadenceQueueListing,
+  CadenceState,
+} from '@/app/hooks/use-line-api'
 import { ConfigCard } from './config-card'
+import { FilaAguardando } from './fila-aguardando'
+import { horaDe, mostrarFila } from './fila-cadencia'
 import {
   camposInvalidosCadencia,
   type CadenciaEditavel,
@@ -17,16 +23,12 @@ type Props = {
   /** Estado lido da api; `null` = não pôde ser lido agora (o card segue editável). */
   estado: CadenceState | null
   bloqueada: boolean
-}
-
-/** HH:mm do horário de Brasília — o mesmo dos avisos do servidor. */
-export function horaDe(epochMs: number): string {
-  return new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(epochMs))
+  /** Mensagens aguardando; `null` = ainda não lida ou falhou (ver `filaErro`). */
+  fila: CadenceQueueListing | null
+  filaErro: boolean
+  /** Relê a lista e o estado, sem mexer na edição pendente. */
+  onAtualizar: () => void
+  atualizando: boolean
 }
 
 /**
@@ -42,6 +44,10 @@ export function CadenciadorCard({
   onChange,
   estado,
   bloqueada,
+  fila,
+  filaErro,
+  onAtualizar,
+  atualizando,
 }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/limites')
   const invalidos = camposInvalidosCadencia(cadencia)
@@ -116,6 +122,36 @@ export function CadenciadorCard({
         </p>
 
         <EstadoAtual estado={estado} />
+
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-foreground">
+              {t('cadenciador.fila.titulo')}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={atualizando}
+              onClick={onAtualizar}
+            >
+              {atualizando
+                ? t('cadenciador.fila.atualizando')
+                : t('cadenciador.fila.atualizar')}
+            </Button>
+          </div>
+          {filaErro ? (
+            <p className="text-sm text-muted-foreground">
+              {t('cadenciador.fila.erroLeitura')}
+            </p>
+          ) : fila !== null && mostrarFila(fila) ? (
+            <FilaAguardando fila={fila} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t('cadenciador.fila.vazia')}
+            </p>
+          )}
+        </div>
       </div>
     </ConfigCard>
   )

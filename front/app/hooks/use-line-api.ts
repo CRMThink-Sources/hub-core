@@ -63,6 +63,37 @@ export type LineSettingsToggles = {
   cadencePauseMinutes: number | null
 }
 
+/** De onde veio uma mensagem da fila de saída. */
+export type OutboxOrigin =
+  | 'WIDGET'
+  | 'WIDGET_ATTACHMENT'
+  | 'ROBOT_MESSAGE'
+  | 'ROBOT_BUTTONS'
+  | 'ROBOT_TEMPLATE'
+  | 'SMS_CAMPAIGN'
+  | 'OPERATOR'
+  | 'BOT'
+
+/** Uma mensagem aguardando na fila da linha. Horários em epoch ms. */
+export type CadenceQueueItem = {
+  /** 1 = a próxima a sair. */
+  position: number
+  origin: OutboxOrigin
+  destination: string
+  /** Texto, legenda ou nome do arquivo, já cortado; `null` = mídia sem nome. */
+  preview: string | null
+  mediaType: 'image' | 'video' | 'audio' | 'document' | null
+  enqueuedAt: number
+  /** Saída prevista (fim da janela/pausa), quando já esperou alguma. */
+  waitUntil: number | null
+}
+
+/** As primeiras mensagens da fila, na ordem de saída, e o total. */
+export type CadenceQueueListing = {
+  total: number
+  messages: CadenceQueueItem[]
+}
+
 /**
  * Estado atual da cadência da linha, como a api lê do Redis. Horários em epoch ms.
  */
@@ -180,6 +211,9 @@ export function useLineApi(itemId: string) {
         name?: string
         settings?: Partial<LineSettingsToggles>
       }) => client().patch<{ saved: boolean }>(`${base}/settings`, payload),
+      /** Mensagens aguardando na fila da linha (cadenciador), na ordem de saída. */
+      getCadenceQueue: () =>
+        client().get<CadenceQueueListing>(`${base}/cadence/queue`),
       /** Soma mensagens extras ao limite **só de hoje**; devolve o uso atualizado. */
       releaseDailyLimitExtra: (amount: number) =>
         client().post<{ dailyLimit: DailyLimitUsage }>(

@@ -2,9 +2,13 @@ import cron from 'node-cron'
 import { SweepCadenceSequencer } from '@/modules/thinkzap/application/sweep-cadence-sequencer'
 import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
+import { BullMqWidgetSendQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
 import { apiLogger } from '@/shared/infra/logger'
 
-/** A cada minuto: no pior caso, uma cabeça órfã atrasa a linha ~2 min (duas rodadas). */
+/**
+ * A cada minuto: no pior caso, uma cabeça órfã (ou viva sem job) atrasa a linha ~2 min
+ * (duas rodadas). Roda no processo do worker de envio, que é quem consome a fila.
+ */
 const SCHEDULE = '* * * * *'
 
 export type CadenceSequencerSweepJobDeps = {
@@ -20,6 +24,7 @@ const defaultDeps = (): CadenceSequencerSweepJobDeps => ({
     new SweepCadenceSequencer(
       makeSendCadence(),
       new PrismaWidgetOutboxRepository(),
+      new BullMqWidgetSendQueue(),
     ),
 })
 

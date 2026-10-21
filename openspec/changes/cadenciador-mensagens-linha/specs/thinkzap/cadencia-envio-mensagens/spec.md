@@ -249,6 +249,39 @@ Com a cadência desativada, SHALL mostrar a indicação de que a cadência não 
 - **WHEN** a linha está em pausa até 10:05:40 e 30 mensagens aguardam
 - **THEN** a tela mostra a pausa até 10:05:40 e 30 mensagens aguardando
 
+### Requirement: Lista das mensagens aguardando
+Além da quantidade, a configuração da linha não oficial SHALL listar as mensagens que aguardam na fila da linha, **na ordem em que vão sair**. Cada linha da lista SHALL mostrar:
+
+- a posição na fila;
+- a origem (operador, bot, widget, envio com anexo, robô "Enviar mensagem", robô de botões, Campanha de SMS);
+- o destinatário;
+- um trecho do conteúdo: o texto, a legenda ou, em mídia sem legenda, o tipo e o nome do arquivo;
+- o horário em que entrou na fila;
+- a previsão de saída, quando a mensagem está esperando uma janela ou o fim de uma pausa.
+
+A lista SHALL mostrar no máximo as 50 primeiras mensagens. Com mais de 50, SHALL indicar quantas ficaram de fora. A quantidade total continua sendo a do estado da cadência.
+
+A lista SHALL ser lida ao abrir a aba e SHALL poder ser atualizada sem recarregar a página. Ver a lista exige a mesma permissão de ler a configuração da linha. A lista SHALL NOT oferecer ações sobre as mensagens.
+
+Sem mensagens aguardando, a lista SHALL NOT aparecer. Linhas oficiais SHALL NOT expor a lista.
+
+#### Scenario: Pausa com mensagens na fila
+- **WHEN** a linha está em pausa até 10:05:40 com uma resposta do operador e duas mensagens de robô aguardando, nessa ordem
+- **THEN** a tela mostra "3 mensagens aguardando na fila" e a lista com as três, nessa ordem
+- **AND** cada uma mostra a origem, o destinatário, o trecho, a hora de entrada e a saída prevista para 10:05:40
+
+#### Scenario: Mais de 50 aguardando
+- **WHEN** 120 mensagens aguardam na fila da linha
+- **THEN** a lista mostra as 50 primeiras e indica que outras 70 aguardam
+
+#### Scenario: Fila vazia
+- **WHEN** nenhuma mensagem aguarda
+- **THEN** a lista não aparece
+
+#### Scenario: Atualizar a lista
+- **WHEN** a fila andou desde a abertura da aba e o usuário pede para atualizar
+- **THEN** a lista e a quantidade passam a refletir a fila atual
+
 ### Requirement: Idioma dos avisos de cadência
 Os textos de cadência gerados pelo servidor SHALL sair no idioma escolhido no app para a instalação, entre `pt`, `en` e `es`, conforme a capability `thinkzap/idioma-avisos-servidor`. Isso inclui o aviso de espera ao operador no chat do canal aberto. Instalação sem idioma escolhido SHALL receber os avisos em português.
 

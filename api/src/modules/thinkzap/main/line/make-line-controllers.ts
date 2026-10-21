@@ -1,3 +1,6 @@
+import { ListLineCadenceQueue } from '@/modules/thinkzap/application/list-line-cadence-queue'
+import { GetLineCadenceQueueController } from '@/modules/thinkzap/presentation/controllers/line/get-line-cadence-queue.controller'
+import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { makeSyncLineConnectedField } from '@/modules/thinkzap/main/make-sync-line-connected-field'
 import { Request } from 'express'
@@ -284,5 +287,17 @@ export const makeDeleteTemplateSmsProviderController = async (
   return new DeleteTemplateSmsProviderController(
     getAplicationContext,
     await makeBitrixClient(req),
+  )
+}
+
+export const makeGetLineCadenceQueueController = (): Controller => {
+  const { getAplicationContext } = makeLineDeps()
+
+  return new GetLineCadenceQueueController(
+    new ListLineCadenceQueue(
+      getAplicationContext,
+      makeSendCadence(),
+      new PrismaWidgetOutboxRepository(),
+    ),
   )
 }

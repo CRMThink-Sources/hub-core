@@ -570,6 +570,15 @@ export class PrismaWidgetOutboxRepository {
     return count
   }
 
+  /** As rows dos ids informados, sem ordem garantida. */
+  async findByIds(ids: string[]): Promise<WidgetOutboxRecord[]> {
+    if (ids.length === 0) return []
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: { id: { in: ids } },
+    })
+    return rows.map(mapRow)
+  }
+
   /** Dos ids informados, os que ainda esperam envio — a varredura do sequenciador. */
   async findLiveIds(ids: string[]): Promise<Set<string>> {
     if (ids.length === 0) return new Set()
