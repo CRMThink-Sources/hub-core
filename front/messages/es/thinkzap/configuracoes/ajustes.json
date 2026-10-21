@@ -1,9 +1,9 @@
 {
-  "titulo": "Ajustes",
+  "titulo": "Configuración",
   "descricao": "Configuración de esta línea.",
   "carregando": "Cargando ajustes...",
   "erroLeitura": "No se pudieron cargar los ajustes.",
-  "erroLeituraTitulo": "Ajustes no disponibles",
+  "erroLeituraTitulo": "Configuración no disponible",
   "tentarNovamente": "Intentar de nuevo",
   "identificacao": "Identificación",
   "nome": "Nombre de la línea",
@@ -27,7 +27,7 @@
   "confirmarDesvincularTitulo": "¿Desvincular el canal abierto?",
   "confirmarDesvincularDescricao": "Los mensajes de esta línea dejan de llegar al canal en el CRM.",
   "comportamento": "Comportamiento",
-  "salvo": "Ajustes guardados.",
+  "salvo": "Configuración guardada.",
   "erroSalvar": "No se pudieron guardar los ajustes.",
   "limiteDiario": {
     "titulo": "Límite diario de mensajes",
@@ -51,14 +51,23 @@
     "confirmarLiberar": "Liberar para hoy",
     "liberando": "Liberando...",
     "liberado": "Límite temporal liberado: +{{amount}} mensajes para hoy.",
-    "erroLiberar": "No fue posible liberar el límite temporal."
+    "erroLiberar": "No fue posible liberar el límite temporal.",
+    "zerar": "Reiniciar uso de hoy",
+    "zerarTitulo": "¿Reiniciar el uso de hoy?",
+    "zerarDescricao": "Los mensajes enviados hoy vuelven a 0 y los extras liberados hoy se eliminan. La línea vuelve a enviar hasta el límite configurado, como si el día hubiera cambiado. La configuración del límite no cambia.",
+    "confirmarZerar": "Reiniciar",
+    "zerando": "Reiniciando...",
+    "zerado": "Uso de hoy reiniciado.",
+    "erroZerar": "No fue posible reiniciar el uso de hoy."
   },
   "toggles": {
     "prefixOperatorName": "Prefijar nombre del operador",
     "prefixOperatorNameHint": "Incluye el nombre de quien atiende antes del mensaje enviado.",
     "widgetOpenChannel": "Enviar al canal abierto",
     "widgetOpenChannelHint": "Los mensajes enviados por el widget también van al canal abierto.",
-    "widgetOpenChannelSemCanal": "Vincula un canal abierto para habilitar."
+    "widgetOpenChannelSemCanal": "Vincula un canal abierto para habilitar.",
+    "deviceMessageMirror": "Reflejar mensajes enviados desde el dispositivo",
+    "deviceMessageMirrorHint": "Los mensajes enviados desde el celular o WhatsApp Web aparecen en el canal abierto, solo en conversaciones que ya existen en él."
   },
   "bloqueada": {
     "trialTitulo": "Período de prueba finalizado",

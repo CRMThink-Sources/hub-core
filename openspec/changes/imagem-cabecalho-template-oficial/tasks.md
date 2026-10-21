@@ -2,7 +2,7 @@
 
 ## 1. Confirmação na Z-API Omni (D1 e D3)
 
-- [ ] 1.1 Numa WABA de teste, criar um template de Marketing com `HEADER` `format: IMAGE` e `example.header_handle: ["<url https pública>"]`, como documentado em `developer.omni.z-api.io/templates/validation`. Testar também o upload por `POST /whatsapp/businesses/{wabaId}/templates/media` e criar outro template com o `h` devolvido, registrando se a conta tem App ID/App Secret cadastrados (sem eles vem `MISSING_APP_CREDENTIALS`). Registrar também se `api.hubmessage.io` e `api.omni.z-api.io` respondem igual. Verificação: as respostas ficam anotadas no PR.
+- [ ] 1.1 Numa WABA de teste, criar um template de Marketing com `HEADER` `format: IMAGE` e `example.header_handle: ["<url https pública>"]`, como documentado em `developer.omni.z-api.io/templates/validation`. Testar também o upload por `POST /whatsapp/businesses/{wabaId}/templates/media` (em 2026-10-20 respondia `405`: rota documentada mas não publicada; com o bucket R2 o arquivo segue pelo link e não depende dela) e criar outro template com o `h` devolvido, registrando se a conta tem App ID/App Secret cadastrados (sem eles vem `MISSING_APP_CREDENTIALS`). Registrar também se `api.hubmessage.io` e `api.omni.z-api.io` respondem igual. Verificação: as respostas ficam anotadas no PR.
 - [ ] 1.2 Com o template aprovado, enviar por `POST /v1/channels/{channelId}/messages` com `{ type: 'HEADER', parameters: [{ type: 'image', image: { link } }] }`. Se for recusado, testar `header` em minúsculo, como no exemplo da doc nova. Verificação: mensagem recebida no aparelho de teste, com a imagem.
 - [ ] 1.3 Registrar o formato confirmado de criação e de envio no JSDoc de `CreateTemplateParams` e `HubMessageTemplateSendComponent` em `hubmessage.types.ts`, com o link da doc da Omni. Verificação: JSDoc atualizado no diff.
 
@@ -22,6 +22,7 @@
 - [x] 3.7 Validar o arquivo no use case, antes do provider: JPEG/PNG pela assinatura (`FF D8 FF` / `89 50 4E 47`) e no máximo 5 MB, mapeando para `InvalidTemplateHeaderImageError`. Verificação: testes com PNG, PDF renomeado para `.png` e 6 MB.
 - [x] 3.8 Adicionar `uploadTemplateMedia(wabaId, file, type)` no `HubMessageClient` (multipart) e, em `HubMessageTemplateProvider.createTemplate`, usar o `h` em `example.header_handle` quando houver arquivo, mantendo o link nos demais casos. Verificação: `hubmessage-template-provider.test.ts` confere o upload e o `header_handle: [h]`.
 - [x] 3.9 Mapear o `422 MISSING_APP_CREDENTIALS` do upload para `thinkzap.template.header_image_app_credentials_missing`, com runbook e mensagem que sugere usar o link. Verificação: teste do catálogo e teste do controller.
+- [x] 3.10 Com o bucket R2 configurado, gravar o arquivo da imagem de exemplo no bucket (depois das recusas de linha) e criar o template pelo caminho do link; sem o bucket, manter o upload da Omni e traduzir o `404`/`405` da rota `templates/media` em mensagem pedindo o link. Bucket fora do ar vira `503` sugerindo o link. Verificação: testes do use case (arquivo vira `example.imageUrl`, linha recusada não grava, bucket fora do ar não chama o provider) e do controller (`503` e `405`).
 
 ## 4. Criação de template (front)
 

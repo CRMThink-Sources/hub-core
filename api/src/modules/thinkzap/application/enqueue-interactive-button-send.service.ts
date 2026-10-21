@@ -1,5 +1,7 @@
 import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
+import type { SendCadence } from '@/modules/thinkzap/domain/ports/send-cadence.port'
 import { assertDailyLimitNotReached } from './helpers/send-within-daily-quota'
+import { sequenceOutboxRows } from './helpers/sequence-outbox-rows'
 import { randomUUID } from 'node:crypto'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
@@ -52,6 +54,8 @@ export type EnqueueInteractiveButtonIntentInput = {
   entityId: string
   /** Operador que disparou, quando houve um: o robô de Bizproc não tem. */
   operatorBitrixUserId?: string
+  /** Ausente = `WIDGET`; os robôs passam `ROBOT_BUTTONS`. */
+  origin?: 'WIDGET' | 'ROBOT_BUTTONS'
 }
 
 export type EnqueueInteractiveButtonResult = {
@@ -83,6 +87,8 @@ export class EnqueueInteractiveButtonSendService {
     private readonly sendQueue: WidgetSendQueue,
     /** Ausente, não há pré-checagem do limite diário (a reserva no despacho continua). */
     private readonly quota: DailySendQuota | null = null,
+    /** Ausente, a row não entra na fila FIFO da linha (o despacho dá a vez a ela). */
+    private readonly cadence: SendCadence | null = null,
   ) {}
 
   /**
@@ -188,7 +194,14 @@ export class EnqueueInteractiveButtonSendService {
        * Bizproc, que não têm operador.
        */
       operatorBitrixUserId: input.operatorBitrixUserId ?? null,
+      origin: input.origin ?? 'WIDGET',
     })
+
+    await sequenceOutboxRows(
+      { cadence: this.cadence, outbox: this.outbox },
+      target.item,
+      [row],
+    )
 
     /**
      * Depois do commit da row. Se o enfileiramento falhar, a intenção fica

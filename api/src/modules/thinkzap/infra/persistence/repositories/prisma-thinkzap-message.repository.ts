@@ -28,6 +28,8 @@ export type ThinkzapMessageRecord = {
   text: string | null
   fileName: string | null
   chatId: string | null
+  /** Autor no Bitrix (operador); ver o comentário da coluna no schema. */
+  bitrixUserId: string | null
   createdAt: Date
 }
 
@@ -41,6 +43,7 @@ export type CreateThinkzapMessageInput = {
   text?: string | null
   fileName?: string | null
   chatId?: string | null
+  bitrixUserId?: string | null
 }
 
 function mapRow(row: {
@@ -54,6 +57,7 @@ function mapRow(row: {
   text: string | null
   fileName: string | null
   chatId: string | null
+  bitrixUserId?: string | null
   createdAt: Date
 }): ThinkzapMessageRecord {
   return {
@@ -67,6 +71,7 @@ function mapRow(row: {
     text: row.text,
     fileName: row.fileName,
     chatId: row.chatId,
+    bitrixUserId: row.bitrixUserId ?? null,
     createdAt: row.createdAt,
   }
 }
@@ -126,6 +131,7 @@ type UpdatableMessageFields = {
   text?: string | null
   fileName?: string | null
   chatId?: string | null
+  bitrixUserId?: string | null
 }
 
 export class PrismaThinkzapMessageRepository {
@@ -142,6 +148,7 @@ export class PrismaThinkzapMessageRepository {
       text: input.text ?? null,
       fileName: input.fileName ?? null,
       chatId: input.chatId ?? null,
+      bitrixUserId: input.bitrixUserId ?? null,
     }
 
     if (input.providerMessageId) {
@@ -159,6 +166,7 @@ export class PrismaThinkzapMessageRepository {
           'text',
           'fileName',
           'chatId',
+          'bitrixUserId',
         ]),
       })
     } else if (input.bitrixMessageId) {
@@ -176,6 +184,7 @@ export class PrismaThinkzapMessageRepository {
           'text',
           'fileName',
           'chatId',
+          'bitrixUserId',
         ]),
       })
     } else {
@@ -205,6 +214,50 @@ export class PrismaThinkzapMessageRepository {
       },
     })
     return row ? mapRow(row) : null
+  }
+
+  /**
+   * A conversa do canal aberto que esta identidade já tem na linha: a row mais
+   * recente com `bitrixChatId` gravado, ou `null` quando o contato (ou grupo) nunca
+   * chegou ao canal aberto por esta linha.
+   *
+   * É o critério de "conversa existente" do espelhamento de mensagens enviadas pelo
+   * aparelho — mensagem saída do celular não abre conversa nova.
+   */
+  async findLatestOpenChannelChat(
+    instanceId: string,
+    chatId: string,
+  ): Promise<ThinkzapMessageRecord | null> {
+    const row = await prisma.thinkzapMessage.findFirst({
+      where: { instanceId, chatId, bitrixChatId: { not: null } },
+      orderBy: { createdAt: 'desc' },
+    })
+    return row ? mapRow(row) : null
+  }
+
+  /**
+   * O operador da sessão de um chat do canal aberto: quem respondeu por último nele
+   * (`bitrixUserId` da row `BITRIX` mais recente), ou `null` quando nenhum operador
+   * respondeu ainda — ou só respondeu antes de a coluna existir.
+   *
+   * É o autor com que o espelhamento posta a mensagem enviada pelo aparelho. Row `ZAPI`
+   * fica de fora mesmo com autor: a cópia espelhada não é resposta de ninguém.
+   */
+  async findLatestOperatorForChat(
+    instanceId: string,
+    bitrixChatId: string,
+  ): Promise<string | null> {
+    const row = await prisma.thinkzapMessage.findFirst({
+      where: {
+        bitrixChatId,
+        instanceId,
+        source: 'BITRIX',
+        bitrixUserId: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { bitrixUserId: true },
+    })
+    return row?.bitrixUserId ?? null
   }
 
   async updateBitrixMessageId(

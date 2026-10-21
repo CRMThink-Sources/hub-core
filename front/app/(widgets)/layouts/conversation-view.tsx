@@ -33,6 +33,16 @@ import {
   type WidgetButtonType,
 } from './button-composer'
 import { buildSendWidgetFormData } from './send-widget-message.client'
+import {
+  OUTBOX_STATUS_POLL_MS,
+  clientMessageIdsOf,
+  describeOutboxStatus,
+  isQueuedResponse,
+  mergeStatuses,
+  outboxStatusUrl,
+  pendingIds,
+  type OutboxStatusEntry,
+} from './outbox-status.client'
 import { resolveWidgetEntity } from './resolve-widget-entity'
 import {
   TemplateComposer,
@@ -191,6 +201,45 @@ export const ConversationView = () => {
   const [feedbackVariant, setFeedbackVariant] = useState<'success' | 'error'>(
     'success',
   )
+  /**
+   * Mensagens desta sessão enviadas pela fila, na ordem de envio, e o último status
+   * lido de cada uma. Com o cadenciador a mensagem pode esperar a janela de envio, e
+   * é aqui que o operador vê quando ela sai.
+   */
+  const [trackedIds, setTrackedIds] = useState<string[]>([])
+  const [outboxStatuses, setOutboxStatuses] = useState<
+    Record<string, OutboxStatusEntry>
+  >({})
+  const pendingOutboxIds = pendingIds(trackedIds, outboxStatuses)
+  const pendingOutboxKey = pendingOutboxIds.join(',')
+
+  /** Consulta a cada 5 s enquanto houver mensagem sem desfecho; para sozinha. */
+  useEffect(() => {
+    if (!pendingOutboxKey) return
+    const client = resolveThinkzapClient()
+    if (!client.ok) return
+
+    const ids = pendingOutboxKey.split(',')
+    const consultar = async () => {
+      try {
+        const response = await client.client.get<{
+          messages?: OutboxStatusEntry[]
+        }>(outboxStatusUrl(ids))
+        setOutboxStatuses(prev => mergeStatuses(prev, response))
+      } catch {
+        // Leitura de status é informativa: falhar mantém o último estado.
+      }
+    }
+
+    void consultar()
+    const timer = setInterval(() => void consultar(), OUTBOX_STATUS_POLL_MS)
+    return () => clearInterval(timer)
+  }, [pendingOutboxKey])
+
+  const trackOutbox = (response: unknown) => {
+    const ids = clientMessageIdsOf(response)
+    if (ids.length) setTrackedIds(prev => [...prev, ...ids])
+  }
 
   const imageInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
@@ -626,31 +675,35 @@ export const ConversationView = () => {
       if (composerMode === 'template') {
         if (!selectedTemplate) return
 
-        await client.client.post('/thinkzap/messages/send-widget-template', {
-          subscriptionItemId: selectedConnectorId,
-          destination: normalizePhoneNumber(selectedDestination?.phone ?? ''),
-          templateName: selectedTemplate.name,
-          language: selectedTemplate.language,
-          bodyParameters: orderedTemplateParameters(
-            selectedTemplate.body,
-            templateValues,
-          ),
-          /**
-           * O corpo vai junto para o servidor resolver o texto que o histórico do CRM
-           * guarda — sem ele, a API teria de consultar o catálogo do provider a cada
-           * envio só para descobrir onde os parâmetros entram.
-           */
-          templateBody: selectedTemplate.body,
-          buttonParameters: templateButtonParameters(
-            selectedTemplate.buttons,
-            templateButtonValues,
-          ),
-          ...(needsHeaderImage(selectedTemplate)
-            ? { headerImageUrl: templateHeaderImageUrl.trim() }
-            : {}),
-          entity,
-          entityId,
-        })
+        const templateResponse = await client.client.post<unknown>(
+          '/thinkzap/messages/send-widget-template',
+          {
+            subscriptionItemId: selectedConnectorId,
+            destination: normalizePhoneNumber(selectedDestination?.phone ?? ''),
+            templateName: selectedTemplate.name,
+            language: selectedTemplate.language,
+            bodyParameters: orderedTemplateParameters(
+              selectedTemplate.body,
+              templateValues,
+            ),
+            /**
+             * O corpo vai junto para o servidor resolver o texto que o histórico do CRM
+             * guarda — sem ele, a API teria de consultar o catálogo do provider a cada
+             * envio só para descobrir onde os parâmetros entram.
+             */
+            templateBody: selectedTemplate.body,
+            buttonParameters: templateButtonParameters(
+              selectedTemplate.buttons,
+              templateButtonValues,
+            ),
+            ...(needsHeaderImage(selectedTemplate)
+              ? { headerImageUrl: templateHeaderImageUrl.trim() }
+              : {}),
+            entity,
+            entityId,
+          },
+        )
+        trackOutbox(templateResponse)
 
         setSelectedTemplateKey('')
         setTemplateValues({})
@@ -676,16 +729,23 @@ export const ConversationView = () => {
       if (composerMode === 'button') {
         if (!canSubmitButtons) return
 
-        await client.client.post('/thinkzap/messages/send-widget-button', {
-          subscriptionItemId: selectedConnectorId,
-          destination: normalizePhoneNumber(selectedDestination?.phone ?? ''),
-          body: buttonBody.trim(),
-          header: buttonHeader.trim() || undefined,
-          footer: buttonFooter.trim() || undefined,
-          buttons: buttons.map(toButtonPayload),
-          entity,
-          entityId,
-        })
+        trackOutbox(
+          await client.client.post<unknown>(
+            '/thinkzap/messages/send-widget-button',
+            {
+              subscriptionItemId: selectedConnectorId,
+              destination: normalizePhoneNumber(
+                selectedDestination?.phone ?? '',
+              ),
+              body: buttonBody.trim(),
+              header: buttonHeader.trim() || undefined,
+              footer: buttonFooter.trim() || undefined,
+              buttons: buttons.map(toButtonPayload),
+              entity,
+              entityId,
+            },
+          ),
+        )
 
         setButtonBody('')
         setButtonHeader('')
@@ -698,16 +758,17 @@ export const ConversationView = () => {
       }
 
       /**
-       * Os dois caminhos têm garantias diferentes, e o texto de sucesso segue essa
+       * Os caminhos têm garantias diferentes, e o texto de sucesso segue essa
        * diferença.
        *
-       * **Anexo** continua sendo entregue dentro do próprio request: sucesso aqui
-       * significa que o contato recebeu.
+       * **Texto** é enfileirado: o servidor responde `202` e a entrega acontece logo
+       * depois, com retentativa — e, com o cadenciador, possivelmente depois de uma
+       * espera. Dizer "enviada com sucesso" afirmaria uma entrega que ainda não
+       * aconteceu.
        *
-       * **Texto** passou a ser enfileirado: o servidor responde `202` e a entrega
-       * acontece logo depois, com retentativa. Dizer "enviada com sucesso" afirmaria
-       * uma entrega que ainda não aconteceu — o que era exatamente o problema, porque
-       * o operador acreditava que a mensagem tinha saído quando ela se perdera.
+       * **Anexo** vai pela fila na instalação com o caminho unificado (`status:
+       * 'queued'`); fora dela, continua entregue dentro do próprio request, e
+       * sucesso significa que o contato recebeu.
        */
       let queued = false
 
@@ -721,12 +782,19 @@ export const ConversationView = () => {
           })),
         })
 
-        await client.client.post(
+        const response = await client.client.post<unknown>(
           '/thinkzap/messages/send-widget-multipart',
           formData,
         )
+        queued = isQueuedResponse(response)
+        trackOutbox(response)
       } else {
-        await client.client.post('/thinkzap/messages/send-widget', payloadBase)
+        trackOutbox(
+          await client.client.post<unknown>(
+            '/thinkzap/messages/send-widget',
+            payloadBase,
+          ),
+        )
         queued = true
       }
 
@@ -1195,6 +1263,24 @@ export const ConversationView = () => {
                 variant={feedbackVariant}
                 message={feedbackMessage}
               />
+            ) : null}
+
+            {trackedIds.length > 0 ? (
+              <ul
+                className="mt-3 flex flex-col gap-1 text-xs text-slate-600"
+                aria-label="Status das mensagens enviadas"
+              >
+                {/* As 5 mais recentes: o histórico completo é a timeline. */}
+                {trackedIds
+                  .slice(-5)
+                  .reverse()
+                  .map((id, index) => (
+                    <li key={id}>
+                      {`Mensagem ${trackedIds.length - index}: `}
+                      {describeOutboxStatus(outboxStatuses[id])}
+                    </li>
+                  ))}
+              </ul>
             ) : null}
           </form>
         )}

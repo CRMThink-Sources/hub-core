@@ -17,7 +17,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { DailyLimitUsage } from '@/app/hooks/use-line-api'
 import { ConfigCard } from './config-card'
-import { limiteDiarioValido } from './ajustes-alteracoes'
+import { ConfirmModal } from './confirm-modal'
+import { limiteDiarioValido } from './limites-alteracoes'
 
 type Props = {
   ativo: boolean
@@ -37,6 +38,8 @@ type Props = {
   bloqueada: boolean
   /** Lança em falha: o diálogo continua aberto com a quantidade digitada. */
   onLiberar: (quantidade: number) => Promise<void>
+  /** Zera o uso de hoje (enviadas e extras). Lança em falha: a confirmação fica aberta. */
+  onZerar: () => Promise<void>
 }
 
 /**
@@ -55,9 +58,24 @@ export function LimiteDiarioCard({
   limiteGravadoAtivo,
   bloqueada,
   onLiberar,
+  onZerar,
 }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/ajustes')
   const [dialogAberto, setDialogAberto] = useState(false)
+  const [confirmarZerar, setConfirmarZerar] = useState(false)
+  const [zerando, setZerando] = useState(false)
+
+  async function handleZerar() {
+    setZerando(true)
+    try {
+      await onZerar()
+      setConfirmarZerar(false)
+    } catch {
+      // O aviso de erro é de quem chamou; a confirmação fica aberta para tentar de novo.
+    } finally {
+      setZerando(false)
+    }
+  }
 
   const valorInvalido = !limiteDiarioValido({ ativo, valor })
 
@@ -125,6 +143,15 @@ export function LimiteDiarioCard({
             >
               {t('limiteDiario.liberar')}
             </Button>
+            {/* Ação imediata, como liberar: vale com o limite ligado ou desligado. */}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={bloqueada || zerando}
+              onClick={() => setConfirmarZerar(true)}
+            >
+              {t('limiteDiario.zerar')}
+            </Button>
             {!limiteGravadoAtivo && !bloqueada && (
               <p className="text-sm text-muted-foreground">
                 {t('limiteDiario.liberarHintSalvar')}
@@ -133,6 +160,19 @@ export function LimiteDiarioCard({
           </div>
         </div>
       </ConfigCard>
+
+      <ConfirmModal
+        isOpen={confirmarZerar}
+        title={t('limiteDiario.zerarTitulo')}
+        message={t('limiteDiario.zerarDescricao')}
+        confirmLabel={
+          zerando ? t('limiteDiario.zerando') : t('limiteDiario.confirmarZerar')
+        }
+        cancelLabel={t('cancelar')}
+        loading={zerando}
+        onConfirm={() => void handleZerar()}
+        onClose={() => setConfirmarZerar(false)}
+      />
 
       {dialogAberto && (
         <LiberarLimiteDialog

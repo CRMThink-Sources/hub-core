@@ -19,12 +19,12 @@ Este erro **nunca** significa que a mensagem deixou de ser entregue. O envio ao 
 ## Como verificar
 1. Na tela de Logs do app thinkzap, filtre pelo `traceKey` do ticket.
 2. Confirme `código de erro: thinkzap.message.open_channel_failed` e leia os campos `vinculatedChannel` (o canal que a linha aponta), `widgetOpenChannelEnabled` e `subscriptionItemId`.
-3. Na aba Ajustes da linha, confirme que o canal aberto está vinculado e que o toggle **Enviar para canal aberto** está ligado. Toggle desligado não gera este erro — gera apenas registro de `openChannelOutcome: toggle-off`, e nesse caso o comportamento está correto.
+3. Na aba Configurações da linha, confirme que o canal aberto está vinculado e que o toggle **Enviar para canal aberto** está ligado. Toggle desligado não gera este erro — gera apenas registro de `openChannelOutcome: toggle-off`, e nesse caso o comportamento está correto.
 4. No Bitrix24 do parceiro, em Contact Center → Canal aberto, confirme que o canal com aquele número/id existe e que o conector do thinkzap aparece ativo nele.
 
 ## Como resolver
-1. Se o canal aberto foi removido ou trocado: revincular a linha ao canal correto na aba Ajustes. O vínculo reativa o conector no Bitrix24.
-2. Se o canal existe mas o conector não está ativo: desvincular e vincular de novo pela aba Ajustes — a ativação acontece nesse passo.
+1. Se o canal aberto foi removido ou trocado: revincular a linha ao canal correto na aba Configurações. O vínculo reativa o conector no Bitrix24.
+2. Se o canal existe mas o conector não está ativo: desvincular e vincular de novo pela aba Configurações — a ativação acontece nesse passo.
 3. Se foi indisponibilidade momentânea do Bitrix24: **não há ação necessária**. A conversa é reparada automaticamente na confirmação de entrega da linha, e o próximo envio para o mesmo contato tenta de novo.
 4. Peça ao parceiro para enviar uma nova mensagem pelo widget e confirme na tela de Logs que o registro passou a sair com `openChannelOutcome: opened`.
 

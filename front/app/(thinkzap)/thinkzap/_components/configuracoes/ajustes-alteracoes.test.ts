@@ -1,17 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import {
-  contarAlteracoes,
-  limiteDiarioDe,
-  limiteDiarioValido,
-  patchLimiteDiario,
-  type AjustesEditaveis,
-} from './ajustes-alteracoes'
+import { contarAlteracoes, type AjustesEditaveis } from './ajustes-alteracoes'
 
 const gravado: AjustesEditaveis = {
   name: 'Comercial',
   settings: {
     prefixOperatorNameEnabled: false,
     widgetOpenChannelEnabled: true,
+    deviceMessageMirrorEnabled: false,
   },
 }
 
@@ -68,86 +63,24 @@ describe('contarAlteracoes', () => {
   })
 })
 
-describe('limite diário', () => {
-  const oficial: AjustesEditaveis = {
-    ...gravado,
-    limiteDiario: { ativo: false, valor: '' },
-  }
+describe('contarAlteracoes sem o limite diário', () => {
+  it('a aba Ajustes não conta mais o limite: ele foi para Limites de envio', () => {
+    const comLimite = {
+      ...gravado,
+      limiteDiario: { ativo: true, valor: '300' },
+    } as AjustesEditaveis
 
-  const comLimite = (limiteDiario: AjustesEditaveis['limiteDiario']) => ({
-    ...oficial,
-    limiteDiario,
+    expect(contarAlteracoes(gravado, comLimite)).toBe(0)
   })
+})
 
-  it('ativar e informar 300 contam como 2 alterações', () => {
-    expect(
-      contarAlteracoes(oficial, comLimite({ ativo: true, valor: '300' })),
-    ).toBe(2)
-  })
-
-  it('ativar com valor já gravado conta 1', () => {
-    const gravadoComValor = comLimite({ ativo: false, valor: '250' })
-
+describe('contarAlteracoes (espelhamento do aparelho)', () => {
+  it('conta o toggle de espelhamento como uma alteração', () => {
     expect(
       contarAlteracoes(
-        gravadoComValor,
-        comLimite({ ativo: true, valor: '250' }),
+        gravado,
+        com({ settings: { deviceMessageMirrorEnabled: true } }),
       ),
     ).toBe(1)
-  })
-
-  it('valor mexido com o limite desligado não é pendência', () => {
-    expect(
-      contarAlteracoes(oficial, comLimite({ ativo: false, valor: '99' })),
-    ).toBe(0)
-  })
-
-  it('linha sem limite (Z-API) não conta nada do limite', () => {
-    expect(contarAlteracoes(gravado, com({}))).toBe(0)
-  })
-
-  it.each([
-    [{ ativo: true, valor: '' }, false],
-    [{ ativo: true, valor: '0' }, false],
-    [{ ativo: true, valor: '2.5' }, false],
-    [{ ativo: true, valor: '-3' }, false],
-    [{ ativo: true, valor: ' 300 ' }, true],
-    [{ ativo: false, valor: '' }, true],
-    [undefined, true],
-  ])('limiteDiarioValido(%j) = %s', (limite, esperado) => {
-    expect(limiteDiarioValido(limite)).toBe(esperado)
-  })
-
-  it('patch leva só o que mudou', () => {
-    expect(
-      patchLimiteDiario(oficial, comLimite({ ativo: true, valor: '300' })),
-    ).toEqual({ dailyLimitEnabled: true, dailyLimit: 300 })
-
-    const ligado = comLimite({ ativo: true, valor: '300' })
-    expect(
-      patchLimiteDiario(ligado, comLimite({ ativo: false, valor: '300' })),
-    ).toEqual({
-      dailyLimitEnabled: false,
-    })
-    expect(
-      patchLimiteDiario(ligado, comLimite({ ativo: true, valor: '500' })),
-    ).toEqual({
-      dailyLimit: 500,
-    })
-  })
-
-  it('limiteDiarioDe converte o gravado para o input', () => {
-    expect(
-      limiteDiarioDe({ dailyLimitEnabled: true, dailyLimit: 300 }),
-    ).toEqual({
-      ativo: true,
-      valor: '300',
-    })
-    expect(
-      limiteDiarioDe({ dailyLimitEnabled: false, dailyLimit: null }),
-    ).toEqual({
-      ativo: false,
-      valor: '',
-    })
   })
 })

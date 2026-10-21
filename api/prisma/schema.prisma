@@ -387,6 +387,10 @@ model ThinkzapMessage {
   text              String?               @db.Text
   fileName          String?               @map("file_name")
   chatId            String?               @map("chat_id")
+  /// Autor no Bitrix: em row `BITRIX`, o operador que respondeu (`message.user_id` do
+  /// `ONIMCONNECTORMESSAGEADD`); em row `ZAPI` espelhada do aparelho, o operador como
+  /// quem a cópia foi postada (`null` = postada como o contato).
+  bitrixUserId      String?               @map("bitrix_user_id")
   createdAt         DateTime              @default(now()) @map("created_at")
   updatedAt         DateTime              @updatedAt @map("updated_at")
 
@@ -399,6 +403,12 @@ model ThinkzapMessage {
   /// `WHERE instance_id IN (...) AND created_at BETWEEN ...` filtra a data sem
   /// índice.
   @@index([instanceId, createdAt])
+  /// Busca de "conversa existente" do espelhamento de mensagens enviadas pelo
+  /// aparelho: a row mais recente da identidade com `bitrixChatId` gravado.
+  @@index([instanceId, chatId])
+  /// Operador da sessão do espelhamento: a row `BITRIX` mais recente do chat do canal
+  /// aberto com `bitrixUserId` gravado.
+  @@index([bitrixChatId, createdAt])
   @@map("core_thinkerszap_messages")
 }
 
@@ -551,6 +561,44 @@ model ThinkzapWidgetOutbox {
   /// (`core_thinkerszap_widget_outbox_sms_message_id_key`, o nome padrão do Prisma).
   smsMessageId String? @unique @map("sms_message_id")
 
+  /// De onde veio o envio. Decide o que acontece depois da entrega (timeline,
+  /// histórico do canal aberto, status no Bitrix) e como a recusa é avisada.
+  ///
+  /// `@default(WIDGET)` para a migration ser aditiva: as rows antigas de robô e de
+  /// campanha seguem funcionando pelo caminho de sempre, que não lê este campo.
+  origin ThinkzapOutboxOrigin @default(WIDGET)
+
+  /// Só em `kind = MEDIA`: `image`, `video`, `audio` ou `document`.
+  mediaType String? @map("media_type")
+  /// Como obter o arquivo **na hora do envio** — id do arquivo no Bitrix, URL
+  /// hospedada etc. A espera da cadência não tem prazo, então uma URL temporária de
+  /// download gravada aqui poderia estar vencida quando a vez chegar.
+  mediaSource Json?   @map("media_source")
+  fileName    String? @map("file_name")
+  caption     String? @db.Text
+
+  /// Partes de um mesmo envio (anexos do widget, disparo do robô) compartilham o
+  /// grupo: o comentário da timeline é um só, quando todas terminam.
+  dispatchGroupId String? @map("dispatch_group_id")
+  partIndex       Int?    @map("part_index")
+  /// Dados do grupo inteiro (destinatários, arquivos descartados antes do envio),
+  /// gravados na row de `partIndex = 0`.
+  dispatchMeta    Json?   @map("dispatch_meta")
+
+  /// Contexto do canal aberto para a resposta do operador e a fala do bot: a
+  /// mensagem do Bitrix que originou o envio e o chat onde avisar o operador.
+  bitrixMessageId String? @map("bitrix_message_id")
+  bitrixChatId    String? @map("bitrix_chat_id")
+  /// O resto do que a origem precisa na entrega (conector, citação, eco do bot).
+  originContext   Json?   @map("origin_context")
+
+  /// Posição na fila FIFO da linha (`thinkzap:cadence-queue:{lineKey}`). Guardada
+  /// aqui para o ticket voltar à mesma posição se o Redis perder a fila.
+  queueSeq Int? @map("queue_seq")
+  /// Quando a mensagem adiada pela cadência deve sair. Só informativo: é o que o
+  /// widget mostra em "aguardando janela de envio".
+  cadenceWaitUntil DateTime? @map("cadence_wait_until")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   sentAt    DateTime? @map("sent_at")
@@ -560,7 +608,26 @@ model ThinkzapWidgetOutbox {
   @@unique([instanceId, clientMessageId], name: "uq_outbox_instance_client")
   /// Serve o alerta de pendência antiga e a limpeza por retenção.
   @@index([status, createdAt])
+  /// O desfecho agregado de um envio com várias partes.
+  @@index([dispatchGroupId])
   @@map("core_thinkerszap_widget_outbox")
+}
+
+/// De onde veio um envio da outbox.
+enum ThinkzapOutboxOrigin {
+  /// Texto e botões pelo widget do CRM (e rows anteriores a este campo).
+  WIDGET
+  /// Envio com anexo pelo widget: uma row por parte, num grupo.
+  WIDGET_ATTACHMENT
+  /// Robô "Enviar mensagem": uma row por parte por destinatário, num grupo.
+  ROBOT_MESSAGE
+  ROBOT_BUTTONS
+  ROBOT_TEMPLATE
+  SMS_CAMPAIGN
+  /// Resposta do operador no canal aberto.
+  OPERATOR
+  /// Fala do bot.
+  BOT
 }
 
 enum ThinkzapOutboxKind {
@@ -572,6 +639,9 @@ enum ThinkzapOutboxKind {
   /// Mensagem com botões de ação. O worker chama `InteractiveButtonSender` com o
   /// descriptor gravado em `buttonPayload`.
   INTERACTIVE_BUTTON
+  /// Imagem, vídeo, áudio ou documento. O worker obtém o arquivo por `mediaSource`
+  /// e envia com `caption`.
+  MEDIA
 }
 
 enum ThinkzapOutboxStatus {

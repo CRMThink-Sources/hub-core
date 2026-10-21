@@ -52,6 +52,70 @@ export type LineSettingsToggles = {
   dailyLimitEnabled: boolean
   /** Inteiro > 0 quando ligado; `null` = nunca configurado. */
   dailyLimit: number | null
+  /** Espelha no canal aberto o que é enviado do aparelho — só a linha não oficial. */
+  deviceMessageMirrorEnabled: boolean
+  /** Cadência de envio — só a linha não oficial. N por janela de D minutos. */
+  cadenceEnabled: boolean
+  cadenceMaxMessages: number | null
+  cadenceWindowMinutes: number | null
+  /** Pausa de P minutos ao atingir N; substitui o resto da janela. */
+  cadencePauseEnabled: boolean
+  cadencePauseMinutes: number | null
+  /** Se as mensagens enviadas pelo aparelho contam na janela. Desligado por padrão. */
+  cadenceCountDeviceMessages: boolean
+}
+
+/** De onde veio uma mensagem da fila de saída. */
+export type OutboxOrigin =
+  | 'WIDGET'
+  | 'WIDGET_ATTACHMENT'
+  | 'ROBOT_MESSAGE'
+  | 'ROBOT_BUTTONS'
+  | 'ROBOT_TEMPLATE'
+  | 'SMS_CAMPAIGN'
+  | 'OPERATOR'
+  | 'BOT'
+
+/** Uma mensagem aguardando na fila da linha. Horários em epoch ms. */
+export type CadenceQueueItem = {
+  /** 1 = a próxima a sair. */
+  position: number
+  origin: OutboxOrigin
+  /** Nome do operador, na resposta do operador; `null` sem leitura. */
+  operatorName: string | null
+  destination: string
+  /** Texto, legenda ou nome do arquivo, já cortado; `null` = mídia sem nome. */
+  preview: string | null
+  mediaType: 'image' | 'video' | 'audio' | 'document' | null
+  enqueuedAt: number
+  /** Saída prevista (fim da janela/pausa), quando já esperou alguma. */
+  waitUntil: number | null
+}
+
+/** Uma página da fila, na ordem de saída, e o total. */
+export type CadenceQueueListing = {
+  total: number
+  /** Posição (0 = cabeça) do primeiro item da página e o tamanho dela. */
+  offset: number
+  limit: number
+  messages: CadenceQueueItem[]
+}
+
+/**
+ * Estado atual da cadência da linha, como a api lê do Redis. Horários em epoch ms.
+ */
+export type CadenceState = {
+  /** A instalação pode ativar o recurso (liberação gradual). */
+  available: boolean
+  phase: 'idle' | 'window' | 'paused'
+  count: number
+  max: number | null
+  windowEndsAt: number | null
+  pauseUntil: number | null
+  /** Mensagens na fila da linha esperando vaga. */
+  waiting: number
+  /** A configuração gravada difere da janela/pausa vigente: vale na próxima. */
+  nextWindowChanges: boolean
 }
 
 /**
@@ -85,6 +149,8 @@ export type LineSettings = {
    * contador não pôde ser lido — o card abre sem o uso.
    */
   dailyLimit?: DailyLimitUsage | null
+  /** Estado da cadência. Ausente na linha oficial; `null` quando não pôde ser lido. */
+  cadence?: CadenceState | null
 }
 
 export type SmsProviderResult = 'created' | 'updated' | 'skipped' | 'deleted'
@@ -152,6 +218,16 @@ export function useLineApi(itemId: string) {
         name?: string
         settings?: Partial<LineSettingsToggles>
       }) => client().patch<{ saved: boolean }>(`${base}/settings`, payload),
+      /** Zera o uso **de hoje** (enviadas e extras); devolve o uso atualizado. */
+      resetDailyLimitUsage: () =>
+        client().post<{ dailyLimit: DailyLimitUsage }>(
+          `${base}/daily-limit/reset`,
+        ),
+      /** Mensagens aguardando na fila da linha (cadenciador), na ordem de saída. */
+      getCadenceQueue: (offset = 0, limit = 10) =>
+        client().get<CadenceQueueListing>(`${base}/cadence/queue`, {
+          params: { offset, limit },
+        }),
       /** Soma mensagens extras ao limite **só de hoje**; devolve o uso atualizado. */
       releaseDailyLimitExtra: (amount: number) =>
         client().post<{ dailyLimit: DailyLimitUsage }>(

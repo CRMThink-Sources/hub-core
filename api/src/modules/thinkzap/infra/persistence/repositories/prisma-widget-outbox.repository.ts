@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { prisma } from '@/config/prisma'
-import type { ThinkzapOutboxKind, ThinkzapOutboxStatus } from '@/prisma/client'
+import type {
+  ThinkzapOutboxKind,
+  ThinkzapOutboxOrigin,
+  ThinkzapOutboxStatus,
+} from '@/prisma/client'
 import type { InteractiveButtonDescriptor } from '@/modules/thinkzap/domain/ports/interactive-button-sender.port'
 import type { TemplateButtonParameter } from '@/modules/thinkzap/domain/ports/template-message-sender.port'
 
@@ -18,7 +22,27 @@ export type WidgetOutboxStatus =
  * entrega, o claim condicional, o lock por destino, os efeitos colaterais. O que muda
  * é uma chamada, e é só isso que este discriminador carrega.
  */
-export type WidgetOutboxKind = 'TEXT' | 'TEMPLATE' | 'INTERACTIVE_BUTTON'
+export type WidgetOutboxKind =
+  | 'TEXT'
+  | 'TEMPLATE'
+  | 'INTERACTIVE_BUTTON'
+  | 'MEDIA'
+
+/** De onde veio o envio — ver o enum `ThinkzapOutboxOrigin` no schema. */
+export type WidgetOutboxOrigin =
+  | 'WIDGET'
+  | 'WIDGET_ATTACHMENT'
+  | 'ROBOT_MESSAGE'
+  | 'ROBOT_BUTTONS'
+  | 'ROBOT_TEMPLATE'
+  | 'SMS_CAMPAIGN'
+  | 'OPERATOR'
+  | 'BOT'
+
+export type OutboxMediaType = 'image' | 'video' | 'audio' | 'document'
+
+/** JSON livre por origem; cada consumidor valida a forma que espera. */
+export type OutboxJson = Record<string, unknown>
 
 export type WidgetOutboxRecord = {
   id: string
@@ -58,6 +82,20 @@ export type WidgetOutboxRecord = {
    */
   smsSenderCode: string | null
   smsMessageId: string | null
+  origin: WidgetOutboxOrigin
+  /** Preenchidos só em `kind: 'MEDIA'`. */
+  mediaType: OutboxMediaType | null
+  mediaSource: OutboxJson | null
+  fileName: string | null
+  caption: string | null
+  dispatchGroupId: string | null
+  partIndex: number | null
+  dispatchMeta: OutboxJson | null
+  bitrixMessageId: string | null
+  bitrixChatId: string | null
+  originContext: OutboxJson | null
+  queueSeq: number | null
+  cadenceWaitUntil: Date | null
   createdAt: Date
   sentAt: Date | null
 }
@@ -93,7 +131,36 @@ export type CreateWidgetOutboxInput = {
    */
   smsSenderCode?: string | null
   smsMessageId?: string | null
+  /** Ausente = `WIDGET`, o default do banco. */
+  origin?: WidgetOutboxOrigin
+  mediaType?: OutboxMediaType
+  mediaSource?: OutboxJson
+  fileName?: string | null
+  caption?: string | null
+  dispatchGroupId?: string | null
+  partIndex?: number | null
+  dispatchMeta?: OutboxJson
+  bitrixMessageId?: string | null
+  bitrixChatId?: string | null
+  originContext?: OutboxJson
 }
+
+/** Uma parte de um envio em grupo, com o desfecho que importa para a timeline. */
+export type OutboxGroupPart = Pick<
+  WidgetOutboxRecord,
+  | 'id'
+  | 'partIndex'
+  | 'destination'
+  | 'kind'
+  | 'mediaType'
+  | 'fileName'
+  | 'status'
+  | 'lastError'
+  | 'dispatchMeta'
+  | 'text'
+  | 'providerMessageId'
+  | 'mediaSource'
+>
 
 /**
  * O `template_parameters` volta do MySQL como JSON livre, e o tipo do Prisma para
@@ -140,7 +207,20 @@ function toButtonPayload(value: unknown): InteractiveButtonDescriptor | null {
   return candidate as unknown as InteractiveButtonDescriptor
 }
 
-function mapRow(row: {
+function toJson(value: unknown): OutboxJson | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as OutboxJson
+}
+
+const MEDIA_TYPES: readonly string[] = ['image', 'video', 'audio', 'document']
+
+function toMediaType(value: string | null): OutboxMediaType | null {
+  return value && MEDIA_TYPES.includes(value)
+    ? (value as OutboxMediaType)
+    : null
+}
+
+type OutboxRow = {
   id: string
   clientMessageId: string
   instanceId: string
@@ -166,9 +246,24 @@ function mapRow(row: {
   operatorBitrixUserId: string | null
   smsSenderCode: string | null
   smsMessageId: string | null
+  origin: ThinkzapOutboxOrigin
+  mediaType: string | null
+  mediaSource: unknown
+  fileName: string | null
+  caption: string | null
+  dispatchGroupId: string | null
+  partIndex: number | null
+  dispatchMeta: unknown
+  bitrixMessageId: string | null
+  bitrixChatId: string | null
+  originContext: unknown
+  queueSeq: number | null
+  cadenceWaitUntil: Date | null
   createdAt: Date
   sentAt: Date | null
-}): WidgetOutboxRecord {
+}
+
+function mapRow(row: OutboxRow): WidgetOutboxRecord {
   return {
     id: row.id,
     clientMessageId: row.clientMessageId,
@@ -195,8 +290,51 @@ function mapRow(row: {
     operatorBitrixUserId: row.operatorBitrixUserId,
     smsSenderCode: row.smsSenderCode,
     smsMessageId: row.smsMessageId,
+    origin: row.origin as WidgetOutboxOrigin,
+    mediaType: toMediaType(row.mediaType),
+    mediaSource: toJson(row.mediaSource),
+    fileName: row.fileName,
+    caption: row.caption,
+    dispatchGroupId: row.dispatchGroupId,
+    partIndex: row.partIndex,
+    dispatchMeta: toJson(row.dispatchMeta),
+    bitrixMessageId: row.bitrixMessageId,
+    bitrixChatId: row.bitrixChatId,
+    originContext: toJson(row.originContext),
+    queueSeq: row.queueSeq,
+    cadenceWaitUntil: row.cadenceWaitUntil,
     createdAt: row.createdAt,
     sentAt: row.sentAt,
+  }
+}
+
+/**
+ * Os campos `Json` ficam **fora** do spread quando são `undefined`: numa coluna
+ * `Json` do Prisma, `undefined` significa "não escreva" e `null` exigiria
+ * `Prisma.DbNull`. Omitir a chave é o único jeito de a row de outro `kind` nascer
+ * com a coluna nula sem importar o sentinela aqui. Lista de botões vazia também
+ * fica nula: é o mesmo que "sem botão dinâmico".
+ */
+function toCreateData(input: CreateWidgetOutboxInput) {
+  const {
+    templateParameters,
+    templateButtonParameters,
+    buttonPayload,
+    mediaSource,
+    dispatchMeta,
+    originContext,
+    ...rest
+  } = input
+
+  return {
+    id: randomUUID(),
+    ...rest,
+    ...(templateParameters ? { templateParameters } : {}),
+    ...(templateButtonParameters?.length ? { templateButtonParameters } : {}),
+    ...(buttonPayload ? { buttonPayload } : {}),
+    ...(mediaSource ? { mediaSource: mediaSource as object } : {}),
+    ...(dispatchMeta ? { dispatchMeta: dispatchMeta as object } : {}),
+    ...(originContext ? { originContext: originContext as object } : {}),
   }
 }
 
@@ -211,33 +349,106 @@ function mapRow(row: {
  */
 export class PrismaWidgetOutboxRepository {
   async create(input: CreateWidgetOutboxInput): Promise<WidgetOutboxRecord> {
-    const {
-      templateParameters,
-      templateButtonParameters,
-      buttonPayload,
-      ...rest
-    } = input
-
-    /**
-     * Os campos `Json` ficam **fora** do spread quando são `undefined`: numa
-     * coluna `Json` do Prisma, `undefined` significa "não escreva" e `null`
-     * exigiria `Prisma.DbNull`. Omitir a chave é o único jeito de a row de outro
-     * `kind` nascer com a coluna nula sem importar o sentinela aqui. Lista de
-     * botões vazia também fica nula: é o mesmo que "sem botão dinâmico".
-     */
     const row = await prisma.thinkzapWidgetOutbox.create({
-      data: {
-        id: randomUUID(),
-        ...rest,
-        ...(templateParameters ? { templateParameters } : {}),
-        ...(templateButtonParameters?.length
-          ? { templateButtonParameters }
-          : {}),
-        ...(buttonPayload ? { buttonPayload } : {}),
-      },
+      data: toCreateData(input),
     })
 
     return mapRow(row)
+  }
+
+  /**
+   * Grava as partes de um envio de uma vez, **idempotente**: parte cujo
+   * `(instanceId, clientMessageId)` já existe fica como está — reprocessar o mesmo
+   * evento do Bitrix não duplica mensagem. Devolve todas as partes pedidas, novas e
+   * antigas, na ordem da entrada.
+   */
+  async createParts(
+    inputs: CreateWidgetOutboxInput[],
+  ): Promise<WidgetOutboxRecord[]> {
+    if (inputs.length === 0) return []
+
+    await prisma.thinkzapWidgetOutbox.createMany({
+      data: inputs.map(toCreateData),
+      skipDuplicates: true,
+    })
+
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: {
+        instanceId: inputs[0]!.instanceId,
+        clientMessageId: { in: inputs.map(i => i.clientMessageId) },
+      },
+    })
+    const byClientId = new Map(rows.map(row => [row.clientMessageId, row]))
+
+    return inputs
+      .map(i => byClientId.get(i.clientMessageId))
+      .filter((row): row is NonNullable<typeof row> => row !== undefined)
+      .map(mapRow)
+  }
+
+  /** Posição na fila FIFO da linha. Só grava a primeira: a posição não muda. */
+  async setQueueSeq(id: string, queueSeq: number): Promise<void> {
+    await prisma.thinkzapWidgetOutbox.updateMany({
+      where: { id, queueSeq: null },
+      data: { queueSeq },
+    })
+  }
+
+  /** Quando a mensagem adiada pela cadência deve sair — o que o widget mostra. */
+  async markWaiting(id: string, waitUntil: Date): Promise<void> {
+    await prisma.thinkzapWidgetOutbox.updateMany({
+      where: { id, status: 'PENDING' },
+      data: { cadenceWaitUntil: waitUntil },
+    })
+  }
+
+  /** As partes de um grupo, na ordem de `partIndex`. */
+  async groupOutcome(dispatchGroupId: string): Promise<OutboxGroupPart[]> {
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: { dispatchGroupId },
+      orderBy: { partIndex: 'asc' },
+    })
+    return rows.map(mapRow).map(r => ({
+      id: r.id,
+      partIndex: r.partIndex,
+      destination: r.destination,
+      kind: r.kind,
+      mediaType: r.mediaType,
+      fileName: r.fileName,
+      status: r.status,
+      lastError: r.lastError,
+      dispatchMeta: r.dispatchMeta,
+      text: r.text,
+      providerMessageId: r.providerMessageId,
+      mediaSource: r.mediaSource,
+    }))
+  }
+
+  /**
+   * Carimbo de idempotência do comentário **agregado** do grupo, na row de
+   * `partIndex = 0`. Update condicional: das partes que terminam juntas, só uma
+   * vence e publica.
+   */
+  async claimGroupTimelineNotification(
+    dispatchGroupId: string,
+  ): Promise<boolean> {
+    const { count } = await prisma.thinkzapWidgetOutbox.updateMany({
+      where: { dispatchGroupId, partIndex: 0, timelineNotifiedAt: null },
+      data: { timelineNotifiedAt: new Date() },
+    })
+    return count > 0
+  }
+
+  /** As rows de uma instalação por `clientMessageId` — o status no widget. */
+  async findByClientMessageIds(
+    domainId: string,
+    clientMessageIds: string[],
+  ): Promise<WidgetOutboxRecord[]> {
+    if (clientMessageIds.length === 0) return []
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: { domainId, clientMessageId: { in: clientMessageIds } },
+    })
+    return rows.map(mapRow)
   }
 
   async findById(id: string): Promise<WidgetOutboxRecord | null> {
@@ -357,6 +568,25 @@ export class PrismaWidgetOutboxRepository {
     })
 
     return count
+  }
+
+  /** As rows dos ids informados, sem ordem garantida. */
+  async findByIds(ids: string[]): Promise<WidgetOutboxRecord[]> {
+    if (ids.length === 0) return []
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: { id: { in: ids } },
+    })
+    return rows.map(mapRow)
+  }
+
+  /** Dos ids informados, os que ainda esperam envio — a varredura do sequenciador. */
+  async findLiveIds(ids: string[]): Promise<Set<string>> {
+    if (ids.length === 0) return new Set()
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: { id: { in: ids }, status: { in: ['PENDING', 'SENDING'] } },
+      select: { id: true },
+    })
+    return new Set(rows.map(row => row.id))
   }
 
   /** Alimenta o alerta de pendência antiga (ver task de observabilidade). */

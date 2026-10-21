@@ -11,6 +11,7 @@ import { makeListDestinationsController } from './main/make-list-destinations-co
 import { makeSendWidgetMessageController } from './main/make-send-widget-message-controller'
 import { makeSendWidgetMessageMultipartController } from './main/make-send-widget-message-multipart-controller'
 import { makeGetLineStatusForWidgetController } from './main/make-get-line-status-for-widget-controller'
+import { makeGetOutboxStatusController } from './main/make-get-outbox-status-controller'
 import { makeListWidgetTemplatesController } from './main/make-list-widget-templates-controller'
 import { makeListTemplateLinesController } from './main/make-list-template-lines-controller'
 import {
@@ -86,6 +87,7 @@ import {
   makeGetLineConnectionController,
   makeGetLineQrCodeController,
   makeGetLineSettingsController,
+  makeGetLineCadenceQueueController,
   makeLinkLineChannelController,
   makeUnlinkLineChannelController,
   makeGetLineSmsProviderController,
@@ -96,6 +98,7 @@ import {
   makeDeleteTemplateSmsProviderController,
   makeUpdateLineSettingsController,
   makeReleaseDailyLimitExtraController,
+  makeResetDailyLimitUsageController,
 } from './main/line/make-line-controllers'
 import { makeSaveInstallationLocaleController } from './main/make-installation-locale'
 
@@ -149,6 +152,11 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/messages/line-status/:subscriptionItemId',
     adaptControllerFactory(makeGetLineStatusForWidgetController),
+  )
+  // Status das mensagens enviadas pelo widget: "aguardando janela de envio" da cadência.
+  router.get(
+    '/messages/outbox-status',
+    adaptControllerFactory(makeGetOutboxStatusController),
   )
   // Templates aprovados da linha. `/lines/:itemId/templates` não serve: exige
   // `connectors:read`, devolve pendentes e reprovados e entrega os `components` crus.
@@ -354,6 +362,12 @@ export const createThinkerszapRoutes = (): Router => {
     requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeGetLineSettingsController),
   )
+  /** Mensagens aguardando na fila da linha (cadenciador). Mesma permissão de ler os ajustes. */
+  router.get(
+    '/lines/:itemId/cadence/queue',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetLineCadenceQueueController),
+  )
   router.patch(
     '/lines/:itemId/settings',
     requireThinkzapPermission('connectors', 'update'),
@@ -364,6 +378,12 @@ export const createThinkerszapRoutes = (): Router => {
     '/lines/:itemId/daily-limit/extra',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeReleaseDailyLimitExtraController),
+  )
+  /** Zera o uso de hoje (contagem e extras). Mesma permissão de editar os ajustes. */
+  router.post(
+    '/lines/:itemId/daily-limit/reset',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeResetDailyLimitUsageController),
   )
   router.post(
     '/lines/:itemId/channel',

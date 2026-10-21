@@ -63,3 +63,41 @@ describe('ZApiClient.unsubscribe', () => {
     })
   })
 })
+
+describe('ZApiClient.updateNotifySentByMe', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  function put() {
+    return (
+      mockedAxios.create.mock.results[0]?.value as {
+        put: ReturnType<typeof vi.fn>
+      }
+    ).put
+  }
+
+  it('liga a notificação das enviadas pelo próprio número', async () => {
+    const client = new ZApiClient('partner_token', 'client_tok')
+    put().mockResolvedValueOnce({ data: { value: true } })
+
+    await client.updateNotifySentByMe('inst_1', 'tok_1', true)
+
+    expect(put()).toHaveBeenCalledWith(
+      'https://api.z-api.io/instances/inst_1/token/tok_1/update-notify-sent-by-me',
+      { notifySentByMe: true },
+      { headers: { 'Client-Token': 'client_tok' } },
+    )
+  })
+
+  it('lança o código próprio na falha', async () => {
+    const client = new ZApiClient('partner_token')
+    put().mockRejectedValueOnce(new Error('rede'))
+
+    await expect(
+      client.updateNotifySentByMe('inst_1', 'tok_1', false),
+    ).rejects.toMatchObject({
+      errorCode: 'thinkzap.zapi.notify_sent_by_me_failed',
+    })
+  })
+})

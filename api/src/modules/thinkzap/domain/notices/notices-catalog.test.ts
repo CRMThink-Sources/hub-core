@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { cadenceNotices } from './cadence-notices'
 import { connectionNotices } from './connection-notices'
 import { deliveryFailureNotices } from './delivery-failure-notices'
 import { historyNotices } from './history-notices'
@@ -12,6 +13,7 @@ const CATALOGS: Record<string, (locale: NoticeLocale) => object> = {
   timeline: timelineNotices,
   connection: connectionNotices,
   history: historyNotices,
+  cadence: cadenceNotices,
 }
 
 /** Chaves em profundidade, com o tipo de cada folha (texto ou função). */

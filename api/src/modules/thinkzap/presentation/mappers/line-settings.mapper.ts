@@ -1,4 +1,7 @@
-import type { LineSettingsReading } from '@/modules/thinkzap/application/get-line-settings'
+import type {
+  LineCadenceState,
+  LineSettingsReading,
+} from '@/modules/thinkzap/application/get-line-settings'
 import type { LineEntitlement } from '@/modules/thinkzap/domain/connector-trial'
 import type { DailyLimitUsage } from '@/modules/thinkzap/domain/daily-send-limit'
 import type { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
@@ -27,6 +30,11 @@ export type LineSettingsView = {
    * `null` na Z-API quando o contador não pôde ser lido.
    */
   dailyLimit?: DailyLimitUsage | null
+  /**
+   * Estado da cadência. Ausente na linha oficial; `null` na Z-API quando o Redis
+   * não pôde ser lido.
+   */
+  cadence?: LineCadenceState | null
 }
 
 export const mapLineSettingsToView = (
@@ -42,6 +50,17 @@ export const mapLineSettingsToView = (
       reading.settings.widgetOpenChannelEnabled === true,
     dailyLimitEnabled: reading.settings.dailyLimitEnabled === true,
     dailyLimit: reading.settings.dailyLimit ?? null,
+    deviceMessageMirrorEnabled:
+      reading.settings.deviceMessageMirrorEnabled === true,
+    cadenceEnabled: reading.settings.cadenceEnabled === true,
+    cadenceMaxMessages: reading.settings.cadenceMaxMessages ?? null,
+    cadenceWindowMinutes: reading.settings.cadenceWindowMinutes ?? null,
+    cadencePauseEnabled: reading.settings.cadencePauseEnabled === true,
+    cadencePauseMinutes: reading.settings.cadencePauseMinutes ?? null,
+    cadenceCountDeviceMessages:
+      reading.settings.cadenceCountDeviceMessages === true,
   },
-  ...(reading.provider === 'ZAPI' ? { dailyLimit: reading.dailyLimit } : {}),
+  ...(reading.provider === 'ZAPI'
+    ? { dailyLimit: reading.dailyLimit, cadence: reading.cadence }
+    : {}),
 })

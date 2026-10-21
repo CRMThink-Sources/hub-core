@@ -32,15 +32,20 @@ const oficial = (settings = DEFAULT_CONNECTOR_SETTINGS): SubscriptionItem => ({
 function makeSut(current = DEFAULT_CONNECTOR_SETTINGS) {
   const rename = { execute: vi.fn().mockResolvedValue(undefined) }
   const updateSubscriptionItem = vi.fn().mockResolvedValue(item(current))
+  const notifySentByMe = {
+    updateNotifySentByMe: vi.fn().mockResolvedValue(undefined),
+  }
 
   const useCase = new UpdateLineSettings(
     rename as never,
     { updateSubscriptionItem } as never,
+    notifySentByMe,
   )
 
   return {
     rename,
     updateSubscriptionItem,
+    notifySentByMe,
     execute: (
       patch: Parameters<typeof useCase.execute>[0] extends never
         ? never
@@ -273,5 +278,190 @@ describe('UpdateLineSettings', () => {
       })
       expect(sut.updateSubscriptionItem).not.toHaveBeenCalled()
     })
+  })
+
+  describe('cadência', () => {
+    const ativar = {
+      cadenceEnabled: true,
+      cadenceMaxMessages: 20,
+      cadenceWindowMinutes: 1,
+    }
+
+    it('ativa N = 20 e D = 1 na linha não oficial', async () => {
+      const sut = makeSut()
+
+      await sut.execute({ settings: ativar, cadenceAvailable: true })
+
+      expect(sut.updateSubscriptionItem).toHaveBeenCalledWith('i1', {
+        settings: { ...DEFAULT_CONNECTOR_SETTINGS, ...ativar },
+      })
+    })
+
+    it('recusa N = 0 e não grava nada, nem o nome', async () => {
+      const sut = makeSut()
+
+      await expect(
+        sut.execute({
+          name: 'Novo nome',
+          settings: { ...ativar, cadenceMaxMessages: 0 },
+          cadenceAvailable: true,
+        }),
+      ).rejects.toMatchObject({ errorCode: 'thinkzap.line.cadence_invalid' })
+      expect(sut.updateSubscriptionItem).not.toHaveBeenCalled()
+      expect(sut.rename.execute).not.toHaveBeenCalled()
+    })
+
+    it('recusa pausa ligada sem duração', async () => {
+      const sut = makeSut()
+
+      await expect(
+        sut.execute({
+          settings: { ...ativar, cadencePauseEnabled: true },
+          cadenceAvailable: true,
+        }),
+      ).rejects.toMatchObject({ errorCode: 'thinkzap.line.cadence_invalid' })
+    })
+
+    it('aceita ligar o toggle quando a linha já tem N e D gravados', async () => {
+      const current = {
+        ...DEFAULT_CONNECTOR_SETTINGS,
+        cadenceMaxMessages: 10,
+        cadenceWindowMinutes: 2,
+      }
+      const sut = makeSut(current)
+
+      await sut.execute({
+        settings: { cadenceEnabled: true },
+        cadenceAvailable: true,
+      })
+
+      expect(sut.updateSubscriptionItem).toHaveBeenCalledWith('i1', {
+        settings: { ...current, cadenceEnabled: true },
+      })
+    })
+
+    it('recusa a cadência na linha oficial', async () => {
+      const sut = makeSut()
+
+      await expect(
+        sut.execute({
+          item: oficial(),
+          settings: ativar,
+          cadenceAvailable: true,
+        }),
+      ).rejects.toMatchObject({ errorCode: 'thinkzap.line.cadence_invalid' })
+      expect(sut.updateSubscriptionItem).not.toHaveBeenCalled()
+    })
+
+    it('sem a flag, recusa ativar com cadence_unavailable', async () => {
+      const sut = makeSut()
+
+      await expect(sut.execute({ settings: ativar })).rejects.toMatchObject({
+        errorCode: 'thinkzap.line.cadence_unavailable',
+      })
+      expect(sut.updateSubscriptionItem).not.toHaveBeenCalled()
+    })
+
+    it('sem a flag, desligar continua permitido', async () => {
+      const current = { ...DEFAULT_CONNECTOR_SETTINGS, ...ativar }
+      const sut = makeSut(current)
+
+      await sut.execute({ settings: { cadenceEnabled: false } })
+
+      expect(sut.updateSubscriptionItem).toHaveBeenCalledWith('i1', {
+        settings: { ...current, cadenceEnabled: false },
+      })
+    })
+  })
+})
+
+describe('UpdateLineSettings (espelhamento do aparelho)', () => {
+  it('ligar chama a Z-API antes de gravar e grava o toggle', async () => {
+    const sut = makeSut()
+
+    await sut.execute({ settings: { deviceMessageMirrorEnabled: true } })
+
+    expect(sut.notifySentByMe.updateNotifySentByMe).toHaveBeenCalledWith(
+      'Z-1',
+      'TOKEN-SECRETO',
+      true,
+    )
+    expect(
+      sut.notifySentByMe.updateNotifySentByMe.mock.invocationCallOrder[0],
+    ).toBeLessThan(sut.updateSubscriptionItem.mock.invocationCallOrder[0]!)
+    const [, written] = sut.updateSubscriptionItem.mock.calls[0] as [
+      string,
+      { settings: { deviceMessageMirrorEnabled: boolean } },
+    ]
+    expect(written.settings.deviceMessageMirrorEnabled).toBe(true)
+  })
+
+  it('desligar desativa a notificação na Z-API', async () => {
+    const sut = makeSut({
+      ...DEFAULT_CONNECTOR_SETTINGS,
+      deviceMessageMirrorEnabled: true,
+    })
+
+    await sut.execute({ settings: { deviceMessageMirrorEnabled: false } })
+
+    expect(sut.notifySentByMe.updateNotifySentByMe).toHaveBeenCalledWith(
+      'Z-1',
+      'TOKEN-SECRETO',
+      false,
+    )
+  })
+
+  it('falha na Z-API não grava nada, nem o nome', async () => {
+    const sut = makeSut()
+    sut.notifySentByMe.updateNotifySentByMe.mockRejectedValueOnce(
+      Object.assign(new Error('z-api fora'), {
+        errorCode: 'thinkzap.zapi.notify_sent_by_me_failed',
+      }),
+    )
+
+    await expect(
+      sut.execute({
+        name: 'Novo nome',
+        settings: { deviceMessageMirrorEnabled: true },
+      }),
+    ).rejects.toMatchObject({
+      errorCode: 'thinkzap.zapi.notify_sent_by_me_failed',
+    })
+
+    expect(sut.updateSubscriptionItem).not.toHaveBeenCalled()
+    expect(sut.rename.execute).not.toHaveBeenCalled()
+  })
+
+  it('salvar só o nome não chama a Z-API', async () => {
+    const sut = makeSut()
+
+    await sut.execute({ name: 'Outro nome' })
+
+    expect(sut.notifySentByMe.updateNotifySentByMe).not.toHaveBeenCalled()
+  })
+
+  it('reenviar o mesmo valor não chama a Z-API', async () => {
+    const sut = makeSut({
+      ...DEFAULT_CONNECTOR_SETTINGS,
+      deviceMessageMirrorEnabled: true,
+    })
+
+    await sut.execute({ settings: { deviceMessageMirrorEnabled: true } })
+
+    expect(sut.notifySentByMe.updateNotifySentByMe).not.toHaveBeenCalled()
+  })
+
+  it('recusa o toggle na linha oficial sem gravar nada', async () => {
+    const sut = makeSut()
+
+    await expect(
+      sut.execute({
+        item: oficial(),
+        settings: { deviceMessageMirrorEnabled: true },
+      }),
+    ).rejects.toMatchObject({ errorCode: 'thinkzap.line.provider_unsupported' })
+
+    expect(sut.notifySentByMe.updateNotifySentByMe).not.toHaveBeenCalled()
+    expect(sut.updateSubscriptionItem).not.toHaveBeenCalled()
   })
 })

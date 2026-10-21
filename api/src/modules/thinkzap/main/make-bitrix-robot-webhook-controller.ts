@@ -1,3 +1,8 @@
+import { EnqueueRobotMessage } from '@/modules/thinkzap/application/enqueue-robot-message'
+import { makeOutboundMediaStorage } from '@/modules/thinkzap/main/make-outbound-media-storage'
+import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
+import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
+import { BullMqWidgetSendQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
@@ -45,5 +50,22 @@ export const makeBitrixRobotWebhookHandlerController = async (
     bx,
     makeDailySendQuota(),
     makeInstallationLocaleRepository(),
+    null,
+    makeQueuedRobotMessage(getInstance),
   )
+}
+
+/** `null` sem a guarda privada dos arquivos: o robô segue síncrono. */
+function makeQueuedRobotMessage(
+  instances: PrismaInstanceRepository,
+): EnqueueRobotMessage | null {
+  const storage = makeOutboundMediaStorage()
+  if (!storage) return null
+  return new EnqueueRobotMessage({
+    outbox: new PrismaWidgetOutboxRepository(),
+    storage,
+    sendQueue: new BullMqWidgetSendQueue(),
+    cadence: makeSendCadence(),
+    instances,
+  })
 }

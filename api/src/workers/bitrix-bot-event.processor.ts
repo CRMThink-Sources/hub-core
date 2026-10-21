@@ -1,3 +1,9 @@
+import { EnqueueBotSpeech } from '@/modules/thinkzap/application/enqueue-bot-speech'
+import { isUnifiedOutboxEnabled } from '@/modules/thinkzap/application/helpers/unified-outbox'
+import { QueuedBotSessionAdapter } from '@/modules/thinkzap/infra/adapters/queued-bot-session.adapter'
+import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
+import { BullMqWidgetSendQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
+import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { adoptLineBinding } from '@/modules/thinkzap/application/adopt-line-binding'
 import { CheckThinkbotConnector } from '@/modules/thinkzap/application/check-thinkbot-connector'
 import { isFlowBotCode } from '@/modules/thinkzap/application/ensure-bot-flow-bot'
@@ -5,6 +11,7 @@ import { runBotTurn } from '@/modules/thinkzap/application/run-bot-turn'
 import { parseBotEvent } from '@/modules/thinkzap/domain/bot-flow/bot-event'
 import {
   contactNameFromDialog,
+  connectorChatIdFromDialog,
   openLineIdFromDialog,
 } from '@/modules/thinkzap/domain/bot-flow/open-line-entity-id'
 import {
@@ -51,6 +58,11 @@ const sessions = new PrismaBotSessionRepository()
 const flows = new PrismaBotFlowRepository()
 const bindings = new PrismaBotFlowBindingRepository()
 const bots = new PrismaBotFlowBotRepository()
+const enqueueBotSpeech = new EnqueueBotSpeech({
+  outbox: new PrismaWidgetOutboxRepository(),
+  sendQueue: new BullMqWidgetSendQueue(),
+  cadence: makeSendCadence(),
+})
 
 export async function processBitrixBotEvent(
   body: unknown,
@@ -196,8 +208,13 @@ export async function processBitrixBotEvent(
 
     const sessao = await comEntregaAoContato(eco, {
       domain: domain.name,
+      domainId: domain.id,
+      memberId: domain.memberId,
       lineId,
       chatId: event.chatId,
+      connectorChatId: connectorChatIdFromDialog(dialog),
+      appId: installedApp.id,
+      bitrixBotId: bot.bitrixBotId,
       appendJobLog: ctx.appendJobLog,
     })
 
@@ -316,12 +333,22 @@ export async function processBitrixBotEvent(
 
 // Fala do bot não dispara `ONIMCONNECTORMESSAGEADD`: entrega direto ao contato.
 // Canal de outro conector fica só no eco.
-async function comEntregaAoContato(
+export async function comEntregaAoContato(
   eco: BotSessionPort,
   input: {
     domain: string
+    domainId: string
+    memberId: string
     lineId: string
+    /** Chat do Bitrix: é onde o eco e as operações de sessão acontecem. */
     chatId: string
+    /**
+     * Chat do conector (telefone/LID do contato), lido do `entity_id` do diálogo. É
+     * o destino da fala no WhatsApp — o chat do Bitrix não é um telefone.
+     */
+    connectorChatId: string | null
+    appId: string
+    bitrixBotId: number
     appendJobLog: AppendJobLog
   },
 ): Promise<BotSessionPort> {
@@ -343,13 +370,57 @@ async function comEntregaAoContato(
     return eco
   }
 
+  if (!input.connectorChatId) {
+    await input.appendJobLog(
+      'Diálogo sem o chat do conector no entity_id — sem destino no WhatsApp, a fala ' +
+        'fica só no chat do canal aberto.',
+    )
+    return eco
+  }
+
+  /**
+   * Caminho unificado (linha Z-API, instalação com a flag): a fala entra na fila de
+   * saída da linha e passa pela cadência; o eco sai depois da entrega.
+   */
+  if (
+    context.connector.provider === ConnectorProvider.ZAPI &&
+    isUnifiedOutboxEnabled(input.memberId)
+  ) {
+    const line = await findLineItemByInstanceId(
+      {
+        instanceId: context.instance.instanceId,
+        domainId: context.id,
+        appCode,
+      },
+      makeGetAplicationContext(),
+    )
+    if (line) {
+      const connectorChatId = input.connectorChatId
+      await input.appendJobLog(
+        `Fala pela fila de saída da linha | instância=${context.instance.instanceId}`,
+      )
+      return new QueuedBotSessionAdapter(eco, (chatId, text) =>
+        enqueueBotSpeech.execute({
+          item: line.item,
+          instanceDbId: context.instance.id,
+          domainId: input.domainId,
+          appCode,
+          connectorChatId,
+          bitrixChatId: chatId,
+          text,
+          context: { appId: input.appId, bitrixBotId: input.bitrixBotId },
+        }),
+      )
+    }
+  }
+
   const contato = makeOutboundSenderResolver().resolve(
     context.connector.provider,
     {
       instanceId: context.instance.instanceId,
       zApiToken: context.instance.zApiToken,
       channelId: context.instance.channelId,
-      chatId: input.chatId,
+      chatId: input.connectorChatId,
     },
   )
 

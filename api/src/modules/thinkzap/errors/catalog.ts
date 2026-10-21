@@ -54,6 +54,15 @@ export const THINKZAP_ERRORS = {
     retriable: true,
     httpStatus: 502,
   },
+  'thinkzap.zapi.notify_sent_by_me_failed': {
+    category: 'integration',
+    userCause:
+      'A z-api recusou a alteração do espelhamento das mensagens enviadas pelo aparelho.',
+    remediation:
+      'Tentar de novo em instantes; se persistir, verificar status da z-api. Nada foi gravado nos ajustes da linha.',
+    retriable: true,
+    httpStatus: 502,
+  },
   'thinkzap.zapi.instance_list_failed': {
     category: 'integration',
     userCause: 'A z-api não respondeu à listagem de linhas.',
@@ -734,7 +743,7 @@ export const THINKZAP_ERRORS = {
     userCause:
       'Uma mensagem do operador no canal aberto não foi enviada: o canal não está ligado a nenhuma linha ativa desta instalação.',
     remediation:
-      'Conferir se o canal aberto do log está vinculado a uma linha na aba Ajustes e se o app segue instalado no portal; o operador reenvia depois do vínculo.',
+      'Conferir se o canal aberto do log está vinculado a uma linha na aba Configurações e se o app segue instalado no portal; o operador reenvia depois do vínculo.',
     retriable: false,
   },
   'thinkzap.message.outbound_persist_failed': {
@@ -859,7 +868,7 @@ export const THINKZAP_ERRORS = {
     userCause:
       'Esta linha atingiu o limite diário de mensagens configurado. A mensagem não foi enviada.',
     remediation:
-      'Aguardar a virada do dia, liberar um limite temporário ou aumentar o limite na aba Ajustes da linha.',
+      'Aguardar a virada do dia, liberar um limite temporário ou aumentar o limite na aba Limites de envio da linha.',
     retriable: false,
     httpStatus: 429,
   },
@@ -895,9 +904,63 @@ export const THINKZAP_ERRORS = {
     userCause:
       'O limite temporário só pode ser liberado com o limite diário ativado e salvo.',
     remediation:
-      'Ativar e salvar o limite diário na aba Ajustes da linha antes de liberar o limite temporário.',
+      'Ativar e salvar o limite diário na aba Limites de envio da linha antes de liberar o limite temporário.',
     retriable: false,
     httpStatus: 409,
+  },
+  'thinkzap.line.cadence_invalid': {
+    category: 'validation',
+    userCause:
+      'A cadência precisa de números inteiros maiores que zero (mensagens por janela, duração da janela e, com pausa, duração da pausa), e só existe para linha não oficial (Web).',
+    remediation:
+      'Informar inteiros maiores que zero nos campos ativados do Cadenciador, na aba Limites de envio da linha não oficial (Web), e salvar de novo.',
+    retriable: false,
+    httpStatus: 400,
+  },
+  'thinkzap.line.cadence_unavailable': {
+    category: 'validation',
+    userCause:
+      'O Cadenciador ainda não está liberado para esta instalação. Nada foi gravado.',
+    remediation:
+      'Aguardar a liberação do recurso para a instalação; enquanto isso, o limite diário continua disponível.',
+    retriable: false,
+    httpStatus: 409,
+  },
+  'thinkzap.line.cadence_state_read_failed': {
+    category: 'internal',
+    userCause:
+      'O estado atual da cadência não pôde ser lido agora. Os ajustes da linha continuam disponíveis e os envios seguem a cadência configurada.',
+    remediation:
+      'Recarregar a tela em instantes; se persistir, verificar a disponibilidade do Redis e acionar o suporte.',
+    retriable: true,
+    httpStatus: 500,
+  },
+  'thinkzap.line.cadence_notify_failed': {
+    category: 'integration',
+    userCause:
+      'A resposta do operador está aguardando a janela de envio, mas o aviso no chat não pôde ser postado. A mensagem continua na fila e será enviada.',
+    remediation:
+      'Nenhuma ação na mensagem: ela sai na próxima janela. Se o aviso falhar sempre, verificar o acesso do app ao chat do canal aberto.',
+    retriable: false,
+    httpStatus: 502,
+  },
+  'thinkzap.outbox.sequencer_stale_removed': {
+    category: 'internal',
+    userCause:
+      'Uma mensagem que já não estava mais na fila ainda ocupava a vez da linha e foi removida automaticamente. As demais mensagens seguem a ordem normal.',
+    remediation:
+      'Nenhuma ação necessária. Se aparecer com frequência para a mesma linha, acionar o desenvolvimento.',
+    retriable: false,
+    httpStatus: 500,
+  },
+  'thinkzap.outbox.sequencer_head_rescheduled': {
+    category: 'internal',
+    userCause:
+      'A próxima mensagem da fila da linha estava parada, sem envio agendado, e foi reagendada automaticamente. As mensagens atrás dela voltam a sair.',
+    remediation:
+      'Nenhuma ação na mensagem. Investigar no log do job por que o agendamento anterior se perdeu (falha antes do envio ou no enfileiramento).',
+    retriable: false,
+    httpStatus: 500,
   },
   'thinkzap.line.disconnected': {
     category: 'validation',

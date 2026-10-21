@@ -7,6 +7,7 @@ import {
   InvalidTemplateHeaderImageError,
 } from '@/modules/thinkzap/application/create-connector-template'
 import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.client'
+import { TemplateImageStorageUnavailableError } from '@/modules/thinkzap/domain/ports/template-image-storage.port'
 import {
   CreateTemplateController,
   headerImageRejectionMessage,
@@ -297,6 +298,38 @@ describe('CreateTemplateController', () => {
       const [input] = vi.mocked(useCase.execute).mock.calls[0] ?? []
       expect(input).not.toHaveProperty('headerImageFile')
     })
+  })
+
+  it('503 sugerindo o link quando o bucket da imagem está fora do ar', async () => {
+    const { controller } = makeController(() =>
+      Promise.reject(new TemplateImageStorageUnavailableError('AccessDenied')),
+    )
+
+    const res = await controller.perform(makeReq(validBody))
+
+    expect(res.status).toBe(503)
+    expect((res.result as { error: string }).error).toContain('link público')
+  })
+
+  it('400 legível quando a rota de upload da Omni não existe (405)', async () => {
+    const { controller } = makeController(() =>
+      Promise.reject(
+        new HubMessageApiError(
+          405,
+          'POST',
+          '/whatsapp/businesses/w/templates/media',
+          { error: 'Method Not Allowed' },
+          new Error('x'),
+        ),
+      ),
+    )
+
+    const res = await controller.perform(makeReq(validBody))
+
+    expect(res.status).toBe(400)
+    expect((res.result as { error: string }).error).toBe(
+      'O envio de arquivo da imagem não está disponível no momento. Use um link público da imagem.',
+    )
   })
 
   it('400 sugerindo o link quando falta credencial do app da Meta no upload', async () => {

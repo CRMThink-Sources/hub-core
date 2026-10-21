@@ -6,6 +6,14 @@ import {
   computeDailyLimitUsage,
 } from '@/modules/thinkzap/domain/daily-send-limit'
 import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
+import type { SendCadence } from '@/modules/thinkzap/domain/ports/send-cadence.port'
+import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
+import {
+  CadencePhase,
+  cadencePolicyOf,
+  hasPendingCadenceChange,
+} from '@/modules/thinkzap/domain/send-cadence'
+import { isUnifiedOutboxEnabled } from './helpers/unified-outbox'
 import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
@@ -43,6 +51,28 @@ export type LineSettingsReading = {
    * o contador não pôde ser lido — a aba continua abrindo, só sem o uso.
    */
   dailyLimit: DailyLimitUsage | null
+  /**
+   * Estado da cadência. Só na linha Z-API; `null` na oficial e quando o Redis não
+   * pôde ser lido — a aba continua abrindo, só sem o estado.
+   */
+  cadence: LineCadenceState | null
+}
+
+/** O que a aba Limites de envio mostra do cadenciador. Horários em epoch ms. */
+export type LineCadenceState = {
+  /** A instalação pode ativar o recurso (flag do caminho unificado da outbox). */
+  available: boolean
+  phase: CadencePhase
+  /** Envios da janela aberta; 0 fora de janela. */
+  count: number
+  /** N da janela aberta (snapshot); `null` sem janela. */
+  max: number | null
+  windowEndsAt: number | null
+  pauseUntil: number | null
+  /** Mensagens na fila da linha que ainda não receberam vaga. */
+  waiting: number
+  /** A configuração gravada difere da janela/pausa vigente: vale na próxima. */
+  nextWindowChanges: boolean
 }
 
 export class GetLineSettings {
@@ -53,6 +83,7 @@ export class GetLineSettings {
   constructor(
     private readonly getAplicationContext: GetAplicationContext,
     private readonly quota: DailySendQuota | null = null,
+    private readonly cadence: SendCadence | null = null,
   ) {}
 
   async execute(input: {
@@ -94,6 +125,51 @@ export class GetLineSettings {
       entitlement,
       provider: item.metadata.provider,
       dailyLimit: await this.readDailyLimit(item, now),
+      cadence: await this.readCadence(
+        item,
+        now,
+        isUnifiedOutboxEnabled(context.customer.memberId),
+      ),
+    }
+  }
+
+  private async readCadence(
+    item: SubscriptionItem,
+    now: Date,
+    available: boolean,
+  ): Promise<LineCadenceState | null> {
+    if (!this.cadence || item.metadata.provider !== 'ZAPI') return null
+
+    const policy = cadencePolicyOf({
+      provider: ConnectorProvider.ZAPI,
+      lineKey: item.metadata.zApiInstanceId,
+      settings: item.settings,
+    })
+    if (!policy) return null
+
+    try {
+      const [state, waiting] = await Promise.all([
+        this.cadence.state(policy.lineKey, now),
+        this.cadence.waitingCount(policy.lineKey),
+      ])
+      return {
+        available,
+        phase: state.phase,
+        count: state.count,
+        max: state.max,
+        windowEndsAt: state.windowEndsAt,
+        pauseUntil: state.pauseUntil,
+        waiting,
+        nextWindowChanges: hasPendingCadenceChange(policy, state),
+      }
+    } catch (err) {
+      logThinkzapError(
+        apiLogger,
+        'thinkzap.line.cadence_state_read_failed',
+        { app: 'thinkzap', subscriptionItemId: item.id, err },
+        { msg: 'Estado da cadência não pôde ser lido — a aba abre sem ele' },
+      )
+      return null
     }
   }
 

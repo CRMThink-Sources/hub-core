@@ -23,6 +23,7 @@ import {
   TemplateSampleImageFailure,
   TemplateSampleImageFetcher,
 } from '@/modules/thinkzap/domain/ports/template-sample-image-fetcher.port'
+import type { TemplateImageStorage } from '@/modules/thinkzap/domain/ports/template-image-storage.port'
 import { resolveTemplateContext } from './helpers/resolve-template-context'
 
 /** Erro de validação de dados do template antes de submeter ao provider. */
@@ -74,6 +75,13 @@ export class CreateConnectorTemplateUseCase {
     private readonly getAplicationContext: GetAplicationContext,
     private readonly templateProviderResolver: TemplateProviderResolver,
     private readonly sampleImageFetcher: TemplateSampleImageFetcher,
+    /**
+     * Bucket da imagem do cabeçalho. Com ele, o arquivo enviado vira um link público
+     * e segue pelo caminho do link (`header_handle` com URL), que a Omni aceita.
+     * Sem ele (ambiente sem `R2_*`), o arquivo vai ao provider para a rota de upload
+     * dele.
+     */
+    private readonly imageStorage: TemplateImageStorage | null = null,
   ) {}
 
   async execute(input: CreateConnectorTemplateInput): Promise<CreatedTemplate> {
@@ -95,6 +103,24 @@ export class CreateConnectorTemplateUseCase {
       },
       { requireEnabled: true },
     )
+
+    /**
+     * Depois das recusas de linha: um envio recusado não deixa arquivo no bucket.
+     */
+    if (headerSampleImage && this.imageStorage) {
+      const { url } = await this.imageStorage.store({
+        data: headerSampleImage.data,
+        contentType: headerSampleImage.contentType,
+        scope: { domainId: input.domainId },
+      })
+      return provider.createTemplate({
+        wabaId,
+        name: input.name,
+        category: input.category,
+        language: input.language,
+        components: withHeaderImageUrl(input.components, url),
+      })
+    }
 
     return provider.createTemplate({
       wabaId,
@@ -185,6 +211,18 @@ function sampleImageFromFile(data: Buffer): TemplateSampleImage {
     )
   }
   return { data, contentType }
+}
+
+/** O cabeçalho de imagem passa a apontar para o arquivo hospedado. */
+function withHeaderImageUrl(
+  components: TemplateComponent[],
+  imageUrl: string,
+): TemplateComponent[] {
+  return components.map(component =>
+    component.type === 'HEADER' && component.format === 'IMAGE'
+      ? { ...component, example: { imageUrl } }
+      : component,
+  )
 }
 
 const META_CDN_MESSAGE =

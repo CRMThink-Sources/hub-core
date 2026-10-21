@@ -15,7 +15,8 @@
     "conexao": "Conexión",
     "grupos": "Grupos",
     "templates": "Plantillas",
-    "ajustes": "Ajustes",
+    "ajustes": "Configuración",
+    "limites": "Límites de envío",
     "campanha": "Campaña de SMS"
   },
   "provider": {

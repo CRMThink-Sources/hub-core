@@ -15,7 +15,8 @@
     "conexao": "Conexão",
     "grupos": "Grupos",
     "templates": "Templates",
-    "ajustes": "Ajustes",
+    "ajustes": "Configurações",
+    "limites": "Limites de envio",
     "campanha": "Campanha de SMS"
   },
   "provider": {

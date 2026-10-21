@@ -1,5 +1,7 @@
 import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
+import type { SendCadence } from '@/modules/thinkzap/domain/ports/send-cadence.port'
 import { assertDailyLimitNotReached } from './helpers/send-within-daily-quota'
+import { sequenceOutboxRows } from './helpers/sequence-outbox-rows'
 import { randomUUID } from 'node:crypto'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
@@ -52,6 +54,8 @@ export class EnqueueWidgetMessageUseCase {
     private readonly sendQueue: WidgetSendQueue,
     /** Ausente, não há pré-checagem do limite diário (a reserva no despacho continua). */
     private readonly quota: DailySendQuota | null = null,
+    /** Ausente, a row não entra na fila FIFO da linha (o despacho dá a vez a ela). */
+    private readonly cadence: SendCadence | null = null,
   ) {}
 
   async execute(
@@ -137,7 +141,15 @@ export class EnqueueWidgetMessageUseCase {
        */
       smsSenderCode: smsSenderCode ?? null,
       smsMessageId: smsMessageId ?? null,
+      origin: smsMessageId ? 'SMS_CAMPAIGN' : 'WIDGET',
     })
+
+    // A vez na fila da linha é dada na chegada, antes do job existir.
+    await sequenceOutboxRows(
+      { cadence: this.cadence, outbox: this.outbox },
+      line.item,
+      [row],
+    )
 
     /**
      * Depois do commit da row. Se o enfileiramento falhar, a intenção fica `PENDING` no

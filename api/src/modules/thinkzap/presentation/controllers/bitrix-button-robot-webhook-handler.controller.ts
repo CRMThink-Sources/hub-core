@@ -157,6 +157,7 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
           buttons,
           entity: crmDocument?.entity ?? '',
           entityId: crmDocument?.entityId ?? '',
+          origin: 'ROBOT_BUTTONS',
         })
         queued.push(result.destination)
       } catch (error) {

@@ -124,6 +124,17 @@ export class RedisDailySendQuota implements DailySendQuota {
     return this.usage(lineKey, now)
   }
 
+  async resetDay(lineKey: string, now: Date): Promise<DailySendCounts> {
+    const day = dayKeyOf(now)
+    const before = await this.usage(lineKey, now)
+    // Só as chaves do dia: os outros dias (e a virada) seguem como estão.
+    await this.redis.del(
+      dailySentKey(lineKey, day),
+      dailyExtraKey(lineKey, day),
+    )
+    return before
+  }
+
   async usage(lineKey: string, now: Date): Promise<DailySendCounts> {
     const day = dayKeyOf(now)
     const [sent, extra] = await this.redis.mget(

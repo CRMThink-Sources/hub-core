@@ -1,3 +1,14 @@
+import { EnqueueOperatorReply } from '@/modules/thinkzap/application/enqueue-operator-reply'
+import { isUnifiedOutboxEnabled } from '@/modules/thinkzap/application/helpers/unified-outbox'
+import {
+  ROBOT_FILE_MAX_BYTES,
+  downloadRobotFile,
+} from '@/modules/thinkzap/application/robot-files/fetch-robot-files'
+import { makeOutboundMediaStorage } from '@/modules/thinkzap/main/make-outbound-media-storage'
+import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
+import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
+import { BullMqWidgetSendQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
+import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { env } from '@/config/env'
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import {
@@ -63,13 +74,31 @@ import {
   noopJobLog,
 } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { redisConnection } from '@/queue/redis-connection'
+import { captureOperatorOAuthFromEvent } from '@/modules/thinkzap/application/capture-operator-oauth-from-event'
+import { UpsertOperatorBitrixOAuth } from '@/modules/thinkzap/application/upsert-operator-bitrix-oauth'
+import { PrismaThinkzapOperatorOAuthRepository } from '@/modules/thinkzap/infra/persistence/prisma-thinkzap-operator-oauth.repository'
+import {
+  findMirroredDeviceMessage,
+  MirroredMessageReservations,
+} from '@/modules/thinkzap/infra/cache/mirrored-message-reservations'
 
 const log = createWorkerSourceLogger('bitrix')
 const messageRepo = new PrismaThinkzapMessageRepository()
+const mirroredReservations = new MirroredMessageReservations(redisConnection)
+const upsertOperatorOAuth = new UpsertOperatorBitrixOAuth(
+  new PrismaThinkzapOperatorOAuthRepository(),
+)
 const outboundSenderResolver = makeOutboundSenderResolver()
 const interactiveButtonSenderResolver = makeInteractiveButtonSenderResolver()
 const dailySendQuota = makeDailySendQuota()
 const installationLocales = makeInstallationLocaleRepository()
+const enqueueOperatorReply = new EnqueueOperatorReply({
+  outbox: new PrismaWidgetOutboxRepository(),
+  sendQueue: new BullMqWidgetSendQueue(),
+  cadence: makeSendCadence(),
+  storage: makeOutboundMediaStorage(),
+  download: url => downloadRobotFile(url, ROBOT_FILE_MAX_BYTES),
+})
 
 /**
  * Recusa por limite diário: permanente até a virada do dia (ou liberação), então
@@ -137,6 +166,8 @@ type PersistOutboundMessageInput = {
   chatId: string
   // Único endereço (DIALOG_ID) para avisar o operador quando a Meta recusa após o aceite.
   bitrixChatId: string
+  // Quem respondeu (`message.user_id`): é o "operador da sessão" do espelhamento.
+  bitrixUserId: string
   type: 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' | 'INTERACTIVE_BUTTON'
   text?: string
   fileName?: string
@@ -157,6 +188,7 @@ async function persistOutboundMessage(
       text: input.text ?? null,
       fileName: input.fileName ?? null,
       chatId: input.chatId,
+      bitrixUserId: input.bitrixUserId,
     })
   } catch (err) {
     logThinkzapError(log, 'thinkzap.message.outbound_persist_failed', {
@@ -356,6 +388,21 @@ export async function processBitrixReceivedMessage(
       `destino(chatId)=${chatId}`,
   )
 
+  // Token do operador para o espelhamento postar como ele; só complementa o OAuth dos widgets.
+  const operatorOAuth = await captureOperatorOAuthFromEvent(
+    upsertOperatorOAuth,
+    {
+      appId: context.app.id,
+      auth: event.auth,
+      messageUserId: message.message.user_id,
+    },
+  )
+  await appendJobLog(
+    operatorOAuth.captured
+      ? `Token do operador ${operatorOAuth.bitrixUserId} atualizado a partir do evento.`
+      : `Token do operador não atualizado pelo evento: ${operatorOAuth.reason}.`,
+  )
+
   // Resolvida uma vez: entitlement e settings na mesma leitura.
   const appCode =
     resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId ?? ''
@@ -411,6 +458,29 @@ export async function processBitrixReceivedMessage(
     domain: context.name,
   })
 
+  // Cópia que o espelhamento postou como operador: já está no WhatsApp (saiu do aparelho).
+  // Só Z-API tem espelhamento; a linha oficial não paga a consulta.
+  const mirrored =
+    provider === ConnectorProvider.HUBMESSAGE
+      ? null
+      : await findMirroredCopy(event, message, context.instance.id)
+  if (mirrored) {
+    await appendJobLog(
+      `Mensagem espelhada do aparelho (identificada por ${mirrored.via}) — já está no ` +
+        'WhatsApp do contato; NÃO reenviada. Job encerrado sem falha.',
+    )
+    if (mirrored.providerMessageId) {
+      await setDelivered(
+        bitrixClient,
+        event,
+        message,
+        chatId,
+        mirrored.providerMessageId,
+      )
+    }
+    return
+  }
+
   let botId = await ensureBitrixBotId(
     bitrixClient,
     redisConnection,
@@ -431,6 +501,8 @@ export async function processBitrixReceivedMessage(
       bitrixClient,
       appendJobLog,
       dailyLimitPolicy,
+      line,
+      appCode,
     })
     return
   }
@@ -520,13 +592,34 @@ export async function processBitrixReceivedMessage(
     )
   }
 
+  const bitrixMessageId = message.im.message_id
+  const instanceDbId = context.instance.id
+
+  /**
+   * Caminho unificado (linha Z-API com a flag da instalação): a resposta vai para a
+   * fila e passa pela cadência. O job termina com sucesso quando as partes estão
+   * gravadas — a entrega, a confirmação no Bitrix e os avisos são do despacho.
+   */
+  if (usesUnifiedOutbox(provider, event)) {
+    const { parts } = await enqueueOperatorReply.execute({
+      item: line.item,
+      instanceDbId,
+      domainId: context.id,
+      appCode,
+      context: operatorContextOf(event, message, chatId, referencedMessageId),
+      parts: descriptors,
+    })
+    await appendJobLog(
+      `Caminho unificado: ${parts} parte(s) gravada(s) na fila de saída da linha. ` +
+        'A entrega (e a espera da cadência, se houver) é do worker de envio.',
+    )
+    return
+  }
+
   const getBitrixUserDisplayName = new BitrixGetUserDisplayNameAdapter(
     bitrixClient,
   )
   const getAllowedUser = new PrismaAllowedUserRepository()
-
-  const bitrixMessageId = message.im.message_id
-  const instanceDbId = context.instance.id
 
   for (const [index, descriptor] of descriptors.entries()) {
     log.debug(
@@ -664,6 +757,7 @@ export async function processBitrixReceivedMessage(
       bitrixMessageId,
       chatId,
       bitrixChatId: message.im.chat_id,
+      bitrixUserId: String(message.message.user_id),
       type: result.persistedType,
       text: result.sentText,
       fileName:
@@ -705,6 +799,9 @@ async function sendButtonActionMessage(params: {
   bitrixClient: BitrixClient
   appendJobLog: AppendJobLog
   dailyLimitPolicy: DailyLimitPolicy | null
+  /** Para o caminho unificado; ausente nos testes antigos. */
+  line?: { item: SubscriptionItem }
+  appCode: string
 }): Promise<void> {
   const {
     event,
@@ -779,6 +876,21 @@ async function sendButtonActionMessage(params: {
       message.im.chat_id,
       (err as Error).message,
       await installationLocales.byAppId(context.app.id),
+    )
+    return
+  }
+
+  if (usesUnifiedOutbox(provider, event) && params.line) {
+    await enqueueOperatorReply.execute({
+      item: params.line.item,
+      instanceDbId: context.instance.id,
+      domainId: context.id,
+      appCode: params.appCode,
+      context: operatorContextOf(event, message, chatId),
+      buttons: descriptor,
+    })
+    await appendJobLog(
+      'Caminho unificado: botões gravados na fila de saída da linha.',
     )
     return
   }
@@ -860,6 +972,7 @@ async function sendButtonActionMessage(params: {
     bitrixMessageId: message.im.message_id,
     chatId,
     bitrixChatId: message.im.chat_id,
+    bitrixUserId: String(message.message.user_id),
     type: 'INTERACTIVE_BUTTON',
     text: descriptor.body,
   })
@@ -870,6 +983,73 @@ async function sendButtonActionMessage(params: {
     `Persistido no banco e confirmado no Bitrix (setMessageDelivered) | ` +
       `bitrixMessageId=${message.im.message_id} → ${result.messageId}`,
   )
+}
+
+/**
+ * A cópia de uma mensagem do aparelho que o espelhamento postou como operador: pela
+ * reserva no Redis e, se ela já expirou ou o Redis falhou, pela row `ZAPI` com este
+ * `bitrixMessageId`. `null` é resposta de operador, que segue para o envio.
+ *
+ * Falha do Redis não lança: a resposta do operador não pode ficar presa nele, e a row
+ * ainda cobre a cópia gravada a tempo.
+ */
+async function findMirroredCopy(
+  event: IBX24MessageEvent,
+  message: IBX24MessageEvent['data']['MESSAGES'][number],
+  instanceDbId: string,
+): Promise<{ via: string; providerMessageId: string | null } | null> {
+  const bitrixMessageId = String(message.im.message_id)
+
+  try {
+    const reserved = await findMirroredDeviceMessage(mirroredReservations, {
+      domain: event.auth.domain,
+      bitrixChatId: String(message.im.chat_id),
+      bitrixMessageId,
+    })
+    if (reserved) return { via: 'reserva', providerMessageId: reserved }
+  } catch (err) {
+    log.warn(
+      { domain: event.auth.domain, bitrixMessageId, err },
+      'Falha ao consultar a reserva do espelhamento — seguindo pela row',
+    )
+  }
+
+  const record = await messageRepo.findByBitrixMessageId(
+    instanceDbId,
+    bitrixMessageId,
+  )
+  return record?.source === 'ZAPI'
+    ? { via: 'registro', providerMessageId: record.providerMessageId }
+    : null
+}
+
+/** Linha Z-API de instalação com a flag do caminho unificado da outbox. */
+function usesUnifiedOutbox(
+  provider: ConnectorProvider,
+  event: IBX24MessageEvent,
+): boolean {
+  return (
+    provider === ConnectorProvider.ZAPI &&
+    isUnifiedOutboxEnabled(event.auth.member_id)
+  )
+}
+
+function operatorContextOf(
+  event: IBX24MessageEvent,
+  message: IBX24MessageEvent['data']['MESSAGES'][number],
+  chatId: string,
+  referencedMessageId?: string,
+) {
+  return {
+    line: event.data.LINE,
+    im: {
+      chat_id: String(message.im.chat_id),
+      message_id: String(message.im.message_id),
+    },
+    connectorChatId: chatId,
+    bitrixUserId: String(message.message.user_id),
+    ...(referencedMessageId ? { referencedMessageId } : {}),
+  }
 }
 
 async function setDelivered(

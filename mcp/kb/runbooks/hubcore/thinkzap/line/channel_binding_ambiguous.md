@@ -24,7 +24,7 @@ Este estado só existe em instalação configurada **antes** da guarda de víncu
 
 ## Como resolver
 1. Confirme com o parceiro qual linha deve atender aquele canal.
-2. Desvincule o canal da(s) outra(s) linha(s) — pela aba Ajustes da linha, que é o caminho que valida, ou limpando `ufCrm93Conector` no item.
+2. Desvincule o canal da(s) outra(s) linha(s) — pela aba Configurações da linha, que é o caminho que valida, ou limpando `ufCrm93Conector` no item.
 3. Peça ao operador para reenviar a mensagem. Não há reprocessamento automático: o job falhou e a retentativa cai no mesmo lugar enquanto o vínculo estiver duplicado.
 4. Se as duas linhas devem atender, oriente a criar um canal aberto novo para a segunda.
 

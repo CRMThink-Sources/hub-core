@@ -40,6 +40,13 @@ const settingsSchema = z.object({
   widgetOpenChannelEnabled: z.boolean(),
   dailyLimitEnabled: z.boolean(),
   dailyLimit: z.number().nullable(),
+  deviceMessageMirrorEnabled: z.boolean(),
+  cadenceEnabled: z.boolean(),
+  cadenceMaxMessages: z.number().nullable(),
+  cadenceWindowMinutes: z.number().nullable(),
+  cadencePauseEnabled: z.boolean(),
+  cadencePauseMinutes: z.number().nullable(),
+  cadenceCountDeviceMessages: z.boolean(),
 })
 
 const subscriptionItemSchema = z.object({

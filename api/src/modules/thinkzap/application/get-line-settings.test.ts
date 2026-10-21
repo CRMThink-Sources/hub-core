@@ -87,6 +87,7 @@ describe('GetLineSettings', () => {
       entitlement: 'active',
       provider: 'ZAPI',
       dailyLimit: null,
+      cadence: null,
     })
   })
 
@@ -169,5 +170,171 @@ describe('GetLineSettings (limite diário)', () => {
     expect(reading.dailyLimit).toBeNull()
     expect(reading.settings.dailyLimit).toBe(300)
     expect(mapLineSettingsToView(reading)).toHaveProperty('dailyLimit', null)
+  })
+})
+
+describe('mapLineSettingsToView (espelhamento do aparelho)', () => {
+  it('expõe o toggle gravado na view', async () => {
+    const mirrored: SubscriptionItem = {
+      ...zapiItem,
+      settings: { ...zapiItem.settings, deviceMessageMirrorEnabled: true },
+    }
+    const quota = {
+      usage: vi.fn().mockResolvedValue({ sent: 0, extra: 0 }),
+    } as unknown as DailySendQuota
+    const context = {
+      execute: vi.fn().mockResolvedValue({
+        customer: { id: 'domain-1', name: 'acme.bitrix24.com.br' },
+        aplication: { id: 'installed-1', spaId: '42' },
+        subscriptions: [{ id: 'sub-1', status: 'active', items: [mirrored] }],
+      }),
+    }
+    const sut = new GetLineSettings(context as never, quota)
+
+    const reading = await sut.execute(input)
+
+    expect(mapLineSettingsToView(reading).settings).toMatchObject({
+      deviceMessageMirrorEnabled: true,
+    })
+  })
+})
+
+describe('GetLineSettings (cadência)', () => {
+  const T = Date.parse('2026-10-21T13:00:00.000Z')
+
+  const contextWith = (items: SubscriptionItem[], memberId = 'm-1') => ({
+    execute: vi.fn().mockResolvedValue({
+      customer: { id: 'domain-1', name: 'acme.bitrix24.com.br', memberId },
+      aplication: { id: 'installed-1', spaId: '42' },
+      subscriptions: [{ id: 'sub-1', status: 'active', items }],
+    }),
+  })
+
+  const cadenced: SubscriptionItem = {
+    ...zapiItem,
+    settings: {
+      ...DEFAULT_CONNECTOR_SETTINGS,
+      cadenceEnabled: true,
+      cadenceMaxMessages: 20,
+      cadenceWindowMinutes: 1,
+    },
+  }
+
+  const snapshot = { maxMessages: 20, windowMs: 60_000, pauseMs: 0 }
+
+  function cadenceWith(state: object, waiting = 0) {
+    return {
+      state: vi.fn().mockResolvedValue(state),
+      waitingCount: vi.fn().mockResolvedValue(waiting),
+    }
+  }
+
+  it('Janela em andamento: 12 de 20 e o término da janela', async () => {
+    const cadence = cadenceWith({
+      phase: 'window',
+      count: 12,
+      max: 20,
+      windowEndsAt: T + 60_000,
+      pauseUntil: null,
+      snapshot,
+    })
+    const sut = new GetLineSettings(
+      contextWith([cadenced]) as never,
+      null,
+      cadence as never,
+    )
+
+    const reading = await sut.execute(input)
+
+    expect(cadence.state).toHaveBeenCalledWith('Z-1', expect.any(Date))
+    expect(reading.cadence).toEqual({
+      available: false,
+      phase: 'window',
+      count: 12,
+      max: 20,
+      windowEndsAt: T + 60_000,
+      pauseUntil: null,
+      waiting: 0,
+      nextWindowChanges: false,
+    })
+    expect(mapLineSettingsToView(reading)).toMatchObject({
+      cadence: { count: 12, max: 20 },
+    })
+  })
+
+  it('Linha em pausa com fila: pausa e 30 aguardando', async () => {
+    const cadence = cadenceWith(
+      {
+        phase: 'paused',
+        count: 0,
+        max: null,
+        windowEndsAt: null,
+        pauseUntil: T + 340_000,
+        snapshot,
+      },
+      30,
+    )
+    const sut = new GetLineSettings(
+      contextWith([cadenced]) as never,
+      null,
+      cadence as never,
+    )
+
+    const reading = await sut.execute(input)
+
+    expect(reading.cadence).toMatchObject({
+      phase: 'paused',
+      pauseUntil: T + 340_000,
+      waiting: 30,
+    })
+  })
+
+  it('configuração diferente do snapshot é pendência da próxima janela', async () => {
+    const cadence = cadenceWith({
+      phase: 'window',
+      count: 3,
+      max: 20,
+      windowEndsAt: T + 1,
+      pauseUntil: null,
+      snapshot: { ...snapshot, maxMessages: 30 },
+    })
+    const sut = new GetLineSettings(
+      contextWith([cadenced]) as never,
+      null,
+      cadence as never,
+    )
+
+    expect((await sut.execute(input)).cadence?.nextWindowChanges).toBe(true)
+  })
+
+  it('linha oficial não lê o estado e a view omite o bloco', async () => {
+    const cadence = cadenceWith({})
+    const sut = new GetLineSettings(
+      contextWith([oficialItem]) as never,
+      null,
+      cadence as never,
+    )
+
+    const reading = await sut.execute(input)
+
+    expect(cadence.state).not.toHaveBeenCalled()
+    expect(mapLineSettingsToView(reading)).not.toHaveProperty('cadence')
+  })
+
+  it('falha do Redis não derruba a aba: o bloco vem nulo', async () => {
+    const cadence = {
+      state: vi.fn().mockRejectedValue(new Error('redis fora')),
+      waitingCount: vi.fn().mockResolvedValue(0),
+    }
+    const sut = new GetLineSettings(
+      contextWith([cadenced]) as never,
+      null,
+      cadence as never,
+    )
+
+    const reading = await sut.execute(input)
+
+    expect(reading.cadence).toBeNull()
+    expect(mapLineSettingsToView(reading)).toHaveProperty('cadence', null)
   })
 })

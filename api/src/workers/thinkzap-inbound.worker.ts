@@ -5,6 +5,8 @@ import {
   ThinkzapInboundJob,
 } from '@/queue/thinkzap-inbound.queue'
 import { processZApiReceivedMessage } from './z-api-received-message.processor'
+import { processZApiSentByMeMessage } from './z-api-sent-by-me.processor'
+import { ZAPI_SENT_BY_ME_JOB_TYPE } from '@/shared/infra/handlers/z-api/received-message.handler'
 import { processHubMessageReceivedMessage } from './hubmessage-received-message.processor'
 import type {
   HubMessageStatusEnvelope,
@@ -39,7 +41,16 @@ async function processJob(
       `traceKey=${data.traceKey || '—'}`,
   )
 
-  if (data.source === 'z-api') {
+  if (data.source === 'z-api' && data.type === ZAPI_SENT_BY_ME_JOB_TYPE) {
+    // Mesmo corpo do `ReceivedCallback`, mas enviado pelo aparelho da linha: espelha.
+    workerLogger.debug(
+      { app: 'thinkzap', source: data.source, type: data.type },
+      'Processing inbound job',
+    )
+    await processZApiSentByMeMessage(data.body as ReceivedMessageEvent, {
+      appendJobLog,
+    })
+  } else if (data.source === 'z-api') {
     workerLogger.debug(
       { app: 'thinkzap', source: data.source, type: data.type },
       'Processing inbound job',

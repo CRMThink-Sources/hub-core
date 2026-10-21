@@ -21,7 +21,7 @@ Um canal aberto atende **uma** linha só. Não é limite arbitrário: quando o o
 
 ## Como resolver
 1. Confirme com o parceiro qual das duas linhas deve atender aquele canal.
-2. Se a nova linha deve ficar com o canal: desvincule o canal da linha antiga na aba Ajustes dela e repita o vínculo.
+2. Se a nova linha deve ficar com o canal: desvincule o canal da linha antiga na aba Configurações dela e repita o vínculo.
 3. Se as duas linhas devem atender: oriente a criar um **canal aberto novo** no Bitrix para a segunda linha (Contact Center → Canais abertos). Cada linha com seu canal.
 4. Se o parceiro quer uma fila única com dois números, explique a limitação e registre o pedido como melhoria — hoje o roteamento de saída não tem como distinguir as linhas.
 

@@ -4,6 +4,11 @@ import {
   DEFAULT_CONNECTOR_SETTINGS,
 } from './connector-settings'
 
+/** Inteiro > 0 ou `null`; valor estranho cai no default só deste campo. */
+function positiveIntOrNull() {
+  return z.number().int().positive().nullable().optional().catch(undefined)
+}
+
 /**
  * **`z.object` e nunca `z.strict()`.** O strip de chave desconhecida é o que faz o
  * valor gravado antes da descontinuação continuar servindo: quase todo item da SPA
@@ -26,6 +31,13 @@ const connectorSettingsSchema = z.object({
     .nullable()
     .optional()
     .catch(undefined),
+  deviceMessageMirrorEnabled: z.boolean().optional().catch(undefined),
+  cadenceEnabled: z.boolean().optional().catch(undefined),
+  cadenceMaxMessages: positiveIntOrNull(),
+  cadenceWindowMinutes: positiveIntOrNull(),
+  cadencePauseEnabled: z.boolean().optional().catch(undefined),
+  cadencePauseMinutes: positiveIntOrNull(),
+  cadenceCountDeviceMessages: z.boolean().optional().catch(undefined),
 })
 
 /**

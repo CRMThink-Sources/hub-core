@@ -1,0 +1,68 @@
+{
+  "titulo": "Limites de envio",
+  "descricao": "Quanto e em que ritmo esta linha envia mensagens.",
+  "carregando": "Carregando...",
+  "erroLeitura": "Não foi possível carregar os limites de envio da linha.",
+  "erroLeituraTitulo": "Não foi possível carregar os limites",
+  "tentarNovamente": "Tentar novamente",
+  "salvo": "Limites de envio salvos.",
+  "erroSalvar": "Não foi possível salvar os limites de envio.",
+  "cadenciador": {
+    "titulo": "Cadenciador",
+    "descricao": "Controla o ritmo de envio da linha, distribuindo as mensagens ao longo do tempo. As mensagens excedentes ficam na fila e são enviadas automaticamente no próximo intervalo. Todos os modos de envio estão inclusos: cards, automações, campanhas e bot.",
+    "indisponivel": "O Cadenciador ainda não está liberado para esta instalação. O limite diário continua disponível.",
+    "ativar": "Ativar cadenciador",
+    "ativarHint": "A janela começa no primeiro envio e aceita até o número de mensagens configurado.",
+    "mensagens": "Mensagens por janela",
+    "janela": "Duração da janela (minutos)",
+    "pausa": "Pausar ao atingir o limite da janela",
+    "pausaHint": "A pausa começa quando a janela atinge o limite e substitui o restante dela.",
+    "duracaoPausa": "Duração da pausa (minutos)",
+    "contarAparelho": "Sincronizar mensagens enviadas pelo aparelho",
+    "contarAparelhoHint": "Contabiliza no cadenciador as mensagens enviadas pelo celular, atualizando o contador de envios.",
+    "valorInvalido": "Informe um número inteiro maior que zero.",
+    "proximaJanela": "⚠️ As alterações entram em vigor na próxima janela. A janela ou pausa em andamento mantém as configurações atuais até terminar.",
+    "estadoIndisponivel": "Não foi possível ler o estado da cadência agora. Recarregue a página em instantes.",
+    "emPausa": "Em pausa até {{hora}}.",
+    "janelaAtiva": "Janela ativa: {{count}} de {{max}} mensagens, termina às {{hora}}.",
+    "semJanela": "Nenhuma janela aberta: a próxima mensagem abre uma janela nova.",
+    "aguardando_one": "{{count}} mensagem aguardando na fila.",
+    "aguardando_other": "{{count}} mensagens aguardando na fila.",
+    "alteracaoPendente": "Os novos valores entram na próxima janela.",
+    "fila": {
+      "titulo": "Mensagens aguardando",
+      "atualizar": "Atualizar",
+      "atualizando": "Atualizando...",
+      "vazia": "Nenhuma mensagem aguardando na fila.",
+      "erroLeitura": "Não foi possível ler a fila agora. Tente atualizar em instantes.",
+      "semPrevisao": "Na vez",
+      "colunas": {
+        "posicao": "#",
+        "origem": "Origem",
+        "destinatario": "Destinatário",
+        "conteudo": "Conteúdo",
+        "entrada": "Entrou",
+        "previsao": "Sai às"
+      },
+      "origens": {
+        "WIDGET": "Widget",
+        "WIDGET_ATTACHMENT": "Widget (anexo)",
+        "ROBOT_MESSAGE": "Robô Enviar mensagem",
+        "ROBOT_BUTTONS": "Robô de botões",
+        "ROBOT_TEMPLATE": "Robô de template",
+        "SMS_CAMPAIGN": "Campanha de SMS",
+        "OPERATOR": "Operador",
+        "BOT": "Bot"
+      },
+      "midia": {
+        "image": "Imagem",
+        "video": "Vídeo",
+        "audio": "Áudio",
+        "document": "Documento"
+      },
+      "intervalo": "{{inicio}}–{{fim}} de {{total}}",
+      "anterior": "Anterior",
+      "proxima": "Próxima"
+    }
+  }
+}

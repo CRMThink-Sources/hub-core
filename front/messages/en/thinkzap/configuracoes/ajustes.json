@@ -51,14 +51,23 @@
     "confirmarLiberar": "Release for today",
     "liberando": "Releasing...",
     "liberado": "Temporary limit released: +{{amount}} messages for today.",
-    "erroLiberar": "Could not release the temporary limit."
+    "erroLiberar": "Could not release the temporary limit.",
+    "zerar": "Reset today's usage",
+    "zerarTitulo": "Reset today's usage?",
+    "zerarDescricao": "Messages sent today go back to 0 and the extras released today are removed. The line can send again up to the configured limit, as if the day had turned. The limit settings do not change.",
+    "confirmarZerar": "Reset",
+    "zerando": "Resetting...",
+    "zerado": "Today's usage reset.",
+    "erroZerar": "Could not reset today's usage."
   },
   "toggles": {
     "prefixOperatorName": "Prefix operator name",
     "prefixOperatorNameHint": "Adds the agent name before the sent message.",
     "widgetOpenChannel": "Send to open channel",
     "widgetOpenChannelHint": "Messages sent from the widget also go to the open channel.",
-    "widgetOpenChannelSemCanal": "Link an open channel to enable."
+    "widgetOpenChannelSemCanal": "Link an open channel to enable.",
+    "deviceMessageMirror": "Mirror messages sent from the device",
+    "deviceMessageMirrorHint": "Messages sent from the phone or WhatsApp Web show up in the open channel, only in conversations that already exist there."
   },
   "bloqueada": {
     "trialTitulo": "Trial period ended",

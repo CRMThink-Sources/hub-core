@@ -279,6 +279,37 @@ describe('UpdateLineSettingsController', () => {
     },
   )
 
+  it('repassa a cadência ao caso de uso, com a disponibilidade da flag', async () => {
+    const settings = {
+      cadenceEnabled: true,
+      cadenceMaxMessages: 20,
+      cadenceWindowMinutes: 1,
+      cadencePauseEnabled: true,
+      cadencePauseMinutes: 5,
+    }
+    const response = await controller.perform(req('i2', { settings }))
+
+    expect(response.status).toBe(200)
+    expect(updateLineSettings.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings,
+        cadenceAvailable: expect.any(Boolean) as boolean,
+      }),
+    )
+  })
+
+  it.each([0, -1, 2.5, '20'])(
+    'devolve 400 para mensagens por janela %s',
+    async cadenceMaxMessages => {
+      const response = await controller.perform(
+        req('i2', { settings: { cadenceEnabled: true, cadenceMaxMessages } }),
+      )
+
+      expect(response.status).toBe(400)
+      expect(updateLineSettings.execute).not.toHaveBeenCalled()
+    },
+  )
+
   it('devolve 400 para toggle desconhecido', async () => {
     const response = await controller.perform(
       req('i1', { settings: { naoExiste: true } }),
