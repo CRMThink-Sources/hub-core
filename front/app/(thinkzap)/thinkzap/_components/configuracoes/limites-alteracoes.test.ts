@@ -17,6 +17,7 @@ const desligada: CadenciaEditavel = {
   janela: '',
   pausaAtiva: false,
   pausa: '',
+  contarAparelho: false,
 }
 
 const gravado: LimitesEditaveis = {
@@ -115,6 +116,7 @@ describe('validação', () => {
       janela: '1',
       pausaAtiva: true,
       pausa: '',
+      contarAparelho: false,
     }
     expect(camposInvalidosCadencia(c).pausa).toBe(true)
     expect(cadenciaValida(c)).toBe(false)
@@ -191,6 +193,31 @@ describe('conversão do gravado', () => {
       janela: '1',
       pausaAtiva: false,
       pausa: '',
+      contarAparelho: false,
     })
+  })
+})
+
+describe('contar mensagens do aparelho', () => {
+  const ligada = com({
+    cadencia: { ativo: true, mensagens: '20', janela: '1' },
+  })
+
+  it('ligar a opção conta 1 e vai no payload', () => {
+    const atual = {
+      ...ligada,
+      cadencia: { ...ligada.cadencia, contarAparelho: true },
+    }
+    expect(contarAlteracoesLimites(ligada, atual)).toBe(1)
+    expect(patchLimites(ligada, atual)).toEqual({
+      cadenceCountDeviceMessages: true,
+    })
+  })
+
+  it('cadenciaDe lê a opção, desligada por padrão', () => {
+    expect(cadenciaDe({}).contarAparelho).toBe(false)
+    expect(
+      cadenciaDe({ cadenceCountDeviceMessages: true }).contarAparelho,
+    ).toBe(true)
   })
 })

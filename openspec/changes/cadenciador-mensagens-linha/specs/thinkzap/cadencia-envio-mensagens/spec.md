@@ -13,7 +13,8 @@ Cada linha não oficial (provider Z-API) SHALL ter uma configuração própria d
 - **mensagens por janela (N)**: inteiro maior ou igual a 1;
 - **duração da janela (D)**: inteiro em minutos, maior ou igual a 1;
 - **pausa ativada**: sim ou não;
-- **duração da pausa (P)**: inteiro em minutos, maior ou igual a 1.
+- **duração da pausa (P)**: inteiro em minutos, maior ou igual a 1;
+- **contar mensagens enviadas pelo aparelho**: sim ou não, desligada por padrão (ver "Contagem da janela").
 
 Linha nova ou linha que nunca teve a configuração SHALL ter a cadência **desativada**, e os envios dela SHALL NOT ser atrasados por cadência. O sistema SHALL NOT pré-preencher valores sugeridos. Os valores são definidos pelo usuário.
 
@@ -109,10 +110,11 @@ A janela SHALL contar toda origem de envio da linha:
 - widget;
 - robô "Enviar mensagem" e robô de botões;
 - Campanha de SMS;
-- falas do bot;
-- mensagens **espelhadas** do WhatsApp Web ou do aparelho.
+- falas do bot.
 
-A mensagem espelhada já foi enviada pelo aparelho. Por isso ela SHALL contar na janela em andamento, ou abrir uma janela se não houver nenhuma, e SHALL NOT esperar. Se ela fizer a janela atingir o limite, a pausa (quando ativada) SHALL começar normalmente. Se chegar durante uma pausa ou com a janela já no limite, ela SHALL ser registrada, sem prolongar a pausa nem antecipar a próxima janela.
+As mensagens **enviadas pelo aparelho** (celular ou WhatsApp Web, recebidas pelo espelhamento) SHALL NOT contar na janela por padrão. A configuração da cadência SHALL ter a opção **contar mensagens enviadas pelo aparelho** (sim ou não), desligada em linha nova ou que nunca teve a opção. Só com ela ligada a mensagem do aparelho conta.
+
+A mensagem do aparelho já foi enviada. Quando conta, ela SHALL contar na janela em andamento, ou abrir uma janela se não houver nenhuma, e SHALL NOT esperar. Se ela fizer a janela atingir o limite, a pausa (quando ativada) SHALL começar normalmente. Se chegar durante uma pausa ou com a janela já no limite, ela SHALL ser registrada, sem prolongar a pausa nem antecipar a próxima janela. Esta opção só decide se a mensagem do aparelho conta, e vale a partir da próxima mensagem do aparelho, sem esperar a próxima janela.
 
 #### Scenario: Texto com anexos conta cada parte
 - **WHEN** o usuário envia pelo widget um texto com dois anexos e as três partes são aceitas
@@ -122,13 +124,18 @@ A mensagem espelhada já foi enviada pelo aparelho. Por isso ela SHALL contar na
 - **WHEN** o provider responde com erro a uma mensagem
 - **THEN** a contagem da janela não muda
 
+#### Scenario: Mensagem do aparelho não conta por padrão
+- **WHEN** a opção de contar mensagens do aparelho está desligada, a janela está com 19 de 20 envios e o usuário manda uma mensagem pelo celular
+- **THEN** a mensagem é espelhada normalmente
+- **AND** a janela continua com 19 envios
+
 #### Scenario: Espelhada conta e dispara a pausa
-- **WHEN** com N = 20 e P = 5, a janela está com 19 envios e o usuário manda uma mensagem pelo celular, que é espelhada
+- **WHEN** com a opção de contar mensagens do aparelho ligada, N = 20 e P = 5, a janela está com 19 envios e o usuário manda uma mensagem pelo celular, que é espelhada
 - **THEN** a mensagem espelhada conta como o 20º envio
 - **AND** a pausa começa e as mensagens da fila aguardam o fim dela
 
 #### Scenario: Espelhada durante a pausa
-- **WHEN** a linha está em pausa e o usuário manda uma mensagem pelo celular
+- **WHEN** com a opção de contar mensagens do aparelho ligada, a linha está em pausa e o usuário manda uma mensagem pelo celular
 - **THEN** a mensagem é espelhada normalmente
 - **AND** a pausa termina no horário já previsto
 
@@ -253,7 +260,7 @@ Com a cadência desativada, SHALL mostrar a indicação de que a cadência não 
 Além da quantidade, a configuração da linha não oficial SHALL listar as mensagens que aguardam na fila da linha, **na ordem em que vão sair**. Cada linha da lista SHALL mostrar:
 
 - a posição na fila;
-- a origem (operador, bot, widget, envio com anexo, robô "Enviar mensagem", robô de botões, Campanha de SMS);
+- a origem (operador, bot, widget, envio com anexo, robô "Enviar mensagem", robô de botões, Campanha de SMS). Na resposta do operador, também o nome do operador, como no Bitrix24; se o nome não puder ser lido, só a origem;
 - o destinatário;
 - um trecho do conteúdo: o texto, a legenda ou, em mídia sem legenda, o tipo e o nome do arquivo;
 - o horário em que entrou na fila;

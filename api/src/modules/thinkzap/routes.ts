@@ -98,6 +98,7 @@ import {
   makeDeleteTemplateSmsProviderController,
   makeUpdateLineSettingsController,
   makeReleaseDailyLimitExtraController,
+  makeResetDailyLimitUsageController,
 } from './main/line/make-line-controllers'
 import { makeSaveInstallationLocaleController } from './main/make-installation-locale'
 
@@ -377,6 +378,12 @@ export const createThinkerszapRoutes = (): Router => {
     '/lines/:itemId/daily-limit/extra',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeReleaseDailyLimitExtraController),
+  )
+  /** Zera o uso de hoje (contagem e extras). Mesma permissão de editar os ajustes. */
+  router.post(
+    '/lines/:itemId/daily-limit/reset',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeResetDailyLimitUsageController),
   )
   router.post(
     '/lines/:itemId/channel',

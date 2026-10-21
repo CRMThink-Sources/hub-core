@@ -1,5 +1,32 @@
 # Spec Delta
 
+## ADDED Requirements
+
+### Requirement: Zerar o uso de hoje
+O usuário com permissão de edição da linha SHALL poder **zerar o uso de hoje** de uma linha não oficial. Zerar SHALL:
+
+- voltar a contagem de mensagens enviadas hoje para zero;
+- apagar os extras liberados hoje, e o limite efetivo volta a ser o limite configurado;
+- valer na hora, para os próximos envios da linha;
+- SHALL NOT mudar a configuração do limite (ativado e valor).
+
+A ação é imediata e SHALL pedir confirmação antes. Ela SHALL estar disponível com o limite ativado ou desativado, já que a contagem existe nos dois casos. SHALL ser recusada na linha oficial e na linha bloqueada. Depois de zerar, o uso do dia exibido SHALL ser atualizado.
+
+Zerar SHALL ficar registrado no log com a linha, o usuário e a contagem e os extras que foram apagados.
+
+#### Scenario: Zerar com o limite atingido
+- **WHEN** a linha tem limite 300, enviou 300 hoje e tinha 50 extras, e o usuário confirma zerar o uso de hoje
+- **THEN** a contagem do dia passa a 0 e o limite efetivo volta a 300
+- **AND** os próximos envios da linha voltam a ser aceitos
+
+#### Scenario: Zerar não muda a configuração
+- **WHEN** o usuário zera o uso de hoje numa linha com limite ativado de 300
+- **THEN** o limite continua ativado com o valor 300
+
+#### Scenario: Linha oficial não zera
+- **WHEN** alguém tenta zerar o uso de hoje numa linha HubMessage
+- **THEN** a ação é recusada e nada muda
+
 ## MODIFIED Requirements
 
 ### Requirement: Recusa de envio ao atingir o limite

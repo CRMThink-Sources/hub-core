@@ -673,7 +673,7 @@ describe('mapSubscriptionItemInputToBitrixFields', () => {
       expect(fields).toEqual({ ufCrm93Settings: JSON.stringify(settings) })
       expect(
         Object.keys(JSON.parse(String(fields.ufCrm93Settings)) as object),
-      ).toHaveLength(10)
+      ).toHaveLength(11)
     })
 
     it('não toca nos campos de credencial', () => {

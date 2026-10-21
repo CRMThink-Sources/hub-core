@@ -61,6 +61,8 @@ export type LineSettingsToggles = {
   /** Pausa de P minutos ao atingir N; substitui o resto da janela. */
   cadencePauseEnabled: boolean
   cadencePauseMinutes: number | null
+  /** Se as mensagens enviadas pelo aparelho contam na janela. Desligado por padrão. */
+  cadenceCountDeviceMessages: boolean
 }
 
 /** De onde veio uma mensagem da fila de saída. */
@@ -79,6 +81,8 @@ export type CadenceQueueItem = {
   /** 1 = a próxima a sair. */
   position: number
   origin: OutboxOrigin
+  /** Nome do operador, na resposta do operador; `null` sem leitura. */
+  operatorName: string | null
   destination: string
   /** Texto, legenda ou nome do arquivo, já cortado; `null` = mídia sem nome. */
   preview: string | null
@@ -211,6 +215,11 @@ export function useLineApi(itemId: string) {
         name?: string
         settings?: Partial<LineSettingsToggles>
       }) => client().patch<{ saved: boolean }>(`${base}/settings`, payload),
+      /** Zera o uso **de hoje** (enviadas e extras); devolve o uso atualizado. */
+      resetDailyLimitUsage: () =>
+        client().post<{ dailyLimit: DailyLimitUsage }>(
+          `${base}/daily-limit/reset`,
+        ),
       /** Mensagens aguardando na fila da linha (cadenciador), na ordem de saída. */
       getCadenceQueue: () =>
         client().get<CadenceQueueListing>(`${base}/cadence/queue`),

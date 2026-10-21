@@ -10,6 +10,7 @@ import {
 const item = (over: Partial<CadenceQueueItem> = {}): CadenceQueueItem => ({
   position: 1,
   origin: 'OPERATOR',
+  operatorName: null,
   destination: '5511999999999',
   preview: 'Bom dia!',
   mediaType: null,

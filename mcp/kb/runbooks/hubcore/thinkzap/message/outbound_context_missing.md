@@ -11,7 +11,7 @@ O operador escreveu no canal aberto do Bitrix24, e o envio para o WhatsApp **nã
 O job falha, e a retentativa cai no mesmo lugar enquanto o vínculo não existir.
 
 ## Causa provável
-- **Canal sem linha**: o canal aberto foi criado no Bitrix e nunca foi vinculado a uma linha pela aba Ajustes.
+- **Canal sem linha**: o canal aberto foi criado no Bitrix e nunca foi vinculado a uma linha pela aba Configurações.
 - **Linha removida**: a linha que atendia o canal foi apagada, mas o canal continua recebendo conversas.
 - **App reinstalado ou removido** no portal, com o contexto da instalação perdido.
 

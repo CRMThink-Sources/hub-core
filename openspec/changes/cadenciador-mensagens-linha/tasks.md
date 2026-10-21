@@ -191,3 +191,14 @@
 
 - [x] 14.1 Criar `GET /api/thinkzap/lines/:itemId/cadence/queue` (`connectors:read`): os 50 primeiros tickets da fila da linha (ZSET, em ordem) cruzados com as rows da outbox, mais o total (`ZCARD`). Cada item traz posição, origem, destinatário, trecho do conteúdo, entrada na fila e `cadenceWaitUntil`. Linha oficial devolve lista vazia; ticket sem row é ignorado. Verificar com testes do caso de uso: ordem da fila, limite de 50 com `total`, trecho de mídia sem legenda e linha oficial.
 - [x] 14.2 No card Cadenciador, mostrar a tabela das mensagens aguardando, com botão "Atualizar" que relê a lista e o estado. Ela é lida ao abrir a aba, some com a fila vazia e indica quantas ficaram além das 50. Incluir textos pt, en e es. Verificar com testes da lógica pura (rótulo de origem, trecho e "mais N") e com `tsc` e lint do front.
+
+## 15. Ajustes do teste em staging
+
+- [x] 15.1 Na lista das mensagens aguardando, trazer o nome do operador da resposta do operador (`operatorBitrixUserId` resolvido pelo mesmo adaptador do prefixo de nome, uma leitura por operador por chamada; falha cai só na origem) e mostrar "Operador · Nome". Verificar com teste do caso de uso (nome resolvido, falha sem nome, outras origens sem leitura) e com `tsc` e lint do front.
+- [x] 15.2 Criar a opção `cadenceCountDeviceMessages` (default `false`) em `ConnectorSettings`, schema, cache, PATCH, mapper e no card Cadenciador. No espelhamento, só chamar `registerExternal` com a opção ligada; a opção vale a partir da próxima mensagem do aparelho. Verificar com testes do schema, do caso de uso de espelhamento (desligada não conta, ligada conta) e de `limites-alteracoes`.
+
+## 16. Nome da aba e zerar uso de hoje
+
+- [x] 16.1 Renomear a aba "Ajustes" para "Configurações" (pt), "Settings" (en) e "Configuración" (es), só no rótulo de `page.json`. O id da aba e os componentes ficam como estão. Verificar que as três línguas têm as mesmas chaves e com `tsc` do front.
+- [x] 16.2 Criar `POST /api/thinkzap/lines/:itemId/daily-limit/reset` (`connectors:update`). Ele apaga a contagem e os extras do dia em `DailySendQuota.resetDay`, recusa linha oficial (`daily_limit_invalid`) e linha bloqueada, registra no log o que foi apagado e devolve o bloco `dailyLimit` atualizado. Verificar com testes do adapter (apaga só as chaves do dia), do caso de uso (zera com limite atingido, não muda a configuração, oficial recusada) e do controller.
+- [x] 16.3 No card Limite diário, criar o botão "Zerar uso de hoje", com confirmação e atualização do uso exibido, fora da barra de salvamento e desabilitado com a linha bloqueada. Incluir textos pt, en e es. Verificar com `tsc`, lint e as mesmas chaves nas três línguas.

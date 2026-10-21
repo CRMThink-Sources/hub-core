@@ -52,6 +52,12 @@ export function FilaAguardando({ fila }: { fila: CadenceQueueListing }) {
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
                     {t(origemKey(item))}
+                    {item.operatorName && (
+                      <span className="text-muted-foreground">
+                        {' · '}
+                        {item.operatorName}
+                      </span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 tabular-nums">
                     {item.destination}

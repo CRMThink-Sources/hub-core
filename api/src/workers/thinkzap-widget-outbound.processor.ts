@@ -187,7 +187,7 @@ function describeOpenChannelOutcome(
     'toggle-off':
       'Toggle "Enviar para canal aberto" está DESLIGADO nesta linha. Comportamento correto — nada a corrigir.',
     'no-channel':
-      'Linha não tem canal aberto vinculado. Vincular na aba Ajustes para a conversa passar a aparecer.',
+      'Linha não tem canal aberto vinculado. Vincular na aba Configurações para a conversa passar a aparecer.',
     failed:
       'FALHOU ao chamar o Bitrix. Será retentado. A mensagem ao contato NÃO é afetada — ela já foi entregue.',
   }

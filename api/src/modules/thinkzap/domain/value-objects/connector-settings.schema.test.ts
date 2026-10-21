@@ -212,3 +212,23 @@ describe('parseConnectorSettings (cadência)', () => {
     })
   })
 })
+
+describe('parseConnectorSettings (contar mensagens do aparelho)', () => {
+  it('settings antigos leem a opção desligada', () => {
+    expect(
+      parseConnectorSettings({ cadenceEnabled: true })
+        .cadenceCountDeviceMessages,
+    ).toBe(false)
+  })
+
+  it('lê a opção gravada e cai no default com valor estranho', () => {
+    expect(
+      parseConnectorSettings({ cadenceCountDeviceMessages: true })
+        .cadenceCountDeviceMessages,
+    ).toBe(true)
+    expect(
+      parseConnectorSettings({ cadenceCountDeviceMessages: 'sim' })
+        .cadenceCountDeviceMessages,
+    ).toBe(false)
+  })
+})

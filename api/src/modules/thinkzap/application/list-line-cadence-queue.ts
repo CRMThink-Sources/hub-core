@@ -16,6 +16,8 @@ export type CadenceQueueItem = {
   /** 1 = a próxima a sair. */
   position: number
   origin: WidgetOutboxOrigin
+  /** Nome do operador, na resposta do operador; `null` nas outras origens ou sem leitura. */
+  operatorName: string | null
   destination: string
   /** Texto, legenda ou nome do arquivo, já cortado. `null` = mídia sem nome nem legenda. */
   preview: string | null
@@ -49,6 +51,15 @@ function previewOf(row: WidgetOutboxRecord): string | null {
 }
 
 /**
+ * Nome de exibição dos operadores do Bitrix24 da instalação. Devolve só os que
+ * conseguiu ler; nunca lança — sem nome, a lista mostra só a origem.
+ */
+export type ResolveOperatorNames = (
+  installation: { domainName: string; appCode: string },
+  bitrixUserIds: string[],
+) => Promise<Map<string, string>>
+
+/**
  * As mensagens que aguardam na fila da linha, **na ordem em que vão sair** — a ordem
  * é a do sequenciador FIFO no Redis, não a do banco. Só leitura: a lista não oferece
  * ação nenhuma sobre as mensagens.
@@ -63,6 +74,7 @@ export class ListLineCadenceQueue {
     private readonly outbox: {
       findByIds(ids: string[]): Promise<WidgetOutboxRecord[]>
     },
+    private readonly resolveOperatorNames: ResolveOperatorNames | null = null,
   ) {}
 
   async execute(input: {
@@ -91,15 +103,39 @@ export class ListLineCadenceQueue {
       (await this.outbox.findByIds(ids)).map(row => [row.id, row]),
     )
 
+    const waiting = ids
+      .map(id => rows.get(id))
+      .filter(
+        (row): row is WidgetOutboxRecord =>
+          row !== undefined &&
+          (row.status === 'PENDING' || row.status === 'SENDING'),
+      )
+
+    // Uma leitura por operador, não por mensagem: o mesmo operador responde várias.
+    const operatorIds = [
+      ...new Set(
+        waiting
+          .filter(row => row.origin === 'OPERATOR' && row.operatorBitrixUserId)
+          .map(row => row.operatorBitrixUserId as string),
+      ),
+    ]
+    const names =
+      this.resolveOperatorNames && operatorIds.length > 0
+        ? await this.resolveOperatorNames(
+            { domainName: context.customer.name, appCode: input.appCode },
+            operatorIds,
+          ).catch(() => new Map<string, string>())
+        : new Map<string, string>()
+
     const messages: CadenceQueueItem[] = []
-    for (const id of ids) {
-      const row = rows.get(id)
-      if (!row || (row.status !== 'PENDING' && row.status !== 'SENDING')) {
-        continue
-      }
+    for (const row of waiting) {
       messages.push({
         position: messages.length + 1,
         origin: row.origin,
+        operatorName:
+          row.origin === 'OPERATOR' && row.operatorBitrixUserId
+            ? (names.get(row.operatorBitrixUserId) ?? null)
+            : null,
         destination: row.destination,
         preview: previewOf(row),
         mediaType: row.kind === 'MEDIA' ? row.mediaType : null,

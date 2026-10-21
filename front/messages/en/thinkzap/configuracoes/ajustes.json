@@ -51,7 +51,14 @@
     "confirmarLiberar": "Release for today",
     "liberando": "Releasing...",
     "liberado": "Temporary limit released: +{{amount}} messages for today.",
-    "erroLiberar": "Could not release the temporary limit."
+    "erroLiberar": "Could not release the temporary limit.",
+    "zerar": "Reset today's usage",
+    "zerarTitulo": "Reset today's usage?",
+    "zerarDescricao": "Messages sent today go back to 0 and the extras released today are removed. The line can send again up to the configured limit, as if the day had turned. The limit settings do not change.",
+    "confirmarZerar": "Reset",
+    "zerando": "Resetting...",
+    "zerado": "Today's usage reset.",
+    "erroZerar": "Could not reset today's usage."
   },
   "toggles": {
     "prefixOperatorName": "Prefix operator name",

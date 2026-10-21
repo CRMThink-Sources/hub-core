@@ -1,4 +1,9 @@
-import { ListLineCadenceQueue } from '@/modules/thinkzap/application/list-line-cadence-queue'
+import { ResetDailyLimitUsage } from '@/modules/thinkzap/application/reset-daily-limit-usage'
+import { ResetDailyLimitUsageController } from '@/modules/thinkzap/presentation/controllers/line/reset-daily-limit-usage.controller'
+import {
+  ListLineCadenceQueue,
+  type ResolveOperatorNames,
+} from '@/modules/thinkzap/application/list-line-cadence-queue'
 import { GetLineCadenceQueueController } from '@/modules/thinkzap/presentation/controllers/line/get-line-cadence-queue.controller'
 import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
@@ -9,7 +14,10 @@ import { ensureSubscriptionItemDeletionFields } from '@/modules/application/infr
 import { enqueueSpaItemCleanupJob } from '@/queue/spa-item-resource-sync.queue'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
-import { makeBitrixClient } from '@/shared/main/make-bitrix-client'
+import {
+  makeBitrixClient,
+  makeBitrixClientByDomainAndAppCoode,
+} from '@/shared/main/make-bitrix-client'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { HubMessageConnectorProvider } from '@/modules/thinkzap/infra/providers/hubmessage-connector-provider'
 import { ConnectOfficialLine } from '@/modules/thinkzap/application/connect-official-line'
@@ -298,6 +306,44 @@ export const makeGetLineCadenceQueueController = (): Controller => {
       getAplicationContext,
       makeSendCadence(),
       new PrismaWidgetOutboxRepository(),
+      resolveOperatorNames,
     ),
+  )
+}
+
+/**
+ * Nomes dos operadores pela mesma leitura do prefixo de nome (`user.get`). Falha de
+ * um operador só deixa ele sem nome; falha do cliente deixa todos sem.
+ */
+const resolveOperatorNames: ResolveOperatorNames = async (
+  installation,
+  bitrixUserIds,
+) => {
+  const names = new Map<string, string>()
+  try {
+    const bitrix = await makeBitrixClientByDomainAndAppCoode(
+      installation.domainName,
+      installation.appCode,
+    )
+    const adapter = new BitrixGetUserDisplayNameAdapter(bitrix)
+    await Promise.all(
+      bitrixUserIds.map(async id => {
+        const { name } = await adapter.getDisplayName(id).catch(() => ({
+          name: null,
+        }))
+        if (name) names.set(id, name)
+      }),
+    )
+  } catch {
+    // Sem cliente do portal, a lista sai sem os nomes.
+  }
+  return names
+}
+
+export const makeResetDailyLimitUsageController = (): Controller => {
+  const { getAplicationContext } = makeLineDeps()
+
+  return new ResetDailyLimitUsageController(
+    new ResetDailyLimitUsage(getAplicationContext, makeDailySendQuota()),
   )
 }

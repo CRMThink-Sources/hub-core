@@ -34,6 +34,7 @@ const bodySchema = z
         cadenceWindowMinutes: z.number().int().positive().nullable().optional(),
         cadencePauseEnabled: z.boolean().optional(),
         cadencePauseMinutes: z.number().int().positive().nullable().optional(),
+        cadenceCountDeviceMessages: z.boolean().optional(),
       })
       .strict()
       .optional(),

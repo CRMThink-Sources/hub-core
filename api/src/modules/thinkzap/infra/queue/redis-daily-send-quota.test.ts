@@ -51,7 +51,12 @@ function fakeRedis() {
   const mget = (...keys: string[]) =>
     Promise.resolve(keys.map(key => store.get(key) ?? null))
 
-  const redis = { eval: evalScript, mget } as unknown as IORedis
+  const del = (...keys: string[]) => {
+    for (const key of keys) store.delete(key)
+    return Promise.resolve(keys.length)
+  }
+
+  const redis = { eval: evalScript, mget, del } as unknown as IORedis
   return { redis, store }
 }
 
@@ -174,5 +179,23 @@ describe('RedisDailySendQuota', () => {
 
     expect(results.map(r => r.status).sort()).toEqual(['refused', 'reserved'])
     expect(await quota.usage(CHANNEL, NOW)).toEqual({ sent: 300, extra: 0 })
+  })
+})
+
+describe('RedisDailySendQuota.resetDay', () => {
+  it('zera contagem e extras só do dia e devolve o que havia', async () => {
+    const { redis, store } = fakeRedis()
+    const quota = new RedisDailySendQuota(redis)
+    const ontem = new Date(NOW.getTime() - 24 * 60 * 60 * 1000)
+
+    await quota.reserve(policy(false, 1), NOW)
+    await quota.reserve(policy(false, 1), NOW)
+    await quota.addExtra(CHANNEL, 50, NOW)
+    await quota.reserve(policy(false, 1), ontem)
+
+    expect(await quota.resetDay(CHANNEL, NOW)).toEqual({ sent: 2, extra: 50 })
+    expect(await quota.usage(CHANNEL, NOW)).toEqual({ sent: 0, extra: 0 })
+    expect(await quota.usage(CHANNEL, ontem)).toEqual({ sent: 1, extra: 0 })
+    expect(store.size).toBe(1)
   })
 })

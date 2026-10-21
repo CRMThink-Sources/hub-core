@@ -19,7 +19,7 @@ A linha Web (não oficial) tem um limite diário de mensagens ativado, e a quant
 
 ## Como resolver
 1. Explique ao parceiro que o envio foi recusado pelo limite diário que ele configurou.
-2. Se ele precisar enviar mais hoje, oriente a usar "Liberar limite temporário" no card "Limite diário": as mensagens extras valem só para hoje.
+2. Se ele precisar enviar mais hoje, oriente a usar "Liberar limite temporário" no card "Limite diário" (as mensagens extras valem só para hoje) ou "Zerar uso de hoje", que volta as enviadas do dia a 0 e apaga os extras.
 3. Se o volume for frequente, oriente a revisar o limite configurado, lembrando que limite alto aumenta o risco de bloqueio da linha.
 4. Mensagens recusadas não são reenviadas sozinhas: depois de liberar, peça para repetir o envio.
 

@@ -29,7 +29,7 @@ Escopo de origem: `docs/escopos/cadenciador-mensagens.md`.
 - **BREAKING (comportamento):** a resposta do operador, a fala do bot, o envio com anexo pelo widget e o robô "Enviar mensagem" deixam de ser enviados de forma síncrona. Eles passam a ser persistidos e enfileirados. Sem cadência ativa, saem assim que o worker os processa.
   - O envio com anexo pelo widget e o robô "Enviar mensagem" deixam de devolver o resultado final na resposta da requisição. O resultado passa a ir para a timeline quando o envio termina.
   - O limite diário continua valendo do mesmo jeito: ele é checado no momento do envio real.
-- **Mensagens espelhadas do WhatsApp Web** (enviadas pelo aparelho) **contam** na janela, mas não esperam, porque já saíram.
+- **Mensagens enviadas pelo aparelho** (celular ou WhatsApp Web, espelhadas) **não contam** na janela por padrão. Uma opção do Cadenciador liga a contagem; com ela, contam mas não esperam, porque já saíram.
 - **Mudança de configuração vale só na próxima janela**, inclusive a desativação. A janela ou pausa em andamento termina com os valores com que começou.
 - **Visibilidade:**
   - no widget, a mensagem adiada aparece como "aguardando janela de envio", com o horário previsto de saída;
@@ -52,7 +52,7 @@ Escopo de origem: `docs/escopos/cadenciador-mensagens.md`.
 - `thinkzap/cadencia-envio-mensagens`: cadência de envio por linha não oficial. Cobre:
   - a configuração (N, D e pausa);
   - o modelo de janela e pausa;
-  - a contagem, incluindo as mensagens espelhadas;
+  - a contagem, com as mensagens do aparelho só quando a opção está ligada;
   - o enfileiramento FIFO sem recusa;
   - o envio assíncrono de todas as origens;
   - a regra de mudança de configuração na próxima janela;
