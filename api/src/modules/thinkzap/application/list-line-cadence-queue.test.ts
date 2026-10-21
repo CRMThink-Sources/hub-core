@@ -43,8 +43,10 @@ function makeSut(
   resolveOperatorNames: ResolveOperatorNames | null = null,
 ) {
   const cadence = {
-    queuedTickets: vi.fn((_line: string, limit?: number) =>
-      Promise.resolve(tickets.slice(0, limit)),
+    queuedTickets: vi.fn((_line: string, limit?: number, offset: number = 0) =>
+      Promise.resolve(
+        tickets.slice(offset, limit === undefined ? undefined : offset + limit),
+      ),
     ),
     waitingCount: vi.fn(() => Promise.resolve(total)),
   }
@@ -77,11 +79,12 @@ function makeSut(
   return {
     sut,
     cadence,
-    run: () =>
+    run: (page: { offset?: number; limit?: number } = {}) =>
       sut.execute({
         subscriptionItemId: 'i1',
         domainId: 'domain-1',
         appCode: 'app',
+        ...page,
       }),
   }
 }
@@ -121,19 +124,31 @@ describe('ListLineCadenceQueue', () => {
     expect(listing.messages[2]!.waitUntil).toBeNull()
   })
 
-  it('Mais de 50 aguardando: lista as 50 primeiras e devolve o total', async () => {
-    const ids = Array.from({ length: 120 }, (_, i) => `m${i}`)
+  it('Paginação de 10 em 10: primeira e terceira página com posição na fila inteira', async () => {
+    const ids = Array.from({ length: 23 }, (_, i) => `m${i}`)
     const { run, cadence } = makeSut(
       zapi,
       ids,
       ids.map(id => row(id)),
     )
 
-    const listing = await run()
+    const primeira = await run()
+    expect(cadence.queuedTickets).toHaveBeenLastCalledWith('Z-1', 10, 0)
+    expect(primeira).toMatchObject({ total: 23, offset: 0, limit: 10 })
+    expect(primeira.messages.map(m => m.position)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+    ])
 
-    expect(cadence.queuedTickets).toHaveBeenCalledWith('Z-1', 50)
-    expect(listing.messages).toHaveLength(50)
-    expect(listing.total).toBe(120)
+    const terceira = await run({ offset: 20 })
+    expect(cadence.queuedTickets).toHaveBeenLastCalledWith('Z-1', 10, 20)
+    expect(terceira.messages.map(m => m.position)).toEqual([21, 22, 23])
+  })
+
+  it('limite acima do máximo é cortado em 50', async () => {
+    const { run, cadence } = makeSut(zapi, ['a'], [row('a')])
+
+    expect((await run({ limit: 500 })).limit).toBe(50)
+    expect(cadence.queuedTickets).toHaveBeenLastCalledWith('Z-1', 50, 0)
   })
 
   it('mídia sem legenda mostra o nome do arquivo; sem nome, nenhum trecho', async () => {
@@ -168,7 +183,7 @@ describe('ListLineCadenceQueue', () => {
     expect(messages[0]!.preview!.endsWith('…')).toBe(true)
   })
 
-  it('ticket sem row ou já terminado fica de fora, e a posição segue a lista', async () => {
+  it('ticket sem row ou já terminado fica de fora, e a posição é a da fila', async () => {
     const { run } = makeSut(
       zapi,
       ['sumiu', 'enviado', 'ok'],
@@ -178,7 +193,7 @@ describe('ListLineCadenceQueue', () => {
     const { messages } = await run()
 
     expect(messages.map(m => [m.position, m.preview])).toEqual([
-      [1, 'texto ok'],
+      [3, 'texto ok'],
     ])
   })
 
@@ -192,7 +207,12 @@ describe('ListLineCadenceQueue', () => {
       [row('a')],
     )
 
-    expect(await run()).toEqual({ total: 0, messages: [] })
+    expect(await run()).toEqual({
+      total: 0,
+      offset: 0,
+      limit: 10,
+      messages: [],
+    })
     expect(cadence.queuedTickets).not.toHaveBeenCalled()
   })
 })

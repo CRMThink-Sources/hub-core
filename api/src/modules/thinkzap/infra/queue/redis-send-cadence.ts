@@ -307,11 +307,16 @@ export class RedisSendCadence implements SendCadence {
     return lines
   }
 
-  async queuedTickets(lineKey: string, limit?: number): Promise<string[]> {
+  async queuedTickets(
+    lineKey: string,
+    limit?: number,
+    offset = 0,
+  ): Promise<string[]> {
+    const start = Math.max(offset, 0)
     return this.redis.zrange(
       cadenceQueueKey(lineKey),
-      0,
-      limit === undefined ? -1 : Math.max(limit - 1, 0),
+      start,
+      limit === undefined ? -1 : start + Math.max(limit, 1) - 1,
     )
   }
 }

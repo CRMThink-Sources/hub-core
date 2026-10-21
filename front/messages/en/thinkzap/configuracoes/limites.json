@@ -9,7 +9,7 @@
   "erroSalvar": "Could not save the sending limits.",
   "cadenciador": {
     "titulo": "Cadence",
-    "descricao": "Controls the line's sending pace to reduce the risk of being blocked for bursts. Messages above the pace are not refused: they wait in the queue and go out on their own in the next window. Every sending mode is included, including operator replies and bot messages.",
+    "descricao": "Controls the line's sending pace, spreading messages out over time. Excess messages stay in the queue and are sent automatically in the next interval. Every sending mode is included: cards, automations, campaigns and bot.",
     "indisponivel": "Cadence is not yet available for this installation. The daily limit is still available.",
     "ativar": "Enable cadence",
     "ativarHint": "The window starts at the first send and accepts up to the configured number of messages.",
@@ -18,10 +18,10 @@
     "pausa": "Pause when the window limit is reached",
     "pausaHint": "The pause starts when the window reaches its limit and replaces the rest of it.",
     "duracaoPausa": "Pause length (minutes)",
-    "contarAparelho": "Count messages sent from the device",
-    "contarAparelhoHint": "When on, messages sent from the phone or WhatsApp Web (mirrored) also count in the window. They do not wait: they have already gone out.",
+    "contarAparelho": "Sync messages sent from the device",
+    "contarAparelhoHint": "Counts messages sent from the phone in the cadence, updating the send counter.",
     "valorInvalido": "Enter a whole number greater than zero.",
-    "proximaJanela": "Changes take effect from the next window. The current window or pause ends with the current values.",
+    "proximaJanela": "⚠️ Changes take effect in the next window. The current window or pause keeps the current settings until it ends.",
     "estadoIndisponivel": "Could not read the cadence state right now. Reload the page in a moment.",
     "emPausa": "Paused until {{hora}}.",
     "janelaAtiva": "Window open: {{count}} of {{max}} messages, ends at {{hora}}.",
@@ -36,8 +36,6 @@
       "vazia": "No messages waiting in the queue.",
       "erroLeitura": "Could not read the queue right now. Try refreshing in a moment.",
       "semPrevisao": "Next up",
-      "foraDaLista_one": "{{count}} more message waiting beyond these.",
-      "foraDaLista_other": "{{count}} more messages waiting beyond these.",
       "colunas": {
         "posicao": "#",
         "origem": "Source",
@@ -61,7 +59,10 @@
         "video": "Video",
         "audio": "Audio",
         "document": "Document"
-      }
+      },
+      "intervalo": "{{inicio}}–{{fim}} of {{total}}",
+      "anterior": "Previous",
+      "proxima": "Next"
     }
   }
 }

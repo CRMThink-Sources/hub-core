@@ -92,9 +92,12 @@ export type CadenceQueueItem = {
   waitUntil: number | null
 }
 
-/** As primeiras mensagens da fila, na ordem de saída, e o total. */
+/** Uma página da fila, na ordem de saída, e o total. */
 export type CadenceQueueListing = {
   total: number
+  /** Posição (0 = cabeça) do primeiro item da página e o tamanho dela. */
+  offset: number
+  limit: number
   messages: CadenceQueueItem[]
 }
 
@@ -221,8 +224,10 @@ export function useLineApi(itemId: string) {
           `${base}/daily-limit/reset`,
         ),
       /** Mensagens aguardando na fila da linha (cadenciador), na ordem de saída. */
-      getCadenceQueue: () =>
-        client().get<CadenceQueueListing>(`${base}/cadence/queue`),
+      getCadenceQueue: (offset = 0, limit = 10) =>
+        client().get<CadenceQueueListing>(`${base}/cadence/queue`, {
+          params: { offset, limit },
+        }),
       /** Soma mensagens extras ao limite **só de hoje**; devolve o uso atualizado. */
       releaseDailyLimitExtra: (amount: number) =>
         client().post<{ dailyLimit: DailyLimitUsage }>(

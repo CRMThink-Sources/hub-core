@@ -6,14 +6,15 @@ import type {
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { findConnectorLineWithEntitlement } from './helpers/resolve-line-by-subscription-item'
 
-/** Quantas mensagens a lista mostra; o total vem à parte. */
-export const CADENCE_QUEUE_LIST_LIMIT = 50
+/** Página padrão da lista (o card mostra 10 por vez) e o máximo aceito. */
+export const CADENCE_QUEUE_PAGE_SIZE = 10
+export const CADENCE_QUEUE_MAX_PAGE_SIZE = 50
 
 /** Tamanho do trecho do texto na lista. */
 const PREVIEW_LENGTH = 80
 
 export type CadenceQueueItem = {
-  /** 1 = a próxima a sair. */
+  /** Posição na fila inteira; 1 = a próxima a sair. */
   position: number
   origin: WidgetOutboxOrigin
   /** Nome do operador, na resposta do operador; `null` nas outras origens ou sem leitura. */
@@ -32,6 +33,9 @@ export type CadenceQueueItem = {
 export type CadenceQueueListing = {
   /** Total na fila da linha (não só os listados). */
   total: number
+  /** Posição (0 = cabeça) do primeiro ticket da página e o tamanho dela. */
+  offset: number
+  limit: number
   messages: CadenceQueueItem[]
 }
 
@@ -64,8 +68,9 @@ export type ResolveOperatorNames = (
  * é a do sequenciador FIFO no Redis, não a do banco. Só leitura: a lista não oferece
  * ação nenhuma sobre as mensagens.
  *
- * Ticket sem row (já terminou entre as duas leituras, ou é órfão que a varredura
- * ainda vai recolher) fica de fora; a posição é a da lista exibida.
+ * Paginada: lê só o trecho pedido da fila. A posição é a da fila inteira. Ticket
+ * sem row (já terminou entre as duas leituras, ou é órfão que a varredura ainda vai
+ * recolher) fica de fora, e a página pode vir com menos itens.
  */
 export class ListLineCadenceQueue {
   constructor(
@@ -81,7 +86,14 @@ export class ListLineCadenceQueue {
     subscriptionItemId: string
     domainId: string
     appCode: string
+    offset?: number
+    limit?: number
   }): Promise<CadenceQueueListing> {
+    const offset = Math.max(0, Math.trunc(input.offset ?? 0))
+    const limit = Math.min(
+      Math.max(1, Math.trunc(input.limit ?? CADENCE_QUEUE_PAGE_SIZE)),
+      CADENCE_QUEUE_MAX_PAGE_SIZE,
+    )
     const context = await this.getAplicationContext.execute({
       domainId: input.domainId,
       appCode: input.appCode,
@@ -91,11 +103,13 @@ export class ListLineCadenceQueue {
       input.subscriptionItemId,
       new Date(),
     )
-    if (item.metadata.provider !== 'ZAPI') return { total: 0, messages: [] }
+    if (item.metadata.provider !== 'ZAPI') {
+      return { total: 0, offset, limit, messages: [] }
+    }
 
     const lineKey = item.metadata.zApiInstanceId
     const [ids, total] = await Promise.all([
-      this.cadence.queuedTickets(lineKey, CADENCE_QUEUE_LIST_LIMIT),
+      this.cadence.queuedTickets(lineKey, limit, offset),
       this.cadence.waitingCount(lineKey),
     ])
 
@@ -104,17 +118,18 @@ export class ListLineCadenceQueue {
     )
 
     const waiting = ids
-      .map(id => rows.get(id))
+      .map((id, index) => ({ row: rows.get(id), position: offset + index + 1 }))
       .filter(
-        (row): row is WidgetOutboxRecord =>
-          row !== undefined &&
-          (row.status === 'PENDING' || row.status === 'SENDING'),
+        (entry): entry is { row: WidgetOutboxRecord; position: number } =>
+          entry.row !== undefined &&
+          (entry.row.status === 'PENDING' || entry.row.status === 'SENDING'),
       )
 
     // Uma leitura por operador, não por mensagem: o mesmo operador responde várias.
     const operatorIds = [
       ...new Set(
         waiting
+          .map(entry => entry.row)
           .filter(row => row.origin === 'OPERATOR' && row.operatorBitrixUserId)
           .map(row => row.operatorBitrixUserId as string),
       ),
@@ -128,9 +143,9 @@ export class ListLineCadenceQueue {
         : new Map<string, string>()
 
     const messages: CadenceQueueItem[] = []
-    for (const row of waiting) {
+    for (const { row, position } of waiting) {
       messages.push({
-        position: messages.length + 1,
+        position,
         origin: row.origin,
         operatorName:
           row.origin === 'OPERATOR' && row.operatorBitrixUserId
@@ -144,6 +159,6 @@ export class ListLineCadenceQueue {
       })
     }
 
-    return { total, messages }
+    return { total, offset, limit, messages }
   }
 }

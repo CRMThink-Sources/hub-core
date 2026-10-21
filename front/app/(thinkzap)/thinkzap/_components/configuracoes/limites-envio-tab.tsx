@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import {
   type LineSettings,
 } from '@/app/hooks/use-line-api'
 import { CadenciadorCard } from './cadenciador-card'
+import { FILA_PAGE_SIZE, offsetValido } from './fila-cadencia'
 import { ConfigCard } from './config-card'
 import { LimiteDiarioCard } from './limite-diario-card'
 import {
@@ -77,14 +78,39 @@ export function LimitesEnvioTab({ itemId, onDirtyChange }: Props) {
   const [atualizando, setAtualizando] = useState(false)
 
   /** Nunca lança: falha vira o aviso da tabela, o resto da aba segue. */
-  const carregarFila = useCallback(async () => {
+  /** A página aberta: "Atualizar" relê a mesma, e não volta para a primeira. */
+  const filaOffset = useRef(0)
+
+  /**
+   * Lê uma página da fila (sem argumento, a aberta). A fila anda enquanto o usuário
+   * navega: se a página pedida deixou de existir, abre a última que existe.
+   */
+  const carregarFila = useCallback(
+    async (offset: number = filaOffset.current) => {
+      try {
+        let listing = await api.getCadenceQueue(offset, FILA_PAGE_SIZE)
+        const valido = offsetValido(offset, listing.total)
+        if (valido !== offset) {
+          listing = await api.getCadenceQueue(valido, FILA_PAGE_SIZE)
+        }
+        filaOffset.current = listing.offset
+        setFila(listing)
+        setFilaErro(false)
+      } catch {
+        setFilaErro(true)
+      }
+    },
+    [api],
+  )
+
+  async function irParaPagina(offset: number) {
+    setAtualizando(true)
     try {
-      setFila(await api.getCadenceQueue())
-      setFilaErro(false)
-    } catch {
-      setFilaErro(true)
+      await carregarFila(offset)
+    } finally {
+      setAtualizando(false)
     }
-  }, [api])
+  }
 
   useEffect(() => {
     void carregarFila()
@@ -331,6 +357,7 @@ export function LimitesEnvioTab({ itemId, onDirtyChange }: Props) {
         fila={fila}
         filaErro={filaErro}
         onAtualizar={() => void recarregarLeituras()}
+        onPagina={offset => void irParaPagina(offset)}
         atualizando={atualizando}
       />
 

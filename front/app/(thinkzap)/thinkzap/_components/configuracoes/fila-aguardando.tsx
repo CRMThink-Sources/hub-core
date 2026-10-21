@@ -1,16 +1,34 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
+import { Button } from '@/components/ui/button'
 import type { CadenceQueueListing } from '@/app/hooks/use-line-api'
-import { conteudoDe, foraDaLista, horaDe, origemKey } from './fila-cadencia'
+import {
+  FILA_PAGE_SIZE,
+  conteudoDe,
+  horaDe,
+  intervaloDe,
+  origemKey,
+  temAnterior,
+  temProxima,
+} from './fila-cadencia'
 
 /**
- * As mensagens que aguardam na fila da linha, na ordem em que vão sair. Só leitura:
- * não há ação sobre as mensagens.
+ * As mensagens que aguardam na fila da linha, na ordem em que vão sair, de 10 em
+ * 10. Só leitura: não há ação sobre as mensagens.
  */
-export function FilaAguardando({ fila }: { fila: CadenceQueueListing }) {
+export function FilaAguardando({
+  fila,
+  onPagina,
+  carregando,
+}: {
+  fila: CadenceQueueListing
+  /** Abre a página que começa no `offset` (0 = cabeça da fila). */
+  onPagina: (offset: number) => void
+  carregando: boolean
+}) {
   const { t } = useTranslation('thinkzap/configuracoes/limites')
-  const restantes = foraDaLista(fila)
+  const intervalo = intervaloDe(fila)
 
   return (
     <div className="flex flex-col gap-2">
@@ -85,11 +103,34 @@ export function FilaAguardando({ fila }: { fila: CadenceQueueListing }) {
           </tbody>
         </table>
       </div>
-      {restantes > 0 && (
-        <p className="text-sm text-muted-foreground">
-          {t('cadenciador.fila.foraDaLista', { count: restantes })}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm tabular-nums text-muted-foreground">
+          {t('cadenciador.fila.intervalo', intervalo)}
         </p>
-      )}
+        {/* Só com mais de uma página: com 10 ou menos, os botões não levam a nada. */}
+        {intervalo.total > FILA_PAGE_SIZE && (
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!temAnterior(fila) || carregando}
+              onClick={() => onPagina(Math.max(0, fila.offset - fila.limit))}
+            >
+              {t('cadenciador.fila.anterior')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!temProxima(fila) || carregando}
+              onClick={() => onPagina(fila.offset + fila.limit)}
+            >
+              {t('cadenciador.fila.proxima')}
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
