@@ -9,7 +9,7 @@
   "erroSalvar": "Não foi possível salvar os limites de envio.",
   "cadenciador": {
     "titulo": "Cadenciador",
-    "descricao": "Controla o ritmo de envio da linha para reduzir o risco de bloqueio por rajadas. As mensagens acima do ritmo não são recusadas: esperam na fila e saem sozinhas na próxima janela. Todos os modos de envio estão inclusos, inclusive as respostas dos operadores e as falas do bot.",
+    "descricao": "Controla o ritmo de envio da linha, distribuindo as mensagens ao longo do tempo. As mensagens excedentes ficam na fila e são enviadas automaticamente no próximo intervalo. Todos os modos de envio estão inclusos: cards, automações, campanhas e bot.",
     "indisponivel": "O Cadenciador ainda não está liberado para esta instalação. O limite diário continua disponível.",
     "ativar": "Ativar cadenciador",
     "ativarHint": "A janela começa no primeiro envio e aceita até o número de mensagens configurado.",
@@ -18,10 +18,10 @@
     "pausa": "Pausar ao atingir o limite da janela",
     "pausaHint": "A pausa começa quando a janela atinge o limite e substitui o restante dela.",
     "duracaoPausa": "Duração da pausa (minutos)",
-    "contarAparelho": "Contar mensagens enviadas pelo aparelho",
-    "contarAparelhoHint": "Com a opção ligada, as mensagens enviadas pelo celular ou pelo WhatsApp Web (espelhadas) também contam na janela. Elas não esperam: já saíram.",
+    "contarAparelho": "Sincronizar mensagens enviadas pelo aparelho",
+    "contarAparelhoHint": "Contabiliza no cadenciador as mensagens enviadas pelo celular, atualizando o contador de envios.",
     "valorInvalido": "Informe um número inteiro maior que zero.",
-    "proximaJanela": "Alterações passam a valer a partir da próxima janela. A janela ou pausa em andamento termina com os valores atuais.",
+    "proximaJanela": "⚠️ As alterações entram em vigor na próxima janela. A janela ou pausa em andamento mantém as configurações atuais até terminar.",
     "estadoIndisponivel": "Não foi possível ler o estado da cadência agora. Recarregue a página em instantes.",
     "emPausa": "Em pausa até {{hora}}.",
     "janelaAtiva": "Janela ativa: {{count}} de {{max}} mensagens, termina às {{hora}}.",
@@ -36,8 +36,6 @@
       "vazia": "Nenhuma mensagem aguardando na fila.",
       "erroLeitura": "Não foi possível ler a fila agora. Tente atualizar em instantes.",
       "semPrevisao": "Na vez",
-      "foraDaLista_one": "Mais {{count}} mensagem aguardando além destas.",
-      "foraDaLista_other": "Mais {{count}} mensagens aguardando além destas.",
       "colunas": {
         "posicao": "#",
         "origem": "Origem",
@@ -61,7 +59,10 @@
         "video": "Vídeo",
         "audio": "Áudio",
         "document": "Documento"
-      }
+      },
+      "intervalo": "{{inicio}}–{{fim}} de {{total}}",
+      "anterior": "Anterior",
+      "proxima": "Próxima"
     }
   }
 }

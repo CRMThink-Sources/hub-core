@@ -38,6 +38,13 @@ export interface SendCadence {
   waitingCount(lineKey: string): Promise<number>
   /** Para a varredura: linhas com fila e os ids nelas. */
   queuedLines(): Promise<string[]>
-  /** Em ordem de saída; `limit` corta nos primeiros (sem ele, todos). */
-  queuedTickets(lineKey: string, limit?: number): Promise<string[]>
+  /**
+   * Em ordem de saída. Sem `limit`, todos; com ele, `limit` tickets a partir da
+   * posição `offset` (0 = a cabeça).
+   */
+  queuedTickets(
+    lineKey: string,
+    limit?: number,
+    offset?: number,
+  ): Promise<string[]>
 }

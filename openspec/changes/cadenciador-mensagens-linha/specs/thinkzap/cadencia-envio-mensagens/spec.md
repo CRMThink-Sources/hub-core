@@ -266,7 +266,7 @@ Além da quantidade, a configuração da linha não oficial SHALL listar as mens
 - o horário em que entrou na fila;
 - a previsão de saída, quando a mensagem está esperando uma janela ou o fim de uma pausa.
 
-A lista SHALL mostrar no máximo as 50 primeiras mensagens. Com mais de 50, SHALL indicar quantas ficaram de fora. A quantidade total continua sendo a do estado da cadência.
+A lista SHALL ser **paginada**, com 10 mensagens por página, e SHALL permitir navegar por toda a fila. Ela SHALL indicar o intervalo exibido e o total (por exemplo, "11–20 de 23"). A posição exibida é a posição na fila inteira, e não na página. Como a fila anda enquanto o usuário navega, cada página reflete a fila no momento em que é lida. Se a página aberta deixar de existir (a fila encolheu), a lista SHALL voltar para a última página que existe.
 
 A lista SHALL ser lida ao abrir a aba e SHALL poder ser atualizada sem recarregar a página. Ver a lista exige a mesma permissão de ler a configuração da linha. A lista SHALL NOT oferecer ações sobre as mensagens.
 
@@ -277,9 +277,14 @@ Sem mensagens aguardando, a lista SHALL NOT aparecer. Linhas oficiais SHALL NOT 
 - **THEN** a tela mostra "3 mensagens aguardando na fila" e a lista com as três, nessa ordem
 - **AND** cada uma mostra a origem, o destinatário, o trecho, a hora de entrada e a saída prevista para 10:05:40
 
-#### Scenario: Mais de 50 aguardando
-- **WHEN** 120 mensagens aguardam na fila da linha
-- **THEN** a lista mostra as 50 primeiras e indica que outras 70 aguardam
+#### Scenario: Paginação de 10 em 10
+- **WHEN** 23 mensagens aguardam na fila da linha
+- **THEN** a primeira página mostra as posições 1 a 10 e indica "1–10 de 23"
+- **AND** a terceira página mostra as posições 21 a 23
+
+#### Scenario: Página que deixou de existir
+- **WHEN** o usuário está na terceira página e, ao atualizar, só restam 12 mensagens na fila
+- **THEN** a lista mostra a segunda página, com as posições 11 e 12
 
 #### Scenario: Fila vazia
 - **WHEN** nenhuma mensagem aguarda

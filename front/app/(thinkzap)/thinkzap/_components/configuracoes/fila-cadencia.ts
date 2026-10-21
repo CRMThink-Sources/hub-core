@@ -38,9 +38,43 @@ export function conteudoDe(
   }
 }
 
-/** Quantas aguardam além das listadas (a api lista no máximo 50). */
-export function foraDaLista(listing: CadenceQueueListing): number {
-  return Math.max(0, listing.total - listing.messages.length)
+/** Mensagens por página da tabela. */
+export const FILA_PAGE_SIZE = 10
+
+/** O intervalo "11–20 de 23" da página, pelas posições na fila inteira. */
+export function intervaloDe(listing: CadenceQueueListing): {
+  inicio: number
+  fim: number
+  total: number
+} {
+  const inicio = listing.total === 0 ? 0 : listing.offset + 1
+  return {
+    inicio,
+    fim: Math.min(listing.offset + listing.limit, listing.total),
+    total: listing.total,
+  }
+}
+
+export function temAnterior(listing: CadenceQueueListing): boolean {
+  return listing.offset > 0
+}
+
+export function temProxima(listing: CadenceQueueListing): boolean {
+  return listing.offset + listing.limit < listing.total
+}
+
+/**
+ * Offset da página a abrir quando a fila encolheu: se a página pedida passou do fim,
+ * a última que existe; senão, a mesma. Fila vazia volta à primeira.
+ */
+export function offsetValido(
+  offset: number,
+  total: number,
+  pageSize: number = FILA_PAGE_SIZE,
+): number {
+  if (total <= 0) return 0
+  if (offset < total) return offset
+  return Math.floor((total - 1) / pageSize) * pageSize
 }
 
 /** A tabela só aparece com mensagem listada. */

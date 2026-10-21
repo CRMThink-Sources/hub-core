@@ -28,6 +28,8 @@ type Props = {
   filaErro: boolean
   /** Relê a lista e o estado, sem mexer na edição pendente. */
   onAtualizar: () => void
+  /** Abre outra página da fila (`offset` 0 = cabeça). */
+  onPagina: (offset: number) => void
   atualizando: boolean
 }
 
@@ -47,6 +49,7 @@ export function CadenciadorCard({
   fila,
   filaErro,
   onAtualizar,
+  onPagina,
   atualizando,
 }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/limites')
@@ -154,7 +157,11 @@ export function CadenciadorCard({
               {t('cadenciador.fila.erroLeitura')}
             </p>
           ) : fila !== null && mostrarFila(fila) ? (
-            <FilaAguardando fila={fila} />
+            <FilaAguardando
+              fila={fila}
+              onPagina={onPagina}
+              carregando={atualizando}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">
               {t('cadenciador.fila.vazia')}
