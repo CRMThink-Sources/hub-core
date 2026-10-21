@@ -99,7 +99,10 @@ export function fakeCadenceRedis() {
       zset(key).delete(id)
       return Promise.resolve(1)
     },
-    zrange: (key: string) => Promise.resolve(ordered(key)),
+    zrange: (key: string, start: number, stop: number) =>
+      Promise.resolve(
+        ordered(key).slice(start, stop === -1 ? undefined : stop + 1),
+      ),
     zcard: (key: string) => Promise.resolve(zset(key).size),
     hgetall: (key: string) => {
       const s = hashes.get(key)

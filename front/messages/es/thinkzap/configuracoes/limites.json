@@ -26,6 +26,40 @@
     "semJanela": "Ninguna ventana abierta: el próximo mensaje abre una ventana nueva.",
     "aguardando_one": "{{count}} mensaje esperando en la cola.",
     "aguardando_other": "{{count}} mensajes esperando en la cola.",
-    "alteracaoPendente": "Los nuevos valores entran en la próxima ventana."
+    "alteracaoPendente": "Los nuevos valores entran en la próxima ventana.",
+    "fila": {
+      "titulo": "Mensajes en espera",
+      "atualizar": "Actualizar",
+      "atualizando": "Actualizando...",
+      "vazia": "Ningún mensaje esperando en la cola.",
+      "erroLeitura": "No fue posible leer la cola ahora. Intenta actualizar en unos instantes.",
+      "semPrevisao": "Es su turno",
+      "foraDaLista_one": "{{count}} mensaje más esperando además de estos.",
+      "foraDaLista_other": "{{count}} mensajes más esperando además de estos.",
+      "colunas": {
+        "posicao": "#",
+        "origem": "Origen",
+        "destinatario": "Destinatario",
+        "conteudo": "Contenido",
+        "entrada": "Entró",
+        "previsao": "Sale a las"
+      },
+      "origens": {
+        "WIDGET": "Widget",
+        "WIDGET_ATTACHMENT": "Widget (adjunto)",
+        "ROBOT_MESSAGE": "Robot Enviar mensaje",
+        "ROBOT_BUTTONS": "Robot de botones",
+        "ROBOT_TEMPLATE": "Robot de plantilla",
+        "SMS_CAMPAIGN": "Campaña de SMS",
+        "OPERATOR": "Operador",
+        "BOT": "Bot"
+      },
+      "midia": {
+        "image": "Imagen",
+        "video": "Video",
+        "audio": "Audio",
+        "document": "Documento"
+      }
+    }
   }
 }

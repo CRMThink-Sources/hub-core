@@ -11,3 +11,12 @@ export type WidgetSendQueueJob = {
 export interface WidgetSendQueue {
   enqueue(job: WidgetSendQueueJob): Promise<void>
 }
+
+/**
+ * Garante que existe um job agendado para a intenção. `true` = o job não existia
+ * (ou tinha terminado, falho ou concluído) e foi recriado; `false` = já estava
+ * esperando, atrasado ou rodando.
+ */
+export interface WidgetSendScheduler {
+  ensureScheduled(outboxId: string): Promise<boolean>
+}

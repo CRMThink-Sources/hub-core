@@ -1,3 +1,4 @@
+import { startCadenceSequencerSweepJob } from '@/shared/infra/scheduler/cadence-sequencer-sweep.job'
 import { Job, Worker } from 'bullmq'
 import { applyWidgetSendOutcome } from './widget-send-outcome'
 import { bullBaseOptions } from '@/queue/redis-connection'
@@ -152,3 +153,9 @@ thinkzapWidgetOutboundWorker.on('ready', () => {
     'Thinkzap widget outbound worker is ready',
   )
 })
+
+/**
+ * A varredura do sequenciador FIFO da cadência roda **neste processo**: é ele que
+ * consome a fila de envio, então a varredura existe sempre que existe quem envie.
+ */
+startCadenceSequencerSweepJob()

@@ -8,6 +8,7 @@ import { extractThinkzapError } from '@/app/hooks/extract-thinkzap-error'
 import { extractLineBlocked } from '@/app/hooks/extract-line-blocked'
 import {
   useLineApi,
+  type CadenceQueueListing,
   type CadenceState,
   type DailyLimitUsage,
   type LineEntitlement,
@@ -70,6 +71,24 @@ export function LimitesEnvioTab({ itemId, onDirtyChange }: Props) {
   const [state, setState] = useState<State>({ status: 'loading' })
   const [inicial, setInicial] = useState<LimitesEditaveis | null>(null)
   const [salvando, setSalvando] = useState(false)
+  /** Mensagens aguardando na fila da linha; lida à parte dos ajustes. */
+  const [fila, setFila] = useState<CadenceQueueListing | null>(null)
+  const [filaErro, setFilaErro] = useState(false)
+  const [atualizando, setAtualizando] = useState(false)
+
+  /** Nunca lança: falha vira o aviso da tabela, o resto da aba segue. */
+  const carregarFila = useCallback(async () => {
+    try {
+      setFila(await api.getCadenceQueue())
+      setFilaErro(false)
+    } catch {
+      setFilaErro(true)
+    }
+  }, [api])
+
+  useEffect(() => {
+    void carregarFila()
+  }, [carregarFila])
 
   const aplicar = useCallback((data: LineSettings) => {
     const limites = limitesDe(data)
@@ -200,10 +219,11 @@ export function LimitesEnvioTab({ itemId, onDirtyChange }: Props) {
     )
   }
 
-  /** Relê uso e estado da cadência sem apagar edição pendente. */
+  /** Relê uso, estado da cadência e a fila sem apagar edição pendente. */
   async function recarregarLeituras() {
+    setAtualizando(true)
     try {
-      const data = await api.getSettings()
+      const [data] = await Promise.all([api.getSettings(), carregarFila()])
       setState(prev =>
         prev.status === 'ready'
           ? {
@@ -215,6 +235,8 @@ export function LimitesEnvioTab({ itemId, onDirtyChange }: Props) {
       )
     } catch {
       // Leitura desatualizada é o estado de antes; não vale um erro.
+    } finally {
+      setAtualizando(false)
     }
   }
 
@@ -291,6 +313,10 @@ export function LimitesEnvioTab({ itemId, onDirtyChange }: Props) {
         onChange={setCadencia}
         estado={state.cadenciaEstado}
         bloqueada={bloqueada}
+        fila={fila}
+        filaErro={filaErro}
+        onAtualizar={() => void recarregarLeituras()}
+        atualizando={atualizando}
       />
 
       {/* Uma barra para a aba: limite diário e cadência saem juntos. Liberar

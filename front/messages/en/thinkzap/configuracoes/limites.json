@@ -26,6 +26,40 @@
     "semJanela": "No window open: the next message opens a new window.",
     "aguardando_one": "{{count}} message waiting in the queue.",
     "aguardando_other": "{{count}} messages waiting in the queue.",
-    "alteracaoPendente": "The new values take effect in the next window."
+    "alteracaoPendente": "The new values take effect in the next window.",
+    "fila": {
+      "titulo": "Waiting messages",
+      "atualizar": "Refresh",
+      "atualizando": "Refreshing...",
+      "vazia": "No messages waiting in the queue.",
+      "erroLeitura": "Could not read the queue right now. Try refreshing in a moment.",
+      "semPrevisao": "Next up",
+      "foraDaLista_one": "{{count}} more message waiting beyond these.",
+      "foraDaLista_other": "{{count}} more messages waiting beyond these.",
+      "colunas": {
+        "posicao": "#",
+        "origem": "Source",
+        "destinatario": "Recipient",
+        "conteudo": "Content",
+        "entrada": "Queued at",
+        "previsao": "Goes out at"
+      },
+      "origens": {
+        "WIDGET": "Widget",
+        "WIDGET_ATTACHMENT": "Widget (attachment)",
+        "ROBOT_MESSAGE": "Send message robot",
+        "ROBOT_BUTTONS": "Buttons robot",
+        "ROBOT_TEMPLATE": "Template robot",
+        "SMS_CAMPAIGN": "SMS campaign",
+        "OPERATOR": "Operator",
+        "BOT": "Bot"
+      },
+      "midia": {
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio",
+        "document": "Document"
+      }
+    }
   }
 }
