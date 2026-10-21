@@ -743,7 +743,7 @@ export const THINKZAP_ERRORS = {
     userCause:
       'Uma mensagem do operador no canal aberto não foi enviada: o canal não está ligado a nenhuma linha ativa desta instalação.',
     remediation:
-      'Conferir se o canal aberto do log está vinculado a uma linha na aba Ajustes e se o app segue instalado no portal; o operador reenvia depois do vínculo.',
+      'Conferir se o canal aberto do log está vinculado a uma linha na aba Configurações e se o app segue instalado no portal; o operador reenvia depois do vínculo.',
     retriable: false,
   },
   'thinkzap.message.outbound_persist_failed': {

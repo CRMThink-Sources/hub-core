@@ -46,6 +46,7 @@ const settingsSchema = z.object({
   cadenceWindowMinutes: z.number().nullable(),
   cadencePauseEnabled: z.boolean(),
   cadencePauseMinutes: z.number().nullable(),
+  cadenceCountDeviceMessages: z.boolean(),
 })
 
 const subscriptionItemSchema = z.object({

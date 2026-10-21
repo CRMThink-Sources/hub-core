@@ -29,5 +29,10 @@ export interface DailySendQuota {
   wouldRefuse(policy: DailyLimitPolicy, now: Date): Promise<boolean>
   /** Soma extras **ao dia de `now`**. Devolve a contagem atualizada. */
   addExtra(lineKey: string, amount: number, now: Date): Promise<DailySendCounts>
+  /**
+   * Zera o uso **do dia de `now`**: contagem e extras. Devolve o que havia antes,
+   * para o registro de quem zerou e quanto.
+   */
+  resetDay(lineKey: string, now: Date): Promise<DailySendCounts>
   usage(lineKey: string, now: Date): Promise<DailySendCounts>
 }

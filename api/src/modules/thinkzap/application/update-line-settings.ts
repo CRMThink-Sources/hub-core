@@ -34,6 +34,7 @@ const CADENCE_KEYS = [
   'cadenceWindowMinutes',
   'cadencePauseEnabled',
   'cadencePauseMinutes',
+  'cadenceCountDeviceMessages',
 ] as const
 
 /**

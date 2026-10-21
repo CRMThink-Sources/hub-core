@@ -113,10 +113,11 @@ export class MirrorZApiSentByMeMessageUseCase {
   ) {}
 
   /**
-   * A mensagem saiu do aparelho: já está no WhatsApp, então **conta** na janela da
-   * cadência (é volume real da linha) mas não espera — `registerExternal` nunca
-   * nega nem estende a pausa. Conta mesmo que a cópia não chegue ao canal aberto.
-   * Falha do Redis só vai para o log: o espelhamento segue.
+   * A mensagem saiu do aparelho. Por padrão **não conta** na janela da cadência; com
+   * a opção `cadenceCountDeviceMessages` da linha ligada, conta (é volume real da
+   * linha) mas não espera — `registerExternal` nunca nega nem estende a pausa —, e
+   * conta mesmo que a cópia não chegue ao canal aberto. Falha do Redis só vai para o
+   * log: o espelhamento segue.
    */
   private async registerInCadence(
     item: SubscriptionItem,
@@ -124,6 +125,8 @@ export class MirrorZApiSentByMeMessageUseCase {
     appendJobLog: AppendJobLog,
   ): Promise<void> {
     if (!this.cadence) return
+    // Por padrão o aparelho não conta: só com a opção ligada na linha.
+    if (item.settings.cadenceCountDeviceMessages !== true) return
     const policy = cadencePolicyOf({
       provider: ConnectorProvider.ZAPI,
       lineKey: event.instanceId,

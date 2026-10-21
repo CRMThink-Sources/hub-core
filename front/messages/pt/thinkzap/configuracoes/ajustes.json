@@ -1,9 +1,9 @@
 {
-  "titulo": "Ajustes",
+  "titulo": "Configurações",
   "descricao": "Configuração desta linha.",
   "carregando": "Carregando ajustes...",
   "erroLeitura": "Não foi possível carregar os ajustes.",
-  "erroLeituraTitulo": "Ajustes indisponíveis",
+  "erroLeituraTitulo": "Configurações indisponíveis",
   "tentarNovamente": "Tentar novamente",
   "identificacao": "Identificação",
   "nome": "Nome da linha",
@@ -27,7 +27,7 @@
   "confirmarDesvincularTitulo": "Desvincular o canal aberto?",
   "confirmarDesvincularDescricao": "As mensagens desta linha param de chegar ao canal no CRM.",
   "comportamento": "Comportamento",
-  "salvo": "Ajustes salvos.",
+  "salvo": "Configurações salvas.",
   "erroSalvar": "Não foi possível salvar os ajustes.",
   "limiteDiario": {
     "titulo": "Limite diário de mensagens",
@@ -51,7 +51,14 @@
     "confirmarLiberar": "Liberar para hoje",
     "liberando": "Liberando...",
     "liberado": "Limite temporário liberado: +{{amount}} mensagens para hoje.",
-    "erroLiberar": "Não foi possível liberar o limite temporário."
+    "erroLiberar": "Não foi possível liberar o limite temporário.",
+    "zerar": "Zerar uso de hoje",
+    "zerarTitulo": "Zerar o uso de hoje?",
+    "zerarDescricao": "As mensagens enviadas hoje voltam a 0 e os extras liberados hoje são apagados. A linha volta a enviar até o limite configurado, como se o dia tivesse virado. A configuração do limite não muda.",
+    "confirmarZerar": "Zerar",
+    "zerando": "Zerando...",
+    "zerado": "Uso de hoje zerado.",
+    "erroZerar": "Não foi possível zerar o uso de hoje."
   },
   "toggles": {
     "prefixOperatorName": "Prefixar nome do operador",

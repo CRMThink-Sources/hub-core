@@ -117,6 +117,15 @@ export function CadenciadorCard({
           erro={t('cadenciador.valorInvalido')}
         />
 
+        <Toggle
+          id="cadence-count-device"
+          checked={cadencia.contarAparelho}
+          disabled={camposTravados}
+          onChange={contarAparelho => onChange({ contarAparelho })}
+          label={t('cadenciador.contarAparelho')}
+          hint={t('cadenciador.contarAparelhoHint')}
+        />
+
         <p className="text-sm text-muted-foreground">
           {t('cadenciador.proximaJanela')}
         </p>

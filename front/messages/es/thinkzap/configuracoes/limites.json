@@ -18,6 +18,8 @@
     "pausa": "Pausar al alcanzar el límite de la ventana",
     "pausaHint": "La pausa empieza cuando la ventana alcanza el límite y reemplaza el resto de ella.",
     "duracaoPausa": "Duración de la pausa (minutos)",
+    "contarAparelho": "Contar mensajes enviados desde el dispositivo",
+    "contarAparelhoHint": "Con la opción activada, los mensajes enviados desde el celular o WhatsApp Web (espejados) también cuentan en la ventana. No esperan: ya salieron.",
     "valorInvalido": "Ingresa un número entero mayor que cero.",
     "proximaJanela": "Los cambios valen a partir de la próxima ventana. La ventana o pausa en curso termina con los valores actuales.",
     "estadoIndisponivel": "No fue posible leer el estado de la cadencia ahora. Recarga la página en unos instantes.",

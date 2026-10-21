@@ -6,7 +6,7 @@ summary: A z-api recusou a alteração do espelhamento das mensagens enviadas pe
 # thinkzap.zapi.notify_sent_by_me_failed
 
 ## O que significa
-O parceiro ligou ou desligou, na aba Ajustes da linha, o toggle "Espelhar mensagens enviadas pelo aparelho". Para isso funcionar, o app thinkzap pede à z-api que avise também das mensagens enviadas pelo próprio número da linha, pelo celular ou pelo WhatsApp Web. A z-api recusou o pedido ou não respondeu. Por segurança, **nada foi gravado** nos ajustes da linha: o toggle continua como estava, e o nome também, caso tenha sido alterado junto.
+O parceiro ligou ou desligou, na aba Configurações da linha, o toggle "Espelhar mensagens enviadas pelo aparelho". Para isso funcionar, o app thinkzap pede à z-api que avise também das mensagens enviadas pelo próprio número da linha, pelo celular ou pelo WhatsApp Web. A z-api recusou o pedido ou não respondeu. Por segurança, **nada foi gravado** nos ajustes da linha: o toggle continua como estava, e o nome também, caso tenha sido alterado junto.
 
 ## Causa provável
 - **Instabilidade da z-api**: o serviço estava indisponível ou lento no momento.

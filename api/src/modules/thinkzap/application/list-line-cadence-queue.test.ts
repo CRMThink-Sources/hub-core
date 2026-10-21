@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import type { WidgetOutboxRecord } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
-import { ListLineCadenceQueue } from './list-line-cadence-queue'
+import {
+  ListLineCadenceQueue,
+  type ResolveOperatorNames,
+} from './list-line-cadence-queue'
 
 const zapi: SubscriptionItem = {
   id: 'i1',
@@ -37,6 +40,7 @@ function makeSut(
   tickets: string[],
   rows: WidgetOutboxRecord[],
   total = tickets.length,
+  resolveOperatorNames: ResolveOperatorNames | null = null,
 ) {
   const cadence = {
     queuedTickets: vi.fn((_line: string, limit?: number) =>
@@ -68,6 +72,7 @@ function makeSut(
     context as never,
     cadence as never,
     outbox,
+    resolveOperatorNames,
   )
   return {
     sut,
@@ -189,5 +194,50 @@ describe('ListLineCadenceQueue', () => {
 
     expect(await run()).toEqual({ total: 0, messages: [] })
     expect(cadence.queuedTickets).not.toHaveBeenCalled()
+  })
+})
+
+describe('ListLineCadenceQueue — nome do operador', () => {
+  const rowsOf = () => [
+    row('op1', { origin: 'OPERATOR', operatorBitrixUserId: '27' }),
+    row('op2', { origin: 'OPERATOR', operatorBitrixUserId: '27' }),
+    row('w', { origin: 'WIDGET', operatorBitrixUserId: '27' }),
+  ]
+
+  it('resolve o nome uma vez por operador e só nas respostas do operador', async () => {
+    const resolve = vi.fn(() =>
+      Promise.resolve(new Map([['27', 'Maria Silva']])),
+    )
+    const { run } = makeSut(zapi, ['op1', 'op2', 'w'], rowsOf(), 3, resolve)
+
+    const { messages } = await run()
+
+    expect(resolve).toHaveBeenCalledWith(
+      { domainName: 'acme', appCode: 'app' },
+      ['27'],
+    )
+    expect(messages.map(m => m.operatorName)).toEqual([
+      'Maria Silva',
+      'Maria Silva',
+      null,
+    ])
+  })
+
+  it('falha na leitura dos nomes: a lista sai sem o nome', async () => {
+    const resolve = vi.fn(() => Promise.reject(new Error('bitrix')))
+    const { run } = makeSut(zapi, ['op1'], rowsOf(), 1, resolve)
+
+    const { messages } = await run()
+
+    expect(messages[0]!.operatorName).toBeNull()
+  })
+
+  it('sem resposta do operador na fila, não lê nome nenhum', async () => {
+    const resolve = vi.fn(() => Promise.resolve(new Map<string, string>()))
+    const { run } = makeSut(zapi, ['w'], rowsOf(), 1, resolve)
+
+    await run()
+
+    expect(resolve).not.toHaveBeenCalled()
   })
 })

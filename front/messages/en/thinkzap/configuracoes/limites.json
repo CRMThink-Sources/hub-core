@@ -18,6 +18,8 @@
     "pausa": "Pause when the window limit is reached",
     "pausaHint": "The pause starts when the window reaches its limit and replaces the rest of it.",
     "duracaoPausa": "Pause length (minutes)",
+    "contarAparelho": "Count messages sent from the device",
+    "contarAparelhoHint": "When on, messages sent from the phone or WhatsApp Web (mirrored) also count in the window. They do not wait: they have already gone out.",
     "valorInvalido": "Enter a whole number greater than zero.",
     "proximaJanela": "Changes take effect from the next window. The current window or pause ends with the current values.",
     "estadoIndisponivel": "Could not read the cadence state right now. Reload the page in a moment.",

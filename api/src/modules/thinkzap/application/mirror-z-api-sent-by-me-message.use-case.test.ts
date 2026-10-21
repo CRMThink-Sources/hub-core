@@ -94,6 +94,7 @@ function buildUseCase({
   imResponse = { result: 9001 } as unknown,
   markPendingFails = false,
   cadence = null as null | { registerExternal: ReturnType<typeof vi.fn> },
+  countDevice = true,
 }: {
   mirrorEnabled?: boolean
   vinculatedChannel?: string | null
@@ -106,6 +107,7 @@ function buildUseCase({
   imResponse?: unknown
   markPendingFails?: boolean
   cadence?: null | { registerExternal: ReturnType<typeof vi.fn> }
+  countDevice?: boolean
 } = {}) {
   const messageRepo = {
     findByProviderMessageId: vi.fn((_: string, id: string) =>
@@ -167,7 +169,10 @@ function buildUseCase({
                 name: 'Linha',
                 subscription: 'sub-1',
                 status: 'active',
-                settings: { deviceMessageMirrorEnabled: mirrorEnabled },
+                settings: {
+                  deviceMessageMirrorEnabled: mirrorEnabled,
+                  cadenceCountDeviceMessages: countDevice,
+                },
                 vinculatedChannel,
                 metadata: {
                   provider: 'ZAPI',
@@ -692,7 +697,17 @@ describe('MirrorZApiSentByMeMessageUseCase — cadência', () => {
     registerExternal: vi.fn().mockResolvedValue(undefined),
   })
 
-  it('Espelhada conta: a mensagem nova do aparelho é registrada na janela da linha', async () => {
+  it('Mensagem do aparelho não conta por padrão (opção desligada)', async () => {
+    const cadence = cadenceSpy()
+    const { run } = buildUseCase({ cadence, countDevice: false })
+
+    await run(makeEvent())
+
+    expect(cadence.registerExternal).not.toHaveBeenCalled()
+    expect(sendMessageMock).toHaveBeenCalled()
+  })
+
+  it('Espelhada conta: com a opção ligada, a mensagem nova do aparelho é registrada na janela da linha', async () => {
     const cadence = cadenceSpy()
     const { run } = buildUseCase({ cadence })
 

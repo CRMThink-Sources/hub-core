@@ -274,6 +274,20 @@ export function LimitesEnvioTab({ itemId, onDirtyChange }: Props) {
     setState(prev => (prev.status === 'ready' ? { ...prev, ...inicial } : prev))
   }
 
+  /** Ação imediata: não passa pela barra. Relança para a confirmação ficar aberta. */
+  async function handleZerar() {
+    try {
+      const { dailyLimit } = await api.resetDailyLimitUsage()
+      setState(prev =>
+        prev.status === 'ready' ? { ...prev, uso: dailyLimit } : prev,
+      )
+      toast.success(tAjustes('limiteDiario.zerado'))
+    } catch (err: unknown) {
+      tratarRecusa(err, tAjustes('limiteDiario.erroZerar'))
+      throw err
+    }
+  }
+
   /** Ação imediata: não passa pela barra. Relança para o diálogo ficar aberto. */
   async function handleLiberar(quantidade: number) {
     try {
@@ -306,6 +320,7 @@ export function LimitesEnvioTab({ itemId, onDirtyChange }: Props) {
         limiteGravadoAtivo={limiteGravadoAtivo}
         bloqueada={bloqueada}
         onLiberar={handleLiberar}
+        onZerar={handleZerar}
       />
 
       <CadenciadorCard

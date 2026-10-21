@@ -40,6 +40,11 @@ export type ConnectorSettings = {
   cadencePauseEnabled: boolean
   /** Inteiro >= 1 (minutos) quando a pausa está ligada. */
   cadencePauseMinutes: number | null
+  /**
+   * Se as mensagens enviadas pelo aparelho (espelhadas) contam na janela. Desligado
+   * por padrão: só o que sai pela integração conta, a não ser que o cliente peça.
+   */
+  cadenceCountDeviceMessages: boolean
 }
 
 export const DEFAULT_CONNECTOR_SETTINGS: ConnectorSettings = {
@@ -53,4 +58,5 @@ export const DEFAULT_CONNECTOR_SETTINGS: ConnectorSettings = {
   cadenceWindowMinutes: null,
   cadencePauseEnabled: false,
   cadencePauseMinutes: null,
+  cadenceCountDeviceMessages: false,
 }

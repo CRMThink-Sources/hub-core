@@ -37,6 +37,7 @@ const connectorSettingsSchema = z.object({
   cadenceWindowMinutes: positiveIntOrNull(),
   cadencePauseEnabled: z.boolean().optional().catch(undefined),
   cadencePauseMinutes: positiveIntOrNull(),
+  cadenceCountDeviceMessages: z.boolean().optional().catch(undefined),
 })
 
 /**

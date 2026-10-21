@@ -18,6 +18,8 @@
     "pausa": "Pausar ao atingir o limite da janela",
     "pausaHint": "A pausa começa quando a janela atinge o limite e substitui o restante dela.",
     "duracaoPausa": "Duração da pausa (minutos)",
+    "contarAparelho": "Contar mensagens enviadas pelo aparelho",
+    "contarAparelhoHint": "Com a opção ligada, as mensagens enviadas pelo celular ou pelo WhatsApp Web (espelhadas) também contam na janela. Elas não esperam: já saíram.",
     "valorInvalido": "Informe um número inteiro maior que zero.",
     "proximaJanela": "Alterações passam a valer a partir da próxima janela. A janela ou pausa em andamento termina com os valores atuais.",
     "estadoIndisponivel": "Não foi possível ler o estado da cadência agora. Recarregue a página em instantes.",

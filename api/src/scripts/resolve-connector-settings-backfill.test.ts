@@ -67,6 +67,7 @@ describe('settingsToMigrate', () => {
       cadenceWindowMinutes: null,
       cadencePauseEnabled: false,
       cadencePauseMinutes: null,
+      cadenceCountDeviceMessages: false,
     })
   })
 
@@ -94,6 +95,7 @@ describe('settingsToMigrate', () => {
       cadenceWindowMinutes: null,
       cadencePauseEnabled: false,
       cadencePauseMinutes: null,
+      cadenceCountDeviceMessages: false,
     })
   })
 

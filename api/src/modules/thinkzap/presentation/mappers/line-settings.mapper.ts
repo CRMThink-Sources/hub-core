@@ -57,6 +57,8 @@ export const mapLineSettingsToView = (
     cadenceWindowMinutes: reading.settings.cadenceWindowMinutes ?? null,
     cadencePauseEnabled: reading.settings.cadencePauseEnabled === true,
     cadencePauseMinutes: reading.settings.cadencePauseMinutes ?? null,
+    cadenceCountDeviceMessages:
+      reading.settings.cadenceCountDeviceMessages === true,
   },
   ...(reading.provider === 'ZAPI'
     ? { dailyLimit: reading.dailyLimit, cadence: reading.cadence }

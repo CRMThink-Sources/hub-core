@@ -9,11 +9,13 @@ A configuração de uma linha não oficial (Z-API) SHALL ter a aba "Limites de e
    - o toggle para ativar ou desativar o limite diário;
    - o campo numérico do limite, editável só com o toggle ativado. Com o toggle ativado, o campo vazio, zero ou não inteiro SHALL mostrar mensagem de valor inválido;
    - o uso do dia, conforme a capability `thinkzap/limite-diario-mensagens`;
-   - a ação "Liberar limite temporário", disponível só com o limite **gravado** como ativado. A ação SHALL pedir a quantidade de mensagens extras e confirmar que elas valem só para hoje.
+   - a ação "Liberar limite temporário", disponível só com o limite **gravado** como ativado. A ação SHALL pedir a quantidade de mensagens extras e confirmar que elas valem só para hoje;
+   - a ação "Zerar uso de hoje", conforme a capability `thinkzap/limite-diario-mensagens`, com confirmação.
 2. **Cadenciador**. O card SHALL conter:
    - o toggle para ativar ou desativar a cadência;
    - os campos numéricos "mensagens por janela" e "duração da janela (minutos)", editáveis só com a cadência ativada;
    - o toggle da pausa e o campo "duração da pausa (minutos)", editável só com a pausa ativada;
+   - o toggle "contar mensagens enviadas pelo aparelho", desligado por padrão e editável só com a cadência ativada;
    - o estado atual da cadência, conforme a capability `thinkzap/cadencia-envio-mensagens`;
    - a informação de que alterações passam a valer a partir da próxima janela.
 
@@ -25,7 +27,7 @@ A linha oficial (HubMessage) SHALL NOT exibir a aba.
 
 Com a linha bloqueada, os toggles, os campos e a ação de liberação SHALL ficar desabilitados. O uso do dia e o estado da cadência SHALL continuar visíveis.
 
-A liberação temporária é uma ação imediata. Ela SHALL NOT depender da barra de salvamento e SHALL NOT contar como alteração pendente. Depois de liberar, o uso do dia exibido SHALL ser atualizado.
+A liberação temporária e o zerar uso de hoje são ações imediatas. Elas SHALL NOT depender da barra de salvamento e SHALL NOT contar como alteração pendente. Depois de cada uma, o uso do dia exibido SHALL ser atualizado.
 
 #### Scenario: Linha não oficial mostra a aba
 - **WHEN** o usuário abre a aba Limites de envio de uma linha Z-API
@@ -52,7 +54,7 @@ A liberação temporária é uma ação imediata. Ela SHALL NOT depender da barr
 A aba Limites de envio SHALL oferecer uma única barra de salvamento, com o mesmo comportamento da barra da aba Ajustes. Ela cobre:
 
 - o toggle e o valor do limite diário;
-- o toggle da cadência, N, D, o toggle da pausa e P.
+- o toggle da cadência, N, D, o toggle da pausa, P e o toggle de contar mensagens enviadas pelo aparelho.
 
 A barra SHALL:
 
@@ -83,18 +85,20 @@ Os campos de um recurso desativado SHALL NOT ser validados nem impedir o salvame
 
 ### Requirement: Abas da configuração por tipo de linha
 A tela de configuração da linha SHALL exibir as abas conforme o provider da linha:
-- Linha não oficial (Z-API): Conexão, Grupos, Ajustes, Limites de envio, Campanha de SMS — nesta ordem.
-- Linha oficial (HubMessage): Conexão, Templates, Ajustes, Campanha de SMS — nesta ordem.
+- Linha não oficial (Z-API): Conexão, Grupos, Configurações, Limites de envio, Campanha de SMS — nesta ordem.
+- Linha oficial (HubMessage): Conexão, Templates, Configurações, Campanha de SMS — nesta ordem.
+
+A aba Configurações é a que se chamava Ajustes: só o nome exibido mudou, e os requisitos que a chamam de "aba Ajustes" valem para ela.
 
 A aba inicial SHALL continuar sendo Conexão. Linha sem provider SHALL continuar mostrando apenas o aviso de linha sem provider, sem abas.
 
 #### Scenario: Linha não oficial mostra a aba Campanha de SMS
 - **WHEN** o usuário abre a configuração de uma linha Z-API
-- **THEN** a navegação mostra as abas Conexão, Grupos, Ajustes, Limites de envio e Campanha de SMS, com Conexão selecionada
+- **THEN** a navegação mostra as abas Conexão, Grupos, Configurações, Limites de envio e Campanha de SMS, com Conexão selecionada
 
 #### Scenario: Linha oficial mostra a aba Campanha de SMS
 - **WHEN** o usuário abre a configuração de uma linha HubMessage
-- **THEN** a navegação mostra as abas Conexão, Templates, Ajustes e Campanha de SMS, com Conexão selecionada
+- **THEN** a navegação mostra as abas Conexão, Templates, Configurações e Campanha de SMS, com Conexão selecionada
 
 ### Requirement: Campanha de SMS do Bitrix24 em aba própria
 A configuração da linha como provedor da Campanha de SMS do Bitrix24 SHALL ficar exclusivamente na aba Campanha de SMS e NÃO SHALL aparecer na aba Ajustes. A aba SHALL manter o comportamento atual da funcionalidade: aviso de que o Bitrix24 rotula o canal como SMS, aviso de risco de bloqueio para linha não oficial, estado registrado/não registrado, oferecer/remover com confirmação (e ciência explícita de risco na linha não oficial), mensagem de indisponibilidade quando o ambiente não suporta o recurso, e a lista de templates por provedor na linha oficial.

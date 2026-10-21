@@ -16,6 +16,8 @@ export type CadenciaEditavel = {
   janela: string
   pausaAtiva: boolean
   pausa: string
+  /** Contar as mensagens enviadas pelo aparelho na janela. */
+  contarAparelho: boolean
 }
 
 /** Os dois cards da aba Limites de envio. */
@@ -47,6 +49,7 @@ export function cadenciaDe(
       | 'cadenceWindowMinutes'
       | 'cadencePauseEnabled'
       | 'cadencePauseMinutes'
+      | 'cadenceCountDeviceMessages'
     >
   >,
 ): CadenciaEditavel {
@@ -56,6 +59,7 @@ export function cadenciaDe(
     janela: texto(settings.cadenceWindowMinutes ?? null),
     pausaAtiva: settings.cadencePauseEnabled === true,
     pausa: texto(settings.cadencePauseMinutes ?? null),
+    contarAparelho: settings.cadenceCountDeviceMessages === true,
   }
 }
 
@@ -117,7 +121,8 @@ export function contarAlteracoesLimites(
     (c.ativo && mudou(cAntes.mensagens, c.mensagens) ? 1 : 0) +
     (c.ativo && mudou(cAntes.janela, c.janela) ? 1 : 0) +
     (c.ativo && c.pausaAtiva !== cAntes.pausaAtiva ? 1 : 0) +
-    (c.ativo && c.pausaAtiva && mudou(cAntes.pausa, c.pausa) ? 1 : 0)
+    (c.ativo && c.pausaAtiva && mudou(cAntes.pausa, c.pausa) ? 1 : 0) +
+    (c.ativo && c.contarAparelho !== cAntes.contarAparelho ? 1 : 0)
 
   return limite + cadencia
 }
@@ -153,5 +158,9 @@ export function patchLimites(
     ...(c.ativo &&
       c.pausaAtiva &&
       mudou(cAntes.pausa, c.pausa) && { cadencePauseMinutes: n(c.pausa) }),
+    ...(c.ativo &&
+      c.contarAparelho !== cAntes.contarAparelho && {
+        cadenceCountDeviceMessages: c.contarAparelho,
+      }),
   }
 }
