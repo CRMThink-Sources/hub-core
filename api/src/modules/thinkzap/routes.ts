@@ -11,6 +11,7 @@ import { makeListDestinationsController } from './main/make-list-destinations-co
 import { makeSendWidgetMessageController } from './main/make-send-widget-message-controller'
 import { makeSendWidgetMessageMultipartController } from './main/make-send-widget-message-multipart-controller'
 import { makeGetLineStatusForWidgetController } from './main/make-get-line-status-for-widget-controller'
+import { makeGetOutboxStatusController } from './main/make-get-outbox-status-controller'
 import { makeListWidgetTemplatesController } from './main/make-list-widget-templates-controller'
 import { makeListTemplateLinesController } from './main/make-list-template-lines-controller'
 import {
@@ -149,6 +150,11 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/messages/line-status/:subscriptionItemId',
     adaptControllerFactory(makeGetLineStatusForWidgetController),
+  )
+  // Status das mensagens enviadas pelo widget: "aguardando janela de envio" da cadência.
+  router.get(
+    '/messages/outbox-status',
+    adaptControllerFactory(makeGetOutboxStatusController),
   )
   // Templates aprovados da linha. `/lines/:itemId/templates` não serve: exige
   // `connectors:read`, devolve pendentes e reprovados e entrega os `components` crus.

@@ -667,13 +667,13 @@ describe('mapSubscriptionItemInputToBitrixFields', () => {
       widgetOpenChannelEnabled: true,
     }
 
-    it('serializa o objeto completo: os toggles e o limite diário', () => {
+    it('serializa o objeto completo: os toggles, o limite diário e a cadência', () => {
       const fields = mapSubscriptionItemInputToBitrixFields({ settings })
 
       expect(fields).toEqual({ ufCrm93Settings: JSON.stringify(settings) })
       expect(
         Object.keys(JSON.parse(String(fields.ufCrm93Settings)) as object),
-      ).toHaveLength(5)
+      ).toHaveLength(10)
     })
 
     it('não toca nos campos de credencial', () => {

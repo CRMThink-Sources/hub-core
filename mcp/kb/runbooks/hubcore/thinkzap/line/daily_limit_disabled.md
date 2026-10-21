@@ -15,7 +15,7 @@ O parceiro tentou liberar mensagens extras para hoje, mas a linha não está com
 ## Como verificar
 1. Na tela de Logs do app thinkzap, filtre pelo `traceKey` do ticket.
 2. Confirme `código de erro: thinkzap.line.daily_limit_disabled`.
-3. Na aba Ajustes da linha, confira se o card "Limite diário" está ativado e se há alterações pendentes na barra de salvamento.
+3. Na aba Limites de envio da linha, confira se o card "Limite diário" está ativado e se há alterações pendentes na barra de salvamento.
 
 ## Como resolver
 1. Oriente a ativar o limite diário, informar o valor e clicar em "Salvar alterações".

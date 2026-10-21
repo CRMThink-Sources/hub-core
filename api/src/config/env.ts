@@ -167,6 +167,12 @@ export const env = {
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
     bucket: process.env.R2_BUCKET ?? '',
     publicBaseUrl: process.env.R2_PUBLIC_BASE_URL ?? '',
+    /**
+     * Bucket **privado** (sem domínio público) dos anexos do widget que esperam a vez
+     * na fila de saída. Usa as mesmas credenciais da conta. Vazio = o envio com anexo
+     * continua síncrono, fora da cadência. Regra de ciclo de vida: 30 dias.
+     */
+    outboundMediaBucket: process.env.R2_OUTBOUND_MEDIA_BUCKET ?? '',
   },
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
@@ -344,6 +350,17 @@ export const env = {
    * Desligar de volta é o rollback: o mapa e os pares aprendidos ficam, e não atrapalham.
    */
   thinkzapZApiLidIdentity: process.env.THINKZAP_ZAPI_LID_IDENTITY === 'true',
+  /**
+   * Instalações (por `memberId`, separados por vírgula, ou `*`) em que **toda**
+   * origem de envio da linha Z-API passa pela outbox — operador, bot, anexo do
+   * widget e robô "Enviar mensagem" — e em que o Cadenciador pode ser ativado.
+   * Vazio = ninguém: as origens síncronas seguem o caminho antigo.
+   *
+   * Tirar uma instalação da lista é o rollback; o que já entrou na fila continua
+   * saindo pelo dispatcher.
+   */
+  thinkzapUnifiedOutboxDomains:
+    process.env.THINKZAP_UNIFIED_OUTBOX_DOMAINS ?? '',
   clicksign: {
     robot: {
       code: process.env.CLICKSIGN_ROBOT_CODE ?? 'ENVIAR_DOCUMENTO',

@@ -5,6 +5,10 @@ import { mergeConnectorSettings } from '@/modules/thinkzap/domain/value-objects/
 import { apiLogger } from '@/shared/infra/logger'
 import { isValidDailyAmount } from '@/modules/thinkzap/domain/daily-send-limit'
 import {
+  isValidCadenceAmount,
+  isValidCadenceConfig,
+} from '@/modules/thinkzap/domain/send-cadence'
+import {
   logThinkzapError,
   thinkzapError,
 } from '@/modules/thinkzap/errors/catalog'
@@ -17,6 +21,63 @@ export type UpdateLineSettingsInput = {
   appId: string
   name?: string
   settings?: Partial<ConnectorSettings>
+  /**
+   * Se a instalação pode ativar o Cadenciador (flag do caminho unificado da
+   * outbox). Ausente = indisponível.
+   */
+  cadenceAvailable?: boolean
+}
+
+const CADENCE_KEYS = [
+  'cadenceEnabled',
+  'cadenceMaxMessages',
+  'cadenceWindowMinutes',
+  'cadencePauseEnabled',
+  'cadencePauseMinutes',
+] as const
+
+/**
+ * A cadência só existe na linha não oficial (Z-API). Ligada, exige N e D inteiros
+ * >= 1; com a pausa ligada, também P.
+ *
+ * Como o limite diário, valida o **resultado** do merge: ligar o toggle sem mandar
+ * os valores vale se a linha já os tem gravados.
+ *
+ * Ativar depende da flag do caminho unificado — sem ela as origens síncronas não
+ * passam pela fila e a cadência não teria como segurá-las. Desligar ou editar com
+ * a cadência desligada continua permitido.
+ */
+function assertCadencePatch(
+  item: SubscriptionItem,
+  patch: Partial<ConnectorSettings> | undefined,
+  cadenceAvailable: boolean,
+): void {
+  if (!patch) return
+  if (!CADENCE_KEYS.some(key => key in patch)) return
+
+  if (item.metadata.provider !== 'ZAPI') {
+    throw thinkzapError('thinkzap.line.cadence_invalid')
+  }
+
+  for (const key of [
+    'cadenceMaxMessages',
+    'cadenceWindowMinutes',
+    'cadencePauseMinutes',
+  ] as const) {
+    const value = patch[key]
+    if (value !== undefined && value !== null && !isValidCadenceAmount(value)) {
+      throw thinkzapError('thinkzap.line.cadence_invalid')
+    }
+  }
+
+  const merged = { ...item.settings, ...patch }
+  if (!isValidCadenceConfig(merged)) {
+    throw thinkzapError('thinkzap.line.cadence_invalid')
+  }
+
+  if (merged.cadenceEnabled && !cadenceAvailable) {
+    throw thinkzapError('thinkzap.line.cadence_unavailable')
+  }
 }
 
 /**
@@ -73,6 +134,11 @@ export class UpdateLineSettings {
   async execute(input: UpdateLineSettingsInput): Promise<void> {
     // Antes de qualquer escrita: limite inválido não pode deixar o nome gravado pela metade.
     assertDailyLimitPatch(input.item, input.settings)
+    assertCadencePatch(
+      input.item,
+      input.settings,
+      input.cadenceAvailable === true,
+    )
 
     /**
      * Também antes de qualquer escrita, e **estrito** — o oposto do rename. Toggle

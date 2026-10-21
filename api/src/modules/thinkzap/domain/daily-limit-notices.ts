@@ -33,13 +33,13 @@ const NOTICES: Record<NoticeLocale, DailyLimitNotices> = {
       '⚠️ Sua mensagem não foi entregue: esta linha atingiu o limite diário de ' +
       'mensagens configurado no ThinkZap. Os envios voltam na virada do dia, ou ' +
       'antes, se o limite for aumentado ou um limite temporário for liberado na ' +
-      'aba Ajustes da linha.',
+      'aba Limites de envio da linha.',
     queuedRefused: (destination, text) =>
       '⚠️ A mensagem abaixo NÃO foi entregue: a linha atingiu o limite diário de mensagens.\n' +
       `Para: ${destination}\n` +
       `Mensagem: ${text}\n` +
       'Ela não será reenviada automaticamente. Os envios voltam na virada do dia, ou antes, ' +
-      'se o limite for aumentado ou um limite temporário for liberado na aba Ajustes da linha.',
+      'se o limite for aumentado ou um limite temporário for liberado na aba Limites de envio da linha.',
     attachmentsSkipped: count =>
       `⚠️ ${count} anexo(s) NÃO enviado(s): a linha atingiu o limite diário de mensagens.`,
     robotRefused: phones =>
@@ -49,13 +49,13 @@ const NOTICES: Record<NoticeLocale, DailyLimitNotices> = {
     chat:
       '⚠️ Your message was not delivered: this line has reached the daily message ' +
       'limit set in ThinkZap. Sending resumes when the day turns over, or sooner if ' +
-      'the limit is raised or a temporary limit is released in the line Settings tab.',
+      'the limit is raised or a temporary limit is released in the line Sending limits tab.',
     queuedRefused: (destination, text) =>
       '⚠️ The message below was NOT delivered: the line has reached its daily message limit.\n' +
       `To: ${destination}\n` +
       `Message: ${text}\n` +
       'It will not be resent automatically. Sending resumes when the day turns over, or sooner ' +
-      'if the limit is raised or a temporary limit is released in the line Settings tab.',
+      'if the limit is raised or a temporary limit is released in the line Sending limits tab.',
     attachmentsSkipped: count =>
       `⚠️ ${count} attachment(s) NOT sent: the line has reached its daily message limit.`,
     robotRefused: phones =>
@@ -66,13 +66,13 @@ const NOTICES: Record<NoticeLocale, DailyLimitNotices> = {
       '⚠️ Su mensaje no fue entregado: esta línea alcanzó el límite diario de ' +
       'mensajes configurado en ThinkZap. Los envíos vuelven con el cambio de día, o ' +
       'antes, si se aumenta el límite o se libera un límite temporal en la pestaña ' +
-      'Ajustes de la línea.',
+      'Límites de envío de la línea.',
     queuedRefused: (destination, text) =>
       '⚠️ El mensaje de abajo NO fue entregado: la línea alcanzó el límite diario de mensajes.\n' +
       `Para: ${destination}\n` +
       `Mensaje: ${text}\n` +
       'No se reenviará automáticamente. Los envíos vuelven con el cambio de día, o antes, ' +
-      'si se aumenta el límite o se libera un límite temporal en la pestaña Ajustes de la línea.',
+      'si se aumenta el límite o se libera un límite temporal en la pestaña Límites de envío de la línea.',
     attachmentsSkipped: count =>
       `⚠️ ${count} adjunto(s) NO enviado(s): la línea alcanzó el límite diario de mensajes.`,
     robotRefused: phones =>

@@ -9,13 +9,23 @@ import { listSubscriptionLines } from '@/shared/aplication/subscription-items'
 import type { LineConnection } from '@/app/hooks/use-line-api'
 import { ConexaoTab } from '../../../_components/configuracoes/conexao-tab'
 import { AjustesTab } from '../../../_components/configuracoes/ajustes-tab'
+import { LimitesEnvioTab } from '../../../_components/configuracoes/limites-envio-tab'
 import { GruposTab } from '../../../_components/configuracoes/grupos-tab'
 import { ConexaoOficialTab } from '../../../_components/configuracoes/oficial/conexao-oficial-tab'
 import { TemplatesTab } from '../../../_components/configuracoes/oficial/templates-tab'
 import { CampanhaSmsTab } from '../../../_components/configuracoes/campanha-sms-tab'
 import { ConfirmModal } from '../../../_components/configuracoes/confirm-modal'
 
-type TabId = 'conexao' | 'grupos' | 'ajustes' | 'templates' | 'campanha'
+type TabId =
+  | 'conexao'
+  | 'grupos'
+  | 'ajustes'
+  | 'limites'
+  | 'templates'
+  | 'campanha'
+
+/** Abas com barra de salvamento: trocar de aba com pendência pede confirmação. */
+const ABAS_COM_SALVAMENTO: ReadonlySet<TabId> = new Set(['ajustes', 'limites'])
 
 /**
  * Configuração de uma linha, identificada pelo **id do item de assinatura**.
@@ -36,19 +46,20 @@ export default function ConfiguracoesLinhaPage() {
   const router = useRouter()
 
   /**
-   * Alteração não salva em Ajustes. Trocar de aba desmonta a aba — e o que foi
-   * digitado some sem aviso —, então a troca passa por aqui antes.
+   * Alteração não salva na aba aberta (Ajustes ou Limites de envio). Trocar de aba
+   * desmonta a aba — e o que foi digitado some sem aviso —, então a troca passa por
+   * aqui antes. Uma flag basta: só a aba aberta pode ter pendência.
    */
-  const [ajustesDirty, setAjustesDirty] = useState(false)
+  const [abaDirty, setAbaDirty] = useState(false)
   /** Para onde o usuário queria ir quando a confirmação abriu. */
   const [destinoPendente, setDestinoPendente] = useState<
     TabId | 'voltar' | null
   >(null)
 
-  const temPendencia = activeTab === 'ajustes' && ajustesDirty
+  const temPendencia = ABAS_COM_SALVAMENTO.has(activeTab) && abaDirty
 
   function requestTab(id: TabId) {
-    if (temPendencia && id !== 'ajustes') {
+    if (temPendencia && id !== activeTab) {
       setDestinoPendente(id)
       return
     }
@@ -68,7 +79,7 @@ export default function ConfiguracoesLinhaPage() {
   function confirmarSaida() {
     const destino = destinoPendente
     setDestinoPendente(null)
-    setAjustesDirty(false)
+    setAbaDirty(false)
 
     if (destino === 'voltar') router.push('/thinkzap/conexoes')
     else if (destino !== null) setActiveTab(destino)
@@ -179,7 +190,7 @@ export default function ConfiguracoesLinhaPage() {
         <div className="mt-6">
           {activeTab === 'templates' && <TemplatesTab itemId={linha.id} />}
           {activeTab === 'ajustes' && (
-            <AjustesTab itemId={linha.id} onDirtyChange={setAjustesDirty} />
+            <AjustesTab itemId={linha.id} onDirtyChange={setAbaDirty} />
           )}
           {activeTab === 'campanha' && <CampanhaSmsTab itemId={linha.id} />}
           {/**
@@ -218,6 +229,7 @@ export default function ConfiguracoesLinhaPage() {
     { id: 'conexao', label: t('tabs.conexao') },
     { id: 'grupos', label: t('tabs.grupos') },
     { id: 'ajustes', label: t('tabs.ajustes') },
+    { id: 'limites', label: t('tabs.limites') },
     { id: 'campanha', label: t('tabs.campanha') },
   ]
 
@@ -274,9 +286,12 @@ export default function ConfiguracoesLinhaPage() {
         {activeTab === 'ajustes' && (
           <AjustesTab
             itemId={linha.id}
-            onDirtyChange={setAjustesDirty}
+            onDirtyChange={setAbaDirty}
             provider="ZAPI"
           />
+        )}
+        {activeTab === 'limites' && (
+          <LimitesEnvioTab itemId={linha.id} onDirtyChange={setAbaDirty} />
         )}
         {activeTab === 'campanha' && <CampanhaSmsTab itemId={linha.id} />}
       </div>

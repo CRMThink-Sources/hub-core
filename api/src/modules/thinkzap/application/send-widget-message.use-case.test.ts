@@ -561,7 +561,7 @@ describe('SendWidgetMessageUseCase', () => {
         attachments: [{ kind: 'video', content: 'data:video/mp4;base64,aa' }],
       } as never)
 
-      expect(result.sentMessageIds).toEqual(['msg-1', 'msg-vid'])
+      expect(result).toMatchObject({ sentMessageIds: ['msg-1', 'msg-vid'] })
     })
   })
 })

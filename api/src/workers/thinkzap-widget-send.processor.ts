@@ -1,3 +1,27 @@
+import {
+  deliverBotSpeech,
+  notifyBotOutcome,
+  type BotDeliveryDeps,
+} from '@/modules/thinkzap/application/bot-outbox-effects'
+import { PrismaBotFlowBotRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bot-flow-bot.repository'
+import { BitrixBotSessionAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-bot-session.adapter'
+import {
+  deliverOperatorReply,
+  notifyOperatorOutcome,
+  notifyOperatorWaiting,
+  type OperatorDeliveryDeps,
+  type OperatorNoticeDeps,
+} from '@/modules/thinkzap/application/operator-outbox-effects'
+import { ensureBitrixBotId } from '@/modules/thinkzap/application/ensure-bitrix-bot-id'
+import { postOpenChannelSystemNotice } from '@/modules/thinkzap/application/post-open-channel-system-notice'
+import { dailyLimitNotices } from '@/modules/thinkzap/domain/daily-limit-notices'
+import { settleRobotMessageGroup } from '@/modules/thinkzap/application/settle-robot-message-group'
+import { env } from '@/config/env'
+import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
+import { OutboundMediaNotFoundError } from '@/modules/thinkzap/domain/ports/outbound-media-storage.port'
+import { makeOutboundMediaStorage } from '@/modules/thinkzap/main/make-outbound-media-storage'
+import { settleWidgetAttachmentGroup } from '@/modules/thinkzap/application/settle-widget-attachment-group'
+import type { SettledDispatchGroup } from '@/modules/thinkzap/application/dispatch-widget-outbox-message'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { DispatchWidgetOutboxMessage } from '@/modules/thinkzap/application/dispatch-widget-outbox-message'
 import {
@@ -12,6 +36,7 @@ import {
   WidgetSendOutcome,
 } from '@/modules/thinkzap/application/notify-widget-send-outcome'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
+import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import { reportSmsMessageStatus } from '@/modules/thinkzap/application/report-sms-message-status'
@@ -38,7 +63,14 @@ import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 const log = createWorkerSourceLogger('bitrix')
 
-export type WidgetSendJobOutcome = 'done' | 'reschedule'
+/**
+ * `reschedule` (destino ocupado) e `{ deferUntil }` (cadência ou fora da vez na fila
+ * da linha) adiam sem gastar tentativa.
+ */
+export type WidgetSendJobOutcome =
+  | 'done'
+  | 'reschedule'
+  | { deferUntil: number }
 
 // `reschedule` (destino ocupado) adia sem gastar tentativa: contenção não é falha de envio.
 export async function processWidgetSendJob(
@@ -115,7 +147,31 @@ export async function processWidgetSendJob(
     acquireLock: (instanceId, destination) =>
       acquireDestinationLock(redisConnection, instanceId, destination),
     quota: makeDailySendQuota(),
-    notifyOutcome: (outcome, record) => notifyOutcomeFor(record, outcome),
+    cadence: makeSendCadence(),
+    resolveMedia: record => resolveOutboundMedia(record),
+    releaseMedia: record => releaseOutboundMedia(record),
+    onGroupSettled: settled => settleGroup(settled, line),
+    notifyOutcome: (outcome, record) =>
+      record.origin === 'OPERATOR'
+        ? notifyOperatorOutcome(outcome, record, operatorNoticeDeps(line))
+        : record.origin === 'BOT'
+          ? notifyBotOutcome(outcome, record)
+          : notifyOutcomeFor(record, outcome),
+    onDelivered: async (record, providerMessageId) =>
+      record.origin === 'BOT'
+        ? deliverBotSpeech(record, botDeliveryDeps(record))
+        : deliverOperatorReply(
+            record,
+            providerMessageId,
+            operatorDeliveryDeps(record),
+          ),
+    onCadenceDeferred: (record, deferral) =>
+      notifyOperatorWaiting(
+        record,
+        deferral,
+        line.instanceId,
+        operatorNoticeDeps(line),
+      ),
     notifySent: record => notifySentFor(record),
     // Só rows de campanha chegam aqui (o despacho filtra pelas âncoras).
     reportSmsStatus: async (record, status) => {
@@ -171,7 +227,9 @@ export async function processWidgetSendJob(
 
   await appendJobLog(`Desfecho: ${describeOutcome(result.status)}`)
 
-  return result.status === 'locked' ? 'reschedule' : 'done'
+  if (result.status === 'locked') return 'reschedule'
+  if (result.status === 'deferred') return { deferUntil: result.retryAt }
+  return 'done'
 }
 
 function describeOutcome(status: string): string {
@@ -181,6 +239,8 @@ function describeOutcome(status: string): string {
       'Já estava entregue — o provider NÃO foi chamado de novo; só os efeitos colaterais foram retomados.',
     locked:
       'Destino ocupado por outro envio. Reagendado sem gastar tentativa, para preservar a ordem das mensagens.',
+    deferred:
+      'Aguardando a cadência da linha (janela cheia, pausa ou outra mensagem à frente na fila). Reagendado sem gastar tentativa.',
     failed:
       'NÃO entregue e não será reenviado automaticamente. Operador avisado na timeline.',
     unknown:
@@ -308,5 +368,225 @@ async function notifySentFor(row: WidgetOutboxRecord): Promise<void> {
       { app: 'thinkzap', outboxId: row.id, err },
       { msg: 'Falha ao publicar o comentário de timeline do envio' },
     )
+  }
+}
+
+type MediaSource =
+  | { kind: 'stored'; key: string; contentType?: string }
+  | { kind: 'url'; url: string }
+
+function mediaSourceOf(
+  row: Pick<WidgetOutboxRecord, 'id' | 'mediaSource'>,
+): MediaSource | null {
+  const source = row.mediaSource
+  if (source?.kind === 'stored' && typeof source.key === 'string') {
+    return {
+      kind: 'stored',
+      key: source.key,
+      contentType:
+        typeof source.contentType === 'string' ? source.contentType : undefined,
+    }
+  }
+  if (source?.kind === 'url' && typeof source.url === 'string') {
+    return { kind: 'url', url: source.url }
+  }
+  return null
+}
+
+/**
+ * O arquivo da parte, obtido agora. Da guarda privada sai como data URL — o sender
+ * Z-API já aceita esse formato, e nenhuma URL pública do anexo existe.
+ */
+async function resolveOutboundMedia(
+  row: WidgetOutboxRecord,
+): Promise<{ url: string }> {
+  const source = mediaSourceOf(row)
+  if (!source) throw new OutboundMediaNotFoundError(row.id)
+  if (source.kind === 'url') return { url: source.url }
+
+  const storage = makeOutboundMediaStorage()
+  if (!storage) throw new OutboundMediaNotFoundError(source.key)
+  const media = await storage.load(source.key)
+  return {
+    url: `data:${source.contentType ?? media.contentType};base64,${media.data.toString('base64')}`,
+  }
+}
+
+async function releaseOutboundMedia(
+  row: Pick<WidgetOutboxRecord, 'id' | 'mediaSource'>,
+): Promise<void> {
+  const source = mediaSourceOf(row)
+  if (source?.kind !== 'stored') return
+  try {
+    await makeOutboundMediaStorage()?.remove(source.key)
+  } catch (err) {
+    // A regra de ciclo de vida do bucket recolhe o que sobrar.
+    log.warn(
+      { app: 'thinkzap', outboxId: row.id, err },
+      'Arquivo do anexo não foi apagado depois do envio',
+    )
+  }
+}
+
+async function settleGroup(
+  settled: SettledDispatchGroup,
+  line: DispatchLineTarget,
+): Promise<void> {
+  const locale = (record: WidgetOutboxRecord) =>
+    makeInstallationLocaleRepository().byInstallation(
+      record.domainId,
+      record.appCode,
+    )
+
+  if (settled.first.origin === 'ROBOT_MESSAGE') {
+    await settleRobotMessageGroup(settled, {
+      locale,
+      postTimeline: async (document, message) => {
+        try {
+          const notifier = await makeNotifier(settled.first)
+          await notifier?.execute({
+            contextId: document.entityId,
+            entity: document.entity,
+            message,
+          })
+        } catch (err) {
+          logThinkzapError(
+            log,
+            'thinkzap.message.widget_send_notice_failed',
+            { app: 'thinkzap', dispatchGroupId: settled.dispatchGroupId, err },
+            { msg: 'Falha ao publicar o comentário do robô "Enviar mensagem"' },
+          )
+        }
+      },
+    })
+    return
+  }
+
+  if (settled.first.origin !== 'WIDGET_ATTACHMENT') return
+
+  await settleWidgetAttachmentGroup(settled, {
+    openChannelQueue: new BullMqOpenChannelConversationQueue(),
+    notifyOutcome: (outcome, record) => notifyOutcomeFor(record, outcome),
+    postTimeline: async (record, message) => {
+      try {
+        const notifier = await makeNotifier(record)
+        await notifier?.execute({
+          contextId: record.entityId,
+          entity: record.entity,
+          message,
+        })
+      } catch (err) {
+        logThinkzapError(
+          log,
+          'thinkzap.message.widget_send_notice_failed',
+          { app: 'thinkzap', outboxId: record.id, err },
+          {
+            msg: 'Falha ao publicar o comentário de timeline do envio com anexo',
+          },
+        )
+      }
+    },
+    fromPhone: async () => {
+      if (line.provider !== ConnectorProvider.ZAPI || !line.zApiToken) return ''
+      const phone = await new ZApiClient(
+        env.zApi.partnerToken,
+        env.zApi.clientToken,
+      ).getPhoneData(line.instanceId, line.zApiToken)
+      return phone?.phone ?? ''
+    },
+    locale: record =>
+      makeInstallationLocaleRepository().byInstallation(
+        record.domainId,
+        record.appCode,
+      ),
+  })
+}
+
+async function bitrixFor(
+  row: Pick<WidgetOutboxRecord, 'domainId' | 'appCode'>,
+) {
+  const domain = await new PrismaDomainRepository().getDomainById(row.domainId)
+  if (!domain) return null
+  const bitrix = await makeBitrixClientByDomainAndAppCoode(
+    domain.name,
+    row.appCode,
+  )
+  return { bitrix, domainName: domain.name }
+}
+
+function operatorDeliveryDeps(row: WidgetOutboxRecord): OperatorDeliveryDeps {
+  const messages = new PrismaThinkzapMessageRepository()
+  return {
+    persist: async input => {
+      await messages.create({ source: 'BITRIX', ...input })
+    },
+    // A mesma confirmação do envio síncrono: sem ela, a mensagem fica "enviando" no chat.
+    setDelivered: async (context, providerMessageId) => {
+      const client = await bitrixFor(row)
+      await client?.bitrix.setMessageDelivered({
+        CONNECTOR: env.bitrix.connector.code,
+        LINE: context.line,
+        MESSAGES: [
+          {
+            im: context.im,
+            message: { id: providerMessageId },
+            chat: { id: context.connectorChatId },
+          },
+        ],
+      })
+    },
+  }
+}
+
+/** Avisos ao operador no chat do canal aberto, pela instalação da row. */
+function operatorNoticeDeps(_line: DispatchLineTarget): OperatorNoticeDeps {
+  const post = async (row: WidgetOutboxRecord, text: string) => {
+    const client = await bitrixFor(row)
+    if (!client || !row.bitrixChatId) return false
+    const botId = await ensureBitrixBotId(
+      client.bitrix,
+      redisConnection,
+      client.domainName,
+      env.appCodes.thinkzap,
+    )
+    const outcome = await postOpenChannelSystemNotice(client.bitrix, {
+      botId,
+      bitrixChatId: row.bitrixChatId,
+      text,
+    })
+    return outcome.posted
+  }
+  const locale = (row: WidgetOutboxRecord) =>
+    makeInstallationLocaleRepository().byInstallation(row.domainId, row.appCode)
+
+  return {
+    postNotice: post,
+    locale,
+    notifyDailyLimit: async row => {
+      await post(row, dailyLimitNotices(await locale(row)).chat)
+    },
+    claimOnce: async (key, ttlMs) =>
+      (await redisConnection.set(key, '1', 'PX', Math.max(ttlMs, 1), 'NX')) ===
+      'OK',
+  }
+}
+
+/** Eco da fala do bot no chat do canal aberto, pelo próprio bot do fluxo. */
+function botDeliveryDeps(row: WidgetOutboxRecord): BotDeliveryDeps {
+  return {
+    echo: async (context, bitrixChatId, text) => {
+      const client = await bitrixFor(row)
+      if (!client) return
+      const bot = await new PrismaBotFlowBotRepository().getByBitrixBotId(
+        context.appId,
+        context.bitrixBotId,
+      )
+      if (!bot) return
+      await new BitrixBotSessionAdapter(
+        client.bitrix,
+        bot.botToken,
+        bot.bitrixBotId,
+      ).say(bitrixChatId, text)
+    },
   }
 }

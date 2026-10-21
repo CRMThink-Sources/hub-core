@@ -41,6 +41,11 @@ import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositori
 import { OpenChannelConversationQueue } from '@/modules/thinkzap/domain/ports/open-channel-queue.port'
 import { resolveOpenChannelText } from './helpers/describe-attachment-text'
 import { ConnectorSettings } from '@/modules/thinkzap/domain/value-objects/connector-settings'
+import {
+  EnqueueWidgetAttachments,
+  EnqueuedWidgetAttachmentsResult,
+} from './enqueue-widget-attachments'
+import { isUnifiedOutboxEnabled } from './helpers/unified-outbox'
 
 /** Uma mensagem aceita pelo provider — uma row de `core_thinkerszap_messages`. */
 type SentMessage = {
@@ -102,11 +107,16 @@ export class SendWidgetMessageUseCase {
     private readonly quota: DailySendQuota | null = null,
     /** Idioma do aviso de limite na timeline. Ausente, português. */
     private readonly locales: InstallationLocaleRepository | null = null,
+    /**
+     * O envio pela fila. Ausente (sem guarda privada configurada), o envio com
+     * anexo segue síncrono, fora da cadência, mesmo com a flag ligada.
+     */
+    private readonly queuedAttachments: EnqueueWidgetAttachments | null = null,
   ) {}
 
   async execute(
     input: SendWidgetMessageInput,
-  ): Promise<SendWidgetMessageResult> {
+  ): Promise<SendWidgetMessageResult | EnqueuedWidgetAttachmentsResult> {
     const {
       subscriptionItemId,
       domainId,
@@ -185,15 +195,39 @@ export class SendWidgetMessageUseCase {
       this.instances,
     )
 
-    const phoneData = await this.zApiClient.getPhoneData(
-      line.zApiInstanceId,
-      line.zApiInstanceToken,
-    )
-
     const normalizedPhone = normalizePhoneNumber(destination)
     if (!isValidZApiPhoneNumber(normalizedPhone)) {
       throw new Error('Invalid destination phone number')
     }
+
+    /**
+     * Caminho unificado: com a flag da instalação e a guarda privada configurada,
+     * o envio com anexo vai para a fila (e passa pela cadência). As recusas acima
+     * — linha, conexão, limite diário já atingido, telefone — continuam no clique.
+     */
+    if (
+      this.queuedAttachments &&
+      isUnifiedOutboxEnabled(context.customer.memberId)
+    ) {
+      return this.queuedAttachments.execute({
+        item: line.item,
+        instanceId: instance.id,
+        subscriptionItemId,
+        domainId,
+        appCode,
+        destination: normalizedPhone,
+        message,
+        attachments,
+        entity,
+        entityId,
+        operatorBitrixUserId: input.operatorBitrixUserId,
+      })
+    }
+
+    const phoneData = await this.zApiClient.getPhoneData(
+      line.zApiInstanceId,
+      line.zApiInstanceToken,
+    )
 
     /**
      * Uma entrada por mensagem aceita pelo provider, e não só os ids: o tipo e o

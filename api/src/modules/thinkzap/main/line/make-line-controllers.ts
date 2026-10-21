@@ -1,3 +1,4 @@
+import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { makeSyncLineConnectedField } from '@/modules/thinkzap/main/make-sync-line-connected-field'
 import { Request } from 'express'
 import { env } from '@/config/env'
@@ -135,7 +136,11 @@ export const makeGetLineSettingsController = (): Controller => {
   const { getAplicationContext } = makeLineDeps()
 
   return new GetLineSettingsController(
-    new GetLineSettings(getAplicationContext, makeDailySendQuota()),
+    new GetLineSettings(
+      getAplicationContext,
+      makeDailySendQuota(),
+      makeSendCadence(),
+    ),
   )
 }
 

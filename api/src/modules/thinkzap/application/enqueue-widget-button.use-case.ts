@@ -1,3 +1,4 @@
+import type { SendCadence } from '@/modules/thinkzap/domain/ports/send-cadence.port'
 import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import { CreateInstanceRepository } from '@/modules/thinkzap/domain/repositories/create-instance.repository'
@@ -31,6 +32,7 @@ export class EnqueueWidgetButtonUseCase {
     outbox: PrismaWidgetOutboxRepository,
     sendQueue: WidgetSendQueue,
     quota: DailySendQuota | null = null,
+    cadence: SendCadence | null = null,
   ) {
     this.service = new EnqueueInteractiveButtonSendService(
       getAplicationContext,
@@ -39,6 +41,7 @@ export class EnqueueWidgetButtonUseCase {
       outbox,
       sendQueue,
       quota,
+      cadence,
     )
   }
 

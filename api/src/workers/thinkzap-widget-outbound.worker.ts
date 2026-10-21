@@ -1,4 +1,5 @@
-import { DelayedError, Job, Worker } from 'bullmq'
+import { Job, Worker } from 'bullmq'
+import { applyWidgetSendOutcome } from './widget-send-outcome'
 import { bullBaseOptions } from '@/queue/redis-connection'
 import {
   THINKZAP_WIDGET_OUTBOUND,
@@ -9,9 +10,6 @@ import { processWidgetSendJob } from './thinkzap-widget-send.processor'
 import { workerLogger } from '@/shared/infra/logger'
 import { makeAppendJobLog } from './append-job-log'
 import { jobFailureLogFields } from '@/shared/infra/log-error'
-
-// Curto (espera típica = um envio), mas sem virar espera ativa contra o Redis.
-const DESTINATION_BUSY_RETRY_MS = 2_000
 
 // Entrypoint próprio: container deve começar com `hubthink-worker` senão o Promtail não coleta.
 // concurrency limitada pelo rate limit do Bitrix por portal, não por processo.
@@ -36,11 +34,7 @@ async function processJob(
     appendJobLog,
   })
 
-  if (outcome === 'reschedule') {
-    // Adia sem gastar tentativa; erro comum esgotaria as tentativas só por contenção.
-    await job.moveToDelayed(Date.now() + DESTINATION_BUSY_RETRY_MS, token)
-    throw new DelayedError()
-  }
+  await applyWidgetSendOutcome(job, outcome, token)
 }
 
 export const thinkzapWidgetOutboundWorker =

@@ -1,3 +1,4 @@
+import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { env } from '@/config/env'
@@ -20,5 +21,6 @@ export const makeEnqueueWidgetMessageUseCase =
       new PrismaWidgetOutboxRepository(),
       new BullMqWidgetSendQueue(),
       makeDailySendQuota(),
+      makeSendCadence(),
     )
   }

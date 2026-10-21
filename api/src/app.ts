@@ -16,6 +16,7 @@ import multer from 'multer'
 import { makeZApiWebhookHandlerController } from './modules/thinkzap/main/z-api-webhook-handle-controller.js'
 import { startCredentialRefreshJob } from './shared/infra/scheduler/credential-refresh.job.js'
 import { startSubscriptionExpirationJob } from './shared/infra/scheduler/subscription-expiration.job.js'
+import { startCadenceSequencerSweepJob } from './shared/infra/scheduler/cadence-sequencer-sweep.job.js'
 import { adaptControllerFactory } from './shared/main/adapt-controller.js'
 import {
   makeSendEnvelopeController,
@@ -274,6 +275,7 @@ app.post(
 // Jobs
 startCredentialRefreshJob()
 startSubscriptionExpirationJob()
+startCadenceSequencerSweepJob()
 
 app.use(
   (

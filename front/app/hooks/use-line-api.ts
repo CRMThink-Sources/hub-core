@@ -54,6 +54,30 @@ export type LineSettingsToggles = {
   dailyLimit: number | null
   /** Espelha no canal aberto o que é enviado do aparelho — só a linha não oficial. */
   deviceMessageMirrorEnabled: boolean
+  /** Cadência de envio — só a linha não oficial. N por janela de D minutos. */
+  cadenceEnabled: boolean
+  cadenceMaxMessages: number | null
+  cadenceWindowMinutes: number | null
+  /** Pausa de P minutos ao atingir N; substitui o resto da janela. */
+  cadencePauseEnabled: boolean
+  cadencePauseMinutes: number | null
+}
+
+/**
+ * Estado atual da cadência da linha, como a api lê do Redis. Horários em epoch ms.
+ */
+export type CadenceState = {
+  /** A instalação pode ativar o recurso (liberação gradual). */
+  available: boolean
+  phase: 'idle' | 'window' | 'paused'
+  count: number
+  max: number | null
+  windowEndsAt: number | null
+  pauseUntil: number | null
+  /** Mensagens na fila da linha esperando vaga. */
+  waiting: number
+  /** A configuração gravada difere da janela/pausa vigente: vale na próxima. */
+  nextWindowChanges: boolean
 }
 
 /**
@@ -87,6 +111,8 @@ export type LineSettings = {
    * contador não pôde ser lido — o card abre sem o uso.
    */
   dailyLimit?: DailyLimitUsage | null
+  /** Estado da cadência. Ausente na linha oficial; `null` quando não pôde ser lido. */
+  cadence?: CadenceState | null
 }
 
 export type SmsProviderResult = 'created' | 'updated' | 'skipped' | 'deleted'

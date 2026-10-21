@@ -108,3 +108,77 @@ describe('EnqueueWidgetMessageUseCase limite diário', () => {
     expect(sut.sendQueue.enqueue).toHaveBeenCalledWith({ outboxId: 'outbox-1' })
   })
 })
+
+describe('EnqueueWidgetMessageUseCase fila FIFO da linha', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  function withCadence() {
+    const base = makeSut(false)
+    let seq = 0
+    const cadence = { enqueue: vi.fn(() => Promise.resolve(++seq)) }
+    const outbox = {
+      create: vi
+        .fn()
+        .mockResolvedValueOnce({ id: 'outbox-1', queueSeq: null })
+        .mockResolvedValueOnce({ id: 'outbox-2', queueSeq: null }),
+      setQueueSeq: vi.fn().mockResolvedValue(undefined),
+    }
+    const useCase = new EnqueueWidgetMessageUseCase(
+      (base.useCase as unknown as { getAplicationContext: never })
+        .getAplicationContext,
+      (base.useCase as unknown as { instances: never }).instances,
+      (base.useCase as unknown as { zApiClient: never }).zApiClient,
+      outbox as never,
+      base.sendQueue,
+      base.quota as never,
+      cadence as never,
+    )
+    return { useCase, cadence, outbox, sendQueue: base.sendQueue }
+  }
+
+  it('a sequência cresce por linha, na ordem de chegada, antes do job', async () => {
+    const sut = withCadence()
+
+    await sut.useCase.execute(input)
+    await sut.useCase.execute(input)
+
+    expect(sut.cadence.enqueue.mock.calls).toEqual([
+      ['Z-1', 'outbox-1'],
+      ['Z-1', 'outbox-2'],
+    ])
+    expect(sut.outbox.setQueueSeq.mock.calls).toEqual([
+      ['outbox-1', 1],
+      ['outbox-2', 2],
+    ])
+    expect(sut.cadence.enqueue.mock.invocationCallOrder[0]).toBeLessThan(
+      sut.sendQueue.enqueue.mock.invocationCallOrder[0]!,
+    )
+  })
+
+  it('marca a origem: widget ou campanha de SMS', async () => {
+    const sut = withCadence()
+
+    await sut.useCase.execute(input)
+    await sut.useCase.execute({
+      ...input,
+      smsMessageId: 'm-1',
+      smsSenderCode: 's',
+    })
+
+    expect(
+      sut.outbox.create.mock.calls.map(
+        ([arg]) => (arg as { origin: string }).origin,
+      ),
+    ).toEqual(['WIDGET', 'SMS_CAMPAIGN'])
+  })
+
+  it('falha do Redis não recusa o envio', async () => {
+    const sut = withCadence()
+    sut.cadence.enqueue.mockRejectedValueOnce(new Error('redis fora'))
+
+    await expect(sut.useCase.execute(input)).resolves.toMatchObject({
+      status: 'queued',
+    })
+    expect(sut.sendQueue.enqueue).toHaveBeenCalled()
+  })
+})

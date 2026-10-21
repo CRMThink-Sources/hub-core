@@ -93,6 +93,7 @@ function buildUseCase({
   operatorToken = 'op-token' as string | null | Error,
   imResponse = { result: 9001 } as unknown,
   markPendingFails = false,
+  cadence = null as null | { registerExternal: ReturnType<typeof vi.fn> },
 }: {
   mirrorEnabled?: boolean
   vinculatedChannel?: string | null
@@ -104,6 +105,7 @@ function buildUseCase({
   operatorToken?: string | null | Error
   imResponse?: unknown
   markPendingFails?: boolean
+  cadence?: null | { registerExternal: ReturnType<typeof vi.fn> }
 } = {}) {
   const messageRepo = {
     findByProviderMessageId: vi.fn((_: string, id: string) =>
@@ -197,6 +199,7 @@ function buildUseCase({
     vi.fn().mockImplementation((text: string) => Promise.resolve(text)),
     { byInstallation: vi.fn().mockResolvedValue(locale) },
     operatorAuthor as never,
+    cadence as never,
   )
 
   return {
@@ -677,5 +680,78 @@ describe('MirrorZApiSentByMeMessageUseCase — autor operador da sessão', () =>
       expect(updateMessageMock).not.toHaveBeenCalled()
       expect(lines.some(l => l.includes('autorização válida'))).toBe(true)
     })
+  })
+})
+
+describe('MirrorZApiSentByMeMessageUseCase — cadência', () => {
+  beforeEach(() => {
+    sendMessageMock.mockReset().mockResolvedValue(sessionResult)
+  })
+
+  const cadenceSpy = () => ({
+    registerExternal: vi.fn().mockResolvedValue(undefined),
+  })
+
+  it('Espelhada conta: a mensagem nova do aparelho é registrada na janela da linha', async () => {
+    const cadence = cadenceSpy()
+    const { run } = buildUseCase({ cadence })
+
+    await run(makeEvent())
+
+    expect(cadence.registerExternal).toHaveBeenCalledTimes(1)
+    expect(cadence.registerExternal).toHaveBeenCalledWith(
+      expect.objectContaining({ lineKey: baseInstance.instanceId }),
+      expect.any(Date),
+    )
+  })
+
+  it('conta mesmo quando a cópia não chega ao canal aberto (sem conversa)', async () => {
+    const cadence = cadenceSpy()
+    const { run } = buildUseCase({ cadence, conversation: null })
+
+    await run(makeEvent())
+
+    expect(cadence.registerExternal).toHaveBeenCalledTimes(1)
+  })
+
+  it('duplicata (já saiu pela integração) não conta', async () => {
+    const cadence = cadenceSpy()
+    const { run } = buildUseCase({
+      cadence,
+      records: { 'ME-1': { source: 'BITRIX', providerMessageId: 'ME-1' } },
+    })
+
+    await run(makeEvent())
+
+    expect(cadence.registerExternal).not.toHaveBeenCalled()
+  })
+
+  it('edição e remoção não contam', async () => {
+    const cadence = cadenceSpy()
+    const { run } = buildUseCase({
+      cadence,
+      records: { 'ME-1': { source: 'ZAPI', providerMessageId: 'ME-1' } },
+    })
+
+    await run(
+      makeEvent({
+        isEdit: true,
+        editMessageId: 'EDIT-1',
+        text: { message: 'x' },
+      }),
+    )
+
+    expect(cadence.registerExternal).not.toHaveBeenCalled()
+  })
+
+  it('falha do Redis não impede o espelhamento', async () => {
+    const cadence = {
+      registerExternal: vi.fn().mockRejectedValue(new Error('redis')),
+    }
+    const { run } = buildUseCase({ cadence })
+
+    await run(makeEvent())
+
+    expect(sendMessageMock).toHaveBeenCalled()
   })
 })

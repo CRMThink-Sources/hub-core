@@ -1,3 +1,4 @@
+import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { Request } from 'express'
 import { env } from '@/config/env'
@@ -59,6 +60,7 @@ export const makeBitrixSmsProviderWebhookHandlerController = async (
       outbox,
       sendQueue,
       makeDailySendQuota(),
+      makeSendCadence(),
     ),
     new EnqueueTemplateSendService(
       makeGetAplicationContext(),
