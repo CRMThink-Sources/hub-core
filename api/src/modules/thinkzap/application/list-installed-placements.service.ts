@@ -9,9 +9,15 @@ export type InstalledPlacement = {
   isThinkzap: boolean
 }
 
+/**
+ * `connector.url` entra porque o `SETTING_CONNECTOR` não vem de `placement.bind`:
+ * o Bitrix o cria a partir do `PLACEMENT_HANDLER` do `imconnector.register`. Sem
+ * ele na lista, o placement do conector aparecia como de outro app.
+ */
 function isThinkzapHandler(handler: string): boolean {
   const thinkzapHandlers = [
     env.bitrix.placement.url,
+    env.bitrix.connector.url,
     env.bitrix.iframeAudio.url,
     env.bitrix.iframeButton.url,
   ].filter(Boolean)
