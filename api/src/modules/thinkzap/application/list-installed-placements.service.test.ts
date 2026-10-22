@@ -7,6 +7,7 @@ vi.mock('@/config/env', () => ({
   env: {
     bitrix: {
       placement: { url: 'https://app.example/placement' },
+      connector: { url: 'https://app.example/thinkzap/connector' },
       iframeAudio: { url: 'https://app.example/bitrix/widget/audio' },
       iframeButton: { url: 'https://app.example/bitrix/widget/button' },
     },
@@ -95,6 +96,26 @@ describe('ListInstalledPlacementsService', () => {
       {
         placement: 'IM_TEXTAREA',
         handler: 'https://app.example/bitrix/widget/button',
+        title: null,
+        isThinkzap: true,
+      },
+    ])
+  })
+
+  it('flags the connector settings placement as thinkzap', async () => {
+    getPlacementHandlers.mockResolvedValue([
+      {
+        placement: 'SETTING_CONNECTOR',
+        handler: 'https://app.example/thinkzap/connector',
+      },
+    ])
+
+    const result = await service.execute(client)
+
+    expect(result).toEqual([
+      {
+        placement: 'SETTING_CONNECTOR',
+        handler: 'https://app.example/thinkzap/connector',
         title: null,
         isThinkzap: true,
       },

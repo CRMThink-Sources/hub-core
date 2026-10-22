@@ -11,6 +11,7 @@ import { createListMcpUsersController } from './main/factories/create-list-mcp-u
 import { createUpdateMcpUserController } from './main/factories/create-update-mcp-user-controller'
 import { createRegisterAudioImbotAppController } from './main/factories/create-register-audio-imbot-app-controller'
 import { createDeleteAudioImbotAppController } from './main/factories/create-delete-audio-imbot-app-controller'
+import { createRegisterConnectorAppController } from './main/factories/create-register-connector-app-controller'
 import { createRegisterButtonImbotAppController } from './main/factories/create-register-button-imbot-app-controller'
 import { createDeleteButtonImbotAppController } from './main/factories/create-delete-button-imbot-app-controller'
 import { createRegisterConversationWidgetAppController } from './main/factories/create-register-conversation-widget-app-controller'
@@ -86,6 +87,11 @@ export const createPortalRoutes = (
     '/mcp-users/:id',
     portalAuthMiddleware,
     adaptControllerFactory(createUpdateMcpUserController),
+  )
+  router.post(
+    '/apps/:appId/connector',
+    portalAuthMiddleware,
+    adaptControllerFactory(createRegisterConnectorAppController),
   )
   router.post(
     '/apps/:appId/audio-imbot',
