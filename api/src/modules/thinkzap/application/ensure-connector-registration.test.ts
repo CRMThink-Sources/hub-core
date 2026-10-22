@@ -22,7 +22,9 @@ describe('EnsureConnectorRegistration', () => {
   const service = new EnsureConnectorRegistration()
 
   const registerCalls = () =>
-    callMethod.mock.calls.filter(([method]) => method === 'imconnector.register')
+    callMethod.mock.calls.filter(
+      ([method]) => method === 'imconnector.register',
+    )
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -30,8 +32,10 @@ describe('EnsureConnectorRegistration', () => {
   })
 
   it('registra com o PLACEMENT_HANDLER do env e retorna created', async () => {
-    callMethod.mockImplementation(async (method: string) =>
-      method === 'imconnector.list' ? {} : true,
+    callMethod.mockImplementation((method: string) =>
+      method === 'imconnector.list'
+        ? Promise.resolve({})
+        : Promise.resolve(true),
     )
 
     await expect(service.execute(client)).resolves.toBe('created')
@@ -43,8 +47,10 @@ describe('EnsureConnectorRegistration', () => {
   })
 
   it('retorna updated quando o conector já existe no portal', async () => {
-    callMethod.mockImplementation(async (method: string) =>
-      method === 'imconnector.list' ? { hubthink_thinkzap: 'ThinkZap' } : true,
+    callMethod.mockImplementation((method: string) =>
+      method === 'imconnector.list'
+        ? Promise.resolve({ hubthink_thinkzap: 'ThinkZap' })
+        : Promise.resolve(true),
     )
 
     await expect(service.execute(client)).resolves.toBe('updated')
