@@ -2,7 +2,10 @@ import type { BitrixRestClient } from '@/shared/infra/clients/bitrix-rest.client
 import { callBitrixIdempotent } from '@/shared/infra/clients/call-bitrix-idempotent'
 import { buildConnectorRegisterParams } from '../install/build-connector-register-params'
 
-export type EnsureConnectorRegistrationResult = 'created' | 'updated' | 'skipped'
+export type EnsureConnectorRegistrationResult =
+  | 'created'
+  | 'updated'
+  | 'skipped'
 
 /**
  * `imconnector.list` devolve um mapa `ID → nome`. Falha na leitura não impede o
