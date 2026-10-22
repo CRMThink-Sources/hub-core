@@ -1,6 +1,7 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
+import { AdminClientConnectorSection } from './admin-client-connector-section'
 import { AdminClientImbotSection } from './admin-client-imbot-section'
 import { AdminClientButtonImbotSection } from './admin-client-button-imbot-section'
 import { AdminClientConversationWidgetSection } from './admin-client-conversation-widget-section'
@@ -25,6 +26,7 @@ export function AdminClientDeploymentSection({ appId }: Props) {
         </p>
       </div>
 
+      <AdminClientConnectorSection appId={appId} />
       <AdminClientImbotSection appId={appId} />
       <AdminClientButtonImbotSection appId={appId} />
       <AdminClientConversationWidgetSection appId={appId} />
