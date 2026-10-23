@@ -73,6 +73,7 @@ import {
   makeDeleteBotFlowBindingController,
   makeDeleteBotFlowController,
   makeGetBotFlowController,
+  makeGetThinkbotConnectorStatusController,
   makeListBotFlowBindingsController,
   makeListBotFlowsController,
   makePublishBotFlowController,
@@ -556,6 +557,12 @@ export const createThinkerszapRoutes = (): Router => {
     '/bot-flows/simulate',
     requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeSimulateBotFlowController),
+  )
+  // Antes de `/bot-flows/:flowId`, que capturaria o caminho como id.
+  router.get(
+    '/bot-flows/connector-status',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetThinkbotConnectorStatusController),
   )
   router.get(
     '/bot-flows/:flowId',

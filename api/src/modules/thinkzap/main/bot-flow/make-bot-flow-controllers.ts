@@ -12,6 +12,7 @@ import { UpdateBotFlowController } from '../../presentation/controllers/bot-flow
 import { PublishBotFlowController } from '../../presentation/controllers/bot-flow/publish-bot-flow.controller'
 import { DeleteBotFlowController } from '../../presentation/controllers/bot-flow/delete-bot-flow.controller'
 import { SimulateBotFlowController } from '../../presentation/controllers/bot-flow/simulate-bot-flow.controller'
+import { GetThinkbotConnectorStatusController } from '../../presentation/controllers/bot-flow/get-thinkbot-connector-status.controller'
 import {
   CreateBotFlowBindingController,
   DeleteBotFlowBindingController,
@@ -94,6 +95,11 @@ const makeConnectorAtivo =
       appCode,
     })
   }
+
+export const makeGetThinkbotConnectorStatusController = (
+  req: Request,
+): Controller =>
+  new GetThinkbotConnectorStatusController(makeConnectorAtivo(req))
 
 export const makeCreateBotFlowBindingController = async (
   req: Request,

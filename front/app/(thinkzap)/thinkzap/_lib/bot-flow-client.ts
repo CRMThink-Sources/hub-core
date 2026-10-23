@@ -74,6 +74,18 @@ export async function listBotFlows(): Promise<BotFlowSummary[]> {
   }
 }
 
+/** Sem conector ThinkZap ativo o bot não atende, e a tela fica bloqueada. */
+export async function getThinkbotConnectorStatus(): Promise<boolean> {
+  try {
+    const result = await client().get<{ active: boolean }>(
+      '/thinkzap/bot-flows/connector-status',
+    )
+    return result.active
+  } catch (error) {
+    rethrow(error, 'Não foi possível verificar o conector.')
+  }
+}
+
 export async function getBotFlow(
   flowId: string,
 ): Promise<{ flow: BotFlow; issues: FlowIssue[] }> {

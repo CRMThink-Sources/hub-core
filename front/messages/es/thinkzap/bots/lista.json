@@ -3,6 +3,11 @@
   "subtitulo": "Arma el flujo de atención: define cómo el bot debe conducir la conversación.",
   "carregando": "Cargando",
   "novoFluxo": "Nuevo flujo",
+  "semConector": {
+    "titulo": "ThinkBot no disponible sin conector activo",
+    "descricao": "ThinkBot solo atiende cuando la instalación tiene al menos una línea ThinkZap activa. Sin conector no es posible configurar flujos, y los bots ya vinculados no responden.",
+    "acao": "Ir a Conexiones"
+  },
   "contagem": "{{total}} de {{max}} flujos",
   "limiteAtingido": "Límite de {{max}} flujos alcanzado",
   "erro": {
