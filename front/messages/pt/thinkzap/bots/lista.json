@@ -3,6 +3,11 @@
   "subtitulo": "Monte o fluxo de atendimento: defina como o bot deve conduzir a conversa.",
   "carregando": "Carregando",
   "novoFluxo": "Novo fluxo",
+  "semConector": {
+    "titulo": "ThinkBot indisponível sem conector ativo",
+    "descricao": "O ThinkBot só atende quando a instalação tem ao menos uma linha ThinkZap ativa. Sem conector não é possível configurar fluxos, e os bots já vinculados não respondem.",
+    "acao": "Ir para Conexões"
+  },
   "contagem": "{{total}} de {{max}} fluxos",
   "limiteAtingido": "Limite de {{max}} fluxos atingido",
   "erro": {

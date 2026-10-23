@@ -10,6 +10,7 @@ import {
   createBotFlowBinding,
   deleteBotFlow,
   deleteBotFlowBinding,
+  getThinkbotConnectorStatus,
   listBotFlowBindings,
   listBotFlows,
   listOpenChannels,
@@ -23,10 +24,12 @@ import {
 import { BotFlowEditor } from '../_components/bots/bot-flow-editor'
 import { BotFlowList } from '../_components/bots/bot-flow-list'
 import { NovoFluxoDialog } from '../_components/bots/novo-fluxo-dialog'
+import { ThinkbotSemConector } from '../_components/bots/thinkbot-sem-conector'
 
 type LoadState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
+  | { kind: 'sem-conector' }
   | { kind: 'ready'; flows: BotFlowSummary[] }
 
 // Editor é estado, não rota: "voltar" competiria com a navegação do Bitrix
@@ -41,6 +44,11 @@ export default function BotsLayout() {
 
   const carregar = useCallback(async () => {
     try {
+      if (!(await getThinkbotConnectorStatus())) {
+        setState({ kind: 'sem-conector' })
+        return
+      }
+
       // Falha nos canais do portal não pode esconder os fluxos
       const [flows, vinculos, canais] = await Promise.all([
         listBotFlows(),
@@ -189,6 +197,8 @@ export default function BotsLayout() {
           <p className="text-sm font-medium">{t('erro.titulo')}</p>
           <p className="mt-1 text-sm">{state.message}</p>
         </div>
+      ) : state.kind === 'sem-conector' ? (
+        <ThinkbotSemConector />
       ) : (
         <BotFlowList
           flows={state.flows}
