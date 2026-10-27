@@ -12,6 +12,7 @@ import {
   subscriptionItemListKey,
   subscriptionItemsBySubscriptionKey,
 } from './keys'
+import { loadWithStaleFallback, writeStale } from './stale-if-error'
 
 const SUBSCRIPTION_ITEM_TTL_SECONDS = 5 * 60
 
@@ -98,8 +99,14 @@ export class CachedSubscriptionItemRepository implements SubscriptionItemReposit
     )
     if (cached) return cached
 
-    const item = await this.inner.getSubscriptionItem(id)
-    await this.write(subscriptionItemKey(id), item)
+    const { value: item, stale } = await loadWithStaleFallback({
+      redis: this.redis,
+      key: subscriptionItemKey(id),
+      schema: subscriptionItemSchema,
+      family: 'Subscription item',
+      load: () => this.inner.getSubscriptionItem(id),
+    })
+    if (!stale) await this.write(subscriptionItemKey(id), item)
 
     return item
   }
@@ -111,8 +118,14 @@ export class CachedSubscriptionItemRepository implements SubscriptionItemReposit
     )
     if (cached) return cached
 
-    const items = await this.inner.getSubscriptionItems()
-    await this.write(subscriptionItemListKey(), items)
+    const { value: items, stale } = await loadWithStaleFallback({
+      redis: this.redis,
+      key: subscriptionItemListKey(),
+      schema: subscriptionItemListSchema,
+      family: 'Subscription item',
+      load: () => this.inner.getSubscriptionItems(),
+    })
+    if (!stale) await this.write(subscriptionItemListKey(), items)
 
     return items
   }
@@ -125,9 +138,14 @@ export class CachedSubscriptionItemRepository implements SubscriptionItemReposit
     const cached = await this.read(key, subscriptionItemListSchema)
     if (cached) return cached
 
-    const items =
-      await this.inner.getSubscriptionItemsBySubscription(subscriptionId)
-    await this.write(key, items)
+    const { value: items, stale } = await loadWithStaleFallback({
+      redis: this.redis,
+      key: key,
+      schema: subscriptionItemListSchema,
+      family: 'Subscription item',
+      load: () => this.inner.getSubscriptionItemsBySubscription(subscriptionId),
+    })
+    if (!stale) await this.write(key, items)
 
     return items
   }
@@ -242,7 +260,9 @@ export class CachedSubscriptionItemRepository implements SubscriptionItemReposit
     return parsed.data
   }
 
+  /** Grava a fresca (TTL curto) e a reserva de 24 h usada só se o Bitrix falhar. */
   private async write(key: string, value: unknown): Promise<void> {
+    await writeStale(this.redis, key, value)
     try {
       await this.redis.set(
         key,

@@ -37,6 +37,12 @@ import {
   createListSubscriptionExpirationRunsController,
   createStartSubscriptionExpirationRunController,
 } from './main/factories/create-subscription-expiration-runs-controllers'
+import {
+  createGetOutboxFailureController,
+  createListOutboxFailuresController,
+  createReprocessOutboxFailureController,
+  createReprocessOutboxFailuresBatchController,
+} from './main/factories/create-outbox-failures-controllers'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -244,6 +250,32 @@ export const createPortalRoutes = (
     '/subscription-expiration/runs',
     portalAuthMiddleware,
     adaptControllerFactory(createStartSubscriptionExpirationRunController),
+  )
+
+  /**
+   * "Falhas de envio": intenções da fila de saída do thinkzap que não chegaram ao
+   * contato, com reprocessamento. O lote vem antes de `/:id` para `reprocess` não
+   * ser lido como id.
+   */
+  router.get(
+    '/thinkzap/outbox-failures',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListOutboxFailuresController),
+  )
+  router.post(
+    '/thinkzap/outbox-failures/reprocess',
+    portalAuthMiddleware,
+    adaptControllerFactory(createReprocessOutboxFailuresBatchController),
+  )
+  router.get(
+    '/thinkzap/outbox-failures/:id',
+    portalAuthMiddleware,
+    adaptControllerFactory(createGetOutboxFailureController),
+  )
+  router.post(
+    '/thinkzap/outbox-failures/:id/reprocess',
+    portalAuthMiddleware,
+    adaptControllerFactory(createReprocessOutboxFailureController),
   )
 
   return router

@@ -40,7 +40,10 @@ import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import { reportSmsMessageStatus } from '@/modules/thinkzap/application/report-sms-message-status'
-import { findItemInContext } from '@/modules/thinkzap/application/helpers/resolve-line-by-subscription-item'
+import {
+  resolveLineTarget,
+  settleUnresolvedLine,
+} from './widget-send-line-target'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { BullMqOpenChannelConversationQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
 import { acquireDestinationLock } from '@/modules/thinkzap/infra/queue/destination-send-lock'
@@ -121,17 +124,30 @@ export async function processWidgetSendJob(
       (context.isLastAttempt ? ' | ÚLTIMA TENTATIVA' : ''),
   )
 
-  const line = await resolveLineTarget(row)
-  if (!line) {
-    // Terminal: retentar não traz a linha de volta.
-    await appendJobLog(
-      `Linha ${row.subscriptionItemId} não está mais na instalação. ` +
-        'Estado terminal (FAILED) — retentativa não resolveria. Operador avisado na timeline.',
-    )
-    await outbox.markFailed(row.id, 'Linha não encontrada na instalação')
-    await notifyOutcomeFor(row, 'failed')
-    return 'done'
+  const resolution = await resolveLineTarget(row, input =>
+    makeGetAplicationContext().execute(input),
+  )
+  if (resolution.kind !== 'found') {
+    return settleUnresolvedLine(row, resolution, context.isLastAttempt, {
+      markFailed: (id, reason) => outbox.markFailed(id, reason),
+      notifyFailed: () => notifyOutcomeFor(row, 'failed'),
+      appendJobLog,
+      onUnavailable: (err, willRetry) =>
+        logThinkzapError(
+          log,
+          'thinkzap.outbox.line_lookup_unavailable',
+          {
+            app: 'thinkzap',
+            outboxId: row.id,
+            subscriptionItemId: row.subscriptionItemId,
+            willRetry,
+            err,
+          },
+          { msg: 'Não foi possível consultar a linha da intenção de envio' },
+        ),
+    })
   }
+  const { line } = resolution
 
   await appendJobLog(
     `Linha resolvida: provider=${line.provider} | instância=${line.instanceId}`,
@@ -248,53 +264,6 @@ function describeOutcome(status: string): string {
   }
 
   return descriptions[status] ?? status
-}
-
-// Relida a cada execução, não guardada no job: linha reprovisionada vale na retentativa.
-async function resolveLineTarget(
-  row: WidgetOutboxRecord,
-): Promise<DispatchLineTarget | null> {
-  try {
-    const context = await makeGetAplicationContext().execute({
-      domainId: row.domainId,
-      appCode: row.appCode,
-    })
-
-    const item = findItemInContext(context, row.subscriptionItemId)
-
-    const line = { settings: item.settings, appId: context.aplication.id }
-
-    if (item.metadata.provider === 'ZAPI') {
-      return {
-        ...line,
-        provider: ConnectorProvider.ZAPI,
-        instanceId: item.metadata.zApiInstanceId,
-        zApiToken: item.metadata.zApiInstanceToken,
-      }
-    }
-
-    if (item.metadata.provider === 'HUBMESSAGE') {
-      return {
-        ...line,
-        provider: ConnectorProvider.HUBMESSAGE,
-        instanceId: item.metadata.hubmessageChannelId,
-        channelId: item.metadata.hubmessageChannelId,
-      }
-    }
-
-    return null
-  } catch (err) {
-    log.warn(
-      {
-        app: 'thinkzap',
-        outboxId: row.id,
-        subscriptionItemId: row.subscriptionItemId,
-        err,
-      },
-      'Não foi possível resolver a linha da intenção de envio',
-    )
-    return null
-  }
 }
 
 // Cliente por domínio/app code: no worker não há `req`.

@@ -96,8 +96,36 @@ export type WidgetOutboxRecord = {
   originContext: OutboxJson | null
   queueSeq: number | null
   cadenceWaitUntil: Date | null
+  /** Reprocessamentos manuais pelo portal admin; ver `requeueForReprocess`. */
+  reprocessCount: number
+  lastReprocessedAt: Date | null
+  lastReprocessedBy: string | null
   createdAt: Date
+  updatedAt: Date
   sentAt: Date | null
+}
+
+/** Status que a tela "Falhas de envio" lista: não entregue ou indeterminado. */
+export type OutboxFailureStatus = Extract<
+  WidgetOutboxStatus,
+  'FAILED' | 'UNKNOWN'
+>
+
+export type OutboxFailureFilters = {
+  statuses: OutboxFailureStatus[]
+  /** Parte do nome do portal (`querobombinhas`). */
+  domain?: string
+  origin?: WidgetOutboxOrigin
+  from: Date
+  to: Date
+  page: number
+  limit: number
+}
+
+export type OutboxFailure = WidgetOutboxRecord & { domainName: string | null }
+
+export type OutboxFailureDetail = OutboxFailure & {
+  lastReprocessedByEmail: string | null
 }
 
 export type CreateWidgetOutboxInput = {
@@ -259,7 +287,11 @@ type OutboxRow = {
   originContext: unknown
   queueSeq: number | null
   cadenceWaitUntil: Date | null
+  reprocessCount: number
+  lastReprocessedAt: Date | null
+  lastReprocessedBy: string | null
   createdAt: Date
+  updatedAt: Date
   sentAt: Date | null
 }
 
@@ -303,7 +335,11 @@ function mapRow(row: OutboxRow): WidgetOutboxRecord {
     originContext: toJson(row.originContext),
     queueSeq: row.queueSeq,
     cadenceWaitUntil: row.cadenceWaitUntil,
+    reprocessCount: row.reprocessCount,
+    lastReprocessedAt: row.lastReprocessedAt,
+    lastReprocessedBy: row.lastReprocessedBy,
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
     sentAt: row.sentAt,
   }
 }
@@ -595,4 +631,123 @@ export class PrismaWidgetOutboxRepository {
       where: { status: 'PENDING', createdAt: { lt: cutoff } },
     })
   }
+
+  /**
+   * Intenções que não chegaram ao contato, para a tela "Falhas de envio" do portal
+   * admin. Mais recentes primeiro; usa o índice `[status, createdAt]`.
+   *
+   * `domain` é busca por parte do nome do portal: resolvida antes em ids, porque a
+   * outbox guarda só o uuid do domínio, sem relação no schema.
+   */
+  async listFailures(
+    filters: OutboxFailureFilters,
+  ): Promise<{ items: OutboxFailure[]; total: number }> {
+    let domainIds: string[] | undefined
+    if (filters.domain) {
+      const domains = await prisma.domain.findMany({
+        where: { name: { contains: filters.domain } },
+        select: { id: true },
+      })
+      domainIds = domains.map(domain => domain.id)
+      if (domainIds.length === 0) return { items: [], total: 0 }
+    }
+
+    const where = {
+      status: { in: filters.statuses },
+      createdAt: { gte: filters.from, lte: filters.to },
+      ...(domainIds ? { domainId: { in: domainIds } } : {}),
+      ...(filters.origin ? { origin: filters.origin } : {}),
+    }
+
+    const [rows, total] = await Promise.all([
+      prisma.thinkzapWidgetOutbox.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (filters.page - 1) * filters.limit,
+        take: filters.limit,
+      }),
+      prisma.thinkzapWidgetOutbox.count({ where }),
+    ])
+
+    const names = await domainNames(rows.map(row => row.domainId))
+
+    return {
+      items: rows.map(row => ({
+        ...mapRow(row),
+        domainName: names.get(row.domainId) ?? null,
+      })),
+      total,
+    }
+  }
+
+  /** Uma intenção com o nome do portal e o e-mail de quem a reprocessou por último. */
+  async findFailureDetail(id: string): Promise<OutboxFailureDetail | null> {
+    const row = await prisma.thinkzapWidgetOutbox.findUnique({ where: { id } })
+    if (!row) return null
+
+    const [names, reprocessedBy] = await Promise.all([
+      domainNames([row.domainId]),
+      row.lastReprocessedBy
+        ? prisma.portalUser.findUnique({
+            where: { id: row.lastReprocessedBy },
+            select: { email: true },
+          })
+        : null,
+    ])
+
+    return {
+      ...mapRow(row),
+      domainName: names.get(row.domainId) ?? null,
+      lastReprocessedByEmail: reprocessedBy?.email ?? null,
+    }
+  }
+
+  /**
+   * Devolve uma intenção que falhou para a fila, pelo portal admin.
+   *
+   * Condicional e atômico: só vira `PENDING` a row ainda sem marca de entrega e no
+   * status aceito. Dois pedidos simultâneos resultam em **um** update — o outro vê
+   * `false` e responde conflito, e o contato não recebe duas vezes.
+   *
+   * - `UNKNOWN` só com `allowUnknown`: pode ter saído, e reenviar arrisca duplicidade.
+   * - `queueSeq` zerado: a posição antiga já saiu da fila FIFO da linha no Redis, e um
+   *   seq ausente nunca ganharia a vez. Sem posição, o despacho a põe no fim da fila.
+   * - `timelineNotifiedAt` zerado: o aviso do resultado novo tem que sair.
+   * - `lastError` mantido: guarda a causa original até a próxima falha.
+   */
+  async requeueForReprocess(
+    id: string,
+    input: { portalUserId: string; allowUnknown: boolean },
+  ): Promise<boolean> {
+    const { count } = await prisma.thinkzapWidgetOutbox.updateMany({
+      where: {
+        id,
+        providerMessageId: null,
+        status: { in: input.allowUnknown ? ['FAILED', 'UNKNOWN'] : ['FAILED'] },
+      },
+      data: {
+        status: 'PENDING',
+        queueSeq: null,
+        cadenceWaitUntil: null,
+        timelineNotifiedAt: null,
+        reprocessCount: { increment: 1 },
+        lastReprocessedAt: new Date(),
+        lastReprocessedBy: input.portalUserId,
+      },
+    })
+
+    return count > 0
+  }
+}
+
+async function domainNames(ids: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids)]
+  if (unique.length === 0) return new Map()
+
+  const domains = await prisma.domain.findMany({
+    where: { id: { in: unique } },
+    select: { id: true, name: true },
+  })
+
+  return new Map(domains.map(domain => [domain.id, domain.name]))
 }

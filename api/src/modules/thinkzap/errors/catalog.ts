@@ -962,6 +962,15 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 500,
   },
+  'thinkzap.outbox.line_lookup_unavailable': {
+    category: 'integration',
+    userCause:
+      'Não foi possível consultar os dados da linha no momento do envio. A mensagem é tentada de novo automaticamente; se todas as tentativas falharem, ela fica com falha e pode ser reprocessada.',
+    remediation:
+      'Se `willRetry` for verdadeiro, nenhuma ação: a mensagem será tentada de novo. Se for falso, a mensagem ficou com falha — reprocessar pelo portal admin em "Falhas de envio" depois de confirmar que o Bitrix da CRMThink voltou a responder.',
+    retriable: true,
+    httpStatus: 503,
+  },
   'thinkzap.line.disconnected': {
     category: 'validation',
     userCause: 'A linha não está conectada no WhatsApp.',

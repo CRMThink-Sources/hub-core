@@ -248,3 +248,18 @@ export const SUBSCRIPTION_ITEM_SCAN_PATTERNS = [
 export const SUBSCRIPTIONS_BY_APLICATION_SCAN_PATTERN = `payments:subscriptions:${SUBSCRIPTION_CACHE_VERSION}:*:aplication:*`
 
 export const SUBSCRIPTION_ITEMS_BY_SUBSCRIPTION_SCAN_PATTERN = `payments:subscription-items:${SUBSCRIPTION_ITEM_CACHE_VERSION}:subscription:*`
+
+/**
+ * Cópia de reserva (stale-if-error) de uma chave fresca.
+ *
+ * Usada **só** quando a leitura no Bitrix falha — ver `stale-if-error.ts`. Prefixo
+ * próprio, fora de `payments:`, para que nenhum padrão de `SCAN` de invalidação a
+ * alcance: a invalidação apaga a fresca, e a reserva fica para a próxima queda do
+ * Bitrix, sendo regravada na próxima leitura bem-sucedida.
+ *
+ * Embute a chave fresca inteira, então herda a versão da família e o segmento de
+ * ambiente do gateway — mudança de shape ou de ambiente também troca a reserva.
+ */
+export const STALE_KEY_PREFIX = 'payments-stale:'
+
+export const staleKeyOf = (freshKey: string) => `${STALE_KEY_PREFIX}${freshKey}`
