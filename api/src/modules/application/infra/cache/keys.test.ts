@@ -1,12 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  PLAN_CACHE_VERSION,
   PLAN_SCAN_PATTERNS,
+  PRODUCT_SCAN_PATTERNS,
   SUBSCRIPTIONS_BY_APLICATION_SCAN_PATTERN,
+  SUBSCRIPTION_ITEMS_BY_SUBSCRIPTION_SCAN_PATTERN,
+  SUBSCRIPTION_ITEM_SCAN_PATTERNS,
   SUBSCRIPTION_SCAN_PATTERNS,
   planKey,
   planListKey,
+  productKey,
+  productListKey,
+  staleKeyOf,
   subscriptionItemKey,
+  subscriptionItemListKey,
+  subscriptionItemsBySubscriptionKey,
   subscriptionKey,
   subscriptionListKey,
   subscriptionsByAplicationKey,
@@ -152,5 +161,46 @@ describe('padrões de SCAN alcançam as chaves dos dois ambientes', () => {
     const item = subscriptionItemKey('9')
 
     expect(SUBSCRIPTION_SCAN_PATTERNS.some(p => matches(p, item))).toBe(false)
+  })
+})
+
+describe('chaves de reserva (stale-if-error)', () => {
+  const ALL_SCAN_PATTERNS = [
+    ...PRODUCT_SCAN_PATTERNS,
+    ...PLAN_SCAN_PATTERNS,
+    ...SUBSCRIPTION_SCAN_PATTERNS,
+    ...SUBSCRIPTION_ITEM_SCAN_PATTERNS,
+    SUBSCRIPTIONS_BY_APLICATION_SCAN_PATTERN,
+    SUBSCRIPTION_ITEMS_BY_SUBSCRIPTION_SCAN_PATTERN,
+  ]
+
+  it('nenhum padrão de invalidação alcança a reserva', () => {
+    const freshKeys = [
+      productKey('1'),
+      productListKey(),
+      planKey('2'),
+      planListKey(),
+      subscriptionKey('3'),
+      subscriptionListKey(),
+      subscriptionsByAplicationKey('7'),
+      subscriptionItemKey('9'),
+      subscriptionItemListKey(),
+      subscriptionItemsBySubscriptionKey('3'),
+    ]
+
+    for (const fresh of freshKeys) {
+      expect(ALL_SCAN_PATTERNS.some(p => matches(p, fresh))).toBe(true)
+      expect(ALL_SCAN_PATTERNS.some(p => matches(p, staleKeyOf(fresh)))).toBe(
+        false,
+      )
+    }
+  })
+
+  it('herda versão e ambiente da chave fresca', () => {
+    const production = inEnvironment('production', () => planKey('2'))
+    const homolog = inEnvironment('homolog', () => planKey('2'))
+
+    expect(staleKeyOf(production)).not.toBe(staleKeyOf(homolog))
+    expect(staleKeyOf(production)).toContain(PLAN_CACHE_VERSION)
   })
 })

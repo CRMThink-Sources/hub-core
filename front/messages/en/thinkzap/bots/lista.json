@@ -3,6 +3,11 @@
   "subtitulo": "Build the service flow: define how the bot should lead the conversation.",
   "carregando": "Loading",
   "novoFluxo": "New flow",
+  "semConector": {
+    "titulo": "ThinkBot unavailable without an active connector",
+    "descricao": "ThinkBot only works when the installation has at least one active ThinkZap line. Without a connector you cannot configure flows, and bots already linked will not respond.",
+    "acao": "Go to Connections"
+  },
   "contagem": "{{total}} of {{max}} flows",
   "limiteAtingido": "{{max}}-flow limit reached",
   "erro": {

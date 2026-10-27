@@ -18,6 +18,11 @@ const navItems = [
     exact: false,
   },
   { href: '/admin/jobs', labelKey: 'navJobs' as const, exact: false },
+  {
+    href: '/admin/falhas-envio',
+    labelKey: 'navOutboxFailures' as const,
+    exact: false,
+  },
 ]
 
 export function AdminShell({ children }: { children: React.ReactNode }) {

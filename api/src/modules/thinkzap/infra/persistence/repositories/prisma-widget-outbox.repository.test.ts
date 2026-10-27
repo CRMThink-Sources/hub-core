@@ -7,6 +7,8 @@ const {
   findManyMock,
   updateManyMock,
   countMock,
+  domainFindManyMock,
+  portalUserFindUniqueMock,
 } = vi.hoisted(() => ({
   createMock: vi.fn(),
   findUniqueMock: vi.fn(),
@@ -14,6 +16,8 @@ const {
   findManyMock: vi.fn(),
   updateManyMock: vi.fn(),
   countMock: vi.fn(),
+  domainFindManyMock: vi.fn(),
+  portalUserFindUniqueMock: vi.fn(),
 }))
 
 vi.mock('@/config/prisma', () => ({
@@ -26,6 +30,8 @@ vi.mock('@/config/prisma', () => ({
       updateMany: updateManyMock,
       count: countMock,
     },
+    domain: { findMany: domainFindManyMock },
+    portalUser: { findUnique: portalUserFindUniqueMock },
   },
 }))
 
@@ -75,7 +81,11 @@ const dbRow = (overrides: Record<string, unknown> = {}) => ({
   originContext: null,
   queueSeq: null,
   cadenceWaitUntil: null,
+  reprocessCount: 0,
+  lastReprocessedAt: null,
+  lastReprocessedBy: null,
   createdAt: new Date('2026-10-16T12:00:00.000Z'),
+  updatedAt: new Date('2026-10-16T12:00:00.000Z'),
   sentAt: null,
   ...overrides,
 })
@@ -288,5 +298,147 @@ describe('PrismaWidgetOutboxRepository — partes, grupo e cadência', () => {
     expect(findManyMock).toHaveBeenCalledWith({
       where: { domainId: 'domain-1', clientMessageId: { in: ['client-1'] } },
     })
+  })
+})
+
+describe('PrismaWidgetOutboxRepository — falhas de envio', () => {
+  const from = new Date('2026-10-27T00:00:00.000Z')
+  const to = new Date('2026-10-27T23:59:59.999Z')
+  const baseFilters = {
+    statuses: ['FAILED' as const, 'UNKNOWN' as const],
+    from,
+    to,
+    page: 2,
+    limit: 20,
+  }
+
+  beforeEach(() => {
+    findManyMock.mockReset().mockResolvedValue([dbRow({ status: 'FAILED' })])
+    countMock.mockReset().mockResolvedValue(21)
+    findUniqueMock.mockReset()
+    updateManyMock.mockReset()
+    portalUserFindUniqueMock.mockReset()
+    domainFindManyMock
+      .mockReset()
+      .mockResolvedValue([
+        { id: 'domain-1', name: 'querobombinhas.bitrix24.com.br' },
+      ])
+  })
+
+  it('filtra por status, período e origem, mais recentes primeiro e paginado', async () => {
+    const result = await sut().listFailures({
+      ...baseFilters,
+      origin: 'OPERATOR',
+    })
+
+    const [args] = findManyMock.mock.calls[0]! as [Record<string, unknown>]
+    expect(args).toMatchObject({
+      where: {
+        status: { in: ['FAILED', 'UNKNOWN'] },
+        createdAt: { gte: from, lte: to },
+        origin: 'OPERATOR',
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: 20,
+      take: 20,
+    })
+    expect(result.total).toBe(21)
+    expect(result.items[0]).toMatchObject({
+      id: 'outbox-1',
+      domainName: 'querobombinhas.bitrix24.com.br',
+    })
+  })
+
+  it('filtro de portal resolve o nome em ids antes de consultar', async () => {
+    await sut().listFailures({ ...baseFilters, domain: 'querobombinhas' })
+
+    expect(domainFindManyMock.mock.calls[0]![0]).toMatchObject({
+      where: { name: { contains: 'querobombinhas' } },
+    })
+    const [args] = findManyMock.mock.calls[0]! as [Record<string, unknown>]
+    expect(args).toMatchObject({ where: { domainId: { in: ['domain-1'] } } })
+  })
+
+  it('portal sem correspondência devolve vazio sem consultar a outbox', async () => {
+    domainFindManyMock.mockResolvedValueOnce([])
+
+    const result = await sut().listFailures({ ...baseFilters, domain: 'nada' })
+
+    expect(result).toEqual({ items: [], total: 0 })
+    expect(findManyMock).not.toHaveBeenCalled()
+  })
+
+  it('detalhe traz o portal e o e-mail de quem reprocessou', async () => {
+    findUniqueMock.mockResolvedValue(
+      dbRow({
+        status: 'PENDING',
+        reprocessCount: 1,
+        lastReprocessedBy: 'user-1',
+      }),
+    )
+    portalUserFindUniqueMock.mockResolvedValue({
+      email: 'suporte@crmthink.com',
+    })
+
+    const detail = await sut().findFailureDetail('outbox-1')
+
+    expect(detail).toMatchObject({
+      domainName: 'querobombinhas.bitrix24.com.br',
+      reprocessCount: 1,
+      lastReprocessedByEmail: 'suporte@crmthink.com',
+    })
+  })
+
+  it('reprocessar é condicional: só FAILED sem marca de entrega volta para PENDING', async () => {
+    updateManyMock.mockResolvedValue({ count: 1 })
+
+    const ok = await sut().requeueForReprocess('outbox-1', {
+      portalUserId: 'user-1',
+      allowUnknown: false,
+    })
+
+    expect(ok).toBe(true)
+    const [args] = updateManyMock.mock.calls[0]! as [Record<string, unknown>]
+    expect(args).toMatchObject({
+      where: {
+        id: 'outbox-1',
+        providerMessageId: null,
+        status: { in: ['FAILED'] },
+      },
+      data: {
+        status: 'PENDING',
+        queueSeq: null,
+        cadenceWaitUntil: null,
+        timelineNotifiedAt: null,
+        reprocessCount: { increment: 1 },
+        lastReprocessedBy: 'user-1',
+      },
+    })
+    expect((args.data as Record<string, unknown>).lastError).toBeUndefined()
+  })
+
+  it('UNKNOWN entra no filtro só com allowUnknown', async () => {
+    updateManyMock.mockResolvedValue({ count: 1 })
+
+    await sut().requeueForReprocess('outbox-1', {
+      portalUserId: 'user-1',
+      allowUnknown: true,
+    })
+
+    const [args] = updateManyMock.mock.calls[0]! as [
+      { where: Record<string, unknown> },
+    ]
+    expect(args.where.status).toEqual({ in: ['FAILED', 'UNKNOWN'] })
+  })
+
+  it('row que já saiu de FAILED (SENT, PENDING, com marca de entrega) é conflito', async () => {
+    updateManyMock.mockResolvedValue({ count: 0 })
+
+    await expect(
+      sut().requeueForReprocess('outbox-1', {
+        portalUserId: 'user-1',
+        allowUnknown: false,
+      }),
+    ).resolves.toBe(false)
   })
 })

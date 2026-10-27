@@ -5,6 +5,7 @@
   "navUsers": "Usuarios",
   "navMcpUsers": "Usuarios MCP",
   "navJobs": "Jobs",
+  "navOutboxFailures": "Fallos de envío",
   "greeting": "Hola, {{name}}",
   "description": "Gestiona clientes, aplicaciones y configuraciones de Hubthink.",
   "clientsCardDescription": "Consulta portales Bitrix24 y las aplicaciones instaladas en cada dominio.",
