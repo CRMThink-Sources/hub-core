@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/config/prisma.js', () => ({ prisma: {} }))
 vi.mock('@/queue/redis-connection', () => ({ redisConnection: {} }))
+// As rotas do portal montam o reprocessamento de "Falhas de envio", que fala com o BullMQ.
+vi.mock(
+  '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue',
+  () => ({ BullMqWidgetSendQueue: class {} }),
+)
 
 import express from 'express'
 import type { AddressInfo } from 'node:net'
@@ -231,6 +236,11 @@ describe('rotas de subscription-expiration sem sessão do portal', () => {
     ['GET', '/api/portal/subscription-expiration/runs'],
     ['GET', '/api/portal/subscription-expiration/runs/run-1'],
     ['POST', '/api/portal/subscription-expiration/runs'],
+    // "Falhas de envio": mesmas regras de sessão do portal admin.
+    ['GET', '/api/portal/thinkzap/outbox-failures'],
+    ['GET', '/api/portal/thinkzap/outbox-failures/outbox-1'],
+    ['POST', '/api/portal/thinkzap/outbox-failures/outbox-1/reprocess'],
+    ['POST', '/api/portal/thinkzap/outbox-failures/reprocess'],
   ])('%s %s responde 401', async (method, path) => {
     const app = express()
     app.use('/api/portal', createPortalRoutes(createPortalAuthMiddleware()))

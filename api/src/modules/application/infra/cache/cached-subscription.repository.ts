@@ -12,6 +12,7 @@ import {
   subscriptionListKey,
   subscriptionsByAplicationKey,
 } from './keys'
+import { loadWithStaleFallback, writeStale } from './stale-if-error'
 
 const SUBSCRIPTION_TTL_SECONDS = 5 * 60
 
@@ -113,8 +114,14 @@ export class CachedSubscriptionRepository implements SubscriptionRepository {
     const cached = await this.read(subscriptionKey(id), subscriptionSchema)
     if (cached) return cached
 
-    const subscription = await this.inner.getSubscription(id)
-    await this.write(subscriptionKey(id), subscription)
+    const { value: subscription, stale } = await loadWithStaleFallback({
+      redis: this.redis,
+      key: subscriptionKey(id),
+      schema: subscriptionSchema,
+      family: 'Subscription',
+      load: () => this.inner.getSubscription(id),
+    })
+    if (!stale) await this.write(subscriptionKey(id), subscription)
 
     return subscription
   }
@@ -126,8 +133,14 @@ export class CachedSubscriptionRepository implements SubscriptionRepository {
     )
     if (cached) return cached
 
-    const subscriptions = await this.inner.getSubscriptions()
-    await this.write(subscriptionListKey(), subscriptions)
+    const { value: subscriptions, stale } = await loadWithStaleFallback({
+      redis: this.redis,
+      key: subscriptionListKey(),
+      schema: subscriptionListSchema,
+      family: 'Subscription',
+      load: () => this.inner.getSubscriptions(),
+    })
+    if (!stale) await this.write(subscriptionListKey(), subscriptions)
 
     return subscriptions
   }
@@ -140,9 +153,14 @@ export class CachedSubscriptionRepository implements SubscriptionRepository {
     const cached = await this.read(key, subscriptionListSchema)
     if (cached) return cached
 
-    const subscriptions =
-      await this.inner.getSubscriptionsByAplication(aplicationSpaId)
-    await this.write(key, subscriptions)
+    const { value: subscriptions, stale } = await loadWithStaleFallback({
+      redis: this.redis,
+      key: key,
+      schema: subscriptionListSchema,
+      family: 'Subscription',
+      load: () => this.inner.getSubscriptionsByAplication(aplicationSpaId),
+    })
+    if (!stale) await this.write(key, subscriptions)
 
     return subscriptions
   }
@@ -242,7 +260,9 @@ export class CachedSubscriptionRepository implements SubscriptionRepository {
     return parsed.data
   }
 
+  /** Grava a fresca (TTL curto) e a reserva de 24 h usada só se o Bitrix falhar. */
   private async write(key: string, value: unknown): Promise<void> {
+    await writeStale(this.redis, key, value)
     try {
       await this.redis.set(
         key,

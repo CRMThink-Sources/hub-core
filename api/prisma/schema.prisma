@@ -599,6 +599,13 @@ model ThinkzapWidgetOutbox {
   /// widget mostra em "aguardando janela de envio".
   cadenceWaitUntil DateTime? @map("cadence_wait_until")
 
+  /// Reprocessamento manual pelo portal admin ("Falhas de envio"): quantas vezes a
+  /// intenção voltou para a fila, quando foi a última e qual usuário do portal pediu.
+  /// `lastError` não é limpo no reprocessamento — guarda a causa até a próxima falha.
+  reprocessCount    Int       @default(0) @map("reprocess_count")
+  lastReprocessedAt DateTime? @map("last_reprocessed_at")
+  lastReprocessedBy String?   @map("last_reprocessed_by")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   sentAt    DateTime? @map("sent_at")

@@ -4,6 +4,7 @@ import { Product } from '@/modules/application/domain/entities/product'
 import { ProductRepository } from '@/modules/application/domain/repositories/get-product.repository'
 import { apiLogger } from '@/shared/infra/logger'
 import { productKey, productListKey } from './keys'
+import { loadWithStaleFallback, writeStale } from './stale-if-error'
 
 const PRODUCT_TTL_SECONDS = 5 * 60
 
@@ -39,8 +40,14 @@ export class CachedProductRepository implements ProductRepository {
     const cachedProduct = await this.read(productKey(id), productSchema)
     if (cachedProduct) return cachedProduct
 
-    const product = await this.inner.getProduct(id)
-    await this.write(productKey(id), product)
+    const { value: product, stale } = await loadWithStaleFallback({
+      redis: this.redis,
+      key: productKey(id),
+      schema: productSchema,
+      family: 'Product',
+      load: () => this.inner.getProduct(id),
+    })
+    if (!stale) await this.write(productKey(id), product)
 
     return product
   }
@@ -49,8 +56,14 @@ export class CachedProductRepository implements ProductRepository {
     const cachedProducts = await this.read(productListKey(), productListSchema)
     if (cachedProducts) return cachedProducts
 
-    const products = await this.inner.getProducts()
-    await this.write(productListKey(), products)
+    const { value: products, stale } = await loadWithStaleFallback({
+      redis: this.redis,
+      key: productListKey(),
+      schema: productListSchema,
+      family: 'Product',
+      load: () => this.inner.getProducts(),
+    })
+    if (!stale) await this.write(productListKey(), products)
 
     return products
   }
@@ -82,7 +95,9 @@ export class CachedProductRepository implements ProductRepository {
     return parsed.data
   }
 
+  /** Grava a fresca (TTL curto) e a reserva de 24 h usada só se o Bitrix falhar. */
   private async write(key: string, value: unknown): Promise<void> {
+    await writeStale(this.redis, key, value)
     try {
       await this.redis.set(
         key,

@@ -4,6 +4,7 @@ import { Plan } from '@/modules/application/domain/entities/plan'
 import { PlanRepository } from '@/modules/application/domain/repositories/get-plan.repository'
 import { apiLogger } from '@/shared/infra/logger'
 import { planKey, planListKey } from './keys'
+import { loadWithStaleFallback, writeStale } from './stale-if-error'
 
 const PLAN_TTL_SECONDS = 5 * 60
 
@@ -53,8 +54,14 @@ export class CachedPlanRepository implements PlanRepository {
     const cachedPlan = await this.read(planKey(id), planSchema)
     if (cachedPlan) return cachedPlan
 
-    const plan = await this.inner.getPlan(id)
-    await this.write(planKey(id), plan)
+    const { value: plan, stale } = await loadWithStaleFallback({
+      redis: this.redis,
+      key: planKey(id),
+      schema: planSchema,
+      family: 'Plan',
+      load: () => this.inner.getPlan(id),
+    })
+    if (!stale) await this.write(planKey(id), plan)
 
     return plan
   }
@@ -63,8 +70,14 @@ export class CachedPlanRepository implements PlanRepository {
     const cachedPlans = await this.read(planListKey(), planListSchema)
     if (cachedPlans) return cachedPlans
 
-    const plans = await this.inner.getPlans()
-    await this.write(planListKey(), plans)
+    const { value: plans, stale } = await loadWithStaleFallback({
+      redis: this.redis,
+      key: planListKey(),
+      schema: planListSchema,
+      family: 'Plan',
+      load: () => this.inner.getPlans(),
+    })
+    if (!stale) await this.write(planListKey(), plans)
 
     return plans
   }
@@ -96,7 +109,9 @@ export class CachedPlanRepository implements PlanRepository {
     return parsed.data
   }
 
+  /** Grava a fresca (TTL curto) e a reserva de 24 h usada só se o Bitrix falhar. */
   private async write(key: string, value: unknown): Promise<void> {
+    await writeStale(this.redis, key, value)
     try {
       await this.redis.set(key, JSON.stringify(value), 'EX', PLAN_TTL_SECONDS)
     } catch (error) {

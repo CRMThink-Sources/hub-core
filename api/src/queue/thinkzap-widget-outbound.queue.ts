@@ -89,6 +89,18 @@ export function widgetSendJobId(outboxId: string): string {
   return `widget-send-${outboxId}`
 }
 
+/**
+ * Tentativas do job de envio. A espera cresce 10 s → 20 s → 40 s (~70 s até a última):
+ * cobre uma instabilidade do Bitrix interno ao consultar a linha, que antes esgotava as
+ * três tentativas de 1 s/2 s e virava falha definitiva. Adiamentos (cadência, destino
+ * ocupado) usam `DelayedError` e não gastam tentativa.
+ */
+export const WIDGET_OUTBOUND_JOB_ATTEMPTS = 4
+export const WIDGET_OUTBOUND_JOB_BACKOFF = {
+  type: 'exponential',
+  delay: 10_000,
+} as const
+
 export async function enqueueThinkzapWidgetOutboundJob(
   job: ThinkzapWidgetOutboundJob,
   opts?: { jobId?: string },
@@ -97,8 +109,8 @@ export async function enqueueThinkzapWidgetOutboundJob(
     'process-widget-outbound',
     job,
     {
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 1000 },
+      attempts: WIDGET_OUTBOUND_JOB_ATTEMPTS,
+      backoff: WIDGET_OUTBOUND_JOB_BACKOFF,
       ...(opts?.jobId ? { jobId: opts.jobId } : {}),
     },
   )

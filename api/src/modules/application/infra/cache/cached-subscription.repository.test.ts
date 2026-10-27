@@ -1,6 +1,7 @@
 import type IORedis from 'ioredis'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  STALE_KEY_PREFIX,
   subscriptionKey,
   subscriptionListKey,
   subscriptionsByAplicationKey,
@@ -479,8 +480,8 @@ describe('CachedSubscriptionRepository', () => {
         order.push('del')
         return Promise.resolve(1)
       })
-      const set = vi.fn(() => {
-        order.push('set')
+      const set = vi.fn((key: string) => {
+        order.push(key.startsWith(STALE_KEY_PREFIX) ? 'set-stale' : 'set')
         return Promise.resolve('OK')
       })
       const redis = {
@@ -494,7 +495,8 @@ describe('CachedSubscriptionRepository', () => {
         redis,
       ).updateSubscription('21', { status: 'cancelled' })
 
-      expect(order).toEqual(['del', 'set'])
+      // A reserva também é regravada; a ordem que importa é del → set da fresca.
+      expect(order).toEqual(['del', 'set-stale', 'set'])
     })
 
     it('conclui a escrita mesmo quando a invalidação falha', async () => {
