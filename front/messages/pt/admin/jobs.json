@@ -1,16 +1,16 @@
 {
   "title": "Jobs",
-  "description": "Histórico da varredura de expiração de assinaturas (SPA 1142), que roda a cada hora.",
-  "notCancelNotice": "A varredura não cancela assinaturas. Ela só passa \"Em teste\" para \"Teste expirado\" e manual \"Ativo\" para \"Vencido\" quando o período termina.",
+  "description": "Rotinas automáticas do portal e a saúde de cada uma.",
+  "notCancelNotice": "Manual vencida: as linhas são desassinadas no Z-API/HubMessage no 5º dia de \"Vencido\" e a assinatura é cancelada no 10º. Trials vencidos só passam para \"Teste expirado\".",
   "runNow": "Rodar agora",
   "refresh": "Atualizar",
-  "confirmTitle": "Rodar a varredura agora?",
-  "confirmDescription": "Todas as assinaturas da SPA 1142 com período encerrado terão o status gravado no CRM, como na rodada agendada.",
+  "confirmTitle": "Rodar a verificação agora?",
+  "confirmDescription": "A rodada vence trials e manuais com período encerrado, desassina as linhas de manuais vencidas há 5 dias, cancela as vencidas há 10 e reconcilia as linhas ativas no provider.",
   "confirm": "Rodar agora",
   "cancel": "Cancelar",
   "startedToast": "Rodada iniciada.",
   "busyToast": "Já existe uma rodada em andamento. Tente de novo em instantes.",
-  "disabledToast": "A varredura está desligada neste ambiente.",
+  "disabledToast": "A verificação está desligada neste ambiente.",
   "startErrorToast": "Não foi possível iniciar a rodada.",
   "filterOnlyWithChanges": "Só com alterações ou falhas",
   "filterTrigger": "Gatilho",
@@ -35,12 +35,18 @@
     "checked": "Verificadas",
     "trialExpired": "Testes expirados",
     "pastDue": "Vencidas",
-    "failed": "Falhas"
+    "failed": "Falhas",
+    "subscriptions": "Assinaturas",
+    "lines": "Linhas",
+    "cancelled": "Canceladas",
+    "linesUnsubscribed": "Linhas desassinadas",
+    "linesSubscribed": "Linhas assinadas",
+    "linesChecked": "Linhas verificadas"
   },
   "system": "Sistema",
   "durationSeconds": "{{value}} s",
   "detailTitle": "Rodada de {{date}}",
-  "detailEmpty": "Nenhuma assinatura foi alterada nesta rodada.",
+  "detailEmpty": "Nenhuma alteração nesta rodada.",
   "detailError": "Erro da rodada: {{error}}",
   "change": {
     "subscription": "Assinatura",
@@ -49,7 +55,14 @@
     "result": "Resultado",
     "succeeded": "Gravado",
     "failed": "Falhou",
-    "openCrm": "Abrir no CRM"
+    "openCrm": "Abrir no CRM",
+    "line": "Linha",
+    "provider": "Provider",
+    "succeededBy": {
+      "status": "Gravado",
+      "line-unsubscribed": "Desassinada",
+      "line-subscribed": "Assinada"
+    }
   },
   "subscriptionStatus": {
     "active": "Ativo",
@@ -66,5 +79,120 @@
   "retry": "Tentar novamente",
   "page": "Página {{current}} de {{total}}",
   "previous": "Anterior",
-  "next": "Próxima"
+  "next": "Próxima",
+  "jobs": {
+    "expiracao-assinaturas": {
+      "name": "Verificação de assinaturas",
+      "description": "Vence trials e manuais, desassina as linhas de manuais vencidas há 5 dias, cancela no 10º dia e reconcilia as linhas ativas uma vez por dia.",
+      "schedule": "A cada hora · reconciliação diária",
+      "pageDescription": "Histórico da verificação de assinaturas (SPA 1142): roda a cada hora e reconcilia as linhas ativas uma vez por dia."
+    },
+    "sincronizacao-stripe": {
+      "name": "Sincronização Stripe",
+      "description": "Aplica na SPA 1142 o status e o período das assinaturas Stripe; cancelada no Stripe cancela e desassina as linhas.",
+      "schedule": "A cada hora (minuto 30)",
+      "pageDescription": "Histórico da sincronização Stripe → SPA 1142: corrige o que o webhook do Stripe não aplicou."
+    }
+  },
+  "health": {
+    "no-runs": "Sem rodadas",
+    "running": "Em andamento",
+    "failing": "Com falha",
+    "late": "Atrasado",
+    "attention": "Atenção",
+    "healthy": "Saudável",
+    "sectionLabel": "Saúde do job"
+  },
+  "strip": {
+    "label": "Últimas {{count}} rodadas: {{failures}} com falha, {{warnings}} com atenção",
+    "caption": "Últimas {{count}} rodadas",
+    "tone": {
+      "success": "Concluída",
+      "warning": "Concluída com falhas",
+      "danger": "Falhou",
+      "info": "Em andamento",
+      "neutral": "Sem dados"
+    }
+  },
+  "catalog": {
+    "lastRun": "Última rodada",
+    "lastRunNever": "Ainda não rodou",
+    "unavailable": "Não foi possível carregar as rodadas deste job.",
+    "viewRuns": "Ver rodadas",
+    "count": "{{count}} job",
+    "count_other": "{{count}} jobs"
+  },
+  "notFound": {
+    "title": "Job não encontrado",
+    "description": "Não existe job com o endereço \"{{id}}\".",
+    "back": "Voltar para Jobs"
+  },
+  "detailProviderSkipped": "Os efeitos de provider estão desligados neste ambiente: a rodada gravou status e datas, mas não desassinou nem reconciliou linhas.",
+  "count": {
+    "trialExpired_one": "{{count}} teste expirado",
+    "trialExpired_other": "{{count}} testes expirados",
+    "pastDue_one": "{{count}} vencida",
+    "pastDue_other": "{{count}} vencidas",
+    "cancelled_one": "{{count}} cancelada",
+    "cancelled_other": "{{count}} canceladas",
+    "linesUnsubscribed_one": "{{count}} desassinada",
+    "linesUnsubscribed_other": "{{count}} desassinadas",
+    "linesSubscribed_one": "{{count}} assinada",
+    "linesSubscribed_other": "{{count}} assinadas",
+    "linesChecked_one": "{{count}} verificada",
+    "linesChecked_other": "{{count}} verificadas"
+  },
+  "tags": {
+    "reconciliation": "Reconciliação",
+    "providerSkipped": "Provider desligado"
+  },
+  "changeGroup": {
+    "status_one": "{{count}} mudança de status",
+    "status_other": "{{count}} mudanças de status",
+    "line-unsubscribed_one": "{{count}} linha desassinada (5º dia)",
+    "line-unsubscribed_other": "{{count}} linhas desassinadas (5º dia)",
+    "line-subscribed_one": "{{count}} linha assinada na reconciliação",
+    "line-subscribed_other": "{{count}} linhas assinadas na reconciliação"
+  },
+  "provider": {
+    "ZAPI": "Z-API",
+    "HUBMESSAGE": "HubMessage"
+  },
+  "stripeSync": {
+    "notice": "Só entram assinaturas do ambiente da chave Stripe em uso (ambiente vazio conta como produção). Assinatura não encontrada no Stripe não é alterada: aparece aqui para revisão.",
+    "confirmTitle": "Rodar a sincronização agora?",
+    "confirmDescription": "Cada assinatura Stripe da SPA 1142 é lida no Stripe. Divergências de status e período são corrigidas; canceladas no Stripe são canceladas na SPA e têm as linhas desassinadas.",
+    "disabledToast": "A sincronização Stripe está desligada neste ambiente.",
+    "detailEmpty": "Tudo já estava sincronizado nesta rodada.",
+    "table": {
+      "checked": "Lidas no Stripe",
+      "skipped": "Puladas (outro ambiente)",
+      "updated": "Atualizadas",
+      "notFound": "Não encontradas"
+    },
+    "count": {
+      "updated_one": "{{count}} atualizada",
+      "updated_other": "{{count}} atualizadas",
+      "checked_one": "{{count}} lida",
+      "checked_other": "{{count}} lidas"
+    },
+    "changeGroup": {
+      "failed_one": "{{count}} falha",
+      "failed_other": "{{count}} falhas",
+      "not-found_one": "{{count}} não encontrada no Stripe",
+      "not-found_other": "{{count}} não encontradas no Stripe",
+      "unknown-status_one": "{{count}} com status desconhecido",
+      "unknown-status_other": "{{count}} com status desconhecido",
+      "cancelled_one": "{{count}} cancelada",
+      "cancelled_other": "{{count}} canceladas",
+      "line-unsubscribed_one": "{{count}} linha desassinada",
+      "line-unsubscribed_other": "{{count}} linhas desassinadas",
+      "updated_one": "{{count}} atualizada",
+      "updated_other": "{{count}} atualizadas"
+    },
+    "change": {
+      "gatewayId": "Id no Stripe",
+      "reason": "Motivo"
+    }
+  }
 }

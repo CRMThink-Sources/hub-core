@@ -638,3 +638,97 @@ describe('SyncSpaItemResourceStatus', () => {
     expect(mirrors.current()?.unsubscribedAt).toBe('2026-08-01T00:00:00.000Z')
   })
 })
+
+describe('SyncSpaItemResourceStatus — verificação de assinaturas', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const build = (args: {
+    item?: RawSubscriptionItem
+    mirror?: SpaItemResourceMirror | null
+    subscribeOutcome?: 'subscribed' | 'already-subscribed'
+  }) => {
+    const items = makeItems(args.item ?? rawItem())
+    const mirrors = makeMirrors(
+      args.mirror === undefined ? MIRROR : args.mirror,
+    )
+    const billing = makeBilling()
+    billing.subscribeResource.mockImplementation((() =>
+      Promise.resolve(args.subscribeOutcome ?? 'subscribed')) as never)
+    const parents = makeParents()
+    return {
+      useCase: new SyncSpaItemResourceStatus(
+        items.items,
+        mirrors.mirrors,
+        billing.billing,
+        parents.reader,
+      ),
+      mirrors,
+      billing,
+    }
+  }
+
+  it('quinto dia de vencimento desassina linha assinada, com a origem própria', async () => {
+    const { useCase, billing, mirrors } = build({
+      mirror: { ...MIRROR, subscribedAt: '2026-10-01T00:00:00.000Z' },
+    })
+
+    const result = await useCase.execute({
+      ...INPUT,
+      parentStatus: 'past_due',
+      mode: 'past-due-expired',
+    })
+
+    expect(result.outcome).toBe('unsubscribed')
+    expect(billing.unsubscribeResource).toHaveBeenCalledWith(
+      { provider: 'ZAPI', instanceId: 'inst-1', zApiToken: 'tok-1' },
+      { origin: 'subscription-past-due', propagate: true },
+    )
+    expect(mirrors.current()?.unsubscribedAt).toBeDefined()
+  })
+
+  it('não desassina de novo a linha que já tem a marca', async () => {
+    const { useCase, billing } = build({
+      mirror: { ...MIRROR, unsubscribedAt: '2026-11-08T00:00:00.000Z' },
+    })
+
+    const result = await useCase.execute({
+      ...INPUT,
+      parentStatus: 'past_due',
+      mode: 'past-due-expired',
+    })
+
+    expect(result.outcome).toBe('noop')
+    expect(billing.unsubscribeResource).not.toHaveBeenCalled()
+  })
+
+  it('reconciliação assina mesmo com a marca de assinado e registra "subscribed"', async () => {
+    const { useCase, billing } = build({
+      mirror: { ...MIRROR, subscribedAt: '2026-10-01T00:00:00.000Z' },
+    })
+
+    const result = await useCase.execute({
+      ...INPUT,
+      parentStatus: 'active',
+      mode: 'reconcile',
+    })
+
+    expect(result.outcome).toBe('subscribed')
+    expect(billing.subscribeResource).toHaveBeenCalledTimes(1)
+  })
+
+  it('reconciliação de linha já paga devolve "already-subscribed" e garante a marca', async () => {
+    const { useCase, mirrors } = build({
+      mirror: MIRROR,
+      subscribeOutcome: 'already-subscribed',
+    })
+
+    const result = await useCase.execute({
+      ...INPUT,
+      parentStatus: 'active',
+      mode: 'reconcile',
+    })
+
+    expect(result.outcome).toBe('already-subscribed')
+    expect(mirrors.current()?.subscribedAt).toBeDefined()
+  })
+})

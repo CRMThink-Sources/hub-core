@@ -64,6 +64,10 @@ export class PrismaPortalDomainReadRepository implements PortalDomainReadReposit
     return rows.map(toPortalDomainDetail)
   }
 
+  countAll(): Promise<number> {
+    return prisma.domain.count()
+  }
+
   async findById(id: string): Promise<PortalDomainDetail | null> {
     const row = await prisma.domain.findUnique({
       where: { id },

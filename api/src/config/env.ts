@@ -91,6 +91,36 @@ export function parseManualSubscriptionGraceDays(
   return 0
 }
 
+/**
+ * Hora local (0–23) a partir da qual a rodada agendada da verificação de assinaturas
+ * inclui a reconciliação diária das linhas. Inválido vira `3` com aviso.
+ */
+export function parseReconcileHour(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return 3
+  const hour = Number(raw)
+  if (Number.isInteger(hour) && hour >= 0 && hour <= 23) return hour
+  console.warn(
+    `[env] SUBSCRIPTION_RECONCILE_HOUR inválido (${JSON.stringify(raw)}) — usando 3`,
+  )
+  return 3
+}
+
+/**
+ * Liga a sincronização Stripe → SPA 1142. `true`/`false` valem explicitamente;
+ * ausente, liga só com efeitos de provider **e** chave live — homologação (chave de
+ * teste, provider desligado) fica desligada sem configurar nada, e não lê com a
+ * conta de teste as assinaturas de produção do portal compartilhado.
+ */
+export function parseStripeSyncEnabled(
+  raw: string | undefined,
+  providerEffects: boolean,
+  stripeEnvironment: StripeEnvironment,
+): boolean {
+  if (raw === 'true') return true
+  if (raw === 'false') return false
+  return providerEffects && stripeEnvironment === 'production'
+}
+
 const providerEffectsEnabled =
   process.env.THINKZAP_SPA_PROVIDER_EFFECTS_ENABLED !== 'false'
 
@@ -404,6 +434,12 @@ export const env = {
       manualGraceDays: parseManualSubscriptionGraceDays(
         process.env.MANUAL_SUBSCRIPTION_GRACE_DAYS,
       ),
+      /** Janela diária da reconciliação das linhas: hora e fuso do negócio. */
+      reconcileHour: parseReconcileHour(
+        process.env.SUBSCRIPTION_RECONCILE_HOUR,
+      ),
+      reconcileTimeZone:
+        process.env.SUBSCRIPTION_RECONCILE_TIMEZONE ?? 'America/Sao_Paulo',
     },
     // Item de plano na SPA 1138 que as assinaturas de trial referenciam. É configuração,
     // não dado de runtime: `PlanRepository` é só leitura, e `getPlan` lança quando o item
@@ -422,6 +458,14 @@ export const env = {
        * price id da SPA de planos vale (ver `resolveStripeEnvironment`).
        */
       environment: resolveStripeEnvironment(process.env.STRIPE_SECRET_KEY),
+    },
+    /** Job horário (:30) que reconcilia status e período das assinaturas Stripe da SPA 1142. */
+    stripeSync: {
+      enabled: parseStripeSyncEnabled(
+        process.env.STRIPE_SYNC_ENABLED,
+        providerEffectsEnabled,
+        resolveStripeEnvironment(process.env.STRIPE_SECRET_KEY),
+      ),
     },
   },
   // `jwtSecret` é dedicado, distinto de JWT_SECRET: o token do portal é assinado sem

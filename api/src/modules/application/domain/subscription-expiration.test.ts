@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveExpiredSubscriptionStatus } from './subscription-expiration'
+import {
+  resolveExpiredSubscriptionStatus,
+  resolvePastDueAction,
+} from './subscription-expiration'
 
 /** Fim do período como o mapper ancora: último instante do dia, em UTC. */
 const endOf = (day: string) => new Date(`${day}T23:59:59.999Z`)
@@ -115,4 +118,63 @@ describe('resolveExpiredSubscriptionStatus', () => {
       ).toBeNull()
     },
   )
+})
+
+describe('resolvePastDueAction', () => {
+  /** "Vencido em" como o mapper ancora: início do dia, em UTC. */
+  const dayOf = (day: string) => new Date(`${day}T00:00:00.000Z`)
+  const pastDue = (pastDueAt: Date | null) => ({
+    status: 'past_due' as const,
+    modality: 'manual' as const,
+    pastDueAt,
+  })
+  const vencidaEm0311 = pastDue(dayOf('2026-11-03'))
+
+  it('manual vencida sem data recebe a data', () => {
+    expect(
+      resolvePastDueAction(pastDue(null), at('2026-11-03T14:00:00Z')),
+    ).toBe('stamp')
+  })
+
+  it('quarto dia não faz nada', () => {
+    expect(
+      resolvePastDueAction(vencidaEm0311, at('2026-11-07T23:00:00Z')),
+    ).toBeNull()
+  })
+
+  it('quinto dia desassina as linhas', () => {
+    expect(
+      resolvePastDueAction(vencidaEm0311, at('2026-11-08T00:10:00Z')),
+    ).toBe('unsubscribe-lines')
+  })
+
+  it('entre o quinto e o décimo dia continua pedindo a desassinatura', () => {
+    expect(
+      resolvePastDueAction(vencidaEm0311, at('2026-11-12T12:00:00Z')),
+    ).toBe('unsubscribe-lines')
+  })
+
+  it('décimo dia cancela', () => {
+    expect(
+      resolvePastDueAction(vencidaEm0311, at('2026-11-13T08:00:00Z')),
+    ).toBe('cancel')
+  })
+
+  it('Stripe vencida não entra', () => {
+    expect(
+      resolvePastDueAction(
+        { ...vencidaEm0311, modality: 'stripe' },
+        at('2026-11-20T08:00:00Z'),
+      ),
+    ).toBeNull()
+  })
+
+  it('outro status não entra', () => {
+    expect(
+      resolvePastDueAction(
+        { ...vencidaEm0311, status: 'trial_expired' },
+        at('2026-12-20T08:00:00Z'),
+      ),
+    ).toBeNull()
+  })
 })

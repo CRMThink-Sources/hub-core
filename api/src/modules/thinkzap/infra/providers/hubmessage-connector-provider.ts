@@ -5,6 +5,7 @@ import {
   ConnectorStatusRef,
   ProvisionConnectorInput,
   ProvisionedConnectorResource,
+  SubscribeOutcome,
   WhatsAppConnectorProvider,
 } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
 import { HubMessageClient } from '@/modules/thinkzap/infra/clients/hubmessage.client'
@@ -84,8 +85,8 @@ export class HubMessageConnectorProvider implements WhatsAppConnectorProvider {
     }
   }
 
-  async subscribe(ref: ConnectorResourceRef): Promise<void> {
-    await this.client.subscribeChannel(this.requireChannelId(ref))
+  subscribe(ref: ConnectorResourceRef): Promise<SubscribeOutcome> {
+    return this.client.subscribeChannel(this.requireChannelId(ref))
   }
 
   async unsubscribe(ref: ConnectorResourceRef, reason?: string): Promise<void> {

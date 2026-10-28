@@ -71,7 +71,7 @@ describe('StartManualSubscriptionExpiration', () => {
     })
 
     await flush()
-    expect(service.complete).toHaveBeenCalledWith('run-1')
+    expect(service.complete).toHaveBeenCalledWith('run-1', { reconcile: true })
     expect(lock.release).toHaveBeenCalledWith('tok')
   })
 

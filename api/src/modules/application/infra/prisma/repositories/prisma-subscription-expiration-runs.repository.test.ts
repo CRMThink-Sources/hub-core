@@ -14,6 +14,12 @@ const runRow = (overrides: Record<string, unknown> = {}) => ({
   trialExpired: 1,
   pastDue: 1,
   failed: 1,
+  linesUnsubscribed: 0,
+  cancelled: 0,
+  linesChecked: 0,
+  linesSubscribed: 0,
+  reconciliation: false,
+  providerStepsSkipped: false,
   paused: false,
   error: null,
   triggeredBy: { id: 'user-1', name: 'Ana' },
@@ -73,9 +79,16 @@ describe('PrismaSubscriptionExpirationRunRepository', () => {
         trialExpired: 0,
         pastDue: 1,
         failed: 1,
+        linesUnsubscribed: 2,
+        cancelled: 1,
+        linesChecked: 40,
+        linesSubscribed: 1,
+        reconciliation: true,
+        providerStepsSkipped: false,
         paused: false,
         changes: [
           {
+            kind: 'status',
             subscriptionId: '501',
             from: 'active',
             to: 'past_due',
@@ -83,12 +96,23 @@ describe('PrismaSubscriptionExpirationRunRepository', () => {
             succeeded: true,
           },
           {
+            kind: 'status',
             subscriptionId: '502',
             from: 'active',
             to: 'past_due',
             periodEnd,
             succeeded: false,
             error: 'bitrix fora',
+          },
+          {
+            kind: 'line-unsubscribed',
+            subscriptionId: '503',
+            itemId: '9001',
+            provider: 'ZAPI',
+            from: null,
+            to: null,
+            periodEnd,
+            succeeded: true,
           },
         ],
       },
@@ -110,6 +134,14 @@ describe('PrismaSubscriptionExpirationRunRepository', () => {
           succeeded: false,
           error: 'bitrix fora',
         }),
+        expect.objectContaining({
+          kind: 'line-unsubscribed',
+          subscriptionId: '503',
+          itemId: '9001',
+          provider: 'ZAPI',
+          fromStatus: null,
+          toStatus: null,
+        }),
       ],
     })
     const expectedCounters: unknown = expect.objectContaining({
@@ -117,6 +149,12 @@ describe('PrismaSubscriptionExpirationRunRepository', () => {
       finishedAt,
       pastDue: 1,
       failed: 1,
+      linesUnsubscribed: 2,
+      cancelled: 1,
+      linesChecked: 40,
+      linesSubscribed: 1,
+      reconciliation: true,
+      providerStepsSkipped: false,
     })
     expect(run.update).toHaveBeenCalledWith({
       where: { id: 'run-1' },
@@ -142,7 +180,7 @@ describe('PrismaSubscriptionExpirationRunRepository', () => {
       orderBy: { startedAt: 'desc' },
       where: { trigger: 'SCHEDULED' },
     })
-    expect(args.where.OR).toHaveLength(4)
+    expect(args.where.OR).toHaveLength(7)
     expect(run.count).toHaveBeenCalledWith({ where: args.where })
     expect(result.total).toBe(1)
     expect(result.runs[0]).toMatchObject({
@@ -174,10 +212,24 @@ describe('PrismaSubscriptionExpirationRunRepository', () => {
       ...runRow(),
       changes: [
         {
+          kind: 'status',
           subscriptionId: '501',
+          itemId: null,
+          provider: null,
           fromStatus: 'trialing',
           toStatus: 'trial_expired',
           periodEnd: new Date('2026-10-12T23:59:59.999Z'),
+          succeeded: true,
+          error: null,
+        },
+        {
+          kind: 'line-subscribed',
+          subscriptionId: '777',
+          itemId: '9003',
+          provider: 'HUBMESSAGE',
+          fromStatus: null,
+          toStatus: null,
+          periodEnd: null,
           succeeded: true,
           error: null,
         },
@@ -188,13 +240,49 @@ describe('PrismaSubscriptionExpirationRunRepository', () => {
 
     expect(detail?.changes).toEqual([
       {
+        kind: 'status',
         subscriptionId: '501',
         from: 'trialing',
         to: 'trial_expired',
         periodEnd: new Date('2026-10-12T23:59:59.999Z'),
         succeeded: true,
       },
+      {
+        kind: 'line-subscribed',
+        subscriptionId: '777',
+        itemId: '9003',
+        provider: 'HUBMESSAGE',
+        from: null,
+        to: null,
+        periodEnd: null,
+        succeeded: true,
+      },
     ])
+  })
+
+  it('hasReconciliationSince conta rodadas com reconciliação desde a data', async () => {
+    const { repo, run } = makePrisma()
+    const since = new Date('2026-10-28T03:00:00Z')
+    run.count.mockResolvedValueOnce(0)
+
+    await expect(repo.hasReconciliationSince(since)).resolves.toBe(false)
+    expect(run.count).toHaveBeenCalledWith({
+      where: { reconciliation: true, startedAt: { gte: since } },
+    })
+  })
+
+  it('rodada antiga (antes da verificação) lê os contadores novos em zero', async () => {
+    const { repo, run } = makePrisma()
+    run.findMany.mockResolvedValue([runRow()])
+
+    const { runs } = await repo.list({ page: 1, limit: 20 })
+
+    expect(runs[0]).toMatchObject({
+      linesUnsubscribed: 0,
+      cancelled: 0,
+      linesSubscribed: 0,
+      reconciliation: false,
+    })
   })
 
   it('deleteStartedBefore apaga por startedAt (changes em cascata no banco)', async () => {

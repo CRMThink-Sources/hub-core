@@ -26,6 +26,7 @@ const domainWith = (apps: ReturnType<typeof app>[]) => ({
 const repository = (domains: unknown[]): PortalDomainReadRepository => ({
   listAll: vi.fn().mockResolvedValue(domains),
   findById: vi.fn(),
+  countAll: vi.fn(),
 })
 
 describe('ListPortalDomains', () => {

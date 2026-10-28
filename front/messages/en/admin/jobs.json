@@ -1,16 +1,16 @@
 {
   "title": "Jobs",
-  "description": "History of the subscription expiration sweep (SPA 1142), which runs every hour.",
-  "notCancelNotice": "The sweep does not cancel subscriptions. It only moves \"Trialing\" to \"Trial expired\" and manual \"Active\" to \"Past due\" when the period ends.",
+  "description": "Scheduled portal routines and the health of each one.",
+  "notCancelNotice": "Past due manual subscriptions: lines are unsubscribed on Z-API/HubMessage on day 5 of \"Past due\" and the subscription is cancelled on day 10. Expired trials only move to \"Trial expired\".",
   "runNow": "Run now",
   "refresh": "Refresh",
-  "confirmTitle": "Run the sweep now?",
-  "confirmDescription": "Every SPA 1142 subscription whose period has ended will have its status written to the CRM, just like the scheduled run.",
+  "confirmTitle": "Run the check now?",
+  "confirmDescription": "The run expires trials and manual subscriptions whose period ended, unsubscribes lines of manual subscriptions past due for 5 days, cancels those past due for 10 and reconciles active lines on the provider.",
   "confirm": "Run now",
   "cancel": "Cancel",
   "startedToast": "Run started.",
   "busyToast": "A run is already in progress. Try again shortly.",
-  "disabledToast": "The sweep is disabled in this environment.",
+  "disabledToast": "The check is turned off in this environment.",
   "startErrorToast": "Could not start the run.",
   "filterOnlyWithChanges": "Only with changes or failures",
   "filterTrigger": "Trigger",
@@ -35,12 +35,18 @@
     "checked": "Checked",
     "trialExpired": "Trials expired",
     "pastDue": "Past due",
-    "failed": "Failures"
+    "failed": "Failures",
+    "subscriptions": "Subscriptions",
+    "lines": "Lines",
+    "cancelled": "Cancelled",
+    "linesUnsubscribed": "Lines unsubscribed",
+    "linesSubscribed": "Lines subscribed",
+    "linesChecked": "Lines checked"
   },
   "system": "System",
   "durationSeconds": "{{value}} s",
   "detailTitle": "Run of {{date}}",
-  "detailEmpty": "No subscription was changed in this run.",
+  "detailEmpty": "No changes in this run.",
   "detailError": "Run error: {{error}}",
   "change": {
     "subscription": "Subscription",
@@ -49,7 +55,14 @@
     "result": "Result",
     "succeeded": "Written",
     "failed": "Failed",
-    "openCrm": "Open in CRM"
+    "openCrm": "Open in CRM",
+    "line": "Line",
+    "provider": "Provider",
+    "succeededBy": {
+      "status": "Written",
+      "line-unsubscribed": "Unsubscribed",
+      "line-subscribed": "Subscribed"
+    }
   },
   "subscriptionStatus": {
     "active": "Active",
@@ -66,5 +79,120 @@
   "retry": "Try again",
   "page": "Page {{current}} of {{total}}",
   "previous": "Previous",
-  "next": "Next"
+  "next": "Next",
+  "jobs": {
+    "expiracao-assinaturas": {
+      "name": "Subscription check",
+      "description": "Expires trials and manual subscriptions, unsubscribes lines of manual subscriptions past due for 5 days, cancels on day 10 and reconciles active lines once a day.",
+      "schedule": "Every hour · daily reconciliation",
+      "pageDescription": "History of the subscription check (SPA 1142): runs every hour and reconciles active lines once a day."
+    },
+    "sincronizacao-stripe": {
+      "name": "Stripe sync",
+      "description": "Applies Stripe subscription status and period to SPA 1142; cancelled in Stripe cancels and unsubscribes the lines.",
+      "schedule": "Every hour (minute 30)",
+      "pageDescription": "History of the Stripe → SPA 1142 sync: fixes what the Stripe webhook did not apply."
+    }
+  },
+  "health": {
+    "no-runs": "No runs",
+    "running": "Running",
+    "failing": "Failing",
+    "late": "Late",
+    "attention": "Needs attention",
+    "healthy": "Healthy",
+    "sectionLabel": "Job health"
+  },
+  "strip": {
+    "label": "Last {{count}} runs: {{failures}} failed, {{warnings}} need attention",
+    "caption": "Last {{count}} runs",
+    "tone": {
+      "success": "Completed",
+      "warning": "Completed with failures",
+      "danger": "Failed",
+      "info": "Running",
+      "neutral": "No data"
+    }
+  },
+  "catalog": {
+    "lastRun": "Last run",
+    "lastRunNever": "Has not run yet",
+    "unavailable": "Could not load the runs of this job.",
+    "viewRuns": "View runs",
+    "count": "{{count}} job",
+    "count_other": "{{count}} jobs"
+  },
+  "notFound": {
+    "title": "Job not found",
+    "description": "There is no job at \"{{id}}\".",
+    "back": "Back to Jobs"
+  },
+  "detailProviderSkipped": "Provider effects are off in this environment: the run wrote statuses and dates, but did not unsubscribe or reconcile lines.",
+  "count": {
+    "trialExpired_one": "{{count}} trial expired",
+    "trialExpired_other": "{{count}} trials expired",
+    "pastDue_one": "{{count}} past due",
+    "pastDue_other": "{{count}} past due",
+    "cancelled_one": "{{count}} cancelled",
+    "cancelled_other": "{{count}} cancelled",
+    "linesUnsubscribed_one": "{{count}} unsubscribed",
+    "linesUnsubscribed_other": "{{count}} unsubscribed",
+    "linesSubscribed_one": "{{count}} subscribed",
+    "linesSubscribed_other": "{{count}} subscribed",
+    "linesChecked_one": "{{count}} checked",
+    "linesChecked_other": "{{count}} checked"
+  },
+  "tags": {
+    "reconciliation": "Reconciliation",
+    "providerSkipped": "Provider off"
+  },
+  "changeGroup": {
+    "status_one": "{{count}} status change",
+    "status_other": "{{count}} status changes",
+    "line-unsubscribed_one": "{{count}} line unsubscribed (day 5)",
+    "line-unsubscribed_other": "{{count}} lines unsubscribed (day 5)",
+    "line-subscribed_one": "{{count}} line subscribed by reconciliation",
+    "line-subscribed_other": "{{count}} lines subscribed by reconciliation"
+  },
+  "provider": {
+    "ZAPI": "Z-API",
+    "HUBMESSAGE": "HubMessage"
+  },
+  "stripeSync": {
+    "notice": "Only subscriptions of the environment of the Stripe key in use are read (empty environment counts as production). A subscription not found in Stripe is not changed: it shows up here for review.",
+    "confirmTitle": "Run the sync now?",
+    "confirmDescription": "Each Stripe subscription in SPA 1142 is read in Stripe. Status and period divergences are fixed; those cancelled in Stripe are cancelled in the SPA and have their lines unsubscribed.",
+    "disabledToast": "The Stripe sync is turned off in this environment.",
+    "detailEmpty": "Everything was already in sync in this run.",
+    "table": {
+      "checked": "Read in Stripe",
+      "skipped": "Skipped (other environment)",
+      "updated": "Updated",
+      "notFound": "Not found"
+    },
+    "count": {
+      "updated_one": "{{count}} updated",
+      "updated_other": "{{count}} updated",
+      "checked_one": "{{count}} read",
+      "checked_other": "{{count}} read"
+    },
+    "changeGroup": {
+      "failed_one": "{{count}} failure",
+      "failed_other": "{{count}} failures",
+      "not-found_one": "{{count}} not found in Stripe",
+      "not-found_other": "{{count}} not found in Stripe",
+      "unknown-status_one": "{{count}} with unknown status",
+      "unknown-status_other": "{{count}} with unknown status",
+      "cancelled_one": "{{count}} cancelled",
+      "cancelled_other": "{{count}} cancelled",
+      "line-unsubscribed_one": "{{count}} line unsubscribed",
+      "line-unsubscribed_other": "{{count}} lines unsubscribed",
+      "updated_one": "{{count}} updated",
+      "updated_other": "{{count}} updated"
+    },
+    "change": {
+      "gatewayId": "Stripe id",
+      "reason": "Reason"
+    }
+  }
 }

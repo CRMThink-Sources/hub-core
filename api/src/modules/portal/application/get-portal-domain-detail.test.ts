@@ -35,6 +35,7 @@ const SUBSCRIPTION = {
 const repository = (domain: unknown): PortalDomainReadRepository => ({
   listAll: vi.fn(),
   findById: vi.fn().mockResolvedValue(domain),
+  countAll: vi.fn(),
 })
 
 const hydration = (overrides: Record<string, unknown> = {}) =>

@@ -6,14 +6,43 @@
   "navMcpUsers": "MCP Users",
   "navJobs": "Jobs",
   "navOutboxFailures": "Send failures",
-  "greeting": "Hello, {{name}}",
-  "description": "Manage Hubthink clients, applications, and settings.",
-  "clientsCardDescription": "Browse Bitrix24 portals and installed applications per domain.",
-  "clientsCardAction": "View clients",
-  "comingSoonTitle": "Coming soon",
-  "comingSoonDescription": "The sections below will be available in upcoming phases:",
-  "featureClients": "Clients (Bitrix24 domains)",
-  "featureApps": "Installed applications",
-  "featureSubscriptions": "Subscriptions and settings",
-  "logout": "Sign out"
+  "logout": "Sign out",
+  "navLabel": "Portal navigation",
+  "navGroupOperations": "Operations",
+  "openMenu": "Open menu",
+  "menuTitle": "Menu",
+  "userMenu": "User menu",
+  "greetingMorning": "Good morning, {{name}}",
+  "greetingAfternoon": "Good afternoon, {{name}}",
+  "greetingEvening": "Good evening, {{name}}",
+  "attentionCount_one": "{{count}} item needs attention",
+  "attentionCount_other": "{{count}} items need attention",
+  "allClearShort": "All clear",
+  "kpi": {
+    "label": "Key figures",
+    "clients": "Clients",
+    "clientsHint": "Bitrix24 domains",
+    "active": "Active subscriptions",
+    "pastDue": "Past due",
+    "pastDueHint": "Lines blocked in the app",
+    "trialing": "In trial",
+    "unavailable": "Unavailable",
+    "countedAt": "Subscriptions counted in the CRM {{when}}",
+    "subscriptionsUnavailable": "Could not count the subscriptions in the CRM right now."
+  },
+  "jobsPanel": {
+    "title": "Job health",
+    "viewAll": "View jobs",
+    "unavailable": "Could not load the runs.",
+    "neverRan": "Has not run yet"
+  },
+  "attention": {
+    "title": "Needs attention",
+    "outboxFailures_one": "{{count}} send failure in the last 7 days",
+    "outboxFailures_other": "{{count}} send failures in the last 7 days",
+    "outboxUnavailable": "Could not check the send failures.",
+    "allClear": "No send failures in the last 7 days and no job with problems.",
+    "checking": "Checking…"
+  },
+  "retry": "Try again"
 }

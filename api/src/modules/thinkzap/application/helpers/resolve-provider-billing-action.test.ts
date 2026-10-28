@@ -187,3 +187,88 @@ describe('resolveProviderBillingAction', () => {
     })
   })
 })
+
+describe('resolveProviderBillingAction — verificação de assinaturas', () => {
+  describe('past-due-expired', () => {
+    it('desassina linha ativa assinada de pai vencido', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'active',
+          parentStatus: 'past_due',
+          mirror: SUBSCRIBED,
+          mode: 'past-due-expired',
+        }),
+      ).toEqual({ action: 'unsubscribe', reason: 'parent-past-due-expired' })
+    })
+
+    it('desassina linha sem marca nenhuma', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'cancelled',
+          parentStatus: 'past_due',
+          mirror: null,
+          mode: 'past-due-expired',
+        }),
+      ).toEqual({ action: 'unsubscribe', reason: 'parent-past-due-expired' })
+    })
+
+    it('não repete o que já tem a marca de desassinado', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'active',
+          parentStatus: 'past_due',
+          mirror: UNSUBSCRIBED,
+          mode: 'past-due-expired',
+        }),
+      ).toEqual({ action: 'noop', reason: 'in-sync' })
+    })
+  })
+
+  describe('reconcile', () => {
+    it('assina linha ativa de pai ativo mesmo com a marca de assinado', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'active',
+          parentStatus: 'active',
+          mirror: SUBSCRIBED,
+          mode: 'reconcile',
+        }),
+      ).toEqual({ action: 'subscribe' })
+    })
+
+    it('não assina linha cancelada', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'cancelled',
+          parentStatus: 'active',
+          mirror: null,
+          mode: 'reconcile',
+        }),
+      ).toEqual({ action: 'noop', reason: 'in-sync' })
+    })
+
+    it.each(['past_due', 'cancelled', 'trialing', 'trial_expired'] as const)(
+      'não assina sob pai %s',
+      parentStatus => {
+        expect(
+          resolveProviderBillingAction({
+            itemStatus: 'active',
+            parentStatus,
+            mirror: null,
+            mode: 'reconcile',
+          }),
+        ).toMatchObject({ action: 'noop' })
+      },
+    )
+  })
+
+  it('sem mode, vale a regra de evento', () => {
+    expect(
+      resolveProviderBillingAction({
+        itemStatus: 'active',
+        parentStatus: 'past_due',
+        mirror: SUBSCRIBED,
+      }),
+    ).toEqual({ action: 'noop', reason: 'in-sync' })
+  })
+})

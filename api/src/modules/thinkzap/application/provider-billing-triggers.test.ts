@@ -25,7 +25,12 @@ const BILLING_MODULE = 'provider-resource-billing.ts'
 
 /** Gatilhos autorizados. */
 const AUTHORIZED_CALLERS = new Set([
-  'handle-gateway-webhook-event.ts',
+  /**
+   * A aplicação do estado do gateway na SPA, extraída do handler de eventos do
+   * gateway. O handler e a sincronização Stripe a usam com o estado do Stripe — a
+   * mesma cadeia: cancelamento no gateway desassina as linhas.
+   */
+  'apply-gateway-subscription-state.ts',
   // A ativação chama `subscribe` — e é a mesma cadeia: ela só roda a partir do
   // `checkout.session.completed`.
   'activate-line-subscription.ts',

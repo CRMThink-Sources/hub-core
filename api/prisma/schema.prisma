@@ -816,6 +816,7 @@ model PortalUser {
   updatedAt    DateTime       @updatedAt @map("updated_at")
 
   subscriptionExpirationRuns SubscriptionExpirationRun[]
+  stripeSyncRuns             StripeSyncRun[]
 
   @@map("portal_users")
 }
@@ -850,6 +851,17 @@ model SubscriptionExpirationRun {
   trialExpired            Int                             @default(0) @map("trial_expired")
   pastDue                 Int                             @default(0) @map("past_due")
   failed                  Int                             @default(0)
+  /// Verificação de assinaturas: linhas desassinadas no 5º dia de vencimento.
+  linesUnsubscribed       Int                             @default(0) @map("lines_unsubscribed")
+  /// Assinaturas manuais canceladas no 10º dia de vencimento.
+  cancelled               Int                             @default(0)
+  /// Linhas verificadas pela reconciliação diária.
+  linesChecked            Int                             @default(0) @map("lines_checked")
+  /// Linhas que a reconciliação encontrou sem assinatura e assinou.
+  linesSubscribed         Int                             @default(0) @map("lines_subscribed")
+  reconciliation          Boolean                         @default(false)
+  /// Etapas de provider puladas porque os efeitos de provider estão desligados no ambiente.
+  providerStepsSkipped    Boolean                         @default(false) @map("provider_steps_skipped")
   paused                  Boolean                         @default(false)
   error                   String?                         @db.Text
 
@@ -864,19 +876,77 @@ model SubscriptionExpirationRun {
 /// Status em texto, não enum: são valores do domínio da SPA, e um status novo
 /// não deve exigir migration.
 model SubscriptionExpirationChange {
-  id             String   @id @default(uuid())
-  runId          String   @map("run_id")
-  subscriptionId String   @map("subscription_id")
-  fromStatus     String   @map("from_status")
-  toStatus       String   @map("to_status")
-  periodEnd      DateTime @map("period_end")
+  id             String    @id @default(uuid())
+  runId          String    @map("run_id")
+  /// `status`, `line-unsubscribed` ou `line-subscribed`.
+  kind           String    @default("status")
+  subscriptionId String    @map("subscription_id")
+  /// Item da SPA 1146, nas ações de linha.
+  itemId         String?   @map("item_id")
+  /// `ZAPI` ou `HUBMESSAGE`, nas ações de linha.
+  provider       String?
+  fromStatus     String?   @map("from_status")
+  toStatus       String?   @map("to_status")
+  periodEnd      DateTime? @map("period_end")
   succeeded      Boolean
-  error          String?  @db.Text
+  error          String?   @db.Text
 
   run SubscriptionExpirationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([runId])
   @@map("core_subscription_expiration_changes")
+}
+
+/// Rodadas da sincronização Stripe → SPA 1142 (job horário no :30 e "Rodar agora").
+/// Reusa os enums da verificação de assinaturas: gatilho e resultado são os mesmos.
+model StripeSyncRun {
+  id                      String                          @id @default(uuid())
+  trigger                 SubscriptionExpirationTrigger
+  triggeredByPortalUserId String?                         @map("triggered_by_portal_user_id")
+  status                  SubscriptionExpirationRunStatus @default(RUNNING)
+  startedAt               DateTime                        @default(now()) @map("started_at")
+  finishedAt              DateTime?                       @map("finished_at")
+  /// Ids do gateway lidos no Stripe.
+  checked                 Int                             @default(0)
+  /// Assinaturas puladas: de outro ambiente Stripe ou sem id do gateway.
+  skipped                 Int                             @default(0)
+  updated                 Int                             @default(0)
+  cancelled               Int                             @default(0)
+  linesUnsubscribed       Int                             @default(0) @map("lines_unsubscribed")
+  notFound                Int                             @default(0) @map("not_found")
+  failed                  Int                             @default(0)
+  paused                  Boolean                         @default(false)
+  error                   String?                         @db.Text
+
+  triggeredBy PortalUser?        @relation(fields: [triggeredByPortalUserId], references: [id], onDelete: SetNull)
+  changes     StripeSyncChange[]
+
+  @@index([startedAt])
+  @@index([triggeredByPortalUserId])
+  @@map("core_stripe_sync_runs")
+}
+
+/// Uma ação da sincronização numa assinatura da SPA (ou linha dela). `kind`:
+/// `updated`, `cancelled`, `line-unsubscribed`, `not-found`, `unknown-status`, `failed`.
+model StripeSyncChange {
+  id             String    @id @default(uuid())
+  runId          String    @map("run_id")
+  kind           String
+  subscriptionId String    @map("subscription_id")
+  gatewayId      String    @map("gateway_id")
+  itemId         String?   @map("item_id")
+  provider       String?
+  fromStatus     String?   @map("from_status")
+  toStatus       String?   @map("to_status")
+  fromPeriodEnd  DateTime? @map("from_period_end")
+  toPeriodEnd    DateTime? @map("to_period_end")
+  succeeded      Boolean
+  error          String?   @db.Text
+
+  run StripeSyncRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@map("core_stripe_sync_changes")
 }
 
 // ============================================

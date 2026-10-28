@@ -35,6 +35,11 @@ export interface SubscriptionExpirationRunRepository {
     input: ListSubscriptionExpirationRunsInput,
   ): Promise<{ runs: SubscriptionExpirationRun[]; total: number }>
   findById(id: string): Promise<SubscriptionExpirationRunDetail | null>
+  /**
+   * Existe rodada com reconciliação iniciada a partir de `since`? A janela diária
+   * pergunta isto para não reconciliar duas vezes no mesmo dia.
+   */
+  hasReconciliationSince(since: Date): Promise<boolean>
   /** Apaga as rodadas iniciadas antes de `date`; as changes vão em cascata. */
   deleteStartedBefore(date: Date): Promise<number>
 }

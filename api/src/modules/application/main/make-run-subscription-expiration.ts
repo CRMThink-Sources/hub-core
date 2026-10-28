@@ -15,6 +15,11 @@ export const makeRunSubscriptionExpiration = (): RunSubscriptionExpiration =>
   new RunSubscriptionExpiration(
     makeExpireSubscriptions(),
     makeSubscriptionExpirationRunRepository(),
+    () => new Date(),
+    {
+      hour: env.payments.expiration.reconcileHour,
+      timeZone: env.payments.expiration.reconcileTimeZone,
+    },
   )
 
 /** "Rodar agora" do backoffice: mesma varredura, mesmo lock, mesma flag. */

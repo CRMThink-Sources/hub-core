@@ -38,7 +38,15 @@ export interface CreateSubscriptionInput {
  */
 export type UpdateSubscriptionInput = Partial<
   Omit<CreateSubscriptionInput, 'aplicationSpaId'>
->
+> & {
+  /**
+   * "Vencido em" (`UF_CRM_91_PAST_DUE_AT`), dia de calendário. Só a verificação de
+   * assinaturas escreve: data ao vencer, `null` para limpar quando sai de `Vencido`.
+   */
+  pastDueAt?: Date | null
+  /** Data de cancelamento (`UF_CRM_91_CANCELED_AT`), gravada no cancelamento por vencimento. */
+  canceledAt?: Date
+}
 
 /**
  * Contrato único: leitura e escrita na mesma interface. Não há consumidor

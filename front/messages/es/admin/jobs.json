@@ -1,16 +1,16 @@
 {
   "title": "Jobs",
-  "description": "Historial del barrido de expiración de suscripciones (SPA 1142), que se ejecuta cada hora.",
-  "notCancelNotice": "El barrido no cancela suscripciones. Solo pasa \"En prueba\" a \"Prueba expirada\" y \"Activa\" manual a \"Vencida\" cuando termina el período.",
+  "description": "Rutinas automáticas del portal y la salud de cada una.",
+  "notCancelNotice": "Manual vencida: las líneas se dan de baja en Z-API/HubMessage el 5º día de \"Vencido\" y la suscripción se cancela el 10º. Las pruebas vencidas solo pasan a \"Prueba vencida\".",
   "runNow": "Ejecutar ahora",
   "refresh": "Actualizar",
-  "confirmTitle": "¿Ejecutar el barrido ahora?",
-  "confirmDescription": "Todas las suscripciones de la SPA 1142 con el período terminado tendrán su estado grabado en el CRM, igual que en la ejecución programada.",
+  "confirmTitle": "¿Ejecutar la verificación ahora?",
+  "confirmDescription": "La ejecución vence pruebas y manuales con período terminado, da de baja las líneas de manuales vencidas hace 5 días, cancela las vencidas hace 10 y concilia las líneas activas en el proveedor.",
   "confirm": "Ejecutar ahora",
   "cancel": "Cancelar",
   "startedToast": "Ejecución iniciada.",
   "busyToast": "Ya hay una ejecución en curso. Inténtalo de nuevo en unos instantes.",
-  "disabledToast": "El barrido está desactivado en este entorno.",
+  "disabledToast": "La verificación está desactivada en este entorno.",
   "startErrorToast": "No fue posible iniciar la ejecución.",
   "filterOnlyWithChanges": "Solo con cambios o fallos",
   "filterTrigger": "Disparador",
@@ -35,12 +35,18 @@
     "checked": "Verificadas",
     "trialExpired": "Pruebas expiradas",
     "pastDue": "Vencidas",
-    "failed": "Fallos"
+    "failed": "Fallos",
+    "subscriptions": "Suscripciones",
+    "lines": "Líneas",
+    "cancelled": "Canceladas",
+    "linesUnsubscribed": "Líneas dadas de baja",
+    "linesSubscribed": "Líneas suscritas",
+    "linesChecked": "Líneas verificadas"
   },
   "system": "Sistema",
   "durationSeconds": "{{value}} s",
   "detailTitle": "Ejecución del {{date}}",
-  "detailEmpty": "Ninguna suscripción fue modificada en esta ejecución.",
+  "detailEmpty": "Ningún cambio en esta ejecución.",
   "detailError": "Error de la ejecución: {{error}}",
   "change": {
     "subscription": "Suscripción",
@@ -49,7 +55,14 @@
     "result": "Resultado",
     "succeeded": "Grabado",
     "failed": "Falló",
-    "openCrm": "Abrir en el CRM"
+    "openCrm": "Abrir en el CRM",
+    "line": "Línea",
+    "provider": "Proveedor",
+    "succeededBy": {
+      "status": "Grabado",
+      "line-unsubscribed": "Dada de baja",
+      "line-subscribed": "Suscrita"
+    }
   },
   "subscriptionStatus": {
     "active": "Activa",
@@ -66,5 +79,120 @@
   "retry": "Intentar de nuevo",
   "page": "Página {{current}} de {{total}}",
   "previous": "Anterior",
-  "next": "Siguiente"
+  "next": "Siguiente",
+  "jobs": {
+    "expiracao-assinaturas": {
+      "name": "Verificación de suscripciones",
+      "description": "Vence pruebas y manuales, da de baja las líneas de manuales vencidas hace 5 días, cancela el día 10 y concilia las líneas activas una vez al día.",
+      "schedule": "Cada hora · conciliación diaria",
+      "pageDescription": "Historial de la verificación de suscripciones (SPA 1142): se ejecuta cada hora y concilia las líneas activas una vez al día."
+    },
+    "sincronizacao-stripe": {
+      "name": "Sincronización Stripe",
+      "description": "Aplica en la SPA 1142 el estado y el período de las suscripciones Stripe; cancelada en Stripe cancela y da de baja las líneas.",
+      "schedule": "Cada hora (minuto 30)",
+      "pageDescription": "Historial de la sincronización Stripe → SPA 1142: corrige lo que el webhook de Stripe no aplicó."
+    }
+  },
+  "health": {
+    "no-runs": "Sin ejecuciones",
+    "running": "En curso",
+    "failing": "Con fallo",
+    "late": "Atrasado",
+    "attention": "Atención",
+    "healthy": "Saludable",
+    "sectionLabel": "Salud del job"
+  },
+  "strip": {
+    "label": "Últimas {{count}} ejecuciones: {{failures}} con fallo, {{warnings}} con atención",
+    "caption": "Últimas {{count}} ejecuciones",
+    "tone": {
+      "success": "Completada",
+      "warning": "Completada con fallos",
+      "danger": "Falló",
+      "info": "En curso",
+      "neutral": "Sin datos"
+    }
+  },
+  "catalog": {
+    "lastRun": "Última ejecución",
+    "lastRunNever": "Aún no se ejecutó",
+    "unavailable": "No se pudieron cargar las ejecuciones de este job.",
+    "viewRuns": "Ver ejecuciones",
+    "count": "{{count}} job",
+    "count_other": "{{count}} jobs"
+  },
+  "notFound": {
+    "title": "Job no encontrado",
+    "description": "No existe un job en \"{{id}}\".",
+    "back": "Volver a Jobs"
+  },
+  "detailProviderSkipped": "Los efectos de proveedor están desactivados en este entorno: la ejecución grabó estados y fechas, pero no dio de baja ni concilió líneas.",
+  "count": {
+    "trialExpired_one": "{{count}} prueba vencida",
+    "trialExpired_other": "{{count}} pruebas vencidas",
+    "pastDue_one": "{{count}} vencida",
+    "pastDue_other": "{{count}} vencidas",
+    "cancelled_one": "{{count}} cancelada",
+    "cancelled_other": "{{count}} canceladas",
+    "linesUnsubscribed_one": "{{count}} dada de baja",
+    "linesUnsubscribed_other": "{{count}} dadas de baja",
+    "linesSubscribed_one": "{{count}} suscrita",
+    "linesSubscribed_other": "{{count}} suscritas",
+    "linesChecked_one": "{{count}} verificada",
+    "linesChecked_other": "{{count}} verificadas"
+  },
+  "tags": {
+    "reconciliation": "Conciliación",
+    "providerSkipped": "Proveedor desactivado"
+  },
+  "changeGroup": {
+    "status_one": "{{count}} cambio de estado",
+    "status_other": "{{count}} cambios de estado",
+    "line-unsubscribed_one": "{{count}} línea dada de baja (día 5)",
+    "line-unsubscribed_other": "{{count}} líneas dadas de baja (día 5)",
+    "line-subscribed_one": "{{count}} línea suscrita por la conciliación",
+    "line-subscribed_other": "{{count}} líneas suscritas por la conciliación"
+  },
+  "provider": {
+    "ZAPI": "Z-API",
+    "HUBMESSAGE": "HubMessage"
+  },
+  "stripeSync": {
+    "notice": "Solo entran suscripciones del entorno de la clave Stripe en uso (entorno vacío cuenta como producción). Una suscripción no encontrada en Stripe no se modifica: aparece aquí para revisión.",
+    "confirmTitle": "¿Ejecutar la sincronización ahora?",
+    "confirmDescription": "Cada suscripción Stripe de la SPA 1142 se lee en Stripe. Las divergencias de estado y período se corrigen; las canceladas en Stripe se cancelan en la SPA y sus líneas se dan de baja.",
+    "disabledToast": "La sincronización Stripe está desactivada en este entorno.",
+    "detailEmpty": "Todo ya estaba sincronizado en esta ejecución.",
+    "table": {
+      "checked": "Leídas en Stripe",
+      "skipped": "Omitidas (otro entorno)",
+      "updated": "Actualizadas",
+      "notFound": "No encontradas"
+    },
+    "count": {
+      "updated_one": "{{count}} actualizada",
+      "updated_other": "{{count}} actualizadas",
+      "checked_one": "{{count}} leída",
+      "checked_other": "{{count}} leídas"
+    },
+    "changeGroup": {
+      "failed_one": "{{count}} fallo",
+      "failed_other": "{{count}} fallos",
+      "not-found_one": "{{count}} no encontrada en Stripe",
+      "not-found_other": "{{count}} no encontradas en Stripe",
+      "unknown-status_one": "{{count}} con estado desconocido",
+      "unknown-status_other": "{{count}} con estado desconocido",
+      "cancelled_one": "{{count}} cancelada",
+      "cancelled_other": "{{count}} canceladas",
+      "line-unsubscribed_one": "{{count}} línea dada de baja",
+      "line-unsubscribed_other": "{{count}} líneas dadas de baja",
+      "updated_one": "{{count}} actualizada",
+      "updated_other": "{{count}} actualizadas"
+    },
+    "change": {
+      "gatewayId": "Id en Stripe",
+      "reason": "Motivo"
+    }
+  }
 }

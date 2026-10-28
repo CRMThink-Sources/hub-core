@@ -6,14 +6,43 @@
   "navMcpUsers": "Usuários MCP",
   "navJobs": "Jobs",
   "navOutboxFailures": "Falhas de envio",
-  "greeting": "Olá, {{name}}",
-  "description": "Gerencie clientes, aplicações e configurações do Hubthink.",
-  "clientsCardDescription": "Consulte portais Bitrix24 e as aplicações instaladas em cada domínio.",
-  "clientsCardAction": "Ver clientes",
-  "comingSoonTitle": "Em breve",
-  "comingSoonDescription": "As seções abaixo estarão disponíveis nas próximas fases:",
-  "featureClients": "Clientes (domínios Bitrix24)",
-  "featureApps": "Aplicações instaladas",
-  "featureSubscriptions": "Assinaturas e configurações",
-  "logout": "Sair"
+  "logout": "Sair",
+  "navLabel": "Navegação do portal",
+  "navGroupOperations": "Operação",
+  "openMenu": "Abrir menu",
+  "menuTitle": "Menu",
+  "userMenu": "Menu do usuário",
+  "greetingMorning": "Bom dia, {{name}}",
+  "greetingAfternoon": "Boa tarde, {{name}}",
+  "greetingEvening": "Boa noite, {{name}}",
+  "attentionCount_one": "{{count}} item precisa de atenção",
+  "attentionCount_other": "{{count}} itens precisam de atenção",
+  "allClearShort": "Tudo em dia",
+  "kpi": {
+    "label": "Indicadores",
+    "clients": "Clientes",
+    "clientsHint": "Domínios Bitrix24",
+    "active": "Assinaturas ativas",
+    "pastDue": "Vencidas",
+    "pastDueHint": "Linhas bloqueadas no app",
+    "trialing": "Em teste",
+    "unavailable": "Indisponível",
+    "countedAt": "Assinaturas contadas no CRM {{when}}",
+    "subscriptionsUnavailable": "Não foi possível contar as assinaturas no CRM agora."
+  },
+  "jobsPanel": {
+    "title": "Saúde dos jobs",
+    "viewAll": "Ver jobs",
+    "unavailable": "Não foi possível carregar as rodadas.",
+    "neverRan": "Ainda não rodou"
+  },
+  "attention": {
+    "title": "Precisa de atenção",
+    "outboxFailures_one": "{{count}} falha de envio nos últimos 7 dias",
+    "outboxFailures_other": "{{count}} falhas de envio nos últimos 7 dias",
+    "outboxUnavailable": "Não foi possível verificar as falhas de envio.",
+    "allClear": "Nenhuma falha de envio nos últimos 7 dias e nenhum job com problema.",
+    "checking": "Verificando…"
+  },
+  "retry": "Tentar novamente"
 }
