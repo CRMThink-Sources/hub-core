@@ -31,6 +31,8 @@ type Props = {
   /** Mostradas só depois da primeira tentativa de envio, para não gritar enquanto digita. */
   violations: TemplateButtonViolation[]
   onChange: (buttons: TemplateButton[]) => void
+  /** Falso quando o editor está num painel que já mostra o título. */
+  showHeader?: boolean
 }
 
 /**
@@ -43,6 +45,7 @@ export function TemplateButtonsEditor({
   category,
   violations,
   onChange,
+  showHeader = true,
 }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/templates')
 
@@ -64,17 +67,19 @@ export function TemplateButtonsEditor({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-1">
-        <Label>{t('form.botoes.titulo')}</Label>
-        <span className="text-xs text-muted-foreground">
-          {t('form.botoes.hint', { max: TEMPLATE_BUTTON_LIMITS.total })}
-        </span>
-      </div>
+      {showHeader && (
+        <div className="flex flex-col gap-1">
+          <Label>{t('form.botoes.titulo')}</Label>
+          <span className="text-xs text-muted-foreground">
+            {t('form.botoes.hint', { max: TEMPLATE_BUTTON_LIMITS.total })}
+          </span>
+        </div>
+      )}
 
       {buttons.map((button, index) => (
         <div
           key={index}
-          className="flex flex-col gap-2 rounded-md border border-border p-3"
+          className="flex flex-col gap-2 rounded-md bg-muted/60 p-3"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium">

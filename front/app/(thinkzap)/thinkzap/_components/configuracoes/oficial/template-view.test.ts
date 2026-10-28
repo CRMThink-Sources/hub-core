@@ -5,6 +5,8 @@ import {
   categoryLocked,
   EMPTY_FILTERS,
   filterTemplates,
+  firstMissingKey,
+  insertNextVariable,
   formInitialOf,
   hasActiveFilters,
   previewSegments,
@@ -150,5 +152,40 @@ describe('previewSegments', () => {
       { text: '{{1}}', variable: true },
       { text: ', sua oferta chegou', variable: false },
     ])
+  })
+})
+
+describe('insertNextVariable', () => {
+  it('insere {{1}} num texto sem variáveis, no cursor', () => {
+    expect(insertNextVariable('Olá !', 4)).toEqual({
+      text: 'Olá {{1}}!',
+      cursor: 9,
+    })
+  })
+
+  it('usa o maior número já usado mais um', () => {
+    expect(insertNextVariable('{{2}} e {{1}}', 13).text).toBe(
+      '{{2}} e {{1}}{{3}}',
+    )
+  })
+})
+
+describe('firstMissingKey', () => {
+  const ok = {
+    nameValid: true,
+    body: 'Oi',
+    examplesFilled: true,
+    headerViolation: null,
+  }
+
+  it('aponta o primeiro campo que falta, na ordem do formulário', () => {
+    expect(firstMissingKey({ ...ok, nameValid: false, body: '' })).toBe(
+      'form.pendente.nome',
+    )
+    expect(firstMissingKey({ ...ok, body: ' ' })).toBe('form.pendente.corpo')
+    expect(firstMissingKey({ ...ok, headerViolation: 'file_required' })).toBe(
+      'form.cabecalho.erros.file_required',
+    )
+    expect(firstMissingKey(ok)).toBeNull()
   })
 })

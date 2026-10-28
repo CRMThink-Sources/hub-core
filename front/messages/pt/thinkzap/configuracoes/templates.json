@@ -104,7 +104,24 @@
     "secaoMensagem": "Mensagem",
     "nomeTravado": "O nome não pode ser alterado depois de criado.",
     "categoriaTravada": "A categoria de um template aprovado não pode ser alterada.",
-    "salvarEdicao": "Salvar e enviar para análise"
+    "salvarEdicao": "Salvar e enviar para análise",
+    "secaoIdentificacaoDesc": "Como o template aparece na lista e para que a Meta o usa.",
+    "secaoCabecalhoDesc": "Uma imagem no topo da mensagem, comum em campanhas.",
+    "secaoMensagemDesc": "O texto que o contato lê. As variáveis são preenchidas em cada envio.",
+    "categoriaDesc": {
+      "MARKETING": "Promoções, ofertas e novidades.",
+      "UTILITY": "Pedido, cobrança e avisos de conta.",
+      "AUTHENTICATION": "Códigos de acesso e verificação."
+    },
+    "inserirVariavel": "Inserir variável",
+    "verPrevia": "Ver prévia da mensagem",
+    "esconderPrevia": "Esconder prévia",
+    "pronto": "Tudo certo para enviar.",
+    "pendente": {
+      "nome": "Falta o nome do template, em snake_case.",
+      "corpo": "Falta o texto da mensagem.",
+      "exemplos": "Falta um exemplo para cada variável."
+    }
   },
   "campanha": {
     "titulo": "Campanha de SMS do Bitrix24",
