@@ -29,13 +29,6 @@ type NameSaveState =
   | { kind: 'saved' }
   | { kind: 'error'; message: string }
 
-type SubscriptionState =
-  | { kind: 'idle' }
-  | { kind: 'confirming'; action: 'subscribe' | 'unsubscribe' }
-  | { kind: 'loading' }
-  | { kind: 'success'; message: string }
-  | { kind: 'error'; message: string }
-
 type Props = {
   appId: string
   instance: ThinkzapInstanceItem
@@ -55,17 +48,15 @@ export function AdminInstanceConfigModal({
   const [reactivateState, setReactivateState] = useState<ReactivateState>({
     kind: 'idle',
   })
-  const [subscriptionState, setSubscriptionState] = useState<SubscriptionState>(
-    { kind: 'idle' },
-  )
   const [localInstance, setLocalInstance] =
     useState<ThinkzapInstanceItem>(instance)
 
   /**
-   * As quatro ações são keyed pelo **item de assinatura**, como os event binds já eram.
+   * As ações são keyed pelo **item de assinatura**, como os event binds já eram.
    * Não há mais guard por existência de row: linha nascida na SPA — que é o caso das
    * linhas reais — tinha todas as ações escondidas, justamente onde o suporte precisa
-   * atuar.
+   * atuar. Assinar e desassinar no provider ficam na aba Assinaturas, junto da
+   * assinatura a que a linha pertence.
    *
    * Renomear é a única que depende de provider: a HubMessage não expõe escrita de nome
    * de canal.
@@ -105,27 +96,6 @@ export function AdminInstanceConfigModal({
         kind: 'error',
         message: t('instanceModalReactivateError'),
       })
-    }
-  }
-
-  async function handleSubscriptionAction(action: 'subscribe' | 'unsubscribe') {
-    setSubscriptionState({ kind: 'loading' })
-    try {
-      await axiosPortal().post(
-        `/portal/apps/${appId}/thinkzap-lines/${instance.subscriptionItemId}/${action}`,
-        {},
-      )
-      const message =
-        action === 'subscribe'
-          ? t('instanceModalSubscribeSuccess')
-          : t('instanceModalUnsubscribeSuccess')
-      setSubscriptionState({ kind: 'success', message })
-    } catch {
-      const message =
-        action === 'subscribe'
-          ? t('instanceModalSubscribeError')
-          : t('instanceModalUnsubscribeError')
-      setSubscriptionState({ kind: 'error', message })
     }
   }
 
@@ -306,94 +276,6 @@ export function AdminInstanceConfigModal({
               </section>
             </>
           ) : null}
-
-          <hr className="border-border" />
-
-          {/* Subscription section */}
-          <section>
-            <h3 className="mb-3 text-sm font-semibold text-foreground">
-              {t('instanceModalSectionSubscription')}
-            </h3>
-
-            {/* Assinatura do **recurso no provider**, não a cobrança da SPA 1142.
-                Disponível para qualquer linha: a chave é o item, que toda linha tem. */}
-            {subscriptionState.kind === 'idle' ||
-            subscriptionState.kind === 'success' ||
-            subscriptionState.kind === 'error' ? (
-              <div className="space-y-3">
-                {subscriptionState.kind === 'success' ? (
-                  <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-950 dark:text-green-300">
-                    {subscriptionState.message}
-                  </p>
-                ) : null}
-                {subscriptionState.kind === 'error' ? (
-                  <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-                    {subscriptionState.message}
-                  </p>
-                ) : null}
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      setSubscriptionState({
-                        kind: 'confirming',
-                        action: 'subscribe',
-                      })
-                    }
-                  >
-                    {t('instanceModalSubscribe')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      setSubscriptionState({
-                        kind: 'confirming',
-                        action: 'unsubscribe',
-                      })
-                    }
-                  >
-                    {t('instanceModalUnsubscribe')}
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-
-            {subscriptionState.kind === 'confirming' ? (
-              <div className="space-y-3">
-                <p className="text-sm text-foreground">
-                  {subscriptionState.action === 'subscribe'
-                    ? t('instanceModalSubscribeConfirm')
-                    : t('instanceModalUnsubscribeConfirm')}
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      void handleSubscriptionAction(subscriptionState.action)
-                    }}
-                  >
-                    {t('instanceModalConfirm')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSubscriptionState({ kind: 'idle' })}
-                  >
-                    {t('instanceModalCancel')}
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-
-            {subscriptionState.kind === 'loading' ? (
-              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                {t('connectorsSaving')}
-              </p>
-            ) : null}
-          </section>
 
           <hr className="border-border" />
 

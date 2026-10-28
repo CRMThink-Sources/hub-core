@@ -1,21 +1,40 @@
 {
   "title": "Clientes",
-  "description": "Portais Bitrix24 cadastrados no Hubthink.",
+  "description": "Portais Bitrix24 cadastrados no Hubthink e as aplicações instaladas em cada um.",
+  "count_one": "{{count}} cliente",
+  "count_other": "{{count}} clientes",
+  "filters": {
+    "label": "Filtrar clientes",
+    "search": "Buscar",
+    "searchPlaceholder": "Domínio ou member ID",
+    "app": "Aplicação",
+    "allApps": "Todas as aplicações",
+    "pendingMirror": "Com pendência de espelho",
+    "clear": "Limpar filtros"
+  },
   "table": {
+    "label": "Lista de clientes",
     "domain": "Domínio",
     "memberId": "Member ID",
     "apps": "Aplicações",
-    "createdAt": "Cadastro",
-    "actions": "Ações",
-    "view": "Ver"
+    "createdAt": "Cadastro"
   },
-  "noApps": "Nenhuma app",
-  "searchPlaceholder": "Pesquisar por nome...",
-  "searchNoResults": "Nenhum cliente corresponde à busca.",
-  "emptyTitle": "Nenhum cliente encontrado",
-  "emptyDescription": "Ainda não há domínios Bitrix24 cadastrados.",
+  "noApps": "Nenhuma aplicação",
+  "mirrorHint": {
+    "no-mirror": "Instalação sem item espelho na SPA 1060: não pode receber assinatura.",
+    "mirror-missing": "O item espelho desta instalação foi apagado na SPA 1060.",
+    "unknown": "Não foi possível verificar o espelho na SPA 1060 agora."
+  },
+  "pagination": {
+    "range": "{{from}}–{{to}} de {{total}}",
+    "previous": "Anterior",
+    "next": "Próxima"
+  },
+  "emptyTitle": "Nenhum cliente cadastrado",
+  "emptyDescription": "Ainda não há portais Bitrix24 cadastrados no Hubthink.",
+  "noResultsTitle": "Nenhum cliente encontrado",
+  "noResultsDescription": "Nenhum cliente corresponde à busca e aos filtros.",
   "errorTitle": "Não foi possível carregar os clientes",
   "errorDescription": "Tente novamente em instantes.",
-  "appNoMirror": "(sem espelho)",
-  "appNoMirrorHint": "Instalação sem item espelho na SPA 1060: não pode receber assinatura."
+  "retry": "Tentar de novo"
 }

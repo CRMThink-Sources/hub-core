@@ -11,7 +11,7 @@ import { CachedProductRepository } from '@/modules/application/infra/cache/cache
 import { CachedPlanRepository } from '@/modules/application/infra/cache/cached-plan.repository'
 import { CachedSubscriptionRepository } from '@/modules/application/infra/cache/cached-subscription.repository'
 import { makeSubscriptionItemRepository } from '@/modules/application/main/make-subscription-item-repository'
-import { AplicationTitleReader } from '@/modules/application/domain/repositories/aplication.repository'
+import { AplicationMirrorReader } from '@/modules/application/domain/repositories/aplication.repository'
 import { PortalHydrationDeps } from '../application/helpers/hydrate-portal-apps'
 
 /**
@@ -21,7 +21,7 @@ import { PortalHydrationDeps } from '../application/helpers/hydrate-portal-apps'
  * repositórios de assinatura, plano e produto para ler título seria pagar construção de
  * cache que ninguém consulta naquela rota.
  */
-export const makeAplicationTitleReader = (): AplicationTitleReader =>
+export const makeAplicationTitleReader = (): AplicationMirrorReader =>
   new BitrixAplicationTitleReader(
     new BitrixClient({ webhook: env.crmthinkWebhookUrl }),
   )

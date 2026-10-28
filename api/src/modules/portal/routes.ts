@@ -44,6 +44,13 @@ import {
   createReprocessOutboxFailuresBatchController,
 } from './main/factories/create-outbox-failures-controllers'
 import { createGetDashboardSummaryController } from './main/factories/create-get-dashboard-summary-controller'
+import { createGetPortalAppController } from './main/factories/create-get-portal-app-controller'
+import { createLinkAplicationMirrorController } from './main/factories/create-link-aplication-mirror-controller'
+import {
+  createActivateSubscriptionController,
+  createDeactivateSubscriptionController,
+  createSubscribeSubscriptionLinesController,
+} from './main/factories/create-subscription-actions-controllers'
 import {
   createGetStripeSyncRunController,
   createListStripeSyncRunsController,
@@ -99,6 +106,18 @@ export const createPortalRoutes = (
     '/mcp-users/:id',
     portalAuthMiddleware,
     adaptControllerFactory(createUpdateMcpUserController),
+  )
+  /** Cabeçalho da tela de aplicação: instalação, domínio e estado do espelho. */
+  router.get(
+    '/apps/:appId',
+    portalAuthMiddleware,
+    adaptControllerFactory(createGetPortalAppController),
+  )
+  /** Religa a instalação ao item que já existe na SPA 1060. Nunca cria item. */
+  router.post(
+    '/apps/:appId/link-mirror',
+    portalAuthMiddleware,
+    adaptControllerFactory(createLinkAplicationMirrorController),
   )
   router.post(
     '/apps/:appId/connector',
@@ -236,6 +255,26 @@ export const createPortalRoutes = (
     '/apps/:appId/subscriptions',
     portalAuthMiddleware,
     adaptControllerFactory(createListAppSubscriptionsController),
+  )
+  /**
+   * Ações na assinatura. Ativar e inativar só escrevem o status na SPA 1142 — o ciclo
+   * da SPA assina ou desassina as linhas. As três são recusadas onde os efeitos de
+   * provider estão desligados.
+   */
+  router.post(
+    '/apps/:appId/subscriptions/:subscriptionId/activate',
+    portalAuthMiddleware,
+    adaptControllerFactory(createActivateSubscriptionController),
+  )
+  router.post(
+    '/apps/:appId/subscriptions/:subscriptionId/deactivate',
+    portalAuthMiddleware,
+    adaptControllerFactory(createDeactivateSubscriptionController),
+  )
+  router.post(
+    '/apps/:appId/subscriptions/:subscriptionId/subscribe-lines',
+    portalAuthMiddleware,
+    adaptControllerFactory(createSubscribeSubscriptionLinesController),
   )
 
   /**

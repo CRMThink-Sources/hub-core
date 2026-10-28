@@ -18,6 +18,25 @@ export interface AplicationTitleReader {
 }
 
 /**
+ * Leitura do espelho que **distingue** "item não existe" de "não deu para ler" — o que
+ * `getTitlesBySpaIds` funde de propósito. O backoffice precisa da distinção para dizer
+ * "espelho apagado" sem nunca dizê-lo por causa de um Bitrix fora do ar.
+ */
+export type AplicationMirrorsRead = {
+  /** Título por id, só para os itens com título não vazio. */
+  titles: Map<string, string>
+  /** Ids que a SPA 1060 devolveu — existem, com ou sem título. */
+  existing: Set<string>
+  /** Ids cujo lote falhou: nada se conclui sobre eles. */
+  unverified: Set<string>
+}
+
+export interface AplicationMirrorReader extends AplicationTitleReader {
+  /** Nunca lança: lote com falha vai inteiro para `unverified`. */
+  getMirrorsBySpaIds(spaIds: string[]): Promise<AplicationMirrorsRead>
+}
+
+/**
  * Contrato de instalação de app, sobre `core_apps`.
  *
  * `linkSpaItem` e `unlinkSpaItem` são as **únicas escritas**, e as duas mexem só

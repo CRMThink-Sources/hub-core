@@ -25,6 +25,19 @@ export type PortalAppContract =
   | { status: 'no-mirror' }
   | { status: 'unavailable' }
 
+/**
+ * Estado do vínculo da instalação com o espelho na SPA 1060.
+ *
+ * `mirror-missing` só sai de uma leitura que **respondeu** sem o item; leitura que
+ * falhou é `unknown`. Confundir os dois mandaria o suporte "vincular" uma instalação
+ * cujo espelho está lá, só porque o Bitrix caiu.
+ */
+export type PortalAppMirror =
+  | 'linked'
+  | 'no-mirror'
+  | 'mirror-missing'
+  | 'unknown'
+
 export type PortalDomainApp = {
   id: string
   appCodeId: string
@@ -39,6 +52,7 @@ export type PortalDomainApp = {
   title: string
   /** Id do item espelho na SPA 1060. `null` = instalação sem espelho. */
   spaId: string | null
+  mirror: PortalAppMirror
   status: string
   email: string
   installedAt: string
@@ -49,11 +63,40 @@ export type PortalDomainApp = {
   contract?: PortalAppContract
 }
 
+/** Detalhe de uma instalação, para o cabeçalho da tela de aplicação do backoffice. */
+export type PortalAppDetail = PortalDomainApp & {
+  /** Idioma escolhido no app. `null` = nunca escolhido. */
+  locale: string | null
+  domain: { id: string; name: string; memberId: string }
+}
+
+/**
+ * Indicadores do cliente, no topo do detalhe. Só existem no detalhe porque dependem do
+ * contrato, que a listagem não resolve.
+ */
+export type PortalDomainSummary = {
+  apps: number
+  /** Assinaturas `active`, somando as aplicações. */
+  activeSubscriptions: number
+  /** Linhas das assinaturas que não estão canceladas — o que o cliente tem contratado. */
+  lines: number
+  mcpUsers: number
+  /**
+   * Algum contrato veio `unavailable`: os números de assinatura e linha são um piso,
+   * não o total. A tela tem que dizer isso em vez de mostrar um número menor como certo.
+   */
+  incomplete: boolean
+}
+
 export type PortalDomainDetail = {
   id: string
   name: string
   memberId: string
   createdAt: string
   updatedAt: string
+  /** Usuários MCP do domínio. Contagem do banco, custo de um `_count`. */
+  mcpUserCount: number
   apps: PortalDomainApp[]
+  /** Só no detalhe do cliente. */
+  summary?: PortalDomainSummary
 }

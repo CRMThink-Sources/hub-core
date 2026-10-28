@@ -1,0 +1,35 @@
+{
+  "unknown": "Desconocido",
+  "subscription": {
+    "active": "Activa",
+    "past_due": "Vencida",
+    "trialing": "En prueba",
+    "trial_expired": "Prueba vencida",
+    "cancelled": "Cancelada"
+  },
+  "app": {
+    "ACTIVE": "Activa",
+    "INACTIVE": "Inactiva",
+    "SUSPENDED": "Suspendida",
+    "TRIAL": "En prueba"
+  },
+  "mirror": {
+    "linked": "Vinculado",
+    "no-mirror": "Sin espejo",
+    "mirror-missing": "Espejo eliminado",
+    "unknown": "No verificado"
+  },
+  "providerBilling": {
+    "subscribed": "Suscrita en el proveedor",
+    "unsubscribed": "Desuscrita en el proveedor",
+    "unknown": "No confirmado en el proveedor"
+  },
+  "line": {
+    "active": "Activa",
+    "cancelled": "Cancelada"
+  },
+  "modality": {
+    "stripe": "Stripe",
+    "manual": "Manual"
+  }
+}

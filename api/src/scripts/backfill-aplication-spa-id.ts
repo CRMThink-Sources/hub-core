@@ -4,7 +4,10 @@ import { env } from '@/config/env'
 import { prisma } from '@/config/prisma.js'
 import { PrismaAplicationRepository } from '@/modules/application/infra/prisma/repositories/prisma-aplications.repository'
 import { BitrixAplicationTitleReader } from '@/modules/application/infra/bitrix/readers/bitrix-aplication-title.reader'
-import { BITRIX_SPA_CLIENT_FIELDS } from '@/shared/domain/config/bitrix.env'
+import {
+  findAplicationSpaItems,
+  normalizeDomain,
+} from '@/modules/application/infra/bitrix/readers/find-aplication-spa-items'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 
 /**
@@ -14,14 +17,9 @@ import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
  * Idempotente: processa só as instalações com `spa_id` nulo, então pode rodar de
  * novo depois de corrigir divergências no CRM à mão.
  *
- * Usa `BITRIX_SPA_CLIENT_FIELDS` (o vocabulário do onboarding) de propósito: é a
- * mesma SPA, e `payments` não guarda mais um mapa de campos próprio dela.
+ * A busca do item é `findAplicationSpaItems`, a mesma do "Vincular espelho" do
+ * backoffice.
  */
-
-/** Igual ao limite da listagem do Bitrix: o filtro por domínio vai em lotes. */
-const BATCH_SIZE = 50
-
-const normalizeDomain = (domain: string) => domain.trim().toLowerCase()
 
 type PendingApp = {
   id: string
@@ -33,50 +31,12 @@ type PendingApp = {
   domain: { name: string }
 }
 
-type SpaItem = { id: unknown; [field: string]: unknown }
-
 function parseArgs(): { dryRun: boolean } {
   return { dryRun: process.argv.slice(2).includes('--dry-run') }
 }
 
 /** Menor id primeiro: o item mais antigo é o que o install original criou. */
-function pickOldest(items: SpaItem[]): string {
-  const ids = items.map(item => String(item.id))
-
-  return ids.sort((left, right) => Number(left) - Number(right))[0] as string
-}
-
-async function findSpaItemsByAppCode(
-  bitrix: BitrixClient,
-  appCode: string,
-  domains: string[],
-): Promise<Map<string, SpaItem[]>> {
-  const byDomain = new Map<string, SpaItem[]>()
-
-  for (let start = 0; start < domains.length; start += BATCH_SIZE) {
-    const batch = domains.slice(start, start + BATCH_SIZE)
-
-    const response = await bitrix.listCrmItems(
-      env.payments.spa.aplicationEntityType,
-      {
-        [BITRIX_SPA_CLIENT_FIELDS.APP_CODE]: appCode,
-        [`@${BITRIX_SPA_CLIENT_FIELDS.DOMAIN}`]: batch,
-      },
-      { select: ['id', BITRIX_SPA_CLIENT_FIELDS.DOMAIN] },
-    )
-
-    for (const raw of response.result?.items ?? []) {
-      const item = raw as SpaItem
-      const rawDomain = item[BITRIX_SPA_CLIENT_FIELDS.DOMAIN]
-      if (typeof rawDomain !== 'string') continue
-
-      const key = normalizeDomain(rawDomain)
-      byDomain.set(key, [...(byDomain.get(key) ?? []), item])
-    }
-  }
-
-  return byDomain
-}
+const pickOldest = (ids: string[]): string => ids[0] as string
 
 async function main() {
   const { dryRun } = parseArgs()
@@ -112,7 +72,7 @@ async function main() {
     const domains = [
       ...new Set(apps.map(app => normalizeDomain(app.domain.name))),
     ]
-    const itemsByDomain = await findSpaItemsByAppCode(bitrix, appCode, domains)
+    const itemsByDomain = await findAplicationSpaItems(bitrix, appCode, domains)
 
     for (const app of apps) {
       const items = itemsByDomain.get(normalizeDomain(app.domain.name)) ?? []
@@ -128,9 +88,7 @@ async function main() {
       if (items.length > 1) {
         duplicated += 1
         console.warn(
-          `[duplicado] ${app.domain.name} + ${appCode}: itens ${items
-            .map(item => String(item.id))
-            .join(', ')} — usando o menor id`,
+          `[duplicado] ${app.domain.name} + ${appCode}: itens ${items.join(', ')} — usando o menor id`,
         )
       }
 
