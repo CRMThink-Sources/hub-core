@@ -10,11 +10,20 @@ const emptyResult = (): SubscriptionExpirationResult => ({
   trialExpired: 0,
   pastDue: 0,
   failed: 0,
+  linesUnsubscribed: 0,
+  cancelled: 0,
+  linesChecked: 0,
+  linesSubscribed: 0,
+  reconciliation: false,
+  providerStepsSkipped: false,
   paused: false,
   changes: [],
 })
 
-const make = (execute = vi.fn().mockResolvedValue(emptyResult())) => {
+const make = (
+  execute = vi.fn().mockResolvedValue(emptyResult()),
+  options: { now?: Date; reconciledToday?: boolean } = {},
+) => {
   const runs = {
     start: vi.fn().mockResolvedValue('run-1'),
     finish: vi.fn().mockResolvedValue(undefined),
@@ -22,10 +31,18 @@ const make = (execute = vi.fn().mockResolvedValue(emptyResult())) => {
     list: vi.fn(),
     findById: vi.fn(),
     deleteStartedBefore: vi.fn(),
+    hasReconciliationSince: vi
+      .fn()
+      .mockResolvedValue(options.reconciledToday ?? false),
   } satisfies SubscriptionExpirationRunRepository
 
   return {
-    service: new RunSubscriptionExpiration({ execute }, runs, () => NOW),
+    service: new RunSubscriptionExpiration(
+      { execute },
+      runs,
+      () => options.now ?? NOW,
+      { hour: 3, timeZone: 'America/Sao_Paulo' },
+    ),
     runs,
     execute,
   }
@@ -78,5 +95,57 @@ describe('RunSubscriptionExpiration', () => {
 
     expect(execute).toHaveBeenCalledTimes(1)
     expect(runs.finish).not.toHaveBeenCalled()
+  })
+})
+
+describe('RunSubscriptionExpiration — janela diária da reconciliação', () => {
+  /** 02:00, 03:00 e 04:00 em São Paulo (UTC-3). */
+  const at = (localHour: number) =>
+    new Date(Date.UTC(2026, 10, 8, localHour + 3, 0, 0))
+
+  it('02:00 não reconcilia', async () => {
+    const { service, execute } = make(undefined, { now: at(2) })
+
+    await service.run({ trigger: 'scheduled' })
+
+    expect(execute).toHaveBeenCalledWith(at(2), { reconcile: false })
+  })
+
+  it('03:00 reconcilia', async () => {
+    const { service, execute, runs } = make(undefined, { now: at(3) })
+
+    await service.run({ trigger: 'scheduled' })
+
+    expect(execute).toHaveBeenCalledWith(at(3), { reconcile: true })
+    expect(runs.hasReconciliationSince).toHaveBeenCalledWith(
+      new Date(Date.UTC(2026, 10, 8, 3, 0, 0)),
+    )
+  })
+
+  it('04:00 depois de uma reconciliação hoje não reconcilia', async () => {
+    const { service, execute } = make(undefined, {
+      now: at(4),
+      reconciledToday: true,
+    })
+
+    await service.run({ trigger: 'scheduled' })
+
+    expect(execute).toHaveBeenCalledWith(at(4), { reconcile: false })
+  })
+
+  it('04:00 sem reconciliação hoje (a das 03:00 caiu) reconcilia', async () => {
+    const { service, execute } = make(undefined, { now: at(4) })
+
+    await service.run({ trigger: 'scheduled' })
+
+    expect(execute).toHaveBeenCalledWith(at(4), { reconcile: true })
+  })
+
+  it('manual sempre reconcilia', async () => {
+    const { service, execute } = make(undefined, { now: at(2) })
+
+    await service.run({ trigger: 'manual', portalUserId: 'user-1' })
+
+    expect(execute).toHaveBeenCalledWith(at(2), { reconcile: true })
   })
 })

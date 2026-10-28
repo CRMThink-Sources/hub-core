@@ -4,6 +4,7 @@ import { SUBSCRIPTION_MODALITY_FIELD } from '../ensure-subscription-modality-fie
 import {
   APLICATION_PARENT_FIELD,
   collectBitrixSpaSubscriptionToRawSubscription,
+  mapBitrixSpaSubscriptionToExpirable,
   mapBitrixSpaSubscriptionToRawSubscription,
   mapSubscriptionInputToBitrixFields,
 } from './subscription.mapper'
@@ -451,5 +452,66 @@ describe('mapSubscriptionInputToBitrixFields', () => {
     )
 
     expect(backToDomain.status).toBe(status)
+  })
+})
+
+describe('datas de controle da verificação', () => {
+  const expirable = (overrides: Record<string, unknown> = {}) => ({
+    id: 7,
+    ufCrm91Status: '13621',
+    ufCrm91CurrentPeriodEnd: '2026-10-20T00:00:00+03:00',
+    ufCrm91Modality: 'manual',
+    ...overrides,
+  })
+
+  it('lê "Vencido em" como início do dia', () => {
+    expect(
+      mapBitrixSpaSubscriptionToExpirable(
+        expirable({ ufCrm91PastDueAt: '2026-11-03T00:00:00+03:00' }),
+      ).pastDueAt,
+    ).toEqual(new Date('2026-11-03T00:00:00.000Z'))
+  })
+
+  it.each([null, '', undefined])(
+    '"Vencido em" vazio (%s) é null, não erro',
+    value => {
+      expect(
+        mapBitrixSpaSubscriptionToExpirable(
+          expirable({ ufCrm91PastDueAt: value }),
+        ).pastDueAt,
+      ).toBeNull()
+    },
+  )
+
+  it('"Vencido em" inválido reprova o item', () => {
+    expect(() =>
+      mapBitrixSpaSubscriptionToExpirable(
+        expirable({ ufCrm91PastDueAt: 'não é data' }),
+      ),
+    ).toThrow(InvalidBitrixSubscriptionError)
+  })
+
+  it('grava "Vencido em" e a data de cancelamento como dia de calendário', () => {
+    expect(
+      mapSubscriptionInputToBitrixFields({
+        pastDueAt: new Date('2026-11-03T00:00:00.000Z'),
+        canceledAt: new Date('2026-11-13T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      ufCrm91PastDueAt: '2026-11-03T12:00:00.000Z',
+      ufCrm91CanceledAt: '2026-11-13T12:00:00.000Z',
+    })
+  })
+
+  it('null limpa "Vencido em"', () => {
+    expect(mapSubscriptionInputToBitrixFields({ pastDueAt: null })).toEqual({
+      ufCrm91PastDueAt: '',
+    })
+  })
+
+  it('patch sem as datas não as menciona', () => {
+    expect(
+      mapSubscriptionInputToBitrixFields({ status: 'past_due' }),
+    ).not.toHaveProperty('ufCrm91PastDueAt')
   })
 })

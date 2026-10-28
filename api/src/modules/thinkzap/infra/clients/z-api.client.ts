@@ -23,6 +23,7 @@ import {
   ZApiListResponse,
 } from './types/z-api.types'
 import { UpdateInstanceGateway } from '../../domain/repositories/update-instance.gateway'
+import type { SubscribeOutcome } from '../../domain/ports/whatsapp-connector-provider.port'
 import { logThinkzapError, thinkzapError } from '../../errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
 import { attachProviderHttpLogging } from '@/shared/infra/clients/provider-http-logging'
@@ -107,7 +108,7 @@ export class ZApiClient {
    * marca de assinado existir recebe um subscribe repetido no primeiro UPDATE, e tratar
    * isso como falha deixaria o job retentando até esgotar.
    */
-  async subscribe(id: string, token: string): Promise<void> {
+  async subscribe(id: string, token: string): Promise<SubscribeOutcome> {
     try {
       await this.http.post(
         `https://api.z-api.io/instances/${id}/token/${token}/integrator/on-demand/subscription`,
@@ -118,13 +119,19 @@ export class ZApiClient {
           },
         },
       )
+      /**
+       * `200 { subscriptionStatus: 'PROCESSING' }` também para instância em
+       * `CANCELLATION_PROCESS`: o subscribe desfaz o cancelamento agendado e ela volta a
+       * `PAID` em segundos (testado em 2026-10-28). Para quem chama, isso é "assinou agora".
+       */
+      return 'subscribed'
     } catch (error) {
       if (isZApiAlreadySubscribed(error)) {
         apiLogger.info(
           { app: 'thinkzap', provider: 'ZAPI', instanceId: id },
           'Instância já assinada na Z-API — subscribe tratado como concluído',
         )
-        return
+        return 'already-subscribed'
       }
       throw thinkzapError('thinkzap.zapi.instance_subscribe_failed', error)
     }

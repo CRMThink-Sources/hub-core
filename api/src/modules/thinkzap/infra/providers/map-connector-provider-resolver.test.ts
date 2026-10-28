@@ -7,7 +7,7 @@ function fakeProvider(): WhatsAppConnectorProvider {
   return {
     provisionConnector: () =>
       Promise.resolve({ instanceId: 'x', status: 'CONNECTED' as never }),
-    subscribe: () => Promise.resolve(),
+    subscribe: () => Promise.resolve('subscribed' as const),
     unsubscribe: () => Promise.resolve(),
     disconnect: () => Promise.resolve(),
     getConnectionStatus: () =>

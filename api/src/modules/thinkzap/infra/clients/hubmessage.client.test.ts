@@ -229,3 +229,47 @@ describe('HubMessageClient.uploadTemplateMedia', () => {
     expect(result).toEqual({ h: '4::abc' })
   })
 })
+
+describe('HubMessageClient.subscribeChannel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const get = () =>
+    (
+      mockedAxios.create.mock.results[0]?.value as {
+        get: ReturnType<typeof vi.fn>
+      }
+    ).get
+
+  it('canal assinado agora é "subscribed"', async () => {
+    const client = makeClient()
+    get().mockResolvedValueOnce({ data: { checkoutId: 'chk_1' } })
+
+    await expect(client.subscribeChannel('ch_1')).resolves.toBe('subscribed')
+    expect(get()).toHaveBeenCalledWith('/v1/channels/ch_1/subscribe')
+  })
+
+  it('ALREADY_PAID no corpo de um 200 é "already-subscribed"', async () => {
+    const client = makeClient()
+    get().mockResolvedValueOnce({ data: { type: 'ALREADY_PAID' } })
+
+    await expect(client.subscribeChannel('ch_1')).resolves.toBe(
+      'already-subscribed',
+    )
+  })
+
+  it('ALREADY_PAID como erro HTTP é "already-subscribed"', async () => {
+    const client = makeClient()
+    mockedAxios.isAxiosError.mockReturnValueOnce(true)
+    get().mockRejectedValueOnce(
+      Object.assign(new Error('400'), {
+        response: { status: 400, data: { type: 'ALREADY_PAID' } },
+      }),
+    )
+
+    await expect(client.subscribeChannel('ch_1')).resolves.toBe(
+      'already-subscribed',
+    )
+  })
+})

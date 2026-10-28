@@ -170,6 +170,23 @@ const bitrixPeriodStart = bitrixCalendarDate(startOfCalendarDay)
  */
 const bitrixPeriodEnd = bitrixCalendarDate(endOfCalendarDay)
 
+/**
+ * Data de controle opcional ("Vencido em"): vazio é `null`, não erro — é o estado de
+ * toda assinatura que nunca venceu. Valor presente e inválido reprova o item, como
+ * as datas de período.
+ */
+const bitrixOptionalCalendarDay = z
+  .unknown()
+  .transform((raw, ctx): Date | null => {
+    if (raw === undefined || raw === null || raw === '') return null
+    const day = parseSpaCalendarDate(raw)
+    if (!day) {
+      ctx.addIssue({ code: 'custom', message: 'Data de controle inválida' })
+      return z.NEVER
+    }
+    return startOfCalendarDay(day)
+  })
+
 const bitrixSubscriptionSchema = z.object({
   id: z.coerce.string(),
   title: z.string(),
@@ -234,12 +251,14 @@ export const mapBitrixSpaSubscriptionToRawSubscription = (
  * modalidade. Mesmos validadores da leitura completa — um status desconhecido ou
  * uma data inválida reprova aqui pelo mesmo motivo que reprovaria lá.
  */
-const bitrixExpirableSubscriptionSchema = bitrixSubscriptionSchema.pick({
-  id: true,
-  ufCrm91Status: true,
-  ufCrm91CurrentPeriodEnd: true,
-  [SUBSCRIPTION_MODALITY_FIELD]: true,
-})
+const bitrixExpirableSubscriptionSchema = bitrixSubscriptionSchema
+  .pick({
+    id: true,
+    ufCrm91Status: true,
+    ufCrm91CurrentPeriodEnd: true,
+    [SUBSCRIPTION_MODALITY_FIELD]: true,
+  })
+  .extend({ ufCrm91PastDueAt: bitrixOptionalCalendarDay })
 
 /** Os campos que `crm.item.list` precisa devolver para o recorte acima. */
 export const EXPIRABLE_SUBSCRIPTION_SELECT = [
@@ -247,6 +266,7 @@ export const EXPIRABLE_SUBSCRIPTION_SELECT = [
   'ufCrm91Status',
   'ufCrm91CurrentPeriodEnd',
   SUBSCRIPTION_MODALITY_FIELD,
+  'ufCrm91PastDueAt',
 ]
 
 export const mapBitrixSpaSubscriptionToExpirable = (
@@ -263,6 +283,7 @@ export const mapBitrixSpaSubscriptionToExpirable = (
     status: parsed.data.ufCrm91Status,
     currentPeriodEnd: parsed.data.ufCrm91CurrentPeriodEnd,
     modality: parsed.data[SUBSCRIPTION_MODALITY_FIELD],
+    pastDueAt: parsed.data.ufCrm91PastDueAt,
   }
 }
 
@@ -305,6 +326,17 @@ export const mapSubscriptionInputToBitrixFields = (
   }
   if (input.gatewayId !== undefined) {
     fields.ufCrm91GatewayId = input.gatewayId
+  }
+  /**
+   * Datas de controle da verificação de assinaturas, também dia de calendário. `null`
+   * em "Vencido em" vira string vazia, que é como o Bitrix limpa um campo de data.
+   */
+  if ('pastDueAt' in input && input.pastDueAt !== undefined) {
+    fields.ufCrm91PastDueAt =
+      input.pastDueAt === null ? '' : toSpaCalendarDateValue(input.pastDueAt)
+  }
+  if ('canceledAt' in input && input.canceledAt !== undefined) {
+    fields.ufCrm91CanceledAt = toSpaCalendarDateValue(input.canceledAt)
   }
   /**
    * Escrita **explícita**, ao contrário da leitura tolerante: modalidade não

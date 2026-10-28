@@ -46,16 +46,25 @@ type RunRow = {
   trialExpired: number
   pastDue: number
   failed: number
+  linesUnsubscribed: number
+  cancelled: number
+  linesChecked: number
+  linesSubscribed: number
+  reconciliation: boolean
+  providerStepsSkipped: boolean
   paused: boolean
   error: string | null
   triggeredBy: { id: string; name: string } | null
 }
 
 type ChangeRow = {
+  kind: string
   subscriptionId: string
-  fromStatus: string
-  toStatus: string
-  periodEnd: Date
+  itemId: string | null
+  provider: string | null
+  fromStatus: string | null
+  toStatus: string | null
+  periodEnd: Date | null
   succeeded: boolean
   error: string | null
 }
@@ -73,6 +82,12 @@ const toRun = (row: RunRow): SubscriptionExpirationRun => ({
   trialExpired: row.trialExpired,
   pastDue: row.pastDue,
   failed: row.failed,
+  linesUnsubscribed: row.linesUnsubscribed,
+  cancelled: row.cancelled,
+  linesChecked: row.linesChecked,
+  linesSubscribed: row.linesSubscribed,
+  reconciliation: row.reconciliation,
+  providerStepsSkipped: row.providerStepsSkipped,
   paused: row.paused,
   error: row.error,
 })
@@ -82,7 +97,16 @@ const toRun = (row: RunRow): SubscriptionExpirationRun => ({
  * grava é só `finish`, a partir de valores já tipados.
  */
 const toChange = (row: ChangeRow): SubscriptionExpirationChange => ({
+  kind: row.kind as SubscriptionExpirationChange['kind'],
   subscriptionId: row.subscriptionId,
+  ...(row.itemId ? { itemId: row.itemId } : {}),
+  ...(row.provider
+    ? {
+        provider: row.provider as NonNullable<
+          SubscriptionExpirationChange['provider']
+        >,
+      }
+    : {}),
   from: row.fromStatus as SubscriptionExpirationChange['from'],
   to: row.toStatus as SubscriptionExpirationChange['to'],
   periodEnd: row.periodEnd,
@@ -121,7 +145,10 @@ export class PrismaSubscriptionExpirationRunRepository implements SubscriptionEx
       this.prisma.subscriptionExpirationChange.createMany({
         data: result.changes.map(change => ({
           runId: id,
+          kind: change.kind,
           subscriptionId: change.subscriptionId,
+          itemId: change.itemId ?? null,
+          provider: change.provider ?? null,
           fromStatus: change.from,
           toStatus: change.to,
           periodEnd: change.periodEnd,
@@ -138,6 +165,12 @@ export class PrismaSubscriptionExpirationRunRepository implements SubscriptionEx
           trialExpired: result.trialExpired,
           pastDue: result.pastDue,
           failed: result.failed,
+          linesUnsubscribed: result.linesUnsubscribed,
+          cancelled: result.cancelled,
+          linesChecked: result.linesChecked,
+          linesSubscribed: result.linesSubscribed,
+          reconciliation: result.reconciliation,
+          providerStepsSkipped: result.providerStepsSkipped,
           paused: result.paused,
         },
       }),
@@ -160,6 +193,9 @@ export class PrismaSubscriptionExpirationRunRepository implements SubscriptionEx
         OR: [
           { trialExpired: { gt: 0 } },
           { pastDue: { gt: 0 } },
+          { linesUnsubscribed: { gt: 0 } },
+          { cancelled: { gt: 0 } },
+          { linesSubscribed: { gt: 0 } },
           { failed: { gt: 0 } },
           { status: { not: 'SUCCESS' as const } },
         ],
@@ -185,12 +221,19 @@ export class PrismaSubscriptionExpirationRunRepository implements SubscriptionEx
       where: { id },
       include: {
         ...TRIGGERED_BY_SELECT,
-        changes: { orderBy: { subscriptionId: 'asc' } },
+        changes: { orderBy: [{ kind: 'asc' }, { subscriptionId: 'asc' }] },
       },
     })
     if (!row) return null
 
     return { ...toRun(row), changes: row.changes.map(toChange) }
+  }
+
+  async hasReconciliationSince(since: Date): Promise<boolean> {
+    const count = await this.prisma.subscriptionExpirationRun.count({
+      where: { reconciliation: true, startedAt: { gte: since } },
+    })
+    return count > 0
   }
 
   async deleteStartedBefore(date: Date): Promise<number> {

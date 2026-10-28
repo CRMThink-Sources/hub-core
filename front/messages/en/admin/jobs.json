@@ -1,16 +1,16 @@
 {
   "title": "Jobs",
   "description": "Scheduled portal routines and the health of each one.",
-  "notCancelNotice": "The sweep does not cancel subscriptions. It only moves \"Trialing\" to \"Trial expired\" and manual \"Active\" to \"Past due\" when the period ends.",
+  "notCancelNotice": "Past due manual subscriptions: lines are unsubscribed on Z-API/HubMessage on day 5 of \"Past due\" and the subscription is cancelled on day 10. Expired trials only move to \"Trial expired\".",
   "runNow": "Run now",
   "refresh": "Refresh",
-  "confirmTitle": "Run the sweep now?",
-  "confirmDescription": "Every SPA 1142 subscription whose period has ended will have its status written to the CRM, just like the scheduled run.",
+  "confirmTitle": "Run the check now?",
+  "confirmDescription": "The run expires trials and manual subscriptions whose period ended, unsubscribes lines of manual subscriptions past due for 5 days, cancels those past due for 10 and reconciles active lines on the provider.",
   "confirm": "Run now",
   "cancel": "Cancel",
   "startedToast": "Run started.",
   "busyToast": "A run is already in progress. Try again shortly.",
-  "disabledToast": "The sweep is disabled in this environment.",
+  "disabledToast": "The check is turned off in this environment.",
   "startErrorToast": "Could not start the run.",
   "filterOnlyWithChanges": "Only with changes or failures",
   "filterTrigger": "Trigger",
@@ -35,12 +35,18 @@
     "checked": "Checked",
     "trialExpired": "Trials expired",
     "pastDue": "Past due",
-    "failed": "Failures"
+    "failed": "Failures",
+    "subscriptions": "Subscriptions",
+    "lines": "Lines",
+    "cancelled": "Cancelled",
+    "linesUnsubscribed": "Lines unsubscribed",
+    "linesSubscribed": "Lines subscribed",
+    "linesChecked": "Lines checked"
   },
   "system": "System",
   "durationSeconds": "{{value}} s",
   "detailTitle": "Run of {{date}}",
-  "detailEmpty": "No subscription was changed in this run.",
+  "detailEmpty": "No changes in this run.",
   "detailError": "Run error: {{error}}",
   "change": {
     "subscription": "Subscription",
@@ -49,7 +55,14 @@
     "result": "Result",
     "succeeded": "Written",
     "failed": "Failed",
-    "openCrm": "Open in CRM"
+    "openCrm": "Open in CRM",
+    "line": "Line",
+    "provider": "Provider",
+    "succeededBy": {
+      "status": "Written",
+      "line-unsubscribed": "Unsubscribed",
+      "line-subscribed": "Subscribed"
+    }
   },
   "subscriptionStatus": {
     "active": "Active",
@@ -69,10 +82,10 @@
   "next": "Next",
   "jobs": {
     "expiracao-assinaturas": {
-      "name": "Expiration sweep",
-      "description": "Moves expired trials to \"Trial expired\" and overdue manual subscriptions to \"Past due\" in SPA 1142.",
-      "schedule": "Every hour",
-      "pageDescription": "History of the subscription expiration sweep (SPA 1142), which runs every hour."
+      "name": "Subscription check",
+      "description": "Expires trials and manual subscriptions, unsubscribes lines of manual subscriptions past due for 5 days, cancels on day 10 and reconciles active lines once a day.",
+      "schedule": "Every hour · daily reconciliation",
+      "pageDescription": "History of the subscription check (SPA 1142): runs every hour and reconciles active lines once a day."
     }
   },
   "health": {
@@ -107,5 +120,36 @@
     "title": "Job not found",
     "description": "There is no job at \"{{id}}\".",
     "back": "Back to Jobs"
+  },
+  "detailProviderSkipped": "Provider effects are off in this environment: the run wrote statuses and dates, but did not unsubscribe or reconcile lines.",
+  "count": {
+    "trialExpired_one": "{{count}} trial expired",
+    "trialExpired_other": "{{count}} trials expired",
+    "pastDue_one": "{{count}} past due",
+    "pastDue_other": "{{count}} past due",
+    "cancelled_one": "{{count}} cancelled",
+    "cancelled_other": "{{count}} cancelled",
+    "linesUnsubscribed_one": "{{count}} unsubscribed",
+    "linesUnsubscribed_other": "{{count}} unsubscribed",
+    "linesSubscribed_one": "{{count}} subscribed",
+    "linesSubscribed_other": "{{count}} subscribed",
+    "linesChecked_one": "{{count}} checked",
+    "linesChecked_other": "{{count}} checked"
+  },
+  "tags": {
+    "reconciliation": "Reconciliation",
+    "providerSkipped": "Provider off"
+  },
+  "changeGroup": {
+    "status_one": "{{count}} status change",
+    "status_other": "{{count}} status changes",
+    "line-unsubscribed_one": "{{count}} line unsubscribed (day 5)",
+    "line-unsubscribed_other": "{{count}} lines unsubscribed (day 5)",
+    "line-subscribed_one": "{{count}} line subscribed by reconciliation",
+    "line-subscribed_other": "{{count}} lines subscribed by reconciliation"
+  },
+  "provider": {
+    "ZAPI": "Z-API",
+    "HUBMESSAGE": "HubMessage"
   }
 }

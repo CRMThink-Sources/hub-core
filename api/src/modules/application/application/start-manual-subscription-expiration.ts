@@ -46,7 +46,7 @@ export class StartManualSubscriptionExpiration {
     }
 
     void this.service
-      .complete(runId)
+      .complete(runId, { reconcile: true })
       .catch(error => {
         apiLogger.error(
           { app: 'shared', err: error, runId },

@@ -850,6 +850,17 @@ model SubscriptionExpirationRun {
   trialExpired            Int                             @default(0) @map("trial_expired")
   pastDue                 Int                             @default(0) @map("past_due")
   failed                  Int                             @default(0)
+  /// Verificação de assinaturas: linhas desassinadas no 5º dia de vencimento.
+  linesUnsubscribed       Int                             @default(0) @map("lines_unsubscribed")
+  /// Assinaturas manuais canceladas no 10º dia de vencimento.
+  cancelled               Int                             @default(0)
+  /// Linhas verificadas pela reconciliação diária.
+  linesChecked            Int                             @default(0) @map("lines_checked")
+  /// Linhas que a reconciliação encontrou sem assinatura e assinou.
+  linesSubscribed         Int                             @default(0) @map("lines_subscribed")
+  reconciliation          Boolean                         @default(false)
+  /// Etapas de provider puladas porque os efeitos de provider estão desligados no ambiente.
+  providerStepsSkipped    Boolean                         @default(false) @map("provider_steps_skipped")
   paused                  Boolean                         @default(false)
   error                   String?                         @db.Text
 
@@ -864,14 +875,20 @@ model SubscriptionExpirationRun {
 /// Status em texto, não enum: são valores do domínio da SPA, e um status novo
 /// não deve exigir migration.
 model SubscriptionExpirationChange {
-  id             String   @id @default(uuid())
-  runId          String   @map("run_id")
-  subscriptionId String   @map("subscription_id")
-  fromStatus     String   @map("from_status")
-  toStatus       String   @map("to_status")
-  periodEnd      DateTime @map("period_end")
+  id             String    @id @default(uuid())
+  runId          String    @map("run_id")
+  /// `status`, `line-unsubscribed` ou `line-subscribed`.
+  kind           String    @default("status")
+  subscriptionId String    @map("subscription_id")
+  /// Item da SPA 1146, nas ações de linha.
+  itemId         String?   @map("item_id")
+  /// `ZAPI` ou `HUBMESSAGE`, nas ações de linha.
+  provider       String?
+  fromStatus     String?   @map("from_status")
+  toStatus       String?   @map("to_status")
+  periodEnd      DateTime? @map("period_end")
   succeeded      Boolean
-  error          String?  @db.Text
+  error          String?   @db.Text
 
   run SubscriptionExpirationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 

@@ -66,15 +66,10 @@ export function AdminExpirationRunsTable({ runs, onOpen }: Props) {
             <th className="px-4 py-3 font-medium">{t('table.trigger')}</th>
             <th className="px-4 py-3 font-medium">{t('table.triggeredBy')}</th>
             <th className="px-4 py-3 font-medium">{t('table.status')}</th>
-            <th className="px-4 py-3 text-right font-medium">
-              {t('table.checked')}
+            <th className="px-4 py-3 font-medium">
+              {t('table.subscriptions')}
             </th>
-            <th className="px-4 py-3 text-right font-medium">
-              {t('table.trialExpired')}
-            </th>
-            <th className="px-4 py-3 text-right font-medium">
-              {t('table.pastDue')}
-            </th>
+            <th className="px-4 py-3 font-medium">{t('table.lines')}</th>
             <th className="px-4 py-3 text-right font-medium">
               {t('table.failed')}
             </th>
@@ -108,15 +103,29 @@ export function AdminExpirationRunsTable({ runs, onOpen }: Props) {
               </td>
               <td className="px-4 py-3">
                 <ExpirationRunStatusBadge run={run} />
+                <RunTags run={run} />
               </td>
-              <td className="px-4 py-3 text-right text-muted-foreground tabular-nums">
-                {run.checked}
+              <td className="px-4 py-3">
+                <CountList
+                  items={[
+                    ['count.trialExpired', run.trialExpired],
+                    ['count.pastDue', run.pastDue],
+                    ['count.cancelled', run.cancelled ?? 0],
+                  ]}
+                />
               </td>
-              <td className="px-4 py-3 text-right tabular-nums">
-                {run.trialExpired}
-              </td>
-              <td className="px-4 py-3 text-right tabular-nums">
-                {run.pastDue}
+              <td className="px-4 py-3">
+                <CountList
+                  items={[
+                    ['count.linesUnsubscribed', run.linesUnsubscribed ?? 0],
+                    ['count.linesSubscribed', run.linesSubscribed ?? 0],
+                    ...(run.reconciliation
+                      ? ([
+                          ['count.linesChecked', run.linesChecked ?? 0, true],
+                        ] as const)
+                      : []),
+                  ]}
+                />
               </td>
               <td
                 className={cn(
@@ -131,5 +140,58 @@ export function AdminExpirationRunsTable({ runs, onOpen }: Props) {
         </tbody>
       </table>
     </div>
+  )
+}
+
+/**
+ * Contadores de uma célula, um por linha, só os diferentes de zero; tudo zero vira um
+ * traço. `muted` para o que é contexto (linhas verificadas), não alteração.
+ */
+function CountList({
+  items,
+}: {
+  items: ReadonlyArray<
+    readonly [string, number] | readonly [string, number, boolean]
+  >
+}) {
+  const { t } = useTranslation('admin/jobs')
+  const visible = items.filter(([, count]) => count > 0)
+
+  if (visible.length === 0) {
+    return <span className="text-muted-foreground">—</span>
+  }
+
+  return (
+    <ul className="space-y-0.5 whitespace-nowrap tabular-nums">
+      {visible.map(([key, count, muted]) => (
+        <li
+          key={key}
+          className={muted ? 'text-muted-foreground' : 'text-foreground'}
+        >
+          {t(key, { count })}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Marcas da rodada: incluiu a reconciliação; etapas de provider puladas pelo ambiente. */
+export function RunTags({ run }: { run: ExpirationRun }) {
+  const { t } = useTranslation('admin/jobs')
+  if (!run.reconciliation && !run.providerStepsSkipped) return null
+
+  return (
+    <span className="mt-1 flex flex-wrap gap-1">
+      {run.reconciliation && (
+        <AdminStatusBadge tone="info">
+          {t('tags.reconciliation')}
+        </AdminStatusBadge>
+      )}
+      {run.providerStepsSkipped && (
+        <AdminStatusBadge tone="neutral">
+          {t('tags.providerSkipped')}
+        </AdminStatusBadge>
+      )}
+    </span>
   )
 }
