@@ -1,6 +1,6 @@
 {
   "title": "Jobs",
-  "description": "Historial del barrido de expiración de suscripciones (SPA 1142), que se ejecuta cada hora.",
+  "description": "Rutinas automáticas del portal y la salud de cada una.",
   "notCancelNotice": "El barrido no cancela suscripciones. Solo pasa \"En prueba\" a \"Prueba expirada\" y \"Activa\" manual a \"Vencida\" cuando termina el período.",
   "runNow": "Ejecutar ahora",
   "refresh": "Actualizar",
@@ -66,5 +66,46 @@
   "retry": "Intentar de nuevo",
   "page": "Página {{current}} de {{total}}",
   "previous": "Anterior",
-  "next": "Siguiente"
+  "next": "Siguiente",
+  "jobs": {
+    "expiracao-assinaturas": {
+      "name": "Barrido de vencimiento",
+      "description": "Pasa las pruebas vencidas a \"Prueba vencida\" y las manuales vencidas a \"Vencido\" en la SPA 1142.",
+      "schedule": "Cada hora",
+      "pageDescription": "Historial del barrido de vencimiento de suscripciones (SPA 1142), que se ejecuta cada hora."
+    }
+  },
+  "health": {
+    "no-runs": "Sin ejecuciones",
+    "running": "En curso",
+    "failing": "Con fallo",
+    "late": "Atrasado",
+    "attention": "Atención",
+    "healthy": "Saludable",
+    "sectionLabel": "Salud del job"
+  },
+  "strip": {
+    "label": "Últimas {{count}} ejecuciones: {{failures}} con fallo, {{warnings}} con atención",
+    "caption": "Últimas {{count}} ejecuciones",
+    "tone": {
+      "success": "Completada",
+      "warning": "Completada con fallos",
+      "danger": "Falló",
+      "info": "En curso",
+      "neutral": "Sin datos"
+    }
+  },
+  "catalog": {
+    "lastRun": "Última ejecución",
+    "lastRunNever": "Aún no se ejecutó",
+    "unavailable": "No se pudieron cargar las ejecuciones de este job.",
+    "viewRuns": "Ver ejecuciones",
+    "count": "{{count}} job",
+    "count_other": "{{count}} jobs"
+  },
+  "notFound": {
+    "title": "Job no encontrado",
+    "description": "No existe un job en \"{{id}}\".",
+    "back": "Volver a Jobs"
+  }
 }
