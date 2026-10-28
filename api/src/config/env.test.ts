@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   parseManualSubscriptionGraceDays,
+  parseStripeSyncEnabled,
   parseSubscriptionExpirationEnabled,
   resolveStripeEnvironment,
 } from './env'
@@ -77,5 +78,18 @@ describe('parseManualSubscriptionGraceDays', () => {
     expect(parseManualSubscriptionGraceDays('-1')).toBe(0)
     expect(parseManualSubscriptionGraceDays('abc')).toBe(0)
     expect(parseManualSubscriptionGraceDays('1.5')).toBe(0)
+  })
+})
+
+describe('parseStripeSyncEnabled', () => {
+  it('true e false explícitos valem sempre', () => {
+    expect(parseStripeSyncEnabled('true', false, 'homolog')).toBe(true)
+    expect(parseStripeSyncEnabled('false', true, 'production')).toBe(false)
+  })
+
+  it('ausente: liga só com provider ligado e chave live', () => {
+    expect(parseStripeSyncEnabled(undefined, true, 'production')).toBe(true)
+    expect(parseStripeSyncEnabled(undefined, true, 'homolog')).toBe(false)
+    expect(parseStripeSyncEnabled(undefined, false, 'production')).toBe(false)
   })
 })

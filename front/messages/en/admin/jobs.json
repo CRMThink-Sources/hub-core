@@ -86,6 +86,12 @@
       "description": "Expires trials and manual subscriptions, unsubscribes lines of manual subscriptions past due for 5 days, cancels on day 10 and reconciles active lines once a day.",
       "schedule": "Every hour · daily reconciliation",
       "pageDescription": "History of the subscription check (SPA 1142): runs every hour and reconciles active lines once a day."
+    },
+    "sincronizacao-stripe": {
+      "name": "Stripe sync",
+      "description": "Applies Stripe subscription status and period to SPA 1142; cancelled in Stripe cancels and unsubscribes the lines.",
+      "schedule": "Every hour (minute 30)",
+      "pageDescription": "History of the Stripe → SPA 1142 sync: fixes what the Stripe webhook did not apply."
     }
   },
   "health": {
@@ -151,5 +157,42 @@
   "provider": {
     "ZAPI": "Z-API",
     "HUBMESSAGE": "HubMessage"
+  },
+  "stripeSync": {
+    "notice": "Only subscriptions of the environment of the Stripe key in use are read (empty environment counts as production). A subscription not found in Stripe is not changed: it shows up here for review.",
+    "confirmTitle": "Run the sync now?",
+    "confirmDescription": "Each Stripe subscription in SPA 1142 is read in Stripe. Status and period divergences are fixed; those cancelled in Stripe are cancelled in the SPA and have their lines unsubscribed.",
+    "disabledToast": "The Stripe sync is turned off in this environment.",
+    "detailEmpty": "Everything was already in sync in this run.",
+    "table": {
+      "checked": "Read in Stripe",
+      "skipped": "Skipped (other environment)",
+      "updated": "Updated",
+      "notFound": "Not found"
+    },
+    "count": {
+      "updated_one": "{{count}} updated",
+      "updated_other": "{{count}} updated",
+      "checked_one": "{{count}} read",
+      "checked_other": "{{count}} read"
+    },
+    "changeGroup": {
+      "failed_one": "{{count}} failure",
+      "failed_other": "{{count}} failures",
+      "not-found_one": "{{count}} not found in Stripe",
+      "not-found_other": "{{count}} not found in Stripe",
+      "unknown-status_one": "{{count}} with unknown status",
+      "unknown-status_other": "{{count}} with unknown status",
+      "cancelled_one": "{{count}} cancelled",
+      "cancelled_other": "{{count}} cancelled",
+      "line-unsubscribed_one": "{{count}} line unsubscribed",
+      "line-unsubscribed_other": "{{count}} lines unsubscribed",
+      "updated_one": "{{count}} updated",
+      "updated_other": "{{count}} updated"
+    },
+    "change": {
+      "gatewayId": "Stripe id",
+      "reason": "Reason"
+    }
   }
 }

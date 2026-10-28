@@ -105,6 +105,22 @@ export function parseReconcileHour(raw: string | undefined): number {
   return 3
 }
 
+/**
+ * Liga a sincronização Stripe → SPA 1142. `true`/`false` valem explicitamente;
+ * ausente, liga só com efeitos de provider **e** chave live — homologação (chave de
+ * teste, provider desligado) fica desligada sem configurar nada, e não lê com a
+ * conta de teste as assinaturas de produção do portal compartilhado.
+ */
+export function parseStripeSyncEnabled(
+  raw: string | undefined,
+  providerEffects: boolean,
+  stripeEnvironment: StripeEnvironment,
+): boolean {
+  if (raw === 'true') return true
+  if (raw === 'false') return false
+  return providerEffects && stripeEnvironment === 'production'
+}
+
 const providerEffectsEnabled =
   process.env.THINKZAP_SPA_PROVIDER_EFFECTS_ENABLED !== 'false'
 
@@ -442,6 +458,14 @@ export const env = {
        * price id da SPA de planos vale (ver `resolveStripeEnvironment`).
        */
       environment: resolveStripeEnvironment(process.env.STRIPE_SECRET_KEY),
+    },
+    /** Job horário (:30) que reconcilia status e período das assinaturas Stripe da SPA 1142. */
+    stripeSync: {
+      enabled: parseStripeSyncEnabled(
+        process.env.STRIPE_SYNC_ENABLED,
+        providerEffectsEnabled,
+        resolveStripeEnvironment(process.env.STRIPE_SECRET_KEY),
+      ),
     },
   },
   // `jwtSecret` é dedicado, distinto de JWT_SECRET: o token do portal é assinado sem

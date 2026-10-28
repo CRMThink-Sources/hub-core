@@ -124,8 +124,12 @@ const makeHandler = (
     reparentSubscriptionItem: vi.fn(),
   } as unknown as SubscriptionItemRepository
 
-  const subscribe = vi.fn(() => Promise.resolve())
-  const unsubscribe = vi.fn(() => Promise.resolve())
+  const subscribe = vi.fn(() =>
+    Promise.resolve({ status: 'subscribed', provider: 'ZAPI' }),
+  )
+  const unsubscribe = vi.fn(() =>
+    Promise.resolve({ status: 'unsubscribed', provider: 'ZAPI' }),
+  )
   const providerBilling = {
     subscribe,
     unsubscribe,
@@ -289,7 +293,7 @@ describe('HandleGatewayWebhookEvent', () => {
       })
       deps.unsubscribe.mockImplementation(() => {
         order.push('unsubscribe')
-        return Promise.resolve()
+        return Promise.resolve({ status: 'unsubscribed', provider: 'ZAPI' })
       })
 
       await deps.handler.execute(DELETED)

@@ -7,12 +7,14 @@ import { ArrowLeft, SearchX } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { findAdminJob, type AdminJobId } from '@/lib/admin-jobs'
 import { AdminExpirationJobPage } from './admin-expiration-job-page'
+import { AdminStripeSyncJobPage } from './admin-stripe-sync-job-page'
 import { AdminEmptyState } from './ui/admin-empty-state'
 import { AdminPageHeader } from './ui/admin-page-header'
 
 /** A página de detalhe de cada job do catálogo (`lib/admin-jobs.ts`). */
 const ADMIN_JOB_PAGES: Record<AdminJobId, ComponentType> = {
   'expiracao-assinaturas': AdminExpirationJobPage,
+  'sincronizacao-stripe': AdminStripeSyncJobPage,
 }
 
 export function AdminJobDetailRoute({ jobId }: { jobId: string }) {

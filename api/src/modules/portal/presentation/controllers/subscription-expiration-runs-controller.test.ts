@@ -259,6 +259,10 @@ describe('rotas de subscription-expiration sem sessão do portal', () => {
     ['GET', '/api/portal/subscription-expiration/runs'],
     ['GET', '/api/portal/subscription-expiration/runs/run-1'],
     ['POST', '/api/portal/subscription-expiration/runs'],
+    // Sincronização Stripe: mesmas regras de sessão.
+    ['GET', '/api/portal/stripe-sync/runs'],
+    ['GET', '/api/portal/stripe-sync/runs/run-1'],
+    ['POST', '/api/portal/stripe-sync/runs'],
     // "Falhas de envio": mesmas regras de sessão do portal admin.
     ['GET', '/api/portal/thinkzap/outbox-failures'],
     ['GET', '/api/portal/thinkzap/outbox-failures/outbox-1'],

@@ -86,6 +86,12 @@
       "description": "Vence pruebas y manuales, da de baja las líneas de manuales vencidas hace 5 días, cancela el día 10 y concilia las líneas activas una vez al día.",
       "schedule": "Cada hora · conciliación diaria",
       "pageDescription": "Historial de la verificación de suscripciones (SPA 1142): se ejecuta cada hora y concilia las líneas activas una vez al día."
+    },
+    "sincronizacao-stripe": {
+      "name": "Sincronización Stripe",
+      "description": "Aplica en la SPA 1142 el estado y el período de las suscripciones Stripe; cancelada en Stripe cancela y da de baja las líneas.",
+      "schedule": "Cada hora (minuto 30)",
+      "pageDescription": "Historial de la sincronización Stripe → SPA 1142: corrige lo que el webhook de Stripe no aplicó."
     }
   },
   "health": {
@@ -151,5 +157,42 @@
   "provider": {
     "ZAPI": "Z-API",
     "HUBMESSAGE": "HubMessage"
+  },
+  "stripeSync": {
+    "notice": "Solo entran suscripciones del entorno de la clave Stripe en uso (entorno vacío cuenta como producción). Una suscripción no encontrada en Stripe no se modifica: aparece aquí para revisión.",
+    "confirmTitle": "¿Ejecutar la sincronización ahora?",
+    "confirmDescription": "Cada suscripción Stripe de la SPA 1142 se lee en Stripe. Las divergencias de estado y período se corrigen; las canceladas en Stripe se cancelan en la SPA y sus líneas se dan de baja.",
+    "disabledToast": "La sincronización Stripe está desactivada en este entorno.",
+    "detailEmpty": "Todo ya estaba sincronizado en esta ejecución.",
+    "table": {
+      "checked": "Leídas en Stripe",
+      "skipped": "Omitidas (otro entorno)",
+      "updated": "Actualizadas",
+      "notFound": "No encontradas"
+    },
+    "count": {
+      "updated_one": "{{count}} actualizada",
+      "updated_other": "{{count}} actualizadas",
+      "checked_one": "{{count}} leída",
+      "checked_other": "{{count}} leídas"
+    },
+    "changeGroup": {
+      "failed_one": "{{count}} fallo",
+      "failed_other": "{{count}} fallos",
+      "not-found_one": "{{count}} no encontrada en Stripe",
+      "not-found_other": "{{count}} no encontradas en Stripe",
+      "unknown-status_one": "{{count}} con estado desconocido",
+      "unknown-status_other": "{{count}} con estado desconocido",
+      "cancelled_one": "{{count}} cancelada",
+      "cancelled_other": "{{count}} canceladas",
+      "line-unsubscribed_one": "{{count}} línea dada de baja",
+      "line-unsubscribed_other": "{{count}} líneas dadas de baja",
+      "updated_one": "{{count}} actualizada",
+      "updated_other": "{{count}} actualizadas"
+    },
+    "change": {
+      "gatewayId": "Id en Stripe",
+      "reason": "Motivo"
+    }
   }
 }

@@ -19,7 +19,13 @@ const RUN_TONE: Record<ExpirationRun['status'] | 'abandoned', AdminStatusTone> =
     abandoned: 'warning',
   }
 
-export function ExpirationRunStatusBadge({ run }: { run: ExpirationRun }) {
+/** Os campos que os helpers de rodada usam — comuns à verificação e à sincronização Stripe. */
+type RunLike = Pick<
+  ExpirationRun,
+  'status' | 'abandoned' | 'paused' | 'trigger' | 'triggeredBy'
+>
+
+export function ExpirationRunStatusBadge({ run }: { run: RunLike }) {
   const { t } = useTranslation('admin/jobs')
 
   const key = run.abandoned ? 'abandoned' : run.status
@@ -37,7 +43,7 @@ export function ExpirationRunStatusBadge({ run }: { run: ExpirationRun }) {
 }
 
 export function triggeredByLabel(
-  run: ExpirationRun,
+  run: Pick<RunLike, 'trigger' | 'triggeredBy'>,
   t: (key: string) => string,
 ): string {
   if (run.trigger === 'scheduled') return t('system')
@@ -147,7 +153,7 @@ export function AdminExpirationRunsTable({ runs, onOpen }: Props) {
  * Contadores de uma célula, um por linha, só os diferentes de zero; tudo zero vira um
  * traço. `muted` para o que é contexto (linhas verificadas), não alteração.
  */
-function CountList({
+export function CountList({
   items,
 }: {
   items: ReadonlyArray<

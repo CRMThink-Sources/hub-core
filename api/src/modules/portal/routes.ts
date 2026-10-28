@@ -44,6 +44,11 @@ import {
   createReprocessOutboxFailuresBatchController,
 } from './main/factories/create-outbox-failures-controllers'
 import { createGetDashboardSummaryController } from './main/factories/create-get-dashboard-summary-controller'
+import {
+  createGetStripeSyncRunController,
+  createListStripeSyncRunsController,
+  createStartStripeSyncRunController,
+} from './main/factories/create-stripe-sync-runs-controllers'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -261,6 +266,26 @@ export const createPortalRoutes = (
     '/subscription-expiration/runs',
     portalAuthMiddleware,
     adaptControllerFactory(createStartSubscriptionExpirationRunController),
+  )
+
+  /**
+   * Histórico da sincronização Stripe → SPA 1142 e o "Rodar agora". O disparo usa o
+   * mesmo lock e a mesma flag do cron (`STRIPE_SYNC_ENABLED`).
+   */
+  router.get(
+    '/stripe-sync/runs',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListStripeSyncRunsController),
+  )
+  router.get(
+    '/stripe-sync/runs/:id',
+    portalAuthMiddleware,
+    adaptControllerFactory(createGetStripeSyncRunController),
+  )
+  router.post(
+    '/stripe-sync/runs',
+    portalAuthMiddleware,
+    adaptControllerFactory(createStartStripeSyncRunController),
   )
 
   /**
