@@ -94,7 +94,7 @@ describe('ProviderResourceBilling', () => {
 
       await expect(
         new ProviderResourceBilling(resolver).subscribe(zApiItem),
-      ).resolves.toBeUndefined()
+      ).resolves.toEqual({ status: 'failed', provider: 'ZAPI' })
 
       expect(apiLogger.error).toHaveBeenCalled()
       const [payload] = vi.mocked(apiLogger.error).mock.calls.at(-1) ?? []
@@ -159,7 +159,7 @@ describe('ProviderResourceBilling', () => {
 
       await expect(
         new ProviderResourceBilling(resolver).unsubscribe(hubItem),
-      ).resolves.toBeUndefined()
+      ).resolves.toEqual({ status: 'failed', provider: 'HUBMESSAGE' })
 
       expect(apiLogger.error).toHaveBeenCalled()
       const [payload] = vi.mocked(apiLogger.error).mock.calls.at(-1) ?? []
@@ -264,7 +264,7 @@ describe('ProviderResourceBilling', () => {
 
       await expect(
         new ProviderResourceBilling(resolver).unsubscribe(zApiItem),
-      ).resolves.toBeUndefined()
+      ).resolves.toEqual({ status: 'failed', provider: 'ZAPI' })
       expect(apiLogger.error).toHaveBeenCalled()
     })
 
@@ -371,7 +371,7 @@ describe('ProviderResourceBilling', () => {
 
       await expect(
         new ProviderResourceBilling(resolver, mirrors).subscribe(zApiItem),
-      ).resolves.toBeUndefined()
+      ).resolves.toEqual({ status: 'subscribed', provider: 'ZAPI' })
 
       expect(adapter.subscribe).toHaveBeenCalled()
       expect(apiLogger.warn).toHaveBeenCalled()

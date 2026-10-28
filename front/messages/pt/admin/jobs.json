@@ -86,6 +86,12 @@
       "description": "Vence trials e manuais, desassina as linhas de manuais vencidas há 5 dias, cancela no 10º dia e reconcilia as linhas ativas uma vez por dia.",
       "schedule": "A cada hora · reconciliação diária",
       "pageDescription": "Histórico da verificação de assinaturas (SPA 1142): roda a cada hora e reconcilia as linhas ativas uma vez por dia."
+    },
+    "sincronizacao-stripe": {
+      "name": "Sincronização Stripe",
+      "description": "Aplica na SPA 1142 o status e o período das assinaturas Stripe; cancelada no Stripe cancela e desassina as linhas.",
+      "schedule": "A cada hora (minuto 30)",
+      "pageDescription": "Histórico da sincronização Stripe → SPA 1142: corrige o que o webhook do Stripe não aplicou."
     }
   },
   "health": {
@@ -151,5 +157,42 @@
   "provider": {
     "ZAPI": "Z-API",
     "HUBMESSAGE": "HubMessage"
+  },
+  "stripeSync": {
+    "notice": "Só entram assinaturas do ambiente da chave Stripe em uso (ambiente vazio conta como produção). Assinatura não encontrada no Stripe não é alterada: aparece aqui para revisão.",
+    "confirmTitle": "Rodar a sincronização agora?",
+    "confirmDescription": "Cada assinatura Stripe da SPA 1142 é lida no Stripe. Divergências de status e período são corrigidas; canceladas no Stripe são canceladas na SPA e têm as linhas desassinadas.",
+    "disabledToast": "A sincronização Stripe está desligada neste ambiente.",
+    "detailEmpty": "Tudo já estava sincronizado nesta rodada.",
+    "table": {
+      "checked": "Lidas no Stripe",
+      "skipped": "Puladas (outro ambiente)",
+      "updated": "Atualizadas",
+      "notFound": "Não encontradas"
+    },
+    "count": {
+      "updated_one": "{{count}} atualizada",
+      "updated_other": "{{count}} atualizadas",
+      "checked_one": "{{count}} lida",
+      "checked_other": "{{count}} lidas"
+    },
+    "changeGroup": {
+      "failed_one": "{{count}} falha",
+      "failed_other": "{{count}} falhas",
+      "not-found_one": "{{count}} não encontrada no Stripe",
+      "not-found_other": "{{count}} não encontradas no Stripe",
+      "unknown-status_one": "{{count}} com status desconhecido",
+      "unknown-status_other": "{{count}} com status desconhecido",
+      "cancelled_one": "{{count}} cancelada",
+      "cancelled_other": "{{count}} canceladas",
+      "line-unsubscribed_one": "{{count}} linha desassinada",
+      "line-unsubscribed_other": "{{count}} linhas desassinadas",
+      "updated_one": "{{count}} atualizada",
+      "updated_other": "{{count}} atualizadas"
+    },
+    "change": {
+      "gatewayId": "Id no Stripe",
+      "reason": "Motivo"
+    }
   }
 }

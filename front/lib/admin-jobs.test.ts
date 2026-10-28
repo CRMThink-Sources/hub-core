@@ -145,4 +145,29 @@ describe('registro de jobs', () => {
       },
     ])
   })
+
+  it('a sincronização Stripe está no catálogo, depois da verificação', async () => {
+    expect(ADMIN_JOBS.map(job => job.id)).toEqual([
+      'expiracao-assinaturas',
+      'sincronizacao-stripe',
+    ])
+    get.mockResolvedValue({
+      runs: [
+        {
+          id: 's1',
+          status: 'success',
+          abandoned: false,
+          paused: false,
+          failed: 1,
+          startedAt: '2026-10-28T12:30:00Z',
+        },
+      ],
+      meta: { total: 1, page: 1, limit: 24, totalPages: 1 },
+    })
+
+    const runs = await findAdminJob('sincronizacao-stripe')!.fetchRecentRuns(24)
+
+    expect(get).toHaveBeenCalledWith('/portal/stripe-sync/runs?page=1&limit=24')
+    expect(runs[0]).toMatchObject({ id: 's1', itemFailures: 1 })
+  })
 })

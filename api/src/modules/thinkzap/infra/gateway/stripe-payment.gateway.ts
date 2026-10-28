@@ -20,6 +20,10 @@ import {
   PaymentGateway,
   SyncSubscriptionLineItemsInput,
 } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
+import type {
+  GatewaySubscriptionState,
+  GatewaySubscriptionStateReader,
+} from '@/modules/thinkzap/domain/ports/gateway-subscription-state-reader.port'
 import { apiLogger } from '@/shared/infra/logger'
 import { logThinkzapError, thinkzapError } from '../../errors/catalog'
 import {
@@ -92,7 +96,9 @@ const RECURRENCE_INTERVALS: readonly PriceRecurrence['interval'][] = [
 ]
 
 // Nunca chamar do caminho quente de mensagem: a latência do Stripe só cabe em webhook e contratação.
-export class StripePaymentGateway implements PaymentGateway {
+export class StripePaymentGateway
+  implements PaymentGateway, GatewaySubscriptionStateReader
+{
   private readonly stripe: Stripe
 
   constructor(
@@ -321,6 +327,52 @@ export class StripePaymentGateway implements PaymentGateway {
     }
   }
 
+  /**
+   * O estado atual da assinatura, sem cache, com o mapa de **decisão** do webhook
+   * (`STATUS_BY_STRIPE_STATUS`) — não o diagnóstico de `readSubscription`. A
+   * sincronização Stripe aplica isto na SPA, e não pode divergir do webhook.
+   *
+   * `resource_missing` vira `not-found`, e não erro: é o caso da assinatura de outra
+   * conta (teste x live) ou apagada, que a sincronização só registra. Qualquer outra
+   * falha lança — rede ou chave errada não são "não existe".
+   */
+  async readSubscriptionState(
+    gatewaySubscriptionId: string,
+  ): Promise<GatewaySubscriptionState> {
+    let subscription: Stripe.Subscription
+    try {
+      subscription = await this.stripe.subscriptions.retrieve(
+        gatewaySubscriptionId,
+      )
+    } catch (error) {
+      if (isStripeResourceMissing(error)) return { kind: 'not-found' }
+      throw new GatewaySubscriptionUnreadableError(
+        gatewaySubscriptionId,
+        error instanceof Error ? error.message : String(error),
+      )
+    }
+
+    const period = readSubscriptionPeriod(subscription)
+    if (!period) {
+      throw new GatewaySubscriptionUnreadableError(
+        gatewaySubscriptionId,
+        'assinatura veio sem período de cobrança, nem na raiz nem nos itens',
+      )
+    }
+
+    return {
+      kind: 'found',
+      status: STATUS_BY_STRIPE_STATUS[subscription.status] ?? null,
+      rawStatus: subscription.status,
+      currentPeriodStart: period.currentPeriodStart,
+      currentPeriodEnd: period.currentPeriodEnd,
+      totalLineQuantity: (subscription.items?.data ?? []).reduce(
+        (total, item) => total + (item.quantity ?? 0),
+        0,
+      ),
+    }
+  }
+
   private readRecurrence(price: Stripe.Price): PriceRecurrence {
     if (!price.recurring) {
       throw new GatewayPriceUnreadableError(
@@ -510,4 +562,13 @@ export class StripePaymentGateway implements PaymentGateway {
 
     return period
   }
+}
+
+/** O 404 do SDK do Stripe: `StripeInvalidRequestError` com `code: resource_missing`. */
+function isStripeResourceMissing(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === 'resource_missing'
+  )
 }

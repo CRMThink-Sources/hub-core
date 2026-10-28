@@ -553,3 +553,75 @@ describe('StripePaymentGateway — leitura de preço', () => {
     )
   })
 })
+
+describe('StripePaymentGateway — estado para a sincronização', () => {
+  const gateway = () => new StripePaymentGateway('sk_test_123', 'whsec_1')
+  const subscription = (status: string) => ({
+    id: 'sub_1',
+    status,
+    current_period_start: 1_793_145_600,
+    current_period_end: 1_795_824_000,
+    items: {
+      data: [
+        { id: 'si_1', price: { id: 'price_1' }, quantity: 2 },
+        { id: 'si_2', price: { id: 'price_2' }, quantity: 1 },
+      ],
+    },
+  })
+
+  beforeEach(() => {
+    stripeFake.retrieveSubscription.mockReset()
+  })
+
+  it('traduz com o mapa do webhook e soma as quantidades', async () => {
+    stripeFake.retrieveSubscription.mockResolvedValue(subscription('trialing'))
+
+    await expect(gateway().readSubscriptionState('sub_1')).resolves.toEqual({
+      kind: 'found',
+      status: 'active',
+      rawStatus: 'trialing',
+      currentPeriodStart: new Date(1_793_145_600_000),
+      currentPeriodEnd: new Date(1_795_824_000_000),
+      totalLineQuantity: 3,
+    })
+  })
+
+  it.each([
+    ['unpaid', 'past_due'],
+    ['canceled', 'cancelled'],
+  ])('%s vira %s', async (raw, expected) => {
+    stripeFake.retrieveSubscription.mockResolvedValue(subscription(raw))
+
+    await expect(
+      gateway().readSubscriptionState('sub_1'),
+    ).resolves.toMatchObject({ status: expected })
+  })
+
+  it('status fora do mapa vem como null, com o cru', async () => {
+    stripeFake.retrieveSubscription.mockResolvedValue(subscription('novo'))
+
+    await expect(
+      gateway().readSubscriptionState('sub_1'),
+    ).resolves.toMatchObject({ status: null, rawStatus: 'novo' })
+  })
+
+  it('resource_missing é not-found', async () => {
+    stripeFake.retrieveSubscription.mockRejectedValue(
+      Object.assign(new Error('No such subscription'), {
+        code: 'resource_missing',
+      }),
+    )
+
+    await expect(gateway().readSubscriptionState('sub_x')).resolves.toEqual({
+      kind: 'not-found',
+    })
+  })
+
+  it('erro de rede lança', async () => {
+    stripeFake.retrieveSubscription.mockRejectedValue(new Error('ECONNRESET'))
+
+    await expect(gateway().readSubscriptionState('sub_1')).rejects.toThrow(
+      'ECONNRESET',
+    )
+  })
+})

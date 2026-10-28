@@ -70,6 +70,15 @@ const REASON_BY_ORIGIN: Record<ProviderBillingOrigin, string> = {
   'subscription-past-due': 'Assinatura vencida há 5 dias',
 }
 
+/**
+ * Resultado da operação numa linha: `skipped` quando o item não tem credencial de
+ * provider (nada foi tentado); `failed` quando o provider falhou sem `propagate`.
+ */
+export type ItemBillingResult = {
+  status: 'unsubscribed' | 'subscribed' | 'skipped' | 'failed'
+  provider: 'ZAPI' | 'HUBMESSAGE' | null
+}
+
 export type ProviderBillingOptions = {
   /** Ausente = `gateway-event`, o único chamador de antes destas opções existirem. */
   origin?: ProviderBillingOrigin
@@ -121,8 +130,8 @@ export class ProviderResourceBilling {
   async subscribe(
     item: SubscriptionItem,
     options?: ProviderBillingOptions,
-  ): Promise<void> {
-    await this.runOnItem('subscribe', item, options)
+  ): Promise<ItemBillingResult> {
+    return this.runOnItem('subscribe', item, options)
   }
 
   /**
@@ -138,8 +147,8 @@ export class ProviderResourceBilling {
   async unsubscribe(
     item: SubscriptionItem,
     options?: ProviderBillingOptions,
-  ): Promise<void> {
-    await this.runOnItem('unsubscribe', item, options)
+  ): Promise<ItemBillingResult> {
+    return this.runOnItem('unsubscribe', item, options)
   }
 
   /**
@@ -174,7 +183,7 @@ export class ProviderResourceBilling {
     operation: BillingOperation,
     item: SubscriptionItem,
     options?: ProviderBillingOptions,
-  ): Promise<void> {
+  ): Promise<ItemBillingResult> {
     const resolved = resolveFromItem(item)
 
     if ('skip' in resolved) {
@@ -197,11 +206,17 @@ export class ProviderResourceBilling {
           msg: 'Operação de cobrança no provider não tentada: item sem credencial de provider',
         },
       )
-      return
+      return { status: 'skipped', provider: null }
     }
 
     const result = await this.run(operation, resolved, options, item.id)
-    if (result.ok) await this.mark(item.id, operation)
+    if (!result.ok) return { status: 'failed', provider: resolved.provider }
+
+    await this.mark(item.id, operation)
+    return {
+      status: operation === 'subscribe' ? 'subscribed' : 'unsubscribed',
+      provider: resolved.provider,
+    }
   }
 
   /**

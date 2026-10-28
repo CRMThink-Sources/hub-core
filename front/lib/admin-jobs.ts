@@ -2,13 +2,14 @@ import {
   listExpirationRuns,
   type ExpirationRun,
 } from '@/lib/subscription-expiration-runs'
+import { listStripeSyncRuns, type StripeSyncRun } from '@/lib/stripe-sync-runs'
 
 /**
  * Catálogo dos jobs que o portal admin acompanha. Cada job novo (verificação
  * completa de assinaturas, sincronização com o Stripe) entra aqui com o próprio
  * `fetchRecentRuns` e uma página de detalhe em `admin-job-pages.tsx`.
  */
-export type AdminJobId = 'expiracao-assinaturas'
+export type AdminJobId = 'expiracao-assinaturas' | 'sincronizacao-stripe'
 
 /** O mínimo de uma rodada que o catálogo e a home precisam, igual para todo job. */
 export type JobRunSummary = {
@@ -35,7 +36,7 @@ export type AdminJobDefinition = {
 
 const HOUR_MS = 60 * 60 * 1000
 
-const toRunSummary = (run: ExpirationRun): JobRunSummary => ({
+const toRunSummary = (run: ExpirationRun | StripeSyncRun): JobRunSummary => ({
   id: run.id,
   status: run.status,
   abandoned: run.abandoned,
@@ -53,6 +54,17 @@ export const ADMIN_JOBS: AdminJobDefinition[] = [
     intervalMs: HOUR_MS,
     fetchRecentRuns: async limit => {
       const { runs } = await listExpirationRuns({ page: 1, limit })
+      return runs.map(toRunSummary)
+    },
+  },
+  {
+    id: 'sincronizacao-stripe',
+    nameKey: 'jobs.sincronizacao-stripe.name',
+    descriptionKey: 'jobs.sincronizacao-stripe.description',
+    scheduleKey: 'jobs.sincronizacao-stripe.schedule',
+    intervalMs: HOUR_MS,
+    fetchRecentRuns: async limit => {
+      const { runs } = await listStripeSyncRuns({ page: 1, limit })
       return runs.map(toRunSummary)
     },
   },
