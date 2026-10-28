@@ -4,6 +4,7 @@ import { Request } from 'express'
 import { SyncConnectorTemplatesUseCase } from '../../application/sync-connector-templates'
 import { SyncTemplatesController } from '../../presentation/controllers/connector/sync-templates.controller'
 import { makeTemplateProviderResolver } from './make-template-provider-resolver'
+import { PrismaTemplateDefaultsRepository } from '../../infra/persistence/repositories/prisma-template-defaults.repository'
 
 export const makeSyncTemplatesController = (
   _req: Request,
@@ -11,6 +12,7 @@ export const makeSyncTemplatesController = (
   const useCase = new SyncConnectorTemplatesUseCase(
     makeGetAplicationContext(),
     makeTemplateProviderResolver(),
+    new PrismaTemplateDefaultsRepository(),
   )
   return Promise.resolve(new SyncTemplatesController(useCase))
 }

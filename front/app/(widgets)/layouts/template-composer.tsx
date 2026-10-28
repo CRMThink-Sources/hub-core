@@ -8,6 +8,7 @@ import {
   dynamicButtons,
   extractTemplateVariables,
   isHttpsUrl,
+  defaultHeaderImageOf,
   needsHeaderImage,
   resolveTemplatePreview,
   WIDGET_HEADER_IMAGE_TYPES,
@@ -45,7 +46,11 @@ type TemplateComposerProps = {
   disabled: boolean
 }
 
-export type HeaderImageSource = 'FILE' | 'LINK'
+/**
+ * De onde vem a imagem do cabeçalho do envio. `DEFAULT` só existe quando o template
+ * tem imagem padrão do envio: é a forma inicial, e trocar vale só para este envio.
+ */
+export type HeaderImageSource = 'DEFAULT' | 'FILE' | 'LINK'
 
 /** Rótulo do botão no preview — copiar código não tem texto próprio. */
 const buttonLabel = (button: WidgetTemplateButton): string =>
@@ -102,7 +107,18 @@ export const TemplateComposer = ({
   )
   const showHeaderImage = needsHeaderImage(selected)
   const headerImageValid = isHttpsUrl(headerImageUrl)
-  const fileMode = headerImageUploadAvailable && headerImageSource === 'FILE'
+  const defaultImageUrl = defaultHeaderImageOf(selected)
+  const defaultMode =
+    Boolean(defaultImageUrl) && headerImageSource === 'DEFAULT'
+  const fileMode =
+    !defaultMode && headerImageUploadAvailable && headerImageSource === 'FILE'
+  const imageSources = [
+    ...(defaultImageUrl ? [['DEFAULT', 'Imagem padrão'] as const] : []),
+    ...(headerImageUploadAvailable
+      ? [['FILE', 'Enviar arquivo'] as const]
+      : []),
+    ['LINK', 'Usar link'] as const,
+  ]
   const variables = selected ? extractTemplateVariables(selected.body) : []
   const buttonFields = dynamicButtons(selected?.buttons)
 
@@ -165,14 +181,9 @@ export const TemplateComposer = ({
                 Imagem do cabeçalho
               </span>
 
-              {headerImageUploadAvailable ? (
-                <div className="flex gap-4 text-sm text-slate-700">
-                  {(
-                    [
-                      ['FILE', 'Enviar arquivo'],
-                      ['LINK', 'Usar link'],
-                    ] as const
-                  ).map(([source, label]) => (
+              {imageSources.length > 1 ? (
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-700">
+                  {imageSources.map(([source, label]) => (
                     <label key={source} className="flex items-center gap-1.5">
                       <input
                         type="radio"
@@ -187,7 +198,12 @@ export const TemplateComposer = ({
                 </div>
               ) : null}
 
-              {fileMode ? (
+              {defaultMode ? (
+                <span className="text-xs text-slate-500">
+                  Vai a imagem padrão do template, mostrada na prévia. Trocar
+                  por outra vale só para este envio.
+                </span>
+              ) : fileMode ? (
                 <>
                   <input
                     type="file"

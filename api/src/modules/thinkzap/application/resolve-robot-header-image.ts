@@ -7,7 +7,13 @@ export type TemplateHeaderLookup = (input: {
   subscriptionItemId: string
   domainId: string
   appCode: string
-}) => Promise<{ name: string; language: string; header?: { type: string } }[]>
+}) => Promise<
+  {
+    name: string
+    language: string
+    header?: { type: string; defaultImageUrl?: string }
+  }[]
+>
 
 export type ResolveRobotHeaderImageInput = RobotTemplateIdentity & {
   subscriptionItemId: string
@@ -17,7 +23,10 @@ export type ResolveRobotHeaderImageInput = RobotTemplateIdentity & {
   value: string
 }
 
-/** O template exige imagem e o robô não trouxe uma URL `https`. */
+/**
+ * O template exige imagem e não há como enviá-la: o robô trouxe um valor que não é
+ * URL `https`, ou veio vazio e o template não tem imagem padrão do envio.
+ */
 export type MissingHeaderImage = { missing: true }
 
 /**
@@ -26,6 +35,10 @@ export type MissingHeaderImage = { missing: true }
  * O catálogo decide se o template tem imagem: o Bitrix entrega o campo do documento
  * já resolvido, e campo vazio é indistinguível de robô antigo sem a propriedade. A
  * consulta é a mesma do corpo e dos botões (memoizada no handler).
+ *
+ * Campo vazio usa a imagem padrão do envio do template, que vem no catálogo. Valor
+ * preenchido que não é `https` é recusado, e não trocado pela padrão: o operador
+ * configurou uma imagem e ela não veio.
  *
  * Template sem imagem ignora o valor — mandar `HEADER` para ele faria a Meta recusar.
  * Falha do catálogo não bloqueia: com URL `https` ela vai; sem URL o envio sai sem
@@ -38,17 +51,17 @@ export async function resolveRobotHeaderImage(
 ): Promise<{ headerImageUrl?: string } | MissingHeaderImage> {
   const value = input.value.trim()
 
-  let headerType: string | undefined
+  let header: { type: string; defaultImageUrl?: string } | undefined
   try {
     const templates = await lookup({
       subscriptionItemId: input.subscriptionItemId,
       domainId: input.domainId,
       appCode: input.appCode,
     })
-    headerType = templates.find(
+    header = templates.find(
       candidate =>
         candidate.name === input.name && candidate.language === input.language,
-    )?.header?.type
+    )?.header
   } catch (error) {
     apiLogger.warn(
       { app: 'thinkzap', source: 'bitrix', err: (error as Error).message },
@@ -57,6 +70,10 @@ export async function resolveRobotHeaderImage(
     return isHttpsUrl(value) ? { headerImageUrl: value } : {}
   }
 
-  if (headerType !== 'IMAGE') return {}
-  return isHttpsUrl(value) ? { headerImageUrl: value } : { missing: true }
+  if (header?.type !== 'IMAGE') return {}
+  if (isHttpsUrl(value)) return { headerImageUrl: value }
+  if (!value && header.defaultImageUrl) {
+    return { headerImageUrl: header.defaultImageUrl }
+  }
+  return { missing: true }
 }

@@ -853,6 +853,33 @@ export const THINKZAP_ERRORS = {
     retriable: false,
     httpStatus: 400,
   },
+  'thinkzap.template.not_found': {
+    category: 'validation',
+    userCause:
+      'O template pedido não existe mais nesta linha (pode ter sido excluído na Meta).',
+    remediation:
+      'Sincronizar os templates da linha e escolher um template que aparece na lista.',
+    retriable: false,
+    httpStatus: 404,
+  },
+  'thinkzap.template.not_editable': {
+    category: 'validation',
+    userCause:
+      'O template não pode ser editado como foi pedido (está em análise, ou tentou trocar nome, idioma ou a categoria de um template aprovado).',
+    remediation:
+      'Aguardar a análise da Meta terminar, ou manter nome, idioma e a categoria de template aprovado; para mudar esses dados, criar um template novo.',
+    retriable: false,
+    httpStatus: 400,
+  },
+  'thinkzap.template.edit_limit_reached': {
+    category: 'validation',
+    userCause:
+      'O template atingiu o limite de edições da Meta (para templates aprovados, uma por dia e até dez em 30 dias).',
+    remediation:
+      'Esperar o prazo da Meta e editar de novo, ou criar um template novo com o texto atualizado.',
+    retriable: true,
+    httpStatus: 400,
+  },
 
   'thinkzap.line.blocked': {
     category: 'validation',

@@ -15,8 +15,11 @@
     "AUTHENTICATION": "Autenticación"
   },
   "lista": {
-    "vazio": "Aún no hay plantillas registradas.",
-    "imagem": "Imagen"
+    "imagem": "Imagen",
+    "botoes_one": "{{count}} botón",
+    "botoes_other": "{{count}} botones",
+    "semImagemPadrao": "Sin imagen predeterminada: el widget y el robot pedirán la imagen en cada envío.",
+    "definirImagem": "Definir imagen"
   },
   "form": {
     "nome": "Nombre de la plantilla",
@@ -72,7 +75,7 @@
       "nenhum": "Ninguno",
       "imagem": "Imagen",
       "exemplo": "URL pública de la imagen de ejemplo",
-      "exemploHint": "Enlace https directo al archivo JPEG o PNG, hasta 5 MB. Proporción recomendada 1.91:1. Meta usa esta imagen solo para aprobar la plantilla; la imagen de cada envío se informa al enviar.",
+      "exemploHint": "Enlace https directo al archivo JPEG o PNG, hasta 5 MB. Proporción recomendada 1.91:1. Meta usa esta imagen en la aprobación, y se convierte en la imagen predeterminada de los envíos.",
       "erros": {
         "header_not_allowed": "Las plantillas de autenticación no aceptan encabezado.",
         "example_required": "Informe la URL de la imagen de ejemplo.",
@@ -80,12 +83,44 @@
         "example_meta_cdn": "Un enlace de WhatsApp/Meta no sirve como ejemplo: use el enlace del propio archivo de la imagen.",
         "file_required": "Elija el archivo de la imagen de ejemplo.",
         "file_too_large": "La imagen de ejemplo supera los 5 MB.",
-        "file_invalid_type": "La imagen de ejemplo debe ser JPEG o PNG."
+        "file_invalid_type": "La imagen de ejemplo debe ser JPEG o PNG.",
+        "default_required": "Esta plantilla aún no tiene imagen predeterminada: envíe una imagen nueva."
       },
       "fonteArquivo": "Subir archivo",
       "fonteLink": "Usar enlace",
       "arquivo": "Archivo de la imagen de ejemplo",
-      "arquivoHint": "JPEG o PNG, hasta 5 MB. Proporción recomendada 1.91:1. Meta usa esta imagen solo para aprobar la plantilla; la imagen de cada envío se informa al enviar."
+      "arquivoHint": "JPEG o PNG, hasta 5 MB. Proporción recomendada 1.91:1. Meta usa esta imagen en la aprobación, y se convierte en la imagen predeterminada de los envíos.",
+      "fonte": "Origen de la imagen",
+      "fonteManter": "Mantener imagen actual",
+      "manterHint": "Usa la imagen predeterminada de envío como ejemplo para Meta."
+    },
+    "voltar": "Volver a la lista",
+    "tituloNovo": "Nueva plantilla",
+    "subtituloNovo": "La plantilla se envía para aprobación de Meta al enviarla.",
+    "tituloEditar": "Editar {{nome}}",
+    "subtituloEditar": "Los cambios pasan por una nueva revisión de Meta.",
+    "avisoEdicao": "Al guardar, la plantilla vuelve a revisión de Meta y no se puede enviar hasta que se apruebe de nuevo. Las plantillas aprobadas aceptan una edición por día.",
+    "secaoIdentificacao": "Identificación",
+    "secaoMensagem": "Mensaje",
+    "nomeTravado": "El nombre no se puede cambiar después de creado.",
+    "categoriaTravada": "La categoría de una plantilla aprobada no se puede cambiar.",
+    "salvarEdicao": "Guardar y enviar a revisión",
+    "secaoIdentificacaoDesc": "Cómo aparece la plantilla en la lista y para qué la usa Meta.",
+    "secaoCabecalhoDesc": "Una imagen arriba del mensaje, común en campañas.",
+    "secaoMensagemDesc": "El texto que lee el contacto. Las variables se completan en cada envío.",
+    "categoriaDesc": {
+      "MARKETING": "Promociones, ofertas y novedades.",
+      "UTILITY": "Pedidos, cobros y avisos de cuenta.",
+      "AUTHENTICATION": "Códigos de acceso y verificación."
+    },
+    "inserirVariavel": "Insertar variable",
+    "verPrevia": "Ver vista previa del mensaje",
+    "esconderPrevia": "Ocultar vista previa",
+    "pronto": "Todo listo para enviar.",
+    "pendente": {
+      "nome": "Falta el nombre de la plantilla, en snake_case.",
+      "corpo": "Falta el texto del mensaje.",
+      "exemplos": "Falta un ejemplo para cada variable."
     }
   },
   "campanha": {
@@ -118,5 +153,65 @@
       "COPY_CODE": "Copiar código",
       "OTHER": "Otro"
     }
+  },
+  "toolbar": {
+    "buscar": "Buscar por nombre o texto",
+    "status": "Filtrar por estado",
+    "todos": "Todos",
+    "categoria": "Filtrar por categoría",
+    "todasCategorias": "Todas las categorías",
+    "comImagem": "Con imagen",
+    "resultado": "{{shown}} de {{total}} plantillas",
+    "total_one": "{{count}} plantilla",
+    "total_other": "{{count}} plantillas",
+    "limpar": "Limpiar filtros"
+  },
+  "acoes": {
+    "menu": "Acciones de la plantilla {{nome}}",
+    "editar": "Editar",
+    "editarEmAnalise": "En revisión por Meta: espere la respuesta para editar.",
+    "imagemPadrao": "Imagen predeterminada de envío",
+    "detalhes": "Ver detalles",
+    "detalhesDe": "Ver detalles de {{nome}}"
+  },
+  "imagemPadrao": {
+    "titulo": "Imagen predeterminada de envío",
+    "descricao": "Imagen enviada en el encabezado de {{nome}} cuando el widget o el robot no informan otra.",
+    "semImagem": "Ninguna imagen definida",
+    "arquivo": "Archivo de la imagen",
+    "link": "URL pública de la imagen",
+    "hint": "JPEG o PNG, hasta 5 MB. Proporción recomendada 1.91:1. Los enlaces de WhatsApp/Meta caducan y no valen.",
+    "salvar": "Guardar imagen",
+    "salvando": "Guardando...",
+    "erros": {
+      "example_required": "Informe la URL de la imagen.",
+      "example_not_https": "La URL de la imagen debe empezar con https://.",
+      "example_meta_cdn": "Los enlaces de WhatsApp/Meta caducan: use el enlace del propio archivo de la imagen.",
+      "file_required": "Elija el archivo de la imagen.",
+      "file_too_large": "La imagen supera 5 MB.",
+      "file_invalid_type": "La imagen debe ser JPEG o PNG."
+    }
+  },
+  "detalhes": {
+    "descricao": "Cómo recibe el contacto esta plantilla en WhatsApp.",
+    "categoria": "Categoría",
+    "idioma": "Idioma",
+    "cabecalho": "Encabezado",
+    "botoes": "Botones",
+    "comImagemPadrao": "La vista previa muestra la imagen predeterminada de envío, usada cuando no se informa otra."
+  },
+  "preview": {
+    "titulo": "Vista previa",
+    "hint": "Cómo lo recibirá el contacto. Las variables se completan en cada envío.",
+    "imagem": "Imagen del encabezado",
+    "corpoVazio": "El texto del mensaje aparece aquí.",
+    "copiarCodigo": "Copiar código"
+  },
+  "estados": {
+    "tentarDeNovo": "Intentar de nuevo",
+    "vazioTitulo": "Ninguna plantilla en esta línea",
+    "vazioTexto": "Cree una plantilla y envíela para aprobación de Meta, o sincronice las que ya existen en la cuenta.",
+    "criarPrimeiro": "Crear primera plantilla",
+    "semResultado": "Ninguna plantilla coincide con esta búsqueda y estos filtros."
   }
 }

@@ -299,6 +299,24 @@ describe('validateConfig', () => {
     ).toBeNull()
   })
 
+  it('campo vazio é válido quando o template tem imagem padrão', () => {
+    expect(validateConfig(base, 0, true, true)).toBeNull()
+  })
+
+  it('valor fixo sem https é recusado mesmo com imagem padrão', () => {
+    expect(
+      validateConfig(
+        {
+          ...base,
+          headerImage: { mode: 'literal', value: 'http://loja.com/a.png' },
+        },
+        0,
+        true,
+        true,
+      ),
+    ).toBe('A imagem do cabeçalho precisa ser uma URL https.')
+  })
+
   it('template sem imagem não exige o campo', () => {
     expect(validateConfig(base, 0, false)).toBeNull()
   })

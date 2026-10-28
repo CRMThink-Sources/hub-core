@@ -230,6 +230,8 @@ export function validateConfig(
   config: RobotConfigState,
   dynamicButtonCount?: number,
   requiresHeaderImage = false,
+  /** O template tem imagem padrão do envio: campo vazio usa ela. */
+  hasDefaultHeaderImage = false,
 ): string | null {
   if (!config.connector) {
     return 'Escolha a linha do WhatsApp Oficial que vai enviar.'
@@ -265,12 +267,13 @@ export function validateConfig(
   }
 
   /**
-   * Template com imagem sem URL faria o disparo recusar em toda execução. Valor
-   * fixo é conferido aqui; campo do documento só no disparo, quando o Bitrix o
-   * resolve.
+   * Template com imagem sem URL nem imagem padrão faria o disparo recusar em toda
+   * execução. Vazio com imagem padrão é válido: o disparo usa a padrão. Valor fixo
+   * é conferido aqui; campo do documento só no disparo, quando o Bitrix o resolve.
    */
   if (requiresHeaderImage) {
     const image = toStoredValue(config.headerImage).trim()
+    if (!image && hasDefaultHeaderImage) return null
     if (!image) {
       return 'Informe a imagem do cabeçalho: uma URL https ou o campo do documento que a guarda.'
     }

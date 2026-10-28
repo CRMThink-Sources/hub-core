@@ -52,25 +52,25 @@ model App {
   installedAt DateTime  @default(now()) @map("installed_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  domain                     Domain                      @relation(fields: [domainId], references: [id])
-  appCode                    AppCode                     @relation(fields: [appCodeId], references: [id])
-  credential                 Credential?
-  balance                    BillingBalance?
-  agents                     Agent[]
-  connectors                 Connector[]
-  biAnalyseConnectors        BiAnalyseConnector[]
-  thinkAnaliseAuthTokens     ThinkAnaliseAuthToken[]
-  thinkzapAllowedUsers       ThinkzapAllowedUser[]
+  domain                             Domain                              @relation(fields: [domainId], references: [id])
+  appCode                            AppCode                             @relation(fields: [appCodeId], references: [id])
+  credential                         Credential?
+  balance                            BillingBalance?
+  agents                             Agent[]
+  connectors                         Connector[]
+  biAnalyseConnectors                BiAnalyseConnector[]
+  thinkAnaliseAuthTokens             ThinkAnaliseAuthToken[]
+  thinkzapAllowedUsers               ThinkzapAllowedUser[]
   thinkzapConnectionNotifyRecipients ThinkzapConnectionNotifyRecipient[]
-  thinkzapAllowedDepartments ThinkzapAllowedDepartment[]
-  thinkzapOperatorOAuth      ThinkzapOperatorOAuth[]
-  thinkzapBotFlows           ThinkzapBotFlow[]
-  thinkzapBotFlowBots        ThinkzapBotFlowBot[]
-  thinkzapBotFlowBindings    ThinkzapBotFlowBinding[]
-  thinkzapBotSessions        ThinkzapBotSession[]
-  importSheetAuthToken       ImportSheetAuthToken?
-  importSheetImports         ImportSheetImport[]
-  clickSignSettings          ClickSignSettings?
+  thinkzapAllowedDepartments         ThinkzapAllowedDepartment[]
+  thinkzapOperatorOAuth              ThinkzapOperatorOAuth[]
+  thinkzapBotFlows                   ThinkzapBotFlow[]
+  thinkzapBotFlowBots                ThinkzapBotFlowBot[]
+  thinkzapBotFlowBindings            ThinkzapBotFlowBinding[]
+  thinkzapBotSessions                ThinkzapBotSession[]
+  importSheetAuthToken               ImportSheetAuthToken?
+  importSheetImports                 ImportSheetImport[]
+  clickSignSettings                  ClickSignSettings?
 
   @@unique([domainId, appCodeId])
   @@index([domainId])
@@ -173,14 +173,14 @@ model Agent {
 
   /// Janela de atendimento. Regra nossa, aplicada antes de acionar o agente:
   /// nao existe no vendor.
-  worktimeEnabled Boolean @default(false) @map("worktime_enabled")
-  initHour        String? @map("init_hour") @db.Char(5)
-  endHour         String? @map("end_hour") @db.Char(5)
+  worktimeEnabled      Boolean @default(false) @map("worktime_enabled")
+  initHour             String? @map("init_hour") @db.Char(5)
+  endHour              String? @map("end_hour") @db.Char(5)
   /// Dias da semana ativos, 0 (domingo) a 6.
-  activeDays      Json?   @map("active_days")
+  activeDays           Json?   @map("active_days")
   /// Identificador IANA (ex: `America/Sao_Paulo`). Nao e offset: offset erra
   /// durante horario de verao.
-  timezone        String? @map("timezone")
+  timezone             String? @map("timezone")
   /// Inverte a janela: `true` = o agente atende FORA do expediente e silencia
   /// dentro dele. Era `activeOfHours` no HubThink, cujo nome dizia o oposto do
   /// que o codigo fazia.
@@ -506,16 +506,16 @@ model ThinkzapWidgetOutbox {
   /// identificar a versão aprovada e preencher as variáveis. Guardados aqui, e não
   /// derivados de `text`, porque o provider recebe o par (template, parâmetros) — o
   /// corpo resolvido não tem volta.
-  templateName       String? @map("template_name")
-  templateLanguage   String? @map("template_language")
-  templateParameters Json?   @map("template_parameters")
+  templateName             String? @map("template_name")
+  templateLanguage         String? @map("template_language")
+  templateParameters       Json?   @map("template_parameters")
   /// Valores dos botões dinâmicos do template (link com variável e copiar código),
   /// como `{ index, subType, value }[]` — `index` é a posição do botão entre todos
   /// os botões do template. `NULL` em row anterior aos botões: envia sem botão.
-  templateButtonParameters Json? @map("template_button_parameters")
+  templateButtonParameters Json?   @map("template_button_parameters")
   /// URL pública da imagem do cabeçalho, em template com cabeçalho de imagem.
   /// `NULL` = envio sem cabeçalho, inclusive nas rows anteriores à coluna.
-  templateHeaderImageUrl String? @map("template_header_image_url") @db.Text
+  templateHeaderImageUrl   String? @map("template_header_image_url") @db.Text
 
   /// Só existe em `kind = INTERACTIVE_BUTTON`: corpo, header/footer opcionais e a
   /// lista de botões, no formato de `InteractiveButtonDescriptor`. Guardado como
@@ -569,7 +569,7 @@ model ThinkzapWidgetOutbox {
   origin ThinkzapOutboxOrigin @default(WIDGET)
 
   /// Só em `kind = MEDIA`: `image`, `video`, `audio` ou `document`.
-  mediaType String? @map("media_type")
+  mediaType   String? @map("media_type")
   /// Como obter o arquivo **na hora do envio** — id do arquivo no Bitrix, URL
   /// hospedada etc. A espera da cadência não tem prazo, então uma URL temporária de
   /// download gravada aqui poderia estar vencida quando a vez chegar.
@@ -594,7 +594,7 @@ model ThinkzapWidgetOutbox {
 
   /// Posição na fila FIFO da linha (`thinkzap:cadence-queue:{lineKey}`). Guardada
   /// aqui para o ticket voltar à mesma posição se o Redis perder a fila.
-  queueSeq Int? @map("queue_seq")
+  queueSeq         Int?      @map("queue_seq")
   /// Quando a mensagem adiada pela cadência deve sair. Só informativo: é o que o
   /// widget mostra em "aguardando janela de envio".
   cadenceWaitUntil DateTime? @map("cadence_wait_until")
@@ -618,6 +618,33 @@ model ThinkzapWidgetOutbox {
   /// O desfecho agregado de um envio com várias partes.
   @@index([dispatchGroupId])
   @@map("core_thinkerszap_widget_outbox")
+}
+
+/// Imagem padrão do envio de um template com cabeçalho de imagem, por linha.
+///
+/// A Meta não guarda imagem fixa para o envio — a do cadastro é só a amostra da
+/// aprovação, e cada envio leva a sua no `HEADER`. Esta tabela é o que permite
+/// enviar o template sem informar a imagem toda vez.
+///
+/// Chave por nome + idioma, e não pelo `id` da Meta: é assim que o catálogo de
+/// envio, a fila e o robô identificam o template, e nenhum dos dois muda numa
+/// edição.
+model ThinkzapTemplateDefault {
+  id                 String   @id @default(uuid())
+  domainId           String   @map("domain_id")
+  /// A linha (item de assinatura).
+  subscriptionItemId String   @map("subscription_item_id")
+  templateName       String   @map("template_name")
+  language           String
+  /// URL pública `https` da imagem, sem expiração (`template-defaults/` no R2, ou o
+  /// link informado pelo operador).
+  headerImageUrl     String   @map("header_image_url") @db.Text
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([domainId, subscriptionItemId, templateName, language], name: "uq_template_default")
+  @@index([domainId, subscriptionItemId])
+  @@map("core_thinkerszap_template_defaults")
 }
 
 /// De onde veio um envio da outbox.
@@ -1057,20 +1084,20 @@ model McpRefreshToken {
 /// Tabela e nao cache em Redis: `botToken` sai **uma vez** no registro e
 /// `imbot.v2.Bot.list` nao o repete. Sem ele `transfer` e `finish` nao identificam o bot.
 model ThinkzapBotFlowBot {
-  id    String @id @default(uuid())
-  appId String @map("app_id")
+  id          String   @id @default(uuid())
+  appId       String   @map("app_id")
   /// `SetNull` e nao `Cascade`: se o portal recusar o `unregister`, o token e a unica
   /// forma de alcancar o bot que ficou la.
-  flowId String? @unique @map("flow_id")
+  flowId      String?  @unique @map("flow_id")
   /// `id` do bot no portal, usado em `WELCOME_BOT_ID`.
-  bitrixBotId Int @map("bitrix_bot_id")
+  bitrixBotId Int      @map("bitrix_bot_id")
   /// `CLIENT_ID` de `bot.session.transfer` / `.finish`. Obrigatorio: bot e webhook.
-  botToken String @map("bot_token") @db.Text
+  botToken    String   @map("bot_token") @db.Text
   /// Handler registrado. Trocar de URL exige `Bot.update` — sem isto o portal segue
   /// batendo no endereco antigo e nenhum evento chega.
-  webhookUrl String   @map("webhook_url") @db.Text
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  webhookUrl  String   @map("webhook_url") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   app  App              @relation(fields: [appId], references: [id], onDelete: Cascade)
   flow ThinkzapBotFlow? @relation(fields: [flowId], references: [id], onDelete: SetNull)
@@ -1082,17 +1109,17 @@ model ThinkzapBotFlowBot {
 }
 
 model ThinkzapBotFlow {
-  id     String                @id @default(uuid())
-  appId  String                @map("app_id")
-  name   String
-  status ThinkzapBotFlowStatus @default(DRAFT)
+  id          String                @id @default(uuid())
+  appId       String                @map("app_id")
+  name        String
+  status      ThinkzapBotFlowStatus @default(DRAFT)
   /// Sobe a cada publicacao. A sessao guarda a versao com que comecou.
-  version Int      @default(1)
+  version     Int                   @default(1)
   /// `{ entryNodeId, nodes[], settings }` — validado por `bot-flow/flow.schema.ts`.
-  graph   Json
-  publishedAt DateTime? @map("published_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  graph       Json
+  publishedAt DateTime?             @map("published_at")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
 
   app      App                      @relation(fields: [appId], references: [id], onDelete: Cascade)
   bindings ThinkzapBotFlowBinding[]
@@ -1105,14 +1132,14 @@ model ThinkzapBotFlow {
 }
 
 model ThinkzapBotFlowBinding {
-  id     String @id @default(uuid())
-  appId  String @map("app_id")
-  flowId String @map("flow_id")
+  id        String   @id @default(uuid())
+  appId     String   @map("app_id")
+  flowId    String   @map("flow_id")
   /// `CONFIG_ID` da linha (canal aberto) no Bitrix.
-  lineId String @map("line_id")
+  lineId    String   @map("line_id")
   /// Reservado. Um fluxo por canal (ver @@unique), entao nao ha o que ordenar.
-  priority Int     @default(100)
-  active   Boolean @default(true)
+  priority  Int      @default(100)
+  active    Boolean  @default(true)
   /// Reservado, junto com `priority`: sem dois fluxos por canal, nao ha o que desempatar.
   condition Json?
   createdAt DateTime @default(now()) @map("created_at")
@@ -1131,28 +1158,28 @@ model ThinkzapBotFlowBinding {
 }
 
 model ThinkzapBotSession {
-  id           String @id @default(uuid())
-  appId        String @map("app_id")
-  bitrixChatId String @map("bitrix_chat_id")
-  flowId       String @map("flow_id")
-  flowVersion  Int    @map("flow_version")
+  id            String                   @id @default(uuid())
+  appId         String                   @map("app_id")
+  bitrixChatId  String                   @map("bitrix_chat_id")
+  flowId        String                   @map("flow_id")
+  flowVersion   Int                      @map("flow_version")
   /// Snapshot do graph publicado no inicio: publicar nao quebra conversa em curso.
-  graph Json
+  graph         Json
   /// Snapshot do contexto da linha (provider, settings, canal aberto). Evita reler
   /// assinatura no CRM a cada mensagem — leitura que consome `operating` do app.
-  lineSnapshot Json    @map("line_snapshot")
+  lineSnapshot  Json                     @map("line_snapshot")
   /// Qual vinculo casou. Sem isso, condicao errada e invisivel na apuracao.
-  bindingId     String? @map("binding_id")
-  currentNodeId String  @map("current_node_id")
+  bindingId     String?                  @map("binding_id")
+  currentNodeId String                   @map("current_node_id")
   vars          Json
   /// Tentativas no no atual.
-  attempts Int                      @default(0)
-  status   ThinkzapBotSessionStatus @default(ACTIVE)
-  closedAt DateTime?                @map("closed_at")
+  attempts      Int                      @default(0)
+  status        ThinkzapBotSessionStatus @default(ACTIVE)
+  closedAt      DateTime?                @map("closed_at")
   /// Sessao abandonada nao fica presa: passado o prazo, a proxima mensagem comeca de novo.
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  expiresAt     DateTime                 @map("expires_at")
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
 
   app  App             @relation(fields: [appId], references: [id], onDelete: Cascade)
   flow ThinkzapBotFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)

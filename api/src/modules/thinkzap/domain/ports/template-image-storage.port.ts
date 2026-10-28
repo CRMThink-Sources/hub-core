@@ -12,6 +12,12 @@ export type StoreTemplateImageInput = {
   /** Decidido pela assinatura do arquivo, nunca pelo que o navegador declarou. */
   contentType: 'image/jpeg' | 'image/png'
   scope: { domainId: string }
+  /**
+   * `temporary` (padrão): imagem de um envio, expira em até 30 dias.
+   * `permanent`: imagem padrão do envio de um template, sem expiração — o template
+   * continua sendo enviado com ela por tempo indeterminado.
+   */
+  retention?: 'temporary' | 'permanent'
 }
 
 export type StoredTemplateImage = {

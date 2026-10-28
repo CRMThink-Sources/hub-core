@@ -15,6 +15,7 @@ import {
   TemplateImageStorage,
   TemplateImageStorageUnavailableError,
 } from '@/modules/thinkzap/domain/ports/template-image-storage.port'
+import type { TemplateDefaultsRepository } from '@/modules/thinkzap/domain/ports/template-defaults-repository.port'
 import {
   CreateConnectorTemplateUseCase,
   InvalidTemplateError,
@@ -69,6 +70,7 @@ function makeSut(
     items?: SubscriptionItem[]
     fetch?: ReturnType<typeof vi.fn>
     imageStorage?: TemplateImageStorage | null
+    upsert?: ReturnType<typeof vi.fn>
   } = {},
 ) {
   const provider = makeProvider()
@@ -96,14 +98,22 @@ function makeSut(
       }),
   } as unknown as TemplateSampleImageFetcher
 
+  const templateDefaults = {
+    find: vi.fn(),
+    findMany: vi.fn(),
+    upsert: opts.upsert ?? vi.fn().mockResolvedValue(undefined),
+  }
+
   return {
     provider,
     sampleImageFetcher,
+    templateDefaults,
     useCase: new CreateConnectorTemplateUseCase(
       getAplicationContext,
       templateProviderResolver,
       sampleImageFetcher,
       opts.imageStorage ?? null,
+      templateDefaults as unknown as TemplateDefaultsRepository,
     ),
   }
 }
@@ -235,6 +245,60 @@ describe('CreateConnectorTemplateUseCase', () => {
     )
   })
 
+  describe('imagem padrão do envio', () => {
+    const scope = { domainId: 'domain_1', subscriptionItemId: 'item_1' }
+    const imageInput = {
+      ...validInput,
+      category: 'MARKETING' as const,
+      components: [
+        imageHeader('https://loja.com/banner.png'),
+        ...validInput.components,
+      ],
+    }
+
+    it('o link de exemplo vira a imagem padrão depois de criar', async () => {
+      const sut = makeSut()
+
+      await sut.useCase.execute(imageInput)
+
+      expect(sut.templateDefaults.upsert).toHaveBeenCalledWith(scope, {
+        name: 'order_update',
+        language: 'pt_BR',
+        headerImageUrl: 'https://loja.com/banner.png',
+      })
+    })
+
+    it('template sem imagem não grava imagem padrão', async () => {
+      const sut = makeSut()
+
+      await sut.useCase.execute(validInput)
+
+      expect(sut.templateDefaults.upsert).not.toHaveBeenCalled()
+    })
+
+    it('falha ao gravar a imagem padrão não desfaz a criação', async () => {
+      const sut = makeSut({
+        upsert: vi.fn().mockRejectedValue(new Error('db fora')),
+      })
+
+      await expect(sut.useCase.execute(imageInput)).resolves.toMatchObject({
+        id: 'tpl_1',
+      })
+    })
+
+    it('provider recusando não grava imagem padrão', async () => {
+      const sut = makeSut()
+      vi.mocked(sut.provider.createTemplate).mockRejectedValue(
+        new Error('meta recusou'),
+      )
+
+      await expect(sut.useCase.execute(imageInput)).rejects.toThrow(
+        'meta recusou',
+      )
+      expect(sut.templateDefaults.upsert).not.toHaveBeenCalled()
+    })
+  })
+
   it('não baixa nada em template sem cabeçalho', async () => {
     const sut = makeSut()
 
@@ -340,6 +404,7 @@ describe('CreateConnectorTemplateUseCase', () => {
         data: png,
         contentType: 'image/png',
         scope: { domainId: 'domain_1' },
+        retention: 'permanent',
       })
       const [created] =
         vi.mocked(sut.provider.createTemplate).mock.calls[0] ?? []
@@ -351,6 +416,11 @@ describe('CreateConnectorTemplateUseCase', () => {
       expect(created).not.toHaveProperty('headerSampleImage')
       // A URL é nossa: não é baixada de novo para conferência.
       expect(sut.sampleImageFetcher.fetch).not.toHaveBeenCalled()
+      // O mesmo arquivo vira a imagem padrão do envio.
+      expect(sut.templateDefaults.upsert).toHaveBeenCalledWith(
+        { domainId: 'domain_1', subscriptionItemId: 'item_1' },
+        { name: 'order_update', language: 'pt_BR', headerImageUrl: url },
+      )
     })
 
     it('não hospeda nada quando a linha recusa', async () => {

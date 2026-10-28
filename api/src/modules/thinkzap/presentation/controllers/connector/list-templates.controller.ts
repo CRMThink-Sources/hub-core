@@ -10,6 +10,7 @@ import { parseLineRequest } from '../line/line-request'
 import {
   ChannelNotConnectedError,
   ConnectorNotTemplateCapableError,
+  TemplateNotFoundError,
   TemplatesNotSupportedError,
 } from '@/modules/thinkzap/domain/ports/template-errors'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
@@ -43,6 +44,15 @@ export function handleTemplateError(
     logThinkzapError(
       apiLogger,
       'thinkzap.subscription.line_not_found_for_item',
+      { app: 'thinkzap', err: error },
+      { level: 'warn' },
+    )
+    return this.notFound(error)
+  }
+  if (error instanceof TemplateNotFoundError) {
+    logThinkzapError(
+      apiLogger,
+      'thinkzap.template.not_found',
       { app: 'thinkzap', err: error },
       { level: 'warn' },
     )

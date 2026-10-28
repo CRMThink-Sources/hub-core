@@ -10,6 +10,7 @@ import {
   CreateHubMessageWebhookResponse,
   CreateTemplateParams,
   CreateTemplateResponse,
+  UpdateTemplateResponse,
   UploadTemplateMediaResponse,
   HubMessageBusiness,
   HubMessageWebhook,
@@ -287,6 +288,23 @@ export class HubMessageClient {
   ): Promise<CreateTemplateResponse> {
     const { data } = await this.http.post<CreateTemplateResponse>(
       `/whatsapp/businesses/${wabaId}/templates`,
+      params,
+    )
+    return data
+  }
+
+  /**
+   * Edita um template e o reenvia para aprovação da Meta. O corpo é o mesmo da
+   * criação; `templateId` é o `id` da listagem, não o nome.
+   * Ref.: https://developer.omni.z-api.io/templates/update-template
+   */
+  async updateTemplate(
+    wabaId: string,
+    templateId: string,
+    params: CreateTemplateParams,
+  ): Promise<UpdateTemplateResponse> {
+    const { data } = await this.http.put<UpdateTemplateResponse>(
+      `/whatsapp/businesses/${wabaId}/templates/${templateId}`,
       params,
     )
     return data

@@ -405,6 +405,18 @@ export type CreateTemplateResponse = {
 }
 
 /**
+ * `PUT /whatsapp/businesses/{wabaId}/templates/{templateId}` — corpo igual ao da
+ * criação; responde `{ success: true }`. Template aprovado volta para `PENDING`.
+ * Ref.: https://developer.omni.z-api.io/templates/update-template
+ *
+ * As regras de edição (estados editáveis, limite de edições, troca de categoria) são
+ * da Meta e a doc da Omni não as descreve. A CONFIRMAR numa WABA de teste.
+ */
+export type UpdateTemplateResponse = {
+  success: boolean
+}
+
+/**
  * `POST /whatsapp/businesses/{wabaId}/templates/media` — identificador da Meta para
  * `example.header_handle`. Expira; usar no cadastro logo em seguida.
  */

@@ -70,6 +70,14 @@ export type CreateTemplateInput = {
   headerSampleImage?: TemplateSampleImage
 }
 
+/**
+ * Edição de um template existente: mesmo corpo da criação, mais o `id` remoto. Nome
+ * e idioma não mudam (a Meta recusa); quem garante isso é o use case.
+ */
+export type UpdateTemplateInput = CreateTemplateInput & {
+  templateId: string
+}
+
 /** Resultado do cadastro: id remoto criado e status inicial (normalmente PENDING). */
 export type CreatedTemplate = {
   id: string
@@ -86,6 +94,12 @@ export interface WhatsAppTemplateProvider {
 
   /** Cadastra um novo template e submete à aprovação da Meta. */
   createTemplate(input: CreateTemplateInput): Promise<CreatedTemplate>
+
+  /**
+   * Edita um template e o reenvia para aprovação. Template aprovado volta para
+   * `PENDING` até a Meta revisar de novo.
+   */
+  updateTemplate(input: UpdateTemplateInput): Promise<void>
 
   /** Força sincronização de status com a Meta e retorna os templates atualizados. */
   syncTemplates(wabaId: string): Promise<Template[]>

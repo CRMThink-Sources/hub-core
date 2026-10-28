@@ -104,6 +104,18 @@ export function needsHeaderImage(
 }
 
 /**
+ * Imagem padrão do envio do template, quando ele tem cabeçalho de imagem e ela
+ * foi definida: vem preenchida e libera o envio sem o operador escolher nada.
+ */
+export function defaultHeaderImageOf(
+  template: Pick<WidgetTemplate, 'header'> | undefined,
+): string | undefined {
+  return needsHeaderImage(template)
+    ? template?.header?.defaultImageUrl
+    : undefined
+}
+
+/**
  * A imagem do cabeçalho está ok para enviar: template sem imagem não pede nada;
  * com imagem, exige URL `https`.
  */

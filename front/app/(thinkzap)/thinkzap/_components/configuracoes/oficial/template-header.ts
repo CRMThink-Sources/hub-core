@@ -43,9 +43,14 @@ export type TemplateHeaderViolationCode =
   | 'file_required'
   | 'file_too_large'
   | 'file_invalid_type'
+  | 'default_required'
 
-/** De onde vem a imagem de exemplo: arquivo enviado (upload) ou link público. */
-export type TemplateHeaderSource = 'FILE' | 'LINK'
+/**
+ * De onde vem a imagem de exemplo: arquivo enviado (upload), link público, ou —
+ * só na edição — a imagem atual, que a API manda como amostra a partir da imagem
+ * padrão do envio.
+ */
+export type TemplateHeaderSource = 'KEEP' | 'FILE' | 'LINK'
 
 /** Teto da Meta para imagem de cabeçalho — o mesmo da API. */
 export const HEADER_IMAGE_MAX_BYTES = 5 * 1024 * 1024
@@ -89,6 +94,20 @@ export function validateTemplateHeaderFile(
   return null
 }
 
+/**
+ * Manter a imagem na edição: o link da Meta não vale como amostra, então só dá
+ * quando o template tem imagem padrão do envio.
+ */
+export function validateTemplateHeaderKeep(
+  choice: TemplateHeaderChoice,
+  hasDefaultImage: boolean,
+  category: TemplateCategory,
+): TemplateHeaderViolationCode | null {
+  if (choice === 'NONE') return null
+  if (!headerAllowed(category)) return 'header_not_allowed'
+  return hasDefaultImage ? null : 'default_required'
+}
+
 function isMetaCdnUrl(value: string): boolean {
   let host: string
   try {
@@ -102,8 +121,9 @@ function isMetaCdnUrl(value: string): boolean {
 }
 
 /**
- * Componente neutro de cabeçalho de imagem, como a API de criação espera. Com
- * arquivo, o componente vai sem `example`: a imagem segue à parte, no multipart.
+ * Componente neutro de cabeçalho de imagem, como a API de criação e de edição
+ * esperam. Com arquivo, o componente vai sem `example`: a imagem segue à parte, no
+ * multipart.
  */
 export function buildHeaderComponent(
   choice: TemplateHeaderChoice,
@@ -111,7 +131,8 @@ export function buildHeaderComponent(
   imageUrl: string,
 ): TemplateComponent | null {
   if (choice !== 'IMAGE') return null
-  if (source === 'FILE') return { type: 'HEADER', format: 'IMAGE' }
+  // Arquivo segue à parte; manter a imagem vai sem exemplo e a API usa a padrão.
+  if (source !== 'LINK') return { type: 'HEADER', format: 'IMAGE' }
   return {
     type: 'HEADER',
     format: 'IMAGE',

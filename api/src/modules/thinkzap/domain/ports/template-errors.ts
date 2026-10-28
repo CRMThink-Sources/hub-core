@@ -69,3 +69,11 @@ export class ChannelNotConnectedError extends Error {
     this.name = 'ChannelNotConnectedError'
   }
 }
+
+/** O template pedido não existe na WABA da linha (nome + idioma, ou `id`). */
+export class TemplateNotFoundError extends Error {
+  constructor(template: string) {
+    super(`Template "${template}" não encontrado nesta linha`)
+    this.name = 'TemplateNotFoundError'
+  }
+}

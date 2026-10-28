@@ -3,6 +3,7 @@ import {
   CreateTemplateInput,
   CreatedTemplate,
   Template,
+  UpdateTemplateInput,
   WhatsAppTemplateProvider,
 } from '@/modules/thinkzap/domain/ports/whatsapp-template-provider.port'
 
@@ -19,6 +20,10 @@ export class ZApiTemplateProvider implements WhatsAppTemplateProvider {
   }
 
   createTemplate(_input: CreateTemplateInput): Promise<CreatedTemplate> {
+    throw new TemplatesNotSupportedError('ZAPI')
+  }
+
+  updateTemplate(_input: UpdateTemplateInput): Promise<void> {
     throw new TemplatesNotSupportedError('ZAPI')
   }
 
