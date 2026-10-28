@@ -104,7 +104,24 @@
     "secaoMensagem": "Mensaje",
     "nomeTravado": "El nombre no se puede cambiar después de creado.",
     "categoriaTravada": "La categoría de una plantilla aprobada no se puede cambiar.",
-    "salvarEdicao": "Guardar y enviar a revisión"
+    "salvarEdicao": "Guardar y enviar a revisión",
+    "secaoIdentificacaoDesc": "Cómo aparece la plantilla en la lista y para qué la usa Meta.",
+    "secaoCabecalhoDesc": "Una imagen arriba del mensaje, común en campañas.",
+    "secaoMensagemDesc": "El texto que lee el contacto. Las variables se completan en cada envío.",
+    "categoriaDesc": {
+      "MARKETING": "Promociones, ofertas y novedades.",
+      "UTILITY": "Pedidos, cobros y avisos de cuenta.",
+      "AUTHENTICATION": "Códigos de acceso y verificación."
+    },
+    "inserirVariavel": "Insertar variable",
+    "verPrevia": "Ver vista previa del mensaje",
+    "esconderPrevia": "Ocultar vista previa",
+    "pronto": "Todo listo para enviar.",
+    "pendente": {
+      "nome": "Falta el nombre de la plantilla, en snake_case.",
+      "corpo": "Falta el texto del mensaje.",
+      "exemplos": "Falta un ejemplo para cada variable."
+    }
   },
   "campanha": {
     "titulo": "Campaña de SMS de Bitrix24",

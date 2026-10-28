@@ -104,7 +104,24 @@
     "secaoMensagem": "Message",
     "nomeTravado": "The name cannot be changed after creation.",
     "categoriaTravada": "The category of an approved template cannot be changed.",
-    "salvarEdicao": "Save and submit for review"
+    "salvarEdicao": "Save and submit for review",
+    "secaoIdentificacaoDesc": "How the template shows in the list and what Meta uses it for.",
+    "secaoCabecalhoDesc": "An image at the top of the message, common in campaigns.",
+    "secaoMensagemDesc": "The text the contact reads. Variables are filled in on each send.",
+    "categoriaDesc": {
+      "MARKETING": "Promotions, offers and news.",
+      "UTILITY": "Orders, billing and account notices.",
+      "AUTHENTICATION": "Access and verification codes."
+    },
+    "inserirVariavel": "Insert variable",
+    "verPrevia": "Show message preview",
+    "esconderPrevia": "Hide preview",
+    "pronto": "Ready to send.",
+    "pendente": {
+      "nome": "The template name is missing, in snake_case.",
+      "corpo": "The message text is missing.",
+      "exemplos": "Each variable needs an example."
+    }
   },
   "campanha": {
     "titulo": "Bitrix24 SMS campaign",

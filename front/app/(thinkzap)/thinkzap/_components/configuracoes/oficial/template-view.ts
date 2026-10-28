@@ -192,3 +192,38 @@ function toEditableButton(button: TemplateButton): TemplateButton {
     }
   }
 }
+
+/** Limites da Meta para o texto do template. */
+export const TEMPLATE_TEXT_LIMITS = { body: 1024, footer: 60 } as const
+
+/**
+ * Insere a próxima variável (`{{n+1}}`) na posição do cursor e devolve o texto
+ * novo e onde o cursor fica, logo depois dela.
+ */
+export function insertNextVariable(
+  text: string,
+  cursor: number,
+): { text: string; cursor: number } {
+  const used = [...text.matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map(m => Number(m[1]))
+  const token = `{{${(used.length ? Math.max(...used) : 0) + 1}}}`
+  const at = Math.min(Math.max(cursor, 0), text.length)
+  return {
+    text: text.slice(0, at) + token + text.slice(at),
+    cursor: at + token.length,
+  }
+}
+
+/** O primeiro motivo que ainda impede salvar, como chave de tradução. */
+export function firstMissingKey(input: {
+  nameValid: boolean
+  body: string
+  examplesFilled: boolean
+  headerViolation: string | null
+}): string | null {
+  if (!input.nameValid) return 'form.pendente.nome'
+  if (!input.body.trim()) return 'form.pendente.corpo'
+  if (!input.examplesFilled) return 'form.pendente.exemplos'
+  if (input.headerViolation)
+    return `form.cabecalho.erros.${input.headerViolation}`
+  return null
+}
