@@ -1,5 +1,8 @@
 import { env } from '@/config/env'
-import { AplicationTitleReader } from '@/modules/application/domain/repositories/aplication.repository'
+import {
+  AplicationMirrorReader,
+  AplicationMirrorsRead,
+} from '@/modules/application/domain/repositories/aplication.repository'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -17,12 +20,20 @@ const BATCH_SIZE = 50
  * verdade da instalação — já respondeu. Id sem título no `Map` devolvido é o
  * sinal para o repositório cair no nome do app.
  */
-export class BitrixAplicationTitleReader implements AplicationTitleReader {
+export class BitrixAplicationTitleReader implements AplicationMirrorReader {
   constructor(private readonly bitrix: BitrixClient) {}
 
   async getTitlesBySpaIds(spaIds: string[]): Promise<Map<string, string>> {
-    const titles = new Map<string, string>()
-    if (spaIds.length === 0) return titles
+    return (await this.getMirrorsBySpaIds(spaIds)).titles
+  }
+
+  async getMirrorsBySpaIds(spaIds: string[]): Promise<AplicationMirrorsRead> {
+    const read: AplicationMirrorsRead = {
+      titles: new Map(),
+      existing: new Set(),
+      unverified: new Set(),
+    }
+    if (spaIds.length === 0) return read
 
     // Ids repetidos viriam de aplicações distintas apontando para o mesmo item,
     // o que a restrição única impede — mas deduplicar é barato e evita lote
@@ -31,15 +42,15 @@ export class BitrixAplicationTitleReader implements AplicationTitleReader {
 
     for (let start = 0; start < uniqueIds.length; start += BATCH_SIZE) {
       const batch = uniqueIds.slice(start, start + BATCH_SIZE)
-      await this.collectBatch(batch, titles)
+      await this.collectBatch(batch, read)
     }
 
-    return titles
+    return read
   }
 
   private async collectBatch(
     batch: string[],
-    titles: Map<string, string>,
+    read: AplicationMirrorsRead,
   ): Promise<void> {
     let items: unknown[]
 
@@ -55,6 +66,7 @@ export class BitrixAplicationTitleReader implements AplicationTitleReader {
         { app: 'payments', spaIds: batch, error },
         'Leitura de títulos da SPA de aplicação falhou — usando fallback',
       )
+      for (const id of batch) read.unverified.add(id)
       return
     }
 
@@ -64,11 +76,13 @@ export class BitrixAplicationTitleReader implements AplicationTitleReader {
       // `Map` não saberia indexar.
       if (typeof id !== 'string' && typeof id !== 'number') continue
 
+      read.existing.add(String(id))
+
       // Título ausente e título vazio são o mesmo caso: não entra no `Map`, e
-      // quem consome cai no nome do app.
+      // quem consome cai no nome do app. O item existe mesmo assim.
       if (typeof title !== 'string' || title.trim().length === 0) continue
 
-      titles.set(String(id), title.trim())
+      read.titles.set(String(id), title.trim())
     }
   }
 }

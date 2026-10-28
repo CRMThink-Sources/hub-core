@@ -147,4 +147,44 @@ describe('BitrixAplicationTitleReader', () => {
 
     expect(titles.size).toBe(0)
   })
+
+  describe('getMirrorsBySpaIds', () => {
+    it('separa existentes, títulos e ids de lote com falha', async () => {
+      let call = 0
+      const ids = Array.from({ length: 60 }, (_, index) => String(index + 1))
+      const bitrix = makeBitrix((_entityTypeId, filter) => {
+        call += 1
+        if (call === 1) return Promise.reject(new BitrixError('bitrix down'))
+
+        // Segundo lote (51..60): 55 sem título, 60 apagado no CRM.
+        const batch = (filter['@id'] as string[])
+          .filter(id => id !== '60')
+          .map(id => ({ id, title: id === '55' ? '' : `App ${id}` }))
+        return Promise.resolve({ result: { items: batch } })
+      })
+
+      const read = await new BitrixAplicationTitleReader(
+        bitrix,
+      ).getMirrorsBySpaIds(ids)
+
+      expect(read.unverified.size).toBe(50)
+      expect(read.unverified.has('1')).toBe(true)
+      expect(read.existing.has('55')).toBe(true)
+      expect(read.titles.has('55')).toBe(false)
+      expect(read.existing.has('60')).toBe(false)
+      expect(read.unverified.has('60')).toBe(false)
+      expect(read.titles.get('51')).toBe('App 51')
+    })
+
+    it('lista vazia não chama o Bitrix', async () => {
+      const bitrix = respondingWith([])
+
+      const read = await new BitrixAplicationTitleReader(
+        bitrix,
+      ).getMirrorsBySpaIds([])
+
+      expect(read.existing.size).toBe(0)
+      expect(bitrix.listCrmItems).not.toHaveBeenCalled()
+    })
+  })
 })

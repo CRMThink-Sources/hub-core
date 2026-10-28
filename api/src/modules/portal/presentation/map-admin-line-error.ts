@@ -4,6 +4,7 @@ import { MessageServiceScopeMissingError } from '@/modules/thinkzap/application/
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { LineProviderNotSupportedError } from '@/modules/thinkzap/domain/errors/line-provider-not-supported.error'
 import { AdminAppNotFoundError } from '../application/helpers/resolve-admin-line'
+import { ProviderEffectsDisabledError } from '../domain/errors/portal-domain.errors'
 
 /**
  * Tradução HTTP dos erros de resolução de linha do portal admin.
@@ -49,6 +50,14 @@ export function mapAdminLineError(error: unknown): httpResponse | undefined {
    */
   if (error instanceof MessageServiceScopeMissingError) {
     return { status: 409, result: { error: error.message } }
+  }
+
+  /** Homologação: `409` com o motivo, como as demais ações de provider do backoffice. */
+  if (error instanceof ProviderEffectsDisabledError) {
+    return {
+      status: 409,
+      result: { error: error.message, reason: error.reason },
+    }
   }
 
   return undefined

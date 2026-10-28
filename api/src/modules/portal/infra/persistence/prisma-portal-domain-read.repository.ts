@@ -10,6 +10,7 @@ const domainInclude = {
     },
     orderBy: { installedAt: 'desc' as const },
   },
+  _count: { select: { mcpUsers: true } },
 } as const
 
 type DomainRow = {
@@ -18,6 +19,7 @@ type DomainRow = {
   memberId: string
   createdAt: Date
   updatedAt: Date
+  _count: { mcpUsers: number }
   apps: Array<{
     id: string
     spaId: string | null
@@ -35,6 +37,7 @@ function toPortalDomainDetail(row: DomainRow): PortalDomainDetail {
     memberId: row.memberId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    mcpUserCount: row._count.mcpUsers,
     apps: row.apps.map(app => ({
       id: app.id,
       appCodeId: app.appCode.id,
@@ -47,6 +50,8 @@ function toPortalDomainDetail(row: DomainRow): PortalDomainDetail {
        */
       title: app.appCode.name,
       spaId: app.spaId,
+      // Sem leitura da SPA ainda: a hidratação decide entre `linked` e `mirror-missing`.
+      mirror: app.spaId === null ? 'no-mirror' : 'unknown',
       status: app.status,
       email: app.email,
       installedAt: app.installedAt.toISOString(),

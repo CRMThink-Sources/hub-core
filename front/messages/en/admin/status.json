@@ -1,0 +1,35 @@
+{
+  "unknown": "Unknown",
+  "subscription": {
+    "active": "Active",
+    "past_due": "Past due",
+    "trialing": "Trialing",
+    "trial_expired": "Trial expired",
+    "cancelled": "Cancelled"
+  },
+  "app": {
+    "ACTIVE": "Active",
+    "INACTIVE": "Inactive",
+    "SUSPENDED": "Suspended",
+    "TRIAL": "Trial"
+  },
+  "mirror": {
+    "linked": "Linked",
+    "no-mirror": "No mirror",
+    "mirror-missing": "Mirror deleted",
+    "unknown": "Not verified"
+  },
+  "providerBilling": {
+    "subscribed": "Subscribed at provider",
+    "unsubscribed": "Unsubscribed at provider",
+    "unknown": "Not confirmed at provider"
+  },
+  "line": {
+    "active": "Active",
+    "cancelled": "Cancelled"
+  },
+  "modality": {
+    "stripe": "Stripe",
+    "manual": "Manual"
+  }
+}

@@ -32,3 +32,17 @@ export class DomainCredentialMissingError extends Error {
     this.name = 'DomainCredentialMissingError'
   }
 }
+
+/**
+ * Ação do backoffice que toca o provider (ou escreve no CRM compartilhado) num
+ * ambiente com os efeitos de provider desligados — homologação. O portal Bitrix é o
+ * mesmo de produção, então agir daqui mexeria em recurso de produção.
+ */
+export class ProviderEffectsDisabledError extends Error {
+  readonly reason = 'provider-effects-disabled'
+
+  constructor() {
+    super('Efeitos de provider desligados neste ambiente')
+    this.name = 'ProviderEffectsDisabledError'
+  }
+}

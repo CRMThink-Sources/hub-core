@@ -101,6 +101,7 @@ export class SyncSubscriptionLinesBilling {
       throw new SubscriptionLinesBillingError(
         input.subscriptionId,
         failures.map(failure => failure.itemId),
+        result,
       )
     }
 
@@ -128,6 +129,11 @@ export class SubscriptionLinesBillingError extends Error {
   constructor(
     readonly subscriptionId: string,
     readonly failedItemIds: string[],
+    /**
+     * As contagens da rodada, inclusive das linhas que deram certo. A fila só precisa
+     * saber que falhou; o "Assinar todas" do backoffice mostra quantas foram.
+     */
+    readonly result?: SyncSubscriptionLinesBillingResult,
   ) {
     super(
       `Falha na cobrança de ${failedItemIds.length} linha(s) da assinatura ${subscriptionId}: ${failedItemIds.join(', ')}`,

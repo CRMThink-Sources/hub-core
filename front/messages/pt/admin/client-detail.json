@@ -1,28 +1,42 @@
 {
+  "breadcrumb": "Clientes",
   "back": "Voltar para clientes",
-  "title": "Detalhe do cliente",
-  "domain": "Domínio",
-  "memberId": "Member ID",
-  "createdAt": "Cadastro",
-  "updatedAt": "Atualizado em",
-  "appsTitle": "Aplicações instaladas",
-  "appsEmpty": "Nenhuma aplicação instalada neste domínio.",
-  "table": {
-    "appName": "Aplicação",
-    "appCode": "Código",
-    "status": "Status",
-    "email": "E-mail",
-    "installedAt": "Instalada em",
-    "actions": "Ações",
-    "settings": "Configurações",
-    "contract": "Contrato"
+  "openPortal": "Abrir portal",
+  "openPortalLabel": "Abrir o portal Bitrix24 {{domain}} em nova aba",
+  "notFoundTitle": "Cliente não encontrado",
+  "notFoundDescription": "O domínio solicitado não existe ou foi removido.",
+  "errorTitle": "Não foi possível carregar o cliente",
+  "errorDescription": "Tente novamente em instantes.",
+  "retry": "Tentar de novo",
+  "stats": {
+    "label": "Indicadores do cliente",
+    "apps": "Aplicações",
+    "activeSubscriptions": "Assinaturas ativas",
+    "lines": "Linhas contratadas",
+    "mcpUsers": "Usuários MCP",
+    "incomplete": "Parcial: o CRM não respondeu para todas as aplicações"
   },
-  "errorTitle": "Cliente não encontrado",
-  "errorDescription": "O domínio solicitado não existe ou foi removido.",
+  "identity": {
+    "title": "Identificação",
+    "domain": "Domínio",
+    "memberId": "Member ID",
+    "createdAt": "Cadastrado em",
+    "updatedAt": "Atualizado em"
+  },
+  "appsTitle": "Aplicações",
+  "appsEmpty": "Nenhuma aplicação instalada neste domínio.",
+  "app": {
+    "installedBy": "Instalada por",
+    "installedAt": "Instalada em",
+    "contract": "Contrato",
+    "openLabel": "Abrir a aplicação {{title}}"
+  },
   "contract": {
-    "noMirror": "Sem espelho na SPA",
-    "unavailable": "Indisponível",
+    "noMirror": "Sem espelho: não há assinatura possível",
+    "unavailable": "Indisponível: o CRM não respondeu",
     "none": "Sem assinatura",
-    "summary": "{{plano}} · {{status}} · {{linhas}} linha(s)"
+    "lines_one": "{{count}} linha",
+    "lines_other": "{{count}} linhas",
+    "until": "até {{date}}"
   }
 }
