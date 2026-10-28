@@ -20,6 +20,7 @@
     "register:audio-imbot": "tsx src/scripts/register-audio-imbot.ts",
     "create:portal-user": "tsx src/scripts/create-portal-user.ts",
     "backfill:aplication-spa-id": "tsx src/scripts/backfill-aplication-spa-id.ts",
+    "diagnose:aplication-mirrors": "tsx src/scripts/diagnose-aplication-mirrors.ts",
     "backfill:message-provider-instance-id": "tsx src/scripts/backfill-message-provider-instance-id.ts",
     "backfill:connector-settings-to-spa": "tsx src/scripts/backfill-connector-settings-to-spa.ts",
     "backfill:legacy-subscriptions-to-spa": "tsx src/scripts/backfill-legacy-subscriptions-to-spa.ts",

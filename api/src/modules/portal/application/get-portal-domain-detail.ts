@@ -1,10 +1,13 @@
-import type { PortalDomainDetail } from '../domain/entities/portal-domain'
+import type {
+  PortalDomainDetail,
+  PortalDomainSummary,
+} from '../domain/entities/portal-domain'
 import { PortalDomainNotFoundError } from '../domain/errors/portal-domain.errors'
 import type { PortalDomainReadRepository } from '../domain/repositories/portal-domain-read.repository'
 import {
   PortalHydrationDeps,
   hydrateAppContracts,
-  hydrateAppTitles,
+  hydrateAppMirrors,
 } from './helpers/hydrate-portal-apps'
 
 /**
@@ -28,8 +31,38 @@ export class GetPortalDomainDetail {
       throw new PortalDomainNotFoundError()
     }
 
-    const [titled] = await hydrateAppTitles([domain], this.hydration.titles)
+    const [titled] = await hydrateAppMirrors([domain], this.hydration.titles)
+    const hydrated = await hydrateAppContracts(titled ?? domain, this.hydration)
 
-    return hydrateAppContracts(titled ?? domain, this.hydration)
+    return { ...hydrated, summary: summarize(hydrated) }
+  }
+}
+
+/**
+ * Indicadores do topo do detalhe, derivados do que já foi hidratado — nenhuma leitura
+ * extra. `no-mirror` não deixa o resumo incompleto: ali não há contrato possível, então
+ * zero é o número certo. Só `unavailable` é desconhecido.
+ */
+export function summarize(domain: PortalDomainDetail): PortalDomainSummary {
+  let activeSubscriptions = 0
+  let lines = 0
+  let incomplete = false
+
+  for (const app of domain.apps) {
+    if (app.contract?.status === 'unavailable') incomplete = true
+    if (app.contract?.status !== 'ok') continue
+
+    for (const subscription of app.contract.subscriptions) {
+      if (subscription.status === 'active') activeSubscriptions += 1
+      if (subscription.status !== 'cancelled') lines += subscription.lineCount
+    }
+  }
+
+  return {
+    apps: domain.apps.length,
+    activeSubscriptions,
+    lines,
+    mcpUsers: domain.mcpUserCount,
+    incomplete,
   }
 }

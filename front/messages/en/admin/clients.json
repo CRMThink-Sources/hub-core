@@ -1,21 +1,40 @@
 {
   "title": "Clients",
-  "description": "Bitrix24 portals registered in Hubthink.",
+  "description": "Bitrix24 portals registered in Hubthink and the apps installed on each one.",
+  "count_one": "{{count}} client",
+  "count_other": "{{count}} clients",
+  "filters": {
+    "label": "Filter clients",
+    "search": "Search",
+    "searchPlaceholder": "Domain or member ID",
+    "app": "App",
+    "allApps": "All apps",
+    "pendingMirror": "With mirror issues",
+    "clear": "Clear filters"
+  },
   "table": {
+    "label": "Client list",
     "domain": "Domain",
     "memberId": "Member ID",
-    "apps": "Applications",
-    "createdAt": "Registered",
-    "actions": "Actions",
-    "view": "View"
+    "apps": "Apps",
+    "createdAt": "Registered"
   },
   "noApps": "No apps",
-  "searchPlaceholder": "Search by name...",
-  "searchNoResults": "No clients match your search.",
-  "emptyTitle": "No clients found",
-  "emptyDescription": "There are no Bitrix24 domains registered yet.",
+  "mirrorHint": {
+    "no-mirror": "Installation without a mirror item in SPA 1060: it cannot receive a subscription.",
+    "mirror-missing": "This installation's mirror item was deleted in SPA 1060.",
+    "unknown": "The SPA 1060 mirror could not be verified right now."
+  },
+  "pagination": {
+    "range": "{{from}}–{{to}} of {{total}}",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "emptyTitle": "No clients registered",
+  "emptyDescription": "There are no Bitrix24 portals registered in Hubthink yet.",
+  "noResultsTitle": "No clients found",
+  "noResultsDescription": "No client matches the search and filters.",
   "errorTitle": "Could not load clients",
   "errorDescription": "Please try again in a moment.",
-  "appNoMirror": "(no mirror)",
-  "appNoMirrorHint": "Installation without a mirror item in SPA 1060: cannot receive a subscription."
+  "retry": "Try again"
 }

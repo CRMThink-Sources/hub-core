@@ -1,28 +1,42 @@
 {
+  "breadcrumb": "Clients",
   "back": "Back to clients",
-  "title": "Client details",
-  "domain": "Domain",
-  "memberId": "Member ID",
-  "createdAt": "Registered",
-  "updatedAt": "Updated at",
-  "appsTitle": "Installed applications",
-  "appsEmpty": "No applications installed on this domain.",
-  "table": {
-    "appName": "Application",
-    "appCode": "Code",
-    "status": "Status",
-    "email": "Email",
-    "installedAt": "Installed at",
-    "actions": "Actions",
-    "settings": "Settings",
-    "contract": "Contract"
+  "openPortal": "Open portal",
+  "openPortalLabel": "Open the Bitrix24 portal {{domain}} in a new tab",
+  "notFoundTitle": "Client not found",
+  "notFoundDescription": "The requested domain does not exist or was removed.",
+  "errorTitle": "Could not load the client",
+  "errorDescription": "Please try again in a moment.",
+  "retry": "Try again",
+  "stats": {
+    "label": "Client indicators",
+    "apps": "Apps",
+    "activeSubscriptions": "Active subscriptions",
+    "lines": "Contracted lines",
+    "mcpUsers": "MCP users",
+    "incomplete": "Partial: the CRM did not respond for every app"
   },
-  "errorTitle": "Client not found",
-  "errorDescription": "The requested domain does not exist or was removed.",
+  "identity": {
+    "title": "Identification",
+    "domain": "Domain",
+    "memberId": "Member ID",
+    "createdAt": "Registered on",
+    "updatedAt": "Updated on"
+  },
+  "appsTitle": "Apps",
+  "appsEmpty": "No apps installed on this domain.",
+  "app": {
+    "installedBy": "Installed by",
+    "installedAt": "Installed on",
+    "contract": "Contract",
+    "openLabel": "Open the app {{title}}"
+  },
   "contract": {
-    "noMirror": "No SPA mirror",
-    "unavailable": "Unavailable",
+    "noMirror": "No mirror: no subscription possible",
+    "unavailable": "Unavailable: the CRM did not respond",
     "none": "No subscription",
-    "summary": "{{plano}} · {{status}} · {{linhas}} line(s)"
+    "lines_one": "{{count}} line",
+    "lines_other": "{{count}} lines",
+    "until": "until {{date}}"
   }
 }

@@ -1,21 +1,40 @@
 {
   "title": "Clientes",
-  "description": "Portales Bitrix24 registrados en Hubthink.",
+  "description": "Portales Bitrix24 registrados en Hubthink y las aplicaciones instaladas en cada uno.",
+  "count_one": "{{count}} cliente",
+  "count_other": "{{count}} clientes",
+  "filters": {
+    "label": "Filtrar clientes",
+    "search": "Buscar",
+    "searchPlaceholder": "Dominio o member ID",
+    "app": "Aplicación",
+    "allApps": "Todas las aplicaciones",
+    "pendingMirror": "Con pendencia de espejo",
+    "clear": "Limpiar filtros"
+  },
   "table": {
+    "label": "Lista de clientes",
     "domain": "Dominio",
     "memberId": "Member ID",
     "apps": "Aplicaciones",
-    "createdAt": "Registro",
-    "actions": "Acciones",
-    "view": "Ver"
+    "createdAt": "Registro"
   },
-  "noApps": "Sin apps",
-  "searchPlaceholder": "Buscar por nombre...",
-  "searchNoResults": "Ningún cliente coincide con la búsqueda.",
-  "emptyTitle": "No se encontraron clientes",
-  "emptyDescription": "Aún no hay dominios Bitrix24 registrados.",
-  "errorTitle": "No se pudieron cargar los clientes",
-  "errorDescription": "Inténtelo de nuevo en un momento.",
-  "appNoMirror": "(sin espejo)",
-  "appNoMirrorHint": "Instalación sin ítem espejo en la SPA 1060: no puede recibir suscripción."
+  "noApps": "Ninguna aplicación",
+  "mirrorHint": {
+    "no-mirror": "Instalación sin ítem espejo en la SPA 1060: no puede recibir suscripción.",
+    "mirror-missing": "El ítem espejo de esta instalación fue eliminado en la SPA 1060.",
+    "unknown": "No fue posible verificar el espejo en la SPA 1060 ahora."
+  },
+  "pagination": {
+    "range": "{{from}}–{{to}} de {{total}}",
+    "previous": "Anterior",
+    "next": "Siguiente"
+  },
+  "emptyTitle": "Ningún cliente registrado",
+  "emptyDescription": "Todavía no hay portales Bitrix24 registrados en Hubthink.",
+  "noResultsTitle": "Ningún cliente encontrado",
+  "noResultsDescription": "Ningún cliente coincide con la búsqueda y los filtros.",
+  "errorTitle": "No fue posible cargar los clientes",
+  "errorDescription": "Inténtalo de nuevo en unos instantes.",
+  "retry": "Intentar de nuevo"
 }

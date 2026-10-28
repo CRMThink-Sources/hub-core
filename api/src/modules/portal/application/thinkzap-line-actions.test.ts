@@ -39,6 +39,7 @@ import {
   subscribeThinkzapLine,
 } from './subscribe-thinkzap-line'
 import { unsubscribeThinkzapLine } from './unsubscribe-thinkzap-line'
+import { ProviderEffectsDisabledError } from '../domain/errors/portal-domain.errors'
 import { updateThinkzapLineName } from './update-thinkzap-line-name'
 import {
   ThinkzapLineNotInactiveError,
@@ -90,19 +91,56 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+const effects = (providerEffectsEnabled = true) => ({
+  mirrors: { setBillingState: vi.fn().mockResolvedValue(undefined) },
+  providerEffectsEnabled,
+})
+
 describe('subscribeThinkzapLine', () => {
-  it('assina a instância Z-API com a credencial do item', async () => {
-    await subscribeThinkzapLine('app-1', 'item-1', deps(ZAPI_ITEM))
+  it('assina a instância Z-API com a credencial do item e grava a marca', async () => {
+    const fx = effects()
+
+    await subscribeThinkzapLine('app-1', 'item-1', deps(ZAPI_ITEM), fx)
 
     expect(zApi.subscribe).toHaveBeenCalledWith('Z-1', 'TOKEN')
     expect(hubMessage.subscribeChannel).not.toHaveBeenCalled()
+    expect(fx.mirrors.setBillingState).toHaveBeenCalledWith(
+      'item-1',
+      'subscribed',
+    )
   })
 
   it('assina o canal HubMessage e não toca no Z-API', async () => {
-    await subscribeThinkzapLine('app-1', 'item-1', deps(HUB_ITEM))
+    const fx = effects()
+
+    await subscribeThinkzapLine('app-1', 'item-1', deps(HUB_ITEM), fx)
 
     expect(hubMessage.subscribeChannel).toHaveBeenCalledWith('C-9')
     expect(zApi.subscribe).not.toHaveBeenCalled()
+    expect(fx.mirrors.setBillingState).toHaveBeenCalledWith(
+      'item-1',
+      'subscribed',
+    )
+  })
+
+  it('falha no provider: a marca não é gravada', async () => {
+    const fx = effects()
+    zApi.subscribe.mockRejectedValueOnce(new Error('z-api fora'))
+
+    await expect(
+      subscribeThinkzapLine('app-1', 'item-1', deps(ZAPI_ITEM), fx),
+    ).rejects.toThrow('z-api fora')
+    expect(fx.mirrors.setBillingState).not.toHaveBeenCalled()
+  })
+
+  it('efeitos de provider desligados: recusa sem chamar o provider', async () => {
+    const fx = effects(false)
+
+    await expect(
+      subscribeThinkzapLine('app-1', 'item-1', deps(ZAPI_ITEM), fx),
+    ).rejects.toThrow(ProviderEffectsDisabledError)
+    expect(zApi.subscribe).not.toHaveBeenCalled()
+    expect(fx.mirrors.setBillingState).not.toHaveBeenCalled()
   })
 
   it('recusa item Z-API sem token, sem chamar o provider', async () => {
@@ -113,26 +151,54 @@ describe('subscribeThinkzapLine', () => {
     })
 
     await expect(
-      subscribeThinkzapLine('app-1', 'item-1', deps(semToken)),
+      subscribeThinkzapLine('app-1', 'item-1', deps(semToken), effects()),
     ).rejects.toThrow(ThinkzapLineCredentialMissingError)
     expect(zApi.subscribe).not.toHaveBeenCalled()
   })
 })
 
 describe('unsubscribeThinkzapLine', () => {
-  it('cancela a instância Z-API', async () => {
-    await unsubscribeThinkzapLine('app-1', 'item-1', deps(ZAPI_ITEM))
+  it('cancela a instância Z-API e grava a marca de desassinado', async () => {
+    const fx = effects()
+
+    await unsubscribeThinkzapLine('app-1', 'item-1', deps(ZAPI_ITEM), fx)
 
     expect(zApi.unsubscribe).toHaveBeenCalledWith('Z-1', 'TOKEN')
+    expect(fx.mirrors.setBillingState).toHaveBeenCalledWith(
+      'item-1',
+      'unsubscribed',
+    )
   })
 
   it('cancela o canal HubMessage', async () => {
-    await unsubscribeThinkzapLine('app-1', 'item-1', deps(HUB_ITEM))
+    await unsubscribeThinkzapLine('app-1', 'item-1', deps(HUB_ITEM), effects())
 
     expect(hubMessage.cancelChannel).toHaveBeenCalledWith(
       'C-9',
       'Cancelamento de assinatura',
     )
+  })
+
+  it('falha no provider: a marca não é gravada', async () => {
+    const fx = effects()
+    hubMessage.cancelChannel.mockRejectedValueOnce(new Error('hub fora'))
+
+    await expect(
+      unsubscribeThinkzapLine('app-1', 'item-1', deps(HUB_ITEM), fx),
+    ).rejects.toThrow('hub fora')
+    expect(fx.mirrors.setBillingState).not.toHaveBeenCalled()
+  })
+
+  it('efeitos de provider desligados: recusa sem chamar o provider', async () => {
+    await expect(
+      unsubscribeThinkzapLine(
+        'app-1',
+        'item-1',
+        deps(ZAPI_ITEM),
+        effects(false),
+      ),
+    ).rejects.toThrow(ProviderEffectsDisabledError)
+    expect(zApi.unsubscribe).not.toHaveBeenCalled()
   })
 })
 

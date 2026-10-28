@@ -1,28 +1,42 @@
 {
+  "breadcrumb": "Clientes",
   "back": "Volver a clientes",
-  "title": "Detalle del cliente",
-  "domain": "Dominio",
-  "memberId": "Member ID",
-  "createdAt": "Registro",
-  "updatedAt": "Actualizado",
-  "appsTitle": "Aplicaciones instaladas",
-  "appsEmpty": "No hay aplicaciones instaladas en este dominio.",
-  "table": {
-    "appName": "Aplicación",
-    "appCode": "Código",
-    "status": "Estado",
-    "email": "Correo",
-    "installedAt": "Instalada",
-    "actions": "Acciones",
-    "settings": "Configuraciones",
-    "contract": "Contrato"
+  "openPortal": "Abrir portal",
+  "openPortalLabel": "Abrir el portal Bitrix24 {{domain}} en una nueva pestaña",
+  "notFoundTitle": "Cliente no encontrado",
+  "notFoundDescription": "El dominio solicitado no existe o fue eliminado.",
+  "errorTitle": "No fue posible cargar el cliente",
+  "errorDescription": "Inténtalo de nuevo en unos instantes.",
+  "retry": "Intentar de nuevo",
+  "stats": {
+    "label": "Indicadores del cliente",
+    "apps": "Aplicaciones",
+    "activeSubscriptions": "Suscripciones activas",
+    "lines": "Líneas contratadas",
+    "mcpUsers": "Usuarios MCP",
+    "incomplete": "Parcial: el CRM no respondió para todas las aplicaciones"
   },
-  "errorTitle": "Cliente no encontrado",
-  "errorDescription": "El dominio solicitado no existe o fue eliminado.",
+  "identity": {
+    "title": "Identificación",
+    "domain": "Dominio",
+    "memberId": "Member ID",
+    "createdAt": "Registrado el",
+    "updatedAt": "Actualizado el"
+  },
+  "appsTitle": "Aplicaciones",
+  "appsEmpty": "Ninguna aplicación instalada en este dominio.",
+  "app": {
+    "installedBy": "Instalada por",
+    "installedAt": "Instalada el",
+    "contract": "Contrato",
+    "openLabel": "Abrir la aplicación {{title}}"
+  },
   "contract": {
-    "noMirror": "Sin espejo en la SPA",
-    "unavailable": "No disponible",
+    "noMirror": "Sin espejo: no hay suscripción posible",
+    "unavailable": "No disponible: el CRM no respondió",
     "none": "Sin suscripción",
-    "summary": "{{plano}} · {{status}} · {{linhas}} línea(s)"
+    "lines_one": "{{count}} línea",
+    "lines_other": "{{count}} líneas",
+    "until": "hasta {{date}}"
   }
 }
