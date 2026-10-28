@@ -12,6 +12,10 @@ import { BitrixSubscriptionRepository } from '@/modules/application/infra/bitrix
 import { CachedProductRepository } from '@/modules/application/infra/cache/cached-product.repository'
 import { CachedPlanRepository } from '@/modules/application/infra/cache/cached-plan.repository'
 import { CachedSubscriptionRepository } from '@/modules/application/infra/cache/cached-subscription.repository'
+import { BitrixActiveSubscriptionItemLister } from '@/modules/application/infra/bitrix/readers/bitrix-active-subscription-item.lister'
+import { BitrixSubscriptionItemIdLister } from '@/modules/application/infra/bitrix/readers/bitrix-subscription-item-id.lister'
+import { SubscriptionLineBillingAdapter } from '@/modules/thinkzap/application/subscription-line-billing.adapter'
+import { makeSyncSpaItemResourceStatus } from '@/modules/thinkzap/main/make-sync-spa-item-resource-status'
 
 /**
  * Monta a varredura de expiração. A gravação passa pelo repositório com cache para
@@ -43,9 +47,22 @@ export const makeExpireSubscriptions = (): ExpireSubscriptions => {
     redisConnection,
   )
 
+  /**
+   * Sem efeitos de provider no ambiente (homologação), a verificação grava status e
+   * datas mas não desassina nem reconcilia: o recurso no provider é de produção.
+   */
+  const lineBilling = env.payments.spa.providerEffectsEnabled
+    ? new SubscriptionLineBillingAdapter(
+        new BitrixSubscriptionItemIdLister(bitrixClient),
+        new BitrixActiveSubscriptionItemLister(bitrixClient),
+        makeSyncSpaItemResourceStatus(),
+      )
+    : null
+
   return new ExpireSubscriptions(
     new BitrixExpiringSubscriptionLister(bitrixClient),
     subscriptions,
     env.payments.expiration.manualGraceDays,
+    lineBilling,
   )
 }

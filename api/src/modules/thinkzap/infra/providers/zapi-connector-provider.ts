@@ -7,6 +7,7 @@ import {
   ConnectorStatusRef,
   ProvisionConnectorInput,
   ProvisionedConnectorResource,
+  SubscribeOutcome,
   WhatsAppConnectorProvider,
 } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
@@ -38,9 +39,9 @@ export class ZApiConnectorProvider implements WhatsAppConnectorProvider {
     }
   }
 
-  async subscribe(ref: ConnectorResourceRef): Promise<void> {
+  subscribe(ref: ConnectorResourceRef): Promise<SubscribeOutcome> {
     const token = this.requireToken(ref)
-    await this.gateway.subscribe(ref.instanceId, token)
+    return this.gateway.subscribe(ref.instanceId, token)
   }
 
   async unsubscribe(ref: ConnectorResourceRef): Promise<void> {

@@ -55,6 +55,13 @@ export type ConnectorConnectionStatus = {
   available: boolean
 }
 
+/**
+ * O que o subscribe encontrou no provider: `subscribed` quando a cobrança começou (ou
+ * um cancelamento agendado foi desfeito) agora; `already-subscribed` quando o recurso
+ * já estava pago. A reconciliação diária usa a diferença para registrar divergência.
+ */
+export type SubscribeOutcome = 'subscribed' | 'already-subscribed'
+
 export interface WhatsAppConnectorProvider {
   /** Cria o recurso remoto (instância Z-API on-demand | canal HubMessage + webhook). */
   provisionConnector(
@@ -62,7 +69,7 @@ export interface WhatsAppConnectorProvider {
   ): Promise<ProvisionedConnectorResource>
 
   /** Ativa a cobrança/assinatura do recurso remoto. */
-  subscribe(ref: ConnectorResourceRef): Promise<void>
+  subscribe(ref: ConnectorResourceRef): Promise<SubscribeOutcome>
 
   /** Cancela a assinatura do recurso remoto. */
   unsubscribe(ref: ConnectorResourceRef, reason?: string): Promise<void>

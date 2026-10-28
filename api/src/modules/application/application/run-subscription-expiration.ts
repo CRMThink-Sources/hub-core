@@ -10,6 +10,17 @@ export type StartRunInput = {
   portalUserId?: string
 }
 
+export type CompleteRunOptions = {
+  /** Inclui a reconciliação das linhas. O manual sempre inclui; o agendado, pela janela. */
+  reconcile?: boolean
+}
+
+/** Janela diária da reconciliação: a primeira rodada agendada a partir de `hour` no fuso. */
+export type ReconciliationWindow = {
+  hour: number
+  timeZone: string
+}
+
 /**
  * Uma rodada da varredura **com histórico**: registra o início, roda
  * `ExpireSubscriptions` e grava o resultado.
@@ -24,10 +35,17 @@ export type StartRunInput = {
 export class RunSubscriptionExpiration {
   constructor(
     private readonly expire: {
-      execute(now?: Date): Promise<SubscriptionExpirationResult>
+      execute(
+        now?: Date,
+        options?: CompleteRunOptions,
+      ): Promise<SubscriptionExpirationResult>
     },
     private readonly runs: SubscriptionExpirationRunRepository,
     private readonly clock: () => Date = () => new Date(),
+    private readonly window: ReconciliationWindow = {
+      hour: 3,
+      timeZone: 'America/Sao_Paulo',
+    },
   ) {}
 
   /** Registra a rodada como `running`. Lança se não conseguir. */
@@ -40,11 +58,14 @@ export class RunSubscriptionExpiration {
    * caso em que o `begin` falhou, e a varredura não pode depender da tabela.
    * Erro da varredura sobe depois de registrado.
    */
-  async complete(runId: string | null): Promise<SubscriptionExpirationResult> {
+  async complete(
+    runId: string | null,
+    options: CompleteRunOptions = {},
+  ): Promise<SubscriptionExpirationResult> {
     let result: SubscriptionExpirationResult
 
     try {
-      result = await this.expire.execute(this.clock())
+      result = await this.expire.execute(this.clock(), options)
     } catch (error) {
       if (runId) {
         await this.record(runId, () =>
@@ -63,8 +84,32 @@ export class RunSubscriptionExpiration {
     return result
   }
 
+  /**
+   * A rodada agendada reconcilia se já passou da hora da janela no fuso e nenhuma
+   * rodada reconciliou desde a meia-noite local. Assim a das 03:00 que caiu é coberta
+   * pela das 04:00. Na dúvida (histórico ilegível), não reconcilia — a próxima tenta.
+   */
+  async shouldReconcile(): Promise<boolean> {
+    const now = this.clock()
+    const { hour, msSinceMidnight } = localTimeOfDay(now, this.window.timeZone)
+    if (hour < this.window.hour) return false
+
+    try {
+      const startOfLocalDay = new Date(now.getTime() - msSinceMidnight)
+      return !(await this.runs.hasReconciliationSince(startOfLocalDay))
+    } catch (error) {
+      apiLogger.warn(
+        { app: 'shared', err: error },
+        'Falha ao consultar a última reconciliação — rodada segue sem reconciliar',
+      )
+      return false
+    }
+  }
+
   /** `begin` + `complete`, para quem não precisa do id antes (o cron). */
   async run(input: StartRunInput): Promise<SubscriptionExpirationResult> {
+    const reconcile =
+      input.trigger === 'manual' ? true : await this.shouldReconcile()
     let runId: string | null = null
 
     try {
@@ -76,7 +121,7 @@ export class RunSubscriptionExpiration {
       )
     }
 
-    return this.complete(runId)
+    return this.complete(runId, { reconcile })
   }
 
   private async record(runId: string, write: () => Promise<void>) {
@@ -88,6 +133,32 @@ export class RunSubscriptionExpiration {
         'Falha ao gravar resultado da rodada de expiração no histórico',
       )
     }
+  }
+}
+
+/** Hora e tempo desde a meia-noite em `timeZone`, sem depender do fuso do servidor. */
+export function localTimeOfDay(
+  now: Date,
+  timeZone: string,
+): { hour: number; msSinceMidnight: number } {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hourCycle: 'h23',
+    })
+      .formatToParts(now)
+      .map(part => [part.type, part.value]),
+  )
+  const hour = Number(parts.hour)
+  const minute = Number(parts.minute)
+  const second = Number(parts.second)
+  return {
+    hour,
+    msSinceMidnight:
+      ((hour * 60 + minute) * 60 + second) * 1000 + now.getMilliseconds(),
   }
 }
 

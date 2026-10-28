@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios'
 import { thinkzapError } from '@/modules/thinkzap/errors/catalog'
+import type { SubscribeOutcome } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
 import { attachProviderHttpLogging } from '@/shared/infra/clients/provider-http-logging'
 import {
   ConnectHubMessageChannelParams,
@@ -58,8 +59,11 @@ export class HubMessageApiError extends Error {
 /** A resposta da HubMessage para subscribe em canal que já está pago. */
 export function isHubMessageAlreadyPaid(error: unknown): boolean {
   if (!axios.isAxiosError(error)) return false
-  const data: unknown = error.response?.data
+  return isAlreadyPaidBody(error.response?.data)
+}
 
+/** O mesmo corpo `ALREADY_PAID` pode vir num `200` — aí é a resposta, não um erro. */
+function isAlreadyPaidBody(data: unknown): boolean {
   return (
     typeof data === 'object' &&
     data !== null &&
@@ -227,11 +231,14 @@ export class HubMessageClient {
    * disto: linha assinada antes da marca de assinado existir recebe um subscribe
    * repetido no primeiro UPDATE.
    */
-  async subscribeChannel(channelId: string): Promise<void> {
+  async subscribeChannel(channelId: string): Promise<SubscribeOutcome> {
     try {
-      await this.http.get(`/v1/channels/${channelId}/subscribe`)
+      const { data } = await this.http.get<unknown>(
+        `/v1/channels/${channelId}/subscribe`,
+      )
+      return isAlreadyPaidBody(data) ? 'already-subscribed' : 'subscribed'
     } catch (error) {
-      if (isHubMessageAlreadyPaid(error)) return
+      if (isHubMessageAlreadyPaid(error)) return 'already-subscribed'
       throw error
     }
   }

@@ -6,12 +6,14 @@ import type { Subscription } from '@/modules/application/domain/entities/subscri
 import { RawSubscriptionItemReader } from '@/modules/thinkzap/domain/ports/raw-subscription-item-reader.port'
 import { apiLogger } from '@/shared/infra/logger'
 import {
+  ProviderBillingOrigin,
   ProviderResourceBilling,
   ProviderResourceRef,
 } from './provider-resource-billing'
 import { resolveRawItemResource } from './helpers/raw-item-resource'
 import {
   resolveProviderBillingAction,
+  type ProviderBillingMode,
   type ProviderUnsubscribeReason,
 } from './helpers/resolve-provider-billing-action'
 import type { SubscriptionStatusReader } from '@/modules/thinkzap/domain/ports/subscription-status-reader.port'
@@ -30,6 +32,11 @@ export type SyncSpaItemResourceStatusInput = {
    * vale a leitura preguiçosa de sempre.
    */
   parentStatus?: Subscription['status'] | null
+  /**
+   * Quem pede: o evento da SPA (padrão), a desassinatura do quinto dia de vencimento ou
+   * a reconciliação diária. Ver `resolveProviderBillingAction`.
+   */
+  mode?: ProviderBillingMode
 }
 
 export type SyncSpaItemResourceStatusOutcome =
@@ -43,6 +50,8 @@ export type SyncSpaItemResourceStatusOutcome =
    * assinado agora — a primeira assinatura de uma linha manual, ou a reassinatura.
    */
   | 'subscribed'
+  /** Só na reconciliação: o provider disse que o recurso já estava pago. A marca é garantida. */
+  | 'already-subscribed'
   /**
    * Status e marca já concordam — o caso de longe mais comum —, ou a assinatura pai não
    * permite assinar (trial, inativa, inexistente).
@@ -57,6 +66,8 @@ export type SyncSpaItemResourceStatusOutcome =
 
 export type SyncSpaItemResourceStatusResult = {
   outcome: SyncSpaItemResourceStatusOutcome
+  /** Presente quando o provider foi chamado — o histórico da verificação registra qual. */
+  provider?: ProviderResourceRef['provider']
 }
 
 /**
@@ -96,6 +107,23 @@ export type SyncSpaItemResourceStatusResult = {
  * retentar: marcar sem desassinar esconderia para sempre um recurso que continua sendo
  * cobrado de nós, que é a falha que ninguém abre chamado por.
  */
+const ORIGIN_BY_UNSUBSCRIBE_REASON: Record<
+  ProviderUnsubscribeReason,
+  ProviderBillingOrigin
+> = {
+  'parent-cancelled': 'subscription-cancelled',
+  'parent-past-due-expired': 'subscription-past-due',
+  'item-cancelled': 'spa-item-status',
+}
+
+const UNSUBSCRIBE_MESSAGE: Record<ProviderUnsubscribeReason, string> = {
+  'parent-cancelled':
+    'Assinatura cancelada na SPA — recurso desassinado no provider',
+  'parent-past-due-expired':
+    'Assinatura vencida há 5 dias — recurso desassinado no provider',
+  'item-cancelled': 'Item cancelado na SPA — recurso desassinado no provider',
+}
+
 export class SyncSpaItemResourceStatus {
   constructor(
     private readonly items: RawSubscriptionItemReader,
@@ -165,7 +193,8 @@ export class SyncSpaItemResourceStatus {
      * status.
      */
     const needsParent =
-      item.status === 'active' && mirror?.subscribedAt === undefined
+      item.status === 'active' &&
+      (mirror?.subscribedAt === undefined || input.mode === 'reconcile')
     const parentStatus =
       input.parentStatus !== undefined
         ? input.parentStatus
@@ -177,6 +206,7 @@ export class SyncSpaItemResourceStatus {
       itemStatus: item.status,
       parentStatus,
       mirror,
+      mode: input.mode,
     })
 
     if (decision.action === 'unsubscribe') {
@@ -229,10 +259,8 @@ export class SyncSpaItemResourceStatus {
     resource: ProviderResourceRef
     reason: ProviderUnsubscribeReason
   }): Promise<SyncSpaItemResourceStatusResult> {
-    const parentCancelled = args.reason === 'parent-cancelled'
-
     await this.billing.unsubscribeResource(args.resource, {
-      origin: parentCancelled ? 'subscription-cancelled' : 'spa-item-status',
+      origin: ORIGIN_BY_UNSUBSCRIBE_REASON[args.reason],
       propagate: true,
     })
 
@@ -256,12 +284,10 @@ export class SyncSpaItemResourceStatus {
         resourceId: args.resource.instanceId,
         reason: args.reason,
       },
-      parentCancelled
-        ? 'Assinatura cancelada na SPA — recurso desassinado no provider'
-        : 'Item cancelado na SPA — recurso desassinado no provider',
+      UNSUBSCRIBE_MESSAGE[args.reason],
     )
 
-    return { outcome: 'unsubscribed' }
+    return { outcome: 'unsubscribed', provider: args.resource.provider }
   }
 
   /**
@@ -275,7 +301,7 @@ export class SyncSpaItemResourceStatus {
     item: { subscriptionId: string | null }
     resource: ProviderResourceRef
   }): Promise<SyncSpaItemResourceStatusResult> {
-    await this.billing.subscribeResource(args.resource, {
+    const outcome = await this.billing.subscribeResource(args.resource, {
       origin: 'spa-item-status',
       propagate: true,
     })
@@ -293,10 +319,16 @@ export class SyncSpaItemResourceStatus {
         provider: args.resource.provider,
         resourceId: args.resource.instanceId,
       },
-      'Item ativo sob assinatura ativa — recurso assinado no provider',
+      outcome === 'already-subscribed'
+        ? 'Recurso já estava assinado no provider — marca de assinado garantida'
+        : 'Item ativo sob assinatura ativa — recurso assinado no provider',
     )
 
-    return { outcome: 'subscribed' }
+    return {
+      outcome:
+        outcome === 'already-subscribed' ? 'already-subscribed' : 'subscribed',
+      provider: args.resource.provider,
+    }
   }
 
   /**

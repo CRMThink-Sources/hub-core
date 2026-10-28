@@ -2,7 +2,10 @@ import { SubscriptionItem } from '@/modules/application/domain/entities/subscrip
 import type { SpaItemResourceMirrorRepository } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { ConnectorProviderResolver } from '@/modules/thinkzap/domain/ports/connector-provider-resolver.port'
-import { ConnectorResourceRef } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
+import {
+  ConnectorResourceRef,
+  SubscribeOutcome,
+} from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
 import { apiLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '../errors/catalog'
 
@@ -56,6 +59,7 @@ export type ProviderBillingOrigin =
   | 'spa-item-deleted'
   /** Status da assinatura (SPA 1142) mudado para cancelado no CRM. */
   | 'subscription-cancelled'
+  | 'subscription-past-due'
 
 /** O campo de motivo é texto livre no provider. */
 const REASON_BY_ORIGIN: Record<ProviderBillingOrigin, string> = {
@@ -63,6 +67,7 @@ const REASON_BY_ORIGIN: Record<ProviderBillingOrigin, string> = {
   'spa-item-status': 'Linha cancelada no ThinkZap',
   'spa-item-deleted': 'Linha removida no ThinkZap',
   'subscription-cancelled': 'Assinatura cancelada no CRM',
+  'subscription-past-due': 'Assinatura vencida há 5 dias',
 }
 
 export type ProviderBillingOptions = {
@@ -145,11 +150,17 @@ export class ProviderResourceBilling {
    * por conta própria — e no dia em que um provider mudar de campo, duas resoluções
    * divergiriam, com uma delas cancelando o recurso errado.
    */
+  /**
+   * O que o provider respondeu, ou `null` quando falhou sem `propagate` (o log já
+   * saiu). A reconciliação diária usa a diferença entre `subscribed` e
+   * `already-subscribed`; os demais chamadores ignoram o retorno.
+   */
   async subscribeResource(
     ref: ProviderResourceRef,
     options?: ProviderBillingOptions,
-  ): Promise<void> {
-    await this.run('subscribe', ref, options)
+  ): Promise<SubscribeOutcome | null> {
+    const result = await this.run('subscribe', ref, options)
+    return result.ok ? (result.outcome ?? 'subscribed') : null
   }
 
   async unsubscribeResource(
@@ -189,8 +200,8 @@ export class ProviderResourceBilling {
       return
     }
 
-    const succeeded = await this.run(operation, resolved, options, item.id)
-    if (succeeded) await this.mark(item.id, operation)
+    const result = await this.run(operation, resolved, options, item.id)
+    if (result.ok) await this.mark(item.id, operation)
   }
 
   /**
@@ -222,7 +233,7 @@ export class ProviderResourceBilling {
     resource: ProviderResourceRef,
     options?: ProviderBillingOptions,
     subscriptionItemId?: string,
-  ): Promise<boolean> {
+  ): Promise<{ ok: true; outcome?: SubscribeOutcome } | { ok: false }> {
     const provider = providerOf(resource)
     /**
      * Só os campos que **aquele** provider usa. Mandar `channelId: null` para a Z-API
@@ -244,12 +255,11 @@ export class ProviderResourceBilling {
       const adapter = this.providerResolver.resolve(provider)
 
       if (operation === 'subscribe') {
-        await adapter.subscribe(ref)
-      } else {
-        await adapter.unsubscribe(ref, reason)
+        return { ok: true, outcome: await adapter.subscribe(ref) }
       }
 
-      return true
+      await adapter.unsubscribe(ref, reason)
+      return { ok: true }
     } catch (error) {
       logThinkzapError(
         apiLogger,
@@ -274,7 +284,7 @@ export class ProviderResourceBilling {
 
       // O log já saiu; propagar é sobre **quem retenta**, não sobre observabilidade.
       if (options?.propagate) throw error
-      return false
+      return { ok: false }
     }
   }
 }

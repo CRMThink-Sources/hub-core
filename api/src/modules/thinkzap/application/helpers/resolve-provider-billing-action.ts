@@ -18,7 +18,21 @@ export type ProviderBillingNoopReason =
  * - `parent-cancelled`: a assinatura pai foi cancelada — todas as linhas dela saem.
  * - `item-cancelled`: só a linha foi cancelada.
  */
-export type ProviderUnsubscribeReason = 'parent-cancelled' | 'item-cancelled'
+export type ProviderUnsubscribeReason =
+  | 'parent-cancelled'
+  | 'item-cancelled'
+  | 'parent-past-due-expired'
+
+/**
+ * Quem pede a decisão:
+ * - `event`: o UPDATE de um item ou da assinatura — a regra de sempre.
+ * - `past-due-expired`: a verificação de assinaturas, para manual `Vencido` há 5 dias.
+ *   Desassina toda linha com credencial que ainda não tem a marca de desassinado.
+ * - `reconcile`: a reconciliação diária. Assina linha `active` de pai `active` **sem
+ *   olhar a marca de assinado**, porque o objetivo é justamente pegar a marca que
+ *   mente; o subscribe é idempotente nos providers.
+ */
+export type ProviderBillingMode = 'event' | 'past-due-expired' | 'reconcile'
 
 export type ProviderBillingDecision =
   | { action: 'subscribe' }
@@ -60,9 +74,30 @@ export function resolveProviderBillingAction(args: {
   /** `null` quando a assinatura pai não existe ou o item não tem pai. */
   parentStatus: Subscription['status'] | null
   mirror: Pick<SpaItemResourceMirror, 'subscribedAt' | 'unsubscribedAt'> | null
+  /** Padrão `event`. */
+  mode?: ProviderBillingMode
 }): ProviderBillingDecision {
   const subscribed = args.mirror?.subscribedAt !== undefined
   const unsubscribed = args.mirror?.unsubscribedAt !== undefined
+
+  if (args.mode === 'past-due-expired') {
+    return unsubscribed
+      ? { action: 'noop', reason: 'in-sync' }
+      : { action: 'unsubscribe', reason: 'parent-past-due-expired' }
+  }
+
+  if (args.mode === 'reconcile') {
+    if (args.itemStatus !== 'active') {
+      return { action: 'noop', reason: 'in-sync' }
+    }
+    if (args.parentStatus === null) {
+      return { action: 'noop', reason: 'parent-missing' }
+    }
+    if (args.parentStatus !== 'active') {
+      return { action: 'noop', reason: 'parent-inactive' }
+    }
+    return { action: 'subscribe' }
+  }
 
   if (args.parentStatus === 'cancelled') {
     return unsubscribed

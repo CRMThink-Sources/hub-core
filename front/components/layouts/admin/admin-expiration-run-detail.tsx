@@ -14,11 +14,14 @@ import { formatPortalDate, formatSpaDate } from '@/lib/format-date'
 import { cn } from '@/lib/utils'
 import {
   getExpirationRun,
+  type ExpirationChange,
+  type ExpirationChangeKind,
   type ExpirationRun,
   type ExpirationRunDetail,
 } from '@/lib/subscription-expiration-runs'
 import {
   ExpirationRunStatusBadge,
+  RunTags,
   formatDuration,
   triggeredByLabel,
 } from './admin-expiration-runs-table'
@@ -28,6 +31,12 @@ type Props = {
   run: ExpirationRun | null
   onClose: () => void
 }
+
+const KIND_ORDER: ExpirationChangeKind[] = [
+  'status',
+  'line-unsubscribed',
+  'line-subscribed',
+]
 
 export function AdminExpirationRunDetail({ run, onClose }: Props) {
   const { t, i18n } = useTranslation('admin/jobs')
@@ -61,6 +70,15 @@ export function AdminExpirationRunDetail({ run, onClose }: Props) {
 
   const shown = detail ?? run
 
+  const groups = detail
+    ? KIND_ORDER.map(kind => ({
+        kind,
+        changes: detail.changes.filter(
+          change => (change.kind ?? 'status') === kind,
+        ),
+      })).filter(group => group.changes.length > 0)
+    : []
+
   return (
     <Sheet
       open={run !== null}
@@ -83,19 +101,52 @@ export function AdminExpirationRunDetail({ run, onClose }: Props) {
               </SheetDescription>
             </SheetHeader>
 
-            <div className="space-y-4 px-4 pb-6">
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <ExpirationRunStatusBadge run={shown} />
-                <span className="text-muted-foreground">
-                  {t('table.checked')}: {shown.checked} ·{' '}
-                  {t('table.trialExpired')}: {shown.trialExpired} ·{' '}
-                  {t('table.pastDue')}: {shown.pastDue} · {t('table.failed')}:{' '}
-                  {shown.failed}
-                </span>
+            <div className="space-y-5 px-4 pb-6">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ExpirationRunStatusBadge run={shown} />
+                  <RunTags run={shown} />
+                </div>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+                  {(
+                    [
+                      ['table.checked', shown.checked],
+                      ['table.trialExpired', shown.trialExpired],
+                      ['table.pastDue', shown.pastDue],
+                      ['table.cancelled', shown.cancelled ?? 0],
+                      ['table.linesUnsubscribed', shown.linesUnsubscribed ?? 0],
+                      ['table.linesSubscribed', shown.linesSubscribed ?? 0],
+                      ...(shown.reconciliation
+                        ? [['table.linesChecked', shown.linesChecked ?? 0]]
+                        : []),
+                      ['table.failed', shown.failed],
+                    ] as Array<[string, number]>
+                  ).map(([key, value]) => (
+                    <div key={key} className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">{t(key)}</dt>
+                      <dd
+                        className={cn(
+                          'text-foreground tabular-nums',
+                          key === 'table.failed' &&
+                            value > 0 &&
+                            'font-semibold text-status-danger-ink',
+                        )}
+                      >
+                        {value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
 
+              {shown.providerStepsSkipped && (
+                <p className="rounded-md bg-status-neutral-soft px-3 py-2 text-sm text-status-neutral-ink">
+                  {t('detailProviderSkipped')}
+                </p>
+              )}
+
               {shown.error && (
-                <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+                <p className="rounded-md bg-status-danger-soft px-3 py-2 text-sm text-status-danger-ink">
                   {t('detailError', { error: shown.error })}
                 </p>
               )}
@@ -108,87 +159,152 @@ export function AdminExpirationRunDetail({ run, onClose }: Props) {
                 <p className="text-sm text-muted-foreground">
                   {tCommon('carregando')}
                 </p>
-              ) : detail.changes.length === 0 ? (
+              ) : groups.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {t('detailEmpty')}
                 </p>
               ) : (
-                <div className="overflow-x-auto rounded-lg border border-border">
-                  <table className="min-w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                        <th className="px-3 py-2 font-medium">
-                          {t('change.subscription')}
-                        </th>
-                        <th className="px-3 py-2 font-medium">
-                          {t('change.transition')}
-                        </th>
-                        <th className="px-3 py-2 font-medium">
-                          {t('change.periodEnd')}
-                        </th>
-                        <th className="px-3 py-2 font-medium">
-                          {t('change.result')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detail.changes.map(change => (
-                        <tr
-                          key={change.subscriptionId}
-                          className="border-b border-border align-top last:border-b-0"
-                        >
-                          <td className="px-3 py-2 font-medium whitespace-nowrap">
-                            {change.crmUrl ? (
-                              <a
-                                href={change.crmUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-primary hover:underline"
-                                title={t('change.openCrm')}
-                              >
-                                #{change.subscriptionId}
-                                <ExternalLink className="size-3" />
-                              </a>
-                            ) : (
-                              `#${change.subscriptionId}`
-                            )}
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap">
-                            {t(`subscriptionStatus.${change.from}`)} →{' '}
-                            {t(`subscriptionStatus.${change.to}`)}
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
-                            {formatSpaDate(change.periodEnd, locale)}
-                          </td>
-                          <td className="px-3 py-2">
-                            <span
-                              className={cn(
-                                'font-medium',
-                                change.succeeded
-                                  ? 'text-green-700 dark:text-green-300'
-                                  : 'text-red-600 dark:text-red-400',
-                              )}
-                            >
-                              {change.succeeded
-                                ? t('change.succeeded')
-                                : t('change.failed')}
-                            </span>
-                            {change.error && (
-                              <p className="mt-1 text-xs break-words text-muted-foreground">
-                                {change.error}
-                              </p>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                groups.map(group => (
+                  <section key={group.kind} className="space-y-2">
+                    <h3 className="text-sm font-medium text-foreground">
+                      {t(`changeGroup.${group.kind}`, {
+                        count: group.changes.length,
+                      })}
+                    </h3>
+                    <ChangeTable kind={group.kind} changes={group.changes} />
+                  </section>
+                ))
               )}
             </div>
           </>
         )}
       </SheetContent>
     </Sheet>
+  )
+}
+
+function ChangeTable({
+  kind,
+  changes,
+}: {
+  kind: ExpirationChangeKind
+  changes: ExpirationChange[]
+}) {
+  const { t, i18n } = useTranslation('admin/jobs')
+  const locale = i18n.language
+  const isLine = kind !== 'status'
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border">
+      <table className="min-w-full text-left text-sm">
+        <thead>
+          <tr className="border-b border-border text-xs text-muted-foreground">
+            <th className="px-3 py-2 font-medium">
+              {t('change.subscription')}
+            </th>
+            {isLine ? (
+              <>
+                <th className="px-3 py-2 font-medium">{t('change.line')}</th>
+                <th className="px-3 py-2 font-medium">
+                  {t('change.provider')}
+                </th>
+              </>
+            ) : (
+              <>
+                <th className="px-3 py-2 font-medium">
+                  {t('change.transition')}
+                </th>
+                <th className="px-3 py-2 font-medium">
+                  {t('change.periodEnd')}
+                </th>
+              </>
+            )}
+            <th className="px-3 py-2 font-medium">{t('change.result')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {changes.map(change => (
+            <tr
+              key={`${change.subscriptionId}-${change.itemId ?? change.to ?? ''}`}
+              className="border-b border-border align-top last:border-b-0"
+            >
+              <td className="px-3 py-2 font-medium whitespace-nowrap">
+                <CrmLink
+                  url={change.crmUrl}
+                  label={`#${change.subscriptionId}`}
+                />
+              </td>
+              {isLine ? (
+                <>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {change.itemId ? (
+                      <CrmLink
+                        url={change.itemCrmUrl ?? null}
+                        label={`#${change.itemId}`}
+                      />
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
+                    {change.provider ? t(`provider.${change.provider}`) : '—'}
+                  </td>
+                </>
+              ) : (
+                <>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    {change.from && change.to
+                      ? `${t(`subscriptionStatus.${change.from}`)} → ${t(`subscriptionStatus.${change.to}`)}`
+                      : '—'}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">
+                    {change.periodEnd
+                      ? formatSpaDate(change.periodEnd, locale)
+                      : '—'}
+                  </td>
+                </>
+              )}
+              <td className="px-3 py-2">
+                <span
+                  className={cn(
+                    'font-medium',
+                    change.succeeded
+                      ? 'text-status-success-ink'
+                      : 'text-status-danger-ink',
+                  )}
+                >
+                  {change.succeeded
+                    ? t(`change.succeededBy.${kind}`)
+                    : t('change.failed')}
+                </span>
+                {change.error && (
+                  <p className="mt-1 text-xs break-words text-muted-foreground">
+                    {change.error}
+                  </p>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function CrmLink({ url, label }: { url: string | null; label: string }) {
+  const { t } = useTranslation('admin/jobs')
+  if (!url) return <>{label}</>
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-1 text-primary hover:underline"
+      title={t('change.openCrm')}
+    >
+      {label}
+      <ExternalLink className="size-3" />
+    </a>
   )
 }

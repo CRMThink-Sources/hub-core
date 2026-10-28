@@ -1,3 +1,4 @@
+import type { SubscribeOutcome } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
 import { randomUUID } from 'node:crypto'
 
 import type { CreateInstanceGateway } from '@/modules/thinkzap/domain/repositories/create-instance.gateway'
@@ -35,13 +36,13 @@ export class MockZApiInstanceGateway
 
     return Promise.resolve()
   }
-  subscribe(id: string, token: string): Promise<void> {
+  subscribe(id: string, token: string): Promise<SubscribeOutcome> {
     console.log('[thinkzap] mock z-api instance subscribed', {
       id,
       token,
     })
 
-    return Promise.resolve()
+    return Promise.resolve('subscribed')
   }
 
   unsubscribe(id: string, token: string): Promise<void> {

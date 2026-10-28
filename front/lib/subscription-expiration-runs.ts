@@ -22,6 +22,16 @@ export type ExpirationRun = {
   trialExpired: number
   pastDue: number
   failed: number
+  /**
+   * Verificação de assinaturas. Opcionais: uma API anterior à verificação não os
+   * devolve, e a tela trata ausente como zero/falso.
+   */
+  linesUnsubscribed?: number
+  cancelled?: number
+  linesChecked?: number
+  linesSubscribed?: number
+  reconciliation?: boolean
+  providerStepsSkipped?: boolean
   paused: boolean
   error: string | null
   /** `running` há mais de 1h: o processo morreu sem gravar o fim. */
@@ -29,15 +39,30 @@ export type ExpirationRun = {
   durationMs: number | null
 }
 
+/** Mudança de status, linha desassinada (5º dia) ou linha assinada (reconciliação). */
+export type ExpirationChangeKind =
+  | 'status'
+  | 'line-unsubscribed'
+  | 'line-subscribed'
+
 export type ExpirationChange = {
+  /** Ausente em rodadas de antes da verificação: são todas `status`. */
+  kind?: ExpirationChangeKind
   subscriptionId: string
-  from: SubscriptionStatus
-  to: Extract<SubscriptionStatus, 'trial_expired' | 'past_due'>
-  /** Dia de calendário ancorado em UTC — formatar com `formatSpaDate`. */
-  periodEnd: string
+  from: SubscriptionStatus | null
+  to: Extract<
+    SubscriptionStatus,
+    'trial_expired' | 'past_due' | 'cancelled'
+  > | null
+  itemId?: string
+  provider?: 'ZAPI' | 'HUBMESSAGE'
+  /** Dia de calendário ancorado em UTC — formatar com `formatSpaDate`. `null` na reconciliação. */
+  periodEnd: string | null
   succeeded: boolean
   error?: string
   crmUrl: string | null
+  /** Link do item na SPA 1146, nas ações de linha. */
+  itemCrmUrl?: string | null
 }
 
 export type ExpirationRunDetail = ExpirationRun & {

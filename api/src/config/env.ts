@@ -91,6 +91,20 @@ export function parseManualSubscriptionGraceDays(
   return 0
 }
 
+/**
+ * Hora local (0–23) a partir da qual a rodada agendada da verificação de assinaturas
+ * inclui a reconciliação diária das linhas. Inválido vira `3` com aviso.
+ */
+export function parseReconcileHour(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return 3
+  const hour = Number(raw)
+  if (Number.isInteger(hour) && hour >= 0 && hour <= 23) return hour
+  console.warn(
+    `[env] SUBSCRIPTION_RECONCILE_HOUR inválido (${JSON.stringify(raw)}) — usando 3`,
+  )
+  return 3
+}
+
 const providerEffectsEnabled =
   process.env.THINKZAP_SPA_PROVIDER_EFFECTS_ENABLED !== 'false'
 
@@ -404,6 +418,12 @@ export const env = {
       manualGraceDays: parseManualSubscriptionGraceDays(
         process.env.MANUAL_SUBSCRIPTION_GRACE_DAYS,
       ),
+      /** Janela diária da reconciliação das linhas: hora e fuso do negócio. */
+      reconcileHour: parseReconcileHour(
+        process.env.SUBSCRIPTION_RECONCILE_HOUR,
+      ),
+      reconcileTimeZone:
+        process.env.SUBSCRIPTION_RECONCILE_TIMEZONE ?? 'America/Sao_Paulo',
     },
     // Item de plano na SPA 1138 que as assinaturas de trial referenciam. É configuração,
     // não dado de runtime: `PlanRepository` é só leitura, e `getPlan` lança quando o item

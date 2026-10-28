@@ -1,3 +1,4 @@
+import type { SubscribeOutcome } from '@/modules/thinkzap/domain/ports/whatsapp-connector-provider.port'
 import { env } from '@/config/env'
 import { CreateInstanceGateway } from '@/modules/thinkzap/domain/repositories/create-instance.gateway'
 import { UpdateInstanceGateway } from '@/modules/thinkzap/domain/repositories/update-instance.gateway'
@@ -23,8 +24,8 @@ export class ZApiInstanceGateway
     return instance
   }
 
-  async subscribe(id: string, token: string): Promise<void> {
-    await this.zApiClient.subscribe(id, token)
+  subscribe(id: string, token: string): Promise<SubscribeOutcome> {
+    return this.zApiClient.subscribe(id, token)
   }
 
   async unsubscribe(id: string, token: string): Promise<void> {

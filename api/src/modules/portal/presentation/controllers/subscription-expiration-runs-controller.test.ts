@@ -40,6 +40,12 @@ const run = (
   trialExpired: 1,
   pastDue: 0,
   failed: 0,
+  linesUnsubscribed: 0,
+  cancelled: 0,
+  linesChecked: 0,
+  linesSubscribed: 0,
+  reconciliation: false,
+  providerStepsSkipped: false,
   paused: false,
   error: null,
   ...overrides,
@@ -156,9 +162,20 @@ describe('GetSubscriptionExpirationRunController', () => {
             ...run(),
             changes: [
               {
+                kind: 'status',
                 subscriptionId: '501',
                 from: 'trialing',
                 to: 'trial_expired',
+                periodEnd,
+                succeeded: true,
+              },
+              {
+                kind: 'line-unsubscribed',
+                subscriptionId: '502',
+                itemId: '9001',
+                provider: 'ZAPI',
+                from: null,
+                to: null,
                 periodEnd,
                 succeeded: true,
               },
@@ -175,11 +192,17 @@ describe('GetSubscriptionExpirationRunController', () => {
       { params: { id: 'run-1' } } as never,
       {} as never,
     )
-    const body = response.result as { changes: Array<{ crmUrl: string }> }
+    const body = response.result as {
+      changes: Array<{ crmUrl: string; itemCrmUrl: string | null }>
+    }
 
     expect(response.status).toBe(200)
     expect(body.changes[0]?.crmUrl).toBe(
       'https://crm.example.com/crm/type/1142/details/501/',
+    )
+    expect(body.changes[0]?.itemCrmUrl).toBeNull()
+    expect(body.changes[1]?.itemCrmUrl).toBe(
+      'https://crm.example.com/crm/type/1146/details/9001/',
     )
     expect(JSON.stringify(body)).not.toContain('s3cr3t-token')
   })

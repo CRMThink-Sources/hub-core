@@ -28,6 +28,8 @@ export const createGetSubscriptionExpirationRunController = (): Controller =>
       makeSubscriptionExpirationRunRepository(),
       crmOriginFromWebhook(env.crmthinkWebhookUrl),
       env.payments.spa.subscriptionEntityType,
+      () => new Date(),
+      env.payments.spa.subscriptionItemEntityType,
     ),
   )
 

@@ -101,3 +101,33 @@ describe('ZApiClient.updateNotifySentByMe', () => {
     })
   })
 })
+
+describe('ZApiClient.subscribe', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('assinatura nova (ou cancelamento agendado desfeito) é "subscribed"', async () => {
+    const client = new ZApiClient('partner_token')
+    instance().post.mockResolvedValueOnce({
+      data: { subscriptionStatus: 'PROCESSING' },
+    })
+
+    await expect(client.subscribe('inst_1', 'tok_1')).resolves.toBe(
+      'subscribed',
+    )
+  })
+
+  it('instância já paga é "already-subscribed"', async () => {
+    const client = new ZApiClient('partner_token')
+    const error = Object.assign(new Error('400'), {
+      response: { status: 400, data: { subscriptionStatus: 'ALREADY_ACTIVE' } },
+    })
+    mockedAxios.isAxiosError.mockReturnValueOnce(true)
+    instance().post.mockRejectedValueOnce(error)
+
+    await expect(client.subscribe('inst_1', 'tok_1')).resolves.toBe(
+      'already-subscribed',
+    )
+  })
+})

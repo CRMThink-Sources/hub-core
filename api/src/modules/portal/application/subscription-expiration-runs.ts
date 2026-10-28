@@ -22,6 +22,8 @@ export type SubscriptionExpirationRunView = SubscriptionExpirationRun & {
 export type SubscriptionExpirationChangeView = SubscriptionExpirationChange & {
   /** Link do item na SPA 1142 do CRM interno; `null` sem portal configurado. */
   crmUrl: string | null
+  /** Nas ações de linha: link do item na SPA 1146. `null` nas demais ou sem portal. */
+  itemCrmUrl: string | null
 }
 
 export const toRunView = (
@@ -81,6 +83,7 @@ export class GetSubscriptionExpirationRun {
     private readonly crmOrigin: string | null,
     private readonly subscriptionEntityTypeId: number,
     private readonly clock: () => Date = () => new Date(),
+    private readonly subscriptionItemEntityTypeId: number = 1146,
   ) {}
 
   /** `null` para rodada desconhecida — o controller responde `404`. */
@@ -98,6 +101,10 @@ export class GetSubscriptionExpirationRun {
           crmUrl: this.crmOrigin
             ? `${this.crmOrigin}/crm/type/${this.subscriptionEntityTypeId}/details/${change.subscriptionId}/`
             : null,
+          itemCrmUrl:
+            this.crmOrigin && change.itemId
+              ? `${this.crmOrigin}/crm/type/${this.subscriptionItemEntityTypeId}/details/${change.itemId}/`
+              : null,
         }),
       ),
     }
