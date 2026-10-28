@@ -87,7 +87,7 @@ Isso vale para itens `active` e `cancelled` e para assinaturas `manual` e `strip
 
 Depois de cada desassinatura bem-sucedida, o sistema SHALL gravar a marca de desassinado. A falha em um item SHALL NOT impedir a desassinatura dos outros. Se algum item falhar, o job SHALL ser retentado, e o retry SHALL NOT desassinar de novo os itens que já têm a marca.
 
-Só o status `cancelled` desassina. Com a assinatura em `active`, `past_due`, `trialing` ou `trial_expired`, nenhum recurso é desassinado por este requisito.
+Pelo evento da SPA, só o status `cancelled` desassina. Com a assinatura em `active`, `past_due`, `trialing` ou `trial_expired`, nenhum recurso é desassinado por este requisito. A única outra desassinatura por assinatura é a da verificação de assinaturas, para manuais `Vencido` há 5 dias ou mais (ver `pagamentos/expiracao-assinatura`). Ela usa a mesma operação e a mesma marca, então o cancelamento posterior dessa assinatura não chama o provider de novo para as linhas já desassinadas.
 
 #### Scenario: Assinatura manual cancelada desassina todas as linhas
 - **WHEN** o time muda para `Cancelado` o status de uma assinatura manual com duas linhas assinadas (uma Z-API e uma HubMessage)
@@ -110,7 +110,11 @@ Só o status `cancelled` desassina. Com a assinatura em `active`, `past_due`, `t
 
 #### Scenario: Inadimplência não desassina
 - **WHEN** o status da assinatura muda para `past_due`
-- **THEN** nenhuma linha é desassinada e as linhas assinadas continuam assinadas
+- **THEN** o evento da SPA não desassina nenhuma linha e as linhas assinadas continuam assinadas até o quinto dia da verificação
+
+#### Scenario: Cancelamento depois da desassinatura por vencimento
+- **WHEN** a verificação desassinou as duas linhas de uma manual `Vencido` no quinto dia e grava `Cancelado` no décimo
+- **THEN** o UPDATE da SPA 1142 com `cancelled` encontra as duas linhas com a marca de desassinado e nada é chamado no provider
 
 #### Scenario: Item sem credencial é ignorado
 - **WHEN** a assinatura é cancelada e um dos itens nunca foi provisionado (sem credencial)
