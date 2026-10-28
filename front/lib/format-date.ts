@@ -55,3 +55,34 @@ export function formatPortalDate(iso: string, locale?: string): string {
     timeStyle: 'short',
   }).format(date)
 }
+
+/**
+ * Instante relativo a `now` ("há 12 minutos", "há 3 horas") no locale de quem olha.
+ * Para recência — a última rodada de um job; a data absoluta fica no `title`.
+ *
+ * Abaixo de um minuto vira "agora": segundos mudam a cada render e não dizem nada.
+ */
+export function formatRelativeInstant(
+  iso: string,
+  now: Date,
+  locale?: string,
+): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) {
+    return iso
+  }
+
+  const format = new Intl.RelativeTimeFormat(locale ?? 'pt-BR', {
+    numeric: 'auto',
+  })
+  const diffSeconds = Math.round((date.getTime() - now.getTime()) / 1000)
+  const abs = Math.abs(diffSeconds)
+
+  if (abs < 60) return format.format(0, 'second')
+  if (abs < 60 * 60)
+    return format.format(Math.round(diffSeconds / 60), 'minute')
+  if (abs < 24 * 60 * 60) {
+    return format.format(Math.round(diffSeconds / 3600), 'hour')
+  }
+  return format.format(Math.round(diffSeconds / 86400), 'day')
+}

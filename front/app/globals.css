@@ -31,6 +31,23 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
   --color-canvas: var(--canvas);
+  /* Portal admin: valores em components/layouts/admin/admin-theme.css */
+  --color-admin-active: var(--admin-active);
+  --color-status-success: var(--status-success);
+  --color-status-success-soft: var(--status-success-soft);
+  --color-status-success-ink: var(--status-success-ink);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-soft: var(--status-warning-soft);
+  --color-status-warning-ink: var(--status-warning-ink);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-soft: var(--status-danger-soft);
+  --color-status-danger-ink: var(--status-danger-ink);
+  --color-status-info: var(--status-info);
+  --color-status-info-soft: var(--status-info-soft);
+  --color-status-info-ink: var(--status-info-ink);
+  --color-status-neutral: var(--status-neutral);
+  --color-status-neutral-soft: var(--status-neutral-soft);
+  --color-status-neutral-ink: var(--status-neutral-ink);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);

@@ -6,14 +6,43 @@
   "navMcpUsers": "Usuarios MCP",
   "navJobs": "Jobs",
   "navOutboxFailures": "Fallos de envío",
-  "greeting": "Hola, {{name}}",
-  "description": "Gestiona clientes, aplicaciones y configuraciones de Hubthink.",
-  "clientsCardDescription": "Consulta portales Bitrix24 y las aplicaciones instaladas en cada dominio.",
-  "clientsCardAction": "Ver clientes",
-  "comingSoonTitle": "Próximamente",
-  "comingSoonDescription": "Las secciones siguientes estarán disponibles en próximas fases:",
-  "featureClients": "Clientes (dominios Bitrix24)",
-  "featureApps": "Aplicaciones instaladas",
-  "featureSubscriptions": "Suscripciones y configuraciones",
-  "logout": "Salir"
+  "logout": "Salir",
+  "navLabel": "Navegación del portal",
+  "navGroupOperations": "Operación",
+  "openMenu": "Abrir menú",
+  "menuTitle": "Menú",
+  "userMenu": "Menú del usuario",
+  "greetingMorning": "Buenos días, {{name}}",
+  "greetingAfternoon": "Buenas tardes, {{name}}",
+  "greetingEvening": "Buenas noches, {{name}}",
+  "attentionCount_one": "{{count}} elemento necesita atención",
+  "attentionCount_other": "{{count}} elementos necesitan atención",
+  "allClearShort": "Todo al día",
+  "kpi": {
+    "label": "Indicadores",
+    "clients": "Clientes",
+    "clientsHint": "Dominios Bitrix24",
+    "active": "Suscripciones activas",
+    "pastDue": "Vencidas",
+    "pastDueHint": "Líneas bloqueadas en la app",
+    "trialing": "En prueba",
+    "unavailable": "No disponible",
+    "countedAt": "Suscripciones contadas en el CRM {{when}}",
+    "subscriptionsUnavailable": "No se pudieron contar las suscripciones en el CRM ahora."
+  },
+  "jobsPanel": {
+    "title": "Salud de los jobs",
+    "viewAll": "Ver jobs",
+    "unavailable": "No se pudieron cargar las ejecuciones.",
+    "neverRan": "Aún no se ejecutó"
+  },
+  "attention": {
+    "title": "Necesita atención",
+    "outboxFailures_one": "{{count}} fallo de envío en los últimos 7 días",
+    "outboxFailures_other": "{{count}} fallos de envío en los últimos 7 días",
+    "outboxUnavailable": "No se pudieron verificar los fallos de envío.",
+    "allClear": "Ningún fallo de envío en los últimos 7 días y ningún job con problemas.",
+    "checking": "Verificando…"
+  },
+  "retry": "Intentar de nuevo"
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatSpaDate } from './format-date'
+import { formatRelativeInstant, formatSpaDate } from './format-date'
 
 /**
  * O bug de D-1: a api entrega o dia ancorado em UTC, e formatar sem nomear o fuso
@@ -60,5 +60,34 @@ describe('formatSpaDate', () => {
     expect(formatSpaDate('2026-08-01T00:00:00.000Z', 'pt-BR')).toBe(
       formatSpaDate('2026-08-01T23:59:59.999Z', 'pt-BR'),
     )
+  })
+})
+
+describe('formatRelativeInstant', () => {
+  const now = new Date('2026-10-28T12:00:00Z')
+
+  it('minutos e horas no passado', () => {
+    expect(formatRelativeInstant('2026-10-28T11:48:00Z', now, 'pt-BR')).toBe(
+      'há 12 minutos',
+    )
+    expect(formatRelativeInstant('2026-10-28T09:00:00Z', now, 'pt-BR')).toBe(
+      'há 3 horas',
+    )
+  })
+
+  it('menos de um minuto é agora', () => {
+    expect(formatRelativeInstant('2026-10-28T11:59:40Z', now, 'pt-BR')).toBe(
+      'agora',
+    )
+  })
+
+  it('dias', () => {
+    expect(formatRelativeInstant('2026-10-26T12:00:00Z', now, 'pt-BR')).toBe(
+      'anteontem',
+    )
+  })
+
+  it('data inválida volta crua', () => {
+    expect(formatRelativeInstant('x', now, 'pt-BR')).toBe('x')
   })
 })

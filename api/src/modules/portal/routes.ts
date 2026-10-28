@@ -43,6 +43,7 @@ import {
   createReprocessOutboxFailureController,
   createReprocessOutboxFailuresBatchController,
 } from './main/factories/create-outbox-failures-controllers'
+import { createGetDashboardSummaryController } from './main/factories/create-get-dashboard-summary-controller'
 import type { RequestHandler } from 'express'
 
 export const createPortalRoutes = (
@@ -230,6 +231,16 @@ export const createPortalRoutes = (
     '/apps/:appId/subscriptions',
     portalAuthMiddleware,
     adaptControllerFactory(createListAppSubscriptionsController),
+  )
+
+  /**
+   * Resumo da home do backoffice: clientes e assinaturas da SPA 1142 por status.
+   * Só leitura, com cache curto da contagem.
+   */
+  router.get(
+    '/dashboard/summary',
+    portalAuthMiddleware,
+    adaptControllerFactory(createGetDashboardSummaryController),
   )
 
   /**

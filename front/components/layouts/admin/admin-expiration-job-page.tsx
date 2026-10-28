@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Info, Loader2, Play, RefreshCw } from 'lucide-react'
+import { AlertCircle, Info, Loader2, Play, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FieldLabel } from '@/components/ui/field'
 import { Switch } from '@/components/ui/switch'
@@ -30,8 +30,22 @@ import {
   type ExpirationRunTrigger,
   type ListExpirationRunsResponse,
 } from '@/lib/subscription-expiration-runs'
+import { findAdminJob, type AdminJobDefinition } from '@/lib/admin-jobs'
+import { formatPortalDate, formatRelativeInstant } from '@/lib/format-date'
 import { AdminExpirationRunsTable } from './admin-expiration-runs-table'
 import { AdminExpirationRunDetail } from './admin-expiration-run-detail'
+import {
+  AdminJobHealthBadge,
+  AdminJobRunStrip,
+  JOB_RUN_STRIP_SIZE,
+  useAdminJobsHealth,
+} from './admin-jobs-health'
+import { AdminPageHeader } from './ui/admin-page-header'
+import { AdminEmptyState } from './ui/admin-empty-state'
+
+const JOB = findAdminJob('expiracao-assinaturas') as AdminJobDefinition
+/** Referência estável para o hook de saúde não recarregar a cada render. */
+const JOB_LIST = [JOB]
 
 const PAGE_SIZE = 20
 /** Intervalo entre consultas enquanto a rodada disparada aqui está em andamento. */
@@ -41,8 +55,8 @@ const POLL_MAX_ATTEMPTS = 200
 
 type TriggerFilter = 'all' | ExpirationRunTrigger
 
-export function AdminJobsPage() {
-  const { t } = useTranslation('admin/jobs')
+export function AdminExpirationJobPage() {
+  const { t, i18n } = useTranslation('admin/jobs')
   const { t: tCommon } = useTranslation('common')
 
   const [data, setData] = useState<ListExpirationRunsResponse | null>(null)
@@ -90,6 +104,15 @@ export function AdminJobsPage() {
       cancelled = true
     }
   }, [page, trigger, onlyWithChanges, reloadCounter])
+
+  /** Saúde pela última rodada **sem filtro** — a lista pode estar filtrada. */
+  const { states: healthStates, reload: reloadHealth } =
+    useAdminJobsHealth(JOB_LIST)
+  const health = healthStates[JOB.id]
+
+  useEffect(() => {
+    if (reloadCounter > 0) reloadHealth(JOB.id)
+  }, [reloadCounter, reloadHealth])
 
   /**
    * Acompanha a rodada disparada aqui pelo detalhe dela — não pela lista, que pode
@@ -162,38 +185,96 @@ export function AdminJobsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            {t('title')}
-          </h1>
-          <p className="mt-2 text-muted-foreground">{t('description')}</p>
-        </div>
-        <div className="flex shrink-0 gap-2">
-          <Button variant="outline" onClick={reload} disabled={isLoading}>
-            <RefreshCw className="size-4" />
-            {t('refresh')}
-          </Button>
-          <Button
-            onClick={() => setConfirmOpen(true)}
-            disabled={isStarting || watchedRunId !== null}
-          >
-            {watchedRunId ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Play className="size-4" />
-            )}
-            {t('runNow')}
-          </Button>
-        </div>
-      </div>
+      <AdminPageHeader
+        breadcrumb={[
+          { label: t('title'), href: '/admin/jobs' },
+          { label: t(JOB.nameKey) },
+        ]}
+        title={t(JOB.nameKey)}
+        description={t('jobs.expiracao-assinaturas.pageDescription')}
+        actions={
+          <>
+            <Button variant="outline" onClick={reload} disabled={isLoading}>
+              <RefreshCw className="size-4" />
+              {t('refresh')}
+            </Button>
+            <Button
+              onClick={() => setConfirmOpen(true)}
+              disabled={isStarting || watchedRunId !== null}
+            >
+              {watchedRunId ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Play className="size-4" />
+              )}
+              {t('runNow')}
+            </Button>
+          </>
+        }
+      />
 
-      <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+      <section
+        aria-label={t('health.sectionLabel')}
+        className="grid gap-4 rounded-lg border border-border bg-card px-5 py-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center md:gap-10"
+      >
+        <div className="flex flex-col gap-1">
+          {health?.status === 'ready' ? (
+            <>
+              <AdminJobHealthBadge health={health.health} />
+              <p className="text-xs text-muted-foreground">
+                {health.latest ? (
+                  <>
+                    {t('catalog.lastRun')}{' '}
+                    <time
+                      dateTime={health.latest.startedAt}
+                      title={formatPortalDate(
+                        health.latest.startedAt,
+                        i18n.language,
+                      )}
+                    >
+                      {formatRelativeInstant(
+                        health.latest.startedAt,
+                        health.checkedAt,
+                        i18n.language,
+                      )}
+                    </time>
+                    {' · '}
+                    {t(JOB.scheduleKey)}
+                  </>
+                ) : (
+                  t('catalog.lastRunNever')
+                )}
+              </p>
+            </>
+          ) : health?.status === 'error' ? (
+            <p className="text-sm text-muted-foreground">
+              {t('catalog.unavailable')}
+            </p>
+          ) : (
+            <>
+              <span aria-hidden className="h-5 w-24 rounded bg-muted" />
+              <span aria-hidden className="h-4 w-40 rounded bg-muted" />
+            </>
+          )}
+        </div>
+        <div className="min-w-0">
+          {health?.status === 'ready' ? (
+            <AdminJobRunStrip runs={health.runs} />
+          ) : (
+            <div aria-hidden className="h-6 rounded-[2px] bg-muted" />
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            {t('strip.caption', { count: JOB_RUN_STRIP_SIZE })}
+          </p>
+        </div>
+      </section>
+
+      <div className="flex items-start gap-3 rounded-lg bg-status-info-soft px-4 py-3 text-sm text-status-info-ink">
         <Info className="mt-0.5 size-4 shrink-0" />
         <p>{t('notCancelNotice')}</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-6">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="flex items-center gap-3">
           <Switch
             id="only-with-changes"
@@ -238,28 +319,39 @@ export function AdminJobsPage() {
       </div>
 
       {isLoading && !data ? (
-        <p className="text-sm text-muted-foreground">{tCommon('carregando')}</p>
+        <div
+          aria-busy
+          aria-label={tCommon('carregando')}
+          className="rounded-lg border border-border bg-card"
+        >
+          {Array.from({ length: 5 }, (_, index) => (
+            <div
+              key={index}
+              className="flex h-12 items-center gap-6 border-b border-border px-4 last:border-b-0"
+            >
+              <span className="h-3.5 w-28 rounded bg-muted" />
+              <span className="h-3.5 w-12 rounded bg-muted" />
+              <span className="h-3.5 w-20 rounded bg-muted" />
+              <span className="ml-auto h-3.5 w-24 rounded bg-muted" />
+            </div>
+          ))}
+        </div>
       ) : hasError ? (
-        <div className="admin-card p-6">
-          <h2 className="text-lg font-medium text-foreground">
-            {t('errorTitle')}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {t('errorDescription')}
-          </p>
-          <Button variant="outline" className="mt-4" onClick={reload}>
-            {t('retry')}
-          </Button>
-        </div>
+        <AdminEmptyState
+          icon={AlertCircle}
+          title={t('errorTitle')}
+          description={t('errorDescription')}
+          action={
+            <Button variant="outline" size="sm" onClick={reload}>
+              {t('retry')}
+            </Button>
+          }
+        />
       ) : isEmpty ? (
-        <div className="admin-card p-6">
-          <h2 className="text-lg font-medium text-foreground">
-            {t('emptyTitle')}
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {t('emptyDescription')}
-          </p>
-        </div>
+        <AdminEmptyState
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
+        />
       ) : (
         <>
           <AdminExpirationRunsTable runs={runs} onOpen={setOpenRun} />

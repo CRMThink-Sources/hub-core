@@ -1,6 +1,6 @@
 {
   "title": "Jobs",
-  "description": "History of the subscription expiration sweep (SPA 1142), which runs every hour.",
+  "description": "Scheduled portal routines and the health of each one.",
   "notCancelNotice": "The sweep does not cancel subscriptions. It only moves \"Trialing\" to \"Trial expired\" and manual \"Active\" to \"Past due\" when the period ends.",
   "runNow": "Run now",
   "refresh": "Refresh",
@@ -66,5 +66,46 @@
   "retry": "Try again",
   "page": "Page {{current}} of {{total}}",
   "previous": "Previous",
-  "next": "Next"
+  "next": "Next",
+  "jobs": {
+    "expiracao-assinaturas": {
+      "name": "Expiration sweep",
+      "description": "Moves expired trials to \"Trial expired\" and overdue manual subscriptions to \"Past due\" in SPA 1142.",
+      "schedule": "Every hour",
+      "pageDescription": "History of the subscription expiration sweep (SPA 1142), which runs every hour."
+    }
+  },
+  "health": {
+    "no-runs": "No runs",
+    "running": "Running",
+    "failing": "Failing",
+    "late": "Late",
+    "attention": "Needs attention",
+    "healthy": "Healthy",
+    "sectionLabel": "Job health"
+  },
+  "strip": {
+    "label": "Last {{count}} runs: {{failures}} failed, {{warnings}} need attention",
+    "caption": "Last {{count}} runs",
+    "tone": {
+      "success": "Completed",
+      "warning": "Completed with failures",
+      "danger": "Failed",
+      "info": "Running",
+      "neutral": "No data"
+    }
+  },
+  "catalog": {
+    "lastRun": "Last run",
+    "lastRunNever": "Has not run yet",
+    "unavailable": "Could not load the runs of this job.",
+    "viewRuns": "View runs",
+    "count": "{{count}} job",
+    "count_other": "{{count}} jobs"
+  },
+  "notFound": {
+    "title": "Job not found",
+    "description": "There is no job at \"{{id}}\".",
+    "back": "Back to Jobs"
+  }
 }

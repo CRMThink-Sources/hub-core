@@ -4,39 +4,33 @@ import { useTranslation } from 'react-i18next'
 import { formatPortalDate } from '@/lib/format-date'
 import { cn } from '@/lib/utils'
 import type { ExpirationRun } from '@/lib/subscription-expiration-runs'
+import { AdminStatusBadge, type AdminStatusTone } from './ui/admin-status-badge'
 
 type Props = {
   runs: ExpirationRun[]
   onOpen: (run: ExpirationRun) => void
 }
 
+const RUN_TONE: Record<ExpirationRun['status'] | 'abandoned', AdminStatusTone> =
+  {
+    success: 'success',
+    running: 'info',
+    failed: 'danger',
+    abandoned: 'warning',
+  }
+
 export function ExpirationRunStatusBadge({ run }: { run: ExpirationRun }) {
   const { t } = useTranslation('admin/jobs')
 
   const key = run.abandoned ? 'abandoned' : run.status
-  const tone = {
-    success:
-      'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-    running: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-    failed: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
-    abandoned:
-      'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
-  }[key]
 
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
-      <span
-        className={cn(
-          'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
-          tone,
-        )}
-      >
+      <AdminStatusBadge tone={RUN_TONE[key]}>
         {t(`runStatus.${key}`)}
-      </span>
+      </AdminStatusBadge>
       {run.paused && (
-        <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-          {t('pausedBadge')}
-        </span>
+        <AdminStatusBadge tone="warning">{t('pausedBadge')}</AdminStatusBadge>
       )}
     </span>
   )
@@ -63,10 +57,10 @@ export function AdminExpirationRunsTable({ runs, onOpen }: Props) {
   const locale = i18n.language
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-background">
+    <div className="overflow-x-auto rounded-lg border border-border bg-card">
       <table className="min-w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+          <tr className="border-b border-border text-xs text-muted-foreground">
             <th className="px-4 py-3 font-medium">{t('table.startedAt')}</th>
             <th className="px-4 py-3 font-medium">{t('table.duration')}</th>
             <th className="px-4 py-3 font-medium">{t('table.trigger')}</th>
@@ -98,7 +92,7 @@ export function AdminExpirationRunsTable({ runs, onOpen }: Props) {
                   onOpen(run)
                 }
               }}
-              className="cursor-pointer border-b border-border last:border-b-0 hover:bg-muted/30 focus-visible:bg-muted/30 focus-visible:outline-none"
+              className="cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
             >
               <td className="px-4 py-3 font-medium whitespace-nowrap text-foreground">
                 {formatPortalDate(run.startedAt, locale)}
@@ -127,8 +121,7 @@ export function AdminExpirationRunsTable({ runs, onOpen }: Props) {
               <td
                 className={cn(
                   'px-4 py-3 text-right tabular-nums',
-                  run.failed > 0 &&
-                    'font-semibold text-red-600 dark:text-red-400',
+                  run.failed > 0 && 'font-semibold text-status-danger-ink',
                 )}
               >
                 {run.failed}

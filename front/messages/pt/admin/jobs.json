@@ -1,6 +1,6 @@
 {
   "title": "Jobs",
-  "description": "Histórico da varredura de expiração de assinaturas (SPA 1142), que roda a cada hora.",
+  "description": "Rotinas automáticas do portal e a saúde de cada uma.",
   "notCancelNotice": "A varredura não cancela assinaturas. Ela só passa \"Em teste\" para \"Teste expirado\" e manual \"Ativo\" para \"Vencido\" quando o período termina.",
   "runNow": "Rodar agora",
   "refresh": "Atualizar",
@@ -66,5 +66,46 @@
   "retry": "Tentar novamente",
   "page": "Página {{current}} de {{total}}",
   "previous": "Anterior",
-  "next": "Próxima"
+  "next": "Próxima",
+  "jobs": {
+    "expiracao-assinaturas": {
+      "name": "Varredura de expiração",
+      "description": "Passa trials vencidos para \"Teste expirado\" e manuais vencidas para \"Vencido\" na SPA 1142.",
+      "schedule": "A cada hora",
+      "pageDescription": "Histórico da varredura de expiração de assinaturas (SPA 1142), que roda a cada hora."
+    }
+  },
+  "health": {
+    "no-runs": "Sem rodadas",
+    "running": "Em andamento",
+    "failing": "Com falha",
+    "late": "Atrasado",
+    "attention": "Atenção",
+    "healthy": "Saudável",
+    "sectionLabel": "Saúde do job"
+  },
+  "strip": {
+    "label": "Últimas {{count}} rodadas: {{failures}} com falha, {{warnings}} com atenção",
+    "caption": "Últimas {{count}} rodadas",
+    "tone": {
+      "success": "Concluída",
+      "warning": "Concluída com falhas",
+      "danger": "Falhou",
+      "info": "Em andamento",
+      "neutral": "Sem dados"
+    }
+  },
+  "catalog": {
+    "lastRun": "Última rodada",
+    "lastRunNever": "Ainda não rodou",
+    "unavailable": "Não foi possível carregar as rodadas deste job.",
+    "viewRuns": "Ver rodadas",
+    "count": "{{count}} job",
+    "count_other": "{{count}} jobs"
+  },
+  "notFound": {
+    "title": "Job não encontrado",
+    "description": "Não existe job com o endereço \"{{id}}\".",
+    "back": "Voltar para Jobs"
+  }
 }
