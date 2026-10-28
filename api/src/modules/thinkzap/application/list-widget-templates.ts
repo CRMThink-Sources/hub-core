@@ -12,10 +12,12 @@ import {
   TemplateHeaderType,
   templateHeaderOf,
 } from '@/modules/thinkzap/domain/template-header'
+import type { TemplateDefaultsRepository } from '@/modules/thinkzap/domain/ports/template-defaults-repository.port'
 import {
   resolveTemplateContext,
   type ResolveTemplateContextInput,
 } from './helpers/resolve-template-context'
+import { loadDefaultImages } from './helpers/template-default-images'
 
 /**
  * O mínimo que o widget precisa para compor um template.
@@ -36,8 +38,11 @@ export type WidgetTemplate = {
    * rótulo para o preview e de `dynamic`/`index` para pedir e enviar o valor.
    */
   buttons: TemplateButtonSummary[]
-  /** Tipo do cabeçalho. `IMAGE` pede a URL da imagem no envio. */
-  header: { type: WidgetTemplateHeaderType }
+  /**
+   * Tipo do cabeçalho. `IMAGE` leva a imagem padrão do envio, quando definida; sem
+   * ela, o envio pede a imagem.
+   */
+  header: { type: WidgetTemplateHeaderType; defaultImageUrl?: string }
 }
 
 /** `UNSUPPORTED` nunca chega aqui: esses templates saem do catálogo. */
@@ -67,6 +72,8 @@ export class ListWidgetTemplatesUseCase {
   constructor(
     private readonly getAplicationContext: GetAplicationContext,
     private readonly templateProviderResolver: TemplateProviderResolver,
+    /** Imagem padrão do envio. `null` = catálogo sem ela (o envio pede a imagem). */
+    private readonly templateDefaults: TemplateDefaultsRepository | null = null,
   ) {}
 
   async execute(input: ResolveTemplateContextInput): Promise<WidgetTemplate[]> {
@@ -75,29 +82,39 @@ export class ListWidgetTemplatesUseCase {
       templateProviderResolver: this.templateProviderResolver,
     })
 
-    const templates = await provider.listTemplates(wabaId)
+    const approved = (await provider.listTemplates(wabaId)).filter(
+      template => template.status === 'APPROVED',
+    )
+    // Só consulta o banco quando há template com imagem.
+    const defaultImageOf = approved.some(
+      t => templateHeaderOf(t.components) === 'IMAGE',
+    )
+      ? await loadDefaultImages(this.templateDefaults, input)
+      : () => undefined
 
-    return templates
-      .filter(template => template.status === 'APPROVED')
-      .flatMap(template => {
-        const header = templateHeaderOf(template.components)
-        return header === 'UNSUPPORTED'
-          ? []
-          : [toWidgetTemplate(template, header)]
-      })
+    return approved.flatMap(template => {
+      const header = templateHeaderOf(template.components)
+      if (header === 'UNSUPPORTED') return []
+      const defaultImageUrl =
+        header === 'IMAGE' ? defaultImageOf(template) : undefined
+      return [toWidgetTemplate(template, header, defaultImageUrl)]
+    })
   }
 }
 
 function toWidgetTemplate(
   template: Template,
   header: WidgetTemplateHeaderType,
+  defaultImageUrl: string | undefined,
 ): WidgetTemplate {
   return {
     name: template.name,
     language: template.language,
     body: bodyText(template.components),
     buttons: templateButtonsOf(template.components),
-    header: { type: header },
+    header: defaultImageUrl
+      ? { type: header, defaultImageUrl }
+      : { type: header },
   }
 }
 

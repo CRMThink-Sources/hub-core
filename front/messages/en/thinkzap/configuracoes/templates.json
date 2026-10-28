@@ -15,8 +15,11 @@
     "AUTHENTICATION": "Authentication"
   },
   "lista": {
-    "vazio": "No templates registered yet.",
-    "imagem": "Image"
+    "imagem": "Image",
+    "botoes_one": "{{count}} button",
+    "botoes_other": "{{count}} buttons",
+    "semImagemPadrao": "No default image: the widget and the robot will ask for the image on every send.",
+    "definirImagem": "Set image"
   },
   "form": {
     "nome": "Template name",
@@ -72,7 +75,7 @@
       "nenhum": "None",
       "imagem": "Image",
       "exemplo": "Public URL of the sample image",
-      "exemploHint": "Direct https link to the JPEG or PNG file, up to 5 MB. Recommended ratio 1.91:1. Meta uses this image only to approve the template; the image for each send is provided when sending.",
+      "exemploHint": "Direct https link to the JPEG or PNG file, up to 5 MB. Recommended ratio 1.91:1. Meta uses this image for approval, and it becomes the default image for sends.",
       "erros": {
         "header_not_allowed": "Authentication templates do not accept a header.",
         "example_required": "Enter the URL of the sample image.",
@@ -80,13 +83,28 @@
         "example_meta_cdn": "WhatsApp/Meta links are not valid samples: use the link to the image file itself.",
         "file_required": "Choose the sample image file.",
         "file_too_large": "The sample image is larger than 5 MB.",
-        "file_invalid_type": "The sample image must be JPEG or PNG."
+        "file_invalid_type": "The sample image must be JPEG or PNG.",
+        "default_required": "This template has no default image yet: upload a new image."
       },
       "fonteArquivo": "Upload file",
       "fonteLink": "Use link",
       "arquivo": "Sample image file",
-      "arquivoHint": "JPEG or PNG, up to 5 MB. Recommended ratio 1.91:1. Meta uses this image only to approve the template; the image for each send is provided when sending."
-    }
+      "arquivoHint": "JPEG or PNG, up to 5 MB. Recommended ratio 1.91:1. Meta uses this image for approval, and it becomes the default image for sends.",
+      "fonte": "Image source",
+      "fonteManter": "Keep current image",
+      "manterHint": "Uses the default sending image as the sample for Meta."
+    },
+    "voltar": "Back to the list",
+    "tituloNovo": "New template",
+    "subtituloNovo": "The template is submitted for Meta approval when you send it.",
+    "tituloEditar": "Edit {{nome}}",
+    "subtituloEditar": "Changes go to a new Meta review.",
+    "avisoEdicao": "When you save, the template goes back to Meta review and cannot be sent until it is approved again. Approved templates accept one edit per day.",
+    "secaoIdentificacao": "Identification",
+    "secaoMensagem": "Message",
+    "nomeTravado": "The name cannot be changed after creation.",
+    "categoriaTravada": "The category of an approved template cannot be changed.",
+    "salvarEdicao": "Save and submit for review"
   },
   "campanha": {
     "titulo": "Bitrix24 SMS campaign",
@@ -118,5 +136,65 @@
       "COPY_CODE": "Copy code",
       "OTHER": "Other"
     }
+  },
+  "toolbar": {
+    "buscar": "Search by name or text",
+    "status": "Filter by status",
+    "todos": "All",
+    "categoria": "Filter by category",
+    "todasCategorias": "All categories",
+    "comImagem": "With image",
+    "resultado": "{{shown}} of {{total}} templates",
+    "total_one": "{{count}} template",
+    "total_other": "{{count}} templates",
+    "limpar": "Clear filters"
+  },
+  "acoes": {
+    "menu": "Actions for template {{nome}}",
+    "editar": "Edit",
+    "editarEmAnalise": "Under Meta review: wait for the answer to edit.",
+    "imagemPadrao": "Default sending image",
+    "detalhes": "View details",
+    "detalhesDe": "View details of {{nome}}"
+  },
+  "imagemPadrao": {
+    "titulo": "Default sending image",
+    "descricao": "Image sent in the header of {{nome}} when the widget or the robot does not provide another.",
+    "semImagem": "No image set",
+    "arquivo": "Image file",
+    "link": "Public image URL",
+    "hint": "JPEG or PNG, up to 5 MB. Recommended ratio 1.91:1. WhatsApp/Meta links expire and are not accepted.",
+    "salvar": "Save image",
+    "salvando": "Saving...",
+    "erros": {
+      "example_required": "Enter the image URL.",
+      "example_not_https": "The image URL must start with https://.",
+      "example_meta_cdn": "WhatsApp/Meta links expire: use the link of the image file itself.",
+      "file_required": "Choose the image file.",
+      "file_too_large": "The image is over 5 MB.",
+      "file_invalid_type": "The image must be JPEG or PNG."
+    }
+  },
+  "detalhes": {
+    "descricao": "How the contact receives this template on WhatsApp.",
+    "categoria": "Category",
+    "idioma": "Language",
+    "cabecalho": "Header",
+    "botoes": "Buttons",
+    "comImagemPadrao": "The preview shows the default sending image, used when no other is provided."
+  },
+  "preview": {
+    "titulo": "Preview",
+    "hint": "How the contact will receive it. Variables are filled in on each send.",
+    "imagem": "Header image",
+    "corpoVazio": "The message text appears here.",
+    "copiarCodigo": "Copy code"
+  },
+  "estados": {
+    "tentarDeNovo": "Try again",
+    "vazioTitulo": "No templates on this line",
+    "vazioTexto": "Create a template and submit it for Meta approval, or sync the ones already in the account.",
+    "criarPrimeiro": "Create first template",
+    "semResultado": "No template matches this search and these filters."
   }
 }

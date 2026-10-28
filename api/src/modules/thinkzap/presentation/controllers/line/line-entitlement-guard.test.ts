@@ -171,7 +171,9 @@ function makeDeps(entitlement: LineEntitlement) {
   const disconnectExpiredLine = { schedule: vi.fn() }
 
   const templateProvider = {
-    listTemplates: vi.fn().mockResolvedValue([{ name: 'boas_vindas' }]),
+    listTemplates: vi
+      .fn()
+      .mockResolvedValue([{ name: 'boas_vindas', components: [] }]),
     createTemplate: vi.fn().mockResolvedValue({ id: 't-1' }),
     syncTemplates: vi.fn().mockResolvedValue([]),
   }

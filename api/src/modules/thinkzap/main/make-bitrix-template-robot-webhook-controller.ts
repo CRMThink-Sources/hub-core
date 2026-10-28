@@ -1,5 +1,6 @@
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
 import { Request } from 'express'
+import { PrismaTemplateDefaultsRepository } from '../infra/persistence/repositories/prisma-template-defaults.repository'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
@@ -59,6 +60,7 @@ export const makeBitrixTemplateRobotWebhookHandlerController = async (
     new ListWidgetTemplatesUseCase(
       makeGetAplicationContext(),
       makeTemplateProviderResolver(),
+      new PrismaTemplateDefaultsRepository(),
     ),
     new BitrixLivefeedNotificationService(bx),
     bx,

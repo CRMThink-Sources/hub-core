@@ -7,6 +7,8 @@ import { makeConnectChannelController } from './main/connector/make-connect-chan
 import { makeListTemplatesController } from './main/connector/make-list-templates'
 import { makeCreateTemplateController } from './main/connector/make-create-template'
 import { makeSyncTemplatesController } from './main/connector/make-sync-templates'
+import { makeUpdateTemplateController } from './main/connector/make-update-template'
+import { makeSetTemplateDefaultImageController } from './main/connector/make-set-template-default-image'
 import { makeListDestinationsController } from './main/make-list-destinations-controller'
 import { makeSendWidgetMessageController } from './main/make-send-widget-message-controller'
 import { makeSendWidgetMessageMultipartController } from './main/make-send-widget-message-multipart-controller'
@@ -473,6 +475,20 @@ export const createThinkerszapRoutes = (): Router => {
     '/lines/:itemId/templates/sync',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeSyncTemplatesController),
+  )
+  router.put(
+    '/lines/:itemId/templates/:name/:language/default-image',
+    requireThinkzapPermission('connectors', 'update'),
+    // Link em JSON, ou multipart com o arquivo em `image`.
+    widgetHeaderImageUpload,
+    adaptControllerFactory(makeSetTemplateDefaultImageController),
+  )
+  router.put(
+    '/lines/:itemId/templates/:templateId',
+    requireThinkzapPermission('connectors', 'update'),
+    // JSON, ou multipart com a imagem de exemplo em `headerImage`, como a criação.
+    templateHeaderImageUpload,
+    adaptControllerFactory(makeUpdateTemplateController),
   )
   router.get(
     '/openchannels',

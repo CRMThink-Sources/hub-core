@@ -10,6 +10,7 @@ import { WhatsAppTemplateProvider } from '@/modules/thinkzap/domain/ports/whatsa
 import { LineNotFoundError } from '@/modules/thinkzap/domain/errors/line-not-found.error'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
+import type { TemplateDefaultsRepository } from '@/modules/thinkzap/domain/ports/template-defaults-repository.port'
 import { ListConnectorTemplatesUseCase } from './list-connector-templates'
 
 /** `wabaId` vem do item da SPA — nem `Connector` nem `Instance` participam. */
@@ -55,7 +56,7 @@ function build(
 ) {
   const provider = {
     supportsTemplates: true,
-    listTemplates: vi.fn().mockResolvedValue([{ id: 'tpl_1' }]),
+    listTemplates: vi.fn().mockResolvedValue([{ id: 'tpl_1', components: [] }]),
     createTemplate: vi.fn(),
     syncTemplates: vi.fn(),
   } as unknown as WhatsAppTemplateProvider
@@ -82,13 +83,48 @@ function build(
 }
 
 describe('ListConnectorTemplatesUseCase', () => {
+  it('junta a imagem padrão do envio aos templates com cabeçalho de imagem', async () => {
+    const { useCase, provider } = build()
+    const image = {
+      id: 'tpl_2',
+      name: 'promo',
+      language: 'pt_BR',
+      components: [{ type: 'HEADER', format: 'IMAGE' }],
+    }
+    vi.mocked(provider.listTemplates).mockResolvedValue([
+      image,
+      { ...image, id: 'tpl_3', name: 'outro' },
+    ] as never)
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        name: 'promo',
+        language: 'pt_BR',
+        headerImageUrl: 'https://cdn/a.png',
+      },
+    ])
+    const withDefaults = new ListConnectorTemplatesUseCase(
+      (useCase as unknown as { getAplicationContext: never })
+        .getAplicationContext,
+      (useCase as unknown as { templateProviderResolver: never })
+        .templateProviderResolver,
+      { findMany } as unknown as TemplateDefaultsRepository,
+    )
+
+    const result = await withDefaults.execute(input)
+
+    expect(result.map(t => t.defaultImageUrl)).toEqual([
+      'https://cdn/a.png',
+      undefined,
+    ])
+  })
+
   it('lista templates usando o wabaId do item da linha', async () => {
     const { useCase, provider } = build()
 
     const result = await useCase.execute(input)
 
     expect(provider.listTemplates).toHaveBeenCalledWith('waba_1')
-    expect(result).toEqual([{ id: 'tpl_1' }])
+    expect(result).toEqual([{ id: 'tpl_1', components: [] }])
   })
 
   it('erro quando a linha não está na instalação do token', async () => {

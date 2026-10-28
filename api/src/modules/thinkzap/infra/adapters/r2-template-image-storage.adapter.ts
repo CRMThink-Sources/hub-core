@@ -20,7 +20,11 @@ const EXTENSION = { 'image/png': 'png', 'image/jpeg': 'jpg' } as const
  *
  * Chave `template-headers/<domainId>/<AAAA-MM>/<uuid>.<ext>`: o `uuid` torna a URL
  * impossível de adivinhar, e o `domainId` permite apagar por cliente se preciso.
- * A expiração (30 dias) é a regra de ciclo de vida do bucket.
+ * A expiração (30 dias) é a regra de ciclo de vida do bucket, **restrita ao prefixo
+ * `template-headers/`**.
+ *
+ * Imagem padrão (`retention: 'permanent'`) vai para
+ * `template-defaults/<domainId>/<uuid>.<ext>`, fora da regra de expiração.
  */
 export class R2TemplateImageStorage implements TemplateImageStorage {
   constructor(
@@ -30,13 +34,16 @@ export class R2TemplateImageStorage implements TemplateImageStorage {
   ) {}
 
   async store(input: StoreTemplateImageInput): Promise<StoredTemplateImage> {
-    const month = this.now().toISOString().slice(0, 7)
-    const key = [
-      'template-headers',
-      input.scope.domainId,
-      month,
-      `${randomUUID()}.${EXTENSION[input.contentType]}`,
-    ].join('/')
+    const file = `${randomUUID()}.${EXTENSION[input.contentType]}`
+    const key =
+      input.retention === 'permanent'
+        ? ['template-defaults', input.scope.domainId, file].join('/')
+        : [
+            'template-headers',
+            input.scope.domainId,
+            this.now().toISOString().slice(0, 7),
+            file,
+          ].join('/')
 
     try {
       await this.s3.send(

@@ -4,6 +4,7 @@ import {
   extractTemplateVariables,
   hasAllButtonValues,
   canSendWidgetTemplate,
+  defaultHeaderImageOf,
   hasRequiredHeaderImage,
   needsHeaderImage,
   templateButtonParameters,
@@ -179,6 +180,52 @@ describe('imagem do cabeçalho', () => {
   it('template sem imagem não exige nada', () => {
     expect(hasRequiredHeaderImage(none, '')).toBe(true)
     expect(hasRequiredHeaderImage(undefined, '')).toBe(true)
+  })
+})
+
+describe('imagem padrão do envio', () => {
+  const withDefault = {
+    body: 'Oferta',
+    buttons: [],
+    header: { type: 'IMAGE' as const, defaultImageUrl: 'https://cdn/a.png' },
+  }
+  const withoutDefault = {
+    body: 'Oferta',
+    buttons: [],
+    header: { type: 'IMAGE' as const },
+  }
+  const send = (
+    template: typeof withDefault | typeof withoutDefault,
+    headerImageUrl: string,
+  ) =>
+    canSendWidgetTemplate({
+      template,
+      values: {},
+      buttonValues: {},
+      headerImageUrl,
+      headerImageUploading: false,
+    })
+
+  it('só template de imagem com padrão definida tem imagem padrão', () => {
+    expect(defaultHeaderImageOf(withDefault)).toBe('https://cdn/a.png')
+    expect(defaultHeaderImageOf(withoutDefault)).toBeUndefined()
+    expect(
+      defaultHeaderImageOf({
+        header: { type: 'NONE', defaultImageUrl: 'https://cdn/a.png' },
+      }),
+    ).toBeUndefined()
+  })
+
+  it('com a imagem padrão preenchida, o envio fica liberado', () => {
+    expect(send(withDefault, 'https://cdn/a.png')).toBe(true)
+  })
+
+  it('sem imagem padrão e sem imagem informada, o envio fica bloqueado', () => {
+    expect(send(withoutDefault, '')).toBe(false)
+  })
+
+  it('imagem trocada no envio também libera', () => {
+    expect(send(withoutDefault, 'https://loja.com/b.png')).toBe(true)
   })
 })
 

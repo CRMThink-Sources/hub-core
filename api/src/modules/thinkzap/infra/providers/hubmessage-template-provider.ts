@@ -3,11 +3,13 @@ import {
   CreatedTemplate,
   Template,
   TemplateComponent,
+  UpdateTemplateInput,
   WhatsAppTemplateProvider,
 } from '@/modules/thinkzap/domain/ports/whatsapp-template-provider.port'
 import { headerImageExampleOf } from '@/modules/thinkzap/domain/template-header'
 import { HubMessageClient } from '@/modules/thinkzap/infra/clients/hubmessage.client'
 import {
+  CreateTemplateParams,
   HubMessageTemplate,
   HubMessageTemplateComponent,
 } from '@/modules/thinkzap/infra/clients/types/hubmessage.types'
@@ -28,10 +30,34 @@ export class HubMessageTemplateProvider implements WhatsAppTemplateProvider {
   }
 
   async createTemplate(input: CreateTemplateInput): Promise<CreatedTemplate> {
-    /**
-     * Arquivo: sobe primeiro e cria logo em seguida, no mesmo request — o `h` que a
-     * Omni devolve expira. Link: vai direto em `header_handle`.
-     */
+    const created = await this.client.createTemplate(
+      input.wabaId,
+      await this.templateParams(input),
+    )
+    return {
+      id: created.id,
+      status: created.status,
+      category: created.category,
+    }
+  }
+
+  async updateTemplate(input: UpdateTemplateInput): Promise<void> {
+    await this.client.updateTemplate(
+      input.wabaId,
+      input.templateId,
+      await this.templateParams(input),
+    )
+  }
+
+  /**
+   * Corpo do cadastro, igual na criação e na edição.
+   *
+   * Arquivo: sobe primeiro e usa logo em seguida, no mesmo request — o `h` que a
+   * Omni devolve expira. Link: vai direto em `header_handle`.
+   */
+  private async templateParams(
+    input: CreateTemplateInput,
+  ): Promise<CreateTemplateParams> {
     const uploadedHandle = input.headerSampleImage
       ? (
           await this.client.uploadTemplateMedia(input.wabaId, {
@@ -45,7 +71,7 @@ export class HubMessageTemplateProvider implements WhatsAppTemplateProvider {
         ).h
       : undefined
 
-    const created = await this.client.createTemplate(input.wabaId, {
+    return {
       name: input.name,
       category: input.category,
       language: input.language,
@@ -57,11 +83,6 @@ export class HubMessageTemplateProvider implements WhatsAppTemplateProvider {
       components: input.components.map(component =>
         toRawComponent(component, uploadedHandle),
       ),
-    })
-    return {
-      id: created.id,
-      status: created.status,
-      category: created.category,
     }
   }
 

@@ -6,6 +6,7 @@ import {
   thinkzapApiErrorMessage,
 } from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
 import {
+  defaultHeaderImageOf,
   dynamicButtons,
   extractTemplateVariables,
   isHttpsUrl,
@@ -230,13 +231,20 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
   )
   const buttonFields = dynamicButtons(catalogTemplate?.buttons)
   const headerImageRequired = needsHeaderImage(catalogTemplate)
+  const defaultHeaderImage = defaultHeaderImageOf(catalogTemplate)
   const headerImageLiteral =
     config.headerImage.mode === 'literal' ? config.headerImage.value.trim() : ''
+  // Campo vazio: a prévia mostra a imagem padrão, que é a que o disparo vai usar.
+  const previewHeaderImage =
+    !toStoredValue(config.headerImage).trim() && defaultHeaderImage
+      ? defaultHeaderImage
+      : headerImageLiteral
 
   const missing = validateConfig(
     config,
     catalogTemplate ? buttonFields.length : undefined,
     headerImageRequired,
+    Boolean(defaultHeaderImage),
   )
 
   return (
@@ -374,7 +382,11 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
 
           <ValueField
             label="URL da imagem"
-            hint="Link público https, direto para o arquivo JPEG ou PNG — fixo ou de um campo da entidade."
+            hint={
+              defaultHeaderImage
+                ? 'Opcional: vazio usa a imagem padrão do template. Para outra imagem, um link público https, direto para o arquivo JPEG ou PNG — fixo ou de um campo da entidade.'
+                : 'Link público https, direto para o arquivo JPEG ou PNG — fixo ou de um campo da entidade.'
+            }
             placeholder="https://..."
             value={config.headerImage}
             fields={documentFields}
@@ -447,9 +459,9 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
             Prévia da mensagem
           </p>
           {headerImageRequired &&
-            (isHttpsUrl(headerImageLiteral) ? (
+            (isHttpsUrl(previewHeaderImage) ? (
               <img
-                src={headerImageLiteral}
+                src={previewHeaderImage}
                 alt="Imagem do cabeçalho"
                 className="mt-2 max-h-40 w-full rounded-lg bg-white object-cover"
               />
