@@ -34,6 +34,11 @@ export type ConnectorTemplate = {
   language: string
   status: TemplateStatus
   components: TemplateComponent[]
+  /**
+   * Imagem padrão do envio, em template com cabeçalho de imagem: é a que o widget e
+   * o robô usam quando ninguém informa outra. Ausente = ainda não definida.
+   */
+  defaultImageUrl?: string
 }
 
 export type CreateTemplatePayload = {
@@ -89,7 +94,15 @@ export function useConnectorTemplates() {
     }
   }, [])
 
-  return { templates, loading, error, fetchTemplates, syncTemplates, setError }
+  return {
+    templates,
+    loading,
+    error,
+    fetchTemplates,
+    syncTemplates,
+    setError,
+    setTemplates,
+  }
 }
 
 /**
@@ -143,4 +156,94 @@ export function useCreateTemplate() {
   )
 
   return { createTemplate, saving, error, setError }
+}
+
+/**
+ * Edição de template: mesmo pedido da criação, por `PUT` no `id` remoto. O
+ * template volta para análise da Meta.
+ *
+ * Cabeçalho de imagem sem `example` e sem arquivo = manter a imagem atual (a API
+ * usa a imagem padrão do envio como amostra).
+ */
+export function useUpdateTemplate() {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const updateTemplate = useCallback(
+    async (
+      itemId: string,
+      templateId: string,
+      payload: CreateTemplatePayload,
+      headerImageFile?: File,
+    ) => {
+      setSaving(true)
+      setError(null)
+      try {
+        const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
+        await client.put(
+          `/thinkzap/lines/${encodeURIComponent(itemId)}/templates/${encodeURIComponent(templateId)}`,
+          headerImageFile
+            ? buildCreateTemplateFormData(payload, headerImageFile)
+            : payload,
+        )
+        return true
+      } catch (err: unknown) {
+        setError(extractThinkzapError(err, 'Falha ao editar template'))
+        return false
+      } finally {
+        setSaving(false)
+      }
+    },
+    [],
+  )
+
+  return { updateTemplate, saving, error, setError }
+}
+
+/** Imagem padrão: o link em JSON, ou o arquivo em `image` (multipart). */
+export function buildDefaultImageRequest(
+  source: { imageUrl: string } | { file: Blob },
+): FormData | { imageUrl: string } {
+  if ('imageUrl' in source) return { imageUrl: source.imageUrl.trim() }
+  const form = new FormData()
+  form.append('image', source.file)
+  return form
+}
+
+/**
+ * Define ou troca a imagem padrão do envio de um template com cabeçalho de
+ * imagem. Devolve a URL gravada, ou `null` na falha (com `error` preenchido).
+ */
+export function useSetTemplateDefaultImage() {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const setDefaultImage = useCallback(
+    async (
+      itemId: string,
+      template: Pick<ConnectorTemplate, 'name' | 'language'>,
+      source: { imageUrl: string } | { file: File },
+    ): Promise<string | null> => {
+      setSaving(true)
+      setError(null)
+      try {
+        const client = axiosThinkzap(appTokenKey(APP_CODES.thinkzap))
+        const { headerImageUrl } = await client.put<{ headerImageUrl: string }>(
+          `/thinkzap/lines/${encodeURIComponent(itemId)}/templates/${encodeURIComponent(template.name)}/${encodeURIComponent(template.language)}/default-image`,
+          buildDefaultImageRequest(source),
+        )
+        return headerImageUrl
+      } catch (err: unknown) {
+        setError(
+          extractThinkzapError(err, 'Falha ao salvar a imagem padrão do envio'),
+        )
+        return null
+      } finally {
+        setSaving(false)
+      }
+    },
+    [],
+  )
+
+  return { setDefaultImage, saving, error, setError }
 }

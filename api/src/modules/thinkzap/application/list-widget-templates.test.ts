@@ -13,6 +13,7 @@ import {
   WhatsAppTemplateProvider,
 } from '@/modules/thinkzap/domain/ports/whatsapp-template-provider.port'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
+import type { TemplateDefaultsRepository } from '@/modules/thinkzap/domain/ports/template-defaults-repository.port'
 import { ListWidgetTemplatesUseCase } from './list-widget-templates'
 
 const hubItem: SubscriptionItem = {
@@ -64,7 +65,11 @@ function template(overrides: Partial<Template> = {}): Template {
 }
 
 function build(
-  opts: { items?: SubscriptionItem[]; templates?: Template[] } = {},
+  opts: {
+    items?: SubscriptionItem[]
+    templates?: Template[]
+    defaults?: { name: string; language: string; headerImageUrl: string }[]
+  } = {},
 ) {
   const provider = {
     supportsTemplates: true,
@@ -85,11 +90,19 @@ function build(
     resolve: vi.fn().mockReturnValue(provider),
   } as unknown as TemplateProviderResolver
 
+  const templateDefaults = {
+    find: vi.fn(),
+    findMany: vi.fn().mockResolvedValue(opts.defaults ?? []),
+    upsert: vi.fn(),
+  }
+
   return {
     provider,
+    templateDefaults,
     useCase: new ListWidgetTemplatesUseCase(
       getAplicationContext,
       templateProviderResolver,
+      templateDefaults as unknown as TemplateDefaultsRepository,
     ),
   }
 }
@@ -190,6 +203,49 @@ describe('ListWidgetTemplatesUseCase', () => {
     const [first] = await useCase.execute(input)
 
     expect(first?.header).toEqual({ type: 'IMAGE' })
+  })
+
+  it('leva a imagem padrão do envio no cabeçalho de imagem', async () => {
+    const imageComponents: Template['components'] = [
+      { type: 'HEADER', format: 'IMAGE' },
+      { type: 'BODY', text: 'Oferta' },
+    ]
+    const { useCase, templateDefaults } = build({
+      templates: [
+        template({ name: 'com_padrao', components: imageComponents }),
+        template({
+          id: 'tpl_2',
+          name: 'sem_padrao',
+          components: imageComponents,
+        }),
+      ],
+      defaults: [
+        {
+          name: 'com_padrao',
+          language: 'pt_BR',
+          headerImageUrl: 'https://cdn/a.png',
+        },
+      ],
+    })
+
+    const result = await useCase.execute(input)
+
+    expect(templateDefaults.findMany).toHaveBeenCalledWith({
+      domainId: 'domain_1',
+      subscriptionItemId: 'item_1',
+    })
+    expect(result.map(t => t.header)).toEqual([
+      { type: 'IMAGE', defaultImageUrl: 'https://cdn/a.png' },
+      { type: 'IMAGE' },
+    ])
+  })
+
+  it('não consulta imagens padrão quando nenhum template tem imagem', async () => {
+    const { useCase, templateDefaults } = build()
+
+    await useCase.execute(input)
+
+    expect(templateDefaults.findMany).not.toHaveBeenCalled()
   })
 
   it('filtra fora template com vídeo e com texto variável no cabeçalho', async () => {

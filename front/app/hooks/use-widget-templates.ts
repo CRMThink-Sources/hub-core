@@ -25,10 +25,11 @@ export type WidgetTemplate = {
   /** Na ordem do template. Vazio em template sem botão. */
   buttons: WidgetTemplateButton[]
   /**
-   * Cabeçalho. `IMAGE` exige a URL da imagem no envio. Opcional porque uma API
-   * anterior a este campo não o manda — ausente vale como `NONE`.
+   * Cabeçalho. `IMAGE` exige a URL da imagem no envio; `defaultImageUrl` é a imagem
+   * padrão do envio do template, quando definida. Opcional porque uma API anterior
+   * a este campo não o manda — ausente vale como `NONE`.
    */
-  header?: { type: 'NONE' | 'TEXT' | 'IMAGE' }
+  header?: { type: 'NONE' | 'TEXT' | 'IMAGE'; defaultImageUrl?: string }
 }
 
 type WidgetTemplatesState = {

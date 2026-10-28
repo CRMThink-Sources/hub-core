@@ -5,6 +5,7 @@ import { ListWidgetTemplatesUseCase } from '../application/list-widget-templates
 import { WidgetTemplatesController } from '../presentation/controllers/widget-templates.controller'
 import { makeTemplateProviderResolver } from './connector/make-template-provider-resolver'
 import { makeTemplateImageStorage } from './make-template-image-storage'
+import { PrismaTemplateDefaultsRepository } from '../infra/persistence/repositories/prisma-template-defaults.repository'
 
 export const makeListWidgetTemplatesController = (
   _req: Request,
@@ -12,6 +13,7 @@ export const makeListWidgetTemplatesController = (
   const useCase = new ListWidgetTemplatesUseCase(
     makeGetAplicationContext(),
     makeTemplateProviderResolver(),
+    new PrismaTemplateDefaultsRepository(),
   )
   return Promise.resolve(
     new WidgetTemplatesController(useCase, makeTemplateImageStorage() !== null),

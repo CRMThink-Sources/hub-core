@@ -30,7 +30,7 @@ import { CrmDealPage } from './shared/crm'
  * - nova linha: `conexoes/nova-linha-modal.tsx`, `conexao-row.tsx`
  * - conexão: `configuracoes/oficial/conexao-oficial-tab.tsx` (o popup da Meta,
  *   aberto pelo `@hubmessage/connect`, não é desenhado)
- * - templates: `configuracoes/oficial/templates-tab.tsx`, `templates-lista.tsx`,
+ * - templates: `configuracoes/oficial/templates-tab.tsx`, `template-card.tsx`,
  *   `template-form.tsx`
  * - envio: aba ThinkZap do CRM, `(widgets)/layouts/conversation-view.tsx` +
  *   `template-composer.tsx`

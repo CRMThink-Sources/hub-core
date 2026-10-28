@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define como o ThinkZap cria templates do WhatsApp Oficial com cabeçalho de imagem e como envia esses templates pelo widget do CRM e pelo robô do Bitrix24, com a imagem de cada envio informada por URL pública.
+Define como o ThinkZap cria templates do WhatsApp Oficial com cabeçalho de imagem, guarda uma imagem padrão do envio para cada template e envia esses templates pelo widget do CRM e pelo robô do Bitrix24, com a imagem padrão ou com uma imagem informada no envio.
 
 ## ADDED Requirements
 
@@ -82,42 +82,75 @@ A lista de templates da linha oficial SHALL indicar quais templates têm cabeça
 - **THEN** a lista mostra o template identificado como template com imagem
 
 ### Requirement: Catálogo de envio informa o cabeçalho
-O catálogo de templates aprovados oferecido ao widget e à tela do robô SHALL informar o tipo de cabeçalho de cada template: nenhum, texto ou imagem. Template com cabeçalho de imagem SHALL ser oferecido e SHALL pedir a imagem no envio.
+O catálogo de templates aprovados oferecido ao widget e à tela do robô SHALL informar o tipo de cabeçalho de cada template: nenhum, texto ou imagem. Template com cabeçalho de imagem SHALL ser oferecido e SHALL informar a imagem padrão do envio, quando houver.
 
 Template com cabeçalho de vídeo, documento, localização ou texto com variável SHALL NOT ser oferecido no catálogo de envio, porque o ThinkZap não tem como preencher esses cabeçalhos.
 
 #### Scenario: Template com imagem no catálogo
 - **WHEN** o widget carrega os templates de uma linha com um template aprovado que tem cabeçalho de imagem
-- **THEN** o template vem marcado com cabeçalho de imagem
+- **THEN** o template vem marcado com cabeçalho de imagem e, se tiver imagem padrão, com a URL dela
 
 #### Scenario: Template com vídeo fora do catálogo
 - **WHEN** a linha tem um template aprovado com cabeçalho de vídeo, criado na Meta
 - **THEN** esse template não aparece no catálogo do widget nem no do robô
 
-### Requirement: Widget pede a imagem do cabeçalho
-No widget do CRM, ao escolher um template com cabeçalho de imagem, o widget SHALL exibir um campo para a URL pública da imagem e SHALL mostrar a imagem no preview acima do corpo. O envio SHALL ficar desabilitado enquanto o campo estiver vazio ou não for uma URL `https`.
+### Requirement: Imagem padrão do envio por template
+O ThinkZap SHALL guardar, para cada template com cabeçalho de imagem de uma linha oficial, uma imagem padrão do envio, identificada pela linha, pelo nome e pelo idioma do template. A imagem padrão SHALL ficar disponível por URL pública `https` sem prazo de expiração.
+
+Ao criar um template com cabeçalho de imagem pelo ThinkZap, a imagem de exemplo SHALL passar a ser a imagem padrão do envio desse template. Uma falha ao guardar a imagem padrão SHALL NOT desfazer a criação do template.
+
+A lista de templates SHALL oferecer, em cada template com cabeçalho de imagem, a ação de definir ou trocar a imagem padrão, por arquivo JPEG/PNG de até 5 MB ou por URL pública `https`. Essa ação SHALL valer também para templates criados fora do ThinkZap e trazidos pela sincronização. A imagem padrão SHALL passar pelas mesmas validações da imagem de exemplo, incluindo a recusa de link do CDN da Meta.
+
+#### Scenario: Criação define a imagem padrão
+- **WHEN** o operador cria um template de Marketing com o arquivo `banner.png` como imagem de exemplo
+- **THEN** o template passa a ter `banner.png` como imagem padrão do envio
+
+#### Scenario: Definir imagem padrão de template sincronizado
+- **WHEN** a linha tem um template com imagem criado direto na Meta e o operador define `https://loja.com/promo.png` como imagem padrão pela lista
+- **THEN** o template passa a ter essa imagem padrão, e o widget e o robô passam a usá-la
+
+#### Scenario: Link da Meta recusado como imagem padrão
+- **WHEN** o operador informa `https://scontent.whatsapp.net/v/t61/abc.jpg` como imagem padrão
+- **THEN** a imagem é recusada com a mensagem de que link do WhatsApp/Meta expira e é preciso usar o link do próprio arquivo
+
+#### Scenario: Imagem padrão em template sem imagem
+- **WHEN** um pedido para definir imagem padrão chega para um template sem cabeçalho de imagem
+- **THEN** o pedido é recusado e nada é guardado
+
+### Requirement: Widget usa a imagem padrão e permite trocar
+No widget do CRM, ao escolher um template com cabeçalho de imagem que tem imagem padrão, o widget SHALL mostrar a imagem padrão no preview acima do corpo e SHALL permitir enviar sem informar outra imagem. O operador SHALL poder trocar a imagem daquele envio por um arquivo ou uma URL pública `https`, sem alterar a imagem padrão do template.
+
+Sem imagem padrão, o widget SHALL pedir a imagem, e o envio SHALL ficar desabilitado enquanto nenhuma imagem válida for informada.
 
 Template sem cabeçalho de imagem SHALL ser enviado como hoje, sem o campo.
 
-#### Scenario: Envio com imagem
-- **WHEN** o operador escolhe um template com imagem, informa `https://loja.com/promo.jpg` e preenche o corpo
-- **THEN** o template é enviado com a imagem `https://loja.com/promo.jpg` no cabeçalho
+#### Scenario: Envio com a imagem padrão
+- **WHEN** o operador escolhe um template cuja imagem padrão é `https://cdn.thinkzap/banner.png` e preenche o corpo
+- **THEN** o envio fica liberado e o template é enviado com essa imagem no cabeçalho
 
-#### Scenario: Imagem vazia bloqueia o envio
-- **WHEN** o operador preenche o corpo mas deixa a URL da imagem vazia
+#### Scenario: Troca da imagem só no envio
+- **WHEN** o operador escolhe um template com imagem padrão, troca a imagem por `https://loja.com/promo.jpg` e envia
+- **THEN** o template é enviado com `https://loja.com/promo.jpg`, e a imagem padrão do template continua a mesma
+
+#### Scenario: Template sem imagem padrão bloqueia o envio
+- **WHEN** o operador escolhe um template com imagem sem imagem padrão, preenche o corpo e não informa imagem
 - **THEN** o botão de enviar fica desabilitado
 
 ### Requirement: Robô de template envia a imagem do cabeçalho
-O robô de envio de template do Bitrix24 SHALL ter uma propriedade para a URL da imagem do cabeçalho. Na tela de configuração do robô, um template com cabeçalho de imagem SHALL exibir esse campo, que aceita valor fixo ou campo do documento, e o preview SHALL mostrar o cabeçalho. A tela SHALL impedir salvar com o campo vazio.
+O robô de envio de template do Bitrix24 SHALL ter uma propriedade opcional para a URL da imagem do cabeçalho. Na tela de configuração do robô, um template com cabeçalho de imagem SHALL exibir esse campo, que aceita valor fixo ou campo do documento, e o preview SHALL mostrar o cabeçalho com a imagem padrão quando o campo estiver vazio. A tela SHALL impedir salvar com o campo vazio apenas quando o template não tiver imagem padrão.
 
-No disparo, se a URL resolvida estiver vazia ou não for `https`, o robô SHALL registrar a falha na timeline do documento sem enfileirar nada. Robôs configurados antes desta mudança, sem a nova propriedade, SHALL continuar funcionando para templates sem cabeçalho de imagem.
+No disparo, uma URL resolvida vazia SHALL ser substituída pela imagem padrão do template. Se não houver nenhuma das duas, ou se a URL informada não for `https`, o robô SHALL registrar a falha na timeline do documento sem enfileirar nada. Robôs configurados antes desta mudança, sem a nova propriedade, SHALL continuar funcionando para templates sem cabeçalho de imagem e SHALL usar a imagem padrão em templates com imagem.
 
 #### Scenario: Robô com imagem vinda do negócio
 - **WHEN** o robô está configurado com um template com imagem, com a URL ligada a um campo do negócio que contém `https://loja.com/produto-42.png`, e é disparado
 - **THEN** o template é enviado com essa imagem no cabeçalho
 
-#### Scenario: Campo do negócio vazio no disparo
-- **WHEN** o robô é disparado e o campo do negócio ligado à imagem está vazio
+#### Scenario: Campo vazio usa a imagem padrão
+- **WHEN** o robô é disparado, o campo do negócio ligado à imagem está vazio e o template tem imagem padrão
+- **THEN** o template é enviado com a imagem padrão no cabeçalho
+
+#### Scenario: Sem imagem nenhuma no disparo
+- **WHEN** o robô é disparado, o campo do negócio ligado à imagem está vazio e o template não tem imagem padrão
 - **THEN** nada é enfileirado e a timeline do negócio registra que o template exige uma imagem que não foi informada
 
 #### Scenario: Robô antigo sem imagem
@@ -125,7 +158,7 @@ No disparo, se a URL resolvida estiver vazia ou não for `https`, o robô SHALL 
 - **THEN** o template é enviado normalmente
 
 ### Requirement: Envio ao provedor inclui a imagem do cabeçalho
-Ao enviar um template com cabeçalho de imagem, o sistema SHALL incluir o componente de cabeçalho com a imagem por URL, antes do corpo e dos botões. A URL SHALL ficar gravada na fila de envio junto com os valores do corpo e dos botões, de modo que reenvios e reprocessamentos usem a mesma imagem.
+Ao enviar um template com cabeçalho de imagem, o sistema SHALL incluir o componente de cabeçalho com a imagem por URL, antes do corpo e dos botões. A URL que valeu no envio (a informada ou a imagem padrão) SHALL ficar gravada na fila de envio junto com os valores do corpo e dos botões, de modo que reenvios e reprocessamentos usem a mesma imagem, mesmo que a imagem padrão mude depois.
 
 Envio sem imagem SHALL continuar com o mesmo formato atual. Se a Meta recusar o envio porque não conseguiu baixar a imagem, a falha SHALL aparecer na timeline como as demais falhas de envio de template.
 
@@ -136,6 +169,10 @@ Envio sem imagem SHALL continuar com o mesmo formato atual. Se a Meta recusar o 
 #### Scenario: Reprocessamento usa a mesma imagem
 - **WHEN** um envio de template com imagem falha temporariamente e é reprocessado pela fila
 - **THEN** o reenvio leva a mesma URL de imagem gravada no primeiro pedido
+
+#### Scenario: Imagem padrão trocada com envio na fila
+- **WHEN** um envio com a imagem padrão `A` está na fila e o operador troca a imagem padrão para `B` antes do reprocessamento
+- **THEN** o reprocessamento leva a imagem `A`
 
 ### Requirement: Campanha SMS recusa template com imagem
 A campanha SMS do Bitrix24 SHALL recusar o envio de um template com cabeçalho de imagem, sem enfileirar mensagem, informando ao Bitrix que o template exige uma imagem que a campanha não fornece. A tela de configuração da campanha SHALL sinalizar esses templates como indisponíveis para a campanha, como já faz com botão dinâmico.

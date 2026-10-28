@@ -51,6 +51,7 @@ import {
 } from './template-composer'
 import {
   canSendWidgetTemplate,
+  defaultHeaderImageOf,
   needsHeaderImage,
   orderedTemplateParameters,
   templateButtonParameters,
@@ -382,6 +383,24 @@ export const ConversationView = () => {
     setHeaderImageUploadError('')
   }
 
+  /**
+   * Imagem ao escolher um template (ou voltar para a padrão): a imagem padrão do
+   * envio dele já vem selecionada. Sem padrão, mantém a forma que o operador vinha
+   * usando — e `DEFAULT` não existe nesse template, então cai no arquivo.
+   */
+  function startHeaderImage(
+    template: (typeof widgetTemplates.templates)[number] | undefined,
+    fallback: HeaderImageSource,
+  ) {
+    const defaultUrl = defaultHeaderImageOf(template)
+    if (defaultUrl) {
+      resetHeaderImage('DEFAULT')
+      setTemplateHeaderImageUrl(defaultUrl)
+      return
+    }
+    resetHeaderImage(fallback === 'DEFAULT' ? 'FILE' : fallback)
+  }
+
   async function pickHeaderImageFile(file: File) {
     const rejection = widgetHeaderImageFileError(file)
     const token = ++headerImageUploadTokenRef.current
@@ -708,7 +727,9 @@ export const ConversationView = () => {
         setSelectedTemplateKey('')
         setTemplateValues({})
         setTemplateButtonValues({})
-        resetHeaderImage(headerImageSource)
+        resetHeaderImage(
+          headerImageSource === 'DEFAULT' ? 'FILE' : headerImageSource,
+        )
         /**
          * O template passou a ser enfileirado, como o texto livre: o servidor responde
          * `202` e a entrega acontece logo depois, com retentativa. Dizer "enviado com
@@ -1010,7 +1031,12 @@ export const ConversationView = () => {
                    */
                   setTemplateValues({})
                   setTemplateButtonValues({})
-                  resetHeaderImage(headerImageSource)
+                  startHeaderImage(
+                    widgetTemplates.templates.find(
+                      template => templateKey(template) === key,
+                    ),
+                    headerImageSource,
+                  )
                 }}
                 values={templateValues}
                 onChangeValue={(key, value) =>
@@ -1027,9 +1053,16 @@ export const ConversationView = () => {
                 onChangeHeaderImageUrl={setTemplateHeaderImageUrl}
                 headerImageUploadAvailable={widgetTemplates.headerImageUpload}
                 headerImageSource={
-                  widgetTemplates.headerImageUpload ? headerImageSource : 'LINK'
+                  widgetTemplates.headerImageUpload ||
+                  headerImageSource === 'DEFAULT'
+                    ? headerImageSource
+                    : 'LINK'
                 }
-                onChangeHeaderImageSource={source => resetHeaderImage(source)}
+                onChangeHeaderImageSource={source =>
+                  source === 'DEFAULT'
+                    ? startHeaderImage(selectedTemplate, 'FILE')
+                    : resetHeaderImage(source)
+                }
                 onPickHeaderImageFile={file => void pickHeaderImageFile(file)}
                 headerImageFileName={headerImageFileName}
                 headerImageUploading={headerImageUploading}

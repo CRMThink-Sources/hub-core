@@ -44,6 +44,22 @@ describe('R2TemplateImageStorage', () => {
     })
   })
 
+  it('imagem padrão vai para template-defaults, sem mês (fora da expiração)', async () => {
+    const { storage } = makeSut()
+
+    const stored = await storage.store({
+      data: png,
+      contentType: 'image/png',
+      scope: { domainId: 'domain-1' },
+      retention: 'permanent',
+    })
+
+    expect(stored.key).toMatch(
+      /^template-defaults\/domain-1\/[0-9a-f-]{36}\.png$/,
+    )
+    expect(stored.url).toBe(`https://imagens.loja.com/${stored.key}`)
+  })
+
   it('usa .jpg para JPEG e chaves diferentes a cada upload', async () => {
     const { storage } = makeSut()
     const input = {

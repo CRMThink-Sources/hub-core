@@ -4,6 +4,7 @@ import {
   templateHeaderOf,
   validateTemplateHeader,
   validateTemplateHeaderFile,
+  validateTemplateHeaderKeep,
 } from './template-header'
 
 describe('validateTemplateHeader', () => {
@@ -94,6 +95,23 @@ describe('validateTemplateHeaderFile', () => {
       'header_not_allowed',
     )
     expect(validateTemplateHeaderFile('NONE', null, 'MARKETING')).toBeNull()
+  })
+})
+
+describe('validateTemplateHeaderKeep', () => {
+  it('manter a imagem exige imagem padrão do envio', () => {
+    expect(validateTemplateHeaderKeep('IMAGE', false, 'MARKETING')).toBe(
+      'default_required',
+    )
+    expect(validateTemplateHeaderKeep('IMAGE', true, 'MARKETING')).toBeNull()
+    expect(validateTemplateHeaderKeep('NONE', false, 'MARKETING')).toBeNull()
+  })
+
+  it('manter a imagem monta o cabeçalho sem example', () => {
+    expect(buildHeaderComponent('IMAGE', 'KEEP', 'https://x/a.png')).toEqual({
+      type: 'HEADER',
+      format: 'IMAGE',
+    })
   })
 })
 

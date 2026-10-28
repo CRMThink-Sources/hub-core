@@ -166,6 +166,82 @@ describe('HubMessageTemplateProvider', () => {
     )
   })
 
+  it('edita pelo id com o mesmo corpo da criação e o link em header_handle', async () => {
+    const updateTemplate = vi.fn().mockResolvedValue({ success: true })
+    const client = makeClient({ updateTemplate })
+    const provider = new HubMessageTemplateProvider(client)
+
+    await provider.updateTemplate({
+      wabaId: 'waba_1',
+      templateId: 'tpl_9',
+      name: 'promo',
+      category: 'MARKETING',
+      language: 'pt_BR',
+      components: [
+        {
+          type: 'HEADER',
+          format: 'IMAGE',
+          example: { imageUrl: 'https://loja.com/banner.png' },
+        },
+        { type: 'BODY', text: 'Oferta {{1}}' },
+      ],
+    })
+
+    expect(updateTemplate).toHaveBeenCalledWith('waba_1', 'tpl_9', {
+      name: 'promo',
+      category: 'MARKETING',
+      language: 'pt_BR',
+      allow_category_change: true,
+      parameter_format: 'POSITIONAL',
+      components: [
+        {
+          type: 'HEADER',
+          format: 'IMAGE',
+          example: { header_handle: ['https://loja.com/banner.png'] },
+        },
+        { type: 'BODY', text: 'Oferta {{1}}' },
+      ],
+    })
+  })
+
+  it('edita com arquivo subindo antes e usando o h', async () => {
+    const uploadTemplateMedia = vi.fn().mockResolvedValue({ h: 'h-1' })
+    const updateTemplate = vi.fn().mockResolvedValue({ success: true })
+    const client = makeClient({ uploadTemplateMedia, updateTemplate })
+    const provider = new HubMessageTemplateProvider(client)
+
+    await provider.updateTemplate({
+      wabaId: 'waba_1',
+      templateId: 'tpl_9',
+      name: 'promo',
+      category: 'MARKETING',
+      language: 'pt_BR',
+      components: [
+        { type: 'HEADER', format: 'IMAGE' },
+        { type: 'BODY', text: 'Oferta' },
+      ],
+      headerSampleImage: {
+        data: Buffer.from([0xff, 0xd8, 0xff]),
+        contentType: 'image/jpeg',
+      },
+    })
+
+    expect(uploadTemplateMedia).toHaveBeenCalledWith(
+      'waba_1',
+      expect.objectContaining({ fileName: 'header.jpg' }),
+    )
+    const [, , params] = updateTemplate.mock.calls[0] as [
+      string,
+      string,
+      { components: unknown[] },
+    ]
+    expect(params.components[0]).toEqual({
+      type: 'HEADER',
+      format: 'IMAGE',
+      example: { header_handle: ['h-1'] },
+    })
+  })
+
   it('não cria o template quando o upload falha', async () => {
     const client = makeClient({
       uploadTemplateMedia: vi.fn().mockRejectedValue(new Error('422')),

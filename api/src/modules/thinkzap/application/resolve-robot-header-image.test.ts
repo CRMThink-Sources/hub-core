@@ -24,9 +24,41 @@ describe('resolveRobotHeaderImage', () => {
     ).toEqual({ headerImageUrl: 'https://loja.com/produto-42.png' })
   })
 
-  it('template com imagem e campo vazio', async () => {
+  it('template com imagem e campo vazio, sem imagem padrão', async () => {
     expect(
       await resolveRobotHeaderImage({ ...scope, value: '' }, catalog('IMAGE')),
+    ).toEqual({ missing: true })
+  })
+
+  const withDefault = vi.fn().mockResolvedValue([
+    {
+      name: 'promo',
+      language: 'pt_BR',
+      header: { type: 'IMAGE', defaultImageUrl: 'https://cdn/padrao.png' },
+    },
+  ])
+
+  it('campo vazio usa a imagem padrão do template', async () => {
+    expect(
+      await resolveRobotHeaderImage({ ...scope, value: ' ' }, withDefault),
+    ).toEqual({ headerImageUrl: 'https://cdn/padrao.png' })
+  })
+
+  it('URL do negócio tem prioridade sobre a imagem padrão', async () => {
+    expect(
+      await resolveRobotHeaderImage(
+        { ...scope, value: 'https://loja.com/b.png' },
+        withDefault,
+      ),
+    ).toEqual({ headerImageUrl: 'https://loja.com/b.png' })
+  })
+
+  it('valor sem https é recusado mesmo com imagem padrão', async () => {
+    expect(
+      await resolveRobotHeaderImage(
+        { ...scope, value: 'http://loja.com/b.png' },
+        withDefault,
+      ),
     ).toEqual({ missing: true })
   })
 

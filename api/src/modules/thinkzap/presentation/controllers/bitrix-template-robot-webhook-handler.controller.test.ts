@@ -35,7 +35,7 @@ const makeDeps = (
       language: string
       body: string
       buttons?: unknown[]
-      header?: { type: string }
+      header?: { type: string; defaultImageUrl?: string }
     }[]
     domain?: unknown
     app?: unknown
@@ -324,6 +324,51 @@ describe('BitrixTemplateRobotWebhookHandlerController', () => {
         { message: string },
       ]
       expect(notice.message).toContain('exige uma imagem no cabeçalho')
+    })
+
+    it('campo vazio usa a imagem padrão do template', async () => {
+      const deps = makeDeps({
+        templates: [
+          {
+            ...promo,
+            header: {
+              type: 'IMAGE',
+              defaultImageUrl: 'https://cdn/padrao.png',
+            },
+          },
+        ],
+      })
+
+      await makeController(deps).perform(
+        makeReq({ ...fullProperties, templateHeaderImageUrl: '' }),
+        res,
+      )
+
+      expect(deps.enqueue).toHaveBeenCalledWith(
+        target,
+        expect.objectContaining({ headerImageUrl: 'https://cdn/padrao.png' }),
+      )
+    })
+
+    it('robô antigo sem a propriedade, com template de imagem, usa a imagem padrão', async () => {
+      const deps = makeDeps({
+        templates: [
+          {
+            ...promo,
+            header: {
+              type: 'IMAGE',
+              defaultImageUrl: 'https://cdn/padrao.png',
+            },
+          },
+        ],
+      })
+
+      await makeController(deps).perform(makeReq(fullProperties), res)
+
+      expect(deps.enqueue).toHaveBeenCalledWith(
+        target,
+        expect.objectContaining({ headerImageUrl: 'https://cdn/padrao.png' }),
+      )
     })
 
     it('robô antigo sem a propriedade, com template sem imagem, envia normalmente', async () => {

@@ -6,6 +6,7 @@ import { CreateTemplateController } from '../../presentation/controllers/connect
 import { makeTemplateProviderResolver } from './make-template-provider-resolver'
 import { AxiosTemplateSampleImageFetcher } from '../../infra/adapters/axios-template-sample-image-fetcher.adapter'
 import { makeTemplateImageStorage } from '../make-template-image-storage'
+import { PrismaTemplateDefaultsRepository } from '../../infra/persistence/repositories/prisma-template-defaults.repository'
 
 export const makeCreateTemplateController = (
   _req: Request,
@@ -15,6 +16,7 @@ export const makeCreateTemplateController = (
     makeTemplateProviderResolver(),
     new AxiosTemplateSampleImageFetcher(),
     makeTemplateImageStorage(),
+    new PrismaTemplateDefaultsRepository(),
   )
   return Promise.resolve(new CreateTemplateController(useCase))
 }

@@ -1,19 +1,26 @@
 import { TemplateProviderResolver } from '@/modules/thinkzap/domain/ports/template-provider-resolver.port'
-import { Template } from '@/modules/thinkzap/domain/ports/whatsapp-template-provider.port'
 import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import type { TemplateDefaultsRepository } from '@/modules/thinkzap/domain/ports/template-defaults-repository.port'
 import {
   resolveTemplateContext,
   type ResolveTemplateContextInput,
 } from './helpers/resolve-template-context'
+import {
+  ConnectorTemplate,
+  withDefaultImages,
+} from './list-connector-templates'
 
 /** Sincroniza o status dos templates de um conector com a Meta. */
 export class SyncConnectorTemplatesUseCase {
   constructor(
     private readonly getAplicationContext: GetAplicationContext,
     private readonly templateProviderResolver: TemplateProviderResolver,
+    private readonly templateDefaults: TemplateDefaultsRepository | null = null,
   ) {}
 
-  async execute(input: ResolveTemplateContextInput): Promise<Template[]> {
+  async execute(
+    input: ResolveTemplateContextInput,
+  ): Promise<ConnectorTemplate[]> {
     /**
      * `requireEnabled`: sincronizar reescreve o cadastro local a partir da Meta e
      * é operação que o cliente dispara — linha bloqueada recusa, junto com criar.
@@ -28,6 +35,7 @@ export class SyncConnectorTemplatesUseCase {
       { requireEnabled: true },
     )
 
-    return provider.syncTemplates(wabaId)
+    const templates = await provider.syncTemplates(wabaId)
+    return withDefaultImages(templates, this.templateDefaults, input)
   }
 }

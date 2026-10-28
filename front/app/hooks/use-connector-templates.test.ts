@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildCreateTemplateFormData } from './use-connector-templates'
+import {
+  buildCreateTemplateFormData,
+  buildDefaultImageRequest,
+} from './use-connector-templates'
 
 describe('buildCreateTemplateFormData', () => {
   it('manda o JSON em payload e a imagem em headerImage', () => {
@@ -22,5 +25,25 @@ describe('buildCreateTemplateFormData', () => {
     const sent = form.get('headerImage') as File
     expect(sent.name).toBe('banner.png')
     expect(sent.size).toBe(2)
+  })
+})
+
+describe('buildDefaultImageRequest', () => {
+  it('link vai em JSON, sem espaços', () => {
+    expect(
+      buildDefaultImageRequest({ imageUrl: ' https://loja.com/a.png ' }),
+    ).toEqual({
+      imageUrl: 'https://loja.com/a.png',
+    })
+  })
+
+  it('arquivo vai em multipart no campo image', () => {
+    const file = new File([new Uint8Array([0x89])], 'a.png', {
+      type: 'image/png',
+    })
+
+    const form = buildDefaultImageRequest({ file }) as FormData
+
+    expect((form.get('image') as File).name).toBe('a.png')
   })
 })

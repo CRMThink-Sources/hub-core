@@ -128,7 +128,9 @@ function makeSurface(entitlement: Case) {
   } as never
 
   const templateProvider = {
-    listTemplates: vi.fn().mockResolvedValue([{ name: 'boas_vindas' }]),
+    listTemplates: vi
+      .fn()
+      .mockResolvedValue([{ name: 'boas_vindas', components: [] }]),
   }
 
   const plans = {

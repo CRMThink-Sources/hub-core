@@ -15,8 +15,11 @@
     "AUTHENTICATION": "Autenticação"
   },
   "lista": {
-    "vazio": "Nenhum template cadastrado ainda.",
-    "imagem": "Imagem"
+    "imagem": "Imagem",
+    "botoes_one": "{{count}} botão",
+    "botoes_other": "{{count}} botões",
+    "semImagemPadrao": "Sem imagem padrão: o widget e o robô vão pedir a imagem em cada envio.",
+    "definirImagem": "Definir imagem"
   },
   "form": {
     "nome": "Nome do template",
@@ -72,7 +75,7 @@
       "nenhum": "Nenhum",
       "imagem": "Imagem",
       "exemplo": "URL pública da imagem de exemplo",
-      "exemploHint": "Link https direto para o arquivo JPEG ou PNG, até 5 MB. Proporção recomendada 1.91:1. A Meta usa esta imagem só para aprovar o template; a imagem de cada envio é informada no envio.",
+      "exemploHint": "Link https direto para o arquivo JPEG ou PNG, até 5 MB. Proporção recomendada 1.91:1. A Meta usa esta imagem na aprovação, e ela vira a imagem padrão dos envios.",
       "erros": {
         "header_not_allowed": "Templates de autenticação não aceitam cabeçalho.",
         "example_required": "Informe a URL da imagem de exemplo.",
@@ -80,13 +83,28 @@
         "example_meta_cdn": "Link do WhatsApp/Meta não vale como exemplo: use o link do próprio arquivo da imagem.",
         "file_required": "Escolha o arquivo da imagem de exemplo.",
         "file_too_large": "A imagem de exemplo passa de 5 MB.",
-        "file_invalid_type": "A imagem de exemplo precisa ser JPEG ou PNG."
+        "file_invalid_type": "A imagem de exemplo precisa ser JPEG ou PNG.",
+        "default_required": "Este template ainda não tem imagem padrão: envie uma imagem nova."
       },
       "fonteArquivo": "Enviar arquivo",
       "fonteLink": "Usar link",
       "arquivo": "Arquivo da imagem de exemplo",
-      "arquivoHint": "JPEG ou PNG, até 5 MB. Proporção recomendada 1.91:1. A Meta usa esta imagem só para aprovar o template; a imagem de cada envio é informada no envio."
-    }
+      "arquivoHint": "JPEG ou PNG, até 5 MB. Proporção recomendada 1.91:1. A Meta usa esta imagem na aprovação, e ela vira a imagem padrão dos envios.",
+      "fonte": "Origem da imagem",
+      "fonteManter": "Manter imagem atual",
+      "manterHint": "Usa a imagem padrão do envio como exemplo para a Meta."
+    },
+    "voltar": "Voltar para a lista",
+    "tituloNovo": "Novo template",
+    "subtituloNovo": "O template vai para aprovação da Meta ao enviar.",
+    "tituloEditar": "Editar {{nome}}",
+    "subtituloEditar": "As mudanças vão para uma nova análise da Meta.",
+    "avisoEdicao": "Ao salvar, o template volta para análise da Meta e fica indisponível para envio até ser aprovado de novo. Templates aprovados aceitam uma edição por dia.",
+    "secaoIdentificacao": "Identificação",
+    "secaoMensagem": "Mensagem",
+    "nomeTravado": "O nome não pode ser alterado depois de criado.",
+    "categoriaTravada": "A categoria de um template aprovado não pode ser alterada.",
+    "salvarEdicao": "Salvar e enviar para análise"
   },
   "campanha": {
     "titulo": "Campanha de SMS do Bitrix24",
@@ -118,5 +136,65 @@
       "COPY_CODE": "Copiar código",
       "OTHER": "Outro"
     }
+  },
+  "toolbar": {
+    "buscar": "Buscar por nome ou texto",
+    "status": "Filtrar por status",
+    "todos": "Todos",
+    "categoria": "Filtrar por categoria",
+    "todasCategorias": "Todas as categorias",
+    "comImagem": "Com imagem",
+    "resultado": "{{shown}} de {{total}} templates",
+    "total_one": "{{count}} template",
+    "total_other": "{{count}} templates",
+    "limpar": "Limpar filtros"
+  },
+  "acoes": {
+    "menu": "Ações do template {{nome}}",
+    "editar": "Editar",
+    "editarEmAnalise": "Em análise pela Meta: aguarde a resposta para editar.",
+    "imagemPadrao": "Imagem padrão do envio",
+    "detalhes": "Ver detalhes",
+    "detalhesDe": "Ver detalhes de {{nome}}"
+  },
+  "imagemPadrao": {
+    "titulo": "Imagem padrão do envio",
+    "descricao": "Imagem enviada no cabeçalho de {{nome}} quando o widget ou o robô não informam outra.",
+    "semImagem": "Nenhuma imagem definida",
+    "arquivo": "Arquivo da imagem",
+    "link": "URL pública da imagem",
+    "hint": "JPEG ou PNG, até 5 MB. Proporção recomendada 1.91:1. Links do WhatsApp/Meta expiram e não valem.",
+    "salvar": "Salvar imagem",
+    "salvando": "Salvando...",
+    "erros": {
+      "example_required": "Informe a URL da imagem.",
+      "example_not_https": "A URL da imagem precisa começar com https://.",
+      "example_meta_cdn": "Link do WhatsApp/Meta expira: use o link do próprio arquivo da imagem.",
+      "file_required": "Escolha o arquivo da imagem.",
+      "file_too_large": "A imagem passa de 5 MB.",
+      "file_invalid_type": "A imagem precisa ser JPEG ou PNG."
+    }
+  },
+  "detalhes": {
+    "descricao": "Como o contato recebe este template no WhatsApp.",
+    "categoria": "Categoria",
+    "idioma": "Idioma",
+    "cabecalho": "Cabeçalho",
+    "botoes": "Botões",
+    "comImagemPadrao": "A prévia mostra a imagem padrão do envio, usada quando ninguém informa outra."
+  },
+  "preview": {
+    "titulo": "Prévia",
+    "hint": "Como o contato vai receber. As variáveis são preenchidas em cada envio.",
+    "imagem": "Imagem do cabeçalho",
+    "corpoVazio": "O texto da mensagem aparece aqui.",
+    "copiarCodigo": "Copiar código"
+  },
+  "estados": {
+    "tentarDeNovo": "Tentar de novo",
+    "vazioTitulo": "Nenhum template nesta linha",
+    "vazioTexto": "Crie um template e envie para aprovação da Meta, ou sincronize os que já existem na conta.",
+    "criarPrimeiro": "Criar primeiro template",
+    "semResultado": "Nenhum template encontrado com essa busca e esses filtros."
   }
 }
