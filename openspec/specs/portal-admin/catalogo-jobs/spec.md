@@ -13,14 +13,14 @@ Define o catálogo de jobs do portal admin em `/admin/jobs`: quais jobs aparecem
 - saúde;
 - início e resultado da última rodada.
 
-Cada job SHALL ter um identificador estável em kebab-case. Escolher um job SHALL levar para `/admin/jobs/<identificador>`. Hoje o catálogo tem um job, a varredura de expiração de assinaturas, com identificador `expiracao-assinaturas`.
+Cada job SHALL ter um identificador estável em kebab-case. Escolher um job SHALL levar para `/admin/jobs/<identificador>`. Hoje o catálogo tem um job, a verificação de assinaturas, com identificador `expiracao-assinaturas`. O identificador continua o da antiga varredura de expiração para não quebrar links.
 
 #### Scenario: Abrir o catálogo
 - **WHEN** um usuário logado abre `/admin/jobs`
-- **THEN** aparece o card "Varredura de expiração", com periodicidade, saúde e última rodada
+- **THEN** aparece o card "Verificação de assinaturas", com periodicidade ("a cada hora, reconciliação diária"), saúde e última rodada
 
 #### Scenario: Ir para o detalhe
-- **WHEN** o usuário escolhe "Varredura de expiração" no catálogo
+- **WHEN** o usuário escolhe "Verificação de assinaturas" no catálogo
 - **THEN** o portal vai para `/admin/jobs/expiracao-assinaturas`
 
 ### Requirement: Saúde do job calculada pela última rodada
