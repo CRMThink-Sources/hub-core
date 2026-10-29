@@ -1,5 +1,5 @@
 import {
-  THINKZAP_PERMISSION_ACTIONS,
+  THINKZAP_PERMISSION_ACTIONS_BY_CATEGORY,
   THINKZAP_PERMISSION_CATEGORIES,
   type ThinkzapAccess,
   type ThinkzapUserPermissions,
@@ -27,19 +27,26 @@ const GENERIC_ERROR = 'Não foi possível carregar suas permissões.'
 
 const parsePermissions = (raw: unknown): ThinkzapUserPermissions | null => {
   if (!raw || typeof raw !== 'object') return null
-  const source = raw as Record<string, Record<string, unknown>>
-  const permissions = {} as ThinkzapUserPermissions
+  const source = { ...(raw as Record<string, Record<string, unknown>>) }
+  // API anterior à categoria `thinkbot`: era protegido por `connectors`.
+  if (!source.thinkbot && source.connectors) {
+    source.thinkbot = {
+      ...source.connectors,
+      publish: source.connectors.update,
+    }
+  }
+  const permissions = {} as Record<string, Record<string, boolean>>
 
   for (const category of THINKZAP_PERMISSION_CATEGORIES) {
     const actions = source[category]
     if (!actions || typeof actions !== 'object') return null
-    permissions[category] = {} as ThinkzapUserPermissions[typeof category]
-    for (const action of THINKZAP_PERMISSION_ACTIONS) {
+    permissions[category] = {}
+    for (const action of THINKZAP_PERMISSION_ACTIONS_BY_CATEGORY[category]) {
       permissions[category][action] = actions[action] === true
     }
   }
 
-  return permissions
+  return permissions as ThinkzapUserPermissions
 }
 
 const parseAccess = (data: unknown): ThinkzapAccess | null => {
@@ -52,6 +59,10 @@ const parseAccess = (data: unknown): ThinkzapAccess | null => {
     canManageAccess: raw.canManageAccess === true,
     canAccess: raw.canAccess === true,
     canAccessFinance: raw.canAccessFinance === true,
+    canAccessThinkbot:
+      raw.canAccessThinkbot === undefined
+        ? raw.canAccess === true
+        : raw.canAccessThinkbot === true,
     permissions,
   }
 }

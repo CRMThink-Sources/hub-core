@@ -45,9 +45,13 @@ type State =
 export function BotFlowEditor({
   flowId,
   onClose,
+  podeEditar,
+  podePublicar,
 }: {
   flowId: string
   onClose: () => void
+  podeEditar: boolean
+  podePublicar: boolean
 }) {
   const { t } = useTranslation('thinkzap/bots/editor')
   const { t: tc } = useTranslation('thinkzap/bots/comum')
@@ -111,11 +115,15 @@ export function BotFlowEditor({
 
   // Limpa os problemas: eles vêm do servidor e descrevem o grafo daquele momento, então
   // depois de editar apontariam erro num estado que já não existe.
-  const mutate = useCallback((next: BotFlowGraph) => {
-    setGraph(next)
-    setSujo(true)
-    setIssues([])
-  }, [])
+  const mutate = useCallback(
+    (next: BotFlowGraph) => {
+      if (!podeEditar) return
+      setGraph(next)
+      setSujo(true)
+      setIssues([])
+    },
+    [podeEditar],
+  )
 
   const selecionar = useCallback((id: NodeId | null) => setSelecionado(id), [])
 
@@ -198,13 +206,16 @@ export function BotFlowEditor({
     setPublicando(true)
     try {
       // Salva antes: publicar o que está no banco poria no ar o que a tela não mostra.
-      const { flow: salvo, issues: found } = await updateBotFlow(flowId, {
-        name,
-        graph,
-      })
-      setState({ kind: 'ready', flow: salvo })
-      setIssues(found)
-      setSujo(false)
+      // Sem `update` a tela é só leitura: já mostra o que está no banco.
+      if (podeEditar) {
+        const { flow: salvo, issues: found } = await updateBotFlow(flowId, {
+          name,
+          graph,
+        })
+        setState({ kind: 'ready', flow: salvo })
+        setIssues(found)
+        setSujo(false)
+      }
 
       const flow = await publishBotFlow(flowId)
       setState({ kind: 'ready', flow })
@@ -268,12 +279,18 @@ export function BotFlowEditor({
         <Input
           value={name}
           maxLength={120}
+          readOnly={!podeEditar}
           className="h-9 max-w-xs font-medium"
           onChange={event => {
             setName(event.target.value)
             setSujo(true)
           }}
         />
+        {!podeEditar ? (
+          <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            {t('somenteLeitura')}
+          </span>
+        ) : null}
         {/* Só o aviso de pendência: versão e situação são vocabulário de quem versiona
             fluxo, e na tela de edição não mudavam nenhuma decisão de quem está montando. */}
         {sujo ? (
@@ -282,52 +299,56 @@ export function BotFlowEditor({
           </span>
         ) : null}
 
-        <span className="mx-1 h-5 w-px bg-border" />
+        {podeEditar ? (
+          <>
+            <span className="mx-1 h-5 w-px bg-border" />
 
-        {/* Criação e arranjo ficam junto do nome: duas barras empilhadas comiam altura
+            {/* Criação e arranjo ficam junto do nome: duas barras empilhadas comiam altura
             do canvas e separavam ações que se usam na mesma hora. */}
-        <div className="relative">
-          {/* Sólido: é a ação principal do editor, e `outline` sumia contra o `bg-card`. */}
-          <Button size="sm" onClick={() => setMenuSolto(atual => !atual)}>
-            <Plus className="h-3.5 w-3.5" />
-            {t('novoBloco')}
-          </Button>
-          {menuSolto ? (
-            <div className="absolute left-0 top-full z-20 mt-1.5">
-              <KindMenu
-                onEscolher={kind => {
-                  setMenuSolto(false)
-                  adicionarSolto(kind)
-                }}
-                onEscolherReceita={recipeId => {
-                  const receita = NODE_RECIPES.find(
-                    atual => atual.id === recipeId,
-                  )
-                  if (!receita) return
-                  setMenuSolto(false)
-                  // Nome traduzido: `make` nasce com o rótulo em português.
-                  adicionarSolto(id => ({
-                    ...receita.make(id),
-                    name: tc(`receitas.${receita.id}.label`),
-                  }))
-                }}
-                onFechar={() => setMenuSolto(false)}
-              />
+            <div className="relative">
+              {/* Sólido: é a ação principal do editor, e `outline` sumia contra o `bg-card`. */}
+              <Button size="sm" onClick={() => setMenuSolto(atual => !atual)}>
+                <Plus className="h-3.5 w-3.5" />
+                {t('novoBloco')}
+              </Button>
+              {menuSolto ? (
+                <div className="absolute left-0 top-full z-20 mt-1.5">
+                  <KindMenu
+                    onEscolher={kind => {
+                      setMenuSolto(false)
+                      adicionarSolto(kind)
+                    }}
+                    onEscolherReceita={recipeId => {
+                      const receita = NODE_RECIPES.find(
+                        atual => atual.id === recipeId,
+                      )
+                      if (!receita) return
+                      setMenuSolto(false)
+                      // Nome traduzido: `make` nasce com o rótulo em português.
+                      adicionarSolto(id => ({
+                        ...receita.make(id),
+                        name: tc(`receitas.${receita.id}.label`),
+                      }))
+                    }}
+                    onFechar={() => setMenuSolto(false)}
+                  />
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
 
-        {/* `border-border` some contra o `bg-card`: os dois são quase o mesmo tom. */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-foreground/20"
-          onClick={() => mutate(relayout(graph))}
-          title={t('reorganizarDica')}
-        >
-          <LayoutGrid className="h-3.5 w-3.5" />
-          {t('reorganizar')}
-        </Button>
+            {/* `border-border` some contra o `bg-card`: os dois são quase o mesmo tom. */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-foreground/20"
+              onClick={() => mutate(relayout(graph))}
+              title={t('reorganizarDica')}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              {t('reorganizar')}
+            </Button>
+          </>
+        ) : null}
 
         <div className="ml-auto flex items-center gap-2">
           <div className="flex gap-1 rounded-lg bg-muted p-1">
@@ -346,21 +367,25 @@ export function BotFlowEditor({
               </button>
             ))}
           </div>
-          <Button
-            variant="outline"
-            disabled={salvando || publicando}
-            onClick={() => void salvar()}
-          >
-            <Save className="h-4 w-4" />
-            {salvando ? t('salvando') : t('salvar')}
-          </Button>
-          <Button
-            disabled={salvando || publicando || bloqueada}
-            onClick={() => void publicar()}
-          >
-            <Upload className="h-4 w-4" />
-            {publicando ? t('publicando') : t('publicar')}
-          </Button>
+          {podeEditar ? (
+            <Button
+              variant="outline"
+              disabled={salvando || publicando}
+              onClick={() => void salvar()}
+            >
+              <Save className="h-4 w-4" />
+              {salvando ? t('salvando') : t('salvar')}
+            </Button>
+          ) : null}
+          {podePublicar ? (
+            <Button
+              disabled={salvando || publicando || bloqueada}
+              onClick={() => void publicar()}
+            >
+              <Upload className="h-4 w-4" />
+              {publicando ? t('publicando') : t('publicar')}
+            </Button>
+          ) : null}
         </div>
       </div>
 

@@ -5,13 +5,23 @@ import {
 } from './thinkzap-access-state'
 import { FULL_THINKZAP_PERMISSIONS } from '@/shared/thinkzap-permissions'
 
+const noThinkbot = {
+  read: false,
+  create: false,
+  update: false,
+  delete: false,
+  publish: false,
+}
+
 const denied = {
   canManageAccess: false,
   canAccess: false,
   canAccessFinance: false,
+  canAccessThinkbot: false,
   permissions: {
     connectors: { read: false, create: false, update: false, delete: false },
     finance: { read: false, create: false, update: false, delete: false },
+    thinkbot: noThinkbot,
   },
 }
 
@@ -19,9 +29,11 @@ const financeOnly = {
   canManageAccess: false,
   canAccess: false,
   canAccessFinance: true,
+  canAccessThinkbot: false,
   permissions: {
     connectors: { read: false, create: false, update: false, delete: false },
     finance: { read: true, create: false, update: false, delete: false },
+    thinkbot: noThinkbot,
   },
 }
 
@@ -33,6 +45,7 @@ describe('toThinkzapAccessState', () => {
         canManageAccess: true,
         canAccess: true,
         canAccessFinance: true,
+        canAccessThinkbot: true,
         permissions: FULL_THINKZAP_PERMISSIONS,
       },
     })
@@ -43,6 +56,7 @@ describe('toThinkzapAccessState', () => {
         canManageAccess: true,
         canAccess: true,
         canAccessFinance: true,
+        canAccessThinkbot: true,
         permissions: FULL_THINKZAP_PERMISSIONS,
       },
     })
@@ -68,9 +82,11 @@ describe('toThinkzapAccessState', () => {
       kind: 'ok',
       data: {
         canAccess: true,
+        canAccessThinkbot: false,
         permissions: {
           connectors: { read: true },
           finance: {},
+          thinkbot: { read: true },
         },
       },
     })
@@ -81,6 +97,7 @@ describe('toThinkzapAccessState', () => {
         canManageAccess: false,
         canAccess: true,
         canAccessFinance: false,
+        canAccessThinkbot: false,
         permissions: {
           connectors: {
             read: true,
@@ -89,6 +106,41 @@ describe('toThinkzapAccessState', () => {
             delete: false,
           },
           finance: { read: false, create: false, update: false, delete: false },
+          thinkbot: { ...noThinkbot, read: true },
+        },
+      },
+    })
+  })
+
+  it('deriva thinkbot de connectors quando a API ainda não manda a categoria', () => {
+    const state = toThinkzapAccessState({
+      kind: 'ok',
+      data: {
+        canAccess: true,
+        permissions: {
+          connectors: {
+            read: true,
+            create: false,
+            update: true,
+            delete: false,
+          },
+          finance: {},
+        },
+      },
+    })
+
+    expect(state).toMatchObject({
+      status: 'ready',
+      access: {
+        canAccessThinkbot: true,
+        permissions: {
+          thinkbot: {
+            read: true,
+            create: false,
+            update: true,
+            delete: false,
+            publish: true,
+          },
         },
       },
     })

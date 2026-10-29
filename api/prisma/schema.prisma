@@ -278,7 +278,7 @@ model ThinkzapAllowedUser {
   bitrixUserId String   @map("bitrix_user_id")
   displayName  String?  @map("display_name")
   email        String?  @map("email")
-  permissions  Json     @default("{\"connectors\":{\"read\":true,\"create\":true,\"update\":true,\"delete\":true},\"finance\":{\"read\":false,\"create\":false,\"update\":false,\"delete\":false}}")
+  permissions  Json     @default("{\"connectors\":{\"read\":true,\"create\":true,\"update\":true,\"delete\":true},\"finance\":{\"read\":false,\"create\":false,\"update\":false,\"delete\":false},\"thinkbot\":{\"read\":true,\"create\":true,\"update\":true,\"delete\":true,\"publish\":true}}")
   createdAt    DateTime @default(now()) @map("created_at")
 
   app App @relation(fields: [appId], references: [id], onDelete: Cascade)
@@ -309,7 +309,7 @@ model ThinkzapAllowedDepartment {
   appId              String   @map("app_id")
   bitrixDepartmentId String   @map("bitrix_department_id")
   displayName        String?  @map("display_name")
-  permissions        Json     @default("{\"connectors\":{\"read\":true,\"create\":true,\"update\":true,\"delete\":true},\"finance\":{\"read\":false,\"create\":false,\"update\":false,\"delete\":false}}")
+  permissions        Json     @default("{\"connectors\":{\"read\":true,\"create\":true,\"update\":true,\"delete\":true},\"finance\":{\"read\":false,\"create\":false,\"update\":false,\"delete\":false},\"thinkbot\":{\"read\":true,\"create\":true,\"update\":true,\"delete\":true,\"publish\":true}}")
   createdAt          DateTime @default(now()) @map("created_at")
 
   app App @relation(fields: [appId], references: [id], onDelete: Cascade)

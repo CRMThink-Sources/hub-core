@@ -28,6 +28,8 @@ type Props = {
   ocupadas: Map<string, string>
   onVincular: (lineId: string) => Promise<void>
   onDesvincular: (bindingId: string) => Promise<void>
+  /** `thinkbot.publish`: vincular põe o fluxo no ar, mesmo efeito de publicar. */
+  podeVincular: boolean
 }
 
 // Publicar valida o desenho; vincular é o que põe o fluxo no ar. Sem esta coluna o
@@ -40,6 +42,7 @@ export function CanalCell({
   ocupadas,
   onVincular,
   onDesvincular,
+  podeVincular,
 }: Props) {
   const { t } = useTranslation('thinkzap/bots/lista')
   const { t: tc } = useTranslation('thinkzap/bots/comum')
@@ -69,24 +72,34 @@ export function CanalCell({
         </span>
         {/* Texto e não ícone: a corrente partida não se lê. Discreto e sem moldura para
             não competir com o pill ao lado — é ação de desfazer, não a da linha. */}
-        <Button
-          size="xs"
-          variant="ghost"
-          className="font-normal text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          title={t('canal.removerVinculo')}
-          disabled={salvando}
-          onClick={() => {
-            setSalvando(true)
-            void onDesvincular(binding.id).finally(() => setSalvando(false))
-          }}
-        >
-          {salvando ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            t('canal.desvincular')
-          )}
-        </Button>
+        {podeVincular ? (
+          <Button
+            size="xs"
+            variant="ghost"
+            className="font-normal text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            title={t('canal.removerVinculo')}
+            disabled={salvando}
+            onClick={() => {
+              setSalvando(true)
+              void onDesvincular(binding.id).finally(() => setSalvando(false))
+            }}
+          >
+            {salvando ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              t('canal.desvincular')
+            )}
+          </Button>
+        ) : null}
       </div>
+    )
+  }
+
+  if (!podeVincular) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {t('canal.semPermissao')}
+      </span>
     )
   }
 

@@ -4,7 +4,8 @@ import { AllowedDepartment } from '../domain/entities/allowed-department'
 import {
   canAccessThinkzapCategory,
   FULL_THINKZAP_PERMISSIONS,
-  THINKZAP_PERMISSION_ACTIONS,
+  NO_THINKZAP_PERMISSIONS,
+  THINKZAP_PERMISSION_ACTIONS_BY_CATEGORY,
   THINKZAP_PERMISSION_CATEGORIES,
   type ThinkzapUserPermissions,
 } from '../domain/thinkzap-permissions'
@@ -24,31 +25,43 @@ export type ThinkzapAccessResult = {
   canAccess: boolean
   /** Acesso à categoria financeiro */
   canAccessFinance: boolean
+  /** Acesso à categoria ThinkBot */
+  canAccessThinkbot: boolean
 }
 
 export const DENIED_THINKZAP_ACCESS: ThinkzapAccessResult = {
   canManageAccess: false,
   canAccess: false,
   canAccessFinance: false,
-  permissions: {
-    connectors: { read: false, create: false, update: false, delete: false },
-    finance: { read: false, create: false, update: false, delete: false },
-  },
+  canAccessThinkbot: false,
+  permissions: NO_THINKZAP_PERMISSIONS,
 }
 
 function mergeDepartmentPermissions(
   depts: AllowedDepartment[],
 ): ThinkzapUserPermissions {
-  const result = {} as ThinkzapUserPermissions
+  const result = {} as Record<string, Record<string, boolean>>
   for (const category of THINKZAP_PERMISSION_CATEGORIES) {
-    result[category] = {} as (typeof result)[typeof category]
-    for (const action of THINKZAP_PERMISSION_ACTIONS) {
+    result[category] = {}
+    for (const action of THINKZAP_PERMISSION_ACTIONS_BY_CATEGORY[category]) {
       result[category][action] = depts.some(
-        d => d.permissions[category][action],
+        d => (d.permissions[category] as Record<string, boolean>)[action],
       )
     }
   }
-  return result
+  return result as ThinkzapUserPermissions
+}
+
+function grantedAccess(
+  permissions: ThinkzapUserPermissions,
+): ThinkzapAccessResult {
+  return {
+    canManageAccess: false,
+    permissions,
+    canAccess: canAccessThinkzapCategory(permissions, 'connectors'),
+    canAccessFinance: canAccessThinkzapCategory(permissions, 'finance'),
+    canAccessThinkbot: canAccessThinkzapCategory(permissions, 'thinkbot'),
+  }
 }
 
 export async function checkThinkzapAccess(
@@ -62,6 +75,7 @@ export async function checkThinkzapAccess(
       permissions: FULL_THINKZAP_PERMISSIONS,
       canAccess: true,
       canAccessFinance: true,
+      canAccessThinkbot: true,
     }
   }
 
@@ -70,14 +84,7 @@ export async function checkThinkzapAccess(
     ctx.bitrixUserId,
   )
 
-  if (user) {
-    return {
-      canManageAccess: false,
-      permissions: user.permissions,
-      canAccess: canAccessThinkzapCategory(user.permissions, 'connectors'),
-      canAccessFinance: canAccessThinkzapCategory(user.permissions, 'finance'),
-    }
-  }
+  if (user) return grantedAccess(user.permissions)
 
   if (
     getAllowedDepartments &&
@@ -91,13 +98,7 @@ export async function checkThinkzapAccess(
       )
 
     if (matchedDepts.length > 0) {
-      const permissions = mergeDepartmentPermissions(matchedDepts)
-      return {
-        canManageAccess: false,
-        permissions,
-        canAccess: canAccessThinkzapCategory(permissions, 'connectors'),
-        canAccessFinance: canAccessThinkzapCategory(permissions, 'finance'),
-      }
+      return grantedAccess(mergeDepartmentPermissions(matchedDepts))
     }
   }
 

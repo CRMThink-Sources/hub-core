@@ -42,7 +42,8 @@
   },
   "acoes": {
     "editar": "Editar flujo",
-    "excluir": "Eliminar flujo"
+    "excluir": "Eliminar flujo",
+    "visualizar": "Ver"
   },
   "outroFluxo": "otro flujo",
   "canal": {
@@ -55,7 +56,8 @@
     "semCanais": "ningún canal abierto en el portal",
     "todosOcupados": "todos los canales ya tienen flujo",
     "escolher": "elegir canal…",
-    "ativar": "activar"
+    "ativar": "activar",
+    "semPermissao": "Sin permiso para activar en un canal"
   },
   "novo": {
     "titulo": "Nuevo flujo",

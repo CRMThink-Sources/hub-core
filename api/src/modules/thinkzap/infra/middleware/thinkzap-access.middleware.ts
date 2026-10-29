@@ -5,7 +5,7 @@ import { PrismaAllowedDepartmentRepository } from '../persistence/repositories/p
 import { checkThinkzapAccess } from '../../application/check-thinkzap-access'
 import {
   hasThinkzapPermission,
-  type ThinkzapPermissionAction,
+  type ThinkzapPermissionActionOf,
   type ThinkzapPermissionCategory,
 } from '../../domain/thinkzap-permissions'
 
@@ -87,9 +87,9 @@ export function requireThinkzapAdmin(
   next()
 }
 
-export function requireThinkzapPermission(
-  category: ThinkzapPermissionCategory,
-  action: ThinkzapPermissionAction,
+export function requireThinkzapPermission<C extends ThinkzapPermissionCategory>(
+  category: C,
+  action: ThinkzapPermissionActionOf<C>,
 ) {
   return function thinkzapPermissionGuard(
     req: Request,

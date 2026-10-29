@@ -1,6 +1,6 @@
 {
   "pageTitle": "Permisos de acceso",
-  "pageDescription": "Defina qué puede ver, crear, modificar o eliminar cada usuario o departamento en Conectores y Finanzas.",
+  "pageDescription": "Defina qué puede hacer cada usuario o departamento en Conectores, Finanzas y ThinkBot.",
   "quickGuide": "Ver guía rápida",
   "tabs": {
     "byUser": "Por usuario",
@@ -8,6 +8,7 @@
     "byDepartment": "Por departamento",
     "byDepartmentDescription": "Gestione permisos para todos los usuarios de un departamento"
   },
+  "categoryTabsAriaLabel": "Categorías de permisos",
   "manageByUser": "Gestionar permisos por usuario",
   "manageByDepartment": "Gestionar permisos por departamento",
   "searchTablePlaceholder": "Busque por nombre o correo para filtrar o agregar usuarios...",
@@ -16,13 +17,6 @@
   "saveHint": "Los permisos se aplican inmediatamente después de guardar",
   "usersCount": "{{count}} usuarios registrados",
   "departmentsCount": "{{count}} departamentos registrados",
-  "legendTitle": "Leyenda",
-  "legend": {
-    "read": "Ver",
-    "create": "Crear",
-    "update": "Modificar",
-    "delete": "Eliminar"
-  },
   "pagination": {
     "previous": "Página anterior",
     "next": "Página siguiente"
@@ -37,6 +31,7 @@
     "noResults": "No se encontraron departamentos.",
     "defaultPermissionsForNewDepartment": "Permisos predeterminados para nuevos departamentos",
     "emptyList": "Aún no hay departamentos autorizados. Busque arriba para agregar departamentos y configurar los permisos.",
+    "noMatch": "Ningún departamento autorizado coincide con \"{{query}}\". Limpie la búsqueda para ver los {{count}} registrados.",
     "alreadyOnList": "Este departamento ya está en la lista.",
     "added": "Departamento agregado correctamente.",
     "removed": "Departamento eliminado correctamente.",
@@ -48,6 +43,7 @@
   "searching": "Buscando...",
   "noResults": "No se encontraron usuarios.",
   "emptyList": "Aún no hay usuarios autorizados. Busque arriba para agregar colaboradores y configurar permisos.",
+  "noMatch": "Ningún usuario autorizado coincide con \"{{query}}\". Limpie la búsqueda para ver los {{count}} registrados.",
   "defaultPermissionsForNewUser": "Permisos predeterminados para nuevos usuarios",
   "savePermissions": "Guardar permisos",
   "permissionsSaved": "Permisos actualizados correctamente.",
@@ -64,26 +60,24 @@
     "actions": "Acciones"
   },
   "matrix": {
-    "category": "Categoría",
-    "categories": {
-      "connectors": "Gestión de conectores",
-      "finance": "Financiero"
-    },
     "categoriesShort": {
       "connectors": "Conectores",
-      "finance": "Financiero"
+      "finance": "Financiero",
+      "thinkbot": "ThinkBot"
     },
     "actions": {
       "read": "Ver",
       "create": "Crear",
       "update": "Modificar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "publish": "Publicar"
     },
     "actionsShort": {
       "read": "Ver",
       "create": "Crear",
       "update": "Modificar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "publish": "Publicar"
     }
   }
 }

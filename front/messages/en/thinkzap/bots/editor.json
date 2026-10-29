@@ -67,5 +67,6 @@
     "titulo": "Which interaction do you want?",
     "fechar": "Close",
     "prontos": "Ready-made"
-  }
+  },
+  "somenteLeitura": "Read only"
 }
