@@ -42,7 +42,8 @@
   },
   "acoes": {
     "editar": "Edit flow",
-    "excluir": "Delete flow"
+    "excluir": "Delete flow",
+    "visualizar": "View"
   },
   "outroFluxo": "another flow",
   "canal": {
@@ -55,7 +56,8 @@
     "semCanais": "no open channel in the portal",
     "todosOcupados": "every channel already has a flow",
     "escolher": "pick a channel…",
-    "ativar": "activate"
+    "ativar": "activate",
+    "semPermissao": "No permission to activate on a channel"
   },
   "novo": {
     "titulo": "New flow",

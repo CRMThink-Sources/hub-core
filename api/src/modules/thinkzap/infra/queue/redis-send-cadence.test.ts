@@ -320,6 +320,41 @@ describe('RedisSendCadence — FIFO por linha', () => {
     expect(ordered(cadenceQueueKey(LINE))).toEqual([b.outboxId, c.outboxId])
   })
 
+  it('peekTurn: quem está atrás da cabeça volta em ~meio segundo', async () => {
+    const { cadence, enqueue } = makeSut()
+    await enqueue()
+    const b = await enqueue()
+
+    expect(await cadence.peekTurn(LINE, b.outboxId, at(0))).toEqual({
+      behind: true,
+      retryAt: T0 + 500,
+    })
+  })
+
+  it('peekTurn: a cabeça e o ticket fora da fila não estão atrás', async () => {
+    const { cadence, enqueue } = makeSut()
+    const a = await enqueue()
+
+    expect(await cadence.peekTurn(LINE, a.outboxId, at(0))).toEqual({
+      behind: false,
+    })
+    expect(await cadence.peekTurn(LINE, 'fora-da-fila', at(0))).toEqual({
+      behind: false,
+    })
+  })
+
+  it('peekTurn não mexe na fila', async () => {
+    const { cadence, enqueue, ordered } = makeSut()
+    const a = await enqueue()
+    const b = await enqueue()
+
+    await cadence.peekTurn(LINE, a.outboxId, at(0))
+    await cadence.peekTurn(LINE, b.outboxId, at(0))
+    await cadence.peekTurn(LINE, 'fora-da-fila', at(0))
+
+    expect(ordered(cadenceQueueKey(LINE))).toEqual([a.outboxId, b.outboxId])
+  })
+
   it('lista linhas e tickets para a varredura', async () => {
     const { cadence, enqueue } = makeSut()
     const a = await enqueue()

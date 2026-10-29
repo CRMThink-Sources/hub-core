@@ -44,6 +44,7 @@ import {
   resolveLineTarget,
   settleUnresolvedLine,
 } from './widget-send-line-target'
+import { LineKeyMemory, precheckLineTurn } from './widget-send-turn-precheck'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { BullMqOpenChannelConversationQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
 import { acquireDestinationLock } from '@/modules/thinkzap/infra/queue/destination-send-lock'
@@ -65,6 +66,9 @@ import { createWorkerSourceLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
 const log = createWorkerSourceLogger('bitrix')
+
+/** Do processo: a chave da fila de cada linha já resolvida (ver `LineKeyMemory`). */
+const lineKeys = new LineKeyMemory()
 
 /**
  * `reschedule` (destino ocupado) e `{ deferUntil }` (cadência ou fora da vez na fila
@@ -93,6 +97,19 @@ export async function processWidgetSendJob(
       `Intenção ${job.outboxId} não encontrada no banco. Nada a enviar — job descartado.`,
     )
     return 'done'
+  }
+
+  // Fora da vez na fila da linha: desiste antes da parte cara (resolver a linha).
+  const behind = await precheckLineTurn(row, {
+    lineKeys,
+    cadence: makeSendCadence(),
+  })
+  if (behind) {
+    log.debug(
+      { app: 'thinkzap', outboxId: row.id, deferUntil: behind.deferUntil },
+      'Fora da vez na fila da linha; reagendado sem resolver a linha',
+    )
+    return behind
   }
 
   // `attempts` é da intenção, não do job: a row sobrevive ao job.
@@ -148,6 +165,9 @@ export async function processWidgetSendJob(
     })
   }
   const { line } = resolution
+  if (line.provider === ConnectorProvider.ZAPI) {
+    lineKeys.remember(row.subscriptionItemId, line.instanceId)
+  }
 
   await appendJobLog(
     `Linha resolvida: provider=${line.provider} | instância=${line.instanceId}`,

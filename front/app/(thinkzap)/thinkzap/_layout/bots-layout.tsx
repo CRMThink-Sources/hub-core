@@ -25,6 +25,7 @@ import { BotFlowEditor } from '../_components/bots/bot-flow-editor'
 import { BotFlowList } from '../_components/bots/bot-flow-list'
 import { NovoFluxoDialog } from '../_components/bots/novo-fluxo-dialog'
 import { ThinkbotSemConector } from '../_components/bots/thinkbot-sem-conector'
+import { useCanThinkzap } from '@/app/hooks/use-thinkzap-permissions'
 
 type LoadState =
   | { kind: 'loading' }
@@ -41,6 +42,10 @@ export default function BotsLayout() {
   const [linhasErro, setLinhasErro] = useState<string | null>(null)
   const [openFlowId, setOpenFlowId] = useState<string | null>(null)
   const [criando, setCriando] = useState(false)
+  const podeCriar = useCanThinkzap('thinkbot', 'create')
+  const podeEditar = useCanThinkzap('thinkbot', 'update')
+  const podeExcluir = useCanThinkzap('thinkbot', 'delete')
+  const podePublicar = useCanThinkzap('thinkbot', 'publish')
 
   const carregar = useCallback(async () => {
     try {
@@ -142,6 +147,8 @@ export default function BotsLayout() {
     return (
       <BotFlowEditor
         flowId={openFlowId}
+        podeEditar={podeEditar}
+        podePublicar={podePublicar}
         onClose={() => {
           setOpenFlowId(null)
           void carregar()
@@ -166,7 +173,7 @@ export default function BotsLayout() {
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitulo')}</p>
         </div>
         {/* Lista vazia já tem o próprio botão de criar */}
-        {state.kind === 'ready' && state.flows.length > 0 ? (
+        {podeCriar && state.kind === 'ready' && state.flows.length > 0 ? (
           <div className="flex shrink-0 flex-col items-end gap-1">
             <Button onClick={() => setCriando(true)} disabled={noLimite}>
               <Plus className="h-4 w-4" />
@@ -210,6 +217,10 @@ export default function BotsLayout() {
           onCreate={() => setCriando(true)}
           onVincular={handleVincular}
           onDesvincular={handleDesvincular}
+          podeCriar={podeCriar}
+          podeEditar={podeEditar}
+          podeExcluir={podeExcluir}
+          podePublicar={podePublicar}
         />
       )}
 

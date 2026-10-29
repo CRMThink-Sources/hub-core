@@ -8,6 +8,7 @@ import {
 } from '@/modules/thinkzap/domain/send-cadence-machine'
 import {
   ENQUEUE_SCRIPT,
+  PEEK_TURN_SCRIPT,
   REGISTER_EXTERNAL_SCRIPT,
   RELEASE_SCRIPT,
   RESERVE_SCRIPT,
@@ -76,6 +77,11 @@ export function fakeCadenceRedis() {
           ? [1, outcome.windowId]
           : [0, outcome.retryAt, outcome.reason],
       )
+    }
+    if (script === PEEK_TURN_SCRIPT) {
+      const [queueKey, id] = a as [string, string]
+      const behind = zset(queueKey).has(id) && ordered(queueKey)[0] !== id
+      return Promise.resolve(behind ? 1 : 0)
     }
     if (script === REGISTER_EXTERNAL_SCRIPT) {
       const [stateKey, now, ...rest] = a

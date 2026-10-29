@@ -1,6 +1,6 @@
 {
   "pageTitle": "Access permissions",
-  "pageDescription": "Define what each user or department can view, create, update, or delete in Connectors and Billing.",
+  "pageDescription": "Define what each user or department can do in Connectors, Billing, and ThinkBot.",
   "quickGuide": "Quick guide",
   "tabs": {
     "byUser": "By user",
@@ -8,6 +8,7 @@
     "byDepartment": "By department",
     "byDepartmentDescription": "Manage permissions for all users in a department"
   },
+  "categoryTabsAriaLabel": "Permission categories",
   "manageByUser": "Manage permissions by user",
   "manageByDepartment": "Manage permissions by department",
   "searchTablePlaceholder": "Search by name or email to filter or add users...",
@@ -16,13 +17,6 @@
   "saveHint": "Permissions are applied immediately after saving",
   "usersCount": "{{count}} registered users",
   "departmentsCount": "{{count}} registered departments",
-  "legendTitle": "Legend",
-  "legend": {
-    "read": "View",
-    "create": "Create",
-    "update": "Update",
-    "delete": "Delete"
-  },
   "pagination": {
     "previous": "Previous page",
     "next": "Next page"
@@ -37,6 +31,7 @@
     "noResults": "No departments found.",
     "defaultPermissionsForNewDepartment": "Default permissions for new departments",
     "emptyList": "No authorized departments yet. Search above to add departments and configure permissions.",
+    "noMatch": "No authorized department matches \"{{query}}\". Clear the search to see all {{count}} registered.",
     "alreadyOnList": "This department is already on the list.",
     "added": "Department added successfully.",
     "removed": "Department removed successfully.",
@@ -48,6 +43,7 @@
   "searching": "Searching...",
   "noResults": "No users found.",
   "emptyList": "No authorized users yet. Search above to add teammates and configure permissions.",
+  "noMatch": "No authorized user matches \"{{query}}\". Clear the search to see all {{count}} registered.",
   "defaultPermissionsForNewUser": "Default permissions for new users",
   "savePermissions": "Save permissions",
   "permissionsSaved": "Permissions updated successfully.",
@@ -64,26 +60,24 @@
     "actions": "Actions"
   },
   "matrix": {
-    "category": "Category",
-    "categories": {
-      "connectors": "Connector management",
-      "finance": "Billing"
-    },
     "categoriesShort": {
       "connectors": "Connectors",
-      "finance": "Billing"
+      "finance": "Billing",
+      "thinkbot": "ThinkBot"
     },
     "actions": {
       "read": "View",
       "create": "Create",
       "update": "Update",
-      "delete": "Delete"
+      "delete": "Delete",
+      "publish": "Publish"
     },
     "actionsShort": {
       "read": "View",
       "create": "Create",
       "update": "Update",
-      "delete": "Delete"
+      "delete": "Delete",
+      "publish": "Publish"
     }
   }
 }

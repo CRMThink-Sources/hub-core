@@ -27,9 +27,17 @@ const accessNoConnectors: ThinkzapAccessResult = {
   canManageAccess: false,
   canAccess: false,
   canAccessFinance: true,
+  canAccessThinkbot: true,
   permissions: {
     connectors: { read: false, create: false, update: false, delete: false },
     finance: { read: true, create: false, update: false, delete: false },
+    thinkbot: {
+      read: true,
+      create: true,
+      update: true,
+      delete: false,
+      publish: false,
+    },
   },
 }
 
@@ -57,5 +65,17 @@ describe('requireThinkzapPermission', () => {
 
     expect(next).toHaveBeenCalledOnce()
     expect(status).not.toHaveBeenCalled()
+  })
+
+  it('denies thinkbot.publish to who can only edit flows', () => {
+    const req = { thinkzapAccess: accessNoConnectors } as Request
+    const { res, status } = mockRes()
+    const next = vi.fn()
+
+    requireThinkzapPermission('thinkbot', 'update')(req, res, next)
+    requireThinkzapPermission('thinkbot', 'publish')(req, res, next)
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(status).toHaveBeenCalledWith(403)
   })
 })

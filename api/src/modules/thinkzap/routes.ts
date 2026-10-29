@@ -554,71 +554,70 @@ export const createThinkerszapRoutes = (): Router => {
   )
 
   /**
-   * Categoria `connectors` e não uma nova: quem configura a linha configura o
-   * atendimento dela, e categoria nova obrigaria a repassar a matriz de permissão de
-   * todo cliente instalado antes de a tela abrir para alguém. `simulate` é `read`:
-   * rodar no simulador não toca portal nem grava sessão.
+   * `simulate` é `read`: rodar no simulador não toca portal nem grava sessão.
+   * Vínculo com canal exige `publish`, não CRUD: vincular põe o fluxo para atender
+   * cliente de verdade, o mesmo efeito de publicar.
    */
   router.get(
     '/bot-flows',
-    requireThinkzapPermission('connectors', 'read'),
+    requireThinkzapPermission('thinkbot', 'read'),
     adaptControllerFactory(makeListBotFlowsController),
   )
   router.post(
     '/bot-flows',
-    requireThinkzapPermission('connectors', 'create'),
+    requireThinkzapPermission('thinkbot', 'create'),
     adaptControllerFactory(makeCreateBotFlowController),
   )
   router.post(
     '/bot-flows/simulate',
-    requireThinkzapPermission('connectors', 'read'),
+    requireThinkzapPermission('thinkbot', 'read'),
     adaptControllerFactory(makeSimulateBotFlowController),
   )
   // Antes de `/bot-flows/:flowId`, que capturaria o caminho como id.
   router.get(
     '/bot-flows/connector-status',
-    requireThinkzapPermission('connectors', 'read'),
+    requireThinkzapPermission('thinkbot', 'read'),
     adaptControllerFactory(makeGetThinkbotConnectorStatusController),
   )
   router.get(
     '/bot-flows/:flowId',
-    requireThinkzapPermission('connectors', 'read'),
+    requireThinkzapPermission('thinkbot', 'read'),
     adaptControllerFactory(makeGetBotFlowController),
   )
   router.patch(
     '/bot-flows/:flowId',
-    requireThinkzapPermission('connectors', 'update'),
+    requireThinkzapPermission('thinkbot', 'update'),
     adaptControllerFactory(makeUpdateBotFlowController),
   )
   router.post(
     '/bot-flows/:flowId/publish',
-    requireThinkzapPermission('connectors', 'update'),
+    requireThinkzapPermission('thinkbot', 'publish'),
     adaptControllerFactory(makePublishBotFlowController),
   )
   router.delete(
     '/bot-flows/:flowId',
-    requireThinkzapPermission('connectors', 'delete'),
+    requireThinkzapPermission('thinkbot', 'delete'),
     adaptControllerFactory(makeDeleteBotFlowController),
   )
 
   router.get(
     '/bot-flow-bindings',
-    requireThinkzapPermission('connectors', 'read'),
+    requireThinkzapPermission('thinkbot', 'read'),
     adaptControllerFactory(makeListBotFlowBindingsController),
   )
   router.post(
     '/bot-flow-bindings',
-    requireThinkzapPermission('connectors', 'create'),
+    requireThinkzapPermission('thinkbot', 'publish'),
     adaptControllerFactory(makeCreateBotFlowBindingController),
   )
   router.patch(
     '/bot-flow-bindings/:bindingId',
-    requireThinkzapPermission('connectors', 'update'),
+    requireThinkzapPermission('thinkbot', 'publish'),
     adaptControllerFactory(makeUpdateBotFlowBindingController),
   )
   router.delete(
     '/bot-flow-bindings/:bindingId',
-    requireThinkzapPermission('connectors', 'delete'),
+    requireThinkzapPermission('thinkbot', 'publish'),
     adaptControllerFactory(makeDeleteBotFlowBindingController),
   )
 

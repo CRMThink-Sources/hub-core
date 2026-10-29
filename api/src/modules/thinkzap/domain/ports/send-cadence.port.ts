@@ -11,6 +11,9 @@ export type CadenceTicket = {
   seq: number
 }
 
+/** `retryAt` (epoch ms) é quando quem está atrás volta a olhar a fila. */
+export type CadenceTurn = { behind: true; retryAt: number } | { behind: false }
+
 /**
  * Cadência de envio e ordem FIFO por linha.
  *
@@ -27,6 +30,12 @@ export interface SendCadence {
     ticket: CadenceTicket,
     now: Date,
   ): Promise<CadenceReserveOutcome>
+  /**
+   * Só leitura: o ticket está na fila e **outro** é a cabeça. Serve para desistir
+   * cedo, sem pagar o despacho inteiro — quem decide a vez continua sendo `reserve`.
+   * Ticket fora da fila não está atrás de ninguém: o despacho completo decide.
+   */
+  peekTurn(lineKey: string, outboxId: string, now: Date): Promise<CadenceTurn>
   /** Devolve a vaga de um envio que o provider recusou. */
   release(lineKey: string, windowId: number): Promise<void>
   /** Tira o ticket da fila (desfecho terminal sem envio). Idempotente. */

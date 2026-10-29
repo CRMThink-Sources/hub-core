@@ -1,6 +1,7 @@
 import type IORedis from 'ioredis'
 import type {
   CadenceTicket,
+  CadenceTurn,
   SendCadence,
 } from '@/modules/thinkzap/domain/ports/send-cadence.port'
 import type {
@@ -133,6 +134,16 @@ if tonumber(ARGV[1]) == 0 or id ~= tonumber(ARGV[1]) or count <= 0 then return 0
 return redis.call("hincrby", KEYS[1], "count", -1)
 `
 
+/**
+ * KEYS: queue. ARGV: outboxId. Devolve 1 se o ticket está na fila e não é a cabeça.
+ * Só leitura: não insere o ticket nem o tira da fila.
+ */
+export const PEEK_TURN_SCRIPT = `
+if not redis.call("zscore", KEYS[1], ARGV[1]) then return 0 end
+if redis.call("zrange", KEYS[1], 0, 0)[1] == ARGV[1] then return 0 end
+return 1
+`
+
 /** KEYS: seq, queue. ARGV: outboxId, ttlSeconds. Devolve a sequência. */
 export const ENQUEUE_SCRIPT = `
 local seq = redis.call("incr", KEYS[1])
@@ -224,12 +235,33 @@ export class RedisSendCadence implements SendCadence {
     )
   }
 
+  async peekTurn(
+    lineKey: string,
+    outboxId: string,
+    now: Date,
+  ): Promise<CadenceTurn> {
+    const behind = toInt(
+      await this.redis.eval(
+        PEEK_TURN_SCRIPT,
+        1,
+        cadenceQueueKey(lineKey),
+        outboxId,
+      ),
+    )
+    if (behind !== 1) return { behind: false }
+    return { behind: true, retryAt: now.getTime() + this.notHeadRetryMs() }
+  }
+
+  private notHeadRetryMs(): number {
+    return Math.round(NOT_HEAD_RETRY_MS * (1 + this.random()))
+  }
+
   async reserve(
     policy: CadencePolicy,
     ticket: CadenceTicket,
     now: Date,
   ): Promise<CadenceReserveOutcome> {
-    const notHeadRetryMs = Math.round(NOT_HEAD_RETRY_MS * (1 + this.random()))
+    const notHeadRetryMs = this.notHeadRetryMs()
     const result = (await this.redis.eval(
       RESERVE_SCRIPT,
       2,
