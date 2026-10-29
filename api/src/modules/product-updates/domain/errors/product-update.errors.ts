@@ -49,6 +49,10 @@ export type ProductUpdateActionRefusal =
   | 'no-pending-changes'
   /** Excluir uma novidade que já foi publicada alguma vez. */
   | 'published-before'
+  /** Concluir uma novidade já concluída. */
+  | 'already-done'
+  /** Vincular ou criar tarefa numa novidade que já tem outra (desvincule antes). */
+  | 'task-already-set'
 
 /** `409` com o motivo: a ação não cabe na situação atual, e nada foi gravado. */
 export class ProductUpdateActionRefusedError extends Error {
@@ -79,6 +83,59 @@ export class InvalidProductUpdateImageError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'InvalidProductUpdateImageError'
+  }
+}
+
+/**
+ * `502`: o portal Bitrix da CRMThink falhou (fora do ar, sem permissão, resposta
+ * inesperada). `detail` é a mensagem do Bitrix, para o log e a tela.
+ */
+export class CrmthinkTasksUnavailableError extends Error {
+  readonly reason = 'crmthink-tasks-unavailable'
+
+  constructor(readonly detail?: string) {
+    super(
+      detail
+        ? `Bitrix da CRMThink indisponível: ${detail}`
+        : 'Bitrix da CRMThink indisponível',
+    )
+    this.name = 'CrmthinkTasksUnavailableError'
+  }
+}
+
+/**
+ * `409 { reason: 'tasks-sync-disabled' }`: com `CRMTHINK_TASKS_SYNC_ENABLED`
+ * desligada (homologação), criar, concluir e reabrir com tarefa é recusado sem tocar
+ * no Bitrix nem na novidade.
+ */
+export class TasksSyncDisabledError extends Error {
+  readonly reason = 'tasks-sync-disabled'
+
+  constructor() {
+    super(
+      'A sincronização com as tarefas do Bitrix está desligada neste ambiente',
+    )
+    this.name = 'TasksSyncDisabledError'
+  }
+}
+
+/** `422 { reason: 'task-not-found' }`: a tarefa não existe ou o webhook não a enxerga. */
+export class CrmthinkTaskNotFoundError extends Error {
+  readonly reason = 'task-not-found'
+
+  constructor(readonly taskId: number) {
+    super(`Tarefa ${taskId} não encontrada no Bitrix da CRMThink`)
+    this.name = 'CrmthinkTaskNotFoundError'
+  }
+}
+
+/** `422 { reason: 'responsible-required' }`: criar a tarefa exige um responsável. */
+export class CrmthinkTaskResponsibleRequiredError extends Error {
+  readonly reason = 'responsible-required'
+
+  constructor() {
+    super('Escolha o responsável pela tarefa')
+    this.name = 'CrmthinkTaskResponsibleRequiredError'
   }
 }
 

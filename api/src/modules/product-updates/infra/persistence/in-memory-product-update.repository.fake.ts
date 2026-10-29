@@ -43,6 +43,14 @@ export class InMemoryProductUpdateRepository implements ProductUpdateRepository 
     )
   }
 
+  listPublished(): Promise<ProductUpdate[]> {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter(r => r.visibility === 'PUBLISHED')
+        .map(clone),
+    )
+  }
+
   findByBitrixTaskId(taskId: number): Promise<ProductUpdate | null> {
     const row = [...this.rows.values()].find(r => r.bitrixTaskId === taskId)
     return Promise.resolve(row ? clone(row) : null)

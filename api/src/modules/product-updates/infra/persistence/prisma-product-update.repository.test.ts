@@ -96,6 +96,17 @@ describe('PrismaProductUpdateRepository', () => {
     expect(result).toHaveLength(1)
   })
 
+  it('listPublished: só as publicadas', async () => {
+    findManyMock.mockResolvedValue([rowOf()])
+
+    const result = await repo.listPublished()
+
+    expect(findManyMock).toHaveBeenCalledWith({
+      where: { visibility: 'PUBLISHED' },
+    })
+    expect(result).toHaveLength(1)
+  })
+
   it('listReconcilable: com tarefa e sem data de disponibilidade', async () => {
     findManyMock.mockResolvedValue([])
 

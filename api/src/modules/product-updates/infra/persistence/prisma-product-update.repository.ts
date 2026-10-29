@@ -117,6 +117,13 @@ export class PrismaProductUpdateRepository implements ProductUpdateRepository {
     return rows.map(toProductUpdate)
   }
 
+  async listPublished(): Promise<ProductUpdate[]> {
+    const rows = await prisma.productUpdate.findMany({
+      where: { visibility: 'PUBLISHED' },
+    })
+    return rows.map(toProductUpdate)
+  }
+
   async findByBitrixTaskId(taskId: number): Promise<ProductUpdate | null> {
     const row = await prisma.productUpdate.findUnique({
       where: { bitrixTaskId: taskId },

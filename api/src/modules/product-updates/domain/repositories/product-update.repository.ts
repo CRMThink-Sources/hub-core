@@ -4,6 +4,8 @@ export interface ProductUpdateRepository {
   findById(id: string): Promise<ProductUpdate | null>
   /** Todas as novidades, mais recentes primeiro. A lista é pequena: sem paginação. */
   list(): Promise<ProductUpdate[]>
+  /** Só `visibility = PUBLISHED`, sem ordem garantida: a leitura do cliente ordena. */
+  listPublished(): Promise<ProductUpdate[]>
   /** Pelo índice único de `bitrix_task_id` — o filtro barato do webhook. */
   findByBitrixTaskId(taskId: number): Promise<ProductUpdate | null>
   /** Com tarefa vinculada e ainda não disponíveis: o que a reconciliação relê. */

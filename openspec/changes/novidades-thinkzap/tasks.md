@@ -32,14 +32,14 @@
 
 ## 4. Integração com tarefas do Bitrix
 
-- [ ] 4.1 Criar o port `CrmthinkTasksGateway` e o adapter `BitrixCrmthinkTasksGateway` (D4: get, search, getTasks em lotes de 50, create, complete, renew, searchUsers), com erros mapeados para `CrmthinkTasksUnavailableError`. Verificação: testes com `BitrixClient` falso, conferindo método e parâmetros de cada chamada (filtro `GROUP_ID` e `%TITLE`, lote de IDs, `RESPONSIBLE_ID`).
-- [ ] 4.2 Implementar os casos de uso de busca de tarefas e de usuários:
+- [x] 4.1 Criar o port `CrmthinkTasksGateway` e o adapter `BitrixCrmthinkTasksGateway` (D4: get, search, getTasks em lotes de 50, create, complete, renew, searchUsers), com erros mapeados para `CrmthinkTasksUnavailableError`. Verificação: testes com `BitrixClient` falso, conferindo método e parâmetros de cada chamada (filtro `GROUP_ID` e `%TITLE`, lote de IDs, `RESPONSIBLE_ID`).
+- [x] 4.2 Implementar os casos de uso de busca de tarefas e de usuários:
   - `SearchCrmthinkTasks`: número busca por ID e marca `outsideGroup`; texto busca no grupo configurado;
   - `SearchCrmthinkUsers`.
 
   Verificação: testes de ID dentro e fora do grupo, de busca por texto e de falha → erro propagado.
-- [ ] 4.3 Implementar `LinkCrmthinkTask` (lê o status e aplica `applyTaskStatus`), `UnlinkCrmthinkTask` e `CreateCrmthinkTaskForUpdate` (responsável obrigatório, descrição em pt + link do backoffice, grupo configurado, recusa com sync desligado). Verificação: testes de vincular tarefa já concluída → `DONE`, tarefa já usada → `409` com a novidade, criação sem responsável → `422` e sync desligado → `409 tasks-sync-disabled`.
-- [ ] 4.4 Implementar `CompleteProductUpdate` e `ReopenProductUpdate` (D7). Sem tarefa, só mudam a novidade. Com tarefa, chamam `complete`/`renew` no Bitrix: `complete` relê o status e devolve `awaitingApproval` no status 4. Uma falha no Bitrix não grava nada. Desmarcar uma novidade disponível → `409`; uma despublicada limpa `availableAt`. Verificação: testes para status final 5, status final 4, falha do Bitrix, sem tarefa e sync desligado.
+- [x] 4.3 Implementar `LinkCrmthinkTask` (lê o status e aplica `applyTaskStatus`), `UnlinkCrmthinkTask` e `CreateCrmthinkTaskForUpdate` (responsável obrigatório, descrição em pt + link do backoffice, grupo configurado, recusa com sync desligado). Verificação: testes de vincular tarefa já concluída → `DONE`, tarefa já usada → `409` com a novidade, criação sem responsável → `422` e sync desligado → `409 tasks-sync-disabled`.
+- [x] 4.4 Implementar `CompleteProductUpdate` e `ReopenProductUpdate` (D7). Sem tarefa, só mudam a novidade. Com tarefa, chamam `complete`/`renew` no Bitrix: `complete` relê o status e devolve `awaitingApproval` no status 4. Uma falha no Bitrix não grava nada. Desmarcar uma novidade disponível → `409`; uma despublicada limpa `availableAt`. Verificação: testes para status final 5, status final 4, falha do Bitrix, sem tarefa e sync desligado.
 
 ## 5. API do backoffice
 
@@ -59,7 +59,7 @@
 
 ## 7. Leitura do cliente
 
-- [ ] 7.1 Implementar `ListPublishedProductUpdates(locale)` e o controller `GET /api/thinkzap/novidades` com o `authMiddleware` do ThinkZap. Ele:
+- [x] 7.1 Implementar `ListPublishedProductUpdates(locale)` e o controller `GET /api/thinkzap/novidades` com o `authMiddleware` do ThinkZap. Ele:
   - lê só `publishedContent`;
   - usa `pt` com locale inválido;
   - devolve `soon`/`available` com a ordenação do D10;
