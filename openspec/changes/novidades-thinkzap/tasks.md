@@ -3,23 +3,23 @@
 ## 1. Dados e configuração
 
 - [ ] 1.1 Adicionar o model `ProductUpdate` (D2) e os enums `ProductUpdateProgress`/`ProductUpdateVisibility` em `api/prisma/schema.prisma`, com índice único em `bitrix_task_id` e FKs para `PortalUser`, e gerar a migration em `api/prisma/migrations/<timestamp>_add_thinkzap_product_updates/`. Verificação: `yarn prisma migrate dev` aplica sem erro num banco local e `yarn prisma generate` atualiza o client.
-- [ ] 1.2 Adicionar `crmthinkTasks: { syncEnabled, groupId, webhookToken }` em `api/src/config/env.ts` (`CRMTHINK_TASKS_SYNC_ENABLED` padrão `false`, `CRMTHINK_TASKS_GROUP_ID` padrão `2677`, `CRMTHINK_TASKS_WEBHOOK_TOKEN`) e documentar em `api/.env.example`, incluindo os escopos `task` e `user` exigidos no `CRMTHINK_WEBHOOK_URL`. Verificação: `yarn tsc --noEmit` na API e teste de `env` (se existir) com os padrões.
+- [x] 1.2 Adicionar `crmthinkTasks: { syncEnabled, groupId, webhookToken }` em `api/src/config/env.ts` (`CRMTHINK_TASKS_SYNC_ENABLED` padrão `false`, `CRMTHINK_TASKS_GROUP_ID` padrão `2677`, `CRMTHINK_TASKS_WEBHOOK_TOKEN`) e documentar em `api/.env.example`, incluindo os escopos `task` e `user` exigidos no `CRMTHINK_WEBHOOK_URL`. Verificação: `yarn tsc --noEmit` na API e teste de `env` (se existir) com os padrões.
 
 ## 2. Domínio: novidade e regras
 
-- [ ] 2.1 Criar `api/src/modules/product-updates/domain/` com:
+- [x] 2.1 Criar `api/src/modules/product-updates/domain/` com:
   - a entidade e o schema zod de `content` (pt/en/es + `imageKey`, com trim);
   - as derivações de situação e de "alterações pendentes";
   - `missingLocales(content)`.
 
   Verificação: testes unitários das quatro situações, da comparação normalizada (espaço extra não conta como alteração) e dos idiomas faltantes.
-- [ ] 2.2 Implementar `applyTaskStatus(update, taskStatus)` (D3) como função pura. Verificação: testes para status 5 (conclui), 4 (só cache, nada muda), 2/3 com `availableAt` nulo (volta para `PENDING`), qualquer status com `availableAt` preenchido (mantém) e idempotência (aplicar duas vezes = uma).
-- [ ] 2.3 Criar o port `ProductUpdateRepository` e `PrismaProductUpdateRepository` (`findById`, `list`, `findByBitrixTaskId`, `listReconcilable`, `save`, `delete`). Mapear `P2002` em `bitrix_task_id` para `TaskAlreadyLinkedError`. Verificação: teste do repositório (padrão dos `prisma-*.repository` existentes), incluindo a violação de unicidade.
+- [x] 2.2 Implementar `applyTaskStatus(update, taskStatus)` (D3) como função pura. Verificação: testes para status 5 (conclui), 4 (só cache, nada muda), 2/3 com `availableAt` nulo (volta para `PENDING`), qualquer status com `availableAt` preenchido (mantém) e idempotência (aplicar duas vezes = uma).
+- [x] 2.3 Criar o port `ProductUpdateRepository` e `PrismaProductUpdateRepository` (`findById`, `list`, `findByBitrixTaskId`, `listReconcilable`, `save`, `delete`). Mapear `P2002` em `bitrix_task_id` para `TaskAlreadyLinkedError`. Verificação: teste do repositório (padrão dos `prisma-*.repository` existentes), incluindo a violação de unicidade.
 
 ## 3. Casos de uso do backoffice (conteúdo e ciclo de vida)
 
-- [ ] 3.1 Implementar `CreateProductUpdate`, `UpdateProductUpdateContent`, `GetProductUpdate` e `ListProductUpdates`. A lista traz situação, pendências, tarefa e `availableAt`, com filtro por situação. Todos registram `portalUserId`. Verificação: testes unitários com repositório falso, incluindo "salvar numa publicada não muda `publishedContent`".
-- [ ] 3.2 Implementar as ações de publicação, cada uma com as recusas do spec (`422` com os idiomas faltantes, `409` de situação):
+- [x] 3.1 Implementar `CreateProductUpdate`, `UpdateProductUpdateContent`, `GetProductUpdate` e `ListProductUpdates`. A lista traz situação, pendências, tarefa e `availableAt`, com filtro por situação. Todos registram `portalUserId`. Verificação: testes unitários com repositório falso, incluindo "salvar numa publicada não muda `publishedContent`".
+- [x] 3.2 Implementar as ações de publicação, cada uma com as recusas do spec (`422` com os idiomas faltantes, `409` de situação):
   - `PublishProductUpdate` (em breve);
   - `PublishProductUpdateAsAvailable` (exige `DONE`; mantém `availableAt` se já existir);
   - `PublishProductUpdateChanges`;
@@ -28,7 +28,7 @@
   - `DeleteProductUpdate` (só com `firstPublishedAt` nulo).
 
   Verificação: um teste por cenário do spec `novidades-backoffice` (republicar mantém a data, rascunho direto para disponível, excluir publicada → `409` etc.).
-- [ ] 3.3 Criar o port `ProductUpdateImageStorage`, o adapter `R2ProductUpdateImageStorage` (chave `product-updates/<uuid>.<ext>`), a factory `makeProductUpdateImageStorage` (`null` sem R2), o multer (PNG/JPEG, 5 MB) e os casos de uso de enviar e remover a imagem em `content`. Verificação: teste do adapter com `S3Client` falso (chave e content-type), teste do multer recusando GIF → `422` e sem R2 → `503`.
+- [x] 3.3 Criar o port `ProductUpdateImageStorage`, o adapter `R2ProductUpdateImageStorage` (chave `product-updates/<uuid>.<ext>`), a factory `makeProductUpdateImageStorage` (`null` sem R2), o multer (PNG/JPEG, 5 MB) e os casos de uso de enviar e remover a imagem em `content`. Verificação: teste do adapter com `S3Client` falso (chave e content-type), teste do multer recusando GIF → `422` e sem R2 → `503`.
 
 ## 4. Integração com tarefas do Bitrix
 

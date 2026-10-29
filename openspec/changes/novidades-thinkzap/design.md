@@ -50,8 +50,8 @@ Criar `api/src/modules/product-updates/` com as mesmas camadas do `portal`. O m�
 Tabela `thinkzap_product_updates` (model `ProductUpdate`):
 
 - `id` (uuid)
-- `content` (JSONB): a versão em edição, `{ pt: {title, description}, en: {...}, es: {...}, imageKey: string|null }`
-- `publishedContent` (JSONB, nulo): o snapshot que o cliente vê
+- `content` (JSON do MySQL, `Json` no Prisma): a versão em edição, `{ pt: {title, description}, en: {...}, es: {...}, imageKey: string|null }`
+- `publishedContent` (JSON, nulo): o snapshot que o cliente vê
 - `progress` (`PENDING` | `DONE`), `doneAt`, `completedBy`
 - `visibility` (`DRAFT` | `PUBLISHED`), `firstPublishedAt`, `publishedAt`, `publishedBy`
 - `availableAt` (nulo)
@@ -74,7 +74,7 @@ Derivações:
   - publicar (em breve ou disponível) também copia.
 - **Exclusão:** só permitida com `firstPublishedAt` nulo.
 
-*Alternativa:* tabela de revisões. Rejeitada porque só precisamos de duas versões, e JSONB deixa a cópia e a comparação triviais. *Alternativa:* um enum único de situação. Rejeitada porque a conclusão (que vem do Bitrix) e a visibilidade (que é decisão humana) mudam independentemente.
+*Alternativa:* tabela de revisões. Rejeitada porque só precisamos de duas versões, e colunas JSON deixam a cópia e a comparação triviais. *Alternativa:* um enum único de situação. Rejeitada porque a conclusão (que vem do Bitrix) e a visibilidade (que é decisão humana) mudam independentemente.
 
 ### D3. Regra de conclusão como função pura
 `applyTaskStatus(update, taskStatus) → patch`, conforme o spec:
@@ -166,7 +166,7 @@ Não há paginação nem cache, porque é uma lista pequena. *Decisão minha:* r
 - **Permissão do usuário do webhook:** ele precisa poder ver, criar, concluir e reabrir tarefas no grupo 2677, além de ter os escopos `task` e `user`. → Na implantação, checar o usuário dono do webhook. Erros de permissão aparecem como `502` com a mensagem do Bitrix.
 - **Homologação no portal real:** com a flag desligada, homologação não escreve nem processa eventos. Vincular em homologação grava `bitrixTaskId` só no banco de homologação, sem efeito no portal.
 - **Evento perdido ou fora de ordem:** o worker sempre relê o status atual (nunca confia no payload), e a reconciliação horária corrige o resto.
-- **`content` JSONB sem schema no banco:** validar com zod nos casos de uso, num único ponto de parse.
+- **`content` JSON sem schema no banco:** validar com zod nos casos de uso, num único ponto de parse.
 - **Comparação de "alterações pendentes":** usar comparação profunda normalizada (trim nos textos) para não acusar diferença fantasma.
 
 ## Migration Plan
