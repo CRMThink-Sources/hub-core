@@ -1,48 +1,95 @@
 import { z } from 'zod'
 
-export const THINKZAP_PERMISSION_CATEGORIES = ['connectors', 'finance'] as const
+export const THINKZAP_PERMISSION_CATEGORIES = [
+  'connectors',
+  'finance',
+  'thinkbot',
+] as const
 export type ThinkzapPermissionCategory =
   (typeof THINKZAP_PERMISSION_CATEGORIES)[number]
 
-export const THINKZAP_PERMISSION_ACTIONS = [
-  'read',
-  'create',
-  'update',
-  'delete',
-] as const
+const CRUD_ACTIONS = ['read', 'create', 'update', 'delete'] as const
+
+export const THINKZAP_PERMISSION_ACTIONS_BY_CATEGORY = {
+  connectors: CRUD_ACTIONS,
+  finance: CRUD_ACTIONS,
+  thinkbot: [...CRUD_ACTIONS, 'publish'] as const,
+} as const satisfies Record<ThinkzapPermissionCategory, readonly string[]>
+
+export type ThinkzapPermissionActionOf<C extends ThinkzapPermissionCategory> =
+  (typeof THINKZAP_PERMISSION_ACTIONS_BY_CATEGORY)[C][number]
+
 export type ThinkzapPermissionAction =
-  (typeof THINKZAP_PERMISSION_ACTIONS)[number]
+  ThinkzapPermissionActionOf<ThinkzapPermissionCategory>
 
-export type ThinkzapCategoryPermissions = Record<
-  ThinkzapPermissionAction,
-  boolean
->
+export type ThinkzapUserPermissions = {
+  [C in ThinkzapPermissionCategory]: Record<
+    ThinkzapPermissionActionOf<C>,
+    boolean
+  >
+}
 
-export type ThinkzapUserPermissions = Record<
-  ThinkzapPermissionCategory,
-  ThinkzapCategoryPermissions
->
-
-const categoryPermissionsSchema = z.object({
+const crudSchema = z.object({
   read: z.boolean(),
   create: z.boolean(),
   update: z.boolean(),
   delete: z.boolean(),
 })
 
-export const thinkzapUserPermissionsSchema = z.object({
-  connectors: categoryPermissionsSchema,
-  finance: categoryPermissionsSchema,
-})
+const thinkbotSchema = crudSchema.extend({ publish: z.boolean() })
+
+// Rows anteriores ao `thinkbot` falhariam o parse e cairiam no padrão, perdendo o
+// `finance`. Herdam de `connectors`, que protegia o ThinkBot (publicar exigia `update`).
+export const thinkzapUserPermissionsSchema = z
+  .object({
+    connectors: crudSchema,
+    finance: crudSchema,
+    thinkbot: thinkbotSchema.optional(),
+  })
+  .transform(
+    (p): ThinkzapUserPermissions => ({
+      ...p,
+      thinkbot: p.thinkbot ?? {
+        ...p.connectors,
+        publish: p.connectors.update,
+      },
+    }),
+  )
 
 export const FULL_THINKZAP_PERMISSIONS: ThinkzapUserPermissions = {
   connectors: { read: true, create: true, update: true, delete: true },
   finance: { read: true, create: true, update: true, delete: true },
+  thinkbot: {
+    read: true,
+    create: true,
+    update: true,
+    delete: true,
+    publish: true,
+  },
 }
 
 export const DEFAULT_ALLOWED_USER_PERMISSIONS: ThinkzapUserPermissions = {
   connectors: { read: true, create: true, update: true, delete: true },
   finance: { read: false, create: false, update: false, delete: false },
+  thinkbot: {
+    read: true,
+    create: true,
+    update: true,
+    delete: true,
+    publish: true,
+  },
+}
+
+export const NO_THINKZAP_PERMISSIONS: ThinkzapUserPermissions = {
+  connectors: { read: false, create: false, update: false, delete: false },
+  finance: { read: false, create: false, update: false, delete: false },
+  thinkbot: {
+    read: false,
+    create: false,
+    update: false,
+    delete: false,
+    publish: false,
+  },
 }
 
 export function parseThinkzapUserPermissions(
@@ -53,18 +100,18 @@ export function parseThinkzapUserPermissions(
   return DEFAULT_ALLOWED_USER_PERMISSIONS
 }
 
-export function hasThinkzapPermission(
+export function hasThinkzapPermission<C extends ThinkzapPermissionCategory>(
   permissions: ThinkzapUserPermissions,
-  category: ThinkzapPermissionCategory,
-  action: ThinkzapPermissionAction,
+  category: C,
+  action: ThinkzapPermissionActionOf<C>,
 ): boolean {
-  return permissions[category][action] === true
+  const actions = permissions[category] as Record<string, boolean>
+  return actions[action] === true
 }
 
 export function canAccessThinkzapCategory(
   permissions: ThinkzapUserPermissions,
   category: ThinkzapPermissionCategory,
 ): boolean {
-  const p = permissions[category]
-  return p.read || p.create || p.update || p.delete
+  return Object.values(permissions[category]).some(Boolean)
 }

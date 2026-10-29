@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Bot, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Bot, Eye, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import type { OpenChannel } from '../../_lib/bot-flow-client'
@@ -20,6 +20,10 @@ type Props = {
   onCreate: () => void
   onVincular: (flowId: string, lineId: string) => Promise<void>
   onDesvincular: (bindingId: string) => Promise<void>
+  podeCriar: boolean
+  podeEditar: boolean
+  podeExcluir: boolean
+  podePublicar: boolean
 }
 
 const STATUS_STYLE: Record<BotFlowSummary['status'], string> = {
@@ -38,6 +42,10 @@ export function BotFlowList({
   onCreate,
   onVincular,
   onDesvincular,
+  podeCriar,
+  podeEditar,
+  podeExcluir,
+  podePublicar,
 }: Props) {
   const { t } = useTranslation('thinkzap/bots/lista')
   const [paraExcluir, setParaExcluir] = useState<BotFlowSummary | null>(null)
@@ -77,10 +85,12 @@ export function BotFlowList({
         <p className="text-sm font-semibold text-foreground">
           {t('vazio.titulo')}
         </p>
-        <Button onClick={onCreate}>
-          <Plus className="h-4 w-4" />
-          {t('vazio.acao')}
-        </Button>
+        {podeCriar ? (
+          <Button onClick={onCreate}>
+            <Plus className="h-4 w-4" />
+            {t('vazio.acao')}
+          </Button>
+        ) : null}
       </div>
     )
   }
@@ -150,6 +160,7 @@ export function BotFlowList({
                     ocupadas={ocupadas}
                     onVincular={lineId => onVincular(flow.id, lineId)}
                     onDesvincular={onDesvincular}
+                    podeVincular={podePublicar}
                   />
                 </td>
                 <td>
@@ -158,18 +169,26 @@ export function BotFlowList({
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => onOpen(flow.id)}
-                      aria-label={t('acoes.editar')}
+                      aria-label={
+                        podeEditar ? t('acoes.editar') : t('acoes.visualizar')
+                      }
                     >
-                      <Pencil className="h-4 w-4" />
+                      {podeEditar ? (
+                        <Pencil className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => setParaExcluir(flow)}
-                      aria-label={t('acoes.excluir')}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    {podeExcluir ? (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => setParaExcluir(flow)}
+                        aria-label={t('acoes.excluir')}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    ) : null}
                   </div>
                 </td>
               </tr>

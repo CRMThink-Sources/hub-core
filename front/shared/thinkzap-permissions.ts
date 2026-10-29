@@ -1,50 +1,72 @@
-export const THINKZAP_PERMISSION_CATEGORIES = ['connectors', 'finance'] as const
+export const THINKZAP_PERMISSION_CATEGORIES = [
+  'connectors',
+  'finance',
+  'thinkbot',
+] as const
 export type ThinkzapPermissionCategory =
   (typeof THINKZAP_PERMISSION_CATEGORIES)[number]
 
-export const THINKZAP_PERMISSION_ACTIONS = [
-  'read',
-  'create',
-  'update',
-  'delete',
-] as const
+const CRUD_ACTIONS = ['read', 'create', 'update', 'delete'] as const
+
+export const THINKZAP_PERMISSION_ACTIONS_BY_CATEGORY = {
+  connectors: CRUD_ACTIONS,
+  finance: CRUD_ACTIONS,
+  thinkbot: [...CRUD_ACTIONS, 'publish'] as const,
+} as const satisfies Record<ThinkzapPermissionCategory, readonly string[]>
+
+export type ThinkzapPermissionActionOf<C extends ThinkzapPermissionCategory> =
+  (typeof THINKZAP_PERMISSION_ACTIONS_BY_CATEGORY)[C][number]
+
 export type ThinkzapPermissionAction =
-  (typeof THINKZAP_PERMISSION_ACTIONS)[number]
+  ThinkzapPermissionActionOf<ThinkzapPermissionCategory>
 
-export type ThinkzapCategoryPermissions = Record<
-  ThinkzapPermissionAction,
-  boolean
->
-
-export type ThinkzapUserPermissions = Record<
-  ThinkzapPermissionCategory,
-  ThinkzapCategoryPermissions
->
+export type ThinkzapUserPermissions = {
+  [C in ThinkzapPermissionCategory]: Record<
+    ThinkzapPermissionActionOf<C>,
+    boolean
+  >
+}
 
 export type ThinkzapAccess = {
   canManageAccess: boolean
   canAccess: boolean
   canAccessFinance: boolean
+  canAccessThinkbot: boolean
   permissions: ThinkzapUserPermissions
 }
 
 export const DEFAULT_ALLOWED_USER_PERMISSIONS: ThinkzapUserPermissions = {
   connectors: { read: true, create: true, update: true, delete: true },
   finance: { read: false, create: false, update: false, delete: false },
+  thinkbot: {
+    read: true,
+    create: true,
+    update: true,
+    delete: true,
+    publish: true,
+  },
 }
 
 export const FULL_THINKZAP_PERMISSIONS: ThinkzapUserPermissions = {
   connectors: { read: true, create: true, update: true, delete: true },
   finance: { read: true, create: true, update: true, delete: true },
+  thinkbot: {
+    read: true,
+    create: true,
+    update: true,
+    delete: true,
+    publish: true,
+  },
 }
 
-export function hasThinkzapPermission(
+export function hasThinkzapPermission<C extends ThinkzapPermissionCategory>(
   permissions: ThinkzapUserPermissions | undefined,
-  category: ThinkzapPermissionCategory,
-  action: ThinkzapPermissionAction,
+  category: C,
+  action: ThinkzapPermissionActionOf<C>,
 ): boolean {
   if (!permissions) return false
-  return permissions[category][action] === true
+  const actions = permissions[category] as Record<string, boolean>
+  return actions[action] === true
 }
 
 export function canAccessThinkzapCategory(
@@ -52,6 +74,5 @@ export function canAccessThinkzapCategory(
   category: ThinkzapPermissionCategory,
 ): boolean {
   if (!permissions) return false
-  const p = permissions[category]
-  return p.read || p.create || p.update || p.delete
+  return Object.values(permissions[category]).some(Boolean)
 }

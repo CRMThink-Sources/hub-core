@@ -26,10 +26,11 @@ import { PermissionsAddResults } from './permissions-add-results'
 import { PermissionsFooterBar } from './permissions-footer-bar'
 import { PermissionsUsersTable } from './permissions-users-table'
 import { PermissionsDepartmentsTable } from './permissions-departments-table'
+import { PermissionsCategoryTabs } from './permissions-category-tabs'
 import {
   DEFAULT_ALLOWED_USER_PERMISSIONS,
-  THINKZAP_PERMISSION_CATEGORIES,
   type ThinkzapPermissionAction,
+  type ThinkzapPermissionCategory,
   type ThinkzapUserPermissions,
 } from '@/shared/thinkzap-permissions'
 
@@ -48,6 +49,18 @@ type AllowedDepartment = {
   bitrixDepartmentId: string
   displayName: string | null
   permissions: ThinkzapUserPermissions
+}
+
+function togglePermission(
+  permissions: ThinkzapUserPermissions,
+  category: ThinkzapPermissionCategory,
+  action: ThinkzapPermissionAction,
+): ThinkzapUserPermissions {
+  const actions = permissions[category] as Record<string, boolean>
+  return {
+    ...permissions,
+    [category]: { ...actions, [action]: !actions[action] },
+  }
 }
 
 function isUserDirty(
@@ -75,10 +88,15 @@ export function PermissoesSection() {
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const { ready: bx24Ready } = useBX24(scriptLoaded)
 
+  const [activeCategory, setActiveCategory] =
+    useState<ThinkzapPermissionCategory>('connectors')
   const [activeTab, setActiveTab] = useState<PermissionsTabMode>('users')
   const [tableFilter, setTableFilter] = useState('')
   const [page, setPage] = useState(1)
   const [savingAll, setSavingAll] = useState(false)
+  /** Id recém-adicionado: a busca também filtra a tabela, então ao adicionar
+   * limpamos o filtro e levamos a paginação até a linha nova. */
+  const [pendingFocusId, setPendingFocusId] = useState<string | null>(null)
 
   const [users, setUsers] = useState<AllowedUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(true)
@@ -210,6 +228,17 @@ export function PermissoesSection() {
     )
   }, [departments, tableFilter])
 
+  useEffect(() => {
+    if (!pendingFocusId || tableFilter) return
+    const index =
+      activeTab === 'users'
+        ? users.findIndex(u => u.bitrixUserId === pendingFocusId)
+        : departments.findIndex(d => d.bitrixDepartmentId === pendingFocusId)
+    if (index < 0) return
+    setPage(Math.floor(index / PAGE_SIZE) + 1)
+    setPendingFocusId(null)
+  }, [pendingFocusId, tableFilter, activeTab, users, departments])
+
   const paginatedUsers = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
     return filteredUsers.slice(start, start + PAGE_SIZE)
@@ -263,6 +292,8 @@ export function PermissoesSection() {
         permissions: newUserPermissions,
       })
       toast.success(t('added'))
+      setTableFilter('')
+      setPendingFocusId(bitrixUserId)
       await loadUsers()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('saveError'))
@@ -282,6 +313,8 @@ export function PermissoesSection() {
         permissions: newDeptPermissions,
       })
       toast.success(t('departments.added'))
+      setTableFilter('')
+      setPendingFocusId(bitrixDepartmentId)
       await loadDepartments()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t('saveError'))
@@ -290,7 +323,7 @@ export function PermissoesSection() {
 
   function handleUserPermissionChange(
     bitrixUserId: string,
-    category: (typeof THINKZAP_PERMISSION_CATEGORIES)[number],
+    category: ThinkzapPermissionCategory,
     action: ThinkzapPermissionAction,
   ) {
     setDraftUserPermissions(prev => {
@@ -298,20 +331,14 @@ export function PermissoesSection() {
       if (!current) return prev
       return {
         ...prev,
-        [bitrixUserId]: {
-          ...current,
-          [category]: {
-            ...current[category],
-            [action]: !current[category][action],
-          },
-        },
+        [bitrixUserId]: togglePermission(current, category, action),
       }
     })
   }
 
   function handleDeptPermissionChange(
     bitrixDepartmentId: string,
-    category: (typeof THINKZAP_PERMISSION_CATEGORIES)[number],
+    category: ThinkzapPermissionCategory,
     action: ThinkzapPermissionAction,
   ) {
     setDraftDeptPermissions(prev => {
@@ -319,13 +346,7 @@ export function PermissoesSection() {
       if (!current) return prev
       return {
         ...prev,
-        [bitrixDepartmentId]: {
-          ...current,
-          [category]: {
-            ...current[category],
-            [action]: !current[category][action],
-          },
-        },
+        [bitrixDepartmentId]: togglePermission(current, category, action),
       }
     })
   }
@@ -423,11 +444,18 @@ export function PermissoesSection() {
     activeTab === 'users'
       ? filteredUsers.length === 0
       : filteredDepartments.length === 0
+  // Vazio por causa do filtro não é "ninguém autorizado": a lista existe, só não casa.
+  const hasAny =
+    activeTab === 'users' ? users.length > 0 : departments.length > 0
 
   return (
     <div className="relative flex w-full min-w-0 flex-col gap-6">
       <BX24Script onLoad={() => setScriptLoaded(true)} />
 
+      <PermissionsCategoryTabs
+        activeCategory={activeCategory}
+        onChange={setActiveCategory}
+      />
       <PermissionsHeader />
       <PermissionsModeTabs activeTab={activeTab} onChange={setActiveTab} />
 
@@ -465,12 +493,23 @@ export function PermissoesSection() {
           </div>
         ) : isEmpty ? (
           <p className="rounded-lg border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">
-            {activeTab === 'users'
-              ? t('emptyList')
-              : t('departments.emptyList')}
+            {hasAny
+              ? activeTab === 'users'
+                ? t('noMatch', {
+                    query: tableFilter.trim(),
+                    count: users.length,
+                  })
+                : t('departments.noMatch', {
+                    query: tableFilter.trim(),
+                    count: departments.length,
+                  })
+              : activeTab === 'users'
+                ? t('emptyList')
+                : t('departments.emptyList')}
           </p>
         ) : activeTab === 'users' ? (
           <PermissionsUsersTable
+            category={activeCategory}
             users={paginatedUsers}
             totalCount={filteredUsers.length}
             page={page}
@@ -483,6 +522,7 @@ export function PermissoesSection() {
           />
         ) : (
           <PermissionsDepartmentsTable
+            category={activeCategory}
             departments={paginatedDepartments}
             totalCount={filteredDepartments.length}
             page={page}

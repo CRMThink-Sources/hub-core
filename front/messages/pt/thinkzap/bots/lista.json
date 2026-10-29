@@ -42,7 +42,8 @@
   },
   "acoes": {
     "editar": "Editar fluxo",
-    "excluir": "Excluir fluxo"
+    "excluir": "Excluir fluxo",
+    "visualizar": "Visualizar"
   },
   "outroFluxo": "outro fluxo",
   "canal": {
@@ -55,7 +56,8 @@
     "semCanais": "nenhum canal aberto no portal",
     "todosOcupados": "todos os canais já têm fluxo",
     "escolher": "escolher canal…",
-    "ativar": "ativar"
+    "ativar": "ativar",
+    "semPermissao": "Sem permissão para ativar em um canal"
   },
   "novo": {
     "titulo": "Novo fluxo",

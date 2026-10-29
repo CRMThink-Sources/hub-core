@@ -2,34 +2,11 @@
 
 import { CheckIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import {
-  type ThinkzapPermissionAction,
-  type ThinkzapPermissionCategory,
-} from '@/shared/thinkzap-permissions'
-
-const CATEGORY_CHECKED: Record<ThinkzapPermissionCategory, string> = {
-  connectors: 'border-violet-500 bg-violet-500',
-  finance: 'border-primary bg-primary',
-}
-
-const CATEGORY_UNCHECKED: Record<ThinkzapPermissionCategory, string> = {
-  connectors: 'hover:border-violet-400 hover:bg-violet-500/10',
-  finance: 'hover:border-primary/60 hover:bg-primary/10',
-}
-
-const ACTION_CHECKED: Record<ThinkzapPermissionAction, string> = {
-  read: 'border-blue-600 bg-blue-600',
-  create: 'border-sky-400 bg-sky-400',
-  update: 'border-violet-500 bg-violet-500',
-  delete: 'border-pink-500 bg-pink-500',
-}
 
 type Props = {
   checked: boolean
   disabled?: boolean
   label: string
-  category?: ThinkzapPermissionCategory
-  action?: ThinkzapPermissionAction
   variant?: 'defaults' | 'table'
   onChange: () => void
 }
@@ -38,21 +15,11 @@ export function PermissionCheckbox({
   checked,
   disabled,
   label,
-  category,
-  action,
   variant = 'table',
   onChange,
 }: Props) {
-  const checkedClass =
-    variant === 'defaults' && action
-      ? ACTION_CHECKED[action]
-      : category
-        ? CATEGORY_CHECKED[category]
-        : 'border-blue-600 bg-blue-600'
-
-  const uncheckedHoverClass = category
-    ? CATEGORY_UNCHECKED[category]
-    : 'hover:border-ring hover:bg-accent'
+  const checkedClass = 'border-primary bg-primary'
+  const uncheckedHoverClass = 'hover:border-primary/60 hover:bg-primary/10'
 
   return (
     <label

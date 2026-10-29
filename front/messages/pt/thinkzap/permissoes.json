@@ -8,6 +8,7 @@
     "byDepartment": "Por departamento",
     "byDepartmentDescription": "Gerencie permissões para todos os usuários de um departamento."
   },
+  "categoryTabsAriaLabel": "Categorias de permissão",
   "manageByUser": "Gerenciar permissões por usuário",
   "manageByDepartment": "Gerenciar permissões por departamento",
   "searchTablePlaceholder": "Busque por nome ou e-mail para filtrar ou adicionar usuários...",
@@ -16,13 +17,6 @@
   "saveHint": "As permissões são aplicadas imediatamente após salvar",
   "usersCount": "{{count}} usuários cadastrados",
   "departmentsCount": "{{count}} departamentos cadastrados",
-  "legendTitle": "Legenda",
-  "legend": {
-    "read": "Visualizar",
-    "create": "Criar",
-    "update": "Alterar",
-    "delete": "Excluir"
-  },
   "pagination": {
     "previous": "Página anterior",
     "next": "Próxima página"
@@ -37,6 +31,7 @@
     "noResults": "Nenhum departamento encontrado.",
     "defaultPermissionsForNewDepartment": "Permissões padrão para novos departamentos",
     "emptyList": "Nenhum departamento autorizado ainda. Pesquise acima para adicionar departamentos e configurar as permissões.",
+    "noMatch": "Nenhum departamento autorizado corresponde a \"{{query}}\". Limpe a busca para ver todos os {{count}} cadastrados.",
     "alreadyOnList": "Este departamento já está na lista.",
     "added": "Departamento adicionado com sucesso.",
     "removed": "Departamento removido com sucesso.",
@@ -48,6 +43,7 @@
   "searching": "Buscando...",
   "noResults": "Nenhum usuário encontrado.",
   "emptyList": "Nenhum usuário autorizado ainda. Pesquise acima para adicionar colaboradores e configurar as permissões.",
+  "noMatch": "Nenhum usuário autorizado corresponde a \"{{query}}\". Limpe a busca para ver todos os {{count}} cadastrados.",
   "defaultPermissionsForNewUser": "Permissões padrão para novos usuários",
   "savePermissions": "Salvar permissões",
   "permissionsSaved": "Permissões atualizadas com sucesso.",
@@ -64,26 +60,24 @@
     "actions": "Ações"
   },
   "matrix": {
-    "category": "Categoria",
-    "categories": {
-      "connectors": "Gestão de conectores",
-      "finance": "Financeiro"
-    },
     "categoriesShort": {
       "connectors": "Conectores",
-      "finance": "Financeiro"
+      "finance": "Financeiro",
+      "thinkbot": "ThinkBot"
     },
     "actions": {
       "read": "Visualizar",
       "create": "Criar",
       "update": "Alterar",
-      "delete": "Excluir"
+      "delete": "Excluir",
+      "publish": "Publicar"
     },
     "actionsShort": {
       "read": "Visualizar",
       "create": "Criar",
       "update": "Alterar",
-      "delete": "Excluir"
+      "delete": "Excluir",
+      "publish": "Publicar"
     }
   }
 }

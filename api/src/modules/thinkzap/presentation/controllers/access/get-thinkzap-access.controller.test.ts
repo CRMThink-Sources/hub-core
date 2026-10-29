@@ -39,14 +39,18 @@ function makeSut() {
   }
 }
 
-const allowAll = {
-  connectors: { read: true, create: true, update: true, delete: true },
-  finance: { read: true, create: true, update: true, delete: true },
-}
+const allowAll = FULL_THINKZAP_PERMISSIONS
 
 const financeOnly = {
   connectors: { read: false, create: false, update: false, delete: false },
   finance: { read: true, create: false, update: false, delete: false },
+  thinkbot: {
+    read: false,
+    create: false,
+    update: false,
+    delete: false,
+    publish: false,
+  },
 }
 
 describe('GetThinkzapAccessController', () => {
@@ -91,6 +95,7 @@ describe('GetThinkzapAccessController', () => {
       canManageAccess: true,
       canAccess: true,
       canAccessFinance: true,
+      canAccessThinkbot: true,
       permissions: FULL_THINKZAP_PERMISSIONS,
     })
     expect(sut.getByAppIdAndBitrixUserId).not.toHaveBeenCalled()
@@ -132,6 +137,7 @@ describe('GetThinkzapAccessController', () => {
       expect(granted.result).toMatchObject({
         canAccess: false,
         canAccessFinance: true,
+        canAccessThinkbot: false,
         canManageAccess: false,
       })
     })

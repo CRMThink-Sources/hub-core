@@ -5,7 +5,7 @@ import { isBitrixAdmin } from '@/bitrix'
 import {
   hasThinkzapPermission,
   type ThinkzapAccess,
-  type ThinkzapPermissionAction,
+  type ThinkzapPermissionActionOf,
   type ThinkzapPermissionCategory,
   type ThinkzapUserPermissions,
 } from '@/shared/thinkzap-permissions'
@@ -22,9 +22,9 @@ export function useThinkzapAccess(): ThinkzapAccess | null {
   return state.status === 'ready' ? state.access : null
 }
 
-export function useCanThinkzap(
-  category: ThinkzapPermissionCategory,
-  action: ThinkzapPermissionAction,
+export function useCanThinkzap<C extends ThinkzapPermissionCategory>(
+  category: C,
+  action: ThinkzapPermissionActionOf<C>,
 ): boolean {
   const access = useThinkzapAccess()
   if (!access) return false

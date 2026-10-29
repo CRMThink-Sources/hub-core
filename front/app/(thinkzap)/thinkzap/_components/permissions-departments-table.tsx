@@ -3,9 +3,9 @@
 import { Building2, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
-  THINKZAP_PERMISSION_ACTIONS,
-  THINKZAP_PERMISSION_CATEGORIES,
+  THINKZAP_PERMISSION_ACTIONS_BY_CATEGORY,
   type ThinkzapPermissionAction,
+  type ThinkzapPermissionCategory,
   type ThinkzapUserPermissions,
 } from '@/shared/thinkzap-permissions'
 import { PermissionCheckbox } from './permission-checkbox'
@@ -17,6 +17,7 @@ type DepartmentRow = {
 }
 
 type Props = {
+  category: ThinkzapPermissionCategory
   departments: DepartmentRow[]
   totalCount: number
   page: number
@@ -25,22 +26,15 @@ type Props = {
   draftPermissions: Record<string, ThinkzapUserPermissions>
   onPermissionChange: (
     bitrixDepartmentId: string,
-    category: (typeof THINKZAP_PERMISSION_CATEGORIES)[number],
+    category: ThinkzapPermissionCategory,
     action: ThinkzapPermissionAction,
   ) => void
   onRemove: (bitrixDepartmentId: string) => void
   removingId: string | null
 }
 
-const CATEGORY_HEADER: Record<
-  (typeof THINKZAP_PERMISSION_CATEGORIES)[number],
-  string
-> = {
-  connectors: 'bg-violet-500/10 text-violet-700',
-  finance: 'bg-primary/10 text-primary',
-}
-
 export function PermissionsDepartmentsTable({
+  category,
   departments,
   totalCount,
   page,
@@ -53,6 +47,7 @@ export function PermissionsDepartmentsTable({
 }: Props) {
   const { t } = useTranslation('thinkzap/permissoes')
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const actions = THINKZAP_PERMISSION_ACTIONS_BY_CATEGORY[category]
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -66,15 +61,12 @@ export function PermissionsDepartmentsTable({
               >
                 {t('departments.table.department')}
               </th>
-              {THINKZAP_PERMISSION_CATEGORIES.map(category => (
-                <th
-                  key={category}
-                  colSpan={THINKZAP_PERMISSION_ACTIONS.length}
-                  className={`border-l border-border px-2 py-2.5 text-center font-semibold ${CATEGORY_HEADER[category]}`}
-                >
-                  {t(`matrix.categoriesShort.${category}`)}
-                </th>
-              ))}
+              <th
+                colSpan={actions.length}
+                className="border-l border-border bg-primary/10 px-2 py-2.5 text-center font-semibold text-primary"
+              >
+                {t(`matrix.categoriesShort.${category}`)}
+              </th>
               <th
                 rowSpan={2}
                 className="min-w-[80px] border-l border-border bg-muted px-2 py-3 text-center font-semibold text-muted-foreground"
@@ -83,23 +75,21 @@ export function PermissionsDepartmentsTable({
               </th>
             </tr>
             <tr className="border-b border-border bg-muted/80 text-[10px] text-muted-foreground">
-              {THINKZAP_PERMISSION_CATEGORIES.map(category =>
-                THINKZAP_PERMISSION_ACTIONS.map(action => (
-                  <th
-                    key={`${category}-${action}`}
-                    className="w-20 min-w-20 whitespace-nowrap border-l border-border px-1 py-1.5 text-center font-medium"
-                    title={t(`matrix.actions.${action}`)}
-                  >
-                    {t(`matrix.actionsShort.${action}`)}
-                  </th>
-                )),
-              )}
+              {actions.map(action => (
+                <th
+                  key={action}
+                  className="w-20 min-w-20 whitespace-nowrap border-l border-border px-1 py-1.5 text-center font-medium"
+                  title={t(`matrix.actions.${action}`)}
+                >
+                  {t(`matrix.actionsShort.${action}`)}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {departments.map(dept => {
-              const permissions =
-                draftPermissions[dept.bitrixDepartmentId] ?? dept.permissions
+              const permissions = (draftPermissions[dept.bitrixDepartmentId] ??
+                dept.permissions)[category] as Record<string, boolean>
               const displayName =
                 dept.displayName ?? `Departamento #${dept.bitrixDepartmentId}`
 
@@ -123,27 +113,24 @@ export function PermissionsDepartmentsTable({
                       </div>
                     </div>
                   </td>
-                  {THINKZAP_PERMISSION_CATEGORIES.map(category =>
-                    THINKZAP_PERMISSION_ACTIONS.map(action => (
-                      <td
-                        key={`${dept.bitrixDepartmentId}-${category}-${action}`}
-                        className="w-20 min-w-20 border-l border-border px-1 py-3 text-center"
-                      >
-                        <PermissionCheckbox
-                          checked={permissions[category][action]}
-                          label={t(`matrix.actions.${action}`)}
-                          category={category}
-                          onChange={() =>
-                            onPermissionChange(
-                              dept.bitrixDepartmentId,
-                              category,
-                              action,
-                            )
-                          }
-                        />
-                      </td>
-                    )),
-                  )}
+                  {actions.map(action => (
+                    <td
+                      key={`${dept.bitrixDepartmentId}-${action}`}
+                      className="w-20 min-w-20 border-l border-border px-1 py-3 text-center"
+                    >
+                      <PermissionCheckbox
+                        checked={permissions[action] === true}
+                        label={t(`matrix.actions.${action}`)}
+                        onChange={() =>
+                          onPermissionChange(
+                            dept.bitrixDepartmentId,
+                            category,
+                            action,
+                          )
+                        }
+                      />
+                    </td>
+                  ))}
                   <td className="border-l border-border px-2 py-3">
                     <div className="flex items-center justify-center gap-1">
                       <button
