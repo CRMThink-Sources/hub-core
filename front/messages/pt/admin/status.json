@@ -31,5 +31,20 @@
   "modality": {
     "stripe": "Stripe",
     "manual": "Manual"
+  },
+  "productUpdate": {
+    "draft": "Rascunho",
+    "soon": "Em breve",
+    "awaiting-review": "Aguardando revisão",
+    "available": "Disponível"
+  },
+  "bitrixTask": {
+    "1": "Nova",
+    "2": "Pendente",
+    "3": "Em andamento",
+    "4": "Aguardando controle",
+    "5": "Concluída",
+    "6": "Adiada",
+    "7": "Recusada"
   }
 }

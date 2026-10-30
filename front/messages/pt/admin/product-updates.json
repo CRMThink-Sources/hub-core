@@ -1,0 +1,211 @@
+{
+  "title": "Novidades",
+  "description": "O que os clientes veem na aba Novidades do ThinkZap. Nada chega a eles sem revisão.",
+  "new": "Nova novidade",
+  "awaitingReview_one": "{{count}} novidade aguardando revisão: concluída, ainda não disponível para o cliente.",
+  "awaitingReview_other": "{{count}} novidades aguardando revisão: concluídas, ainda não disponíveis para o cliente.",
+  "reviewNow": "Revisar",
+  "filters": {
+    "label": "Filtrar por situação",
+    "all": "Todas"
+  },
+  "table": {
+    "label": "Lista de novidades",
+    "title": "Título",
+    "situation": "Situação",
+    "task": "Tarefa no Bitrix",
+    "availableAt": "Disponível desde"
+  },
+  "untitled": "Sem título",
+  "pendingChanges": "Alterações pendentes",
+  "pendingChangesHint": "Há texto ou imagem salvos que o cliente ainda não vê.",
+  "awaitingApproval": "Aguardando aprovação no Bitrix",
+  "emptyTitle": "Nenhuma novidade cadastrada",
+  "emptyDescription": "Crie a primeira para ela aparecer, depois de publicada, na aba Novidades do ThinkZap.",
+  "noResultsTitle": "Nenhuma novidade nesta situação",
+  "noResultsDescription": "Escolha outra situação para ver as demais.",
+  "showAll": "Ver todas",
+  "errorTitle": "Não foi possível carregar as novidades",
+  "errorDescription": "Tente novamente em instantes.",
+  "retry": "Tentar de novo",
+  "loading": "Carregando novidades…",
+  "create": {
+    "pending": "Criando rascunho…",
+    "errorTitle": "Não foi possível criar a novidade"
+  },
+  "detail": {
+    "breadcrumb": "Novidades",
+    "notFoundTitle": "Novidade não encontrada",
+    "notFoundDescription": "Ela pode ter sido excluída.",
+    "backToList": "Voltar para Novidades",
+    "errorTitle": "Não foi possível carregar a novidade",
+    "actionsLabel": "Ações da novidade",
+    "moreActions": "Mais ações",
+    "pendingBannerTitle": "Alterações pendentes de revisão",
+    "pendingBannerDescription": "O cliente continua vendo a versão publicada até você publicar as alterações.",
+    "unsaved": "Alterações não salvas",
+    "awaitingReviewNotice": "Concluída. O cliente ainda vê esta novidade em “Em breve”: publique como disponível quando estiver pronta.",
+    "facts": {
+      "label": "Datas",
+      "createdAt": "Criada",
+      "publishedAt": "Última publicação",
+      "doneAt": "Concluída",
+      "availableAt": "Disponível desde",
+      "never": "—"
+    }
+  },
+  "locales": {
+    "pt": "Português",
+    "en": "Inglês",
+    "es": "Espanhol"
+  },
+  "content": {
+    "title": "Conteúdo",
+    "tabsLabel": "Idioma do conteúdo",
+    "incomplete": "incompleto",
+    "incompleteHint": "Preencha título e descrição nos três idiomas para publicar.",
+    "titleLabel": "Título",
+    "descriptionLabel": "Descrição",
+    "descriptionHint": "Texto puro. Quebras de linha aparecem para o cliente.",
+    "characters": "{{used}} de {{max}}"
+  },
+  "image": {
+    "title": "Imagem",
+    "hint": "Opcional. PNG ou JPEG, até 5 MB. Aparece no topo do card.",
+    "none": "Sem imagem",
+    "alt": "Imagem atual da novidade",
+    "upload": "Enviar imagem",
+    "replace": "Trocar imagem",
+    "remove": "Remover",
+    "uploading": "Enviando…"
+  },
+  "preview": {
+    "title": "Pré-visualização",
+    "description": "Como o cliente verá o card em {{locale}}, com o texto em edição.",
+    "emptyTitle": "Título em {{locale}}",
+    "emptyDescription": "A descrição em {{locale}} aparece aqui."
+  },
+  "task": {
+    "title": "Tarefa no Bitrix",
+    "description": "A conclusão da tarefa conclui a novidade, e vice-versa. Nada muda para o cliente.",
+    "linked": "Tarefa #{{id}}",
+    "untitled": "Tarefa sem título",
+    "syncedAt": "Status lido em {{when}}",
+    "notSynced": "Status ainda não lido",
+    "awaitingApproval": "Aguardando aprovação no Bitrix: a conclusão foi enviada e espera o criador da tarefa aprovar.",
+    "unlink": "Desvincular",
+    "modeLabel": "Como vincular",
+    "linkExisting": "Vincular existente",
+    "createNew": "Criar no Bitrix",
+    "searchLabel": "Tarefa",
+    "searchPlaceholder": "Buscar tarefa",
+    "searchInput": "ID, #ID ou trecho do título",
+    "searchHint": "Por número: qualquer projeto. Por texto: até 20 tarefas do projeto de produtos, mais recentes primeiro.",
+    "searching": "Buscando…",
+    "noResults": "Nenhuma tarefa encontrada.",
+    "typeToSearch": "Digite o ID ou parte do título.",
+    "searchError": "Não foi possível buscar no Bitrix agora.",
+    "outsideGroup": "Fora do projeto",
+    "outsideGroupWarning": "Esta tarefa é de outro projeto do Bitrix. Ela ainda pode ser vinculada.",
+    "responsible": "Responsável: {{name}}",
+    "link": "Vincular",
+    "responsibleLabel": "Responsável",
+    "responsiblePlaceholder": "Escolher responsável",
+    "responsibleInput": "Nome ou e-mail",
+    "typeToSearchUsers": "Digite ao menos 2 letras.",
+    "noUsers": "Nenhum usuário ativo encontrado.",
+    "createHint": "A tarefa é criada no projeto de produtos com o título e a descrição em português e um link para esta novidade.",
+    "create": "Criar tarefa"
+  },
+  "actions": {
+    "save": "Salvar",
+    "saving": "Salvando…",
+    "publish": "Publicar",
+    "publish-available": "Publicar como disponível",
+    "publish-changes": "Publicar alterações",
+    "discard-changes": "Descartar",
+    "unpublish": "Despublicar",
+    "complete": "Marcar como concluída",
+    "reopen": "Desmarcar conclusão",
+    "delete": "Excluir"
+  },
+  "confirm": {
+    "cancel": "Cancelar",
+    "publish": {
+      "title": "Publicar em “Em breve”?",
+      "description": "Os clientes passam a ver esta novidade na aba “Em breve” do ThinkZap.",
+      "confirm": "Publicar"
+    },
+    "publish-available": {
+      "title": "Publicar como disponível?",
+      "description": "Os clientes passam a ver esta novidade em “Já disponível”, com a data de disponibilidade.",
+      "confirm": "Publicar como disponível"
+    },
+    "publish-changes": {
+      "title": "Publicar as alterações?",
+      "description": "Os clientes passam a ver o texto e a imagem em edição. A data de disponibilidade não muda.",
+      "confirm": "Publicar alterações"
+    },
+    "discard-changes": {
+      "title": "Descartar as alterações?",
+      "description": "A edição volta ao conteúdo que o cliente vê hoje. O que foi alterado se perde.",
+      "confirm": "Descartar alterações"
+    },
+    "unpublish": {
+      "title": "Despublicar esta novidade?",
+      "description": "Ela volta a ser rascunho e some da aba Novidades dos clientes. A data de disponibilidade é mantida.",
+      "confirm": "Despublicar"
+    },
+    "delete": {
+      "title": "Excluir “{{title}}”?",
+      "description": "O rascunho é apagado de vez. Esta ação não pode ser desfeita.",
+      "confirm": "Excluir"
+    }
+  },
+  "result": {
+    "save": "Alterações salvas.",
+    "savePending": "Alterações salvas. O cliente só as vê depois de “Publicar alterações”.",
+    "publish": "Publicada em “Em breve”.",
+    "publish-available": "Publicada como disponível.",
+    "publish-changes": "Alterações publicadas.",
+    "discard-changes": "Alterações descartadas.",
+    "unpublish": "Novidade despublicada.",
+    "complete": "Novidade concluída.",
+    "completeAwaitingApproval": "Conclusão enviada ao Bitrix. A tarefa aguarda a aprovação do criador, e a novidade segue pendente até lá.",
+    "reopen": "Conclusão desmarcada.",
+    "delete": "Novidade excluída.",
+    "imageUploaded": "Imagem enviada.",
+    "imageRemoved": "Imagem removida.",
+    "taskLinked": "Tarefa #{{id}} vinculada.",
+    "taskUnlinked": "Tarefa desvinculada.",
+    "taskCreated": "Tarefa #{{id}} criada no Bitrix."
+  },
+  "errors": {
+    "already-published": "Esta novidade já está publicada.",
+    "previously-available": "Esta novidade já foi disponível. Use “Publicar como disponível” para ela voltar com a data original.",
+    "not-done": "Conclua a novidade antes de publicá-la como disponível.",
+    "already-available": "Esta novidade já está disponível.",
+    "not-published": "Esta novidade não está publicada.",
+    "no-pending-changes": "Não há alterações pendentes.",
+    "published-before": "Só rascunhos nunca publicados podem ser excluídos. Despublique para tirá-la do cliente.",
+    "already-done": "Esta novidade já está concluída.",
+    "task-already-set": "Esta novidade já tem uma tarefa. Desvincule antes de vincular outra.",
+    "task-already-linked": "A tarefa #{{taskId}} já está vinculada a outra novidade.",
+    "task-already-linked-open": "Abrir a novidade que usa a tarefa",
+    "tasks-sync-disabled": "A sincronização com as tarefas do Bitrix está desligada neste ambiente.",
+    "missing-locales": "Preencha título e descrição em: {{locales}}.",
+    "invalid-content": "Conteúdo inválido: {{issues}}",
+    "invalid-image": "O arquivo não é uma imagem PNG ou JPEG válida.",
+    "invalid-image-type": "A imagem precisa ser um arquivo PNG ou JPEG.",
+    "image-too-large": "A imagem passa de 5 MB.",
+    "invalid-upload": "Não foi possível ler o arquivo enviado.",
+    "task-not-found": "A tarefa #{{taskId}} não foi encontrada no Bitrix da CRMThink.",
+    "responsible-required": "Escolha o responsável pela tarefa.",
+    "crmthink-tasks-unavailable": "O Bitrix da CRMThink não respondeu. Nada foi alterado.",
+    "image-storage-unavailable": "O envio de imagem está indisponível no momento. O resto da novidade segue funcionando.",
+    "unauthorized": "Sua sessão expirou. Entre de novo.",
+    "not-found": "Novidade não encontrada. Ela pode ter sido excluída.",
+    "bad-request": "Pedido inválido.",
+    "generic": "Algo deu errado. Tente de novo."
+  }
+}

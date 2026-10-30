@@ -70,9 +70,9 @@
 
 ## 8. Front: backoffice
 
-- [ ] 8.1 Criar `front/lib/portal-product-updates.ts` (tipos e chamadas `axiosPortal`) e as mensagens em `front/messages/{pt,en,es}/admin/product-updates.json`. Adicionar o item Novidades em `admin-nav.ts` (`navProductUpdates`, ícone `Megaphone`) com as chaves de nav. Verificação: `admin-messages-parity.test.ts` e `admin-nav.test.ts` atualizados e passando (sete itens), e `yarn tsc --noEmit` no front.
+- [x] 8.1 Criar `front/lib/portal-product-updates.ts` (tipos e chamadas `axiosPortal`) e as mensagens em `front/messages/{pt,en,es}/admin/product-updates.json`. Adicionar o item Novidades em `admin-nav.ts` (`navProductUpdates`, ícone `Megaphone`) com as chaves de nav. Verificação: `admin-messages-parity.test.ts` e `admin-nav.test.ts` atualizados e passando (sete itens), e `yarn tsc --noEmit` no front.
 - [x] 8.2 Extrair o card de novidade do cliente para um componente compartilhado (`front/components/product-updates/product-update-card.tsx`), usado na pré-visualização do admin e na aba do ThinkZap. Verificação: teste de componente renderizando um card com imagem, um sem imagem e o selo "Em breve" sem data.
-- [ ] 8.3 Criar a lista `/admin/novidades`, no padrão das páginas do admin, com:
+- [x] 8.3 Criar a lista `/admin/novidades`, no padrão das páginas do admin, com:
   - cabeçalho com total e botão "Nova novidade";
   - filtro por situação;
   - destaque para "Aguardando revisão";
@@ -81,7 +81,7 @@
   - estados de carregamento, vazio e erro.
 
   Construir com a skill `design-taste-frontend`. Verificação: teste da função de filtro e checagem no navegador a 375px sem rolagem horizontal.
-- [ ] 8.4 Criar a edição `/admin/novidades/[id]` (e `nova`), com:
+- [x] 8.4 Criar a edição `/admin/novidades/[id]` (e `nova`), com:
   - abas pt/en/es com indicador de incompleto;
   - upload, troca e remoção de imagem;
   - pré-visualização por idioma;
@@ -90,7 +90,7 @@
   - mensagens para `tasks-sync-disabled`, `422` e `409`.
 
   Verificação: teste da função que decide as ações por situação e um roteiro manual no navegador cobrindo o ciclo completo.
-- [ ] 8.5 Revisar as telas novas do admin com a skill `web-design-guidelines` e corrigir o que ela apontar. Verificação: os itens apontados resolvidos ou justificados no PR.
+- [x] 8.5 Revisar as telas novas do admin com a skill `web-design-guidelines` e corrigir o que ela apontar. Verificação: os itens apontados resolvidos ou justificados no PR.
 
 ## 9. Front: aba do ThinkZap
 
@@ -105,8 +105,8 @@
 
 ## 10. Integração e implantação
 
-- [ ] 10.1 Rodar a suíte completa da API e do front (`yarn test`, `yarn tsc --noEmit`, lint) no branch. Verificação: tudo verde.
-- [ ] 10.2 Escrever um roteiro de implantação em `openspec/changes/novidades-thinkzap/implantacao.md`, com:
+- [x] 10.1 Rodar a suíte completa da API e do front (`yarn test`, `yarn tsc --noEmit`, lint) no branch. Verificação: tudo verde. (Resultado: API 453/4736, tsc e lint limpos; front 1249/1250, tsc e eslint limpos — a única falha é `bots/issue-text.test.ts`, pré-existente no master e sem relação com esta change.)
+- [x] 10.2 Escrever um roteiro de implantação em `openspec/changes/novidades-thinkzap/implantacao.md`, com:
   - os escopos `task`/`user` do webhook de entrada;
   - o webhook de saída `ONTASKUPDATE`/`ONTASKDELETE` → `/api/webhooks/crmthink-tasks`;
   - as envs por ambiente (flag desligada em homologação);

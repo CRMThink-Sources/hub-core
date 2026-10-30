@@ -4,9 +4,11 @@ import en from '@/messages/en/admin/status.json'
 import es from '@/messages/es/admin/status.json'
 import {
   APP_STATUS,
+  BITRIX_TASK_STATUS,
   LINE_STATUS,
   MIRROR_STATUS,
   MODALITY_LABEL,
+  PRODUCT_UPDATE_SITUATION,
   PROVIDER_BILLING_STATUS,
   SUBSCRIPTION_STATUS,
   modalityLabelKey,
@@ -31,6 +33,8 @@ const ALL_KEYS = [
   ...Object.values(MIRROR_STATUS).map(meta => meta.labelKey),
   ...Object.values(PROVIDER_BILLING_STATUS).map(meta => meta.labelKey),
   ...Object.values(LINE_STATUS).map(meta => meta.labelKey),
+  ...Object.values(PRODUCT_UPDATE_SITUATION).map(meta => meta.labelKey),
+  ...Object.values(BITRIX_TASK_STATUS).map(meta => meta.labelKey),
   ...Object.values(MODALITY_LABEL),
   'unknown',
 ]
@@ -49,6 +53,18 @@ describe('portal-status', () => {
     expect(Object.keys(PROVIDER_BILLING_STATUS).sort()).toEqual(
       ['subscribed', 'unknown', 'unsubscribed'].sort(),
     )
+    expect(Object.keys(PRODUCT_UPDATE_SITUATION).sort()).toEqual(
+      ['available', 'awaiting-review', 'draft', 'soon'].sort(),
+    )
+    expect(Object.keys(BITRIX_TASK_STATUS)).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+    ])
   })
 
   it.each([

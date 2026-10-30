@@ -48,6 +48,34 @@ export const LINE_STATUS: Record<string, StatusMeta> = {
   cancelled: { tone: 'neutral', labelKey: 'line.cancelled' },
 }
 
+/**
+ * Situação de uma novidade do ThinkZap. "Aguardando revisão" é o tom de atenção: é a
+ * fila do time (concluída, esperando "Publicar como disponível").
+ */
+export const PRODUCT_UPDATE_SITUATION: Record<string, StatusMeta> = {
+  draft: { tone: 'neutral', labelKey: 'productUpdate.draft' },
+  soon: { tone: 'info', labelKey: 'productUpdate.soon' },
+  'awaiting-review': {
+    tone: 'warning',
+    labelKey: 'productUpdate.awaiting-review',
+  },
+  available: { tone: 'success', labelKey: 'productUpdate.available' },
+}
+
+/**
+ * Status de tarefa do Bitrix (`tasks.task`): 1 nova, 2 pendente, 3 em andamento,
+ * 4 aguardando controle, 5 concluída, 6 adiada, 7 recusada.
+ */
+export const BITRIX_TASK_STATUS: Record<string, StatusMeta> = {
+  '1': { tone: 'neutral', labelKey: 'bitrixTask.1' },
+  '2': { tone: 'neutral', labelKey: 'bitrixTask.2' },
+  '3': { tone: 'info', labelKey: 'bitrixTask.3' },
+  '4': { tone: 'warning', labelKey: 'bitrixTask.4' },
+  '5': { tone: 'success', labelKey: 'bitrixTask.5' },
+  '6': { tone: 'neutral', labelKey: 'bitrixTask.6' },
+  '7': { tone: 'danger', labelKey: 'bitrixTask.7' },
+}
+
 /** Só rótulo: modalidade não é status, não ganha cor. */
 export const MODALITY_LABEL: Record<string, string> = {
   stripe: 'modality.stripe',
