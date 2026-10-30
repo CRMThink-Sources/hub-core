@@ -81,6 +81,7 @@ import ptNovidades from '@/messages/pt/thinkzap/novidades/page.json'
 import enNovidades from '@/messages/en/thinkzap/novidades/page.json'
 import esNovidades from '@/messages/es/thinkzap/novidades/page.json'
 import { useProductUpdateErrorToast } from './admin-product-update-errors'
+import { AdminProductUpdateTaskMessages } from './admin-product-update-task-messages'
 import { AdminProductUpdateTaskSection } from './admin-product-update-task-section'
 import { AdminEmptyState } from './ui/admin-empty-state'
 import { AdminPageHeader } from './ui/admin-page-header'
@@ -563,6 +564,14 @@ function ProductUpdateEditor({ initial }: { initial: ProductUpdateView }) {
           <DatesPanel view={view} />
         </div>
       </div>
+
+      {view.task && (
+        <AdminProductUpdateTaskMessages
+          productUpdateId={view.id}
+          taskId={view.task.id}
+          disabled={locked}
+        />
+      )}
 
       <ConfirmActionDialog
         action={confirming}

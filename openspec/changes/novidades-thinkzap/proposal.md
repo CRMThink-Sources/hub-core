@@ -21,7 +21,7 @@ Os clientes do ThinkZap não têm onde ver o que mudou no produto nem o que est�
   - backoffice → Bitrix: "Marcar como concluída" conclui a tarefa no Bitrix e só então reflete o status resultante. Se a tarefa ficar aguardando aprovação, a novidade continua pendente com aviso. "Desmarcar concluída" reabre a tarefa.
   - Uma reconciliação de hora em hora cobre eventos perdidos.
   - Uma flag de ambiente desliga as escritas no Bitrix e o processamento do webhook, porque homologação e produção compartilham o portal.
-- **Aba "Novidades" no ThinkZap** (`/thinkzap/novidades`): lista única para todos os clientes, no idioma do cliente. Tem as abas internas "Já disponível" (padrão, com data) e "Em breve" (sem datas), com cards de título, descrição e imagem.
+- **Aba "Novidades" no ThinkZap** (`/thinkzap/novidades`): lista única para todos os clientes, no idioma do cliente. Tem as abas internas "Já disponível" (padrão, com data) e "Em breve" (sem datas), com cada novidade numa linha recolhida (selo, título e data) que abre, uma por vez, mostrando descrição e imagem dentro do registro.
 - **Menu do admin** ganha o item Novidades.
 - **Usuário do backoffice ligado ao usuário do Bitrix**: campo opcional "ID no Bitrix" no cadastro e na edição dos usuários do backoffice. Ele permite atribuir à pessoa certa as ações feitas no Bitrix a partir do backoffice (como mensagens na tarefa da novidade, numa etapa seguinte).
 

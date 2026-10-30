@@ -25,6 +25,7 @@ import {
   type TaskMessagesResponse,
 } from '@/lib/portal-product-updates'
 import { useProductUpdateErrorText } from './admin-product-update-errors'
+import { AdminPanel } from './ui/admin-panel'
 
 const NAMESPACE = 'admin/product-updates'
 /** Mostra o contador só perto do limite, para não poluir o caso comum. */
@@ -150,22 +151,9 @@ export function AdminProductUpdateTaskMessages({
       : []
 
   return (
-    <section
-      aria-labelledby={`${inputId}-title`}
-      className="mt-4 space-y-3 border-t border-border pt-4"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3
-            id={`${inputId}-title`}
-            className="text-sm font-medium text-foreground"
-          >
-            {t('task.messages.title')}
-          </h3>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {t('task.messages.description')}
-          </p>
-        </div>
+    <AdminPanel
+      title={t('task.messages.title')}
+      action={
         <Button
           variant="outline"
           size="sm"
@@ -178,7 +166,12 @@ export function AdminProductUpdateTaskMessages({
             className={`size-3.5 ${refreshing ? 'motion-safe:animate-spin' : ''}`}
           />
         </Button>
-      </div>
+      }
+      bodyClassName="space-y-3"
+    >
+      <p className="text-sm text-muted-foreground">
+        {t('task.messages.description')}
+      </p>
 
       {state.status === 'ready' && state.data.mode === 'comments' && (
         <p className="text-xs text-muted-foreground">
@@ -191,7 +184,7 @@ export function AdminProductUpdateTaskMessages({
         role="log"
         aria-label={t('task.messages.listLabel')}
         aria-busy={state.status === 'loading' || refreshing}
-        className="max-h-80 min-h-24 overflow-y-auto rounded-md border border-border bg-muted/30 px-3 py-2"
+        className="max-h-[32rem] min-h-64 overflow-y-auto rounded-md lg:min-h-[32rem] border border-border bg-muted/30 px-3 py-2"
       >
         {state.status === 'loading' && (
           <div role="status" className="space-y-3 py-1">
@@ -308,7 +301,7 @@ export function AdminProductUpdateTaskMessages({
         <textarea
           id={inputId}
           value={draft}
-          rows={3}
+          rows={5}
           name="task-message"
           autoComplete="off"
           disabled={sending || syncOff}
@@ -317,7 +310,7 @@ export function AdminProductUpdateTaskMessages({
           placeholder={t('task.messages.inputPlaceholder')}
           onChange={event => setDraft(event.target.value)}
           onKeyDown={onKeyDown}
-          className="min-h-20 w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30"
+          className="min-h-28 w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30"
         />
         <div className="flex items-center justify-between gap-3">
           <p id={hintId} className="text-xs text-muted-foreground">
@@ -346,6 +339,6 @@ export function AdminProductUpdateTaskMessages({
           </Button>
         </div>
       </div>
-    </section>
+    </AdminPanel>
   )
 }

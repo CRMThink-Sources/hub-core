@@ -31,19 +31,38 @@ O menu lateral do ThinkZap SHALL ter o item "Novidades" (`/thinkzap/novidades`),
 - **"Já disponível":** aberta por padrão. Mostra os itens `available` do mais recente para o mais antigo, cada um com selo de disponível e data.
 - **"Em breve":** mostra o número de itens no rótulo e os itens `soon` com selo "Em breve", sem nenhuma data ou prazo.
 
-Cada card SHALL mostrar título, descrição e a imagem, quando houver. Os textos SHALL seguir o idioma atual do ThinkZap e SHALL ser atualizados quando o cliente trocar de idioma.
+Cada novidade SHALL ser uma linha recolhida, para a lista continuar curta com dezenas de itens:
+- **Recolhida:** mostra o selo, o título e, em `available`, a data. Em `soon` nunca mostra data.
+- **Aberta:** ao ativar a linha, ela SHALL mostrar, dentro do próprio registro, a descrição completa (quebras de linha preservadas) e a imagem, quando houver.
+- **Uma por vez:** abrir uma linha SHALL fechar a que estava aberta. Todas SHALL começar fechadas, e ativar a linha aberta a fecha.
+- **Acessibilidade:** a linha SHALL ser um botão operável por teclado que informa se está aberta ou fechada.
+- **Imagem:** a imagem de uma linha SHALL só ser carregada quando a linha abrir.
+
+Os textos SHALL seguir o idioma atual do ThinkZap e SHALL ser atualizados quando o cliente trocar de idioma.
 
 #### Scenario: Abertura da aba
 - **WHEN** um usuário do ThinkZap abre Novidades
-- **THEN** a aba "Já disponível" está selecionada e os cards aparecem do mais recente para o mais antigo, com data
+- **THEN** a aba "Já disponível" está selecionada e as linhas aparecem do mais recente para o mais antigo, com data
+
+#### Scenario: Lista recolhida
+- **WHEN** um usuário do ThinkZap abre uma aba com vários itens
+- **THEN** todas as linhas aparecem fechadas, só com selo, título e data, e nenhuma descrição ou imagem é mostrada
+
+#### Scenario: Abrir uma linha
+- **WHEN** o usuário ativa a linha de uma novidade com imagem
+- **THEN** a linha mostra a descrição e a imagem dentro do registro e informa que está aberta
+
+#### Scenario: Uma por vez
+- **WHEN** o usuário abre outra linha com uma já aberta
+- **THEN** a primeira fecha e só a nova fica aberta
 
 #### Scenario: Em breve sem prazos
 - **WHEN** o usuário abre "Em breve"
-- **THEN** os cards mostram só o selo "Em breve", sem nenhuma data
+- **THEN** as linhas mostram só o selo "Em breve", sem nenhuma data
 
 #### Scenario: Troca de idioma
 - **WHEN** o usuário troca o idioma do ThinkZap para inglês com a página aberta
-- **THEN** os cards passam a mostrar o conteúdo em inglês
+- **THEN** as linhas passam a mostrar o conteúdo em inglês
 
 ### Requirement: Estados da página
 A página SHALL mostrar estado de carregamento enquanto busca as novidades. Cada aba vazia SHALL ter uma mensagem amigável própria. Se a busca falhar, a página SHALL mostrar um erro com a opção de tentar de novo.
