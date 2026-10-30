@@ -108,6 +108,23 @@ export type CrmthinkTaskSearchResult = {
 
 export type CrmthinkUser = { id: number; name: string; email: string | null }
 
+export type TaskMessage = {
+  id: number
+  authorId: number | null
+  authorName: string | null
+  text: string
+  /** ISO. */
+  createdAt: string
+  /** Aviso automático do Bitrix (mudança de status etc.). */
+  isSystem: boolean
+}
+
+export type TaskMessagesResponse = {
+  mode: 'chat' | 'comments'
+  /** Da mais antiga para a mais nova; só as últimas 50. */
+  messages: TaskMessage[]
+}
+
 const BASE = '/portal/novidades'
 const byId = (id: string) => `${BASE}/${encodeURIComponent(id)}`
 
@@ -124,6 +141,12 @@ export const updateProductUpdateTexts = (
   id: string,
   texts: ProductUpdateTexts,
 ) => axiosPortal().patch<ProductUpdateView>(byId(id), { texts })
+
+export const getTaskMessages = (id: string) =>
+  axiosPortal().get<TaskMessagesResponse>(`${byId(id)}/task/messages`)
+
+export const sendTaskMessage = (id: string, text: string) =>
+  axiosPortal().post<{ sent: true }>(`${byId(id)}/task/messages`, { text })
 
 export const deleteProductUpdate = (id: string) =>
   axiosPortal().delete<{ id: string }>(byId(id))
@@ -400,6 +423,9 @@ export const KNOWN_ERROR_REASONS = [
   'task-already-set',
   'task-already-linked',
   'tasks-sync-disabled',
+  'no-task-linked',
+  'invalid-message',
+  'bitrix-user-not-linked',
   'missing-locales',
   'invalid-content',
   'invalid-image',
@@ -427,4 +453,88 @@ export function productUpdateErrorKey(info: ProductUpdateError): string {
   if (info.status === 404) return 'errors.not-found'
   if (info.status === 400) return 'errors.bad-request'
   return 'errors.generic'
+}
+
+// ---------------------------------------------------------------------------
+// Conversa da tarefa
+// ---------------------------------------------------------------------------
+
+export const TASK_MESSAGE_MAX = 4000
+
+export type TaskMessageValidation =
+  | { ok: true; text: string }
+  | { ok: false; reason: 'empty' | 'too-long' }
+
+/** Texto de 1 a 4000 caracteres depois de aparado, como a api exige. */
+export function validateTaskMessage(raw: string): TaskMessageValidation {
+  const text = raw.trim()
+  if (text.length === 0) return { ok: false, reason: 'empty' }
+  if (text.length > TASK_MESSAGE_MAX) return { ok: false, reason: 'too-long' }
+  return { ok: true, text }
+}
+
+export type TaskMessageAuthor =
+  | { kind: 'name'; name: string }
+  | { kind: 'id'; id: number }
+  | { kind: 'none' }
+
+/** Autor para exibir: nome, senão "Usuário #id", senão nenhum (a tela diz "Sistema"). */
+export function taskMessageAuthor(
+  message: Pick<TaskMessage, 'authorId' | 'authorName'>,
+): TaskMessageAuthor {
+  const name = message.authorName?.trim()
+  if (name) return { kind: 'name', name }
+  if (message.authorId !== null && message.authorId > 0) {
+    return { kind: 'id', id: message.authorId }
+  }
+  return { kind: 'none' }
+}
+
+export type TaskMessageGroup = {
+  /** Dia no fuso de quem olha, `yyyy-mm-dd`. */
+  key: string
+  label: string
+  messages: Array<TaskMessage & { timeLabel: string }>
+}
+
+const pad = (n: number) => String(n).padStart(2, '0')
+
+/**
+ * Agrupa por dia (fuso do navegador, o de quem lê a conversa), mantendo a ordem
+ * recebida. Datas inválidas ficam com o texto cru.
+ */
+export function groupTaskMessages(
+  messages: TaskMessage[],
+  locale?: string,
+): TaskMessageGroup[] {
+  const dayFormat = new Intl.DateTimeFormat(locale ?? 'pt-BR', {
+    dateStyle: 'medium',
+  })
+  const timeFormat = new Intl.DateTimeFormat(locale ?? 'pt-BR', {
+    timeStyle: 'short',
+  })
+  const groups: TaskMessageGroup[] = []
+
+  for (const message of messages) {
+    const date = new Date(message.createdAt)
+    const valid = !Number.isNaN(date.getTime())
+    const key = valid
+      ? `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+      : 'invalid'
+    const entry = {
+      ...message,
+      timeLabel: valid ? timeFormat.format(date) : message.createdAt,
+    }
+    const last = groups[groups.length - 1]
+    if (last && last.key === key) {
+      last.messages.push(entry)
+    } else {
+      groups.push({
+        key,
+        label: valid ? dayFormat.format(date) : message.createdAt,
+        messages: [entry],
+      })
+    }
+  }
+  return groups
 }

@@ -6,6 +6,9 @@ import { DeleteProductUpdate } from '../../application/delete-product-update'
 import { DiscardProductUpdateChanges } from '../../application/discard-product-update-changes'
 import { GetProductUpdate } from '../../application/get-product-update'
 import type { ProductUpdateActionInput } from '../../application/helpers/product-update-actions'
+import { PrismaPortalUserRepository } from '@/modules/portal/infra/persistence/prisma-portal-user.repository'
+import { ListCrmthinkTaskMessages } from '../../application/list-crmthink-task-messages'
+import { SendCrmthinkTaskMessage } from '../../application/send-crmthink-task-message'
 import { LinkCrmthinkTask } from '../../application/link-crmthink-task'
 import { ListProductUpdates } from '../../application/list-product-updates'
 import { PublishProductUpdate } from '../../application/publish-product-update'
@@ -28,6 +31,8 @@ import {
   CreateProductUpdateController,
   DeleteProductUpdateController,
   LinkCrmthinkTaskController,
+  ListCrmthinkTaskMessagesController,
+  SendCrmthinkTaskMessageController,
   ListProductUpdatesController,
   ProductUpdateActionController,
   SearchCrmthinkTasksController,
@@ -163,4 +168,19 @@ export const createSearchCrmthinkTasksController = (): Controller =>
 export const createSearchCrmthinkUsersController = (): Controller =>
   new SearchCrmthinkUsersController(
     new SearchCrmthinkUsers(makeCrmthinkTasksGateway()),
+  )
+
+export const createListCrmthinkTaskMessagesController = (): Controller =>
+  new ListCrmthinkTaskMessagesController(
+    new ListCrmthinkTaskMessages(repository(), makeCrmthinkTasksGateway()),
+  )
+
+export const createSendCrmthinkTaskMessageController = (): Controller =>
+  new SendCrmthinkTaskMessageController(
+    new SendCrmthinkTaskMessage(
+      repository(),
+      new PrismaPortalUserRepository(),
+      makeCrmthinkTasksGateway(),
+      makeCrmthinkTasksConfig(),
+    ),
   )

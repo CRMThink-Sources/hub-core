@@ -10,6 +10,7 @@ import {
   createDiscardProductUpdateChangesController,
   createGetProductUpdateController,
   createLinkCrmthinkTaskController,
+  createListCrmthinkTaskMessagesController,
   createListProductUpdatesController,
   createPublishProductUpdateAsAvailableController,
   createPublishProductUpdateChangesController,
@@ -18,6 +19,7 @@ import {
   createReopenProductUpdateController,
   createSearchCrmthinkTasksController,
   createSearchCrmthinkUsersController,
+  createSendCrmthinkTaskMessageController,
   createUnlinkCrmthinkTaskController,
   createUnpublishProductUpdateController,
   createUpdateProductUpdateContentController,
@@ -137,6 +139,18 @@ export const createProductUpdatesPortalRoutes = (
     '/:id/task',
     portalAuthMiddleware,
     adaptControllerFactory(createCreateCrmthinkTaskForUpdateController),
+  )
+
+  /** Conversa da tarefa vinculada: ler e enviar (D13). */
+  router.get(
+    '/:id/task/messages',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListCrmthinkTaskMessagesController),
+  )
+  router.post(
+    '/:id/task/messages',
+    portalAuthMiddleware,
+    adaptControllerFactory(createSendCrmthinkTaskMessageController),
   )
 
   return router

@@ -1,7 +1,12 @@
 import { CRMTHINK_TASK_STATUS } from '../../domain/apply-task-status'
-import { CrmthinkTasksUnavailableError } from '../../domain/errors/product-update.errors'
+import {
+  CrmthinkTaskNotFoundError,
+  CrmthinkTasksUnavailableError,
+} from '../../domain/errors/product-update.errors'
 import type {
   CrmthinkTask,
+  CrmthinkTaskMessage,
+  CrmthinkTaskMessages,
   CrmthinkTasksGateway,
   CrmthinkUser,
   NewCrmthinkTask,
@@ -20,6 +25,16 @@ export class InMemoryCrmthinkTasksGateway implements CrmthinkTasksGateway {
   readonly tasks = new Map<number, CrmthinkTask>()
   readonly calls: GatewayCall[] = []
   readonly requiresApproval = new Set<number>()
+  /** Conversa por tarefa, da mais antiga para a mais nova. */
+  readonly messages = new Map<number, CrmthinkTaskMessage[]>()
+  /** Mensagens enviadas, com o autor do Bitrix. */
+  readonly sentMessages: {
+    taskId: number
+    text: string
+    authorBitrixUserId: number
+  }[] = []
+  /** Cartão de tarefas: `chat` (novo) ou `comments` (antigo). */
+  messagesMode: 'chat' | 'comments' = 'chat'
   failing = false
   private nextId = 9000
 
@@ -97,13 +112,49 @@ export class InMemoryCrmthinkTasksGateway implements CrmthinkTasksGateway {
     )
   }
 
+  listTaskMessages(taskId: number): Promise<CrmthinkTaskMessages> {
+    return this.run('listTaskMessages', [taskId], () => {
+      this.mustGet(taskId, true)
+      return {
+        mode: this.messagesMode,
+        messages: (this.messages.get(taskId) ?? []).map(m => ({ ...m })),
+      }
+    })
+  }
+
+  sendTaskMessage(
+    taskId: number,
+    text: string,
+    authorBitrixUserId: number,
+  ): Promise<void> {
+    return this.run(
+      'sendTaskMessage',
+      [taskId, text, authorBitrixUserId],
+      () => {
+        this.mustGet(taskId, true)
+        this.sentMessages.push({ taskId, text, authorBitrixUserId })
+        const list = this.messages.get(taskId) ?? []
+        list.push({
+          id: Math.max(0, ...list.map(m => m.id)) + 1,
+          authorId: authorBitrixUserId,
+          authorName: null,
+          text,
+          createdAt: new Date().toISOString(),
+          isSystem: false,
+        })
+        this.messages.set(taskId, list)
+      },
+    )
+  }
+
   /** Quantas chamadas de um método (ou de todos). */
   count(method?: keyof CrmthinkTasksGateway): number {
     return this.calls.filter(c => !method || c.method === method).length
   }
 
-  private mustGet(id: number): CrmthinkTask {
+  private mustGet(id: number, asNotFound = false): CrmthinkTask {
     const task = this.tasks.get(id)
+    if (!task && asNotFound) throw new CrmthinkTaskNotFoundError(id)
     if (!task)
       throw new CrmthinkTasksUnavailableError(`tarefa ${id} não existe`)
     return task

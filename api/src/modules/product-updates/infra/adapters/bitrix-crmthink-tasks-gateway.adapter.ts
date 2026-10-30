@@ -1,14 +1,20 @@
 import type {
   CrmthinkTask,
+  CrmthinkTaskMessage,
+  CrmthinkTaskMessages,
   CrmthinkTasksGateway,
   CrmthinkUser,
   NewCrmthinkTask,
 } from '../../domain/ports/crmthink-tasks-gateway.port'
 import {
+  CRMTHINK_TASK_MESSAGES_LIMIT,
   CRMTHINK_TASKS_BATCH_SIZE,
   CRMTHINK_TASKS_SEARCH_LIMIT,
 } from '../../domain/ports/crmthink-tasks-gateway.port'
-import { CrmthinkTasksUnavailableError } from '../../domain/errors/product-update.errors'
+import {
+  CrmthinkTaskNotFoundError,
+  CrmthinkTasksUnavailableError,
+} from '../../domain/errors/product-update.errors'
 
 /**
  * O mínimo do `BitrixClient` que o adapter usa. `BitrixClient.callMethod` devolve o
@@ -35,6 +41,9 @@ const TASK_NOT_FOUND_MARKERS = [
   'TASK_NOT_FOUND_OR_NOT_ACCESSIBLE',
   'ACTION_NOT_ALLOWED',
 ]
+
+const isTaskNotFound = (message: string): boolean =>
+  TASK_NOT_FOUND_MARKERS.some(marker => message.includes(marker))
 
 type RawRecord = Record<string, unknown>
 
@@ -82,6 +91,64 @@ function toTask(raw: unknown): CrmthinkTask | null {
   }
 }
 
+/** Texto da mensagem (pode ter BBCode) só com `trim`; o resto fica como veio. */
+const toText = (value: unknown): string =>
+  typeof value === 'string' ? value.trim() : ''
+
+/** Data ISO da mensagem; ausente ou ilegível fica como veio (string) ou vazio. */
+const toIsoDate = (value: unknown): string =>
+  typeof value === 'string' ? value : ''
+
+/** Nome do `users` do `im.dialog.messages.get` (`{ id, name }`). */
+function toChatUsers(raw: unknown): Map<number, string> {
+  const names = new Map<number, string>()
+  if (!Array.isArray(raw)) return names
+  for (const user of raw) {
+    if (!isRecord(user)) continue
+    const id = toId(user.id)
+    const name = typeof user.name === 'string' ? user.name.trim() : ''
+    if (id !== null && name) names.set(id, name)
+  }
+  return names
+}
+
+/** `author_id` 0 ou ausente é mensagem do sistema. */
+function toChatMessage(
+  raw: unknown,
+  names: Map<number, string>,
+): CrmthinkTaskMessage | null {
+  if (!isRecord(raw)) return null
+  const id = toId(raw.id)
+  if (id === null) return null
+  const authorId = toId(raw.author_id)
+  return {
+    id,
+    authorId,
+    authorName: authorId === null ? null : (names.get(authorId) ?? null),
+    text: toText(raw.text),
+    createdAt: toIsoDate(raw.date),
+    isSystem: authorId === null,
+  }
+}
+
+/** Comentário do cartão antigo (`task.commentitem.getlist`). */
+function toComment(raw: unknown): CrmthinkTaskMessage | null {
+  if (!isRecord(raw)) return null
+  const id = toId(raw.ID)
+  if (id === null) return null
+  const authorId = toId(raw.AUTHOR_ID)
+  const authorName =
+    typeof raw.AUTHOR_NAME === 'string' ? raw.AUTHOR_NAME.trim() : ''
+  return {
+    id,
+    authorId,
+    authorName: authorName || null,
+    text: toText(raw.POST_MESSAGE),
+    createdAt: toIsoDate(raw.POST_DATE),
+    isSystem: false,
+  }
+}
+
 function toUser(raw: unknown): CrmthinkUser | null {
   if (!isRecord(raw)) return null
   const id = toId(raw.ID)
@@ -124,7 +191,14 @@ const errorMessage = (error: unknown): string =>
  *   responsible?: { name } } } }`;
  * - `tasks.task.list` → `{ result: { tasks: [...] } }`, página de 50;
  * - `tasks.task.add` → `{ result: { task: {...} } }`;
- * - `user.search` → `{ result: [{ ID, NAME, LAST_NAME, EMAIL, ACTIVE }] }`.
+ * - `user.search` → `{ result: [{ ID, NAME, LAST_NAME, EMAIL, ACTIVE }] }`;
+ * - conversa (D13): `tasks.task.get` com `select: ['ID', 'CHAT_ID']` → `result.task.chatId`
+ *   (número ou string; 0, vazio ou ausente = cartão antigo); com chat,
+ *   `im.dialog.messages.get` → `{ result: { messages: [{ id, author_id, date, text }],
+ *   users: [{ id, name }] } }` (ordem não garantida: ordena por `id`); sem chat,
+ *   `task.commentitem.getlist` → `{ result: [{ ID, AUTHOR_ID, AUTHOR_NAME, POST_DATE,
+ *   POST_MESSAGE }] }`, do mais novo para o mais antigo (invertido); envio por
+ *   `task.commentitem.add` → `{ result: <id do comentário> }`.
  *
  * IDs chegam como string ou número. Qualquer falha vira
  * `CrmthinkTasksUnavailableError` (inclusive a pausa por limite do portal).
@@ -141,9 +215,7 @@ export class BitrixCrmthinkTasksGateway implements CrmthinkTasksGateway {
       })
     } catch (error) {
       const message = errorMessage(error)
-      if (TASK_NOT_FOUND_MARKERS.some(marker => message.includes(marker))) {
-        return null
-      }
+      if (isTaskNotFound(message)) return null
       throw new CrmthinkTasksUnavailableError(`tasks.task.get: ${message}`)
     }
 
@@ -210,6 +282,83 @@ export class BitrixCrmthinkTasksGateway implements CrmthinkTasksGateway {
         ? Object.values(result)
         : []
     return rows.map(toUser).filter((user): user is CrmthinkUser => !!user)
+  }
+
+  async listTaskMessages(taskId: number): Promise<CrmthinkTaskMessages> {
+    const chatId = await this.readChatId(taskId)
+
+    if (chatId !== null) {
+      const result = await this.call('im.dialog.messages.get', {
+        DIALOG_ID: `chat${chatId}`,
+        LIMIT: CRMTHINK_TASK_MESSAGES_LIMIT,
+      })
+      const names = toChatUsers(isRecord(result) ? result.users : null)
+      const rows =
+        isRecord(result) && Array.isArray(result.messages)
+          ? result.messages
+          : []
+      const messages = rows
+        .map(row => toChatMessage(row, names))
+        .filter((m): m is CrmthinkTaskMessage => !!m)
+        .sort((a, b) => a.id - b.id)
+      return { mode: 'chat', messages }
+    }
+
+    // No cartão novo este método devolve lista vazia sem erro; por isso o `chatId`
+    // é conferido antes.
+    const result = await this.call('task.commentitem.getlist', {
+      TASKID: taskId,
+      ORDER: { ID: 'desc' },
+    })
+    const rows = Array.isArray(result) ? result : []
+    const messages = rows
+      .map(toComment)
+      .filter((m): m is CrmthinkTaskMessage => !!m)
+      .sort((a, b) => a.id - b.id)
+    return { mode: 'comments', messages }
+  }
+
+  async sendTaskMessage(
+    taskId: number,
+    text: string,
+    authorBitrixUserId: number,
+  ): Promise<void> {
+    let response: unknown
+    try {
+      response = await this.bitrix.callMethod('task.commentitem.add', {
+        TASKID: taskId,
+        FIELDS: { POST_MESSAGE: text, AUTHOR_ID: authorBitrixUserId },
+      })
+    } catch (error) {
+      const message = errorMessage(error)
+      if (isTaskNotFound(message)) throw new CrmthinkTaskNotFoundError(taskId)
+      throw new CrmthinkTasksUnavailableError(
+        `task.commentitem.add: ${message}`,
+      )
+    }
+    unwrap('task.commentitem.add', response)
+  }
+
+  /**
+   * `chatId` da tarefa (cartão novo) ou `null` (cartão antigo). Tarefa ilegível
+   * rejeita com `CrmthinkTaskNotFoundError`.
+   */
+  private async readChatId(taskId: number): Promise<number | null> {
+    let response: unknown
+    try {
+      response = await this.bitrix.callMethod('tasks.task.get', {
+        taskId,
+        select: ['ID', 'CHAT_ID'],
+      })
+    } catch (error) {
+      const message = errorMessage(error)
+      if (isTaskNotFound(message)) throw new CrmthinkTaskNotFoundError(taskId)
+      throw new CrmthinkTasksUnavailableError(`tasks.task.get: ${message}`)
+    }
+    const result = unwrap('tasks.task.get', response)
+    const task = isRecord(result) ? result.task : null
+    if (!isRecord(task)) throw new CrmthinkTaskNotFoundError(taskId)
+    return toId(field(task, 'chatId', 'CHAT_ID'))
   }
 
   private async list(filter: RawRecord): Promise<CrmthinkTask[]> {

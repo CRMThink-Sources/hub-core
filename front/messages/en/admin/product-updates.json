@@ -115,7 +115,29 @@
     "typeToSearchUsers": "Type at least 2 letters.",
     "noUsers": "No active user found.",
     "createHint": "The task is created in the products project with the Portuguese title and description and a link to this update.",
-    "create": "Create task"
+    "create": "Create task",
+    "messages": {
+      "title": "Task conversation",
+      "description": "The last 50 messages of the task in Bitrix. Whatever you send shows up there as written by you.",
+      "refresh": "Refresh conversation",
+      "loading": "Loading conversation…",
+      "empty": "There are no messages on this task yet.",
+      "system": "System",
+      "unknownUser": "User #{{id}}",
+      "commentsMode": "This task uses comments instead of chat.",
+      "loadErrorTitle": "Could not load the conversation",
+      "retry": "Try again",
+      "listLabel": "Task messages",
+      "inputLabel": "New message",
+      "inputPlaceholder": "Write a message to the task…",
+      "inputHint": "Ctrl+Enter or ⌘+Enter to send.",
+      "counter": "{{count}} / {{max}}",
+      "send": "Send",
+      "sending": "Sending…",
+      "sent": "Message sent.",
+      "syncOff": "Sending messages is turned off in this environment. Reading the conversation still works.",
+      "taskNotFound": "The task was not found in CRMThink's Bitrix."
+    }
   },
   "actions": {
     "save": "Save",
@@ -206,6 +228,9 @@
     "unauthorized": "Your session expired. Sign in again.",
     "not-found": "Update not found. It may have been deleted.",
     "bad-request": "Invalid request.",
-    "generic": "Something went wrong. Try again."
+    "generic": "Something went wrong. Try again.",
+    "no-task-linked": "This update has no linked task.",
+    "invalid-message": "The message must be between 1 and 4000 characters.",
+    "bitrix-user-not-linked": "Your user is not linked to a Bitrix user. Ask an admin to fill in your “Bitrix ID” in Users."
   }
 }
