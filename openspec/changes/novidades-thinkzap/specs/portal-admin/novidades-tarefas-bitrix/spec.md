@@ -140,6 +140,7 @@ O backoffice SHALL mostrar a conversa da tarefa do Bitrix vinculada a uma novida
   - usuário do backoffice sem ID do Bitrix, `422` com `bitrix-user-not-linked`;
   - Bitrix fora do ar, `502` com `crmthink-tasks-unavailable`.
 - **Alternativa:** se o Bitrix recusar o envio com o autor, a API SHALL tentar o método atual de envio ao chat da tarefa, que não aceita autor. Nesse caso a mensagem sai em nome do dono do webhook com o texto prefixado por `<nome do usuário> (via backoffice): `, e o envio SHALL ser registrado em log como aviso.
+- **Espaço:** na edição da novidade, a conversa SHALL ocupar um painel próprio na largura toda da página, abaixo do conteúdo e da pré-visualização, com a lista de mensagens de altura generosa (a partir de 32rem em telas grandes) e um campo de escrever com mais de uma linha visível. Em telas estreitas o painel acompanha o fluxo da página.
 - Anexos e edição ou exclusão de mensagens ficam fora.
 
 #### Scenario: Ler a conversa

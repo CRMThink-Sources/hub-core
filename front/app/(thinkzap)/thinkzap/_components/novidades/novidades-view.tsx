@@ -5,8 +5,8 @@ import { CircleAlert, RotateCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ProductUpdateCard } from '@/components/product-updates/product-update-card'
 import type { ThinkzapNovidade } from '../../_lib/get-thinkzap-novidades'
+import { NovidadeRow } from './novidade-row'
 
 export type NovidadesTab = 'available' | 'soon'
 
@@ -23,6 +23,8 @@ type Props = {
   onRetry: () => void
   /** Aba aberta na montagem; o padrão da spec é "Já disponível". */
   defaultTab?: NovidadesTab
+  /** Linha aberta na montagem; o padrão é tudo recolhido. */
+  defaultOpenId?: string | null
 }
 
 const NAMESPACE = 'thinkzap/novidades/page'
@@ -36,6 +38,7 @@ export function NovidadesView({
   locale,
   onRetry,
   defaultTab = 'available',
+  defaultOpenId = null,
 }: Props) {
   const { t } = useTranslation(NAMESPACE)
 
@@ -57,6 +60,7 @@ export function NovidadesView({
           items={state.items}
           locale={locale}
           defaultTab={defaultTab}
+          defaultOpenId={defaultOpenId}
         />
       )}
     </div>
@@ -67,13 +71,17 @@ function NovidadesTabs({
   items,
   locale,
   defaultTab,
+  defaultOpenId,
 }: {
   items: ThinkzapNovidade[]
   locale: string
   defaultTab: NovidadesTab
+  defaultOpenId: string | null
 }) {
   const { t } = useTranslation(NAMESPACE)
   const [tab, setTab] = useState<NovidadesTab>(defaultTab)
+  // Uma linha aberta por vez; trocar de aba fecha a que estava aberta.
+  const [openId, setOpenId] = useState<string | null>(defaultOpenId)
 
   const available = items.filter(item => item.status === 'available')
   const soon = items.filter(item => item.status === 'soon')
@@ -82,7 +90,10 @@ function NovidadesTabs({
   return (
     <Tabs
       value={tab}
-      onValueChange={value => setTab(value as NovidadesTab)}
+      onValueChange={value => {
+        setTab(value as NovidadesTab)
+        setOpenId(null)
+      }}
       className="gap-4"
     >
       <TabsList aria-label={t('tabs.label')}>
@@ -101,14 +112,19 @@ function NovidadesTabs({
             {list.length === 0 ? (
               <NovidadesEmpty tab={value} />
             ) : (
-              <ul className="flex flex-col gap-4">
-                {list.map((item, index) => (
+              <ul className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground">
+                {list.map(item => (
                   <li key={item.id}>
-                    <ProductUpdateCard
+                    <NovidadeRow
                       update={item}
                       labels={labels}
                       locale={locale}
-                      imageLoading={index === 0 ? 'eager' : 'lazy'}
+                      open={openId === item.id}
+                      onToggle={() =>
+                        setOpenId(current =>
+                          current === item.id ? null : item.id,
+                        )
+                      }
                     />
                   </li>
                 ))}
