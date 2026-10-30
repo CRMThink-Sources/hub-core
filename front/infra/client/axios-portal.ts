@@ -9,6 +9,11 @@ export type PortalHttpClient = {
     data?: unknown,
     config?: Parameters<AxiosInstance['post']>[2],
   ): Promise<T>
+  put<T>(
+    url: string,
+    data?: unknown,
+    config?: Parameters<AxiosInstance['put']>[2],
+  ): Promise<T>
   patch<T>(
     url: string,
     data?: unknown,

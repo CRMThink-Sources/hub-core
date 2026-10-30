@@ -104,6 +104,7 @@ import {
   makeResetDailyLimitUsageController,
 } from './main/line/make-line-controllers'
 import { makeSaveInstallationLocaleController } from './main/make-installation-locale'
+import { makeListPublishedProductUpdatesController } from '@/modules/product-updates/main/make-list-published-product-updates-controller'
 
 export const createThinkerszapRoutes = (): Router => {
   const router = Router()
@@ -204,6 +205,13 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/logs',
     adaptControllerFactory(makeGetLogsControllerFactory('thinkzap')),
+  )
+
+  // Aba Novidades: qualquer usuário com acesso ao ThinkZap, sem permissão
+  // específica. O controller vem do módulo `product-updates` (D1).
+  router.get(
+    '/novidades',
+    adaptControllerFactory(makeListPublishedProductUpdatesController),
   )
 
   /**

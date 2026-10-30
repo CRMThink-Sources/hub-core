@@ -1,0 +1,29 @@
+{
+  "title": "What's new",
+  "subtitle": "See what's already in ThinkZap and what we're working on.",
+  "tabs": {
+    "label": "ThinkZap updates",
+    "available": "Available now",
+    "soon": "Coming soon ({{count}})"
+  },
+  "badge": {
+    "available": "Available",
+    "soon": "Coming soon"
+  },
+  "loading": "Loading updates…",
+  "empty": {
+    "available": {
+      "title": "No updates here yet",
+      "description": "When an improvement reaches ThinkZap, it shows up in this tab."
+    },
+    "soon": {
+      "title": "Nothing planned right now",
+      "description": "As soon as we start working on a new improvement, you'll see it here."
+    }
+  },
+  "error": {
+    "title": "We couldn't load the updates.",
+    "description": "Check your connection and try again.",
+    "retry": "Try again"
+  }
+}

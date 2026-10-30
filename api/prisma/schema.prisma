@@ -844,6 +844,9 @@ model PortalUser {
 
   subscriptionExpirationRuns SubscriptionExpirationRun[]
   stripeSyncRuns             StripeSyncRun[]
+  productUpdatesCreated      ProductUpdate[]             @relation("ProductUpdateCreatedBy")
+  productUpdatesPublished    ProductUpdate[]             @relation("ProductUpdatePublishedBy")
+  productUpdatesCompleted    ProductUpdate[]             @relation("ProductUpdateCompletedBy")
 
   @@map("portal_users")
 }
@@ -1203,4 +1206,62 @@ enum ThinkzapBotSessionStatus {
   FINISHED
   ABORTED
   EXPIRED
+}
+
+// ============================================
+// NOVIDADES DO THINKZAP — curadas no backoffice, lidas pela aba "Novidades"
+// A situação vista nas telas (rascunho, em breve, aguardando revisão,
+// disponível) é derivada de `progress`, `visibility` e `availableAt`, nunca gravada.
+// ============================================
+
+/// Conclusão do desenvolvimento. Muda pela tarefa do Bitrix ou pelo backoffice,
+/// independente do que o cliente vê.
+enum ProductUpdateProgress {
+  PENDING
+  DONE
+}
+
+/// Decisão humana de mostrar ao cliente.
+enum ProductUpdateVisibility {
+  DRAFT
+  PUBLISHED
+}
+
+model ProductUpdate {
+  id                 String                  @id @default(uuid())
+  /// Versão em edição: `{ pt: {title, description}, en, es, imageKey }` — validada por
+  /// `product-update-content.ts`.
+  content            Json
+  /// Snapshot que o cliente vê. Só muda ao publicar; editar `content` não o toca.
+  publishedContent   Json?                   @map("published_content")
+  progress           ProductUpdateProgress   @default(PENDING)
+  doneAt             DateTime?               @map("done_at")
+  /// Nulo quando a conclusão veio da tarefa do Bitrix.
+  completedBy        String?                 @map("completed_by")
+  visibility         ProductUpdateVisibility @default(DRAFT)
+  /// Preenchido na primeira publicação e nunca apagado: trava a exclusão.
+  firstPublishedAt   DateTime?               @map("first_published_at")
+  publishedAt        DateTime?               @map("published_at")
+  publishedBy        String?                 @map("published_by")
+  /// Mantido ao despublicar: republicar como disponível volta com a data original.
+  availableAt        DateTime?               @map("available_at")
+  /// Tarefa no portal interno da CRMThink. Uma tarefa vincula no máximo uma novidade.
+  bitrixTaskId       Int?                    @unique @map("bitrix_task_id")
+  bitrixTaskTitle    String?                 @map("bitrix_task_title") @db.Text
+  bitrixTaskStatus   Int?                    @map("bitrix_task_status")
+  bitrixTaskGroupId  Int?                    @map("bitrix_task_group_id")
+  bitrixTaskSyncedAt DateTime?               @map("bitrix_task_synced_at")
+  createdBy          String?                 @map("created_by")
+  createdAt          DateTime                @default(now()) @map("created_at")
+  updatedAt          DateTime                @updatedAt @map("updated_at")
+
+  creator   PortalUser? @relation("ProductUpdateCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  publisher PortalUser? @relation("ProductUpdatePublishedBy", fields: [publishedBy], references: [id], onDelete: SetNull)
+  completer PortalUser? @relation("ProductUpdateCompletedBy", fields: [completedBy], references: [id], onDelete: SetNull)
+
+  @@index([visibility])
+  @@index([createdBy])
+  @@index([publishedBy])
+  @@index([completedBy])
+  @@map("thinkzap_product_updates")
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  parseCrmthinkTasksGroupId,
   parseManualSubscriptionGraceDays,
   parseStripeSyncEnabled,
   parseSubscriptionExpirationEnabled,
@@ -91,5 +92,22 @@ describe('parseStripeSyncEnabled', () => {
     expect(parseStripeSyncEnabled(undefined, true, 'production')).toBe(true)
     expect(parseStripeSyncEnabled(undefined, true, 'homolog')).toBe(false)
     expect(parseStripeSyncEnabled(undefined, false, 'production')).toBe(false)
+  })
+})
+
+describe('parseCrmthinkTasksGroupId', () => {
+  it('ausente ou vazio é o grupo 2677', () => {
+    expect(parseCrmthinkTasksGroupId(undefined)).toBe(2677)
+    expect(parseCrmthinkTasksGroupId('')).toBe(2677)
+  })
+
+  it('aceita id inteiro positivo', () => {
+    expect(parseCrmthinkTasksGroupId('42')).toBe(42)
+  })
+
+  it('inválido vira 2677', () => {
+    expect(parseCrmthinkTasksGroupId('0')).toBe(2677)
+    expect(parseCrmthinkTasksGroupId('abc')).toBe(2677)
+    expect(parseCrmthinkTasksGroupId('1.5')).toBe(2677)
   })
 })

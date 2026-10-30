@@ -3,6 +3,7 @@ import {
   Building2,
   Home,
   KeyRound,
+  Megaphone,
   Timer,
   Users,
   type LucideIcon,
@@ -11,6 +12,7 @@ import {
 export type AdminNavLabelKey =
   | 'navHome'
   | 'navClients'
+  | 'navProductUpdates'
   | 'navUsers'
   | 'navMcpUsers'
   | 'navJobs'
@@ -39,6 +41,12 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
         href: '/admin/clientes',
         labelKey: 'navClients',
         icon: Building2,
+        exact: false,
+      },
+      {
+        href: '/admin/novidades',
+        labelKey: 'navProductUpdates',
+        icon: Megaphone,
         exact: false,
       },
       {
