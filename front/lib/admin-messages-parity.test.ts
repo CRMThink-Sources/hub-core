@@ -11,6 +11,15 @@ import esAppSettings from '@/messages/es/admin/app-settings.json'
 import ptStatus from '@/messages/pt/admin/status.json'
 import enStatus from '@/messages/en/admin/status.json'
 import esStatus from '@/messages/es/admin/status.json'
+import ptProductUpdates from '@/messages/pt/admin/product-updates.json'
+import enProductUpdates from '@/messages/en/admin/product-updates.json'
+import esProductUpdates from '@/messages/es/admin/product-updates.json'
+import ptUsuarios from '@/messages/pt/admin/usuarios.json'
+import enUsuarios from '@/messages/en/admin/usuarios.json'
+import esUsuarios from '@/messages/es/admin/usuarios.json'
+import ptHome from '@/messages/pt/admin/home.json'
+import enHome from '@/messages/en/admin/home.json'
+import esHome from '@/messages/es/admin/home.json'
 
 /** Todas as chaves-folha de um objeto de mensagens, como `a.b.c`. */
 const leafKeys = (node: unknown, prefix = ''): string[] =>
@@ -29,6 +38,14 @@ describe.each([
   ['admin/client-detail', ptClientDetail, enClientDetail, esClientDetail],
   ['admin/app-settings', ptAppSettings, enAppSettings, esAppSettings],
   ['admin/status', ptStatus, enStatus, esStatus],
+  [
+    'admin/product-updates',
+    ptProductUpdates,
+    enProductUpdates,
+    esProductUpdates,
+  ],
+  ['admin/home', ptHome, enHome, esHome],
+  ['admin/usuarios', ptUsuarios, enUsuarios, esUsuarios],
 ])('%s', (_namespace, pt, en, es) => {
   const ptKeys = leafKeys(pt).sort()
 

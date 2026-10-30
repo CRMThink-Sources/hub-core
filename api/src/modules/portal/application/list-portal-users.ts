@@ -12,6 +12,7 @@ export type PortalUserSummary = {
   email: string
   role: string
   isActive: boolean
+  bitrixUserId: number | null
   createdAt: string
 }
 
@@ -39,6 +40,7 @@ export class ListPortalUsers {
         email: u.email,
         role: u.role,
         isActive: u.isActive,
+        bitrixUserId: u.bitrixUserId,
         createdAt: u.createdAt.toISOString(),
       })),
       meta: {

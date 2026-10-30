@@ -31,6 +31,12 @@ export const THINKZAP_ASIDE_CONFIG = {
       label: 'logs',
       // icon: '/images/thinkzap/manual.png',
     },
+    // Melhorias disponíveis e em breve. Visível para todo usuário do ThinkZap:
+    // `(thinkzap)/layout.tsx` não filtra este item.
+    {
+      href: '/thinkzap/novidades',
+      label: 'novidades',
+    },
     // Manual e diretrizes de uso, na mesma página.
     {
       href: '/thinkzap/ajuda',

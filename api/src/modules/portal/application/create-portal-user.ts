@@ -6,6 +6,7 @@ export type CreatePortalUserInput = {
   email: string
   name: string
   password: string
+  bitrixUserId?: number | null
 }
 
 export type CreatePortalUserOutput = {
@@ -13,6 +14,7 @@ export type CreatePortalUserOutput = {
   email: string
   name: string
   role: string
+  bitrixUserId: number | null
 }
 
 export class CreatePortalUser {
@@ -34,6 +36,7 @@ export class CreatePortalUser {
       passwordHash,
       role: 'ADMIN',
       isActive: true,
+      bitrixUserId: input.bitrixUserId ?? null,
     })
 
     return {
@@ -41,6 +44,7 @@ export class CreatePortalUser {
       email: user.email,
       name: user.name,
       role: user.role,
+      bitrixUserId: user.bitrixUserId,
     }
   }
 }

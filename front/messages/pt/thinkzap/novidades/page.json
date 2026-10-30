@@ -1,0 +1,29 @@
+{
+  "title": "Novidades",
+  "subtitle": "Veja o que já chegou ao ThinkZap e o que estamos preparando.",
+  "tabs": {
+    "label": "Novidades do ThinkZap",
+    "available": "Já disponível",
+    "soon": "Em breve ({{count}})"
+  },
+  "badge": {
+    "available": "Disponível",
+    "soon": "Em breve"
+  },
+  "loading": "Carregando novidades…",
+  "empty": {
+    "available": {
+      "title": "Nenhuma novidade por aqui ainda",
+      "description": "Quando uma melhoria chegar ao ThinkZap, ela aparece nesta aba."
+    },
+    "soon": {
+      "title": "Nada previsto por enquanto",
+      "description": "Assim que começarmos a preparar uma nova melhoria, você fica sabendo aqui."
+    }
+  },
+  "error": {
+    "title": "Não foi possível carregar as novidades.",
+    "description": "Verifique sua conexão e tente de novo.",
+    "retry": "Tentar de novo"
+  }
+}

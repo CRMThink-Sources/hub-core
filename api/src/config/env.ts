@@ -121,6 +121,20 @@ export function parseStripeSyncEnabled(
   return providerEffects && stripeEnvironment === 'production'
 }
 
+/**
+ * Grupo (projeto) do portal da CRMThink onde ficam as tarefas das novidades. Inválido
+ * vira o padrão `2677` ("Produtos | Desenvolvimento e Sustentação") com aviso.
+ */
+export function parseCrmthinkTasksGroupId(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return 2677
+  const id = Number(raw)
+  if (Number.isInteger(id) && id > 0) return id
+  console.warn(
+    `[env] CRMTHINK_TASKS_GROUP_ID inválido (${JSON.stringify(raw)}) — usando 2677`,
+  )
+  return 2677
+}
+
 const providerEffectsEnabled =
   process.env.THINKZAP_SPA_PROVIDER_EFFECTS_ENABLED !== 'false'
 
@@ -158,6 +172,23 @@ export const env = {
   // Bitrix não assina o corpo. Vazio desabilita a rota (503); aceitar sem token faria
   // dela um botão público de esvaziar o cache do módulo `payments`.
   bitrixSpaWebhookToken: process.env.BITRIX_SPA_WEBHOOK_TOKEN ?? '',
+  /**
+   * Tarefas do portal da CRMThink ligadas às novidades do ThinkZap (mesmo
+   * `CRMTHINK_WEBHOOK_URL`, que precisa dos escopos `task` e `user`).
+   *
+   * `syncEnabled` só com o literal `'true'`: homologação e produção compartilham o
+   * portal, e só um ambiente pode concluir/reabrir tarefas e processar os eventos.
+   * Desligada, criar/concluir/reabrir é recusado, o webhook responde `200` sem
+   * processar e a reconciliação não agenda — buscar e vincular seguem funcionando.
+   *
+   * `webhookToken` é o `application_token` do webhook de saída (`ONTASKUPDATE`/
+   * `ONTASKDELETE`). Vazio desabilita `POST /api/webhooks/crmthink-tasks` (503).
+   */
+  crmthinkTasks: {
+    syncEnabled: process.env.CRMTHINK_TASKS_SYNC_ENABLED === 'true',
+    groupId: parseCrmthinkTasksGroupId(process.env.CRMTHINK_TASKS_GROUP_ID),
+    webhookToken: process.env.CRMTHINK_TASKS_WEBHOOK_TOKEN ?? '',
+  },
   tokenEncryptionKey: process.env.TOKEN_ENCRYPTION_KEY ?? '',
   zApi: {
     partnerToken: process.env.Z_API_PARTNER_TOKEN ?? '',

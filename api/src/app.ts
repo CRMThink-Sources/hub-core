@@ -7,6 +7,7 @@ import {
   clicksignRoutes,
   thinkerszapRoutes,
   portalRoutes,
+  productUpdatesPortalRoutes,
   aplicationRoutes,
   gptmakerRoutes,
 } from './composition-root.js'
@@ -17,6 +18,8 @@ import { makeZApiWebhookHandlerController } from './modules/thinkzap/main/z-api-
 import { startCredentialRefreshJob } from './shared/infra/scheduler/credential-refresh.job.js'
 import { startSubscriptionExpirationJob } from './shared/infra/scheduler/subscription-expiration.job.js'
 import { startStripeSyncJob } from './shared/infra/scheduler/stripe-sync.job.js'
+import { startCrmthinkTasksReconcileJob } from './shared/infra/scheduler/crmthink-tasks-reconcile.job.js'
+import { makeCrmthinkTasksWebhookController } from './modules/product-updates/main/make-crmthink-tasks-webhook-controller.js'
 import { adaptControllerFactory } from './shared/main/adapt-controller.js'
 import {
   makeSendEnvelopeController,
@@ -187,6 +190,13 @@ app.post(
  */
 app.all('/api/webhooks/spa', adaptControllerFactory(makeSpaWebhookController))
 
+// Eventos de tarefa do portal da CRMThink (ONTASKUPDATE/ONTASKDELETE) para as
+// novidades do ThinkZap — mesmo formulário aninhado e mesma autenticação do SPA.
+app.all(
+  '/api/webhooks/crmthink-tasks',
+  adaptControllerFactory(makeCrmthinkTasksWebhookController),
+)
+
 // Clicksign — rotas públicas (POST do robô + event do Bitrix), SEM authMiddleware.
 app.post(
   '/api/clicksign/bitrix/enviar-documento',
@@ -216,6 +226,7 @@ if (isBullBoardEnabled) {
 }
 
 app.use('/api/auth', authRoutes)
+app.use('/api/portal/novidades', productUpdatesPortalRoutes)
 app.use('/api/portal', portalRoutes)
 
 // Callback público do OAuth Conta Azul (sem auth — redirect do browser vindo da Conta Azul)
@@ -276,6 +287,7 @@ app.post(
 startCredentialRefreshJob()
 startSubscriptionExpirationJob()
 startStripeSyncJob()
+startCrmthinkTasksReconcileJob()
 
 app.use(
   (

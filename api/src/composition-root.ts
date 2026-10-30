@@ -6,6 +6,7 @@ import { createImportSheetRoutes } from './modules/importsheet/routes.js'
 import { createClickSignRoutes } from './modules/clicksign/routes.js'
 import { createPortalAuthMiddleware } from './modules/portal/infra/middleware/portal-auth.middleware.js'
 import { createPortalRoutes } from './modules/portal/routes.js'
+import { createProductUpdatesPortalRoutes } from './modules/product-updates/portal-routes.js'
 import { createAplicationRoutes } from './modules/application/routes.js'
 import { createGptMakerRoutes } from './modules/gptmaker/routes.js'
 
@@ -21,6 +22,10 @@ export const authRoutes = createAuthRoutes()
 
 // Portal routes
 export const portalRoutes = createPortalRoutes(portalAuthMiddleware)
+
+// Novidades do ThinkZap no backoffice (`/api/portal/novidades`)
+export const productUpdatesPortalRoutes =
+  createProductUpdatesPortalRoutes(portalAuthMiddleware)
 
 // Export para uso em testes ou outros entrypoints
 

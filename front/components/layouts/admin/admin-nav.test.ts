@@ -28,6 +28,18 @@ describe('isAdminNavActive', () => {
 })
 
 describe('ADMIN_NAV_GROUPS', () => {
+  it('tem sete itens, com Novidades no grupo geral logo depois de Clientes', () => {
+    expect(ADMIN_NAV_GROUPS.flatMap(group => group.items)).toHaveLength(7)
+    const general = ADMIN_NAV_GROUPS.find(group => group.labelKey === null)
+    expect(general?.items.map(item => item.href)).toEqual([
+      '/admin',
+      '/admin/clientes',
+      '/admin/novidades',
+      '/admin/usuarios',
+      '/admin/usuarios-mcp',
+    ])
+  })
+
   it('põe Jobs e Falhas de envio sob o grupo Operação', () => {
     const operations = ADMIN_NAV_GROUPS.find(
       group => group.labelKey === 'navGroupOperations',
