@@ -43,19 +43,19 @@
 
 ## 5. API do backoffice
 
-- [ ] 5.1 Criar controllers, factories e `createProductUpdatesPortalRoutes(portalAuthMiddleware)` com as rotas de lista, detalhe, criação, edição, imagem, publicar, publicar como disponível, publicar alterações, descartar, despublicar, excluir, concluir, desmarcar, buscar tarefas, buscar usuários, vincular, desvincular e criar tarefa. Montar em `/api/portal/novidades` em `app.ts`/`composition-root.ts` e mapear os erros de domínio (`404`, `409`, `422`, `502`, `503`). Verificação: testes de controller para o mapeamento de cada erro e um teste de `401` sem sessão.
+- [x] 5.1 Criar controllers, factories e `createProductUpdatesPortalRoutes(portalAuthMiddleware)` com as rotas de lista, detalhe, criação, edição, imagem, publicar, publicar como disponível, publicar alterações, descartar, despublicar, excluir, concluir, desmarcar, buscar tarefas, buscar usuários, vincular, desvincular e criar tarefa. Montar em `/api/portal/novidades` em `app.ts`/`composition-root.ts` e mapear os erros de domínio (`404`, `409`, `422`, `502`, `503`). Verificação: testes de controller para o mapeamento de cada erro e um teste de `401` sem sessão.
 
 ## 6. Sincronização Bitrix → backoffice
 
-- [ ] 6.1 Criar o controller `POST /api/webhooks/crmthink-tasks`, que:
+- [x] 6.1 Criar o controller `POST /api/webhooks/crmthink-tasks`, que:
   - responde `503` sem token e `401` com token errado;
   - responde `200` para payload malformado, para tarefa não vinculada (sem chamar o Bitrix) e com sync desligado;
   - desvincula direto no `ONTASKDELETE`;
   - enfileira no `ONTASKUPDATE` vinculado.
 
   Montar em `app.ts`. Verificação: um teste por cenário do requisito "Eventos de tarefa", com o gateway falso conferindo zero chamadas nos casos ignorados.
-- [ ] 6.2 Criar `api/src/queue/crmthink-task-sync.queue.ts` (`jobId = task-<id>`, delay de 5 s, prefixo pelo guard existente) e o processor `crmthink-task-sync.processor.ts` (`getTask` + `applyTaskStatus` + atualização do cache). Registrar o `Worker` no processo `spa-item-resource-sync.worker.ts`. Verificação: teste da fila (dedup por `jobId`, coberto por `queue-prefix.guard.test.ts`) e teste do processor para concluída, reaberta e tarefa inexistente (desvincula).
-- [ ] 6.3 Criar `crmthink-tasks-reconcile.job.ts` (+ lock) no padrão de `stripe-sync.job.ts`: `15 * * * *`, novidades com tarefa e sem `availableAt` em lotes de 50, falha de lote isolada e tarefa ausente desvinculada. Iniciar em `app.ts` só com sync ligado. Verificação: testes do job com deps falsas (lote com erro não impede o próximo; flag desligada não agenda).
+- [x] 6.2 Criar `api/src/queue/crmthink-task-sync.queue.ts` (`jobId = task-<id>`, delay de 5 s, prefixo pelo guard existente) e o processor `crmthink-task-sync.processor.ts` (`getTask` + `applyTaskStatus` + atualização do cache). Registrar o `Worker` no processo `spa-item-resource-sync.worker.ts`. Verificação: teste da fila (dedup por `jobId`, coberto por `queue-prefix.guard.test.ts`) e teste do processor para concluída, reaberta e tarefa inexistente (desvincula).
+- [x] 6.3 Criar `crmthink-tasks-reconcile.job.ts` (+ lock) no padrão de `stripe-sync.job.ts`: `15 * * * *`, novidades com tarefa e sem `availableAt` em lotes de 50, falha de lote isolada e tarefa ausente desvinculada. Iniciar em `app.ts` só com sync ligado. Verificação: testes do job com deps falsas (lote com erro não impede o próximo; flag desligada não agenda).
 
 ## 7. Leitura do cliente
 
@@ -71,7 +71,7 @@
 ## 8. Front: backoffice
 
 - [ ] 8.1 Criar `front/lib/portal-product-updates.ts` (tipos e chamadas `axiosPortal`) e as mensagens em `front/messages/{pt,en,es}/admin/product-updates.json`. Adicionar o item Novidades em `admin-nav.ts` (`navProductUpdates`, ícone `Megaphone`) com as chaves de nav. Verificação: `admin-messages-parity.test.ts` e `admin-nav.test.ts` atualizados e passando (sete itens), e `yarn tsc --noEmit` no front.
-- [ ] 8.2 Extrair o card de novidade do cliente para um componente compartilhado (`front/components/product-updates/product-update-card.tsx`), usado na pré-visualização do admin e na aba do ThinkZap. Verificação: teste de componente renderizando um card com imagem, um sem imagem e o selo "Em breve" sem data.
+- [x] 8.2 Extrair o card de novidade do cliente para um componente compartilhado (`front/components/product-updates/product-update-card.tsx`), usado na pré-visualização do admin e na aba do ThinkZap. Verificação: teste de componente renderizando um card com imagem, um sem imagem e o selo "Em breve" sem data.
 - [ ] 8.3 Criar a lista `/admin/novidades`, no padrão das páginas do admin, com:
   - cabeçalho com total e botão "Nova novidade";
   - filtro por situação;
@@ -94,14 +94,14 @@
 
 ## 9. Front: aba do ThinkZap
 
-- [ ] 9.1 Criar `front/app/(thinkzap)/thinkzap/novidades/page.tsx` com:
+- [x] 9.1 Criar `front/app/(thinkzap)/thinkzap/novidades/page.tsx` com:
   - as abas "Já disponível" (padrão) e "Em breve (N)";
   - o card compartilhado;
   - recarregamento ao trocar de idioma (`hub_locale`);
   - estados de carregamento, vazio por aba e erro com "tentar de novo".
 
   Mensagens em `front/messages/{pt,en,es}/thinkzap/novidades/page.json`. Construir com `design-taste-frontend`, no estilo das páginas do ThinkZap. Verificação: teste de componente (abre em "Já disponível", "Em breve" sem datas, vazio) e checagem no iframe do Bitrix.
-- [ ] 9.2 Adicionar `{ href: '/thinkzap/novidades', label: 'novidades' }` em `thinkzap-aside-config.ts` e o rótulo em `front/messages/{pt,en,es}/thinkzap/aside.json`, sem filtro de permissão. Revisar a página com `web-design-guidelines`. Verificação: o item aparece no menu nos três idiomas e o teste de config do aside (se existir) passa.
+- [x] 9.2 Adicionar `{ href: '/thinkzap/novidades', label: 'novidades' }` em `thinkzap-aside-config.ts` e o rótulo em `front/messages/{pt,en,es}/thinkzap/aside.json`, sem filtro de permissão. Revisar a página com `web-design-guidelines`. Verificação: o item aparece no menu nos três idiomas e o teste de config do aside (se existir) passa.
 
 ## 10. Integração e implantação
 
