@@ -77,6 +77,8 @@ describe('rotas de novidades do backoffice', () => {
     ['PUT', '/pu-1/task'],
     ['DELETE', '/pu-1/task'],
     ['POST', '/pu-1/task'],
+    ['GET', '/pu-1/task/messages'],
+    ['POST', '/pu-1/task/messages'],
   ])('%s %s sem sessão responde 401', async (method, path) => {
     const response = await fetch(`${baseUrl}/api/portal/novidades${path}`, {
       method,

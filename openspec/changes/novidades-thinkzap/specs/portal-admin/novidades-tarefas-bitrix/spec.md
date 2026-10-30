@@ -128,3 +128,40 @@ Uma configuração de ambiente SHALL desligar a sincronização com o Bitrix. Co
 #### Scenario: Homologação
 - **WHEN** a sincronização está desligada e um operador marca como concluída uma novidade com tarefa vinculada
 - **THEN** a API responde `409` com `tasks-sync-disabled` e nem a tarefa nem a novidade mudam
+
+### Requirement: Conversa da tarefa vinculada
+O backoffice SHALL mostrar a conversa da tarefa do Bitrix vinculada a uma novidade e permitir enviar mensagens a ela.
+- **Leitura:** a API SHALL devolver as últimas 50 mensagens, da mais antiga para a mais nova. Cada uma traz id, autor (id e nome), texto, data e se é mensagem do sistema (avisos automáticos do Bitrix, como mudança de status). Ler SHALL funcionar com a sincronização desligada.
+- **Envio:** a mensagem SHALL ser criada no Bitrix em nome do usuário do Bitrix vinculado ao usuário do backoffice que a enviou, nunca em nome do dono do webhook. O texto SHALL ter de 1 a 4000 caracteres depois de aparado.
+- **Recusas:**
+  - sem tarefa vinculada, `409` com `no-task-linked`;
+  - sincronização desligada, `409` com `tasks-sync-disabled` (só no envio);
+  - texto vazio ou longo demais, `422` com `invalid-message`;
+  - usuário do backoffice sem ID do Bitrix, `422` com `bitrix-user-not-linked`;
+  - Bitrix fora do ar, `502` com `crmthink-tasks-unavailable`.
+- **Alternativa:** se o Bitrix recusar o envio com o autor, a API SHALL tentar o método atual de envio ao chat da tarefa, que não aceita autor. Nesse caso a mensagem sai em nome do dono do webhook com o texto prefixado por `<nome do usuário> (via backoffice): `, e o envio SHALL ser registrado em log como aviso.
+- Anexos e edição ou exclusão de mensagens ficam fora.
+
+#### Scenario: Ler a conversa
+- **WHEN** um operador abre uma novidade com tarefa vinculada
+- **THEN** a tela mostra as mensagens da tarefa da mais antiga para a mais nova, com as mensagens do sistema destacadas como tais
+
+#### Scenario: Enviar mensagem
+- **WHEN** um operador com ID do Bitrix 42 envia "Pode revisar?" na tarefa vinculada
+- **THEN** a mensagem aparece no Bitrix como escrita pelo usuário 42 e a conversa mostrada é atualizada
+
+#### Scenario: Envio com autor recusado pelo Bitrix
+- **WHEN** o Bitrix recusa o envio com o autor e o método atual de envio funciona
+- **THEN** a mensagem aparece na tarefa com o prefixo "Maria (via backoffice): " no texto, o operador vê a mensagem como enviada e o log registra o aviso
+
+#### Scenario: Usuário sem vínculo
+- **WHEN** um operador sem ID do Bitrix tenta enviar uma mensagem
+- **THEN** a API responde `422` com `bitrix-user-not-linked` e nada é enviado ao Bitrix
+
+#### Scenario: Sem tarefa
+- **WHEN** a novidade não tem tarefa vinculada e alguém pede a conversa ou envia uma mensagem
+- **THEN** a API responde `409` com `no-task-linked`
+
+#### Scenario: Sincronização desligada
+- **WHEN** a sincronização está desligada e um operador tenta enviar uma mensagem
+- **THEN** a API responde `409` com `tasks-sync-disabled`, mas ler a conversa continua funcionando

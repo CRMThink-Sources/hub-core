@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BitrixUserNotLinkedError,
   CrmthinkTaskNotFoundError,
   CrmthinkTaskResponsibleRequiredError,
   CrmthinkTasksUnavailableError,
   InvalidProductUpdateContentError,
   InvalidProductUpdateImageError,
+  InvalidTaskMessageError,
   ProductUpdateActionRefusedError,
   ProductUpdateImageStorageUnavailableError,
   ProductUpdateIncompleteError,
@@ -107,6 +109,30 @@ describe('mapProductUpdateError', () => {
         error: 'Bitrix da CRMThink indisponível: ACCESS_DENIED',
         reason: 'crmthink-tasks-unavailable',
       },
+    })
+  })
+
+  it('sem tarefa vinculada: 409 no-task-linked', () => {
+    const error = new ProductUpdateActionRefusedError('no-task-linked')
+    expect(mapProductUpdateError(error)).toEqual({
+      status: 409,
+      result: { error: error.message, reason: 'no-task-linked' },
+    })
+  })
+
+  it('mensagem inválida: 422 invalid-message', () => {
+    const error = new InvalidTaskMessageError()
+    expect(mapProductUpdateError(error)).toEqual({
+      status: 422,
+      result: { error: error.message, reason: 'invalid-message' },
+    })
+  })
+
+  it('usuário sem vínculo com o Bitrix: 422 bitrix-user-not-linked', () => {
+    const error = new BitrixUserNotLinkedError()
+    expect(mapProductUpdateError(error)).toEqual({
+      status: 422,
+      result: { error: error.message, reason: 'bitrix-user-not-linked' },
     })
   })
 

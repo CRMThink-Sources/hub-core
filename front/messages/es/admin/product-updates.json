@@ -115,7 +115,29 @@
     "typeToSearchUsers": "Escribe al menos 2 letras.",
     "noUsers": "No se encontró ningún usuario activo.",
     "createHint": "La tarea se crea en el proyecto de productos con el título y la descripción en portugués y un enlace a esta novedad.",
-    "create": "Crear tarea"
+    "create": "Crear tarea",
+    "messages": {
+      "title": "Conversación de la tarea",
+      "description": "Los últimos 50 mensajes de la tarea en Bitrix. Lo que envíes aparece allí como escrito por ti.",
+      "refresh": "Actualizar conversación",
+      "loading": "Cargando conversación…",
+      "empty": "Aún no hay mensajes en esta tarea.",
+      "system": "Sistema",
+      "unknownUser": "Usuario #{{id}}",
+      "commentsMode": "Esta tarea usa comentarios en lugar de chat.",
+      "loadErrorTitle": "No se pudo cargar la conversación",
+      "retry": "Intentar de nuevo",
+      "listLabel": "Mensajes de la tarea",
+      "inputLabel": "Nuevo mensaje",
+      "inputPlaceholder": "Escribe un mensaje para la tarea…",
+      "inputHint": "Ctrl+Enter o ⌘+Enter para enviar.",
+      "counter": "{{count}} / {{max}}",
+      "send": "Enviar",
+      "sending": "Enviando…",
+      "sent": "Mensaje enviado.",
+      "syncOff": "El envío de mensajes está desactivado en este entorno. Leer la conversación sigue funcionando.",
+      "taskNotFound": "No se encontró la tarea en el Bitrix de CRMThink."
+    }
   },
   "actions": {
     "save": "Guardar",
@@ -206,6 +228,9 @@
     "unauthorized": "Tu sesión expiró. Inicia sesión de nuevo.",
     "not-found": "Novedad no encontrada. Puede haber sido eliminada.",
     "bad-request": "Solicitud inválida.",
-    "generic": "Algo salió mal. Inténtalo de nuevo."
+    "generic": "Algo salió mal. Inténtalo de nuevo.",
+    "no-task-linked": "Esta novedad no tiene tarea vinculada.",
+    "invalid-message": "El mensaje debe tener entre 1 y 4000 caracteres.",
+    "bitrix-user-not-linked": "Tu usuario no está vinculado a un usuario de Bitrix. Pide a un administrador que complete tu “ID en Bitrix” en Usuarios."
   }
 }

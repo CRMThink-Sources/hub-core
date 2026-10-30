@@ -38,6 +38,7 @@ import {
   statusMeta,
 } from '@/lib/portal-status'
 import { useProductUpdateErrorToast } from './admin-product-update-errors'
+import { AdminProductUpdateTaskMessages } from './admin-product-update-task-messages'
 import { AdminPanel } from './ui/admin-panel'
 import { AdminStatusBadge } from './ui/admin-status-badge'
 
@@ -202,6 +203,12 @@ function LinkedTask({
         <Link2Off aria-hidden className="size-3.5" />
         {t('task.unlink')}
       </Button>
+
+      <AdminProductUpdateTaskMessages
+        productUpdateId={view.id}
+        taskId={task.id}
+        disabled={busy}
+      />
     </div>
   )
 }

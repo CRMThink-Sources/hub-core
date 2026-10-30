@@ -115,7 +115,29 @@
     "typeToSearchUsers": "Digite ao menos 2 letras.",
     "noUsers": "Nenhum usuário ativo encontrado.",
     "createHint": "A tarefa é criada no projeto de produtos com o título e a descrição em português e um link para esta novidade.",
-    "create": "Criar tarefa"
+    "create": "Criar tarefa",
+    "messages": {
+      "title": "Conversa da tarefa",
+      "description": "As últimas 50 mensagens da tarefa no Bitrix. O que você enviar aparece lá como escrito por você.",
+      "refresh": "Atualizar conversa",
+      "loading": "Carregando conversa…",
+      "empty": "Ainda não há mensagens nesta tarefa.",
+      "system": "Sistema",
+      "unknownUser": "Usuário #{{id}}",
+      "commentsMode": "Esta tarefa usa comentários em vez de chat.",
+      "loadErrorTitle": "Não foi possível carregar a conversa",
+      "retry": "Tentar de novo",
+      "listLabel": "Mensagens da tarefa",
+      "inputLabel": "Nova mensagem",
+      "inputPlaceholder": "Escreva uma mensagem para a tarefa…",
+      "inputHint": "Ctrl+Enter ou ⌘+Enter para enviar.",
+      "counter": "{{count}} / {{max}}",
+      "send": "Enviar",
+      "sending": "Enviando…",
+      "sent": "Mensagem enviada.",
+      "syncOff": "O envio de mensagens está desligado neste ambiente. Ler a conversa continua funcionando.",
+      "taskNotFound": "A tarefa não foi encontrada no Bitrix da CRMThink."
+    }
   },
   "actions": {
     "save": "Salvar",
@@ -206,6 +228,9 @@
     "unauthorized": "Sua sessão expirou. Entre de novo.",
     "not-found": "Novidade não encontrada. Ela pode ter sido excluída.",
     "bad-request": "Pedido inválido.",
-    "generic": "Algo deu errado. Tente de novo."
+    "generic": "Algo deu errado. Tente de novo.",
+    "no-task-linked": "Esta novidade não tem tarefa vinculada.",
+    "invalid-message": "A mensagem precisa ter de 1 a 4000 caracteres.",
+    "bitrix-user-not-linked": "Seu usuário não está ligado a um usuário do Bitrix. Peça a um administrador para preencher o seu “ID no Bitrix” em Usuários."
   }
 }

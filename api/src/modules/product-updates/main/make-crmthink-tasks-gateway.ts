@@ -5,7 +5,10 @@ import type {
   CrmthinkTasksGateway,
 } from '../domain/ports/crmthink-tasks-gateway.port'
 import type { CreateCrmthinkTaskConfig } from '../application/create-crmthink-task-for-update'
-import { BitrixCrmthinkTasksGateway } from '../infra/adapters/bitrix-crmthink-tasks-gateway.adapter'
+import {
+  BitrixCrmthinkTasksGateway,
+  toRestV3Webhook,
+} from '../infra/adapters/bitrix-crmthink-tasks-gateway.adapter'
 
 /**
  * Gateway das tarefas pelo webhook de entrada do portal da CRMThink
@@ -16,6 +19,7 @@ export function makeCrmthinkTasksGateway(
 ): CrmthinkTasksGateway {
   return new BitrixCrmthinkTasksGateway(
     new BitrixClient({ webhook: webhookUrl }),
+    new BitrixClient({ webhook: toRestV3Webhook(webhookUrl) }),
   )
 }
 

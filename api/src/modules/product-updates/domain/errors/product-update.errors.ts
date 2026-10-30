@@ -53,6 +53,8 @@ export type ProductUpdateActionRefusal =
   | 'already-done'
   /** Vincular ou criar tarefa numa novidade que já tem outra (desvincule antes). */
   | 'task-already-set'
+  /** Ler ou enviar mensagem da tarefa numa novidade sem tarefa vinculada. */
+  | 'no-task-linked'
 
 /** `409` com o motivo: a ação não cabe na situação atual, e nada foi gravado. */
 export class ProductUpdateActionRefusedError extends Error {
@@ -136,6 +138,29 @@ export class CrmthinkTaskResponsibleRequiredError extends Error {
   constructor() {
     super('Escolha o responsável pela tarefa')
     this.name = 'CrmthinkTaskResponsibleRequiredError'
+  }
+}
+
+/** `422 { reason: 'invalid-message' }`: texto vazio ou acima de 4000 caracteres. */
+export class InvalidTaskMessageError extends Error {
+  readonly reason = 'invalid-message'
+
+  constructor() {
+    super('Escreva uma mensagem de até 4000 caracteres')
+    this.name = 'InvalidTaskMessageError'
+  }
+}
+
+/**
+ * `422 { reason: 'bitrix-user-not-linked' }`: o usuário do backoffice não tem
+ * usuário do Bitrix vinculado; enviar sairia em nome do dono do webhook.
+ */
+export class BitrixUserNotLinkedError extends Error {
+  readonly reason = 'bitrix-user-not-linked'
+
+  constructor() {
+    super('Seu usuário não está vinculado a um usuário do Bitrix')
+    this.name = 'BitrixUserNotLinkedError'
   }
 }
 

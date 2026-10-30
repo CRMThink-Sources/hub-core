@@ -1,10 +1,12 @@
 import { httpResponse } from '@/shared/helpers/http'
 import {
+  BitrixUserNotLinkedError,
   CrmthinkTaskNotFoundError,
   CrmthinkTaskResponsibleRequiredError,
   CrmthinkTasksUnavailableError,
   InvalidProductUpdateContentError,
   InvalidProductUpdateImageError,
+  InvalidTaskMessageError,
   ProductUpdateActionRefusedError,
   ProductUpdateImageStorageUnavailableError,
   ProductUpdateIncompleteError,
@@ -53,6 +55,12 @@ export function mapProductUpdateError(
   }
   if (error instanceof InvalidProductUpdateImageError) {
     return refusal(422, error.message, 'invalid-image')
+  }
+  if (
+    error instanceof InvalidTaskMessageError ||
+    error instanceof BitrixUserNotLinkedError
+  ) {
+    return refusal(422, error.message, error.reason)
   }
   if (error instanceof CrmthinkTaskNotFoundError) {
     return refusal(422, error.message, error.reason, { taskId: error.taskId })

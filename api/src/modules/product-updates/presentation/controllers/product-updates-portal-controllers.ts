@@ -13,6 +13,8 @@ import type { CompleteProductUpdate } from '../../application/complete-product-u
 import type { CreateCrmthinkTaskForUpdate } from '../../application/create-crmthink-task-for-update'
 import type { CreateProductUpdate } from '../../application/create-product-update'
 import type { DeleteProductUpdate } from '../../application/delete-product-update'
+import type { ListCrmthinkTaskMessages } from '../../application/list-crmthink-task-messages'
+import type { SendCrmthinkTaskMessage } from '../../application/send-crmthink-task-message'
 import type { LinkCrmthinkTask } from '../../application/link-crmthink-task'
 import type { ListProductUpdates } from '../../application/list-product-updates'
 import type { SearchCrmthinkTasks } from '../../application/search-crmthink-tasks'
@@ -265,5 +267,37 @@ export class SearchCrmthinkUsersController extends ProductUpdatePortalController
 
   protected async run(req: Request): Promise<httpResponse> {
     return this.ok({ items: await this.search.execute(queryTerm(req)) })
+  }
+}
+
+/** `GET /:id/task/messages` — `{ mode, messages }`. */
+export class ListCrmthinkTaskMessagesController extends ProductUpdatePortalController {
+  constructor(
+    private readonly list: Pick<ListCrmthinkTaskMessages, 'execute'>,
+  ) {
+    super()
+  }
+
+  protected async run(req: Request, actor: Actor): Promise<httpResponse> {
+    return this.ok(await this.list.execute(this.actionInput(req, actor)))
+  }
+}
+
+/**
+ * `POST /:id/task/messages` — body `{ text }`, resposta `{ sent: true }`. Texto
+ * ausente ou que não é string segue como está para o caso de uso, que recusa com
+ * `422 invalid-message` (mesmo critério do `responsibleId`).
+ */
+export class SendCrmthinkTaskMessageController extends ProductUpdatePortalController {
+  constructor(private readonly send: Pick<SendCrmthinkTaskMessage, 'execute'>) {
+    super()
+  }
+
+  protected async run(req: Request, actor: Actor): Promise<httpResponse> {
+    await this.send.execute({
+      ...this.actionInput(req, actor),
+      text: bodyOf(req).text,
+    })
+    return this.ok({ sent: true })
   }
 }
