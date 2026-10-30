@@ -15,6 +15,7 @@ function toPortalUser(row: {
   passwordHash: string
   role: 'ADMIN'
   isActive: boolean
+  bitrixUserId: number | null
   createdAt: Date
   updatedAt: Date
 }): PortalUser {
@@ -25,6 +26,7 @@ function toPortalUser(row: {
     passwordHash: row.passwordHash,
     role: row.role,
     isActive: row.isActive,
+    bitrixUserId: row.bitrixUserId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
@@ -64,7 +66,23 @@ export class PrismaPortalUserRepository implements PortalUserRepository {
         passwordHash: input.passwordHash,
         role: input.role,
         isActive: input.isActive,
+        bitrixUserId: input.bitrixUserId ?? null,
       },
+    })
+
+    return toPortalUser(user)
+  }
+
+  async updateBitrixUserId(
+    id: string,
+    bitrixUserId: number | null,
+  ): Promise<PortalUser | null> {
+    const existing = await prisma.portalUser.findUnique({ where: { id } })
+    if (!existing) return null
+
+    const user = await prisma.portalUser.update({
+      where: { id },
+      data: { bitrixUserId },
     })
 
     return toPortalUser(user)

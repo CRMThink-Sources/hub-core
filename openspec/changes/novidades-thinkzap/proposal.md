@@ -23,6 +23,7 @@ Os clientes do ThinkZap não têm onde ver o que mudou no produto nem o que est�
   - Uma flag de ambiente desliga as escritas no Bitrix e o processamento do webhook, porque homologação e produção compartilham o portal.
 - **Aba "Novidades" no ThinkZap** (`/thinkzap/novidades`): lista única para todos os clientes, no idioma do cliente. Tem as abas internas "Já disponível" (padrão, com data) e "Em breve" (sem datas), com cards de título, descrição e imagem.
 - **Menu do admin** ganha o item Novidades.
+- **Usuário do backoffice ligado ao usuário do Bitrix**: campo opcional "ID no Bitrix" no cadastro e na edição dos usuários do backoffice. Ele permite atribuir à pessoa certa as ações feitas no Bitrix a partir do backoffice (como mensagens na tarefa da novidade, numa etapa seguinte).
 
 Fora do escopo: integração com GitHub, tradução automática, prazos para itens futuros, notificações, conteúdo por cliente, novidades de outros produtos.
 
@@ -32,6 +33,8 @@ Fora do escopo: integração com GitHub, tradução automática, prazos para ite
 - `portal-admin/novidades-backoffice`: cadastro, ciclo de vida, revisão e publicação de novidades do ThinkZap no backoffice (conteúdo trilíngue, imagem, alterações pendentes).
 - `portal-admin/novidades-tarefas-bitrix`: vínculo de novidades com tarefas do Bitrix da CRMThink (busca, criação com responsável) e sincronização bidirecional da conclusão (webhook, reconciliação, flag de ambiente).
 - `thinkzap/novidades-cliente`: aba "Novidades" do ThinkZap para o cliente final e o endpoint de leitura que a alimenta.
+
+- `portal-admin/usuarios-vinculo-bitrix`: ID do usuário do Bitrix da CRMThink no cadastro de usuário do backoffice (criar, editar, listar).
 
 ### Modified Capabilities
 - `portal-admin/navegacao-portal-admin`: a navegação agrupada passa a incluir o item Novidades (`/admin/novidades`) no grupo geral.

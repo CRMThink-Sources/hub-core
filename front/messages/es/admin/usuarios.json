@@ -28,7 +28,8 @@
     "role": "Perfil",
     "status": "Estado",
     "createdAt": "Creado el",
-    "actions": "Acciones"
+    "actions": "Acciones",
+    "bitrixUserId": "ID en Bitrix"
   },
   "status": {
     "active": "Activo",
@@ -43,5 +44,20 @@
   "retry": "Reintentar",
   "page": "Página {{current}} de {{total}}",
   "previous": "Anterior",
-  "next": "Siguiente"
+  "next": "Siguiente",
+  "bitrixUserIdLabel": "ID en Bitrix (opcional)",
+  "bitrixUserIdPlaceholder": "Ej.: 42",
+  "bitrixUserIdHint": "Número del usuario en el Bitrix24 de CRMThink. Se usa para atribuir a esta persona las acciones hechas en Bitrix desde el backoffice.",
+  "errorBitrixUserId": "Indica un número entero positivo o déjalo en blanco.",
+  "errorBitrixSave": "No se pudo guardar el ID. Inténtalo de nuevo.",
+  "bitrixDialog": {
+    "edit": "Editar ID",
+    "title": "ID en Bitrix",
+    "description": "Usuario del backoffice: {{name}}",
+    "removeLink": "Quitar vínculo",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "saving": "Guardando...",
+    "errorNotFound": "Usuario no encontrado."
+  }
 }

@@ -7,6 +7,8 @@ export type PortalUser = {
   passwordHash: string
   role: PortalUserRole
   isActive: boolean
+  /** ID do usuário no Bitrix24 da CRMThink; nulo quando não há vínculo. */
+  bitrixUserId: number | null
   createdAt: Date
   updatedAt: Date
 }
