@@ -14,6 +14,9 @@ import esStatus from '@/messages/es/admin/status.json'
 import ptProductUpdates from '@/messages/pt/admin/product-updates.json'
 import enProductUpdates from '@/messages/en/admin/product-updates.json'
 import esProductUpdates from '@/messages/es/admin/product-updates.json'
+import ptUsuarios from '@/messages/pt/admin/usuarios.json'
+import enUsuarios from '@/messages/en/admin/usuarios.json'
+import esUsuarios from '@/messages/es/admin/usuarios.json'
 import ptHome from '@/messages/pt/admin/home.json'
 import enHome from '@/messages/en/admin/home.json'
 import esHome from '@/messages/es/admin/home.json'
@@ -42,6 +45,7 @@ describe.each([
     esProductUpdates,
   ],
   ['admin/home', ptHome, enHome, esHome],
+  ['admin/usuarios', ptUsuarios, enUsuarios, esUsuarios],
 ])('%s', (_namespace, pt, en, es) => {
   const ptKeys = leafKeys(pt).sort()
 

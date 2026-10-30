@@ -12,7 +12,10 @@ import {
   FieldGroup,
   FieldLabel,
 } from '@/components/ui/field'
-import type { ListPortalUsersResponse } from '@/lib/portal-users'
+import {
+  parseBitrixUserId,
+  type ListPortalUsersResponse,
+} from '@/lib/portal-users'
 import { AdminUsersTable } from './admin-users-table'
 
 type CreateUserResult = {
@@ -39,6 +42,7 @@ export function AdminUsersPage() {
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [bitrixUserId, setBitrixUserId] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -97,6 +101,11 @@ export function AdminUsersPage() {
     setPage(1)
   }
 
+  /** Recarrega a lista na página em que o usuário está. */
+  function refresh() {
+    setReloadCounter(c => c + 1)
+  }
+
   function openCreateForm() {
     setShowCreateForm(true)
     setCreateError(null)
@@ -105,6 +114,7 @@ export function AdminUsersPage() {
     setName('')
     setPassword('')
     setConfirmPassword('')
+    setBitrixUserId('')
   }
 
   function closeCreateForm() {
@@ -123,18 +133,25 @@ export function AdminUsersPage() {
       return
     }
 
+    const parsedBitrixUserId = parseBitrixUserId(bitrixUserId)
+    if (!parsedBitrixUserId.valid) {
+      setCreateError(t('errorBitrixUserId'))
+      return
+    }
+
     setIsCreating(true)
 
     try {
       const result = await axiosPortal().post<CreateUserResult>(
         '/portal/users',
-        { email, name, password },
+        { email, name, password, bitrixUserId: parsedBitrixUserId.value },
       )
       setCreateSuccess(t('successDescription', { email: result.email }))
       setEmail('')
       setName('')
       setPassword('')
       setConfirmPassword('')
+      setBitrixUserId('')
       reload()
     } catch (err: unknown) {
       const apiError = (
@@ -289,6 +306,24 @@ export function AdminUsersPage() {
                 </div>
               </Field>
 
+              <Field>
+                <FieldLabel htmlFor="bitrixUserId">
+                  {t('bitrixUserIdLabel')}
+                </FieldLabel>
+                <Input
+                  id="bitrixUserId"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={bitrixUserId}
+                  onChange={event => setBitrixUserId(event.target.value)}
+                  placeholder={t('bitrixUserIdPlaceholder')}
+                  disabled={isCreating}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t('bitrixUserIdHint')}
+                </p>
+              </Field>
+
               {createError ? <FieldError>{createError}</FieldError> : null}
 
               {createSuccess ? (
@@ -363,7 +398,7 @@ export function AdminUsersPage() {
         </div>
       ) : (
         <>
-          <AdminUsersTable users={users} />
+          <AdminUsersTable users={users} onUpdated={refresh} />
 
           {meta && meta.totalPages > 1 && (
             <div className="flex items-center justify-between">

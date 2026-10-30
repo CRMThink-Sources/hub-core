@@ -15,6 +15,7 @@ const activeUser = {
   passwordHash: '',
   role: 'ADMIN' as const,
   isActive: true,
+  bitrixUserId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 }
@@ -26,6 +27,7 @@ function createPortalUserRepositoryMock(
     findByEmail: vi.fn(),
     findById: vi.fn(),
     create: vi.fn(),
+    updateBitrixUserId: vi.fn(),
     listWithPagination: vi.fn().mockResolvedValue({ users: [], total: 0 }),
     ...overrides,
   }

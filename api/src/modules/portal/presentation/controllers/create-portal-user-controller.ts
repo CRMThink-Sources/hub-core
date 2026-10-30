@@ -16,6 +16,7 @@ export class CreatePortalUserController extends Controller {
         email: z.string().email(),
         name: z.string().min(1),
         password: z.string().min(8),
+        bitrixUserId: z.number().int().positive().max(2_147_483_647).nullish(),
       })
       .safeParse(req.body)
 

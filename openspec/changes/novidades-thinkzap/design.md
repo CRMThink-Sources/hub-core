@@ -160,6 +160,9 @@ Não há paginação nem cache, porque é uma lista pequena. *Decisão minha:* r
 - **ThinkZap:** `app/(thinkzap)/thinkzap/novidades/page.tsx` com `Tabs`, namespace `thinkzap/novidades/page`.
 - **Construção:** guiada pela skill `design-taste-frontend` (telas de app) e revisada com `web-design-guidelines`.
 
+### D12. Vínculo do usuário do backoffice com o usuário do Bitrix
+Coluna `bitrix_user_id` (inteiro, opcional) em `portal_users`, preenchida por um campo de ID no cadastro e editada por `PATCH /api/portal/users/:id` (`{ bitrixUserId: number | null }`). *Decisão minha:* sem índice único (dois usuários do backoffice apontando para o mesmo usuário do Bitrix é inofensivo) e sem validar o ID no Bitrix ao salvar (o escopo `user` do webhook pode ainda não estar ativo, e o ID é digitado por quem administra). O vínculo ainda não é usado por nenhuma ação das novidades; ele existe para a etapa de mensagens da tarefa, em que o autor da mensagem no Bitrix passa a ser este usuário (`AUTHOR_ID`) em vez do dono do webhook, e também pode sugerir o responsável ao criar tarefas.
+
 ## Risks / Trade-offs
 
 - **Volume do webhook:** o portal todo dispara `ONTASKUPDATE` → filtro por índice único antes de qualquer outra coisa; resposta `200` imediata.

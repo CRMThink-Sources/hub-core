@@ -839,6 +839,8 @@ model PortalUser {
   passwordHash String         @map("password_hash")
   role         PortalUserRole @default(ADMIN)
   isActive     Boolean        @default(true) @map("is_active")
+  /// ID do usuário no Bitrix24 da CRMThink; atribui ao autor certo as ações feitas lá a partir do backoffice.
+  bitrixUserId Int?           @map("bitrix_user_id")
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
 

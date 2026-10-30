@@ -123,3 +123,8 @@
   - reabrir.
 
   Verificação: checklist preenchido no PR.
+
+## 11. Vínculo do usuário do backoffice com o usuário do Bitrix
+
+- [x] 11.1 API: adicionar `bitrixUserId Int? @map("bitrix_user_id")` ao `PortalUser` com a migration, aceitar `bitrixUserId` opcional no cadastro, devolvê-lo na listagem e criar `UpdatePortalUserBitrixId` com `PATCH /api/portal/users/:id` (`404` para usuário inexistente, `400` para valor inválido). Verificação: testes unitários do cadastro (com e sem ID, ID inválido), da listagem e da edição (definir, trocar, remover, inexistente), mais o teste de rota com `401` sem sessão; `yarn test`, `tsc` e eslint verdes na API.
+- [x] 11.2 Front: campo "ID no Bitrix" no formulário de cadastro, coluna na tabela de usuários e edição do ID por linha (definir, salvar, remover), com mensagens em `messages/{pt,en,es}/admin/usuarios.json`. Verificação: teste da função que valida e normaliza o ID digitado, teste de paridade das mensagens, `vitest`, `tsc` e eslint verdes no front.
