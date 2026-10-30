@@ -4,7 +4,10 @@ import {
   CrmthinkTaskNotFoundError,
   CrmthinkTasksUnavailableError,
 } from '../../domain/errors/product-update.errors'
-import { BitrixCrmthinkTasksGateway } from './bitrix-crmthink-tasks-gateway.adapter'
+import {
+  BitrixCrmthinkTasksGateway,
+  toRestV3Webhook,
+} from './bitrix-crmthink-tasks-gateway.adapter'
 
 /** `BitrixClient` falso: devolve o envelope `{ result }`, como o real. */
 function makeSut(...responses: unknown[]) {
@@ -20,6 +23,23 @@ const notFound = () =>
   new BitrixError(
     'Bitrix error: 400 - {"error":"ERROR_CORE","error_description":"TASKS_ERROR_EXCEPTION_#256; 256/TE/TASK_NOT_FOUND_OR_NOT_ACCESSIBLE<br>"}',
   )
+
+describe('toRestV3Webhook', () => {
+  it('põe /api/ depois de /rest/', () => {
+    expect(
+      toRestV3Webhook('https://crmthink.bitrix24.com.br/rest/1/tok/'),
+    ).toBe('https://crmthink.bitrix24.com.br/rest/api/1/tok/')
+  })
+
+  it('URL que já está no formato do REST 3.0 não muda', () => {
+    const url = 'https://crmthink.bitrix24.com.br/rest/api/1/tok/'
+    expect(toRestV3Webhook(url)).toBe(url)
+  })
+
+  it('URL vazia continua vazia', () => {
+    expect(toRestV3Webhook('')).toBe('')
+  })
+})
 
 describe('BitrixCrmthinkTasksGateway — conversa da tarefa', () => {
   describe('listTaskMessages', () => {
@@ -195,15 +215,90 @@ describe('BitrixCrmthinkTasksGateway — conversa da tarefa', () => {
   })
 
   describe('sendTaskMessage', () => {
+    const author = { bitrixUserId: 15, name: 'Maria' }
+
     it('chama task.commentitem.add com TASKID e FIELDS exatos', async () => {
       const { gateway, callMethod } = makeSut({ result: 77 })
 
-      await gateway.sendTaskMessage(42, 'olá', 15)
+      const result = await gateway.sendTaskMessage(42, 'olá', author)
 
+      expect(result).toEqual({ attributedToAuthor: true })
       expect(callMethod).toHaveBeenCalledTimes(1)
       expect(callMethod).toHaveBeenCalledWith('task.commentitem.add', {
         TASKID: 42,
         FIELDS: { POST_MESSAGE: 'olá', AUTHOR_ID: 15 },
+      })
+    })
+
+    describe('com o REST 3.0 como alternativa', () => {
+      function makeSutWithFallback(legacy: unknown, ...modern: unknown[]) {
+        const callMethod = vi.fn()
+        if (legacy instanceof Error) callMethod.mockRejectedValueOnce(legacy)
+        else callMethod.mockResolvedValueOnce(legacy)
+        const restV3 = vi.fn()
+        for (const response of modern) {
+          if (response instanceof Error) restV3.mockRejectedValueOnce(response)
+          else restV3.mockResolvedValueOnce(response)
+        }
+        return {
+          callMethod,
+          restV3,
+          gateway: new BitrixCrmthinkTasksGateway(
+            { callMethod },
+            { callMethod: restV3 },
+          ),
+        }
+      }
+
+      it('o método antigo funcionando: o novo nem é chamado', async () => {
+        const { gateway, restV3 } = makeSutWithFallback({ result: 77 })
+
+        const result = await gateway.sendTaskMessage(42, 'olá', author)
+
+        expect(result).toEqual({ attributedToAuthor: true })
+        expect(restV3).not.toHaveBeenCalled()
+      })
+
+      it('o método antigo falhou: envia pelo novo, com o nome no texto', async () => {
+        const { gateway, callMethod, restV3 } = makeSutWithFallback(
+          new BitrixError(
+            'Bitrix error: 404 - {"error":"ERROR_METHOD_NOT_FOUND","error_description":"Method not found!"}',
+          ),
+          { result: true },
+        )
+
+        const result = await gateway.sendTaskMessage(42, 'olá', author)
+
+        expect(result).toEqual({ attributedToAuthor: false })
+        expect(callMethod).toHaveBeenCalledTimes(1)
+        expect(restV3).toHaveBeenCalledWith('tasks.task.chat.message.send', {
+          fields: { taskId: 42, text: 'Maria (via backoffice): olá' },
+        })
+      })
+
+      it('os dois falham: sobe o erro do método novo', async () => {
+        const { gateway } = makeSutWithFallback(
+          new BitrixError(
+            'Bitrix error: 400 - {"error":"ERROR_CORE","error_description":"antigo fora"}',
+          ),
+          new BitrixError(
+            'Bitrix error: 403 - {"error":"insufficient_scope","error_description":"sem escopo tasks"}',
+          ),
+        )
+
+        await expect(
+          gateway.sendTaskMessage(42, 'olá', author),
+        ).rejects.toThrow(
+          /tasks\.task\.chat\.message\.send: .*insufficient_scope/,
+        )
+      })
+
+      it('tarefa ilegível nos dois: CrmthinkTaskNotFoundError', async () => {
+        const { gateway } = makeSutWithFallback(notFound(), notFound())
+
+        await expect(
+          gateway.sendTaskMessage(42, 'olá', author),
+        ).rejects.toBeInstanceOf(CrmthinkTaskNotFoundError)
       })
     })
 
@@ -214,7 +309,7 @@ describe('BitrixCrmthinkTasksGateway — conversa da tarefa', () => {
         ),
       )
 
-      await expect(gateway.sendTaskMessage(42, 'x', 15)).rejects.toThrow(
+      await expect(gateway.sendTaskMessage(42, 'x', author)).rejects.toThrow(
         CrmthinkTasksUnavailableError,
       )
     })
@@ -225,7 +320,7 @@ describe('BitrixCrmthinkTasksGateway — conversa da tarefa', () => {
         error_description: 'falhou',
       })
 
-      await expect(gateway.sendTaskMessage(42, 'x', 15)).rejects.toThrow(
+      await expect(gateway.sendTaskMessage(42, 'x', author)).rejects.toThrow(
         'task.commentitem.add: falhou',
       )
     })
@@ -233,9 +328,9 @@ describe('BitrixCrmthinkTasksGateway — conversa da tarefa', () => {
     it('tarefa ilegível: CrmthinkTaskNotFoundError', async () => {
       const { gateway } = makeSut(notFound())
 
-      await expect(gateway.sendTaskMessage(42, 'x', 15)).rejects.toBeInstanceOf(
-        CrmthinkTaskNotFoundError,
-      )
+      await expect(
+        gateway.sendTaskMessage(42, 'x', author),
+      ).rejects.toBeInstanceOf(CrmthinkTaskNotFoundError)
     })
   })
 })

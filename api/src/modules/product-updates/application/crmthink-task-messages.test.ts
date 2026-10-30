@@ -126,6 +126,25 @@ describe('SendCrmthinkTaskMessage', () => {
     ])
   })
 
+  it('passa o nome do usuário ao gateway, para o prefixo do envio sem autor', async () => {
+    const { send, gateway } = makeSut()
+
+    await send.execute(sendInput)
+
+    expect(gateway.calls.at(-1)).toEqual({
+      method: 'sendTaskMessage',
+      args: [42, 'olá', 15],
+    })
+  })
+
+  it('o envio pelo método sem autor ainda conta como enviado', async () => {
+    const { send, gateway } = makeSut()
+    gateway.attributeMessagesToAuthor = false
+
+    await expect(send.execute(sendInput)).resolves.toBeUndefined()
+    expect(gateway.sentMessages).toHaveLength(1)
+  })
+
   it('aceita exatamente 4000 caracteres', async () => {
     const { send, gateway } = makeSut()
     await send.execute({ ...sendInput, text: 'a'.repeat(4000) })

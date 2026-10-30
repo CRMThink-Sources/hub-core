@@ -6,10 +6,12 @@ import {
 import type {
   CrmthinkTask,
   CrmthinkTaskMessage,
+  CrmthinkTaskMessageAuthor,
   CrmthinkTaskMessages,
   CrmthinkTasksGateway,
   CrmthinkUser,
   NewCrmthinkTask,
+  SendTaskMessageResult,
 } from '../../domain/ports/crmthink-tasks-gateway.port'
 
 type GatewayCall = { method: keyof CrmthinkTasksGateway; args: unknown[] }
@@ -35,6 +37,8 @@ export class InMemoryCrmthinkTasksGateway implements CrmthinkTasksGateway {
   }[] = []
   /** Cartão de tarefas: `chat` (novo) ou `comments` (antigo). */
   messagesMode: 'chat' | 'comments' = 'chat'
+  /** `false` simula o envio pelo método atual, em nome do dono do webhook. */
+  attributeMessagesToAuthor = true
   failing = false
   private nextId = 9000
 
@@ -125,8 +129,9 @@ export class InMemoryCrmthinkTasksGateway implements CrmthinkTasksGateway {
   sendTaskMessage(
     taskId: number,
     text: string,
-    authorBitrixUserId: number,
-  ): Promise<void> {
+    author: CrmthinkTaskMessageAuthor,
+  ): Promise<SendTaskMessageResult> {
+    const authorBitrixUserId = author.bitrixUserId
     return this.run(
       'sendTaskMessage',
       [taskId, text, authorBitrixUserId],
@@ -143,6 +148,7 @@ export class InMemoryCrmthinkTasksGateway implements CrmthinkTasksGateway {
           isSystem: false,
         })
         this.messages.set(taskId, list)
+        return { attributedToAuthor: this.attributeMessagesToAuthor }
       },
     )
   }

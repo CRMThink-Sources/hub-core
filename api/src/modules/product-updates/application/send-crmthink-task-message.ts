@@ -60,18 +60,30 @@ export class SendCrmthinkTaskMessage {
       throw new BitrixUserNotLinkedError()
     }
 
-    await this.gateway.sendTaskMessage(taskId, text, user.bitrixUserId)
-
-    apiLogger.info(
-      {
-        app: 'product-updates',
-        action: 'send-task-message',
-        productUpdateId: update.id,
-        portalUserId: input.portalUserId,
-        bitrixTaskId: taskId,
-        bitrixUserId: user.bitrixUserId,
-      },
-      'Mensagem enviada à tarefa da novidade',
+    const { attributedToAuthor } = await this.gateway.sendTaskMessage(
+      taskId,
+      text,
+      { bitrixUserId: user.bitrixUserId, name: user.name },
     )
+
+    const context = {
+      app: 'product-updates',
+      action: 'send-task-message',
+      productUpdateId: update.id,
+      portalUserId: input.portalUserId,
+      bitrixTaskId: taskId,
+      bitrixUserId: user.bitrixUserId,
+      attributedToAuthor,
+    }
+    if (attributedToAuthor) {
+      apiLogger.info(context, 'Mensagem enviada à tarefa da novidade')
+    } else {
+      // O método antigo (com autor) falhou e o envio seguiu pelo atual, em nome do
+      // dono do webhook: vale ver por quê antes que ele pare de vez.
+      apiLogger.warn(
+        context,
+        'Mensagem enviada à tarefa pelo método atual, sem o autor real',
+      )
+    }
   }
 }

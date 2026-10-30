@@ -82,14 +82,30 @@ export interface CrmthinkTasksGateway {
    */
   listTaskMessages(taskId: number): Promise<CrmthinkTaskMessages>
   /**
-   * Comenta na tarefa em nome do usuário do Bitrix dado (`AUTHOR_ID`). Tarefa
-   * ilegível rejeita com `CrmthinkTaskNotFoundError`.
+   * Comenta na tarefa em nome do usuário do Bitrix dado (`AUTHOR_ID`). Se esse
+   * caminho falhar, tenta o método atual do chat da tarefa, que não aceita autor: o
+   * texto sai em nome do dono do webhook, prefixado com o nome de quem enviou
+   * (`attributedToAuthor: false`). Tarefa ilegível rejeita com
+   * `CrmthinkTaskNotFoundError`.
    */
   sendTaskMessage(
     taskId: number,
     text: string,
-    authorBitrixUserId: number,
-  ): Promise<void>
+    author: CrmthinkTaskMessageAuthor,
+  ): Promise<SendTaskMessageResult>
+}
+
+/** Quem envia uma mensagem pelo backoffice. */
+export type CrmthinkTaskMessageAuthor = {
+  /** ID do usuário no Bitrix da CRMThink. */
+  bitrixUserId: number
+  /** Nome exibido, usado no prefixo quando a mensagem não pode sair no nome dele. */
+  name: string
+}
+
+export type SendTaskMessageResult = {
+  /** `false` quando a mensagem saiu em nome do dono do webhook, com o nome no texto. */
+  attributedToAuthor: boolean
 }
 
 /** Configuração da integração, injetada nos casos de uso (vem de `env.crmthinkTasks`). */

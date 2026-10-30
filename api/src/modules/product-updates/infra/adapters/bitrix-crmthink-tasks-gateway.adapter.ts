@@ -1,10 +1,12 @@
 import type {
   CrmthinkTask,
   CrmthinkTaskMessage,
+  CrmthinkTaskMessageAuthor,
   CrmthinkTaskMessages,
   CrmthinkTasksGateway,
   CrmthinkUser,
   NewCrmthinkTask,
+  SendTaskMessageResult,
 } from '../../domain/ports/crmthink-tasks-gateway.port'
 import {
   CRMTHINK_TASK_MESSAGES_LIMIT,
@@ -44,6 +46,16 @@ const TASK_NOT_FOUND_MARKERS = [
 
 const isTaskNotFound = (message: string): boolean =>
   TASK_NOT_FOUND_MARKERS.some(marker => message.includes(marker))
+
+/**
+ * URL do webhook de entrada (`.../rest/<usuário>/<token>/`) no formato do REST 3.0
+ * (`.../rest/api/<usuário>/<token>/`).
+ */
+export function toRestV3Webhook(webhook: string): string {
+  return webhook.includes('/rest/api/')
+    ? webhook
+    : webhook.replace('/rest/', '/rest/api/')
+}
 
 type RawRecord = Record<string, unknown>
 
@@ -204,7 +216,14 @@ const errorMessage = (error: unknown): string =>
  * `CrmthinkTasksUnavailableError` (inclusive a pausa por limite do portal).
  */
 export class BitrixCrmthinkTasksGateway implements CrmthinkTasksGateway {
-  constructor(private readonly bitrix: CrmthinkBitrixCaller) {}
+  /**
+   * @param restV3 mesmo webhook, chamado em `/rest/api/` (REST 3.0). Sem ele, o envio
+   * de mensagem não tem alternativa ao método antigo.
+   */
+  constructor(
+    private readonly bitrix: CrmthinkBitrixCaller,
+    private readonly restV3?: CrmthinkBitrixCaller,
+  ) {}
 
   async getTask(id: number): Promise<CrmthinkTask | null> {
     let response: unknown
@@ -321,6 +340,27 @@ export class BitrixCrmthinkTasksGateway implements CrmthinkTasksGateway {
   async sendTaskMessage(
     taskId: number,
     text: string,
+    author: CrmthinkTaskMessageAuthor,
+  ): Promise<SendTaskMessageResult> {
+    try {
+      await this.sendAsAuthor(taskId, text, author.bitrixUserId)
+      return { attributedToAuthor: true }
+    } catch (legacyError) {
+      // O método antigo está descontinuado: se ele parar de funcionar, o envio segue
+      // pelo método atual (sem autor). A falha dele é a que sobe se este também falhar.
+      if (!this.restV3) throw legacyError
+      await this.sendViaTaskChat(
+        taskId,
+        `${author.name} (via backoffice): ${text}`,
+      )
+      return { attributedToAuthor: false }
+    }
+  }
+
+  /** `task.commentitem.add` (descontinuado, mas o único com `AUTHOR_ID`). */
+  private async sendAsAuthor(
+    taskId: number,
+    text: string,
     authorBitrixUserId: number,
   ): Promise<void> {
     let response: unknown
@@ -337,6 +377,25 @@ export class BitrixCrmthinkTasksGateway implements CrmthinkTasksGateway {
       )
     }
     unwrap('task.commentitem.add', response)
+  }
+
+  /**
+   * `tasks.task.chat.message.send` (REST 3.0, em `/rest/api/`): o método atual, que
+   * envia sempre em nome do dono do webhook.
+   */
+  private async sendViaTaskChat(taskId: number, text: string): Promise<void> {
+    const method = 'tasks.task.chat.message.send'
+    let response: unknown
+    try {
+      response = await this.restV3!.callMethod(method, {
+        fields: { taskId, text },
+      })
+    } catch (error) {
+      const message = errorMessage(error)
+      if (isTaskNotFound(message)) throw new CrmthinkTaskNotFoundError(taskId)
+      throw new CrmthinkTasksUnavailableError(`${method}: ${message}`)
+    }
+    unwrap(method, response)
   }
 
   /**
