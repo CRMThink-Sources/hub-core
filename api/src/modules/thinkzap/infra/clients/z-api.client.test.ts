@@ -131,3 +131,63 @@ describe('ZApiClient.subscribe', () => {
     )
   })
 })
+
+describe('ZApiClient.editMessage / deleteMessage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('edita chamando send-message-edit com o texto novo', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as {
+      post: ReturnType<typeof vi.fn>
+    }
+    http.post.mockResolvedValue({ data: {} })
+
+    await client.editMessage('inst', 'tok', '5511', 'MSG1', 'novo texto')
+
+    expect(http.post).toHaveBeenCalledTimes(1)
+    const [url, body] = http.post.mock.calls[0] as [string, unknown]
+    expect(url).toContain('/send-message-edit')
+    expect(body).toEqual({
+      messageId: 'MSG1',
+      phone: '5511',
+      message: 'novo texto',
+    })
+  })
+
+  it('apaga chamando DELETE em messages/{phone}/{id}', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as {
+      delete: ReturnType<typeof vi.fn>
+    }
+    http.delete.mockResolvedValue({ data: {} })
+
+    await client.deleteMessage('inst', 'tok', '5511', 'MSG 1')
+
+    const [url] = http.delete.mock.calls[0] as [string]
+    expect(url).toContain('/messages/5511/MSG%201')
+  })
+
+  it('edição que falha sobe o erro tipado de edição', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as { post: ReturnType<typeof vi.fn> }
+    http.post.mockRejectedValue(new Error('boom'))
+
+    await expect(
+      client.editMessage('inst', 'tok', '5511', 'MSG1', 'x'),
+    ).rejects.toMatchObject({ errorCode: 'thinkzap.zapi.message_edit_failed' })
+  })
+
+  it('exclusão que falha sobe o erro tipado de exclusão', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as { delete: ReturnType<typeof vi.fn> }
+    http.delete.mockRejectedValue(new Error('boom'))
+
+    await expect(
+      client.deleteMessage('inst', 'tok', '5511', 'MSG1'),
+    ).rejects.toMatchObject({
+      errorCode: 'thinkzap.zapi.message_delete_failed',
+    })
+  })
+})

@@ -28,9 +28,12 @@ describe('buildConnectorRegisterParams', () => {
     expect(buildConnectorRegisterParams().DEL_INTERNAL_MESSAGES).toBe('Y')
   })
 
-  /** Edição segue descontinuada: ligar ofereceria controle que não propaga. */
-  it('não declara suporte a edição de mensagem do operador', () => {
-    expect(buildConnectorRegisterParams().EDIT_INTERNAL_MESSAGES).toBe('N')
+  /**
+   * Mesma falha silenciosa da exclusão: com `'N'` o Bitrix não emite
+   * `ONIMCONNECTORMESSAGEUPDATE`, mesmo com o bind registrado.
+   */
+  it('declara suporte a edição de mensagem do operador', () => {
+    expect(buildConnectorRegisterParams().EDIT_INTERNAL_MESSAGES).toBe('Y')
   })
 
   /**
