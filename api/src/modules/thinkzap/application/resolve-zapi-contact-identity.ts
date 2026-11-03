@@ -23,10 +23,20 @@ export type ResolvedContactIdentity = {
   source: LidSource
   /** `true` = a identidade veio de `legacyPhoneIdentity`, não do LID. */
   legacy: boolean
+  /**
+   * Preenchido por `resolveReplyChatRoute`. `routed` = a identidade veio da conversa que o
+   * widget abriu e foi citada; `pin-kept` = já havia identidade fixada e ela prevaleceu.
+   */
+  replyRoute?: 'routed' | 'pin-kept'
+  /** Só em `routed`: `true` quando esta chamada gravou a fixação, `false` se já existia. */
+  pinned?: boolean
 }
 
 export type ResolveContactIdentityDeps = {
-  identityRepo: ContactIdentityRepository
+  identityRepo: Pick<
+    ContactIdentityRepository,
+    'findByLid' | 'findByPhone' | 'upsertPair'
+  >
   /**
    * Consulta `phone-exists` na Z-API. Devolve `null` quando a chamada falha — a
    * indisponibilidade do provider não pode derrubar a entrega de uma mensagem que já
@@ -202,6 +212,12 @@ export function describeContactIdentity(
     `identidade=${resolved.identity} | lid=${resolved.lid} | origem=${resolved.source}` +
     (resolved.legacy
       ? ' | LEGADO (mantém a sessão aberta antes da mudança)'
+      : '') +
+    (resolved.replyRoute === 'routed'
+      ? ` | ROTEADO pela citação para a conversa aberta no envio (${resolved.pinned ? 'identidade fixada' : 'identidade já estava fixada'})`
+      : '') +
+    (resolved.replyRoute === 'pin-kept'
+      ? ' | citação de outra conversa ignorada: a identidade fixada prevalece'
       : '')
   )
 }

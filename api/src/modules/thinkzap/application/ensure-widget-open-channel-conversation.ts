@@ -10,6 +10,7 @@ import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persis
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { resolveOpenChannelContactId } from '@/shared/helpers/open-channel-contact-id'
 import { normalizePhoneNumber } from '@/shared/helpers/normalize-phone-number'
+import type { LidSource } from './resolve-zapi-contact-identity'
 import { resolveContactDisplayName } from './open-channel-contact-display'
 import { apiLogger } from '@/shared/infra/logger'
 
@@ -50,7 +51,7 @@ export type ResolveOpenChannelContact = (input: {
   item: SubscriptionItem
   instanceDbId: string
   destination: string
-}) => Promise<{ id: string; phone: string | null }>
+}) => Promise<{ id: string; phone: string | null; source?: LidSource }>
 
 export type GetCrmContactName = (input: {
   entity: string
@@ -127,6 +128,15 @@ export class EnsureWidgetOpenChannelConversation {
       destination,
     })
     const contactId = contact.id
+
+    // Sem LID a identidade é o telefone e a resposta do contato chega com o LID: sem este
+    // aviso o canal aberto duplicado só seria explicável olhando o banco.
+    if (contact.source === 'none') {
+      apiLogger.warn(
+        { ...logContext, contactId, lidResolutionFailed: true },
+        'Nenhum LID resolvido para o destino do widget — identidade cai no telefone; a resposta do contato é reconduzida a esta conversa pela citação da mensagem',
+      )
+    }
     const contactName = await this.resolveDisplayName(input, contact.phone)
 
     try {

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { upsertMock, findUniqueMock } = vi.hoisted(() => ({
+const { upsertMock, findUniqueMock, updateManyMock } = vi.hoisted(() => ({
   upsertMock: vi.fn(),
   findUniqueMock: vi.fn(),
+  updateManyMock: vi.fn(),
 }))
 
 vi.mock('@/config/prisma', () => ({
@@ -10,6 +11,7 @@ vi.mock('@/config/prisma', () => ({
     thinkzapContactIdentity: {
       upsert: upsertMock,
       findUnique: findUniqueMock,
+      updateMany: updateManyMock,
     },
   },
 }))
@@ -30,6 +32,7 @@ describe('PrismaContactIdentityRepository', () => {
   beforeEach(() => {
     upsertMock.mockReset().mockResolvedValue(undefined)
     findUniqueMock.mockReset().mockResolvedValue(null)
+    updateManyMock.mockReset().mockResolvedValue({ count: 1 })
   })
 
   it('busca por lid usando a unique escopada por instância', async () => {
@@ -134,5 +137,44 @@ describe('PrismaContactIdentityRepository', () => {
 
     expect(upsertArgs().create).not.toHaveProperty('legacyPhoneIdentity')
     expect(upsertArgs().update).not.toHaveProperty('legacyPhoneIdentity')
+  })
+
+  describe('pinLegacyIdentity', () => {
+    const input = {
+      instanceId: 'INST-A',
+      lid: '357@lid',
+      chatId: '5547984050811',
+    }
+
+    it('grava quando a identidade legada está vazia', async () => {
+      findUniqueMock.mockResolvedValue({ lid: '357@lid' })
+
+      await expect(sut().pinLegacyIdentity(input)).resolves.toBe(true)
+
+      expect(updateManyMock).toHaveBeenCalledWith({
+        where: { instanceId: 'INST-A', lid: '357@lid', legacyPhoneIdentity: null },
+        data: { legacyPhoneIdentity: '5547984050811' },
+      })
+      expect(upsertMock).not.toHaveBeenCalled()
+    })
+
+    it('não sobrescreve identidade já fixada', async () => {
+      findUniqueMock.mockResolvedValue({ lid: '357@lid' })
+      updateManyMock.mockResolvedValue({ count: 0 })
+
+      await expect(sut().pinLegacyIdentity(input)).resolves.toBe(false)
+    })
+
+    it('cria a row do LID quando ela ainda não existe', async () => {
+      await sut().pinLegacyIdentity(input)
+
+      expect(upsertArgs().create).toMatchObject({
+        instanceId: 'INST-A',
+        lid: '357@lid',
+        phone: null,
+      })
+      expect(upsertArgs().create).not.toHaveProperty('legacyPhoneIdentity')
+      expect(updateManyMock).toHaveBeenCalledTimes(1)
+    })
   })
 })

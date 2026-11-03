@@ -1,6 +1,9 @@
 import { env } from '@/config/env'
 import type { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
-import { resolveZApiContactIdentity } from '@/modules/thinkzap/application/resolve-zapi-contact-identity'
+import {
+  resolveZApiContactIdentity,
+  type LidSource,
+} from '@/modules/thinkzap/application/resolve-zapi-contact-identity'
 import { PrismaContactIdentityRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-contact-identity.repository'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { normalizePhoneNumber } from '@/shared/helpers/normalize-phone-number'
@@ -11,6 +14,11 @@ export type WidgetOpenChannelContact = {
   id: string
   /** Telefone real do destino, quando há. */
   phone: string | null
+  /**
+   * Elo da cadeia que resolveu o LID. `'none'` = nenhum: a identidade caiu no telefone e o
+   * contato pode duplicar a conversa quando responder. Ausente no provider oficial.
+   */
+  source?: LidSource
 }
 
 export type ResolveWidgetOpenChannelContact = (input: {
@@ -69,6 +77,10 @@ export function makeResolveWidgetOpenChannelContact(): ResolveWidgetOpenChannelC
       },
     )
 
-    return { id: resolved.identity, phone: resolved.phone ?? phone }
+    return {
+      id: resolved.identity,
+      phone: resolved.phone ?? phone,
+      source: resolved.source,
+    }
   }
 }
