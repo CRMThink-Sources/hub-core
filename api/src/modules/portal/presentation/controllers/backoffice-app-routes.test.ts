@@ -18,6 +18,7 @@ describe('rotas de aplicação do backoffice sem sessão', () => {
   it.each([
     ['GET', '/api/portal/apps/app-1'],
     ['POST', '/api/portal/apps/app-1/link-mirror'],
+    ['POST', '/api/portal/apps/app-1/message-events'],
     ['POST', '/api/portal/apps/app-1/subscriptions/sub-1/activate'],
     ['POST', '/api/portal/apps/app-1/subscriptions/sub-1/deactivate'],
     ['POST', '/api/portal/apps/app-1/subscriptions/sub-1/subscribe-lines'],

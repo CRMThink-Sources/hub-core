@@ -121,4 +121,45 @@ describe('ensureEventBindings', () => {
 
     expect(callsTo(callMethod, 'event.bind')).toEqual([])
   })
+
+  describe('eventos de edição e exclusão de mensagem', () => {
+    const SYNC_BINDINGS = [
+      { event: 'ONIMCONNECTORMESSAGEUPDATE', handler: HANDLER },
+      { event: 'ONIMCONNECTORMESSAGEDELETE', handler: HANDLER },
+    ]
+
+    it('liga os dois quando o portal não tem nenhum', async () => {
+      await ensureEventBindings({ callMethod } as never, SYNC_BINDINGS)
+
+      expect(callsTo(callMethod, 'event.bind').map(call => call.event)).toEqual(
+        ['ONIMCONNECTORMESSAGEUPDATE', 'ONIMCONNECTORMESSAGEDELETE'],
+      )
+      expect(callsTo(callMethod, 'event.unbind')).toEqual([])
+    })
+
+    it('não faz nada quando os dois já estão no handler atual', async () => {
+      callMethod = clientBoundTo(SYNC_BINDINGS)
+
+      await ensureEventBindings({ callMethod } as never, SYNC_BINDINGS)
+
+      expect(callsTo(callMethod, 'event.bind')).toEqual([])
+      expect(callsTo(callMethod, 'event.unbind')).toEqual([])
+    })
+
+    it('troca só o que está num handler antigo, desligando antes de ligar', async () => {
+      callMethod = clientBoundTo([
+        { event: 'ONIMCONNECTORMESSAGEUPDATE', handler: HANDLER },
+        { event: 'ONIMCONNECTORMESSAGEDELETE', handler: 'https://antigo/hook' },
+      ])
+
+      await ensureEventBindings({ callMethod } as never, SYNC_BINDINGS)
+
+      expect(callsTo(callMethod, 'event.unbind')).toEqual([
+        { event: 'ONIMCONNECTORMESSAGEDELETE', handler: 'https://antigo/hook' },
+      ])
+      expect(callsTo(callMethod, 'event.bind').map(call => call.event)).toEqual(
+        ['ONIMCONNECTORMESSAGEDELETE'],
+      )
+    })
+  })
 })

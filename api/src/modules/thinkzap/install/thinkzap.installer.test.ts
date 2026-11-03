@@ -87,8 +87,12 @@ describe('ThinkzapInstaller', () => {
 
     const methods = methodsCalled(callMethod)
     expect(methods[0]).toBe('event.get')
-    expect(methods.slice(1, 2)).toEqual(['event.bind'])
-    expect(methods[2]).toBe('imconnector.register')
+    expect(methods.slice(1, 4)).toEqual([
+      'event.bind',
+      'event.bind',
+      'event.bind',
+    ])
+    expect(methods[4]).toBe('imconnector.register')
     expect(methods).toContain('placement.get')
     expect(methods).toContain('placement.bind')
     expect(methods).toContain('bizproc.robot.add')
@@ -106,12 +110,7 @@ describe('ThinkzapInstaller', () => {
     expect(robotCodes).toEqual(['r', 'tr', 'bo', 'bu'])
   })
 
-  /**
-   * Um só. `ONIMCONNECTORMESSAGEUPDATE` e `ONIMCONNECTORMESSAGEDELETE` saíram com a
-   * descontinuação das sincronizações de edição e exclusão: registrar os binds
-   * entregaria os eventos a handlers que só os descartam.
-   */
-  it('vincula só o evento de mensagem recebida', async () => {
+  it('vincula os eventos de mensagem recebida, editada e excluída', async () => {
     const callMethod = vi.fn().mockResolvedValue({})
 
     await new ThinkzapInstaller().install(makeContext(callMethod))
@@ -120,7 +119,11 @@ describe('ThinkzapInstaller', () => {
       .filter(call => call[0] === 'event.bind')
       .map(call => (call[1] as { event: string }).event)
 
-    expect(events).toEqual(['ONIMCONNECTORMESSAGEADD'])
+    expect(events).toEqual([
+      'ONIMCONNECTORMESSAGEADD',
+      'ONIMCONNECTORMESSAGEUPDATE',
+      'ONIMCONNECTORMESSAGEDELETE',
+    ])
   })
 
   it('sincroniza as opções do robô com o id da instalação, no fim', async () => {

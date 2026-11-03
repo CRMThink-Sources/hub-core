@@ -7,6 +7,7 @@ import { ensureEventBindings } from '@/shared/infra/clients/ensure-event-binding
 import { ensurePlacementBindings } from '@/shared/infra/clients/ensure-placement-bindings'
 import { env } from '@/config/env'
 import { buildConnectorRegisterParams } from './build-connector-register-params'
+import { CONNECTOR_MESSAGE_EVENTS } from './connector-message-events'
 import { buildAudioImTextareaPlacementBindParams } from '../application/build-audio-im-textarea-placement-params'
 import { buildButtonImTextareaPlacementBindParams } from '../application/build-button-im-textarea-placement-params'
 import { buildCrmDetailPlacementBindParams } from '../application/build-crm-detail-placement-bind-params'
@@ -17,15 +18,6 @@ import { ensureButtonRobotUnofficial } from '../application/ensure-button-robot-
 import { ensureSpaPlacements } from '../application/ensure-spa-conversation-widget-placements'
 import { syncThinkzapRobotConnectorOptions } from '../application/sync-robot-connectors'
 import { thinkzapError } from '../errors/catalog'
-
-/**
- * Só o de mensagem recebida.
- *
- * `ONIMCONNECTORMESSAGEUPDATE` e `ONIMCONNECTORMESSAGEDELETE` **não** entram: as
- * sincronizações de edição e exclusão foram descontinuadas, e registrar os binds
- * entregaria os eventos a handlers que só os descartam.
- */
-const CONNECTOR_MESSAGE_EVENTS = ['ONIMCONNECTORMESSAGEADD'] as const
 
 export const THINKZAP_APP_CODE_ID = 'crmthink.thinkzap'
 
