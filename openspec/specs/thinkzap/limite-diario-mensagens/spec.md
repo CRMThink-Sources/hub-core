@@ -133,6 +133,8 @@ Com o limite ativado, um envio pela linha quando a contagem do dia já alcançou
 
 Envios concorrentes SHALL NOT fazer a contagem do dia ultrapassar o limite efetivo.
 
+Todas as origens enviam pela fila de saída da linha (capability `thinkzap/cadencia-envio-mensagens`). O limite SHALL ser verificado no **momento do envio real** de cada mensagem ou parte, inclusive depois de uma espera por cadência. Onde indicado abaixo, há também uma verificação antecipada no momento do pedido.
+
 A recusa SHALL valer até uma destas três coisas acontecer:
 
 - a virada do dia;
@@ -143,10 +145,10 @@ Baixar o limite para um valor menor ou igual à contagem atual SHALL fazer os pr
 
 Cada origem SHALL informar a recusa:
 
-- **Resposta do operador no canal aberto**: o operador SHALL receber no chat um aviso de que o limite diário da linha foi atingido. A mensagem SHALL NOT ser retentada.
+- **Resposta do operador no canal aberto**: a resposta entra na fila. Quando ela chega ao envio com o limite atingido, o operador SHALL receber no chat um aviso de que o limite diário da linha foi atingido. A mensagem SHALL NOT ser retentada.
 - **Widget (texto e botões) e robô de botões**: o pedido de envio SHALL ser recusado na hora, com erro que identifica o limite atingido. Se o limite for atingido depois que a mensagem já entrou na fila, ela SHALL falhar de forma definitiva, sem retentativa, com o comentário de falha na timeline do CRM.
-- **Envio com anexo pelo widget**: com o limite já atingido, o envio SHALL ser recusado inteiro, sem enviar nenhuma parte. Se o limite acabar no meio do envio, as partes seguintes SHALL NOT ser enviadas; as que saíram SHALL ser registradas normalmente, e o comentário na timeline SHALL informar quantos anexos não foram enviados por limite diário.
-- **Robô "Enviar mensagem"**: cada destinatário reserva uma vaga. Os destinatários além do limite SHALL NOT receber a mensagem, e o comentário na timeline SHALL listá-los como não enviados por limite diário. Os demais destinatários SHALL ser atendidos normalmente.
+- **Envio com anexo pelo widget**: com o limite já atingido no momento do pedido, o envio SHALL ser recusado inteiro, sem enfileirar nenhuma parte. Se o limite acabar enquanto as partes estão na fila, as partes que ainda não saíram SHALL falhar sem ser enviadas. As que saíram SHALL ser registradas normalmente, e o comentário na timeline SHALL informar quantos anexos não foram enviados por limite diário.
+- **Robô "Enviar mensagem"**: cada parte de cada destinatário é verificada ao sair da fila. Os destinatários que não receberam por limite SHALL ser listados no comentário da timeline como não enviados por limite diário. Os demais destinatários SHALL ser atendidos normalmente.
 - **Campanha de SMS**: a mensagem SHALL ter o status `failed` reportado ao Bitrix24.
 - **Bot**: a fala SHALL NOT ser entregue ao contato. O motivo SHALL ficar registrado no log do processamento.
 
@@ -155,6 +157,11 @@ Cada origem SHALL informar a recusa:
 - **THEN** a mensagem não é enviada ao WhatsApp
 - **AND** o operador vê no chat o aviso de limite diário atingido
 - **AND** a mensagem não é retentada
+
+#### Scenario: Limite atingido enquanto a resposta do operador espera a cadência
+- **WHEN** a resposta do operador aguarda uma janela da cadência e outra mensagem consome a última vaga do dia
+- **THEN** a resposta do operador não é enviada
+- **AND** o operador vê no chat o aviso de limite diário atingido
 
 #### Scenario: Envio pelo widget com o limite atingido
 - **WHEN** o usuário envia uma mensagem de texto pelo widget numa linha que atingiu o limite do dia
@@ -234,3 +241,28 @@ Quando um usuário troca o idioma no menu do ThinkZap, o idioma SHALL ser gravad
 #### Scenario: Instalação sem idioma escolhido
 - **WHEN** ninguém trocou o idioma do app na instalação
 - **THEN** os avisos de limite saem em português
+
+### Requirement: Zerar o uso de hoje
+O usuário com permissão de edição da linha SHALL poder **zerar o uso de hoje** de uma linha não oficial. Zerar SHALL:
+
+- voltar a contagem de mensagens enviadas hoje para zero;
+- apagar os extras liberados hoje, e o limite efetivo volta a ser o limite configurado;
+- valer na hora, para os próximos envios da linha;
+- SHALL NOT mudar a configuração do limite (ativado e valor).
+
+A ação é imediata e SHALL pedir confirmação antes. Ela SHALL estar disponível com o limite ativado ou desativado, já que a contagem existe nos dois casos. SHALL ser recusada na linha oficial e na linha bloqueada. Depois de zerar, o uso do dia exibido SHALL ser atualizado.
+
+Zerar SHALL ficar registrado no log com a linha, o usuário e a contagem e os extras que foram apagados.
+
+#### Scenario: Zerar com o limite atingido
+- **WHEN** a linha tem limite 300, enviou 300 hoje e tinha 50 extras, e o usuário confirma zerar o uso de hoje
+- **THEN** a contagem do dia passa a 0 e o limite efetivo volta a 300
+- **AND** os próximos envios da linha voltam a ser aceitos
+
+#### Scenario: Zerar não muda a configuração
+- **WHEN** o usuário zera o uso de hoje numa linha com limite ativado de 300
+- **THEN** o limite continua ativado com o valor 300
+
+#### Scenario: Linha oficial não zera
+- **WHEN** alguém tenta zerar o uso de hoje numa linha HubMessage
+- **THEN** a ação é recusada e nada muda

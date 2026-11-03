@@ -28,7 +28,7 @@ export const envConfig = {
   stripePublishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '',
   hubMessagePublicKey: process.env.NEXT_PUBLIC_HUBMESSAGE_PUBLIC_KEY ?? '',
   hubMessageApiUrl:
-    process.env.NEXT_PUBLIC_HUBMESSAGE_API_URL ?? 'https://api.hubmessage.io',
+    process.env.NEXT_PUBLIC_HUBMESSAGE_API_URL ?? 'https://api.omni.z-api.io',
   // Inlinado no build: trocar a lista exige rebuildar a imagem, não reiniciar.
   enabledLineProviders: parseEnabledLineProviders(
     process.env.NEXT_PUBLIC_THINKZAP_ENABLED_PROVIDERS,
