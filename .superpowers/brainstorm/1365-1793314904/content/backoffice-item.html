@@ -1,0 +1,55 @@
+<h2>Backoffice: lista e edição de atualizações</h2>
+<p class="subtitle">Rascunho para reagir. O ciclo de vida (embaixo) é palpite meu.</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Admin › Atualizações do ThinkZap</div>
+    <div class="mockup-body" style="font-size:13px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <input class="mock-input" placeholder="Buscar..." style="width:55%">
+        <button class="mock-button">+ Nova atualização</button>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <tr style="text-align:left;opacity:.7"><th>Título (pt)</th><th>Situação</th><th>Bitrix</th></tr>
+        <tr><td>Agendamento de mensagens</td><td>🟡 Em breve · publicado</td><td>#48211</td></tr>
+        <tr><td>Respostas rápidas</td><td>⚪ Rascunho</td><td>—</td></tr>
+        <tr><td>Imagem no cabeçalho</td><td>🟠 Concluída · revisar</td><td>#47990 ✓</td></tr>
+        <tr><td>Limite diário por linha</td><td>🟢 Disponível · publicado</td><td>#47512 ✓</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Editar atualização</div>
+    <div class="mockup-body" style="font-size:13px">
+      <div style="display:flex;gap:12px;border-bottom:1px solid #999;margin-bottom:8px">
+        <span style="border-bottom:2px solid currentColor;font-weight:600">Português</span><span>English ⚠</span><span>Español ⚠</span>
+      </div>
+      <div class="label">Título</div><input class="mock-input" value="Imagem no cabeçalho do template" style="width:100%">
+      <div class="label" style="margin-top:6px">Descrição</div><div class="placeholder" style="height:50px">Agora você pode adicionar uma imagem...</div>
+      <div class="label" style="margin-top:6px">Imagem (opcional)</div><div class="placeholder" style="height:36px">Enviar imagem → R2</div>
+      <div class="label" style="margin-top:10px">Tarefa no Bitrix (projeto 2677)</div>
+      <div style="display:flex;gap:6px">
+        <input class="mock-input" placeholder="ID ou título da tarefa..." style="flex:1">
+        <button class="mock-button">Criar tarefa no Bitrix</button>
+      </div>
+      <div style="margin-top:4px;opacity:.8">Vinculada: #47990 "Upload de header image template oficial (R2)" · concluída no Bitrix em 22/10</div>
+      <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="mock-button">Salvar</button>
+        <button class="mock-button">Marcar como concluída</button>
+        <button class="mock-button">Publicar como disponível</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3 style="margin-top:24px">Ciclo de vida (palpite)</h3>
+<div class="mockup"><div class="mockup-body" style="font-size:13px;line-height:1.9">
+  <strong>Rascunho</strong> (cliente não vê) → <em>Publicar</em> →
+  <strong>Em breve · publicado</strong> (cliente vê em "Em breve") →
+  tarefa concluída no Bitrix <em>ou</em> "Marcar como concluída" no backoffice →
+  <strong>Concluída · aguardando revisão</strong> (cliente ainda vê "Em breve") →
+  <em>Publicar como disponível</em> →
+  <strong>Disponível · publicado</strong> (cliente vê em "Já disponível", com a data)
+  <p style="opacity:.8;margin-top:8px">Publicar exige os 3 idiomas preenchidos. A data mostrada ao cliente é a da publicação como disponível.</p>
+</div></div>

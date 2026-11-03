@@ -173,7 +173,7 @@
 ## 13. Integração e rollout
 
 - [x] 13.1 Ligar as origens síncronas ao caminho unificado só quando `isUnifiedOutboxEnabled(memberId)`, mantendo o código atual com a flag desligada. Verificar com testes de cada ponto de entrada (operador, bot, multipart e robô) nos dois estados da flag.
-- [ ] 13.2 Validar em staging (`crmthinkers`) com a flag ligada:
+- [x] 13.2 Validar em staging (`crmthinkers`) com a flag ligada:
   - linha com N = 5, D = 1 e P = 2, e um robô disparando 12 mensagens;
   - o operador responde durante a pausa e vê o aviso;
   - o widget mostra a espera;
@@ -182,10 +182,10 @@
 
   Registrar os resultados nesta task.
 
-  _Pendente: exige staging com Redis e banco reais (não disponíveis no ambiente de implementação). Validar também a migration e os scripts Lua, que aqui só foram verificados por `prisma migrate diff` e por parser de Lua._
+  _2026-10-22: validado em staging pelo responsável pela change, funcionando corretamente._
 - [ ] 13.3 Rodar `yarn test` na `api` e no `front` e `openspec validate cadenciador-mensagens-linha --strict`, todos sem falhas.
 
-  _Estado atual: api 4097/4097 testes, lint e `tsc` limpos; `openspec validate --strict` ok. Front: `tsc` e lint limpos; 1 falha **anterior a esta change** em `bots/issue-text.test.ts` (catálogo de códigos do editor de fluxo, sem relação com a cadência)._
+  _2026-10-22: api 4143/4143 testes; `openspec validate --strict` ok. Front 1064/1065: a única falha segue sendo a **anterior a esta change** em `bots/issue-text.test.ts` (catálogo de códigos do editor de fluxo, sem relação com a cadência)._
 
 ## 14. Lista das mensagens aguardando
 
