@@ -753,19 +753,43 @@ export class ZApiClient {
     }
   }
 
+  /**
+   * Apaga, para todos, uma mensagem que a instância enviou.
+   *
+   * O endpoint é `DELETE /messages` com `messageId`, `phone` e `owner` na query.
+   * `owner=true` porque só mensagem enviada pela linha chega aqui (o operador apaga a
+   * dele). O caminho `/messages/{phone}/{id}` que esteve aqui antes não existe na API
+   * e respondia 200 sem apagar nada.
+   *
+   * **A resposta é conferida.** A Z-API devolve `{ value: true }` quando apagou, e um
+   * 200 com outro corpo não é sucesso — antes qualquer 200 virava "apagada" no log
+   * enquanto a mensagem continuava no aparelho do contato.
+   */
   async deleteMessage(
     instanceId: string,
     instanceToken: string,
     phone: string,
     messageId: string,
   ): Promise<void> {
+    let value: unknown
     try {
-      await this.http.delete(
-        `${this.instanceBaseUrl(instanceId, instanceToken)}/messages/${encodeURIComponent(phone)}/${encodeURIComponent(messageId)}`,
-        { headers: this.instanceHeaders() },
+      const response = await this.http.delete(
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/messages`,
+        {
+          params: { messageId, phone, owner: true },
+          headers: this.instanceHeaders(),
+        },
       )
+      value = (response?.data as { value?: unknown } | undefined)?.value
     } catch (error) {
       throw thinkzapError('thinkzap.zapi.message_delete_failed', error)
+    }
+
+    if (value !== true) {
+      throw thinkzapError(
+        'thinkzap.zapi.message_delete_failed',
+        new Error(`Z-API não confirmou a exclusão (value=${String(value)})`),
+      )
     }
   }
 
