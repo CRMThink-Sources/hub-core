@@ -1,0 +1,54 @@
+<h2>Backoffice: onde fica a conversa da tarefa?</h2>
+<p class="subtitle">Hoje ela está na coluna lateral estreita (24rem), embaixo da pré-visualização, numa caixa de 20rem de altura. Três jeitos de dar mais espaço.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Seção larga abaixo, na largura toda da página</h3>
+      <p>Formulário + pré-visualização continuam em cima. A conversa vira um painel "Conversa da tarefa" em largura total, bem mais alto (~32rem), com campo de escrever maior.</p>
+      <div class="mockup" style="margin-top:10px"><div class="mockup-body">
+        <div style="display:flex;gap:8px">
+          <div class="placeholder" style="flex:2;height:70px">Conteúdo (PT/EN/ES)</div>
+          <div class="placeholder" style="flex:1;height:70px">Pré-visualização + tarefa + datas</div>
+        </div>
+        <div style="border:1px solid #bbb;border-radius:8px;margin-top:8px;padding:8px">
+          <div class="label">Conversa da tarefa #1234 · largura total</div>
+          <div class="placeholder" style="height:150px;margin:6px 0">mensagens (altura ~32rem)</div>
+          <div class="mock-input" style="height:44px">Escreva uma mensagem…</div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Coluna lateral mais larga e conversa ocupa a altura disponível</h3>
+      <p>Mantém o layout de duas colunas, mas a lateral passa a ~32rem e a conversa fica fixa ao rolar, ocupando a altura da tela. Pré-visualização desce.</p>
+      <div class="mockup" style="margin-top:10px"><div class="mockup-body">
+        <div style="display:flex;gap:8px">
+          <div class="placeholder" style="flex:1.4;height:230px">Conteúdo + imagem + datas</div>
+          <div style="flex:1;border:1px solid #bbb;border-radius:8px;padding:8px;height:230px">
+            <div class="label">Conversa da tarefa #1234</div>
+            <div class="placeholder" style="height:150px;margin:6px 0">mensagens</div>
+            <div class="mock-input">Escreva…</div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Aba própria "Conversa" na edição</h3>
+      <p>A edição ganha abas: "Conteúdo" e "Conversa da tarefa". A conversa usa a tela inteira, como um chat. Só aparece com tarefa vinculada.</p>
+      <div class="mockup" style="margin-top:10px"><div class="mockup-body">
+        <div style="display:flex;gap:6px;margin-bottom:6px"><span class="label" style="padding:4px 10px;border:1px solid #bbb;border-radius:6px">Conteúdo</span><b style="padding:4px 10px;border:1px solid #333;border-radius:6px">Conversa da tarefa</b></div>
+        <div class="placeholder" style="height:170px">chat em tela cheia</div>
+        <div class="mock-input" style="margin-top:6px">Escreva uma mensagem…</div>
+      </div></div>
+    </div>
+  </div>
+</div>

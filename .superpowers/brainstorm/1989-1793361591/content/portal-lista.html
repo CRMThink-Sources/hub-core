@@ -1,0 +1,57 @@
+<h2>Portal: como a lista de novidades deve ficar?</h2>
+<p class="subtitle">Hoje cada item é um card grande com a imagem em cima. Com dezenas de itens a página vira uma rolagem longa. Três jeitos de enxugar (A é o mais compacto).</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Lista compacta com imagem miniatura dentro da linha</h3>
+      <p>Cada novidade é uma linha: miniatura pequena à esquerda, selo + data, título e 2 linhas da descrição. Imagem grande só ao expandir.</p>
+      <div class="mockup" style="margin-top:10px"><div class="mockup-body">
+        <div style="display:flex;gap:12px;padding:10px;border-bottom:1px solid #ddd;align-items:flex-start">
+          <div class="placeholder" style="width:96px;height:60px;flex:none">img</div>
+          <div><div class="label">Disponível · 12 de outubro</div><b>Envio de template oficial</b><div style="color:#666;font-size:13px">Agora você envia templates aprovados direto da conversa, sem sair do Bitrix…</div></div>
+        </div>
+        <div style="display:flex;gap:12px;padding:10px;border-bottom:1px solid #ddd;align-items:flex-start">
+          <div class="placeholder" style="width:96px;height:60px;flex:none">img</div>
+          <div><div class="label">Disponível · 28 de setembro</div><b>Grupos de WhatsApp</b><div style="color:#666;font-size:13px">Libere e configure grupos por instância…</div></div>
+        </div>
+        <div style="display:flex;gap:12px;padding:10px;align-items:flex-start">
+          <div class="placeholder" style="width:96px;height:60px;flex:none">img</div>
+          <div><div class="label">Disponível · 15 de setembro</div><b>Espelhamento do Whats Web</b><div style="color:#666;font-size:13px">Mensagens enviadas pelo celular aparecem…</div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Linhas recolhidas (acordeão): clica e abre com imagem grande dentro</h3>
+      <p>Só título, selo e data visíveis. Ao abrir, aparecem descrição completa e imagem dentro do próprio registro. Mais denso que A.</p>
+      <div class="mockup" style="margin-top:10px"><div class="mockup-body">
+        <div style="padding:10px;border-bottom:1px solid #ddd"><div style="display:flex;justify-content:space-between"><b>▾ Envio de template oficial</b><span class="label">Disponível · 12 out</span></div>
+          <div style="margin-top:8px;color:#666;font-size:13px">Descrição completa do item…</div>
+          <div class="placeholder" style="height:110px;margin-top:8px">imagem dentro do registro</div></div>
+        <div style="padding:10px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between"><b>▸ Grupos de WhatsApp</b><span class="label">Disponível · 28 set</span></div>
+        <div style="padding:10px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between"><b>▸ Espelhamento do Whats Web</b><span class="label">Disponível · 15 set</span></div>
+        <div style="padding:10px;display:flex;justify-content:space-between"><b>▸ Cadenciador de mensagens</b><span class="label">Disponível · 02 set</span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Linha do tempo agrupada por mês, com card menor</h3>
+      <p>Cabeçalhos "Outubro 2026", "Setembro 2026"; cada item vira card horizontal pequeno (imagem ao lado do texto). Boa para achar "o que saiu em setembro".</p>
+      <div class="mockup" style="margin-top:10px"><div class="mockup-body">
+        <div class="label" style="margin:4px 0">Outubro 2026</div>
+        <div style="display:flex;gap:12px;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px"><div class="placeholder" style="width:120px;height:70px;flex:none">img</div><div><b>Envio de template oficial</b><div style="color:#666;font-size:13px">12 out · descrição curta…</div></div></div>
+        <div class="label" style="margin:4px 0">Setembro 2026</div>
+        <div style="display:flex;gap:12px;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:8px"><div class="placeholder" style="width:120px;height:70px;flex:none">img</div><div><b>Grupos de WhatsApp</b><div style="color:#666;font-size:13px">28 set · descrição curta…</div></div></div>
+        <div style="display:flex;gap:12px;padding:10px;border:1px solid #ddd;border-radius:8px"><div class="placeholder" style="width:120px;height:70px;flex:none">img</div><div><b>Espelhamento do Whats Web</b><div style="color:#666;font-size:13px">15 set · descrição curta…</div></div></div>
+      </div></div>
+    </div>
+  </div>
+</div>
