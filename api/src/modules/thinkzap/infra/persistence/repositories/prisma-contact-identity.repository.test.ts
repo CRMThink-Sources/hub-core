@@ -152,7 +152,11 @@ describe('PrismaContactIdentityRepository', () => {
       await expect(sut().pinLegacyIdentity(input)).resolves.toBe(true)
 
       expect(updateManyMock).toHaveBeenCalledWith({
-        where: { instanceId: 'INST-A', lid: '357@lid', legacyPhoneIdentity: null },
+        where: {
+          instanceId: 'INST-A',
+          lid: '357@lid',
+          legacyPhoneIdentity: null,
+        },
         data: { legacyPhoneIdentity: '5547984050811' },
       })
       expect(upsertMock).not.toHaveBeenCalled()
