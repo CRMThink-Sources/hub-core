@@ -10,7 +10,9 @@ export type ContactIdentityRecord = {
   phone: string | null
   /**
    * Identidade que este contato já usa numa sessão de canal aberto criada antes da
-   * mudança para LID. Preenchida só pelo backfill; presente = o `chat.id` dele não muda.
+   * mudança para LID. Presente = o `chat.id` dele não muda. Tem dois autores: o backfill e
+   * `pinLegacyIdentity` (resposta roteada para uma conversa que o widget já abriu); nunca
+   * `upsertPair`.
    */
   legacyPhoneIdentity: string | null
 }
@@ -36,9 +38,10 @@ export interface ContactIdentityRepository {
   /**
    * Grava o par aprendido.
    *
-   * **Nunca escreve `legacyPhoneIdentity`.** Essa coluna é do backfill, e só dele: se o
-   * runtime pudesse preenchê-la, um contato novo seria promovido a legado e ficaria
-   * preso numa identidade de telefone que nunca teve sessão nenhuma.
+   * **Nunca escreve `legacyPhoneIdentity`.** Se um evento qualquer pudesse preenchê-la, um
+   * contato novo seria promovido a legado e ficaria preso numa identidade de telefone que
+   * nunca teve sessão nenhuma. Quem a escreve fora do backfill é `pinLegacyIdentity`, e só
+   * com uma conversa real já aberta.
    *
    * `phone` ausente não apaga um telefone já conhecido — um evento lid-only depois de
    * um evento com número não pode fazer o mapa esquecer o que sabia.
@@ -48,4 +51,17 @@ export interface ContactIdentityRepository {
     lid: string
     phone?: string | null
   }): Promise<void>
+
+  /**
+   * Fixa o `chat.id` de uma conversa de canal aberto que já existe como identidade do
+   * LID, para que as mensagens seguintes (sem citação) caiam nela.
+   *
+   * Só chamar com conversa realmente aberta. **Nunca sobrescreve** um valor já
+   * preenchido; cria a row do LID quando ela não existe. Devolve `true` só quando gravou.
+   */
+  pinLegacyIdentity(input: {
+    instanceId: string
+    lid: string
+    chatId: string
+  }): Promise<boolean>
 }

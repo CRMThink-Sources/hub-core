@@ -76,4 +76,30 @@ export class PrismaContactIdentityRepository implements ContactIdentityRepositor
       update: phone ? { phone } : {},
     })
   }
+
+  /**
+   * `updateMany` filtrando `legacyPhoneIdentity: null` faz a checagem e a escrita numa
+   * operação só: duas respostas simultâneas não se sobrescrevem, e a segunda é no-op.
+   */
+  async pinLegacyIdentity(input: {
+    instanceId: string
+    lid: string
+    chatId: string
+  }): Promise<boolean> {
+    const existing = await this.findByLid(input.instanceId, input.lid)
+    if (!existing) {
+      await this.upsertPair({ instanceId: input.instanceId, lid: input.lid })
+    }
+
+    const { count } = await prisma.thinkzapContactIdentity.updateMany({
+      where: {
+        instanceId: input.instanceId,
+        lid: input.lid,
+        legacyPhoneIdentity: null,
+      },
+      data: { legacyPhoneIdentity: input.chatId },
+    })
+
+    return count > 0
+  }
 }
