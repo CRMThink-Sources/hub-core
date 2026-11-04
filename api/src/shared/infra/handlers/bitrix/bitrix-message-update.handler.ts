@@ -1,35 +1,45 @@
-import type { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
+import type {
+  IBX24MessageEvent,
+  IBX24MessageUpdateEvent,
+} from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import { BitrixEventHandler } from '../bitrix-event-handler'
+import { enqueueThinkzapInboundJob } from '@/queue/thinkzap-inbound.queue'
 import { apiLogger } from '@/shared/infra/logger'
+import { randomUUID } from 'crypto'
 
 /**
- * Descarta `ONIMCONNECTORMESSAGEUPDATE`.
+ * `ONIMCONNECTORMESSAGEUPDATE`: o operador editou uma mensagem no Contact Center.
  *
- * A sincronização de edição de mensagem foi descontinuada junto com a de exclusão:
- * nada é enfileirado, e edição feita no CRM deixa de ser refletida no WhatsApp. A
- * direção oposta — WhatsApp → Bitrix — continua inteira.
+ * Só enfileira — a chamada ao provedor roda no worker, para o webhook responder
+ * rápido e a falha da Z-API não virar reentrega do Bitrix.
  *
- * **Por que o handler continua existindo.** Evento sem handler registrado responde
- * `404`, e o Bitrix reentrega `404` em backoff — o que transformaria cada edição de
- * mensagem numa fila de retentativas. Registrado e descartando, a resposta é `200` e
- * o evento morre aqui.
- *
- * **Temporário por construção**, como o de delete: as instalações existentes ainda
- * têm o bind, e é o script de `event.unbind` que fecha isso.
+ * **Sem `jobId` determinístico**, ao contrário da mensagem recebida: o `message_id`
+ * é o mesmo do evento `ADD` da mesma mensagem, e o BullMQ devolveria o job antigo em
+ * vez de criar o da edição. A mesma mensagem também pode ser editada mais de uma vez.
  */
 export class BitrixMessageUpdateHandler implements BitrixEventHandler {
   eventType = 'ONIMCONNECTORMESSAGEUPDATE'
 
   async handle(event: IBX24MessageEvent): Promise<void> {
+    const updateEvent = event as unknown as IBX24MessageUpdateEvent
+    const traceKey = randomUUID()
     apiLogger.info(
       {
         app: 'thinkzap',
         source: 'bitrix',
-        domain: event.auth?.domain,
+        domain: updateEvent.auth?.domain,
+        line: updateEvent.data?.LINE,
+        messagesCount: updateEvent.data?.MESSAGES?.length ?? 0,
+        traceKey,
       },
-      'Evento de edição de mensagem descartado — recurso descontinuado, bind pendente de remoção',
+      'Bitrix message update event received — enqueueing',
     )
 
-    return Promise.resolve()
+    await enqueueThinkzapInboundJob({
+      source: 'bitrix',
+      type: this.eventType,
+      body: updateEvent as unknown as Record<string, unknown>,
+      traceKey,
+    })
   }
 }

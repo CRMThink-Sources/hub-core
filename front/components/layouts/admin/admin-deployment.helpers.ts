@@ -8,6 +8,20 @@ export function resolveRegisterMessage(
   return t(`${keyPrefix}ResultSkipped`)
 }
 
+/**
+ * `skipped` é o registro do conector que não rodou por falta de
+ * `BITRIX_CONNECTOR_URL`: os binds foram religados, mas a flag de edição não chegou
+ * ao portal. O administrador precisa saber, e não ver um sucesso liso.
+ */
+export function resolveMessageEventsMessage(
+  connectorResult: string,
+  t: (key: string) => string,
+  keyPrefix: string,
+): string {
+  if (connectorResult === 'skipped') return t(`${keyPrefix}ResultSkipped`)
+  return t(`${keyPrefix}ResultBound`)
+}
+
 export function resolveDeleteMessage(
   result: string,
   t: (key: string) => string,

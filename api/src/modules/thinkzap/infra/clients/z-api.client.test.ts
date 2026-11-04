@@ -131,3 +131,88 @@ describe('ZApiClient.subscribe', () => {
     )
   })
 })
+
+describe('ZApiClient.editMessage / deleteMessage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('edita chamando send-message-edit com o texto novo', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as {
+      post: ReturnType<typeof vi.fn>
+    }
+    http.post.mockResolvedValue({ data: {} })
+
+    await client.editMessage('inst', 'tok', '5511', 'MSG1', 'novo texto')
+
+    expect(http.post).toHaveBeenCalledTimes(1)
+    const [url, body] = http.post.mock.calls[0] as [string, unknown]
+    expect(url).toContain('/send-message-edit')
+    expect(body).toEqual({
+      messageId: 'MSG1',
+      phone: '5511',
+      message: 'novo texto',
+    })
+  })
+
+  it('apaga chamando DELETE /messages com messageId, phone e owner=true', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as {
+      delete: ReturnType<typeof vi.fn>
+    }
+    http.delete.mockResolvedValue({ data: { value: true } })
+
+    await client.deleteMessage('inst', 'tok', '5511', 'MSG1')
+
+    const [url, config] = http.delete.mock.calls[0] as [
+      string,
+      { params: unknown },
+    ]
+    expect(url.endsWith('/messages')).toBe(true)
+    expect(config.params).toEqual({
+      messageId: 'MSG1',
+      phone: '5511',
+      owner: true,
+    })
+  })
+
+  it.each([[{ value: false }], [{}], [undefined]])(
+    '200 sem value:true não é sucesso (%j)',
+    async data => {
+      const client = new ZApiClient('partner', 'client')
+      const http = instance() as unknown as {
+        delete: ReturnType<typeof vi.fn>
+      }
+      http.delete.mockResolvedValue({ data })
+
+      await expect(
+        client.deleteMessage('inst', 'tok', '5511', 'MSG1'),
+      ).rejects.toMatchObject({
+        errorCode: 'thinkzap.zapi.message_delete_failed',
+      })
+    },
+  )
+
+  it('edição que falha sobe o erro tipado de edição', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as { post: ReturnType<typeof vi.fn> }
+    http.post.mockRejectedValue(new Error('boom'))
+
+    await expect(
+      client.editMessage('inst', 'tok', '5511', 'MSG1', 'x'),
+    ).rejects.toMatchObject({ errorCode: 'thinkzap.zapi.message_edit_failed' })
+  })
+
+  it('exclusão que falha sobe o erro tipado de exclusão', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as { delete: ReturnType<typeof vi.fn> }
+    http.delete.mockRejectedValue(new Error('boom'))
+
+    await expect(
+      client.deleteMessage('inst', 'tok', '5511', 'MSG1'),
+    ).rejects.toMatchObject({
+      errorCode: 'thinkzap.zapi.message_delete_failed',
+    })
+  })
+})

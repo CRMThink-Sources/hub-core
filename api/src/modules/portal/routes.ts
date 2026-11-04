@@ -13,6 +13,7 @@ import { createUpdateMcpUserController } from './main/factories/create-update-mc
 import { createRegisterAudioImbotAppController } from './main/factories/create-register-audio-imbot-app-controller'
 import { createDeleteAudioImbotAppController } from './main/factories/create-delete-audio-imbot-app-controller'
 import { createRegisterConnectorAppController } from './main/factories/create-register-connector-app-controller'
+import { createBindMessageEventsAppController } from './main/factories/create-bind-message-events-app-controller'
 import { createRegisterButtonImbotAppController } from './main/factories/create-register-button-imbot-app-controller'
 import { createDeleteButtonImbotAppController } from './main/factories/create-delete-button-imbot-app-controller'
 import { createRegisterConversationWidgetAppController } from './main/factories/create-register-conversation-widget-app-controller'
@@ -129,6 +130,12 @@ export const createPortalRoutes = (
     '/apps/:appId/connector',
     portalAuthMiddleware,
     adaptControllerFactory(createRegisterConnectorAppController),
+  )
+  /** Religa os eventos de edição e exclusão de mensagem no portal da instalação. */
+  router.post(
+    '/apps/:appId/message-events',
+    portalAuthMiddleware,
+    adaptControllerFactory(createBindMessageEventsAppController),
   )
   router.post(
     '/apps/:appId/audio-imbot',

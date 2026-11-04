@@ -46,13 +46,14 @@ export function buildConnectorRegisterParams(): Record<string, unknown> {
     DEL_INTERNAL_MESSAGES: 'Y',
 
     /**
-     * **Edição de mensagem do operador: desligada, de propósito.**
+     * **Edição de mensagem do operador: ligada.**
      *
-     * A sincronização de edição continua descontinuada. Ligar ofereceria ao operador
-     * uma edição que não propaga para o WhatsApp — controle que promete o que não
-     * entrega.
+     * Sem isto o Bitrix não oferece a edição ao operador e não emite
+     * `ONIMCONNECTORMESSAGEUPDATE` — o bind do evento sozinho não basta, e é a mesma
+     * falha silenciosa que a exclusão já teve. A edição propaga para o WhatsApp em
+     * linha não oficial (Z-API).
      */
-    EDIT_INTERNAL_MESSAGES: 'N',
+    EDIT_INTERNAL_MESSAGES: 'Y',
 
     /**
      * **Exclusão de mensagem recebida: ligada.**
