@@ -1,13 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getContextMock, findByBitrixMock, editMock, deleteMock } = vi.hoisted(
-  () => ({
-    getContextMock: vi.fn(),
-    findByBitrixMock: vi.fn(),
-    editMock: vi.fn(),
-    deleteMock: vi.fn(),
-  }),
-)
+const {
+  getContextMock,
+  findByBitrixMock,
+  editMock,
+  deleteMock,
+  cancelPartsMock,
+  findPartsMock,
+} = vi.hoisted(() => ({
+  getContextMock: vi.fn(),
+  findByBitrixMock: vi.fn(),
+  editMock: vi.fn(),
+  deleteMock: vi.fn(),
+  cancelPartsMock: vi.fn(),
+  findPartsMock: vi.fn(),
+}))
 
 vi.mock('@/config/env', () => ({
   env: {
@@ -29,6 +36,15 @@ vi.mock(
   () => ({
     PrismaThinkzapMessageRepository: class {
       findByBitrixMessageId = findByBitrixMock
+    },
+  }),
+)
+vi.mock(
+  '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository',
+  () => ({
+    PrismaWidgetOutboxRepository: class {
+      cancelPendingOperatorParts = cancelPartsMock
+      findOperatorPartsByBitrixMessageId = findPartsMock
     },
   }),
 )
@@ -84,6 +100,8 @@ beforeEach(() => {
   })
   editMock.mockResolvedValue(undefined)
   deleteMock.mockResolvedValue(undefined)
+  cancelPartsMock.mockResolvedValue(0)
+  findPartsMock.mockResolvedValue([])
 })
 
 describe('processBitrixMessageUpdate', () => {
@@ -145,11 +163,66 @@ describe('processBitrixMessageDelete', () => {
     expect(deleteMock).toHaveBeenCalledWith('inst', 'tok', '5511', 'ZM1')
   })
 
-  it('ignora mensagem sem id do provedor', async () => {
+  it('cancela a parte ainda pendente na fila, sem chamar o provedor', async () => {
     findByBitrixMock.mockResolvedValue(null)
+    cancelPartsMock.mockResolvedValue(1)
+    findPartsMock.mockResolvedValue([
+      {
+        status: 'FAILED',
+        providerMessageId: null,
+        destination: '5511',
+      },
+    ])
+
+    await expect(
+      processBitrixMessageDelete(deleteEvent()),
+    ).resolves.toBeUndefined()
+
+    expect(cancelPartsMock).toHaveBeenCalledWith(
+      'row-1',
+      '9',
+      expect.any(String),
+    )
+    expect(deleteMock).not.toHaveBeenCalled()
+  })
+
+  it('apaga no provedor a parte já entregue pela fila, sem registro de mensagem', async () => {
+    findByBitrixMock.mockResolvedValue(null)
+    findPartsMock.mockResolvedValue([
+      { status: 'SENT', providerMessageId: 'ZM7', destination: '5511' },
+    ])
 
     await processBitrixMessageDelete(deleteEvent())
 
+    expect(deleteMock).toHaveBeenCalledWith('inst', 'tok', '5511', 'ZM7')
+  })
+
+  it('parte em envio: lança para o BullMQ repetir a exclusão', async () => {
+    findByBitrixMock.mockResolvedValue(null)
+    findPartsMock.mockResolvedValue([
+      { status: 'SENDING', providerMessageId: null, destination: '5511' },
+    ])
+
+    await expect(processBitrixMessageDelete(deleteEvent())).rejects.toThrow(
+      /será repetida/,
+    )
+    expect(deleteMock).not.toHaveBeenCalled()
+  })
+
+  it('sem registro nem parte na fila (envio direto em andamento): lança para repetir', async () => {
+    findByBitrixMock.mockResolvedValue(null)
+
+    await expect(processBitrixMessageDelete(deleteEvent())).rejects.toThrow(
+      /será repetida/,
+    )
+  })
+
+  it('registro sem id do provedor e sem partes: ignora sem lançar', async () => {
+    findByBitrixMock.mockResolvedValue({ providerMessageId: null, chatId: 'c' })
+
+    await expect(
+      processBitrixMessageDelete(deleteEvent()),
+    ).resolves.toBeUndefined()
     expect(deleteMock).not.toHaveBeenCalled()
   })
 

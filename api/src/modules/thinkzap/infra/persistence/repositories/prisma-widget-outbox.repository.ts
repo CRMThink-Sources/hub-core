@@ -529,6 +529,53 @@ export class PrismaWidgetOutboxRepository {
   }
 
   /**
+   * As partes da resposta que o operador digitou no Bitrix (`origin = OPERATOR`) sob
+   * um `message_id`, na ordem do evento. Vazio quando a linha não usa a outbox ou a
+   * resposta ainda não chegou ao worker.
+   */
+  async findOperatorPartsByBitrixMessageId(
+    instanceId: string,
+    bitrixMessageId: string,
+  ): Promise<WidgetOutboxRecord[]> {
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: { instanceId, bitrixMessageId, origin: 'OPERATOR' },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    return rows.map(mapRow)
+  }
+
+  /**
+   * Cancela as partes do operador que ainda não foram reivindicadas para envio.
+   *
+   * Mesmo ponto de `claimForSending`: o `where` com `status: 'PENDING'` é aplicado
+   * pelo banco na hora do update, então ou o cancelamento ou o envio vence, nunca os
+   * dois. Fica em `FAILED` (e não apagada) para o unique `op:{id}:{parte}` continuar
+   * ocupado: reentrega do evento de envio pelo Bitrix não recria a parte. O despacho
+   * trata `FAILED` como terminal e tira a row da fila FIFO da linha.
+   *
+   * Devolve quantas partes foram canceladas.
+   */
+  async cancelPendingOperatorParts(
+    instanceId: string,
+    bitrixMessageId: string,
+    reason: string,
+  ): Promise<number> {
+    const { count } = await prisma.thinkzapWidgetOutbox.updateMany({
+      where: {
+        instanceId,
+        bitrixMessageId,
+        origin: 'OPERATOR',
+        status: 'PENDING',
+        providerMessageId: null,
+      },
+      data: { status: 'FAILED', lastError: reason.slice(0, 2000) },
+    })
+
+    return count
+  }
+
+  /**
    * Reivindica a intenção para envio. Devolve `true` só para quem venceu.
    *
    * `updateMany` com `where: { status: 'PENDING' }` é o ponto inteiro: o MySQL aplica
