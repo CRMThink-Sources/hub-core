@@ -35,18 +35,6 @@ export type ThinkzapAccess = {
   permissions: ThinkzapUserPermissions
 }
 
-export const DEFAULT_ALLOWED_USER_PERMISSIONS: ThinkzapUserPermissions = {
-  connectors: { read: true, create: true, update: true, delete: true },
-  finance: { read: false, create: false, update: false, delete: false },
-  thinkbot: {
-    read: true,
-    create: true,
-    update: true,
-    delete: true,
-    publish: true,
-  },
-}
-
 export const FULL_THINKZAP_PERMISSIONS: ThinkzapUserPermissions = {
   connectors: { read: true, create: true, update: true, delete: true },
   finance: { read: true, create: true, update: true, delete: true },
@@ -57,6 +45,37 @@ export const FULL_THINKZAP_PERMISSIONS: ThinkzapUserPermissions = {
     delete: true,
     publish: true,
   },
+}
+
+export const NO_THINKZAP_PERMISSIONS: ThinkzapUserPermissions = {
+  connectors: { read: false, create: false, update: false, delete: false },
+  finance: { read: false, create: false, update: false, delete: false },
+  thinkbot: {
+    read: false,
+    create: false,
+    update: false,
+    delete: false,
+    publish: false,
+  },
+}
+
+export function setThinkzapCategory(
+  permissions: ThinkzapUserPermissions,
+  category: ThinkzapPermissionCategory,
+  granted: boolean,
+): ThinkzapUserPermissions {
+  const actions = Object.fromEntries(
+    THINKZAP_PERMISSION_ACTIONS_BY_CATEGORY[category].map(a => [a, granted]),
+  )
+  return { ...permissions, [category]: actions }
+}
+
+export function hasAnyThinkzapCategory(
+  permissions: ThinkzapUserPermissions,
+): boolean {
+  return THINKZAP_PERMISSION_CATEGORIES.some(category =>
+    canAccessThinkzapCategory(permissions, category),
+  )
 }
 
 export function hasThinkzapPermission<C extends ThinkzapPermissionCategory>(

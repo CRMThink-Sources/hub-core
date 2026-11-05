@@ -84,23 +84,35 @@ export async function checkThinkzapAccess(
     ctx.bitrixUserId,
   )
 
-  if (user) return grantedAccess(user.permissions)
+  const matchedDepts =
+    getAllowedDepartments && ctx.bitrixDepartmentIds?.length
+      ? await getAllowedDepartments.getDepartmentsByAppIdAndIds(
+          ctx.installedAppId,
+          ctx.bitrixDepartmentIds,
+        )
+      : []
 
-  if (
-    getAllowedDepartments &&
-    ctx.bitrixDepartmentIds &&
-    ctx.bitrixDepartmentIds.length > 0
-  ) {
-    const matchedDepts =
-      await getAllowedDepartments.getDepartmentsByAppIdAndIds(
-        ctx.installedAppId,
-        ctx.bitrixDepartmentIds,
-      )
+  if (!user && matchedDepts.length === 0) return null
 
-    if (matchedDepts.length > 0) {
-      return grantedAccess(mergeDepartmentPermissions(matchedDepts))
-    }
+  const deptPermissions =
+    matchedDepts.length > 0
+      ? mergeDepartmentPermissions(matchedDepts)
+      : NO_THINKZAP_PERMISSIONS
+  if (!user) return grantedAccess(deptPermissions)
+
+  return grantedAccess(preferUserByCategory(user.permissions, deptPermissions))
+}
+
+// Individual vale por categoria: o que ele não tem vem do departamento.
+function preferUserByCategory(
+  user: ThinkzapUserPermissions,
+  dept: ThinkzapUserPermissions,
+): ThinkzapUserPermissions {
+  const result = {} as Record<string, unknown>
+  for (const category of THINKZAP_PERMISSION_CATEGORIES) {
+    result[category] = canAccessThinkzapCategory(user, category)
+      ? user[category]
+      : dept[category]
   }
-
-  return null
+  return result as ThinkzapUserPermissions
 }

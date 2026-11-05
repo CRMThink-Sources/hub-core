@@ -141,6 +141,35 @@ describe('GetThinkzapAccessController', () => {
         canManageAccess: false,
       })
     })
+
+    it('individual vale por categoria: só ThinkBot nele mantém o financeiro do departamento', async () => {
+      sut.getByAppIdAndBitrixUserId.mockResolvedValue({
+        permissions: {
+          ...financeOnly,
+          finance: { read: false, create: false, update: false, delete: false },
+          thinkbot: {
+            read: true,
+            create: true,
+            update: true,
+            delete: true,
+            publish: true,
+          },
+        },
+      })
+      sut.getDepartmentsByAppIdAndIds.mockResolvedValue([
+        { permissions: financeOnly },
+      ])
+
+      const response = await sut.controller.perform(
+        req({ bitrixDepartmentIds: ['3'] }),
+      )
+
+      expect(response.result).toMatchObject({
+        canAccess: false,
+        canAccessFinance: true,
+        canAccessThinkbot: true,
+      })
+    })
   })
 
   it('devolve 200 com o payload negado para usuário sem nada', async () => {
