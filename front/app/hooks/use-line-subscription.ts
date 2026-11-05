@@ -97,7 +97,18 @@ export type SubscriptionState =
       canSubscribe: boolean
       /** Vem do servidor: é a mesma regra que a rota de criação usa para recusar. */
       canCreateLine: boolean
+      /**
+       * Linhas ativas de um teste encerrado, que o cliente pode escolher levar para a
+       * contratação. Opcional: api antiga não envia, e ausente vale como lista vazia.
+       */
+      expiredTrialLines?: ExpiredTrialLine[]
     }
+
+export type ExpiredTrialLine = {
+  id: string
+  name: string
+  provider: string
+}
 
 export type LineSubscription =
   | { kind: 'loading' }
@@ -296,7 +307,11 @@ export function useLineSubscription() {
    * só apareceria no próximo render.
    */
   const createLine = useCallback(
-    async (provider: LineProvider, planId: string): Promise<boolean> => {
+    async (
+      provider: LineProvider,
+      planId: string,
+      includeLineIds: string[] = [],
+    ): Promise<boolean> => {
       if (creatingRef.current) return false
 
       creatingRef.current = true
@@ -306,7 +321,10 @@ export function useLineSubscription() {
         const res = await client.post<{
           clientSecret?: string
           line?: { id: string }
-        }>('/thinkzap/lines', { provider, planId })
+        }>(
+          '/thinkzap/lines',
+          buildCreateLineBody(provider, planId, includeLineIds),
+        )
 
         if (res.clientSecret) {
           setCheckoutSecret(res.clientSecret)
@@ -403,6 +421,24 @@ export function plansForProvider(
   provider: string,
 ): OfferablePlan[] {
   return plans.filter(plan => plan.provider === provider)
+}
+
+/**
+ * Corpo da criação de linha. `includeLineIds` só vai quando há escolha: a api recusa
+ * o campo fora do teste encerrado, e o corpo sem ele é o contrato de sempre.
+ */
+export function buildCreateLineBody(
+  provider: LineProvider,
+  planId: string,
+  includeLineIds: readonly string[] = [],
+): { provider: LineProvider; planId: string; includeLineIds?: string[] } {
+  return {
+    provider,
+    planId,
+    ...(includeLineIds.length > 0
+      ? { includeLineIds: [...includeLineIds] }
+      : {}),
+  }
 }
 
 /** A instalação está sem direito de uso e pode contratar? */

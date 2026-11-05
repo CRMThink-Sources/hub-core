@@ -159,7 +159,22 @@ export class ActivateLineSubscription {
      * paga começa agora, sem crédito pelos dias não usados.
      */
     const origin = resolveCurrentContract(context.subscriptions)
-    const lines = this.linesOf(origin)
+
+    /**
+     * Com o teste **encerrado**, só as linhas que o cliente escolheu no checkout são
+     * movidas para a paga; o checkout só cobrou essas. As demais ficam na assinatura
+     * de teste, que `endOrigin` cancela — e some da tela, por decisão de produto.
+     * Teste em andamento mantém o comportamento de sempre: todas as linhas passam.
+     */
+    const chosenIds =
+      origin[0]?.status === 'trial_expired' && input.intent.kind === 'add-line'
+        ? new Set(input.intent.includeLineIds ?? [])
+        : origin[0]?.status === 'trial_expired'
+          ? new Set<string>()
+          : null
+    const lines = this.linesOf(origin).filter(
+      line => chosenIds === null || chosenIds.has(line.id),
+    )
 
     /**
      * O plano de cada conector, resolvido pela **mesma** regra que montou a cobrança

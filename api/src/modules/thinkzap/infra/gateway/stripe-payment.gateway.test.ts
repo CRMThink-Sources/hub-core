@@ -207,6 +207,23 @@ describe('createCheckoutSession', () => {
     expect(params.subscription_data.metadata).toEqual(expected)
   })
 
+  it('grava as linhas do teste encerrado escolhidas, separadas por vírgula', async () => {
+    await makeGateway().createCheckoutSession({
+      lineItems: [{ priceId: 'price_zapi', quantity: 2 }],
+      installation: INSTALLATION,
+      intent: {
+        kind: 'add-line',
+        provider: 'HUBMESSAGE',
+        planId: '9',
+        includeLineIds: ['77', '78'],
+      },
+    })
+
+    const { metadata } = stripeFake.createSession.mock.calls[0]![0]
+
+    expect(metadata.includeLineIds).toBe('77,78')
+  })
+
   /**
    * Metadata é mapa plano de strings: gravar as chaves da linha nova numa
    * contratação comum deixaria a leitura sem como distinguir "não é add-line" de
@@ -329,6 +346,25 @@ describe('normalização do evento', () => {
     expect(result).toMatchObject({
       type: 'checkout.completed',
       intent: { kind: 'add-line', provider: 'ZAPI', planId: '9' },
+    })
+  })
+
+  it('lê as linhas escolhidas do teste encerrado', async () => {
+    stripeFake.retrieveSubscription.mockResolvedValue(gatewaySubscription([]))
+
+    const result = await event(
+      'checkout.session.completed',
+      session({
+        ...INSTALLATION,
+        intent: 'add-line',
+        newLineProvider: 'ZAPI',
+        newLinePlanId: '9',
+        includeLineIds: '77,78',
+      }),
+    )
+
+    expect(result).toMatchObject({
+      intent: { kind: 'add-line', includeLineIds: ['77', '78'] },
     })
   })
 

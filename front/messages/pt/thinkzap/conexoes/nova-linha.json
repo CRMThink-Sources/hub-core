@@ -24,5 +24,9 @@
   "cancelar": "Cancelar",
   "semPlanoTitulo": "Nenhum tipo de conector disponível",
   "semPlanoDescricao": "Não há plano cadastrado para nenhum dos conectores neste ambiente. Fale com o suporte para liberar.",
-  "emBreve": "Em breve"
+  "emBreve": "Em breve",
+  "testeEncerrado": {
+    "titulo": "Linha do teste encerrado",
+    "descricao": "Seu teste terminou. Marque a linha que você quer contratar junto com a nova. A que ficar desmarcada deixa de aparecer depois do pagamento, e para ter outra você cria uma linha nova."
+  }
 }
