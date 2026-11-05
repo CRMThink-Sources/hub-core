@@ -62,7 +62,15 @@ export type LineSubscriptionState =
       canSubscribe: boolean
       // Espelha as guardas de `CreateAdditionalLine`; vem do servidor para não divergir.
       canCreateLine: boolean
+      // Linhas ativas de um trial expirado: o cliente escolhe se entram na contratação. Vazio fora de `trial_expired`.
+      expiredTrialLines: ExpiredTrialLine[]
     }
+
+export type ExpiredTrialLine = {
+  id: string
+  name: string
+  provider: SubscriptionItem['metadata']['provider']
+}
 
 // Trial cobra 0; plano pago sem preço resolvido é `null` (0 diria que o cliente não paga).
 function resolveChargedAmount(
@@ -300,6 +308,19 @@ export class GetLineSubscriptionState {
       // Trial lê `manual` (nasce sem o campo) mas pode criar linha; boleto não.
       canCreateLine:
         lineCount > 0 && (isTrial || current.modality === 'stripe'),
+      expiredTrialLines:
+        current.status === 'trial_expired'
+          ? current.items
+              .filter(
+                item =>
+                  item.status === 'active' && item.metadata.provider !== 'NONE',
+              )
+              .map(item => ({
+                id: item.id,
+                name: item.name,
+                provider: item.metadata.provider,
+              }))
+          : [],
     }
   }
 }

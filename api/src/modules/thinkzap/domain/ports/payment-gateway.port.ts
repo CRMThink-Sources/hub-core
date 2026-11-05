@@ -43,6 +43,11 @@ export type CheckoutIntent =
       provider: 'ZAPI' | 'HUBMESSAGE'
       /** Plano que precifica a linha nova, na SPA de planos. */
       planId: string
+      /**
+       * Linhas de um teste encerrado que entram na contratação. Ausente em teste
+       * em andamento, onde todas entram.
+       */
+      includeLineIds?: string[]
     }
 
 /** Um preço do contrato e quantas linhas ele cobra. */

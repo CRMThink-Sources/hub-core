@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import type {
+  ExpiredTrialLine,
   LineProvider,
   OfferablePlan,
 } from '@/app/hooks/use-line-subscription'
@@ -17,7 +18,13 @@ type Props = {
   /** Conector em criação, para travar as duas opções sem congelar a tela. */
   criando: LineProvider | null
   onClose: () => void
-  onCreate: (provider: LineProvider, planId: string) => void
+  /** Linhas do teste encerrado que o cliente pode levar junto. Vazio esconde a escolha. */
+  linhasTeste?: ExpiredTrialLine[]
+  onCreate: (
+    provider: LineProvider,
+    planId: string,
+    includeLineIds: string[],
+  ) => void
 }
 
 /** Os dois conectores, na ordem em que a tela os oferece. */
@@ -43,10 +50,13 @@ export function NovaLinhaModal({
   isOpen,
   planos,
   criando,
+  linhasTeste = [],
   onClose,
   onCreate,
 }: Props) {
   const { t } = useTranslation('thinkzap/conexoes/nova-linha')
+  /** Desmarcadas por padrão: levar a linha do teste é decisão do cliente, e cobra. */
+  const [incluidas, setIncluidas] = useState<string[]>([])
 
   const disponiveis = CONECTORES.map(provider => ({
     provider,
@@ -66,6 +76,39 @@ export function NovaLinhaModal({
       <div className="w-full max-w-2xl rounded-xl border border-border bg-card p-6 shadow-lg">
         <p className="text-base font-semibold text-foreground">{t('titulo')}</p>
         <p className="mt-1 text-sm text-muted-foreground">{t('descricao')}</p>
+
+        {linhasTeste.length > 0 ? (
+          <fieldset className="mt-4 rounded-lg border border-border p-4">
+            <legend className="px-1 text-sm font-medium text-foreground">
+              {t('testeEncerrado.titulo')}
+            </legend>
+            <p className="text-sm text-muted-foreground">
+              {t('testeEncerrado.descricao')}
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              {linhasTeste.map(linha => (
+                <label
+                  key={linha.id}
+                  className="flex items-center gap-2 text-sm text-foreground"
+                >
+                  <input
+                    type="checkbox"
+                    checked={incluidas.includes(linha.id)}
+                    disabled={criando !== null}
+                    onChange={e =>
+                      setIncluidas(atual =>
+                        e.target.checked
+                          ? [...atual, linha.id]
+                          : atual.filter(id => id !== linha.id),
+                      )
+                    }
+                  />
+                  {linha.name}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
 
         {disponiveis.length === 0 ? (
           <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
@@ -89,7 +132,7 @@ export function NovaLinhaModal({
                 ctaLabel={t('criar')}
                 ctaLoadingLabel={t('criando')}
                 intervalLabel={interval => t(`intervalo.${interval}`)}
-                onCreate={planId => onCreate(opcao.provider, planId)}
+                onCreate={planId => onCreate(opcao.provider, planId, incluidas)}
               />
             ))}
           </div>

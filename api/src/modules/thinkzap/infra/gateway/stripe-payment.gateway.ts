@@ -526,7 +526,17 @@ export class StripePaymentGateway
       return { kind: 'convert' }
     }
 
-    return { kind: 'add-line', provider, planId }
+    // Ausente = teste em andamento (todas entram). Presente mas vazio nunca é gravado.
+    const includeLineIds = metadata.includeLineIds
+      ? metadata.includeLineIds.split(',').filter(Boolean)
+      : undefined
+
+    return {
+      kind: 'add-line',
+      provider,
+      planId,
+      ...(includeLineIds ? { includeLineIds } : {}),
+    }
   }
 
   private toMetadata(
@@ -539,7 +549,13 @@ export class StripePaymentGateway
       planId: installation.planId,
       intent: intent.kind,
       ...(intent.kind === 'add-line'
-        ? { newLineProvider: intent.provider, newLinePlanId: intent.planId }
+        ? {
+            newLineProvider: intent.provider,
+            newLinePlanId: intent.planId,
+            ...(intent.includeLineIds?.length
+              ? { includeLineIds: intent.includeLineIds.join(',') }
+              : {}),
+          }
         : {}),
     }
   }
