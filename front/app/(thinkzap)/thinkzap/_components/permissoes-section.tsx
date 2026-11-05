@@ -28,7 +28,10 @@ import { PermissionsUsersTable } from './permissions-users-table'
 import { PermissionsDepartmentsTable } from './permissions-departments-table'
 import { PermissionsCategoryTabs } from './permissions-category-tabs'
 import {
-  DEFAULT_ALLOWED_USER_PERMISSIONS,
+  canAccessThinkzapCategory,
+  hasAnyThinkzapCategory,
+  NO_THINKZAP_PERMISSIONS,
+  setThinkzapCategory,
   type ThinkzapPermissionAction,
   type ThinkzapPermissionCategory,
   type ThinkzapUserPermissions,
@@ -103,9 +106,6 @@ export function PermissoesSection() {
   const [searchingUsers, setSearchingUsers] = useState(false)
   const [userHits, setUserHits] = useState<BitrixUserSearchHit[]>([])
   const [removingUserId, setRemovingUserId] = useState<string | null>(null)
-  const [newUserPermissions] = useState<ThinkzapUserPermissions>(
-    DEFAULT_ALLOWED_USER_PERMISSIONS,
-  )
   const [draftUserPermissions, setDraftUserPermissions] = useState<
     Record<string, ThinkzapUserPermissions>
   >({})
@@ -115,9 +115,6 @@ export function PermissoesSection() {
   const [searchingDepts, setSearchingDepts] = useState(false)
   const [deptHits, setDeptHits] = useState<BitrixDepartmentHit[]>([])
   const [removingDeptId, setRemovingDeptId] = useState<string | null>(null)
-  const [newDeptPermissions] = useState<ThinkzapUserPermissions>(
-    DEFAULT_ALLOWED_USER_PERMISSIONS,
-  )
   const [draftDeptPermissions, setDraftDeptPermissions] = useState<
     Record<string, ThinkzapUserPermissions>
   >({})
@@ -174,7 +171,24 @@ export function PermissoesSection() {
 
   useEffect(() => {
     setPage(1)
-  }, [activeTab, tableFilter])
+  }, [activeCategory, activeTab, tableFilter])
+
+  // Filtra pelo salvo, não pelo rascunho: a linha não some ao desmarcar.
+  const categoryUsers = useMemo(
+    () =>
+      users.filter(u =>
+        canAccessThinkzapCategory(u.permissions, activeCategory),
+      ),
+    [users, activeCategory],
+  )
+
+  const categoryDepartments = useMemo(
+    () =>
+      departments.filter(d =>
+        canAccessThinkzapCategory(d.permissions, activeCategory),
+      ),
+    [departments, activeCategory],
+  )
 
   useEffect(() => {
     const trimmed = tableFilter.trim()
@@ -212,32 +226,40 @@ export function PermissoesSection() {
 
   const filteredUsers = useMemo(() => {
     const q = tableFilter.trim().toLowerCase()
-    if (!q) return users
-    return users.filter(u => {
+    if (!q) return categoryUsers
+    return categoryUsers.filter(u => {
       const name = (u.displayName ?? '').toLowerCase()
       const email = (u.email ?? '').toLowerCase()
       return name.includes(q) || email.includes(q)
     })
-  }, [users, tableFilter])
+  }, [categoryUsers, tableFilter])
 
   const filteredDepartments = useMemo(() => {
     const q = tableFilter.trim().toLowerCase()
-    if (!q) return departments
-    return departments.filter(d =>
+    if (!q) return categoryDepartments
+    return categoryDepartments.filter(d =>
       (d.displayName ?? '').toLowerCase().includes(q),
     )
-  }, [departments, tableFilter])
+  }, [categoryDepartments, tableFilter])
 
   useEffect(() => {
     if (!pendingFocusId || tableFilter) return
     const index =
       activeTab === 'users'
-        ? users.findIndex(u => u.bitrixUserId === pendingFocusId)
-        : departments.findIndex(d => d.bitrixDepartmentId === pendingFocusId)
+        ? categoryUsers.findIndex(u => u.bitrixUserId === pendingFocusId)
+        : categoryDepartments.findIndex(
+            d => d.bitrixDepartmentId === pendingFocusId,
+          )
     if (index < 0) return
     setPage(Math.floor(index / PAGE_SIZE) + 1)
     setPendingFocusId(null)
-  }, [pendingFocusId, tableFilter, activeTab, users, departments])
+  }, [
+    pendingFocusId,
+    tableFilter,
+    activeTab,
+    categoryUsers,
+    categoryDepartments,
+  ])
 
   const paginatedUsers = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE
@@ -269,28 +291,46 @@ export function PermissoesSection() {
     activeTab === 'users' ? dirtyUserIds.length : dirtyDeptIds.length
 
   const candidateUsers = useMemo(() => {
-    const added = new Set(users.map(u => u.bitrixUserId))
+    const added = new Set(categoryUsers.map(u => u.bitrixUserId))
     return userHits.filter(h => !added.has(String(h.ID))).slice(0, 6)
-  }, [userHits, users])
+  }, [userHits, categoryUsers])
 
   const candidateDepartments = useMemo(() => {
-    const added = new Set(departments.map(d => String(d.bitrixDepartmentId)))
+    const added = new Set(
+      categoryDepartments.map(d => String(d.bitrixDepartmentId)),
+    )
     return deptHits.filter(h => !added.has(String(h.ID))).slice(0, 8)
-  }, [deptHits, departments])
+  }, [deptHits, categoryDepartments])
 
+  // Já cadastrado em outra categoria: só acrescenta esta.
   async function handleAddUser(hit: BitrixUserSearchHit) {
     const bitrixUserId = String(hit.ID)
-    if (users.some(u => u.bitrixUserId === bitrixUserId)) {
+    if (categoryUsers.some(u => u.bitrixUserId === bitrixUserId)) {
       toast.error(t('alreadyOnList'))
       return
     }
+    const existing = users.find(u => u.bitrixUserId === bitrixUserId)
     try {
-      await api.post('/thinkzap/access/allowed-users', {
-        bitrixUserId,
-        displayName: formatBitrixUserName(hit),
-        email: hit.EMAIL ?? null,
-        permissions: newUserPermissions,
-      })
+      if (existing) {
+        await api.patch(`/thinkzap/access/allowed-users/${bitrixUserId}`, {
+          permissions: setThinkzapCategory(
+            existing.permissions,
+            activeCategory,
+            true,
+          ),
+        })
+      } else {
+        await api.post('/thinkzap/access/allowed-users', {
+          bitrixUserId,
+          displayName: formatBitrixUserName(hit),
+          email: hit.EMAIL ?? null,
+          permissions: setThinkzapCategory(
+            NO_THINKZAP_PERMISSIONS,
+            activeCategory,
+            true,
+          ),
+        })
+      }
       toast.success(t('added'))
       setTableFilter('')
       setPendingFocusId(bitrixUserId)
@@ -302,16 +342,38 @@ export function PermissoesSection() {
 
   async function handleAddDepartment(hit: BitrixDepartmentHit) {
     const bitrixDepartmentId = String(hit.ID)
-    if (departments.some(d => d.bitrixDepartmentId === bitrixDepartmentId)) {
+    if (
+      categoryDepartments.some(d => d.bitrixDepartmentId === bitrixDepartmentId)
+    ) {
       toast.error(t('departments.alreadyOnList'))
       return
     }
+    const existing = departments.find(
+      d => d.bitrixDepartmentId === bitrixDepartmentId,
+    )
     try {
-      await api.post('/thinkzap/access/allowed-departments', {
-        bitrixDepartmentId,
-        displayName: formatBitrixDepartmentName(hit),
-        permissions: newDeptPermissions,
-      })
+      if (existing) {
+        await api.patch(
+          `/thinkzap/access/allowed-departments/${bitrixDepartmentId}`,
+          {
+            permissions: setThinkzapCategory(
+              existing.permissions,
+              activeCategory,
+              true,
+            ),
+          },
+        )
+      } else {
+        await api.post('/thinkzap/access/allowed-departments', {
+          bitrixDepartmentId,
+          displayName: formatBitrixDepartmentName(hit),
+          permissions: setThinkzapCategory(
+            NO_THINKZAP_PERMISSIONS,
+            activeCategory,
+            true,
+          ),
+        })
+      }
       toast.success(t('departments.added'))
       setTableFilter('')
       setPendingFocusId(bitrixDepartmentId)
@@ -351,24 +413,43 @@ export function PermissoesSection() {
     })
   }
 
+  // Sem nenhuma categoria apaga o cadastro em vez de guardar linha vazia.
+  function persistUser(
+    bitrixUserId: string,
+    permissions: ThinkzapUserPermissions,
+  ) {
+    const url = `/thinkzap/access/allowed-users/${bitrixUserId}`
+    return hasAnyThinkzapCategory(permissions)
+      ? api.patch(url, { permissions })
+      : api.delete(url)
+  }
+
+  function persistDepartment(
+    bitrixDepartmentId: string,
+    permissions: ThinkzapUserPermissions,
+  ) {
+    const url = `/thinkzap/access/allowed-departments/${bitrixDepartmentId}`
+    return hasAnyThinkzapCategory(permissions)
+      ? api.patch(url, { permissions })
+      : api.delete(url)
+  }
+
   async function handleSaveAll() {
     setSavingAll(true)
     try {
       if (activeTab === 'users') {
         await Promise.all(
           dirtyUserIds.map(bitrixUserId =>
-            api.patch(`/thinkzap/access/allowed-users/${bitrixUserId}`, {
-              permissions: draftUserPermissions[bitrixUserId],
-            }),
+            persistUser(bitrixUserId, draftUserPermissions[bitrixUserId]),
           ),
         )
         await loadUsers()
       } else {
         await Promise.all(
           dirtyDeptIds.map(bitrixDepartmentId =>
-            api.patch(
-              `/thinkzap/access/allowed-departments/${bitrixDepartmentId}`,
-              { permissions: draftDeptPermissions[bitrixDepartmentId] },
+            persistDepartment(
+              bitrixDepartmentId,
+              draftDeptPermissions[bitrixDepartmentId],
             ),
           ),
         )
@@ -384,9 +465,14 @@ export function PermissoesSection() {
 
   async function handleRemoveUser(bitrixUserId: string) {
     if (!window.confirm(t('removeConfirm'))) return
+    const user = users.find(u => u.bitrixUserId === bitrixUserId)
+    if (!user) return
     setRemovingUserId(bitrixUserId)
     try {
-      await api.delete(`/thinkzap/access/allowed-users/${bitrixUserId}`)
+      await persistUser(
+        bitrixUserId,
+        setThinkzapCategory(user.permissions, activeCategory, false),
+      )
       toast.success(t('removed'))
       await loadUsers()
     } catch (e) {
@@ -398,10 +484,15 @@ export function PermissoesSection() {
 
   async function handleRemoveDepartment(bitrixDepartmentId: string) {
     if (!window.confirm(t('departments.removeConfirm'))) return
+    const dept = departments.find(
+      d => d.bitrixDepartmentId === bitrixDepartmentId,
+    )
+    if (!dept) return
     setRemovingDeptId(bitrixDepartmentId)
     try {
-      await api.delete(
-        `/thinkzap/access/allowed-departments/${bitrixDepartmentId}`,
+      await persistDepartment(
+        bitrixDepartmentId,
+        setThinkzapCategory(dept.permissions, activeCategory, false),
       )
       toast.success(t('departments.removed'))
       await loadDepartments()
@@ -446,7 +537,9 @@ export function PermissoesSection() {
       : filteredDepartments.length === 0
   // Vazio por causa do filtro não é "ninguém autorizado": a lista existe, só não casa.
   const hasAny =
-    activeTab === 'users' ? users.length > 0 : departments.length > 0
+    activeTab === 'users'
+      ? categoryUsers.length > 0
+      : categoryDepartments.length > 0
 
   return (
     <div className="relative flex w-full min-w-0 flex-col gap-6">
@@ -497,11 +590,11 @@ export function PermissoesSection() {
               ? activeTab === 'users'
                 ? t('noMatch', {
                     query: tableFilter.trim(),
-                    count: users.length,
+                    count: categoryUsers.length,
                   })
                 : t('departments.noMatch', {
                     query: tableFilter.trim(),
-                    count: departments.length,
+                    count: categoryDepartments.length,
                   })
               : activeTab === 'users'
                 ? t('emptyList')
