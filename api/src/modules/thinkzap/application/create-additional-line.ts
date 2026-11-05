@@ -376,10 +376,9 @@ export class CreateAdditionalLine {
    * escolheu — as demais não foram usadas pelo contrato pago e saem da cobrança.
    * Com qualquer outro estado, o contrato inteiro, como sempre foi.
    */
-  private billableContract<T extends Subscription & { items: SubscriptionItem[] }>(
-    contract: readonly T[],
-    includeLineIds: readonly string[],
-  ): T[] {
+  private billableContract<
+    T extends Subscription & { items: SubscriptionItem[] },
+  >(contract: readonly T[], includeLineIds: readonly string[]): T[] {
     const expired = contract[0]?.status === 'trial_expired'
 
     if (!expired) {
