@@ -585,7 +585,10 @@ describe('CreateAdditionalLine', () => {
 
     describe('teste encerrado', () => {
       const expiredTrial = () =>
-        trialContract({ status: 'trial_expired', currentPeriodEnd: plusDays(-1) })
+        trialContract({
+          status: 'trial_expired',
+          currentPeriodEnd: plusDays(-1),
+        })
 
       it('sem escolha, cobra só a linha nova', async () => {
         const deps = makeUseCase({ subscriptions: [expiredTrial()] })
