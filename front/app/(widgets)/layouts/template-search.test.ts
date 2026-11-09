@@ -73,7 +73,9 @@ describe('filterTemplates', () => {
 
 describe('templateSnippet', () => {
   it('colapsa quebras de linha', () => {
-    expect(templateSnippet('Olá\n\n{{1}}\n tudo bem')).toBe('Olá {{1}} tudo bem')
+    expect(templateSnippet('Olá\n\n{{1}}\n tudo bem')).toBe(
+      'Olá {{1}} tudo bem',
+    )
   })
 
   it('trunca com reticências', () => {
