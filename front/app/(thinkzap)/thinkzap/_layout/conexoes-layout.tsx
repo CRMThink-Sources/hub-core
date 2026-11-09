@@ -172,21 +172,29 @@ export default function ConexoesLayout() {
         isOpen={novaLinhaAberta}
         planos={catalogo}
         criando={subscription.creating}
+        linhasTeste={
+          subscription.state.kind === 'ready' &&
+          subscription.state.subscription.status !== 'none'
+            ? (subscription.state.subscription.expiredTrialLines ?? [])
+            : []
+        }
         onClose={() => setNovaLinhaAberta(false)}
-        onCreate={(provider, planId) => {
-          void subscription.createLine(provider, planId).then(criada => {
-            /**
-             * Fecha só quando terminou de verdade. O caminho de checkout mantém o
-             * modal fora do caminho — o segredo abre a sessão embedada logo acima — e
-             * o caminho sem checkout recarrega o contexto, porque a lista de linhas
-             * vem dos itens de assinatura.
-             */
-            setNovaLinhaAberta(false)
-            if (criada) {
-              void refresh()
-              void subscription.reload()
-            }
-          })
+        onCreate={(provider, planId, includeLineIds) => {
+          void subscription
+            .createLine(provider, planId, includeLineIds)
+            .then(criada => {
+              /**
+               * Fecha só quando terminou de verdade. O caminho de checkout mantém o
+               * modal fora do caminho — o segredo abre a sessão embedada logo acima — e
+               * o caminho sem checkout recarrega o contexto, porque a lista de linhas
+               * vem dos itens de assinatura.
+               */
+              setNovaLinhaAberta(false)
+              if (criada) {
+                void refresh()
+                void subscription.reload()
+              }
+            })
         }}
       />
 

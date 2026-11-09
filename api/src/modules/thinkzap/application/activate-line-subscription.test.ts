@@ -656,6 +656,58 @@ describe('ActivateLineSubscription', () => {
       expect(deps.subscribe).toHaveBeenCalledTimes(2)
     })
 
+    describe('teste encerrado', () => {
+      const expired = {
+        ...trialSubscription,
+        status: 'trial_expired' as const,
+      }
+
+      it('sem escolha, não move a linha do teste: só a nova nasce, e o teste é encerrado', async () => {
+        const deps = makeUseCase({
+          catalog: [PAID_PLAN, PAID_OFFICIAL],
+          subscriptions: [expired],
+        })
+
+        await deps.useCase.execute(addLine)
+
+        expect(deps.reparentSubscriptionItem).not.toHaveBeenCalled()
+        expect(deps.createSubscriptionItem).toHaveBeenCalledTimes(1)
+        expect(deps.subscribe).toHaveBeenCalledTimes(1)
+        expect(deps.updateSubscription).toHaveBeenCalledWith('21', {
+          status: 'cancelled',
+        })
+      })
+
+      it('com a linha escolhida, move e assina as duas', async () => {
+        const deps = makeUseCase({
+          catalog: [PAID_PLAN, PAID_OFFICIAL],
+          subscriptions: [expired],
+        })
+
+        await deps.useCase.execute({
+          ...addLine,
+          intent: { ...addLine.intent, includeLineIds: ['77'] },
+        })
+
+        expect(deps.reparentSubscriptionItem).toHaveBeenCalledWith('77', '99')
+        expect(deps.subscribe).toHaveBeenCalledTimes(2)
+      })
+
+      it('ignora id escolhido que não é linha do teste', async () => {
+        const deps = makeUseCase({
+          catalog: [PAID_PLAN, PAID_OFFICIAL],
+          subscriptions: [expired],
+        })
+
+        await deps.useCase.execute({
+          ...addLine,
+          intent: { ...addLine.intent, includeLineIds: ['999'] },
+        })
+
+        expect(deps.reparentSubscriptionItem).not.toHaveBeenCalled()
+      })
+    })
+
     /**
      * A linha nova falha, e as que já existiam **seguem funcionando**: propagar
      * faria o gateway reentregar, a reentrega bater na idempotência e o cliente

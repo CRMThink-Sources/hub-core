@@ -46,6 +46,16 @@ export class ManualModalityCannotCreateLineError extends Error {
   }
 }
 
+export class IncludedLineNotEligibleError extends Error {
+  constructor(readonly lineIds: string[]) {
+    super(
+      `As linhas ${lineIds.join(', ')} não são linhas ativas de um teste encerrado desta ` +
+        'instalação, então não podem entrar na contratação.',
+    )
+    this.name = 'IncludedLineNotEligibleError'
+  }
+}
+
 export class PlanDoesNotPriceProviderError extends Error {
   constructor(planId: string, provider: PlanProvider) {
     super(
@@ -65,6 +75,12 @@ export type CreateAdditionalLineInput = {
   provider: PlanProvider
   /** Plano que a precifica, na SPA de planos. **O único preço que vem do cliente.** */
   planId: string
+  /**
+   * Linhas do teste encerrado que o cliente quer contratar junto. Só vale com a
+   * assinatura vigente em `trial_expired`; ausente ou vazio, só a linha nova é
+   * cobrada. Id estranho à instalação é recusado.
+   */
+  includeLineIds?: string[]
 }
 
 export type CreateAdditionalLineOutput =
@@ -161,8 +177,10 @@ export class CreateAdditionalLine {
      * que plano ausente e plano ambíguo aparecem, e os dois têm que aparecer antes de
      * provisionar recurso ou tocar o gateway.
      */
+    const billable = this.billableContract(contract, input.includeLineIds ?? [])
+
     const desired = buildContractLineItems({
-      contract,
+      contract: billable,
       offerablePlans: await this.plans.listOfferable(),
       plansForDiagnosis: await this.plans.listForDiagnosis(),
       additional: { provider: input.provider, plan },
@@ -182,6 +200,9 @@ export class CreateAdditionalLine {
           kind: 'add-line',
           provider: input.provider,
           planId: plan.id,
+          ...(input.includeLineIds?.length
+            ? { includeLineIds: input.includeLineIds }
+            : {}),
         },
       })
 
@@ -348,6 +369,34 @@ export class CreateAdditionalLine {
       return null
 
     return current.gatewayId ?? null
+  }
+
+  /**
+   * O que entra na cobrança. Com o teste encerrado, só as linhas que o cliente
+   * escolheu — as demais não foram usadas pelo contrato pago e saem da cobrança.
+   * Com qualquer outro estado, o contrato inteiro, como sempre foi.
+   */
+  private billableContract<
+    T extends Subscription & { items: SubscriptionItem[] },
+  >(contract: readonly T[], includeLineIds: readonly string[]): T[] {
+    const expired = contract[0]?.status === 'trial_expired'
+
+    if (!expired) {
+      if (includeLineIds.length > 0) {
+        throw new IncludedLineNotEligibleError([...includeLineIds])
+      }
+      return [...contract]
+    }
+
+    const eligible = new Set(this.linesOf(contract).map(line => line.id))
+    const invalid = includeLineIds.filter(id => !eligible.has(id))
+    if (invalid.length > 0) throw new IncludedLineNotEligibleError(invalid)
+
+    const chosen = new Set(includeLineIds)
+    return contract.map(subscription => ({
+      ...subscription,
+      items: subscription.items.filter(item => chosen.has(item.id)),
+    }))
   }
 
   /** As linhas do contrato: item ativo com conector. Item de cobrança não é linha. */

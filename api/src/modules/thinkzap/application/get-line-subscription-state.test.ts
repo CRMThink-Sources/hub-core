@@ -353,6 +353,58 @@ describe('GetLineSubscriptionState', () => {
       })
     })
 
+    it('trial_expired com linha ativa permite criar linha de outro conector', async () => {
+      const { useCase } = makeUseCase([
+        subscriptionOf({
+          status: 'trial_expired',
+          modality: 'manual',
+          plan: TRIAL_PLAN,
+          currentPeriodEnd: plusDays(-1),
+          items: [lineOf('1', 'ZAPI')],
+        }),
+      ])
+
+      await expect(useCase.execute(INPUT, NOW)).resolves.toMatchObject({
+        status: 'trial_expired',
+        isTrial: true,
+        canSubscribe: true,
+        canCreateLine: true,
+      })
+    })
+
+    it('trial_expired lista as linhas ativas como elegíveis à contratação', async () => {
+      const { useCase } = makeUseCase([
+        subscriptionOf({
+          status: 'trial_expired',
+          modality: 'manual',
+          plan: TRIAL_PLAN,
+          currentPeriodEnd: plusDays(-1),
+          items: [lineOf('1', 'ZAPI'), lineOf('2', 'ZAPI', 'cancelled')],
+        }),
+      ])
+
+      const state = await useCase.execute(INPUT, NOW)
+
+      expect(state).toMatchObject({
+        expiredTrialLines: [{ id: '1', name: 'Linha', provider: 'ZAPI' }],
+      })
+    })
+
+    it('trialing não expõe linhas de trial expirado', async () => {
+      const { useCase } = makeUseCase([
+        subscriptionOf({
+          status: 'trialing',
+          modality: 'manual',
+          plan: TRIAL_PLAN,
+          items: [lineOf('1', 'ZAPI')],
+        }),
+      ])
+
+      await expect(useCase.execute(INPUT, NOW)).resolves.toMatchObject({
+        expiredTrialLines: [],
+      })
+    })
+
     /**
      * O estado normal depois de contratar: trial encerrado ao lado da paga ativa.
      * A vigente é a paga, e a de teste não influencia nada.

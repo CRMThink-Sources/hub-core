@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   CreateAdditionalLine,
+  IncludedLineNotEligibleError,
   ManualModalityCannotCreateLineError,
   NoLineToExtendError,
   PlanDoesNotPriceProviderError,
@@ -580,6 +581,74 @@ describe('CreateAdditionalLine', () => {
       expect(deps.provisionConnector).not.toHaveBeenCalled()
       expect(deps.createSubscriptionItem).not.toHaveBeenCalled()
       expect(deps.syncSubscriptionLineItems).not.toHaveBeenCalled()
+    })
+
+    describe('teste encerrado', () => {
+      const expiredTrial = () =>
+        trialContract({
+          status: 'trial_expired',
+          currentPeriodEnd: plusDays(-1),
+        })
+
+      it('sem escolha, cobra só a linha nova', async () => {
+        const deps = makeUseCase({ subscriptions: [expiredTrial()] })
+
+        await deps.useCase.execute(INPUT)
+
+        expect(deps.createCheckoutSession).toHaveBeenCalledWith(
+          expect.objectContaining({
+            lineItems: [{ priceId: 'price_hub', quantity: 1 }],
+            intent: { kind: 'add-line', provider: 'HUBMESSAGE', planId: '8' },
+          }),
+        )
+      })
+
+      it('com a linha do teste escolhida, cobra as duas e leva a escolha na intenção', async () => {
+        const deps = makeUseCase({ subscriptions: [expiredTrial()] })
+
+        await deps.useCase.execute({ ...INPUT, includeLineIds: ['77'] })
+
+        expect(deps.createCheckoutSession).toHaveBeenCalledWith(
+          expect.objectContaining({
+            lineItems: [
+              { priceId: 'price_zapi', quantity: 1 },
+              { priceId: 'price_hub', quantity: 1 },
+            ],
+            intent: {
+              kind: 'add-line',
+              provider: 'HUBMESSAGE',
+              planId: '8',
+              includeLineIds: ['77'],
+            },
+          }),
+        )
+      })
+
+      it('recusa id que não é linha ativa do teste encerrado', async () => {
+        const deps = makeUseCase({ subscriptions: [expiredTrial()] })
+
+        await expect(
+          deps.useCase.execute({ ...INPUT, includeLineIds: ['999'] }),
+        ).rejects.toThrow(IncludedLineNotEligibleError)
+        expect(deps.createCheckoutSession).not.toHaveBeenCalled()
+      })
+
+      it('recusa escolha de linhas quando o teste ainda está em andamento', async () => {
+        const deps = makeUseCase({ subscriptions: [trialContract()] })
+
+        await expect(
+          deps.useCase.execute({ ...INPUT, includeLineIds: ['77'] }),
+        ).rejects.toThrow(IncludedLineNotEligibleError)
+      })
+
+      it('não provisiona nem cria nada antes de pagar', async () => {
+        const deps = makeUseCase({ subscriptions: [expiredTrial()] })
+
+        await deps.useCase.execute(INPUT)
+
+        expect(deps.provisionConnector).not.toHaveBeenCalled()
+        expect(deps.createSubscriptionItem).not.toHaveBeenCalled()
+      })
     })
 
     /** Cancelada não existe mais no gateway: não há `line_item` a ajustar. */

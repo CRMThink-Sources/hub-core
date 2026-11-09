@@ -4,6 +4,7 @@ import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import {
   CreateAdditionalLine,
+  IncludedLineNotEligibleError,
   ManualModalityCannotCreateLineError,
   NoLineToExtendError,
   PlanDoesNotPriceProviderError,
@@ -32,6 +33,8 @@ import { apiLogger } from '@/shared/infra/logger'
 const bodySchema = z.strictObject({
   provider: z.union([z.literal('ZAPI'), z.literal('HUBMESSAGE')]),
   planId: z.string().min(1),
+  /** Linhas do teste encerrado que entram no checkout. O preço continua sendo do servidor. */
+  includeLineIds: z.array(z.string().min(1)).max(50).optional(),
 })
 
 const installationSchema = z.object({
@@ -68,8 +71,8 @@ export class CreateLineController extends Controller {
     if (!body.success) {
       return this.badRequest(
         new Error(
-          'Corpo inválido: informe apenas o conector (ZAPI ou HUBMESSAGE) e o id do ' +
-            'plano — preço, quantidade e período são definidos no servidor',
+          'Corpo inválido: informe apenas o conector (ZAPI ou HUBMESSAGE), o id do ' +
+            'plano e, opcionalmente, as linhas do teste encerrado a contratar — preço, quantidade e período são definidos no servidor',
         ),
       )
     }
@@ -79,6 +82,7 @@ export class CreateLineController extends Controller {
         ...installation.data,
         provider: body.data.provider,
         planId: body.data.planId,
+        includeLineIds: body.data.includeLineIds,
       })
 
       if (result.kind === 'checkout') {
@@ -94,6 +98,9 @@ export class CreateLineController extends Controller {
         },
       })
     } catch (error) {
+      if (error instanceof IncludedLineNotEligibleError) {
+        return this.badRequest(error)
+      }
       if (error instanceof PlanDoesNotPriceProviderError) {
         logThinkzapError(
           apiLogger,
