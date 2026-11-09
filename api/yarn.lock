@@ -2458,6 +2458,11 @@ graphmatch@^1.1.0:
   resolved "https://registry.npmjs.org/graphmatch/-/graphmatch-1.1.1.tgz"
   integrity sha512-5ykVn/EXM1hF0XCaWh05VbYvEiOL2lY1kBxZtaYsyvjp7cmWOU1XsAdfQBwClraEofXDT197lFbXOEVMHpvQOg==
 
+groq-sdk@^1.6.0:
+  version "1.6.0"
+  resolved "https://registry.yarnpkg.com/groq-sdk/-/groq-sdk-1.6.0.tgz#6938848229935425e29aa5a9b225b50f4fbc89a9"
+  integrity sha512-ggMgo6n84aZdNObgkSbSxWrdAq4wABsViIRb5e4N15bMUtDLZVhqlgZOI7X4TeqdBMdaVUOuUdZxAZIp06u0vw==
+
 has-flag@^4.0.0:
   version "4.0.0"
   resolved "https://registry.npmjs.org/has-flag/-/has-flag-4.0.0.tgz"
