@@ -5,6 +5,14 @@ import type {
   WidgetTemplateButton,
 } from '@/app/hooks/use-widget-templates'
 import {
+  Combobox,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxTrigger,
+  type ComboboxOption,
+} from '@/components/ui/combobox'
+import { templateMatchesQuery, templateSnippet } from './template-search'
+import {
   dynamicButtons,
   extractTemplateVariables,
   isHttpsUrl,
@@ -105,6 +113,16 @@ export const TemplateComposer = ({
   const selected = templates.find(
     template => templateKey(template) === selectedKey,
   )
+  const templatesByKey = new Map(
+    templates.map(template => [templateKey(template), template]),
+  )
+  const templateOptions: ComboboxOption[] = templates.map(template => ({
+    value: templateKey(template),
+    label: `${template.name} - ${template.language}`,
+    description: templateSnippet(template.body),
+  }))
+  const selectedOption =
+    templateOptions.find(option => option.value === selectedKey) ?? null
   const showHeaderImage = needsHeaderImage(selected)
   const headerImageValid = isHttpsUrl(headerImageUrl)
   const defaultImageUrl = defaultHeaderImageOf(selected)
@@ -152,26 +170,51 @@ export const TemplateComposer = ({
         </p>
       ) : null}
 
-      <label className="group grid min-w-0 gap-2">
+      <div className="grid min-w-0 gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Template
         </span>
-        <select
-          className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition group-focus-within:border-blue-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-          value={selectedKey}
-          onChange={event => onSelectTemplate(event.target.value)}
+        {/*
+          `key` remonta o combobox quando a lista chega ou muda (troca de linha):
+          ele não reflete troca de `items` na mesma instância. O filtro é nosso
+          porque o padrão só olha o rótulo, e a busca vale também para o corpo.
+        */}
+        <Combobox
+          key={`${templates.length}:${templates[0] ? templateKey(templates[0]) : ''}`}
+          items={templateOptions}
+          value={selectedOption}
+          onValueChange={(option: ComboboxOption | null) =>
+            onSelectTemplate(option?.value ?? '')
+          }
+          filter={(option: ComboboxOption, query: string) => {
+            const template = templatesByKey.get(option.value)
+            return template ? templateMatchesQuery(template, query) : true
+          }}
           disabled={disabled || loading || templates.length === 0}
         >
-          <option value="">
-            {loading ? 'Carregando templates...' : 'Selecione um template'}
-          </option>
-          {templates.map(template => (
-            <option key={templateKey(template)} value={templateKey(template)}>
-              {template.name} - {template.language}
-            </option>
-          ))}
-        </select>
-      </label>
+          <ComboboxTrigger
+            className="h-12 rounded-xl border-slate-300 bg-white px-4 text-slate-900 shadow-none"
+            placeholder={
+              loading ? 'Carregando templates...' : 'Selecione um template'
+            }
+          />
+          <ComboboxContent
+            searchPlaceholder="Buscar por nome ou texto do template"
+            emptyText="Nenhum template encontrado"
+          >
+            {(option: ComboboxOption) => (
+              <ComboboxItem key={option.value} value={option}>
+                <span className="truncate">{option.label}</span>
+                {option.description ? (
+                  <span className="truncate text-xs text-muted-foreground">
+                    {option.description}
+                  </span>
+                ) : null}
+              </ComboboxItem>
+            )}
+          </ComboboxContent>
+        </Combobox>
+      </div>
 
       {selected ? (
         <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white/70 p-4">
