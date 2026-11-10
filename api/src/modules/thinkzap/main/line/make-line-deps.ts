@@ -26,6 +26,7 @@ export function makeLineDeps() {
     hubMessageClient: new HubMessageClient({
       baseUrl: env.hubMessage.baseUrl,
       token: env.hubMessage.secretKey,
+      publicKey: env.hubMessage.publicKey,
     }),
   }
 }

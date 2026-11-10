@@ -31,7 +31,7 @@ type State =
  * Aba de conexão da linha oficial (WhatsApp Oficial / HubMessage).
  *
  * É o par da aba Z-API: lá o cliente lê um QR code, aqui ele autentica a própria
- * conta Meta pelo embedded signup, que o SDK `@hubmessage/connect` abre dentro do
+ * conta Meta pelo embedded signup, que o SDK `@omnizapi/connect` abre dentro do
  * iframe do Bitrix.
  *
  * Conectada, mostra a WABA — é ela que os templates usam, e é o que identifica a
