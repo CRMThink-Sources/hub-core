@@ -14,7 +14,7 @@
   "dependencies": {
     "@base-ui/react": "1.0.0",
     "@base-ui/utils": "^0.2.8",
-    "@hubmessage/connect": "^1.1.0",
+    "@omnizapi/connect": "^1.1.1",
     "@stripe/stripe-js": "^9.13.0",
     "@tailwindcss/node": "4.2.4",
     "@tailwindcss/oxide": "4.2.4",

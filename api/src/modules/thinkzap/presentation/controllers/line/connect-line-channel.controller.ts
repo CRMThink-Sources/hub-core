@@ -14,7 +14,7 @@ import { parseLineRequest } from './line-request'
  * `POST /api/thinkzap/lines/:itemId/connect-channel` — conclui a conexão do
  * WhatsApp Oficial de uma linha.
  *
- * O SDK `@hubmessage/connect` roda no iframe Bitrix, onde o cliente autentica a
+ * O SDK `@omnizapi/connect` roda no iframe Bitrix, onde o cliente autentica a
  * própria conta Meta e obtém `wabaId`, `phoneId` e `code`; esta rota é o que o
  * front faz com eles. É o par oficial do QR code, e recusa linha bloqueada pela
  * mesma razão.
