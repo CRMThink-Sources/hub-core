@@ -125,7 +125,7 @@ describe('CheckConnectOriginController', () => {
 
   it.each([[{ allowOrigins: [] }], [{}]])(
     'libera quando a lista de origens é vazia ou ausente (%j)',
-    async (info) => {
+    async info => {
       sut.hubMessageClient.getSdkInfo.mockResolvedValue(info)
 
       const response = await sut.controller.perform(req())
