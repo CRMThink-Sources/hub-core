@@ -1,4 +1,5 @@
-import HubMessage from '@hubmessage/connect'
+import axios from 'axios'
+import Omnizapi from '@omnizapi/connect'
 import { envConfig } from '@/shared/infra/env-config'
 import { resolveThinkzapClient } from './thinkzap-client'
 
@@ -7,8 +8,8 @@ export type ConnectHubMessageParams = {
   itemId: string
   /**
    * Canal na HubMessage. Entra por parâmetro, e não é resolvido pelo backend antes
-   * de tudo, porque o SDK e a checagem de allowlist precisam dele **antes** de
-   * qualquer requisição nossa. O front já o tem: é o `providerRef` da linha.
+   * de tudo, porque o SDK precisa dele **antes** de qualquer requisição nossa. O
+   * front já o tem: é o `providerRef` da linha.
    */
   channelId: string
 }
@@ -16,7 +17,7 @@ export type ConnectHubMessageParams = {
 /**
  * Desfechos possíveis da conexão. O SDK resolve `{ success: false }` tanto em
  * cancelamento quanto em origem não autorizada, então os casos são distinguidos
- * antes de acioná-lo (ver `isOriginAllowed`).
+ * antes de acioná-lo (ver `isOriginAllowed`) e, no retorno, pelo `reason`.
  */
 export type ConnectHubMessageResult =
   | {
@@ -32,8 +33,6 @@ export type ConnectHubMessageResult =
   | { outcome: 'origin-not-allowed'; origin: string }
   | { outcome: 'incomplete' }
 
-type SdkInfo = { allowOrigins?: string[] }
-
 /** Corpo de `POST /thinkzap/lines/:itemId/connect-channel`. */
 type ConnectChannelResponse = {
   connected: boolean
@@ -41,34 +40,49 @@ type ConnectChannelResponse = {
   wabaRecorded: boolean
 }
 
-const normalizeOrigin = (origin: string) => origin.replace(/\/$/, '')
+/** Corpo de `GET /thinkzap/lines/:itemId/connect-origin-check`. */
+type ConnectOriginCheckResponse = { allowed: boolean }
 
 /**
- * O SDK consulta essa mesma rota e aborta silenciosamente quando a origem da
- * página não está na allowlist do canal. Consultamos antes para poder informar
- * o motivo real ao usuário.
+ * O SDK aborta silenciosamente quando a origem da página não está na allowlist do
+ * canal. Perguntamos antes, **ao nosso servidor**, para poder informar o motivo real
+ * ao usuário: é ele quem consulta `sdk-info`, porque a rede de alguns clientes
+ * alcança o hub-core mas não a Omni.
+ *
+ * A checagem só orienta a mensagem, nunca bloqueia por conta própria: falha de rede
+ * ou 5xx da nossa rota libera o fluxo e deixa o SDK decidir. Já 4xx (sessão
+ * expirada, linha bloqueada, linha de outro provider) sobe, como subiria no
+ * `connect-channel` logo depois.
  */
-async function isOriginAllowed(
-  channelId: string,
-  publicKey: string,
+export async function isOriginAllowed(
+  itemId: string,
+  origin: string,
 ): Promise<boolean> {
-  const response = await fetch(
-    `${envConfig.hubMessageApiUrl}/instances/${channelId}/sdk-info`,
-    { headers: { Authorization: publicKey } },
-  )
+  const resolved = resolveThinkzapClient()
+  if (!resolved.ok) {
+    throw new Error(resolved.message)
+  }
 
-  if (!response.ok) return true
+  try {
+    const result = await resolved.client.get<ConnectOriginCheckResponse>(
+      `/thinkzap/lines/${encodeURIComponent(itemId)}/connect-origin-check`,
+      { params: { origin } },
+    )
+    return result?.allowed !== false
+  } catch (error) {
+    const status = axios.isAxiosError(error)
+      ? error.response?.status
+      : undefined
 
-  const info = (await response.json()) as SdkInfo
-  const allowed = (info.allowOrigins ?? []).map(normalizeOrigin)
-  if (allowed.length === 0) return true
+    if (status !== undefined && status >= 400 && status < 500) throw error
 
-  return allowed.includes(normalizeOrigin(window.location.origin))
+    return true
+  }
 }
 
 /**
  * Fluxo de conexão do WhatsApp Oficial (HubMessage) no iframe Bitrix:
- * 1. SDK `@hubmessage/connect` abre a autenticação Meta e retorna wabaId/phoneId/code
+ * 1. SDK `@omnizapi/connect` abre a autenticação Meta e retorna wabaId/phoneId/code
  * 2. Envia os dados ao backend, que finaliza via `POST /v1/channels/{id}/connect`
  *    e grava a WABA no item da linha
  *
@@ -85,14 +99,19 @@ export async function connectHubMessageChannel(
     return { outcome: 'missing-config' }
   }
 
-  if (!(await isOriginAllowed(params.channelId, publicKey))) {
-    return { outcome: 'origin-not-allowed', origin: window.location.origin }
+  const origin = window.location.origin
+  if (!(await isOriginAllowed(params.itemId, origin))) {
+    return { outcome: 'origin-not-allowed', origin }
   }
 
-  const client = HubMessage.newClient({ publicKey })
+  const client = Omnizapi.newClient({ publicKey })
   const response = await client.connect({ channelId: params.channelId })
 
   if (!response.success) {
+    // A versão atual do SDK diz o motivo; a origem recusada não é cancelamento.
+    if (response.reason === 'origin_not_allowed') {
+      return { outcome: 'origin-not-allowed', origin }
+    }
     return { outcome: 'cancelled' }
   }
 

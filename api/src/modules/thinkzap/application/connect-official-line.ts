@@ -10,7 +10,7 @@ export type ConnectOfficialLineInput = {
   subscriptionItemId: string
   domainId: string
   appCode: string
-  // Os três vêm do SDK `@hubmessage/connect` no iframe Bitrix.
+  // Os três vêm do SDK `@omnizapi/connect` no iframe Bitrix.
   wabaId: string
   phoneId: string
   code: string

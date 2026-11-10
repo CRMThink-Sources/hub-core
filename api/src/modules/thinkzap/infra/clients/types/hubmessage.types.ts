@@ -88,6 +88,11 @@ export type UpdateHubMessageWebhookParams = {
   status?: 'ENABLED' | 'DISABLED'
 }
 
+/** Corpo de `GET /instances/:id/sdk-info`. */
+export type HubMessageSdkInfo = {
+  allowOrigins?: string[]
+}
+
 export type ConnectHubMessageChannelParams = {
   wabaId: string
   phoneId: string

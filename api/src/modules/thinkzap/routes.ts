@@ -84,6 +84,7 @@ import {
   makeUpdateBotFlowController,
 } from './main/bot-flow/make-bot-flow-controllers'
 import {
+  makeCheckConnectOriginController,
   makeConnectLineChannelController,
   makeDeleteLineController,
   makeDisconnectLineController,
@@ -344,6 +345,12 @@ export const createThinkerszapRoutes = (): Router => {
   )
   // Par do QR code na linha oficial (embedded signup da Meta no iframe). `update` e não
   // `create`: o canal já existe desde o provisionamento, aqui só liga o número a ele.
+  // Pré-checagem de origem do SDK, feita aqui para o navegador não falar com a Omni.
+  router.get(
+    '/lines/:itemId/connect-origin-check',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeCheckConnectOriginController),
+  )
   router.post(
     '/lines/:itemId/connect-channel',
     requireThinkzapPermission('connectors', 'update'),

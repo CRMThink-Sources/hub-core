@@ -13,6 +13,7 @@ import {
   UpdateTemplateResponse,
   UploadTemplateMediaResponse,
   HubMessageBusiness,
+  HubMessageSdkInfo,
   HubMessageWebhook,
   ListBusinessesResponse,
   ListTemplatesResponse,
@@ -31,6 +32,8 @@ import {
 export type HubMessageClientConfig = {
   baseUrl: string
   token: string
+  /** Public Key do SDK. Só `getSdkInfo` a usa; os demais métodos usam `token`. */
+  publicKey?: string
 }
 
 /**
@@ -74,11 +77,13 @@ function isAlreadyPaidBody(data: unknown): boolean {
 
 export class HubMessageClient {
   private readonly http: AxiosInstance
+  private readonly publicKey: string
 
   constructor(config: HubMessageClientConfig) {
     if (!config.token) {
       throw thinkzapError('thinkzap.hubmessage.not_configured')
     }
+    this.publicKey = config.publicKey ?? ''
     this.http = axios.create({
       baseURL: config.baseUrl.replace(/\/$/, ''),
       headers: {
@@ -144,6 +149,23 @@ export class HubMessageClient {
     const { data } = await this.http.patch<HubMessageWebhook>(
       `/v1/channels/${channelId}/webhooks/${webhookId}`,
       params,
+    )
+    return data
+  }
+
+  /**
+   * Origens liberadas para o SDK de conexão do canal. Único endpoint que aceita a
+   * Public Key, enviada crua em `Authorization` (sem `Bearer`), por isso o header
+   * da instância é sobrescrito nesta chamada. Timeout curto: é pré-checagem e quem
+   * chama libera o fluxo se ela não responder.
+   */
+  async getSdkInfo(channelId: string): Promise<HubMessageSdkInfo> {
+    if (!this.publicKey) {
+      throw thinkzapError('thinkzap.hubmessage.not_configured')
+    }
+    const { data } = await this.http.get<HubMessageSdkInfo>(
+      `/instances/${encodeURIComponent(channelId)}/sdk-info`,
+      { headers: { Authorization: this.publicKey }, timeout: 5_000 },
     )
     return data
   }

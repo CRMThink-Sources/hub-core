@@ -21,6 +21,8 @@ import {
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { HubMessageConnectorProvider } from '@/modules/thinkzap/infra/providers/hubmessage-connector-provider'
 import { ConnectOfficialLine } from '@/modules/thinkzap/application/connect-official-line'
+import { CheckConnectOrigin } from '@/modules/thinkzap/application/check-connect-origin'
+import { CheckConnectOriginController } from '@/modules/thinkzap/presentation/controllers/line/check-connect-origin.controller'
 import { GetLineConnection } from '@/modules/thinkzap/application/get-line-connection'
 import { GetLineSettings } from '@/modules/thinkzap/application/get-line-settings'
 import { UpdateLineSettings } from '@/modules/thinkzap/application/update-line-settings'
@@ -92,6 +94,14 @@ export const makeConnectLineChannelController = (): Controller => {
       subscriptionItems,
       makeSyncLineConnectedField(),
     ),
+  )
+}
+
+export const makeCheckConnectOriginController = (): Controller => {
+  const { getAplicationContext, hubMessageClient } = makeLineDeps()
+
+  return new CheckConnectOriginController(
+    new CheckConnectOrigin(getAplicationContext, hubMessageClient),
   )
 }
 

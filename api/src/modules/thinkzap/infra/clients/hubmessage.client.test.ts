@@ -273,3 +273,37 @@ describe('HubMessageClient.subscribeChannel', () => {
     )
   })
 })
+
+describe('HubMessageClient.getSdkInfo', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('envia a Public Key crua em Authorization, sem Bearer, com timeout curto', async () => {
+    const client = new HubMessageClient({
+      baseUrl: 'https://api.hubmessage.io',
+      token: 'token_1',
+      publicKey: 'pk_1',
+    })
+    const get = (
+      mockedAxios.create.mock.results[0]?.value as {
+        get: ReturnType<typeof vi.fn>
+      }
+    ).get
+    get.mockResolvedValue({ data: { allowOrigins: ['https://a.com'] } })
+
+    const info = await client.getSdkInfo('chan_1')
+
+    expect(get).toHaveBeenCalledWith('/instances/chan_1/sdk-info', {
+      headers: { Authorization: 'pk_1' },
+      timeout: 5_000,
+    })
+    expect(info).toEqual({ allowOrigins: ['https://a.com'] })
+  })
+
+  it('recusa sem Public Key configurada, sem chamar a API', async () => {
+    const client = makeClient()
+
+    await expect(client.getSdkInfo('chan_1')).rejects.toBeDefined()
+  })
+})
