@@ -822,7 +822,7 @@
   resolved "https://registry.npmjs.org/@nolyfill/is-core-module/-/is-core-module-1.0.39.tgz"
   integrity sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==
 
-"@omnizapi/connect@1.1.1":
+"@omnizapi/connect@^1.1.1":
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/@omnizapi/connect/-/connect-1.1.1.tgz#ccc677f8439adc68aea2d1167f8d5e1fba068bf2"
   integrity sha512-tE1g1WAHF4mXTBT6APvkE9jv/51SlmEa4xJMqzZ9J0kMdXNru8/Qs2vOIuRiwhGfmTZiZqk2AcpwLojTZf4ioA==
