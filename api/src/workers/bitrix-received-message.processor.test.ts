@@ -65,6 +65,19 @@ vi.mock(
   }),
 )
 
+const { getFlowBotMock } = vi.hoisted(() => ({
+  getFlowBotMock: vi.fn().mockResolvedValue(null),
+}))
+
+vi.mock(
+  '@/modules/thinkzap/infra/persistence/repositories/prisma-bot-flow-bot.repository',
+  () => ({
+    PrismaBotFlowBotRepository: class {
+      getByBitrixBotId = getFlowBotMock
+    },
+  }),
+)
+
 const { upsertOperatorOAuthMock } = vi.hoisted(() => ({
   upsertOperatorOAuthMock: vi.fn().mockResolvedValue(undefined),
 }))
@@ -381,6 +394,41 @@ describe('processBitrixReceivedMessage DB persistence', () => {
     callMethodMock.mockResolvedValue({ result: { message: { params: {} } } })
     ensureBitrixBotIdMock.mockClear()
     getContextMock.mockResolvedValue(baseContext)
+  })
+
+  it('não reenvia o eco da fala do bot de fluxo — o turno já entregou ao contato', async () => {
+    getFlowBotMock.mockResolvedValueOnce({
+      appId: 'app-1',
+      flowId: 'flow-1',
+      bitrixBotId: 1214,
+      botToken: 'tok',
+      webhookUrl: 'https://x',
+    })
+    const appendJobLog = vi.fn().mockResolvedValue(undefined)
+
+    await processBitrixReceivedMessage(
+      makeEvent({
+        message: { user_id: '1214', text: 'Prazer!', files: undefined },
+      }),
+      { appendJobLog },
+    )
+
+    expect(getFlowBotMock).toHaveBeenCalledWith('app-1', 1214)
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+    expect(createMock).not.toHaveBeenCalled()
+    expect(resolveLineMock).not.toHaveBeenCalled()
+    expect(
+      appendJobLog.mock.calls.some(([line]) =>
+        (line as string).includes('Eco do bot de fluxo'),
+      ),
+    ).toBe(true)
+  })
+
+  it('autor que não é bot de fluxo segue o envio normal', async () => {
+    await processBitrixReceivedMessage(makeEvent())
+
+    expect(getFlowBotMock).toHaveBeenCalledWith('app-1', 1)
+    expect(sendMessageZApiMock).toHaveBeenCalledTimes(1)
   })
 
   it('recusa o envio quando o trial venceu', async () => {
