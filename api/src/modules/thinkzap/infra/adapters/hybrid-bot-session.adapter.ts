@@ -8,23 +8,9 @@ import { isDailyLimitReachedError } from '@/modules/thinkzap/application/helpers
 const log = createWorkerSourceLogger('bitrix')
 
 /**
- * Entrega a fala do bot ao contato **e** ecoa no chat do canal aberto.
- *
- * Por que dois envios, e não um: medido em produção (2026-09-04, portal `crmthinkers`,
- * linha 230, chat 1822) que `imopenlines.bot.session.message.send` cria a mensagem no
- * chat do Bitrix e **não** dispara `ONIMCONNECTORMESSAGEADD` — o evento pelo qual o
- * ThinkZap entrega ao WhatsApp. A mensagem aparecia para o operador e nunca chegava ao
- * cliente.
- *
- * Então cada fala faz dois caminhos, com papéis distintos:
- *
- * - **contato**: pelo mesmo sender que o operador usa (`outboundSenderResolver` →
- *   Z-API/HubMessage). É a entrega que importa; falhar aqui é falhar o turno.
- * - **eco**: pelo adapter do bot no chat do canal aberto. É o histórico que o operador
- *   lê ao assumir a conversa; falhar aqui não perde a conversa, só o registro.
- *
- * `handoff` e `finish` seguem só pelo bot: são operações de sessão do canal aberto, não
- * mensagem ao contato.
+ * Fala do bot: envio direto ao contato (sem esperar a fila do conector) + eco no chat
+ * do Bitrix para o histórico do operador. O eco dispara o conector; o worker de saída
+ * descarta mensagem de bot de fluxo para não duplicar no WhatsApp.
  */
 export class HybridBotSessionAdapter implements BotSessionPort {
   constructor(

@@ -32,6 +32,7 @@ import {
   prepareOpenLineOutboundText,
 } from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
+import { PrismaBotFlowBotRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-bot-flow-bot.repository'
 import {
   ensureBitrixBotId,
   invalidateBitrixBotId,
@@ -84,6 +85,7 @@ import {
 
 const log = createWorkerSourceLogger('bitrix')
 const messageRepo = new PrismaThinkzapMessageRepository()
+const flowBots = new PrismaBotFlowBotRepository()
 const mirroredReservations = new MirroredMessageReservations(redisConnection)
 const upsertOperatorOAuth = new UpsertOperatorBitrixOAuth(
   new PrismaThinkzapOperatorOAuthRepository(),
@@ -387,6 +389,19 @@ export async function processBitrixReceivedMessage(
       `channelId=${context.instance.channelId ?? '—'} | item=${context.subscriptionItemId} | ` +
       `destino(chatId)=${chatId}`,
   )
+
+  // Eco do bot de fluxo: o turno já entregou direto ao contato.
+  const authorBotId = Number(message.message.user_id)
+  if (
+    Number.isInteger(authorBotId) &&
+    authorBotId > 0 &&
+    (await flowBots.getByBitrixBotId(context.app.id, authorBotId))
+  ) {
+    await appendJobLog(
+      `Eco do bot de fluxo (autor=${authorBotId}) — já entregue, não reenviado.`,
+    )
+    return
+  }
 
   // Token do operador para o espelhamento postar como ele; só complementa o OAuth dos widgets.
   const operatorOAuth = await captureOperatorOAuthFromEvent(
