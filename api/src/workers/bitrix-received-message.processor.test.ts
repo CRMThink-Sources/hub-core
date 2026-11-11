@@ -414,6 +414,17 @@ describe('processBitrixReceivedMessage DB persistence', () => {
     )
 
     expect(getFlowBotMock).toHaveBeenCalledWith('app-1', 1214)
+    expect(setMessageDeliveredMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        MESSAGES: [
+          expect.objectContaining({
+            im: { chat_id: '100', message_id: 'BITRIX-MSG-1' },
+            message: { id: 'bot-echo-BITRIX-MSG-1' },
+            chat: { id: '5511999999999' },
+          }),
+        ],
+      }),
+    )
     expect(sendMessageZApiMock).not.toHaveBeenCalled()
     expect(createMock).not.toHaveBeenCalled()
     expect(resolveLineMock).not.toHaveBeenCalled()
