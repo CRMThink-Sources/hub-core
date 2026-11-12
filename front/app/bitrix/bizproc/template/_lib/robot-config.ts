@@ -5,6 +5,7 @@ import {
   isHttpsUrl,
   orderedTemplateParameters,
 } from '@/app/(widgets)/layouts/template-variables'
+import { EMPTY_FIELD_INDEX, type FieldIndex } from './document-fields'
 
 /**
  * Um valor da configuração: **literal**, **campo do documento**, ou **expressão** que
@@ -34,11 +35,15 @@ export const EMPTY_FIELD: FieldValue = { mode: 'literal', value: '' }
 /**
  * A expressão de campo do documento, nas formas que o Bitrix devolve.
  *
- * Gravamos `{{=Document:UF_CRM_123}}`, a forma da automação de CRM, mas o que volta em
- * `current_values` não é necessariamente byte a byte o que foi gravado: o designer de
- * workflow usa uma chave só (`{=Document:…}`), e o portal pode devolver a expressão com
- * espaço ou com modificador (`_printable`, `> printable`) — é assim que o formulário
- * nativo pede valor legível.
+ * Gravamos `{=Document:UF_CRM_123}`, a forma do designer de workflow, de **chave
+ * simples**. Com par duplo (`{{=Document:…}}`) o Bitrix resolve o miolo e deixa o par
+ * de fora: o nome chegava ao contato como `Olá, {João}!`. Robôs gravados antes com o
+ * par duplo continuam sendo lidos aqui.
+ *
+ * O que volta em `current_values` não é necessariamente byte a byte o que foi gravado:
+ * o portal pode devolver a expressão com espaço ou com modificador (`_printable`,
+ * `> printable`) — é assim que o formulário nativo pede valor legível — ou em forma de
+ * exibição (`{{{Contato: Celular}}}`, tratada em `fromStoredValue`).
  *
  * Reconhecer só a forma exata que gravamos fazia a variável reabrir em "Texto" com a
  * expressão crua no campo, e salvar de novo gravava a expressão **dentro** de outra.
@@ -60,7 +65,7 @@ export function toStoredValue(field: FieldValue): string {
   if (field.mode === 'literal') return field.value
   // O token do Bitrix já vem com as chaves; embrulhá-lo de novo o quebraria.
   if (field.mode === 'expression') return field.value
-  return field.value ? `{{=Document:${field.value}}}` : ''
+  return field.value ? `{=Document:${field.value}}` : ''
 }
 
 /** O rótulo de dentro do token, para mostrar sem as chaves. */
@@ -71,25 +76,42 @@ export function expressionLabel(value: string): string {
 /**
  * Deriva o modo de volta da forma do valor.
  *
- * `knownFieldIds` cobre o caso do portal que devolve o campo já sem a expressão, só com
- * o id (`UF_CRM_123`): sem a lista não há como distinguir isso de texto digitado, e com
- * ela o modo volta certo. Texto que por acaso seja idêntico a um id de campo do
- * documento é o preço, e é mais raro que o caso que ele resolve.
+ * `fields` cobre dois casos em que o Bitrix devolve o campo sem a expressão:
+ *
+ * - só com o id (`UF_CRM_123`): sem a lista não há como distinguir isso de texto
+ *   digitado, e com ela o modo volta certo. Texto que por acaso seja idêntico a um id
+ *   de campo do documento é o preço, e é mais raro que o caso que ele resolve;
+ * - em forma de exibição, `{{{Contato: Celular}}}`: é o **título** do campo, e o
+ *   Bitrix **não resolve** esse texto na execução. Reabrir como "Seletor do Bitrix" e
+ *   gravá-lo de volta tal como veio era o que quebrava o disparo a cada abrir-e-salvar.
+ *   Quando o rótulo é idêntico ao título de exatamente um campo, o valor volta como
+ *   campo e o próximo salvamento regrava a expressão que o Bitrix resolve. Título
+ *   repetido não identifica campo nenhum, e rótulo sem campo (retorno de outro passo
+ *   da automação) segue como expressão, intocado.
  *
  * A ordem importa: `{{=Document:X}}` também casaria como token do seletor, e o modo
  * campo é o mais útil dos dois — dá o `select` de volta em vez de um valor intocável.
  */
 export function fromStoredValue(
   raw: string | undefined,
-  knownFieldIds?: ReadonlySet<string>,
+  fields: FieldIndex = EMPTY_FIELD_INDEX,
 ): FieldValue {
   const value = raw ?? ''
   const trimmed = value.trim()
   const match = DOCUMENT_EXPRESSION.exec(trimmed)
 
   if (match?.[1]) return { mode: 'document', value: match[1] }
-  if (BITRIX_TOKEN.test(trimmed)) return { mode: 'expression', value: trimmed }
-  if (trimmed && knownFieldIds?.has(trimmed)) {
+
+  if (BITRIX_TOKEN.test(trimmed)) {
+    const ids = fields.idsByTitle.get(expressionLabel(trimmed))
+    const [only] = ids ?? []
+
+    if (only && ids?.length === 1) return { mode: 'document', value: only }
+
+    return { mode: 'expression', value: trimmed }
+  }
+
+  if (trimmed && fields.ids.has(trimmed)) {
     return { mode: 'document', value: trimmed }
   }
 
@@ -189,7 +211,7 @@ export function buildRobotProperties(
  */
 export function parseStoredProperties(
   stored: Record<string, unknown>,
-  knownFieldIds?: ReadonlySet<string>,
+  fields: FieldIndex = EMPTY_FIELD_INDEX,
 ): RobotConfigState {
   const body = asString(stored.templateBody)
   const name = asString(stored.templateName)
@@ -200,21 +222,21 @@ export function parseStoredProperties(
 
   return {
     connector: asString(stored.connector),
-    destination: fromStoredValue(asString(stored.destination), knownFieldIds),
+    destination: fromStoredValue(asString(stored.destination), fields),
     sendToAllRelatedContacts: isToggleOn(stored.sendToAllRelatedContacts),
     template: name && language ? { name, language, body } : null,
     values: Object.fromEntries(
       keys.map((key, index) => [
         key,
-        fromStoredValue(parameters[index], knownFieldIds),
+        fromStoredValue(parameters[index], fields),
       ]),
     ),
     buttonValues: asStringList(stored.templateButtonParameters).map(value =>
-      fromStoredValue(value, knownFieldIds),
+      fromStoredValue(value, fields),
     ),
     headerImage: fromStoredValue(
       asString(stored.templateHeaderImageUrl),
-      knownFieldIds,
+      fields,
     ),
   }
 }

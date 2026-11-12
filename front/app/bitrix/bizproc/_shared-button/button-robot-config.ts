@@ -9,6 +9,10 @@
  * los aqui duplicaria o parser de expressão do Bitrix.
  */
 import {
+  EMPTY_FIELD_INDEX,
+  type FieldIndex,
+} from '../template/_lib/document-fields'
+import {
   EMPTY_FIELD,
   fromStoredValue,
   toStoredValue,
@@ -93,11 +97,11 @@ export function buildButtonRobotProperties(
  */
 export function parseStoredButtonProperties(
   stored: Record<string, unknown>,
-  knownFieldIds?: ReadonlySet<string>,
+  fields: FieldIndex = EMPTY_FIELD_INDEX,
 ): ButtonRobotConfigState {
   return {
     connector: asString(stored.connector),
-    destination: fromStoredValue(asString(stored.destination), knownFieldIds),
+    destination: fromStoredValue(asString(stored.destination), fields),
     sendToAllRelatedContacts: isToggleOn(stored.sendToAllRelatedContacts),
     body: asString(stored.body),
     header: asString(stored.header),

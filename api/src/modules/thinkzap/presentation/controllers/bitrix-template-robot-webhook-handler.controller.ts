@@ -18,6 +18,7 @@ import {
   bizprocEntityToPlacement,
   resolveRelatedDestinations,
 } from '@/modules/thinkzap/application/related-destinations.resolver'
+import { diagnoseFailedDestinations } from '@/modules/thinkzap/application/helpers/classify-robot-destination'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import {
   BizprocDocument,
@@ -116,8 +117,16 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
 
     const recipients = await this.resolveRecipients(data, crmDocument)
     if (recipients.length === 0) {
-      return this.refuse(crmDocument, notices.noRecipients, {
-        reason: 'no-recipients',
+      // Com o envio para relacionados, "nenhum" é a lista que veio vazia. Sem ele, o
+      // destino chegou vazio: campo sem valor no documento, ou nunca configurado.
+      if (isToggleOn(data.properties.sendToAllRelatedContacts)) {
+        return this.refuse(crmDocument, notices.noRecipients, {
+          reason: 'no-recipients',
+        })
+      }
+
+      return this.refuse(crmDocument, notices.destinationEmpty, {
+        reason: 'destination-empty',
       })
     }
 
@@ -186,6 +195,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     }
 
     const queued: string[] = []
+    const failedDestinations: string[] = []
     for (const destination of recipients) {
       try {
         const result = await this.enqueueTemplateSend.enqueue(target, {
@@ -204,6 +214,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
         queued.push(result.destination)
       } catch (error) {
         // Falha de um destinatário (ex.: telefone inválido) não cancela os demais.
+        failedDestinations.push(destination)
         logThinkzapError(
           apiLogger,
           'thinkzap.bitrix.template_robot_enqueue_failed',
@@ -219,6 +230,24 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     }
 
     if (queued.length === 0) {
+      // Destino que o Bitrix não resolveu tem causa e conserto próprios; o aviso genérico
+      // só fica para telefone mal formado.
+      const diagnosis = diagnoseFailedDestinations(failedDestinations)
+
+      if (diagnosis?.kind === 'unresolved-token') {
+        return this.refuse(
+          crmDocument,
+          notices.destinationUnresolved(diagnosis.value),
+          { reason: 'destination-unresolved' },
+        )
+      }
+
+      if (diagnosis?.kind === 'empty') {
+        return this.refuse(crmDocument, notices.destinationEmpty, {
+          reason: 'destination-empty',
+        })
+      }
+
       return this.refuse(crmDocument, notices.noValidRecipients, {
         reason: 'no-valid-recipients',
       })

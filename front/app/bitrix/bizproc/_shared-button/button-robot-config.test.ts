@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { buildFieldIndex } from '../template/_lib/document-fields'
 import {
   buildButtonRobotProperties,
   MAX_ROBOT_BUTTONS,
@@ -85,6 +86,44 @@ describe('parseStoredButtonProperties', () => {
 
   it('sem nada gravado, lista de botões fica vazia', () => {
     expect(parseStoredButtonProperties({}).buttons).toEqual([])
+  })
+
+  // O Bitrix devolve o campo em forma de exibição; salvar isso de volta o impede de
+  // resolver, como no robô de template.
+  it('reabre o destino em forma de exibição como campo da entidade', () => {
+    const fields = buildFieldIndex([
+      {
+        id: 'CONTACT.PHONE_MOBILE',
+        title: 'Contato: Celular',
+        type: 'string',
+        multiple: false,
+        custom: false,
+      },
+    ])
+
+    const parsed = parseStoredButtonProperties(
+      { destination: '{{{Contato: Celular}}}' },
+      fields,
+    )
+
+    expect(parsed.destination).toEqual({
+      mode: 'document',
+      value: 'CONTACT.PHONE_MOBILE',
+    })
+    expect(buildButtonRobotProperties(parsed).destination).toBe(
+      '{=Document:CONTACT.PHONE_MOBILE}',
+    )
+  })
+
+  it('sem a lista de campos, mantém o destino como veio', () => {
+    const parsed = parseStoredButtonProperties({
+      destination: '{{{Contato: Celular}}}',
+    })
+
+    expect(parsed.destination).toEqual({
+      mode: 'expression',
+      value: '{{{Contato: Celular}}}',
+    })
   })
 
   it('lê a alternância nas formas que o Bitrix usa', () => {
