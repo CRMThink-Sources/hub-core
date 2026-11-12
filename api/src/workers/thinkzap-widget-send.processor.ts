@@ -430,6 +430,7 @@ async function settleGroup(
   if (settled.first.origin === 'ROBOT_MESSAGE') {
     await settleRobotMessageGroup(settled, {
       locale,
+      openChannelQueue: new BullMqOpenChannelConversationQueue(),
       postTimeline: async (document, message) => {
         try {
           const notifier = await makeNotifier(settled.first)

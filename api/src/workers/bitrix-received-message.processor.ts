@@ -397,8 +397,19 @@ export async function processBitrixReceivedMessage(
     authorBotId > 0 &&
     (await flowBots.getByBitrixBotId(context.app.id, authorBotId))
   ) {
+    // Sem a confirmação a linha vê a fala como não entregue e transfere o chat para a fila.
+    await setDelivered(
+      new BitrixClient({
+        bitrixCredential: context.app.credential,
+        domain: context.name,
+      }),
+      event,
+      message,
+      chatId,
+      `bot-echo-${message.im.message_id}`,
+    )
     await appendJobLog(
-      `Eco do bot de fluxo (autor=${authorBotId}) — já entregue, não reenviado.`,
+      `Eco do bot de fluxo (autor=${authorBotId}) — já entregue, não reenviado; confirmado no Bitrix.`,
     )
     return
   }
