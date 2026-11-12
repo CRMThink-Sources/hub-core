@@ -493,6 +493,29 @@ describe('DispatchWidgetOutboxMessage', () => {
       )
     })
 
+    it('envio do CRM enfileira a conversa como `crm`', async () => {
+      const sut = makeSut()
+
+      await sut.dispatch()
+
+      expect(sut.openChannelQueue.enqueue).toHaveBeenCalledWith(
+        expect.objectContaining({ sentBy: 'crm' }),
+      )
+    })
+
+    it.each(['ROBOT_BUTTONS', 'ROBOT_TEMPLATE'] as const)(
+      'robô %s enfileira a conversa como `automation`',
+      async origin => {
+        const sut = makeSut(row({ origin }))
+
+        await sut.dispatch()
+
+        expect(sut.openChannelQueue.enqueue).toHaveBeenCalledWith(
+          expect.objectContaining({ sentBy: 'automation' }),
+        )
+      },
+    )
+
     it('publica o comentário de timeline e carimba a idempotência', async () => {
       const sut = makeSut()
 

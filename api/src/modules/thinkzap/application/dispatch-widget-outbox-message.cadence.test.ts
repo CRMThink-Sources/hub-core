@@ -32,6 +32,7 @@ import {
   MEDIA_EXPIRED_FAILURE,
 } from './dispatch-widget-outbox-message'
 import { settleWidgetAttachmentGroup } from './settle-widget-attachment-group'
+import type { OpenChannelConversationQueue } from '@/modules/thinkzap/domain/ports/open-channel-queue.port'
 import { settleRobotMessageGroup } from './settle-robot-message-group'
 import { OutboundMediaNotFoundError } from '@/modules/thinkzap/domain/ports/outbound-media-storage.port'
 
@@ -647,6 +648,9 @@ describe('DispatchWidgetOutboxMessage — robô "Enviar mensagem" em grupo', () 
     settingsOver: Partial<typeof DEFAULT_CONNECTOR_SETTINGS> = {},
   ) {
     const postTimeline = vi.fn(async () => {})
+    const robotOpenChannel = {
+      enqueue: vi.fn<OpenChannelConversationQueue['enqueue']>(async () => {}),
+    }
     const s = makeSut({
       settings: settings(settingsOver),
       deps: {
@@ -656,6 +660,7 @@ describe('DispatchWidgetOutboxMessage — robô "Enviar mensagem" em grupo', () 
           settleRobotMessageGroup(settled, {
             postTimeline,
             locale: () => Promise.resolve('pt' as const),
+            openChannelQueue: robotOpenChannel,
           }),
       },
     })
@@ -668,10 +673,96 @@ describe('DispatchWidgetOutboxMessage — robô "Enviar mensagem" em grupo', () 
       recipients,
       crmDocument: { entity: 'DEAL', entityId: '10' },
     })
-    return { ...s, postTimeline, meta }
+    return { ...s, postTimeline, meta, robotOpenChannel }
   }
 
   const common = { dispatchGroupId: 'g-r', origin: 'ROBOT_MESSAGE' as const }
+
+  it('Abre uma conversa por destinatário entregue, como automação, ancorada na primeira parte dele', async () => {
+    const s = robotSut()
+    await s.add('p0', {
+      ...common,
+      partIndex: 0,
+      destination: '5511999990000',
+      dispatchMeta: s.meta(['5511999990000', '5511999990001']),
+    })
+    await s.add('p1', { ...common, partIndex: 1, destination: '5511999990001' })
+
+    await s.dispatch('p0')
+    expect(s.robotOpenChannel.enqueue).not.toHaveBeenCalled()
+    await s.dispatch('p1')
+
+    expect(s.robotOpenChannel.enqueue).toHaveBeenCalledTimes(2)
+    const jobs = s.robotOpenChannel.enqueue.mock.calls.map(([job]) => job)
+    expect(jobs.map(job => job.destination)).toEqual([
+      '5511999990000',
+      '5511999990001',
+    ])
+    for (const job of jobs) {
+      expect(job).toMatchObject({
+        sentBy: 'automation',
+        text: 'Olá',
+        entity: expect.any(String) as string,
+      })
+      expect(job.providerMessageId).toBeTruthy()
+    }
+    expect(jobs[0]?.providerMessageId).not.toBe(jobs[1]?.providerMessageId)
+  })
+
+  it('Destinatário recusado pelo limite diário não ganha conversa', async () => {
+    const s = robotSut({ dailyLimitEnabled: true, dailyLimit: 1 })
+    await s.add('p0', {
+      ...common,
+      partIndex: 0,
+      destination: '5511999990000',
+      dispatchMeta: s.meta(['5511999990000', '5511999990001']),
+    })
+    await s.add('p1', { ...common, partIndex: 1, destination: '5511999990001' })
+
+    await s.dispatch('p0')
+    await s.dispatch('p1')
+
+    expect(s.robotOpenChannel.enqueue).toHaveBeenCalledTimes(1)
+    expect(s.robotOpenChannel.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ destination: '5511999990000' }),
+    )
+  })
+
+  it('Só anexo (sem texto): a conversa usa o descritivo do tipo', async () => {
+    const s = robotSut()
+    await s.add('f0', {
+      ...common,
+      partIndex: 0,
+      destination: '5511999990000',
+      kind: 'MEDIA',
+      text: '',
+      mediaType: 'document',
+      fileName: 'contrato.pdf',
+      mediaSource: { kind: 'stored', key: 'k1' },
+      dispatchMeta: { ...s.meta(['5511999990000'], 1), message: '' },
+    })
+
+    await s.dispatch('f0')
+
+    expect(s.robotOpenChannel.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ text: '[Arquivo enviado]' }),
+    )
+  })
+
+  it('Falha ao enfileirar a conversa não impede o comentário na timeline', async () => {
+    const s = robotSut()
+    s.robotOpenChannel.enqueue.mockRejectedValueOnce(new Error('redis fora'))
+    await s.add('p0', {
+      ...common,
+      partIndex: 0,
+      destination: '5511999990000',
+      dispatchMeta: s.meta(['5511999990000']),
+    })
+
+    await s.dispatch('p0')
+
+    expect(s.postTimeline).toHaveBeenCalledTimes(1)
+  })
 
   it('Comentário depois da espera por cadência: sai uma vez, depois da última parte', async () => {
     const s = robotSut({ cadenceMaxMessages: 1 })

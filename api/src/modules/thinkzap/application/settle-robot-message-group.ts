@@ -7,6 +7,7 @@ import {
   SendRobotFileFailure,
   timelineNotices,
 } from '@/modules/thinkzap/domain/notices/timeline-notices'
+import type { OpenChannelConversationQueue } from '@/modules/thinkzap/domain/ports/open-channel-queue.port'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import type { WidgetOutboxRecord } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { apiLogger } from '@/shared/infra/logger'
@@ -15,6 +16,8 @@ import {
   SettledDispatchGroup,
 } from './dispatch-widget-outbox-message'
 import type { RobotMessageGroupMeta } from './enqueue-robot-message'
+import { resolveOpenChannelText } from './helpers/describe-attachment-text'
+import type { WidgetAttachmentKind } from './send-widget-message.types'
 
 export type SettleRobotMessageGroupDeps = {
   /** Comentário na timeline do documento. Nunca lança. */
@@ -23,6 +26,75 @@ export type SettleRobotMessageGroupDeps = {
     message: string,
   ) => Promise<void>
   locale: (row: WidgetOutboxRecord) => Promise<NoticeLocale>
+  /** Abre a conversa no canal aberto, como o envio pelo CRM faz. */
+  openChannelQueue: OpenChannelConversationQueue
+}
+
+/** Tipo persistido da mídia → o descritivo que o histórico usa (`document` = arquivo). */
+const ATTACHMENT_KIND_BY_MEDIA: Record<
+  NonNullable<WidgetOutboxRecord['mediaType']>,
+  WidgetAttachmentKind
+> = { image: 'image', video: 'video', audio: 'audio', document: 'file' }
+
+/**
+ * A conversa do canal aberto, **uma por destinatário** que recebeu alguma parte — o que o
+ * envio pelo CRM já faz. Sem isto o contato respondia e o Bitrix abria o chat só na
+ * resposta, sem a mensagem da automação no histórico.
+ *
+ * Ancorada na primeira parte entregue do destinatário (é por ela que `chat_id` é gravado).
+ * Nunca lança: o envio já saiu e a timeline ainda precisa ser publicada.
+ */
+async function openConversations(
+  settled: SettledDispatchGroup,
+  meta: RobotMessageGroupMeta,
+  deps: SettleRobotMessageGroupDeps,
+): Promise<void> {
+  const { first } = settled
+  const locale = await deps.locale(first).catch(() => DEFAULT_NOTICE_LOCALE)
+
+  for (const destination of meta.recipients) {
+    const delivered = settled.parts.filter(
+      part =>
+        part.destination === destination &&
+        part.status === 'SENT' &&
+        part.providerMessageId,
+    )
+    const anchor = delivered[0]?.providerMessageId
+    if (!anchor) continue
+
+    const firstMedia = delivered.find(part => part.mediaType)?.mediaType
+    const text = resolveOpenChannelText(
+      meta.message,
+      firstMedia ? [ATTACHMENT_KIND_BY_MEDIA[firstMedia]] : [],
+      locale,
+    )
+    if (!text) continue
+
+    try {
+      await deps.openChannelQueue.enqueue({
+        subscriptionItemId: first.subscriptionItemId,
+        domainId: first.domainId,
+        appCode: first.appCode,
+        instanceId: first.instanceId,
+        providerMessageId: anchor,
+        destination,
+        text,
+        entity: first.entity,
+        entityId: first.entityId,
+        sentBy: 'automation',
+      })
+    } catch (err) {
+      apiLogger.error(
+        {
+          app: 'thinkzap',
+          dispatchGroupId: settled.dispatchGroupId,
+          destination,
+          err,
+        },
+        'Não foi possível enfileirar a abertura da conversa do robô; envio preservado',
+      )
+    }
+  }
 }
 
 function isRobotMeta(value: unknown): value is RobotMessageGroupMeta {
@@ -90,6 +162,9 @@ export async function settleRobotMessageGroup(
       { msg: 'Robô de envio: destinatários recusados pelo limite diário' },
     )
   }
+
+  // Antes do `return` de "sem timeline": a conversa não depende de haver documento do CRM.
+  await openConversations(settled, meta, deps)
 
   if (!meta.crmDocument) return
 

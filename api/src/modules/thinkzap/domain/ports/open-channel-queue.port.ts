@@ -25,7 +25,15 @@ export type OpenChannelConversationJob = {
    */
   entity?: string
   entityId?: string
+  /**
+   * Quem originou o envio, para o prefixo do histórico: `automation` = robô do Bizproc
+   * (sem operador por trás), `crm` = widget. Ausente = `crm`, que é o que os jobs já
+   * enfileirados antes deste campo esperam.
+   */
+  sentBy?: OpenChannelSentBy
 }
+
+export type OpenChannelSentBy = 'crm' | 'automation'
 
 export interface OpenChannelConversationQueue {
   enqueue(job: OpenChannelConversationJob): Promise<void>

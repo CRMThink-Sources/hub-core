@@ -8,6 +8,12 @@ export type HistoryNotices = {
   /** Vai antes da mensagem, com a quebra de linha já incluída. */
   sentFromCrmPrefix: string
   /**
+   * Vai antes da mensagem disparada por uma automação (robô do Bizproc), sem operador por
+   * trás. Distinto do prefixo do CRM para quem lê o histórico saber que ninguém digitou
+   * aquilo. Quebra de linha já incluída.
+   */
+  sentFromAutomationPrefix: string
+  /**
    * Antes da mensagem que o cliente enviou do próprio aparelho (celular ou WhatsApp
    * Web), espelhada no canal aberto. Quebra de linha já incluída.
    */
@@ -18,6 +24,7 @@ export type HistoryNotices = {
 const NOTICES: Record<NoticeLocale, HistoryNotices> = {
   pt: {
     sentFromCrmPrefix: '[Mensagem enviada a partir do CRM]\n',
+    sentFromAutomationPrefix: '[Mensagem enviada por automação]\n',
     sentFromDevicePrefix: '[Mensagem enviada pelo WhatsApp do aparelho]\n',
     attachment: {
       image: '[Imagem enviada]',
@@ -28,6 +35,7 @@ const NOTICES: Record<NoticeLocale, HistoryNotices> = {
   },
   en: {
     sentFromCrmPrefix: '[Message sent from the CRM]\n',
+    sentFromAutomationPrefix: '[Message sent by automation]\n',
     sentFromDevicePrefix: "[Message sent from the device's WhatsApp]\n",
     attachment: {
       image: '[Image sent]',
@@ -38,6 +46,7 @@ const NOTICES: Record<NoticeLocale, HistoryNotices> = {
   },
   es: {
     sentFromCrmPrefix: '[Mensaje enviado desde el CRM]\n',
+    sentFromAutomationPrefix: '[Mensaje enviado por automatización]\n',
     sentFromDevicePrefix:
       '[Mensaje enviado desde el WhatsApp del dispositivo]\n',
     attachment: {

@@ -35,6 +35,8 @@ export type ThinkzapOpenChannelJob = {
   /** Entidade do CRM de origem — só para nomear a conversa. Ver o port. */
   entity?: string
   entityId?: string
+  /** Prefixo do histórico. Ausente = `crm` (jobs enfileirados antes do campo). */
+  sentBy?: 'crm' | 'automation'
 }
 
 /**

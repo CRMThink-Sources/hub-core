@@ -81,6 +81,20 @@ export const MEDIA_EXPIRED_FAILURE = 'Arquivo do anexo não está mais disponív
 
 const TERMINAL_STATUSES = new Set(['SENT', 'FAILED', 'UNKNOWN'])
 
+/**
+ * Origens de robô do Bizproc: ninguém digitou a mensagem. Decide o prefixo do histórico no
+ * canal aberto (`[Mensagem enviada por automação]`, e não "a partir do CRM").
+ */
+const AUTOMATION_ORIGINS: ReadonlySet<string> = new Set([
+  'ROBOT_MESSAGE',
+  'ROBOT_BUTTONS',
+  'ROBOT_TEMPLATE',
+])
+
+export function isAutomationOrigin(origin: string): boolean {
+  return AUTOMATION_ORIGINS.has(origin)
+}
+
 const PERSISTED_TYPE_BY_MEDIA = {
   image: 'IMAGE',
   video: 'VIDEO',
@@ -1017,6 +1031,7 @@ export class DispatchWidgetOutboxMessage {
         text: row.text,
         entity: row.entity,
         entityId: row.entityId,
+        sentBy: isAutomationOrigin(row.origin) ? 'automation' : 'crm',
       })
     } catch (err) {
       logThinkzapError(

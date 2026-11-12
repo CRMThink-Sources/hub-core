@@ -69,6 +69,38 @@ describe('EnsureWidgetOpenChannelConversation', () => {
     )
   })
 
+  it('automação (robô do Bizproc): o histórico diz "enviada por automação", não "a partir do CRM"', async () => {
+    const { sut, sendToOpenChannel } = makeSut()
+
+    await sut.execute({ ...baseInput, item: item(), sentBy: 'automation' })
+
+    expect(sendToOpenChannel).toHaveBeenCalledWith(
+      '10',
+      expect.any(String),
+      expect.any(Object),
+      'Olá',
+      '[Mensagem enviada por automação]\n',
+    )
+  })
+
+  it('respeita o toggle do widget também para a automação', async () => {
+    const { sut, sendToOpenChannel } = makeSut()
+
+    const result = await sut.execute({
+      ...baseInput,
+      sentBy: 'automation',
+      item: item({
+        settings: {
+          ...DEFAULT_CONNECTOR_SETTINGS,
+          widgetOpenChannelEnabled: false,
+        },
+      }),
+    })
+
+    expect(result.outcome).toBe('toggle-off')
+    expect(sendToOpenChannel).not.toHaveBeenCalled()
+  })
+
   /**
    * As duas colunas, nos papéis que o inbound já usa: a sessão do Bitrix em
    * `bitrixChatId` e a identidade do contato em `chatId`. Antes a sessão ia para
