@@ -7,6 +7,7 @@ import { resolveReplyChatRoute } from '@/modules/thinkzap/application/resolve-re
 import { PrismaContactIdentityRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-contact-identity.repository'
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
+import { apiLogger } from '@/shared/infra/logger'
 
 export type ResolveContactIdentityInput = {
   event: {
@@ -48,7 +49,20 @@ export function makeResolveContactIdentity(): ResolveContactIdentity {
          * segue pelos elos que já estão no payload.
          */
         phoneExists: async phone => {
-          if (!input.zApiToken) return null
+          if (!input.zApiToken) {
+            apiLogger.warn(
+              {
+                app: 'thinkzap',
+                provider: 'ZAPI',
+                operation: 'phoneExists',
+                motivo: 'instancia_sem_token',
+                instanceId: input.zApiInstanceId,
+                phone,
+              },
+              'Z-API phone-exists não consultado: instância sem token',
+            )
+            return null
+          }
           return new ZApiClient(
             env.zApi.partnerToken,
             env.zApi.clientToken,

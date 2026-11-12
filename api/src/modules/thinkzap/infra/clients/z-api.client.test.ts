@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { apiLogger } from '@/shared/infra/logger'
 import { ZApiClient } from './z-api.client'
 
 vi.mock('@/shared/infra/logger', () => ({
@@ -99,6 +100,97 @@ describe('ZApiClient.updateNotifySentByMe', () => {
     ).rejects.toMatchObject({
       errorCode: 'thinkzap.zapi.notify_sent_by_me_failed',
     })
+  })
+})
+
+describe('ZApiClient.phoneExists', () => {
+  type Http = { get: ReturnType<typeof vi.fn> }
+  const warn = () => vi.mocked(apiLogger.warn)
+
+  beforeEach(() => {
+    warn().mockClear()
+  })
+
+  it('manda o telefone no caminho, não em query (query devolve NOT_FOUND com 200)', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as Http
+    http.get.mockResolvedValue({
+      data: [{ exists: true, phone: '5541991147662', lid: '1@lid' }],
+    })
+
+    const result = await client.phoneExists('inst_1', 'tok_1', '5541991147662')
+
+    const [url, config] = http.get.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ]
+    expect(url).toBe(
+      'https://api.z-api.io/instances/inst_1/token/tok_1/phone-exists/5541991147662',
+    )
+    expect(config).not.toHaveProperty('params')
+    expect(result).toEqual({
+      exists: true,
+      phone: '5541991147662',
+      lid: '1@lid',
+    })
+    expect(warn()).not.toHaveBeenCalled()
+  })
+
+  it('corpo de erro com HTTP 200 vira null e é logado, não "sem LID"', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as Http
+    http.get.mockResolvedValue({
+      data: { error: 'NOT_FOUND', message: 'Unable to find matching target' },
+    })
+
+    await expect(
+      client.phoneExists('inst_1', 'tok_1', '5541991147662'),
+    ).resolves.toBeNull()
+    expect(warn()).toHaveBeenCalledWith(
+      expect.objectContaining({ motivo: 'corpo_de_erro_com_http_200' }),
+      expect.any(String),
+    )
+  })
+
+  it('número sem WhatsApp devolve o resultado e loga o motivo', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as Http
+    http.get.mockResolvedValue({
+      data: [{ exists: false, phone: '5541991147662', lid: null }],
+    })
+
+    const result = await client.phoneExists('inst_1', 'tok_1', '5541991147662')
+
+    expect(result).toMatchObject({ exists: false, lid: null })
+    expect(warn()).toHaveBeenCalledWith(
+      expect.objectContaining({ motivo: 'numero_sem_whatsapp' }),
+      expect.any(String),
+    )
+  })
+
+  it('existe mas sem lid loga resposta_sem_lid', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as Http
+    http.get.mockResolvedValue({
+      data: [{ exists: true, phone: '5541991147662', lid: null }],
+    })
+
+    await client.phoneExists('inst_1', 'tok_1', '5541991147662')
+
+    expect(warn()).toHaveBeenCalledWith(
+      expect.objectContaining({ motivo: 'resposta_sem_lid' }),
+      expect.any(String),
+    )
+  })
+
+  it('o token nunca aparece no log', async () => {
+    const client = new ZApiClient('partner', 'client')
+    const http = instance() as unknown as Http
+    http.get.mockResolvedValue({ data: { error: 'NOT_FOUND' } })
+
+    await client.phoneExists('inst_1', 'tok_secreto', '5541991147662')
+
+    expect(JSON.stringify(warn().mock.calls)).not.toContain('tok_secreto')
   })
 })
 
