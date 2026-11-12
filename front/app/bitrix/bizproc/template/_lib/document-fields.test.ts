@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildFieldIndex,
   filterFields,
   resolveFieldsQuery,
   toDocumentFields,
+  type DocumentField,
 } from './document-fields'
 
 describe('resolveFieldsQuery', () => {
@@ -220,5 +222,51 @@ describe('filterFields', () => {
       'UF_CRM_CELULAR',
     ])
     expect(filterFields(fields, 'celular negocio')).toEqual([])
+  })
+})
+
+describe('buildFieldIndex', () => {
+  const field = (id: string, title: string): DocumentField => ({
+    id,
+    title,
+    type: 'string',
+    multiple: false,
+    custom: id.startsWith('UF_'),
+  })
+
+  it('indexa os ids e liga cada título ao seu campo', () => {
+    const index = buildFieldIndex([
+      field('CONTACT.PHONE_MOBILE', 'Contato: Celular'),
+      field('TITLE', 'Título'),
+    ])
+
+    expect(index.ids.has('TITLE')).toBe(true)
+    expect(index.idsByTitle.get('Contato: Celular')).toEqual([
+      'CONTACT.PHONE_MOBILE',
+    ])
+  })
+
+  it('guarda todos os ids de um título repetido', () => {
+    const index = buildFieldIndex([
+      field('UF_CRM_A', 'Segmento'),
+      field('UF_CRM_B', 'Segmento'),
+    ])
+
+    expect(index.idsByTitle.get('Segmento')).toEqual(['UF_CRM_A', 'UF_CRM_B'])
+  })
+
+  // Título igual ao id é o que `toDocumentFields` devolve quando o campo não tem nome.
+  it('ignora campo sem rótulo legível', () => {
+    const index = buildFieldIndex([field('UF_CRM_1', 'UF_CRM_1')])
+
+    expect(index.ids.has('UF_CRM_1')).toBe(true)
+    expect(index.idsByTitle.size).toBe(0)
+  })
+
+  it('lista vazia gera índice vazio', () => {
+    const index = buildFieldIndex([])
+
+    expect(index.ids.size).toBe(0)
+    expect(index.idsByTitle.size).toBe(0)
   })
 })

@@ -470,7 +470,9 @@ describe('BitrixTemplateRobotWebhookHandlerController', () => {
     )
   })
 
-  it('recusa quando nenhum destinatário é resolvido', async () => {
+  // Sem o envio para relacionados, destino em branco é destino vazio: o aviso diz isso
+  // e como conferir, em vez do genérico "nenhum destinatário".
+  it('recusa com o aviso de destino vazio quando o destino está em branco', async () => {
     const deps = makeDeps()
 
     const response = await makeController(deps).perform(
@@ -483,8 +485,25 @@ describe('BitrixTemplateRobotWebhookHandlerController', () => {
     expect(deps.sendNotification.execute).toHaveBeenCalledWith(
       expect.objectContaining({
         message: expect.stringContaining(
-          'Nenhum destinatário',
+          'destino do envio está vazio',
         ) as unknown as string,
+      }),
+    )
+  })
+
+  it('com o envio para relacionados e lista vazia, mantém o aviso de nenhum destinatário', async () => {
+    const deps = makeDeps()
+
+    const response = await makeController(deps).perform(
+      makeReq({ ...fullProperties, sendToAllRelatedContacts: 'Y' }),
+      res,
+    )
+
+    expect(response.result).toEqual({ received: true, queued: 0 })
+    expect(deps.enqueue).not.toHaveBeenCalled()
+    expect(deps.sendNotification.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Nenhum destinatário encontrado para o envio do template.',
       }),
     )
   })
@@ -544,6 +563,119 @@ describe('BitrixTemplateRobotWebhookHandlerController', () => {
     )
 
     expect(response.result).toEqual({ received: true, queued: 0 })
+  })
+
+  /**
+   * O Bitrix resolve a expressão de campo antes de chamar o webhook. Quando o campo vem
+   * vazio ele entrega `{}`, e quando não resolve entrega o texto cru: nos dois casos o
+   * telefone é recusado, e o operador precisa saber qual dos dois aconteceu.
+   */
+  describe('destino que o Bitrix não resolveu', () => {
+    const rejectingEnqueue = () =>
+      vi.fn().mockRejectedValue(new Error('Invalid destination phone number'))
+
+    const lastNotice = (deps: ReturnType<typeof makeDeps>): string => {
+      const calls = deps.sendNotification.execute.mock.calls as [
+        { message: string },
+      ][]
+      return calls[calls.length - 1]?.[0].message ?? ''
+    }
+
+    it('token literal: explica que o campo não foi resolvido e cita o valor', async () => {
+      const deps = makeDeps({ enqueue: rejectingEnqueue() })
+
+      const response = await makeController(deps).perform(
+        makeReq({ ...fullProperties, destination: '{{{Contato: Celular}}}' }),
+        res,
+      )
+
+      expect(response.result).toEqual({ received: true, queued: 0 })
+      expect(lastNotice(deps)).toContain('não resolveu o campo')
+      expect(lastNotice(deps)).toContain('{{{Contato: Celular}}}')
+      expect(lastNotice(deps)).toContain('Campo da entidade')
+    })
+
+    it('chaves vazias: explica que o campo veio vazio e sugere conferir o tipo do telefone', async () => {
+      const deps = makeDeps({ enqueue: rejectingEnqueue() })
+
+      const response = await makeController(deps).perform(
+        makeReq({ ...fullProperties, destination: '{}' }),
+        res,
+      )
+
+      expect(response.result).toEqual({ received: true, queued: 0 })
+      expect(lastNotice(deps)).toContain('destino do envio está vazio')
+      expect(lastNotice(deps)).toContain('tipo do telefone')
+    })
+
+    it('destino ausente na configuração tem o mesmo aviso de vazio', async () => {
+      const deps = makeDeps()
+      const { destination: _destination, ...withoutDestination } =
+        fullProperties
+
+      const response = await makeController(deps).perform(
+        makeReq(withoutDestination),
+        res,
+      )
+
+      expect(response.result).toEqual({ received: true, queued: 0 })
+      expect(deps.enqueue).not.toHaveBeenCalled()
+      expect(lastNotice(deps)).toContain('destino do envio está vazio')
+    })
+
+    it('telefone mal formado continua com o aviso de nenhum destinatário válido', async () => {
+      const deps = makeDeps({ enqueue: rejectingEnqueue() })
+
+      await makeController(deps).perform(
+        makeReq({ ...fullProperties, destination: '1234' }),
+        res,
+      )
+
+      expect(lastNotice(deps)).toBe(
+        'Nenhum destinatário válido para o envio do template.',
+      )
+    })
+
+    it('com um destinatário válido e outro vazio, enfileira o válido e não acusa o destino', async () => {
+      resolveRelatedDestinationsMock.mockResolvedValue({
+        destinations: [{ phone: '{}' }, { phone: '5544444444444' }],
+      })
+      const enqueue = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('Invalid destination phone number'))
+        .mockResolvedValueOnce({ destination: '5544444444444' })
+      const deps = makeDeps({ enqueue })
+
+      const response = await makeController(deps).perform(
+        makeReq({ ...fullProperties, sendToAllRelatedContacts: 'Y' }),
+        res,
+      )
+
+      expect(response.result).toEqual({ received: true, queued: 1 })
+      expect(lastNotice(deps)).toContain('5544444444444')
+      expect(lastNotice(deps)).not.toContain('destino do envio está vazio')
+    })
+
+    it('segue o idioma da instalação', async () => {
+      const deps = makeDeps({ enqueue: rejectingEnqueue() })
+      const controller = new BitrixTemplateRobotWebhookHandlerController(
+        deps.getDomain as never,
+        deps.getApp as never,
+        deps.enqueueTemplateSend as never,
+        deps.listTemplates as never,
+        deps.sendNotification as never,
+        deps.bitrix as never,
+        { byAppId: vi.fn().mockResolvedValue('en') } as never,
+      )
+
+      await controller.perform(
+        makeReq({ ...fullProperties, destination: '{{{Contato: Celular}}}' }),
+        res,
+      )
+
+      expect(lastNotice(deps)).toContain('Bitrix did not resolve the field')
+      expect(lastNotice(deps)).toContain('{{{Contato: Celular}}}')
+    })
   })
 
   it('responde 404 quando o domínio não é encontrado', async () => {

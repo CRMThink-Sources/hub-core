@@ -1,0 +1,28 @@
+# Tasks
+
+## 1. Confirmar o formato antes de trocá-lo
+
+- [x] 1.1 No Bitrix de teste (`crmthink.bitrix24.com.br`, automação de vendas 63, card de teste 53451), configurar o robô de template com o destino e a variável em "Texto" usando `{=Document:TITLE}` (campo do negócio) e depois `{=Document:UF_CRM_…}` (um campo personalizado do negócio), disparar e ler o comentário da timeline; verificar que o texto enviado traz o valor do campo sem chaves ao redor nos dois casos, e anotar o resultado no PR. Se algum não resolver limpo, parar e voltar ao `design.md` (decisão 1) antes das tarefas 2.x
+
+## 2. Front: gravar e reabrir sem estragar o valor
+
+- [x] 2.1 Em `front/app/bitrix/bizproc/template/_lib/robot-config.ts`, trocar `toStoredValue` para gravar `{=Document:<ID>}` no modo `document`; atualizar em `robot-config.test.ts` os testes de `toStoredValue`, da prévia e de ida e volta que esperavam `{{=Document:…}}`, e verificar com `yarn test app/bitrix/bizproc/template/_lib/robot-config.test.ts` incluindo um teste de que valor salvo no formato antigo (`{{=Document:PHONE}}`) continua lendo como `document`
+- [x] 2.2 Criar o tipo `FieldIndex` (ids conhecidos e `título → [ids]`) e a função que o monta a partir de `DocumentField[]` em `front/app/bitrix/bizproc/template/_lib/document-fields.ts`; verificar com testes em `document-fields.test.ts` (se não existir, criar ao lado): título único, título repetido, lista vazia
+- [x] 2.3 Em `robot-config.ts`, trocar o parâmetro `knownFieldIds` de `fromStoredValue` e de `readRobotConfig` por `FieldIndex`, aplicando a ordem da decisão 2 do `design.md` (expressão de documento, token com rótulo igual a um único título, outro token, id puro, literal); verificar com testes novos cobrindo: `{{{Contato: Celular}}}` com campo único vira `document` com o id, rótulo ambíguo fica `expression`, rótulo sem campo fica `expression`, `{{{[Criar usando fonte] ID Empresa}}}` fica `expression`, e índice vazio mantém o comportamento atual
+- [x] 2.4 Atualizar os chamadores: `template-robot-form.tsx` (`toFieldIds` e o ponto em que a lista de campos recarrega e relê o valor) e `_shared-button/button-robot-form.tsx` e `button-robot-config.ts` (`readButtonRobotConfig`); verificar com `yarn check-types` limpo e `yarn test app/bitrix/bizproc/_shared-button/button-robot-config.test.ts` passando, com um teste novo de que o destino do robô de botões também reabre `{{{Rótulo}}}` como campo
+- [x] 2.5 Testar a ida e volta completa em `robot-config.test.ts`: ler `{{{Contato: Celular}}}` com a lista de campos, gravar sem alterar e verificar que o valor gravado é `{=Document:CONTACT.PHONE_MOBILE}`; e com a lista de campos ainda vazia, verificar que o valor continua `expression` e é gravado como veio
+
+## 3. API: aviso que diz a causa do destino não resolvido
+
+- [x] 3.1 Criar `api/src/modules/thinkzap/application/helpers/classify-robot-destination.ts` com `classifyRobotDestination(value)` devolvendo `empty`, `unresolved-token` ou `other`, e `classify-robot-destination.test.ts` ao lado; verificar com `yarn test src/modules/thinkzap/application/helpers/classify-robot-destination.test.ts` cobrindo vazio, só espaços, `{}`, `{{}}`, `{{{Contato: Celular}}}`, token no meio de texto, telefone válido e telefone mal formado como `other`
+- [x] 3.2 Em `api/src/modules/thinkzap/domain/notices/timeline-notices.ts`, adicionar aos blocos `templateRobot` e `buttonRobot` (pt, en, es) o aviso de destino vazio e o de token não resolvido, este recebendo o valor recebido como parâmetro; verificar com `yarn check-types` apontando os três idiomas completos e um teste que chame `timelineNotices` nos três e confira que o valor recebido aparece como veio
+- [x] 3.3 Em `bitrix-template-robot-webhook-handler.controller.ts`, registrar a classificação de cada destino que falha no laço, escolher o aviso quando nenhum destinatário foi enfileirado (token não resolvido, depois vazio, depois `noValidRecipients`) e usar o aviso de vazio no ramo de nenhum destinatário; verificar com testes em `bitrix-template-robot-webhook-handler.controller.test.ts`: destino `{{{Contato: Celular}}}`, destino `{}`, destino ausente, telefone `1234` (continua `noValidRecipients`) e um destinatário válido com outro vazio (enfileira e comenta o enfileiramento, sem o aviso novo), todos conferindo que nada foi enfileirado nos casos de recusa
+- [x] 3.4 Repetir o 3.3 em `bitrix-button-robot-webhook-handler.controller.ts` com os mesmos cenários em `bitrix-button-robot-webhook-handler.controller.test.ts`; verificar com `yarn test` desses dois arquivos de controller passando
+
+## 4. Verificação e fechamento
+
+- [ ] 4.1 Rodar no pacote `front`: `yarn check-types`, `yarn lint` e `yarn test`; verificar que os três terminam sem erro
+- [x] 4.2 Rodar no pacote `api`: `yarn check-types`, `yarn lint` (zero warnings) e `yarn test`; verificar que os três terminam sem erro
+- [x] 4.3 Reconciliar com `imagem-cabecalho-template-oficial` nos três arquivos em comum (`robot-config.ts`, `template-robot-form.tsx`, `bitrix-template-robot-webhook-handler.controller.ts`); verificar com `git diff` sem trechos duplicados e com os testes dos dois changes passando juntos
+- [ ] 4.4 Validar em staging no portal de teste: configurar destino e variável com "Campo da entidade", salvar, reabrir, salvar de novo sem tocar nos campos e disparar; verificar na timeline que o texto sai sem chaves e que o destino foi resolvido; repetir com destino de contato cujo telefone é do tipo "Trabalho" e verificar que o aviso novo aparece, citando o valor recebido
+- [ ] 4.5 Ao arquivar (`/opsx:archive`), aplicar os deltas em `thinkzap/robo-bizproc-valores-campo` e `thinkzap/idioma-avisos-servidor`; verificar com `openspec validate robo-bizproc-campo-chave-simples-e-aviso`

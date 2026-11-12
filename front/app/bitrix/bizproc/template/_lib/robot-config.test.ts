@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { buildFieldIndex, type DocumentField } from './document-fields'
 import {
   expressionLabel,
   buildRobotProperties,
@@ -28,11 +29,26 @@ const base: RobotConfigState = {
   headerImage: { mode: 'literal', value: '' },
 }
 
+/** Campos do documento só com id, o caso do portal que devolve o campo sem rótulo. */
+const fieldIndex = (ids: string[]) =>
+  buildFieldIndex(ids.map(id => documentField(id, id)))
+
+function documentField(id: string, title: string): DocumentField {
+  return { id, title, type: 'string', multiple: false, custom: false }
+}
+
 describe('toStoredValue / fromStoredValue', () => {
-  it('grava campo do documento como expressão do Bitrix', () => {
+  // Chave simples: com par duplo o Bitrix deixa o par de fora e o contato lia `{João}`.
+  it('grava campo do documento como expressão de chave simples', () => {
     expect(toStoredValue({ mode: 'document', value: 'UF_CRM_1' })).toBe(
-      '{{=Document:UF_CRM_1}}',
+      '{=Document:UF_CRM_1}',
     )
+  })
+
+  it('não grava chaves sobrando em volta do campo', () => {
+    expect(
+      toStoredValue({ mode: 'document', value: 'CONTACT.NAME' }),
+    ).not.toMatch(/^\{\{/)
   })
 
   it('grava literal sem transformação', () => {
@@ -45,6 +61,14 @@ describe('toStoredValue / fromStoredValue', () => {
 
   // O modo não é gravado: ele é derivado da forma do valor quando a tela reabre.
   it('reconhece a expressão de volta ao reabrir', () => {
+    expect(fromStoredValue('{=Document:PHONE}')).toEqual({
+      mode: 'document',
+      value: 'PHONE',
+    })
+  })
+
+  // Robô salvo antes da chave simples continua reconhecido como campo.
+  it('reconhece a expressão de chave dupla gravada antes', () => {
     expect(fromStoredValue('{{=Document:PHONE}}')).toEqual({
       mode: 'document',
       value: 'PHONE',
@@ -69,7 +93,7 @@ describe('buildRobotProperties', () => {
       templateName: 'order_update',
       templateLanguage: 'pt_BR',
       templateBody: 'Olá {{nome}}, pedido {{numero}} — obrigado, {{nome}}.',
-      templateParameters: ['{{=Document:TITLE}}', '42'],
+      templateParameters: ['{=Document:TITLE}', '42'],
       templateButtonParameters: [],
       templateHeaderImageUrl: '',
     })
@@ -81,7 +105,7 @@ describe('buildRobotProperties', () => {
         ...base,
         headerImage: { mode: 'document', value: 'UF_CRM_IMAGEM' },
       }).templateHeaderImageUrl,
-    ).toBe('{{=Document:UF_CRM_IMAGEM}}')
+    ).toBe('{=Document:UF_CRM_IMAGEM}')
   })
 
   it('grava os valores dos botões dinâmicos na ordem, com campo do documento', () => {
@@ -93,7 +117,7 @@ describe('buildRobotProperties', () => {
           { mode: 'literal', value: 'PED-1' },
         ],
       }).templateButtonParameters,
-    ).toEqual(['{{=Document:UF_CRM_CUPOM}}', 'PED-1'])
+    ).toEqual(['{=Document:UF_CRM_CUPOM}', 'PED-1'])
   })
 
   // Ordem de aparição das variáveis distintas: é ela que liga cada valor ao seu
@@ -389,7 +413,7 @@ describe('fromStoredValue — formas de expressão do Bitrix', () => {
   })
 
   it('reconhece o valor que volta só com o id, quando o id é campo conhecido', () => {
-    const known = new Set(['TITLE', 'UF_CRM_9'])
+    const known = fieldIndex(['TITLE', 'UF_CRM_9'])
 
     expect(fromStoredValue('UF_CRM_9', known)).toEqual({
       mode: 'document',
@@ -408,7 +432,7 @@ describe('fromStoredValue — formas de expressão do Bitrix', () => {
         templateParameters: ['fixo', '{=Document:UF_CRM_9}'],
         destination: 'PHONE',
       },
-      new Set(['PHONE', 'UF_CRM_9']),
+      fieldIndex(['PHONE', 'UF_CRM_9']),
     )
 
     expect(parsed.values.dois).toEqual({
@@ -478,5 +502,111 @@ describe('token do seletor nativo do Bitrix', () => {
       mode: 'expression',
       value: '{{{[Criar usando fonte] ID Empresa}}}',
     })
+  })
+})
+
+/**
+ * O Bitrix devolve o campo escolhido em forma de exibição (`{{{Contato: Celular}}}`), e
+ * gravar esse texto de volta é o que o impede de resolver: o webhook recebia o token
+ * literal e recusava o envio. Abrir e salvar sem mexer em nada não pode estragar o valor.
+ */
+describe('token em forma de exibição que coincide com um campo do documento', () => {
+  const fields = buildFieldIndex([
+    documentField('CONTACT.PHONE_MOBILE', 'Contato: Celular'),
+    documentField('CONTACT.PHONE_MOBILE_PRINTABLE', 'Contato: Celular (texto)'),
+    documentField('CONTACT.NAME', 'Contato: Primeiro nome'),
+    documentField('UF_CRM_A', 'Segmento'),
+    documentField('UF_CRM_B', 'Segmento'),
+    documentField('UF_CRM_C', '[ThinkZap] Data do disparo'),
+  ])
+
+  it('reabre como campo da entidade quando o rótulo é de um único campo', () => {
+    expect(fromStoredValue('{{{Contato: Celular}}}', fields)).toEqual({
+      mode: 'document',
+      value: 'CONTACT.PHONE_MOBILE',
+    })
+  })
+
+  it('não confunde títulos parecidos: usa só o idêntico', () => {
+    expect(fromStoredValue('{{{Contato: Celular (texto)}}}', fields)).toEqual({
+      mode: 'document',
+      value: 'CONTACT.PHONE_MOBILE_PRINTABLE',
+    })
+  })
+
+  it('também reconhece o rótulo com duas chaves', () => {
+    expect(fromStoredValue('{{Contato: Primeiro nome}}', fields)).toEqual({
+      mode: 'document',
+      value: 'CONTACT.NAME',
+    })
+  })
+
+  it('casa campo cujo título começa com colchetes', () => {
+    expect(fromStoredValue('{{{[ThinkZap] Data do disparo}}}', fields)).toEqual(
+      { mode: 'document', value: 'UF_CRM_C' },
+    )
+  })
+
+  it('mantém como expressão quando dois campos têm o mesmo título', () => {
+    expect(fromStoredValue('{{{Segmento}}}', fields)).toEqual({
+      mode: 'expression',
+      value: '{{{Segmento}}}',
+    })
+  })
+
+  it('mantém como expressão quando nenhum campo tem o rótulo', () => {
+    expect(fromStoredValue('{{{Campo que não existe}}}', fields)).toEqual({
+      mode: 'expression',
+      value: '{{{Campo que não existe}}}',
+    })
+  })
+
+  it('mantém o retorno de outro passo da automação, intocado', () => {
+    const token = '{{{[Criar usando fonte] ID Empresa}}}'
+
+    expect(fromStoredValue(token, fields)).toEqual({
+      mode: 'expression',
+      value: token,
+    })
+    expect(toStoredValue(fromStoredValue(token, fields))).toBe(token)
+  })
+
+  it('com a lista de campos ainda vazia, mantém como expressão', () => {
+    expect(fromStoredValue('{{{Contato: Celular}}}')).toEqual({
+      mode: 'expression',
+      value: '{{{Contato: Celular}}}',
+    })
+  })
+
+  it('abrir e salvar sem alterar regrava a expressão que o Bitrix resolve', () => {
+    const stored = {
+      connector: '41',
+      destination: '{{{Contato: Celular}}}',
+      sendToAllRelatedContacts: 'N',
+      templateName: 'boas_vindas',
+      templateLanguage: 'pt_BR',
+      templateBody: 'Olá {{1}}',
+      templateParameters: ['{{{Contato: Primeiro nome}}}'],
+    }
+
+    const reopened = parseStoredProperties(stored, fields)
+    const saved = buildRobotProperties(reopened)
+
+    expect(saved.destination).toBe('{=Document:CONTACT.PHONE_MOBILE}')
+    expect(saved.templateParameters).toEqual(['{=Document:CONTACT.NAME}'])
+  })
+
+  it('sem a lista de campos, abrir e salvar mantém o valor como veio', () => {
+    const saved = buildRobotProperties(
+      parseStoredProperties({
+        connector: '41',
+        destination: '{{{Contato: Celular}}}',
+        templateName: 'boas_vindas',
+        templateLanguage: 'pt_BR',
+        templateBody: 'Olá',
+      }),
+    )
+
+    expect(saved.destination).toBe('{{{Contato: Celular}}}')
   })
 })
