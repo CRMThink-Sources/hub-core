@@ -6,6 +6,7 @@ import {
 } from '@/modules/thinkzap/application/resolve-zapi-contact-identity'
 import { PrismaContactIdentityRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-contact-identity.repository'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
+import { apiLogger } from '@/shared/infra/logger'
 import { normalizePhoneNumber } from '@/shared/helpers/normalize-phone-number'
 import { resolveOpenChannelContactId } from '@/shared/helpers/open-channel-contact-id'
 
@@ -67,7 +68,20 @@ export function makeResolveWidgetOpenChannelContact(): ResolveWidgetOpenChannelC
       {
         identityRepo,
         phoneExists: async value => {
-          if (!zApiInstanceToken) return null
+          if (!zApiInstanceToken) {
+            apiLogger.warn(
+              {
+                app: 'thinkzap',
+                provider: 'ZAPI',
+                operation: 'phoneExists',
+                motivo: 'instancia_sem_token',
+                instanceId: zApiInstanceId,
+                phone: value,
+              },
+              'Z-API phone-exists não consultado: instância sem token',
+            )
+            return null
+          }
           return new ZApiClient(
             env.zApi.partnerToken,
             env.zApi.clientToken,

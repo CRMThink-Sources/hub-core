@@ -49,6 +49,7 @@ export async function processWidgetOpenChannelJob(
     text,
     entity,
     entityId,
+    sentBy,
   } = job
 
   const logContext = {
@@ -141,6 +142,7 @@ export async function processWidgetOpenChannelJob(
      */
     entity,
     entityId,
+    sentBy,
   })
 
   log.info(

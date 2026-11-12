@@ -199,6 +199,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
           templateBody,
           entity: crmDocument?.entity ?? '',
           entityId: crmDocument?.entityId ?? '',
+          origin: 'ROBOT_TEMPLATE',
         })
         queued.push(result.destination)
       } catch (error) {

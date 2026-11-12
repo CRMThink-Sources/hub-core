@@ -3,6 +3,7 @@ import {
   type NoticeLocale,
 } from '@/modules/thinkzap/domain/notices/notice-locale'
 import { historyNotices } from '@/modules/thinkzap/domain/notices/history-notices'
+import type { OpenChannelSentBy } from '@/modules/thinkzap/domain/ports/open-channel-queue.port'
 import { env } from '@/config/env'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
@@ -44,6 +45,8 @@ export type EnsureWidgetOpenChannelInput = {
   /** Só para o nome do contato; sem entidade cai no telefone. */
   entity?: string
   entityId?: string
+  /** `automation` troca o prefixo do histórico; ausente = `crm`. */
+  sentBy?: OpenChannelSentBy
 }
 
 /** Na Z-API a identidade é o LID e pode exigir consulta ao provider. */
@@ -141,12 +144,15 @@ export class EnsureWidgetOpenChannelConversation {
 
     try {
       const locale = await this.localeOrDefault()
+      const notices = historyNotices(locale)
       const { chatId, payload } = await this.bitrixClient.sendToOpenChannel(
         vinculatedChannel,
         env.bitrix.connector.code,
         { id: contactId, name: contactName, phone: contact.phone },
         text,
-        historyNotices(locale).sentFromCrmPrefix,
+        input.sentBy === 'automation'
+          ? notices.sentFromAutomationPrefix
+          : notices.sentFromCrmPrefix,
       )
 
       // Sem `session.CHAT_ID` não é erro: a mensagem entrou; retentar duplicaria.

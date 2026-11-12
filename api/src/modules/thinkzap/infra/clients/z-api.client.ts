@@ -600,23 +600,53 @@ export class ZApiClient {
     phone: string,
   ): Promise<{ exists: boolean; phone: string; lid: string | null } | null> {
     try {
+      /**
+       * O telefone vai **no caminho**, não em `?phone=`. Com query a Z-API responde HTTP 200 com
+       * `{"error":"NOT_FOUND","message":"Unable to find matching target resource method"}`:
+       * o corpo não tem `exists` nem `lid`, então a chamada parecia "número sem LID" e a
+       * identidade do canal aberto caía no telefone sem nenhum erro — foi assim que a resposta
+       * da Eliane Doin (11/11/2026) abriu um segundo canal aberto.
+       */
       const { data } = await this.http.get<PhoneExistsResponse>(
-        `${this.instanceBaseUrl(instanceId, instanceToken)}/phone-exists`,
-        {
-          params: { phone },
-          headers: this.instanceHeaders(),
-        },
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/phone-exists/${encodeURIComponent(phone)}`,
+        { headers: this.instanceHeaders() },
       )
 
       // Normalmente array; tolera objeto solto porque a forma não é contratual.
       const entry = Array.isArray(data) ? data[0] : data
-      if (!entry || typeof entry !== 'object') return null
+      if (!entry || typeof entry !== 'object') {
+        this.logPhoneExistsUnresolved('resposta_sem_corpo_utilizavel', {
+          instanceId,
+          phone,
+          response: data,
+        })
+        return null
+      }
 
-      return {
+      // A Z-API devolve erro com HTTP 200; sem este guard ele viraria `exists: false`.
+      if ('error' in entry) {
+        this.logPhoneExistsUnresolved('corpo_de_erro_com_http_200', {
+          instanceId,
+          phone,
+          response: entry,
+        })
+        return null
+      }
+
+      const result = {
         exists: Boolean(entry.exists),
         phone: entry.phone ?? phone,
         lid: entry.lid ?? null,
       }
+
+      if (!result.exists || !result.lid) {
+        this.logPhoneExistsUnresolved(
+          !result.exists ? 'numero_sem_whatsapp' : 'resposta_sem_lid',
+          { instanceId, phone, response: entry },
+        )
+      }
+
+      return result
     } catch (err) {
       apiLogger.warn(
         {
@@ -631,6 +661,29 @@ export class ZApiClient {
       )
       return null
     }
+  }
+
+  /**
+   * `phone-exists` que não entrega LID é o que faz a identidade do canal aberto cair no
+   * telefone e a resposta do contato abrir uma segunda conversa. Antes só o `catch` logava;
+   * os demais caminhos retornavam em silêncio. `motivo` diz qual deles foi. Nunca logar o token.
+   */
+  private logPhoneExistsUnresolved(
+    motivo: string,
+    ctx: { instanceId: string; phone: string; response: unknown },
+  ): void {
+    apiLogger.warn(
+      {
+        app: 'thinkzap',
+        provider: 'ZAPI',
+        operation: 'phoneExists',
+        motivo,
+        instanceId: ctx.instanceId,
+        phone: ctx.phone,
+        response: ctx.response,
+      },
+      'Z-API phone-exists não devolveu LID',
+    )
   }
 
   async addGroupParticipants(

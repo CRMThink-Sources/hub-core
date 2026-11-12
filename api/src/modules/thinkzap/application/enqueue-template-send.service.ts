@@ -58,6 +58,11 @@ export type EnqueueTemplateIntentInput = {
    */
   smsSenderCode?: string
   smsMessageId?: string
+  /**
+   * `ROBOT_TEMPLATE` no robô de Bizproc: é o que faz o histórico do canal aberto dizer
+   * "enviada por automação". Ausente = `WIDGET`, como sempre foi.
+   */
+  origin?: 'ROBOT_TEMPLATE'
 }
 
 /**
@@ -200,6 +205,7 @@ export class EnqueueTemplateSendService {
        */
       smsSenderCode: input.smsSenderCode ?? null,
       smsMessageId: input.smsMessageId ?? null,
+      ...(input.origin ? { origin: input.origin } : {}),
     })
 
     /**
