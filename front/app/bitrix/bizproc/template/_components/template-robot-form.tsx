@@ -13,6 +13,7 @@ import {
   needsHeaderImage,
   resolveTemplatePreview,
 } from '@/app/(widgets)/layouts/template-variables'
+import { buildFieldIndex } from '../_lib/document-fields'
 import {
   fetchDocumentFields,
   setPropertyValue,
@@ -34,10 +35,6 @@ import {
 import { ValueField } from './value-field'
 
 type TemplateLine = { id: string; name: string }
-
-/** Ids dos campos do documento, para o parse derivar o modo de valor sem expressão. */
-const toFieldIds = (fields: DocumentField[]): ReadonlySet<string> =>
-  new Set(fields.map(field => field.id))
 
 type TemplateRobotFormProps = {
   context: PlacementContext
@@ -67,7 +64,7 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
   const [config, setConfig] = useState<RobotConfigState>(() =>
     parseStoredProperties(
       context.storedProperties,
-      toFieldIds(context.documentFields),
+      buildFieldIndex(context.documentFields),
     ),
   )
 
@@ -103,7 +100,7 @@ export const TemplateRobotForm = ({ context }: TemplateRobotFormProps) => {
       setConfig(current =>
         parseStoredProperties(
           buildRobotProperties(current),
-          toFieldIds(fields),
+          buildFieldIndex(fields),
         ),
       )
     })

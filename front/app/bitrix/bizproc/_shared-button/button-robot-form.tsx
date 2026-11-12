@@ -5,6 +5,7 @@ import {
   resolveThinkzapClient,
   thinkzapApiErrorMessage,
 } from '@/app/(thinkzap)/thinkzap/_lib/thinkzap-client'
+import { buildFieldIndex } from '../template/_lib/document-fields'
 import {
   fetchDocumentFields,
   setPropertyValue,
@@ -24,9 +25,6 @@ import {
 } from './button-robot-config'
 
 type ButtonLine = { id: string; name: string }
-
-const toFieldIds = (fields: DocumentField[]): ReadonlySet<string> =>
-  new Set(fields.map(field => field.id))
 
 const BUTTON_TYPE_LABEL: Record<ButtonType, string> = {
   REPLY: 'Resposta rápida',
@@ -72,7 +70,7 @@ export const ButtonRobotForm = ({
   const [config, setConfig] = useState<ButtonRobotConfigState>(() =>
     parseStoredButtonProperties(
       context.storedProperties,
-      toFieldIds(context.documentFields),
+      buildFieldIndex(context.documentFields),
     ),
   )
 
@@ -95,7 +93,7 @@ export const ButtonRobotForm = ({
       setConfig(current =>
         parseStoredButtonProperties(
           buildButtonRobotProperties(current),
-          toFieldIds(fields),
+          buildFieldIndex(fields),
         ),
       )
     })

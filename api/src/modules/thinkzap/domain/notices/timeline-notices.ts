@@ -41,6 +41,10 @@ export type TimelineNotices = {
     providerMismatch: (actual: string, expected: string) => string
     noRecipients: string
     noValidRecipients: string
+    /** O destino chegou vazio (`{}`): o campo escolhido veio sem valor. */
+    destinationEmpty: string
+    /** O Bitrix não resolveu o campo e entregou o texto cru no lugar do telefone. */
+    destinationUnresolved: (value: string) => string
     queued: (destinations: string[]) => string
   }
   templateRobot: {
@@ -52,6 +56,10 @@ export type TimelineNotices = {
     lineCannotSend: (error: string) => string
     noRecipients: string
     noValidRecipients: string
+    /** O destino chegou vazio (`{}`): o campo escolhido veio sem valor. */
+    destinationEmpty: string
+    /** O Bitrix não resolveu o campo e entregou o texto cru no lugar do telefone. */
+    destinationUnresolved: (value: string) => string
     queued: (input: {
       templateName: string
       language: string
@@ -95,6 +103,35 @@ function sendRobotResult(
     lines.push(`${labels.failedFiles}: ${failed}`)
   }
   return lines.join('\n')
+}
+
+/**
+ * Destino que o Bitrix entregou ao robô sem virar telefone. Igual nos robôs de template
+ * e de botões: a causa e o conserto são os mesmos, só muda o que deixou de ser enviado.
+ * O valor recebido entra como veio — é a pista de que o campo não foi resolvido.
+ */
+const DESTINATION_NOTICES: Record<
+  NoticeLocale,
+  { empty: string; unresolved: (value: string) => string }
+> = {
+  pt: {
+    empty:
+      'O destino do envio está vazio. Se o destino é um campo do contato (por exemplo "Contato: Celular"), o contato pode não ter telefone do tipo lido por esse campo: confira o tipo do telefone no cadastro. Se o destino não foi configurado, abra a configuração do robô e informe-o. Nada foi enviado.',
+    unresolved: value =>
+      `O Bitrix não resolveu o campo escolhido como destino e entregou o texto "${value}" no lugar do telefone. Abra a configuração do robô, escolha o campo de novo em "Campo da entidade" e salve a automação. Nada foi enviado.`,
+  },
+  en: {
+    empty:
+      'The send destination is empty. If the destination is a contact field (for example "Contact: Mobile"), the contact may not have a phone of the type that field reads: check the phone type in the contact record. If no destination was set, open the robot settings and fill it in. Nothing was sent.',
+    unresolved: value =>
+      `Bitrix did not resolve the field chosen as the destination and delivered the text "${value}" instead of a phone number. Open the robot settings, choose the field again under "Entity field" and save the automation. Nothing was sent.`,
+  },
+  es: {
+    empty:
+      'El destino del envío está vacío. Si el destino es un campo del contacto (por ejemplo "Contacto: Celular"), es posible que el contacto no tenga un teléfono del tipo que lee ese campo: revise el tipo de teléfono en la ficha. Si no se configuró un destino, abra la configuración del robot e indíquelo. No se envió nada.',
+    unresolved: value =>
+      `Bitrix no resolvió el campo elegido como destino y entregó el texto "${value}" en lugar de un teléfono. Abra la configuración del robot, elija el campo de nuevo en "Campo de la entidad" y guarde la automatización. No se envió nada.`,
+  },
 }
 
 const NOTICES: Record<NoticeLocale, TimelineNotices> = {
@@ -148,6 +185,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         'Nenhum destinatário encontrado para o envio da mensagem com botões.',
       noValidRecipients:
         'Nenhum destinatário válido para o envio da mensagem com botões.',
+      destinationEmpty: DESTINATION_NOTICES.pt.empty,
+      destinationUnresolved: DESTINATION_NOTICES.pt.unresolved,
       queued: destinations =>
         `Mensagem com botões enfileirada para: ${destinations.join(', ')}`,
     },
@@ -162,6 +201,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         `A linha configurada não pode enviar template: ${error}`,
       noRecipients: 'Nenhum destinatário encontrado para o envio do template.',
       noValidRecipients: 'Nenhum destinatário válido para o envio do template.',
+      destinationEmpty: DESTINATION_NOTICES.pt.empty,
+      destinationUnresolved: DESTINATION_NOTICES.pt.unresolved,
       queued: ({ templateName, language, destinations }) =>
         `Template "${templateName}" (${language}) enfileirado para: ${destinations.join(', ')}`,
     },
@@ -214,6 +255,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         `The configured line is ${actual}, but this robot only runs for ${expected} lines.`,
       noRecipients: 'No recipients found for the button message.',
       noValidRecipients: 'No valid recipients for the button message.',
+      destinationEmpty: DESTINATION_NOTICES.en.empty,
+      destinationUnresolved: DESTINATION_NOTICES.en.unresolved,
       queued: destinations =>
         `Button message queued for: ${destinations.join(', ')}`,
     },
@@ -228,6 +271,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         `The configured line cannot send templates: ${error}`,
       noRecipients: 'No recipients found for the template.',
       noValidRecipients: 'No valid recipients for the template.',
+      destinationEmpty: DESTINATION_NOTICES.en.empty,
+      destinationUnresolved: DESTINATION_NOTICES.en.unresolved,
       queued: ({ templateName, language, destinations }) =>
         `Template "${templateName}" (${language}) queued for: ${destinations.join(', ')}`,
     },
@@ -282,6 +327,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         'No se encontró ningún destinatario para el mensaje con botones.',
       noValidRecipients:
         'No hay destinatarios válidos para el mensaje con botones.',
+      destinationEmpty: DESTINATION_NOTICES.es.empty,
+      destinationUnresolved: DESTINATION_NOTICES.es.unresolved,
       queued: destinations =>
         `Mensaje con botones en cola para: ${destinations.join(', ')}`,
     },
@@ -296,6 +343,8 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         `La línea configurada no puede enviar plantillas: ${error}`,
       noRecipients: 'No se encontró ningún destinatario para la plantilla.',
       noValidRecipients: 'No hay destinatarios válidos para la plantilla.',
+      destinationEmpty: DESTINATION_NOTICES.es.empty,
+      destinationUnresolved: DESTINATION_NOTICES.es.unresolved,
       queued: ({ templateName, language, destinations }) =>
         `Plantilla "${templateName}" (${language}) en cola para: ${destinations.join(', ')}`,
     },

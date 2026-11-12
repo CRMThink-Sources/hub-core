@@ -20,6 +20,43 @@ export type DocumentField = {
   custom: boolean
 }
 
+/**
+ * Índice dos campos do documento para reabrir um valor que o Bitrix devolveu em forma
+ * de exibição.
+ *
+ * `ids` cobre o portal que devolve só o id do campo; `idsByTitle` cobre o que devolve
+ * `{{{Rótulo}}}`, que é o título do campo e não o id. A lista de ids por título (e não
+ * um id só) existe porque dois campos podem ter o mesmo título: nesse caso o rótulo não
+ * identifica nenhum deles, e quem lê precisa saber disso para não ligar o valor ao
+ * campo errado.
+ */
+export type FieldIndex = {
+  ids: ReadonlySet<string>
+  idsByTitle: ReadonlyMap<string, readonly string[]>
+}
+
+export const EMPTY_FIELD_INDEX: FieldIndex = {
+  ids: new Set(),
+  idsByTitle: new Map(),
+}
+
+/**
+ * Título igual ao id não conta como rótulo: é o que `toDocumentFields` devolve quando o
+ * campo não tem nome legível, e um `{{{UF_CRM_1}}}` nunca é rótulo de exibição.
+ */
+export function buildFieldIndex(fields: readonly DocumentField[]): FieldIndex {
+  const idsByTitle = new Map<string, string[]>()
+
+  for (const field of fields) {
+    const title = field.title.trim()
+    if (!title || title === field.id) continue
+
+    idsByTitle.set(title, [...(idsByTitle.get(title) ?? []), field.id])
+  }
+
+  return { ids: new Set(fields.map(field => field.id)), idsByTitle }
+}
+
 export type FieldsQuery = {
   method: string
   params: Record<string, unknown>
