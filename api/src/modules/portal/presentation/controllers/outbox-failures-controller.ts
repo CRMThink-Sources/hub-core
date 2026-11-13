@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import z from 'zod'
+import { env } from '@/config/env'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 import {
@@ -9,12 +10,14 @@ import {
   ReprocessOutboxFailures,
   ReprocessStatus,
 } from '../../application/outbox-failures'
-
-const DAY_MS = 24 * 60 * 60 * 1000
-/** Período padrão da lista quando a tela não manda datas. */
-export const DEFAULT_FAILURE_RANGE_DAYS = 7
-/** Teto de um período: segura o `count` sobre a outbox inteira. */
-export const MAX_FAILURE_RANGE_DAYS = 90
+import {
+  FAILURE_RANGE_ORDER_MESSAGE,
+  failureListBaseShape,
+  failureRangeIsOrdered,
+  failureRangeMessage,
+  failureRangeWithinRetention,
+  resolveFailureRange,
+} from './failure-list-query'
 
 const ORIGINS = [
   'WIDGET',
@@ -27,40 +30,38 @@ const ORIGINS = [
   'BOT',
 ] as const
 
-const listQuerySchema = z
-  .object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
-    /** Sem status = os dois. */
-    status: z.enum(['FAILED', 'UNKNOWN']).optional(),
-    domain: z.string().trim().min(1).max(255).optional(),
-    origin: z.enum(ORIGINS).optional(),
-    from: z.coerce.date().optional(),
-    to: z.coerce.date().optional(),
-  })
-  .transform(query => {
-    const to = query.to ?? new Date()
-    const from =
-      query.from ?? new Date(to.getTime() - DEFAULT_FAILURE_RANGE_DAYS * DAY_MS)
-    return { ...query, from, to }
-  })
-  .refine(query => query.from <= query.to, {
-    message: '`from` deve ser anterior a `to`',
-  })
-  .refine(
-    query =>
-      query.to.getTime() - query.from.getTime() <=
-      MAX_FAILURE_RANGE_DAYS * DAY_MS,
-    { message: `O período máximo é de ${MAX_FAILURE_RANGE_DAYS} dias` },
-  )
+function outboxListQuerySchema(retentionDays: number) {
+  return z
+    .object({
+      ...failureListBaseShape,
+      /** Sem status = os dois. */
+      status: z.enum(['FAILED', 'UNKNOWN']).optional(),
+      origin: z.enum(ORIGINS).optional(),
+    })
+    .transform(query => ({
+      ...query,
+      ...resolveFailureRange(query, retentionDays),
+    }))
+    .refine(failureRangeIsOrdered, { message: FAILURE_RANGE_ORDER_MESSAGE })
+    .refine(query => failureRangeWithinRetention(query, retentionDays), {
+      message: failureRangeMessage(retentionDays),
+    })
+}
 
 export class ListOutboxFailuresController extends Controller {
-  constructor(private readonly listFailures: ListOutboxFailures) {
+  private readonly listQuerySchema: ReturnType<typeof outboxListQuerySchema>
+
+  constructor(
+    private readonly listFailures: ListOutboxFailures,
+    /** Prazo de guarda: é o período padrão e o máximo da lista. */
+    private readonly retentionDays: number = env.failureRetention.days,
+  ) {
     super()
+    this.listQuerySchema = outboxListQuerySchema(retentionDays)
   }
 
   async perform(req: Request, _res: Response): Promise<httpResponse> {
-    const parsed = listQuerySchema.safeParse(req.query)
+    const parsed = this.listQuerySchema.safeParse(req.query)
     if (!parsed.success) {
       return this.badRequest(
         new Error(parsed.error.issues.map(issue => issue.message).join('; ')),
@@ -69,12 +70,14 @@ export class ListOutboxFailuresController extends Controller {
 
     const { status, ...filters } = parsed.data
 
-    return this.ok(
-      await this.listFailures.execute({
+    return this.ok({
+      ...(await this.listFailures.execute({
         ...filters,
         statuses: status ? [status] : ['FAILED', 'UNKNOWN'],
-      }),
-    )
+      })),
+      // A tela mostra o prazo de guarda e limita o seletor de datas a ele.
+      retentionDays: this.retentionDays,
+    })
   }
 }
 

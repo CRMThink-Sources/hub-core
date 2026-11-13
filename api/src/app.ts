@@ -18,6 +18,7 @@ import { makeZApiWebhookHandlerController } from './modules/thinkzap/main/z-api-
 import { startCredentialRefreshJob } from './shared/infra/scheduler/credential-refresh.job.js'
 import { startSubscriptionExpirationJob } from './shared/infra/scheduler/subscription-expiration.job.js'
 import { startStripeSyncJob } from './shared/infra/scheduler/stripe-sync.job.js'
+import { startFailureRetentionJob } from './shared/infra/scheduler/failure-retention.job.js'
 import { startCrmthinkTasksReconcileJob } from './shared/infra/scheduler/crmthink-tasks-reconcile.job.js'
 import { makeCrmthinkTasksWebhookController } from './modules/product-updates/main/make-crmthink-tasks-webhook-controller.js'
 import { adaptControllerFactory } from './shared/main/adapt-controller.js'
@@ -287,6 +288,7 @@ app.post(
 startCredentialRefreshJob()
 startSubscriptionExpirationJob()
 startStripeSyncJob()
+startFailureRetentionJob()
 startCrmthinkTasksReconcileJob()
 
 app.use(

@@ -103,6 +103,15 @@ export const WIDGET_OUTBOUND_JOB_BACKOFF = {
   delay: 10_000,
 } as const
 
+/**
+ * Falhos ficam 7 dias no Redis, o mesmo prazo da fila de entrada e da retenção das
+ * falhas no banco. Sem isso o BullMQ guarda o job falho para sempre, e como o `jobId`
+ * é determinístico (`widget-send-<outboxId>`), um job falho antigo ocupa a chave.
+ */
+export const WIDGET_OUTBOUND_REMOVE_ON_FAIL = {
+  age: 7 * 24 * 60 * 60,
+} as const
+
 export async function enqueueThinkzapWidgetOutboundJob(
   job: ThinkzapWidgetOutboundJob,
   opts?: { jobId?: string },
@@ -113,6 +122,7 @@ export async function enqueueThinkzapWidgetOutboundJob(
     {
       attempts: WIDGET_OUTBOUND_JOB_ATTEMPTS,
       backoff: WIDGET_OUTBOUND_JOB_BACKOFF,
+      removeOnFail: WIDGET_OUTBOUND_REMOVE_ON_FAIL,
       ...(opts?.jobId ? { jobId: opts.jobId } : {}),
     },
   )

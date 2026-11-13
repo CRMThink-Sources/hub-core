@@ -57,6 +57,7 @@ import { makeOutboundSenderResolver } from '@/modules/thinkzap/main/make-outboun
 import { makeTemplateSenderResolver } from '@/modules/thinkzap/main/connector/make-template-sender-resolver'
 import { makeInteractiveButtonSenderResolver } from '@/modules/thinkzap/main/connector/make-interactive-button-sender-resolver'
 import { AppendJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
+import { PrismaDeliveryAttemptRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-delivery-attempt.repository'
 import { ThinkzapWidgetSendJob } from '@/queue/thinkzap-widget-outbound.queue'
 import { redisConnection } from '@/queue/redis-connection'
 import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
@@ -86,6 +87,8 @@ export async function processWidgetSendJob(
 ): Promise<WidgetSendJobOutcome> {
   const { appendJobLog } = context
   const outbox = new PrismaWidgetOutboxRepository()
+  const attempts = new PrismaDeliveryAttemptRepository()
+  const startedAt = Date.now()
 
   const row = await outbox.findById(job.outboxId)
   if (!row) {
@@ -149,6 +152,11 @@ export async function processWidgetSendJob(
       markFailed: (id, reason) => outbox.markFailed(id, reason),
       notifyFailed: () => notifyOutcomeFor(row, 'failed'),
       appendJobLog,
+      recordAttempt: failure =>
+        attempts.recordFailure(
+          { kind: 'OUTBOX', id: row.id },
+          { ...failure, durationMs: Date.now() - startedAt },
+        ),
       onUnavailable: (err, willRetry) =>
         logThinkzapError(
           log,
@@ -227,6 +235,7 @@ export async function processWidgetSendJob(
       })
     },
     appendJobLog,
+    attempts,
     // Mesmo preparo do canal aberto, para "Prefixar nome do operador" valer no widget.
     prepareOutboundText: async input => {
       const bitrix = await makeBitrixClientByDomainAndAppCoode(

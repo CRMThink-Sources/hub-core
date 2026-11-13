@@ -37,6 +37,18 @@ export type OutboxFailure = {
   lastReprocessedAt: string | null
 }
 
+/** Uma tentativa que falhou, de envio ou de recebimento. Tentativa com sucesso não aparece. */
+export type DeliveryAttempt = {
+  id: string
+  attempt: number
+  errorCode: string
+  message: string
+  /** Pode ter entregue ou não (timeout/rede). */
+  indeterminate: boolean
+  durationMs: number | null
+  createdAt: string
+}
+
 export type OutboxFailureDetail = OutboxFailure & {
   templateName: string | null
   mediaType: string | null
@@ -49,6 +61,8 @@ export type OutboxFailureDetail = OutboxFailure & {
   providerMessageId: string | null
   sentAt: string | null
   lastReprocessedByEmail: string | null
+  /** Vazio em falha anterior ao log, ou já expurgada. */
+  attemptLog: DeliveryAttempt[]
 }
 
 export type ListOutboxFailuresParams = {
@@ -56,8 +70,10 @@ export type ListOutboxFailuresParams = {
   limit: number
   status?: OutboxFailureStatus
   domain?: string
+  /** O portal exato (página do cliente). */
+  domainId?: string
   origin?: OutboxOrigin
-  /** ISO. Sem datas, a API usa os últimos 7 dias. */
+  /** ISO. Sem datas, a API usa o prazo de guarda (`retentionDays`). */
   from?: string
   to?: string
 }
@@ -67,6 +83,8 @@ export type ListOutboxFailuresResponse = {
   total: number
   page: number
   limit: number
+  /** Por quantos dias as falhas ficam guardadas; é também o período máximo da lista. */
+  retentionDays: number
 }
 
 export type ReprocessStatus =
@@ -89,6 +107,7 @@ export function listOutboxFailures(
   })
   if (params.status) query.set('status', params.status)
   if (params.domain) query.set('domain', params.domain)
+  if (params.domainId) query.set('domainId', params.domainId)
   if (params.origin) query.set('origin', params.origin)
   if (params.from) query.set('from', params.from)
   if (params.to) query.set('to', params.to)

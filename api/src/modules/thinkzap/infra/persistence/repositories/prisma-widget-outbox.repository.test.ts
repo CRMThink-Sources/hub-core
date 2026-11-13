@@ -7,6 +7,7 @@ const {
   findManyMock,
   updateManyMock,
   countMock,
+  deleteManyMock,
   domainFindManyMock,
   portalUserFindUniqueMock,
 } = vi.hoisted(() => ({
@@ -16,6 +17,7 @@ const {
   findManyMock: vi.fn(),
   updateManyMock: vi.fn(),
   countMock: vi.fn(),
+  deleteManyMock: vi.fn(),
   domainFindManyMock: vi.fn(),
   portalUserFindUniqueMock: vi.fn(),
 }))
@@ -28,6 +30,7 @@ vi.mock('@/config/prisma', () => ({
       createMany: createManyMock,
       findMany: findManyMock,
       updateMany: updateManyMock,
+      deleteMany: deleteManyMock,
       count: countMock,
     },
     domain: { findMany: domainFindManyMock },
@@ -359,6 +362,42 @@ describe('PrismaWidgetOutboxRepository — falhas de envio', () => {
     expect(args).toMatchObject({ where: { domainId: { in: ['domain-1'] } } })
   })
 
+  /** `acme` não pode trazer `acme-filial`, como o filtro por trecho do nome traria. */
+  it('filtro por domainId consulta o portal exato, sem resolver por nome', async () => {
+    await sut().listFailures({ ...baseFilters, domainId: 'domain-1' })
+
+    // O `findMany` de domínios que sobra é a busca do nome para exibir, não o filtro.
+    for (const [query] of domainFindManyMock.mock.calls as [
+      { where: Record<string, unknown> },
+    ][]) {
+      expect(query.where).not.toHaveProperty('name')
+    }
+    const [args] = findManyMock.mock.calls[0]! as [Record<string, unknown>]
+    expect(args).toMatchObject({ where: { domainId: { in: ['domain-1'] } } })
+  })
+
+  it('com nome e domainId juntos vale a interseção', async () => {
+    await sut().listFailures({
+      ...baseFilters,
+      domain: 'querobombinhas',
+      domainId: 'domain-1',
+    })
+
+    const [args] = findManyMock.mock.calls[0]! as [Record<string, unknown>]
+    expect(args).toMatchObject({ where: { domainId: { in: ['domain-1'] } } })
+  })
+
+  it('nome e domainId que não coincidem devolvem vazio sem consultar a outbox', async () => {
+    const result = await sut().listFailures({
+      ...baseFilters,
+      domain: 'querobombinhas',
+      domainId: 'outro-portal',
+    })
+
+    expect(result).toEqual({ items: [], total: 0 })
+    expect(findManyMock).not.toHaveBeenCalled()
+  })
+
   it('portal sem correspondência devolve vazio sem consultar a outbox', async () => {
     domainFindManyMock.mockResolvedValueOnce([])
 
@@ -366,6 +405,66 @@ describe('PrismaWidgetOutboxRepository — falhas de envio', () => {
 
     expect(result).toEqual({ items: [], total: 0 })
     expect(findManyMock).not.toHaveBeenCalled()
+  })
+
+  /**
+   * `retencao-falhas`: o expurgo só toca em `FAILED`/`UNKNOWN`. Entregue, pendente ou em
+   * envio nunca saem, por mais antigos que sejam.
+   */
+  describe('expurgo por retenção', () => {
+    const cutoff = new Date('2026-11-06T00:00:00Z')
+
+    beforeEach(() => deleteManyMock.mockClear())
+
+    it('seleciona só FAILED/UNKNOWN criados e atualizados antes do corte', async () => {
+      findManyMock.mockResolvedValue([{ id: 'a' }, { id: 'b' }])
+      deleteManyMock.mockResolvedValue({ count: 2 })
+
+      const count = await sut().deleteExpiredFailuresBatch(cutoff, 500)
+
+      expect(count).toBe(2)
+      expect(findManyMock.mock.calls[0]![0]).toMatchObject({
+        where: {
+          status: { in: ['FAILED', 'UNKNOWN'] },
+          createdAt: { lt: cutoff },
+          updatedAt: { lt: cutoff },
+        },
+        take: 500,
+      })
+    })
+
+    it('nunca seleciona entregue, pendente nem em envio', async () => {
+      findManyMock.mockResolvedValue([])
+
+      await sut().deleteExpiredFailuresBatch(cutoff, 500)
+
+      const [args] = findManyMock.mock.calls[0]! as [
+        { where: { status: { in: string[] } } },
+      ]
+      expect(args.where.status.in).toEqual(['FAILED', 'UNKNOWN'])
+      expect(args.where.status.in).not.toContain('SENT')
+      expect(args.where.status.in).not.toContain('PENDING')
+      expect(args.where.status.in).not.toContain('SENDING')
+    })
+
+    /** Entre o select e o delete a intenção pode ter sido reprocessada. */
+    it('o delete reconfirma o status dos ids selecionados', async () => {
+      findManyMock.mockResolvedValue([{ id: 'a' }])
+      deleteManyMock.mockResolvedValue({ count: 0 })
+
+      await sut().deleteExpiredFailuresBatch(cutoff, 500)
+
+      expect(deleteManyMock).toHaveBeenCalledWith({
+        where: { id: { in: ['a'] }, status: { in: ['FAILED', 'UNKNOWN'] } },
+      })
+    })
+
+    it('sem vencidos não apaga nada', async () => {
+      findManyMock.mockResolvedValue([])
+
+      expect(await sut().deleteExpiredFailuresBatch(cutoff, 500)).toBe(0)
+      expect(deleteManyMock).not.toHaveBeenCalled()
+    })
   })
 
   it('detalhe traz o portal e o e-mail de quem reprocessou', async () => {

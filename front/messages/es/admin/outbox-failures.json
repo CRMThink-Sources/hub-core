@@ -88,7 +88,7 @@
   "emptyTitle": "Ningún fallo en el período",
   "emptyDescription": "No hay mensajes con fallo o resultado indeterminado para los filtros elegidos.",
   "errorTitle": "No se pudieron cargar los fallos",
-  "errorDescription": "Verifique la conexión e inténtelo de nuevo. No se aceptan períodos de más de 90 días.",
+  "errorDescription": "Verifique la conexión e inténtelo de nuevo. No se aceptan períodos mayores que el plazo de conservación.",
   "retry": "Reintentar",
   "page": "Página {{current}} de {{total}}",
   "previous": "Anterior",

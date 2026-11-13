@@ -62,6 +62,21 @@ describe('listOutboxFailures', () => {
   })
 })
 
+describe('listOutboxFailures por cliente', () => {
+  it('manda o portal exato (domainId), separado do filtro por trecho do nome', async () => {
+    get.mockResolvedValue({ items: [], total: 0, page: 1, limit: 5 })
+
+    await listOutboxFailures({ page: 1, limit: 5, domainId: 'domain-1' })
+
+    const url = new URL(`http://x${get.mock.calls[0][0] as string}`)
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      page: '1',
+      limit: '5',
+      domainId: 'domain-1',
+    })
+  })
+})
+
 describe('reprocessOutboxFailure', () => {
   it('aceito vira requeued e repassa o aceite de duplicidade', async () => {
     post.mockResolvedValue({ id: 'a', status: 'requeued' })
@@ -129,7 +144,7 @@ describe('traduções de "Falhas de envio"', () => {
       ),
     ) as unknown
 
-  it.each(['admin/outbox-failures', 'admin/home'])(
+  it.each(['admin/outbox-failures', 'admin/message-failures', 'admin/home'])(
     '%s tem as mesmas chaves em pt, en e es',
     namespace => {
       const pt = keysOf(load('pt', namespace)).sort()

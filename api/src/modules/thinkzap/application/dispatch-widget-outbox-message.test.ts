@@ -157,6 +157,7 @@ function makeSut(record = row()) {
 
   const notifyOutcome = vi.fn().mockResolvedValue(undefined)
   const notifySent = vi.fn().mockResolvedValue(undefined)
+  const attempts = { recordFailure: vi.fn().mockResolvedValue(undefined) }
 
   /** Substitui o preparo real: prefixa quando a linha pede, como ele faria. */
   const prepareOutboundText = vi.fn(
@@ -181,6 +182,7 @@ function makeSut(record = row()) {
     acquireLock,
     notifyOutcome,
     notifySent,
+    attempts,
     prepareOutboundText: prepareOutboundText as never,
   })
 
@@ -199,6 +201,7 @@ function makeSut(record = row()) {
     release,
     notifyOutcome,
     notifySent,
+    attempts,
     prepareOutboundText,
     dispatch: (isLastAttempt = false) =>
       sut.execute({ outboxId: 'outbox-1', line, isLastAttempt }),
@@ -468,6 +471,102 @@ describe('DispatchWidgetOutboxMessage', () => {
       expect(sut.outbox.markUnknown).toHaveBeenCalled()
       expect(sut.outbox.releaseToPending).not.toHaveBeenCalled()
       expect(result).toEqual({ status: 'unknown' })
+    })
+  })
+
+  /**
+   * `log-tentativas-falha`: só a tentativa que **falhou** é registrada. Sucesso e
+   * adiamento (destino ocupado) não gastam tentativa e não gravam nada.
+   */
+  describe('log das tentativas que falharam', () => {
+    it('registra a recusa do provider mesmo com tentativa pela frente', async () => {
+      const sut = makeSut()
+      sut.send.mockRejectedValue(refusedError())
+
+      await expect(sut.dispatch(false)).rejects.toThrow()
+
+      expect(sut.attempts.recordFailure).toHaveBeenCalledTimes(1)
+      expect(sut.attempts.recordFailure).toHaveBeenCalledWith(
+        { kind: 'OUTBOX', id: 'outbox-1' },
+        expect.objectContaining({
+          errorCode: 'UNCLASSIFIED',
+          message: expect.any(String) as string,
+          durationMs: expect.any(Number) as number,
+        }),
+      )
+    })
+
+    it('registra a tentativa que esgota as tentativas e deixa a mensagem em falha', async () => {
+      const sut = makeSut()
+      sut.send.mockRejectedValue(refusedError())
+
+      await sut.dispatch(true)
+
+      expect(sut.outbox.markFailed).toHaveBeenCalled()
+      expect(sut.attempts.recordFailure).toHaveBeenCalledTimes(1)
+    })
+
+    it('registra o resultado indeterminado como tal, distinto de erro definitivo', async () => {
+      const sut = makeSut()
+      sut.send.mockRejectedValue(indeterminateError())
+
+      await sut.dispatch(false)
+
+      expect(sut.attempts.recordFailure).toHaveBeenCalledWith(
+        { kind: 'OUTBOX', id: 'outbox-1' },
+        expect.objectContaining({
+          errorCode: 'thinkzap.message.widget_send_unknown',
+          indeterminate: true,
+        }),
+      )
+    })
+
+    it('registra a intenção de template sem nome, que falha sem chamar o provider', async () => {
+      const sut = makeSut(templateRow({ templateName: null }))
+
+      await sut.dispatchTemplate(false)
+
+      expect(sut.sendTemplate).not.toHaveBeenCalled()
+      expect(sut.attempts.recordFailure).toHaveBeenCalledWith(
+        { kind: 'OUTBOX', id: 'outbox-1' },
+        expect.objectContaining({
+          errorCode: 'thinkzap.message.widget_send_exhausted',
+        }),
+      )
+    })
+
+    it('não registra nada quando o envio dá certo', async () => {
+      const sut = makeSut()
+
+      await sut.dispatch(false)
+
+      expect(sut.attempts.recordFailure).not.toHaveBeenCalled()
+    })
+
+    it('não registra nada quando o envio é adiado por destino ocupado', async () => {
+      const sut = makeSut()
+      sut.acquireLock.mockResolvedValue(null)
+
+      const result = await sut.dispatch(false)
+
+      expect(result).toEqual({ status: 'locked' })
+      expect(sut.attempts.recordFailure).not.toHaveBeenCalled()
+    })
+
+    /** O log nunca pode mudar o desfecho do envio. */
+    it('segue o fluxo normal quando o registro da tentativa lança', async () => {
+      const sut = makeSut()
+      sut.send.mockRejectedValue(refusedError())
+      sut.attempts.recordFailure.mockRejectedValue(new Error('banco fora'))
+
+      const result = await sut.dispatch(true)
+
+      expect(result).toEqual({ status: 'failed' })
+      expect(sut.outbox.markFailed).toHaveBeenCalled()
+      expect(sut.notifyOutcome).toHaveBeenCalledWith(
+        'failed',
+        expect.objectContaining({ id: 'outbox-1' }),
+      )
     })
   })
 

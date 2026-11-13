@@ -689,6 +689,87 @@ enum ThinkzapOutboxStatus {
   UNKNOWN
 }
 
+/// Situação de uma falha de recebimento no backoffice.
+enum ThinkzapInboundFailureStatus {
+  FAILED
+  /// O evento foi recolocado na fila de entrada pelo portal admin.
+  REPROCESSED
+}
+
+/// Evento recebido (Z-API, HubMessage, Bitrix) que esgotou as tentativas da fila
+/// `thinkzap-inbound`. Só a falha **final** vira row: sucesso e falha com tentativa
+/// pela frente não gravam nada, para o caminho quente não pagar por isso.
+///
+/// Existe porque o job falho só vive 7 dias no Redis e sem tela. Guarda o `payload`
+/// para o reprocesso; é dado pessoal, por isso a retenção curta (`retencao-falhas`) e o
+/// detalhe do portal mostra só campos seguros dele.
+model ThinkzapInboundFailure {
+  id           String                       @id @default(uuid())
+  /// `jobId` do BullMQ. É por ele que as tentativas (`ThinkzapDeliveryAttempt`) se
+  /// ligam à falha: elas nascem antes desta row, que só existe na tentativa final.
+  jobId        String                       @map("job_id")
+  /// `z-api`, `hubmessage`, `hubmessage-status`, `bitrix` ou `bitrix-bot`.
+  source       String
+  type         String
+  traceKey     String?                      @map("trace_key")
+  /// Melhor esforço: o `body` nem sempre traz o portal, e o lookup pode falhar. Nulo
+  /// aparece na lista geral e fica fora do filtro por cliente.
+  domainId     String?                      @map("domain_id")
+  domainName   String?                      @map("domain_name")
+  instanceId   String?                      @map("instance_id")
+  errorCode    String                       @map("error_code")
+  errorMessage String                       @map("error_message") @db.Text
+  attempts     Int
+  payload      Json
+  status       ThinkzapInboundFailureStatus @default(FAILED)
+
+  reprocessCount    Int       @default(0) @map("reprocess_count")
+  lastReprocessedAt DateTime? @map("last_reprocessed_at")
+  lastReprocessedBy String?   @map("last_reprocessed_by")
+  /// Falha do evento reprocessado aponta para a falha que o originou, em vez de
+  /// reabri-la.
+  previousFailureId String?   @map("previous_failure_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([domainId, createdAt])
+  @@index([source, createdAt])
+  @@index([jobId])
+  @@map("core_thinkerszap_inbound_failures")
+}
+
+enum ThinkzapDeliveryAttemptKind {
+  /// `refId` = id da row da outbox.
+  OUTBOX
+  /// `refId` = `jobId` da fila de entrada.
+  INBOUND
+}
+
+/// Uma tentativa de envio ou de recebimento que **falhou**. Tentativa bem-sucedida e
+/// adiamento sem gastar tentativa (cadência, limite diário) não gravam.
+///
+/// `refId` sem chave estrangeira, de propósito: para o recebimento a tentativa nasce
+/// antes da row de falha. O expurgo apaga por `createdAt`, não por cascata.
+model ThinkzapDeliveryAttempt {
+  id            String                      @id @default(uuid())
+  refKind       ThinkzapDeliveryAttemptKind @map("ref_kind")
+  refId         String                      @map("ref_id")
+  /// Numerada por item (`max + 1`), continuando depois de um reprocessamento.
+  attempt       Int
+  /// Código do catálogo de erros, ou `UNCLASSIFIED`.
+  errorCode     String                      @map("error_code")
+  message       String                      @db.Text
+  /// Resultado indeterminado (timeout/rede): pode ter entregue ou não.
+  indeterminate Boolean                     @default(false)
+  durationMs    Int?                        @map("duration_ms")
+  createdAt     DateTime                    @default(now()) @map("created_at")
+
+  @@index([refKind, refId])
+  @@index([createdAt])
+  @@map("core_thinkerszap_delivery_attempts")
+}
+
 // ============================================
 // ImportSheet
 // ============================================

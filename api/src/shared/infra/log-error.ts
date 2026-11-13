@@ -32,6 +32,11 @@ export function jobFailureLogFields(err: unknown): Record<string, unknown> {
     : { errorCode: 'UNCLASSIFIED', err }
 }
 
+/** Código gravado no log de tentativas: o do catálogo, ou `UNCLASSIFIED` quando o erro não é um `AppError`. */
+export function attemptErrorCodeOf(err: unknown): string {
+  return isAppError(err) ? err.errorCode : 'UNCLASSIFIED'
+}
+
 export function appErrorLogFields(
   error: AppError,
   extra?: Record<string, unknown>,

@@ -88,7 +88,7 @@
   "emptyTitle": "Nenhuma falha no período",
   "emptyDescription": "Não há mensagens com falha ou resultado indeterminado para os filtros escolhidos.",
   "errorTitle": "Não foi possível carregar as falhas",
-  "errorDescription": "Verifique a conexão e tente de novo. Períodos acima de 90 dias não são aceitos.",
+  "errorDescription": "Verifique a conexão e tente de novo. Períodos acima do prazo de guarda não são aceitos.",
   "retry": "Tentar de novo",
   "page": "Página {{current}} de {{total}}",
   "previous": "Anterior",

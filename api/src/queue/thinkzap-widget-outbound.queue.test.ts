@@ -46,4 +46,17 @@ describe('enqueueThinkzapWidgetOutboundJob', () => {
     const waits = [1, 2, 3].map(n => 10_000 * 2 ** (n - 1))
     expect(waits.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(60_000)
   })
+
+  /** Sem `removeOnFail` o BullMQ guarda o job falho para sempre e ele ocupa o `jobId`. */
+  it('descarta jobs falhos depois de 7 dias', async () => {
+    addMock.mockClear()
+
+    await enqueueThinkzapWidgetOutboundJob(
+      { kind: 'send', outboxId: 'outbox-2' },
+      { jobId: widgetSendJobId('outbox-2') },
+    )
+
+    const [, , opts] = addMock.mock.calls[0]!
+    expect(opts).toMatchObject({ removeOnFail: { age: 7 * 24 * 60 * 60 } })
+  })
 })

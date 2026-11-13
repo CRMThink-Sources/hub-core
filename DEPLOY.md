@@ -184,6 +184,23 @@ a cobrança por assinatura. Os workers também descartam job vindo do webhook (o
 estivesse enfileirado antes do deploy), mas processam a limpeza enfileirada pelo próprio
 app (`DeleteLine`). O valor efetivo sai no log de boot (`spaProviderEffectsEnabled`).
 
+### Expurgo das falhas de mensagens — ligar em um ambiente só
+
+`FAILURE_PURGE_ENABLED=true` liga o job diário que **apaga** as falhas de recebimento, o
+log de tentativas e os envios em `FAILED`/`UNKNOWN` com mais de `FAILURE_RETENTION_DAYS`
+dias (padrão 7). Ausente ou qualquer valor diferente de `true` deixa desligado.
+
+- Vem do `.env` do servidor (`ENV_API`); não está fixado nos compose.
+- Se staging e produção **dividirem o banco**, ligue só em um deles (produção) e use o
+  mesmo `FAILURE_RETENTION_DAYS` nos dois: o job não filtra por ambiente, e o menor prazo
+  vence. Com bancos separados, cada ambiente liga o seu.
+- Ligar depois de validar o job em staging (logs com a quantidade apagada por tabela).
+- O reprocesso de falha de recebimento pelo portal admin enfileira em `thinkzap-inbound`:
+  confira que `QUEUE_PREFIX` é o mesmo na API e no worker de cada ambiente e diferente
+  entre staging e produção, senão o evento (com dados do contato) cai na fila do outro.
+- Valor inválido em `FAILURE_RETENTION_DAYS` (`0`, texto, decimal) impede a API e os
+  workers de subir, com a mensagem da variável a corrigir.
+
 ### Robô de template do Bizproc — ordem de deploy e registro
 
 O robô de envio de template (`thinkzap_template_robot`) é registrado no portal com um
