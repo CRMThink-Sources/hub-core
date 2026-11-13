@@ -88,7 +88,7 @@
   "emptyTitle": "No failures in this period",
   "emptyDescription": "There are no failed or undetermined messages for the chosen filters.",
   "errorTitle": "Could not load the failures",
-  "errorDescription": "Check your connection and try again. Periods longer than 90 days are not accepted.",
+  "errorDescription": "Check your connection and try again. Periods longer than the retention period are not accepted.",
   "retry": "Try again",
   "page": "Page {{current}} of {{total}}",
   "previous": "Previous",

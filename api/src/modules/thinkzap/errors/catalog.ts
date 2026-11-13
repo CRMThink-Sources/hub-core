@@ -1014,6 +1014,16 @@ export const THINKZAP_ERRORS = {
     retriable: true,
     httpStatus: 503,
   },
+  // Falha final de um evento recebido (fila `thinkzap-inbound`): as tentativas acabaram.
+  'thinkzap.inbound.event_failed': {
+    category: 'integration',
+    userCause:
+      'Uma mensagem ou evento recebido não pôde ser processado depois de todas as tentativas.',
+    remediation:
+      'Ver a falha em "Falhas de envio", aba "Recebimento", no portal admin: o detalhe mostra o erro de cada tentativa. Se a origem for reprocessável, reprocessar depois de corrigir a causa.',
+    retriable: false,
+    httpStatus: 500,
+  },
   'thinkzap.line.disconnected': {
     category: 'validation',
     userCause: 'A linha não está conectada no WhatsApp.',

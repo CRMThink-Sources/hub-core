@@ -84,6 +84,60 @@ describe('GetOutboxFailure', () => {
     })
   })
 
+  describe('tentativas que falharam', () => {
+    const detailRow = () => ({
+      ...record(),
+      domainName: 'querobombinhas.bitrix24.com.br',
+      lastReprocessedByEmail: null,
+    })
+
+    it('o detalhe traz as tentativas em ordem, lidas pela row da outbox', async () => {
+      const attempt = {
+        id: 'a1',
+        attempt: 1,
+        errorCode: 'UNCLASSIFIED',
+        message: 'Provider recusou',
+        indeterminate: false,
+        durationMs: 120,
+        createdAt: new Date('2026-11-13T10:00:00Z'),
+      }
+      const listByRef = vi.fn().mockResolvedValue([attempt])
+
+      const detail = await new GetOutboxFailure(
+        { findFailureDetail: vi.fn().mockResolvedValue(detailRow()) },
+        { listByRef },
+      ).execute('cd9192b3-dc67-4303-a048-b624ab4c59fb')
+
+      expect(listByRef).toHaveBeenCalledWith({
+        kind: 'OUTBOX',
+        id: 'cd9192b3-dc67-4303-a048-b624ab4c59fb',
+      })
+      expect(detail?.attemptLog).toEqual([attempt])
+    })
+
+    /** Falha anterior ao recurso, ou já expurgada: sem erro, só sem tentativas. */
+    it('falha sem tentativas registradas devolve lista vazia', async () => {
+      const detail = await new GetOutboxFailure(
+        { findFailureDetail: vi.fn().mockResolvedValue(detailRow()) },
+        { listByRef: vi.fn().mockResolvedValue([]) },
+      ).execute('x')
+
+      expect(detail?.attemptLog).toEqual([])
+    })
+
+    it('erro ao ler as tentativas não derruba o detalhe', async () => {
+      const detail = await new GetOutboxFailure(
+        { findFailureDetail: vi.fn().mockResolvedValue(detailRow()) },
+        { listByRef: vi.fn().mockRejectedValue(new Error('banco fora')) },
+      ).execute('x')
+
+      expect(detail).toMatchObject({
+        lastError: 'Linha não encontrada na instalação',
+      })
+      expect(detail?.attemptLog).toEqual([])
+    })
+  })
+
   it('intenção entregue de primeira não aparece na tela de falhas', async () => {
     const findFailureDetail = vi.fn().mockResolvedValue({
       ...record({ status: 'SENT' }),

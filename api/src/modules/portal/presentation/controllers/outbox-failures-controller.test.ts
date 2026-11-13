@@ -71,6 +71,74 @@ describe('ListOutboxFailuresController', () => {
     expect(execute).not.toHaveBeenCalled()
   })
 
+  it('Filtrar pelo portal exato do cliente (domainId)', async () => {
+    const { execute, call } = listSut()
+
+    await call({ domainId: 'domain-1' })
+
+    expect(execute.mock.calls[0]![0]).toMatchObject({ domainId: 'domain-1' })
+  })
+
+  /**
+   * O período padrão e o máximo são o prazo de guarda: pedir mais consultaria dado que
+   * o expurgo já apagou.
+   */
+  describe('prazo de guarda', () => {
+    const sutWithRetention = (days: number) => {
+      const execute = vi.fn().mockResolvedValue({ items: [], total: 0 })
+      const controller = new ListOutboxFailuresController(
+        { execute } as unknown as ListOutboxFailures,
+        days,
+      )
+      return {
+        execute,
+        call: (query: Record<string, string>) =>
+          controller.perform({ query } as never, {} as never),
+      }
+    }
+
+    it('devolve o prazo de guarda para a tela informar e limitar o seletor de datas', async () => {
+      const { call } = sutWithRetention(5)
+
+      const response = await call({})
+
+      expect(response.result).toMatchObject({ retentionDays: 5 })
+    })
+
+    it('o período padrão é o prazo de guarda', async () => {
+      const { execute, call } = sutWithRetention(3)
+
+      await call({})
+
+      const [filters] = execute.mock.calls[0]! as [{ from: Date; to: Date }]
+      expect(filters.to.getTime() - filters.from.getTime()).toBe(3 * DAY_MS)
+    })
+
+    it('pedir um período maior que o prazo: 400 dizendo o máximo', async () => {
+      const { execute, call } = sutWithRetention(7)
+
+      const response = await call({
+        from: '2026-10-01T00:00:00.000Z',
+        to: '2026-10-31T00:00:00.000Z',
+      })
+
+      expect(response.status).toBe(400)
+      expect((response.result as { error: string }).error).toContain('7 dias')
+      expect(execute).not.toHaveBeenCalled()
+    })
+
+    it('um período dentro do prazo passa', async () => {
+      const { call } = sutWithRetention(7)
+
+      const response = await call({
+        from: '2026-10-25T00:00:00.000Z',
+        to: '2026-10-31T00:00:00.000Z',
+      })
+
+      expect(response.status).toBe(200)
+    })
+  })
+
   it('`from` depois de `to`: 400', async () => {
     const { call } = listSut()
 

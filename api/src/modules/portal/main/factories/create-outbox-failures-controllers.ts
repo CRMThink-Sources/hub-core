@@ -1,4 +1,5 @@
 import { Controller } from '@/shared/presentation/controller'
+import { PrismaDeliveryAttemptRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-delivery-attempt.repository'
 import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { BullMqWidgetSendQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
 import {
@@ -26,7 +27,10 @@ export const createListOutboxFailuresController = (): Controller =>
 
 export const createGetOutboxFailureController = (): Controller =>
   new GetOutboxFailureController(
-    new GetOutboxFailure(new PrismaWidgetOutboxRepository()),
+    new GetOutboxFailure(
+      new PrismaWidgetOutboxRepository(),
+      new PrismaDeliveryAttemptRepository(),
+    ),
   )
 
 export const createReprocessOutboxFailureController = (): Controller =>

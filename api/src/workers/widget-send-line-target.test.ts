@@ -109,6 +109,7 @@ function makeDeps() {
     notifyFailed: vi.fn().mockResolvedValue(undefined),
     appendJobLog: vi.fn().mockResolvedValue(undefined),
     onUnavailable: vi.fn(),
+    recordAttempt: vi.fn().mockResolvedValue(undefined),
   }
 }
 
@@ -164,5 +165,50 @@ describe('settleUnresolvedLine', () => {
     expect(reason).not.toBe(LINE_NOT_FOUND_REASON)
     expect(deps.notifyFailed).toHaveBeenCalledOnce()
     expect(deps.onUnavailable).toHaveBeenCalledWith(bitrixDown, false)
+  })
+
+  describe('log das tentativas que falharam', () => {
+    it('registra a linha removida da instalação', async () => {
+      const deps = makeDeps()
+
+      await settleUnresolvedLine(row, { kind: 'not-found' }, false, deps)
+
+      expect(deps.recordAttempt).toHaveBeenCalledWith({
+        errorCode: 'UNCLASSIFIED',
+        message: LINE_NOT_FOUND_REASON,
+      })
+    })
+
+    it('registra a consulta indisponível mesmo quando a tentativa será retentada', async () => {
+      const deps = makeDeps()
+
+      await expect(
+        settleUnresolvedLine(
+          row,
+          { kind: 'unavailable', error: bitrixDown },
+          false,
+          deps,
+        ),
+      ).rejects.toBeInstanceOf(LineLookupUnavailableError)
+
+      expect(deps.recordAttempt).toHaveBeenCalledWith({
+        errorCode: 'thinkzap.outbox.line_lookup_unavailable',
+        message:
+          'Falha temporária ao consultar a linha: Failed to list CRM items',
+      })
+    })
+
+    it('registra a última tentativa uma vez só', async () => {
+      const deps = makeDeps()
+
+      await settleUnresolvedLine(
+        row,
+        { kind: 'unavailable', error: bitrixDown },
+        true,
+        deps,
+      )
+
+      expect(deps.recordAttempt).toHaveBeenCalledTimes(1)
+    })
   })
 })

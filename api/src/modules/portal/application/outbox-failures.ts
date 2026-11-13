@@ -6,6 +6,10 @@ import type {
   WidgetOutboxRecord,
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import type { WidgetSendScheduler } from '@/modules/thinkzap/domain/ports/widget-send-queue.port'
+import type {
+  DeliveryAttemptRecord,
+  PrismaDeliveryAttemptRepository,
+} from '@/modules/thinkzap/infra/persistence/repositories/prisma-delivery-attempt.repository'
 import { apiLogger } from '@/shared/infra/logger'
 
 /** Tamanho do trecho do texto na lista; o detalhe traz o texto inteiro. */
@@ -56,6 +60,12 @@ export type OutboxFailureDetailView = OutboxFailureView & {
   providerMessageId: string | null
   sentAt: Date | null
   lastReprocessedByEmail: string | null
+  /**
+   * Tentativas que falharam, em ordem cronológica (`log-tentativas-falha`). Vazio em
+   * falha anterior ao recurso ou já expurgada: a tela mostra "sem tentativas
+   * registradas", e não erro.
+   */
+  attemptLog: DeliveryAttemptRecord[]
 }
 
 function toView(failure: OutboxFailure, text: string): OutboxFailureView {
@@ -106,6 +116,10 @@ export class ListOutboxFailures {
 export class GetOutboxFailure {
   constructor(
     private readonly outbox: Pick<FailureRepository, 'findFailureDetail'>,
+    private readonly attempts?: Pick<
+      PrismaDeliveryAttemptRepository,
+      'listByRef'
+    >,
   ) {}
 
   /**
@@ -123,11 +137,28 @@ export class GetOutboxFailure {
       detail.reprocessCount > 0
     if (!failedOnce) return null
 
-    return toDetailView(detail)
+    return toDetailView(detail, await this.attemptsOf(id))
+  }
+
+  /** O log é complemento: se a leitura falhar, o detalhe sai sem ele. */
+  private async attemptsOf(id: string): Promise<DeliveryAttemptRecord[]> {
+    if (!this.attempts) return []
+    try {
+      return await this.attempts.listByRef({ kind: 'OUTBOX', id })
+    } catch (err) {
+      apiLogger.warn(
+        { app: 'thinkzap', outboxId: id, err },
+        'Falha ao ler as tentativas da falha de envio; detalhe sai sem elas',
+      )
+      return []
+    }
   }
 }
 
-function toDetailView(detail: OutboxFailureDetail): OutboxFailureDetailView {
+function toDetailView(
+  detail: OutboxFailureDetail,
+  attempts: DeliveryAttemptRecord[],
+): OutboxFailureDetailView {
   return {
     ...toView(detail, detail.text),
     templateName: detail.templateName,
@@ -141,6 +172,7 @@ function toDetailView(detail: OutboxFailureDetail): OutboxFailureDetailView {
     providerMessageId: detail.providerMessageId,
     sentAt: detail.sentAt,
     lastReprocessedByEmail: detail.lastReprocessedByEmail,
+    attemptLog: attempts,
   }
 }
 

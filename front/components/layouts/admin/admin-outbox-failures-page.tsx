@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Loader2, RefreshCw, RotateCcw } from 'lucide-react'
+import { RefreshCw, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FieldLabel } from '@/components/ui/field'
@@ -15,14 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { formatPortalDate } from '@/lib/format-date'
 import {
   OUTBOX_ORIGINS,
@@ -36,6 +28,11 @@ import {
   type OutboxOrigin,
 } from '@/lib/outbox-failures'
 import { AdminOutboxFailureDetail } from './admin-outbox-failure-detail'
+import {
+  AdminReprocessDialog,
+  type ReprocessTarget,
+} from './admin-reprocess-dialog'
+import { dayBoundary, earliestDay } from './failures-date-range'
 import { OutboxStatusBadge } from './admin-outbox-status-badge'
 
 const PAGE_SIZE = 20
@@ -58,27 +55,33 @@ const EMPTY_FILTERS: Filters = {
   to: '',
 }
 
-/** Início e fim do dia **local** escolhido, em ISO para a API. */
-function dayBoundary(day: string, edge: 'start' | 'end'): string | undefined {
-  if (!day) return undefined
-  const [year, month, date] = day.split('-').map(Number)
-  const value =
-    edge === 'start'
-      ? new Date(year, month - 1, date, 0, 0, 0, 0)
-      : new Date(year, month - 1, date, 23, 59, 59, 999)
-  return value.toISOString()
+type PageProps = {
+  /**
+   * Dentro da página com abas (`AdminFailuresPage`), que já tem o título e a descrição:
+   * a aba mostra só as ações e o conteúdo.
+   */
+  embedded?: boolean
+  /** Portal pré-filtrado (link da página do cliente). */
+  initialDomain?: string
 }
 
-/** O que reprocessar e quais deles são `UNKNOWN` (exigem o aceite de duplicidade). */
-export type ReprocessTarget = { ids: string[]; unknownCount: number }
-
-export function AdminOutboxFailuresPage() {
+export function AdminOutboxFailuresPage({
+  embedded = false,
+  initialDomain = '',
+}: PageProps) {
   const { t, i18n } = useTranslation(NS)
+  const { t: tMessages } = useTranslation('admin/message-failures')
   const { t: tCommon } = useTranslation('common')
   const locale = i18n.language
 
-  const [draft, setDraft] = useState<Filters>(EMPTY_FILTERS)
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
+  const [draft, setDraft] = useState<Filters>({
+    ...EMPTY_FILTERS,
+    domain: initialDomain,
+  })
+  const [filters, setFilters] = useState<Filters>({
+    ...EMPTY_FILTERS,
+    domain: initialDomain,
+  })
   const [page, setPage] = useState(1)
   const [reloadCounter, setReloadCounter] = useState(0)
 
@@ -125,6 +128,7 @@ export function AdminOutboxFailuresPage() {
     }
   }, [page, filters, reloadCounter])
 
+  const retentionDays = data?.retentionDays
   const items = useMemo(() => data?.items ?? [], [data])
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1
   const isEmpty = !isLoading && !hasError && items.length === 0
@@ -199,12 +203,25 @@ export function AdminOutboxFailuresPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            {t('title')}
-          </h1>
-          <p className="mt-2 max-w-3xl text-muted-foreground">
-            {t('description')}
-          </p>
+          {embedded ? (
+            <p className="max-w-3xl text-muted-foreground">
+              {t('description')}
+            </p>
+          ) : (
+            <>
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                {t('title')}
+              </h1>
+              <p className="mt-2 max-w-3xl text-muted-foreground">
+                {t('description')}
+              </p>
+            </>
+          )}
+          {retentionDays !== undefined && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {tMessages('retentionNotice', { days: retentionDays })}
+            </p>
+          )}
         </div>
         <div className="flex shrink-0 gap-2">
           <Button variant="outline" onClick={reload} disabled={isLoading}>
@@ -302,6 +319,7 @@ export function AdminOutboxFailuresPage() {
             id="failure-from"
             type="date"
             className="w-40"
+            min={retentionDays ? earliestDay(retentionDays) : undefined}
             value={draft.from}
             onChange={event =>
               setDraft(d => ({ ...d, from: event.target.value }))
@@ -315,6 +333,7 @@ export function AdminOutboxFailuresPage() {
             id="failure-to"
             type="date"
             className="w-40"
+            min={retentionDays ? earliestDay(retentionDays) : undefined}
             value={draft.to}
             onChange={event =>
               setDraft(d => ({ ...d, to: event.target.value }))
@@ -478,60 +497,16 @@ export function AdminOutboxFailuresPage() {
         onReprocess={failure => askReprocess([failure])}
       />
 
-      <Dialog
-        open={target !== null}
-        onOpenChange={open => {
-          if (!open && !isReprocessing) setTarget(null)
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {t('confirmTitle', { count: target?.ids.length ?? 0 })}
-            </DialogTitle>
-            <DialogDescription>{t('confirmDescription')}</DialogDescription>
-          </DialogHeader>
-
-          {target && target.unknownCount > 0 && (
-            <div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-              <p className="font-medium">{t('unknownWarningTitle')}</p>
-              <p>{t('unknownWarning', { count: target.unknownCount })}</p>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="acknowledge-duplicate"
-                  checked={acknowledged}
-                  onCheckedChange={(checked: boolean) =>
-                    setAcknowledged(checked)
-                  }
-                />
-                <FieldLabel htmlFor="acknowledge-duplicate">
-                  {t('unknownAcknowledge')}
-                </FieldLabel>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setTarget(null)}
-              disabled={isReprocessing}
-            >
-              {t('cancel')}
-            </Button>
-            <Button
-              onClick={() => void confirmReprocess()}
-              disabled={
-                isReprocessing ||
-                (target !== null && target.unknownCount > 0 && !acknowledged)
-              }
-            >
-              {isReprocessing && <Loader2 className="size-4 animate-spin" />}
-              {t('confirm')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AdminReprocessDialog
+        target={target}
+        title={t('confirmTitle', { count: target?.ids.length ?? 0 })}
+        description={t('confirmDescription')}
+        isReprocessing={isReprocessing}
+        acknowledged={acknowledged}
+        onAcknowledgedChange={setAcknowledged}
+        onConfirm={() => void confirmReprocess()}
+        onCancel={() => setTarget(null)}
+      />
     </div>
   )
 }

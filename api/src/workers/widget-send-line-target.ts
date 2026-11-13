@@ -87,6 +87,11 @@ export type SettleUnresolvedLineDeps = {
   notifyFailed(): Promise<void>
   appendJobLog: AppendJobLog
   onUnavailable(error: unknown, willRetry: boolean): void
+  /**
+   * Registra a tentativa que falhou (`log-tentativas-falha`). Opcional: só os testes
+   * que não falam disso a omitem. Nunca deve lançar.
+   */
+  recordAttempt?(failure: { errorCode: string; message: string }): Promise<void>
 }
 
 /** Erro relançado para o BullMQ retentar; a row continua `PENDING`, sem `claim`. */
@@ -118,12 +123,20 @@ export async function settleUnresolvedLine(
         'Estado terminal (FAILED) — retentativa não resolveria. Operador avisado na timeline.',
     )
     await deps.markFailed(row.id, LINE_NOT_FOUND_REASON)
+    await deps.recordAttempt?.({
+      errorCode: 'UNCLASSIFIED',
+      message: LINE_NOT_FOUND_REASON,
+    })
     await deps.notifyFailed()
     return 'done'
   }
 
   const unavailable = new LineLookupUnavailableError(resolution.error)
   deps.onUnavailable(resolution.error, !isLastAttempt)
+  await deps.recordAttempt?.({
+    errorCode: 'thinkzap.outbox.line_lookup_unavailable',
+    message: unavailable.message,
+  })
 
   if (!isLastAttempt) {
     await deps.appendJobLog(

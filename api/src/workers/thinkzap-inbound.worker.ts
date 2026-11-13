@@ -32,6 +32,12 @@ import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-lim
 import './thinkzap-connection-events.worker'
 import './thinkzap-line-connected-sync.worker'
 import { jobFailureLogFields } from '@/shared/infra/log-error'
+import { PrismaDeliveryAttemptRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-delivery-attempt.repository'
+import { PrismaInboundFailureRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-inbound-failure.repository'
+import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
+import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
+import { captureInboundFailure } from './capture-inbound-failure'
+import { makeResolveInboundOwner } from './resolve-inbound-owner'
 
 // O limite do Bitrix conta por instalação, não por processo: compartilha o balde com a API.
 installBitrixLimits()
@@ -114,9 +120,30 @@ async function processJob(
   }
 }
 
+/**
+ * Início da tentativa em curso, por job, para a duração gravada no log de tentativas.
+ * `WeakMap` para o job liberado pelo BullMQ não ficar preso aqui.
+ */
+const attemptStartedAt = new WeakMap<object, number>()
+
+const failureCapture = {
+  attempts: new PrismaDeliveryAttemptRepository(),
+  failures: new PrismaInboundFailureRepository(),
+  resolveOwner: makeResolveInboundOwner({
+    getDomainByName: name => new PrismaDomainRepository().getDomain(name),
+    getDomainById: id => new PrismaDomainRepository().getDomainById(id),
+    getInstanceByZApiInstanceId: id =>
+      new PrismaInstanceRepository().getInstanceByInstanceId(id),
+    getInstanceByChannelId: id =>
+      new PrismaInstanceRepository().getInstanceByChannelId(id),
+  }),
+  logger: workerLogger,
+}
+
 export const thinkzapInboundWorker = new Worker(
   THINKZAP_INBOUND,
   async (job, token) => {
+    attemptStartedAt.set(job, Date.now())
     try {
       await processJob(job.data as ThinkzapInboundJob, makeAppendJobLog(job))
     } catch (err) {
@@ -163,6 +190,15 @@ thinkzapInboundWorker.on('failed', (job, err) => {
       ...jobFailureLogFields(err),
     },
     'Worker job failed',
+  )
+
+  // Registro das tentativas e da falha final (`admin-falhas-recebimento`). Não lança.
+  const startedAt = job ? attemptStartedAt.get(job) : undefined
+  void captureInboundFailure(
+    job as Parameters<typeof captureInboundFailure>[0],
+    err,
+    startedAt === undefined ? undefined : Date.now() - startedAt,
+    failureCapture,
   )
 })
 

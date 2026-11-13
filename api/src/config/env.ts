@@ -54,6 +54,31 @@ export function bitrixBotWebhookFromApiUrl(apiUrl: string | undefined): string {
   return `${base}${prefixo}/webhooks/bitrix-bot`
 }
 
+export const DEFAULT_FAILURE_RETENTION_DAYS = 7
+
+/**
+ * Por quantos dias o banco guarda as falhas de mensagens e o log de tentativas (dados
+ * de contatos). Ausente ou vazio = 7. Inválido **derruba o boot**, ao contrário da
+ * carência de assinatura: o expurgo apaga dado, e "0" ou lixo virando "apague tudo" ou
+ * "nunca apague" sem ninguém ver é pior do que a API não subir com a mensagem do que
+ * corrigir.
+ */
+export function parseFailureRetentionDays(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') {
+    return DEFAULT_FAILURE_RETENTION_DAYS
+  }
+
+  // `Number('1e1')` e `Number('0x10')` seriam aceitos como inteiros: só dígitos.
+  const days = /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN
+  if (!Number.isInteger(days) || days < 1) {
+    throw new Error(
+      `FAILURE_RETENTION_DAYS inválido ("${raw}"): informe um número inteiro de dias maior ou igual a 1 (ou deixe vazio para ${DEFAULT_FAILURE_RETENTION_DAYS}).`,
+    )
+  }
+
+  return days
+}
+
 /**
  * Liga o job de expiração de assinaturas. Só os literais `'true'` e `'false'`
  * sobrescrevem; ausente ou qualquer outro valor segue `fallback` — os efeitos de
@@ -513,5 +538,14 @@ export const env = {
       process.env.MCP_REFRESH_TOKEN_TTL ?? 60 * 60 * 24 * 30,
     ),
     authCodeTtlSeconds: Number(process.env.MCP_AUTH_CODE_TTL ?? 60),
+  },
+  /**
+   * Retenção das falhas de mensagens (recebimento, log de tentativas e envios em
+   * `FAILED`/`UNKNOWN`). O expurgo só roda com `FAILURE_PURGE_ENABLED=true`: apaga dado
+   * existente, e um ambiente local apontando para banco compartilhado não deve fazê-lo.
+   */
+  failureRetention: {
+    days: parseFailureRetentionDays(process.env.FAILURE_RETENTION_DAYS),
+    purgeEnabled: process.env.FAILURE_PURGE_ENABLED === 'true',
   },
 } as const

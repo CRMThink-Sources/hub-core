@@ -21,6 +21,8 @@ import {
 import { DestinationLock } from '@/modules/thinkzap/infra/queue/destination-send-lock'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { apiLogger } from '@/shared/infra/logger'
+import { attemptErrorCodeOf } from '@/shared/infra/log-error'
+import type { DeliveryAttemptRecorder } from '@/modules/thinkzap/domain/ports/delivery-attempt-recorder.port'
 import type { SmsMessageStatus } from './report-sms-message-status'
 import { WidgetSendOutcome } from './notify-widget-send-outcome'
 import type { DailySendQuota } from '@/modules/thinkzap/domain/ports/daily-send-quota.port'
@@ -184,6 +186,12 @@ export type DispatchDeps = {
   ) => Promise<boolean>
   /** Cada chamada é um round-trip ao Redis: registre decisões, não passos. */
   appendJobLog?: AppendJobLog
+  /**
+   * Log das tentativas que **falharam** (`log-tentativas-falha`). Ausente, nada é
+   * gravado — só os testes que não falam disso o omitem; o worker sempre injeta. Nunca
+   * lança.
+   */
+  attempts?: DeliveryAttemptRecorder
   /** Ausente, o texto sai cru. */
   prepareOutboundText?: (input: {
     text: string
@@ -242,6 +250,34 @@ function buttonDescriptorOf(
 // Falha com resposta HTTP é recusa (retentável); sem resposta vira `unknown` terminal.
 export class DispatchWidgetOutboxMessage {
   constructor(private readonly deps: DispatchDeps) {}
+
+  /**
+   * Início da tentativa em curso, para a duração gravada no log. A instância é criada
+   * por job (ver o processor), então um campo não mistura tentativas.
+   */
+  private attemptStartedAt = Date.now()
+
+  /**
+   * Registra a tentativa que acabou de falhar. Fica ao lado do `markFailed` /
+   * `markUnknown` / `releaseToPending`, nunca no sucesso nem no adiamento por cadência.
+   */
+  private async recordFailedAttempt(
+    row: Pick<WidgetOutboxRecord, 'id'>,
+    failure: { errorCode: string; message: string; indeterminate?: boolean },
+  ): Promise<void> {
+    if (!this.deps.attempts) return
+    try {
+      await this.deps.attempts.recordFailure(
+        { kind: 'OUTBOX', id: row.id },
+        { ...failure, durationMs: Date.now() - this.attemptStartedAt },
+      )
+    } catch (err) {
+      apiLogger.warn(
+        { app: 'thinkzap', outboxId: row.id, err },
+        'Falha ao registrar a tentativa; envio segue',
+      )
+    }
+  }
 
   private get jobLog(): AppendJobLog {
     return this.deps.appendJobLog ?? noopJobLog
@@ -356,6 +392,7 @@ export class DispatchWidgetOutboxMessage {
 
   private async dispatch(input: DispatchInput): Promise<DispatchOutcome> {
     const { outboxId, line, isLastAttempt } = input
+    this.attemptStartedAt = Date.now()
 
     const row = await this.deps.outbox.findById(outboxId)
     if (!row) {
@@ -419,6 +456,10 @@ export class DispatchWidgetOutboxMessage {
         row.id,
         'Intenção de template sem templateName/language',
       )
+      await this.recordFailedAttempt(row, {
+        errorCode: 'thinkzap.message.widget_send_exhausted',
+        message: 'Intenção de template sem templateName/language',
+      })
       logThinkzapError(
         apiLogger,
         'thinkzap.message.widget_send_exhausted',
@@ -442,6 +483,10 @@ export class DispatchWidgetOutboxMessage {
         row.id,
         'Intenção de botão sem buttonPayload',
       )
+      await this.recordFailedAttempt(row, {
+        errorCode: 'thinkzap.message.widget_send_exhausted',
+        message: 'Intenção de botão sem buttonPayload',
+      })
       logThinkzapError(
         apiLogger,
         'thinkzap.message.widget_send_exhausted',
@@ -702,6 +747,14 @@ export class DispatchWidgetOutboxMessage {
     err: unknown,
   ): Promise<DispatchOutcome> {
     const expired = err instanceof OutboundMediaNotFoundError
+    await this.recordFailedAttempt(row, {
+      errorCode: attemptErrorCodeOf(err),
+      message: expired
+        ? MEDIA_EXPIRED_FAILURE
+        : err instanceof Error
+          ? err.message
+          : String(err),
+    })
     if (!expired && !isLastAttempt) {
       await this.jobLog(
         'Arquivo do anexo não pôde ser lido agora. Intenção devolvida para PENDING — ' +
@@ -853,6 +906,10 @@ export class DispatchWidgetOutboxMessage {
     logContext: Record<string, unknown>,
   ): Promise<DispatchOutcome> {
     await this.deps.outbox.markFailed(row.id, DAILY_LIMIT_FAILURE)
+    await this.recordFailedAttempt(row, {
+      errorCode: 'thinkzap.line.daily_limit_reached',
+      message: DAILY_LIMIT_FAILURE,
+    })
     logThinkzapError(
       apiLogger,
       'thinkzap.line.daily_limit_reached',
@@ -889,6 +946,10 @@ export class DispatchWidgetOutboxMessage {
     await this.jobLog(
       `Provider RESPONDEU com erro: "${message}". Houve resposta, então nada foi entregue.`,
     )
+    await this.recordFailedAttempt(row, {
+      errorCode: attemptErrorCodeOf(err),
+      message,
+    })
 
     // Fora da última tentativa volta a PENDING (senão o próximo claim falha) e relança.
     if (isLastAttempt) {
@@ -925,6 +986,11 @@ export class DispatchWidgetOutboxMessage {
     err?: unknown,
   ): Promise<DispatchOutcome> {
     await this.deps.outbox.markUnknown(row.id, message)
+    await this.recordFailedAttempt(row, {
+      errorCode: 'thinkzap.message.widget_send_unknown',
+      message,
+      indeterminate: true,
+    })
 
     logThinkzapError(
       apiLogger,

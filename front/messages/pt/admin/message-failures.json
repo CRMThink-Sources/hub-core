@@ -1,0 +1,108 @@
+{
+  "title": "Falhas de envio e recebimento",
+  "description": "Mensagens que o ThinkZap não conseguiu enviar ao contato ou processar ao receber. O detalhe de cada falha mostra o erro de cada tentativa.",
+  "tabs": {
+    "label": "Direção das falhas",
+    "outbox": "Envio",
+    "inbound": "Recebimento"
+  },
+  "retentionNotice": "As falhas ficam guardadas por {{days}} dias. Depois disso são apagadas e deixam de poder ser reprocessadas.",
+  "attempts": {
+    "title": "Tentativas que falharam",
+    "empty": "Sem tentativas registradas: a falha é anterior ao registro ou já passou do prazo de guarda.",
+    "attemptN": "Tentativa {{n}}",
+    "duration": "{{ms}} ms",
+    "indeterminate": "Resultado indeterminado",
+    "errorCode": "Código do erro"
+  },
+  "inbound": {
+    "description": "Mensagens e eventos recebidos que esgotaram as tentativas de processamento. Reprocessar recoloca o evento na fila de entrada.",
+    "refresh": "Atualizar",
+    "filterDomain": "Portal",
+    "filterDomainPlaceholder": "Ex.: querobombinhas",
+    "filterSource": "Origem",
+    "filterStatus": "Situação",
+    "filterFrom": "De",
+    "filterTo": "Até",
+    "filterAll": "Todas",
+    "applyFilters": "Filtrar",
+    "status": {
+      "FAILED": "Falhou",
+      "REPROCESSED": "Reprocessada"
+    },
+    "source": {
+      "z-api": "WhatsApp (Z-API)",
+      "hubmessage": "WhatsApp Oficial",
+      "hubmessage-status": "Status do WhatsApp Oficial",
+      "bitrix": "Bitrix (operador)",
+      "bitrix-bot": "Bot do Bitrix"
+    },
+    "table": {
+      "createdAt": "Falhou em",
+      "domain": "Portal",
+      "source": "Origem",
+      "type": "Tipo",
+      "status": "Situação",
+      "error": "Erro",
+      "attempts": "Tentativas",
+      "action": "Ação"
+    },
+    "reprocess": "Reprocessar",
+    "notReprocessable": "Não reprocessável",
+    "notReprocessableHint": "Reentregar este tipo de evento poderia duplicar uma mensagem ou repetir uma ação no cliente.",
+    "confirmTitle": "Reprocessar esta falha de recebimento?",
+    "confirmDescription": "O evento volta para a fila de entrada e é processado de novo pelas regras normais. Confira a data: um evento antigo pode chegar fora do contexto da conversa.",
+    "result": {
+      "requeued": "Evento devolvido para a fila de entrada.",
+      "conflict": "Esta falha já foi reprocessada.",
+      "not-reprocessable": "Esta origem não pode ser reprocessada.",
+      "not-found": "Falha não encontrada ou já passou do prazo de guarda.",
+      "schedule-failed": "Não foi possível agendar o reprocessamento. Tente de novo."
+    },
+    "reprocessError": "Não foi possível reprocessar.",
+    "detailTitle": "Falha de recebimento",
+    "detailLoadError": "Não foi possível carregar o detalhe.",
+    "detailNotFound": "Falha não encontrada. Ela pode ter passado do prazo de guarda e sido apagada.",
+    "detail": {
+      "source": "Origem",
+      "type": "Tipo do evento",
+      "domain": "Portal",
+      "instance": "Instância",
+      "traceKey": "Identificador do evento (traceKey)",
+      "errorCode": "Código do erro",
+      "error": "Erro",
+      "attempts": "Tentativas",
+      "createdAt": "Falhou em",
+      "fields": "Dados do evento",
+      "previousFailure": "Reprocessamento de",
+      "reprocessHistory": "Reprocessamento",
+      "reprocessHistoryValue": "{{count}}x · último em {{date}} por {{user}}",
+      "neverReprocessed": "Nunca reprocessada"
+    },
+    "reprocessedTimes": "{{count}}x",
+    "emptyTitle": "Nenhuma falha de recebimento no período",
+    "emptyDescription": "Não há eventos recebidos com falha para os filtros escolhidos.",
+    "errorTitle": "Não foi possível carregar as falhas de recebimento",
+    "errorDescription": "Verifique a conexão e tente de novo.",
+    "retry": "Tentar de novo",
+    "page": "Página {{current}} de {{total}}",
+    "previous": "Anterior",
+    "next": "Próxima"
+  },
+  "client": {
+    "title": "Falhas de mensagens",
+    "description": "Envio e recebimento dos últimos {{days}} dias deste cliente.",
+    "empty": "Nenhuma falha nos últimos {{days}} dias.",
+    "direction": {
+      "outbox": "Envio",
+      "inbound": "Recebimento"
+    },
+    "openAll": "Ver todas as falhas deste cliente",
+    "unavailable": "Indisponível",
+    "unavailableDescription": "Não foi possível carregar as falhas deste cliente.",
+    "retry": "Tentar de novo",
+    "refresh": "Atualizar",
+    "reprocess": "Reprocessar",
+    "openDetail": "Abrir o detalhe da falha"
+  }
+}

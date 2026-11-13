@@ -45,6 +45,12 @@ import {
   createReprocessOutboxFailureController,
   createReprocessOutboxFailuresBatchController,
 } from './main/factories/create-outbox-failures-controllers'
+import {
+  createGetInboundFailureController,
+  createListInboundFailuresController,
+  createReprocessInboundFailureController,
+  createReprocessInboundFailuresBatchController,
+} from './main/factories/create-inbound-failures-controllers'
 import { createGetDashboardSummaryController } from './main/factories/create-get-dashboard-summary-controller'
 import { createGetPortalAppController } from './main/factories/create-get-portal-app-controller'
 import { createLinkAplicationMirrorController } from './main/factories/create-link-aplication-mirror-controller'
@@ -364,6 +370,31 @@ export const createPortalRoutes = (
     '/thinkzap/outbox-failures/:id/reprocess',
     portalAuthMiddleware,
     adaptControllerFactory(createReprocessOutboxFailureController),
+  )
+
+  /**
+   * Aba "Recebimento" de "Falhas": eventos recebidos que esgotaram as tentativas da
+   * fila de entrada. Mesma ordem: o lote antes de `/:id`.
+   */
+  router.get(
+    '/thinkzap/inbound-failures',
+    portalAuthMiddleware,
+    adaptControllerFactory(createListInboundFailuresController),
+  )
+  router.post(
+    '/thinkzap/inbound-failures/reprocess',
+    portalAuthMiddleware,
+    adaptControllerFactory(createReprocessInboundFailuresBatchController),
+  )
+  router.get(
+    '/thinkzap/inbound-failures/:id',
+    portalAuthMiddleware,
+    adaptControllerFactory(createGetInboundFailureController),
+  )
+  router.post(
+    '/thinkzap/inbound-failures/:id/reprocess',
+    portalAuthMiddleware,
+    adaptControllerFactory(createReprocessInboundFailureController),
   )
 
   return router

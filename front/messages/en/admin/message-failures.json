@@ -1,0 +1,108 @@
+{
+  "title": "Send and receive failures",
+  "description": "Messages ThinkZap could not send to the contact or process when received. Each failure's detail shows the error of every attempt.",
+  "tabs": {
+    "label": "Failure direction",
+    "outbox": "Sending",
+    "inbound": "Receiving"
+  },
+  "retentionNotice": "Failures are kept for {{days}} days. After that they are deleted and can no longer be reprocessed.",
+  "attempts": {
+    "title": "Failed attempts",
+    "empty": "No attempts recorded: the failure predates the log or is past the retention period.",
+    "attemptN": "Attempt {{n}}",
+    "duration": "{{ms}} ms",
+    "indeterminate": "Indeterminate result",
+    "errorCode": "Error code"
+  },
+  "inbound": {
+    "description": "Received messages and events that ran out of processing attempts. Reprocessing puts the event back on the inbound queue.",
+    "refresh": "Refresh",
+    "filterDomain": "Portal",
+    "filterDomainPlaceholder": "E.g. querobombinhas",
+    "filterSource": "Source",
+    "filterStatus": "Status",
+    "filterFrom": "From",
+    "filterTo": "To",
+    "filterAll": "All",
+    "applyFilters": "Filter",
+    "status": {
+      "FAILED": "Failed",
+      "REPROCESSED": "Reprocessed"
+    },
+    "source": {
+      "z-api": "WhatsApp (Z-API)",
+      "hubmessage": "Official WhatsApp",
+      "hubmessage-status": "Official WhatsApp status",
+      "bitrix": "Bitrix (operator)",
+      "bitrix-bot": "Bitrix bot"
+    },
+    "table": {
+      "createdAt": "Failed at",
+      "domain": "Portal",
+      "source": "Source",
+      "type": "Type",
+      "status": "Status",
+      "error": "Error",
+      "attempts": "Attempts",
+      "action": "Action"
+    },
+    "reprocess": "Reprocess",
+    "notReprocessable": "Not reprocessable",
+    "notReprocessableHint": "Redelivering this kind of event could duplicate a message or repeat an action on the customer's side.",
+    "confirmTitle": "Reprocess this receive failure?",
+    "confirmDescription": "The event goes back to the inbound queue and is processed again under the normal rules. Check the date: an old event may arrive out of the conversation's context.",
+    "result": {
+      "requeued": "Event returned to the inbound queue.",
+      "conflict": "This failure was already reprocessed.",
+      "not-reprocessable": "This source cannot be reprocessed.",
+      "not-found": "Failure not found or past the retention period.",
+      "schedule-failed": "Could not schedule the reprocessing. Try again."
+    },
+    "reprocessError": "Could not reprocess.",
+    "detailTitle": "Receive failure",
+    "detailLoadError": "Could not load the details.",
+    "detailNotFound": "Failure not found. It may be past the retention period and deleted.",
+    "detail": {
+      "source": "Source",
+      "type": "Event type",
+      "domain": "Portal",
+      "instance": "Instance",
+      "traceKey": "Event identifier (traceKey)",
+      "errorCode": "Error code",
+      "error": "Error",
+      "attempts": "Attempts",
+      "createdAt": "Failed at",
+      "fields": "Event data",
+      "previousFailure": "Reprocessing of",
+      "reprocessHistory": "Reprocessing",
+      "reprocessHistoryValue": "{{count}}x · last on {{date}} by {{user}}",
+      "neverReprocessed": "Never reprocessed"
+    },
+    "reprocessedTimes": "{{count}}x",
+    "emptyTitle": "No receive failures in the period",
+    "emptyDescription": "There are no failed received events for the chosen filters.",
+    "errorTitle": "Could not load receive failures",
+    "errorDescription": "Check your connection and try again.",
+    "retry": "Try again",
+    "page": "Page {{current}} of {{total}}",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "client": {
+    "title": "Message failures",
+    "description": "This customer's sending and receiving over the last {{days}} days.",
+    "empty": "No failures in the last {{days}} days.",
+    "direction": {
+      "outbox": "Sending",
+      "inbound": "Receiving"
+    },
+    "openAll": "See all of this customer's failures",
+    "unavailable": "Unavailable",
+    "unavailableDescription": "Could not load this customer's failures.",
+    "retry": "Try again",
+    "refresh": "Refresh",
+    "reprocess": "Reprocess",
+    "openDetail": "Open the failure details"
+  }
+}
