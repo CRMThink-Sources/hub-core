@@ -16,6 +16,7 @@ import {
   getOutboxFailure,
   type OutboxFailureDetail,
 } from '@/lib/outbox-failures'
+import { AdminDeliveryAttempts } from './admin-delivery-attempts'
 import { OutboxStatusBadge } from './admin-outbox-status-badge'
 
 type Props = {
@@ -191,6 +192,8 @@ export function AdminOutboxFailureDetail({
                   </div>
                 ))}
               </dl>
+
+              <AdminDeliveryAttempts attempts={shown.attemptLog} />
 
               {canReprocess && (
                 <Button onClick={() => onReprocess(shown)}>

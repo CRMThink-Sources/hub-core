@@ -13,10 +13,11 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button'
 import { axiosPortal } from '@/infra/client/axios-portal'
 import { formatPortalDate, formatSpaDate } from '@/lib/format-date'
-import type {
-  PortalAppContract,
-  PortalDomainApp,
-  PortalDomainDetail,
+import {
+  THINKZAP_APP_CODE_ID,
+  type PortalAppContract,
+  type PortalDomainApp,
+  type PortalDomainDetail,
 } from '@/lib/portal-domains'
 import {
   APP_STATUS,
@@ -25,6 +26,7 @@ import {
   SUBSCRIPTION_STATUS,
   statusMeta,
 } from '@/lib/portal-status'
+import { AdminClientFailuresSection } from './admin-client-failures-section'
 import { AdminEmptyState } from './ui/admin-empty-state'
 import { AdminPageHeader } from './ui/admin-page-header'
 import { AdminPanel } from './ui/admin-panel'
@@ -226,6 +228,14 @@ export function AdminClientDetailView({
           </dl>
         </AdminPanel>
       </div>
+
+      {/* Só quem tem o ThinkZap instalado tem fila de mensagens para falhar. */}
+      {domain.apps.some(app => app.appCodeId === THINKZAP_APP_CODE_ID) && (
+        <AdminClientFailuresSection
+          domainId={domain.id}
+          domainName={domain.name}
+        />
+      )}
     </div>
   )
 }

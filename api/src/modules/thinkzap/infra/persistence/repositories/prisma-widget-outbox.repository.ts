@@ -115,6 +115,11 @@ export type OutboxFailureFilters = {
   statuses: OutboxFailureStatus[]
   /** Parte do nome do portal (`querobombinhas`). */
   domain?: string
+  /**
+   * O portal exato, para a página do cliente: `acme` não pode trazer `acme-filial`,
+   * como o filtro por trecho do nome traria.
+   */
+  domainId?: string
   origin?: WidgetOutboxOrigin
   from: Date
   to: Date
@@ -384,6 +389,40 @@ function toCreateData(input: CreateWidgetOutboxInput) {
  * entre as duas operações aberta, que é exatamente onde a mensagem sairia duas vezes.
  */
 export class PrismaWidgetOutboxRepository {
+  /**
+   * Expurgo por retenção das falhas (`retencao-falhas`): apaga até `limit` intenções em
+   * `FAILED`/`UNKNOWN` com mais de `cutoff`, e **só essas** — entregue, pendente ou em
+   * envio nunca. Exige `createdAt` **e** `updatedAt` antes do corte: uma intenção
+   * reprocessada que falhou de novo ontem continua visível até 7 dias depois dessa
+   * última falha, e não some por ter sido criada há mais tempo. O índice
+   * `[status, createdAt]` serve ao filtro.
+   */
+  async deleteExpiredFailuresBatch(
+    cutoff: Date,
+    limit: number,
+  ): Promise<number> {
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: {
+        status: { in: ['FAILED', 'UNKNOWN'] },
+        createdAt: { lt: cutoff },
+        updatedAt: { lt: cutoff },
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+    })
+    if (rows.length === 0) return 0
+
+    const { count } = await prisma.thinkzapWidgetOutbox.deleteMany({
+      where: {
+        id: { in: rows.map(row => row.id) },
+        // Reconfirma o status: entre o select e o delete a intenção pode ter sido reprocessada.
+        status: { in: ['FAILED', 'UNKNOWN'] },
+      },
+    })
+    return count
+  }
+
   async create(input: CreateWidgetOutboxInput): Promise<WidgetOutboxRecord> {
     const row = await prisma.thinkzapWidgetOutbox.create({
       data: toCreateData(input),
@@ -697,6 +736,13 @@ export class PrismaWidgetOutboxRepository {
       })
       domainIds = domains.map(domain => domain.id)
       if (domainIds.length === 0) return { items: [], total: 0 }
+    }
+    if (filters.domainId) {
+      // Com os dois filtros, vale a interseção.
+      if (domainIds && !domainIds.includes(filters.domainId)) {
+        return { items: [], total: 0 }
+      }
+      domainIds = [filters.domainId]
     }
 
     const where = {

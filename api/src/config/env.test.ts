@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   parseCrmthinkTasksGroupId,
+  parseFailureRetentionDays,
   parseManualSubscriptionGraceDays,
   parseStripeSyncEnabled,
   parseSubscriptionExpirationEnabled,
@@ -110,4 +111,27 @@ describe('parseCrmthinkTasksGroupId', () => {
     expect(parseCrmthinkTasksGroupId('abc')).toBe(2677)
     expect(parseCrmthinkTasksGroupId('1.5')).toBe(2677)
   })
+})
+
+describe('parseFailureRetentionDays', () => {
+  it('usa 7 dias quando ausente ou vazio', () => {
+    expect(parseFailureRetentionDays(undefined)).toBe(7)
+    expect(parseFailureRetentionDays('')).toBe(7)
+    expect(parseFailureRetentionDays('  ')).toBe(7)
+  })
+
+  it('aceita um inteiro maior ou igual a 1', () => {
+    expect(parseFailureRetentionDays('1')).toBe(1)
+    expect(parseFailureRetentionDays('15')).toBe(15)
+  })
+
+  /** Expurgo apaga dado: valor ruim recusa o boot em vez de virar "apague tudo". */
+  it.each(['0', '-3', '2.5', 'sete', 'NaN', '1e1', '0x10'])(
+    'recusa o valor inválido %s dizendo qual variável corrigir',
+    raw => {
+      expect(() => parseFailureRetentionDays(raw)).toThrow(
+        /FAILURE_RETENTION_DAYS/,
+      )
+    },
+  )
 })
