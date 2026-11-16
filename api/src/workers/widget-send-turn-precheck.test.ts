@@ -11,21 +11,26 @@ const LINE = 'zapi-inst-1'
 const ITEM = '77'
 const NOW = new Date('2026-10-29T18:00:00.000Z')
 
-function makeSut() {
+function makeSut(
+  opts: { cadenceEnabled?: boolean; fifoPerDestination?: boolean } = {},
+) {
   const fake = fakeCadenceRedis()
   // random fixo: o retry de quem está atrás fica previsível (500 ms).
-  const cadence = new RedisSendCadence(fake.redis, () => 0)
+  const cadence = new RedisSendCadence(fake.redis, () => 0, {
+    fifoPerDestination: opts.fifoPerDestination,
+  })
   const lineKeys = new LineKeyMemory()
-  lineKeys.remember(ITEM, LINE)
+  lineKeys.remember(ITEM, LINE, opts.cadenceEnabled)
 
   const rowOf = async (
     id: string,
     over: Partial<TurnPrecheckRow> = {},
+    destination = `dest-${id}`,
   ): Promise<TurnPrecheckRow> => ({
     id,
     subscriptionItemId: ITEM,
     status: 'PENDING',
-    queueSeq: await cadence.enqueue(LINE, id),
+    queueSeq: await cadence.enqueue(LINE, id, destination),
     providerMessageId: null,
     ...over,
   })
@@ -90,6 +95,66 @@ describe('precheckLineTurn', () => {
     lineKeys.remember(ITEM, 'zapi-inst-antiga')
 
     expect(await precheck(second)).toBeNull()
+  })
+
+  describe('linha sem cadência (ordem por destinatário)', () => {
+    it('não adia quem é a cabeça do próprio destinatário', async () => {
+      const { rowOf, precheck } = makeSut({
+        cadenceEnabled: false,
+        fifoPerDestination: true,
+      })
+      await rowOf('ob-1', {}, 'contato-a')
+      const outro = await rowOf('ob-2', {}, 'contato-b')
+
+      expect(await precheck(outro)).toBeNull()
+    })
+
+    it('adia quem tem outra mensagem do mesmo destinatário à frente', async () => {
+      const { rowOf, precheck } = makeSut({
+        cadenceEnabled: false,
+        fifoPerDestination: true,
+      })
+      await rowOf('ob-1', {}, 'contato-a')
+      await rowOf('ob-2', {}, 'contato-b')
+      const segunda = await rowOf('ob-3', {}, 'contato-a')
+
+      expect(await precheck(segunda)).toEqual({
+        deferUntil: NOW.getTime() + 500,
+      })
+    })
+
+    it('com a chave desligada, segue a ordem da linha como antes', async () => {
+      const { rowOf, precheck } = makeSut({
+        cadenceEnabled: false,
+        fifoPerDestination: false,
+      })
+      await rowOf('ob-1', {}, 'contato-a')
+      const outro = await rowOf('ob-2', {}, 'contato-b')
+
+      expect(await precheck(outro)).toEqual({
+        deferUntil: NOW.getTime() + 500,
+      })
+    })
+  })
+
+  it('linha com cadência adia pela ordem da linha, mesmo com a chave ligada', async () => {
+    const { rowOf, precheck } = makeSut({
+      cadenceEnabled: true,
+      fifoPerDestination: true,
+    })
+    await rowOf('ob-1', {}, 'contato-a')
+    const outro = await rowOf('ob-2', {}, 'contato-b')
+
+    expect(await precheck(outro)).toEqual({ deferUntil: NOW.getTime() + 500 })
+  })
+
+  it('memória sem modo cai no comportamento atual (ordem da linha)', async () => {
+    const { rowOf, precheck, lineKeys } = makeSut({ fifoPerDestination: true })
+    await rowOf('ob-1', {}, 'contato-a')
+    const outro = await rowOf('ob-2', {}, 'contato-b')
+    lineKeys.remember(ITEM, LINE)
+
+    expect(await precheck(outro)).toEqual({ deferUntil: NOW.getTime() + 500 })
   })
 
   it('Redis falhou na checagem: segue para o despacho', async () => {

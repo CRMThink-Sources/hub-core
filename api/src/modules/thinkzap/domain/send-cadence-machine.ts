@@ -85,7 +85,27 @@ const isWindowFull = (s: CadenceMachineState, now: number) =>
   isWindowOpen(s, now) && s.count >= s.snapN
 
 /**
- * Pede vaga para o ticket. `isHead` = o ticket é a cabeça da fila FIFO da linha.
+ * "Modo relaxado": a ordem de saída é FIFO **por destinatário** em vez de por linha.
+ *
+ * Vale só com a cadência desativada e sem pausa nem janela em andamento. Desativar a
+ * cadência no meio de uma janela ou pausa continua respeitando a ordem da linha até o
+ * estado expirar (a spec exige que a janela vigente termine), e ativar volta à ordem
+ * da linha sozinho, porque a fila por destinatário é uma subordem da fila da linha.
+ *
+ * Única definição do modo: o Lua faz a mesma conta com o estado que já carrega.
+ */
+export function ordersByDestination(
+  state: CadenceMachineState,
+  cfg: CadenceMachineConfig,
+  now: number,
+): boolean {
+  return !cfg.enabled && !isPaused(state, now) && !isWindowOpen(state, now)
+}
+
+/**
+ * Pede vaga para o ticket. `isHead` = o ticket é a cabeça da fila de que depende a
+ * ordem do momento, **já resolvida por quem chama**: a da linha ou, no modo
+ * relaxado (`ordersByDestination`), a do destinatário.
  *
  * Ordem dos passos (igual ao Lua):
  * 1. pausa vigente nega para todos, com o fim da pausa;

@@ -21,7 +21,7 @@ export type SequenceOutboxRowsDeps = {
 export async function sequenceOutboxRows(
   deps: SequenceOutboxRowsDeps,
   item: SubscriptionItem,
-  rows: { id: string; queueSeq?: number | null }[],
+  rows: { id: string; destination: string; queueSeq?: number | null }[],
 ): Promise<void> {
   if (!deps.cadence) return
   if (item.metadata.provider !== 'ZAPI') return
@@ -31,7 +31,7 @@ export async function sequenceOutboxRows(
   for (const row of rows) {
     if (row.queueSeq != null) continue
     try {
-      const seq = await deps.cadence.enqueue(lineKey, row.id)
+      const seq = await deps.cadence.enqueue(lineKey, row.id, row.destination)
       await deps.outbox.setQueueSeq(row.id, seq)
     } catch (err) {
       apiLogger.warn(
