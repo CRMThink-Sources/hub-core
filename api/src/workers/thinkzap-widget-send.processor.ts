@@ -44,6 +44,7 @@ import {
   resolveLineTarget,
   settleUnresolvedLine,
 } from './widget-send-line-target'
+import { cadencePolicyOf } from '@/modules/thinkzap/domain/send-cadence'
 import { LineKeyMemory, precheckLineTurn } from './widget-send-turn-precheck'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { BullMqOpenChannelConversationQueue } from '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue'
@@ -174,7 +175,16 @@ export async function processWidgetSendJob(
   }
   const { line } = resolution
   if (line.provider === ConnectorProvider.ZAPI) {
-    lineKeys.remember(row.subscriptionItemId, line.instanceId)
+    const policy = cadencePolicyOf({
+      provider: line.provider,
+      lineKey: line.instanceId,
+      settings: line.settings,
+    })
+    lineKeys.remember(
+      row.subscriptionItemId,
+      line.instanceId,
+      policy?.enabled ?? true,
+    )
   }
 
   await appendJobLog(
