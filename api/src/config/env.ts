@@ -178,6 +178,12 @@ export const env = {
   // `bull:thinkzap-inbound:*` e um worker consumiria job do outro. Default `'bull'` é o
   // do BullMQ; trocar o valor troca de fila, então só com fila drenada.
   queuePrefix: process.env.QUEUE_PREFIX ?? 'bull',
+  // Linha Z-API com a cadência desativada: ordem de envio FIFO por destinatário em vez
+  // de por linha. Com a ordem por linha, o teto era ~450-500 mensagens/hora por linha
+  // (um envio por vez, ~7 s cada), mesmo com slots do worker ociosos. Ausente = `false`
+  // (ordem da linha). Só `reserve` e `peekTurn` leem; o `enqueue` já registra o índice.
+  thinkzapCadenceOffFifoPerDestination:
+    process.env.THINKZAP_CADENCE_OFF_FIFO_PER_DESTINATION === 'true',
   bullBoard: {
     enabled: process.env.BULL_BOARD_ENABLED === 'true',
     username: process.env.BULL_BOARD_USERNAME ?? '',

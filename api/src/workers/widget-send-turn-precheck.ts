@@ -16,15 +16,31 @@ const MAX_REMEMBERED_LINES = 10_000
  * ticket não está na fila antiga, e o despacho completo decide.
  */
 export class LineKeyMemory {
-  private readonly keys = new Map<string, string>()
+  private readonly lines = new Map<
+    string,
+    { lineKey: string; cadenceEnabled: boolean }
+  >()
 
   get(subscriptionItemId: string): string | undefined {
-    return this.keys.get(subscriptionItemId)
+    return this.lines.get(subscriptionItemId)?.lineKey
   }
 
-  remember(subscriptionItemId: string, lineKey: string): void {
-    if (this.keys.size >= MAX_REMEMBERED_LINES) this.keys.clear()
-    this.keys.set(subscriptionItemId, lineKey)
+  /**
+   * A linha estava com a cadência ativada na última resolução? Sem registro, `true`:
+   * é o comportamento anterior (ordem da linha), o único que nunca deixa passar na
+   * frente de quem deveria esperar.
+   */
+  cadenceEnabled(subscriptionItemId: string): boolean {
+    return this.lines.get(subscriptionItemId)?.cadenceEnabled ?? true
+  }
+
+  remember(
+    subscriptionItemId: string,
+    lineKey: string,
+    cadenceEnabled = true,
+  ): void {
+    if (this.lines.size >= MAX_REMEMBERED_LINES) this.lines.clear()
+    this.lines.set(subscriptionItemId, { lineKey, cadenceEnabled })
   }
 }
 
@@ -62,10 +78,13 @@ export async function precheckLineTurn(
   if (!lineKey) return null
 
   try {
+    // Linha sem cadência: a vez é a da fila do destinatário, não a da linha. Um modo
+    // desatualizado só custa uma tentativa a mais (quem decide é o `reserve`).
     const turn = await deps.cadence.peekTurn(
       lineKey,
       row.id,
       deps.now ? deps.now() : new Date(),
+      !deps.lineKeys.cadenceEnabled(row.subscriptionItemId),
     )
     return turn.behind ? { deferUntil: turn.retryAt } : null
   } catch (err) {

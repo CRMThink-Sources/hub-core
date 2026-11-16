@@ -115,12 +115,24 @@ describe('EnqueueWidgetMessageUseCase fila FIFO da linha', () => {
   function withCadence() {
     const base = makeSut(false)
     let seq = 0
-    const cadence = { enqueue: vi.fn(() => Promise.resolve(++seq)) }
+    const cadence = {
+      enqueue: vi.fn((_line: string, _id: string, _destination: string) =>
+        Promise.resolve(++seq),
+      ),
+    }
     const outbox = {
       create: vi
         .fn()
-        .mockResolvedValueOnce({ id: 'outbox-1', queueSeq: null })
-        .mockResolvedValueOnce({ id: 'outbox-2', queueSeq: null }),
+        .mockResolvedValueOnce({
+          id: 'outbox-1',
+          queueSeq: null,
+          destination: '5511999990000',
+        })
+        .mockResolvedValueOnce({
+          id: 'outbox-2',
+          queueSeq: null,
+          destination: '5511999990000',
+        }),
       setQueueSeq: vi.fn().mockResolvedValue(undefined),
     }
     const useCase = new EnqueueWidgetMessageUseCase(
@@ -143,8 +155,8 @@ describe('EnqueueWidgetMessageUseCase fila FIFO da linha', () => {
     await sut.useCase.execute(input)
 
     expect(sut.cadence.enqueue.mock.calls).toEqual([
-      ['Z-1', 'outbox-1'],
-      ['Z-1', 'outbox-2'],
+      ['Z-1', 'outbox-1', '5511999990000'],
+      ['Z-1', 'outbox-2', '5511999990000'],
     ])
     expect(sut.outbox.setQueueSeq.mock.calls).toEqual([
       ['outbox-1', 1],

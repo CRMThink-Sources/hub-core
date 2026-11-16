@@ -561,14 +561,14 @@ export class DispatchWidgetOutboxMessage {
     // Row sem posição (Redis falhou no enfileiramento): entra no fim da fila agora.
     let seq = row.queueSeq
     if (seq == null) {
-      seq = await cadence.enqueue(policy.lineKey, row.id)
+      seq = await cadence.enqueue(policy.lineKey, row.id, row.destination)
       await this.deps.outbox.setQueueSeq(row.id, seq)
     }
 
     const now = this.now()
     const outcome = await cadence.reserve(
       policy,
-      { outboxId: row.id, seq },
+      { outboxId: row.id, seq, destination: row.destination },
       now,
     )
 

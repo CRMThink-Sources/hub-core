@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import type { CadencePolicy } from '@/modules/thinkzap/domain/send-cadence'
 import {
   RedisSendCadence,
+  type RedisSendCadenceOptions,
+  cadenceDestKey,
   cadenceQueueKey,
   cadenceStateKey,
+  cadenceTicketDestKey,
 } from './redis-send-cadence'
 import { fakeCadenceRedis } from './redis-send-cadence.fake'
 
@@ -21,15 +24,15 @@ const policy = (over: Partial<CadencePolicy> = {}): CadencePolicy => ({
   ...over,
 })
 
-function makeSut() {
+function makeSut(options: RedisSendCadenceOptions = {}) {
   const fake = fakeCadenceRedis()
   // random fixo: o retry de quem não é a cabeça fica previsível (500 ms).
-  const cadence = new RedisSendCadence(fake.redis, () => 0)
+  const cadence = new RedisSendCadence(fake.redis, () => 0, options)
   let n = 0
-  const enqueue = async () => {
+  const enqueue = async (destination = 'dest-1') => {
     const id = `ob-${++n}`
-    const seq = await cadence.enqueue(LINE, id)
-    return { outboxId: id, seq }
+    const seq = await cadence.enqueue(LINE, id, destination)
+    return { outboxId: id, seq, destination }
   }
   return { ...fake, cadence, enqueue }
 }
@@ -404,5 +407,220 @@ describe('RedisSendCadence — mensagens aguardando', () => {
     await cadence.reserve(policy(), a, at(0))
 
     expect(await cadence.waitingCount(LINE)).toBe(2)
+  })
+})
+
+describe('RedisSendCadence — ordem por destinatário (cadência desligada)', () => {
+  const off = policy({ enabled: false })
+  const makeRelaxed = () => makeSut({ fifoPerDestination: true })
+
+  it('destinatários diferentes saem sem esperar uns pelos outros', async () => {
+    const { cadence, enqueue } = makeRelaxed()
+    const a = await enqueue('contato-a')
+    const b = await enqueue('contato-b')
+    const c = await enqueue('contato-c')
+
+    expect((await cadence.reserve(off, c, at(0))).allowed).toBe(true)
+    expect((await cadence.reserve(off, b, at(0))).allowed).toBe(true)
+    expect((await cadence.reserve(off, a, at(0))).allowed).toBe(true)
+  })
+
+  it('o mesmo destinatário mantém a ordem, com outros no meio', async () => {
+    const { cadence, enqueue } = makeRelaxed()
+    const texto = await enqueue('contato-a')
+    await enqueue('contato-b')
+    const anexo1 = await enqueue('contato-a')
+    await enqueue('contato-c')
+    const anexo2 = await enqueue('contato-a')
+
+    expect(await cadence.reserve(off, anexo2, at(0))).toMatchObject({
+      allowed: false,
+      reason: 'not-head',
+    })
+    expect(await cadence.reserve(off, anexo1, at(0))).toMatchObject({
+      allowed: false,
+      reason: 'not-head',
+    })
+    expect((await cadence.reserve(off, texto, at(0))).allowed).toBe(true)
+    expect((await cadence.reserve(off, anexo1, at(1))).allowed).toBe(true)
+    expect((await cadence.reserve(off, anexo2, at(2))).allowed).toBe(true)
+  })
+
+  it('a ordem vale entre origens: quem entrou antes sai antes', async () => {
+    const { cadence, enqueue } = makeRelaxed()
+    const bot = await enqueue('contato-a')
+    const operador = await enqueue('contato-a')
+
+    expect((await cadence.reserve(off, operador, at(0))).allowed).toBe(false)
+    expect((await cadence.reserve(off, bot, at(0))).allowed).toBe(true)
+    expect((await cadence.reserve(off, operador, at(1))).allowed).toBe(true)
+  })
+
+  it('com a chave desligada, a ordem é a da linha em todos os casos', async () => {
+    const { cadence, enqueue } = makeSut({ fifoPerDestination: false })
+    const a = await enqueue('contato-a')
+    const b = await enqueue('contato-b')
+
+    expect((await cadence.reserve(off, b, at(0))).allowed).toBe(false)
+    expect((await cadence.reserve(off, a, at(0))).allowed).toBe(true)
+  })
+
+  it('cadência ativada segue a ordem da linha, mesmo com a chave ligada', async () => {
+    const { cadence, enqueue } = makeRelaxed()
+    const a = await enqueue('contato-a')
+    const b = await enqueue('contato-b')
+
+    expect((await cadence.reserve(policy(), b, at(0))).allowed).toBe(false)
+    expect((await cadence.reserve(policy(), a, at(0))).allowed).toBe(true)
+  })
+
+  it('janela aberta depois de desativar mantém a ordem da linha até o fim', async () => {
+    const { cadence, enqueue } = makeRelaxed()
+    const p = policy({ maxMessages: 5 })
+    await cadence.reserve(p, await enqueue('contato-x'), at(0))
+    const a = await enqueue('contato-a')
+    const b = await enqueue('contato-b')
+
+    // Desativada no meio da janela: b não passa na frente de a.
+    expect((await cadence.reserve(off, b, at(1_000))).allowed).toBe(false)
+    expect((await cadence.reserve(off, a, at(1_000))).allowed).toBe(true)
+    expect((await cadence.reserve(off, b, at(1_001))).allowed).toBe(true)
+
+    // Passada a janela, volta o relaxamento.
+    const c = await enqueue('contato-c')
+    const d = await enqueue('contato-d')
+    expect((await cadence.reserve(off, d, at(2 * MIN))).allowed).toBe(true)
+    expect((await cadence.reserve(off, c, at(2 * MIN))).allowed).toBe(true)
+  })
+
+  it('pausa vigente mantém a ordem da linha e nega a todos', async () => {
+    const { cadence, enqueue } = makeRelaxed()
+    const p = policy({ maxMessages: 1, pauseMs: 5 * MIN })
+    await cadence.reserve(p, await enqueue('contato-x'), at(0))
+    const a = await enqueue('contato-a')
+
+    expect(await cadence.reserve(off, a, at(1_000))).toMatchObject({
+      allowed: false,
+      reason: 'paused',
+    })
+  })
+
+  it('ativar a cadência volta à ordem da linha para o que sobrou', async () => {
+    const { cadence, enqueue } = makeRelaxed()
+    const a = await enqueue('contato-a')
+    const b = await enqueue('contato-b')
+    const c = await enqueue('contato-c')
+
+    expect((await cadence.reserve(off, b, at(0))).allowed).toBe(true)
+
+    // Cadência ativada: c não passa na frente de a.
+    expect((await cadence.reserve(policy(), c, at(1))).allowed).toBe(false)
+    expect((await cadence.reserve(policy(), a, at(1))).allowed).toBe(true)
+    expect((await cadence.reserve(policy(), c, at(2))).allowed).toBe(true)
+  })
+
+  it('o ticket devolvido após falha volta à posição original, antes de quem entrou depois', async () => {
+    const { cadence, enqueue, ordered } = makeRelaxed()
+    const a = await enqueue('contato-a')
+    const b = await enqueue('contato-a')
+
+    // Redis perdeu o ticket de a; ele volta pelo seq gravado e o destino do ticket.
+    await cadence.dequeue(LINE, a.outboxId)
+    expect(ordered(cadenceDestKey(LINE, 'contato-a'))).toEqual([b.outboxId])
+
+    expect((await cadence.reserve(off, a, at(0))).allowed).toBe(true)
+    expect(ordered(cadenceDestKey(LINE, 'contato-a'))).toEqual([b.outboxId])
+    expect((await cadence.reserve(off, b, at(1))).allowed).toBe(true)
+  })
+
+  it('o ticket aparece na fila da linha, na do destinatário e no mapa', async () => {
+    const { enqueue, ordered, destMaps } = makeRelaxed()
+    const a = await enqueue('contato-a')
+
+    expect(ordered(cadenceQueueKey(LINE))).toEqual([a.outboxId])
+    expect(ordered(cadenceDestKey(LINE, 'contato-a'))).toEqual([a.outboxId])
+    expect(destMaps.get(cadenceTicketDestKey(LINE))?.get(a.outboxId)).toBe(
+      'contato-a',
+    )
+  })
+
+  it('concedida a vaga, o ticket sai das três estruturas', async () => {
+    const { cadence, enqueue, ordered, destMaps } = makeRelaxed()
+    const a = await enqueue('contato-a')
+
+    await cadence.reserve(off, a, at(0))
+
+    expect(ordered(cadenceQueueKey(LINE))).toEqual([])
+    expect(ordered(cadenceDestKey(LINE, 'contato-a'))).toEqual([])
+    expect(destMaps.get(cadenceTicketDestKey(LINE))?.has(a.outboxId)).toBe(
+      false,
+    )
+  })
+
+  it('dequeue limpa as três estruturas lendo o destino no mapa', async () => {
+    const { cadence, enqueue, ordered, destMaps } = makeRelaxed()
+    const a = await enqueue('contato-a')
+
+    // A varredura de órfãos chama o dequeue sem a row: só o outboxId.
+    await cadence.dequeue(LINE, a.outboxId)
+
+    expect(ordered(cadenceQueueKey(LINE))).toEqual([])
+    expect(ordered(cadenceDestKey(LINE, 'contato-a'))).toEqual([])
+    expect(destMaps.get(cadenceTicketDestKey(LINE))?.has(a.outboxId)).toBe(
+      false,
+    )
+  })
+
+  it('a fila por destinatário não vira linha na varredura', async () => {
+    const { cadence, enqueue } = makeRelaxed()
+    await enqueue('contato-a')
+
+    expect(await cadence.queuedLines()).toEqual([LINE])
+  })
+
+  it('peekTurn por destinatário: só está atrás quem tem outro à frente do mesmo contato', async () => {
+    const { cadence, enqueue } = makeRelaxed()
+    const a = await enqueue('contato-a')
+    const b = await enqueue('contato-b')
+    const a2 = await enqueue('contato-a')
+
+    expect(await cadence.peekTurn(LINE, b.outboxId, at(0), true)).toEqual({
+      behind: false,
+    })
+    expect(await cadence.peekTurn(LINE, a2.outboxId, at(0), true)).toEqual({
+      behind: true,
+      retryAt: T0 + 500,
+    })
+    expect(await cadence.peekTurn(LINE, a.outboxId, at(0), true)).toEqual({
+      behind: false,
+    })
+  })
+
+  it('peekTurn por linha (ou chave desligada) compara com a cabeça da linha', async () => {
+    const relaxed = makeRelaxed()
+    await relaxed.enqueue('contato-a')
+    const b = await relaxed.enqueue('contato-b')
+    expect(await relaxed.cadence.peekTurn(LINE, b.outboxId, at(0))).toEqual({
+      behind: true,
+      retryAt: T0 + 500,
+    })
+
+    const legacy = makeSut({ fifoPerDestination: false })
+    await legacy.enqueue('contato-a')
+    const lb = await legacy.enqueue('contato-b')
+    expect(
+      await legacy.cadence.peekTurn(LINE, lb.outboxId, at(0), true),
+    ).toEqual({ behind: true, retryAt: T0 + 500 })
+  })
+
+  it('peekTurn: ticket sem destino registrado segue a ordem da linha', async () => {
+    const { cadence, enqueue } = makeRelaxed()
+    await enqueue('')
+    const b = await enqueue('')
+
+    expect(await cadence.peekTurn(LINE, b.outboxId, at(0), true)).toEqual({
+      behind: true,
+      retryAt: T0 + 500,
+    })
   })
 })

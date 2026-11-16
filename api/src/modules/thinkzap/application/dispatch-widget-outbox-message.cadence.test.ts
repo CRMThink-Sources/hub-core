@@ -187,12 +187,16 @@ function makeSut(
   opts: {
     settings?: object
     provider?: ConnectorProvider
+    /** Chave `THINKZAP_CADENCE_OFF_FIFO_PER_DESTINATION`. */
+    fifoPerDestination?: boolean
     deps?: Partial<ConstructorParameters<typeof DispatchWidgetOutboxMessage>[0]>
   } = {},
 ) {
   let clock = T0
   const fake = fakeCadenceRedis()
-  const cadence = new RedisSendCadence(fake.redis, () => 0)
+  const cadence = new RedisSendCadence(fake.redis, () => 0, {
+    fifoPerDestination: opts.fifoPerDestination,
+  })
   const outbox = memoryOutbox()
   const send = vi.fn(() =>
     Promise.resolve({
@@ -233,7 +237,11 @@ function makeSut(
     overrides: Partial<WidgetOutboxRecord> = {},
   ) => {
     outbox.rows.set(id, baseRow(id, overrides))
-    const seq = await cadence.enqueue(LINE_KEY, id)
+    const seq = await cadence.enqueue(
+      LINE_KEY,
+      id,
+      outbox.rows.get(id)!.destination,
+    )
     await outbox.setQueueSeq(id, seq)
   }
 
@@ -254,6 +262,50 @@ function makeSut(
       sut.execute({ outboxId: id, line, isLastAttempt }),
   }
 }
+
+describe('DispatchWidgetOutboxMessage — cadência desligada, ordem por destinatário', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const semCadencia = settings({ cadenceEnabled: false })
+
+  /** Dois ciclos de job concorrentes, como o worker com `concurrency` maior que 1. */
+  const emParalelo = (s: ReturnType<typeof makeSut>, ids: string[]) =>
+    Promise.all(ids.map(id => s.dispatch(id)))
+
+  it('com a chave ligada, destinatários diferentes enviam sem esperar um pelo outro', async () => {
+    const s = makeSut({ settings: semCadencia, fifoPerDestination: true })
+    await s.add('1', { destination: '5511900000001' })
+    await s.add('2', { destination: '5511900000002' })
+
+    // O segundo job chega primeiro: não depende de o primeiro ter saído.
+    const [segundo, primeiro] = await emParalelo(s, ['2', '1'])
+
+    expect(primeiro?.status).toBe('sent')
+    expect(segundo?.status).toBe('sent')
+  })
+
+  it('com a chave desligada, o segundo espera a vez da linha', async () => {
+    const s = makeSut({ settings: semCadencia, fifoPerDestination: false })
+    await s.add('1', { destination: '5511900000001' })
+    await s.add('2', { destination: '5511900000002' })
+
+    expect((await s.dispatch('2')).status).toBe('deferred')
+    expect((await s.dispatch('1')).status).toBe('sent')
+    expect((await s.dispatch('2')).status).toBe('sent')
+  })
+
+  it('o mesmo destinatário mantém a ordem mesmo com a chave ligada', async () => {
+    const s = makeSut({ settings: semCadencia, fifoPerDestination: true })
+    await s.add('texto', { destination: '5511900000001' })
+    await s.add('outro', { destination: '5511900000002' })
+    await s.add('anexo', { destination: '5511900000001' })
+
+    expect((await s.dispatch('anexo')).status).toBe('deferred')
+    expect((await s.dispatch('outro')).status).toBe('sent')
+    expect((await s.dispatch('texto')).status).toBe('sent')
+    expect((await s.dispatch('anexo')).status).toBe('sent')
+  })
+})
 
 describe('DispatchWidgetOutboxMessage — cadência', () => {
   beforeEach(() => vi.clearAllMocks())

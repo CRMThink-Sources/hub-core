@@ -43,6 +43,23 @@ export function cadenceSeqKey(lineKey: string): string {
 const QUEUE_KEY_PREFIX = 'thinkzap:cadence-queue:'
 
 /**
+ * Fila por destinatário. O prefixo **não** pode começar com `thinkzap:cadence-queue:`:
+ * `queuedLines()` varre esse prefixo para achar as linhas com fila.
+ */
+export function cadenceDestPrefix(lineKey: string): string {
+  return `thinkzap:cadence-dest:${lineKey}:`
+}
+
+export function cadenceDestKey(lineKey: string, destination: string): string {
+  return `${cadenceDestPrefix(lineKey)}${destination}`
+}
+
+/** HASH outboxId → destino, para o `dequeue` achar a fila do destinatário sem a row. */
+export function cadenceTicketDestKey(lineKey: string): string {
+  return `thinkzap:cadence-ticketdest:${lineKey}`
+}
+
+/**
  * Leitura e escrita do hash, comuns aos scripts. Campos ausentes = 0.
  * Transcrição de `CadenceMachineState`.
  */
@@ -78,13 +95,25 @@ end
 `
 
 /**
- * KEYS: state, queue. ARGV: now, enabled ('1'|'0'), N, D(ms), P(ms), ticketId,
- * ticketSeq, notHeadRetryMs, ttlPadMs.
+ * KEYS: state, queue, destQueue, ticketDest. ARGV: now, enabled ('1'|'0'), N, D(ms),
+ * P(ms), ticketId, ticketSeq, notHeadRetryMs, ttlPadMs, destination, perDestination
+ * ('1'|'0'), ttlSeconds.
  * Devolve `{1, windowId}` ou `{0, retryAt, reason}`. Espelha `reserveStep`.
+ *
+ * Modo relaxado (`ordersByDestination`): cadência desligada, sem pausa e sem janela
+ * aberta (as duas últimas já saíram acima) e a chave de configuração ligada. Nele a
+ * cabeça é a da fila do destinatário; fora dele, a da linha.
  */
 export const RESERVE_SCRIPT = `${LUA_STATE}
 local now = tonumber(ARGV[1])
+local hasDest = ARGV[10] ~= ""
 redis.call("zadd", KEYS[2], "NX", tonumber(ARGV[7]), ARGV[6])
+if hasDest then
+  redis.call("zadd", KEYS[3], "NX", tonumber(ARGV[7]), ARGV[6])
+  redis.call("hset", KEYS[4], ARGV[6], ARGV[10])
+  redis.call("expire", KEYS[3], tonumber(ARGV[12]))
+  redis.call("expire", KEYS[4], tonumber(ARGV[12]))
+end
 local s = load(KEYS[1])
 if s.pauseUntil > now then
   return {0, s.pauseUntil, "paused"}
@@ -92,11 +121,18 @@ end
 if s.windowEnd > now and s.count >= s.snapN then
   return {0, s.windowEnd, "window-full"}
 end
-local head = redis.call("zrange", KEYS[2], 0, 0)[1]
+local relaxed = hasDest and ARGV[11] == "1" and ARGV[2] ~= "1" and s.windowEnd <= now
+local headKey = KEYS[2]
+if relaxed then headKey = KEYS[3] end
+local head = redis.call("zrange", headKey, 0, 0)[1]
 if head ~= ARGV[6] then
   return {0, now + tonumber(ARGV[8]), "not-head"}
 end
 redis.call("zrem", KEYS[2], ARGV[6])
+if hasDest then
+  redis.call("zrem", KEYS[3], ARGV[6])
+  redis.call("hdel", KEYS[4], ARGV[6])
+end
 if s.windowEnd > now then
   s = countInOpen(s, now)
   save(KEYS[1], s, now, tonumber(ARGV[9]))
@@ -135,22 +171,58 @@ return redis.call("hincrby", KEYS[1], "count", -1)
 `
 
 /**
- * KEYS: queue. ARGV: outboxId. Devolve 1 se o ticket está na fila e não é a cabeça.
+ * KEYS: queue, ticketDest. ARGV: outboxId, perDestination ('1'|'0'), destPrefix.
+ * Devolve 1 se o ticket está na fila e não é a cabeça da ordem do momento: a do
+ * destinatário (`perDestination` e destino registrado) ou a da linha.
  * Só leitura: não insere o ticket nem o tira da fila.
  */
 export const PEEK_TURN_SCRIPT = `
 if not redis.call("zscore", KEYS[1], ARGV[1]) then return 0 end
+if ARGV[2] == "1" then
+  local dest = redis.call("hget", KEYS[2], ARGV[1])
+  if dest then
+    local destKey = ARGV[3] .. dest
+    if redis.call("zscore", destKey, ARGV[1]) then
+      if redis.call("zrange", destKey, 0, 0)[1] == ARGV[1] then return 0 end
+      return 1
+    end
+  end
+end
 if redis.call("zrange", KEYS[1], 0, 0)[1] == ARGV[1] then return 0 end
 return 1
 `
 
-/** KEYS: seq, queue. ARGV: outboxId, ttlSeconds. Devolve a sequência. */
+/**
+ * KEYS: seq, queue, destQueue, ticketDest. ARGV: outboxId, ttlSeconds, destination.
+ * Devolve a sequência. O índice por destinatário é registrado sempre, com a chave de
+ * configuração ligada ou não: assim ele já está populado quando ela for ligada.
+ */
 export const ENQUEUE_SCRIPT = `
 local seq = redis.call("incr", KEYS[1])
 redis.call("zadd", KEYS[2], "NX", seq, ARGV[1])
 redis.call("expire", KEYS[1], ARGV[2])
 redis.call("expire", KEYS[2], ARGV[2])
+if ARGV[3] ~= "" then
+  redis.call("zadd", KEYS[3], "NX", seq, ARGV[1])
+  redis.call("hset", KEYS[4], ARGV[1], ARGV[3])
+  redis.call("expire", KEYS[3], ARGV[2])
+  redis.call("expire", KEYS[4], ARGV[2])
+end
 return seq
+`
+
+/**
+ * KEYS: queue, ticketDest. ARGV: outboxId, destPrefix. Tira o ticket das três
+ * estruturas, achando o destino pelo mapa (a varredura de órfãos não tem a row).
+ */
+export const DEQUEUE_SCRIPT = `
+redis.call("zrem", KEYS[1], ARGV[1])
+local dest = redis.call("hget", KEYS[2], ARGV[1])
+if dest then
+  redis.call("zrem", ARGV[2] .. dest, ARGV[1])
+  redis.call("hdel", KEYS[2], ARGV[1])
+end
+return 1
 `
 
 const toInt = (value: unknown): number => {
@@ -216,21 +288,42 @@ export function toCadenceState(
   }
 }
 
+export type RedisSendCadenceOptions = {
+  /**
+   * Com a cadência desativada, a ordem passa a ser por destinatário
+   * (`THINKZAP_CADENCE_OFF_FIFO_PER_DESTINATION`). Só `reserve` e `peekTurn` leem;
+   * o `enqueue` registra o índice sempre.
+   */
+  fifoPerDestination?: boolean
+}
+
 export class RedisSendCadence implements SendCadence {
+  private readonly fifoPerDestination: boolean
+
   constructor(
     private readonly redis: IORedis,
     private readonly random: () => number = Math.random,
-  ) {}
+    options: RedisSendCadenceOptions = {},
+  ) {
+    this.fifoPerDestination = options.fifoPerDestination === true
+  }
 
-  async enqueue(lineKey: string, outboxId: string): Promise<number> {
+  async enqueue(
+    lineKey: string,
+    outboxId: string,
+    destination: string,
+  ): Promise<number> {
     return toInt(
       await this.redis.eval(
         ENQUEUE_SCRIPT,
-        2,
+        4,
         cadenceSeqKey(lineKey),
         cadenceQueueKey(lineKey),
+        cadenceDestKey(lineKey, destination),
+        cadenceTicketDestKey(lineKey),
         outboxId,
         String(QUEUE_TTL_SECONDS),
+        destination,
       ),
     )
   }
@@ -239,13 +332,17 @@ export class RedisSendCadence implements SendCadence {
     lineKey: string,
     outboxId: string,
     now: Date,
+    byDestination = false,
   ): Promise<CadenceTurn> {
     const behind = toInt(
       await this.redis.eval(
         PEEK_TURN_SCRIPT,
-        1,
+        2,
         cadenceQueueKey(lineKey),
+        cadenceTicketDestKey(lineKey),
         outboxId,
+        byDestination && this.fifoPerDestination ? '1' : '0',
+        cadenceDestPrefix(lineKey),
       ),
     )
     if (behind !== 1) return { behind: false }
@@ -264,15 +361,20 @@ export class RedisSendCadence implements SendCadence {
     const notHeadRetryMs = this.notHeadRetryMs()
     const result = (await this.redis.eval(
       RESERVE_SCRIPT,
-      2,
+      4,
       cadenceStateKey(policy.lineKey),
       cadenceQueueKey(policy.lineKey),
+      cadenceDestKey(policy.lineKey, ticket.destination),
+      cadenceTicketDestKey(policy.lineKey),
       String(now.getTime()),
       ...policyArgs(policy),
       ticket.outboxId,
       String(ticket.seq),
       String(notHeadRetryMs),
       String(STATE_TTL_PAD_MS),
+      ticket.destination,
+      this.fifoPerDestination ? '1' : '0',
+      String(QUEUE_TTL_SECONDS),
     )) as [number, number, string?]
 
     if (toInt(result[0]) === 1) {
@@ -299,7 +401,14 @@ export class RedisSendCadence implements SendCadence {
   }
 
   async dequeue(lineKey: string, outboxId: string): Promise<void> {
-    await this.redis.zrem(cadenceQueueKey(lineKey), outboxId)
+    await this.redis.eval(
+      DEQUEUE_SCRIPT,
+      2,
+      cadenceQueueKey(lineKey),
+      cadenceTicketDestKey(lineKey),
+      outboxId,
+      cadenceDestPrefix(lineKey),
+    )
   }
 
   async registerExternal(policy: CadencePolicy, now: Date): Promise<void> {

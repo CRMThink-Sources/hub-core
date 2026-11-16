@@ -9,6 +9,12 @@ export type CadenceTicket = {
   outboxId: string
   /** `queueSeq` gravado na linha da outbox ao enfileirar. */
   seq: number
+  /**
+   * Destinatário da mensagem (`row.destination`). Com a cadência desativada, é a
+   * ordem entre mensagens do mesmo destinatário que importa. Vazio = sem destino:
+   * o ticket só segue a ordem da linha.
+   */
+  destination: string
 }
 
 /** `retryAt` (epoch ms) é quando quem está atrás volta a olhar a fila. */
@@ -23,8 +29,15 @@ export type CadenceTurn = { behind: true; retryAt: number } | { behind: false }
  * fila, e a cabeça seguinte já pode pedir a sua.
  */
 export interface SendCadence {
-  /** Dá ao envio a próxima posição da fila da linha e o põe nela. */
-  enqueue(lineKey: string, outboxId: string): Promise<number>
+  /**
+   * Dá ao envio a próxima posição da fila da linha e o põe nela, registrando também o
+   * destinatário (índice para a ordem por destinatário, usada sem cadência).
+   */
+  enqueue(
+    lineKey: string,
+    outboxId: string,
+    destination: string,
+  ): Promise<number>
   reserve(
     policy: CadencePolicy,
     ticket: CadenceTicket,
@@ -34,8 +47,17 @@ export interface SendCadence {
    * Só leitura: o ticket está na fila e **outro** é a cabeça. Serve para desistir
    * cedo, sem pagar o despacho inteiro — quem decide a vez continua sendo `reserve`.
    * Ticket fora da fila não está atrás de ninguém: o despacho completo decide.
+   *
+   * `byDestination` = a linha estava sem cadência na última resolução: compara com
+   * a cabeça do destinatário, não com a da linha. Só desiste cedo; o `reserve`
+   * continua decidindo, então um valor desatualizado custa uma tentativa a mais.
    */
-  peekTurn(lineKey: string, outboxId: string, now: Date): Promise<CadenceTurn>
+  peekTurn(
+    lineKey: string,
+    outboxId: string,
+    now: Date,
+    byDestination?: boolean,
+  ): Promise<CadenceTurn>
   /** Devolve a vaga de um envio que o provider recusou. */
   release(lineKey: string, windowId: number): Promise<void>
   /** Tira o ticket da fila (desfecho terminal sem envio). Idempotente. */
