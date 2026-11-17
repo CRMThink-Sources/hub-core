@@ -345,6 +345,104 @@ describe('BitrixSubscriptionRepository', () => {
 
       expect(subscriptions).toEqual([])
     })
+
+    /**
+     * Regressão: uma assinatura sem data de período (criada pela integração do Conta
+     * Azul, ou editada à mão) derrubava a leitura da instalação inteira.
+     */
+    it('pula assinatura ilegível e devolve as legíveis', async () => {
+      const bitrix = respondingWithItems([
+        subscriptionItem(1, '7'),
+        { ...subscriptionItem(2, '7'), ufCrm91CurrentPeriodStart: '' },
+        { ...subscriptionItem(3, '7'), ufCrm91Status: '99999' },
+      ])
+
+      const repository = makeRepository(bitrix, {
+        plans: makePlans([planOf('7')]).repository,
+      })
+
+      const subscriptions = await repository.getSubscriptionsByAplication('512')
+
+      expect(subscriptions.map(s => s.id)).toEqual(['1'])
+      await expect(
+        repository.countUnreadableSubscriptionsByAplication('512'),
+      ).resolves.toBe(2)
+    })
+
+    it('não conta ilegível encerrada (cancelada, teste expirado) como contrato vivo', async () => {
+      const bitrix = respondingWithItems([
+        {
+          ...subscriptionItem(1, '7'),
+          ufCrm91CurrentPeriodStart: '',
+          ufCrm91Status: '13623',
+        },
+        {
+          ...subscriptionItem(2, '7'),
+          ufCrm91CurrentPeriodEnd: '',
+          ufCrm91Status: '14353',
+        },
+        {
+          ...subscriptionItem(3, '7'),
+          ufCrm91CurrentPeriodEnd: '',
+          ufCrm91Status: '13617',
+        },
+      ])
+
+      const repository = makeRepository(bitrix, {
+        plans: makePlans([planOf('7')]).repository,
+      })
+
+      await expect(
+        repository.countUnreadableSubscriptionsByAplication('512'),
+      ).resolves.toBe(1)
+    })
+
+    it('pula assinatura de plano inexistente e conta como ilegível', async () => {
+      const bitrix = respondingWithItems([
+        subscriptionItem(1, '7'),
+        subscriptionItem(2, 'apagado'),
+      ])
+
+      const repository = makeRepository(bitrix, {
+        plans: makePlans([planOf('7')]).repository,
+      })
+
+      await expect(
+        repository.getSubscriptionsByAplication('512'),
+      ).resolves.toMatchObject([{ id: '1' }])
+      await expect(
+        repository.countUnreadableSubscriptionsByAplication('512'),
+      ).resolves.toBe(1)
+    })
+
+    it('instalação sem espelho continua sendo erro, não lista vazia', async () => {
+      const bitrix = respondingWithItems([subscriptionItem(1, '7', 777)])
+
+      await expect(
+        makeRepository(bitrix, {
+          plans: makePlans([planOf('7')]).repository,
+        }).getSubscriptionsByAplication('777'),
+      ).rejects.toBeInstanceOf(AplicationNotFoundError)
+    })
+
+    it('lê todas as páginas do Bitrix', async () => {
+      const listCrmItems = vi
+        .fn()
+        .mockResolvedValueOnce({
+          result: { items: [subscriptionItem(1, '7')] },
+          next: 50,
+        })
+        .mockResolvedValueOnce({
+          result: { items: [subscriptionItem(2, '7')] },
+        })
+
+      const subscriptions = await makeRepository(makeBitrix({ listCrmItems }), {
+        plans: makePlans([planOf('7')]).repository,
+      }).getSubscriptionsByAplication('512')
+
+      expect(subscriptions.map(s => s.id)).toEqual(['1', '2'])
+      expect(listCrmItems.mock.calls[1]?.[2]).toEqual({ start: 50 })
+    })
   })
 
   describe('listSubscriptionsByGatewayId', () => {

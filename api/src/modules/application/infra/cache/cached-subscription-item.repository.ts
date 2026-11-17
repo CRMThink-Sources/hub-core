@@ -150,6 +150,13 @@ export class CachedSubscriptionItemRepository implements SubscriptionItemReposit
     return items
   }
 
+  /** Sem cache: só os caminhos de cobrança perguntam, e precisam do estado de agora. */
+  async countUnreadableItemsBySubscription(
+    subscriptionId: string,
+  ): Promise<number> {
+    return this.inner.countUnreadableItemsBySubscription(subscriptionId)
+  }
+
   async createSubscriptionItem(
     input: CreateSubscriptionItemInput,
   ): Promise<SubscriptionItem> {

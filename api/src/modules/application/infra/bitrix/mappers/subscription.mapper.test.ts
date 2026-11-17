@@ -278,7 +278,20 @@ describe('mapBitrixSpaSubscriptionToRawSubscription', () => {
      * enum que um campo de lista devolveria. `warn`, porque a consequência
      * (cliente do gateway sem portal) não aparece em nenhum outro lugar.
      */
-    it.each([['boleto'], ['13617'], ['STRIPE']])(
+    /** O que a integração do Conta Azul grava: sinônimo conhecido, sem warning a cada leitura. */
+    it.each([['boleto'], ['Boleto']])(
+      'resolve manual sem warning para o sinônimo %s',
+      raw => {
+        expect(
+          mapBitrixSpaSubscriptionToRawSubscription(
+            itemWith({ [SUBSCRIPTION_MODALITY_FIELD]: raw }),
+          ).modality,
+        ).toBe('manual')
+        expect(apiLogger.warn).not.toHaveBeenCalled()
+      },
+    )
+
+    it.each([['pix'], ['13617'], ['STRIPE']])(
       'resolve manual com warning para valor desconhecido (%s)',
       raw => {
         expect(

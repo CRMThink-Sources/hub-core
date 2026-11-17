@@ -33,6 +33,7 @@ const make = (
     pastDue?: ExpirableSubscription[]
     dated?: ExpirableSubscription[]
     activeIds?: string[]
+    cancelledIds?: string[]
   } = {},
   options: {
     updateSubscription?: ReturnType<typeof vi.fn>
@@ -47,6 +48,7 @@ const make = (
     listPastDue: vi.fn().mockResolvedValue(lists.pastDue ?? []),
     listWithPastDueAt: vi.fn().mockResolvedValue(lists.dated ?? []),
     listActiveIds: vi.fn().mockResolvedValue(lists.activeIds ?? []),
+    listCancelledIds: vi.fn().mockResolvedValue(lists.cancelledIds ?? []),
   }
   return {
     useCase: new ExpireSubscriptions(
@@ -65,10 +67,14 @@ const makeLineBilling = (
 ): SubscriptionLineBilling & {
   unsubscribeLinesForPastDue: ReturnType<typeof vi.fn>
   reconcileActiveLines: ReturnType<typeof vi.fn>
+  reconcileCancelledLines: ReturnType<typeof vi.fn>
 } =>
   ({
     unsubscribeLinesForPastDue: vi.fn().mockResolvedValue([]),
     reconcileActiveLines: vi
+      .fn()
+      .mockResolvedValue({ checked: 0, results: [] }),
+    reconcileCancelledLines: vi
       .fn()
       .mockResolvedValue({ checked: 0, results: [] }),
     ...overrides,
@@ -343,6 +349,78 @@ describe('ExpireSubscriptions — etapa 4: reconciliação', () => {
         periodEnd: null,
         succeeded: true,
       },
+    ])
+  })
+
+  /** Rodada FAILED não conta como reconciliada: a hora seguinte refaria a assinatura de todas as ativas. */
+  it('falha na etapa de canceladas não derruba a rodada reconciliada', async () => {
+    const lineBilling = makeLineBilling({
+      reconcileCancelledLines: vi
+        .fn()
+        .mockRejectedValue(new Error('bitrix fora')),
+    })
+    const { useCase } = make(
+      { activeIds: ['777'], cancelledIds: ['888'] },
+      { lineBilling },
+    )
+
+    const summary = await useCase.execute(NOW, { reconcile: true })
+
+    expect(summary.reconciliation).toBe(true)
+  })
+
+  /**
+   * Regressão: a reconciliação só assinava. Linha cancelada cujo evento se perdeu
+   * continuava cobrada pelo provider para sempre.
+   */
+  it('desassina as linhas canceladas e as de assinaturas canceladas, e registra', async () => {
+    const lineBilling = makeLineBilling({
+      reconcileCancelledLines: vi.fn().mockResolvedValue({
+        checked: 3,
+        results: [
+          {
+            itemId: '9100',
+            subscriptionId: '888',
+            provider: 'HUBMESSAGE',
+            action: 'unsubscribed',
+            succeeded: true,
+          },
+          {
+            itemId: '9101',
+            subscriptionId: '888',
+            provider: null,
+            action: 'unsubscribed',
+            succeeded: false,
+            error: 'hubmessage 500',
+          },
+        ],
+      }),
+    })
+    const { useCase } = make(
+      { activeIds: ['777'], cancelledIds: ['888'] },
+      { lineBilling },
+    )
+
+    const summary = await useCase.execute(NOW, { reconcile: true })
+
+    expect(lineBilling.reconcileCancelledLines).toHaveBeenCalledWith(['888'])
+    expect(summary).toMatchObject({
+      linesChecked: 3,
+      linesUnsubscribed: 1,
+      failed: 1,
+    })
+    expect(summary.changes).toEqual([
+      expect.objectContaining({
+        kind: 'line-unsubscribed',
+        itemId: '9100',
+        succeeded: true,
+      }),
+      expect.objectContaining({
+        kind: 'line-unsubscribed',
+        itemId: '9101',
+        succeeded: false,
+        error: 'hubmessage 500',
+      }),
     ])
   })
 })

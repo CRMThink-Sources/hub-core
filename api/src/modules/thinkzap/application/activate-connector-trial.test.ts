@@ -73,7 +73,11 @@ function makeSut(options?: {
   provisionRejects?: Error
   createSubscriptionRejects?: Error
   updateContactRejects?: Error
+  unreadableSubscriptions?: number
 }) {
+  const countUnreadableSubscriptionsByAplication = vi
+    .fn()
+    .mockResolvedValue(options?.unreadableSubscriptions ?? 0)
   const execute = vi.fn().mockResolvedValue({
     customer: { id: 'domain-1', name: 'acme' },
     aplication: {
@@ -107,7 +111,7 @@ function makeSut(options?: {
   const sut = new ActivateConnectorTrial(
     { execute } as never,
     { getPlan } as never,
-    { createSubscription } as never,
+    { createSubscription, countUnreadableSubscriptionsByAplication } as never,
     { createSubscriptionItem } as never,
     { resolve: () => ({ provisionConnector, subscribe }) } as never,
     { updateContact } as never,
@@ -233,6 +237,20 @@ describe('ActivateConnectorTrial', () => {
       reason: 'has-contract',
     })
     expect(sut.provisionConnector).not.toHaveBeenCalled()
+  })
+
+  /**
+   * A leitura esconde assinatura ilegível; sem esta guarda a instalação pareceria
+   * nova e ganharia um trial em cima de um contrato pago.
+   */
+  it('recusa quando há assinatura ilegível escondida da leitura', async () => {
+    const sut = makeSut({ subscriptions: [], unreadableSubscriptions: 1 })
+
+    await expect(sut.activate()).rejects.toMatchObject({
+      reason: 'has-contract',
+    })
+    expect(sut.provisionConnector).not.toHaveBeenCalled()
+    expect(sut.createSubscription).not.toHaveBeenCalled()
   })
 
   it('recusa instalação sem espelho na SPA', async () => {

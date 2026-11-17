@@ -37,4 +37,13 @@ export interface SubscriptionLineBilling {
     checked: number
     results: SubscriptionLineBillingResult[]
   }>
+  /**
+   * Desassina as linhas canceladas e as das assinaturas canceladas informadas que
+   * ainda não têm a marca de desassinado — o evento que deveria tê-las desassinado se
+   * perdeu. `results` traz só as desassinadas agora e as que falharam.
+   */
+  reconcileCancelledLines(cancelledSubscriptionIds: string[]): Promise<{
+    checked: number
+    results: SubscriptionLineBillingResult[]
+  }>
 }

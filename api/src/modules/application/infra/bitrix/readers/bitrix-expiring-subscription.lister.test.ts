@@ -138,4 +138,11 @@ describe('BitrixExpiringSubscriptionLister', () => {
     expect(listCrmItems.mock.calls[0]?.[2]).toEqual({ select: ['id'] })
     expect(listCrmItems.mock.calls[1]?.[2]).toMatchObject({ start: 50 })
   })
+
+  it('lista os ids das canceladas', async () => {
+    const { lister, listCrmItems } = makeLister([{ items: [{ id: 7 }] }])
+
+    await expect(lister.listCancelledIds()).resolves.toEqual(['7'])
+    expect(listCrmItems.mock.calls[0]?.[1]).toEqual({ ufCrm91Status: '13623' })
+  })
 })

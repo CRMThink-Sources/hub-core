@@ -63,6 +63,14 @@ export interface SubscriptionRepository {
    */
   getSubscriptionsByAplication(aplicationSpaId: string): Promise<Subscription[]>
   /**
+   * Quantas assinaturas da instalação a leitura acima pulou por estarem ilegíveis.
+   * Leitura sem cache, para os caminhos que criam contrato novo: assinatura escondida
+   * não pode parecer "instalação sem contrato".
+   */
+  countUnreadableSubscriptionsByAplication(
+    aplicationSpaId: string,
+  ): Promise<number>
+  /**
    * Busca pelo id da assinatura no gateway de pagamento. Devolve **todas** as que
    * carregam aquele id.
    *

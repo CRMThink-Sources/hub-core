@@ -19,4 +19,6 @@ export interface ExpiringSubscriptionLister {
   listWithPastDueAt(): Promise<ExpirableSubscription[]>
   /** Ids das assinaturas `active`, para a reconciliação das linhas. */
   listActiveIds(): Promise<string[]>
+  /** Ids das assinaturas `cancelled`, para desassinar as linhas que ficaram cobradas. */
+  listCancelledIds(): Promise<string[]>
 }

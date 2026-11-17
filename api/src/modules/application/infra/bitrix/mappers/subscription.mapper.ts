@@ -46,7 +46,7 @@ export const APLICATION_PARENT_FIELD =
  * São `isDynamic: true`, ou seja, gerados por este portal — se a SPA for
  * recriada ou migrada, este mapa precisa ser refeito.
  */
-const STATUS_BY_BITRIX_ID: Record<string, Subscription['status']> = {
+export const STATUS_BY_BITRIX_ID: Record<string, Subscription['status']> = {
   '13617': 'active', // Ativo
   '13619': 'trialing', // Em teste
   '13621': 'past_due', // Vencido
@@ -85,6 +85,11 @@ const bitrixStatus = z
 
 const MODALITIES: readonly SubscriptionModality[] = ['stripe', 'manual']
 
+/** Valores que a automação externa grava e que significam uma modalidade conhecida. */
+const MODALITY_ALIASES: Record<string, SubscriptionModality> = {
+  boleto: 'manual',
+}
+
 /**
  * Modalidade da SPA → domínio, **tolerante de propósito**.
  *
@@ -115,6 +120,9 @@ const bitrixModality = z.unknown().transform((raw): SubscriptionModality => {
   if ((MODALITIES as readonly string[]).includes(value)) {
     return value as SubscriptionModality
   }
+
+  const alias = MODALITY_ALIASES[value.trim().toLowerCase()]
+  if (alias) return alias
 
   apiLogger.warn(
     { app: 'shared', field: SUBSCRIPTION_MODALITY_FIELD, value },

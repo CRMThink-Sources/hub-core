@@ -81,6 +81,11 @@ export interface SubscriptionItemRepository {
   getSubscriptionItemsBySubscription(
     subscriptionId: string,
   ): Promise<SubscriptionItem[]>
+  /**
+   * Quantos itens da assinatura a leitura acima pulou por estarem ilegíveis. Sem cache:
+   * só os caminhos que ajustam cobrança perguntam, e contar a menos cancelaria contrato.
+   */
+  countUnreadableItemsBySubscription(subscriptionId: string): Promise<number>
   createSubscriptionItem(
     input: CreateSubscriptionItemInput,
   ): Promise<SubscriptionItem>
