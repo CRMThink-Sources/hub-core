@@ -105,6 +105,15 @@ export class ActivateConnectorTrial {
       throw new TrialNotEligibleError(eligibility.reason)
     }
 
+    // Assinatura ilegível é escondida da leitura: sem isto a instalação pareceria nova.
+    if (
+      (await this.subscriptions.countUnreadableSubscriptionsByAplication(
+        context.aplication.spaId!,
+      )) > 0
+    ) {
+      throw new TrialNotEligibleError('has-contract')
+    }
+
     const planId = await ensureTrialPlan(this.plans)
 
     // `spaId` é garantido pela elegibilidade: `no-spa-mirror` já teria barrado.

@@ -10,11 +10,16 @@ import {
   RawSubscriptionItemReader,
 } from '@/modules/thinkzap/domain/ports/raw-subscription-item-reader.port'
 import type { SubscriptionStatusReader } from '@/modules/thinkzap/domain/ports/subscription-status-reader.port'
+import type { ActiveResourceUsage } from '@/modules/thinkzap/domain/ports/active-resource-usage.port'
 import { apiLogger } from '@/shared/infra/logger'
 
 vi.mock('@/shared/infra/logger', () => ({
   apiLogger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
+
+const noSharing = (): ActiveResourceUsage => ({
+  listOtherActiveItemIds: vi.fn(() => Promise.resolve([] as string[])),
+})
 
 const INPUT = { itemId: '77', traceKey: 'spa-item-77' }
 
@@ -137,6 +142,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('unsubscribed')
@@ -169,6 +175,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(billing.unsubscribeResource).toHaveBeenCalledWith(
@@ -191,6 +198,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('noop')
@@ -213,6 +221,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('subscribed')
@@ -241,6 +250,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('subscribed')
@@ -271,6 +281,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('noop')
@@ -292,6 +303,7 @@ describe('SyncSpaItemResourceStatus', () => {
         mirrors.mirrors,
         billing.billing,
         parents.reader,
+        noSharing(),
       ).execute(INPUT)
 
       expect(result.outcome).toBe('noop')
@@ -312,6 +324,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('noop')
@@ -333,6 +346,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('subscribed')
@@ -358,6 +372,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('noop')
@@ -379,6 +394,7 @@ describe('SyncSpaItemResourceStatus', () => {
         mirrors.mirrors,
         billing.billing,
         parents.reader,
+        noSharing(),
       ).execute({ ...INPUT, parentStatus: 'cancelled' })
 
       expect(result.outcome).toBe('unsubscribed')
@@ -407,6 +423,7 @@ describe('SyncSpaItemResourceStatus', () => {
         mirrors.mirrors,
         billing.billing,
         parents.reader,
+        noSharing(),
       ).execute(INPUT)
 
       expect(result.outcome).toBe('noop')
@@ -425,6 +442,7 @@ describe('SyncSpaItemResourceStatus', () => {
         mirrors.mirrors,
         billing.billing,
         parents.reader,
+        noSharing(),
       ).execute(INPUT)
 
       expect(result.outcome).toBe('unsubscribed')
@@ -449,6 +467,7 @@ describe('SyncSpaItemResourceStatus', () => {
           mirrors.mirrors,
           billing.billing,
           makeParents().reader,
+          noSharing(),
         ).execute({ ...INPUT, parentStatus: 'cancelled' }),
       ).rejects.toThrow('provider fora')
 
@@ -468,6 +487,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('noop')
@@ -490,6 +510,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('unsubscribed')
@@ -508,6 +529,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(mirrors.save).toHaveBeenCalledWith('77', {
@@ -532,6 +554,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('unsubscribed')
@@ -550,6 +573,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('item-missing')
@@ -570,10 +594,25 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('no-credential')
+    expect(result.provider).toBeUndefined()
     expect(billing.unsubscribeResource).not.toHaveBeenCalled()
+  })
+
+  /** O provider declarado é o que diz à reconciliação que falta provisionar. */
+  it('item que declara provider sem credencial devolve o provider junto', async () => {
+    const result = await new SyncSpaItemResourceStatus(
+      makeItems(rawItem({ provider: 'HUBMESSAGE', credentials: {} })).items,
+      makeMirrors(null).mirrors,
+      makeBilling().billing,
+      makeParents().reader,
+      noSharing(),
+    ).execute(INPUT)
+
+    expect(result).toEqual({ outcome: 'no-credential', provider: 'HUBMESSAGE' })
   })
 
   it('não faz nada quando o id do enum de status não é reconhecido', async () => {
@@ -587,6 +626,7 @@ describe('SyncSpaItemResourceStatus', () => {
       mirrors.mirrors,
       billing.billing,
       parents.reader,
+      noSharing(),
     ).execute(INPUT)
 
     expect(result.outcome).toBe('unknown-status')
@@ -609,6 +649,7 @@ describe('SyncSpaItemResourceStatus', () => {
         mirrors.mirrors,
         billing.billing,
         parents.reader,
+        noSharing(),
       ).execute(INPUT),
     ).rejects.toThrow('provider fora')
 
@@ -631,6 +672,7 @@ describe('SyncSpaItemResourceStatus', () => {
         mirrors.mirrors,
         billing.billing,
         parents.reader,
+        noSharing(),
       ).execute(INPUT),
     ).rejects.toThrow('provider fora')
 
@@ -646,6 +688,7 @@ describe('SyncSpaItemResourceStatus — verificação de assinaturas', () => {
     item?: RawSubscriptionItem
     mirror?: SpaItemResourceMirror | null
     subscribeOutcome?: 'subscribed' | 'already-subscribed'
+    sharedWith?: string[]
   }) => {
     const items = makeItems(args.item ?? rawItem())
     const mirrors = makeMirrors(
@@ -655,17 +698,88 @@ describe('SyncSpaItemResourceStatus — verificação de assinaturas', () => {
     billing.subscribeResource.mockImplementation((() =>
       Promise.resolve(args.subscribeOutcome ?? 'subscribed')) as never)
     const parents = makeParents()
+    const usage = {
+      listOtherActiveItemIds: vi.fn(() =>
+        Promise.resolve(args.sharedWith ?? []),
+      ),
+    }
     return {
       useCase: new SyncSpaItemResourceStatus(
         items.items,
         mirrors.mirrors,
         billing.billing,
         parents.reader,
+        usage,
       ),
       mirrors,
       billing,
+      usage,
     }
   }
+
+  it('reconciliação desassina linha cancelada que ficou sem a marca', async () => {
+    const { useCase, billing, mirrors } = build({
+      item: rawItem({ status: 'cancelled' }),
+      mirror: { ...MIRROR, subscribedAt: '2026-10-01T00:00:00.000Z' },
+    })
+
+    const result = await useCase.execute({
+      ...INPUT,
+      parentStatus: 'active',
+      mode: 'reconcile',
+    })
+
+    expect(result.outcome).toBe('unsubscribed')
+    expect(billing.unsubscribeResource).toHaveBeenCalledTimes(1)
+    expect(mirrors.current()?.unsubscribedAt).toBeDefined()
+  })
+
+  it('reconciliação desassina linha ativa de assinatura cancelada', async () => {
+    const { useCase, billing } = build({
+      mirror: { ...MIRROR, subscribedAt: '2026-10-01T00:00:00.000Z' },
+    })
+
+    const result = await useCase.execute({
+      ...INPUT,
+      parentStatus: 'cancelled',
+      mode: 'reconcile',
+    })
+
+    expect(result.outcome).toBe('unsubscribed')
+    expect(billing.unsubscribeResource).toHaveBeenCalledWith(
+      expect.objectContaining({ instanceId: 'inst-1' }),
+      { origin: 'subscription-cancelled', propagate: true },
+    )
+  })
+
+  /**
+   * Suporte migra a linha colando a credencial num item novo e cancela o antigo:
+   * desassinar pelo antigo cortaria a linha em uso.
+   */
+  it.each(['event', 'reconcile', 'past-due-expired'] as const)(
+    'não desassina recurso usado por outro item ativo (modo %s)',
+    async mode => {
+      const { useCase, billing, mirrors, usage } = build({
+        item: rawItem({ status: 'cancelled' }),
+        mirror: { ...MIRROR, subscribedAt: '2026-10-01T00:00:00.000Z' },
+        sharedWith: ['88'],
+      })
+
+      const result = await useCase.execute({
+        ...INPUT,
+        parentStatus: mode === 'past-due-expired' ? 'past_due' : 'active',
+        mode,
+      })
+
+      expect(result.outcome).toBe('resource-shared')
+      expect(usage.listOtherActiveItemIds).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'ZAPI', instanceId: 'inst-1' }),
+        '77',
+      )
+      expect(billing.unsubscribeResource).not.toHaveBeenCalled()
+      expect(mirrors.setBillingState).not.toHaveBeenCalled()
+    },
+  )
 
   it('quinto dia de vencimento desassina linha assinada, com a origem própria', async () => {
     const { useCase, billing, mirrors } = build({

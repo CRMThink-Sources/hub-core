@@ -28,6 +28,26 @@ export interface GetAplicationContextInput {
   domainId: string
   /** `core_app_codes.id` (`crmthink.thinkzap`), como vem no JWT. */
   appCode: string
+  /**
+   * Para quem ajusta cobrança: lança `IncompleteContractReadError` se a leitura pulou
+   * assinatura viva ou item ilegível. Contar linhas a menos reduziria ou cancelaria a
+   * cobrança no gateway; lançar devolve a decisão ao retry do job.
+   */
+  requireCompleteRead?: boolean
+}
+
+export class IncompleteContractReadError extends Error {
+  constructor(
+    readonly aplicationSpaId: string,
+    readonly unreadableSubscriptions: number,
+    readonly unreadableItems: number,
+  ) {
+    super(
+      `Contrato da instalação ${aplicationSpaId} com leitura incompleta: ` +
+        `${unreadableSubscriptions} assinatura(s) e ${unreadableItems} item(ns) ilegíveis`,
+    )
+    this.name = 'IncompleteContractReadError'
+  }
 }
 
 /**
@@ -57,6 +77,7 @@ export class GetAplicationContext {
   async execute({
     domainId,
     appCode,
+    requireCompleteRead = false,
   }: GetAplicationContextInput): Promise<AplicationContext> {
     /**
      * Passa pelo cliente porque o JWT dá o uuid de `core_domains` e
@@ -109,6 +130,25 @@ export class GetAplicationContext {
         this.items.getSubscriptionItemsBySubscription(subscription.id),
       ),
     )
+
+    if (requireCompleteRead) {
+      const [unreadableSubscriptions, ...unreadableItems] = await Promise.all([
+        this.subscriptions.countUnreadableSubscriptionsByAplication(
+          aplication.spaId,
+        ),
+        ...subscriptions.map(subscription =>
+          this.items.countUnreadableItemsBySubscription(subscription.id),
+        ),
+      ])
+      const totalItems = unreadableItems.reduce((sum, n) => sum + n, 0)
+      if (unreadableSubscriptions > 0 || totalItems > 0) {
+        throw new IncompleteContractReadError(
+          aplication.spaId,
+          unreadableSubscriptions,
+          totalItems,
+        )
+      }
+    }
 
     return {
       customer,

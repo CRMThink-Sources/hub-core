@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq'
 import { bullBaseOptions } from './redis-connection'
+import { spaEffectJobOptions } from './spa-effect-job-options'
 import { apiLogger } from '@/shared/infra/logger'
 import type { SpaEffectSource } from './spa-item-resource-sync.queue'
 
@@ -29,37 +30,25 @@ export const spaItemProvisioningQueue = new Queue<SpaItemProvisioningJob>(
   bullBaseOptions,
 )
 
-/**
- * Id determinístico do job de um item.
- *
- * Separador `-`, **nunca** `:`: o BullMQ recusa id custom com dois-pontos
- * (`Custom Id cannot contain :`), porque é o separador das chaves dele no Redis. O
- * erro só aparece na chamada de `add`, então a única forma de travá-lo é aqui —
- * e é a mesma convenção de `import-<id>` e `hubmessage-<id>` no resto da API.
- */
+/** Id de deduplicação do provisionamento de um item. */
 export const spaItemProvisioningJobId = (itemId: string): string =>
   `spa-item-provision-${itemId}`
 
 /**
  * Enfileira o provisionamento de um item.
  *
- * `jobId` determinístico por item: reentrega do mesmo evento pelo Bitrix — que
- * acontece, e é o comportamento dele quando o handler demora — é colapsada pelo
- * BullMQ em vez de virar um segundo provisionamento.
- *
- * A colapsagem vale enquanto o job está na fila ou retido no histórico de
- * concluídos. Ela **não** é a única defesa contra recurso duplicado: a guarda real é
- * a credencial já presente no item, verificada dentro do caso de uso, porque um
- * evento reentregue dias depois teria id livre de novo.
+ * A reentrega do mesmo ADD pelo Bitrix roda depois do job em andamento, nunca em
+ * paralelo com ele: dois provisionamentos simultâneos criariam dois recursos no
+ * provider. Em sequência, o segundo encontra a credencial gravada e não provisiona.
  */
 export async function enqueueSpaItemProvisioningJob(
   job: SpaItemProvisioningJob,
 ) {
-  const created = await spaItemProvisioningQueue.add('provision-line', job, {
-    attempts: 3,
-    backoff: { type: 'exponential', delay: 2000 },
-    jobId: spaItemProvisioningJobId(job.itemId),
-  })
+  const created = await spaItemProvisioningQueue.add(
+    'provision-line',
+    job,
+    spaEffectJobOptions(spaItemProvisioningJobId(job.itemId)),
+  )
 
   apiLogger.info(
     {

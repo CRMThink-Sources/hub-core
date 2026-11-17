@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/config/prisma.js', () => ({ prisma: {} }))
 vi.mock('@/queue/redis-connection', () => ({ redisConnection: {} }))
+// A verificação de assinaturas reenvia linha sem credencial à fila de provisionamento.
+vi.mock('@/queue/spa-item-provisioning.queue', () => ({
+  enqueueSpaItemProvisioningJob: vi.fn(),
+}))
 // As rotas do portal montam o reprocessamento de "Falhas de envio", que fala com o BullMQ.
 vi.mock(
   '@/modules/thinkzap/infra/queue/bullmq-open-channel-conversation.queue',

@@ -1,3 +1,4 @@
+import { IncompleteContractReadError } from '@/modules/application/application/get-aplication-context'
 import { describe, expect, it, vi } from 'vitest'
 import {
   CreateAdditionalLine,
@@ -165,6 +166,10 @@ type Options = {
   failCreateItem?: boolean
   /** Provisionamento conclui sem credencial — linha que nunca conectaria. */
   provisionWithoutCredential?: boolean
+  /** Assinaturas escondidas pela leitura tolerante. */
+  unreadableSubscriptions?: number
+  /** Itens escondidos pela leitura tolerante, em cada assinatura. */
+  unreadableItems?: number
 }
 
 const makeUseCase = (options: Options = {}) => {
@@ -216,6 +221,9 @@ const makeUseCase = (options: Options = {}) => {
     getSubscription: vi.fn(),
     getSubscriptions: vi.fn(),
     getSubscriptionsByAplication: vi.fn(),
+    countUnreadableSubscriptionsByAplication: vi.fn(() =>
+      Promise.resolve(options.unreadableSubscriptions ?? 0),
+    ),
     listSubscriptionsByGatewayId: vi.fn(),
     createSubscription,
     updateSubscription: vi.fn(),
@@ -239,6 +247,9 @@ const makeUseCase = (options: Options = {}) => {
     createSubscriptionItem,
     updateSubscriptionItem: vi.fn(),
     reparentSubscriptionItem: vi.fn(),
+    countUnreadableItemsBySubscription: vi.fn(() =>
+      Promise.resolve(options.unreadableItems ?? 0),
+    ),
   } as unknown as SubscriptionItemRepository
 
   const provisionConnector = vi.fn(() => {
@@ -316,6 +327,24 @@ describe('CreateAdditionalLine', () => {
      * `manual` para ele. A checagem invertida recusaria justamente quem está
      * testando.
      */
+    /**
+     * Regressão: manual paga com plano sem price passava por trial, pulava a recusa e
+     * abria checkout Stripe — segunda assinatura paga para quem já paga boleto.
+     */
+    it.each(['active', 'past_due'] as const)(
+      'recusa manual %s mesmo com plano sem price no gateway',
+      async status => {
+        const deps = makeUseCase({
+          subscriptions: [trialContract({ status })],
+        })
+
+        await expect(deps.useCase.execute(INPUT)).rejects.toThrow(
+          ManualModalityCannotCreateLineError,
+        )
+        expect(deps.provisionConnector).not.toHaveBeenCalled()
+      },
+    )
+
     it('não confunde trial com boleto', async () => {
       const deps = makeUseCase({ subscriptions: [trialContract()] })
 
@@ -378,6 +407,16 @@ describe('CreateAdditionalLine', () => {
   })
 
   describe('caminho sem checkout (contrato vivo no gateway)', () => {
+    /** Item escondido da leitura sairia da contagem e a cobrança diminuiria. */
+    it('com item ilegível no contrato, recusa sem provisionar nem cobrar', async () => {
+      const deps = makeUseCase({ unreadableItems: 1 })
+
+      await expect(deps.useCase.execute(INPUT)).rejects.toBeInstanceOf(
+        IncompleteContractReadError,
+      )
+      expect(deps.syncSubscriptionLineItems).not.toHaveBeenCalled()
+    })
+
     it('provisiona, ajusta a cobrança, cria a linha e assina no provider', async () => {
       const deps = makeUseCase()
 
@@ -660,6 +699,18 @@ describe('CreateAdditionalLine', () => {
       await expect(deps.useCase.execute(INPUT)).resolves.toMatchObject({
         kind: 'checkout',
       })
+    })
+
+    /** Contrato manual ilegível (escondido da leitura) não pode virar segundo contrato. */
+    it('com assinatura ilegível na instalação, recusa em vez de abrir checkout', async () => {
+      const deps = makeUseCase({
+        subscriptions: [paidContract({ status: 'cancelled' })],
+        unreadableSubscriptions: 1,
+      })
+
+      await expect(deps.useCase.execute(INPUT)).rejects.toBeInstanceOf(
+        ManualModalityCannotCreateLineError,
+      )
     })
 
     /** Inadimplente existe no gateway: acrescentar é ajuste, não contratação nova. */

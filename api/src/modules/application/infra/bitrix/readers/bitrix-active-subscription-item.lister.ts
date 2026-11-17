@@ -1,6 +1,7 @@
 import { env } from '@/config/env'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import type { ActiveSubscriptionItemLister } from '@/modules/thinkzap/domain/ports/active-subscription-item-lister.port'
+import { SUBSCRIPTION_ITEM_DELETED_AT_FIELD } from '../ensure-subscription-item-deletion-fields'
 import {
   STATUS_BY_BITRIX_ID,
   SUBSCRIPTION_PARENT_FIELD,
@@ -56,4 +57,70 @@ export class BitrixActiveSubscriptionItemLister implements ActiveSubscriptionIte
 
     return items
   }
+
+  async listItemsWithCredential(): Promise<
+    Array<{
+      itemId: string
+      subscriptionId: string | null
+      status: 'active' | 'cancelled' | null
+    }>
+  > {
+    const items: Array<{
+      itemId: string
+      subscriptionId: string | null
+      status: 'active' | 'cancelled' | null
+    }> = []
+    let start: number | undefined
+
+    do {
+      const response = await this.bitrix.listCrmItems(
+        env.payments.spa.subscriptionItemEntityType,
+        {},
+        {
+          select: [
+            'id',
+            SUBSCRIPTION_PARENT_FIELD,
+            'ufCrm93Status',
+            'ufCrm93ZApiInstanceId',
+            'ufCrm93HubChanelId',
+            SUBSCRIPTION_ITEM_DELETED_AT_FIELD,
+          ],
+          ...(start !== undefined && { start }),
+        },
+      )
+
+      for (const raw of response.result?.items ?? []) {
+        const record = raw as Record<string, unknown>
+        const id = record.id
+        if (typeof id !== 'number' && typeof id !== 'string') continue
+        if (filled(record[SUBSCRIPTION_ITEM_DELETED_AT_FIELD])) continue
+        if (
+          !filled(record.ufCrm93ZApiInstanceId) &&
+          !filled(record.ufCrm93HubChanelId)
+        ) {
+          continue
+        }
+
+        items.push({
+          itemId: String(id),
+          subscriptionId: parentOf(record[SUBSCRIPTION_PARENT_FIELD]),
+          status: STATUS_BY_BITRIX_ID[String(record.ufCrm93Status)] ?? null,
+        })
+      }
+
+      start = response.next
+    } while (start !== undefined)
+
+    return items
+  }
 }
+
+const filled = (raw: unknown): boolean =>
+  typeof raw === 'string' && raw.trim() !== ''
+
+const parentOf = (raw: unknown): string | null =>
+  (typeof raw === 'number' || typeof raw === 'string') &&
+  String(raw) !== '0' &&
+  String(raw) !== ''
+    ? String(raw)
+    : null

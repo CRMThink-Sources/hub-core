@@ -9,6 +9,9 @@ import { SubscriptionItem } from '@/modules/application/domain/entities/subscrip
 import { SubscriptionItemNotFoundError } from '@/modules/application/domain/errors/subscription-item-not-found.error'
 import { SubscriptionNotFoundError } from '@/modules/application/domain/errors/subscription-not-found.error'
 import { env } from '@/config/env'
+import { apiLogger } from '@/shared/infra/logger'
+import { InvalidBitrixSubscriptionItemError } from '../errors/invalid-bitrix-subscription-item.error'
+import { listAllCrmItems } from '../list-all-crm-items'
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import {
   SUBSCRIPTION_PARENT_FIELD,
@@ -41,10 +44,55 @@ export class BitrixSubscriptionItemRepository implements SubscriptionItemReposit
     return this.list({})
   }
 
+  /**
+   * Tolerante a item inválido: ele é pulado e logado, em vez de derrubar a leitura.
+   * O caso comum é o item recém-criado que ainda espera o provisionamento (provider
+   * declarado, sem credencial) — estrito, cada linha criada derrubava a instalação
+   * inteira do cliente até a credencial ser gravada, e para sempre se o
+   * provisionamento falhasse.
+   */
   async getSubscriptionItemsBySubscription(
     subscriptionId: string,
   ): Promise<SubscriptionItem[]> {
-    return this.list({ [SUBSCRIPTION_PARENT_FIELD]: subscriptionId })
+    return (await this.readBySubscription(subscriptionId)).items
+  }
+
+  async countUnreadableItemsBySubscription(
+    subscriptionId: string,
+  ): Promise<number> {
+    return (await this.readBySubscription(subscriptionId)).unreadable
+  }
+
+  private async readBySubscription(
+    subscriptionId: string,
+  ): Promise<{ items: SubscriptionItem[]; unreadable: number }> {
+    const raws = await listAllCrmItems(
+      this.bitrix,
+      env.payments.spa.subscriptionItemEntityType,
+      { [SUBSCRIPTION_PARENT_FIELD]: subscriptionId },
+    )
+
+    const items: SubscriptionItem[] = []
+    let unreadable = 0
+    for (const raw of raws) {
+      try {
+        items.push(mapBitrixSpaSubscriptionItemToSubscriptionItem(raw))
+      } catch (error) {
+        if (!(error instanceof InvalidBitrixSubscriptionItemError)) throw error
+        unreadable++
+        apiLogger.warn(
+          {
+            app: 'shared',
+            subscriptionId,
+            subscriptionItemId: (raw as { id?: unknown })?.id,
+            issues: error.message,
+          },
+          'Item de assinatura ilegível ignorado na leitura da instalação',
+        )
+      }
+    }
+
+    return { items, unreadable }
   }
 
   async createSubscriptionItem(
@@ -154,13 +202,12 @@ export class BitrixSubscriptionItemRepository implements SubscriptionItemReposit
   private async list(
     filter: Record<string, unknown>,
   ): Promise<SubscriptionItem[]> {
-    const response = await this.bitrix.listCrmItems(
-      env.payments.spa.subscriptionItemEntityType,
-      filter,
-    )
-
     return collectBitrixSpaSubscriptionItemToSubscriptionItem(
-      response.result?.items ?? [],
+      await listAllCrmItems(
+        this.bitrix,
+        env.payments.spa.subscriptionItemEntityType,
+        filter,
+      ),
     )
   }
 }

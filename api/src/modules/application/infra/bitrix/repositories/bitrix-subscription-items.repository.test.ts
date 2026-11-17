@@ -136,6 +136,58 @@ describe('BitrixSubscriptionItemRepository', () => {
         makeRepository(bitrix).getSubscriptionItemsBySubscription('4242'),
       ).resolves.toEqual([])
     })
+
+    /**
+     * Regressão: item recém-criado esperando provisionamento (provider declarado, sem
+     * credencial) derrubava a leitura da instalação inteira do cliente.
+     */
+    it('pula item ilegível e devolve os legíveis', async () => {
+      const bitrix = makeBitrix({
+        listCrmItems: vi.fn(() =>
+          Promise.resolve({
+            result: {
+              items: [
+                spaItem(1),
+                spaItem(2, {
+                  ufCrm93Provider: 'ZAPI',
+                  ufCrm93ZApiInstanceId: '',
+                  ufCrm93ZApiInstanceToken: '',
+                  ufCrm93HubChanelId: '',
+                }),
+                spaItem(3, { ufCrm93Status: '13999' }),
+              ],
+            },
+          }),
+        ),
+      })
+
+      const repository = makeRepository(bitrix)
+      const items = await repository.getSubscriptionItemsBySubscription('4242')
+
+      expect(items.map(item => item.id)).toEqual(['1'])
+      await expect(
+        repository.countUnreadableItemsBySubscription('4242'),
+      ).resolves.toBe(2)
+    })
+
+    it('lê todas as páginas: assinatura com mais de 50 linhas', async () => {
+      const listCrmItems = vi
+        .fn()
+        .mockResolvedValueOnce({
+          result: {
+            items: Array.from({ length: 50 }, (_, i) => spaItem(i + 1)),
+          },
+          next: 50,
+        })
+        .mockResolvedValueOnce({ result: { items: [spaItem(51)] } })
+
+      const items = await makeRepository(
+        makeBitrix({ listCrmItems }),
+      ).getSubscriptionItemsBySubscription('4242')
+
+      expect(items).toHaveLength(51)
+      expect(listCrmItems.mock.calls[1]?.[2]).toEqual({ start: 50 })
+    })
   })
 
   describe('createSubscriptionItem', () => {

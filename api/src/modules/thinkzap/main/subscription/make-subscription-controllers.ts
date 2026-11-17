@@ -113,7 +113,8 @@ function requireFrontUrl(): string {
 }
 
 export const makeCreateCheckoutController = (): Controller => {
-  const { getAplicationContext, plans, bitrixClient } = makeSubscriptionDeps()
+  const { getAplicationContext, plans, bitrixClient, subscriptions } =
+    makeSubscriptionDeps()
 
   /**
    * Sem URL de retorno: o checkout é embedado com redirecionamento desligado, então
@@ -126,6 +127,7 @@ export const makeCreateCheckoutController = (): Controller => {
       new ListOfferablePlans(plans),
       requireGateway(),
       bitrixClient,
+      subscriptions,
     ),
   )
 }

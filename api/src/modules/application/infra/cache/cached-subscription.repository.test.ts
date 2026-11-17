@@ -74,6 +74,7 @@ function makeInner(entity: Subscription = subscription) {
     getSubscription,
     getSubscriptions,
     getSubscriptionsByAplication,
+    countUnreadableSubscriptionsByAplication: vi.fn(() => Promise.resolve(0)),
     listSubscriptionsByGatewayId,
     createSubscription,
     updateSubscription,

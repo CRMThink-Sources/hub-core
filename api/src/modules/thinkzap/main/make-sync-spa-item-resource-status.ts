@@ -1,3 +1,4 @@
+import { BitrixActiveResourceUsageReader } from '@/modules/application/infra/bitrix/readers/bitrix-active-resource-usage.reader'
 import { BitrixRawSubscriptionItemReader } from '@/modules/application/infra/bitrix/readers/bitrix-raw-subscription-item.reader'
 import { BitrixSubscriptionStatusReader } from '@/modules/application/infra/bitrix/readers/bitrix-subscription-status.reader'
 import { SyncSpaItemResourceStatus } from '@/modules/thinkzap/application/sync-spa-item-resource-status'
@@ -30,5 +31,6 @@ export const makeSyncSpaItemResourceStatus = (): SyncSpaItemResourceStatus => {
     deps.mirrors,
     deps.providerBilling,
     new BitrixSubscriptionStatusReader(deps.bitrixClient),
+    new BitrixActiveResourceUsageReader(deps.bitrixClient),
   )
 }

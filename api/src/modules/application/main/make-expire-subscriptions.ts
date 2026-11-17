@@ -2,6 +2,7 @@ import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { env } from '@/config/env'
 import { prisma } from '@/config/prisma.js'
 import { redisConnection } from '@/queue/redis-connection'
+import { enqueueSpaItemProvisioningJob } from '@/queue/spa-item-provisioning.queue'
 import { ExpireSubscriptions } from '@/modules/application/application/expire-subscriptions'
 import { PrismaAplicationRepository } from '@/modules/application/infra/prisma/repositories/prisma-aplications.repository'
 import { BitrixAplicationTitleReader } from '@/modules/application/infra/bitrix/readers/bitrix-aplication-title.reader'
@@ -13,6 +14,7 @@ import { CachedProductRepository } from '@/modules/application/infra/cache/cache
 import { CachedPlanRepository } from '@/modules/application/infra/cache/cached-plan.repository'
 import { CachedSubscriptionRepository } from '@/modules/application/infra/cache/cached-subscription.repository'
 import { BitrixActiveSubscriptionItemLister } from '@/modules/application/infra/bitrix/readers/bitrix-active-subscription-item.lister'
+import { RedisSpaItemResourceMirrorRepository } from '@/modules/application/infra/cache/redis-spa-item-resource-mirror.repository'
 import { BitrixSubscriptionItemIdLister } from '@/modules/application/infra/bitrix/readers/bitrix-subscription-item-id.lister'
 import { SubscriptionLineBillingAdapter } from '@/modules/thinkzap/application/subscription-line-billing.adapter'
 import { makeSyncSpaItemResourceStatus } from '@/modules/thinkzap/main/make-sync-spa-item-resource-status'
@@ -56,6 +58,13 @@ export const makeExpireSubscriptions = (): ExpireSubscriptions => {
         new BitrixSubscriptionItemIdLister(bitrixClient),
         new BitrixActiveSubscriptionItemLister(bitrixClient),
         makeSyncSpaItemResourceStatus(),
+        new RedisSpaItemResourceMirrorRepository(redisConnection),
+        itemId =>
+          enqueueSpaItemProvisioningJob({
+            itemId,
+            traceKey: `reconcile-provision-${itemId}`,
+            source: 'spa-webhook',
+          }),
       )
     : null
 

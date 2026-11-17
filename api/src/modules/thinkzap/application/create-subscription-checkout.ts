@@ -11,10 +11,8 @@ import {
   CheckoutSession,
   PaymentGateway,
 } from '@/modules/thinkzap/domain/ports/payment-gateway.port'
-import {
-  isTrialSubscription,
-  resolveCurrentContract,
-} from '@/modules/thinkzap/domain/line-subscription'
+import { resolveCurrentContract } from '@/modules/thinkzap/domain/line-subscription'
+import type { SubscriptionRepository } from '@/modules/application/domain/repositories/subscription.repository'
 import { buildContractLineItems } from './helpers/build-contract-line-items'
 import { ListOfferablePlans } from './list-offerable-plans'
 
@@ -33,7 +31,7 @@ export class PlanNotOfferableError extends Error {
 export class AlreadySubscribedError extends Error {
   constructor() {
     super(
-      'Esta instalação já tem assinatura paga do gateway. Trocar de plano está fora de escopo.',
+      'Esta instalação já tem assinatura paga. Trocar de plano está fora de escopo.',
     )
     this.name = 'AlreadySubscribedError'
   }
@@ -67,6 +65,10 @@ export class CreateSubscriptionCheckout {
     private readonly plans: ListOfferablePlans,
     private readonly gateway: PaymentGateway,
     private readonly bitrix: BitrixClient,
+    private readonly subscriptions: Pick<
+      SubscriptionRepository,
+      'countUnreadableSubscriptionsByAplication'
+    >,
   ) {}
 
   async execute(
@@ -107,17 +109,30 @@ export class CreateSubscriptionCheckout {
     if (!chosen) throw new PlanNotOfferableError(input.planId)
 
     /**
-     * Instalação com assinatura paga do gateway **viva** não contrata de novo:
-     * seria troca de plano, que está fora de escopo e exigiria proration. Trial e
-     * paga cancelada podem — é justamente o caso que esta superfície existe para
-     * resolver. Acrescentar linha a um contrato vivo tem superfície própria, e não
-     * passa por aqui.
+     * Contrato vivo — `active` ou `past_due`, de **qualquer** modalidade — não contrata
+     * de novo. Com o boleto liberado, o cliente pagante da cobrança manual fechava um
+     * checkout e ficava com duas assinaturas pagas, cobrado nas duas.
+     *
+     * Pelo status, e não por `isTrialSubscription`: aquele olha o plano sem price no
+     * gateway, e uma manual paga com plano sem price passaria por trial. Trial vive em
+     * `trialing`/`trial_expired` e segue podendo contratar, como a paga cancelada.
      */
     if (
       current &&
-      !isTrialSubscription(current) &&
-      current.modality === 'stripe' &&
-      current.status !== 'cancelled'
+      (current.status === 'active' || current.status === 'past_due')
+    ) {
+      throw new AlreadySubscribedError()
+    }
+
+    /**
+     * Assinatura ilegível é escondida da leitura; sem esta pergunta a instalação
+     * pareceria sem contrato, e o checkout abriria um segundo.
+     */
+    if (
+      context.aplication.spaId &&
+      (await this.subscriptions.countUnreadableSubscriptionsByAplication(
+        context.aplication.spaId,
+      )) > 0
     ) {
       throw new AlreadySubscribedError()
     }

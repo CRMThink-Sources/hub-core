@@ -433,6 +433,7 @@ export class ProvisionLineFromSpaItem {
     const context = await this.getAplicationContext.execute({
       domainId: parent.aplication.customer.id,
       appCode: parent.aplication.appCode,
+      requireCompleteRead: true,
     })
 
     const siblings = context.subscriptions.filter(

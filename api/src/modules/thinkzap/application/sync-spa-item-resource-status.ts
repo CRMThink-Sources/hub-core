@@ -17,6 +17,7 @@ import {
   type ProviderUnsubscribeReason,
 } from './helpers/resolve-provider-billing-action'
 import type { SubscriptionStatusReader } from '@/modules/thinkzap/domain/ports/subscription-status-reader.port'
+import type { ActiveResourceUsage } from '@/modules/thinkzap/domain/ports/active-resource-usage.port'
 
 export type SyncSpaItemResourceStatusInput = {
   /** Id do item na SPA 1146. */
@@ -63,6 +64,8 @@ export type SyncSpaItemResourceStatusOutcome =
   | 'no-credential'
   /** `ufCrm93Status` vazio ou com id de enum desconhecido. */
   | 'unknown-status'
+  /** Desassinar cortaria outro item ativo com a mesma credencial: não desassinado. */
+  | 'resource-shared'
 
 export type SyncSpaItemResourceStatusResult = {
   outcome: SyncSpaItemResourceStatusOutcome
@@ -130,6 +133,7 @@ export class SyncSpaItemResourceStatus {
     private readonly mirrors: SpaItemResourceMirrorRepository,
     private readonly billing: ProviderResourceBilling,
     private readonly subscriptions: SubscriptionStatusReader,
+    private readonly resourceUsage: ActiveResourceUsage,
   ) {}
 
   async execute(
@@ -180,7 +184,10 @@ export class SyncSpaItemResourceStatus {
         { ...log, provider: item.provider },
         'Item sem credencial de provider — nenhuma operação de cobrança tentada',
       )
-      return { outcome: 'no-credential' }
+      // O provider declarado vai junto: é o que diz a quem chama que falta provisionar.
+      return item.provider === 'ZAPI' || item.provider === 'HUBMESSAGE'
+        ? { outcome: 'no-credential', provider: item.provider }
+        : { outcome: 'no-credential' }
     }
 
     const mirror = await this.mirrors.find(input.itemId)
@@ -259,6 +266,28 @@ export class SyncSpaItemResourceStatus {
     resource: ProviderResourceRef
     reason: ProviderUnsubscribeReason
   }): Promise<SyncSpaItemResourceStatusResult> {
+    const sharedWith = await this.resourceUsage.listOtherActiveItemIds(
+      args.resource,
+      args.input.itemId,
+    )
+    if (sharedWith.length > 0) {
+      /**
+       * Sem marca de propósito: o item segue candidato e volta a ser avaliado. Quando o
+       * outro item deixar de usar o recurso, a desassinatura acontece.
+       */
+      apiLogger.warn(
+        {
+          ...args.log,
+          provider: args.resource.provider,
+          resourceId: args.resource.instanceId,
+          reason: args.reason,
+          sharedWithItemIds: sharedWith,
+        },
+        'Recurso em uso por outro item ativo — não desassinado no provider',
+      )
+      return { outcome: 'resource-shared', provider: args.resource.provider }
+    }
+
     await this.billing.unsubscribeResource(args.resource, {
       origin: ORIGIN_BY_UNSUBSCRIBE_REASON[args.reason],
       propagate: true,

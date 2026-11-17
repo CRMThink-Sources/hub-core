@@ -236,7 +236,11 @@ describe('resolveProviderBillingAction — verificação de assinaturas', () => 
       ).toEqual({ action: 'subscribe' })
     })
 
-    it('não assina linha cancelada', () => {
+    /**
+     * Regressão: a reconciliação só assinava. Linha cancelada cujo evento se perdeu
+     * continuava cobrada pelo provider para sempre.
+     */
+    it('desassina linha cancelada sem marca de desassinado', () => {
       expect(
         resolveProviderBillingAction({
           itemStatus: 'cancelled',
@@ -244,10 +248,38 @@ describe('resolveProviderBillingAction — verificação de assinaturas', () => 
           mirror: null,
           mode: 'reconcile',
         }),
-      ).toEqual({ action: 'noop', reason: 'in-sync' })
+      ).toEqual({ action: 'unsubscribe', reason: 'item-cancelled' })
     })
 
-    it.each(['past_due', 'cancelled', 'trialing', 'trial_expired'] as const)(
+    it('desassina linha ativa de pai cancelado sem marca de desassinado', () => {
+      expect(
+        resolveProviderBillingAction({
+          itemStatus: 'active',
+          parentStatus: 'cancelled',
+          mirror: SUBSCRIBED,
+          mode: 'reconcile',
+        }),
+      ).toEqual({ action: 'unsubscribe', reason: 'parent-cancelled' })
+    })
+
+    it.each([
+      ['cancelled', 'active'],
+      ['active', 'cancelled'],
+    ] as const)(
+      'não desassina de novo linha %s de pai %s já desassinada',
+      (itemStatus, parentStatus) => {
+        expect(
+          resolveProviderBillingAction({
+            itemStatus,
+            parentStatus,
+            mirror: { unsubscribedAt: '2026-11-01T00:00:00.000Z' },
+            mode: 'reconcile',
+          }),
+        ).toEqual({ action: 'noop', reason: 'in-sync' })
+      },
+    )
+
+    it.each(['past_due', 'trialing', 'trial_expired'] as const)(
       'não assina sob pai %s',
       parentStatus => {
         expect(

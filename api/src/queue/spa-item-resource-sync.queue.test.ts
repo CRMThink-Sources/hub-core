@@ -10,7 +10,7 @@ vi.mock('./redis-connection', () => ({
 }))
 
 const { addMock, infoMock } = vi.hoisted(() => ({
-  addMock: vi.fn(() => Promise.resolve({ id: 'job-1' })),
+  addMock: vi.fn((..._args: unknown[]) => Promise.resolve({ id: 'job-1' })),
   infoMock: vi.fn(),
 }))
 vi.mock('bullmq', () => ({
@@ -25,6 +25,8 @@ vi.mock('@/shared/infra/logger', () => ({
 // `vi.mock` é içado acima dos imports, então o import estático já pega os dublês.
 import {
   enqueueSpaItemCleanupJob,
+  enqueueSpaItemStatusSyncJob,
+  enqueueSubscriptionBillingSyncJob,
   spaItemCleanupJobId,
   spaItemStatusJobId,
   subscriptionBillingSyncJobId,
@@ -70,6 +72,62 @@ describe('ids de job da fila de recurso do item', () => {
   it('carregam o id do item, para o job ser rastreável pelo painel', () => {
     expect(spaItemCleanupJobId('27')).toBe('spa-item-cleanup-27')
     expect(spaItemStatusJobId('27')).toBe('spa-item-status-27')
+  })
+})
+
+describe('opções de enfileiramento dos efeitos da SPA', () => {
+  beforeEach(() => addMock.mockClear())
+
+  const cases = [
+    {
+      name: 'status do item',
+      enqueue: () =>
+        enqueueSpaItemStatusSyncJob({ itemId: '27', traceKey: 't' }),
+      dedupId: 'spa-item-status-27',
+    },
+    {
+      name: 'cobrança da assinatura',
+      enqueue: () =>
+        enqueueSubscriptionBillingSyncJob({
+          subscriptionId: '27',
+          traceKey: 't',
+        }),
+      dedupId: 'spa-subscription-billing-27',
+    },
+    {
+      name: 'limpeza do item',
+      enqueue: () => enqueueSpaItemCleanupJob({ itemId: '27', traceKey: 't' }),
+      dedupId: 'spa-item-cleanup-27',
+    },
+  ]
+
+  /**
+   * Regressão: com `jobId` fixo e sem remoção, o job concluído ficava retido e o
+   * BullMQ descartava todo evento seguinte do mesmo item como duplicado.
+   */
+  it.each(cases)('$name não usa jobId fixo', async ({ enqueue }) => {
+    await enqueue()
+    const opts = addMock.mock.calls[0]![2] as Record<string, unknown>
+    expect(opts).not.toHaveProperty('jobId')
+  })
+
+  it.each(cases)(
+    '$name deduplica por item e guarda o evento que chega durante a execução',
+    async ({ enqueue, dedupId }) => {
+      await enqueue()
+      const opts = addMock.mock.calls[0]![2] as Record<string, unknown>
+      expect(opts.deduplication).toEqual({
+        id: dedupId,
+        keepLastIfActive: true,
+      })
+    },
+  )
+
+  it.each(cases)('$name não retém job para sempre', async ({ enqueue }) => {
+    await enqueue()
+    const opts = addMock.mock.calls[0]![2] as Record<string, unknown>
+    expect(opts.removeOnComplete).toBeDefined()
+    expect(opts.removeOnFail).toBeDefined()
   })
 })
 
