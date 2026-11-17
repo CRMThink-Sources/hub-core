@@ -48,6 +48,7 @@ function makeInner(entity: SubscriptionItem = item) {
     createSubscriptionItem,
     updateSubscriptionItem,
     reparentSubscriptionItem,
+    countUnreadableItemsBySubscription: vi.fn(() => Promise.resolve(0)),
   }
 
   return {

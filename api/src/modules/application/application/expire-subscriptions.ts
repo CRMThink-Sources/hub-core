@@ -34,7 +34,8 @@ export type ExpireSubscriptionsOptions = {
  *    assinatura vira `cancelled` com a data de cancelamento.
  * 3. **Limpar** "Vencido em" de quem saiu de `past_due`.
  * 4. **Reconciliar** (só com `reconcile`): subscribe em toda linha ativa de assinatura
- *    `active`.
+ *    `active`, e unsubscribe nas linhas canceladas ou de assinatura `cancelled` que
+ *    ficaram sem a marca de desassinado (evento perdido).
  *
  * Sem `lineBilling` (efeitos de provider desligados no ambiente), as etapas que chamam
  * o provider — a desassinatura do 5º dia e a reconciliação — são puladas, e a rodada
@@ -189,6 +190,28 @@ export class ExpireSubscriptions {
     for (const line of results) {
       this.recordLine(summary, line, 'line-subscribed', null)
       if (line.succeeded) summary.linesSubscribed++
+    }
+
+    /**
+     * Falha aqui não derruba a rodada: a reconciliação já assinou as ativas, e uma rodada
+     * FAILED não conta como reconciliada — a hora seguinte refaria tudo. A pausa do Bitrix
+     * sobe, porque vale para todas as etapas.
+     */
+    try {
+      const cancelledIds = await this.lister.listCancelledIds()
+      const cancelled = await lineBilling.reconcileCancelledLines(cancelledIds)
+
+      summary.linesChecked += cancelled.checked
+      for (const line of cancelled.results) {
+        this.recordLine(summary, line, 'line-unsubscribed', null)
+        if (line.succeeded) summary.linesUnsubscribed++
+      }
+    } catch (error) {
+      if (error instanceof BitrixMethodPausedError) throw error
+      apiLogger.error(
+        { app: 'shared', err: error },
+        'Reconciliação de linhas canceladas falhou — fica para a próxima rodada',
+      )
     }
   }
 

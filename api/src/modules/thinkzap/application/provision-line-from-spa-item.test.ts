@@ -475,6 +475,7 @@ describe('ProvisionLineFromSpaItem', () => {
       expect(contextExecute).toHaveBeenCalledWith({
         domainId: 'domain-1',
         appCode: 'crmthink.thinkzap',
+        requireCompleteRead: true,
       })
       // Duas linhas Z-API ativas: a que existia e a criada à mão.
       expect(syncSubscriptionLineItems).toHaveBeenCalledWith({

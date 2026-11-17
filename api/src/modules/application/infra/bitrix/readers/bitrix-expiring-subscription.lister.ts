@@ -42,10 +42,20 @@ export class BitrixExpiringSubscriptionLister implements ExpiringSubscriptionLis
     return this.listMapped({ '!ufCrm91PastDueAt': '' })
   }
 
-  async listActiveIds(): Promise<string[]> {
+  listActiveIds(): Promise<string[]> {
+    return this.listIdsByStatus('active')
+  }
+
+  listCancelledIds(): Promise<string[]> {
+    return this.listIdsByStatus('cancelled')
+  }
+
+  private async listIdsByStatus(
+    status: keyof typeof BITRIX_ID_BY_STATUS,
+  ): Promise<string[]> {
     const ids: string[] = []
     await this.paginate(
-      { ufCrm91Status: BITRIX_ID_BY_STATUS.active },
+      { ufCrm91Status: BITRIX_ID_BY_STATUS[status] },
       ['id'],
       raw => {
         const id = raw?.id

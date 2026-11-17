@@ -182,6 +182,13 @@ export class CachedSubscriptionRepository implements SubscriptionRepository {
     return this.inner.listSubscriptionsByGatewayId(gatewayId)
   }
 
+  /** Sem cache: só os caminhos de escrita perguntam, e precisam do estado de agora. */
+  async countUnreadableSubscriptionsByAplication(
+    aplicationSpaId: string,
+  ): Promise<number> {
+    return this.inner.countUnreadableSubscriptionsByAplication(aplicationSpaId)
+  }
+
   async createSubscription(
     input: CreateSubscriptionInput,
   ): Promise<Subscription> {

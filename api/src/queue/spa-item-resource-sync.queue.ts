@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq'
 import { bullBaseOptions } from './redis-connection'
+import { spaEffectJobOptions } from './spa-effect-job-options'
 import { apiLogger } from '@/shared/infra/logger'
 
 export const SPA_ITEM_RESOURCE_SYNC = 'spa-item-resource-sync'
@@ -59,28 +60,15 @@ export const isDisabledSpaEffect = (
  * Fila da reconciliação entre o item da SPA 1146 e o recurso remoto dele: limpeza do
  * item apagado e sincronização de status do item editado.
  *
- * **Fila própria, não a `spa-item-provisioning`.** O motivo é mecânico: o `jobId` de lá
- * é `spa-item-provision-<itemId>`, determinístico por item, e o BullMQ colapsa jobs de
- * mesmo id enquanto eles estão na fila ou retidos no histórico de concluídos. Um item
- * criado e apagado no mesmo minuto — o caso de quem errou o provider e refez — teria a
- * limpeza colapsada com o provisionamento, ou o contrário.
- *
- * **Uma fila para os dois efeitos**, com `jobId` distinto por efeito: os dois falam do
- * mesmo assunto e competem pelo mesmo tipo de recurso (uma leitura de SPA mais uma
- * chamada de provider). O prefixo distinto é o que garante que o update de um item não
- * colapse com o delete dele.
+ * **Uma fila para os efeitos de item e de assinatura**, com id de deduplicação distinto
+ * por efeito: o prefixo distinto é o que impede o update de um item de colapsar com o
+ * delete dele. Ver `spaEffectJobOptions`.
  */
 export const spaItemResourceSyncQueue = new Queue<
   SpaItemResourceSyncJob | SubscriptionBillingSyncJob
 >(SPA_ITEM_RESOURCE_SYNC, bullBaseOptions)
 
-/**
- * Ids determinísticos por item e por efeito.
- *
- * Separador `-`, **nunca** `:`: o BullMQ recusa id custom com dois-pontos
- * (`Custom Id cannot contain :`), porque é o separador das chaves dele no Redis. O erro
- * só aparece na chamada de `add`, então a única forma de travá-lo é aqui.
- */
+/** Ids de deduplicação por item e por efeito. */
 export const spaItemCleanupJobId = (itemId: string): string =>
   `spa-item-cleanup-${itemId}`
 
@@ -90,25 +78,17 @@ export const spaItemStatusJobId = (itemId: string): string =>
 export const subscriptionBillingSyncJobId = (subscriptionId: string): string =>
   `spa-subscription-billing-${subscriptionId}`
 
-const OPTIONS = {
-  attempts: 3,
-  backoff: { type: 'exponential' as const, delay: 2000 },
-}
-
 /**
  * Enfileira a limpeza do recurso de um item apagado.
  *
- * `jobId` determinístico: reentrega do mesmo delete pelo Bitrix — que acontece, e é o
- * comportamento dele quando o handler demora — é colapsada pelo BullMQ. A colapsagem
- * não é a única defesa contra desassinar duas vezes: a guarda real é a marca no espelho
- * do recurso, verificada dentro do caso de uso, porque um evento reentregue dias depois
- * teria id livre de novo.
+ * A deduplicação só colapsa a reentrega enquanto o job está pendente. A guarda contra
+ * desassinar duas vezes é a marca no espelho do recurso, dentro do caso de uso.
  */
 export async function enqueueSpaItemCleanupJob(job: SpaItemResourceSyncJob) {
   const created = await spaItemResourceSyncQueue.add(
     SPA_ITEM_CLEANUP_JOB,
     job,
-    { ...OPTIONS, jobId: spaItemCleanupJobId(job.itemId) },
+    spaEffectJobOptions(spaItemCleanupJobId(job.itemId)),
   )
 
   apiLogger.info(
@@ -130,16 +110,16 @@ export async function enqueueSpaItemCleanupJob(job: SpaItemResourceSyncJob) {
 /**
  * Enfileira a sincronização de status do recurso de um item editado.
  *
- * Aqui a colapsagem por `jobId` **é** a defesa que importa contra volume: toda edição de
- * qualquer campo do item gera um evento, incluindo as escritas da própria API. Rajada no
- * mesmo item vira um job; o que ela não colapsa é rajada em itens distintos, e é para
- * isso que a fila existe em vez de o efeito rodar no handler.
+ * Toda edição de qualquer campo do item gera um evento, inclusive as escritas da própria
+ * API: a rajada no mesmo item vira um job pendente, e o que chega durante a execução roda
+ * depois dela.
  */
 export async function enqueueSpaItemStatusSyncJob(job: SpaItemResourceSyncJob) {
-  const created = await spaItemResourceSyncQueue.add(SPA_ITEM_STATUS_JOB, job, {
-    ...OPTIONS,
-    jobId: spaItemStatusJobId(job.itemId),
-  })
+  const created = await spaItemResourceSyncQueue.add(
+    SPA_ITEM_STATUS_JOB,
+    job,
+    spaEffectJobOptions(spaItemStatusJobId(job.itemId)),
+  )
 
   apiLogger.debug(
     {
@@ -158,8 +138,8 @@ export async function enqueueSpaItemStatusSyncJob(job: SpaItemResourceSyncJob) {
 /**
  * Enfileira a reconciliação de cobrança das linhas de uma assinatura editada.
  *
- * Mesma colapsagem por `jobId` da sincronização de status: o UPDATE da 1142 também é
- * ruidoso — o gateway grava status e período nela —, e a rajada vira um job.
+ * Mesma deduplicação da sincronização de status: o UPDATE da 1142 também é ruidoso — o
+ * gateway grava status e período nela.
  */
 export async function enqueueSubscriptionBillingSyncJob(
   job: SubscriptionBillingSyncJob,
@@ -167,7 +147,7 @@ export async function enqueueSubscriptionBillingSyncJob(
   const created = await spaItemResourceSyncQueue.add(
     SUBSCRIPTION_BILLING_SYNC_JOB,
     job,
-    { ...OPTIONS, jobId: subscriptionBillingSyncJobId(job.subscriptionId) },
+    spaEffectJobOptions(subscriptionBillingSyncJobId(job.subscriptionId)),
   )
 
   apiLogger.debug(

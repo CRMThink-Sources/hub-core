@@ -426,6 +426,8 @@ describe('POST /thinkzap/subscription/checkout', () => {
       subscriptions?: SubscriptionWithItems[]
       /** Campos da SPA de planos, para o caso do pré-requisito ausente. */
       planFields?: Record<string, { type?: string }>
+      /** Assinaturas que a leitura pulou por estarem ilegíveis. */
+      unreadable?: number
     } = {},
   ) => {
     const { gateway, createCheckoutSession } = makeGateway()
@@ -461,6 +463,11 @@ describe('POST /thinkzap/subscription/checkout', () => {
           ),
           gateway,
           { getCrmItemFields } as unknown as BitrixClient,
+          {
+            countUnreadableSubscriptionsByAplication: vi.fn(() =>
+              Promise.resolve(options.unreadable ?? 0),
+            ),
+          },
         ),
       ),
       createCheckoutSession,
@@ -666,6 +673,61 @@ describe('POST /thinkzap/subscription/checkout', () => {
     expect(createCheckoutSession).not.toHaveBeenCalled()
   })
 
+  /**
+   * Regressão: só a modalidade `stripe` bloqueava. O cliente que já paga por boleto
+   * (Conta Azul) fechava um checkout e ficava com duas assinaturas pagas.
+   */
+  it.each(['active', 'past_due'] as const)(
+    'recusa quando a instalação tem assinatura manual %s',
+    async status => {
+      const { controller, createCheckoutSession } = makeController({
+        subscriptions: [subscriptionOf({ status, modality: 'manual' })],
+      })
+
+      const response = await controller.perform(req({ planId: '7' }))
+
+      expect(response.status).toBe(409)
+      expect(createCheckoutSession).not.toHaveBeenCalled()
+    },
+  )
+
+  /** Manual paga com plano sem price passaria por trial em `isTrialSubscription`. */
+  it('recusa manual ativa mesmo com plano sem price no gateway', async () => {
+    const { controller, createCheckoutSession } = makeController({
+      subscriptions: [
+        subscriptionOf({ status: 'active', modality: 'manual', plan: TRIAL }),
+      ],
+    })
+
+    expect((await controller.perform(req({ planId: '7' }))).status).toBe(409)
+    expect(createCheckoutSession).not.toHaveBeenCalled()
+  })
+
+  it('recusa quando a instalação tem assinatura ilegível escondida da leitura', async () => {
+    const { controller, createCheckoutSession } = makeController({
+      subscriptions: [],
+      unreadable: 1,
+    })
+
+    expect((await controller.perform(req({ planId: '7' }))).status).toBe(409)
+    expect(createCheckoutSession).not.toHaveBeenCalled()
+  })
+
+  it('trial expirado segue podendo contratar', async () => {
+    const { controller, createCheckoutSession } = makeController({
+      subscriptions: [
+        subscriptionOf({
+          status: 'trial_expired',
+          modality: 'manual',
+          plan: TRIAL,
+        }),
+      ],
+    })
+
+    expect((await controller.perform(req({ planId: '7' }))).status).toBe(200)
+    expect(createCheckoutSession).toHaveBeenCalled()
+  })
+
   /** Paga cancelada volta a poder contratar: é o caso de reativação. */
   it('permite contratar quando a paga do gateway está cancelada', async () => {
     const { controller, createCheckoutSession } = makeController({
@@ -835,6 +897,11 @@ describe('a superfície de contratação não vaza credencial do gateway', () =>
             }),
           ),
         } as unknown as BitrixClient,
+        {
+          countUnreadableSubscriptionsByAplication: vi.fn(() =>
+            Promise.resolve(0),
+          ),
+        },
       ),
     )
 

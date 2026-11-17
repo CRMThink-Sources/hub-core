@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto'
 
-import { GetAplicationContext } from '@/modules/application/application/get-aplication-context'
+import {
+  GetAplicationContext,
+  IncompleteContractReadError,
+} from '@/modules/application/application/get-aplication-context'
 import { Plan, PlanProvider } from '@/modules/application/domain/entities/plan'
 import { Subscription } from '@/modules/application/domain/entities/subscription'
 import { SubscriptionItem } from '@/modules/application/domain/entities/subscription-item'
@@ -168,7 +171,15 @@ export class CreateAdditionalLine {
      * trial nasce sem o campo, e a leitura tolerante resolve `manual` para ela — a
      * checagem invertida recusaria justamente quem está testando.
      */
-    if (!isTrial && current.modality === 'manual') {
+    /**
+     * Manual viva também recusa pelo status: uma manual paga com plano sem price no
+     * gateway passa por trial em `isTrialSubscription`, e seguiria para um checkout que
+     * abre uma segunda assinatura paga. Trial vive em `trialing`/`trial_expired`.
+     */
+    if (
+      current.modality === 'manual' &&
+      (!isTrial || current.status === 'active' || current.status === 'past_due')
+    ) {
       throw new ManualModalityCannotCreateLineError()
     }
 
@@ -189,6 +200,20 @@ export class CreateAdditionalLine {
     const gatewayId = this.liveGatewayContract(current, isTrial)
 
     if (!gatewayId) {
+      /**
+       * Assinatura ilegível fica escondida da leitura — em geral contrato manual mal
+       * gravado pela integração do Conta Azul. Sem esta pergunta o checkout abriria um
+       * segundo contrato e o cliente pagaria boleto e cartão.
+       */
+      if (
+        context.aplication.spaId &&
+        (await this.subscriptions.countUnreadableSubscriptionsByAplication(
+          context.aplication.spaId,
+        )) > 0
+      ) {
+        throw new ManualModalityCannotCreateLineError()
+      }
+
       const session = await this.gateway.createCheckoutSession({
         lineItems: desired.lineItems,
         installation: {
@@ -207,6 +232,30 @@ export class CreateAdditionalLine {
       })
 
       return { kind: 'checkout', clientSecret: session.clientSecret }
+    }
+
+    /**
+     * A quantidade enviada ao gateway sai das linhas lidas: item ilegível escondido da
+     * leitura faria a cobrança diminuir. Antes do hotfix a leitura estrita falhava aqui.
+     */
+    const unreadable = await Promise.all([
+      context.aplication.spaId
+        ? this.subscriptions.countUnreadableSubscriptionsByAplication(
+            context.aplication.spaId,
+          )
+        : 0,
+      ...contract.map(subscription =>
+        this.items.countUnreadableItemsBySubscription(subscription.id),
+      ),
+    ])
+    const [unreadableSubscriptions = 0, ...unreadableItems] = unreadable
+    const totalItems = unreadableItems.reduce((sum, n) => sum + n, 0)
+    if (unreadableSubscriptions > 0 || totalItems > 0) {
+      throw new IncompleteContractReadError(
+        context.aplication.spaId ?? '',
+        unreadableSubscriptions,
+        totalItems,
+      )
     }
 
     return {

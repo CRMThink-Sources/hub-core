@@ -1,6 +1,9 @@
 import { DEFAULT_CONNECTOR_SETTINGS } from '@/modules/thinkzap/domain/value-objects/connector-settings'
 import { describe, expect, it, vi } from 'vitest'
-import { GetAplicationContext } from './get-aplication-context'
+import {
+  GetAplicationContext,
+  IncompleteContractReadError,
+} from './get-aplication-context'
 import { Aplication } from '@/modules/application/domain/entities/aplication'
 import { Customer } from '@/modules/application/domain/entities/customer'
 import { Subscription } from '@/modules/application/domain/entities/subscription'
@@ -92,7 +95,10 @@ function makeAplications(entity: Aplication | null = aplicationOf('512')) {
   }
 }
 
-function makeSubscriptions(result: Subscription[] | Error = []) {
+function makeSubscriptions(
+  result: Subscription[] | Error = [],
+  unreadable = 0,
+) {
   const getSubscriptionsByAplication = vi.fn(() =>
     result instanceof Error ? Promise.reject(result) : Promise.resolve(result),
   )
@@ -100,6 +106,9 @@ function makeSubscriptions(result: Subscription[] | Error = []) {
   return {
     repository: {
       getSubscriptionsByAplication,
+      countUnreadableSubscriptionsByAplication: vi.fn(() =>
+        Promise.resolve(unreadable),
+      ),
     } as unknown as SubscriptionRepository,
     getSubscriptionsByAplication,
   }
@@ -108,6 +117,7 @@ function makeSubscriptions(result: Subscription[] | Error = []) {
 /** Devolve os itens de `bySubscription`; ids desconhecidos viram `[]`. */
 function makeItems(
   bySubscription: Record<string, SubscriptionItem[]> | Error = {},
+  unreadableBySubscription: Record<string, number> = {},
 ) {
   const getSubscriptionItemsBySubscription = vi.fn((subscriptionId: string) =>
     bySubscription instanceof Error
@@ -118,6 +128,9 @@ function makeItems(
   return {
     repository: {
       getSubscriptionItemsBySubscription,
+      countUnreadableItemsBySubscription: vi.fn((subscriptionId: string) =>
+        Promise.resolve(unreadableBySubscription[subscriptionId] ?? 0),
+      ),
     } as unknown as SubscriptionItemRepository,
     getSubscriptionItemsBySubscription,
   }
@@ -179,6 +192,40 @@ describe('GetAplicationContext', () => {
     expect(aplications.getAplicationByInstall).toHaveBeenCalledWith({
       domain: 'acme.bitrix24.com.br',
       appCode: 'crmthink.thinkzap',
+    })
+  })
+
+  describe('requireCompleteRead (caminhos que ajustam cobrança)', () => {
+    it('lança quando a leitura pulou assinatura viva', async () => {
+      const { useCase } = makeUseCase({
+        subscriptions: makeSubscriptions([subscriptionOf('21')], 1),
+      })
+
+      await expect(
+        useCase.execute({ ...input, requireCompleteRead: true }),
+      ).rejects.toBeInstanceOf(IncompleteContractReadError)
+    })
+
+    it('lança quando a leitura pulou item ilegível', async () => {
+      const { useCase } = makeUseCase({
+        subscriptions: makeSubscriptions([subscriptionOf('21')]),
+        items: makeItems({ '21': [itemOf('77', '21')] }, { '21': 1 }),
+      })
+
+      await expect(
+        useCase.execute({ ...input, requireCompleteRead: true }),
+      ).rejects.toBeInstanceOf(IncompleteContractReadError)
+    })
+
+    it('sem a opção, segue tolerante', async () => {
+      const { useCase } = makeUseCase({
+        subscriptions: makeSubscriptions([subscriptionOf('21')], 1),
+        items: makeItems({ '21': [itemOf('77', '21')] }, { '21': 1 }),
+      })
+
+      const context = await useCase.execute(input)
+
+      expect(context.subscriptions.map(s => s.id)).toEqual(['21'])
     })
   })
 

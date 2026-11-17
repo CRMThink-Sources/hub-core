@@ -8,10 +8,42 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('./redis-connection', () => ({
   bullBaseOptions: { connection: {}, prefix: 'bull' },
 }))
-vi.mock('bullmq', () => ({ Queue: class {} }))
+const { addMock } = vi.hoisted(() => ({
+  addMock: vi.fn((..._args: unknown[]) => Promise.resolve({ id: 'job-1' })),
+}))
+vi.mock('bullmq', () => ({
+  Queue: class {
+    add = addMock
+  },
+}))
+vi.mock('@/shared/infra/logger', () => ({
+  apiLogger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}))
 
 // `vi.mock` é içado acima dos imports, então o import estático já pega os dublês.
-import { spaItemProvisioningJobId } from './spa-item-provisioning.queue'
+import {
+  enqueueSpaItemProvisioningJob,
+  spaItemProvisioningJobId,
+} from './spa-item-provisioning.queue'
+
+describe('enqueueSpaItemProvisioningJob', () => {
+  /**
+   * Regressão: `jobId` fixo retinha o job e bloqueava o id para sempre. A reentrega
+   * em paralelo também não pode rodar junto — criaria dois recursos no provider.
+   */
+  it('deduplica por item sem jobId fixo, sem execução paralela e sem reter para sempre', async () => {
+    await enqueueSpaItemProvisioningJob({ itemId: '27', traceKey: 't' })
+
+    const opts = addMock.mock.calls[0]![2] as Record<string, unknown>
+    expect(opts).not.toHaveProperty('jobId')
+    expect(opts.deduplication).toEqual({
+      id: 'spa-item-provision-27',
+      keepLastIfActive: true,
+    })
+    expect(opts.removeOnComplete).toBeDefined()
+    expect(opts.removeOnFail).toBeDefined()
+  })
+})
 
 describe('spaItemProvisioningJobId', () => {
   /**

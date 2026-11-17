@@ -14,9 +14,15 @@ import { SubscriptionNotFoundError } from '@/modules/application/domain/errors/s
 import { PlanNotFoundError } from '@/modules/application/domain/errors/plan-not-found.error'
 import { AplicationNotFoundError } from '@/modules/application/domain/errors/aplication-not-found.error'
 import { env } from '@/config/env'
+import { apiLogger } from '@/shared/infra/logger'
+import { InvalidBitrixPlanError } from '../errors/invalid-bitrix-plan.error'
+import { InvalidBitrixSubscriptionError } from '../errors/invalid-bitrix-subscription.error'
+import { listAllCrmItems } from '../list-all-crm-items'
 import {
   APLICATION_PARENT_FIELD,
+  BITRIX_ID_BY_STATUS,
   RawSubscription,
+  STATUS_BY_BITRIX_ID,
   collectBitrixSpaSubscriptionToRawSubscription,
   mapBitrixSpaSubscriptionToRawSubscription,
   mapSubscriptionInputToBitrixFields,
@@ -61,10 +67,87 @@ export class BitrixSubscriptionRepository implements SubscriptionRepository {
     return this.list({})
   }
 
+  /**
+   * Tolerante a assinatura ilegível (data de período vazia, status fora do mapa, plano
+   * inexistente): ela é pulada e logada, em vez de derrubar a leitura da instalação
+   * inteira — lista de linhas, widget e roteamento das linhas que estão em dia.
+   *
+   * Esconder uma assinatura não pode liberar contratação nova: os caminhos de escrita
+   * perguntam `countUnreadableSubscriptionsByAplication` antes.
+   */
   async getSubscriptionsByAplication(
     aplicationSpaId: string,
   ): Promise<Subscription[]> {
-    return this.list({ [APLICATION_PARENT_FIELD]: aplicationSpaId })
+    return (await this.readByAplication(aplicationSpaId)).subscriptions
+  }
+
+  async countUnreadableSubscriptionsByAplication(
+    aplicationSpaId: string,
+  ): Promise<number> {
+    return (await this.readByAplication(aplicationSpaId)).unreadableIds.length
+  }
+
+  private async readByAplication(aplicationSpaId: string): Promise<{
+    subscriptions: Subscription[]
+    unreadableIds: string[]
+  }> {
+    const raws = await listAllCrmItems(
+      this.bitrix,
+      env.payments.spa.subscriptionEntityType,
+      { [APLICATION_PARENT_FIELD]: aplicationSpaId },
+    )
+
+    const unreadableIds: string[] = []
+    const unreadable = (id: unknown, error: unknown, status?: unknown) => {
+      // Ilegível mas encerrada (cancelada, teste expirado) não é contrato vivo: contar
+      // bloquearia trial e contratação da instalação para sempre por causa de lixo.
+      const known = STATUS_BY_BITRIX_ID[String(status)]
+      if (known !== 'cancelled' && known !== 'trial_expired') {
+        unreadableIds.push(String(id))
+      }
+      apiLogger.error(
+        { app: 'shared', subscriptionId: id, aplicationSpaId, err: error },
+        'Assinatura ilegível ignorada na leitura da instalação — corrigir o item na SPA 1142',
+      )
+    }
+
+    const parsed: RawSubscription[] = []
+    for (const raw of raws) {
+      try {
+        parsed.push(mapBitrixSpaSubscriptionToRawSubscription(raw))
+      } catch (error) {
+        if (!(error instanceof InvalidBitrixSubscriptionError)) throw error
+        const fields = raw as { id?: unknown; ufCrm91Status?: unknown }
+        unreadable(fields?.id, error, fields?.ufCrm91Status)
+      }
+    }
+
+    if (parsed.length === 0) return { subscriptions: [], unreadableIds }
+
+    const [plansById, aplication] = await Promise.all([
+      this.resolvePlans(parsed, { tolerant: true }),
+      this.resolveAplication(aplicationSpaId),
+    ])
+
+    const subscriptions: Subscription[] = []
+    for (const rawSubscription of parsed) {
+      const plan = plansById.get(rawSubscription.planId)
+      if (!plan) {
+        unreadable(
+          rawSubscription.id,
+          new PlanNotFoundError(rawSubscription.planId),
+          BITRIX_ID_BY_STATUS[rawSubscription.status],
+        )
+        continue
+      }
+      subscriptions.push({
+        ...this.withoutIds(rawSubscription),
+        plan,
+        aplication,
+      })
+    }
+
+    return { subscriptions, unreadableIds }
   }
 
   /**
@@ -115,13 +198,12 @@ export class BitrixSubscriptionRepository implements SubscriptionRepository {
   }
 
   private async list(filter: Record<string, unknown>): Promise<Subscription[]> {
-    const response = await this.bitrix.listCrmItems(
-      env.payments.spa.subscriptionEntityType,
-      filter,
-    )
-
     const rawSubscriptions = collectBitrixSpaSubscriptionToRawSubscription(
-      response.result?.items ?? [],
+      await listAllCrmItems(
+        this.bitrix,
+        env.payments.spa.subscriptionEntityType,
+        filter,
+      ),
     )
     if (rawSubscriptions.length === 0) return []
 
@@ -143,8 +225,13 @@ export class BitrixSubscriptionRepository implements SubscriptionRepository {
     })
   }
 
+  /**
+   * `tolerant`: plano inexistente ou inválido fica fora do mapa em vez de lançar, e
+   * quem chama decide o que fazer com a assinatura sem plano.
+   */
   private async resolvePlans(
     rawSubscriptions: RawSubscription[],
+    options: { tolerant?: boolean } = {},
   ): Promise<Map<string, Plan>> {
     const plans = await this.plans.getPlans()
     const plansById = new Map(plans.map(plan => [plan.id, plan]))
@@ -155,13 +242,21 @@ export class BitrixSubscriptionRepository implements SubscriptionRepository {
     )
 
     const missingPlans = await Promise.all(
-      missingIds.map(
-        async planId => [planId, await this.plans.getPlan(planId)] as const,
-      ),
+      missingIds.map(async planId => {
+        try {
+          return [planId, await this.plans.getPlan(planId)] as const
+        } catch (error) {
+          const isConfiguration =
+            error instanceof PlanNotFoundError ||
+            error instanceof InvalidBitrixPlanError
+          if (options.tolerant && isConfiguration) return null
+          throw error
+        }
+      }),
     )
 
-    for (const [planId, plan] of missingPlans) {
-      plansById.set(planId, plan)
+    for (const entry of missingPlans) {
+      if (entry) plansById.set(entry[0], entry[1])
     }
 
     return plansById

@@ -28,9 +28,10 @@ export type ProviderUnsubscribeReason =
  * - `event`: o UPDATE de um item ou da assinatura — a regra de sempre.
  * - `past-due-expired`: a verificação de assinaturas, para manual `Vencido` há 5 dias.
  *   Desassina toda linha com credencial que ainda não tem a marca de desassinado.
- * - `reconcile`: a reconciliação diária. Assina linha `active` de pai `active` **sem
- *   olhar a marca de assinado**, porque o objetivo é justamente pegar a marca que
- *   mente; o subscribe é idempotente nos providers.
+ * - `reconcile`: a reconciliação diária. Mesma regra do evento — inclusive desassinar
+ *   linha cancelada ou de pai cancelado, que é o que recupera um evento perdido —, mas
+ *   assina **sem olhar a marca de assinado**, porque o objetivo é justamente pegar a
+ *   marca que mente; o subscribe é idempotente nos providers.
  */
 export type ProviderBillingMode = 'event' | 'past-due-expired' | 'reconcile'
 
@@ -86,19 +87,6 @@ export function resolveProviderBillingAction(args: {
       : { action: 'unsubscribe', reason: 'parent-past-due-expired' }
   }
 
-  if (args.mode === 'reconcile') {
-    if (args.itemStatus !== 'active') {
-      return { action: 'noop', reason: 'in-sync' }
-    }
-    if (args.parentStatus === null) {
-      return { action: 'noop', reason: 'parent-missing' }
-    }
-    if (args.parentStatus !== 'active') {
-      return { action: 'noop', reason: 'parent-inactive' }
-    }
-    return { action: 'subscribe' }
-  }
-
   if (args.parentStatus === 'cancelled') {
     return unsubscribed
       ? { action: 'noop', reason: 'in-sync' }
@@ -111,7 +99,9 @@ export function resolveProviderBillingAction(args: {
       : { action: 'unsubscribe', reason: 'item-cancelled' }
   }
 
-  if (subscribed) return { action: 'noop', reason: 'in-sync' }
+  if (subscribed && args.mode !== 'reconcile') {
+    return { action: 'noop', reason: 'in-sync' }
+  }
   if (args.parentStatus === null) {
     return { action: 'noop', reason: 'parent-missing' }
   }
