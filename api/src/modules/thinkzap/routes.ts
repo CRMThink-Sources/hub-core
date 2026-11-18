@@ -54,6 +54,11 @@ import {
   makeUpdateAccessGroupController,
   makeWidgetLineGuard,
 } from './main/make-access-group-controllers'
+import {
+  makeGetInsightsStatusController,
+  makeRemoveVibecodeKeyController,
+  makeSaveVibecodeKeyController,
+} from './main/make-insights-controllers'
 import { makeAddAllowedUserController } from './main/make-add-allowed-user-controller'
 import { makeRemoveAllowedUserController } from './main/make-remove-allowed-user-controller'
 import { makeUpdateAllowedUserPermissionsController } from './main/make-update-allowed-user-permissions-controller'
@@ -339,6 +344,22 @@ export const createThinkerszapRoutes = (): Router => {
     '/access/groups/:groupId',
     requireThinkzapAdmin,
     adaptControllerFactory(makeRemoveAccessGroupController),
+  )
+
+  // Insights: o status serve a qualquer usuário com acesso; a chave Vibecode é só do admin.
+  router.get(
+    '/insights/status',
+    adaptControllerFactory(makeGetInsightsStatusController),
+  )
+  router.put(
+    '/insights/vibecode-key',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeSaveVibecodeKeyController),
+  )
+  router.delete(
+    '/insights/vibecode-key',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeRemoveVibecodeKeyController),
   )
 
   // Trial gateado por `finance`; admin do Bitrix passa porque `canManageAccess`
