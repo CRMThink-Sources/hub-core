@@ -50,9 +50,11 @@ export async function buildDashboard(
   const slaSec = (Number(q.slaMin) || cfg.refMin) * 60
   const sources = q.sources ? q.sources.split(',') : []
 
-  const [allCur, allPrev, dir] = await Promise.all([
-    source.sessions(from, to),
+  // O período anterior (o mais longo) sai primeiro: a fonte clássica reaproveita
+  // uma varredura em andamento só se ela começou em data igual ou anterior.
+  const [allPrev, allCur, dir] = await Promise.all([
     source.sessions(prevFrom, prevTo),
+    source.sessions(from, to),
     source.directory(),
   ])
   const { users, userDept } = dir

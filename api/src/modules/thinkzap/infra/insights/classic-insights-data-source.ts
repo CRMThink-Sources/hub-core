@@ -45,6 +45,10 @@ const OWNER: Record<string, string> = {
 const BATCH_SIZE = 50
 const CACHE_TTL_MS = 300e3
 const DAY_MS = 864e5
+// Teto de páginas de crm.activity.list (50 por página): 200 páginas = 10 mil
+// sessões. Portal com histórico maior que isso não pode travar o painel numa
+// varredura sem fim; passando do teto o período mais antigo sai incompleto.
+const MAX_ACTIVITY_PAGES = 200
 
 /**
  * Campos de métrica de mensagem de uma sessão (porta de `msgFields`). Aceita a
@@ -175,6 +179,7 @@ export class ClassicInsightsDataSource implements InsightsDataSource {
 
   private async loadSessions(sinceMs: number): Promise<InsightsSession[]> {
     const acts: Activity[] = []
+    let pages = 0
     for (let start = 0; ; ) {
       const j = await this.call('crm.activity.list', {
         filter: { PROVIDER_ID: 'IMOPENLINES_SESSION' },
@@ -201,6 +206,14 @@ export class ClassicInsightsDataSource implements InsightsDataSource {
         new Date(oldest.START_TIME).getTime() < sinceMs - DAY_MS
       )
         break
+      pages += 1
+      if (pages >= MAX_ACTIVITY_PAGES) {
+        apiLogger.warn(
+          { portal: this.portal, pages, sessions: acts.length },
+          'Insights: limite de páginas do REST clássico atingido, período truncado',
+        )
+        break
+      }
       start = j.next
     }
 
@@ -264,9 +277,14 @@ export class ClassicInsightsDataSource implements InsightsDataSource {
       }
       return session
     })
-    this.loaded = sessions
-    this.loadedSince = sinceMs
-    this.loadedAt = Date.now()
+    // Uma varredura mais curta que termina depois não pode encolher o cache
+    // que já cobre um período maior (e faria o próximo pedido varrer de novo).
+    const expired = Date.now() - this.loadedAt >= CACHE_TTL_MS
+    if (expired || sinceMs <= this.loadedSince) {
+      this.loaded = sessions
+      this.loadedSince = sinceMs
+      this.loadedAt = Date.now()
+    }
     return sessions
   }
 

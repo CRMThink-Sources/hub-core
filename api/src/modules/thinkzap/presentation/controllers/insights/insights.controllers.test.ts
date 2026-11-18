@@ -52,6 +52,17 @@ describe('GetInsightsDashboardController', () => {
     expect(out).toEqual({ status: 200, result })
   })
 
+  it('aceita um período no limite de 92 dias', async () => {
+    const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
+      Promise.resolve({ mode: 'lean' } as DashboardResult),
+    )
+    const out = await dashboardOf(execute).perform(
+      req({ query: { from: '2026-08-02', to: '2026-11-01' } }),
+      res,
+    )
+    expect(out.status).toBe(200)
+  })
+
   it('sem from/to segue com os padrões do caso de uso', async () => {
     const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
       Promise.resolve({ mode: 'lean' } as DashboardResult),
@@ -66,6 +77,8 @@ describe('GetInsightsDashboardController', () => {
     ['data inexistente', { to: '2026-02-31' }],
     ['array no parâmetro', { from: ['2026-11-01', '2026-11-02'] }],
     ['início depois do fim', { from: '2026-11-10', to: '2026-11-01' }],
+    ['período acima de 92 dias', { from: '2026-01-01', to: '2026-11-01' }],
+    ['só início muito antigo', { from: '2020-01-01' }],
   ])('400 em pt-BR com %s, sem chamar o caso de uso', async (_n, query) => {
     const execute = vi.fn<GetInsightsDashboard['execute']>()
     const out = await dashboardOf(execute).perform(req({ query }), res)

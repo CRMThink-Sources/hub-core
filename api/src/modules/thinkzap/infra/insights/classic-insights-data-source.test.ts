@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+import { buildDashboard } from '@/modules/thinkzap/application/insights/build-dashboard'
+import { INSIGHTS_CONFIG_DEFAULT } from '@/modules/thinkzap/domain/insights-config'
+import { apiLogger } from '@/shared/infra/logger'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import { ClassicInsightsDataSource } from './classic-insights-data-source'
 
@@ -133,6 +136,62 @@ describe('ClassicInsightsDataSource', () => {
     expect(
       callMethod.mock.calls.filter(c => c[0] === 'crm.activity.list'),
     ).toHaveLength(1)
+  })
+
+  it('um painel completo faz uma única varredura, não duas', async () => {
+    const { ds, callMethod } = make(method => {
+      if (method === 'crm.activity.list') return { result: [act(7)] }
+      return { result: { result: {} } }
+    })
+    await buildDashboard(
+      ds,
+      INSIGHTS_CONFIG_DEFAULT,
+      { from: '2026-11-01', to: '2026-11-10' },
+      new Date('2026-11-18T15:00:00.000Z'),
+    )
+    expect(
+      callMethod.mock.calls.filter(c => c[0] === 'crm.activity.list'),
+    ).toHaveLength(1)
+  })
+
+  it('varredura curta que termina depois não encolhe o cache', async () => {
+    let release!: () => void
+    const gate = new Promise<void>(r => (release = r))
+    let listCalls = 0
+    const { ds, callMethod } = make(method => {
+      if (method === 'crm.activity.list') {
+        const n = ++listCalls
+        // A primeira (a curta) fica presa até a longa terminar.
+        return n === 1
+          ? gate.then(() => ({ result: [act(8)] }))
+          : { result: [act(8)] }
+      }
+      return { result: { result: {} } }
+    })
+    const shortP = ds.sessions(new Date('2026-11-09T00:00:00Z'), to)
+    await new Promise(r => setTimeout(r, 0))
+    await ds.sessions(from, to)
+    release()
+    await shortP
+    await ds.sessions(from, to)
+    expect(
+      callMethod.mock.calls.filter(c => c[0] === 'crm.activity.list'),
+    ).toHaveLength(2)
+  })
+
+  it('para a paginação no teto de 200 páginas e avisa uma vez', async () => {
+    const warn = vi.spyOn(apiLogger, 'warn').mockImplementation(() => undefined)
+    const { ds, callMethod } = make((method, params) => {
+      if (method === 'crm.activity.list')
+        return { result: [act(9)], next: params.start + 50 }
+      return { result: { result: {} } }
+    })
+    await ds.sessions(from, to)
+    expect(
+      callMethod.mock.calls.filter(c => c[0] === 'crm.activity.list'),
+    ).toHaveLength(200)
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
   })
 
   it('directory sem escopo de departamento não quebra', async () => {

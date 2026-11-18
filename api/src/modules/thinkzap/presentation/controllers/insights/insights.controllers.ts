@@ -34,6 +34,8 @@ const textOrNumber = z.union([text, z.number()], {
   error: 'Parâmetro de filtro inválido.',
 })
 
+const MAX_RANGE_DAYS = 92
+
 const dashboardQuerySchema = z
   .object({
     from: isoDay('o início do período').optional(),
@@ -48,6 +50,19 @@ const dashboardQuerySchema = z
   .refine(q => !q.from || !q.to || q.from <= q.to, {
     message: 'O início do período não pode ser depois do fim.',
   })
+  // O painel lê também o período anterior (do mesmo tamanho): sem teto, um
+  // intervalo enorme varreria o portal do Bitrix inteiro duas vezes.
+  .refine(
+    q => {
+      if (!q.from) return true
+      const from = new Date(q.from + 'T00:00:00-03:00').getTime()
+      const to = q.to
+        ? new Date(q.to + 'T23:59:59-03:00').getTime()
+        : Date.now()
+      return to - from <= MAX_RANGE_DAYS * 864e5
+    },
+    { message: `O período máximo é de ${MAX_RANGE_DAYS} dias.` },
+  )
 
 const todayQuerySchema = z.object({
   sources: text.optional(),
