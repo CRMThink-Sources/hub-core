@@ -36,6 +36,11 @@ export type InsightsSession = MessageFields & {
   waitAnswer: number | null
   waitClose: number | null
   messageCount: number
+  /**
+   * Quando uma pessoa assumiu a conversa, gravado pelo Bitrix (só na Vibe API).
+   * No REST clássico o "assumiu" sai do histórico, em `acceptedAt`.
+   */
+  dateOperatorAnswer?: string | null
 }
 
 /** Operador com status ao vivo (`/openlines/operators` da Vibe API). */
