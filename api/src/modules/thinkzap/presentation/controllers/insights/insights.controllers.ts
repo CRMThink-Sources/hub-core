@@ -4,6 +4,10 @@ import type { GetInsightsConfig } from '@/modules/thinkzap/application/insights/
 import type { GetInsightsDashboard } from '@/modules/thinkzap/application/insights/get-insights-dashboard'
 import type { GetInsightsToday } from '@/modules/thinkzap/application/insights/get-insights-today'
 import type { SaveInsightsConfig } from '@/modules/thinkzap/application/insights/save-insights-config'
+import {
+  VibecodeAuthError,
+  VibecodeRequestError,
+} from '@/modules/thinkzap/infra/clients/vibecode.client'
 import { BitrixError } from '@/shared/infra/clients/errors/bitrix-client.error'
 import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
 import { apiLogger } from '@/shared/infra/logger'
@@ -65,9 +69,14 @@ abstract class InsightsReadController extends Controller {
     try {
       return this.ok(await run())
     } catch (error) {
+      // Vibecode: 5xx/rede, ou recusa que o fallback não absorveu (ex.:
+      // `success: false` sem 401/403). Em nenhum caso a chave é dada por
+      // revogada aqui, mas a resposta também não pode virar 500.
       if (
         error instanceof BitrixError ||
-        error instanceof BitrixMethodPausedError
+        error instanceof BitrixMethodPausedError ||
+        error instanceof VibecodeRequestError ||
+        error instanceof VibecodeAuthError
       ) {
         apiLogger.warn(
           { errorName: error.name, errorMessage: error.message },

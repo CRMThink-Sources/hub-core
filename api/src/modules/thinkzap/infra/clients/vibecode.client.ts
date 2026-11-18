@@ -3,9 +3,13 @@ import type { VibecodeMe } from '@/modules/thinkzap/domain/vibecode-key-policy'
 
 const BASE_URL = 'https://vibecode.bitrix24.com/v1'
 
-/** Chave recusada pela Vibecode (401/403 ou `success: false`). */
+/**
+ * Chave recusada pela Vibecode (401/403 ou `success: false`). `status` só vem
+ * quando a recusa foi HTTP 401/403: `success: false` também cobre erros que
+ * não são da chave, e o Insights só pode dar a chave por revogada com certeza.
+ */
 export class VibecodeAuthError extends Error {
-  constructor() {
+  constructor(readonly status?: number) {
     super(
       'A Vibecode recusou a chave informada (inválida, revogada ou sem permissão).',
     )
@@ -13,7 +17,20 @@ export class VibecodeAuthError extends Error {
   }
 }
 
-type Envelope<T> = { success: boolean; data: T }
+/** Falha da Vibecode que não é da chave (5xx, rede, timeout). */
+export class VibecodeRequestError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'VibecodeRequestError'
+  }
+}
+
+/** Paginação das listas (`/departments`, `/users`, `/deals/search`). */
+export type VibecodeMeta = { hasMore?: boolean }
+
+export type VibecodePage<T> = { data: T; meta?: VibecodeMeta }
+
+type Envelope<T> = { success: boolean; data: T; meta?: VibecodeMeta }
 
 /**
  * Cliente da API Vibecode. Os erros são reconstruídos com mensagem própria:
@@ -35,31 +52,41 @@ export class VibecodeClient {
     return this.get<VibecodeMe>('/me')
   }
 
-  get<T>(path: string): Promise<T> {
+  async get<T>(path: string): Promise<T> {
+    return (await this.getPage<T>(path)).data
+  }
+
+  async post<T>(path: string, body: unknown): Promise<T> {
+    return (await this.postPage<T>(path, body)).data
+  }
+
+  getPage<T>(path: string): Promise<VibecodePage<T>> {
     return this.unwrap<T>(() => this.http.get(path))
   }
 
-  post<T>(path: string, body: unknown): Promise<T> {
+  postPage<T>(path: string, body: unknown): Promise<VibecodePage<T>> {
     return this.unwrap<T>(() => this.http.post(path, body))
   }
 
   private async unwrap<T>(
     call: () => Promise<{ data: Envelope<T> }>,
-  ): Promise<T> {
+  ): Promise<VibecodePage<T>> {
     let res: { data: Envelope<T> }
     try {
       res = await call()
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const status = err.response?.status
-        if (status === 401 || status === 403) throw new VibecodeAuthError()
-        throw new Error(
+        if (status === 401 || status === 403) {
+          throw new VibecodeAuthError(status)
+        }
+        throw new VibecodeRequestError(
           `Falha ao chamar a Vibecode (${status ?? 'sem resposta'})`,
         )
       }
-      throw new Error('Falha ao chamar a Vibecode')
+      throw new VibecodeRequestError('Falha ao chamar a Vibecode')
     }
     if (!res.data?.success) throw new VibecodeAuthError()
-    return res.data.data
+    return { data: res.data.data, meta: res.data.meta }
   }
 }

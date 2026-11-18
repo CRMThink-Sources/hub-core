@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { VibecodeAuthError, VibecodeClient } from './vibecode.client'
+import {
+  VibecodeAuthError,
+  VibecodeClient,
+  VibecodeRequestError,
+} from './vibecode.client'
 
 const createSpy = vi.hoisted(() => vi.fn())
 
@@ -66,6 +70,62 @@ describe('VibecodeClient', () => {
     await expect(client.post('/x', {})).rejects.toBeInstanceOf(
       VibecodeAuthError,
     )
+  })
+
+  it('guarda o status HTTP na recusa para distinguir chave revogada', async () => {
+    const client = new VibecodeClient(KEY)
+    instance().get.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 403 },
+    })
+
+    const err = await client.get('/x').catch((e: unknown) => e)
+
+    expect(err).toBeInstanceOf(VibecodeAuthError)
+    expect((err as VibecodeAuthError).status).toBe(403)
+  })
+
+  it('success false sem 401/403 não traz status', async () => {
+    const client = new VibecodeClient(KEY)
+    instance().get.mockResolvedValue({ data: { success: false } })
+
+    const err = await client.get('/x').catch((e: unknown) => e)
+
+    expect(err).toBeInstanceOf(VibecodeAuthError)
+    expect((err as VibecodeAuthError).status).toBeUndefined()
+  })
+
+  it('falha 5xx vira VibecodeRequestError, não recusa de chave', async () => {
+    const client = new VibecodeClient(KEY)
+    instance().get.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 502 },
+    })
+
+    const err = await client.get('/x').catch((e: unknown) => e)
+
+    expect(err).toBeInstanceOf(VibecodeRequestError)
+    expect((err as Error).message).toBe('Falha ao chamar a Vibecode (502)')
+  })
+
+  it('getPage e postPage devolvem data e meta (paginação)', async () => {
+    const client = new VibecodeClient(KEY)
+    instance().get.mockResolvedValue({
+      data: { success: true, data: [1], meta: { hasMore: true } },
+    })
+    instance().post.mockResolvedValue({
+      data: { success: true, data: [2] },
+    })
+
+    await expect(client.getPage('/a')).resolves.toEqual({
+      data: [1],
+      meta: { hasMore: true },
+    })
+    await expect(client.postPage('/b', { x: 1 })).resolves.toEqual({
+      data: [2],
+      meta: undefined,
+    })
+    expect(instance().post).toHaveBeenCalledWith('/b', { x: 1 })
   })
 
   it('a mensagem de erro não contém a chave', async () => {

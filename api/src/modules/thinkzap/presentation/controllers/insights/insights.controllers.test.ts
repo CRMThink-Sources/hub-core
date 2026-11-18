@@ -12,6 +12,10 @@ import { INSIGHTS_CONFIG_DEFAULT } from '@/modules/thinkzap/domain/insights-conf
 import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
 import { BitrixError } from '@/shared/infra/clients/errors/bitrix-client.error'
 import {
+  VibecodeAuthError,
+  VibecodeRequestError,
+} from '@/modules/thinkzap/infra/clients/vibecode.client'
+import {
   GetInsightsConfigController,
   GetInsightsDashboardController,
   GetInsightsTodayController,
@@ -83,6 +87,18 @@ describe('GetInsightsDashboardController', () => {
   it('pausa por limite do Bitrix também vira 502', async () => {
     const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
       Promise.reject(new BitrixMethodPausedError('m', 'd', Date.now() + 1)),
+    )
+    const out = await dashboardOf(execute).perform(req(), res)
+    expect(out.status).toBe(502)
+  })
+
+  it.each([
+    ['5xx da Vibecode', new VibecodeRequestError('Falha (500)')],
+    ['recusa da Vibecode sem 401/403', new VibecodeAuthError()],
+    ['401 que escapou do fallback', new VibecodeAuthError(401)],
+  ])('%s vira 502, nunca 500', async (_n, error) => {
+    const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
+      Promise.reject(error),
     )
     const out = await dashboardOf(execute).perform(req(), res)
     expect(out.status).toBe(502)
