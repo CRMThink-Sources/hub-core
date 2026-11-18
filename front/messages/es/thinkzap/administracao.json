@@ -2,7 +2,30 @@
   "tabs": {
     "permissoes": "Permisos",
     "gruposAcesso": "Grupos de acceso",
-    "notificacoesConexao": "Notificaciones de conexión"
+    "notificacoesConexao": "Notificaciones de conexión",
+    "vibecode": "Vibecode"
   },
-  "tabsAriaLabel": "Secciones de la administración"
+  "tabsAriaLabel": "Secciones de la administración",
+  "vibecode": {
+    "title": "Clave Vibecode",
+    "description": "Usada por Insights para leer los datos de su Bitrix24. Cree una clave personal de solo lectura y péguela abajo. Se guarda cifrada y no se vuelve a mostrar.",
+    "loading": "Cargando...",
+    "statusNone": "Ninguna clave registrada. Insights funciona en modo reducido.",
+    "statusConfigured": "Clave configurada: ••••{{last4}}",
+    "statusValidated": "Validada el {{date}}",
+    "revoked": "Vibecode rechazó la clave registrada (revocada o inválida). Registre una nueva clave.",
+    "keyLabel": "Clave Vibecode",
+    "keyPlaceholder": "Pegue la clave aquí",
+    "save": "Guardar clave",
+    "saving": "Guardando...",
+    "remove": "Quitar clave",
+    "removing": "Quitando...",
+    "saved": "Clave guardada.",
+    "removed": "Clave quitada.",
+    "loadError": "No se pudo cargar el estado de la clave.",
+    "saveError": "No se pudo guardar la clave.",
+    "removeError": "No se pudo quitar la clave.",
+    "keyRequired": "Informe la clave Vibecode.",
+    "adminOnly": "Solo los administradores pueden gestionar la clave Vibecode."
+  }
 }
