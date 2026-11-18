@@ -51,6 +51,11 @@ type TemplateComposerProps = {
   headerImageUploading: boolean
   /** Motivo da recusa ou da falha do upload, já legível. */
   headerImageUploadError: string
+  /**
+   * Os valores das variáveis ainda estão sendo lidos do CRM. Só informa: os campos
+   * seguem editáveis, e o que o operador digitar não é sobrescrito.
+   */
+  variablesLoading?: boolean
   disabled: boolean
 }
 
@@ -108,6 +113,7 @@ export const TemplateComposer = ({
   headerImageFileName,
   headerImageUploading,
   headerImageUploadError,
+  variablesLoading = false,
   disabled,
 }: TemplateComposerProps) => {
   const selected = templates.find(
@@ -309,6 +315,14 @@ export const TemplateComposer = ({
             <div className="grid gap-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Variáveis
+                {variablesLoading ? (
+                  <span
+                    role="status"
+                    className="ml-2 font-normal normal-case tracking-normal text-slate-400"
+                  >
+                    Buscando dados do CRM...
+                  </span>
+                ) : null}
               </p>
               {/*
                 Um campo por variável **distinta**: nome repetido no corpo é
@@ -324,7 +338,11 @@ export const TemplateComposer = ({
                     value={values[key] ?? ''}
                     onChange={event => onChangeValue(key, event.target.value)}
                     disabled={disabled}
-                    placeholder={`Valor de {{${key}}}`}
+                    placeholder={
+                      variablesLoading && !values[key]
+                        ? 'Buscando...'
+                        : `Valor de {{${key}}}`
+                    }
                   />
                 </label>
               ))}
