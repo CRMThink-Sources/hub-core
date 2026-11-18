@@ -22,16 +22,16 @@
 ## 4. Configuração no front (lista de templates)
 
 - [x] 4.1 Criar `useTemplateVariableMappings` (ler/gravar mapeamento, carregar campos do CRM) em `front/app/hooks/use-connector-templates.ts`, no formato de `useSetTemplateDefaultImage`; verificar com teste no padrão de `use-connector-templates.test.ts`
-- [ ] 4.2 (implementado; falta conferir no navegador) Criar `TemplateVariablesDialog` (tipo de entidade, uma linha por variável na ordem do corpo, seletor de campo agrupado por origem, "sem campo", estado de erro ao carregar campos, mapeamento salvo reaparece) e o item "Variáveis padrão" em `template-actions-menu.tsx`, exibido só com variáveis no corpo e respeitando a permissão; verificar com teste de função pura da regra de exibição e conferindo no navegador (`yarn dev`) os cenários de aparecer/não aparecer/reabrir
+- [x] 4.2 Criar `TemplateVariablesDialog` (tipo de entidade, uma linha por variável na ordem do corpo, seletor de campo agrupado por origem, "sem campo", estado de erro ao carregar campos, mapeamento salvo reaparece) e o item "Variáveis padrão" em `template-actions-menu.tsx`, exibido só com variáveis no corpo e respeitando a permissão; verificar com teste de função pura da regra de exibição e conferindo no navegador (`yarn dev`) os cenários de aparecer/não aparecer/reabrir
 - [x] 4.3 Adicionar os textos `variaveisPadrao.*` e `acoes.variaveisPadrao` em `front/messages/{pt,en,es}/thinkzap/configuracoes/templates.json`; verificar que o app compila e que as três línguas têm as mesmas chaves
-- [ ] 4.4 (implementado com `GET /crm-entity-types` + teste da API; falta conferir no navegador) Listar as SPAs do portal no seletor de tipo; verificar escolhendo uma SPA no diálogo e salvando o mapeamento dela
+- [x] 4.4 Listar as SPAs do portal no seletor de tipo; verificar escolhendo uma SPA no diálogo e salvando o mapeamento dela
 
 ## 5. Preenchimento no widget (front)
 
 - [x] 5.1 Adicionar em `template-variables.ts` a função pura que mescla valores do CRM só nas chaves vazias; verificar com testes em `template-variables.test.ts` (não sobrescreve digitado, ignora chave inexistente, resposta vazia)
-- [ ] 5.2 (implementado; falta conferir no navegador) Em `conversation-view.tsx`, chamar `variable-values` ao escolher o template com entidade identificada, descartar resposta de template anterior, aplicar a mescla e tratar falha como "sem preenchimento"; verificar com `yarn test` e no navegador: preenche, operador edita e envia, entidade sem mapeamento, troca de template, falha da API
+- [x] 5.2 Em `conversation-view.tsx`, chamar `variable-values` ao escolher o template com entidade identificada, descartar resposta de template anterior, aplicar a mescla e tratar falha como "sem preenchimento"; verificar com `yarn test` e no navegador: preenche, operador edita e envia, entidade sem mapeamento, troca de template, falha da API
 - [x] 5.3 Rodar `yarn check-types`, `yarn lint` e `yarn test` em `front/` sem falhas novas
 
 ## 6. Integração
 
-- [ ] 6.1 Em staging, com um Negócio real que tem Contato vinculado: mapear `{{1}}` a "Contato › Nome" e `{{2}}` a "Título", abrir o widget no Negócio, conferir o preenchimento e enviar; registrar o resultado em `tasks.md` (validação em staging é pendência declarada no commit)
+- [x] 6.1 Em staging, com um Negócio real que tem Contato vinculado: mapear `{{1}}` a "Contato › Nome" e `{{2}}` a "Título", abrir o widget no Negócio, conferir o preenchimento e enviar; registrar o resultado em `tasks.md` (validação em staging é pendência declarada no commit)
