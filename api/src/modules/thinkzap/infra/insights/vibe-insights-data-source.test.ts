@@ -328,7 +328,51 @@ describe('VibeInsightsDataSource', () => {
     expect(s).toMatchObject({ id: 11, msgsClient: 0, initiatedBy: null })
   })
 
-  it('chave recusada ao ler o chat sobe (para cair no clássico)', async () => {
+  it('403 em um chat não marca a chave como revogada', async () => {
+    const { ds } = make({
+      post: () =>
+        page({
+          sessions: [
+            rawSession({ id: 1, chatId: 500 }),
+            rawSession({ id: 2, chatId: 600 }),
+          ],
+          hasNextPage: false,
+        }),
+      get: path => {
+        // Chave pessoal sem acesso a um chat: só esse chat fica sem métricas.
+        if (path.startsWith('/chats/chat500/')) throw new VibecodeAuthError(403)
+        if (path.startsWith('/chats/chat600/'))
+          return page({
+            users: [{ id: 900, connector: true }],
+            messages: [
+              { id: 1, authorId: 900, date: '2026-11-10T13:00:10+00:00' },
+            ],
+          })
+        if (path === '/openlines/operators')
+          return page({
+            operators: [{ userId: 7, configId: 3, status: 'online' }],
+          })
+        throw new Error(path)
+      },
+    })
+
+    const [a, b] = await ds.sessions(from, to)
+
+    expect(a).toMatchObject({
+      id: 1,
+      status: 'closed',
+      vote: 'like',
+      waitAnswer: 60,
+      initiatedBy: null,
+      msgsClient: 0,
+      msgsOperator: 0,
+      replyTimes: [],
+    })
+    expect(b).toMatchObject({ id: 2, initiatedBy: 'client', msgsClient: 1 })
+    await expect(ds.operators()).resolves.toHaveLength(1)
+  })
+
+  it('401 em um chat ainda marca a chave como revogada', async () => {
     const { ds } = make({
       post: () => page({ sessions: [rawSession()], hasNextPage: false }),
       get: () => {
@@ -336,9 +380,10 @@ describe('VibeInsightsDataSource', () => {
       },
     })
 
-    await expect(ds.sessions(from, to)).rejects.toBeInstanceOf(
-      VibecodeAuthError,
-    )
+    const err = await ds.sessions(from, to).catch((e: unknown) => e)
+
+    expect(err).toBeInstanceOf(VibecodeAuthError)
+    expect((err as VibecodeAuthError).status).toBe(401)
   })
 
   it('reaproveita a leitura do mesmo período (cache curto)', async () => {

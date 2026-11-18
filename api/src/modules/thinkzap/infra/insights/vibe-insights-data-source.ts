@@ -12,6 +12,7 @@ import {
   VibecodeAuthError,
   type VibecodeClient,
 } from '@/modules/thinkzap/infra/clients/vibecode.client'
+import { apiLogger } from '@/shared/infra/logger'
 import { toMessageFields } from './classic-insights-data-source'
 
 type Row = Record<string, any>
@@ -115,7 +116,8 @@ type Entry = { p: Promise<unknown>; expiresAt: number }
  * funções `vibe()` do `server.js` original.
  *
  * Nenhum erro daqui carrega a chave: o `VibecodeClient` já reconstrói as
- * mensagens sem os headers do axios, e este adaptador não loga.
+ * mensagens sem os headers do axios, e o único log (chat ilegível) leva só o
+ * nome do erro e o status HTTP.
  */
 export class VibeInsightsDataSource implements InsightsDataSource {
   readonly mode = 'full' as const
@@ -261,9 +263,18 @@ export class VibeInsightsDataSource implements InsightsDataSource {
           try {
             data = await this.chatMessages(chatId, since)
           } catch (e) {
-            // Como o original, chat ilegível segue sem métricas de mensagem;
-            // mas chave recusada precisa subir para a leitura cair no clássico.
-            if (isVibecodeKeyRevoked(e)) throw e
+            // Como o original, chat ilegível segue sem métricas de mensagem.
+            // Só 401 sobe (a chave em si é inválida → cai no clássico): a chave
+            // é pessoal, e um 403 aqui costuma ser só um chat a que o dono
+            // não tem acesso — marcar a chave revogada rebaixaria o portal.
+            if (e instanceof VibecodeAuthError && e.status === 401) throw e
+            apiLogger.warn(
+              {
+                errorName: e instanceof Error ? e.name : 'unknown',
+                status: e instanceof VibecodeAuthError ? e.status : undefined,
+              },
+              'Insights: chat ilegível na Vibe API, sessão sem métricas de mensagem',
+            )
             return
           }
           const role = (id: string) => {

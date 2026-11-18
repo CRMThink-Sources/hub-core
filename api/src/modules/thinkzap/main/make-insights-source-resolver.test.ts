@@ -219,6 +219,50 @@ describe('makeInsightsSourceResolver', () => {
     expect(getKeyProblem('app-1')).toBe('revoked')
   })
 
+  it('403 em um chat não marca a chave como revogada', async () => {
+    h.getSettings.mockResolvedValue(settings('enc'))
+    h.axiosPost.mockImplementation(() =>
+      ok({
+        sessions: [{ id: 1, chatId: 500, dateCreate: '2026-11-10T13:00:00Z' }],
+        hasNextPage: false,
+      }),
+    )
+    h.axiosGet.mockImplementation((path: string) =>
+      path.startsWith('/chats/') ? httpFail(403) : ok([]),
+    )
+    const { resolve, onSourceFailure } = makeInsightsSourceResolver()
+    const r = await new GetInsightsDashboard({
+      getConfig,
+      resolveSource: resolve,
+      onSourceFailure,
+      cache: new InsightsResultCache(),
+    }).execute('app-1', { from: '2026-11-01', to: '2026-11-30' })
+    expect(r.mode).toBe('full')
+    expect(getKeyProblem('app-1')).toBeNull()
+  })
+
+  it('401 em um chat ainda marca a chave como revogada', async () => {
+    h.getSettings.mockResolvedValue(settings('enc'))
+    h.axiosPost.mockImplementation(() =>
+      ok({
+        sessions: [{ id: 1, chatId: 500, dateCreate: '2026-11-10T13:00:00Z' }],
+        hasNextPage: false,
+      }),
+    )
+    h.axiosGet.mockImplementation((path: string) =>
+      path.startsWith('/chats/') ? httpFail(401) : ok([]),
+    )
+    const { resolve, onSourceFailure } = makeInsightsSourceResolver()
+    const r = await new GetInsightsDashboard({
+      getConfig,
+      resolveSource: resolve,
+      onSourceFailure,
+      cache: new InsightsResultCache(),
+    }).execute('app-1', { from: '2026-11-01', to: '2026-11-30' })
+    expect(r.mode).toBe('lean')
+    expect(getKeyProblem('app-1')).toBe('revoked')
+  })
+
   it('5xx da Vibecode não marca a chave como revogada', async () => {
     h.getSettings.mockResolvedValue(settings('enc'))
     h.axiosPost.mockImplementation(() => httpFail(503))
