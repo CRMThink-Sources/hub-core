@@ -22,7 +22,10 @@ vi.mock('axios', () => {
   }
 })
 vi.mock('@/shared/infra/crypto/token-cipher', () => ({
-  decryptToken: (v: string) => (v === 'enc' ? KEY : `${KEY}-${v}`),
+  decryptToken: (v: string) => {
+    if (v === 'corrompida') throw new Error('Unsupported state')
+    return v === 'enc' ? KEY : `${KEY}-${v}`
+  },
 }))
 vi.mock(
   '../infra/persistence/repositories/prisma-insights-settings.repository',
@@ -120,6 +123,17 @@ describe('makeInsightsSourceResolver', () => {
     h.axiosPost.mockImplementation(() =>
       ok({ sessions: [], hasNextPage: false }),
     )
+  })
+
+  it('chave ilegível: usa o clássico e marca keyProblem unreadable', async () => {
+    h.getSettings.mockResolvedValue(settings('corrompida'))
+    const warn = vi.spyOn(apiLogger, 'warn').mockImplementation(() => undefined)
+    const { resolve } = makeInsightsSourceResolver()
+    const source = await resolve('app-1')
+    expect(source).not.toBeInstanceOf(VibeInsightsDataSource)
+    expect(source.mode).toBe('lean')
+    expect(getKeyProblem('app-1')).toBe('unreadable')
+    expect(warn).toHaveBeenCalled()
   })
 
   it('reusa a mesma fonte lean por app, inclusive em chamadas simultâneas', async () => {

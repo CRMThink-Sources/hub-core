@@ -18,7 +18,7 @@ export type InsightsStatus = {
   keyConfigured: boolean
   last4: string | null
   validatedAt: string | null
-  keyProblem: 'revoked' | null
+  keyProblem: 'revoked' | 'unreadable' | null
 }
 
 export type InsightsConfig = {

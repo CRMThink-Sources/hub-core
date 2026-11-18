@@ -14,6 +14,7 @@
     "statusConfigured": "Clave configurada: ••••{{last4}}",
     "statusValidated": "Validada el {{date}}",
     "revoked": "Vibecode rechazó la clave registrada (revocada o inválida). Registre una nueva clave.",
+    "unreadable": "No fue posible leer la clave guardada. Regístrela de nuevo.",
     "keyLabel": "Clave Vibecode",
     "keyPlaceholder": "Pegue la clave aquí",
     "save": "Guardar clave",

@@ -24,14 +24,16 @@ export class GetInsightsStatus {
   ): Promise<InsightsStatus> {
     const row = await this.deps.settings.get(appId)
     const keyConfigured = !!row?.keyEnc
+    const keyProblem = getKeyProblem(appId)
     return {
-      mode: keyConfigured ? 'full' : 'lean',
+      // Chave com problema cai no clássico: o modo é enxuto, mesmo configurada.
+      mode: keyConfigured && !keyProblem ? 'full' : 'lean',
       keyConfigured,
       last4: opts.includeKeyDetails ? (row?.last4 ?? null) : null,
       validatedAt: opts.includeKeyDetails
         ? (row?.validatedAt?.toISOString() ?? null)
         : null,
-      keyProblem: getKeyProblem(appId),
+      keyProblem,
     }
   }
 }

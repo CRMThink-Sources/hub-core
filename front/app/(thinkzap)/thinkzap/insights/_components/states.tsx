@@ -52,14 +52,18 @@ export function LeanBanner() {
  * painel caiu para o modo enxuto. O pai só renderiza para admin; quem não é
  * admin nem busca o status, então nenhum detalhe da chave chega a ele.
  */
-export function KeyRevokedBanner() {
+export function KeyRevokedBanner({
+  problem = 'revoked',
+}: {
+  problem?: 'revoked' | 'unreadable'
+}) {
   const { t } = useTranslation('thinkzap/insights')
   return (
     <p
       role="alert"
       className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800"
     >
-      {t('full.keyRevoked')}{' '}
+      {t(problem === 'unreadable' ? 'full.keyUnreadable' : 'full.keyRevoked')}{' '}
       <Link
         href="/thinkzap/administracao"
         className="font-medium underline-offset-2 hover:underline"

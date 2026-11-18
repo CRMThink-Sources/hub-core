@@ -5,6 +5,7 @@ import {
 import {
   getKeyProblem,
   markKeyRevoked,
+  markKeyUnreadable,
 } from '../application/insights/key-health'
 import type {
   InsightsSourceFailureHandler,
@@ -104,13 +105,15 @@ export function makeInsightsSourceResolver(
       settings.get(appId),
       loadDomain(appId),
     ])
-    // Chave já recusada nesta execução: vai direto ao clássico em vez de
-    // tentar (e falhar) de novo em toda abertura. Regravar a chave limpa isso.
-    if (row?.keyEnc && getKeyProblem(appId) !== 'revoked') {
+    // Chave já recusada ou ilegível nesta execução: vai direto ao clássico em
+    // vez de tentar (e falhar) de novo em toda abertura. Regravar a chave limpa
+    // isso.
+    if (row?.keyEnc && !getKeyProblem(appId)) {
       let key: string | null = null
       try {
         key = decryptToken(row.keyEnc)
       } catch (e) {
+        markKeyUnreadable(appId)
         // Só o nome do erro: a mensagem não deve carregar nada da chave.
         apiLogger.warn(
           { appId, errorName: e instanceof Error ? e.name : 'unknown' },

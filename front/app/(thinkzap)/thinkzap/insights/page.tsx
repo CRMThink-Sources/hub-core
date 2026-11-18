@@ -94,8 +94,7 @@ export default function InsightsPage() {
     isAdmin && mode === 'lean',
     t('state.loadError'),
   )
-  const keyRevoked =
-    isAdmin && mode === 'lean' && status.data?.keyProblem === 'revoked'
+  const keyProblem = isAdmin && mode === 'lean' ? status.data?.keyProblem : null
 
   function openTab(next: Tab) {
     setTab(next)
@@ -170,7 +169,7 @@ export default function InsightsPage() {
         ) : null}
       </header>
 
-      {keyRevoked ? <KeyRevokedBanner /> : null}
+      {keyProblem ? <KeyRevokedBanner problem={keyProblem} /> : null}
       {mode === 'lean' ? <LeanBanner /> : null}
 
       {tab === 'today' ? (

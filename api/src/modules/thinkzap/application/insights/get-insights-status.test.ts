@@ -4,7 +4,11 @@ import type {
   InsightsSettingsRepository,
 } from '@/modules/thinkzap/domain/repositories/insights-settings/insights-settings.repository'
 import { GetInsightsStatus } from './get-insights-status'
-import { clearKeyProblem, markKeyRevoked } from './key-health'
+import {
+  clearKeyProblem,
+  markKeyRevoked,
+  markKeyUnreadable,
+} from './key-health'
 
 function setup(row: InsightsSettings | null) {
   const get = vi.fn<InsightsSettingsRepository['get']>().mockResolvedValue(row)
@@ -64,5 +68,19 @@ describe('GetInsightsStatus', () => {
       includeKeyDetails: false,
     })
     expect(status.keyProblem).toBe('revoked')
+    expect(status.mode).toBe('lean')
+    expect(status.keyConfigured).toBe(true)
+  })
+
+  it('chave ilegível também deixa o modo enxuto', async () => {
+    markKeyUnreadable('app-1')
+    const status = await setup(withKey).execute('app-1', {
+      includeKeyDetails: false,
+    })
+    expect(status).toMatchObject({
+      mode: 'lean',
+      keyConfigured: true,
+      keyProblem: 'unreadable',
+    })
   })
 })

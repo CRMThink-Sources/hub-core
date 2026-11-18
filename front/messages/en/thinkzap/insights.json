@@ -427,6 +427,7 @@
         "looser": "looser than the panel"
       }
     },
-    "keyRevoked": "The key stopped working. Register a new one."
+    "keyRevoked": "The key stopped working. Register a new one.",
+    "keyUnreadable": "The stored key could not be read. Register it again."
   }
 }

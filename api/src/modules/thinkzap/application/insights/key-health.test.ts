@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clearKeyProblem, getKeyProblem, markKeyRevoked } from './key-health'
+import {
+  clearKeyProblem,
+  getKeyProblem,
+  markKeyRevoked,
+  markKeyUnreadable,
+} from './key-health'
 
 describe('key-health', () => {
   beforeEach(() => {
@@ -15,6 +20,11 @@ describe('key-health', () => {
     markKeyRevoked('app-1')
     expect(getKeyProblem('app-1')).toBe('revoked')
     expect(getKeyProblem('app-2')).toBeNull()
+  })
+
+  it('marca a chave como ilegível', () => {
+    markKeyUnreadable('app-1')
+    expect(getKeyProblem('app-1')).toBe('unreadable')
   })
 
   it('limpa o problema', () => {

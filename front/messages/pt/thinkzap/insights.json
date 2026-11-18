@@ -427,6 +427,7 @@
         "looser": "mais folgado que o painel"
       }
     },
-    "keyRevoked": "A chave deixou de funcionar. Cadastre uma nova."
+    "keyRevoked": "A chave deixou de funcionar. Cadastre uma nova.",
+    "keyUnreadable": "Não foi possível ler a chave salva. Cadastre-a novamente."
   }
 }

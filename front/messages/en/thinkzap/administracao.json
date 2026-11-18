@@ -14,6 +14,7 @@
     "statusConfigured": "Key configured: ••••{{last4}}",
     "statusValidated": "Validated on {{date}}",
     "revoked": "Vibecode rejected the stored key (revoked or invalid). Register a new key.",
+    "unreadable": "The stored key could not be read. Register it again.",
     "keyLabel": "Vibecode key",
     "keyPlaceholder": "Paste the key here",
     "save": "Save key",

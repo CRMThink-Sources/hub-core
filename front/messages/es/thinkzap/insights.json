@@ -427,6 +427,7 @@
         "looser": "más flexible que el panel"
       }
     },
-    "keyRevoked": "La clave dejó de funcionar. Registre una nueva."
+    "keyRevoked": "La clave dejó de funcionar. Registre una nueva.",
+    "keyUnreadable": "No fue posible leer la clave guardada. Regístrela de nuevo."
   }
 }

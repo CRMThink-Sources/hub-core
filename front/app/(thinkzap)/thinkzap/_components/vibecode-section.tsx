@@ -18,7 +18,7 @@ type InsightsStatus = {
   keyConfigured: boolean
   last4: string | null
   validatedAt: string | null
-  keyProblem: 'revoked' | null
+  keyProblem: 'revoked' | 'unreadable' | null
 }
 
 /**
@@ -146,12 +146,16 @@ export function VibecodeSection() {
           )}
         </div>
 
-        {status?.keyProblem === 'revoked' ? (
+        {status?.keyProblem ? (
           <p
             role="alert"
             className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
           >
-            {t('vibecode.revoked')}
+            {t(
+              status.keyProblem === 'unreadable'
+                ? 'vibecode.unreadable'
+                : 'vibecode.revoked',
+            )}
           </p>
         ) : null}
 
