@@ -2,7 +2,31 @@
   "tabs": {
     "permissoes": "Permissions",
     "gruposAcesso": "Access groups",
-    "notificacoesConexao": "Connection notifications"
+    "notificacoesConexao": "Connection notifications",
+    "vibecode": "Vibecode"
   },
-  "tabsAriaLabel": "Administration sections"
+  "tabsAriaLabel": "Administration sections",
+  "vibecode": {
+    "title": "Vibecode key",
+    "description": "Used by Insights to read your Bitrix24 data. Create a read-only personal key and paste it below. It is stored encrypted and never shown again.",
+    "loading": "Loading...",
+    "statusNone": "No key configured. Insights runs in lean mode.",
+    "statusConfigured": "Key configured: ••••{{last4}}",
+    "statusValidated": "Validated on {{date}}",
+    "revoked": "Vibecode rejected the stored key (revoked or invalid). Register a new key.",
+    "unreadable": "The stored key could not be read. Register it again.",
+    "keyLabel": "Vibecode key",
+    "keyPlaceholder": "Paste the key here",
+    "save": "Save key",
+    "saving": "Saving...",
+    "remove": "Remove key",
+    "removing": "Removing...",
+    "saved": "Key saved.",
+    "removed": "Key removed.",
+    "loadError": "Could not load the key status.",
+    "saveError": "Could not save the key.",
+    "removeError": "Could not remove the key.",
+    "keyRequired": "Enter the Vibecode key.",
+    "adminOnly": "Only administrators can manage the Vibecode key."
+  }
 }

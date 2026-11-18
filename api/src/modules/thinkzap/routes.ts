@@ -54,6 +54,15 @@ import {
   makeUpdateAccessGroupController,
   makeWidgetLineGuard,
 } from './main/make-access-group-controllers'
+import {
+  makeGetInsightsConfigController,
+  makeGetInsightsDashboardController,
+  makeGetInsightsStatusController,
+  makeGetInsightsTodayController,
+  makeSaveInsightsConfigController,
+  makeRemoveVibecodeKeyController,
+  makeSaveVibecodeKeyController,
+} from './main/make-insights-controllers'
 import { makeAddAllowedUserController } from './main/make-add-allowed-user-controller'
 import { makeRemoveAllowedUserController } from './main/make-remove-allowed-user-controller'
 import { makeUpdateAllowedUserPermissionsController } from './main/make-update-allowed-user-permissions-controller'
@@ -339,6 +348,43 @@ export const createThinkerszapRoutes = (): Router => {
     '/access/groups/:groupId',
     requireThinkzapAdmin,
     adaptControllerFactory(makeRemoveAccessGroupController),
+  )
+
+  // Insights: o status serve a qualquer usuário com acesso; a chave Vibecode é só do admin.
+  router.get(
+    '/insights/status',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetInsightsStatusController),
+  )
+  router.get(
+    '/insights/dashboard',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetInsightsDashboardController),
+  )
+  router.get(
+    '/insights/today',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetInsightsTodayController),
+  )
+  router.get(
+    '/insights/config',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetInsightsConfigController),
+  )
+  router.put(
+    '/insights/config',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeSaveInsightsConfigController),
+  )
+  router.put(
+    '/insights/vibecode-key',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeSaveVibecodeKeyController),
+  )
+  router.delete(
+    '/insights/vibecode-key',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeRemoveVibecodeKeyController),
   )
 
   // Trial gateado por `finance`; admin do Bitrix passa porque `canManageAccess`

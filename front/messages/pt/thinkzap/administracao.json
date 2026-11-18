@@ -2,7 +2,31 @@
   "tabs": {
     "permissoes": "Permissões",
     "gruposAcesso": "Grupos de acesso",
-    "notificacoesConexao": "Notificações de conexão"
+    "notificacoesConexao": "Notificações de conexão",
+    "vibecode": "Vibecode"
   },
-  "tabsAriaLabel": "Seções da administração"
+  "tabsAriaLabel": "Seções da administração",
+  "vibecode": {
+    "title": "Chave Vibecode",
+    "description": "Usada pelo Insights para ler os dados do seu Bitrix24. Crie uma chave pessoal somente leitura e cole abaixo. Ela é guardada cifrada e nunca é exibida de novo.",
+    "loading": "Carregando...",
+    "statusNone": "Nenhuma chave cadastrada. O Insights funciona no modo enxuto.",
+    "statusConfigured": "Chave configurada: ••••{{last4}}",
+    "statusValidated": "Validada em {{date}}",
+    "revoked": "A Vibecode recusou a chave cadastrada (revogada ou inválida). Cadastre uma nova chave.",
+    "unreadable": "Não foi possível ler a chave salva. Cadastre-a novamente.",
+    "keyLabel": "Chave Vibecode",
+    "keyPlaceholder": "Cole a chave aqui",
+    "save": "Salvar chave",
+    "saving": "Salvando...",
+    "remove": "Remover chave",
+    "removing": "Removendo...",
+    "saved": "Chave salva.",
+    "removed": "Chave removida.",
+    "loadError": "Não foi possível carregar o estado da chave.",
+    "saveError": "Não foi possível salvar a chave.",
+    "removeError": "Não foi possível remover a chave.",
+    "keyRequired": "Informe a chave Vibecode.",
+    "adminOnly": "Apenas administradores podem gerenciar a chave Vibecode."
+  }
 }

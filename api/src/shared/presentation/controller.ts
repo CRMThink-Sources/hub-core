@@ -30,6 +30,10 @@ export abstract class Controller {
     return { status: 409, result: { error: error.message } }
   }
 
+  protected unprocessableEntity(error: Error): httpResponse {
+    return { status: 422, result: { error: error.message } }
+  }
+
   protected gatewayTimeout(error: Error): httpResponse {
     return { status: 504, result: { error: error.message } }
   }

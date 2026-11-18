@@ -1,0 +1,433 @@
+{
+  "title": "Insights",
+  "tabs": {
+    "ariaLabel": "Secciones de Insights",
+    "today": "Ahora",
+    "performance": "Desempeño"
+  },
+  "state": {
+    "loading": "Cargando…",
+    "loadError": "No se pudo cargar el panel. Inténtalo de nuevo en unos instantes.",
+    "configError": "No se pudo cargar la configuración del panel.",
+    "saveError": "No se pudo guardar la configuración."
+  },
+  "lean": {
+    "banner": "Versión reducida — configura la clave Vibecode en Administración para verlo todo",
+    "link": "Ir a Administración"
+  },
+  "empty": {
+    "noConversations": "Sin conversaciones en el período.",
+    "period": "Ninguna conversación en este período y filtro. Prueba un período más largo u otro sector."
+  },
+  "filters": {
+    "from": "Desde",
+    "to": "Hasta",
+    "until": "a",
+    "dept": "Sector",
+    "operator": "Empleado",
+    "allDepts": "Todos los sectores",
+    "allTeam": "Todo el equipo"
+  },
+  "performance": {
+    "subtitle": "{{from}} a {{to}} · las flechas comparan con el mismo número de días antes",
+    "lowSample_one": "Pocas conversaciones en este recorte ({{count}}). Usa los números como indicación.",
+    "lowSample_other": "Pocas conversaciones en este recorte ({{count}}). Usa los números como indicación.",
+    "deptScope": "Sector {{name}}",
+    "allTeam": "Todo el equipo"
+  },
+  "health": {
+    "level": {
+      "good": "Bien",
+      "warn": "Atención",
+      "bad": "Necesita mejorar",
+      "none": "Sin datos"
+    },
+    "trend": {
+      "none": "Sin período anterior para comparar",
+      "same": "Igual que el período anterior",
+      "better": "↗ Mejoró — antes: {{before}}",
+      "worse": "↘ Empeoró — antes: {{before}}"
+    },
+    "sla": {
+      "title": "Rapidez",
+      "none": "Ninguna conversación respondida todavía.",
+      "headline_one": "{{count}} de cada 10 clientes respondidos en hasta {{min}} min",
+      "headline_other": "{{count}} de cada 10 clientes respondidos en hasta {{min}} min",
+      "almostSame": "Prácticamente igual al período anterior ({{before}} → {{now}})",
+      "outOfTen_one": "{{count}} de cada 10",
+      "outOfTen_other": "{{count}} de cada 10",
+      "tip": "Los {{min}} min son una referencia del panel, no una meta definida por la empresa. Las conversaciones iniciadas por el equipo no entran en esta cuenta. Cuanto más rápido se responde al cliente en WhatsApp, mayor es la probabilidad de cerrar el negocio. Si no está bien: mira en el gráfico por hora cuándo sube la espera y, en el gráfico del equipo, quién tarda más."
+    },
+    "noAnswer": {
+      "title": "Nadie sin respuesta",
+      "noneClosed": "Ninguna conversación cerrada.",
+      "headline_one": "{{count}} cliente se quedó sin respuesta ({{pct}})",
+      "headline_other": "{{count}} clientes se quedaron sin respuesta ({{pct}})",
+      "all": "Todos los clientes recibieron respuesta",
+      "tip": "Un cliente sin respuesta normalmente no vuelve. Si no está bien: la lista con cada cliente y el enlace al CRM está al final de la página."
+    },
+    "recontact": {
+      "title": "Resuelto a la primera",
+      "noConversations": "Sin conversaciones.",
+      "headline_one": "{{count}} vez el cliente volvió a escribir en hasta 2 días",
+      "headline_other": "{{count}} veces el cliente volvió a escribir en hasta 2 días",
+      "none": "Ningún cliente tuvo que volver a escribir",
+      "before": "{{pct}}% de las conversaciones",
+      "tip": "Cuando el cliente vuelve enseguida, probablemente el problema no se resolvió en la primera conversación. {{recurrent}} de {{clients}} clientes escribieron más de una vez en el período."
+    }
+  },
+  "kpi": {
+    "deltaSame": "= anterior",
+    "average": "promedio {{value}}",
+    "conversations": {
+      "label": "Conversaciones",
+      "perDay": "· {{value}} por día",
+      "desc": "Cuántas conversaciones de WhatsApp hubo en el período."
+    },
+    "direction": {
+      "label": "Recibidas · iniciadas",
+      "sub": "el cliente empezó · la empresa empezó",
+      "desc": "Quién envió el primer mensaje: el cliente (recibida) o el equipo (iniciada)."
+    },
+    "contacts": {
+      "label": "Contactos únicos",
+      "sub_one": "{{count}} volvió a escribir",
+      "sub_other": "{{count}} volvieron a escribir",
+      "desc": "Cuántos clientes distintos fueron atendidos. Quien escribió varias veces cuenta una sola vez."
+    },
+    "firstAnswer": {
+      "label": "1ª respuesta",
+      "desc": "Cuánto suele esperar el cliente hasta la primera respuesta de una persona (el bot no cuenta).",
+      "bizOnly": "Solo cuenta el tiempo dentro del horario comercial."
+    },
+    "reply": {
+      "label": "Tiempo de respuesta",
+      "sub": "promedio en toda la conversación",
+      "desc": "Cuánto tarda el equipo, en promedio, en responder cada mensaje del cliente a lo largo de la conversación."
+    },
+    "handling": {
+      "label": "Atención",
+      "desc": "Cuánto tiempo suele quedar abierta la conversación, desde el inicio hasta que se cierra."
+    },
+    "messages": {
+      "label": "Mensajes",
+      "sub": "enviados · recibidos",
+      "desc": "Mensajes enviados por el equipo y recibidos de los clientes. Los mensajes del bot no cuentan."
+    },
+    "return": {
+      "label": "Respuesta del cliente",
+      "sub_one": "de {{count}} conversación iniciada",
+      "sub_other": "de {{count}} conversaciones iniciadas",
+      "none": "ninguna conversación iniciada",
+      "desc": "De las conversaciones que inició el equipo, en cuántas respondió el cliente."
+    },
+    "crm": {
+      "label": "En el CRM",
+      "sub_one": "{{count}} vinculada a negociación",
+      "sub_other": "{{count}} vinculadas a negociación",
+      "desc": "Cuántas conversaciones están vinculadas a un contacto, prospecto o negociación en el CRM."
+    },
+    "takeover": {
+      "label": "Tiempo hasta asumir",
+      "desc": "Cuánto tarda una persona del equipo en asumir la conversación. El bot pudo haber respondido antes, pero aquí solo cuenta cuando alguien del equipo toma la atención."
+    },
+    "stuck": {
+      "label": "Conversaciones olvidadas",
+      "open_one": "{{count}} todavía abierta",
+      "open_other": "{{count}} todavía abiertas",
+      "noneOpen": "ninguna abierta ahora",
+      "desc": "Conversaciones que quedaron abiertas más de {{days}} días. Una atención olvidada deja al cliente sin respuesta y distorsiona el tiempo de atención."
+    },
+    "won": {
+      "label": "Negociaciones ganadas",
+      "sub": "{{total}} negociaciones vinieron de las conversaciones ({{open}} en curso, {{lost}} perdidas)",
+      "desc": "Negociaciones ganadas que vinieron de las conversaciones: vinculadas directamente a la conversación o creadas para el mismo cliente hasta {{days}} días después."
+    }
+  },
+  "gran": {
+    "total": "Período",
+    "day": "Día",
+    "week": "Semana",
+    "month": "Mes"
+  },
+  "series": {
+    "granularity": "Agrupar el gráfico por",
+    "title": {
+      "day": "Conversaciones y tiempo de respuesta por día",
+      "week": "Conversaciones y tiempo de respuesta por semana",
+      "month": "Conversaciones y tiempo de respuesta por mes"
+    }
+  },
+  "hourly": {
+    "title": "Conversaciones y tiempo de respuesta por hora del día",
+    "busiest": "Más movimiento de las {{from}}h a las {{to}}h.",
+    "worst": "Espera más larga a las {{hour}}h ({{value}}): ¿falta gente en ese horario?"
+  },
+  "chart": {
+    "leftAxis": "Conversaciones",
+    "rightAxis": "Espera por la 1ª respuesta",
+    "waitLine": "Espera típica por la 1ª respuesta",
+    "reference": "Referencia: {{value}}",
+    "waitTooltip": "{{label}} · espera típica: {{value}}",
+    "note": "Barras = conversaciones (eje izquierdo). Línea = cuánto suele esperar el cliente (eje derecho); punto rojo = pasó de {{ref}}, \"+\" = pasó de {{cap}}."
+  },
+  "legend": {
+    "answered": "Respondidas",
+    "noAnswer": "Sin respuesta",
+    "open": "Abiertas",
+    "arrived": "Conversaciones que llegaron"
+  },
+  "people": {
+    "title": "Equipo: volumen × rapidez",
+    "hint": "Quién atiende más y quién tarda más en responder.",
+    "answered_one": "{{count}} respondida",
+    "answered_other": "{{count}} respondidas",
+    "noAnswer_one": "{{count}} sin respuesta",
+    "noAnswer_other": "{{count}} sin respuesta",
+    "noReply": "sin respuesta",
+    "repliesIn": "responde en {{value}}",
+    "note": "A la derecha: espera típica por la 1ª respuesta (rojo = pasó de {{value}})."
+  },
+  "team": {
+    "title": "Informe del equipo",
+    "granularity": "Agrupar el informe por",
+    "download": "Descargar hoja de cálculo",
+    "person": "Empleado",
+    "total": "Total",
+    "direction": "{{received}} recibidas · {{initiated}} iniciadas",
+    "ofBase_one": "de {{count}}",
+    "ofBase_other": "de {{count}}",
+    "weekOf": "Semana del {{date}}",
+    "note": "Pasa el mouse sobre el título de cada columna para ver qué mide. Haz clic en una persona para filtrar la página. La conversación cuenta para quien la cerró; las respuestas del bot no cuentan.",
+    "cols": {
+      "conversations": {
+        "label": "Conversaciones",
+        "tip": "Total de conversaciones en el período. Abajo: cuántas empezó el cliente (recibidas) y cuántas empezó la empresa (iniciadas)."
+      },
+      "contacts": {
+        "label": "Contactos únicos",
+        "tip": "Cuántos clientes distintos atendió la persona. Un cliente que escribió 3 veces cuenta 1."
+      },
+      "messages": {
+        "label": "Mensajes",
+        "tip": "Mensajes que envió la persona / mensajes que enviaron los clientes. Las respuestas del bot no cuentan."
+      },
+      "firstAnswer": {
+        "label": "1ª respuesta",
+        "tip": "Tiempo promedio entre el primer mensaje del cliente y la primera respuesta de una persona (no del bot)."
+      },
+      "reply": {
+        "label": "Tiempo de respuesta",
+        "tip": "Tiempo promedio para responder durante toda la conversación, no solo la primera vez."
+      },
+      "handling": {
+        "label": "Atención",
+        "tip": "Tiempo promedio desde el inicio hasta el fin de la conversación."
+      },
+      "noAnswer": {
+        "label": "Sin respuesta",
+        "tip": "Conversaciones cerradas sin ningún mensaje de una persona del equipo."
+      },
+      "return": {
+        "label": "Respuesta del cliente",
+        "tip": "De las conversaciones que inició la empresa, en cuántas respondió el cliente."
+      },
+      "shift": {
+        "label": "Jornada",
+        "tip": "Hora del primer y del último mensaje enviado en el día. En la vista semana/mes, es el promedio de los días trabajados."
+      },
+      "takeover": {
+        "label": "Asumió en",
+        "tip": "Tiempo promedio hasta que la persona asumió la conversación."
+      },
+      "stuck": {
+        "label": "Olvidadas",
+        "tip": "Conversaciones que quedaron abiertas más que el límite configurado."
+      },
+      "won": {
+        "label": "Negociaciones ganadas",
+        "tip": "Negociaciones ganadas que vinieron de las conversaciones de la persona, con el valor sumado."
+      }
+    },
+    "csv": {
+      "headers": [
+        "Período",
+        "Empleado",
+        "Sector",
+        "Conversaciones",
+        "Recibidas",
+        "Iniciadas",
+        "Contactos únicos",
+        "Mensajes enviados",
+        "Mensajes recibidos",
+        "1ª respuesta promedio (min)",
+        "Tiempo de respuesta promedio (min)",
+        "Atención promedio (min)",
+        "Sin respuesta",
+        "Respuesta del cliente (%)",
+        "Primera actividad",
+        "Última actividad",
+        "Tiempo hasta asumir (min)",
+        "Olvidadas",
+        "Negociaciones generadas",
+        "Negociaciones ganadas",
+        "Valor ganado (R$)"
+      ]
+    }
+  },
+  "crmType": {
+    "contact": "Contacto",
+    "lead": "Prospecto",
+    "deal": "Negociación",
+    "company": "Empresa"
+  },
+  "lists": {
+    "with": "Con quién",
+    "crm": "Cliente en el CRM",
+    "stuck": {
+      "title": "Conversaciones olvidadas abiertas (más de {{days}} días)",
+      "empty": "Ninguna conversación abierta hace más de {{days}} días.",
+      "closedNote_one": "En el período, {{count}} conversación quedó abierta más que eso antes de cerrarse.",
+      "closedNote_other": "En el período, {{count}} conversaciones quedaron abiertas más que eso antes de cerrarse.",
+      "since": "Abierta desde",
+      "age": "Hace",
+      "days_one": "{{count}} día",
+      "days_other": "{{count}} días"
+    },
+    "won": {
+      "title": "Negociaciones ganadas que vinieron de las conversaciones",
+      "empty": "Ninguna negociación ganada vinculada a las conversaciones del período.",
+      "note": "{{total}} negociaciones vinieron de las conversaciones: {{open}} en curso y {{lost}} perdidas.",
+      "deal": "Negociación",
+      "amount": "Valor",
+      "by": "Quién atendió",
+      "date": "Conversación el"
+    },
+    "lost": {
+      "title": "Clientes que se quedaron sin respuesta",
+      "empty": "Ningún cliente se quedó sin respuesta.",
+      "arrived": "Cuándo llegó",
+      "with": "Con quién estaba",
+      "outsideHours": "fuera de horario"
+    }
+  },
+  "details": {
+    "conversations_one": "{{count}} conversación",
+    "conversations_other": "{{count}} conversaciones",
+    "waitTitle": "Cuánto esperó el cliente por la primera respuesta",
+    "inside": "En horario comercial ({{start}}h–{{end}}h) la espera típica es {{value}}.",
+    "outside": "Fuera de horario, {{value}}.",
+    "business": "En horario comercial",
+    "outsideLabel": "Fuera de horario",
+    "bucket": {
+      "le5": "Hasta 5 min",
+      "leSla": "Hasta {{min}} min",
+      "le60": "Hasta 1 hora",
+      "gt60": "Más de 1 hora",
+      "never": "Nunca respondido",
+      "waiting": "Esperando"
+    },
+    "dailyTitle": "Conversaciones por día",
+    "dailyTooltip": "{{day}}: {{arrived}} llegaron · {{answered}} respondidas · {{noAnswer}} sin respuesta",
+    "peakTitle": "Horarios de mayor movimiento",
+    "peak": "Más movimiento {{hours}}.",
+    "hourRange": "de las {{from}}h a las {{to}}h",
+    "and": "y",
+    "heatTitle": "Movimiento por día de la semana y hora",
+    "heatTooltip_one": "{{day}}, {{hour}}h: {{count}} conversación",
+    "heatTooltip_other": "{{day}}, {{hour}}h: {{count}} conversaciones"
+  },
+  "weekdays": {
+    "0": "dom",
+    "1": "lun",
+    "2": "mar",
+    "3": "mié",
+    "4": "jue",
+    "5": "vie",
+    "6": "sáb"
+  },
+  "today": {
+    "title": "Ahora",
+    "summary": "{{total}} conversaciones llegaron hoy · {{open}} abiertas",
+    "online": "{{online}} de {{total}} agentes en línea",
+    "whoTitle": "A quién reclamar ahora",
+    "lateBadge_one": "{{count}} sin respuesta hace más de {{min}} min",
+    "lateBadge_other": "{{count}} sin respuesta hace más de {{min}} min",
+    "noneOpen": "Ninguna conversación abierta ahora.",
+    "cols": {
+      "operator": "Agente",
+      "age": "Abierta hace",
+      "status": "Situación",
+      "crm": "Cliente en el CRM"
+    },
+    "status": {
+      "late": "sin respuesta",
+      "waiting": "esperando",
+      "active": "en atención"
+    }
+  },
+  "settings": {
+    "open": "Configuración",
+    "title": "Configuración del panel",
+    "refMin": "Tiempo de referencia para la 1ª respuesta",
+    "minutes": "min",
+    "refMinHint": "Se usa en la tarjeta Rapidez y en los gráficos. No es una meta: solo una regla para comparar.",
+    "businessHours": "Horario comercial",
+    "bhStart": "Inicio del horario comercial",
+    "bhEnd": "Fin del horario comercial",
+    "hoursTo": "h a",
+    "days": "Días de atención",
+    "bizOnly": "Contar el tiempo de espera solo dentro del horario comercial",
+    "bizOnlyHint": "Ej.: el cliente escribió a las 22h y fue respondido a las 8h = 0 min de espera, y no 10 h.",
+    "stuckDays": "Conversación olvidada después de",
+    "daysOpen": "días abierta",
+    "dealWindow": "La negociación cuenta para la conversación si se crea hasta",
+    "daysAfter": "días después",
+    "dealWindowHint": "Vale para negociaciones del mismo contacto o prospecto. Las negociaciones vinculadas directamente a la conversación siempre cuentan.",
+    "sources": "Canales considerados",
+    "noSources": "ningún canal en el período",
+    "sourcesHint": "Ninguno marcado = todos los canales de ThinkZap.",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "saving": "Guardando…"
+  },
+  "full": {
+    "spam": {
+      "label": "Spam",
+      "sub": "conversaciones descartadas",
+      "desc": "Conversaciones marcadas como spam en el período. No entran en los demás números."
+    },
+    "abandon": {
+      "label": "Abandono",
+      "sub": "de las conversaciones cerradas",
+      "desc": "De las conversaciones cerradas, cuántas se cerraron automáticamente por falta de interacción."
+    },
+    "rating": {
+      "label": "Nota del cliente",
+      "sub": "{{likes}} positivas · {{dislikes}} negativas",
+      "none": "sin datos de calificación",
+      "noRatings": "ningún cliente calificó",
+      "desc": "De los clientes que calificaron la atención, cuántos dieron una nota positiva."
+    },
+    "reasons": {
+      "title": "Motivos de cierre",
+      "empty": "Ninguna conversación cerrada en el período.",
+      "known": {
+        "auto": "Cerrada automáticamente",
+        "outro": "Otro motivo"
+      }
+    },
+    "channelSla": {
+      "title": "Meta de 1ª respuesta por canal",
+      "hint": "Objetivo configurado en cada canal, junto a la referencia del panel ({{value}}).",
+      "empty": "Ningún canal tiene objetivo de 1ª respuesta configurado.",
+      "versus": {
+        "stricter": "más exigente que el panel",
+        "same": "igual al panel",
+        "looser": "más flexible que el panel"
+      }
+    },
+    "keyRevoked": "La clave dejó de funcionar. Registre una nueva.",
+    "keyUnreadable": "No fue posible leer la clave guardada. Regístrela de nuevo."
+  }
+}

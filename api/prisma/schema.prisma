@@ -65,6 +65,7 @@ model App {
   thinkzapAllowedDepartments         ThinkzapAllowedDepartment[]
   thinkzapAccessGroups               ThinkzapAccessGroup[]
   thinkzapOperatorOAuth              ThinkzapOperatorOAuth[]
+  thinkzapInsightsSettings           ThinkzapInsightsSettings?
   thinkzapBotFlows                   ThinkzapBotFlow[]
   thinkzapBotFlowBots                ThinkzapBotFlowBot[]
   thinkzapBotFlowBindings            ThinkzapBotFlowBinding[]
@@ -382,6 +383,23 @@ model ThinkzapOperatorOAuth {
   @@unique([appId, bitrixUserId])
   @@index([appId])
   @@map("thinkzap_operator_oauth")
+}
+
+/// Configuração do painel Insights por portal: chave Vibecode cifrada + config.
+model ThinkzapInsightsSettings {
+  id                  String    @id @default(uuid())
+  appId               String    @unique @map("app_id")
+  vibecodeKeyEnc      String?   @map("vibecode_key_enc") @db.Text
+  vibecodeKeyLast4    String?   @map("vibecode_key_last4") @db.VarChar(4)
+  vibecodePortalId    String?   @map("vibecode_portal_id") @db.VarChar(191)
+  vibecodeValidatedAt DateTime? @map("vibecode_validated_at")
+  config              Json?
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@map("thinkzap_insights_settings")
 }
 
 // ============================================

@@ -5,8 +5,9 @@ import { useTranslation } from 'react-i18next'
 import { PermissoesSection } from '../_components/permissoes-section'
 import { NotificacoesConexaoSection } from '../_components/notificacoes-conexao-section'
 import { GruposAcessoSection } from '../_components/grupos-acesso-section'
+import { VibecodeSection } from '../_components/vibecode-section'
 
-type SectionId = 'permissoes' | 'grupos' | 'notificacoes'
+type SectionId = 'permissoes' | 'grupos' | 'notificacoes' | 'vibecode'
 
 /**
  * Administração do ThinkZap: quem acessa o app e quem é avisado quando uma linha
@@ -25,6 +26,7 @@ export default function AdministracaoPage() {
     { id: 'permissoes', label: t('tabs.permissoes') },
     { id: 'grupos', label: t('tabs.gruposAcesso') },
     { id: 'notificacoes', label: t('tabs.notificacoesConexao') },
+    { id: 'vibecode', label: t('tabs.vibecode') },
   ]
 
   return (
@@ -60,6 +62,8 @@ export default function AdministracaoPage() {
         <PermissoesSection />
       ) : active === 'grupos' ? (
         <GruposAcessoSection />
+      ) : active === 'vibecode' ? (
+        <VibecodeSection />
       ) : (
         <NotificacoesConexaoSection />
       )}
