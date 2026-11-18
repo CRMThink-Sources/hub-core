@@ -180,6 +180,7 @@ export const ConversationView = () => {
    * trocou (ou de outra linha) é descartada, como no upload da imagem do cabeçalho.
    */
   const variablePrefillTokenRef = useRef(0)
+  const [variablesPrefilling, setVariablesPrefilling] = useState(false)
   /**
    * Imagem do cabeçalho por arquivo: o arquivo sobe assim que é escolhido, e a URL
    * devolvida entra em `templateHeaderImageUrl` — o envio é o mesmo do link.
@@ -374,6 +375,7 @@ export const ConversationView = () => {
    */
   useEffect(() => {
     variablePrefillTokenRef.current += 1
+    setVariablesPrefilling(false)
     setSelectedTemplateKey('')
     setTemplateValues({})
     setTemplateButtonValues({})
@@ -1052,18 +1054,21 @@ export const ConversationView = () => {
                    * digitou, e falha vira campos em branco.
                    */
                   const token = ++variablePrefillTokenRef.current
+                  setVariablesPrefilling(false)
                   const info = window.BX24?.placement?.info?.()
                   const crmEntity = resolveWidgetEntity(
                     info?.placement,
                     info?.options,
                   )
                   if (chosen && crmEntity && selectedConnectorId) {
+                    setVariablesPrefilling(true)
                     void fetchTemplateVariableValues(
                       selectedConnectorId,
                       chosen,
                       crmEntity,
                     ).then(values => {
                       if (token !== variablePrefillTokenRef.current) return
+                      setVariablesPrefilling(false)
                       setTemplateValues(previous =>
                         mergeCrmTemplateValues(chosen.body, previous, values),
                       )
@@ -1099,6 +1104,7 @@ export const ConversationView = () => {
                 headerImageFileName={headerImageFileName}
                 headerImageUploading={headerImageUploading}
                 headerImageUploadError={headerImageUploadError}
+                variablesLoading={variablesPrefilling}
                 disabled={isSending}
               />
             ) : composerMode === 'button' ? (
