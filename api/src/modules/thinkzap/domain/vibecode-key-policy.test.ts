@@ -22,6 +22,24 @@ describe('evaluateVibecodeMe', () => {
     expect(evaluateVibecodeMe(validMe(), INSTALLED)).toEqual({ ok: true })
   })
 
+  it('resposta sem scopes é recusada, não quebra', () => {
+    const me = { ...validMe(), scopes: undefined } as unknown as VibecodeMe
+    expect(evaluateVibecodeMe(me, INSTALLED)).toEqual({
+      ok: false,
+      reasons: [
+        { code: 'MISSING_SCOPES', scopes: [...REQUIRED_VIBECODE_SCOPES] },
+      ],
+    })
+  })
+
+  it('resposta sem portal é recusada, não quebra', () => {
+    const me = { ...validMe(), portal: 123 } as unknown as VibecodeMe
+    expect(evaluateVibecodeMe(me, INSTALLED)).toEqual({
+      ok: false,
+      reasons: [{ code: 'WRONG_PORTAL' }],
+    })
+  })
+
   it('recusa escopo a mais', () => {
     const verdict = evaluateVibecodeMe(
       validMe({ scopes: [...REQUIRED_VIBECODE_SCOPES, 'task'] }),

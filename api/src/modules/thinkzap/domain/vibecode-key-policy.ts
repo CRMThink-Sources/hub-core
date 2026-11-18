@@ -49,12 +49,17 @@ export function evaluateVibecodeMe(
   if (me.type !== 'personal') reasons.push({ code: 'WRONG_TYPE' })
 
   const installed = normalizeBitrixDomain(installedDomain).toLowerCase()
-  const portal = normalizeBitrixDomain(me.portal ?? '').toLowerCase()
+  // `me` vem de uma API externa: resposta malformada (campo ausente ou de
+  // outro tipo) tem de virar recusa da chave, nunca TypeError (500).
+  const portal = normalizeBitrixDomain(
+    typeof me.portal === 'string' ? me.portal : '',
+  ).toLowerCase()
   if (!portal || portal !== installed) reasons.push({ code: 'WRONG_PORTAL' })
 
   const required: readonly string[] = REQUIRED_VIBECODE_SCOPES
-  const missing = required.filter(scope => !me.scopes.includes(scope))
-  const extra = me.scopes.filter(scope => !required.includes(scope))
+  const scopes = Array.isArray(me.scopes) ? me.scopes : []
+  const missing = required.filter(scope => !scopes.includes(scope))
+  const extra = scopes.filter(scope => !required.includes(scope))
   if (missing.length > 0) {
     reasons.push({ code: 'MISSING_SCOPES', scopes: missing })
   }

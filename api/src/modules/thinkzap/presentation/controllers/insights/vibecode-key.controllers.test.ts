@@ -4,7 +4,10 @@ import type { GetInsightsStatus } from '@/modules/thinkzap/application/insights/
 import type { RemoveVibecodeKey } from '@/modules/thinkzap/application/insights/remove-vibecode-key'
 import type { SaveVibecodeKey } from '@/modules/thinkzap/application/insights/save-vibecode-key'
 import { VibecodeKeyRejectedError } from '@/modules/thinkzap/domain/errors/vibecode-key-rejected.error'
-import { VibecodeAuthError } from '@/modules/thinkzap/infra/clients/vibecode.client'
+import {
+  VibecodeAuthError,
+  VibecodeRequestError,
+} from '@/modules/thinkzap/infra/clients/vibecode.client'
 import {
   GetInsightsStatusController,
   RemoveVibecodeKeyController,
@@ -45,6 +48,22 @@ describe('SaveVibecodeKeyController', () => {
       res,
     )
     expect(out).toEqual({ status: 422, result: { error: error.message } })
+  })
+
+  it('devolve 502 em pt-BR quando a Vibecode falha (5xx/rede), sem a chave', async () => {
+    const execute = vi.fn<SaveVibecodeKey['execute']>(() =>
+      Promise.reject(new VibecodeRequestError('Falha (503) com vk_segredo')),
+    )
+    const out = await new SaveVibecodeKeyController({ execute }).perform(
+      req({ body: { key: 'vk_segredo' } }),
+      res,
+    )
+    expect(out.status).toBe(502)
+    expect(out.result).toEqual({
+      error:
+        'Não foi possível falar com a Vibecode agora. Tente de novo em instantes.',
+    })
+    expect(JSON.stringify(out)).not.toContain('vk_segredo')
   })
 
   it('devolve 422 quando a Vibecode recusa a chave no /me', async () => {

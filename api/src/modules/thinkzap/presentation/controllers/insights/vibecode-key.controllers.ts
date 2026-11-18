@@ -4,7 +4,10 @@ import type { GetInsightsStatus } from '@/modules/thinkzap/application/insights/
 import type { RemoveVibecodeKey } from '@/modules/thinkzap/application/insights/remove-vibecode-key'
 import type { SaveVibecodeKey } from '@/modules/thinkzap/application/insights/save-vibecode-key'
 import { VibecodeKeyRejectedError } from '@/modules/thinkzap/domain/errors/vibecode-key-rejected.error'
-import { VibecodeAuthError } from '@/modules/thinkzap/infra/clients/vibecode.client'
+import {
+  VibecodeAuthError,
+  VibecodeRequestError,
+} from '@/modules/thinkzap/infra/clients/vibecode.client'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 
@@ -49,6 +52,16 @@ export class SaveVibecodeKeyController extends Controller {
         return this.unprocessableEntity(
           new Error(
             'A Vibecode recusou esta chave. Confira se ela está correta e ativa.',
+          ),
+        )
+      }
+      // 5xx/rede ao chamar /me: instabilidade da Vibecode, não da chave. A
+      // mensagem do cliente não é repassada (nunca carrega a chave, mas o texto
+      // é interno); o admin só precisa tentar de novo.
+      if (error instanceof VibecodeRequestError) {
+        return this.badGateway(
+          new Error(
+            'Não foi possível falar com a Vibecode agora. Tente de novo em instantes.',
           ),
         )
       }
