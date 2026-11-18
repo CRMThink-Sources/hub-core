@@ -50,7 +50,11 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
       if (link.href === '/thinkzap/bots') {
         return thinkzapAccess?.canAccessThinkbot === true
       }
-      if (link.href === '/thinkzap' || link.href === '/thinkzap/conexoes') {
+      if (
+        link.href === '/thinkzap' ||
+        link.href === '/thinkzap/conexoes' ||
+        link.href === '/thinkzap/insights'
+      ) {
         return thinkzapAccess?.canAccess === true
       }
       return true
@@ -60,7 +64,9 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
   const accessBlocked = useMemo(() => {
     if (!pathname || !thinkzapAccess) return false
     if (
-      (pathname === '/thinkzap' || pathname.startsWith('/thinkzap/conexoes')) &&
+      (pathname === '/thinkzap' ||
+        pathname.startsWith('/thinkzap/conexoes') ||
+        pathname.startsWith('/thinkzap/insights')) &&
       !thinkzapAccess.canAccess
     ) {
       return true

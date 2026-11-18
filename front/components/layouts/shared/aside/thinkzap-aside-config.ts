@@ -15,6 +15,12 @@ export const THINKZAP_ASIDE_CONFIG = {
       label: 'conexoes',
       // icon: '/images/thinkzap/connection.png',
     },
+    // Painel de atendimento (Insights). Mesmo gate de `/thinkzap/conexoes` em
+    // `(thinkzap)/layout.tsx`: quem não usa o ThinkZap não vê o painel.
+    {
+      href: '/thinkzap/insights',
+      label: 'insights',
+    },
     // `/thinkzap/financeiro` saiu com a cobrança antiga; a tela nova entra aqui.
     // Permissões e notificações de conexão, em sub-abas da mesma página.
     {
