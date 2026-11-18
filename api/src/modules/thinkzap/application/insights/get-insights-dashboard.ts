@@ -7,7 +7,11 @@ import {
   type InsightsResultCache,
 } from './insights-result-cache'
 import type { DashboardQuery, DashboardResult } from './insights-results.types'
-import type { InsightsSourceResolver } from './resolve-insights-source'
+import {
+  runWithSourceFallback,
+  type InsightsSourceFailureHandler,
+  type InsightsSourceResolver,
+} from './resolve-insights-source'
 
 /** Painel do período: configuração + fonte do app + cálculo, com cache de 5 min. */
 export class GetInsightsDashboard {
@@ -15,6 +19,8 @@ export class GetInsightsDashboard {
     private readonly deps: {
       getConfig: Pick<GetInsightsConfig, 'execute'>
       resolveSource: InsightsSourceResolver
+      /** Chave revogada: refaz a leitura pela fonte que o resolver passar a dar. */
+      onSourceFailure?: InsightsSourceFailureHandler
       cache?: InsightsResultCache
     },
   ) {}
@@ -26,11 +32,10 @@ export class GetInsightsDashboard {
       insightsCacheKey('dashboard', q),
       DASHBOARD_TTL_MS,
       async () => {
-        const [cfg, source] = await Promise.all([
-          this.deps.getConfig.execute(appId),
-          this.deps.resolveSource(appId),
-        ])
-        return buildDashboard(source, cfg, q)
+        const cfg = await this.deps.getConfig.execute(appId)
+        return runWithSourceFallback(appId, this.deps, source =>
+          buildDashboard(source, cfg, q),
+        )
       },
     )
   }

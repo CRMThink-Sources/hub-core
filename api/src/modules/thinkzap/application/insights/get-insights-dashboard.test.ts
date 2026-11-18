@@ -5,7 +5,10 @@ import { GetInsightsToday } from './get-insights-today'
 import type { GetInsightsConfig } from './get-insights-config'
 import { InsightsResultCache } from './insights-result-cache'
 import { fakeSource } from './insights-test-helpers'
-import type { InsightsSourceResolver } from './resolve-insights-source'
+import type {
+  InsightsSourceFailureHandler,
+  InsightsSourceResolver,
+} from './resolve-insights-source'
 
 const setup = () => {
   let now = 0
@@ -77,6 +80,68 @@ describe('GetInsightsToday', () => {
     expect(resolveSource).toHaveBeenCalledTimes(1)
     advance(2)
     await uc.execute('app-1', {})
+    expect(resolveSource).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('fonte recusada (chave revogada)', () => {
+  const revoked = new Error('recusada')
+  const setupFallback = () => {
+    const base = setup()
+    const full = fakeSource({ mode: 'full', sessions: [] })
+    full.sessions.mockRejectedValue(revoked)
+    const lean = fakeSource({ mode: 'lean', sessions: [] })
+    let calls = 0
+    const resolveSource = vi.fn<InsightsSourceResolver>(() =>
+      Promise.resolve(calls++ === 0 ? full.source : lean.source),
+    )
+    const onSourceFailure = vi.fn<InsightsSourceFailureHandler>(
+      (_appId, e) => e === revoked,
+    )
+    return {
+      ...base,
+      resolveSource,
+      onSourceFailure,
+      deps: { ...base.deps, resolveSource, onSourceFailure },
+    }
+  }
+
+  it('chave revogada: usa o clássico e marca keyProblem (painel)', async () => {
+    const { deps, onSourceFailure, resolveSource } = setupFallback()
+    const r = await new GetInsightsDashboard(deps).execute('app-1', {})
+    expect(onSourceFailure).toHaveBeenCalledWith('app-1', revoked)
+    expect(resolveSource).toHaveBeenCalledTimes(2)
+    // O mode da resposta é o que foi de fato usado.
+    expect(r.mode).toBe('lean')
+  })
+
+  it('chave revogada: usa o clássico e marca keyProblem (hoje)', async () => {
+    const { deps, onSourceFailure } = setupFallback()
+    const r = await new GetInsightsToday(deps).execute('app-1', {})
+    expect(onSourceFailure).toHaveBeenCalledWith('app-1', revoked)
+    expect(r.mode).toBe('lean')
+  })
+
+  it('erro que o handler não reconhece sobe sem segunda tentativa', async () => {
+    const { deps, resolveSource } = setupFallback()
+    const other = new Error('5xx')
+    const full = fakeSource({ mode: 'full', sessions: [] })
+    full.sessions.mockRejectedValue(other)
+    resolveSource.mockResolvedValue(full.source)
+    await expect(
+      new GetInsightsDashboard(deps).execute('app-1', {}),
+    ).rejects.toBe(other)
+    expect(resolveSource).toHaveBeenCalledTimes(1)
+  })
+
+  it('tenta de novo uma vez só', async () => {
+    const { deps, resolveSource } = setupFallback()
+    const full = fakeSource({ mode: 'full', sessions: [] })
+    full.sessions.mockRejectedValue(revoked)
+    resolveSource.mockResolvedValue(full.source)
+    await expect(
+      new GetInsightsDashboard(deps).execute('app-1', {}),
+    ).rejects.toBe(revoked)
     expect(resolveSource).toHaveBeenCalledTimes(2)
   })
 })

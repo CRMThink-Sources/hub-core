@@ -33,40 +33,62 @@ const getPortalDomain = async (appId: string): Promise<string> => {
   return domain.name
 }
 
-export const makeSaveVibecodeKeyController = (): Controller =>
-  new SaveVibecodeKeyController(
-    new SaveVibecodeKey({
-      settings: new PrismaInsightsSettingsRepository(),
-      makeClient: key => new VibecodeClient(key),
-      getPortalDomain,
-    }),
-  )
+// Um resolver só para o processo: ele guarda a fonte (e o cache de conversas)
+// de cada app. Um por requisição jogaria o cache fora.
+const insightsSources = makeInsightsSourceResolver()
 
-export const makeRemoveVibecodeKeyController = (): Controller =>
-  new RemoveVibecodeKeyController(
-    new RemoveVibecodeKey({ settings: new PrismaInsightsSettingsRepository() }),
-  )
+// Gravar ou remover a chave troca o modo (full ↔ lean): a fonte guardada e o
+// painel em cache do modo anterior precisam cair na hora.
+export const makeSaveVibecodeKeyController = (): Controller => {
+  const save = new SaveVibecodeKey({
+    settings: new PrismaInsightsSettingsRepository(),
+    makeClient: key => new VibecodeClient(key),
+    getPortalDomain,
+  })
+  return new SaveVibecodeKeyController({
+    execute: async (appId, key) => {
+      const saved = await save.execute(appId, key)
+      insightsSources.invalidate(appId)
+      return saved
+    },
+  })
+}
+
+export const makeRemoveVibecodeKeyController = (): Controller => {
+  const remove = new RemoveVibecodeKey({
+    settings: new PrismaInsightsSettingsRepository(),
+  })
+  return new RemoveVibecodeKeyController({
+    execute: async appId => {
+      await remove.execute(appId)
+      insightsSources.invalidate(appId)
+    },
+  })
+}
 
 export const makeGetInsightsStatusController = (): Controller =>
   new GetInsightsStatusController(
     new GetInsightsStatus({ settings: new PrismaInsightsSettingsRepository() }),
   )
 
-// Um resolver só para o processo: ele guarda a fonte (e o cache de conversas)
-// de cada app. Um por requisição jogaria o cache fora.
-const resolveSource = makeInsightsSourceResolver()
+// Chave revogada no meio da leitura: o resolver marca o problema e a
+// requisição é refeita pelo REST clássico.
+const sourceDeps = {
+  resolveSource: insightsSources.resolve,
+  onSourceFailure: insightsSources.onSourceFailure,
+}
 
 const makeGetConfig = () =>
   new GetInsightsConfig({ settings: new PrismaInsightsSettingsRepository() })
 
 export const makeGetInsightsDashboardController = (): Controller =>
   new GetInsightsDashboardController(
-    new GetInsightsDashboard({ getConfig: makeGetConfig(), resolveSource }),
+    new GetInsightsDashboard({ getConfig: makeGetConfig(), ...sourceDeps }),
   )
 
 export const makeGetInsightsTodayController = (): Controller =>
   new GetInsightsTodayController(
-    new GetInsightsToday({ getConfig: makeGetConfig(), resolveSource }),
+    new GetInsightsToday({ getConfig: makeGetConfig(), ...sourceDeps }),
   )
 
 export const makeGetInsightsConfigController = (): Controller =>
