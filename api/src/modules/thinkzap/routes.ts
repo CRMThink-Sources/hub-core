@@ -55,7 +55,11 @@ import {
   makeWidgetLineGuard,
 } from './main/make-access-group-controllers'
 import {
+  makeGetInsightsConfigController,
+  makeGetInsightsDashboardController,
   makeGetInsightsStatusController,
+  makeGetInsightsTodayController,
+  makeSaveInsightsConfigController,
   makeRemoveVibecodeKeyController,
   makeSaveVibecodeKeyController,
 } from './main/make-insights-controllers'
@@ -350,6 +354,23 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/insights/status',
     adaptControllerFactory(makeGetInsightsStatusController),
+  )
+  router.get(
+    '/insights/dashboard',
+    adaptControllerFactory(makeGetInsightsDashboardController),
+  )
+  router.get(
+    '/insights/today',
+    adaptControllerFactory(makeGetInsightsTodayController),
+  )
+  router.get(
+    '/insights/config',
+    adaptControllerFactory(makeGetInsightsConfigController),
+  )
+  router.put(
+    '/insights/config',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeSaveInsightsConfigController),
   )
   router.put(
     '/insights/vibecode-key',
