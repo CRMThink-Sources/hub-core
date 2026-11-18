@@ -521,6 +521,40 @@ describe('VibeInsightsDataSource', () => {
     expect(ko.ds.portal).toBe('fallback.bitrix24.com.br')
   })
 
+  it('dispara os três grupos de negócios antes de qualquer resposta e deduplica', async () => {
+    const started: string[] = []
+    const releases: (() => void)[] = []
+    const deal = (over: Record<string, unknown> = {}) => ({
+      id: 7,
+      title: 'N7',
+      stageSemanticId: 'S',
+      amount: 1,
+      currency: 'BRL',
+      createdAt: '2026-11-10T10:00:00Z',
+      contactId: null,
+      leadId: null,
+      ...over,
+    })
+    const { ds } = make({
+      post: (_path, body) => {
+        started.push(Object.keys(body.filter)[0] ?? '')
+        return new Promise(resolve => {
+          releases.push(() => resolve(page([deal()])))
+        })
+      },
+    })
+
+    const result = ds.deals([7], [8], [9])
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    // Nenhuma resposta liberada ainda e os três já saíram.
+    expect(started).toEqual(['id', 'contactId', 'leadId'])
+    releases.forEach(release => release())
+
+    // O mesmo id vindo dos três grupos aparece uma vez.
+    await expect(result).resolves.toEqual([deal()])
+  })
+
   it('busca negócios por id, contato e lead, paginado de 50 em 50', async () => {
     const bodies: Body[] = []
     const { ds } = make({
@@ -549,18 +583,22 @@ describe('VibeInsightsDataSource', () => {
 
     const deals = await ds.deals([1], [4], [])
 
-    expect(bodies).toEqual([
-      expect.objectContaining({
-        filter: { id: { $in: [1] } },
-        limit: 50,
-        offset: 0,
-      }),
-      expect.objectContaining({ filter: { id: { $in: [1] } }, offset: 50 }),
-      expect.objectContaining({
-        filter: { contactId: { $in: [4] } },
-        offset: 0,
-      }),
-    ])
+    // Grupos rodam em paralelo: a ordem entre grupos não é garantida.
+    expect(bodies).toHaveLength(3)
+    expect(bodies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          filter: { id: { $in: [1] } },
+          limit: 50,
+          offset: 0,
+        }),
+        expect.objectContaining({ filter: { id: { $in: [1] } }, offset: 50 }),
+        expect.objectContaining({
+          filter: { contactId: { $in: [4] } },
+          offset: 0,
+        }),
+      ]),
+    )
     expect(bodies[0]?.select).toEqual([
       'id',
       'title',

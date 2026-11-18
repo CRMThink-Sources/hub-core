@@ -381,34 +381,43 @@ export class VibeInsightsDataSource implements InsightsDataSource {
     contactIds: number[],
     leadIds: number[],
   ): Promise<InsightsDeal[]> {
-    const out = new Map<number, InsightsDeal>()
     const groups: [string, number[]][] = [
       ['id', ids],
       ['contactId', contactIds],
       ['leadId', leadIds],
     ]
-    for (const [field, vals] of groups)
-      for (let i = 0; i < vals.length; i += PAGE)
-        for (let p = 0; p < MAX_LIST_PAGES; p++) {
-          const j = await this.client.postPage<Row[]>('/deals/search', {
-            filter: { [field]: { $in: vals.slice(i, i + PAGE) } },
-            select: DEAL_SELECT,
-            limit: PAGE,
-            offset: p * PAGE,
-          })
-          for (const d of Array.isArray(j.data) ? j.data : [])
-            out.set(Number(d.id), {
-              id: Number(d.id),
-              title: String(d.title ?? ''),
-              stageSemanticId: String(d.stageSemanticId ?? ''),
-              amount: num(d.amount) ?? 0,
-              currency: String(d.currency ?? ''),
-              createdAt: String(d.createdAt ?? ''),
-              contactId: num(d.contactId) || null,
-              leadId: num(d.leadId) || null,
+    // Os três grupos são independentes: em série, a latência de cada um se
+    // somava (era o gargalo do painel). Cada grupo continua paginando em
+    // série; o merge em ordem de grupo mantém o resultado idêntico ao serial.
+    const perGroup = await Promise.all(
+      groups.map(async ([field, vals]) => {
+        const found: InsightsDeal[] = []
+        for (let i = 0; i < vals.length; i += PAGE)
+          for (let p = 0; p < MAX_LIST_PAGES; p++) {
+            const j = await this.client.postPage<Row[]>('/deals/search', {
+              filter: { [field]: { $in: vals.slice(i, i + PAGE) } },
+              select: DEAL_SELECT,
+              limit: PAGE,
+              offset: p * PAGE,
             })
-          if (!j.meta?.hasMore) break
-        }
+            for (const d of Array.isArray(j.data) ? j.data : [])
+              found.push({
+                id: Number(d.id),
+                title: String(d.title ?? ''),
+                stageSemanticId: String(d.stageSemanticId ?? ''),
+                amount: num(d.amount) ?? 0,
+                currency: String(d.currency ?? ''),
+                createdAt: String(d.createdAt ?? ''),
+                contactId: num(d.contactId) || null,
+                leadId: num(d.leadId) || null,
+              })
+            if (!j.meta?.hasMore) break
+          }
+        return found
+      }),
+    )
+    const out = new Map<number, InsightsDeal>()
+    for (const found of perGroup) for (const d of found) out.set(d.id, d)
     return [...out.values()]
   }
 }
