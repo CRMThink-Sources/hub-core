@@ -647,6 +647,30 @@ model ThinkzapTemplateDefault {
   @@map("core_thinkerszap_template_defaults")
 }
 
+/// Variáveis padrão do envio de um template: qual campo do Bitrix alimenta cada
+/// variável do corpo, por tipo de entidade em que o widget abre.
+///
+/// Mesma chave da imagem padrão (linha + nome + idioma, que não mudam numa
+/// edição), mais o `entityTypeId`: Negócio e Contato não têm os mesmos campos.
+model ThinkzapTemplateVariableMapping {
+  id                 String   @id @default(uuid())
+  domainId           String   @map("domain_id")
+  /// A linha (item de assinatura).
+  subscriptionItemId String   @map("subscription_item_id")
+  templateName       String   @map("template_name")
+  language           String
+  /// 1 Lead, 2 Negócio, 3 Contato, 4 Empresa, N para SPA.
+  entityTypeId       Int      @map("entity_type_id")
+  /// `{ "<variável>": { "source": "self|contact|company", "fieldId": "<chave de crm.item>" } }`.
+  mappings           Json
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([domainId, subscriptionItemId, templateName, language, entityTypeId], name: "uq_template_variable_mapping", map: "uq_tz_tpl_var_mapping")
+  @@index([domainId, subscriptionItemId], map: "idx_tz_tpl_var_mapping_line")
+  @@map("core_thinkerszap_template_variable_mappings")
+}
+
 /// De onde veio um envio da outbox.
 enum ThinkzapOutboxOrigin {
   /// Texto e botões pelo widget do CRM (e rows anteriores a este campo).

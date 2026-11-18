@@ -11,20 +11,26 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { ConnectorTemplate } from '@/app/hooks/use-connector-templates'
 import { templateHeaderOf } from './template-header'
+import { hasTemplateVariables } from './template-variables-mapping'
 import { canEditTemplate } from './template-view'
 
 type Props = {
   template: ConnectorTemplate
   onEdit: () => void
   onDefaultImage: () => void
+  onVariables: () => void
   onDetails: () => void
 }
 
-/** Ações de um template: editar, imagem padrão do envio (só com imagem), detalhes. */
+/**
+ * Ações de um template: editar, imagem padrão do envio (só com imagem), variáveis
+ * padrão (só com variável no corpo), detalhes.
+ */
 export function TemplateActionsMenu({
   template,
   onEdit,
   onDefaultImage,
+  onVariables,
   onDetails,
 }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/templates')
@@ -60,6 +66,11 @@ export function TemplateActionsMenu({
         {hasImage && (
           <DropdownMenuItem onClick={onDefaultImage}>
             {t('acoes.imagemPadrao')}
+          </DropdownMenuItem>
+        )}
+        {hasTemplateVariables(template) && (
+          <DropdownMenuItem onClick={onVariables}>
+            {t('acoes.variaveisPadrao')}
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={onDetails}>

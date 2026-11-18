@@ -10,6 +10,7 @@ import {
   templateButtonParameters,
   widgetHeaderImageFileError,
   hasAllTemplateVariables,
+  mergeCrmTemplateValues,
   orderedTemplateParameters,
   resolveTemplatePreview,
 } from './template-variables'
@@ -271,5 +272,45 @@ describe('upload da imagem do cabeçalho', () => {
 
   it('bloqueia com variável vazia', () => {
     expect(canSendWidgetTemplate({ ...ready, values: { 1: ' ' } })).toBe(false)
+  })
+})
+
+describe('mergeCrmTemplateValues', () => {
+  const body = 'Olá {{1}}, pedido {{2}}'
+
+  it('preenche as variáveis vazias com os valores do CRM', () => {
+    expect(
+      mergeCrmTemplateValues(body, {}, { '1': 'Maria', '2': 'A-10' }),
+    ).toEqual({ '1': 'Maria', '2': 'A-10' })
+  })
+
+  it('não sobrescreve o que o operador já digitou', () => {
+    expect(
+      mergeCrmTemplateValues(
+        body,
+        { '1': 'Ana' },
+        { '1': 'Maria', '2': 'A-10' },
+      ),
+    ).toEqual({ '1': 'Ana', '2': 'A-10' })
+  })
+
+  it('espaço sozinho conta como vazio e recebe o valor do CRM', () => {
+    expect(
+      mergeCrmTemplateValues(body, { '1': '  ' }, { '1': 'Maria' }),
+    ).toEqual({ '1': 'Maria' })
+  })
+
+  it('ignora chave que não está no corpo e valor vazio', () => {
+    const current = {}
+    const result = mergeCrmTemplateValues(body, current, {
+      '9': 'x',
+      '1': '',
+    })
+    expect(result).toBe(current)
+  })
+
+  it('resposta vazia devolve o mesmo objeto', () => {
+    const current = { '1': 'Ana' }
+    expect(mergeCrmTemplateValues(body, current, {})).toBe(current)
   })
 })

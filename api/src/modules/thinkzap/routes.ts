@@ -9,6 +9,13 @@ import { makeCreateTemplateController } from './main/connector/make-create-templ
 import { makeSyncTemplatesController } from './main/connector/make-sync-templates'
 import { makeUpdateTemplateController } from './main/connector/make-update-template'
 import { makeSetTemplateDefaultImageController } from './main/connector/make-set-template-default-image'
+import {
+  makeGetTemplateVariableMappingController,
+  makeListCrmEntityTypesController,
+  makeListCrmFieldsController,
+  makeSetTemplateVariableMappingController,
+  makeTemplateVariableValuesController,
+} from './main/connector/make-template-variable-mappings'
 import { makeListDestinationsController } from './main/make-list-destinations-controller'
 import { makeSendWidgetMessageController } from './main/make-send-widget-message-controller'
 import { makeSendWidgetMessageMultipartController } from './main/make-send-widget-message-multipart-controller'
@@ -168,6 +175,12 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/messages/widget-templates/:subscriptionItemId',
     adaptControllerFactory(makeListWidgetTemplatesController),
+  )
+  // Valores iniciais das variáveis do template, lidos do CRM pelo mapeamento que o
+  // administrador definiu. Sem permissão de conector: quem envia não administra.
+  router.get(
+    '/messages/widget-templates/:subscriptionItemId/:name/:language/variable-values',
+    adaptControllerFactory(makeTemplateVariableValuesController),
   )
   // Imagem do cabeçalho escolhida como arquivo no widget: hospeda e devolve a URL
   // que o envio manda em `headerImageUrl`.
@@ -490,6 +503,26 @@ export const createThinkerszapRoutes = (): Router => {
     '/lines/:itemId/templates/sync',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeSyncTemplatesController),
+  )
+  router.get(
+    '/crm-entity-types',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeListCrmEntityTypesController),
+  )
+  router.get(
+    '/crm-fields',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeListCrmFieldsController),
+  )
+  router.get(
+    '/lines/:itemId/templates/:name/:language/variable-mappings',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetTemplateVariableMappingController),
+  )
+  router.put(
+    '/lines/:itemId/templates/:name/:language/variable-mappings',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeSetTemplateVariableMappingController),
   )
   router.put(
     '/lines/:itemId/templates/:name/:language/default-image',

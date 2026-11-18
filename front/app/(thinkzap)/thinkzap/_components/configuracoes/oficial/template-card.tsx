@@ -49,6 +49,7 @@ type Props = {
   template: ConnectorTemplate
   onEdit: () => void
   onDefaultImage: () => void
+  onVariables: () => void
   onDetails: () => void
 }
 
@@ -61,6 +62,7 @@ export function TemplateCard({
   template,
   onEdit,
   onDefaultImage,
+  onVariables,
   onDetails,
 }: Props) {
   const { t } = useTranslation('thinkzap/configuracoes/templates')
@@ -136,6 +138,7 @@ export function TemplateCard({
           template={template}
           onEdit={onEdit}
           onDefaultImage={onDefaultImage}
+          onVariables={onVariables}
           onDetails={onDetails}
         />
       </div>

@@ -611,7 +611,18 @@ export interface ICrmItemResponse {
 
 export interface ICrmItemFieldsResponse {
   result: {
-    fields: Record<string, { type?: string; isReadOnly?: boolean }>
+    fields: Record<
+      string,
+      {
+        type?: string
+        isReadOnly?: boolean
+        isMultiple?: boolean
+        title?: string
+        formLabel?: string
+        /** Só em campo de lista: as opções, com o código (`ID`) e o rótulo (`VALUE`). */
+        items?: { ID: string | number; VALUE: string }[]
+      }
+    >
   }
 }
 

@@ -58,7 +58,7 @@ type EntityId = {
   id: string
 }
 
-type CrmItemGetter = (
+export type CrmItemGetter = (
   entityTypeId: number,
   id: string,
 ) => Promise<ICrmItemResponse>
@@ -69,7 +69,9 @@ type CrmItemGetter = (
  * de propósitos diferentes — como destino (telefones do `fm`) e como fonte dos
  * `contactIds` dela — e sem cache isso vira dois `crm.item.get` idênticos.
  */
-function createCrmItemCache(bitrix: BitrixClient): CrmItemGetter {
+export function createCrmItemCache(
+  bitrix: Pick<BitrixClient, 'getCrmItem'>,
+): CrmItemGetter {
   const cache = new Map<string, Promise<ICrmItemResponse>>()
   return (entityTypeId, id) => {
     const key = `${entityTypeId}:${id}`
@@ -340,7 +342,9 @@ async function getLeadContactIdsWithFallback(
  * `string[]` sem repetição. Campo ausente em qualquer das duas formas vira lista
  * vazia — o item do lead nem sempre traz `contactIds`.
  */
-function readContactIdsFromEntity(entity: Record<string, unknown>): string[] {
+export function readContactIdsFromEntity(
+  entity: Record<string, unknown>,
+): string[] {
   const ids: string[] = []
 
   const single = readId(entity['contactId'])
@@ -392,7 +396,7 @@ function getCompanyDestinations(
   return results
 }
 
-function readCompanyId(entity: Record<string, unknown>): string | null {
+export function readCompanyId(entity: Record<string, unknown>): string | null {
   return readId(entity['companyId'])
 }
 

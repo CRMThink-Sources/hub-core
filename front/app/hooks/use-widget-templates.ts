@@ -142,3 +142,31 @@ export function useWidgetTemplates(lineId: string) {
 
   return { ...state, clearError }
 }
+
+/**
+ * Valores iniciais das variáveis do template, lidos do CRM pelo mapeamento que o
+ * administrador definiu para o tipo da entidade aberta.
+ *
+ * **Nunca falha**: o valor é só uma sugestão, e falha (sessão, rede, Bitrix) significa
+ * variáveis em branco — o operador preenche como sempre preencheu.
+ */
+export async function fetchTemplateVariableValues(
+  lineId: string,
+  template: Pick<WidgetTemplate, 'name' | 'language'>,
+  entity: { entity: string; entityId: string },
+): Promise<Record<string, string>> {
+  const client = resolveThinkzapClient()
+  if (!client.ok) return {}
+
+  try {
+    const response = await client.client.get<{
+      values?: Record<string, string>
+    }>(
+      `/thinkzap/messages/widget-templates/${encodeURIComponent(lineId)}/${encodeURIComponent(template.name)}/${encodeURIComponent(template.language)}/variable-values`,
+      { params: { entity: entity.entity, entityId: entity.entityId } },
+    )
+    return response.values ?? {}
+  } catch {
+    return {}
+  }
+}

@@ -10,6 +10,7 @@ import {
 } from '@/app/hooks/use-connector-templates'
 import { TemplateCard } from './template-card'
 import { TemplateDefaultImageDialog } from './template-default-image-dialog'
+import { TemplateVariablesDialog } from './template-variables-dialog'
 import { TemplateDetailsSheet } from './template-details-sheet'
 import { TemplateForm } from './template-form'
 import { TemplatesToolbar } from './templates-toolbar'
@@ -48,6 +49,9 @@ export function TemplatesTab({ itemId }: Props) {
   const [details, setDetails] = useState<ConnectorTemplate | null>(null)
   const [defaultImageFor, setDefaultImageFor] =
     useState<ConnectorTemplate | null>(null)
+  const [variablesFor, setVariablesFor] = useState<ConnectorTemplate | null>(
+    null,
+  )
   // Só o primeiro carregamento mostra o esqueleto; sincronizar mantém a lista.
   const [loadedOnce, setLoadedOnce] = useState(false)
 
@@ -83,6 +87,11 @@ export function TemplatesTab({ itemId }: Props) {
   const openDefaultImage = (template: ConnectorTemplate) => {
     setDetails(null)
     setDefaultImageFor(template)
+  }
+
+  const openVariables = (template: ConnectorTemplate) => {
+    setDetails(null)
+    setVariablesFor(template)
   }
 
   return (
@@ -173,6 +182,7 @@ export function TemplatesTab({ itemId }: Props) {
                 template={template}
                 onEdit={() => openEdit(template)}
                 onDefaultImage={() => openDefaultImage(template)}
+                onVariables={() => openVariables(template)}
                 onDetails={() => setDetails(template)}
               />
             ))}
@@ -200,6 +210,11 @@ export function TemplatesTab({ itemId }: Props) {
           )
           setDefaultImageFor(null)
         }}
+      />
+      <TemplateVariablesDialog
+        itemId={itemId}
+        template={variablesFor}
+        onClose={() => setVariablesFor(null)}
       />
     </div>
   )
