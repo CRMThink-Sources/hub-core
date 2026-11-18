@@ -34,6 +34,18 @@ export class VibecodeRequestError extends Error {
   }
 }
 
+/**
+ * Status que a Vibecode devolve por sobrecarga passageira. 401/403/400/404
+ * nunca entram: repetir não muda a resposta e só gasta cota.
+ */
+const RETRYABLE_STATUS = new Set([429, 502, 503, 504])
+const MAX_RETRIES = 2
+const BACKOFF_MS = [400, 1200]
+const RETRY_AFTER_CAP_MS = 5000
+
+const defaultSleep = (ms: number) =>
+  new Promise<void>(resolve => setTimeout(resolve, ms))
+
 /** Paginação das listas (`/departments`, `/users`, `/deals/search`). */
 export type VibecodeMeta = { hasMore?: boolean }
 
@@ -49,7 +61,13 @@ type Envelope<T> = { success: boolean; data: T; meta?: VibecodeMeta }
 export class VibecodeClient {
   private readonly http: AxiosInstance
 
-  constructor(apiKey: string) {
+  /**
+   * `sleep` é injetável para os testes não esperarem o backoff de verdade.
+   */
+  constructor(
+    apiKey: string,
+    private readonly sleep: (ms: number) => Promise<void> = defaultSleep,
+  ) {
     this.http = axios.create({
       baseURL: BASE_URL,
       headers: { 'X-Api-Key': apiKey },
@@ -58,7 +76,10 @@ export class VibecodeClient {
   }
 
   me(): Promise<VibecodeMe> {
-    return this.get<VibecodeMe>('/me')
+    // Validação de chave: sem retentativa, para a tela responder rápido.
+    return this.unwrap<VibecodeMe>(() => this.http.get('/me'), 0).then(
+      page => page.data,
+    )
   }
 
   async get<T>(path: string): Promise<T> {
@@ -77,17 +98,43 @@ export class VibecodeClient {
     return this.unwrap<T>(() => this.http.post(path, body))
   }
 
+  /**
+   * Espera antes da retentativa `attempt` (0-based). Respeita `Retry-After`
+   * (segundos) com teto, para um servidor lento não prender a requisição.
+   */
+  private backoffMs(retryAfter: unknown, attempt: number): number {
+    const seconds = Number(retryAfter)
+    if (retryAfter != null && retryAfter !== '' && Number.isFinite(seconds)) {
+      return Math.min(Math.max(seconds, 0) * 1000, RETRY_AFTER_CAP_MS)
+    }
+    return BACKOFF_MS[attempt] ?? BACKOFF_MS[BACKOFF_MS.length - 1] ?? 0
+  }
+
   private async unwrap<T>(
     call: () => Promise<{ data: Envelope<T> }>,
+    retries = MAX_RETRIES,
   ): Promise<VibecodePage<T>> {
-    let res: { data: Envelope<T> }
-    try {
-      res = await call()
-    } catch (err) {
-      if (axios.isAxiosError(err)) {
+    for (let attempt = 0; ; attempt++) {
+      let res: { data: Envelope<T> }
+      try {
+        res = await call()
+      } catch (err) {
+        if (!axios.isAxiosError(err)) {
+          throw new VibecodeRequestError('Falha ao chamar a Vibecode')
+        }
         const status = err.response?.status
         if (status === 401 || status === 403) {
           throw new VibecodeAuthError(status)
+        }
+        // Sem resposta (timeout/rede) também é passageiro; com resposta, só
+        // os status de sobrecarga.
+        const retryable = status === undefined || RETRYABLE_STATUS.has(status)
+        if (retryable && attempt < retries) {
+          const headers = err.response?.headers as
+            | Record<string, unknown>
+            | undefined
+          await this.sleep(this.backoffMs(headers?.['retry-after'], attempt))
+          continue
         }
         throw new VibecodeRequestError(
           `Falha ao chamar a Vibecode (${status ?? 'sem resposta'})`,
@@ -95,9 +142,8 @@ export class VibecodeClient {
           typeof err.code === 'string' ? err.code : undefined,
         )
       }
-      throw new VibecodeRequestError('Falha ao chamar a Vibecode')
+      if (!res.data?.success) throw new VibecodeAuthError()
+      return { data: res.data.data, meta: res.data.meta }
     }
-    if (!res.data?.success) throw new VibecodeAuthError()
-    return { data: res.data.data, meta: res.data.meta }
   }
 }
