@@ -10,6 +10,7 @@ import type {
 } from '@/modules/thinkzap/domain/ports/insights-data-source.port'
 import {
   VibecodeAuthError,
+  VibecodeRequestError,
   type VibecodeClient,
 } from '@/modules/thinkzap/infra/clients/vibecode.client'
 import { apiLogger } from '@/shared/infra/logger'
@@ -271,7 +272,14 @@ export class VibeInsightsDataSource implements InsightsDataSource {
             apiLogger.warn(
               {
                 errorName: e instanceof Error ? e.name : 'unknown',
-                status: e instanceof VibecodeAuthError ? e.status : undefined,
+                // Status/code só existem nesses dois erros; nunca logar a
+                // mensagem crua do axios nem headers (vazam a chave).
+                status:
+                  e instanceof VibecodeAuthError ||
+                  e instanceof VibecodeRequestError
+                    ? e.status
+                    : undefined,
+                code: e instanceof VibecodeRequestError ? e.code : undefined,
               },
               'Insights: chat ilegível na Vibe API, sessão sem métricas de mensagem',
             )

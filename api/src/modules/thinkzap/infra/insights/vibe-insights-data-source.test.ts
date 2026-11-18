@@ -5,6 +5,7 @@ import {
   type VibecodeClient,
   type VibecodePage,
 } from '@/modules/thinkzap/infra/clients/vibecode.client'
+import { apiLogger } from '@/shared/infra/logger'
 import { VibeInsightsDataSource } from './vibe-insights-data-source'
 
 type GetPage = VibecodeClient['getPage']
@@ -326,6 +327,32 @@ describe('VibeInsightsDataSource', () => {
     const [s] = await ds.sessions(from, to)
 
     expect(s).toMatchObject({ id: 11, msgsClient: 0, initiatedBy: null })
+  })
+
+  it('loga status e code do VibecodeRequestError no chat ilegível', async () => {
+    const warn = vi.spyOn(apiLogger, 'warn').mockImplementation(() => undefined)
+    const { ds } = make({
+      post: () => page({ sessions: [rawSession()], hasNextPage: false }),
+      get: () => {
+        throw new VibecodeRequestError(
+          'Falha ao chamar a Vibecode (sem resposta)',
+          undefined,
+          'ECONNABORTED',
+        )
+      },
+    })
+
+    await ds.sessions(from, to)
+
+    expect(warn).toHaveBeenCalledWith(
+      {
+        errorName: 'VibecodeRequestError',
+        status: undefined,
+        code: 'ECONNABORTED',
+      },
+      expect.stringContaining('chat ilegível'),
+    )
+    warn.mockRestore()
   })
 
   it('403 em um chat não marca a chave como revogada', async () => {

@@ -108,6 +108,30 @@ describe('VibecodeClient', () => {
     expect((err as Error).message).toBe('Falha ao chamar a Vibecode (502)')
   })
 
+  it('VibecodeRequestError guarda status HTTP e code do axios', async () => {
+    const client = new VibecodeClient(KEY)
+    instance().get.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 504 },
+    })
+    instance().get.mockRejectedValueOnce({
+      isAxiosError: true,
+      code: 'ECONNABORTED',
+    })
+
+    const http = (await client
+      .get('/x')
+      .catch((e: unknown) => e)) as VibecodeRequestError
+    const net = (await client
+      .get('/x')
+      .catch((e: unknown) => e)) as VibecodeRequestError
+
+    expect(http.status).toBe(504)
+    expect(http.code).toBeUndefined()
+    expect(net.status).toBeUndefined()
+    expect(net.code).toBe('ECONNABORTED')
+  })
+
   it('getPage e postPage devolvem data e meta (paginação)', async () => {
     const client = new VibecodeClient(KEY)
     instance().get.mockResolvedValue({

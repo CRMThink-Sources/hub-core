@@ -19,7 +19,16 @@ export class VibecodeAuthError extends Error {
 
 /** Falha da Vibecode que não é da chave (5xx, rede, timeout). */
 export class VibecodeRequestError extends Error {
-  constructor(message: string) {
+  /**
+   * `status` (HTTP) e `code` (axios, ex.: ECONNABORTED) existem só para
+   * diagnóstico: são os únicos detalhes seguros de logar, pois a mensagem crua
+   * do axios e os headers carregam a chave.
+   */
+  constructor(
+    message: string,
+    readonly status?: number,
+    readonly code?: string,
+  ) {
     super(message)
     this.name = 'VibecodeRequestError'
   }
@@ -82,6 +91,8 @@ export class VibecodeClient {
         }
         throw new VibecodeRequestError(
           `Falha ao chamar a Vibecode (${status ?? 'sem resposta'})`,
+          status,
+          typeof err.code === 'string' ? err.code : undefined,
         )
       }
       throw new VibecodeRequestError('Falha ao chamar a Vibecode')
