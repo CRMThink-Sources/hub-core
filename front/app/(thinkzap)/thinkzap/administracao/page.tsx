@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PermissoesSection } from '../_components/permissoes-section'
 import { NotificacoesConexaoSection } from '../_components/notificacoes-conexao-section'
+import { GruposAcessoSection } from '../_components/grupos-acesso-section'
 
-type SectionId = 'permissoes' | 'notificacoes'
+type SectionId = 'permissoes' | 'grupos' | 'notificacoes'
 
 /**
  * Administração do ThinkZap: quem acessa o app e quem é avisado quando uma linha
@@ -22,6 +23,7 @@ export default function AdministracaoPage() {
 
   const sections: Array<{ id: SectionId; label: string }> = [
     { id: 'permissoes', label: t('tabs.permissoes') },
+    { id: 'grupos', label: t('tabs.gruposAcesso') },
     { id: 'notificacoes', label: t('tabs.notificacoesConexao') },
   ]
 
@@ -56,6 +58,8 @@ export default function AdministracaoPage() {
 
       {active === 'permissoes' ? (
         <PermissoesSection />
+      ) : active === 'grupos' ? (
+        <GruposAcessoSection />
       ) : (
         <NotificacoesConexaoSection />
       )}

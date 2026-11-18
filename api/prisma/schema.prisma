@@ -63,6 +63,7 @@ model App {
   thinkzapAllowedUsers               ThinkzapAllowedUser[]
   thinkzapConnectionNotifyRecipients ThinkzapConnectionNotifyRecipient[]
   thinkzapAllowedDepartments         ThinkzapAllowedDepartment[]
+  thinkzapAccessGroups               ThinkzapAccessGroup[]
   thinkzapOperatorOAuth              ThinkzapOperatorOAuth[]
   thinkzapBotFlows                   ThinkzapBotFlow[]
   thinkzapBotFlowBots                ThinkzapBotFlowBot[]
@@ -317,6 +318,53 @@ model ThinkzapAllowedDepartment {
   @@unique([appId, bitrixDepartmentId])
   @@index([appId])
   @@map("thinkzap_allowed_departments")
+}
+
+/// Grupo de acesso do widget do ThinkZap: define quais linhas (itens da SPA) os
+/// membros podem usar ao enviar pelo widget. Sem nenhum grupo na instalação, todos
+/// usam todas as linhas. O nome é único por instalação; a collation
+/// utf8mb4_unicode_ci já ignora maiúsculas e acentos no índice único.
+model ThinkzapAccessGroup {
+  id        String   @id @default(uuid())
+  appId     String   @map("app_id")
+  name      String   @db.VarChar(191)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  app     App                         @relation(fields: [appId], references: [id], onDelete: Cascade)
+  members ThinkzapAccessGroupMember[]
+  lines   ThinkzapAccessGroupLine[]
+
+  @@unique([appId, name])
+  @@index([appId])
+  @@map("thinkzap_access_groups")
+}
+
+model ThinkzapAccessGroupMember {
+  id           String @id @default(uuid())
+  groupId      String @map("group_id")
+  bitrixUserId String @map("bitrix_user_id")
+
+  group ThinkzapAccessGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, bitrixUserId])
+  @@index([bitrixUserId])
+  @@map("thinkzap_access_group_members")
+}
+
+/// `subscriptionItemId` é o id do item da SPA de assinaturas (a linha vive no
+/// Bitrix, não aqui), por isso não há FK: ids de linhas excluídas ficam órfãos e
+/// são descartados na leitura ao cruzar com as linhas do contexto.
+model ThinkzapAccessGroupLine {
+  id                 String @id @default(uuid())
+  groupId            String @map("group_id")
+  subscriptionItemId String @map("subscription_item_id")
+
+  group ThinkzapAccessGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, subscriptionItemId])
+  @@index([subscriptionItemId])
+  @@map("thinkzap_access_group_lines")
 }
 
 model ThinkzapOperatorOAuth {

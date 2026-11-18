@@ -1,6 +1,7 @@
 {
   "tabs": {
     "permissoes": "Permissões",
+    "gruposAcesso": "Grupos de acesso",
     "notificacoesConexao": "Notificações de conexão"
   },
   "tabsAriaLabel": "Seções da administração"

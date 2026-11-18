@@ -1,6 +1,7 @@
 {
   "tabs": {
     "permissoes": "Permissions",
+    "gruposAcesso": "Access groups",
     "notificacoesConexao": "Connection notifications"
   },
   "tabsAriaLabel": "Administration sections"
