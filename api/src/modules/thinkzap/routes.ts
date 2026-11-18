@@ -346,7 +346,7 @@ export const createThinkerszapRoutes = (): Router => {
     adaptControllerFactory(makeRemoveAccessGroupController),
   )
 
-  // Insights: o status serve a qualquer usu·rio com acesso; a chave Vibecode È sÛ do admin.
+  // Insights: o status serve a qualquer usu√°rio com acesso; a chave Vibecode √© s√≥ do admin.
   router.get(
     '/insights/status',
     adaptControllerFactory(makeGetInsightsStatusController),
