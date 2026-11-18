@@ -172,7 +172,8 @@
     "editarEmAnalise": "En revisión por Meta: espere la respuesta para editar.",
     "imagemPadrao": "Imagen predeterminada de envío",
     "detalhes": "Ver detalles",
-    "detalhesDe": "Ver detalles de {{nome}}"
+    "detalhesDe": "Ver detalles de {{nome}}",
+    "variaveisPadrao": "Variables predeterminadas"
   },
   "imagemPadrao": {
     "titulo": "Imagen predeterminada de envío",
@@ -213,5 +214,31 @@
     "vazioTexto": "Cree una plantilla y envíela para aprobación de Meta, o sincronice las que ya existen en la cuenta.",
     "criarPrimeiro": "Crear primera plantilla",
     "semResultado": "Ninguna plantilla coincide con esta búsqueda y estos filtros."
+  },
+  "variaveisPadrao": {
+    "titulo": "Variables predeterminadas del envío",
+    "descricao": "Elija de qué campo de Bitrix viene cada variable de {{nome}}. El widget abre el envío con esos valores ya completados, y el operador aún puede editarlos.",
+    "tipoEntidade": "Tipo de entidad",
+    "dicaEntidade": "Cada tipo (Lead, Negociación, Contacto...) tiene sus propios campos, por eso el mapeo se guarda por separado para cada tipo.",
+    "buscarEntidade": "Buscar tipo de entidad",
+    "buscarCampo": "Buscar campo",
+    "semResultado": "No se encontró nada",
+    "semCampo": "Sin campo (completar al enviar)",
+    "carregando": "Cargando...",
+    "personalizado": "Campo personalizado",
+    "campoNaoEncontrado": "Este campo ya no existe en Bitrix. Elija otro o déjelo sin campo.",
+    "salvar": "Guardar variables",
+    "salvando": "Guardando...",
+    "entidade": {
+      "1": "Lead",
+      "2": "Negociación",
+      "3": "Contacto",
+      "4": "Empresa"
+    },
+    "origem": {
+      "self": "Registro propio",
+      "contact": "Contacto",
+      "company": "Empresa"
+    }
   }
 }

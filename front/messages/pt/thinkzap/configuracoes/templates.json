@@ -172,7 +172,8 @@
     "editarEmAnalise": "Em análise pela Meta: aguarde a resposta para editar.",
     "imagemPadrao": "Imagem padrão do envio",
     "detalhes": "Ver detalhes",
-    "detalhesDe": "Ver detalhes de {{nome}}"
+    "detalhesDe": "Ver detalhes de {{nome}}",
+    "variaveisPadrao": "Variáveis padrão"
   },
   "imagemPadrao": {
     "titulo": "Imagem padrão do envio",
@@ -213,5 +214,31 @@
     "vazioTexto": "Crie um template e envie para aprovação da Meta, ou sincronize os que já existem na conta.",
     "criarPrimeiro": "Criar primeiro template",
     "semResultado": "Nenhum template encontrado com essa busca e esses filtros."
+  },
+  "variaveisPadrao": {
+    "titulo": "Variáveis padrão do envio",
+    "descricao": "Escolha de qual campo do Bitrix vem cada variável de {{nome}}. O widget já abre o envio com esses valores preenchidos, e o operador ainda pode editá-los.",
+    "tipoEntidade": "Tipo de entidade",
+    "dicaEntidade": "Cada tipo (Lead, Negócio, Contato...) tem os próprios campos, por isso o mapeamento é separado por tipo.",
+    "buscarEntidade": "Buscar tipo de entidade",
+    "buscarCampo": "Buscar campo",
+    "semResultado": "Nada encontrado",
+    "semCampo": "Sem campo (preencher na hora)",
+    "carregando": "Carregando...",
+    "personalizado": "Campo personalizado",
+    "campoNaoEncontrado": "Este campo não existe mais no Bitrix. Escolha outro ou deixe sem campo.",
+    "salvar": "Salvar variáveis",
+    "salvando": "Salvando...",
+    "entidade": {
+      "1": "Lead",
+      "2": "Negócio",
+      "3": "Contato",
+      "4": "Empresa"
+    },
+    "origem": {
+      "self": "Próprio registro",
+      "contact": "Contato",
+      "company": "Empresa"
+    }
   }
 }

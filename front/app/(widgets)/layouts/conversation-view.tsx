@@ -11,7 +11,10 @@ import { RecordControls } from '@/app/bitrix/widget/audio/_features/recording/re
 import { useAudioRecorder } from '@/app/bitrix/widget/audio/_features/recording/use-audio-recorder'
 import { formatFileSize } from '@/app/bitrix/widget/audio/_lib/format-file-size'
 import { isLineDisconnectedError } from '@/app/hooks/extract-line-disconnected'
-import { useWidgetTemplates } from '@/app/hooks/use-widget-templates'
+import {
+  fetchTemplateVariableValues,
+  useWidgetTemplates,
+} from '@/app/hooks/use-widget-templates'
 import { useAplicationContext } from '@/providers/aplication-provider'
 import { listSendableLines } from '@/shared/aplication/subscription-items'
 import { Button } from '@/components/ui/button'
@@ -52,6 +55,7 @@ import {
 import {
   canSendWidgetTemplate,
   defaultHeaderImageOf,
+  mergeCrmTemplateValues,
   needsHeaderImage,
   orderedTemplateParameters,
   templateButtonParameters,
@@ -171,6 +175,11 @@ export const ConversationView = () => {
     Record<number, string>
   >({})
   const [templateHeaderImageUrl, setTemplateHeaderImageUrl] = useState('')
+  /**
+   * Preenchimento das variáveis pelo CRM: a resposta de um template que o operador já
+   * trocou (ou de outra linha) é descartada, como no upload da imagem do cabeçalho.
+   */
+  const variablePrefillTokenRef = useRef(0)
   /**
    * Imagem do cabeçalho por arquivo: o arquivo sobe assim que é escolhido, e a URL
    * devolvida entra em `templateHeaderImageUrl` — o envio é o mesmo do link.
@@ -364,6 +373,7 @@ export const ConversationView = () => {
    * saída do modo.
    */
   useEffect(() => {
+    variablePrefillTokenRef.current += 1
     setSelectedTemplateKey('')
     setTemplateValues({})
     setTemplateButtonValues({})
@@ -1031,12 +1041,34 @@ export const ConversationView = () => {
                    */
                   setTemplateValues({})
                   setTemplateButtonValues({})
-                  startHeaderImage(
-                    widgetTemplates.templates.find(
-                      template => templateKey(template) === key,
-                    ),
-                    headerImageSource,
+                  const chosen = widgetTemplates.templates.find(
+                    template => templateKey(template) === key,
                   )
+                  startHeaderImage(chosen, headerImageSource)
+
+                  /**
+                   * Variáveis padrão: o servidor lê do CRM os campos que o
+                   * administrador mapeou. Só preenche o que o operador ainda não
+                   * digitou, e falha vira campos em branco.
+                   */
+                  const token = ++variablePrefillTokenRef.current
+                  const info = window.BX24?.placement?.info?.()
+                  const crmEntity = resolveWidgetEntity(
+                    info?.placement,
+                    info?.options,
+                  )
+                  if (chosen && crmEntity && selectedConnectorId) {
+                    void fetchTemplateVariableValues(
+                      selectedConnectorId,
+                      chosen,
+                      crmEntity,
+                    ).then(values => {
+                      if (token !== variablePrefillTokenRef.current) return
+                      setTemplateValues(previous =>
+                        mergeCrmTemplateValues(chosen.body, previous, values),
+                      )
+                    })
+                  }
                 }}
                 values={templateValues}
                 onChangeValue={(key, value) =>

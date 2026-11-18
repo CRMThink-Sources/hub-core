@@ -247,3 +247,144 @@ export function useSetTemplateDefaultImage() {
 
   return { setDefaultImage, saving, error, setError }
 }
+
+/** De qual registro o campo é lido: o da entidade aberta ou um vinculado a ela. */
+export type CrmFieldSource = 'self' | 'contact' | 'company'
+
+/** Campo do CRM que pode alimentar uma variável. `id` é a chave de `crm.item`. */
+export type CrmField = {
+  source: CrmFieldSource
+  id: string
+  title: string
+  type: string
+  multiple: boolean
+  custom: boolean
+}
+
+export type CrmEntityType = {
+  entityTypeId: number
+  /** Nome da SPA; as entidades padrão vêm sem e o front traduz. */
+  title?: string
+  kind: 'standard' | 'spa'
+}
+
+/** Chave: a variável do corpo. Variável sem campo não tem chave. */
+export type TemplateVariableMappings = Record<
+  string,
+  { source: CrmFieldSource; fieldId: string }
+>
+
+type TemplateKey = Pick<ConnectorTemplate, 'name' | 'language'>
+
+export const mappingUrl = (itemId: string, template: TemplateKey) =>
+  `/thinkzap/lines/${encodeURIComponent(itemId)}/templates/${encodeURIComponent(template.name)}/${encodeURIComponent(template.language)}/variable-mappings`
+
+/**
+ * Variáveis padrão do template: tipos de entidade, campos do CRM, o mapeamento salvo
+ * e a gravação. Cada chamada devolve `null` na falha, com `error` preenchido, no
+ * mesmo formato de `useSetTemplateDefaultImage`.
+ */
+export function useTemplateVariableMappings() {
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const run = useCallback(
+    async <T>(
+      fallback: string,
+      work: (client: ReturnType<typeof axiosThinkzap>) => Promise<T>,
+      setBusy: (busy: boolean) => void,
+    ): Promise<T | null> => {
+      setBusy(true)
+      setError(null)
+      try {
+        return await work(axiosThinkzap(appTokenKey(APP_CODES.thinkzap)))
+      } catch (err: unknown) {
+        setError(extractThinkzapError(err, fallback))
+        return null
+      } finally {
+        setBusy(false)
+      }
+    },
+    [],
+  )
+
+  const loadEntityTypes = useCallback(
+    () =>
+      run(
+        'Falha ao carregar os tipos de entidade',
+        async client =>
+          (
+            await client.get<{ entityTypes: CrmEntityType[] }>(
+              '/thinkzap/crm-entity-types',
+            )
+          ).entityTypes,
+        setLoading,
+      ),
+    [run],
+  )
+
+  /** Campos da entidade e dos vínculos dela. */
+  const loadFields = useCallback(
+    (entityTypeId: number) =>
+      run(
+        'Falha ao carregar os campos do Bitrix',
+        async client =>
+          (
+            await client.get<{ fields: CrmField[] }>('/thinkzap/crm-fields', {
+              params: { entityTypeId },
+            })
+          ).fields,
+        setLoading,
+      ),
+    [run],
+  )
+
+  const loadMappings = useCallback(
+    (itemId: string, template: TemplateKey, entityTypeId: number) =>
+      run(
+        'Falha ao carregar as variáveis padrão',
+        async client =>
+          (
+            await client.get<{ mappings: TemplateVariableMappings }>(
+              mappingUrl(itemId, template),
+              { params: { entityTypeId } },
+            )
+          ).mappings,
+        setLoading,
+      ),
+    [run],
+  )
+
+  const saveMappings = useCallback(
+    (
+      itemId: string,
+      template: TemplateKey,
+      entityTypeId: number,
+      mappings: TemplateVariableMappings,
+    ) =>
+      run(
+        'Falha ao salvar as variáveis padrão',
+        async client =>
+          (
+            await client.put<{ mappings: TemplateVariableMappings }>(
+              mappingUrl(itemId, template),
+              { entityTypeId, mappings },
+            )
+          ).mappings,
+        setSaving,
+      ),
+    [run],
+  )
+
+  return {
+    loadEntityTypes,
+    loadFields,
+    loadMappings,
+    saveMappings,
+    loading,
+    saving,
+    error,
+    setError,
+  }
+}

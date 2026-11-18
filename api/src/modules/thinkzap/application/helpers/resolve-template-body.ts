@@ -11,6 +11,19 @@
 const PLACEHOLDER = /\{{2,4}\s*([A-Za-z0-9_]+)\s*\}{2,4}/g
 
 /**
+ * Chaves das variáveis do corpo, **na ordem de aparição** e sem repetição — a mesma
+ * lista que o widget usa para gerar os campos (`extractTemplateVariables`).
+ */
+export function extractTemplateVariableKeys(body: string): string[] {
+  const keys: string[] = []
+  for (const match of body.matchAll(PLACEHOLDER)) {
+    const key = match[1]
+    if (key && !keys.includes(key)) keys.push(key)
+  }
+  return keys
+}
+
+/**
  * Substitui os placeholders do corpo pelos valores informados, **por ordem de
  * aparição**.
  *
