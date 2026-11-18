@@ -183,7 +183,10 @@ describe('ClassicInsightsDataSource', () => {
     const warn = vi.spyOn(apiLogger, 'warn').mockImplementation(() => undefined)
     const { ds, callMethod } = make((method, params) => {
       if (method === 'crm.activity.list')
-        return { result: [act(9)], next: params.start + 50 }
+        return {
+          result: [act(9)],
+          next: (params as { start: number }).start + 50,
+        }
       return { result: { result: {} } }
     })
     await ds.sessions(from, to)
