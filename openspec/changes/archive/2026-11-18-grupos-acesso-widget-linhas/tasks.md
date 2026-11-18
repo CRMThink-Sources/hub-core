@@ -43,5 +43,5 @@ Branch: `task/grupos-acesso-widget-linhas` (a partir de `develop`).
 - [x] 6.1 `api`: `yarn check-types`, `yarn lint` (zero warnings), `yarn test`
 - [x] 6.2 `front`: `yarn check-types`, `yarn lint`, `yarn test`
 - [x] 6.3 Rodar `revisor-codigo` no diff antes do commit
-- [ ] 6.4 Validação manual em staging: instalação sem grupos (igual a antes); usuário com 1 linha (travada); com 2+ (sem seleção); fora de grupos (bloqueado); chamada direta à API com linha não permitida (recusada); robô Bizproc segue enviando
-- [ ] 6.5 Depois do deploy e da validação, arquivar a change (`/opsx:archive`)
+- [x] 6.4 Validação manual em staging: instalação sem grupos (igual a antes); usuário com 1 linha (travada); com 2+ (sem seleção); fora de grupos (bloqueado); chamada direta à API com linha não permitida (recusada); robô Bizproc segue enviando
+- [x] 6.5 Depois do deploy e da validação, arquivar a change (`/opsx:archive`)
