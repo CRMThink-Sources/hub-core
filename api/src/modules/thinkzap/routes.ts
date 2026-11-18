@@ -353,18 +353,22 @@ export const createThinkerszapRoutes = (): Router => {
   // Insights: o status serve a qualquer usuário com acesso; a chave Vibecode é só do admin.
   router.get(
     '/insights/status',
+    requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeGetInsightsStatusController),
   )
   router.get(
     '/insights/dashboard',
+    requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeGetInsightsDashboardController),
   )
   router.get(
     '/insights/today',
+    requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeGetInsightsTodayController),
   )
   router.get(
     '/insights/config',
+    requireThinkzapPermission('connectors', 'read'),
     adaptControllerFactory(makeGetInsightsConfigController),
   )
   router.put(
