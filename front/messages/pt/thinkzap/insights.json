@@ -390,5 +390,43 @@
     "cancel": "Cancelar",
     "save": "Salvar",
     "saving": "Salvando…"
+  },
+  "full": {
+    "spam": {
+      "label": "Spam",
+      "sub": "conversas descartadas",
+      "desc": "Conversas marcadas como spam no período. Elas não entram nos demais números."
+    },
+    "abandon": {
+      "label": "Abandono",
+      "sub": "das conversas encerradas",
+      "desc": "Das conversas encerradas, quantas foram fechadas automaticamente por falta de interação."
+    },
+    "rating": {
+      "label": "Nota do cliente",
+      "sub": "{{likes}} positivas · {{dislikes}} negativas",
+      "none": "sem dado de avaliação",
+      "noRatings": "nenhum cliente avaliou",
+      "desc": "Dos clientes que avaliaram o atendimento, quantos deram nota positiva."
+    },
+    "reasons": {
+      "title": "Motivos de fechamento",
+      "empty": "Nenhuma conversa encerrada no período.",
+      "known": {
+        "auto": "Encerrada automaticamente",
+        "outro": "Outro motivo"
+      }
+    },
+    "channelSla": {
+      "title": "Meta de 1ª resposta por canal",
+      "hint": "Objetivo configurado em cada canal, ao lado da referência do painel ({{value}}).",
+      "empty": "Nenhum canal com objetivo de 1ª resposta configurado.",
+      "versus": {
+        "stricter": "mais rígido que o painel",
+        "same": "igual ao painel",
+        "looser": "mais folgado que o painel"
+      }
+    },
+    "keyRevoked": "A chave deixou de funcionar. Cadastre uma nova."
   }
 }

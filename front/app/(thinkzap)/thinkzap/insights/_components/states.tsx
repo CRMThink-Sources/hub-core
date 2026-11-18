@@ -46,3 +46,26 @@ export function LeanBanner() {
     </p>
   )
 }
+
+/**
+ * Aviso só para admin: a chave Vibecode cadastrada deixou de funcionar e o
+ * painel caiu para o modo enxuto. O pai só renderiza para admin; quem não é
+ * admin nem busca o status, então nenhum detalhe da chave chega a ele.
+ */
+export function KeyRevokedBanner() {
+  const { t } = useTranslation('thinkzap/insights')
+  return (
+    <p
+      role="alert"
+      className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800"
+    >
+      {t('full.keyRevoked')}{' '}
+      <Link
+        href="/thinkzap/administracao"
+        className="font-medium underline-offset-2 hover:underline"
+      >
+        {t('lean.link')}
+      </Link>
+    </p>
+  )
+}

@@ -9,6 +9,7 @@ import { useThinkzapAccess } from '@/app/hooks/use-thinkzap-permissions'
 import {
   useInsightsConfig,
   useInsightsDashboard,
+  useInsightsStatus,
   useInsightsToday,
 } from '@/app/hooks/use-insights'
 import type {
@@ -24,7 +25,12 @@ import {
 } from './_components/insights-filters'
 import { PerformancePanel } from './_components/performance-panel'
 import { SettingsDialog } from './_components/settings-dialog'
-import { ErrorBox, LeanBanner, LoadingBox } from './_components/states'
+import {
+  ErrorBox,
+  KeyRevokedBanner,
+  LeanBanner,
+  LoadingBox,
+} from './_components/states'
 import { TodayPanel } from './_components/today-panel'
 
 type Tab = 'today' | 'performance'
@@ -81,6 +87,15 @@ export default function InsightsPage() {
   const dashboard = useInsightsDashboard(query, t('state.loadError'))
 
   const mode = dashboard.data?.mode ?? today.data?.mode ?? null
+
+  // Aviso de chave revogada: só admin busca o status, e só quando o painel já
+  // caiu para o modo enxuto (com o modo completo não há o que avisar).
+  const status = useInsightsStatus(
+    isAdmin && mode === 'lean',
+    t('state.loadError'),
+  )
+  const keyRevoked =
+    isAdmin && mode === 'lean' && status.data?.keyProblem === 'revoked'
 
   function openTab(next: Tab) {
     setTab(next)
@@ -155,6 +170,7 @@ export default function InsightsPage() {
         ) : null}
       </header>
 
+      {keyRevoked ? <KeyRevokedBanner /> : null}
       {mode === 'lean' ? <LeanBanner /> : null}
 
       {tab === 'today' ? (

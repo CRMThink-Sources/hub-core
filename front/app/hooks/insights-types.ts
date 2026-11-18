@@ -9,6 +9,18 @@
  */
 export type InsightsMode = 'full' | 'lean'
 
+/**
+ * `GET /thinkzap/insights/status`. Só admin chama (lá ele recebe os detalhes da
+ * chave); a tela só usa `keyProblem`.
+ */
+export type InsightsStatus = {
+  mode: InsightsMode
+  keyConfigured: boolean
+  last4: string | null
+  validatedAt: string | null
+  keyProblem: 'revoked' | null
+}
+
 export type InsightsConfig = {
   refMin: number
   bhStart: number

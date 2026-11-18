@@ -390,5 +390,43 @@
     "cancel": "Cancel",
     "save": "Save",
     "saving": "Saving…"
+  },
+  "full": {
+    "spam": {
+      "label": "Spam",
+      "sub": "conversations discarded",
+      "desc": "Conversations flagged as spam in the period. They are left out of the other numbers."
+    },
+    "abandon": {
+      "label": "Abandonment",
+      "sub": "of closed conversations",
+      "desc": "Of the closed conversations, how many were closed automatically for lack of interaction."
+    },
+    "rating": {
+      "label": "Customer rating",
+      "sub": "{{likes}} positive · {{dislikes}} negative",
+      "none": "no rating data",
+      "noRatings": "no customer rated",
+      "desc": "Of the customers who rated the service, how many gave a positive rating."
+    },
+    "reasons": {
+      "title": "Close reasons",
+      "empty": "No closed conversations in the period.",
+      "known": {
+        "auto": "Closed automatically",
+        "outro": "Other reason"
+      }
+    },
+    "channelSla": {
+      "title": "First-response goal per channel",
+      "hint": "Goal set on each channel, next to the panel reference ({{value}}).",
+      "empty": "No channel has a first-response goal configured.",
+      "versus": {
+        "stricter": "stricter than the panel",
+        "same": "same as the panel",
+        "looser": "looser than the panel"
+      }
+    },
+    "keyRevoked": "The key stopped working. Register a new one."
   }
 }

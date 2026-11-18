@@ -7,6 +7,7 @@ import type {
   DashboardQuery,
   DashboardResult,
   InsightsConfig,
+  InsightsStatus,
   TodayResult,
 } from './insights-types'
 
@@ -101,6 +102,20 @@ export function useInsightsToday(
 ): Remote<TodayResult> {
   return useRemote<TodayResult>(
     enabled ? todayPath(alertMin) : null,
+    fallbackError,
+  )
+}
+
+/**
+ * Status da chave Vibecode. Só admin busca (`enabled`): quem não é admin nem
+ * dispara a leitura, então detalhe da chave nunca chega à tela dele.
+ */
+export function useInsightsStatus(
+  enabled: boolean,
+  fallbackError: string,
+): Remote<InsightsStatus> {
+  return useRemote<InsightsStatus>(
+    enabled ? `${BASE}/status` : null,
     fallbackError,
   )
 }

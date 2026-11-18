@@ -390,5 +390,43 @@
     "cancel": "Cancelar",
     "save": "Guardar",
     "saving": "Guardando…"
+  },
+  "full": {
+    "spam": {
+      "label": "Spam",
+      "sub": "conversaciones descartadas",
+      "desc": "Conversaciones marcadas como spam en el período. No entran en los demás números."
+    },
+    "abandon": {
+      "label": "Abandono",
+      "sub": "de las conversaciones cerradas",
+      "desc": "De las conversaciones cerradas, cuántas se cerraron automáticamente por falta de interacción."
+    },
+    "rating": {
+      "label": "Nota del cliente",
+      "sub": "{{likes}} positivas · {{dislikes}} negativas",
+      "none": "sin datos de calificación",
+      "noRatings": "ningún cliente calificó",
+      "desc": "De los clientes que calificaron la atención, cuántos dieron una nota positiva."
+    },
+    "reasons": {
+      "title": "Motivos de cierre",
+      "empty": "Ninguna conversación cerrada en el período.",
+      "known": {
+        "auto": "Cerrada automáticamente",
+        "outro": "Otro motivo"
+      }
+    },
+    "channelSla": {
+      "title": "Meta de 1ª respuesta por canal",
+      "hint": "Objetivo configurado en cada canal, junto a la referencia del panel ({{value}}).",
+      "empty": "Ningún canal tiene objetivo de 1ª respuesta configurado.",
+      "versus": {
+        "stricter": "más exigente que el panel",
+        "same": "igual al panel",
+        "looser": "más flexible que el panel"
+      }
+    },
+    "keyRevoked": "La clave dejó de funcionar. Registre una nueva."
   }
 }

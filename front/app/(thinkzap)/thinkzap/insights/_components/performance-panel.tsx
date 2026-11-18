@@ -9,11 +9,14 @@ import type {
   SeriesPoint,
   TeamGranularity,
 } from '@/app/hooks/insights-types'
+import { ChannelSlaPanel } from './channel-sla-panel'
 import { CHART } from './chart-colors'
+import { FullKpis } from './full-kpis'
 import { HealthCards } from './health-cards'
 import { KpiGrid } from './kpi-grid'
 import { MixedChart } from './mixed-chart'
 import { PeopleChart } from './people-chart'
+import { ReasonsPanel } from './reasons-panel'
 import { LostList, StuckList, WonList } from './case-lists'
 import { TeamReport } from './team-report'
 import { WaitDetails } from './wait-details'
@@ -27,9 +30,9 @@ const dayLabel = (iso: string, lang: string) =>
 
 /**
  * Aba "Desempenho". Mesmos blocos nos dois modos: tudo aqui sai do REST
- * clássico. Os blocos que só existem com a Vibe API (spam, motivos, notas,
- * SLA do canal) entram como componentes próprios, renderizados só quando
- * `data.mode === 'full'` — ver o marcador abaixo das listas.
+ * clássico. Os blocos que só existem com a Vibe API (spam, abandono, notas,
+ * motivos, SLA do canal) são componentes próprios, renderizados só quando
+ * `data.mode === 'full'`.
  */
 export function PerformancePanel({
   data,
@@ -121,6 +124,7 @@ export function PerformancePanel({
 
       <HealthCards kpi={k} prev={data.prev} refMin={refMin} />
       <KpiGrid data={data} config={config} />
+      {data.mode === 'full' ? <FullKpis kpi={k} /> : null}
 
       <Panel
         title={t(`series.title.${sg}`)}
@@ -227,9 +231,15 @@ export function PerformancePanel({
 
       <WaitDetails data={data} refMin={refMin} />
 
-      {/* Modo completo (Task 12): blocos da Vibe API — spam/abandono, motivos
-          de fechamento, notas e SLA do canal — entram aqui, cada um só quando
-          `data.mode === 'full'`. No enxuto esses campos vêm null. */}
+      {/* Blocos da Vibe API (motivos de fechamento e SLA do canal): só no modo
+          completo. No enxuto esses campos vêm null e nada deles é renderizado.
+          Spam, abandono e nota ficam em `FullKpis`, junto dos indicadores. */}
+      {data.mode === 'full' ? (
+        <div className="grid gap-3 lg:grid-cols-2">
+          <ReasonsPanel reasons={data.reasons} />
+          <ChannelSlaPanel channelSla={data.channelSla} refMin={refMin} />
+        </div>
+      ) : null}
     </div>
   )
 }
