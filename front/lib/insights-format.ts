@@ -253,3 +253,24 @@ export function buildTeamCsv(headers: string[], rows: CsvCell[][]): string {
   }
   return '﻿' + [headers, ...rows].map(r => r.map(cell).join(';')).join('\n')
 }
+
+const BRASILIA = 'America/Sao_Paulo'
+
+/**
+ * A API devolve `period.from/to` como instante completo (ISO com hora), não
+ * como "AAAA-MM-DD": o fim do período é 23:59:59 de Brasília, que em UTC já é o
+ * dia seguinte. Por isso o dia é lido no fuso de Brasília, o mesmo da conta.
+ * Data inválida vira texto vazio em vez de "Invalid Date" na tela.
+ */
+export function periodDayLabel(iso: string, lang: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(lang, { timeZone: BRASILIA })
+}
+
+/** Mesmo dia de `periodDayLabel`, em AAAA-MM-DD (planilha). */
+export function periodDayIso(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-CA', { timeZone: BRASILIA })
+}

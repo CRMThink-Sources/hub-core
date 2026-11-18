@@ -11,6 +11,7 @@ import {
   formatDuration,
   formatMoney,
   formatPercent,
+  periodDayIso,
 } from '@/lib/insights-format'
 import type {
   DashboardResult,
@@ -189,7 +190,7 @@ export function TeamReport({
     const headers = Array.isArray(raw) ? raw.map(String) : []
     const rows = data.team.map(r => [
       r.bucket === 'total'
-        ? `${data.period.from} – ${data.period.to}`
+        ? `${periodDayIso(data.period.from)} – ${periodDayIso(data.period.to)}`
         : r.bucket,
       r.name,
       r.dept,

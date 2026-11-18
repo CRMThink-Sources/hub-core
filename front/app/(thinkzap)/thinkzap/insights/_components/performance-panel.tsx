@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
-import { formatDuration } from '@/lib/insights-format'
+import { formatDuration, periodDayLabel } from '@/lib/insights-format'
 import type {
   DashboardResult,
   HourlyPoint,
@@ -24,9 +24,6 @@ import { Panel, Segmented } from './ui-bits'
 
 // Abaixo disso os percentuais oscilam muito: o original avisava a partir de 30.
 const LOW_SAMPLE = 30
-
-const dayLabel = (iso: string, lang: string) =>
-  new Date(`${iso}T12:00:00`).toLocaleDateString(lang)
 
 /**
  * Aba "Desempenho". Mesmos blocos nos dois modos: tudo aqui sai do REST
@@ -66,8 +63,8 @@ export function PerformancePanel({
       <h2 className="text-xl font-semibold">{scopeTitle}</h2>
       <p className="text-sm text-muted-foreground">
         {t('performance.subtitle', {
-          from: dayLabel(data.period.from, lang),
-          to: dayLabel(data.period.to, lang),
+          from: periodDayLabel(data.period.from, lang),
+          to: periodDayLabel(data.period.to, lang),
         })}
       </p>
     </>

@@ -10,6 +10,8 @@ import {
   formatMoney,
   formatPercent,
   noAnswerLevel,
+  periodDayIso,
+  periodDayLabel,
   outOfTen,
   peakHours,
   ratioPercent,
@@ -246,5 +248,24 @@ describe('buildTeamCsv', () => {
 
   it('null vira célula vazia', () => {
     expect(buildTeamCsv(['A'], [[null]])).toBe('﻿"A"\n""')
+  })
+})
+
+describe('periodDayLabel / periodDayIso', () => {
+  it('lê o dia no fuso de Brasília, não em UTC', () => {
+    // 23:59:59 de Brasília já é o dia seguinte em UTC
+    const to = '2026-11-19T02:59:59.000Z'
+    expect(periodDayIso(to)).toBe('2026-11-18')
+    expect(periodDayLabel(to, 'pt-BR')).toBe('18/11/2026')
+  })
+
+  it('início do dia em Brasília continua no mesmo dia', () => {
+    expect(periodDayIso('2026-10-20T03:00:00.000Z')).toBe('2026-10-20')
+  })
+
+  it('data inválida vira vazio, nunca "Invalid Date"', () => {
+    expect(periodDayLabel('2026-10-20', 'pt-BR')).not.toContain('Invalid')
+    expect(periodDayLabel('lixo', 'pt-BR')).toBe('')
+    expect(periodDayIso('lixo')).toBe('')
   })
 })
