@@ -58,4 +58,6 @@ export const envConfig = {
   // Aceita formatação; `buildWhatsappLink` extrai os dígitos. Vazio esconde o botão.
   clicksignSalesWhatsapp:
     process.env.NEXT_PUBLIC_CLICKSIGN_SALES_WHATSAPP ?? '',
+  // Vazio esconde o "Falar com o suporte" do aside.
+  supportUrl: (process.env.NEXT_PUBLIC_SUPPORT_URL ?? '').trim(),
 }
