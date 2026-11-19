@@ -1,10 +1,11 @@
+import { enqueueInsightsCompute } from '@/queue/insights-compute.queue'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { Controller } from '@/shared/presentation/controller'
 import { GetInsightsConfig } from '../application/insights/get-insights-config'
 import { GetInsightsDashboard } from '../application/insights/get-insights-dashboard'
 import { GetInsightsToday } from '../application/insights/get-insights-today'
-import { invalidateInsightsCache } from '../application/insights/insights-result-cache'
+import { InsightsPanelReader } from '../application/insights/read-insights-panel'
 import { SaveInsightsConfig } from '../application/insights/save-insights-config'
 import { GetInsightsStatus } from '../application/insights/get-insights-status'
 import { RemoveVibecodeKey } from '../application/insights/remove-vibecode-key'
@@ -17,7 +18,8 @@ import {
   GetInsightsTodayController,
   SaveInsightsConfigController,
 } from '../presentation/controllers/insights/insights.controllers'
-import { makeInsightsSourceResolver } from './make-insights-source-resolver'
+// Importar o runtime também aponta o estado da chave Vibecode para o Redis.
+import { insightsStore } from './insights-runtime'
 import {
   GetInsightsStatusController,
   RemoveVibecodeKeyController,
@@ -33,12 +35,18 @@ const getPortalDomain = async (appId: string): Promise<string> => {
   return domain.name
 }
 
-// Um resolver só para o processo: ele guarda a fonte (e o cache de conversas)
-// de cada app. Um por requisição jogaria o cache fora.
-const insightsSources = makeInsightsSourceResolver()
+// A API não calcula painel: quem lê as conversas é o worker de Insights
+// (`worker:insights`). Aqui só se lê o resultado guardado e se enfileira o
+// cálculo.
+const panelReader = new InsightsPanelReader({
+  store: insightsStore,
+  enqueue: enqueueInsightsCompute,
+})
 
-// Gravar ou remover a chave troca o modo (full ↔ lean): a fonte guardada e o
-// painel em cache do modo anterior precisam cair na hora.
+// Gravar ou remover a chave troca o modo (full ↔ lean), e salvar a config muda
+// o resultado de toda consulta: os resultados guardados do app caem na hora, e
+// um cálculo em andamento deixa de gravar (geração do app, no Redis). O worker
+// resolve a fonte a cada job, então não há fonte guardada a descartar.
 export const makeSaveVibecodeKeyController = (): Controller => {
   const save = new SaveVibecodeKey({
     settings: new PrismaInsightsSettingsRepository(),
@@ -48,7 +56,7 @@ export const makeSaveVibecodeKeyController = (): Controller => {
   return new SaveVibecodeKeyController({
     execute: async (appId, key) => {
       const saved = await save.execute(appId, key)
-      insightsSources.invalidate(appId)
+      await insightsStore.invalidateApp(appId)
       return saved
     },
   })
@@ -61,7 +69,7 @@ export const makeRemoveVibecodeKeyController = (): Controller => {
   return new RemoveVibecodeKeyController({
     execute: async appId => {
       await remove.execute(appId)
-      insightsSources.invalidate(appId)
+      await insightsStore.invalidateApp(appId)
     },
   })
 }
@@ -71,25 +79,16 @@ export const makeGetInsightsStatusController = (): Controller =>
     new GetInsightsStatus({ settings: new PrismaInsightsSettingsRepository() }),
   )
 
-// Chave revogada no meio da leitura: o resolver marca o problema e a
-// requisição é refeita pelo REST clássico.
-const sourceDeps = {
-  resolveSource: insightsSources.resolve,
-  onSourceFailure: insightsSources.onSourceFailure,
-}
-
 const makeGetConfig = () =>
   new GetInsightsConfig({ settings: new PrismaInsightsSettingsRepository() })
 
 export const makeGetInsightsDashboardController = (): Controller =>
   new GetInsightsDashboardController(
-    new GetInsightsDashboard({ getConfig: makeGetConfig(), ...sourceDeps }),
+    new GetInsightsDashboard({ reader: panelReader }),
   )
 
 export const makeGetInsightsTodayController = (): Controller =>
-  new GetInsightsTodayController(
-    new GetInsightsToday({ getConfig: makeGetConfig(), ...sourceDeps }),
-  )
+  new GetInsightsTodayController(new GetInsightsToday({ reader: panelReader }))
 
 export const makeGetInsightsConfigController = (): Controller =>
   new GetInsightsConfigController(makeGetConfig())
@@ -103,7 +102,7 @@ export const makeSaveInsightsConfigController = (): Controller => {
     // e continuaria vendo o painel antigo por até 5 min.
     execute: async (appId, patch) => {
       const saved = await save.execute(appId, patch)
-      invalidateInsightsCache(appId)
+      await insightsStore.invalidateApp(appId)
       return saved
     },
   })

@@ -340,4 +340,58 @@ describe('buildDashboard', () => {
     ])
     expect(r.operators[0]).toMatchObject({ id: 10, dealsWon: 1 })
   })
+
+  describe('sessões incompletas', () => {
+    const range = { from: '2026-11-10', to: '2026-11-10' }
+    const day = (over: Record<string, unknown> = {}) =>
+      session({
+        dateCreate: '2026-11-10T13:00:00.000Z',
+        status: 'closed',
+        ...over,
+      })
+
+    it('conta só as sessões do período marcadas como incompletas', async () => {
+      const { source } = fakeSource({
+        mode: 'full',
+        sessions: [
+          day({ id: 1, incomplete: true }),
+          day({ id: 2, incomplete: true }),
+          day({ id: 3 }),
+          // Fora do período atual: não entra na conta.
+          day({
+            id: 4,
+            incomplete: true,
+            dateCreate: '2026-11-01T13:00:00.000Z',
+          }),
+        ],
+      })
+      const r = await buildDashboard(source, cfg(), range, NOW)
+      expect(r.incompleteSessions).toBe(2)
+    })
+
+    it('sem sessão incompleta, é 0', async () => {
+      const { source } = fakeSource({ sessions: [day({ id: 1 })] })
+      const r = await buildDashboard(source, cfg(), range, NOW)
+      expect(r.incompleteSessions).toBe(0)
+    })
+
+    it('marcar como incompleta não muda nenhum indicador', async () => {
+      const base = [day({ id: 1 }), day({ id: 2, waitAnswer: 30 })]
+      const flagged = base.map(s => ({ ...s, incomplete: true }))
+      const a = await buildDashboard(
+        fakeSource({ mode: 'full', sessions: base }).source,
+        cfg(),
+        range,
+        NOW,
+      )
+      const b = await buildDashboard(
+        fakeSource({ mode: 'full', sessions: flagged }).source,
+        cfg(),
+        range,
+        NOW,
+      )
+      expect({ ...b, incompleteSessions: 0 }).toEqual(a)
+      expect(b.incompleteSessions).toBe(2)
+    })
+  })
 })

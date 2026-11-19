@@ -194,6 +194,12 @@ export type DashboardResult = {
   }[]
   /** Meta de 1ª resposta configurada no canal (só Vibe API). */
   channelSla: { name: string; seconds: number }[] | null
+  /**
+   * Conversas do período cujas mensagens não puderam ser lidas (falha passageira
+   * da Vibe API). Os indicadores que dependem de mensagem as contam sem esses
+   * dados; a tela avisa. 0 quando nada ficou de fora (e sempre no REST clássico).
+   */
+  incompleteSessions: number
   portal: string | null
 }
 

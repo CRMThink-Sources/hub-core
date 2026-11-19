@@ -9,11 +9,17 @@
     "loading": "Loading…",
     "loadError": "Could not load the dashboard. Try again in a moment.",
     "configError": "Could not load the dashboard settings.",
-    "saveError": "Could not save the settings."
+    "saveError": "Could not save the settings.",
+    "computing": "Calculating the dashboard…",
+    "computingHint": "On the first open this can take a few minutes. The page updates by itself when the dashboard is ready.",
+    "retry": "Try again"
   },
   "lean": {
     "banner": "Lean version — set up the Vibecode key in Administration to see everything",
     "link": "Go to Administration"
+  },
+  "incomplete": {
+    "banner": "Conversations whose messages could not be read right now: {{count}}. Response indicators may be incomplete; open the dashboard again in a moment."
   },
   "empty": {
     "noConversations": "No conversations in this period.",

@@ -35,6 +35,14 @@ export function resolveStripeEnvironment(
   return /^(sk|rk)_live_/.test(secretKey ?? '') ? 'production' : 'homolog'
 }
 
+/** Milissegundos > 0 vindos do ambiente; ausente, inválido ou ≤ 0 cai no padrão. */
+export function positiveMs(raw: string | undefined, fallback: number): number {
+  const n = Number(raw)
+  return raw !== undefined && raw !== '' && Number.isFinite(n) && n > 0
+    ? Math.trunc(n)
+    : fallback
+}
+
 /** Page size do worker: clamp [1,50] (50 = teto de comandos do batch Bitrix). */
 function parsePageSize(raw: string | undefined): number {
   const n = Number(raw)
@@ -184,6 +192,21 @@ export const env = {
   // (ordem da linha). Só `reserve` e `peekTurn` leem; o `enqueue` já registra o índice.
   thinkzapCadenceOffFifoPerDestination:
     process.env.THINKZAP_CADENCE_OFF_FIFO_PER_DESTINATION === 'true',
+  // Insights: valores a calibrar com os logs `insightsTiming` (ver a change
+  // `insights-carga-assincrona`). Inválido ou ausente cai no padrão.
+  insights: {
+    // Validade, no Redis, das sessões de dias já fechados (anteriores a ontem).
+    // Fechamento tardio de sessão só aparece depois disso.
+    closedDayTtlMs: positiveMs(
+      process.env.INSIGHTS_CLOSED_DAY_TTL_MS,
+      24 * 3600e3,
+    ),
+    // Espera da última nova tentativa quando a Vibe API devolve 429 ao ler um chat.
+    chat429FinalWaitMs: positiveMs(
+      process.env.INSIGHTS_CHAT_429_FINAL_WAIT_MS,
+      5000,
+    ),
+  },
   bullBoard: {
     enabled: process.env.BULL_BOARD_ENABLED === 'true',
     username: process.env.BULL_BOARD_USERNAME ?? '',

@@ -3,7 +3,9 @@ import { z } from 'zod'
 import type { GetInsightsConfig } from '@/modules/thinkzap/application/insights/get-insights-config'
 import type { GetInsightsDashboard } from '@/modules/thinkzap/application/insights/get-insights-dashboard'
 import type { GetInsightsToday } from '@/modules/thinkzap/application/insights/get-insights-today'
+import type { PanelResponse } from '@/modules/thinkzap/application/insights/read-insights-panel'
 import type { SaveInsightsConfig } from '@/modules/thinkzap/application/insights/save-insights-config'
+import { InsightsReadFailedError } from '@/modules/thinkzap/domain/errors/insights-read-failed.error'
 import {
   VibecodeAuthError,
   VibecodeRequestError,
@@ -78,11 +80,21 @@ const configBodySchema = z.record(z.string(), z.unknown(), {
 /**
  * Leitura de painel: falha do Bitrix vira mensagem curta, sem repassar o corpo
  * da resposta (o `response` do BitrixError pode carregar dados do portal).
+ *
+ * O painel nunca espera o cálculo: com resultado, `200` (`stale: true` quando
+ * vencido, enquanto um novo cálculo roda); sem resultado, `202` com
+ * `status: 'computing'` e a tela consulta de novo.
  */
 abstract class InsightsReadController extends Controller {
-  protected async guarded(run: () => Promise<unknown>): Promise<httpResponse> {
+  protected async guarded(
+    run: () => Promise<PanelResponse<object>>,
+  ): Promise<httpResponse> {
     try {
-      return this.ok(await run())
+      const r = await run()
+      if (r.status === 'computing') {
+        return this.accepted({ status: 'computing', startedAt: r.startedAt })
+      }
+      return this.ok(r.stale ? { ...r.data, stale: true } : r.data)
     } catch (error) {
       // Vibecode: 5xx/rede, ou recusa que o fallback não absorveu (ex.:
       // `success: false` sem 401/403). Em nenhum caso a chave é dada por
@@ -91,7 +103,10 @@ abstract class InsightsReadController extends Controller {
         error instanceof BitrixError ||
         error instanceof BitrixMethodPausedError ||
         error instanceof VibecodeRequestError ||
-        error instanceof VibecodeAuthError
+        error instanceof VibecodeAuthError ||
+        // O cálculo (no worker) falhou ou passou do prazo: a tela recebe a
+        // mesma mensagem curta, e o motivo fica no log do worker.
+        error instanceof InsightsReadFailedError
       ) {
         apiLogger.warn(
           { errorName: error.name, errorMessage: error.message },

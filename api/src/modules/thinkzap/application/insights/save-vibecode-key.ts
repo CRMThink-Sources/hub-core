@@ -51,7 +51,7 @@ export class SaveVibecodeKey {
       portalId: me.portalId ?? null,
       validatedAt: this.now(),
     })
-    clearKeyProblem(appId)
+    await clearKeyProblem(appId)
     return { last4 }
   }
 }

@@ -26,7 +26,9 @@ const withKey: InsightsSettings = {
 }
 
 describe('GetInsightsStatus', () => {
-  beforeEach(() => clearKeyProblem('app-1'))
+  beforeEach(async () => {
+    await clearKeyProblem('app-1')
+  })
 
   it('status lean sem chave', async () => {
     const status = await setup(null).execute('app-1', {
@@ -63,7 +65,7 @@ describe('GetInsightsStatus', () => {
   })
 
   it('reporta chave revogada', async () => {
-    markKeyRevoked('app-1')
+    await markKeyRevoked('app-1')
     const status = await setup(withKey).execute('app-1', {
       includeKeyDetails: false,
     })
@@ -73,7 +75,7 @@ describe('GetInsightsStatus', () => {
   })
 
   it('chave ilegível também deixa o modo enxuto', async () => {
-    markKeyUnreadable('app-1')
+    await markKeyUnreadable('app-1')
     const status = await setup(withKey).execute('app-1', {
       includeKeyDetails: false,
     })
