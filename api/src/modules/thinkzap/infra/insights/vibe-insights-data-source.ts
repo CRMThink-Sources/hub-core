@@ -122,7 +122,12 @@ function toSession(r: Row): InsightsSession | null {
   }
 }
 
-type ChatData = { msgs: Row[]; users: Record<string, Row> }
+type ChatData = {
+  msgs: Row[]
+  users: Record<string, Row>
+  // Instante (ms) mais antigo que a leitura cobre; -Infinity = chat inteiro.
+  coveredSince: number
+}
 type Entry = { p: Promise<unknown>; expiresAt: number }
 
 /**
@@ -317,33 +322,63 @@ export class VibeInsightsDataSource implements InsightsDataSource {
     return byDay
   }
 
+  /**
+   * Cache por chat (e não por chat+`since`): alargar o período reaproveita o que
+   * já foi lido. A entrada guarda até onde a leitura chegou (`coveredSince`);
+   * um `since` mais novo ou igual sai dela sem chamar a API, e um mais antigo
+   * relê o chat até o novo `since` e substitui a entrada.
+   */
+  private async chatMessages(chatId: number, since: string): Promise<ChatData> {
+    const key = `chat:${chatId}`
+    const sinceMs = new Date(since).getTime()
+    const hit = this.memo.get(key)
+    if (hit && hit.expiresAt > this.now()) {
+      try {
+        const data = (await hit.p) as ChatData
+        if (sinceMs >= data.coveredSince) return data
+      } catch {
+        // Leitura em andamento falhou: tenta de novo abaixo, com a própria.
+      }
+    }
+    const p = this.readChat(chatId, sinceMs)
+    this.memo.set(key, { p, expiresAt: this.now() + CHAT_TTL_MS })
+    p.catch(() => {
+      if (this.memo.get(key)?.p === p) this.memo.delete(key)
+    })
+    return p
+  }
+
   // Lê o chat inteiro (paginado por lastId, do mais novo para o mais antigo)
   // até passar do início da sessão mais antiga dele.
-  private chatMessages(chatId: number, since: string): Promise<ChatData> {
-    return this.cached(`chat:${chatId}:${since}`, CHAT_TTL_MS, async () => {
-      const msgs: Row[] = []
-      const users: Record<string, Row> = {}
-      const sinceMs = new Date(since).getTime()
-      let lastId: string | null = null
-      for (let i = 0; i < MAX_CHAT_PAGES; i++) {
-        const j = await this.client.getPage<{
-          messages?: Row[]
-          users?: Row[]
-        }>(
-          `/chats/chat${chatId}/messages?limit=${PAGE}${lastId != null ? `&lastId=${lastId}` : ''}`,
-        )
-        for (const u of j.data?.users ?? []) users[String(u.id)] = u
-        const page = j.data?.messages ?? []
-        msgs.push(...page)
-        if (page.length < PAGE) break
-        const oldest = page.reduce((a, m) =>
-          Number(m.id) < Number(a.id) ? m : a,
-        )
-        if (ms(oldest.date) < sinceMs) break
-        lastId = text(oldest.id)
+  private async readChat(chatId: number, sinceMs: number): Promise<ChatData> {
+    const msgs: Row[] = []
+    const users: Record<string, Row> = {}
+    // Chegar ao início do chat cobre qualquer `since`.
+    let coveredSince = Number.NEGATIVE_INFINITY
+    let lastId: string | null = null
+    for (let i = 0; i < MAX_CHAT_PAGES; i++) {
+      const j = await this.client.getPage<{
+        messages?: Row[]
+        users?: Row[]
+      }>(
+        `/chats/chat${chatId}/messages?limit=${PAGE}${lastId != null ? `&lastId=${lastId}` : ''}`,
+      )
+      for (const u of j.data?.users ?? []) users[String(u.id)] = u
+      const page = j.data?.messages ?? []
+      msgs.push(...page)
+      if (page.length < PAGE) break
+      const oldest = page.reduce((a, m) =>
+        Number(m.id) < Number(a.id) ? m : a,
+      )
+      if (ms(oldest.date) < sinceMs) {
+        coveredSince = sinceMs
+        break
       }
-      return { msgs, users }
-    })
+      lastId = text(oldest.id)
+      // Se o teto de páginas cortar a leitura, só vale até aqui.
+      coveredSince = ms(oldest.date)
+    }
+    return { msgs, users, coveredSince }
   }
 
   /**

@@ -601,6 +601,97 @@ describe('VibeInsightsDataSource', () => {
     })
   })
 
+  describe('cache de chats por chat', () => {
+    const brt = (day: string, end = false) =>
+      new Date(`${day}${end ? 'T23:59:59' : 'T00:00:00'}-03:00`)
+
+    // Três sessões do mesmo chat, em dias diferentes (10h de Brasília).
+    const sessionsAt = (day: string, id: number) =>
+      rawSession({
+        id,
+        chatId: 9,
+        dateCreate: `${day}T13:00:00.000Z`,
+        dateClose: null,
+      })
+    const all = [
+      sessionsAt('2026-11-03', 1),
+      sessionsAt('2026-11-10', 2),
+      sessionsAt('2026-11-12', 3),
+    ]
+    const fullPage = (base: number, date: string) =>
+      Array.from({ length: 50 }, (_, i) => ({
+        id: base + i,
+        authorId: 7,
+        date,
+        text: 'x',
+      }))
+
+    // A primeira página do chat é cheia e de 09/11; a segunda é curta (início).
+    const chatRoute = (path: string) =>
+      page({
+        users: [],
+        messages: path.includes('lastId')
+          ? fullPage(1, '2026-11-01T00:00:00Z').slice(0, 10)
+          : fullPage(100, '2026-11-09T00:00:00Z'),
+      })
+
+    const route = () => ({
+      post: (_path: string, body: Body) => {
+        const b = body as unknown as {
+          dateCreateFrom: string
+          dateCreateTo: string
+        }
+        const sessions = all.filter(
+          s =>
+            Date.parse(s.dateCreate) >= Date.parse(b.dateCreateFrom) &&
+            Date.parse(s.dateCreate) <= Date.parse(b.dateCreateTo),
+        )
+        return page({ sessions, hasNextPage: false })
+      },
+      get: chatRoute,
+    })
+
+    it('since mais novo reaproveita; mais antigo lê de novo', async () => {
+      const { ds, getPage } = make(route())
+
+      await ds.sessions(brt('2026-11-10'), brt('2026-11-10', true))
+      expect(getPage).toHaveBeenCalledTimes(1)
+
+      // 12/11 é mais novo que 10/11: já coberto, sem chamar a API.
+      await ds.sessions(brt('2026-11-12'), brt('2026-11-12', true))
+      expect(getPage).toHaveBeenCalledTimes(1)
+
+      // 03/11 é mais antigo que o coberto: relê o chat (2 páginas).
+      await ds.sessions(brt('2026-11-03'), brt('2026-11-03', true))
+      expect(getPage).toHaveBeenCalledTimes(3)
+
+      // A leitura nova chegou ao início do chat: cobre qualquer data.
+      await ds.sessions(brt('2026-11-01'), brt('2026-11-30', true))
+      expect(getPage).toHaveBeenCalledTimes(3)
+    })
+
+    it('leitura de chat que falhou não fica presa', async () => {
+      vi.spyOn(apiLogger, 'warn').mockImplementation((() => undefined) as never)
+      const base = route()
+      let fail = true
+      const { ds, getPage } = make({
+        ...base,
+        get: path => {
+          if (fail) throw new VibecodeRequestError('Falha (500)', 500)
+          return base.get(path)
+        },
+      })
+
+      await ds.sessions(brt('2026-11-10'), brt('2026-11-10', true))
+      expect(getPage).toHaveBeenCalledTimes(1)
+
+      fail = false
+      // Outro dia (o dia 10 está em cache): o chat é lido de novo.
+      await ds.sessions(brt('2026-11-12'), brt('2026-11-12', true))
+      expect(getPage).toHaveBeenCalledTimes(2)
+    })
+  })
+
   it('monta o diretório com setor mais específico, paginado', async () => {
     const paths: string[] = []
     const { ds } = make({
