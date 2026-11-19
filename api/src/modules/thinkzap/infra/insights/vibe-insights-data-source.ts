@@ -29,7 +29,13 @@ const MAX_LIST_PAGES = 400
 // Chats lidos em paralelo (como o original): mais que isso estoura o limite da API.
 const CHAT_CONCURRENCY = 5
 
-const SESSIONS_TTL_MS = 120e3
+const DAY_MS = 864e5
+// Dia de Brasília (UTC-3, sem horário de verão desde 2019): é como o Insights
+// divide os períodos. Dias fechados mudam pouco (só fechamento tardio).
+const BRT_OFFSET_MS = 3 * 3600e3
+const SESSIONS_TTL_MS = 30 * 60e3
+// Hoje e ontem ainda recebem sessões novas e fechamentos.
+const SESSIONS_RECENT_TTL_MS = 120e3
 const CHAT_TTL_MS = 120e3
 const DIRECTORY_TTL_MS = 3600e3
 const CONFIGS_TTL_MS = 3600e3
@@ -61,6 +67,14 @@ const num = (v: unknown): number | null => {
 
 const text = (v: unknown): string | null =>
   typeof v === 'string' ? v || null : typeof v === 'number' ? String(v) : null
+
+// 'AAAA-MM-DD' do dia de Brasília que contém o instante.
+const brtDayKey = (t: number): string =>
+  new Date(t - BRT_OFFSET_MS).toISOString().slice(0, 10)
+
+// Instante (ms) em que o dia de Brasília começa.
+const brtDayStart = (key: string): number =>
+  Date.parse(`${key}T00:00:00Z`) + BRT_OFFSET_MS
 
 const ms = (v: unknown): number =>
   typeof v === 'string' || typeof v === 'number' ? new Date(v).getTime() : NaN
@@ -130,6 +144,8 @@ export class VibeInsightsDataSource implements InsightsDataSource {
   constructor(
     private readonly client: Client,
     fallbackPortal: string | null = null,
+    // Relógio injetável: os TTLs do cache dependem de "hoje" em Brasília.
+    private readonly now: () => number = Date.now,
   ) {
     this.portalName = fallbackPortal
   }
@@ -154,7 +170,7 @@ export class VibeInsightsDataSource implements InsightsDataSource {
   // Guarda a promessa (deduplica chamadas simultâneas) e a descarta se falhar,
   // para uma recusa ou instabilidade não ficar presa no cache.
   private cached<T>(key: string, ttlMs: number, fn: () => Promise<T>) {
-    const now = Date.now()
+    const now = this.now()
     const hit = this.memo.get(key)
     if (hit && hit.expiresAt > now) return hit.p as Promise<T>
     for (const [k, e] of this.memo) if (e.expiresAt <= now) this.memo.delete(k)
@@ -179,32 +195,126 @@ export class VibeInsightsDataSource implements InsightsDataSource {
     return out
   }
 
-  sessions(from: Date, to: Date): Promise<InsightsSession[]> {
-    const f = from.toISOString()
-    const t = to.toISOString()
-    return this.cached(`s:${f}:${t}`, SESSIONS_TTL_MS, async () => {
-      const raw: Row[] = []
-      for (let offset = 0; offset < MAX_SESSIONS; offset += PAGE) {
-        const j = await this.client.postPage<{
-          sessions?: Row[]
-          hasNextPage?: boolean
-        }>('/openlines/sessions/search', {
-          dateCreateFrom: f,
-          dateCreateTo: t,
-          limit: PAGE,
-          offset,
-          order: 'dateCreate',
-          orderDirection: 'asc',
-        })
-        raw.push(...(j.data?.sessions ?? []))
-        if (!j.data?.hasNextPage) break
+  /**
+   * Cache por dia de Brasília (UTC-3, fixo): alargar o período só lê os dias
+   * que ainda não estão guardados. Cada entrada `sd:AAAA-MM-DD` guarda as
+   * sessões com `dateCreate` naquele dia, já com as métricas de mensagem.
+   *
+   * Os dias das pontas são lidos inteiros (e não só até `from`/`to`): assim a
+   * entrada do dia é sempre completa e pode ser cacheada; o recorte exato
+   * [from, to] é feito só na devolução. Dias ausentes e consecutivos saem numa
+   * única busca paginada.
+   */
+  async sessions(from: Date, to: Date): Promise<InsightsSession[]> {
+    const fromMs = from.getTime()
+    const toMs = to.getTime()
+    if (!(fromMs <= toMs)) return []
+    const nowMs = this.now()
+    const todayStart = brtDayStart(brtDayKey(nowMs))
+    const days: string[] = []
+    for (let t = brtDayStart(brtDayKey(fromMs)); t <= toMs; t += DAY_MS)
+      days.push(brtDayKey(t))
+
+    for (const [k, e] of this.memo)
+      if (e.expiresAt <= nowMs) this.memo.delete(k)
+
+    const parts = new Map<string, Promise<InsightsSession[]>>()
+    let run: string[] = []
+    const flush = () => {
+      if (run.length) this.fetchDays(run, todayStart, nowMs, parts)
+      run = []
+    }
+    for (const day of days) {
+      const hit = this.memo.get(`sd:${day}`)
+      if (hit && hit.expiresAt > nowMs) {
+        flush()
+        parts.set(day, hit.p as Promise<InsightsSession[]>)
+      } else {
+        run.push(day)
       }
-      const list = raw
-        .map(toSession)
-        .filter((s): s is InsightsSession => s !== null)
-      await this.enrich(list)
-      return list
-    })
+    }
+    flush()
+
+    const lists = await Promise.all(days.map(d => parts.get(d)!))
+    return lists
+      .flat()
+      .filter(s => {
+        const t = new Date(s.dateCreate).getTime()
+        return t >= fromMs && t <= toMs
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.dateCreate).getTime() - new Date(b.dateCreate).getTime(),
+      )
+  }
+
+  // Uma busca paginada para a faixa contínua de dias ausentes; cada dia guarda
+  // a sua fatia da mesma promessa (deduplica pedidos simultâneos). Falha não
+  // fica presa: some do cache junto com a promessa.
+  private fetchDays(
+    run: string[],
+    todayStart: number,
+    nowMs: number,
+    parts: Map<string, Promise<InsightsSession[]>>,
+  ) {
+    const first = run[0]!
+    const last = run[run.length - 1]!
+    const byDay = this.readSessions(
+      new Date(brtDayStart(first)),
+      new Date(brtDayStart(last) + DAY_MS - 1),
+      new Set(run),
+    )
+    for (const day of run) {
+      const p = byDay.then(m => m.get(day) ?? [])
+      // Hoje e ontem ainda mudam (sessões novas, fechamentos); o resto não.
+      const recent = brtDayStart(day) >= todayStart - DAY_MS
+      this.memo.set(`sd:${day}`, {
+        p,
+        expiresAt: nowMs + (recent ? SESSIONS_RECENT_TTL_MS : SESSIONS_TTL_MS),
+      })
+      p.catch(() => {
+        if (this.memo.get(`sd:${day}`)?.p === p) this.memo.delete(`sd:${day}`)
+      })
+      parts.set(day, p)
+    }
+  }
+
+  private async readSessions(
+    from: Date,
+    to: Date,
+    wanted: Set<string>,
+  ): Promise<Map<string, InsightsSession[]>> {
+    const raw: Row[] = []
+    for (let offset = 0; offset < MAX_SESSIONS; offset += PAGE) {
+      const j = await this.client.postPage<{
+        sessions?: Row[]
+        hasNextPage?: boolean
+      }>('/openlines/sessions/search', {
+        dateCreateFrom: from.toISOString(),
+        dateCreateTo: to.toISOString(),
+        limit: PAGE,
+        offset,
+        order: 'dateCreate',
+        orderDirection: 'asc',
+      })
+      raw.push(...(j.data?.sessions ?? []))
+      if (!j.data?.hasNextPage) break
+    }
+    const list = raw
+      .map(toSession)
+      .filter((s): s is InsightsSession => s !== null)
+    await this.enrich(list)
+    const byDay = new Map<string, InsightsSession[]>()
+    for (const s of list) {
+      const day = brtDayKey(new Date(s.dateCreate).getTime())
+      // Fora da faixa pedida: não pode entrar numa entrada de dia que não foi
+      // lida por inteiro.
+      if (!wanted.has(day)) continue
+      const bucket = byDay.get(day) ?? []
+      bucket.push(s)
+      byDay.set(day, bucket)
+    }
+    return byDay
   }
 
   // Lê o chat inteiro (paginado por lastId, do mais novo para o mais antigo)
