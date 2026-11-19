@@ -19,6 +19,9 @@ import { bucketKey, fmtDay, localParts, median } from './insights-stats'
 import { isThinkZap, makeSessionRules } from './session-rules'
 
 const DAY_MS = 864e5
+// Padrão enxuto: cada dia de período custa uma leitura de sessões e de chats na
+// Vibe API, e o painel lê também o período anterior (dobra o custo).
+const DEFAULT_PERIOD_DAYS = 7
 const SERIES_GRANS = ['day', 'week', 'month'] as const
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -38,11 +41,11 @@ export async function buildDashboard(
   const rules = makeSessionRules(cfg, source.mode, now)
   const { fa, answered, lostOf, stuckOf, openSec } = rules
 
-  // Datas da query são dias de Brasília; sem `from`, os últimos 30 dias.
+  // Datas da query são dias de Brasília; sem `from`, os últimos 7 dias (contando hoje).
   const to = q.to ? new Date(q.to + 'T23:59:59-03:00') : now
   const from = q.from
     ? new Date(q.from + 'T00:00:00-03:00')
-    : new Date(to.getTime() - 29 * DAY_MS)
+    : new Date(to.getTime() - (DEFAULT_PERIOD_DAYS - 1) * DAY_MS)
   const span = to.getTime() - from.getTime()
   // Período anterior do mesmo tamanho, terminando 1 s antes do atual.
   const prevFrom = new Date(from.getTime() - span)

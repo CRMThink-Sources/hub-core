@@ -228,12 +228,19 @@ export function peakHours(
 const toIsoDay = (d: Date) =>
   `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 
+// Mantido em sincronia com o padrão da API: menos dias, menos leitura na Vibe API.
+const DEFAULT_PERIOD_DAYS = 7
+
 /**
- * Últimos 30 dias contando hoje. Usa o dia do relógio local, não
+ * Últimos 7 dias contando hoje. Usa o dia do relógio local, não
  * `toISOString()`: às 22h em Brasília o UTC já é o dia seguinte.
  */
 export function defaultPeriod(now: Date): { from: string; to: string } {
-  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
+  const from = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - (DEFAULT_PERIOD_DAYS - 1),
+  )
   return { from: toIsoDay(from), to: toIsoDay(now) }
 }
 
