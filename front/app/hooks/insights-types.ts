@@ -215,6 +215,13 @@ export type DashboardResult = {
   seriesGran: SeriesGranularity
   hourly: HourlyPoint[]
   channelSla: { name: string; seconds: number }[] | null
+  /**
+   * Conversas do período cujas mensagens não puderam ser lidas (falha passageira
+   * da Vibe API). Ausente quando a API ainda é a versão que não informa isso.
+   */
+  incompleteSessions?: number
+  /** Painel vencido, servido enquanto a API recalcula (a tela atualiza sozinha). */
+  stale?: boolean
   portal: string | null
 }
 
@@ -242,4 +249,6 @@ export type TodayResult = {
     status: string
     activeSessions: number
   }[]
+  /** Painel vencido, servido enquanto a API recalcula (a tela atualiza sozinha). */
+  stale?: boolean
 }

@@ -11,11 +11,11 @@ describe('RemoveVibecodeKey', () => {
     const useCase = new RemoveVibecodeKey({
       settings: { removeKey } as unknown as InsightsSettingsRepository,
     })
-    markKeyRevoked('app-1')
+    await markKeyRevoked('app-1')
 
     await useCase.execute('app-1')
 
     expect(removeKey).toHaveBeenCalledWith('app-1')
-    expect(getKeyProblem('app-1')).toBeNull()
+    expect(await getKeyProblem('app-1')).toBeNull()
   })
 })

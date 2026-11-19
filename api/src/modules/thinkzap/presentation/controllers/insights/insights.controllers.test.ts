@@ -8,6 +8,7 @@ import type {
   DashboardResult,
   TodayResult,
 } from '@/modules/thinkzap/application/insights/insights-results.types'
+import { InsightsReadFailedError } from '@/modules/thinkzap/domain/errors/insights-read-failed.error'
 import { INSIGHTS_CONFIG_DEFAULT } from '@/modules/thinkzap/domain/insights-config'
 import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
 import { BitrixError } from '@/shared/infra/clients/errors/bitrix-client.error'
@@ -31,6 +32,13 @@ const req = (extra: Record<string, unknown> = {}) =>
     ...extra,
   }) as unknown as Request
 
+/** Resposta de painel pronto, como o caso de uso a devolve. */
+const ready = <T>(data: T, stale = false) => ({
+  status: 'ready' as const,
+  data,
+  stale,
+})
+
 const dashboardOf = (execute: GetInsightsDashboard['execute']) =>
   new GetInsightsDashboardController({ execute })
 
@@ -38,7 +46,7 @@ describe('GetInsightsDashboardController', () => {
   it('200 com o resultado e mode lean', async () => {
     const result = { mode: 'lean' } as DashboardResult
     const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
-      Promise.resolve(result),
+      Promise.resolve(ready(result)),
     )
     const out = await dashboardOf(execute).perform(
       req({ query: { from: '2026-11-01', to: '2026-11-10', dept: '5' } }),
@@ -54,7 +62,7 @@ describe('GetInsightsDashboardController', () => {
 
   it('aceita um período no limite de 92 dias', async () => {
     const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
-      Promise.resolve({ mode: 'lean' } as DashboardResult),
+      Promise.resolve(ready({ mode: 'lean' } as DashboardResult)),
     )
     const out = await dashboardOf(execute).perform(
       req({ query: { from: '2026-08-02', to: '2026-11-01' } }),
@@ -65,7 +73,7 @@ describe('GetInsightsDashboardController', () => {
 
   it('sem from/to segue com os padrões do caso de uso', async () => {
     const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
-      Promise.resolve({ mode: 'lean' } as DashboardResult),
+      Promise.resolve(ready({ mode: 'lean' } as DashboardResult)),
     )
     const out = await dashboardOf(execute).perform(req(), res)
     expect(out.status).toBe(200)
@@ -86,6 +94,49 @@ describe('GetInsightsDashboardController', () => {
     expect((out.result as { error: string }).error).toMatch(/período|Data/)
     expect(execute).not.toHaveBeenCalled()
   })
+
+  it('sem resultado: 202 com "calculando", sem esperar o cálculo', async () => {
+    const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
+      Promise.resolve({ status: 'computing', startedAt: 1234 }),
+    )
+    const out = await dashboardOf(execute).perform(req(), res)
+    expect(out).toEqual({
+      status: 202,
+      result: { status: 'computing', startedAt: 1234 },
+    })
+  })
+
+  it('resultado vencido: 200 com o painel marcado como desatualizado', async () => {
+    const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
+      Promise.resolve(ready({ mode: 'full' } as DashboardResult, true)),
+    )
+    const out = await dashboardOf(execute).perform(req(), res)
+    expect(out).toEqual({
+      status: 200,
+      result: { mode: 'full', stale: true },
+    })
+  })
+
+  it('resultado recente não leva o campo stale', async () => {
+    const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
+      Promise.resolve(ready({ mode: 'full' } as DashboardResult)),
+    )
+    const out = await dashboardOf(execute).perform(req(), res)
+    expect(out.result).toEqual({ mode: 'full' })
+  })
+
+  it.each([['failed' as const], ['timeout' as const]])(
+    'cálculo com %s vira 502 com a mensagem curta, sem detalhe interno',
+    async reason => {
+      const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
+        Promise.reject(new InsightsReadFailedError(reason)),
+      )
+      const out = await dashboardOf(execute).perform(req(), res)
+      expect(out.status).toBe(502)
+      expect((out.result as { error: string }).error).toContain('Bitrix')
+      expect(JSON.stringify(out.result)).not.toContain('worker')
+    },
+  )
 
   it('erro do Bitrix vira 502 sem vazar a mensagem interna', async () => {
     const execute = vi.fn<GetInsightsDashboard['execute']>(() =>
@@ -140,7 +191,7 @@ describe('GetInsightsTodayController', () => {
   it('200 repassando sources e alertMin', async () => {
     const result = { mode: 'lean' } as TodayResult
     const execute = vi.fn<GetInsightsToday['execute']>(() =>
-      Promise.resolve(result),
+      Promise.resolve(ready(result)),
     )
     const out = await new GetInsightsTodayController({ execute }).perform(
       req({ query: { sources: 'a,b', alertMin: '45' } }),
@@ -151,6 +202,31 @@ describe('GetInsightsTodayController', () => {
       alertMin: '45',
     })
     expect(out).toEqual({ status: 200, result })
+  })
+
+  it('sem resultado: 202 com "calculando" (aba Agora)', async () => {
+    const execute = vi.fn<GetInsightsToday['execute']>(() =>
+      Promise.resolve({ status: 'computing', startedAt: 99 }),
+    )
+    const out = await new GetInsightsTodayController({ execute }).perform(
+      req(),
+      res,
+    )
+    expect(out).toEqual({
+      status: 202,
+      result: { status: 'computing', startedAt: 99 },
+    })
+  })
+
+  it('cálculo que falhou vira 502', async () => {
+    const execute = vi.fn<GetInsightsToday['execute']>(() =>
+      Promise.reject(new InsightsReadFailedError('failed')),
+    )
+    const out = await new GetInsightsTodayController({ execute }).perform(
+      req(),
+      res,
+    )
+    expect(out.status).toBe(502)
   })
 
   it('502 quando o Bitrix falha', async () => {

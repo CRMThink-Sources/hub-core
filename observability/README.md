@@ -89,6 +89,7 @@ Na prática, hoje:
 | `hubthink-worker-spa-provisioning` | Provisionamento de linha na SPA                      |
 | `hubthink-worker-spa-resource-sync`| Sincronização item ↔ recurso                        |
 | `hubthink-worker-clicksign`        | Fila do Clicksign                                    |
+| `hubthink-worker-insights`         | Cálculo e pré-aquecimento dos painéis do Insights    |
 | `hubthink-front`                   | Next.js (logs não-JSON, sem `app`/`source`)          |
 
 > **Ao criar um worker novo, o nome do container precisa começar com `hubthink-worker`.**

@@ -42,7 +42,7 @@ function setup(me: () => Promise<VibecodeMe> = () => Promise.resolve(validMe)) {
 describe('SaveVibecodeKey', () => {
   it('salva chave válida cifrada e devolve last4', async () => {
     const { useCase, saveKey, now } = setup()
-    markKeyRevoked('app-1')
+    await markKeyRevoked('app-1')
 
     const result = await useCase.execute('app-1', 'vibe_abcdWXYZ')
 
@@ -53,7 +53,7 @@ describe('SaveVibecodeKey', () => {
     expect(decryptToken(saved.keyEnc)).toBe('vibe_abcdWXYZ')
     expect(saved.portalId).toBe('123')
     expect(saved.validatedAt).toEqual(now)
-    expect(getKeyProblem('app-1')).toBeNull()
+    expect(await getKeyProblem('app-1')).toBeNull()
   })
 
   it('recusa escopo extra e não persiste nada', async () => {

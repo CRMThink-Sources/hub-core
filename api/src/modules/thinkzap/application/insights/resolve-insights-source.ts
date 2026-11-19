@@ -17,7 +17,7 @@ export type InsightsSourceResolver = (
 export type InsightsSourceFailureHandler = (
   appId: string,
   error: unknown,
-) => boolean
+) => boolean | Promise<boolean>
 
 /**
  * Roda o cálculo com a fonte do app e, se a fonte for recusada, uma única
@@ -36,7 +36,7 @@ export async function runWithSourceFallback<T>(
   try {
     return await run(await deps.resolveSource(appId))
   } catch (error) {
-    if (!deps.onSourceFailure?.(appId, error)) throw error
+    if (!(await deps.onSourceFailure?.(appId, error))) throw error
     return run(await deps.resolveSource(appId))
   }
 }

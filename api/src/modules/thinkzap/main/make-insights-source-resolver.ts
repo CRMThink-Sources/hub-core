@@ -1,8 +1,4 @@
 import {
-  insightsResultCache,
-  type InsightsResultCache,
-} from '../application/insights/insights-result-cache'
-import {
   getKeyProblem,
   markKeyRevoked,
   markKeyUnreadable,
@@ -14,9 +10,11 @@ import type {
 import type { InsightsDataSource } from '../domain/ports/insights-data-source.port'
 import { VibecodeClient } from '../infra/clients/vibecode.client'
 import { ClassicInsightsDataSource } from '../infra/insights/classic-insights-data-source'
+import type { SessionDayCache } from '../infra/insights/session-day-cache'
 import {
   isVibecodeKeyRevoked,
   VibeInsightsDataSource,
+  type VibeSourceOptions,
 } from '../infra/insights/vibe-insights-data-source'
 import { PrismaInsightsSettingsRepository } from '../infra/persistence/repositories/prisma-insights-settings.repository'
 import { decryptToken } from '@/shared/infra/crypto/token-cipher'
@@ -77,11 +75,12 @@ function makeAppClient(
 export type InsightsSources = {
   resolve: InsightsSourceResolver
   /**
-   * Descarta a fonte guardada do app e o cache de resultados do painel.
+   * Descarta a fonte guardada do app e os resultados guardados do painel.
    * Chamado ao gravar ou remover a chave: sem isso o app seguiria no modo
-   * antigo (e o painel em cache) até reiniciar o processo.
+   * antigo (e o painel em cache) até reiniciar o processo. A fonte cai na hora
+   * (parte síncrona); a promessa termina quando os resultados foram apagados.
    */
-  invalidate: (appId: string) => void
+  invalidate: (appId: string) => Promise<void>
   onSourceFailure: InsightsSourceFailureHandler
 }
 
@@ -91,9 +90,22 @@ export type InsightsSources = {
  * o cache de conversas carregadas dela é por instância e só ajuda se reusada.
  */
 export function makeInsightsSourceResolver(
-  deps: { resultCache?: InsightsResultCache } = {},
+  deps: {
+    /**
+     * Apaga os resultados guardados do app (Redis). O worker passa o
+     * armazenamento; sem ele (testes), não há resultado guardado a apagar.
+     */
+    invalidateResults?: (appId: string) => void | Promise<void>
+    /**
+     * Sessões por dia guardadas fora do processo (Redis), por app. Sem isto a
+     * fonte só tem o cache em memória, que some a cada deploy.
+     */
+    dayCacheFor?: (appId: string) => SessionDayCache
+    /** Validades e esperas da fonte Vibe (vindas do ambiente). */
+    vibeOptions?: Omit<VibeSourceOptions, 'dayCache'>
+  } = {},
 ): InsightsSources {
-  const resultCache = deps.resultCache ?? insightsResultCache
+  const invalidateResults = deps.invalidateResults ?? (() => undefined)
   const settings = new PrismaInsightsSettingsRepository()
   const sources = new Map<string, InsightsDataSource>()
   const pending = new Map<string, Promise<InsightsDataSource>>()
@@ -108,12 +120,12 @@ export function makeInsightsSourceResolver(
     // Chave já recusada ou ilegível nesta execução: vai direto ao clássico em
     // vez de tentar (e falhar) de novo em toda abertura. Regravar a chave limpa
     // isso.
-    if (row?.keyEnc && !getKeyProblem(appId)) {
+    if (row?.keyEnc && !(await getKeyProblem(appId))) {
       let key: string | null = null
       try {
         key = decryptToken(row.keyEnc)
       } catch (e) {
-        markKeyUnreadable(appId)
+        await markKeyUnreadable(appId)
         // Só o nome do erro: a mensagem não deve carregar nada da chave.
         apiLogger.warn(
           { appId, errorName: e instanceof Error ? e.name : 'unknown' },
@@ -124,6 +136,11 @@ export function makeInsightsSourceResolver(
         const source = new VibeInsightsDataSource(
           new VibecodeClient(key),
           domain,
+          Date.now,
+          {
+            ...deps.vibeOptions,
+            dayCache: deps.dayCacheFor?.(appId),
+          },
         )
         await source.loadPortal()
         return source
@@ -132,11 +149,11 @@ export function makeInsightsSourceResolver(
     return new ClassicInsightsDataSource(makeAppClient(appId, domain), domain)
   }
 
-  const invalidate = (appId: string) => {
+  const invalidate = async (appId: string): Promise<void> => {
     generation.set(appId, (generation.get(appId) ?? 0) + 1)
     sources.delete(appId)
     pending.delete(appId)
-    resultCache.invalidate(appId)
+    await invalidateResults(appId)
   }
 
   const resolve: InsightsSourceResolver = appId => {
@@ -162,14 +179,17 @@ export function makeInsightsSourceResolver(
 
   // Só 401/403 dão a chave por revogada: 5xx e rede são instabilidade da
   // Vibecode e sobem como falha de leitura, sem derrubar o modo completo.
-  const onSourceFailure: InsightsSourceFailureHandler = (appId, error) => {
+  const onSourceFailure: InsightsSourceFailureHandler = async (
+    appId,
+    error,
+  ) => {
     if (!isVibecodeKeyRevoked(error)) return false
     apiLogger.warn(
       { appId },
       'Insights: Vibecode recusou a chave, servindo pelo REST clássico',
     )
-    markKeyRevoked(appId)
-    invalidate(appId)
+    await markKeyRevoked(appId)
+    await invalidate(appId)
     return true
   }
 

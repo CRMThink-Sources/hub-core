@@ -74,10 +74,13 @@ vi.mock('../infra/insights/classic-insights-data-source', async orig => ({
 }))
 
 import { INSIGHTS_CONFIG_DEFAULT } from '../domain/insights-config'
-import { GetInsightsDashboard } from '../application/insights/get-insights-dashboard'
-import { GetInsightsToday } from '../application/insights/get-insights-today'
-import type { GetInsightsConfig } from '../application/insights/get-insights-config'
-import { InsightsResultCache } from '../application/insights/insights-result-cache'
+import { buildDashboard } from '../application/insights/build-dashboard'
+import { buildToday } from '../application/insights/build-today'
+import type {
+  DashboardQuery,
+  TodayQuery,
+} from '../application/insights/insights-results.types'
+import { runWithSourceFallback } from '../application/insights/resolve-insights-source'
 import {
   clearKeyProblem,
   getKeyProblem,
@@ -105,17 +108,31 @@ const httpFail = (status: number) =>
     }),
   )
 
-const getConfig = {
-  execute: vi.fn<GetInsightsConfig['execute']>(() =>
-    Promise.resolve(INSIGHTS_CONFIG_DEFAULT),
-  ),
-}
+type Sources = Pick<
+  ReturnType<typeof makeInsightsSourceResolver>,
+  'resolve' | 'onSourceFailure'
+>
+
+// O mesmo cálculo que o worker de Insights faz: a fonte do app, com a volta ao
+// clássico quando a chave é recusada.
+const dashboardOf = (s: Sources, q: DashboardQuery = {}) =>
+  runWithSourceFallback(
+    'app-1',
+    { resolveSource: s.resolve, onSourceFailure: s.onSourceFailure },
+    source => buildDashboard(source, INSIGHTS_CONFIG_DEFAULT, q),
+  )
+const todayOf = (s: Sources, q: TodayQuery = {}) =>
+  runWithSourceFallback(
+    'app-1',
+    { resolveSource: s.resolve, onSourceFailure: s.onSourceFailure },
+    source => buildToday(source, INSIGHTS_CONFIG_DEFAULT, q),
+  )
 
 describe('makeInsightsSourceResolver', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
     vi.restoreAllMocks()
-    clearKeyProblem('app-1')
+    await clearKeyProblem('app-1')
     h.getSettings.mockResolvedValue(settings(null))
     h.axiosGet.mockImplementation((path: string) =>
       path === '/me' ? ok({ portal: 'cliente.bitrix24.com.br' }) : ok([]),
@@ -132,7 +149,7 @@ describe('makeInsightsSourceResolver', () => {
     const source = await resolve('app-1')
     expect(source).not.toBeInstanceOf(VibeInsightsDataSource)
     expect(source.mode).toBe('lean')
-    expect(getKeyProblem('app-1')).toBe('unreadable')
+    expect(await getKeyProblem('app-1')).toBe('unreadable')
     expect(warn).toHaveBeenCalled()
   })
 
@@ -169,12 +186,12 @@ describe('makeInsightsSourceResolver', () => {
     h.getSettings.mockResolvedValue(settings(null))
     // Sem invalidar, segue a fonte guardada (uma por app).
     expect(await resolve('app-1')).toBe(vibe)
-    invalidate('app-1')
+    await invalidate('app-1')
     const lean = await resolve('app-1')
     expect(lean.mode).toBe('lean')
 
     h.getSettings.mockResolvedValue(settings('outra'))
-    invalidate('app-1')
+    await invalidate('app-1')
     const again = await resolve('app-1')
     expect(again.mode).toBe('full')
     expect(again).not.toBe(vibe)
@@ -185,37 +202,31 @@ describe('makeInsightsSourceResolver', () => {
     const { resolve, invalidate } = makeInsightsSourceResolver()
     const building = resolve('app-1')
     h.getSettings.mockResolvedValue(settings(null))
-    invalidate('app-1')
+    await invalidate('app-1')
     await building
     expect((await resolve('app-1')).mode).toBe('lean')
   })
 
-  it('invalidar também limpa o cache de resultados do painel', () => {
-    const cache = new InsightsResultCache()
-    const spy = vi.spyOn(cache, 'invalidate')
-    const { invalidate } = makeInsightsSourceResolver({ resultCache: cache })
-    invalidate('app-1')
-    expect(spy).toHaveBeenCalledWith('app-1')
+  it('invalidar também apaga os resultados guardados do painel', async () => {
+    const invalidateResults = vi.fn(() => Promise.resolve())
+    const { invalidate } = makeInsightsSourceResolver({ invalidateResults })
+    await invalidate('app-1')
+    expect(invalidateResults).toHaveBeenCalledWith('app-1')
   })
 
   it('chave revogada: usa o clássico e marca keyProblem', async () => {
     h.getSettings.mockResolvedValue(settings('enc'))
     h.axiosPost.mockImplementation(() => httpFail(401))
-    const { resolve, onSourceFailure } = makeInsightsSourceResolver()
-    const deps = {
-      getConfig,
-      resolveSource: resolve,
-      onSourceFailure,
-      cache: new InsightsResultCache(),
-    }
+    const sources = makeInsightsSourceResolver()
+    const { resolve } = sources
 
-    const dash = await new GetInsightsDashboard(deps).execute('app-1', {})
+    const dash = await dashboardOf(sources)
     expect(dash.mode).toBe('lean')
-    expect(getKeyProblem('app-1')).toBe('revoked')
+    expect(await getKeyProblem('app-1')).toBe('revoked')
     // A fonte Vibe guardada caiu: as próximas leituras já vão pelo clássico.
     expect((await resolve('app-1')).mode).toBe('lean')
 
-    const today = await new GetInsightsToday(deps).execute('app-1', {})
+    const today = await todayOf(sources)
     expect(today.mode).toBe('lean')
   })
 
@@ -223,14 +234,9 @@ describe('makeInsightsSourceResolver', () => {
     h.getSettings.mockResolvedValue(settings('enc'))
     h.axiosPost.mockImplementation(() => httpFail(403))
     const { resolve, onSourceFailure } = makeInsightsSourceResolver()
-    const r = await new GetInsightsDashboard({
-      getConfig,
-      resolveSource: resolve,
-      onSourceFailure,
-      cache: new InsightsResultCache(),
-    }).execute('app-1', {})
+    const r = await dashboardOf({ resolve, onSourceFailure }, {})
     expect(r.mode).toBe('lean')
-    expect(getKeyProblem('app-1')).toBe('revoked')
+    expect(await getKeyProblem('app-1')).toBe('revoked')
   })
 
   it('403 em um chat não marca a chave como revogada', async () => {
@@ -245,14 +251,12 @@ describe('makeInsightsSourceResolver', () => {
       path.startsWith('/chats/') ? httpFail(403) : ok([]),
     )
     const { resolve, onSourceFailure } = makeInsightsSourceResolver()
-    const r = await new GetInsightsDashboard({
-      getConfig,
-      resolveSource: resolve,
-      onSourceFailure,
-      cache: new InsightsResultCache(),
-    }).execute('app-1', { from: '2026-11-01', to: '2026-11-30' })
+    const r = await dashboardOf(
+      { resolve, onSourceFailure },
+      { from: '2026-11-01', to: '2026-11-30' },
+    )
     expect(r.mode).toBe('full')
-    expect(getKeyProblem('app-1')).toBeNull()
+    expect(await getKeyProblem('app-1')).toBeNull()
   })
 
   it('401 em um chat ainda marca a chave como revogada', async () => {
@@ -267,14 +271,12 @@ describe('makeInsightsSourceResolver', () => {
       path.startsWith('/chats/') ? httpFail(401) : ok([]),
     )
     const { resolve, onSourceFailure } = makeInsightsSourceResolver()
-    const r = await new GetInsightsDashboard({
-      getConfig,
-      resolveSource: resolve,
-      onSourceFailure,
-      cache: new InsightsResultCache(),
-    }).execute('app-1', { from: '2026-11-01', to: '2026-11-30' })
+    const r = await dashboardOf(
+      { resolve, onSourceFailure },
+      { from: '2026-11-01', to: '2026-11-30' },
+    )
     expect(r.mode).toBe('lean')
-    expect(getKeyProblem('app-1')).toBe('revoked')
+    expect(await getKeyProblem('app-1')).toBe('revoked')
   })
 
   it('5xx da Vibecode não marca a chave como revogada', async () => {
@@ -283,15 +285,10 @@ describe('makeInsightsSourceResolver', () => {
     const { resolve, onSourceFailure } = makeInsightsSourceResolver()
     const vibe = await resolve('app-1')
 
-    await expect(
-      new GetInsightsDashboard({
-        getConfig,
-        resolveSource: resolve,
-        onSourceFailure,
-        cache: new InsightsResultCache(),
-      }).execute('app-1', {}),
-    ).rejects.toThrow('Falha ao chamar a Vibecode (503)')
-    expect(getKeyProblem('app-1')).toBeNull()
+    await expect(dashboardOf({ resolve, onSourceFailure }, {})).rejects.toThrow(
+      'Falha ao chamar a Vibecode (503)',
+    )
+    expect(await getKeyProblem('app-1')).toBeNull()
     expect(await resolve('app-1')).toBe(vibe)
   })
 
@@ -303,12 +300,10 @@ describe('makeInsightsSourceResolver', () => {
         logged.push(a)
       }) as never)
     const { resolve, onSourceFailure } = makeInsightsSourceResolver()
-    const uc = new GetInsightsDashboard({
-      getConfig,
-      resolveSource: resolve,
-      onSourceFailure,
-      cache: new InsightsResultCache(),
-    })
+    const uc = {
+      execute: (_appId: string, q: DashboardQuery) =>
+        dashboardOf({ resolve, onSourceFailure }, q),
+    }
 
     h.axiosGet.mockImplementation(() => httpFail(500))
     h.axiosPost.mockImplementation(() => httpFail(500))

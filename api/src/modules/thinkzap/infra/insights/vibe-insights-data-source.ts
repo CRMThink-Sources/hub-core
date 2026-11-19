@@ -15,6 +15,7 @@ import {
 } from '@/modules/thinkzap/infra/clients/vibecode.client'
 import { apiLogger } from '@/shared/infra/logger'
 import { toMessageFields } from './classic-insights-data-source'
+import type { SessionDayCache } from './session-day-cache'
 
 type Row = Record<string, any>
 type Client = Pick<VibecodeClient, 'get' | 'getPage' | 'postPage'>
@@ -37,6 +38,10 @@ const SESSIONS_TTL_MS = 30 * 60e3
 // Hoje e ontem ainda recebem sessões novas e fechamentos.
 const SESSIONS_RECENT_TTL_MS = 120e3
 const CHAT_TTL_MS = 120e3
+// Dia com sessão sem mensagens lidas (falha passageira): relê na próxima abertura.
+const INCOMPLETE_DAY_TTL_MS = 120e3
+const DEFAULT_CLOSED_DAY_TTL_MS = 24 * 3600e3
+const DEFAULT_CHAT_429_FINAL_WAIT_MS = 5000
 const DIRECTORY_TTL_MS = 3600e3
 const CONFIGS_TTL_MS = 3600e3
 const OPERATORS_TTL_MS = 60e3
@@ -130,6 +135,29 @@ type ChatData = {
 }
 type Entry = { p: Promise<unknown>; expiresAt: number }
 
+export type VibeSourceOptions = {
+  /** Sessões por dia fora da memória (Redis). Sem ele, só o cache do processo. */
+  dayCache?: SessionDayCache
+  /** Validade de um dia fechado (anterior a ontem) no `dayCache`. */
+  closedDayTtlMs?: number
+  /** Espera da última nova tentativa quando a leitura de um chat dá 429. */
+  chat429FinalWaitMs?: number
+  /** Espera injetável: o teste não aguarda de verdade. */
+  sleep?: (ms: number) => Promise<void>
+}
+
+const defaultSleep = (ms: number) =>
+  new Promise<void>(resolve => setTimeout(resolve, ms))
+
+/**
+ * Falha que pode passar sozinha (429, 5xx, timeout/rede): a sessão fica marcada
+ * como incompleta. 4xx permanentes (um 403 em chat de que o dono não participa)
+ * nunca passariam, e marcá-los deixaria o dia reaberto para sempre.
+ */
+const isTransientChatFailure = (e: unknown): boolean =>
+  e instanceof VibecodeRequestError &&
+  (e.status === undefined || e.status === 429 || e.status >= 500)
+
 /**
  * Lê o Insights pela Vibe API (`mode = 'full'`): spam, motivo de fechamento,
  * nota do cliente, metas dos canais e status de operador ao vivo. Porta das
@@ -147,14 +175,24 @@ export class VibeInsightsDataSource implements InsightsDataSource {
   private readonly memo = new Map<string, Entry>()
   // Só para medição (log de `enrich`): páginas de chat pedidas à API.
   private chatPagesFetched = 0
+  private readonly dayCache: SessionDayCache | undefined
+  private readonly closedDayTtlMs: number
+  private readonly chat429FinalWaitMs: number
+  private readonly sleep: (ms: number) => Promise<void>
 
   constructor(
     private readonly client: Client,
     fallbackPortal: string | null = null,
     // Relógio injetável: os TTLs do cache dependem de "hoje" em Brasília.
     private readonly now: () => number = Date.now,
+    opts: VibeSourceOptions = {},
   ) {
     this.portalName = fallbackPortal
+    this.dayCache = opts.dayCache
+    this.closedDayTtlMs = opts.closedDayTtlMs ?? DEFAULT_CLOSED_DAY_TTL_MS
+    this.chat429FinalWaitMs =
+      opts.chat429FinalWaitMs ?? DEFAULT_CHAT_429_FINAL_WAIT_MS
+    this.sleep = opts.sleep ?? defaultSleep
   }
 
   get portal(): string | null {
@@ -226,19 +264,42 @@ export class VibeInsightsDataSource implements InsightsDataSource {
       if (e.expiresAt <= nowMs) this.memo.delete(k)
 
     const parts = new Map<string, Promise<InsightsSession[]>>()
+    const fromMemo = (day: string) => {
+      const hit = this.memo.get(`sd:${day}`)
+      return hit && hit.expiresAt > nowMs
+        ? (hit.p as Promise<InsightsSession[]>)
+        : null
+    }
+    const missing: string[] = []
+    for (const day of days) {
+      const hit = fromMemo(day)
+      if (hit) parts.set(day, hit)
+      else missing.push(day)
+    }
+
+    // Dias fechados guardados fora do processo (sobrevivem a deploy): só o que
+    // não está lá cai na leitura da API.
+    if (missing.length && this.dayCache) {
+      const stored = await Promise.all(
+        missing.map(day => this.readDayCache(day)),
+      )
+      missing.forEach((day, i) => {
+        // Outra chamada pode ter começado a ler o dia enquanto esta esperava o Redis.
+        const hit = fromMemo(day)
+        const list = stored[i]
+        if (hit) parts.set(day, hit)
+        else if (list) parts.set(day, Promise.resolve(list))
+      })
+    }
+
     let run: string[] = []
     const flush = () => {
       if (run.length) this.fetchDays(run, todayStart, nowMs, parts)
       run = []
     }
     for (const day of days) {
-      const hit = this.memo.get(`sd:${day}`)
-      if (hit && hit.expiresAt > nowMs) {
-        flush()
-        parts.set(day, hit.p as Promise<InsightsSession[]>)
-      } else {
-        run.push(day)
-      }
+      if (parts.has(day)) flush()
+      else run.push(day)
     }
     flush()
 
@@ -253,6 +314,62 @@ export class VibeInsightsDataSource implements InsightsDataSource {
         (a, b) =>
           new Date(a.dateCreate).getTime() - new Date(b.dateCreate).getTime(),
       )
+  }
+
+  // `null` = sem cache (ou Redis fora do ar): a leitura segue, só não guarda.
+  private async readGeneration(): Promise<number | null> {
+    if (!this.dayCache) return null
+    try {
+      return await this.dayCache.generation()
+    } catch {
+      return null
+    }
+  }
+
+  // Redis fora do ar não pode derrubar o painel: vira dia ausente e relê na API.
+  private async readDayCache(day: string): Promise<InsightsSession[] | null> {
+    try {
+      return (await this.dayCache?.read(day)) ?? null
+    } catch (e) {
+      apiLogger.warn(
+        { errorName: e instanceof Error ? e.name : 'unknown' },
+        'Insights: cache de sessões por dia indisponível, lendo da Vibe API',
+      )
+      return null
+    }
+  }
+
+  // Grava os dias lidos. Falha de gravação não pode perder a leitura que já deu
+  // certo: o dia só deixa de ficar guardado.
+  private async writeDayCache(
+    byDay: Map<string, InsightsSession[]>,
+    wanted: Set<string>,
+    generation: number,
+  ): Promise<void> {
+    const cache = this.dayCache
+    if (!cache) return
+    const todayStart = brtDayStart(brtDayKey(this.now()))
+    try {
+      await Promise.all(
+        [...wanted].map(day => {
+          const sessions = byDay.get(day) ?? []
+          // Hoje e ontem ainda mudam; sessão sem mensagens lidas pede nova leitura.
+          const recent = brtDayStart(day) >= todayStart - DAY_MS
+          const incomplete = sessions.some(s => s.incomplete)
+          const ttl = recent
+            ? SESSIONS_RECENT_TTL_MS
+            : incomplete
+              ? INCOMPLETE_DAY_TTL_MS
+              : this.closedDayTtlMs
+          return cache.write(day, sessions, ttl, generation)
+        }),
+      )
+    } catch (e) {
+      apiLogger.warn(
+        { errorName: e instanceof Error ? e.name : 'unknown' },
+        'Insights: não foi possível guardar as sessões por dia',
+      )
+    }
   }
 
   // Uma busca paginada para a faixa contínua de dias ausentes; cada dia guarda
@@ -293,6 +410,9 @@ export class VibeInsightsDataSource implements InsightsDataSource {
   ): Promise<Map<string, InsightsSession[]>> {
     const raw: Row[] = []
     const startedAt = Date.now()
+    // Geração lida ANTES da leitura: se a configuração mudar durante ela, o que
+    // foi lido com a configuração antiga não pode ser guardado.
+    const generation = await this.readGeneration()
     let pages = 0
     for (let offset = 0; offset < MAX_SESSIONS; offset += PAGE) {
       pages += 1
@@ -338,6 +458,7 @@ export class VibeInsightsDataSource implements InsightsDataSource {
       bucket.push(s)
       byDay.set(day, bucket)
     }
+    if (generation !== null) await this.writeDayCache(byDay, wanted, generation)
     return byDay
   }
 
@@ -359,12 +480,28 @@ export class VibeInsightsDataSource implements InsightsDataSource {
         // Leitura em andamento falhou: tenta de novo abaixo, com a própria.
       }
     }
-    const p = this.readChat(chatId, sinceMs)
+    const p = this.readChatRetrying(chatId, sinceMs)
     this.memo.set(key, { p, expiresAt: this.now() + CHAT_TTL_MS })
     p.catch(() => {
       if (this.memo.get(key)?.p === p) this.memo.delete(key)
     })
     return p
+  }
+
+  // O cliente já tenta de novo o 429 com espera curta; passando disso, uma última
+  // tentativa depois de uma espera maior, antes de dar a sessão por incompleta.
+  // A concorrência não muda: o 429 é justamente o limite da API.
+  private async readChatRetrying(
+    chatId: number,
+    sinceMs: number,
+  ): Promise<ChatData> {
+    try {
+      return await this.readChat(chatId, sinceMs)
+    } catch (e) {
+      if (!(e instanceof VibecodeRequestError && e.status === 429)) throw e
+      await this.sleep(this.chat429FinalWaitMs)
+      return this.readChat(chatId, sinceMs)
+    }
   }
 
   // Lê o chat inteiro (paginado por lastId, do mais novo para o mais antigo)
@@ -481,6 +618,10 @@ export class VibeInsightsDataSource implements InsightsDataSource {
               },
               'Insights: chat ilegível na Vibe API, sessão sem métricas de mensagem',
             )
+            // Falha passageira: não é "sem mensagens", é "não lido". O painel
+            // conta essas sessões e o dia guardado fica com validade curta.
+            if (isTransientChatFailure(e))
+              for (const s of group) s.incomplete = true
             return
           }
           const role = (id: string) => {

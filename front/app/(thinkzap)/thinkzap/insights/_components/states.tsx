@@ -3,26 +3,78 @@
 import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
 
-export function LoadingBox() {
+/**
+ * `computing`: a API respondeu que o painel está sendo calculado (primeira
+ * abertura, ou cache frio). A tela consulta de novo sozinha; o aviso explica
+ * por que demora e que não precisa recarregar.
+ */
+export function LoadingBox({ computing = false }: { computing?: boolean }) {
   const { t } = useTranslation('thinkzap/insights')
   return (
-    <div className="flex min-h-[30vh] items-center justify-center gap-2 py-12">
-      <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
-      <span className="animate-pulse text-sm text-muted-foreground">
-        {t('state.loading')}
-      </span>
+    <div
+      className="flex min-h-[30vh] flex-col items-center justify-center gap-2 py-12 text-center"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-center gap-2">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
+        <span className="animate-pulse text-sm text-muted-foreground">
+          {computing ? t('state.computing') : t('state.loading')}
+        </span>
+      </div>
+      {computing ? (
+        <p className="max-w-md text-xs text-muted-foreground">
+          {t('state.computingHint')}
+        </p>
+      ) : null}
     </div>
   )
 }
 
-/** A mensagem vem pronta da API (`{ error }`) e entra como texto. */
-export function ErrorBox({ message }: { message: string }) {
+/**
+ * A mensagem vem pronta da API (`{ error }`) e entra como texto. Com
+ * `onRetry`, oferece tentar de novo (a falha do cálculo é passageira: a
+ * abertura seguinte calcula outra vez).
+ */
+export function ErrorBox({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry?: () => void
+}) {
+  const { t } = useTranslation('thinkzap/insights')
+  return (
+    <div
+      role="alert"
+      className="flex flex-wrap items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+    >
+      <p>{message}</p>
+      {onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="cursor-pointer rounded-md border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-800 hover:bg-red-100"
+        >
+          {t('state.retry')}
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * Aviso de conversas cujas mensagens não puderam ser lidas agora (limite da
+ * Vibe API). Os indicadores que dependem de mensagem as contam sem esses dados.
+ */
+export function IncompleteBanner({ count }: { count: number }) {
+  const { t } = useTranslation('thinkzap/insights')
   return (
     <p
-      role="alert"
-      className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+      role="status"
+      className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800"
     >
-      {message}
+      {t('incomplete.banner', { count })}
     </p>
   )
 }

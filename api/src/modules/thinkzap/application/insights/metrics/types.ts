@@ -41,6 +41,13 @@ export type InsightsSession = MessageFields & {
    * No REST clássico o "assumiu" sai do histórico, em `acceptedAt`.
    */
   dateOperatorAnswer?: string | null
+  /**
+   * `true` quando as mensagens do chat não puderam ser lidas por falha passageira
+   * da Vibe API (429, 5xx, rede): os campos de mensagem desta sessão são zeros
+   * por falta de leitura, não por falta de mensagens. Só o painel conta isso;
+   * nenhuma regra de cálculo o lê.
+   */
+  incomplete?: boolean
 }
 
 /** Operador com status ao vivo (`/openlines/operators` da Vibe API). */

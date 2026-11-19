@@ -85,6 +85,21 @@ services:
       - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/modules/clicksign/infra/worker/clicksign.worker.js"]
 
+  # Cálculo dos painéis do Insights (Agora e Desempenho) e pré-aquecimento. Processo
+  # próprio porque um cálculo com o cache frio leva minutos de leitura na Vibe API e
+  # não pode competir com a API nem com os workers de mensagem. Sem este container a
+  # API responde "calculando" e, passado o prazo, devolve erro de leitura.
+  # O nome precisa começar com `hubthink-worker` (é o que o Promtail coleta).
+  worker-insights:
+    image: ghcr.io/crmthink-sources/hub-core-api:latest
+    container_name: hubthink-worker-insights
+    restart: unless-stopped
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "dist/src/workers/insights.worker.js"]
+
   # Host 3002 evita conflito com outro app na 3000 (ex.: PM2). Dentro do container o Next segue na 3000.
   front:
     ports:

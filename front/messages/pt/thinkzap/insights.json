@@ -9,11 +9,17 @@
     "loading": "Carregando…",
     "loadError": "Não foi possível carregar o painel. Tente de novo em instantes.",
     "configError": "Não foi possível carregar as configurações do painel.",
-    "saveError": "Não foi possível salvar as configurações."
+    "saveError": "Não foi possível salvar as configurações.",
+    "computing": "Calculando o painel…",
+    "computingHint": "Na primeira abertura isso pode levar alguns minutos. A tela atualiza sozinha quando o painel ficar pronto.",
+    "retry": "Tentar de novo"
   },
   "lean": {
     "banner": "Versão enxuta — configure a chave Vibecode em Administração para ver tudo",
     "link": "Ir para Administração"
+  },
+  "incomplete": {
+    "banner": "Conversas sem as mensagens lidas agora: {{count}}. Os indicadores de resposta podem estar incompletos; abra o painel de novo em instantes."
   },
   "empty": {
     "noConversations": "Sem conversas no período.",

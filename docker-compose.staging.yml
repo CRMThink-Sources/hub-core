@@ -69,6 +69,17 @@ services:
       - "host.docker.internal:host-gateway"
     command: ["node", "dist/src/modules/clicksign/infra/worker/clicksign.worker.js"]
 
+  # Cálculo dos painéis do Insights (Agora e Desempenho) e pré-aquecimento. Ver o
+  # comentário do compose de produção.
+  worker-insights:
+    image: ghcr.io/crmthink-sources/hub-core-api:staging
+    container_name: hubthink-worker-insights-staging
+    env_file:
+      - ./api/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["node", "dist/src/workers/insights.worker.js"]
+
   front:
     image: ghcr.io/crmthink-sources/hub-core-front:staging
     container_name: hubthink-front-staging

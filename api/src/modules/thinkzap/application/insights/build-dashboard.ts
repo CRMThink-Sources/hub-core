@@ -374,6 +374,7 @@ export async function buildDashboard(
     seriesGran: gSeries,
     hourly,
     channelSla: channelSlaResult,
+    incompleteSessions: valid.filter(s => s.incomplete).length,
     portal: source.portal ?? null,
   }
 }

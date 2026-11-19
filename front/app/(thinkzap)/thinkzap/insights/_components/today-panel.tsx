@@ -17,16 +17,20 @@ const td = 'px-2 py-2 text-left whitespace-nowrap border-b border-border'
 export function TodayPanel({
   data,
   loading,
+  computing = false,
   error,
+  onRetry,
 }: {
   data: TodayResult | null
   loading: boolean
+  computing?: boolean
   error: string | null
+  onRetry?: () => void
 }) {
   const { t } = useTranslation('thinkzap/insights')
 
-  if (error) return <ErrorBox message={error} />
-  if (!data) return loading ? <LoadingBox /> : null
+  if (error) return <ErrorBox message={error} onRetry={onRetry} />
+  if (!data) return loading ? <LoadingBox computing={computing} /> : null
 
   const online = data.operators.filter(o => o.status !== 'offline').length
   const showOperators = data.mode === 'full' && data.operators.length > 0

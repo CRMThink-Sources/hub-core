@@ -17,6 +17,7 @@
     "worker:spa-resource-sync": "tsx src/workers/spa-item-resource-sync.worker.ts",
     "worker:importsheet": "tsx src/modules/importsheet/worker/importsheet.worker.ts",
     "worker:clicksign": "tsx src/modules/clicksign/infra/worker/clicksign.worker.ts",
+    "worker:insights": "tsx src/workers/insights.worker.ts",
     "register:audio-imbot": "tsx src/scripts/register-audio-imbot.ts",
     "create:portal-user": "tsx src/scripts/create-portal-user.ts",
     "backfill:aplication-spa-id": "tsx src/scripts/backfill-aplication-spa-id.ts",

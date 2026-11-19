@@ -9,6 +9,6 @@ export class RemoveVibecodeKey {
 
   async execute(appId: string): Promise<void> {
     await this.deps.settings.removeKey(appId)
-    clearKeyProblem(appId)
+    await clearKeyProblem(appId)
   }
 }

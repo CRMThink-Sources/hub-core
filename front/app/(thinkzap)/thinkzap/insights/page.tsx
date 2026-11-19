@@ -27,6 +27,7 @@ import { PerformancePanel } from './_components/performance-panel'
 import { SettingsDialog } from './_components/settings-dialog'
 import {
   ErrorBox,
+  IncompleteBanner,
   KeyRevokedBanner,
   LeanBanner,
   LoadingBox,
@@ -176,7 +177,9 @@ export default function InsightsPage() {
         <TodayPanel
           data={today.data}
           loading={today.loading || !configSettled}
+          computing={today.computing}
           error={today.error}
+          onRetry={today.reload}
         />
       ) : (
         <div className="flex flex-col gap-4">
@@ -186,9 +189,9 @@ export default function InsightsPage() {
             options={dashboard.data?.filters ?? null}
           />
           {dashboard.error ? (
-            <ErrorBox message={dashboard.error} />
+            <ErrorBox message={dashboard.error} onRetry={dashboard.reload} />
           ) : !dashboard.data ? (
-            <LoadingBox />
+            <LoadingBox computing={dashboard.computing} />
           ) : (
             <div
               className={
@@ -196,6 +199,13 @@ export default function InsightsPage() {
               }
               aria-busy={dashboard.loading}
             >
+              {(dashboard.data.incompleteSessions ?? 0) > 0 ? (
+                <div className="mb-4">
+                  <IncompleteBanner
+                    count={dashboard.data.incompleteSessions ?? 0}
+                  />
+                </div>
+              ) : null}
               <PerformancePanel
                 data={dashboard.data}
                 scopeTitle={scopeTitle}
