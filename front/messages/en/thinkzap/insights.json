@@ -12,7 +12,8 @@
     "saveError": "Could not save the settings.",
     "computing": "Calculating the dashboard…",
     "computingHint": "On the first open this can take a few minutes. The page updates by itself when the dashboard is ready.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "updating": "Updating the dashboard…"
   },
   "lean": {
     "banner": "Lean version — set up the Vibecode key in Administration to see everything",

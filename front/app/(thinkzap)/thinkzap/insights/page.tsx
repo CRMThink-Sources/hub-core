@@ -31,6 +31,7 @@ import {
   KeyRevokedBanner,
   LeanBanner,
   LoadingBox,
+  RefreshingBar,
 } from './_components/states'
 import { TodayPanel } from './_components/today-panel'
 
@@ -188,6 +189,11 @@ export default function InsightsPage() {
             onChange={setFilters}
             options={dashboard.data?.filters ?? null}
           />
+          {/* Painel anterior ainda na tela, trocando: só esmaecer não diz que
+              há um cálculo em andamento (pode levar minutos com o cache frio). */}
+          {dashboard.data && dashboard.loading && !dashboard.error ? (
+            <RefreshingBar computing={dashboard.computing} />
+          ) : null}
           {dashboard.error ? (
             <ErrorBox message={dashboard.error} onRetry={dashboard.reload} />
           ) : !dashboard.data ? (

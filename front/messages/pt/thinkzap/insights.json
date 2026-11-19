@@ -12,7 +12,8 @@
     "saveError": "Não foi possível salvar as configurações.",
     "computing": "Calculando o painel…",
     "computingHint": "Na primeira abertura isso pode levar alguns minutos. A tela atualiza sozinha quando o painel ficar pronto.",
-    "retry": "Tentar de novo"
+    "retry": "Tentar de novo",
+    "updating": "Atualizando o painel…"
   },
   "lean": {
     "banner": "Versão enxuta — configure a chave Vibecode em Administração para ver tudo",
