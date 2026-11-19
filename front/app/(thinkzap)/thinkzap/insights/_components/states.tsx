@@ -32,6 +32,31 @@ export function LoadingBox({ computing = false }: { computing?: boolean }) {
 }
 
 /**
+ * Aviso de que o painel que está na tela vai ser trocado. Ao mudar o filtro, o
+ * painel anterior fica visível (esmaecido) até o novo chegar, e com o cálculo em
+ * segundo plano isso pode levar minutos: só esmaecer não diz que algo está
+ * acontecendo. `computing` = a API respondeu que está calculando.
+ */
+export function RefreshingBar({ computing = false }: { computing?: boolean }) {
+  const { t } = useTranslation('thinkzap/insights')
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-muted/50 px-4 py-2 text-sm text-muted-foreground"
+    >
+      <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-muted border-t-primary" />
+      <span className="font-medium text-foreground">
+        {computing ? t('state.computing') : t('state.updating')}
+      </span>
+      {computing ? (
+        <span className="text-xs">{t('state.computingHint')}</span>
+      ) : null}
+    </div>
+  )
+}
+
+/**
  * A mensagem vem pronta da API (`{ error }`) e entra como texto. Com
  * `onRetry`, oferece tentar de novo (a falha do cálculo é passageira: a
  * abertura seguinte calcula outra vez).
