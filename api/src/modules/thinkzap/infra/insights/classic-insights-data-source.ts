@@ -179,6 +179,7 @@ export class ClassicInsightsDataSource implements InsightsDataSource {
 
   private async loadSessions(sinceMs: number): Promise<InsightsSession[]> {
     const acts: Activity[] = []
+    const startedAt = Date.now()
     let pages = 0
     for (let start = 0; ; ) {
       const j = await this.call('crm.activity.list', {
@@ -217,6 +218,7 @@ export class ClassicInsightsDataSource implements InsightsDataSource {
       start = j.next
     }
 
+    const listedMs = Date.now() - startedAt
     const hist = await this.batch(
       Object.fromEntries(
         acts.map(a => [
@@ -224,6 +226,21 @@ export class ClassicInsightsDataSource implements InsightsDataSource {
           `imopenlines.session.history.get?SESSION_ID=${a.ASSOCIATED_ENTITY_ID}`,
         ]),
       ),
+    )
+
+    // Medição: separa a listagem de atividades da leitura dos históricos.
+    apiLogger.info(
+      {
+        insightsTiming: 'classic.loadSessions',
+        portal: this.portal,
+        sessions: acts.length,
+        activityPages: pages + 1,
+        historyBatches: Math.ceil(acts.length / BATCH_SIZE),
+        listMs: listedMs,
+        historyMs: Date.now() - startedAt - listedMs,
+        totalMs: Date.now() - startedAt,
+      },
+      'Insights: sessões lidas pelo REST clássico',
     )
 
     const sessions = acts.map(a => {
