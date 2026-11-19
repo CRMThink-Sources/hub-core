@@ -3,6 +3,8 @@
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
+import { MessageCircleMore } from 'lucide-react'
+import { envConfig } from '@/shared/infra/env-config'
 import { AsideProps } from '../../types/types'
 
 export const Aside = ({
@@ -132,7 +134,6 @@ export const Aside = ({
           flexDirection: 'column',
           gap: '6px',
           marginTop: '32px',
-          flex: 1,
         }}
       >
         {links.map(link => (
@@ -175,9 +176,52 @@ export const Aside = ({
         ))}
       </nav>
 
+      {envConfig.supportUrl && (
+        <div style={{ marginTop: '24px' }}>
+          <span
+            style={{
+              display: 'block',
+              padding: '0 12px 8px',
+              fontSize: '11px',
+              fontWeight: 600,
+              color: '#9ca3af',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {t('suporte')}
+          </span>
+          <a
+            href={envConfig.supportUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              transition: 'background-color 0.2s',
+              color: inactiveTextColor,
+            }}
+            onMouseEnter={e =>
+              (e.currentTarget.style.backgroundColor = hoverColor)
+            }
+            onMouseLeave={e =>
+              (e.currentTarget.style.backgroundColor = 'transparent')
+            }
+          >
+            <MessageCircleMore size={20} color="#6b7280" />
+            <span>{t('falarSuporte')}</span>
+          </a>
+        </div>
+      )}
+
       {betaMode && (
         <div
           style={{
+            marginTop: 'auto',
             padding: '20px 0',
             display: 'flex',
             justifyContent: 'center',
