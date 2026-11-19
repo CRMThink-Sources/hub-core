@@ -145,6 +145,8 @@ export class VibeInsightsDataSource implements InsightsDataSource {
   // Cache por instância (uma por app): o período atual e o anterior, e o
   // painel e o "hoje", pedem as mesmas leituras em sequência.
   private readonly memo = new Map<string, Entry>()
+  // Só para medição (log de `enrich`): páginas de chat pedidas à API.
+  private chatPagesFetched = 0
 
   constructor(
     private readonly client: Client,
@@ -290,7 +292,10 @@ export class VibeInsightsDataSource implements InsightsDataSource {
     wanted: Set<string>,
   ): Promise<Map<string, InsightsSession[]>> {
     const raw: Row[] = []
+    const startedAt = Date.now()
+    let pages = 0
     for (let offset = 0; offset < MAX_SESSIONS; offset += PAGE) {
+      pages += 1
       const j = await this.client.postPage<{
         sessions?: Row[]
         hasNextPage?: boolean
@@ -308,7 +313,21 @@ export class VibeInsightsDataSource implements InsightsDataSource {
     const list = raw
       .map(toSession)
       .filter((s): s is InsightsSession => s !== null)
+    const listedMs = Date.now() - startedAt
     await this.enrich(list)
+    // Medição: separa o custo de listar sessões do de ler os chats.
+    apiLogger.info(
+      {
+        insightsTiming: 'vibe.readSessions',
+        portal: this.portalName,
+        days: wanted.size,
+        sessions: list.length,
+        sessionPages: pages,
+        listMs: listedMs,
+        totalMs: Date.now() - startedAt,
+      },
+      'Insights: sessões lidas na Vibe API',
+    )
     const byDay = new Map<string, InsightsSession[]>()
     for (const s of list) {
       const day = brtDayKey(new Date(s.dateCreate).getTime())
@@ -357,6 +376,7 @@ export class VibeInsightsDataSource implements InsightsDataSource {
     let coveredSince = Number.NEGATIVE_INFINITY
     let lastId: string | null = null
     for (let i = 0; i < MAX_CHAT_PAGES; i++) {
+      this.chatPagesFetched += 1
       const j = await this.client.getPage<{
         messages?: Row[]
         users?: Row[]
@@ -395,6 +415,33 @@ export class VibeInsightsDataSource implements InsightsDataSource {
       byChat.set(s.chatId, group)
     }
     const chats = [...byChat.entries()]
+    const startedAt = Date.now()
+    const pagesBefore = this.chatPagesFetched
+    const slowest = { chatId: 0, ms: 0 }
+    try {
+      await this.enrichChats(chats, slowest)
+    } finally {
+      // Medição. `chatPages` é o delta de um contador da instância: duas
+      // leituras simultâneas se misturam, então vale como ordem de grandeza.
+      apiLogger.info(
+        {
+          insightsTiming: 'vibe.enrich',
+          portal: this.portalName,
+          chats: chats.length,
+          chatPages: this.chatPagesFetched - pagesBefore,
+          slowestChatId: slowest.chatId,
+          slowestChatMs: slowest.ms,
+          totalMs: Date.now() - startedAt,
+        },
+        'Insights: chats lidos na Vibe API',
+      )
+    }
+  }
+
+  private async enrichChats(
+    chats: [number, InsightsSession[]][],
+    slowest: { chatId: number; ms: number },
+  ): Promise<void> {
     for (let i = 0; i < chats.length; i += CHAT_CONCURRENCY) {
       await Promise.all(
         chats.slice(i, i + CHAT_CONCURRENCY).map(async ([chatId, group]) => {
@@ -406,8 +453,14 @@ export class VibeInsightsDataSource implements InsightsDataSource {
             group[0]?.dateCreate ?? '',
           )
           let data: ChatData
+          const chatStart = Date.now()
           try {
             data = await this.chatMessages(chatId, since)
+            const took = Date.now() - chatStart
+            if (took > slowest.ms) {
+              slowest.chatId = chatId
+              slowest.ms = took
+            }
           } catch (e) {
             // Como o original, chat ilegível segue sem métricas de mensagem.
             // Só 401 sobe (a chave em si é inválida → cai no clássico): a chave
@@ -463,37 +516,53 @@ export class VibeInsightsDataSource implements InsightsDataSource {
 
   directory() {
     return this.cached('dir', DIRECTORY_TTL_MS, async () => {
-      type Dep = { name: string; parentId: number | null }
-      const deps: Record<string, Dep> = {}
-      for (const d of await this.listAll('/departments'))
-        deps[String(d.id)] = {
-          name: String(d.name ?? '').trim(),
-          parentId: num(d.parentId),
-        }
-      const depth = (id: number, n = 0): number => {
-        const parent = deps[String(id)]?.parentId
-        return parent && n < 20 ? depth(parent, n + 1) : n
+      const startedAt = Date.now()
+      try {
+        return await this.loadDirectory()
+      } finally {
+        apiLogger.info(
+          {
+            insightsTiming: 'vibe.directory',
+            portal: this.portalName,
+            totalMs: Date.now() - startedAt,
+          },
+          'Insights: diretório lido na Vibe API',
+        )
       }
-      const users: Record<string, string> = {}
-      const userDept: Record<string, { id: number; name: string }> = {}
-      const userList = await this.listAll(
-        '/users?select=id,name,lastName,departmentId',
-      )
-      for (const u of userList) {
-        const uid = String(u.id)
-        users[uid] = `${u.name ?? ''} ${u.lastName ?? ''}`.trim()
-        const ids = ((u.departmentId ?? []) as unknown[])
-          .map(Number)
-          .filter(d => deps[String(d)])
-        const best = ids.sort((a, b) => depth(b) - depth(a))[0]
-        const bestDep = best !== undefined ? deps[String(best)] : undefined
-        userDept[uid] =
-          best !== undefined && bestDep
-            ? { id: best, name: bestDep.name }
-            : { id: 0, name: 'Sem setor' }
-      }
-      return { users, userDept }
     })
+  }
+
+  private async loadDirectory() {
+    type Dep = { name: string; parentId: number | null }
+    const deps: Record<string, Dep> = {}
+    for (const d of await this.listAll('/departments'))
+      deps[String(d.id)] = {
+        name: String(d.name ?? '').trim(),
+        parentId: num(d.parentId),
+      }
+    const depth = (id: number, n = 0): number => {
+      const parent = deps[String(id)]?.parentId
+      return parent && n < 20 ? depth(parent, n + 1) : n
+    }
+    const users: Record<string, string> = {}
+    const userDept: Record<string, { id: number; name: string }> = {}
+    const userList = await this.listAll(
+      '/users?select=id,name,lastName,departmentId',
+    )
+    for (const u of userList) {
+      const uid = String(u.id)
+      users[uid] = `${u.name ?? ''} ${u.lastName ?? ''}`.trim()
+      const ids = ((u.departmentId ?? []) as unknown[])
+        .map(Number)
+        .filter(d => deps[String(d)])
+      const best = ids.sort((a, b) => depth(b) - depth(a))[0]
+      const bestDep = best !== undefined ? deps[String(best)] : undefined
+      userDept[uid] =
+        best !== undefined && bestDep
+          ? { id: best, name: bestDep.name }
+          : { id: 0, name: 'Sem setor' }
+    }
+    return { users, userDept }
   }
 
   operators(): Promise<LiveOperator[]> {
@@ -534,11 +603,14 @@ export class VibeInsightsDataSource implements InsightsDataSource {
     // Os três grupos são independentes: em série, a latência de cada um se
     // somava (era o gargalo do painel). Cada grupo continua paginando em
     // série; o merge em ordem de grupo mantém o resultado idêntico ao serial.
+    const startedAt = Date.now()
+    let dealCalls = 0
     const perGroup = await Promise.all(
       groups.map(async ([field, vals]) => {
         const found: InsightsDeal[] = []
         for (let i = 0; i < vals.length; i += PAGE)
           for (let p = 0; p < MAX_LIST_PAGES; p++) {
+            dealCalls += 1
             const j = await this.client.postPage<Row[]>('/deals/search', {
               filter: { [field]: { $in: vals.slice(i, i + PAGE) } },
               select: DEAL_SELECT,
@@ -560,6 +632,18 @@ export class VibeInsightsDataSource implements InsightsDataSource {
           }
         return found
       }),
+    )
+    apiLogger.info(
+      {
+        insightsTiming: 'vibe.deals',
+        portal: this.portalName,
+        ids: ids.length,
+        contactIds: contactIds.length,
+        leadIds: leadIds.length,
+        calls: dealCalls,
+        totalMs: Date.now() - startedAt,
+      },
+      'Insights: negócios lidos na Vibe API',
     )
     const out = new Map<number, InsightsDeal>()
     for (const found of perGroup) for (const d of found) out.set(d.id, d)

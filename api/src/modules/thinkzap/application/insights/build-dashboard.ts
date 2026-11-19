@@ -55,11 +55,16 @@ export async function buildDashboard(
 
   // O período anterior (o mais longo) sai primeiro: a fonte clássica reaproveita
   // uma varredura em andamento só se ela começou em data igual ou anterior.
-  const [allPrev, allCur, dir] = await Promise.all([
-    source.sessions(prevFrom, prevTo),
-    source.sessions(from, to),
-    source.directory(),
+  // Medição: cada leitura marca o próprio fim, para ver qual segura o painel.
+  const t0 = Date.now()
+  const timed = <T>(p: Promise<T>): Promise<[T, number]> =>
+    p.then(v => [v, Date.now() - t0])
+  const [[allPrev, prevMs], [allCur, curMs], [dir, dirMs]] = await Promise.all([
+    timed(source.sessions(prevFrom, prevTo)),
+    timed(source.sessions(from, to)),
+    timed(source.directory()),
   ])
+  const readMs = Date.now() - t0
   const { users, userDept } = dir
   const userName = (id: number | string) => users[id] || `Usuário ${id}`
   const deptOf = (s: InsightsSession) =>
@@ -91,11 +96,10 @@ export async function buildDashboard(
   const prev = allPrev.filter(s => isThinkZap(s, sources, cfg)).filter(scope)
   const valid = cur.filter(s => s.status !== 'spam')
   const days = Math.max(1, Math.round(span / DAY_MS))
-  const links = linkDeals(
-    valid,
-    await fetchDeals(source, valid),
-    cfg.dealWindowDays,
-  )
+  const dealsStart = Date.now()
+  const fetchedDeals = await fetchDeals(source, valid)
+  const dealsMs = Date.now() - dealsStart
+  const links = linkDeals(valid, fetchedDeals, cfg.dealWindowDays)
 
   // por atendente (operatorId = quem finalizou)
   const byOp: Record<string, InsightsSession[]> = {}
@@ -306,6 +310,28 @@ export async function buildDashboard(
     }
   }
 
+  const slaStart = Date.now()
+  const channelSlaResult = await channelSla(source, valid)
+  apiLogger.info(
+    {
+      insightsTiming: 'dashboard',
+      portal: source.portal ?? null,
+      mode: source.mode,
+      days,
+      sessionsCur: allCur.length,
+      sessionsPrev: allPrev.length,
+      // Fim de cada leitura contado desde o início (rodam em paralelo).
+      prevMs,
+      curMs,
+      dirMs,
+      readMs,
+      dealsMs,
+      channelSlaMs: Date.now() - slaStart,
+      totalMs: Date.now() - t0,
+    },
+    'Insights: painel calculado',
+  )
+
   return {
     mode: source.mode,
     filters: {
@@ -347,7 +373,7 @@ export async function buildDashboard(
     series,
     seriesGran: gSeries,
     hourly,
-    channelSla: await channelSla(source, valid),
+    channelSla: channelSlaResult,
     portal: source.portal ?? null,
   }
 }
