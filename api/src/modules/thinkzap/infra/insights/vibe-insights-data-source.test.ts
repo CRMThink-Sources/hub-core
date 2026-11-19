@@ -5,6 +5,7 @@ import {
   type VibecodeClient,
   type VibecodePage,
 } from '@/modules/thinkzap/infra/clients/vibecode.client'
+import { apiLogger } from '@/shared/infra/logger'
 import { VibeInsightsDataSource } from './vibe-insights-data-source'
 
 type GetPage = VibecodeClient['getPage']
@@ -209,8 +210,9 @@ describe('VibeInsightsDataSource', () => {
     expect(list.map(s => s.id)).toEqual([1, 2, 3])
     expect(bodies).toEqual(
       [0, 50, 100].map(offset => ({
-        dateCreateFrom: from.toISOString(),
-        dateCreateTo: to.toISOString(),
+        // Os dias das pontas são lidos inteiros (dia de Brasília).
+        dateCreateFrom: '2026-10-31T03:00:00.000Z',
+        dateCreateTo: '2026-11-30T02:59:59.999Z',
         limit: 50,
         offset,
         order: 'dateCreate',
@@ -328,6 +330,32 @@ describe('VibeInsightsDataSource', () => {
     expect(s).toMatchObject({ id: 11, msgsClient: 0, initiatedBy: null })
   })
 
+  it('loga status e code do VibecodeRequestError no chat ilegível', async () => {
+    const warn = vi.spyOn(apiLogger, 'warn').mockImplementation(() => undefined)
+    const { ds } = make({
+      post: () => page({ sessions: [rawSession()], hasNextPage: false }),
+      get: () => {
+        throw new VibecodeRequestError(
+          'Falha ao chamar a Vibecode (sem resposta)',
+          undefined,
+          'ECONNABORTED',
+        )
+      },
+    })
+
+    await ds.sessions(from, to)
+
+    expect(warn).toHaveBeenCalledWith(
+      {
+        errorName: 'VibecodeRequestError',
+        status: undefined,
+        code: 'ECONNABORTED',
+      },
+      expect.stringContaining('chat ilegível'),
+    )
+    warn.mockRestore()
+  })
+
   it('403 em um chat não marca a chave como revogada', async () => {
     const { ds } = make({
       post: () =>
@@ -406,6 +434,262 @@ describe('VibeInsightsDataSource', () => {
     await expect(ds.sessions(from, to)).rejects.toThrow()
     fail = false
     await expect(ds.sessions(from, to)).resolves.toEqual([])
+  })
+
+  describe('cache de sessões por dia de Brasília', () => {
+    // Relógio fixo: 18/11/2026 12:00 em Brasília.
+    const NOW = Date.parse('2026-11-18T15:00:00Z')
+    const brt = (day: string, end = false) =>
+      new Date(`${day}${end ? 'T23:59:59' : 'T00:00:00'}-03:00`)
+
+    // Uma sessão por dia (às 10h de Brasília) entre 20/10 e 18/11, e uma às
+    // 23h30 de 14/11 que em UTC já cai em 15/11 (prova o corte por Brasília).
+    const fakeSessions = () => {
+      const out: Record<string, unknown>[] = []
+      for (let d = 0; d < 30; d++) {
+        const at = Date.parse('2026-10-20T13:00:00Z') + d * 864e5
+        out.push(
+          rawSession({
+            id: 100 + d,
+            chatId: null,
+            dateCreate: new Date(at).toISOString(),
+            dateClose: null,
+          }),
+        )
+      }
+      out.push(
+        rawSession({
+          id: 999,
+          chatId: null,
+          dateCreate: '2026-11-15T02:30:00.000Z',
+          dateClose: null,
+        }),
+      )
+      return out.sort((a, b) =>
+        String(a.dateCreate).localeCompare(String(b.dateCreate)),
+      )
+    }
+
+    // Imita o filtro de datas e a paginação da API.
+    const apiRoutes = () => ({
+      post: (_path: string, body: Body) => {
+        const b = body as unknown as {
+          dateCreateFrom: string
+          dateCreateTo: string
+        }
+        const f = Date.parse(b.dateCreateFrom)
+        const t = Date.parse(b.dateCreateTo)
+        const rows = fakeSessions().filter(s => {
+          const c = Date.parse(String(s.dateCreate))
+          return c >= f && c <= t
+        })
+        return page({
+          sessions: rows.slice(body.offset, body.offset + 50),
+          hasNextPage: rows.length > body.offset + 50,
+        })
+      },
+    })
+
+    const makeAt = (clock: { t: number }) => {
+      const postPage = vi.fn<PostPage>(((path: string, body: unknown) =>
+        Promise.resolve().then(() =>
+          apiRoutes().post(path, body as Body),
+        )) as PostPage)
+      const getPage = vi.fn<GetPage>()
+      const get = vi.fn<Get>()
+      const client = { getPage, postPage, get } as Pick<
+        VibecodeClient,
+        'get' | 'getPage' | 'postPage'
+      >
+      return {
+        postPage,
+        ds: new VibeInsightsDataSource(client, null, () => clock.t),
+      }
+    }
+
+    const ranges = (postPage: ReturnType<typeof makeAt>['postPage']) =>
+      postPage.mock.calls.map(c => {
+        const b = c[1] as { dateCreateFrom: string; dateCreateTo: string }
+        return [b.dateCreateFrom, b.dateCreateTo]
+      })
+
+    it('7 dias e depois 30 dias só buscam a faixa que falta', async () => {
+      const { ds, postPage } = makeAt({ t: NOW })
+      const to = brt('2026-11-18', true)
+
+      await ds.sessions(brt('2026-11-12'), to)
+      await ds.sessions(brt('2026-10-20'), to)
+
+      expect(ranges(postPage)).toEqual([
+        ['2026-11-12T03:00:00.000Z', '2026-11-19T02:59:59.999Z'],
+        ['2026-10-20T03:00:00.000Z', '2026-11-12T02:59:59.999Z'],
+      ])
+    })
+
+    it('pedidos simultâneos não duplicam chamadas', async () => {
+      const { ds, postPage } = makeAt({ t: NOW })
+      const a = brt('2026-11-12')
+      const b = brt('2026-11-18', true)
+
+      const [x, y] = await Promise.all([ds.sessions(a, b), ds.sessions(a, b)])
+
+      expect(postPage).toHaveBeenCalledTimes(1)
+      expect(x.map(s => s.id)).toEqual(y.map(s => s.id))
+    })
+
+    it('dias passados duram 30 min; hoje e ontem, 2 min', async () => {
+      const clock = { t: NOW }
+      const { ds, postPage } = makeAt(clock)
+      const a = brt('2026-11-10')
+      const b = brt('2026-11-18', true)
+      await ds.sessions(a, b)
+      expect(postPage).toHaveBeenCalledTimes(1)
+
+      // 3 min depois: só ontem (17) e hoje (18) expiraram.
+      clock.t = NOW + 3 * 60e3
+      await ds.sessions(a, b)
+      expect(ranges(postPage).slice(1)).toEqual([
+        ['2026-11-17T03:00:00.000Z', '2026-11-19T02:59:59.999Z'],
+      ])
+
+      // 31 min depois da primeira leitura: os dias passados também expiraram.
+      clock.t = NOW + 31 * 60e3
+      await ds.sessions(a, b)
+      expect(ranges(postPage).slice(2)).toEqual([
+        ['2026-11-10T03:00:00.000Z', '2026-11-19T02:59:59.999Z'],
+      ])
+    })
+
+    it('a união devolvida é idêntica à de uma leitura única', async () => {
+      const clock = { t: NOW }
+      const a = brt('2026-10-20')
+      const b = brt('2026-11-18', true)
+      const piecewise = makeAt(clock)
+      await piecewise.ds.sessions(brt('2026-11-12'), b)
+      await piecewise.ds.sessions(brt('2026-11-01'), brt('2026-11-13', true))
+      const merged = await piecewise.ds.sessions(a, b)
+
+      const single = await makeAt(clock).ds.sessions(a, b)
+
+      expect(merged).toEqual(single)
+      const ids = merged.map(s => s.id)
+      expect(new Set(ids).size).toBe(ids.length)
+      expect(ids).toContain(999)
+    })
+
+    it('corta no [from, to] exato mesmo lendo o dia inteiro', async () => {
+      const { ds } = makeAt({ t: NOW })
+      // Fora do recorte ficam a das 10h de 14/11 (antes) e a das 10h de 15/11
+      // (depois); só a das 23h30 de 14/11 (id 999) cabe.
+      const list = await ds.sessions(
+        new Date('2026-11-14T12:00:00-03:00'),
+        new Date('2026-11-15T09:00:00-03:00'),
+      )
+      expect(list.map(s => s.id)).toEqual([999])
+    })
+
+    it('falha na API não fica presa no cache', async () => {
+      const clock = { t: NOW }
+      const { ds, postPage } = makeAt(clock)
+      const a = brt('2026-11-12')
+      const b = brt('2026-11-18', true)
+      postPage.mockRejectedValueOnce(new VibecodeRequestError('Falha (500)'))
+
+      await expect(ds.sessions(a, b)).rejects.toThrow()
+      await expect(ds.sessions(a, b)).resolves.not.toHaveLength(0)
+      expect(postPage).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('cache de chats por chat', () => {
+    const brt = (day: string, end = false) =>
+      new Date(`${day}${end ? 'T23:59:59' : 'T00:00:00'}-03:00`)
+
+    // Três sessões do mesmo chat, em dias diferentes (10h de Brasília).
+    const sessionsAt = (day: string, id: number) =>
+      rawSession({
+        id,
+        chatId: 9,
+        dateCreate: `${day}T13:00:00.000Z`,
+        dateClose: null,
+      })
+    const all = [
+      sessionsAt('2026-11-03', 1),
+      sessionsAt('2026-11-10', 2),
+      sessionsAt('2026-11-12', 3),
+    ]
+    const fullPage = (base: number, date: string) =>
+      Array.from({ length: 50 }, (_, i) => ({
+        id: base + i,
+        authorId: 7,
+        date,
+        text: 'x',
+      }))
+
+    // A primeira página do chat é cheia e de 09/11; a segunda é curta (início).
+    const chatRoute = (path: string) =>
+      page({
+        users: [],
+        messages: path.includes('lastId')
+          ? fullPage(1, '2026-11-01T00:00:00Z').slice(0, 10)
+          : fullPage(100, '2026-11-09T00:00:00Z'),
+      })
+
+    const route = () => ({
+      post: (_path: string, body: Body) => {
+        const b = body as unknown as {
+          dateCreateFrom: string
+          dateCreateTo: string
+        }
+        const sessions = all.filter(
+          s =>
+            Date.parse(s.dateCreate) >= Date.parse(b.dateCreateFrom) &&
+            Date.parse(s.dateCreate) <= Date.parse(b.dateCreateTo),
+        )
+        return page({ sessions, hasNextPage: false })
+      },
+      get: chatRoute,
+    })
+
+    it('since mais novo reaproveita; mais antigo lê de novo', async () => {
+      const { ds, getPage } = make(route())
+
+      await ds.sessions(brt('2026-11-10'), brt('2026-11-10', true))
+      expect(getPage).toHaveBeenCalledTimes(1)
+
+      // 12/11 é mais novo que 10/11: já coberto, sem chamar a API.
+      await ds.sessions(brt('2026-11-12'), brt('2026-11-12', true))
+      expect(getPage).toHaveBeenCalledTimes(1)
+
+      // 03/11 é mais antigo que o coberto: relê o chat (2 páginas).
+      await ds.sessions(brt('2026-11-03'), brt('2026-11-03', true))
+      expect(getPage).toHaveBeenCalledTimes(3)
+
+      // A leitura nova chegou ao início do chat: cobre qualquer data.
+      await ds.sessions(brt('2026-11-01'), brt('2026-11-30', true))
+      expect(getPage).toHaveBeenCalledTimes(3)
+    })
+
+    it('leitura de chat que falhou não fica presa', async () => {
+      vi.spyOn(apiLogger, 'warn').mockImplementation((() => undefined) as never)
+      const base = route()
+      let fail = true
+      const { ds, getPage } = make({
+        ...base,
+        get: path => {
+          if (fail) throw new VibecodeRequestError('Falha (500)', 500)
+          return base.get(path)
+        },
+      })
+
+      await ds.sessions(brt('2026-11-10'), brt('2026-11-10', true))
+      expect(getPage).toHaveBeenCalledTimes(1)
+
+      fail = false
+      // Outro dia (o dia 10 está em cache): o chat é lido de novo.
+      await ds.sessions(brt('2026-11-12'), brt('2026-11-12', true))
+      expect(getPage).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('monta o diretório com setor mais específico, paginado', async () => {
@@ -494,6 +778,40 @@ describe('VibeInsightsDataSource', () => {
     expect(ko.ds.portal).toBe('fallback.bitrix24.com.br')
   })
 
+  it('dispara os três grupos de negócios antes de qualquer resposta e deduplica', async () => {
+    const started: string[] = []
+    const releases: (() => void)[] = []
+    const deal = (over: Record<string, unknown> = {}) => ({
+      id: 7,
+      title: 'N7',
+      stageSemanticId: 'S',
+      amount: 1,
+      currency: 'BRL',
+      createdAt: '2026-11-10T10:00:00Z',
+      contactId: null,
+      leadId: null,
+      ...over,
+    })
+    const { ds } = make({
+      post: (_path, body) => {
+        started.push(Object.keys(body.filter)[0] ?? '')
+        return new Promise(resolve => {
+          releases.push(() => resolve(page([deal()])))
+        })
+      },
+    })
+
+    const result = ds.deals([7], [8], [9])
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    // Nenhuma resposta liberada ainda e os três já saíram.
+    expect(started).toEqual(['id', 'contactId', 'leadId'])
+    releases.forEach(release => release())
+
+    // O mesmo id vindo dos três grupos aparece uma vez.
+    await expect(result).resolves.toEqual([deal()])
+  })
+
   it('busca negócios por id, contato e lead, paginado de 50 em 50', async () => {
     const bodies: Body[] = []
     const { ds } = make({
@@ -522,18 +840,22 @@ describe('VibeInsightsDataSource', () => {
 
     const deals = await ds.deals([1], [4], [])
 
-    expect(bodies).toEqual([
-      expect.objectContaining({
-        filter: { id: { $in: [1] } },
-        limit: 50,
-        offset: 0,
-      }),
-      expect.objectContaining({ filter: { id: { $in: [1] } }, offset: 50 }),
-      expect.objectContaining({
-        filter: { contactId: { $in: [4] } },
-        offset: 0,
-      }),
-    ])
+    // Grupos rodam em paralelo: a ordem entre grupos não é garantida.
+    expect(bodies).toHaveLength(3)
+    expect(bodies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          filter: { id: { $in: [1] } },
+          limit: 50,
+          offset: 0,
+        }),
+        expect.objectContaining({ filter: { id: { $in: [1] } }, offset: 50 }),
+        expect.objectContaining({
+          filter: { contactId: { $in: [4] } },
+          offset: 0,
+        }),
+      ]),
+    )
     expect(bodies[0]?.select).toEqual([
       'id',
       'title',

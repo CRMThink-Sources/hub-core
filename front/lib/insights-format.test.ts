@@ -223,9 +223,9 @@ describe('peakHours', () => {
 })
 
 describe('defaultPeriod', () => {
-  it('últimos 30 dias contando hoje, no fuso local', () => {
+  it('últimos 7 dias contando hoje, no fuso local', () => {
     expect(defaultPeriod(new Date(2026, 10, 18, 23, 30))).toEqual({
-      from: '2026-10-20',
+      from: '2026-11-12',
       to: '2026-11-18',
     })
   })

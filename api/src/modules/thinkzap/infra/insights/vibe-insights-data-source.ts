@@ -10,6 +10,7 @@ import type {
 } from '@/modules/thinkzap/domain/ports/insights-data-source.port'
 import {
   VibecodeAuthError,
+  VibecodeRequestError,
   type VibecodeClient,
 } from '@/modules/thinkzap/infra/clients/vibecode.client'
 import { apiLogger } from '@/shared/infra/logger'
@@ -28,7 +29,13 @@ const MAX_LIST_PAGES = 400
 // Chats lidos em paralelo (como o original): mais que isso estoura o limite da API.
 const CHAT_CONCURRENCY = 5
 
-const SESSIONS_TTL_MS = 120e3
+const DAY_MS = 864e5
+// Dia de Brasília (UTC-3, sem horário de verão desde 2019): é como o Insights
+// divide os períodos. Dias fechados mudam pouco (só fechamento tardio).
+const BRT_OFFSET_MS = 3 * 3600e3
+const SESSIONS_TTL_MS = 30 * 60e3
+// Hoje e ontem ainda recebem sessões novas e fechamentos.
+const SESSIONS_RECENT_TTL_MS = 120e3
 const CHAT_TTL_MS = 120e3
 const DIRECTORY_TTL_MS = 3600e3
 const CONFIGS_TTL_MS = 3600e3
@@ -60,6 +67,14 @@ const num = (v: unknown): number | null => {
 
 const text = (v: unknown): string | null =>
   typeof v === 'string' ? v || null : typeof v === 'number' ? String(v) : null
+
+// 'AAAA-MM-DD' do dia de Brasília que contém o instante.
+const brtDayKey = (t: number): string =>
+  new Date(t - BRT_OFFSET_MS).toISOString().slice(0, 10)
+
+// Instante (ms) em que o dia de Brasília começa.
+const brtDayStart = (key: string): number =>
+  Date.parse(`${key}T00:00:00Z`) + BRT_OFFSET_MS
 
 const ms = (v: unknown): number =>
   typeof v === 'string' || typeof v === 'number' ? new Date(v).getTime() : NaN
@@ -107,7 +122,12 @@ function toSession(r: Row): InsightsSession | null {
   }
 }
 
-type ChatData = { msgs: Row[]; users: Record<string, Row> }
+type ChatData = {
+  msgs: Row[]
+  users: Record<string, Row>
+  // Instante (ms) mais antigo que a leitura cobre; -Infinity = chat inteiro.
+  coveredSince: number
+}
 type Entry = { p: Promise<unknown>; expiresAt: number }
 
 /**
@@ -129,6 +149,8 @@ export class VibeInsightsDataSource implements InsightsDataSource {
   constructor(
     private readonly client: Client,
     fallbackPortal: string | null = null,
+    // Relógio injetável: os TTLs do cache dependem de "hoje" em Brasília.
+    private readonly now: () => number = Date.now,
   ) {
     this.portalName = fallbackPortal
   }
@@ -153,7 +175,7 @@ export class VibeInsightsDataSource implements InsightsDataSource {
   // Guarda a promessa (deduplica chamadas simultâneas) e a descarta se falhar,
   // para uma recusa ou instabilidade não ficar presa no cache.
   private cached<T>(key: string, ttlMs: number, fn: () => Promise<T>) {
-    const now = Date.now()
+    const now = this.now()
     const hit = this.memo.get(key)
     if (hit && hit.expiresAt > now) return hit.p as Promise<T>
     for (const [k, e] of this.memo) if (e.expiresAt <= now) this.memo.delete(k)
@@ -178,61 +200,185 @@ export class VibeInsightsDataSource implements InsightsDataSource {
     return out
   }
 
-  sessions(from: Date, to: Date): Promise<InsightsSession[]> {
-    const f = from.toISOString()
-    const t = to.toISOString()
-    return this.cached(`s:${f}:${t}`, SESSIONS_TTL_MS, async () => {
-      const raw: Row[] = []
-      for (let offset = 0; offset < MAX_SESSIONS; offset += PAGE) {
-        const j = await this.client.postPage<{
-          sessions?: Row[]
-          hasNextPage?: boolean
-        }>('/openlines/sessions/search', {
-          dateCreateFrom: f,
-          dateCreateTo: t,
-          limit: PAGE,
-          offset,
-          order: 'dateCreate',
-          orderDirection: 'asc',
-        })
-        raw.push(...(j.data?.sessions ?? []))
-        if (!j.data?.hasNextPage) break
+  /**
+   * Cache por dia de Brasília (UTC-3, fixo): alargar o período só lê os dias
+   * que ainda não estão guardados. Cada entrada `sd:AAAA-MM-DD` guarda as
+   * sessões com `dateCreate` naquele dia, já com as métricas de mensagem.
+   *
+   * Os dias das pontas são lidos inteiros (e não só até `from`/`to`): assim a
+   * entrada do dia é sempre completa e pode ser cacheada; o recorte exato
+   * [from, to] é feito só na devolução. Dias ausentes e consecutivos saem numa
+   * única busca paginada.
+   */
+  async sessions(from: Date, to: Date): Promise<InsightsSession[]> {
+    const fromMs = from.getTime()
+    const toMs = to.getTime()
+    if (!(fromMs <= toMs)) return []
+    const nowMs = this.now()
+    const todayStart = brtDayStart(brtDayKey(nowMs))
+    const days: string[] = []
+    for (let t = brtDayStart(brtDayKey(fromMs)); t <= toMs; t += DAY_MS)
+      days.push(brtDayKey(t))
+
+    for (const [k, e] of this.memo)
+      if (e.expiresAt <= nowMs) this.memo.delete(k)
+
+    const parts = new Map<string, Promise<InsightsSession[]>>()
+    let run: string[] = []
+    const flush = () => {
+      if (run.length) this.fetchDays(run, todayStart, nowMs, parts)
+      run = []
+    }
+    for (const day of days) {
+      const hit = this.memo.get(`sd:${day}`)
+      if (hit && hit.expiresAt > nowMs) {
+        flush()
+        parts.set(day, hit.p as Promise<InsightsSession[]>)
+      } else {
+        run.push(day)
       }
-      const list = raw
-        .map(toSession)
-        .filter((s): s is InsightsSession => s !== null)
-      await this.enrich(list)
-      return list
+    }
+    flush()
+
+    const lists = await Promise.all(days.map(d => parts.get(d)!))
+    return lists
+      .flat()
+      .filter(s => {
+        const t = new Date(s.dateCreate).getTime()
+        return t >= fromMs && t <= toMs
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.dateCreate).getTime() - new Date(b.dateCreate).getTime(),
+      )
+  }
+
+  // Uma busca paginada para a faixa contínua de dias ausentes; cada dia guarda
+  // a sua fatia da mesma promessa (deduplica pedidos simultâneos). Falha não
+  // fica presa: some do cache junto com a promessa.
+  private fetchDays(
+    run: string[],
+    todayStart: number,
+    nowMs: number,
+    parts: Map<string, Promise<InsightsSession[]>>,
+  ) {
+    const first = run[0]!
+    const last = run[run.length - 1]!
+    const byDay = this.readSessions(
+      new Date(brtDayStart(first)),
+      new Date(brtDayStart(last) + DAY_MS - 1),
+      new Set(run),
+    )
+    for (const day of run) {
+      const p = byDay.then(m => m.get(day) ?? [])
+      // Hoje e ontem ainda mudam (sessões novas, fechamentos); o resto não.
+      const recent = brtDayStart(day) >= todayStart - DAY_MS
+      this.memo.set(`sd:${day}`, {
+        p,
+        expiresAt: nowMs + (recent ? SESSIONS_RECENT_TTL_MS : SESSIONS_TTL_MS),
+      })
+      p.catch(() => {
+        if (this.memo.get(`sd:${day}`)?.p === p) this.memo.delete(`sd:${day}`)
+      })
+      parts.set(day, p)
+    }
+  }
+
+  private async readSessions(
+    from: Date,
+    to: Date,
+    wanted: Set<string>,
+  ): Promise<Map<string, InsightsSession[]>> {
+    const raw: Row[] = []
+    for (let offset = 0; offset < MAX_SESSIONS; offset += PAGE) {
+      const j = await this.client.postPage<{
+        sessions?: Row[]
+        hasNextPage?: boolean
+      }>('/openlines/sessions/search', {
+        dateCreateFrom: from.toISOString(),
+        dateCreateTo: to.toISOString(),
+        limit: PAGE,
+        offset,
+        order: 'dateCreate',
+        orderDirection: 'asc',
+      })
+      raw.push(...(j.data?.sessions ?? []))
+      if (!j.data?.hasNextPage) break
+    }
+    const list = raw
+      .map(toSession)
+      .filter((s): s is InsightsSession => s !== null)
+    await this.enrich(list)
+    const byDay = new Map<string, InsightsSession[]>()
+    for (const s of list) {
+      const day = brtDayKey(new Date(s.dateCreate).getTime())
+      // Fora da faixa pedida: não pode entrar numa entrada de dia que não foi
+      // lida por inteiro.
+      if (!wanted.has(day)) continue
+      const bucket = byDay.get(day) ?? []
+      bucket.push(s)
+      byDay.set(day, bucket)
+    }
+    return byDay
+  }
+
+  /**
+   * Cache por chat (e não por chat+`since`): alargar o período reaproveita o que
+   * já foi lido. A entrada guarda até onde a leitura chegou (`coveredSince`);
+   * um `since` mais novo ou igual sai dela sem chamar a API, e um mais antigo
+   * relê o chat até o novo `since` e substitui a entrada.
+   */
+  private async chatMessages(chatId: number, since: string): Promise<ChatData> {
+    const key = `chat:${chatId}`
+    const sinceMs = new Date(since).getTime()
+    const hit = this.memo.get(key)
+    if (hit && hit.expiresAt > this.now()) {
+      try {
+        const data = (await hit.p) as ChatData
+        if (sinceMs >= data.coveredSince) return data
+      } catch {
+        // Leitura em andamento falhou: tenta de novo abaixo, com a própria.
+      }
+    }
+    const p = this.readChat(chatId, sinceMs)
+    this.memo.set(key, { p, expiresAt: this.now() + CHAT_TTL_MS })
+    p.catch(() => {
+      if (this.memo.get(key)?.p === p) this.memo.delete(key)
     })
+    return p
   }
 
   // Lê o chat inteiro (paginado por lastId, do mais novo para o mais antigo)
   // até passar do início da sessão mais antiga dele.
-  private chatMessages(chatId: number, since: string): Promise<ChatData> {
-    return this.cached(`chat:${chatId}:${since}`, CHAT_TTL_MS, async () => {
-      const msgs: Row[] = []
-      const users: Record<string, Row> = {}
-      const sinceMs = new Date(since).getTime()
-      let lastId: string | null = null
-      for (let i = 0; i < MAX_CHAT_PAGES; i++) {
-        const j = await this.client.getPage<{
-          messages?: Row[]
-          users?: Row[]
-        }>(
-          `/chats/chat${chatId}/messages?limit=${PAGE}${lastId != null ? `&lastId=${lastId}` : ''}`,
-        )
-        for (const u of j.data?.users ?? []) users[String(u.id)] = u
-        const page = j.data?.messages ?? []
-        msgs.push(...page)
-        if (page.length < PAGE) break
-        const oldest = page.reduce((a, m) =>
-          Number(m.id) < Number(a.id) ? m : a,
-        )
-        if (ms(oldest.date) < sinceMs) break
-        lastId = text(oldest.id)
+  private async readChat(chatId: number, sinceMs: number): Promise<ChatData> {
+    const msgs: Row[] = []
+    const users: Record<string, Row> = {}
+    // Chegar ao início do chat cobre qualquer `since`.
+    let coveredSince = Number.NEGATIVE_INFINITY
+    let lastId: string | null = null
+    for (let i = 0; i < MAX_CHAT_PAGES; i++) {
+      const j = await this.client.getPage<{
+        messages?: Row[]
+        users?: Row[]
+      }>(
+        `/chats/chat${chatId}/messages?limit=${PAGE}${lastId != null ? `&lastId=${lastId}` : ''}`,
+      )
+      for (const u of j.data?.users ?? []) users[String(u.id)] = u
+      const page = j.data?.messages ?? []
+      msgs.push(...page)
+      if (page.length < PAGE) break
+      const oldest = page.reduce((a, m) =>
+        Number(m.id) < Number(a.id) ? m : a,
+      )
+      if (ms(oldest.date) < sinceMs) {
+        coveredSince = sinceMs
+        break
       }
-      return { msgs, users }
-    })
+      lastId = text(oldest.id)
+      // Se o teto de páginas cortar a leitura, só vale até aqui.
+      coveredSince = ms(oldest.date)
+    }
+    return { msgs, users, coveredSince }
   }
 
   /**
@@ -271,7 +417,14 @@ export class VibeInsightsDataSource implements InsightsDataSource {
             apiLogger.warn(
               {
                 errorName: e instanceof Error ? e.name : 'unknown',
-                status: e instanceof VibecodeAuthError ? e.status : undefined,
+                // Status/code só existem nesses dois erros; nunca logar a
+                // mensagem crua do axios nem headers (vazam a chave).
+                status:
+                  e instanceof VibecodeAuthError ||
+                  e instanceof VibecodeRequestError
+                    ? e.status
+                    : undefined,
+                code: e instanceof VibecodeRequestError ? e.code : undefined,
               },
               'Insights: chat ilegível na Vibe API, sessão sem métricas de mensagem',
             )
@@ -373,34 +526,43 @@ export class VibeInsightsDataSource implements InsightsDataSource {
     contactIds: number[],
     leadIds: number[],
   ): Promise<InsightsDeal[]> {
-    const out = new Map<number, InsightsDeal>()
     const groups: [string, number[]][] = [
       ['id', ids],
       ['contactId', contactIds],
       ['leadId', leadIds],
     ]
-    for (const [field, vals] of groups)
-      for (let i = 0; i < vals.length; i += PAGE)
-        for (let p = 0; p < MAX_LIST_PAGES; p++) {
-          const j = await this.client.postPage<Row[]>('/deals/search', {
-            filter: { [field]: { $in: vals.slice(i, i + PAGE) } },
-            select: DEAL_SELECT,
-            limit: PAGE,
-            offset: p * PAGE,
-          })
-          for (const d of Array.isArray(j.data) ? j.data : [])
-            out.set(Number(d.id), {
-              id: Number(d.id),
-              title: String(d.title ?? ''),
-              stageSemanticId: String(d.stageSemanticId ?? ''),
-              amount: num(d.amount) ?? 0,
-              currency: String(d.currency ?? ''),
-              createdAt: String(d.createdAt ?? ''),
-              contactId: num(d.contactId) || null,
-              leadId: num(d.leadId) || null,
+    // Os três grupos são independentes: em série, a latência de cada um se
+    // somava (era o gargalo do painel). Cada grupo continua paginando em
+    // série; o merge em ordem de grupo mantém o resultado idêntico ao serial.
+    const perGroup = await Promise.all(
+      groups.map(async ([field, vals]) => {
+        const found: InsightsDeal[] = []
+        for (let i = 0; i < vals.length; i += PAGE)
+          for (let p = 0; p < MAX_LIST_PAGES; p++) {
+            const j = await this.client.postPage<Row[]>('/deals/search', {
+              filter: { [field]: { $in: vals.slice(i, i + PAGE) } },
+              select: DEAL_SELECT,
+              limit: PAGE,
+              offset: p * PAGE,
             })
-          if (!j.meta?.hasMore) break
-        }
+            for (const d of Array.isArray(j.data) ? j.data : [])
+              found.push({
+                id: Number(d.id),
+                title: String(d.title ?? ''),
+                stageSemanticId: String(d.stageSemanticId ?? ''),
+                amount: num(d.amount) ?? 0,
+                currency: String(d.currency ?? ''),
+                createdAt: String(d.createdAt ?? ''),
+                contactId: num(d.contactId) || null,
+                leadId: num(d.leadId) || null,
+              })
+            if (!j.meta?.hasMore) break
+          }
+        return found
+      }),
+    )
+    const out = new Map<number, InsightsDeal>()
+    for (const found of perGroup) for (const d of found) out.set(d.id, d)
     return [...out.values()]
   }
 }

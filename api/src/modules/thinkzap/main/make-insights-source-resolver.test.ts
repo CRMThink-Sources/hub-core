@@ -314,6 +314,9 @@ describe('makeInsightsSourceResolver', () => {
     h.axiosPost.mockImplementation(() => httpFail(500))
     const err5xx = await uc.execute('app-1', {}).catch((e: unknown) => e)
 
+    // Chave revogada recusa todas as rotas (o primeiro erro a chegar decide o
+    // fallback, então misturar 401 e 500 dependeria da ordem das promessas).
+    h.axiosGet.mockImplementation(() => httpFail(401))
     h.axiosPost.mockImplementation(() => httpFail(401))
     await uc.execute('app-1', {})
 
