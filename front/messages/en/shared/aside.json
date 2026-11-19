@@ -1,4 +1,6 @@
 {
   "desenvolvido": "Developed by {{brandName}}",
-  "versaoBeta": "Beta Version"
+  "versaoBeta": "Beta Version",
+  "suporte": "Support",
+  "falarSuporte": "Talk to support"
 }
