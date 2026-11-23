@@ -9,6 +9,8 @@
   "vibecode": {
     "title": "Vibecode key",
     "description": "Used by Insights to read your Bitrix24 data. Create a read-only personal key and paste it below. It is stored encrypted and never shown again.",
+    "scopesTitle": "The key must have exactly these scopes:",
+    "scopesHint": "No more, no less: the key must be personal, read-only and from the same Bitrix24 portal where the app is installed. If a scope is missing or extra, it is rejected.",
     "loading": "Loading...",
     "statusNone": "No key configured. Insights runs in lean mode.",
     "statusConfigured": "Key configured: ••••{{last4}}",

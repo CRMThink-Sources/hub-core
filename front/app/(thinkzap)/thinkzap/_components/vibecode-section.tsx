@@ -13,6 +13,19 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
+/**
+ * Espelha `REQUIRED_VIBECODE_SCOPES` da API (vibecode-key-policy.ts). O
+ * backend recusa chave com escopo a mais ou a menos; sem listar aqui o
+ * cliente só descobria o que faltava depois de errar. Mantenha os dois iguais.
+ */
+const VIBECODE_SCOPES = [
+  'crm',
+  'imopenlines',
+  'im',
+  'user',
+  'department',
+] as const
+
 type InsightsStatus = {
   mode: 'full' | 'lean'
   keyConfigured: boolean
@@ -122,6 +135,25 @@ export function VibecodeSection() {
         <p className="mt-1 text-sm text-muted-foreground">
           {t('vibecode.description')}
         </p>
+
+        <div className="mt-4 grid gap-2 text-sm">
+          <span className="font-medium text-foreground">
+            {t('vibecode.scopesTitle')}
+          </span>
+          <ul className="flex flex-wrap gap-2">
+            {VIBECODE_SCOPES.map(scope => (
+              <li
+                key={scope}
+                className="rounded-md bg-muted px-2 py-1 font-mono text-xs text-foreground"
+              >
+                {scope}
+              </li>
+            ))}
+          </ul>
+          <span className="text-muted-foreground">
+            {t('vibecode.scopesHint')}
+          </span>
+        </div>
 
         <div className="mt-4 text-sm text-foreground">
           {loading ? (
