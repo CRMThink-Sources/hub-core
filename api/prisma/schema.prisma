@@ -63,7 +63,9 @@ model App {
   thinkzapAllowedUsers               ThinkzapAllowedUser[]
   thinkzapConnectionNotifyRecipients ThinkzapConnectionNotifyRecipient[]
   thinkzapAllowedDepartments         ThinkzapAllowedDepartment[]
+  thinkzapAccessGroups               ThinkzapAccessGroup[]
   thinkzapOperatorOAuth              ThinkzapOperatorOAuth[]
+  thinkzapInsightsSettings           ThinkzapInsightsSettings?
   thinkzapBotFlows                   ThinkzapBotFlow[]
   thinkzapBotFlowBots                ThinkzapBotFlowBot[]
   thinkzapBotFlowBindings            ThinkzapBotFlowBinding[]
@@ -319,6 +321,53 @@ model ThinkzapAllowedDepartment {
   @@map("thinkzap_allowed_departments")
 }
 
+/// Grupo de acesso do widget do ThinkZap: define quais linhas (itens da SPA) os
+/// membros podem usar ao enviar pelo widget. Sem nenhum grupo na instalação, todos
+/// usam todas as linhas. O nome é único por instalação; a collation
+/// utf8mb4_unicode_ci já ignora maiúsculas e acentos no índice único.
+model ThinkzapAccessGroup {
+  id        String   @id @default(uuid())
+  appId     String   @map("app_id")
+  name      String   @db.VarChar(191)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  app     App                         @relation(fields: [appId], references: [id], onDelete: Cascade)
+  members ThinkzapAccessGroupMember[]
+  lines   ThinkzapAccessGroupLine[]
+
+  @@unique([appId, name])
+  @@index([appId])
+  @@map("thinkzap_access_groups")
+}
+
+model ThinkzapAccessGroupMember {
+  id           String @id @default(uuid())
+  groupId      String @map("group_id")
+  bitrixUserId String @map("bitrix_user_id")
+
+  group ThinkzapAccessGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, bitrixUserId])
+  @@index([bitrixUserId])
+  @@map("thinkzap_access_group_members")
+}
+
+/// `subscriptionItemId` é o id do item da SPA de assinaturas (a linha vive no
+/// Bitrix, não aqui), por isso não há FK: ids de linhas excluídas ficam órfãos e
+/// são descartados na leitura ao cruzar com as linhas do contexto.
+model ThinkzapAccessGroupLine {
+  id                 String @id @default(uuid())
+  groupId            String @map("group_id")
+  subscriptionItemId String @map("subscription_item_id")
+
+  group ThinkzapAccessGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, subscriptionItemId])
+  @@index([subscriptionItemId])
+  @@map("thinkzap_access_group_lines")
+}
+
 model ThinkzapOperatorOAuth {
   id           String   @id @default(uuid())
   appId        String   @map("app_id")
@@ -334,6 +383,23 @@ model ThinkzapOperatorOAuth {
   @@unique([appId, bitrixUserId])
   @@index([appId])
   @@map("thinkzap_operator_oauth")
+}
+
+/// Configuração do painel Insights por portal: chave Vibecode cifrada + config.
+model ThinkzapInsightsSettings {
+  id                  String    @id @default(uuid())
+  appId               String    @unique @map("app_id")
+  vibecodeKeyEnc      String?   @map("vibecode_key_enc") @db.Text
+  vibecodeKeyLast4    String?   @map("vibecode_key_last4") @db.VarChar(4)
+  vibecodePortalId    String?   @map("vibecode_portal_id") @db.VarChar(191)
+  vibecodeValidatedAt DateTime? @map("vibecode_validated_at")
+  config              Json?
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  app App @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@map("thinkzap_insights_settings")
 }
 
 // ============================================
@@ -645,6 +711,30 @@ model ThinkzapTemplateDefault {
   @@unique([domainId, subscriptionItemId, templateName, language], name: "uq_template_default")
   @@index([domainId, subscriptionItemId])
   @@map("core_thinkerszap_template_defaults")
+}
+
+/// Variáveis padrão do envio de um template: qual campo do Bitrix alimenta cada
+/// variável do corpo, por tipo de entidade em que o widget abre.
+///
+/// Mesma chave da imagem padrão (linha + nome + idioma, que não mudam numa
+/// edição), mais o `entityTypeId`: Negócio e Contato não têm os mesmos campos.
+model ThinkzapTemplateVariableMapping {
+  id                 String   @id @default(uuid())
+  domainId           String   @map("domain_id")
+  /// A linha (item de assinatura).
+  subscriptionItemId String   @map("subscription_item_id")
+  templateName       String   @map("template_name")
+  language           String
+  /// 1 Lead, 2 Negócio, 3 Contato, 4 Empresa, N para SPA.
+  entityTypeId       Int      @map("entity_type_id")
+  /// `{ "<variável>": { "source": "self|contact|company", "fieldId": "<chave de crm.item>" } }`.
+  mappings           Json
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([domainId, subscriptionItemId, templateName, language, entityTypeId], name: "uq_template_variable_mapping", map: "uq_tz_tpl_var_mapping")
+  @@index([domainId, subscriptionItemId], map: "idx_tz_tpl_var_mapping_line")
+  @@map("core_thinkerszap_template_variable_mappings")
 }
 
 /// De onde veio um envio da outbox.

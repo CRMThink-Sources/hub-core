@@ -172,7 +172,8 @@
     "editarEmAnalise": "Under Meta review: wait for the answer to edit.",
     "imagemPadrao": "Default sending image",
     "detalhes": "View details",
-    "detalhesDe": "View details of {{nome}}"
+    "detalhesDe": "View details of {{nome}}",
+    "variaveisPadrao": "Default variables"
   },
   "imagemPadrao": {
     "titulo": "Default sending image",
@@ -213,5 +214,31 @@
     "vazioTexto": "Create a template and submit it for Meta approval, or sync the ones already in the account.",
     "criarPrimeiro": "Create first template",
     "semResultado": "No template matches this search and these filters."
+  },
+  "variaveisPadrao": {
+    "titulo": "Default send variables",
+    "descricao": "Choose which Bitrix field supplies each variable of {{nome}}. The widget opens the send with these values filled in, and the operator can still edit them.",
+    "tipoEntidade": "Entity type",
+    "dicaEntidade": "Each type (Lead, Deal, Contact...) has its own fields, so the mapping is kept separately per type.",
+    "buscarEntidade": "Search entity type",
+    "buscarCampo": "Search field",
+    "semResultado": "Nothing found",
+    "semCampo": "No field (fill in when sending)",
+    "carregando": "Loading...",
+    "personalizado": "Custom field",
+    "campoNaoEncontrado": "This field no longer exists in Bitrix. Pick another or leave it without a field.",
+    "salvar": "Save variables",
+    "salvando": "Saving...",
+    "entidade": {
+      "1": "Lead",
+      "2": "Deal",
+      "3": "Contact",
+      "4": "Company"
+    },
+    "origem": {
+      "self": "Own record",
+      "contact": "Contact",
+      "company": "Company"
+    }
   }
 }

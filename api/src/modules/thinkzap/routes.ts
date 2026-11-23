@@ -9,6 +9,13 @@ import { makeCreateTemplateController } from './main/connector/make-create-templ
 import { makeSyncTemplatesController } from './main/connector/make-sync-templates'
 import { makeUpdateTemplateController } from './main/connector/make-update-template'
 import { makeSetTemplateDefaultImageController } from './main/connector/make-set-template-default-image'
+import {
+  makeGetTemplateVariableMappingController,
+  makeListCrmEntityTypesController,
+  makeListCrmFieldsController,
+  makeSetTemplateVariableMappingController,
+  makeTemplateVariableValuesController,
+} from './main/connector/make-template-variable-mappings'
 import { makeListDestinationsController } from './main/make-list-destinations-controller'
 import { makeSendWidgetMessageController } from './main/make-send-widget-message-controller'
 import { makeSendWidgetMessageMultipartController } from './main/make-send-widget-message-multipart-controller'
@@ -39,6 +46,23 @@ import { makeUpdateGroupDescriptionController } from './main/make-update-group-d
 import { makeUpdateGroupNameController } from './main/make-update-group-name-controller'
 import { makeUpdateGroupPhotoController } from './main/make-update-group-photo-controller'
 import { makeListAllowedUsersController } from './main/make-list-allowed-users-controller'
+import {
+  makeCreateAccessGroupController,
+  makeGetMyLineAccessController,
+  makeListAccessGroupsController,
+  makeRemoveAccessGroupController,
+  makeUpdateAccessGroupController,
+  makeWidgetLineGuard,
+} from './main/make-access-group-controllers'
+import {
+  makeGetInsightsConfigController,
+  makeGetInsightsDashboardController,
+  makeGetInsightsStatusController,
+  makeGetInsightsTodayController,
+  makeSaveInsightsConfigController,
+  makeRemoveVibecodeKeyController,
+  makeSaveVibecodeKeyController,
+} from './main/make-insights-controllers'
 import { makeAddAllowedUserController } from './main/make-add-allowed-user-controller'
 import { makeRemoveAllowedUserController } from './main/make-remove-allowed-user-controller'
 import { makeUpdateAllowedUserPermissionsController } from './main/make-update-allowed-user-permissions-controller'
@@ -120,6 +144,10 @@ export const createThinkerszapRoutes = (): Router => {
     adaptControllerFactory(makeSaveInstallationLocaleController),
   )
 
+  // Grupos de acesso: nas rotas do widget que recebem uma linha, barra o usuário cujos
+  // grupos não liberam essa linha. Robôs/SMS/campanha não passam por aqui.
+  const widgetLineGuard = makeWidgetLineGuard()
+
   // Widget CRM: any Bitrix user with valid JWT (authMiddleware on /api/thinkzap).
   router.get(
     '/destinations',
@@ -127,22 +155,26 @@ export const createThinkerszapRoutes = (): Router => {
   )
   router.post(
     '/messages/send-widget',
+    widgetLineGuard,
     adaptControllerFactory(makeSendWidgetMessageController),
   )
   router.post(
     '/messages/send-widget-multipart',
     widgetMessageUploadParser.array('files', 10),
+    widgetLineGuard,
     adaptControllerFactory(makeSendWidgetMessageMultipartController),
   )
   // Caminho da linha do WhatsApp Oficial; `send-widget` é Z-API-only.
   router.post(
     '/messages/send-widget-template',
+    widgetLineGuard,
     adaptControllerFactory(makeSendWidgetTemplateController),
   )
   // Botões funcionam nos dois providers — ao contrário de `send-widget-template`,
   // não há restrição de linha aqui.
   router.post(
     '/messages/send-widget-button',
+    widgetLineGuard,
     adaptControllerFactory(makeSendWidgetButtonController),
   )
   /**
@@ -156,6 +188,7 @@ export const createThinkerszapRoutes = (): Router => {
   // `connectors:read`, agenda `DisconnectExpiredLine` e devolve a instância crua da Z-API.
   router.get(
     '/messages/line-status/:subscriptionItemId',
+    widgetLineGuard,
     adaptControllerFactory(makeGetLineStatusForWidgetController),
   )
   // Status das mensagens enviadas pelo widget: "aguardando janela de envio" da cadência.
@@ -167,7 +200,15 @@ export const createThinkerszapRoutes = (): Router => {
   // `connectors:read`, devolve pendentes e reprovados e entrega os `components` crus.
   router.get(
     '/messages/widget-templates/:subscriptionItemId',
+    widgetLineGuard,
     adaptControllerFactory(makeListWidgetTemplatesController),
+  )
+  // Valores iniciais das variáveis do template, lidos do CRM pelo mapeamento que o
+  // administrador definiu. Sem permissão de conector: quem envia não administra.
+  router.get(
+    '/messages/widget-templates/:subscriptionItemId/:name/:language/variable-values',
+    widgetLineGuard,
+    adaptControllerFactory(makeTemplateVariableValuesController),
   )
   // Imagem do cabeçalho escolhida como arquivo no widget: hospeda e devolve a URL
   // que o envio manda em `headerImageUrl`.
@@ -198,6 +239,12 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/access/me',
     adaptControllerFactory(makeGetThinkzapAccessController),
+  )
+  // Linhas liberadas pelos grupos de acesso ao usuário do widget. Antes do middleware
+  // pelo mesmo motivo: quem envia não administra nem tem `connectors:read`.
+  router.get(
+    '/access/my-lines',
+    adaptControllerFactory(makeGetMyLineAccessController),
   )
 
   router.use(thinkzapAccessMiddleware)
@@ -279,6 +326,65 @@ export const createThinkerszapRoutes = (): Router => {
     '/access/allowed-departments/:bitrixDepartmentId',
     requireThinkzapAdmin,
     adaptControllerFactory(makeRemoveAllowedDepartmentController),
+  )
+
+  // Grupos de acesso do widget (quem usa quais linhas).
+  router.get(
+    '/access/groups',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeListAccessGroupsController),
+  )
+  router.post(
+    '/access/groups',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeCreateAccessGroupController),
+  )
+  router.put(
+    '/access/groups/:groupId',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeUpdateAccessGroupController),
+  )
+  router.delete(
+    '/access/groups/:groupId',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeRemoveAccessGroupController),
+  )
+
+  // Insights: o status serve a qualquer usuário com acesso; a chave Vibecode é só do admin.
+  router.get(
+    '/insights/status',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetInsightsStatusController),
+  )
+  router.get(
+    '/insights/dashboard',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetInsightsDashboardController),
+  )
+  router.get(
+    '/insights/today',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetInsightsTodayController),
+  )
+  router.get(
+    '/insights/config',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetInsightsConfigController),
+  )
+  router.put(
+    '/insights/config',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeSaveInsightsConfigController),
+  )
+  router.put(
+    '/insights/vibecode-key',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeSaveVibecodeKeyController),
+  )
+  router.delete(
+    '/insights/vibecode-key',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeRemoveVibecodeKeyController),
   )
 
   // Trial gateado por `finance`; admin do Bitrix passa porque `canManageAccess`
@@ -490,6 +596,26 @@ export const createThinkerszapRoutes = (): Router => {
     '/lines/:itemId/templates/sync',
     requireThinkzapPermission('connectors', 'update'),
     adaptControllerFactory(makeSyncTemplatesController),
+  )
+  router.get(
+    '/crm-entity-types',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeListCrmEntityTypesController),
+  )
+  router.get(
+    '/crm-fields',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeListCrmFieldsController),
+  )
+  router.get(
+    '/lines/:itemId/templates/:name/:language/variable-mappings',
+    requireThinkzapPermission('connectors', 'read'),
+    adaptControllerFactory(makeGetTemplateVariableMappingController),
+  )
+  router.put(
+    '/lines/:itemId/templates/:name/:language/variable-mappings',
+    requireThinkzapPermission('connectors', 'update'),
+    adaptControllerFactory(makeSetTemplateVariableMappingController),
   )
   router.put(
     '/lines/:itemId/templates/:name/:language/default-image',

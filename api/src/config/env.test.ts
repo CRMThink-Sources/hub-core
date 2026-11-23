@@ -6,6 +6,7 @@ import {
   parseManualSubscriptionGraceDays,
   parseStripeSyncEnabled,
   parseSubscriptionExpirationEnabled,
+  positiveMs,
   resolveStripeEnvironment,
 } from './env'
 
@@ -132,6 +133,19 @@ describe('parseFailureRetentionDays', () => {
       expect(() => parseFailureRetentionDays(raw)).toThrow(
         /FAILURE_RETENTION_DAYS/,
       )
+    },
+  )
+})
+
+describe('positiveMs', () => {
+  it('lê um valor válido', () => {
+    expect(positiveMs('1500', 99)).toBe(1500)
+  })
+
+  it.each([undefined, '', 'abc', '0', '-5', 'NaN', 'Infinity'])(
+    'cai no padrão com %j',
+    raw => {
+      expect(positiveMs(raw, 99)).toBe(99)
     },
   )
 })

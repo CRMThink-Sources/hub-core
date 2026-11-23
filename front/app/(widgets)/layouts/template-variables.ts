@@ -178,3 +178,31 @@ export function templateButtonParameters(
     value: (values[button.index] ?? '').trim(),
   }))
 }
+
+/**
+ * Junta os valores lidos do CRM às variáveis do template **sem sobrescrever** o que o
+ * operador já digitou: a resposta do servidor chega depois da escolha do template, e
+ * o operador pode ter começado a preencher nesse meio-tempo.
+ *
+ * Só entram chaves que existem no corpo (o mapeamento guarda também variáveis de uma
+ * versão anterior do template) e valores com texto. Devolve o mesmo objeto quando nada
+ * muda, para o React não renderizar à toa.
+ */
+export function mergeCrmTemplateValues(
+  body: string,
+  current: Record<string, string>,
+  crmValues: Record<string, string>,
+): Record<string, string> {
+  const keys = extractTemplateVariables(body)
+  let merged: Record<string, string> | null = null
+
+  for (const key of keys) {
+    const fromCrm = crmValues[key]
+    if (typeof fromCrm !== 'string' || fromCrm.trim() === '') continue
+    if ((current[key] ?? '').trim() !== '') continue
+    merged ??= { ...current }
+    merged[key] = fromCrm
+  }
+
+  return merged ?? current
+}

@@ -11,9 +11,14 @@ import { RecordControls } from '@/app/bitrix/widget/audio/_features/recording/re
 import { useAudioRecorder } from '@/app/bitrix/widget/audio/_features/recording/use-audio-recorder'
 import { formatFileSize } from '@/app/bitrix/widget/audio/_lib/format-file-size'
 import { isLineDisconnectedError } from '@/app/hooks/extract-line-disconnected'
-import { useWidgetTemplates } from '@/app/hooks/use-widget-templates'
+import {
+  fetchTemplateVariableValues,
+  useWidgetTemplates,
+} from '@/app/hooks/use-widget-templates'
 import { useAplicationContext } from '@/providers/aplication-provider'
 import { listSendableLines } from '@/shared/aplication/subscription-items'
+import { useMyLineAccess } from '@/app/hooks/use-my-line-access'
+import { applyLineAccess } from './line-access'
 import { Button } from '@/components/ui/button'
 import { Mic } from 'lucide-react'
 import {
@@ -52,6 +57,7 @@ import {
 import {
   canSendWidgetTemplate,
   defaultHeaderImageOf,
+  mergeCrmTemplateValues,
   needsHeaderImage,
   orderedTemplateParameters,
   templateButtonParameters,
@@ -152,6 +158,7 @@ const contextErrorMessage = (
 
 export const ConversationView = () => {
   const { state: aplicationState } = useAplicationContext()
+  const myLineAccess = useMyLineAccess()
   const [selectedConnectorId, setSelectedConnectorId] = useState('')
   const [selectedDestinationPhone, setSelectedDestinationPhone] = useState('')
   const [message, setMessage] = useState('')
@@ -171,6 +178,12 @@ export const ConversationView = () => {
     Record<number, string>
   >({})
   const [templateHeaderImageUrl, setTemplateHeaderImageUrl] = useState('')
+  /**
+   * Preenchimento das variáveis pelo CRM: a resposta de um template que o operador já
+   * trocou (ou de outra linha) é descartada, como no upload da imagem do cabeçalho.
+   */
+  const variablePrefillTokenRef = useRef(0)
+  const [variablesPrefilling, setVariablesPrefilling] = useState(false)
   /**
    * Imagem do cabeçalho por arquivo: o arquivo sobe assim que é escolhido, e a URL
    * devolvida entra em `templateHeaderImageUrl` — o envio é o mesmo do link.
@@ -276,12 +289,32 @@ export const ConversationView = () => {
    * o contexto muda — inclusive depois de um `refresh`, que é o que faz uma linha
    * recém-contratada aparecer sem recarregar o widget.
    */
-  const lines = useMemo(
+  const eligibleLines = useMemo(
     () =>
       aplicationState.status === 'ready'
         ? listSendableLines(aplicationState.subscriptions, new Date())
         : [],
     [aplicationState],
+  )
+
+  /**
+   * Grupos de acesso: o seletor só oferece as linhas que o usuário pode usar. Uma
+   * linha só abre selecionada e travada; várias abrem sem seleção. Enquanto a
+   * liberação carrega a lista fica vazia — mostrar todas e depois recolher faria
+   * o operador ver (e escolher) linha que não é dele. Falha de leitura segue sem
+   * filtro: o servidor é quem recusa o envio por linha não permitida.
+   */
+  const lineSelection = useMemo(
+    () =>
+      applyLineAccess(
+        eligibleLines,
+        myLineAccess.status === 'ready' ? myLineAccess.access : null,
+      ),
+    [eligibleLines, myLineAccess],
+  )
+  const lines = useMemo(
+    () => (myLineAccess.status === 'loading' ? [] : lineSelection.lines),
+    [myLineAccess.status, lineSelection.lines],
   )
 
   const selectedLine = useMemo(
@@ -354,6 +387,13 @@ export const ConversationView = () => {
     setLineStatus({ kind: 'idle' })
   }, [lines, selectedConnectorId])
 
+  /** Única linha permitida pelos grupos de acesso: já abre selecionada. */
+  useEffect(() => {
+    if (myLineAccess.status !== 'ready') return
+    if (!lineSelection.autoSelectedId) return
+    setSelectedConnectorId(current => current || lineSelection.autoSelectedId)
+  }, [myLineAccess.status, lineSelection.autoSelectedId])
+
   /**
    * Troca de linha zera a escolha de template e as variáveis.
    *
@@ -364,6 +404,8 @@ export const ConversationView = () => {
    * saída do modo.
    */
   useEffect(() => {
+    variablePrefillTokenRef.current += 1
+    setVariablesPrefilling(false)
     setSelectedTemplateKey('')
     setTemplateValues({})
     setTemplateButtonValues({})
@@ -941,6 +983,17 @@ export const ConversationView = () => {
               </p>
             ) : null}
 
+            {myLineAccess.status === 'ready' && lineSelection.noAccess ? (
+              <p
+                role="alert"
+                className="mb-4 w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+              >
+                Você não tem nenhuma linha liberada para enviar mensagens. Peça
+                ao administrador para incluir o seu usuário em um grupo de
+                acesso com ao menos uma linha.
+              </p>
+            ) : null}
+
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-5">
               <label className="group grid min-w-0 gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -950,9 +1003,11 @@ export const ConversationView = () => {
                   className="h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none transition group-focus-within:border-blue-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
                   value={selectedConnectorId}
                   onChange={event => setSelectedConnectorId(event.target.value)}
-                  disabled={isSending}
+                  disabled={isSending || lineSelection.locked}
                 >
-                  <option value="">Selecione uma linha</option>
+                  {lineSelection.locked ? null : (
+                    <option value="">Selecione uma linha</option>
+                  )}
                   {/*
                     Sem indicador de conectado/offline: status ao vivo não está no
                     item de assinatura, e buscá-lo por linha para rotular uma
@@ -1031,12 +1086,37 @@ export const ConversationView = () => {
                    */
                   setTemplateValues({})
                   setTemplateButtonValues({})
-                  startHeaderImage(
-                    widgetTemplates.templates.find(
-                      template => templateKey(template) === key,
-                    ),
-                    headerImageSource,
+                  const chosen = widgetTemplates.templates.find(
+                    template => templateKey(template) === key,
                   )
+                  startHeaderImage(chosen, headerImageSource)
+
+                  /**
+                   * Variáveis padrão: o servidor lê do CRM os campos que o
+                   * administrador mapeou. Só preenche o que o operador ainda não
+                   * digitou, e falha vira campos em branco.
+                   */
+                  const token = ++variablePrefillTokenRef.current
+                  setVariablesPrefilling(false)
+                  const info = window.BX24?.placement?.info?.()
+                  const crmEntity = resolveWidgetEntity(
+                    info?.placement,
+                    info?.options,
+                  )
+                  if (chosen && crmEntity && selectedConnectorId) {
+                    setVariablesPrefilling(true)
+                    void fetchTemplateVariableValues(
+                      selectedConnectorId,
+                      chosen,
+                      crmEntity,
+                    ).then(values => {
+                      if (token !== variablePrefillTokenRef.current) return
+                      setVariablesPrefilling(false)
+                      setTemplateValues(previous =>
+                        mergeCrmTemplateValues(chosen.body, previous, values),
+                      )
+                    })
+                  }
                 }}
                 values={templateValues}
                 onChangeValue={(key, value) =>
@@ -1067,6 +1147,7 @@ export const ConversationView = () => {
                 headerImageFileName={headerImageFileName}
                 headerImageUploading={headerImageUploading}
                 headerImageUploadError={headerImageUploadError}
+                variablesLoading={variablesPrefilling}
                 disabled={isSending}
               />
             ) : composerMode === 'button' ? (

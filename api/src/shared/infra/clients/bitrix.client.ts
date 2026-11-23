@@ -9,6 +9,7 @@ import {
   wrapBitrixRequestError,
 } from './bitrix-http-errors'
 import { normalizeBitrixDomain } from './normalize-bitrix-domain'
+import { apiLogger } from '@/shared/infra/logger'
 import { resolveOpenChannelContactId } from '@/shared/helpers/open-channel-contact-id'
 import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
 import { attachBitrixLimits } from '@/shared/infra/bitrix-limits/attach-bitrix-limits'
@@ -122,9 +123,18 @@ export class BitrixClient {
       // `untilMs` dela que diz quando reagendar. Envolver viraria erro genérico.
       if (error instanceof BitrixMethodPausedError) throw error
 
-      if (error instanceof Error) {
-        console.log(error)
-      }
+      // Nunca logar o erro cru: o AxiosError carrega config.params.auth (o
+      // access token do Bitrix), além de headers. Só método, status e código.
+      apiLogger.error(
+        {
+          method,
+          status: axios.isAxiosError(error)
+            ? error.response?.status
+            : undefined,
+          code: axios.isAxiosError(error) ? error.code : undefined,
+        },
+        'Falha ao chamar método do Bitrix',
+      )
       const message =
         axios.isAxiosError(error) && error.response
           ? `Bitrix error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
@@ -611,7 +621,18 @@ export interface ICrmItemResponse {
 
 export interface ICrmItemFieldsResponse {
   result: {
-    fields: Record<string, { type?: string; isReadOnly?: boolean }>
+    fields: Record<
+      string,
+      {
+        type?: string
+        isReadOnly?: boolean
+        isMultiple?: boolean
+        title?: string
+        formLabel?: string
+        /** Só em campo de lista: as opções, com o código (`ID`) e o rótulo (`VALUE`). */
+        items?: { ID: string | number; VALUE: string }[]
+      }
+    >
   }
 }
 

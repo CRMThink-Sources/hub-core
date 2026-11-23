@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildCreateTemplateFormData,
   buildDefaultImageRequest,
+  mappingUrl,
 } from './use-connector-templates'
 
 describe('buildCreateTemplateFormData', () => {
@@ -45,5 +46,13 @@ describe('buildDefaultImageRequest', () => {
     const form = buildDefaultImageRequest({ file }) as FormData
 
     expect((form.get('image') as File).name).toBe('a.png')
+  })
+})
+
+describe('mappingUrl', () => {
+  it('codifica linha, nome e idioma do template', () => {
+    expect(mappingUrl('item 1', { name: 'pedido', language: 'pt_BR' })).toBe(
+      '/thinkzap/lines/item%201/templates/pedido/pt_BR/variable-mappings',
+    )
   })
 })
