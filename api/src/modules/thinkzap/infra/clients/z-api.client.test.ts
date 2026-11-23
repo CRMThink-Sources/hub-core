@@ -229,7 +229,7 @@ describe('ZApiClient.editMessage / deleteMessage', () => {
     vi.clearAllMocks()
   })
 
-  it('edita chamando send-message-edit com o texto novo', async () => {
+  it('edita chamando send-text com editMessageId e o texto novo', async () => {
     const client = new ZApiClient('partner', 'client')
     const http = instance() as unknown as {
       post: ReturnType<typeof vi.fn>
@@ -240,9 +240,9 @@ describe('ZApiClient.editMessage / deleteMessage', () => {
 
     expect(http.post).toHaveBeenCalledTimes(1)
     const [url, body] = http.post.mock.calls[0] as [string, unknown]
-    expect(url).toContain('/send-message-edit')
+    expect(url).toMatch(/\/send-text$/)
     expect(body).toEqual({
-      messageId: 'MSG1',
+      editMessageId: 'MSG1',
       phone: '5511',
       message: 'novo texto',
     })

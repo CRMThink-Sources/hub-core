@@ -788,6 +788,14 @@ export class ZApiClient {
     }
   }
 
+  /**
+   * Edita o texto de uma mensagem que a instância enviou.
+   *
+   * A Z-API não tem endpoint de edição próprio: a edição é um `send-text` com
+   * `editMessageId` apontando para a mensagem original. O `send-message-edit` que
+   * estava aqui não consta na documentação, e a falha ficava só num `warn` do
+   * processor — a edição feita no Bitrix não chegava ao WhatsApp.
+   */
   async editMessage(
     instanceId: string,
     instanceToken: string,
@@ -797,8 +805,8 @@ export class ZApiClient {
   ): Promise<void> {
     try {
       await this.http.post(
-        `${this.instanceBaseUrl(instanceId, instanceToken)}/send-message-edit`,
-        { messageId, phone, message: newText },
+        `${this.instanceBaseUrl(instanceId, instanceToken)}/send-text`,
+        { editMessageId: messageId, phone, message: newText },
         { headers: this.instanceHeaders() },
       )
     } catch (error) {
