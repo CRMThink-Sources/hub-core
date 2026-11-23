@@ -9,6 +9,8 @@
   "vibecode": {
     "title": "Chave Vibecode",
     "description": "Usada pelo Insights para ler os dados do seu Bitrix24. Crie uma chave pessoal somente leitura e cole abaixo. Ela é guardada cifrada e nunca é exibida de novo.",
+    "scopesTitle": "A chave precisa ter exatamente estes escopos:",
+    "scopesHint": "Nem mais, nem menos: a chave deve ser pessoal, somente leitura e do mesmo portal Bitrix24 em que o app está instalado. Se faltar ou sobrar escopo, ela é recusada.",
     "loading": "Carregando...",
     "statusNone": "Nenhuma chave cadastrada. O Insights funciona no modo enxuto.",
     "statusConfigured": "Chave configurada: ••••{{last4}}",
