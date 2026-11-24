@@ -26,6 +26,10 @@ import {
 import { ZApiClient } from '../../infra/clients/z-api.client'
 import { env } from '@/config/env'
 import { SendNotification } from '@/shared/data/contracts/send-notification'
+import {
+  robotTimelineAuthor,
+  type RobotTimelineAuthor,
+} from './robot-timeline-author'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import {
   bizprocEntityToPlacement,
@@ -53,6 +57,12 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     env.zApi.partnerToken,
     env.zApi.clientToken,
   )
+  /**
+   * Quem rodou o robô, para o comentário sair em nome dele. O controller é montado
+   * por request (`adaptControllerFactory`), então o campo não é compartilhado.
+   */
+  private author: RobotTimelineAuthor = {}
+
   constructor(
     private readonly getDomain: GetDomainRepository,
     private readonly getApp: GetInstalledAppRepository,
@@ -133,6 +143,7 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     const locale =
       (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE
     const notices = timelineNotices(locale)
+    this.author = robotTimelineAuthor(data.auth.user_id, locale)
 
     // Mensagem só de espaços conta como vazia: com arquivo, eles vão sem legenda.
     const message = data.properties.message?.trim()
@@ -187,6 +198,7 @@ export class BitrixRobotWebhookHandlerController extends Controller {
         recipients,
         fromPhone,
         crmDocument,
+        operatorBitrixUserId: this.author.authorBitrixUserId,
       })
       return this.ok({ received: true, queued })
     }
@@ -309,6 +321,7 @@ export class BitrixRobotWebhookHandlerController extends Controller {
     await this.sendNotification.execute({
       contextId: document.entityId,
       entity: document.entity,
+      ...this.author,
       message,
     })
   }

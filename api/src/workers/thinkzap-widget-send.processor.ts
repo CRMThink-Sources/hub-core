@@ -61,7 +61,7 @@ import { AppendJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { PrismaDeliveryAttemptRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-delivery-attempt.repository'
 import { ThinkzapWidgetSendJob } from '@/queue/thinkzap-widget-outbound.queue'
 import { redisConnection } from '@/queue/redis-connection'
-import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
+import { makeTimelineNotifier } from '@/modules/thinkzap/main/make-timeline-notifier'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { makeBitrixClientByDomainAndAppCoode } from '@/shared/main/make-bitrix-client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
@@ -315,7 +315,28 @@ async function makeNotifier(row: WidgetOutboxRecord) {
     row.appCode,
   )
 
-  return new BitrixLivefeedNotificationService(bitrix)
+  return makeTimelineNotifier(bitrix, domain.name)
+}
+
+/**
+ * Quem enviou, para o comentário sair em nome dele. O envio pela fila acontece aqui,
+ * fora da request, então o remetente vem da row do outbox (`operatorBitrixUserId`).
+ * Sem remetente gravado (robô sem usuário, row antiga), o comentário sai como sempre.
+ */
+async function authorOf(row: WidgetOutboxRecord): Promise<{
+  authorBitrixUserId?: string
+  senderLine?: (name: string) => string
+}> {
+  if (!row.operatorBitrixUserId) return {}
+
+  const locale = await makeInstallationLocaleRepository().byInstallation(
+    row.domainId,
+    row.appCode,
+  )
+  return {
+    authorBitrixUserId: row.operatorBitrixUserId,
+    senderLine: timelineNotices(locale).sentBy,
+  }
 }
 
 async function notifyOutcomeFor(
@@ -332,6 +353,7 @@ async function notifyOutcomeFor(
       entityId: row.entityId,
       destination: row.destination,
       text: row.text,
+      authorBitrixUserId: row.operatorBitrixUserId ?? undefined,
       // Lido só aqui, quando o comentário vai mesmo sair.
       locale: await makeInstallationLocaleRepository().byInstallation(
         row.domainId,
@@ -362,6 +384,7 @@ async function notifySentFor(row: WidgetOutboxRecord): Promise<void> {
     await notifier.execute({
       contextId: row.entityId,
       entity: row.entity,
+      ...(await authorOf(row)),
       message: timelineNotices(locale).widgetSentQueued({
         destination: row.destination,
         templateName:
@@ -456,6 +479,7 @@ async function settleGroup(
           await notifier?.execute({
             contextId: document.entityId,
             entity: document.entity,
+            ...(await authorOf(settled.first)),
             message,
           })
         } catch (err) {
@@ -482,6 +506,7 @@ async function settleGroup(
         await notifier?.execute({
           contextId: record.entityId,
           entity: record.entity,
+          ...(await authorOf(record)),
           message,
         })
       } catch (err) {

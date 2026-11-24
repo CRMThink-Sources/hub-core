@@ -1,4 +1,5 @@
 import type { NoticeLocale } from './notice-locale'
+import { bbField, bbLines, bbMessage, bbTitle } from './timeline-format'
 
 /**
  * Comentários que o servidor publica na timeline do CRM, por idioma.
@@ -21,6 +22,8 @@ export type TimelineNotices = {
     destination: string
     text: string
   }) => string
+  /** Linha que identifica o remetente quando o comentário sai com a credencial da instalação. */
+  sentBy: (name: string) => string
   sendRobot: {
     /** Telefone de origem que não pôde ser lido. */
     unknownPhone: string
@@ -84,25 +87,96 @@ type SendRobotFileLabels = {
   reasons: Record<SendRobotFileFailure, string>
 }
 
+/**
+ * Rótulos e frases fixas do layout, por idioma. A estrutura é a mesma nos três: título
+ * em negrito, campos rotulados, a mensagem em citação e a orientação ao fim.
+ * `template` é literal em todos: é por essa linha que o cliente concilia a cobrança.
+ */
+type Labels = {
+  from: string
+  to: string
+  message: string
+  template: string
+  sentTitle: string
+  failedTitle: string
+  failedNotice: string
+  failedAction: string
+  unknownTitle: string
+  unknownNotice: string
+  unknownAction: string
+  robotTitle: string
+  robotNoRecipientsTitle: string
+  buttonQueuedTitle: string
+  templateQueuedTitle: string
+  sentBy: string
+  file: SendRobotFileLabels
+}
+
+function widgetSent(
+  l: Labels,
+  input: {
+    fromPhone?: string
+    destination: string
+    templateName?: string
+    text: string
+  },
+): string {
+  return bbLines([
+    bbTitle(l.sentTitle),
+    input.fromPhone !== undefined
+      ? bbField(l.from, input.fromPhone)
+      : undefined,
+    bbField(l.to, input.destination),
+    input.templateName !== undefined
+      ? bbField(l.template, input.templateName)
+      : undefined,
+    bbMessage(l.message, input.text),
+  ])
+}
+
+function widgetNotDelivered(
+  l: Labels,
+  kind: 'failed' | 'unknown',
+  destination: string,
+  text: string,
+): string {
+  const failed = kind === 'failed'
+  return bbLines([
+    bbTitle(failed ? l.failedTitle : l.unknownTitle),
+    failed ? l.failedNotice : l.unknownNotice,
+    bbField(l.to, destination),
+    bbMessage(l.message, text),
+    failed ? l.failedAction : l.unknownAction,
+  ])
+}
+
 function sendRobotResult(
-  labels: SendRobotFileLabels,
-  base: string,
+  l: Labels,
+  fromPhone: string,
+  sent: string[],
   input: { message: string; files?: SendRobotFilesResult },
 ): string {
-  if (!input.files) return `${base}\n${labels.message}: ${input.message}`
-
-  const lines = [base]
-  if (input.message) lines.push(`${labels.message}: ${input.message}`)
-  if (input.files.sent.length > 0) {
-    lines.push(`${labels.sentFiles}: ${input.files.sent.join(', ')}`)
+  const lines: (string | undefined)[] = [
+    bbTitle(l.robotTitle),
+    bbField(l.from, fromPhone),
+    bbField(l.to, sent.join(', ')),
+  ]
+  // Sem `files`, a mensagem aparece sempre; com `files`, só quando existe.
+  if (!input.files || input.message) {
+    lines.push(bbMessage(l.message, input.message))
   }
-  if (input.files.failed.length > 0) {
-    const failed = input.files.failed
-      .map(f => `${f.name} (${labels.reasons[f.reason]})`)
-      .join(', ')
-    lines.push(`${labels.failedFiles}: ${failed}`)
+  if (input.files) {
+    if (input.files.sent.length > 0) {
+      lines.push(bbField(l.file.sentFiles, input.files.sent.join(', ')))
+    }
+    if (input.files.failed.length > 0) {
+      const failed = input.files.failed
+        .map(f => `${f.name} (${l.file.reasons[f.reason]})`)
+        .join(', ')
+      lines.push(bbField(l.file.failedFiles, failed))
+    }
   }
-  return lines.join('\n')
+  return bbLines(lines)
 }
 
 /**
@@ -134,45 +208,123 @@ const DESTINATION_NOTICES: Record<
   },
 }
 
+const LABELS: Record<NoticeLocale, Labels> = {
+  pt: {
+    from: 'De',
+    to: 'Para',
+    message: 'Mensagem',
+    template: 'Template',
+    sentTitle: 'Mensagem enviada',
+    failedTitle: 'Falha no envio',
+    failedNotice:
+      'A mensagem abaixo NÃO foi entregue e não será reenviada automaticamente.',
+    failedAction: 'Confira a conexão da linha e envie novamente pelo widget.',
+    unknownTitle: 'Envio sem confirmação',
+    unknownNotice: 'Não foi possível confirmar se a mensagem abaixo saiu.',
+    unknownAction:
+      'Confira a conversa com o contato ANTES de reenviar — ela pode ter sido entregue.',
+    robotTitle: 'Mensagem enviada pelo robô',
+    robotNoRecipientsTitle: 'Robô sem destinatário',
+    buttonQueuedTitle: 'Mensagem com botões enfileirada',
+    templateQueuedTitle: 'Template enfileirado',
+    sentBy: 'Enviado por',
+    file: {
+      message: 'Mensagem',
+      sentFiles: 'Arquivos enviados',
+      failedFiles: 'Arquivos não enviados',
+      reasons: {
+        unavailable: 'não foi possível obter o arquivo',
+        too_large: 'maior que 30 MB',
+        send_failed: 'falha no envio',
+      },
+    },
+  },
+  en: {
+    from: 'From',
+    to: 'To',
+    message: 'Message',
+    template: 'Template',
+    sentTitle: 'Message sent',
+    failedTitle: 'Send failed',
+    failedNotice:
+      'The message below was NOT delivered and will not be resent automatically.',
+    failedAction:
+      'Check the line connection and send it again from the widget.',
+    unknownTitle: 'Send not confirmed',
+    unknownNotice:
+      'It was not possible to confirm whether the message below was sent.',
+    unknownAction:
+      'Check the conversation with the contact BEFORE resending — it may have been delivered.',
+    robotTitle: 'Message sent by the robot',
+    robotNoRecipientsTitle: 'Robot with no recipient',
+    buttonQueuedTitle: 'Button message queued',
+    templateQueuedTitle: 'Template queued',
+    sentBy: 'Sent by',
+    file: {
+      message: 'Message',
+      sentFiles: 'Files sent',
+      failedFiles: 'Files not sent',
+      reasons: {
+        unavailable: 'could not get the file',
+        too_large: 'larger than 30 MB',
+        send_failed: 'send failed',
+      },
+    },
+  },
+  es: {
+    from: 'De',
+    to: 'Para',
+    message: 'Mensaje',
+    template: 'Template',
+    sentTitle: 'Mensaje enviado',
+    failedTitle: 'Falla en el envío',
+    failedNotice:
+      'El mensaje de abajo NO fue entregado y no se reenviará automáticamente.',
+    failedAction:
+      'Revise la conexión de la línea y envíelo de nuevo desde el widget.',
+    unknownTitle: 'Envío sin confirmación',
+    unknownNotice: 'No fue posible confirmar si el mensaje de abajo salió.',
+    unknownAction:
+      'Revise la conversación con el contacto ANTES de reenviar — puede haber sido entregado.',
+    robotTitle: 'Mensaje enviado por el robot',
+    robotNoRecipientsTitle: 'Robot sin destinatario',
+    buttonQueuedTitle: 'Mensaje con botones en cola',
+    templateQueuedTitle: 'Plantilla en cola',
+    sentBy: 'Enviado por',
+    file: {
+      message: 'Mensaje',
+      sentFiles: 'Archivos enviados',
+      failedFiles: 'Archivos no enviados',
+      reasons: {
+        unavailable: 'no fue posible obtener el archivo',
+        too_large: 'mayor que 30 MB',
+        send_failed: 'falla en el envío',
+      },
+    },
+  },
+}
+
 const NOTICES: Record<NoticeLocale, TimelineNotices> = {
   pt: {
     widgetFailed: (destination, text) =>
-      '⚠️ A mensagem abaixo NÃO foi entregue e não será reenviada automaticamente.\n' +
-      `Para: ${destination}\n` +
-      `Mensagem: ${text}\n` +
-      'Confira a conexão da linha e envie novamente pelo widget.',
+      widgetNotDelivered(LABELS.pt, 'failed', destination, text),
     widgetUnknown: (destination, text) =>
-      '⚠️ Não foi possível confirmar se a mensagem abaixo saiu.\n' +
-      `Para: ${destination}\n` +
-      `Mensagem: ${text}\n` +
-      'Confira a conversa com o contato ANTES de reenviar — ela pode ter sido entregue.',
-    widgetSentQueued: ({ destination, templateName, text }) =>
-      `Para: ${destination}` +
-      (templateName !== undefined ? `\nTemplate: ${templateName}` : '') +
-      `\nMensagem: ${text}`,
-    widgetSentSync: ({ fromPhone, destination, text }) =>
-      `De: ${fromPhone}\nPara: ${destination}\nMensagem: ${text}`,
+      widgetNotDelivered(LABELS.pt, 'unknown', destination, text),
+    widgetSentQueued: input => widgetSent(LABELS.pt, input),
+    widgetSentSync: input => widgetSent(LABELS.pt, input),
+    sentBy: name => bbField(LABELS.pt.sentBy, name),
     sendRobot: {
       unknownPhone: 'desconhecido',
       noRecipients: fromPhone =>
-        `De: ${fromPhone}\nNenhum destinatário encontrado para o envio.`,
+        bbLines([
+          bbTitle(LABELS.pt.robotNoRecipientsTitle),
+          bbField(LABELS.pt.from, fromPhone),
+          `Nenhum destinatário encontrado para o envio.`,
+        ]),
       noContent:
         'A automação não tem mensagem nem arquivo para enviar. Abra a configuração do robô e preencha a mensagem ou o arquivo.',
       result: ({ fromPhone, sent, ...rest }) =>
-        sendRobotResult(
-          {
-            message: 'Mensagem',
-            sentFiles: 'Arquivos enviados',
-            failedFiles: 'Arquivos não enviados',
-            reasons: {
-              unavailable: 'não foi possível obter o arquivo',
-              too_large: 'maior que 30 MB',
-              send_failed: 'falha no envio',
-            },
-          },
-          `De: ${fromPhone}\nPara: ${sent.join(', ')}`,
-          rest,
-        ),
+        sendRobotResult(LABELS.pt, fromPhone, sent, rest),
     },
     buttonRobot: {
       incomplete:
@@ -188,7 +340,10 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       destinationEmpty: DESTINATION_NOTICES.pt.empty,
       destinationUnresolved: DESTINATION_NOTICES.pt.unresolved,
       queued: destinations =>
-        `Mensagem com botões enfileirada para: ${destinations.join(', ')}`,
+        bbLines([
+          bbTitle(LABELS.pt.buttonQueuedTitle),
+          bbField(LABELS.pt.to, destinations.join(', ')),
+        ]),
     },
     templateRobot: {
       incomplete:
@@ -204,47 +359,33 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       destinationEmpty: DESTINATION_NOTICES.pt.empty,
       destinationUnresolved: DESTINATION_NOTICES.pt.unresolved,
       queued: ({ templateName, language, destinations }) =>
-        `Template "${templateName}" (${language}) enfileirado para: ${destinations.join(', ')}`,
+        bbLines([
+          bbTitle(LABELS.pt.templateQueuedTitle),
+          bbField(LABELS.pt.template, `${templateName} (${language})`),
+          bbField(LABELS.pt.to, destinations.join(', ')),
+        ]),
     },
   },
   en: {
     widgetFailed: (destination, text) =>
-      '⚠️ The message below was NOT delivered and will not be resent automatically.\n' +
-      `To: ${destination}\n` +
-      `Message: ${text}\n` +
-      'Check the line connection and send it again from the widget.',
+      widgetNotDelivered(LABELS.en, 'failed', destination, text),
     widgetUnknown: (destination, text) =>
-      '⚠️ It was not possible to confirm whether the message below was sent.\n' +
-      `To: ${destination}\n` +
-      `Message: ${text}\n` +
-      'Check the conversation with the contact BEFORE resending — it may have been delivered.',
-    widgetSentQueued: ({ destination, templateName, text }) =>
-      `To: ${destination}` +
-      (templateName !== undefined ? `\nTemplate: ${templateName}` : '') +
-      `\nMessage: ${text}`,
-    widgetSentSync: ({ fromPhone, destination, text }) =>
-      `From: ${fromPhone}\nTo: ${destination}\nMessage: ${text}`,
+      widgetNotDelivered(LABELS.en, 'unknown', destination, text),
+    widgetSentQueued: input => widgetSent(LABELS.en, input),
+    widgetSentSync: input => widgetSent(LABELS.en, input),
+    sentBy: name => bbField(LABELS.en.sentBy, name),
     sendRobot: {
       unknownPhone: 'unknown',
       noRecipients: fromPhone =>
-        `From: ${fromPhone}\nNo recipients found for this send.`,
+        bbLines([
+          bbTitle(LABELS.en.robotNoRecipientsTitle),
+          bbField(LABELS.en.from, fromPhone),
+          `No recipients found for this send.`,
+        ]),
       noContent:
         'The automation has no message and no file to send. Open the robot settings and fill in the message or the file.',
       result: ({ fromPhone, sent, ...rest }) =>
-        sendRobotResult(
-          {
-            message: 'Message',
-            sentFiles: 'Files sent',
-            failedFiles: 'Files not sent',
-            reasons: {
-              unavailable: 'could not get the file',
-              too_large: 'larger than 30 MB',
-              send_failed: 'send failed',
-            },
-          },
-          `From: ${fromPhone}\nTo: ${sent.join(', ')}`,
-          rest,
-        ),
+        sendRobotResult(LABELS.en, fromPhone, sent, rest),
     },
     buttonRobot: {
       incomplete:
@@ -258,7 +399,10 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       destinationEmpty: DESTINATION_NOTICES.en.empty,
       destinationUnresolved: DESTINATION_NOTICES.en.unresolved,
       queued: destinations =>
-        `Button message queued for: ${destinations.join(', ')}`,
+        bbLines([
+          bbTitle(LABELS.en.buttonQueuedTitle),
+          bbField(LABELS.en.to, destinations.join(', ')),
+        ]),
     },
     templateRobot: {
       incomplete:
@@ -274,47 +418,33 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       destinationEmpty: DESTINATION_NOTICES.en.empty,
       destinationUnresolved: DESTINATION_NOTICES.en.unresolved,
       queued: ({ templateName, language, destinations }) =>
-        `Template "${templateName}" (${language}) queued for: ${destinations.join(', ')}`,
+        bbLines([
+          bbTitle(LABELS.en.templateQueuedTitle),
+          bbField(LABELS.en.template, `${templateName} (${language})`),
+          bbField(LABELS.en.to, destinations.join(', ')),
+        ]),
     },
   },
   es: {
     widgetFailed: (destination, text) =>
-      '⚠️ El mensaje de abajo NO fue entregado y no se reenviará automáticamente.\n' +
-      `Para: ${destination}\n` +
-      `Mensaje: ${text}\n` +
-      'Revise la conexión de la línea y envíelo de nuevo desde el widget.',
+      widgetNotDelivered(LABELS.es, 'failed', destination, text),
     widgetUnknown: (destination, text) =>
-      '⚠️ No fue posible confirmar si el mensaje de abajo salió.\n' +
-      `Para: ${destination}\n` +
-      `Mensaje: ${text}\n` +
-      'Revise la conversación con el contacto ANTES de reenviar — puede haber sido entregado.',
-    widgetSentQueued: ({ destination, templateName, text }) =>
-      `Para: ${destination}` +
-      (templateName !== undefined ? `\nTemplate: ${templateName}` : '') +
-      `\nMensaje: ${text}`,
-    widgetSentSync: ({ fromPhone, destination, text }) =>
-      `De: ${fromPhone}\nPara: ${destination}\nMensaje: ${text}`,
+      widgetNotDelivered(LABELS.es, 'unknown', destination, text),
+    widgetSentQueued: input => widgetSent(LABELS.es, input),
+    widgetSentSync: input => widgetSent(LABELS.es, input),
+    sentBy: name => bbField(LABELS.es.sentBy, name),
     sendRobot: {
       unknownPhone: 'desconocido',
       noRecipients: fromPhone =>
-        `De: ${fromPhone}\nNo se encontró ningún destinatario para el envío.`,
+        bbLines([
+          bbTitle(LABELS.es.robotNoRecipientsTitle),
+          bbField(LABELS.es.from, fromPhone),
+          `No se encontró ningún destinatario para el envío.`,
+        ]),
       noContent:
         'La automatización no tiene mensaje ni archivo para enviar. Abra la configuración del robot y complete el mensaje o el archivo.',
       result: ({ fromPhone, sent, ...rest }) =>
-        sendRobotResult(
-          {
-            message: 'Mensaje',
-            sentFiles: 'Archivos enviados',
-            failedFiles: 'Archivos no enviados',
-            reasons: {
-              unavailable: 'no fue posible obtener el archivo',
-              too_large: 'mayor que 30 MB',
-              send_failed: 'falla en el envío',
-            },
-          },
-          `De: ${fromPhone}\nPara: ${sent.join(', ')}`,
-          rest,
-        ),
+        sendRobotResult(LABELS.es, fromPhone, sent, rest),
     },
     buttonRobot: {
       incomplete:
@@ -330,7 +460,10 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       destinationEmpty: DESTINATION_NOTICES.es.empty,
       destinationUnresolved: DESTINATION_NOTICES.es.unresolved,
       queued: destinations =>
-        `Mensaje con botones en cola para: ${destinations.join(', ')}`,
+        bbLines([
+          bbTitle(LABELS.es.buttonQueuedTitle),
+          bbField(LABELS.es.to, destinations.join(', ')),
+        ]),
     },
     templateRobot: {
       incomplete:
@@ -346,7 +479,11 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       destinationEmpty: DESTINATION_NOTICES.es.empty,
       destinationUnresolved: DESTINATION_NOTICES.es.unresolved,
       queued: ({ templateName, language, destinations }) =>
-        `Plantilla "${templateName}" (${language}) en cola para: ${destinations.join(', ')}`,
+        bbLines([
+          bbTitle(LABELS.es.templateQueuedTitle),
+          bbField(LABELS.es.template, `${templateName} (${language})`),
+          bbField(LABELS.es.to, destinations.join(', ')),
+        ]),
     },
   },
 }

@@ -2,6 +2,10 @@ import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/por
 import { DEFAULT_NOTICE_LOCALE } from '@/modules/thinkzap/domain/notices/notice-locale'
 import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import { Request, Response } from 'express'
+import {
+  robotTimelineAuthor,
+  type RobotTimelineAuthor,
+} from './robot-timeline-author'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { httpResponse } from '@/shared/helpers/http'
@@ -28,6 +32,12 @@ import { toParameterList } from './bitrix-template-robot-webhook-handler.control
 // Serve os robôs oficial e não oficial; `expectedProvider` impede disparo na linha do outro provider.
 // Mesmas decisões do robô de template (ver lá): só enfileira e recusa de negócio responde 200.
 export class BitrixButtonRobotWebhookHandlerController extends Controller {
+  /**
+   * Quem rodou o robô, para o comentário sair em nome dele. O controller é montado
+   * por request (`adaptControllerFactory`), então o campo não é compartilhado.
+   */
+  private author: RobotTimelineAuthor = {}
+
   constructor(
     private readonly getDomain: GetDomainRepository,
     private readonly getApp: GetInstalledAppRepository,
@@ -73,9 +83,10 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
     }
 
     // Todo desfecho daqui em diante comenta na timeline, no idioma da instalação.
-    const notices = timelineNotices(
-      (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE,
-    ).buttonRobot
+    const locale =
+      (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE
+    const notices = timelineNotices(locale).buttonRobot
+    this.author = robotTimelineAuthor(data.auth.user_id, locale)
 
     const crmDocument = parseBizprocDocumentId(documentId)
 
@@ -168,6 +179,7 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
           entity: crmDocument?.entity ?? '',
           entityId: crmDocument?.entityId ?? '',
           origin: 'ROBOT_BUTTONS',
+          operatorBitrixUserId: this.author.authorBitrixUserId,
         })
         queued.push(result.destination)
       } catch (error) {
@@ -240,6 +252,7 @@ export class BitrixButtonRobotWebhookHandlerController extends Controller {
       await this.sendNotification.execute({
         contextId: document.entityId,
         entity: document.entity,
+        ...this.author,
         message,
       })
     } catch (error) {

@@ -70,6 +70,8 @@ export class EnqueueRobotMessage {
     recipients: string[]
     fromPhone: string
     crmDocument: { entity: string; entityId: string } | null
+    /** Quem rodou o robô: o comentário de timeline do grupo sai em nome dele. */
+    operatorBitrixUserId?: string
   }): Promise<{ queued: number }> {
     // A row tem FK para `Instance`: a âncora nasce antes de qualquer gravação.
     const instance = await ensureLineInstance(
@@ -139,6 +141,7 @@ export class EnqueueRobotMessage {
           entity: input.crmDocument?.entity ?? '',
           entityId: input.crmDocument?.entityId ?? '',
           origin: 'ROBOT_MESSAGE' as const,
+          operatorBitrixUserId: input.operatorBitrixUserId ?? null,
           dispatchGroupId: groupId,
           partIndex: index,
           ...(index === 0 ? { dispatchMeta: meta } : {}),

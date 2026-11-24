@@ -697,7 +697,12 @@ describe('SendWidgetMessageUseCase timeline e histórico por idioma', () => {
         message: string
       }
     ).message
-    expect(comment).toBe('From: 5511911111111\nTo: 5511999999999\nMessage: Olá')
+    expect(comment).toBe(
+      '[B]Message sent[/B]\n' +
+        '[B]From:[/B] 5511911111111\n' +
+        '[B]To:[/B] 5511999999999\n' +
+        '[B]Message:[/B]\nOlá',
+    )
   })
 
   it('envio só com imagem: marcador do histórico em espanhol', async () => {
@@ -720,7 +725,11 @@ describe('SendWidgetMessageUseCase timeline e histórico por idioma', () => {
 
     expect(sut.sendBitrixNotification.execute).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'De: 5511911111111\nPara: 5511999999999\nMensagem: Olá',
+        message:
+          '[B]Mensagem enviada[/B]\n' +
+          '[B]De:[/B] 5511911111111\n' +
+          '[B]Para:[/B] 5511999999999\n' +
+          '[B]Mensagem:[/B]\nOlá',
       }),
     )
   })
