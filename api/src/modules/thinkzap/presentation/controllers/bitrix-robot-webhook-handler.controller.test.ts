@@ -573,7 +573,12 @@ describe('BitrixRobotWebhookHandlerController arquivos', () => {
       '5511',
     )
     expect(files.getCrmItem).not.toHaveBeenCalled()
-    expect(comment).toBe('De: 5599\nPara: 5511\nMensagem: oi')
+    expect(comment).toBe(
+      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+        '[B]De:[/B] 5599\n' +
+        '[B]Para:[/B] 5511\n' +
+        '[QUOTE]oi[/QUOTE]',
+    )
   })
 
   it('arquivo do campo do negócio sai como documento, com o nome', async () => {
@@ -603,8 +608,11 @@ describe('BitrixRobotWebhookHandlerController arquivos', () => {
       caption: 'Segue sua proposta',
     })
     expect(comment).toBe(
-      'De: 5599\nPara: 5511\nMensagem: Segue sua proposta\n' +
-        'Arquivos enviados: contrato.pdf',
+      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+        '[B]De:[/B] 5599\n' +
+        '[B]Para:[/B] 5511\n' +
+        '[QUOTE]Segue sua proposta[/QUOTE]\n' +
+        '[B]Arquivos enviados:[/B] contrato.pdf',
     )
   })
 
@@ -696,7 +704,7 @@ describe('BitrixRobotWebhookHandlerController arquivos', () => {
     )
     expect(sendDocumentMock).not.toHaveBeenCalled()
     expect(comment).toContain(
-      'Arquivos não enviados: #999 (não foi possível obter o arquivo)',
+      '[B]Arquivos não enviados:[/B] #999 (não foi possível obter o arquivo)',
     )
   })
 
@@ -708,7 +716,7 @@ describe('BitrixRobotWebhookHandlerController arquivos', () => {
     })
 
     expect(sendDocumentMock).toHaveBeenCalledTimes(1)
-    expect(comment).toContain('Arquivos enviados: contrato.pdf')
+    expect(comment).toContain('[B]Arquivos enviados:[/B] contrato.pdf')
     expect(comment).toContain('#5 (não foi possível obter o arquivo)')
   })
 
@@ -747,7 +755,7 @@ describe('BitrixRobotWebhookHandlerController arquivos', () => {
     const { comment } = await run({ message: '', file: ['1', '2'] })
 
     expect(sendImageMock).toHaveBeenCalledTimes(1)
-    expect(comment).toContain('Arquivos enviados: anexo.png')
+    expect(comment).toContain('[B]Arquivos enviados:[/B] anexo.png')
     expect(comment).toContain('contrato.pdf (falha no envio)')
   })
 
@@ -787,7 +795,7 @@ describe('BitrixRobotWebhookHandlerController arquivos', () => {
         sent: 0,
         refusedByDailyLimit: 1,
       })
-      expect(comment).toContain('Arquivos enviados: contrato.pdf')
+      expect(comment).toContain('[B]Arquivos enviados:[/B] contrato.pdf')
       expect(comment).not.toContain('anexo.png')
       expect(comment).toContain('NÃO enviado (limite diário da linha atingido)')
     })
@@ -812,7 +820,11 @@ describe('BitrixRobotWebhookHandlerController idioma da timeline', () => {
     const comment = (
       deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string }
     ).message
-    expect(comment).toBe('From: 5599\nNo recipients found for this send.')
+    expect(comment).toBe(
+      '[B]⚠️ Robot with no recipient[/B]\n' +
+        '[B]From:[/B] 5599\n' +
+        'No recipients found for this send.',
+    )
   })
 })
 

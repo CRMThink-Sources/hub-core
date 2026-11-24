@@ -757,6 +757,42 @@ describe('BitrixTemplateRobotWebhookHandlerController idioma da timeline', () =>
     const comment = (
       deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string }
     ).message
-    expect(comment).toMatch(/^Template "order_update" \(pt_BR\) queued for: /)
+    expect(comment).toMatch(
+      /^\[B\]✅ Template queued\[\/B\]\n\[B\]Template:\[\/B\] order_update \(pt_BR\)\n\[B\]To:\[\/B\] /,
+    )
+  })
+})
+
+describe('BitrixTemplateRobotWebhookHandlerController autor do comentário', () => {
+  const reqWithUser = (userId: string) =>
+    ({
+      body: {
+        document_id: ['crm', 'CCrmDocumentDeal', 'DEAL_10'],
+        properties: fullProperties,
+        auth: { domain: 'test.bitrix24.com', user_id: userId },
+      },
+    }) as unknown as Request
+
+  it('comenta e enfileira em nome do usuário que rodou o robô', async () => {
+    const deps = makeDeps()
+
+    await makeController(deps).perform(reqWithUser('7'), res)
+
+    expect(deps.sendNotification.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ authorBitrixUserId: '7' }),
+    )
+    expect(deps.enqueue).toHaveBeenCalledWith(
+      target,
+      expect.objectContaining({ operatorBitrixUserId: '7' }),
+    )
+  })
+
+  it('sem usuário útil (0), não define autor', async () => {
+    const deps = makeDeps()
+
+    await makeController(deps).perform(reqWithUser('0'), res)
+
+    const input = deps.sendNotification.execute.mock.calls[0]?.[0] as object
+    expect(input).not.toHaveProperty('authorBitrixUserId')
   })
 })

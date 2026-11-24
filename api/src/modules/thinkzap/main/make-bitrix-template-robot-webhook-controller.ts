@@ -4,6 +4,7 @@ import { PrismaTemplateDefaultsRepository } from '../infra/persistence/repositor
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { Controller } from '@/shared/presentation/controller'
 import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
+import { makeTimelineAuthorResolver } from '@/modules/thinkzap/main/make-timeline-author-resolver'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { PrismaInstalledAppRepository } from '@/shared/infra/persistence/repositories/prisma-installed-app.repository'
 import { makeBitrixClientByAppId } from '@/shared/main/make-bitrix-client'
@@ -62,7 +63,10 @@ export const makeBitrixTemplateRobotWebhookHandlerController = async (
       makeTemplateProviderResolver(),
       new PrismaTemplateDefaultsRepository(),
     ),
-    new BitrixLivefeedNotificationService(bx),
+    new BitrixLivefeedNotificationService(
+      bx,
+      makeTimelineAuthorResolver(domain.name),
+    ),
     bx,
     makeInstallationLocaleRepository(),
   )

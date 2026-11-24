@@ -17,6 +17,8 @@ export type NotifyWidgetSendOutcomeInput = {
   entityId: string
   destination: string
   text: string
+  /** Quem tentou enviar: o aviso sai em nome dele, se houver token. */
+  authorBitrixUserId?: string
   /** Idioma da instalação. Ausente, português. */
   locale?: NoticeLocale
 }
@@ -67,6 +69,7 @@ export async function notifyWidgetSendOutcome(
     entityId,
     destination,
     text,
+    authorBitrixUserId,
     locale = DEFAULT_NOTICE_LOCALE,
   } = input
 
@@ -74,6 +77,8 @@ export async function notifyWidgetSendOutcome(
     await sendNotification.execute({
       contextId: entityId,
       entity,
+      authorBitrixUserId,
+      senderLine: timelineNotices(locale).sentBy,
       message: NOTICE_BY_OUTCOME[outcome](destination, text, locale),
     })
 
