@@ -31,6 +31,7 @@ import { Input } from '@/components/ui/input'
 import { axiosPortal } from '@/infra/client/axios-portal'
 import {
   isConnectorLine,
+  lineActionOutcome,
   lineActions,
   linesToUnsubscribe,
   minPeriodEnd,
@@ -43,6 +44,7 @@ import { formatSpaDate } from '@/lib/format-date'
 import type {
   AppSubscription,
   AppSubscriptionItem,
+  LineBillingActionResponse,
   ListAppSubscriptionsResponse,
   SubscribeLinesResponse,
 } from '@/lib/portal-domains'
@@ -191,12 +193,10 @@ export function AdminAppSubscriptionsSection({ appId }: Props) {
     action: 'subscribe' | 'unsubscribe',
   ) =>
     run(subscription.id, async () => {
-      await axiosPortal().post(`${base}/thinkzap-lines/${item.id}/${action}`)
-      return t(
-        action === 'subscribe'
-          ? 'subscriptions.result.lineSubscribed'
-          : 'subscriptions.result.lineUnsubscribed',
+      const result = await axiosPortal().post<LineBillingActionResponse>(
+        `${base}/thinkzap-lines/${item.id}/${action}`,
       )
+      return lineActionOutcome(action, result, t)
     })
 
   if (state.kind !== 'ready' || state.subscriptions.length === 0) {

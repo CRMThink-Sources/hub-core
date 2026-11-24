@@ -345,7 +345,8 @@
       "lines": "{{subscribed}} suscrita(s), {{unsubscribed}} desuscrita(s), {{ignored}} sin cambios.",
       "linesPartial": "{{subscribed}} suscrita(s), {{unsubscribed}} desuscrita(s), {{failed}} con error.",
       "lineSubscribed": "Línea suscrita en el proveedor.",
-      "lineUnsubscribed": "Línea desuscrita en el proveedor."
+      "lineUnsubscribed": "Línea desuscrita en el proveedor.",
+      "lineMarkNotRecorded": "La marca de cobro no se registró porque el ítem no tiene suscripción padre. Revise el ítem en la SPA."
     },
     "refusal": {
       "provider-effects-disabled": "Acción rechazada: los efectos de proveedor están apagados en este entorno.",

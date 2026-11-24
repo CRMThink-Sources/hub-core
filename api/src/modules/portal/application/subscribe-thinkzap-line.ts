@@ -7,6 +7,8 @@ import { SpaItemResourceMirrorRepository } from '@/modules/application/domain/re
 import { RedisSpaItemResourceMirrorRepository } from '@/modules/application/infra/cache/redis-spa-item-resource-mirror.repository'
 import { redisConnection } from '@/queue/redis-connection'
 import { ProviderEffectsDisabledError } from '../domain/errors/portal-domain.errors'
+import { ensureLineMirror } from '@/modules/thinkzap/application/helpers/ensure-line-mirror'
+import { resolveFromItem } from '@/modules/thinkzap/application/provider-resource-billing'
 import { resolveAdminLine } from './helpers/resolve-admin-line'
 
 /**
@@ -28,8 +30,42 @@ export class ThinkzapLineCredentialMissingError extends Error {
  * recurso e a flag de ambiente.
  */
 export type LineBillingEffects = {
-  mirrors: Pick<SpaItemResourceMirrorRepository, 'setBillingState'>
+  mirrors: Pick<
+    SpaItemResourceMirrorRepository,
+    'find' | 'save' | 'setBillingState'
+  >
   providerEffectsEnabled: boolean
+}
+
+/**
+ * Resultado das ações manuais de assinar/desassinar. `markRecorded` é `false` quando o
+ * provider aceitou, mas a marca não pôde ser gravada (item sem assinatura pai e sem
+ * espelho): o chamador não pode mostrar isso como sucesso completo.
+ */
+export type LineBillingActionResult = { markRecorded: boolean }
+
+/**
+ * Depois do sucesso no provider: garante o espelho e grava a marca. Compartilhado por
+ * "assinar" e "desassinar", que só diferem no estado gravado.
+ */
+export async function recordLineBillingMark(
+  effects: LineBillingEffects,
+  item: SubscriptionItem,
+  state: 'subscribed' | 'unsubscribed',
+): Promise<LineBillingActionResult> {
+  const resource = resolveFromItem(item)
+  // Item sem credencial já foi recusado antes de chamar o provider.
+  if ('skip' in resource) return { markRecorded: false }
+
+  const outcome = await ensureLineMirror(effects.mirrors, {
+    itemId: item.id,
+    resource,
+    subscriptionId: item.subscription || null,
+  })
+  if (outcome === 'no-parent') return { markRecorded: false }
+
+  await effects.mirrors.setBillingState(item.id, state)
+  return { markRecorded: true }
 }
 
 export const defaultLineBillingEffects = (): LineBillingEffects => ({
@@ -55,7 +91,7 @@ export async function subscribeThinkzapLine(
   subscriptionItemId: string,
   deps?: AppContextDeps,
   effects: LineBillingEffects = defaultLineBillingEffects(),
-): Promise<void> {
+): Promise<LineBillingActionResult> {
   if (!effects.providerEffectsEnabled) throw new ProviderEffectsDisabledError()
 
   const item = await resolveAdminLine(appId, subscriptionItemId, deps)
@@ -67,7 +103,7 @@ export async function subscribeThinkzapLine(
     await zApiClient().subscribe(instanceId, token)
   }
 
-  await effects.mirrors.setBillingState(item.id, 'subscribed')
+  return recordLineBillingMark(effects, item, 'subscribed')
 }
 
 /** Credencial Z-API do item, recusando campo vazio antes de qualquer chamada de rede. */
