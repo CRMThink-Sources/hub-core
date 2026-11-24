@@ -119,22 +119,22 @@ describe('catálogo de avisos do servidor', () => {
   it('robô de envio sem arquivos: título, campos e mensagem em citação', () => {
     const input = { fromPhone: '5599', sent: ['551', '552'], message: 'oi' }
     expect(timelineNotices('pt').sendRobot.result(input)).toBe(
-      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+      '[B]Mensagem enviada pelo robô[/B]\n' +
         '[B]De:[/B] 5599\n' +
         '[B]Para:[/B] 551, 552\n' +
-        '[QUOTE]oi[/QUOTE]',
+        '[B]Mensagem:[/B]\noi',
     )
     expect(timelineNotices('en').sendRobot.result(input)).toBe(
-      '[B]✅ Message sent by the robot[/B]\n' +
+      '[B]Message sent by the robot[/B]\n' +
         '[B]From:[/B] 5599\n' +
         '[B]To:[/B] 551, 552\n' +
-        '[QUOTE]oi[/QUOTE]',
+        '[B]Message:[/B]\noi',
     )
     expect(timelineNotices('es').sendRobot.result(input)).toBe(
-      '[B]✅ Mensaje enviado por el robot[/B]\n' +
+      '[B]Mensaje enviado por el robot[/B]\n' +
         '[B]De:[/B] 5599\n' +
         '[B]Para:[/B] 551, 552\n' +
-        '[QUOTE]oi[/QUOTE]',
+        '[B]Mensaje:[/B]\noi',
     )
   })
 
@@ -150,10 +150,10 @@ describe('catálogo de avisos do servidor', () => {
         },
       }),
     ).toBe(
-      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+      '[B]Mensagem enviada pelo robô[/B]\n' +
         '[B]De:[/B] 5599\n' +
         '[B]Para:[/B] 551\n' +
-        '[QUOTE]Segue sua proposta[/QUOTE]\n' +
+        '[B]Mensagem:[/B]\nSegue sua proposta\n' +
         '[B]Arquivos enviados:[/B] proposta.pdf\n' +
         '[B]Arquivos não enviados:[/B] anexo.png (não foi possível obter o arquivo)',
     )
@@ -174,10 +174,10 @@ describe('catálogo de avisos do servidor', () => {
         },
       }),
     ).toBe(
-      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+      '[B]Mensagem enviada pelo robô[/B]\n' +
         '[B]De:[/B] 5599\n' +
         '[B]Para:[/B] 551\n' +
-        '[QUOTE]Segue[/QUOTE]\n' +
+        '[B]Mensagem:[/B]\nSegue\n' +
         '[B]Arquivos não enviados:[/B] a.pdf (falha no envio), b.mp4 (maior que 30 MB)',
     )
   })
@@ -196,18 +196,18 @@ describe('catálogo de avisos do servidor', () => {
       },
     }
     expect(timelineNotices('en').sendRobot.result(input)).toBe(
-      '[B]✅ Message sent by the robot[/B]\n' +
+      '[B]Message sent by the robot[/B]\n' +
         '[B]From:[/B] 5599\n' +
         '[B]To:[/B] 551\n' +
-        '[QUOTE]oi[/QUOTE]\n' +
+        '[B]Message:[/B]\noi\n' +
         '[B]Files sent:[/B] proposta.pdf\n' +
         '[B]Files not sent:[/B] x.png (could not get the file), y.pdf (send failed)',
     )
     expect(timelineNotices('es').sendRobot.result(input)).toBe(
-      '[B]✅ Mensaje enviado por el robot[/B]\n' +
+      '[B]Mensaje enviado por el robot[/B]\n' +
         '[B]De:[/B] 5599\n' +
         '[B]Para:[/B] 551\n' +
-        '[QUOTE]oi[/QUOTE]\n' +
+        '[B]Mensaje:[/B]\noi\n' +
         '[B]Archivos enviados:[/B] proposta.pdf\n' +
         '[B]Archivos no enviados:[/B] x.png (no fue posible obtener el archivo), y.pdf (falla en el envío)',
     )
@@ -222,7 +222,7 @@ describe('catálogo de avisos do servidor', () => {
         files: { sent: ['proposta.pdf'], failed: [] },
       }),
     ).toBe(
-      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+      '[B]Mensagem enviada pelo robô[/B]\n' +
         '[B]De:[/B] 5599\n' +
         '[B]Para:[/B] 551\n' +
         '[B]Arquivos enviados:[/B] proposta.pdf',
@@ -241,7 +241,7 @@ describe('catálogo de avisos do servidor', () => {
       text: 'oi [/quote][b]x[/b]',
     })
 
-    expect(text.match(/\[\/QUOTE\]/gi)).toHaveLength(1)
+    expect(text).not.toContain('[/quote]')
     expect(text).not.toContain('[b]')
   })
 

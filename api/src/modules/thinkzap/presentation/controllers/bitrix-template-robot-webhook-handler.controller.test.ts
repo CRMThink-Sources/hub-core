@@ -758,7 +758,7 @@ describe('BitrixTemplateRobotWebhookHandlerController idioma da timeline', () =>
       deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string }
     ).message
     expect(comment).toMatch(
-      /^\[B\]✅ Template queued\[\/B\]\n\[B\]Template:\[\/B\] order_update \(pt_BR\)\n\[B\]To:\[\/B\] /,
+      /^\[B\]Template queued\[\/B\]\n\[B\]Template:\[\/B\] order_update \(pt_BR\)\n\[B\]To:\[\/B\] /,
     )
   })
 })

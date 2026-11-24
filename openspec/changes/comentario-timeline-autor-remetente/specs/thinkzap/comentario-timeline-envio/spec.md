@@ -37,11 +37,11 @@ Quando não houver token utilizável do remetente (nunca autorizou o app, renova
 - **THEN** o sistema NÃO publica uma segunda vez com a credencial da instalação
 
 ### Requirement: Comentário de envio legível
-O comentário de timeline SHALL ser formatado em BBCode do Bitrix, com título que informa o tipo e o resultado (enviado, falhou, sem confirmação), remetente/linha e destinatário em linhas rotuladas, o texto da mensagem separado e destacado, e, quando houver, o nome do template e a lista de arquivos em linhas próprias. A formatação SHALL existir em português, inglês e espanhol, conforme o idioma da instalação. O texto da mensagem, nomes e telefones SHALL aparecer como vieram, sem interpretação de marcação: BBCode digitado pelo operador NÃO SHALL alterar o layout do comentário.
+O comentário de timeline SHALL ser formatado em BBCode do Bitrix, com título que informa o tipo e o resultado (enviado, falhou, sem confirmação), remetente/linha e destinatário em linhas rotuladas, o texto da mensagem em linha própria sob o rótulo (sem bloco de citação) e, quando houver, o nome do template e a lista de arquivos em linhas próprias. A formatação SHALL existir em português, inglês e espanhol, conforme o idioma da instalação. O texto da mensagem, nomes e telefones SHALL aparecer como vieram, sem interpretação de marcação: BBCode digitado pelo operador NÃO SHALL alterar o layout do comentário.
 
 #### Scenario: Envio de texto confirmado
 - **WHEN** uma mensagem de texto é enviada com sucesso
-- **THEN** o comentário mostra título de envio, linha de origem, destinatário e a mensagem em bloco separado
+- **THEN** o comentário mostra título de envio, linha de origem, destinatário e a mensagem em linha própria sob o rótulo, sem bloco de citação
 
 #### Scenario: Template confirmado
 - **WHEN** um template é enviado com sucesso
@@ -58,3 +58,14 @@ O comentário de timeline SHALL ser formatado em BBCode do Bitrix, com título q
 #### Scenario: Idioma da instalação
 - **WHEN** a instalação está em inglês ou espanhol
 - **THEN** títulos e rótulos do comentário saem nesse idioma, com a mesma estrutura do português
+
+### Requirement: Ícone do ThinkZap no comentário
+O comentário de envio SHALL abrir com o ícone do ThinkZap na linha do título, no lugar de emojis. Quando o servidor não tiver endereço público do front configurado, o comentário SHALL ser publicado normalmente, sem o ícone.
+
+#### Scenario: Comentário com ícone
+- **WHEN** o servidor publica um comentário de envio e o endereço público do front está configurado
+- **THEN** o comentário começa com a imagem do ThinkZap, seguida do título em negrito, sem emoji
+
+#### Scenario: Front sem endereço público
+- **WHEN** o servidor publica um comentário de envio e não há endereço público do front configurado
+- **THEN** o comentário é publicado sem o ícone

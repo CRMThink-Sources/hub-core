@@ -5,6 +5,15 @@ import {
 import { BitrixClient } from '../infra/clients/bitrix.client'
 import { apiLogger } from '../infra/logger'
 
+/** Tamanho do ícone na linha do título, em px. */
+const BRAND_ICON_SIZE = 16
+
+/** Ícone no começo do comentário. Sem URL (front sem endereço público), sai sem ícone. */
+function withBrandIcon(message: string, iconUrl: string | undefined): string {
+  if (!iconUrl) return message
+  return `[IMG WIDTH=${BRAND_ICON_SIZE} HEIGHT=${BRAND_ICON_SIZE}]${iconUrl}[/IMG] ${message}`
+}
+
 /**
  * Cliente do Bitrix que age como o usuário (token OAuth dele), ou `null` quando ele
  * nunca autorizou o app. Pode lançar (ex.: renovação do token falhou).
@@ -39,6 +48,8 @@ export class BitrixLivefeedNotificationService implements SendNotification {
   constructor(
     private readonly bitrixClient: BitrixClient,
     private readonly resolveAuthor?: TimelineAuthorResolver,
+    /** Ícone da marca no começo de todo comentário deste serviço. Ausente, sem ícone. */
+    private readonly brandIconUrl?: string,
   ) {}
 
   async execute(input: SendNotificationInput): Promise<void> {
@@ -57,7 +68,7 @@ export class BitrixLivefeedNotificationService implements SendNotification {
       fields: {
         ENTITY_ID: entityId,
         ENTITY_TYPE: entity.toUpperCase(),
-        COMMENT: comment,
+        COMMENT: withBrandIcon(comment, this.brandIconUrl),
       },
     })
 

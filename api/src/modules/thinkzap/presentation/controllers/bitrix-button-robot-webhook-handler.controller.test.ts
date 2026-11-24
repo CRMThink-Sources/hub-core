@@ -629,7 +629,7 @@ describe('BitrixButtonRobotWebhookHandlerController idioma da timeline', () => {
     await withLocale(deps, 'es').perform(makeReq(fullProperties), res)
 
     expect(commentOf(deps)).toMatch(
-      /^\[B\]✅ Mensaje con botones en cola\[\/B\]\n\[B\]Para:\[\/B\] /,
+      /^\[B\]Mensaje con botones en cola\[\/B\]\n\[B\]Para:\[\/B\] /,
     )
   })
 

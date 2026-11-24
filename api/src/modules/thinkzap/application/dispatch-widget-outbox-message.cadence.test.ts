@@ -655,7 +655,7 @@ describe('DispatchWidgetOutboxMessage — envio com anexo em grupo', () => {
       unknown,
       string,
     ]
-    expect(message).toContain('[QUOTE]Segue')
+    expect(message).toContain('[B]Mensagem:[/B]\nSegue')
     expect(message).toContain('2')
     expect(s.notifyGroupOutcome).not.toHaveBeenCalled()
   })

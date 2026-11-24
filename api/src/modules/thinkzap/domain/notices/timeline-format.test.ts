@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   bbField,
   bbLines,
-  bbQuote,
+  bbMessage,
   bbTitle,
   escapeBbcode,
 } from './timeline-format'
@@ -24,21 +24,29 @@ describe('escapeBbcode', () => {
 })
 
 describe('layout do comentário', () => {
-  it('monta título, campo e citação', () => {
+  it('monta título, campo e mensagem em linha própria', () => {
     expect(
-      bbLines([bbTitle('Enviada'), bbField('Para', '5511'), bbQuote('oi')]),
-    ).toBe('[B]Enviada[/B]\n[B]Para:[/B] 5511\n[QUOTE]oi[/QUOTE]')
+      bbLines([
+        bbTitle('Enviada'),
+        bbField('Para', '5511'),
+        bbMessage('Mensagem', 'oi'),
+      ]),
+    ).toBe('[B]Enviada[/B]\n[B]Para:[/B] 5511\n[B]Mensagem:[/B]\noi')
   })
 
-  it('mensagem vazia não vira bloco de citação', () => {
-    expect(bbQuote('   ')).toBeUndefined()
-    expect(bbLines([bbTitle('T'), bbQuote('')])).toBe('[B]T[/B]')
+  it('não usa bloco de citação', () => {
+    expect(bbMessage('Mensagem', 'oi')).not.toMatch(/quote/i)
   })
 
-  it('BBCode do operador não fecha a citação do comentário', () => {
-    const quote = bbQuote('olha [/quote][b]isso[/b]') as string
+  it('mensagem vazia não gera a linha', () => {
+    expect(bbMessage('Mensagem', '   ')).toBeUndefined()
+    expect(bbLines([bbTitle('T'), bbMessage('Mensagem', '')])).toBe('[B]T[/B]')
+  })
 
-    expect(quote.match(/\[\/QUOTE\]/gi)).toHaveLength(1)
-    expect(quote.endsWith('[/QUOTE]')).toBe(true)
+  it('BBCode do operador não vira marcação', () => {
+    const line = bbMessage('Mensagem', 'olha [/quote][b]isso[/b]') as string
+
+    expect(line).not.toContain('[/quote]')
+    expect(line).not.toContain('[b]')
   })
 })

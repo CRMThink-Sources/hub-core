@@ -7,7 +7,7 @@
  */
 
 import type { NoticeLocale } from './notices/notice-locale'
-import { bbField, bbLines, bbQuote, bbTitle } from './notices/timeline-format'
+import { bbField, bbLines, bbMessage, bbTitle } from './notices/timeline-format'
 
 // O idioma é dos avisos do servidor em geral; reexportado para os chamadores do limite.
 export {
@@ -37,10 +37,10 @@ const NOTICES: Record<NoticeLocale, DailyLimitNotices> = {
       'aba Limites de envio da linha.',
     queuedRefused: (destination, text) =>
       bbLines([
-        bbTitle('⚠️ Falha no envio: limite diário da linha'),
+        bbTitle('Falha no envio: limite diário da linha'),
         'A mensagem abaixo NÃO foi entregue: a linha atingiu o limite diário de mensagens.',
         bbField('Para', destination),
-        bbQuote(text),
+        bbMessage('Mensagem', text),
         'Ela não será reenviada automaticamente. Os envios voltam na virada do dia, ou antes, ' +
           'se o limite for aumentado ou um limite temporário for liberado na aba Limites de envio da linha.',
       ]),
@@ -56,10 +56,10 @@ const NOTICES: Record<NoticeLocale, DailyLimitNotices> = {
       'the limit is raised or a temporary limit is released in the line Sending limits tab.',
     queuedRefused: (destination, text) =>
       bbLines([
-        bbTitle('⚠️ Send failed: line daily limit'),
+        bbTitle('Send failed: line daily limit'),
         'The message below was NOT delivered: the line has reached its daily message limit.',
         bbField('To', destination),
-        bbQuote(text),
+        bbMessage('Message', text),
         'It will not be resent automatically. Sending resumes when the day turns over, or sooner ' +
           'if the limit is raised or a temporary limit is released in the line Sending limits tab.',
       ]),
@@ -76,10 +76,10 @@ const NOTICES: Record<NoticeLocale, DailyLimitNotices> = {
       'Límites de envío de la línea.',
     queuedRefused: (destination, text) =>
       bbLines([
-        bbTitle('⚠️ Falla en el envío: límite diario de la línea'),
+        bbTitle('Falla en el envío: límite diario de la línea'),
         'El mensaje de abajo NO fue entregado: la línea alcanzó el límite diario de mensajes.',
         bbField('Para', destination),
-        bbQuote(text),
+        bbMessage('Mensaje', text),
         'No se reenviará automáticamente. Los envíos vuelven con el cambio de día, o antes, ' +
           'si se aumenta el límite o se libera un límite temporal en la pestaña Límites de envío de la línea.',
       ]),
