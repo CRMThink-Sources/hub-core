@@ -1,6 +1,7 @@
 import type {
   AppSubscription,
   AppSubscriptionItem,
+  LineBillingActionResponse,
   SubscribeLinesResponse,
 } from './portal-domains'
 import { readPortalError } from './portal-domains'
@@ -102,6 +103,29 @@ export function refusalMessage(error: unknown, t: Translate): string {
   if (status === 422) return t('subscriptions.refusal.no-credential')
 
   return t('subscriptions.refusal.generic')
+}
+
+/**
+ * Resultado de "Assinar"/"Desassinar" uma linha. O provider aceitou nos dois casos; só
+ * muda se a marca ficou registrada, e quando não ficou a tela não pode mostrar sucesso
+ * pleno — a listagem continuaria dizendo "desconhecido".
+ */
+export function lineActionOutcome(
+  action: 'subscribe' | 'unsubscribe',
+  response: LineBillingActionResponse | undefined,
+  t: Translate,
+): { tone: 'success' | 'warning'; message: string } {
+  const done =
+    action === 'subscribe'
+      ? 'subscriptions.result.lineSubscribed'
+      : 'subscriptions.result.lineUnsubscribed'
+
+  return response?.markRecorded === false
+    ? {
+        tone: 'warning',
+        message: `${t(done)} ${t('subscriptions.result.lineMarkNotRecorded')}`,
+      }
+    : { tone: 'success', message: t(done) }
 }
 
 /** Resultado de "Assinar todas": falha parcial tem texto e tom próprios. */

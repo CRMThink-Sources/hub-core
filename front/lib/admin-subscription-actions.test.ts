@@ -5,6 +5,7 @@ import {
   minPeriodEnd,
   periodEnded,
   refusalMessage,
+  lineActionOutcome,
   subscribeLinesOutcome,
   subscriptionActions,
 } from './admin-subscription-actions'
@@ -172,6 +173,42 @@ describe('refusalMessage', () => {
   it('o resto vira a genérica', () => {
     expect(refusalMessage(new Error('Network Error'), t)).toBe(
       'subscriptions.refusal.generic',
+    )
+  })
+})
+
+describe('lineActionOutcome', () => {
+  it('marca registrada: sucesso com o texto da ação', () => {
+    expect(
+      lineActionOutcome(
+        'subscribe',
+        { message: 'Subscribed', markRecorded: true },
+        t,
+      ),
+    ).toEqual({
+      tone: 'success',
+      message: 'subscriptions.result.lineSubscribed',
+    })
+    expect(lineActionOutcome('unsubscribe', undefined, t).tone).toBe('success')
+  })
+
+  it('api sem o campo: lido como registrada', () => {
+    expect(
+      lineActionOutcome('subscribe', { message: 'Subscribed' }, t).tone,
+    ).toBe('success')
+  })
+
+  it('marca não registrada: atenção, com o aviso junto do resultado', () => {
+    const outcome = lineActionOutcome(
+      'subscribe',
+      { message: 'Subscribed', markRecorded: false },
+      t,
+    )
+
+    expect(outcome.tone).toBe('warning')
+    expect(outcome.message).toContain('subscriptions.result.lineSubscribed')
+    expect(outcome.message).toContain(
+      'subscriptions.result.lineMarkNotRecorded',
     )
   })
 })

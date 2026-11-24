@@ -1,7 +1,4 @@
-import {
-  SaveSpaItemResourceMirrorInput,
-  SpaItemResourceMirrorRepository,
-} from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
+import { SpaItemResourceMirrorRepository } from '@/modules/application/domain/repositories/spa-item-resource-mirror.repository'
 import type { Subscription } from '@/modules/application/domain/entities/subscription'
 import { RawSubscriptionItemReader } from '@/modules/thinkzap/domain/ports/raw-subscription-item-reader.port'
 import { apiLogger } from '@/shared/infra/logger'
@@ -10,6 +7,7 @@ import {
   ProviderResourceBilling,
   ProviderResourceRef,
 } from './provider-resource-billing'
+import { ensureLineMirror } from './helpers/ensure-line-mirror'
 import { resolveRawItemResource } from './helpers/raw-item-resource'
 import {
   resolveProviderBillingAction,
@@ -361,39 +359,15 @@ export class SyncSpaItemResourceStatus {
   }
 
   /**
-   * Grava o espelho quando ele não existe, para que a marca tenha onde morar.
-   *
-   * Sem `subscriptionId` não há espelho possível — o valor exige o contrato pai, que é o
-   * que o ajuste de cobrança da exclusão vai precisar. Item sem pai é estado inválido na
-   * SPA, e aqui ele custa a idempotência: o próximo evento desassinaria de novo.
+   * Grava o espelho quando ele não existe (ver `ensureLineMirror`), para que a marca
+   * tenha onde morar. A regra vive no helper porque as ações manuais do backoffice
+   * precisam da mesma.
    */
   private async ensureMirror(
     itemId: string,
     resource: ProviderResourceRef,
     subscriptionId: string | null,
   ): Promise<void> {
-    if (await this.mirrors.find(itemId)) return
-
-    if (!subscriptionId) {
-      apiLogger.warn(
-        { app: 'thinkzap', itemId },
-        'Item sem assinatura pai — espelho não gravado, e a desassinatura pode repetir no próximo evento',
-      )
-      return
-    }
-
-    const mirror: SaveSpaItemResourceMirrorInput = {
-      provider: resource.provider,
-      instanceId: resource.instanceId,
-      ...(resource.zApiToken !== undefined && {
-        zApiToken: resource.zApiToken,
-      }),
-      ...(resource.channelId !== undefined && {
-        channelId: resource.channelId,
-      }),
-      subscriptionId,
-    }
-
-    await this.mirrors.save(itemId, mirror)
+    await ensureLineMirror(this.mirrors, { itemId, resource, subscriptionId })
   }
 }

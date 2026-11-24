@@ -345,7 +345,8 @@
       "lines": "{{subscribed}} subscribed, {{unsubscribed}} unsubscribed, {{ignored}} unchanged.",
       "linesPartial": "{{subscribed}} subscribed, {{unsubscribed}} unsubscribed, {{failed}} failed.",
       "lineSubscribed": "Line subscribed at provider.",
-      "lineUnsubscribed": "Line unsubscribed at provider."
+      "lineUnsubscribed": "Line unsubscribed at provider.",
+      "lineMarkNotRecorded": "The billing mark was not recorded because the item has no parent subscription. Check the item in the SPA."
     },
     "refusal": {
       "provider-effects-disabled": "Action refused: provider effects are off in this environment.",
