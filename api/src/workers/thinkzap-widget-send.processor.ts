@@ -61,8 +61,7 @@ import { AppendJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { PrismaDeliveryAttemptRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-delivery-attempt.repository'
 import { ThinkzapWidgetSendJob } from '@/queue/thinkzap-widget-outbound.queue'
 import { redisConnection } from '@/queue/redis-connection'
-import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
-import { makeTimelineAuthorResolver } from '@/modules/thinkzap/main/make-timeline-author-resolver'
+import { makeTimelineNotifier } from '@/modules/thinkzap/main/make-timeline-notifier'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
 import { makeBitrixClientByDomainAndAppCoode } from '@/shared/main/make-bitrix-client'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
@@ -316,10 +315,7 @@ async function makeNotifier(row: WidgetOutboxRecord) {
     row.appCode,
   )
 
-  return new BitrixLivefeedNotificationService(
-    bitrix,
-    makeTimelineAuthorResolver(domain.name),
-  )
+  return makeTimelineNotifier(bitrix, domain.name)
 }
 
 /**

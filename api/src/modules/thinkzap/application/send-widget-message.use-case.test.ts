@@ -698,10 +698,10 @@ describe('SendWidgetMessageUseCase timeline e histórico por idioma', () => {
       }
     ).message
     expect(comment).toBe(
-      '[B]✅ Message sent[/B]\n' +
+      '[B]Message sent[/B]\n' +
         '[B]From:[/B] 5511911111111\n' +
         '[B]To:[/B] 5511999999999\n' +
-        '[QUOTE]Olá[/QUOTE]',
+        '[B]Message:[/B]\nOlá',
     )
   })
 
@@ -726,10 +726,10 @@ describe('SendWidgetMessageUseCase timeline e histórico por idioma', () => {
     expect(sut.sendBitrixNotification.execute).toHaveBeenCalledWith(
       expect.objectContaining({
         message:
-          '[B]✅ Mensagem enviada[/B]\n' +
+          '[B]Mensagem enviada[/B]\n' +
           '[B]De:[/B] 5511911111111\n' +
           '[B]Para:[/B] 5511999999999\n' +
-          '[QUOTE]Olá[/QUOTE]',
+          '[B]Mensagem:[/B]\nOlá',
       }),
     )
   })

@@ -574,10 +574,10 @@ describe('BitrixRobotWebhookHandlerController arquivos', () => {
     )
     expect(files.getCrmItem).not.toHaveBeenCalled()
     expect(comment).toBe(
-      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+      '[B]Mensagem enviada pelo robô[/B]\n' +
         '[B]De:[/B] 5599\n' +
         '[B]Para:[/B] 5511\n' +
-        '[QUOTE]oi[/QUOTE]',
+        '[B]Mensagem:[/B]\noi',
     )
   })
 
@@ -608,10 +608,10 @@ describe('BitrixRobotWebhookHandlerController arquivos', () => {
       caption: 'Segue sua proposta',
     })
     expect(comment).toBe(
-      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+      '[B]Mensagem enviada pelo robô[/B]\n' +
         '[B]De:[/B] 5599\n' +
         '[B]Para:[/B] 5511\n' +
-        '[QUOTE]Segue sua proposta[/QUOTE]\n' +
+        '[B]Mensagem:[/B]\nSegue sua proposta\n' +
         '[B]Arquivos enviados:[/B] contrato.pdf',
     )
   })
@@ -821,7 +821,7 @@ describe('BitrixRobotWebhookHandlerController idioma da timeline', () => {
       deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string }
     ).message
     expect(comment).toBe(
-      '[B]⚠️ Robot with no recipient[/B]\n' +
+      '[B]Robot with no recipient[/B]\n' +
         '[B]From:[/B] 5599\n' +
         'No recipients found for this send.',
     )

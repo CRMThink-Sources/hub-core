@@ -7,6 +7,8 @@
 - [x] 1.3 Reescrever `sendRobot.result/noRecipients`, `buttonRobot.queued` e `templateRobot.queued` no mesmo layout; ajustar `dailyLimitNotices` ao novo padrão
 - [x] 1.4 Expor `sentBy(name)` no catálogo (`Enviado por:` / `Sent by:` / `Enviado por:`), usado como `senderLine` no fallback, e atualizar `notices-catalog.test.ts` e os testes dos controllers
 
+- [x] 1.5 Trocar o bloco de citação por `Mensagem:` em linha própria e os emojis dos títulos pelo ícone do ThinkZap (`timeline-icon.png` no front, prefixo `[IMG]` no serviço, fábrica `make-timeline-notifier.ts`)
+
 ## 2. Autor no contrato de notificação
 
 - [x] 2.1 Adicionar `authorBitrixUserId?` a `SendNotificationInput` (`shared/data/contracts/send-notification.ts`)
@@ -32,4 +34,5 @@
 - [x] 5.1 Criar fábrica do resolvedor de token reaproveitando `ResolveOperatorBitrixAccessToken` + `BitrixClient.withUserToken` (como em `make-mirror-operator-author.ts`) e ligar nos `make-*` e no worker
 - [x] 5.2 Em `api/`: `yarn check-types`, `yarn lint` (zero warnings) e `yarn test`
 - [ ] 5.3 Validar em staging: operador autorizado, operador sem autorização, template pela fila, anexo, falha de envio e robô; conferir autor e layout nos três idiomas
+- [ ] 5.5 Validar em staging que o Bitrix renderiza o `[IMG WIDTH=16 HEIGHT=16]` no comentário (e que a URL do front é pública); se não renderizar, remover o prefixo antes de seguir
 - [ ] 5.4 Branch `task/comentario-timeline-autor-remetente`; registrar no commit/PR a validação pendente em staging e arquivar a change após o deploy

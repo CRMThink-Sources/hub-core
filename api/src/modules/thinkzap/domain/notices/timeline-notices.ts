@@ -1,5 +1,5 @@
 import type { NoticeLocale } from './notice-locale'
-import { bbField, bbLines, bbQuote, bbTitle } from './timeline-format'
+import { bbField, bbLines, bbMessage, bbTitle } from './timeline-format'
 
 /**
  * Comentários que o servidor publica na timeline do CRM, por idioma.
@@ -130,7 +130,7 @@ function widgetSent(
     input.templateName !== undefined
       ? bbField(l.template, input.templateName)
       : undefined,
-    bbQuote(input.text),
+    bbMessage(l.message, input.text),
   ])
 }
 
@@ -145,7 +145,7 @@ function widgetNotDelivered(
     bbTitle(failed ? l.failedTitle : l.unknownTitle),
     failed ? l.failedNotice : l.unknownNotice,
     bbField(l.to, destination),
-    bbQuote(text),
+    bbMessage(l.message, text),
     failed ? l.failedAction : l.unknownAction,
   ])
 }
@@ -162,7 +162,9 @@ function sendRobotResult(
     bbField(l.to, sent.join(', ')),
   ]
   // Sem `files`, a mensagem aparece sempre; com `files`, só quando existe.
-  if (!input.files || input.message) lines.push(bbQuote(input.message))
+  if (!input.files || input.message) {
+    lines.push(bbMessage(l.message, input.message))
+  }
   if (input.files) {
     if (input.files.sent.length > 0) {
       lines.push(bbField(l.file.sentFiles, input.files.sent.join(', ')))
@@ -212,19 +214,19 @@ const LABELS: Record<NoticeLocale, Labels> = {
     to: 'Para',
     message: 'Mensagem',
     template: 'Template',
-    sentTitle: '✅ Mensagem enviada',
-    failedTitle: '⚠️ Falha no envio',
+    sentTitle: 'Mensagem enviada',
+    failedTitle: 'Falha no envio',
     failedNotice:
       'A mensagem abaixo NÃO foi entregue e não será reenviada automaticamente.',
     failedAction: 'Confira a conexão da linha e envie novamente pelo widget.',
-    unknownTitle: '⚠️ Envio sem confirmação',
+    unknownTitle: 'Envio sem confirmação',
     unknownNotice: 'Não foi possível confirmar se a mensagem abaixo saiu.',
     unknownAction:
       'Confira a conversa com o contato ANTES de reenviar — ela pode ter sido entregue.',
-    robotTitle: '✅ Mensagem enviada pelo robô',
-    robotNoRecipientsTitle: '⚠️ Robô sem destinatário',
-    buttonQueuedTitle: '✅ Mensagem com botões enfileirada',
-    templateQueuedTitle: '✅ Template enfileirado',
+    robotTitle: 'Mensagem enviada pelo robô',
+    robotNoRecipientsTitle: 'Robô sem destinatário',
+    buttonQueuedTitle: 'Mensagem com botões enfileirada',
+    templateQueuedTitle: 'Template enfileirado',
     sentBy: 'Enviado por',
     file: {
       message: 'Mensagem',
@@ -242,21 +244,21 @@ const LABELS: Record<NoticeLocale, Labels> = {
     to: 'To',
     message: 'Message',
     template: 'Template',
-    sentTitle: '✅ Message sent',
-    failedTitle: '⚠️ Send failed',
+    sentTitle: 'Message sent',
+    failedTitle: 'Send failed',
     failedNotice:
       'The message below was NOT delivered and will not be resent automatically.',
     failedAction:
       'Check the line connection and send it again from the widget.',
-    unknownTitle: '⚠️ Send not confirmed',
+    unknownTitle: 'Send not confirmed',
     unknownNotice:
       'It was not possible to confirm whether the message below was sent.',
     unknownAction:
       'Check the conversation with the contact BEFORE resending — it may have been delivered.',
-    robotTitle: '✅ Message sent by the robot',
-    robotNoRecipientsTitle: '⚠️ Robot with no recipient',
-    buttonQueuedTitle: '✅ Button message queued',
-    templateQueuedTitle: '✅ Template queued',
+    robotTitle: 'Message sent by the robot',
+    robotNoRecipientsTitle: 'Robot with no recipient',
+    buttonQueuedTitle: 'Button message queued',
+    templateQueuedTitle: 'Template queued',
     sentBy: 'Sent by',
     file: {
       message: 'Message',
@@ -274,20 +276,20 @@ const LABELS: Record<NoticeLocale, Labels> = {
     to: 'Para',
     message: 'Mensaje',
     template: 'Template',
-    sentTitle: '✅ Mensaje enviado',
-    failedTitle: '⚠️ Falla en el envío',
+    sentTitle: 'Mensaje enviado',
+    failedTitle: 'Falla en el envío',
     failedNotice:
       'El mensaje de abajo NO fue entregado y no se reenviará automáticamente.',
     failedAction:
       'Revise la conexión de la línea y envíelo de nuevo desde el widget.',
-    unknownTitle: '⚠️ Envío sin confirmación',
+    unknownTitle: 'Envío sin confirmación',
     unknownNotice: 'No fue posible confirmar si el mensaje de abajo salió.',
     unknownAction:
       'Revise la conversación con el contacto ANTES de reenviar — puede haber sido entregado.',
-    robotTitle: '✅ Mensaje enviado por el robot',
-    robotNoRecipientsTitle: '⚠️ Robot sin destinatario',
-    buttonQueuedTitle: '✅ Mensaje con botones en cola',
-    templateQueuedTitle: '✅ Plantilla en cola',
+    robotTitle: 'Mensaje enviado por el robot',
+    robotNoRecipientsTitle: 'Robot sin destinatario',
+    buttonQueuedTitle: 'Mensaje con botones en cola',
+    templateQueuedTitle: 'Plantilla en cola',
     sentBy: 'Enviado por',
     file: {
       message: 'Mensaje',

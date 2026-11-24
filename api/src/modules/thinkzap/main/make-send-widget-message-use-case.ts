@@ -13,10 +13,9 @@ import {
 import { SendWidgetMessageUseCase } from '@/modules/thinkzap/application/send-widget-message.use-case'
 import { ZApiClient } from '@/modules/thinkzap/infra/clients/z-api.client'
 import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-instance.repository'
-import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
 import { makeBitrixClient } from '@/shared/main/make-bitrix-client'
 import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/prisma-domain.repository'
-import { makeTimelineAuthorResolver } from '@/modules/thinkzap/main/make-timeline-author-resolver'
+import { makeTimelineNotifier } from '@/modules/thinkzap/main/make-timeline-notifier'
 import { Request } from 'express'
 import { PrismaThinkzapMessageRepository } from '../infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { prepareOpenLineOutboundText } from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
@@ -30,10 +29,7 @@ export const makeSendWidgetMessageUseCase = async (
   const zApiClient = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
   const bitrix = await makeBitrixClient(req)
   const domain = await new PrismaDomainRepository().getDomainById(req.domainId!)
-  const sendBitrixNotification = new BitrixLivefeedNotificationService(
-    bitrix,
-    domain ? makeTimelineAuthorResolver(domain.name) : undefined,
-  )
+  const sendBitrixNotification = makeTimelineNotifier(bitrix, domain?.name)
   const messageRepo = new PrismaThinkzapMessageRepository()
 
   return new SendWidgetMessageUseCase(

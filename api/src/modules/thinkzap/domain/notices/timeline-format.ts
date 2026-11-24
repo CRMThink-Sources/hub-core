@@ -26,9 +26,15 @@ export function bbField(label: string, value: string): string {
   return `[B]${label}:[/B] ${escapeBbcode(value)}`
 }
 
-/** A mensagem em bloco de citação, separada dos campos. Vazia não vira bloco. */
-export function bbQuote(text: string): string | undefined {
-  return text.trim() === '' ? undefined : `[QUOTE]${escapeBbcode(text)}[/QUOTE]`
+/**
+ * A mensagem sob o rótulo, em linha própria: o texto fica solto, sem bloco de
+ * citação, que no Bitrix ganha recuo e barra lateral e pesa mais que o conteúdo.
+ * Vazia não gera a linha.
+ */
+export function bbMessage(label: string, text: string): string | undefined {
+  return text.trim() === ''
+    ? undefined
+    : `[B]${label}:[/B]\n${escapeBbcode(text)}`
 }
 
 /** Junta as linhas, descartando as ausentes. */

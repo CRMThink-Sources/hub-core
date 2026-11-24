@@ -17,8 +17,7 @@ import {
   makeBitrixClientByAppId,
 } from '@/shared/main/make-bitrix-client'
 import { Request } from 'express'
-import { BitrixLivefeedNotificationService } from '@/shared/application/send-bitrix-notificatio.service'
-import { makeTimelineAuthorResolver } from '@/modules/thinkzap/main/make-timeline-author-resolver'
+import { makeTimelineNotifier } from '@/modules/thinkzap/main/make-timeline-notifier'
 import { thinkzapError } from '../errors/catalog'
 
 export const makeBitrixRobotWebhookHandlerController = async (
@@ -41,10 +40,7 @@ export const makeBitrixRobotWebhookHandlerController = async (
     throw thinkzapError('thinkzap.app.not_found')
   }
   const bx = await makeBitrixClientByAppId(app.id)
-  const sendNotification = new BitrixLivefeedNotificationService(
-    bx,
-    makeTimelineAuthorResolver(domain.name),
-  )
+  const sendNotification = makeTimelineNotifier(bx, domain.name)
 
   return new BitrixRobotWebhookHandlerController(
     getDomain,

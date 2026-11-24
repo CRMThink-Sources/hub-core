@@ -67,7 +67,7 @@ describe('notifyWidgetSendOutcome', () => {
     expect(messageOf(execute)).toContain(
       'The message below was NOT delivered and will not be resent automatically.',
     )
-    expect(messageOf(execute)).toContain('[QUOTE]Olá[/QUOTE]')
+    expect(messageOf(execute)).toContain('[B]Message:[/B]\nOlá')
   })
 
   it('entrega incerta em espanhol', async () => {
@@ -89,10 +89,10 @@ describe('notifyWidgetSendOutcome', () => {
     await notifyWidgetSendOutcome({ execute }, { ...base, outcome: 'failed' })
 
     expect(messageOf(execute)).toBe(
-      '[B]⚠️ Falha no envio[/B]\n' +
+      '[B]Falha no envio[/B]\n' +
         'A mensagem abaixo NÃO foi entregue e não será reenviada automaticamente.\n' +
         '[B]Para:[/B] 5511999999999\n' +
-        '[QUOTE]Olá[/QUOTE]\n' +
+        '[B]Mensagem:[/B]\nOlá\n' +
         'Confira a conexão da linha e envie novamente pelo widget.',
     )
   })

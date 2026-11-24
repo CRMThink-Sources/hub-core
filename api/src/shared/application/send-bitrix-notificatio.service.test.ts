@@ -162,6 +162,38 @@ describe('BitrixLivefeedNotificationService', () => {
   })
 })
 
+describe('ícone da marca', () => {
+  const icon = 'https://app.exemplo.com/images/thinkzap/timeline-icon.png'
+
+  it('abre o comentário com o ícone na linha do título', async () => {
+    const call = vi.fn<CallMethod>().mockResolvedValue({})
+    const service = new BitrixLivefeedNotificationService(
+      { callMethod: call } as unknown as BitrixClient,
+      undefined,
+      icon,
+    )
+
+    await service.execute({ ...base, message: '[B]Mensagem enviada[/B]' })
+
+    expect(call).toHaveBeenCalledWith('crm.timeline.comment.add', {
+      fields: containing({
+        COMMENT: `[IMG WIDTH=16 HEIGHT=16]${icon}[/IMG] [B]Mensagem enviada[/B]`,
+      }),
+    })
+  })
+
+  it('sem URL configurada, o comentário sai sem ícone', async () => {
+    const { service, installationCall } = setup()
+
+    await service.execute(base)
+
+    expect(installationCall).toHaveBeenCalledWith(
+      'crm.timeline.comment.add',
+      commentCall,
+    )
+  })
+})
+
 describe('isAuthorRefusal', () => {
   it.each([
     'Bitrix error: 401 - {"error":"expired_token"}',
