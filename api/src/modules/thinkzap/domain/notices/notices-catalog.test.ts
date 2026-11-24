@@ -61,7 +61,7 @@ describe('catálogo de avisos do servidor', () => {
           templateName: 'boas_vindas',
           text: 'Olá',
         }),
-      ).toContain('Template: boas_vindas')
+      ).toContain('[B]Template:[/B] boas_vindas')
       expect(
         timeline.widgetSentSync({
           fromPhone: '5599',
@@ -98,7 +98,7 @@ describe('catálogo de avisos do servidor', () => {
           language: 'pt_BR',
           destinations: ['551'],
         }),
-      ).toContain('"boas_vindas" (pt_BR)')
+      ).toContain('boas_vindas (pt_BR)')
 
       const failure = deliveryFailureNotices(locale)
       expect(failure.generic('131099', 'retorno cru')).toContain('131099')
@@ -116,17 +116,25 @@ describe('catálogo de avisos do servidor', () => {
     },
   )
 
-  // Robô sem arquivo: o comentário tem que sair igual ao de antes da mudança.
-  it('robô de envio sem arquivos mantém o comentário anterior', () => {
+  it('robô de envio sem arquivos: título, campos e mensagem em citação', () => {
     const input = { fromPhone: '5599', sent: ['551', '552'], message: 'oi' }
     expect(timelineNotices('pt').sendRobot.result(input)).toBe(
-      'De: 5599\nPara: 551, 552\nMensagem: oi',
+      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+        '[B]De:[/B] 5599\n' +
+        '[B]Para:[/B] 551, 552\n' +
+        '[QUOTE]oi[/QUOTE]',
     )
     expect(timelineNotices('en').sendRobot.result(input)).toBe(
-      'From: 5599\nTo: 551, 552\nMessage: oi',
+      '[B]✅ Message sent by the robot[/B]\n' +
+        '[B]From:[/B] 5599\n' +
+        '[B]To:[/B] 551, 552\n' +
+        '[QUOTE]oi[/QUOTE]',
     )
     expect(timelineNotices('es').sendRobot.result(input)).toBe(
-      'De: 5599\nPara: 551, 552\nMensaje: oi',
+      '[B]✅ Mensaje enviado por el robot[/B]\n' +
+        '[B]De:[/B] 5599\n' +
+        '[B]Para:[/B] 551, 552\n' +
+        '[QUOTE]oi[/QUOTE]',
     )
   })
 
@@ -142,9 +150,12 @@ describe('catálogo de avisos do servidor', () => {
         },
       }),
     ).toBe(
-      'De: 5599\nPara: 551\nMensagem: Segue sua proposta\n' +
-        'Arquivos enviados: proposta.pdf\n' +
-        'Arquivos não enviados: anexo.png (não foi possível obter o arquivo)',
+      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+        '[B]De:[/B] 5599\n' +
+        '[B]Para:[/B] 551\n' +
+        '[QUOTE]Segue sua proposta[/QUOTE]\n' +
+        '[B]Arquivos enviados:[/B] proposta.pdf\n' +
+        '[B]Arquivos não enviados:[/B] anexo.png (não foi possível obter o arquivo)',
     )
   })
 
@@ -163,8 +174,11 @@ describe('catálogo de avisos do servidor', () => {
         },
       }),
     ).toBe(
-      'De: 5599\nPara: 551\nMensagem: Segue\n' +
-        'Arquivos não enviados: a.pdf (falha no envio), b.mp4 (maior que 30 MB)',
+      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+        '[B]De:[/B] 5599\n' +
+        '[B]Para:[/B] 551\n' +
+        '[QUOTE]Segue[/QUOTE]\n' +
+        '[B]Arquivos não enviados:[/B] a.pdf (falha no envio), b.mp4 (maior que 30 MB)',
     )
   })
 
@@ -182,14 +196,20 @@ describe('catálogo de avisos do servidor', () => {
       },
     }
     expect(timelineNotices('en').sendRobot.result(input)).toBe(
-      'From: 5599\nTo: 551\nMessage: oi\n' +
-        'Files sent: proposta.pdf\n' +
-        'Files not sent: x.png (could not get the file), y.pdf (send failed)',
+      '[B]✅ Message sent by the robot[/B]\n' +
+        '[B]From:[/B] 5599\n' +
+        '[B]To:[/B] 551\n' +
+        '[QUOTE]oi[/QUOTE]\n' +
+        '[B]Files sent:[/B] proposta.pdf\n' +
+        '[B]Files not sent:[/B] x.png (could not get the file), y.pdf (send failed)',
     )
     expect(timelineNotices('es').sendRobot.result(input)).toBe(
-      'De: 5599\nPara: 551\nMensaje: oi\n' +
-        'Archivos enviados: proposta.pdf\n' +
-        'Archivos no enviados: x.png (no fue posible obtener el archivo), y.pdf (falla en el envío)',
+      '[B]✅ Mensaje enviado por el robot[/B]\n' +
+        '[B]De:[/B] 5599\n' +
+        '[B]Para:[/B] 551\n' +
+        '[QUOTE]oi[/QUOTE]\n' +
+        '[B]Archivos enviados:[/B] proposta.pdf\n' +
+        '[B]Archivos no enviados:[/B] x.png (no fue posible obtener el archivo), y.pdf (falla en el envío)',
     )
   })
 
@@ -201,7 +221,28 @@ describe('catálogo de avisos do servidor', () => {
         message: '',
         files: { sent: ['proposta.pdf'], failed: [] },
       }),
-    ).toBe('De: 5599\nPara: 551\nArquivos enviados: proposta.pdf')
+    ).toBe(
+      '[B]✅ Mensagem enviada pelo robô[/B]\n' +
+        '[B]De:[/B] 5599\n' +
+        '[B]Para:[/B] 551\n' +
+        '[B]Arquivos enviados:[/B] proposta.pdf',
+    )
+  })
+
+  it('o remetente aparece rotulado nos três idiomas', () => {
+    expect(timelineNotices('pt').sentBy('Ana')).toBe('[B]Enviado por:[/B] Ana')
+    expect(timelineNotices('en').sentBy('Ana')).toBe('[B]Sent by:[/B] Ana')
+    expect(timelineNotices('es').sentBy('Ana')).toBe('[B]Enviado por:[/B] Ana')
+  })
+
+  it('texto do operador com BBCode não altera a estrutura do comentário', () => {
+    const text = timelineNotices('pt').widgetSentQueued({
+      destination: '551',
+      text: 'oi [/quote][b]x[/b]',
+    })
+
+    expect(text.match(/\[\/QUOTE\]/gi)).toHaveLength(1)
+    expect(text).not.toContain('[b]')
   })
 
   it('inglês e espanhol não repetem o português', () => {

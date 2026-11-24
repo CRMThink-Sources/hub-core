@@ -404,6 +404,8 @@ export class SendWidgetMessageUseCase {
     await this.sendBitrixNotification.execute({
       contextId: entityId,
       entity,
+      authorBitrixUserId: input.operatorBitrixUserId,
+      senderLine: timelineNotices(locale).sentBy,
       message:
         timelineNotices(locale).widgetSentSync({
           fromPhone: phoneData?.phone ?? '',

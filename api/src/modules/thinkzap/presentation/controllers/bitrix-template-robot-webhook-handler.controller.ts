@@ -2,6 +2,10 @@ import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/por
 import { DEFAULT_NOTICE_LOCALE } from '@/modules/thinkzap/domain/notices/notice-locale'
 import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import { Request, Response } from 'express'
+import {
+  robotTimelineAuthor,
+  type RobotTimelineAuthor,
+} from './robot-timeline-author'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
 import { httpResponse } from '@/shared/helpers/http'
@@ -28,6 +32,12 @@ import {
 // Só enfileira no outbox (o worker retenta): um 500 transitório perderia mensagem paga.
 // Recusa de negócio responde 200 com motivo na timeline: o Bitrix não retenta robô; 404 só sem domínio/app.
 export class BitrixTemplateRobotWebhookHandlerController extends Controller {
+  /**
+   * Quem rodou o robô, para o comentário sair em nome dele. O controller é montado
+   * por request (`adaptControllerFactory`), então o campo não é compartilhado.
+   */
+  private author: RobotTimelineAuthor = {}
+
   constructor(
     private readonly getDomain: GetDomainRepository,
     private readonly getApp: GetInstalledAppRepository,
@@ -73,9 +83,10 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     }
 
     // Todo desfecho daqui em diante comenta na timeline, no idioma da instalação.
-    const notices = timelineNotices(
-      (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE,
-    ).templateRobot
+    const locale =
+      (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE
+    const notices = timelineNotices(locale).templateRobot
+    this.author = robotTimelineAuthor(data.auth.user_id, locale)
 
     // null fora de entidade CRM: ainda envia ao destino manual, só sem timeline nem relacionados.
     const crmDocument = parseBizprocDocumentId(documentId)
@@ -210,6 +221,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
           entity: crmDocument?.entity ?? '',
           entityId: crmDocument?.entityId ?? '',
           origin: 'ROBOT_TEMPLATE',
+          operatorBitrixUserId: this.author.authorBitrixUserId,
         })
         queued.push(result.destination)
       } catch (error) {
@@ -286,6 +298,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
       await this.sendNotification.execute({
         contextId: document.entityId,
         entity: document.entity,
+        ...this.author,
         message,
       })
     } catch (error) {
