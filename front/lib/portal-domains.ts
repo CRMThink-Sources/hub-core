@@ -137,6 +137,16 @@ export type SubscribeLinesResponse = {
   ignored: number
 }
 
+/**
+ * Resposta de "Assinar"/"Desassinar" uma linha. `markRecorded` é `false` quando o
+ * provider aceitou mas a marca não pôde ser gravada (item sem assinatura pai). Ausente
+ * em api anterior ao campo: lido como gravada, que era o que a tela sempre assumiu.
+ */
+export type LineBillingActionResponse = {
+  message: string
+  markRecorded?: boolean
+}
+
 /** Resposta de "Vincular espelho". */
 export type LinkMirrorResponse = { spaId: string; mirror: 'linked' }
 

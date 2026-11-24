@@ -91,8 +91,22 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-const effects = (providerEffectsEnabled = true) => ({
-  mirrors: { setBillingState: vi.fn().mockResolvedValue(undefined) },
+/** Espelho existente por padrão: é o caso comum, e os cenários sem espelho o sobrescrevem. */
+const EXISTING_MIRROR = {
+  provider: 'ZAPI' as const,
+  instanceId: 'Z-1',
+  subscriptionId: 'sub-1',
+}
+
+const effects = (
+  providerEffectsEnabled = true,
+  mirror: object | null = EXISTING_MIRROR,
+) => ({
+  mirrors: {
+    find: vi.fn().mockResolvedValue(mirror),
+    save: vi.fn().mockResolvedValue(undefined),
+    setBillingState: vi.fn().mockResolvedValue(undefined),
+  },
   providerEffectsEnabled,
 })
 
@@ -123,6 +137,76 @@ describe('subscribeThinkzapLine', () => {
     )
   })
 
+  it('espelho presente: grava a marca sem recriar o espelho', async () => {
+    const fx = effects()
+
+    const result = await subscribeThinkzapLine(
+      'app-1',
+      'item-1',
+      deps(ZAPI_ITEM),
+      fx,
+    )
+
+    expect(result).toEqual({ markRecorded: true })
+    expect(fx.mirrors.save).not.toHaveBeenCalled()
+  })
+
+  it('Z-API sem espelho: recria o espelho e depois grava a marca', async () => {
+    const fx = effects(true, null)
+
+    const result = await subscribeThinkzapLine(
+      'app-1',
+      'item-1',
+      deps(ZAPI_ITEM),
+      fx,
+    )
+
+    expect(result).toEqual({ markRecorded: true })
+    expect(fx.mirrors.save).toHaveBeenCalledWith('item-1', {
+      provider: 'ZAPI',
+      instanceId: 'Z-1',
+      zApiToken: 'TOKEN',
+      subscriptionId: 'sub-1',
+    })
+    expect(fx.mirrors.save.mock.invocationCallOrder[0]).toBeLessThan(
+      fx.mirrors.setBillingState.mock.invocationCallOrder[0] as number,
+    )
+  })
+
+  it('HubMessage sem espelho: recria o espelho com o canal', async () => {
+    const fx = effects(true, null)
+
+    await subscribeThinkzapLine('app-1', 'item-1', deps(HUB_ITEM), fx)
+
+    expect(fx.mirrors.save).toHaveBeenCalledWith('item-1', {
+      provider: 'HUBMESSAGE',
+      instanceId: 'C-9',
+      channelId: 'C-9',
+      subscriptionId: 'sub-1',
+    })
+    expect(fx.mirrors.setBillingState).toHaveBeenCalledWith(
+      'item-1',
+      'subscribed',
+    )
+  })
+
+  it('sem assinatura pai e sem espelho: provider acionado, marca não registrada', async () => {
+    const fx = effects(true, null)
+    const semPai = { ...ZAPI_ITEM, subscription: '' }
+
+    const result = await subscribeThinkzapLine(
+      'app-1',
+      'item-1',
+      deps(semPai),
+      fx,
+    )
+
+    expect(zApi.subscribe).toHaveBeenCalledWith('Z-1', 'TOKEN')
+    expect(result).toEqual({ markRecorded: false })
+    expect(fx.mirrors.save).not.toHaveBeenCalled()
+    expect(fx.mirrors.setBillingState).not.toHaveBeenCalled()
+  })
+
   it('falha no provider: a marca não é gravada', async () => {
     const fx = effects()
     zApi.subscribe.mockRejectedValueOnce(new Error('z-api fora'))
@@ -131,6 +215,7 @@ describe('subscribeThinkzapLine', () => {
       subscribeThinkzapLine('app-1', 'item-1', deps(ZAPI_ITEM), fx),
     ).rejects.toThrow('z-api fora')
     expect(fx.mirrors.setBillingState).not.toHaveBeenCalled()
+    expect(fx.mirrors.save).not.toHaveBeenCalled()
   })
 
   it('efeitos de provider desligados: recusa sem chamar o provider', async () => {
@@ -154,6 +239,41 @@ describe('subscribeThinkzapLine', () => {
       subscribeThinkzapLine('app-1', 'item-1', deps(semToken), effects()),
     ).rejects.toThrow(ThinkzapLineCredentialMissingError)
     expect(zApi.subscribe).not.toHaveBeenCalled()
+  })
+})
+
+describe('unsubscribeThinkzapLine — espelho ausente', () => {
+  it('recria o espelho e grava a marca de desassinado', async () => {
+    const fx = effects(true, null)
+
+    const result = await unsubscribeThinkzapLine(
+      'app-1',
+      'item-1',
+      deps(ZAPI_ITEM),
+      fx,
+    )
+
+    expect(result).toEqual({ markRecorded: true })
+    expect(fx.mirrors.save).toHaveBeenCalledTimes(1)
+    expect(fx.mirrors.setBillingState).toHaveBeenCalledWith(
+      'item-1',
+      'unsubscribed',
+    )
+  })
+
+  it('sem assinatura pai e sem espelho: marca não registrada', async () => {
+    const fx = effects(true, null)
+    const semPai = { ...ZAPI_ITEM, subscription: '' }
+
+    const result = await unsubscribeThinkzapLine(
+      'app-1',
+      'item-1',
+      deps(semPai),
+      fx,
+    )
+
+    expect(result).toEqual({ markRecorded: false })
+    expect(fx.mirrors.setBillingState).not.toHaveBeenCalled()
   })
 })
 

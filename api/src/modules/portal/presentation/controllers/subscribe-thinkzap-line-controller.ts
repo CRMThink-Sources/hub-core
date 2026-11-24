@@ -15,8 +15,11 @@ export class SubscribeThinkzapLineController extends Controller {
     }
 
     try {
-      await subscribeThinkzapLine(appId, subscriptionItemId)
-      return this.ok({ message: 'Subscribed' })
+      const { markRecorded } = await subscribeThinkzapLine(
+        appId,
+        subscriptionItemId,
+      )
+      return this.ok({ message: 'Subscribed', markRecorded })
     } catch (error) {
       const mapped = mapAdminLineError(error)
       if (mapped) return mapped

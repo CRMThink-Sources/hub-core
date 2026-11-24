@@ -13,8 +13,11 @@ export class UnsubscribeThinkzapLineController extends Controller {
     }
 
     try {
-      await unsubscribeThinkzapLine(appId, subscriptionItemId)
-      return this.ok({ message: 'Unsubscribed' })
+      const { markRecorded } = await unsubscribeThinkzapLine(
+        appId,
+        subscriptionItemId,
+      )
+      return this.ok({ message: 'Unsubscribed', markRecorded })
     } catch (error) {
       const mapped = mapAdminLineError(error)
       if (mapped) return mapped

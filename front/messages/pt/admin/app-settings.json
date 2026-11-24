@@ -345,7 +345,8 @@
       "lines": "{{subscribed}} assinada(s), {{unsubscribed}} desassinada(s), {{ignored}} sem mudança.",
       "linesPartial": "{{subscribed}} assinada(s), {{unsubscribed}} desassinada(s), {{failed}} com falha.",
       "lineSubscribed": "Linha assinada no provider.",
-      "lineUnsubscribed": "Linha desassinada no provider."
+      "lineUnsubscribed": "Linha desassinada no provider.",
+      "lineMarkNotRecorded": "A marca de cobrança não foi registrada porque o item não tem assinatura pai. Confira o item na SPA."
     },
     "refusal": {
       "provider-effects-disabled": "Ação recusada: os efeitos de provider estão desligados neste ambiente.",

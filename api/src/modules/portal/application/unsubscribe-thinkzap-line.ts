@@ -2,9 +2,11 @@ import { AppContextDeps } from '@/modules/thinkzap/application/helpers/list-line
 import { ProviderEffectsDisabledError } from '../domain/errors/portal-domain.errors'
 import { resolveAdminLine } from './helpers/resolve-admin-line'
 import {
+  LineBillingActionResult,
   LineBillingEffects,
   defaultLineBillingEffects,
   hubMessageClient,
+  recordLineBillingMark,
   zApiClient,
   zApiCredential,
 } from './subscribe-thinkzap-line'
@@ -24,7 +26,7 @@ export async function unsubscribeThinkzapLine(
   subscriptionItemId: string,
   deps?: AppContextDeps,
   effects: LineBillingEffects = defaultLineBillingEffects(),
-): Promise<void> {
+): Promise<LineBillingActionResult> {
   if (!effects.providerEffectsEnabled) throw new ProviderEffectsDisabledError()
 
   const item = await resolveAdminLine(appId, subscriptionItemId, deps)
@@ -39,5 +41,5 @@ export async function unsubscribeThinkzapLine(
     await zApiClient().unsubscribe(instanceId, token)
   }
 
-  await effects.mirrors.setBillingState(item.id, 'unsubscribed')
+  return recordLineBillingMark(effects, item, 'unsubscribed')
 }
