@@ -328,6 +328,7 @@ import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.
 import { IBX24MessageEvent } from '@/modules/thinkzap/domain/interfaces/bitrix-events.interface'
 import { encodeButtonActionCode } from '@/modules/thinkzap/application/parse-button-action-code'
 import { BitrixError } from '@/shared/infra/clients/errors/bitrix-client.error'
+import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
 
 const baseContext = {
   name: 'acme.bitrix24.com',
@@ -815,6 +816,72 @@ describe('processBitrixReceivedMessage bot removido do portal', () => {
       'BOT_NOT_FOUND',
     )
     expect(invalidateBitrixBotIdMock).toHaveBeenCalledTimes(1)
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('processBitrixReceivedMessage consulta de citação indisponível', () => {
+  const badGateway = new BitrixError('Bitrix error: 502 - "Bad Gateway"')
+
+  beforeEach(() => {
+    resolveLineMock.mockReset().mockResolvedValue(ACTIVE_LINE)
+    getContextMock.mockResolvedValue(baseContext)
+    createMock.mockClear()
+    sendMessageZApiMock.mockClear()
+    setMessageDeliveredMock.mockClear()
+    callMethodMock.mockReset()
+    callMethodMock.mockRejectedValue(badGateway)
+    ensureBitrixBotIdMock.mockReset().mockResolvedValue(1958)
+  })
+
+  it('antes da última tentativa relança sem enviar, para a citação ter nova chance', async () => {
+    await expect(
+      processBitrixReceivedMessage(makeEvent(), {
+        appendJobLog: vi.fn().mockResolvedValue(undefined),
+        isLastAttempt: false,
+      }),
+    ).rejects.toThrow('502')
+
+    expect(sendMessageZApiMock).not.toHaveBeenCalled()
+  })
+
+  it('na última tentativa envia sem a citação e registra na aba Logs', async () => {
+    const appendJobLog = vi.fn().mockResolvedValue(undefined)
+
+    await processBitrixReceivedMessage(makeEvent(), {
+      appendJobLog,
+      isLastAttempt: true,
+    })
+
+    expect(sendMessageZApiMock).toHaveBeenCalledWith(
+      'INST-A',
+      'token',
+      'texto enviado',
+      '5511999999999',
+      { referencedMessageId: undefined },
+    )
+    expect(setMessageDeliveredMock).toHaveBeenCalledTimes(1)
+    const lines = appendJobLog.mock.calls.map(([line]) => line as string)
+    expect(
+      lines.some(l => l.includes('sem a citação') && l.includes('502')),
+    ).toBe(true)
+  })
+
+  it('método pausado pelo Bitrix relança mesmo na última tentativa — o job é reagendado', async () => {
+    const paused = new BitrixMethodPausedError(
+      'imbot.v2.Chat.Message.get',
+      'acme.bitrix24.com',
+      Date.now() + 60_000,
+    )
+    callMethodMock.mockRejectedValue(paused)
+
+    await expect(
+      processBitrixReceivedMessage(makeEvent(), {
+        appendJobLog: vi.fn().mockResolvedValue(undefined),
+        isLastAttempt: true,
+      }),
+    ).rejects.toBe(paused)
+
     expect(sendMessageZApiMock).not.toHaveBeenCalled()
   })
 })

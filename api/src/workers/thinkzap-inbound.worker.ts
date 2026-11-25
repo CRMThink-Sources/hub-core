@@ -46,6 +46,7 @@ installBitrixLimits()
 async function processJob(
   data: ThinkzapInboundJob,
   appendJobLog: AppendJobLog,
+  isLastAttempt: boolean,
 ) {
   // `type` pode faltar (HubMessage nem sempre manda); `traceKey` liga esta aba ao Loki.
   await appendJobLog(
@@ -114,6 +115,7 @@ async function processJob(
         data.body as unknown as IBX24MessageEvent,
         {
           appendJobLog,
+          isLastAttempt,
         },
       )
     }
@@ -145,7 +147,12 @@ export const thinkzapInboundWorker = new Worker(
   async (job, token) => {
     attemptStartedAt.set(job, Date.now())
     try {
-      await processJob(job.data as ThinkzapInboundJob, makeAppendJobLog(job))
+      // `attemptsMade` conta só as tentativas anteriores.
+      await processJob(
+        job.data as ThinkzapInboundJob,
+        makeAppendJobLog(job),
+        job.attemptsMade + 1 >= (job.opts.attempts ?? 1),
+      )
     } catch (err) {
       // Pausa por `OPERATION_TIME_LIMIT` dura mais que o backoff: reagenda sem gastar tentativa.
       if (err instanceof BitrixMethodPausedError) {

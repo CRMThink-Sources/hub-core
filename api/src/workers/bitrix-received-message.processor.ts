@@ -1,9 +1,6 @@
 import { EnqueueOperatorReply } from '@/modules/thinkzap/application/enqueue-operator-reply'
 import { isUnifiedOutboxEnabled } from '@/modules/thinkzap/application/helpers/unified-outbox'
-import {
-  ROBOT_FILE_MAX_BYTES,
-  downloadRobotFile,
-} from '@/modules/thinkzap/application/robot-files/fetch-robot-files'
+import { downloadOperatorMedia } from '@/modules/thinkzap/application/download-operator-media'
 import { makeOutboundMediaStorage } from '@/modules/thinkzap/main/make-outbound-media-storage'
 import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
@@ -17,6 +14,7 @@ import {
 } from '@/modules/thinkzap/domain/ports/outbound-message-sender.port'
 import { resolveByMarketplaceCode } from '@/shared/app-catalog/app-catalog'
 import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
 import {
   BitrixWebhookContext,
   GetBitrixWebhookContextRepository,
@@ -99,7 +97,7 @@ const enqueueOperatorReply = new EnqueueOperatorReply({
   sendQueue: new BullMqWidgetSendQueue(),
   cadence: makeSendCadence(),
   storage: makeOutboundMediaStorage(),
-  download: url => downloadRobotFile(url, ROBOT_FILE_MAX_BYTES),
+  download: downloadOperatorMedia,
 })
 
 /**
@@ -264,9 +262,11 @@ function toOutboundKind(file: {
 // appendJobLog: uma linha por decisão/desfecho, não por passo — cada chamada vai ao Redis.
 export async function processBitrixReceivedMessage(
   event: IBX24MessageEvent,
-  deps: { appendJobLog: AppendJobLog } = { appendJobLog: noopJobLog },
+  deps: { appendJobLog: AppendJobLog; isLastAttempt?: boolean } = {
+    appendJobLog: noopJobLog,
+  },
 ): Promise<void> {
-  const { appendJobLog } = deps
+  const { appendJobLog, isLastAttempt = false } = deps
 
   log.info(
     {
@@ -549,47 +549,73 @@ export async function processBitrixReceivedMessage(
       },
     )
 
-  let response: BitrixMessageGetResult
-  try {
-    response = await getBitrixMessage(botId)
-  } catch (err) {
-    if (!isBotNotFoundError(err)) throw err
+  const readBitrixMessage = async (): Promise<BitrixMessageGetResult> => {
+    try {
+      return await getBitrixMessage(botId)
+    } catch (err) {
+      if (!isBotNotFoundError(err)) throw err
 
-    // Bot cacheado foi removido do portal: sem invalidar, toda retentativa lê o
-    // mesmo id do cache e o envio fica quebrado até a chave expirar. Nada foi
-    // enviado ao contato ainda, então repetir a leitura é seguro.
-    logThinkzapError(
-      log,
-      'thinkzap.bitrix.bot_id_failed',
-      {
-        domain: event.auth.domain,
-        staleBotId: botId,
-        botNotFound: true,
-      },
-      {
-        level: 'warn',
-        msg: 'Cached bot not found in Bitrix — invalidating cache and resolving again',
-      },
-    )
-    await appendJobLog(
-      `Bot ${botId} não existe mais no portal (BOT_NOT_FOUND). Cache descartado; ` +
-        'resolvendo/registrando o bot de novo.',
-    )
-    await invalidateBitrixBotId(
-      redisConnection,
-      context.name,
-      env.appCodes.thinkzap,
-    )
-    botId = await ensureBitrixBotId(
-      bitrixClient,
-      redisConnection,
-      context.name,
-      env.appCodes.thinkzap,
-    )
-    response = await getBitrixMessage(botId)
+      // Bot cacheado foi removido do portal: sem invalidar, toda retentativa lê o
+      // mesmo id do cache e o envio fica quebrado até a chave expirar. Nada foi
+      // enviado ao contato ainda, então repetir a leitura é seguro.
+      logThinkzapError(
+        log,
+        'thinkzap.bitrix.bot_id_failed',
+        {
+          domain: event.auth.domain,
+          staleBotId: botId,
+          botNotFound: true,
+        },
+        {
+          level: 'warn',
+          msg: 'Cached bot not found in Bitrix — invalidating cache and resolving again',
+        },
+      )
+      await appendJobLog(
+        `Bot ${botId} não existe mais no portal (BOT_NOT_FOUND). Cache descartado; ` +
+          'resolvendo/registrando o bot de novo.',
+      )
+      await invalidateBitrixBotId(
+        redisConnection,
+        context.name,
+        env.appCodes.thinkzap,
+      )
+      botId = await ensureBitrixBotId(
+        bitrixClient,
+        redisConnection,
+        context.name,
+        env.appCodes.thinkzap,
+      )
+      return getBitrixMessage(botId)
+    }
   }
 
-  const replyId = response.result?.message?.params?.REPLY_ID
+  // A leitura só serve para achar a citação (`REPLY_ID`): vale retentar por ela, mas
+  // não perder a mensagem. Em 24/11/2026 um 502 do Bitrix nas três tentativas deixou
+  // a resposta do operador sem sair.
+  let response: BitrixMessageGetResult | undefined
+  try {
+    response = await readBitrixMessage()
+  } catch (err) {
+    // Método pausado não é falha: o worker reagenda o job sem gastar tentativa.
+    if (!isLastAttempt || err instanceof BitrixMethodPausedError) throw err
+
+    log.warn(
+      {
+        domain: event.auth.domain,
+        bitrixMessageId: message.im.message_id,
+        err,
+      },
+      'Consulta da citação falhou na última tentativa — enviando sem citação',
+    )
+    await appendJobLog(
+      'Não foi possível consultar a mensagem no Bitrix na última tentativa ' +
+        `(${err instanceof Error ? err.message : String(err)}). ` +
+        'Enviando sem a citação, se houver.',
+    )
+  }
+
+  const replyId = response?.result?.message?.params?.REPLY_ID
 
   // Sem suporte a reply, pula a consulta ao banco que o adapter descartaria.
   let referencedMessageId: string | undefined

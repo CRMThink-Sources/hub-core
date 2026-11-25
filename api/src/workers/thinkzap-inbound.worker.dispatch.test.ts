@@ -75,10 +75,12 @@ vi.mock('@/shared/infra/logger', () => ({
 
 import './thinkzap-inbound.worker'
 
-const run = (type: string) =>
+const run = (type: string, attemptsMade = 0) =>
   m.captured.fn!(
     {
       id: '1',
+      attemptsMade,
+      opts: { attempts: 3 },
       data: { source: 'bitrix', type, traceKey: 't', body: { x: 1 } },
     },
     'tok',
@@ -107,4 +109,19 @@ describe('despacho de jobs bitrix do thinkzap-inbound', () => {
     expect(m.update).not.toHaveBeenCalled()
     expect(m.del).not.toHaveBeenCalled()
   })
+
+  it.each([
+    [0, false],
+    [1, false],
+    [2, true],
+  ])(
+    'com %i tentativa(s) anterior(es) informa isLastAttempt=%s',
+    async (attemptsMade, isLastAttempt) => {
+      await run('ONIMCONNECTORMESSAGEADD', attemptsMade)
+      expect(m.received).toHaveBeenCalledWith(
+        { x: 1 },
+        expect.objectContaining({ isLastAttempt }),
+      )
+    },
+  )
 })
