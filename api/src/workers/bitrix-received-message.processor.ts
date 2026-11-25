@@ -1,9 +1,6 @@
 import { EnqueueOperatorReply } from '@/modules/thinkzap/application/enqueue-operator-reply'
 import { isUnifiedOutboxEnabled } from '@/modules/thinkzap/application/helpers/unified-outbox'
-import {
-  ROBOT_FILE_MAX_BYTES,
-  downloadRobotFile,
-} from '@/modules/thinkzap/application/robot-files/fetch-robot-files'
+import { downloadOperatorMedia } from '@/modules/thinkzap/application/download-operator-media'
 import { makeOutboundMediaStorage } from '@/modules/thinkzap/main/make-outbound-media-storage'
 import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
@@ -100,7 +97,7 @@ const enqueueOperatorReply = new EnqueueOperatorReply({
   sendQueue: new BullMqWidgetSendQueue(),
   cadence: makeSendCadence(),
   storage: makeOutboundMediaStorage(),
-  download: url => downloadRobotFile(url, ROBOT_FILE_MAX_BYTES),
+  download: downloadOperatorMedia,
 })
 
 /**
