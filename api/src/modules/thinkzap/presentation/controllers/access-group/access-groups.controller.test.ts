@@ -18,6 +18,7 @@ const group: AccessGroup = {
   name: 'Vendas',
   memberIds: ['7'],
   lineIds: ['100'],
+  departments: [],
   createdAt: new Date(0),
   updatedAt: new Date(0),
 }
@@ -73,6 +74,54 @@ describe('CreateAccessGroupController', () => {
       lineIds: ['100'],
     })
     expect(out.status).toBe(200)
+  })
+
+  it('repassa os departamentos informados, sem subdepartamentos por padrão', async () => {
+    const create = vi.fn<AccessGroupRepository['create']>(() =>
+      Promise.resolve(group),
+    )
+
+    await new CreateAccessGroupController({ create }).perform(
+      req({
+        body: {
+          name: 'Vendas',
+          departments: [
+            { departmentId: '5', includeSubdepartments: true },
+            { departmentId: '6' },
+          ],
+        },
+      }),
+      res,
+    )
+
+    expect(create).toHaveBeenCalledWith('app-1', {
+      name: 'Vendas',
+      memberIds: [],
+      lineIds: [],
+      departments: [
+        { departmentId: '5', includeSubdepartments: true },
+        { departmentId: '6', includeSubdepartments: false },
+      ],
+    })
+  })
+
+  it('recusa departamento inválido com mensagem em português', async () => {
+    const create = vi.fn<AccessGroupRepository['create']>()
+    const controller = new CreateAccessGroupController({ create })
+
+    for (const departments of [[{ departmentId: '' }], ['5'], 'x']) {
+      const out = await controller.perform(
+        req({ body: { name: 'Vendas', departments } }),
+        res,
+      )
+      expect(out).toEqual({
+        status: 400,
+        result: {
+          error: 'Departamento inválido. Escolha-o novamente na lista.',
+        },
+      })
+    }
+    expect(create).not.toHaveBeenCalled()
   })
 
   it('recusa nome vazio com mensagem em português', async () => {
@@ -133,6 +182,21 @@ describe('UpdateAccessGroupController', () => {
 
     expect((await controller.perform(request, res)).status).toBe(404)
     expect((await controller.perform(request, res)).status).toBe(409)
+  })
+})
+
+describe('UpdateAccessGroupController (departamentos)', () => {
+  it('sem o campo, não manda departamentos ao repositório', async () => {
+    const update = vi.fn<AccessGroupRepository['update']>(() =>
+      Promise.resolve(group),
+    )
+
+    await new UpdateAccessGroupController({ update }).perform(
+      req({ params: { groupId: 'g1' }, body: { name: 'Vendas' } }),
+      res,
+    )
+
+    expect(update.mock.calls[0]?.[2]).not.toHaveProperty('departments')
   })
 })
 

@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express'
 import { describe, expect, it, vi } from 'vitest'
 import type { WidgetLineAccess } from '@/modules/thinkzap/application/access-group/widget-line-access'
+import { DepartmentsUnavailableError } from '@/modules/thinkzap/domain/errors/departments-unavailable.error'
 import { LineNotAllowedError } from '@/modules/thinkzap/domain/errors/line-not-allowed.error'
 import { makeWidgetLineAccessMiddleware } from './widget-line-access.middleware'
 
@@ -15,7 +16,12 @@ function setup(assertCanUse: WidgetLineAccess['assertCanUse']) {
   return { middleware, res, status, json, next }
 }
 
-const baseReq = { appId: 'thinkzap', domainId: 'd1', bitrixUserId: '7' }
+const baseReq = {
+  appId: 'thinkzap',
+  domainId: 'd1',
+  bitrixUserId: '7',
+  bitrixDepartmentIds: ['3'],
+}
 
 describe('makeWidgetLineAccessMiddleware', () => {
   it('lê a linha do corpo e segue quando liberada', async () => {
@@ -36,6 +42,7 @@ describe('makeWidgetLineAccessMiddleware', () => {
       appCode: 'thinkzap',
       domainId: 'd1',
       bitrixUserId: '7',
+      bitrixDepartmentIds: ['3'],
       subscriptionItemId: '10',
     })
     expect(next).toHaveBeenCalledWith()
@@ -81,6 +88,30 @@ describe('makeWidgetLineAccessMiddleware', () => {
     }
     expect(body.result.code).toBe('line-not-allowed')
     expect(body.result.error).toContain('Você não tem acesso a esta linha')
+    expect(next).not.toHaveBeenCalled()
+  })
+
+  it('responde 503 quando não dá para verificar os departamentos', async () => {
+    const { middleware, res, status, json, next } = setup(() =>
+      Promise.reject(new DepartmentsUnavailableError()),
+    )
+
+    await middleware(
+      {
+        ...baseReq,
+        params: {},
+        body: { subscriptionItemId: '10' },
+      } as unknown as Request,
+      res,
+      next,
+    )
+
+    expect(status).toHaveBeenCalledWith(503)
+    const body = json.mock.calls[0]?.[0] as {
+      result: { error: string; code: string }
+    }
+    expect(body.result.code).toBe('departments-unavailable')
+    expect(body.result.error).toContain('departamentos')
     expect(next).not.toHaveBeenCalled()
   })
 

@@ -194,6 +194,35 @@ describe('ConnectChannelController', () => {
     )
   })
 
+  it('coexistência sem id do telefone: repassa o modo e não grava telefone', async () => {
+    const { controller, client, instanceRepository } = makeDeps()
+
+    const result = await controller.perform(
+      {
+        ...req,
+        body: {
+          connectorId: 'conn-1',
+          wabaId: 'waba-1',
+          code: 'code-1',
+          coexistence: true,
+        },
+      } as never,
+      res,
+    )
+
+    expect(result.status).toBe(200)
+    expect(client.connectChannel).toHaveBeenCalledWith('chan_1', {
+      wabaId: 'waba-1',
+      phoneId: '',
+      code: 'code-1',
+      coexistence: true,
+    })
+    expect(instanceRepository.markAsConnected).toHaveBeenCalledWith(
+      'instance-db-1',
+      expect.objectContaining({ phoneId: null }),
+    )
+  })
+
   it('falha do webhook não derruba a conexão', async () => {
     const { instanceRepository, controller } = makeDeps({
       client: {

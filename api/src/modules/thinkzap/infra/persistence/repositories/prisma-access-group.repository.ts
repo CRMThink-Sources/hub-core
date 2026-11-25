@@ -1,11 +1,15 @@
 import { prisma } from '@/config/prisma'
 import type {
   AccessGroup,
+  AccessGroupDepartment,
   AccessGroupInput,
 } from '@/modules/thinkzap/domain/entities/access-group'
 import { AccessGroupNameTakenError } from '@/modules/thinkzap/domain/errors/access-group-name-taken.error'
 import { AccessGroupNotFoundError } from '@/modules/thinkzap/domain/errors/access-group-not-found.error'
-import type { AccessGroupRepository } from '@/modules/thinkzap/domain/repositories/access-group/access-group.repository'
+import type {
+  AccessGroupMembership,
+  AccessGroupRepository,
+} from '@/modules/thinkzap/domain/repositories/access-group/access-group.repository'
 
 type GroupRow = {
   id: string
@@ -15,11 +19,15 @@ type GroupRow = {
   updatedAt: Date
   members: { bitrixUserId: string }[]
   lines: { subscriptionItemId: string }[]
+  departments: { bitrixDepartmentId: string; includeSubdepartments: boolean }[]
 }
 
 const include = {
   members: { select: { bitrixUserId: true } },
   lines: { select: { subscriptionItemId: true } },
+  departments: {
+    select: { bitrixDepartmentId: true, includeSubdepartments: true },
+  },
 } as const
 
 function mapRow(row: GroupRow): AccessGroup {
@@ -29,6 +37,10 @@ function mapRow(row: GroupRow): AccessGroup {
     name: row.name,
     memberIds: row.members.map(m => m.bitrixUserId),
     lineIds: row.lines.map(l => l.subscriptionItemId),
+    departments: row.departments.map(d => ({
+      departmentId: d.bitrixDepartmentId,
+      includeSubdepartments: d.includeSubdepartments,
+    })),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
@@ -36,6 +48,48 @@ function mapRow(row: GroupRow): AccessGroup {
 
 function unique(values: string[]): string[] {
   return [...new Set(values)]
+}
+
+/** Um vínculo por departamento (índice único); repetido, vale o último. */
+function departmentRows(departments: AccessGroupDepartment[]) {
+  return [...new Map(departments.map(d => [d.departmentId, d])).values()].map(
+    d => ({
+      bitrixDepartmentId: d.departmentId,
+      includeSubdepartments: d.includeSubdepartments,
+    }),
+  )
+}
+
+/** Um grupo alcança o usuário por qualquer um destes caminhos. */
+function membershipFilters({
+  bitrixUserId,
+  departmentIds,
+  ancestorDepartmentIds,
+}: AccessGroupMembership) {
+  return [
+    { members: { some: { bitrixUserId } } },
+    ...(departmentIds.length > 0
+      ? [
+          {
+            departments: {
+              some: { bitrixDepartmentId: { in: departmentIds } },
+            },
+          },
+        ]
+      : []),
+    ...(ancestorDepartmentIds.length > 0
+      ? [
+          {
+            departments: {
+              some: {
+                bitrixDepartmentId: { in: ancestorDepartmentIds },
+                includeSubdepartments: true,
+              },
+            },
+          },
+        ]
+      : []),
+  ]
 }
 
 /** Violação do índice único (appId, name): a collation ignora maiúsculas. */
@@ -65,14 +119,20 @@ export class PrismaAccessGroupRepository implements AccessGroupRepository {
     return row !== null
   }
 
+  async hasInheritingDepartments(appId: string): Promise<boolean> {
+    const row = await prisma.thinkzapAccessGroupDepartment.findFirst({
+      where: { includeSubdepartments: true, group: { appId } },
+      select: { id: true },
+    })
+    return row !== null
+  }
+
   async listLineIdsForUser(
     appId: string,
-    bitrixUserId: string,
+    membership: AccessGroupMembership,
   ): Promise<string[]> {
     const rows = await prisma.thinkzapAccessGroupLine.findMany({
-      where: {
-        group: { appId, members: { some: { bitrixUserId } } },
-      },
+      where: { group: { appId, OR: membershipFilters(membership) } },
       select: { subscriptionItemId: true },
     })
     return unique(rows.map(r => r.subscriptionItemId))
@@ -94,6 +154,7 @@ export class PrismaAccessGroupRepository implements AccessGroupRepository {
               subscriptionItemId,
             })),
           },
+          departments: { create: departmentRows(input.departments ?? []) },
         },
         include,
       })
@@ -133,6 +194,10 @@ export class PrismaAccessGroupRepository implements AccessGroupRepository {
             create: unique(input.lineIds).map(subscriptionItemId => ({
               subscriptionItemId,
             })),
+          },
+          departments: input.departments && {
+            deleteMany: {},
+            create: departmentRows(input.departments),
           },
         },
         include,

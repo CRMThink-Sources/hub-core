@@ -14,6 +14,11 @@ import { HUBMESSAGE_CHANNEL_WEBHOOK_EVENTS } from '@/modules/thinkzap/infra/clie
 import { findLineItemByChannelId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
 import { LineBlockedError } from '@/modules/thinkzap/domain/errors/line-blocked.error'
 import { mapLineBlockedError } from '@/modules/thinkzap/presentation/helpers/handle-line-error'
+import {
+  hasRequiredPhoneId,
+  officialConnectionFields,
+  PHONE_ID_REQUIRED,
+} from '@/modules/thinkzap/presentation/helpers/official-connection-body'
 import { apiLogger } from '@/shared/infra/logger'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 
@@ -117,10 +122,9 @@ export class ConnectChannelController extends Controller {
     const params = z
       .object({
         connectorId: z.string().min(1),
-        wabaId: z.string().min(1),
-        phoneId: z.string().min(1),
-        code: z.string().min(1),
+        ...officialConnectionFields,
       })
+      .refine(hasRequiredPhoneId, PHONE_ID_REQUIRED)
       .safeParse(req.body)
 
     if (!params.success) {
@@ -140,7 +144,7 @@ export class ConnectChannelController extends Controller {
       )
     }
 
-    const { connectorId, wabaId, phoneId, code } = params.data
+    const { connectorId, wabaId, phoneId, code, coexistence } = params.data
 
     const connector = await this.getConnectorRepository.get(connectorId)
     if (!connector) {
@@ -184,7 +188,7 @@ export class ConnectChannelController extends Controller {
       wabaId,
       phoneId,
       code,
-      coexistence: false,
+      coexistence,
     })
 
     const webhookId = await this.createWebhookIfMissing(
@@ -194,7 +198,7 @@ export class ConnectChannelController extends Controller {
 
     await this.instanceRepository.markAsConnected(instance.id, {
       wabaId,
-      phoneId,
+      phoneId: phoneId || null,
       webhookId,
     })
 

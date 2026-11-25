@@ -7,6 +7,7 @@ const m = vi.hoisted(() => ({
   update: vi.fn(),
   deleteMany: vi.fn(),
   lineFindMany: vi.fn(),
+  departmentFindFirst: vi.fn(),
 }))
 
 vi.mock('@/config/prisma.js', () => ({
@@ -19,6 +20,7 @@ vi.mock('@/config/prisma.js', () => ({
       deleteMany: m.deleteMany,
     },
     thinkzapAccessGroupLine: { findMany: m.lineFindMany },
+    thinkzapAccessGroupDepartment: { findFirst: m.departmentFindFirst },
   },
 }))
 
@@ -29,6 +31,7 @@ import { PrismaAccessGroupRepository } from './prisma-access-group.repository'
 type NestedData = {
   members: { create?: unknown; deleteMany?: unknown }
   lines: { create?: unknown; deleteMany?: unknown }
+  departments?: { create?: unknown; deleteMany?: unknown }
 }
 
 const now = new Date('2026-11-19T00:00:00Z')
@@ -40,6 +43,7 @@ const row = {
   updatedAt: now,
   members: [{ bitrixUserId: '7' }],
   lines: [{ subscriptionItemId: '100' }],
+  departments: [{ bitrixDepartmentId: '5', includeSubdepartments: true }],
 }
 
 describe('PrismaAccessGroupRepository', () => {
@@ -49,7 +53,7 @@ describe('PrismaAccessGroupRepository', () => {
     vi.clearAllMocks()
   })
 
-  it('lista os grupos da instalação mapeando membros e linhas', async () => {
+  it('lista os grupos da instalação mapeando membros, linhas e departamentos', async () => {
     m.findMany.mockResolvedValue([row])
 
     const result = await repo.list('app-1')
@@ -64,6 +68,7 @@ describe('PrismaAccessGroupRepository', () => {
         name: 'Vendas',
         memberIds: ['7'],
         lineIds: ['100'],
+        departments: [{ departmentId: '5', includeSubdepartments: true }],
         createdAt: now,
         updatedAt: now,
       },
@@ -84,15 +89,64 @@ describe('PrismaAccessGroupRepository', () => {
       { subscriptionItemId: '1' },
     ])
 
-    const result = await repo.listLineIdsForUser('app-1', '7')
+    const result = await repo.listLineIdsForUser('app-1', {
+      bitrixUserId: '7',
+      departmentIds: [],
+      ancestorDepartmentIds: [],
+    })
 
     expect(m.lineFindMany).toHaveBeenCalledWith({
       where: {
-        group: { appId: 'app-1', members: { some: { bitrixUserId: '7' } } },
+        group: {
+          appId: 'app-1',
+          OR: [{ members: { some: { bitrixUserId: '7' } } }],
+        },
       },
       select: { subscriptionItemId: true },
     })
     expect(result).toEqual(['1', '2'])
+  })
+
+  it('considera pessoa, lotação direta e ancestral só com herança', async () => {
+    m.lineFindMany.mockResolvedValue([])
+
+    await repo.listLineIdsForUser('app-1', {
+      bitrixUserId: '7',
+      departmentIds: ['30'],
+      ancestorDepartmentIds: ['20', '10'],
+    })
+
+    expect(m.lineFindMany).toHaveBeenCalledWith({
+      where: {
+        group: {
+          appId: 'app-1',
+          OR: [
+            { members: { some: { bitrixUserId: '7' } } },
+            { departments: { some: { bitrixDepartmentId: { in: ['30'] } } } },
+            {
+              departments: {
+                some: {
+                  bitrixDepartmentId: { in: ['20', '10'] },
+                  includeSubdepartments: true,
+                },
+              },
+            },
+          ],
+        },
+      },
+      select: { subscriptionItemId: true },
+    })
+  })
+
+  it('hasInheritingDepartments procura vínculo com herança na instalação', async () => {
+    m.departmentFindFirst.mockResolvedValueOnce({ id: 'd1' })
+    expect(await repo.hasInheritingDepartments('app-1')).toBe(true)
+    expect(m.departmentFindFirst).toHaveBeenCalledWith({
+      where: { includeSubdepartments: true, group: { appId: 'app-1' } },
+      select: { id: true },
+    })
+    m.departmentFindFirst.mockResolvedValueOnce(null)
+    expect(await repo.hasInheritingDepartments('app-1')).toBe(false)
   })
 
   it('create deduplica membros e linhas', async () => {
@@ -107,6 +161,27 @@ describe('PrismaAccessGroupRepository', () => {
     const data = (m.create.mock.calls[0]?.[0] as { data: NestedData }).data
     expect(data.members.create).toEqual([{ bitrixUserId: '7' }])
     expect(data.lines.create).toEqual([{ subscriptionItemId: '100' }])
+  })
+
+  it('create grava departamentos sem repetir id', async () => {
+    m.create.mockResolvedValue(row)
+
+    await repo.create('app-1', {
+      name: 'Vendas',
+      memberIds: [],
+      lineIds: [],
+      departments: [
+        { departmentId: '5', includeSubdepartments: false },
+        { departmentId: '5', includeSubdepartments: true },
+        { departmentId: '6', includeSubdepartments: false },
+      ],
+    })
+
+    const data = (m.create.mock.calls[0]?.[0] as { data: NestedData }).data
+    expect(data.departments?.create).toEqual([
+      { bitrixDepartmentId: '5', includeSubdepartments: true },
+      { bitrixDepartmentId: '6', includeSubdepartments: false },
+    ])
   })
 
   it('create traduz violação do índice único em nome já usado', async () => {
@@ -139,6 +214,35 @@ describe('PrismaAccessGroupRepository', () => {
     const data = (m.update.mock.calls[0]?.[0] as { data: NestedData }).data
     expect(data.members.deleteMany).toEqual({})
     expect(data.lines.deleteMany).toEqual({})
+  })
+
+  it('update substitui os departamentos informados', async () => {
+    m.findFirst.mockResolvedValue({ id: 'g1' })
+    m.update.mockResolvedValue(row)
+
+    await repo.update('app-1', 'g1', {
+      name: 'Vendas',
+      memberIds: [],
+      lineIds: [],
+      departments: [],
+    })
+
+    const data = (m.update.mock.calls[0]?.[0] as { data: NestedData }).data
+    expect(data.departments).toEqual({ deleteMany: {}, create: [] })
+  })
+
+  it('update sem departamentos preserva os gravados', async () => {
+    m.findFirst.mockResolvedValue({ id: 'g1' })
+    m.update.mockResolvedValue(row)
+
+    await repo.update('app-1', 'g1', {
+      name: 'Vendas',
+      memberIds: [],
+      lineIds: [],
+    })
+
+    const data = (m.update.mock.calls[0]?.[0] as { data: NestedData }).data
+    expect(data.departments).toBeUndefined()
   })
 
   it('update traduz nome duplicado', async () => {
