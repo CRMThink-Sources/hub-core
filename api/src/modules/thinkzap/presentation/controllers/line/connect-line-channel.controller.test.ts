@@ -186,10 +186,42 @@ describe('ConnectLineChannelController', () => {
     expect(response.result).toMatchObject({ wabaRecorded: true })
   })
 
+  describe('coexistência', () => {
+    it('repassa à HubMessage o modo informado pelo SDK', async () => {
+      await sut.controller.perform(req({ ...SDK_PAYLOAD, coexistence: true }))
+
+      expect(sut.hubMessageClient.connectChannel).toHaveBeenCalledWith('C-9', {
+        wabaId: 'W-9',
+        phoneId: 'P-9',
+        code: 'CODE-9',
+        coexistence: true,
+      })
+    })
+
+    it('aceita retorno sem id do telefone', async () => {
+      const response = await sut.controller.perform(
+        req({ wabaId: 'W-9', code: 'CODE-9', coexistence: true }),
+      )
+
+      expect(response.status).toBe(200)
+      expect(sut.hubMessageClient.connectChannel).toHaveBeenCalledWith('C-9', {
+        wabaId: 'W-9',
+        phoneId: '',
+        code: 'CODE-9',
+        coexistence: true,
+      })
+    })
+  })
+
   describe('corpo inválido', () => {
     it.each([
       ['sem wabaId', { phoneId: 'P-9', code: 'CODE-9' }],
       ['sem phoneId', { wabaId: 'W-9', code: 'CODE-9' }],
+      [
+        'sem phoneId e sem coexistência',
+        { wabaId: 'W-9', code: 'CODE-9', coexistence: false },
+      ],
+      ['com coexistência não booleana', { ...SDK_PAYLOAD, coexistence: 'sim' }],
       ['sem code', { wabaId: 'W-9', phoneId: 'P-9' }],
       ['com campo vazio', { ...SDK_PAYLOAD, code: '' }],
     ])('responde 400 %s, sem tocar a HubMessage', async (_, body) => {

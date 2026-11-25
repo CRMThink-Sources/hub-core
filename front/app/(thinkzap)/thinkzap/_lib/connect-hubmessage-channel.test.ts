@@ -126,6 +126,51 @@ describe('connectHubMessageChannel', () => {
     expect(result).toEqual({ outcome: 'cancelled' })
   })
 
+  it.each([
+    [true, true],
+    [false, false],
+    [undefined, false],
+  ])('envia coexistence=%s do SDK como %s', async (fromSdk, sent) => {
+    connect.mockResolvedValue({ ...SDK_OK, coexistence: fromSdk })
+
+    await connectHubMessageChannel({ itemId: 'i1', channelId: 'C-9' })
+
+    expect(post).toHaveBeenCalledWith('/thinkzap/lines/i1/connect-channel', {
+      wabaId: 'W-9',
+      phoneId: 'P-9',
+      code: 'CODE-9',
+      coexistence: sent,
+    })
+  })
+
+  it('coexistência sem phoneId conecta', async () => {
+    connect.mockResolvedValue({ ...SDK_OK, phoneId: null, coexistence: true })
+
+    const result = await connectHubMessageChannel({
+      itemId: 'i1',
+      channelId: 'C-9',
+    })
+
+    expect(result).toEqual({ outcome: 'connected', wabaRecorded: true })
+    expect(post).toHaveBeenCalledWith('/thinkzap/lines/i1/connect-channel', {
+      wabaId: 'W-9',
+      code: 'CODE-9',
+      coexistence: true,
+    })
+  })
+
+  it('sem coexistência, retorno sem phoneId é incompleto', async () => {
+    connect.mockResolvedValue({ ...SDK_OK, phoneId: null, coexistence: false })
+
+    const result = await connectHubMessageChannel({
+      itemId: 'i1',
+      channelId: 'C-9',
+    })
+
+    expect(result).toEqual({ outcome: 'incomplete' })
+    expect(post).not.toHaveBeenCalled()
+  })
+
   it('retorno sem code: incomplete, sem chamar o servidor', async () => {
     connect.mockResolvedValue({ ...SDK_OK, code: null })
 

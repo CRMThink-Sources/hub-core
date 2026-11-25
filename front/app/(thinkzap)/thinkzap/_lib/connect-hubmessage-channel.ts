@@ -82,7 +82,8 @@ export async function isOriginAllowed(
 
 /**
  * Fluxo de conexão do WhatsApp Oficial (HubMessage) no iframe Bitrix:
- * 1. SDK `@omnizapi/connect` abre a autenticação Meta e retorna wabaId/phoneId/code
+ * 1. SDK `@omnizapi/connect` abre a autenticação Meta e retorna wabaId/phoneId/code e
+ *    se o número entrou em coexistência
  * 2. Envia os dados ao backend, que finaliza via `POST /v1/channels/{id}/connect`
  *    e grava a WABA no item da linha
  *
@@ -115,7 +116,13 @@ export async function connectHubMessageChannel(
     return { outcome: 'cancelled' }
   }
 
-  if (!response.wabaId || !response.phoneId || !response.code) {
+  // Número que segue no app WhatsApp Business pode vir sem o id do telefone.
+  const coexistence = response.coexistence === true
+  if (
+    !response.wabaId ||
+    !response.code ||
+    (!response.phoneId && !coexistence)
+  ) {
     return { outcome: 'incomplete' }
   }
 
@@ -128,8 +135,9 @@ export async function connectHubMessageChannel(
     `/thinkzap/lines/${encodeURIComponent(params.itemId)}/connect-channel`,
     {
       wabaId: response.wabaId,
-      phoneId: response.phoneId,
+      phoneId: response.phoneId ?? undefined,
       code: response.code,
+      coexistence,
     },
   )
 

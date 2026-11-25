@@ -10,10 +10,13 @@ export type ConnectOfficialLineInput = {
   subscriptionItemId: string
   domainId: string
   appCode: string
-  // Os três vêm do SDK `@omnizapi/connect` no iframe Bitrix.
+  // Os quatro vêm do SDK `@omnizapi/connect` no iframe Bitrix.
   wabaId: string
+  /** Vazio quando a coexistência termina sem id do telefone. */
   phoneId: string
   code: string
+  /** O número continua em uso no app WhatsApp Business. */
+  coexistence: boolean
 }
 
 export type ConnectOfficialLineResult = {
@@ -51,7 +54,7 @@ export class ConnectOfficialLine {
       wabaId: input.wabaId,
       phoneId: input.phoneId,
       code: input.code,
-      coexistence: false,
+      coexistence: input.coexistence,
     })
 
     const wabaRecorded = await this.recordWaba(line, input.wabaId)

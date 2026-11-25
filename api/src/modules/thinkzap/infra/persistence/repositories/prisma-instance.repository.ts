@@ -113,7 +113,11 @@ export class PrismaInstanceRepository
 
   async markAsConnected(
     instanceId: string,
-    data: { wabaId: string; phoneId: string; webhookId?: string | null },
+    data: {
+      wabaId: string
+      phoneId: string | null
+      webhookId?: string | null
+    },
   ): Promise<Instance> {
     const updatedInstance = await prisma.instance.update({
       where: { id: instanceId },

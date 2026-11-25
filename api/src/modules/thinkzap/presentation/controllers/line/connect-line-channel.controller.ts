@@ -8,6 +8,11 @@ import { HubMessageApiError } from '@/modules/thinkzap/infra/clients/hubmessage.
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import { mapLineError } from '@/modules/thinkzap/presentation/helpers/handle-line-error'
 import { apiLogger } from '@/shared/infra/logger'
+import {
+  hasRequiredPhoneId,
+  officialConnectionFields,
+  PHONE_ID_REQUIRED,
+} from '@/modules/thinkzap/presentation/helpers/official-connection-body'
 import { parseLineRequest } from './line-request'
 
 /**
@@ -32,11 +37,8 @@ export class ConnectLineChannelController extends Controller {
     const input = parseLineRequest(req)
 
     const body = z
-      .object({
-        wabaId: z.string().min(1),
-        phoneId: z.string().min(1),
-        code: z.string().min(1),
-      })
+      .object(officialConnectionFields)
+      .refine(hasRequiredPhoneId, PHONE_ID_REQUIRED)
       .safeParse(req.body)
 
     /** Dado incompleto do SDK não vira chamada à HubMessage. */

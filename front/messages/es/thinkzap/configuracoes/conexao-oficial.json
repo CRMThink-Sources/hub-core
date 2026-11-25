@@ -17,6 +17,13 @@
   "retornoIncompleto": "La autenticación no devolvió los datos necesarios. Intenta conectar de nuevo.",
   "erroConectar": "No se pudo conectar el número.",
   "conectadoHint": "Para cambiar el número de esta línea, habla con soporte.",
+  "coexistencia": {
+    "titulo": "¿Va a mantener el número en la app WhatsApp Business?",
+    "elegibilidade": "No todos los números son elegibles: Meta evalúa el historial de uso en la app.",
+    "abrirApp": "Abra la app al menos una vez cada 15 días, o Meta puede eliminar el vínculo.",
+    "desktop": "WhatsApp Desktop para Windows deja de funcionar.",
+    "web": "WhatsApp Web se desconecta; puede conectarlo de nuevo."
+  },
   "campos": {
     "waba": "Cuenta de WhatsApp Business (WABA)"
   },
