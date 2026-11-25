@@ -21,6 +21,10 @@ export interface UpdateInstanceRepository {
    */
   markAsConnected(
     instanceId: string,
-    data: { wabaId: string; phoneId: string; webhookId?: string | null },
+    data: {
+      wabaId: string
+      phoneId: string | null
+      webhookId?: string | null
+    },
   ): Promise<Instance>
 }

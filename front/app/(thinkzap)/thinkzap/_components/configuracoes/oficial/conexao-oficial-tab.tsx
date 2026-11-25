@@ -13,6 +13,14 @@ import { LinhaBloqueadaAviso } from '../linha-bloqueada-aviso'
 
 const NAMESPACE = 'thinkzap/configuracoes/conexao-oficial'
 
+/** Condições da Meta para o número continuar no app WhatsApp Business. */
+const AVISOS_COEXISTENCIA = [
+  'elegibilidade',
+  'abrirApp',
+  'desktop',
+  'web',
+] as const
+
 type Props = {
   /** Id do item de assinatura — a linha oficial. */
   itemId: string
@@ -178,6 +186,15 @@ export function ConexaoOficialTab({
           <p className="max-w-2xl text-sm text-muted-foreground">
             {t('instrucao')}
           </p>
+
+          <div className="max-w-2xl rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800">
+            <p className="text-sm font-medium">{t('coexistencia.titulo')}</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+              {AVISOS_COEXISTENCIA.map(aviso => (
+                <li key={aviso}>{t(`coexistencia.${aviso}`)}</li>
+              ))}
+            </ul>
+          </div>
 
           <Button
             type="button"

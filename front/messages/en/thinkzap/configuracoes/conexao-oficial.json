@@ -17,6 +17,13 @@
   "retornoIncompleto": "The sign-in did not return the required data. Try connecting again.",
   "erroConectar": "Could not connect the number.",
   "conectadoHint": "To change this line's number, contact support.",
+  "coexistencia": {
+    "titulo": "Keeping the number on the WhatsApp Business app?",
+    "elegibilidade": "Not every number is eligible: Meta evaluates its usage history in the app.",
+    "abrirApp": "Open the app at least once every 15 days, or Meta may remove the link.",
+    "desktop": "WhatsApp Desktop for Windows stops working.",
+    "web": "WhatsApp Web is disconnected; you can connect it again."
+  },
   "campos": {
     "waba": "WhatsApp Business Account (WABA)"
   },
