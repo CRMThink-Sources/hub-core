@@ -332,9 +332,10 @@ model ThinkzapAccessGroup {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  app     App                         @relation(fields: [appId], references: [id], onDelete: Cascade)
-  members ThinkzapAccessGroupMember[]
-  lines   ThinkzapAccessGroupLine[]
+  app         App                              @relation(fields: [appId], references: [id], onDelete: Cascade)
+  members     ThinkzapAccessGroupMember[]
+  lines       ThinkzapAccessGroupLine[]
+  departments ThinkzapAccessGroupDepartment[]
 
   @@unique([appId, name])
   @@index([appId])
@@ -351,6 +352,23 @@ model ThinkzapAccessGroupMember {
   @@unique([groupId, bitrixUserId])
   @@index([bitrixUserId])
   @@map("thinkzap_access_group_members")
+}
+
+/// Departamento do Bitrix24 no grupo. Com `includeSubdepartments`, quem está lotado
+/// em qualquer nível abaixo também pertence ao grupo; a hierarquia é consultada no
+/// portal na hora do acesso, para valer para subdepartamento criado depois. O nome
+/// não é gravado: vem do portal na leitura.
+model ThinkzapAccessGroupDepartment {
+  id                    String  @id @default(uuid())
+  groupId               String  @map("group_id")
+  bitrixDepartmentId    String  @map("bitrix_department_id")
+  includeSubdepartments Boolean @default(false) @map("include_subdepartments")
+
+  group ThinkzapAccessGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, bitrixDepartmentId])
+  @@index([bitrixDepartmentId])
+  @@map("thinkzap_access_group_departments")
 }
 
 /// `subscriptionItemId` é o id do item da SPA de assinaturas (a linha vive no
