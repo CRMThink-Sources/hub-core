@@ -29,7 +29,7 @@ describe('downloadOperatorMedia', () => {
     server.close()
   })
 
-  it.each([34 * MB, 100 * MB])(
+  it.each([34 * MB, 64 * MB])(
     'baixa o vídeo do operador de %i bytes',
     async size => {
       const file = await downloadOperatorMedia(`${baseUrl}/${size}`)
@@ -39,9 +39,9 @@ describe('downloadOperatorMedia', () => {
     },
   )
 
-  it('recusa acima de 100 MB, o máximo de vídeo da Z-API', async () => {
+  it('recusa acima de 64 MB', async () => {
     await expect(
-      downloadOperatorMedia(`${baseUrl}/${100 * MB + 1}`),
+      downloadOperatorMedia(`${baseUrl}/${64 * MB + 1}`),
     ).rejects.toThrow(RobotFileTooLargeError)
   })
 })
