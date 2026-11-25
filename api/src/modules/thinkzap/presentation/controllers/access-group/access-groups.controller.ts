@@ -6,6 +6,21 @@ import type { AccessGroupRepository } from '@/modules/thinkzap/domain/repositori
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 
+const INVALID_DEPARTMENT =
+  'Departamento inválido. Escolha-o novamente na lista.'
+
+const departmentSchema = z.object(
+  {
+    departmentId: z
+      .string({ error: INVALID_DEPARTMENT })
+      .min(1, INVALID_DEPARTMENT),
+    includeSubdepartments: z
+      .boolean({ error: INVALID_DEPARTMENT })
+      .default(false),
+  },
+  { error: INVALID_DEPARTMENT },
+)
+
 const groupBodySchema = z.object({
   name: z
     .string({ error: 'Informe o nome do grupo.' })
@@ -14,6 +29,10 @@ const groupBodySchema = z.object({
     .max(191, 'O nome do grupo deve ter no máximo 191 caracteres.'),
   memberIds: z.array(z.string().min(1)).default([]),
   lineIds: z.array(z.string().min(1)).default([]),
+  // Sem `default`: ausente no `PUT` preserva os departamentos gravados.
+  departments: z
+    .array(departmentSchema, { error: INVALID_DEPARTMENT })
+    .optional(),
 })
 
 /** Rotas de administração; o `requireThinkzapAdmin` já barrou quem não administra. */

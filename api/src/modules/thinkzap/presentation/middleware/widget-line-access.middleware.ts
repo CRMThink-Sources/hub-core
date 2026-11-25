@@ -1,5 +1,6 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express'
 import type { WidgetLineAccess } from '@/modules/thinkzap/application/access-group/widget-line-access'
+import { DepartmentsUnavailableError } from '@/modules/thinkzap/domain/errors/departments-unavailable.error'
 import { LineNotAllowedError } from '@/modules/thinkzap/domain/errors/line-not-allowed.error'
 
 function readItemId(req: Request): string | undefined {
@@ -42,6 +43,7 @@ export function makeWidgetLineAccessMiddleware(
         appCode: appId,
         domainId,
         bitrixUserId,
+        bitrixDepartmentIds: req.bitrixDepartmentIds ?? [],
         subscriptionItemId,
       })
       next()
@@ -49,6 +51,12 @@ export function makeWidgetLineAccessMiddleware(
       if (error instanceof LineNotAllowedError) {
         res.status(403).json({
           result: { error: error.message, code: 'line-not-allowed' },
+        })
+        return
+      }
+      if (error instanceof DepartmentsUnavailableError) {
+        res.status(503).json({
+          result: { error: error.message, code: 'departments-unavailable' },
         })
         return
       }

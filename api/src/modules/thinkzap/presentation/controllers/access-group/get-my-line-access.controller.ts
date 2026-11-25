@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import type { WidgetLineAccess } from '@/modules/thinkzap/application/access-group/widget-line-access'
+import { DepartmentsUnavailableError } from '@/modules/thinkzap/domain/errors/departments-unavailable.error'
 import { httpResponse } from '@/shared/helpers/http'
 import { Controller } from '@/shared/presentation/controller'
 
@@ -24,11 +25,20 @@ export class GetMyLineAccessController extends Controller {
     if (!appId || !domainId || !bitrixUserId) {
       return this.unauthorized(new Error('Invalid or expired token'))
     }
-    const result = await this.access.resolve({
-      appCode: appId,
-      domainId,
-      bitrixUserId,
-    })
-    return this.ok(result)
+    try {
+      const result = await this.access.resolve({
+        appCode: appId,
+        domainId,
+        bitrixUserId,
+        bitrixDepartmentIds: req.bitrixDepartmentIds ?? [],
+      })
+      return this.ok(result)
+    } catch (error) {
+      if (!(error instanceof DepartmentsUnavailableError)) throw error
+      return {
+        status: 503,
+        result: { error: error.message, code: 'departments-unavailable' },
+      }
+    }
   }
 }

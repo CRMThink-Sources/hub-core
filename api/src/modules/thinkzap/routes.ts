@@ -50,6 +50,7 @@ import {
   makeCreateAccessGroupController,
   makeGetMyLineAccessController,
   makeListAccessGroupsController,
+  makeListPortalDepartmentsController,
   makeRemoveAccessGroupController,
   makeUpdateAccessGroupController,
   makeWidgetLineGuard,
@@ -348,6 +349,12 @@ export const createThinkerszapRoutes = (): Router => {
     '/access/groups/:groupId',
     requireThinkzapAdmin,
     adaptControllerFactory(makeRemoveAccessGroupController),
+  )
+  // Departamentos do portal para a tela de grupos de acesso.
+  router.get(
+    '/portal-departments',
+    requireThinkzapAdmin,
+    adaptControllerFactory(makeListPortalDepartmentsController),
   )
 
   // Insights: o status serve a qualquer usuário com acesso; a chave Vibecode é só do admin.
