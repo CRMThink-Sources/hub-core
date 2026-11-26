@@ -1,8 +1,9 @@
 'use client'
 
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { formatSpaDate } from '@/lib/format-date'
+import { envConfig } from '@/shared/infra/env-config'
 import type {
   ContractPlan,
   UseLineSubscription,
@@ -156,13 +157,14 @@ export function SubscriptionCard({
         </ul>
       ) : null}
 
-      <p className="mt-4 text-sm">
-        {contract.status === 'cancelled'
-          ? t('canceladaDescricao', {
-              data: formatDate(contract.currentPeriodEnd),
-            })
-          : contract.status === 'past_due'
-            ? t('inadimplenteDescricao')
+      {contract.status === 'past_due' ? (
+        <AvisoPausada />
+      ) : (
+        <p className="mt-4 text-sm">
+          {contract.status === 'cancelled'
+            ? t('canceladaDescricao', {
+                data: formatDate(contract.currentPeriodEnd),
+              })
             : contract.status === 'trial_expired'
               ? t('testeExpiradoDescricao', {
                   data: formatDate(contract.currentPeriodEnd),
@@ -170,7 +172,8 @@ export function SubscriptionCard({
               : t('vigenteDescricao', {
                   data: formatDate(contract.currentPeriodEnd),
                 })}
-      </p>
+        </p>
+      )}
 
       {/**
        * O portal só aparece para assinatura do gateway. `billingPortalAvailable` vem
@@ -192,6 +195,42 @@ export function SubscriptionCard({
         </div>
       ) : null}
     </Shell>
+  )
+}
+
+/**
+ * Aviso de serviço pausado. Não fala em cobrança de propósito: quem resolve é o
+ * atendimento, e é para lá que o texto aponta.
+ *
+ * Sem `NEXT_PUBLIC_SUPPORT_URL` o nome do canal fica como texto: um link sem
+ * destino recarregaria a própria tela.
+ */
+function AvisoPausada() {
+  const { t } = useTranslation('thinkzap/conexoes/subscription')
+
+  return (
+    <div className="mt-4 text-sm">
+      <p className="font-medium">{t('pausadaTitulo')}</p>
+      <p className="mt-1">
+        <Trans
+          t={t}
+          components={{
+            canal: envConfig.supportUrl ? (
+              <a
+                href={envConfig.supportUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline underline-offset-2"
+              />
+            ) : (
+              <span />
+            ),
+          }}
+        >
+          {t('pausadaDescricao')}
+        </Trans>
+      </p>
+    </div>
   )
 }
 
