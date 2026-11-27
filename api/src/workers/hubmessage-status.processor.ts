@@ -13,9 +13,11 @@ import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persis
 import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { reportSmsMessageStatus } from '@/modules/thinkzap/application/report-sms-message-status'
 import {
-  recordDeliveryRejection,
-  REJECTION_RETRY_DELAYS_MS,
-} from '@/modules/thinkzap/application/record-delivery-rejection'
+  progressKindOf,
+  recordDeliveryProgress,
+  retryDelaysFor,
+} from '@/modules/thinkzap/application/record-delivery-progress'
+import { recordDeliveryRejection } from '@/modules/thinkzap/application/record-delivery-rejection'
 import { makePublishSendState } from '@/modules/thinkzap/main/make-send-notice-deps'
 import { enqueueThinkzapInboundJob } from '@/queue/thinkzap-inbound.queue'
 import { redisConnection } from '@/queue/redis-connection'
@@ -75,19 +77,40 @@ export async function processHubMessageDeliveryStatus(
         publish,
         now: () => new Date(),
       }),
+    recordProgress: input =>
+      recordDeliveryProgress(input, {
+        outbox: outboxRepo,
+        publish,
+        now: () => new Date(),
+      }),
+    /**
+     * O job de retentativa leva o corpo inteiro; ao voltar, o caso de uso relê o
+     * estado e cai no mesmo ramo (recusa ou progresso) da execução original.
+     */
     retryRecording: async ({ message }, nextAttempt) => {
+      const stateItem = findStatusStateItem({ message })
+      const progress = progressKindOf(stateItem)
+      // O `_id` vem de fora, e o BullMQ rejeita ':' em jobId custom.
+      const providerMessageId = message._id.replaceAll(':', '-')
+
       await enqueueThinkzapInboundJob(
         {
           source: 'hubmessage-status',
-          type: findStatusStateItem({ message })?.type ?? 'MESSAGE_DELIVERY',
+          type: stateItem?.type ?? 'MESSAGE_DELIVERY',
           body: message as unknown as Record<string, unknown>,
           traceKey: deps.traceKey,
           recordOnlyAttempt: nextAttempt,
         },
         {
-          // O `_id` vem de fora, e o BullMQ rejeita ':' em jobId custom.
-          jobId: `hubmessage-status-retry-${message._id.replaceAll(':', '-')}-${nextAttempt}`,
-          delay: REJECTION_RETRY_DELAYS_MS[nextAttempt - 1],
+          /**
+           * Entregue e Lido da mesma mensagem podem esperar ao mesmo tempo: sem o
+           * estado no id, o BullMQ descartaria o segundo como repetido. A recusa
+           * mantém o id da etapa 1.
+           */
+          jobId: progress
+            ? `hubmessage-status-retry-${progress}-${providerMessageId}-${nextAttempt}`
+            : `hubmessage-status-retry-${providerMessageId}-${nextAttempt}`,
+          delay: retryDelaysFor(stateItem)[nextAttempt - 1],
         },
       )
     },

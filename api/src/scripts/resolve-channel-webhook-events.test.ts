@@ -5,6 +5,7 @@ const URL = 'https://api.exemplo.com/api/webhooks/hubmessage'
 const REQUIRED = [
   'MESSAGE_RECEIVED',
   'MESSAGE_DELIVERY',
+  'MESSAGE_STATUS',
   'CONNECTED',
   'DISCONNECTED',
 ]
@@ -27,14 +28,39 @@ describe('resolveChannelWebhookEvents', () => {
       kind: 'update',
       webhookId: 'wh',
       events: REQUIRED,
-      missing: ['CONNECTED', 'DISCONNECTED'],
+      missing: ['MESSAGE_STATUS', 'CONNECTED', 'DISCONNECTED'],
+    })
+  })
+
+  it('acrescenta MESSAGE_STATUS ao canal que só tinha recebimento e entrega', () => {
+    const decision = resolveChannelWebhookEvents({
+      webhooks: [
+        {
+          id: 'wh',
+          url: URL,
+          events: [
+            'MESSAGE_RECEIVED',
+            'MESSAGE_DELIVERY',
+            'CONNECTED',
+            'DISCONNECTED',
+          ],
+        },
+      ],
+      webhookUrl: URL,
+      requiredEvents: REQUIRED,
+    })
+
+    expect(decision).toMatchObject({
+      kind: 'update',
+      webhookId: 'wh',
+      missing: ['MESSAGE_STATUS'],
     })
   })
 
   it('preserva evento extra assinado à mão', () => {
     const decision = resolveChannelWebhookEvents({
       webhooks: [
-        { id: 'wh', url: URL, events: ['MESSAGE_RECEIVED', 'MESSAGE_STATUS'] },
+        { id: 'wh', url: URL, events: ['MESSAGE_RECEIVED', 'INITIAL_DATA'] },
       ],
       webhookUrl: URL,
       requiredEvents: REQUIRED,
@@ -43,9 +69,9 @@ describe('resolveChannelWebhookEvents', () => {
     expect(decision).toMatchObject({ kind: 'update' })
     if (decision.kind !== 'update') throw new Error()
     expect(decision.events).toEqual(
-      expect.arrayContaining([...REQUIRED, 'MESSAGE_STATUS']),
+      expect.arrayContaining([...REQUIRED, 'INITIAL_DATA']),
     )
-    expect(decision.events).toHaveLength(5)
+    expect(decision.events).toHaveLength(6)
   })
 
   it('não mexe no webhook já completo', () => {

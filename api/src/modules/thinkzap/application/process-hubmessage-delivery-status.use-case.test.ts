@@ -1,11 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+/**
+ * Logger compartilhado para os testes poderem ver o nível usado. O caminho sem outbox
+ * (resposta do operador, bot) é o caso comum e não pode subir de debug.
+ */
+const logger = vi.hoisted(() => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}))
+
+vi.mock('@/shared/infra/logger', () => ({
+  createWorkerSourceLogger: () => logger,
+}))
+
 import type { HubMessageStatusEnvelope } from '@/modules/thinkzap/domain/interfaces/hubmessage-events.interface'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import type { WidgetOutboxRecord } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import {
   ProcessHubMessageDeliveryStatusUseCase,
+  type FindOutboxByProviderId,
   type ProcessHubMessageDeliveryStatusDeps,
 } from './process-hubmessage-delivery-status.use-case'
+import type { ProgressResult } from './record-delivery-progress'
 import type { RejectionResult } from './record-delivery-rejection'
 
 const CHANNEL_ID = '40A14E4772D74EB78957CF0E407E695C'
@@ -572,5 +590,206 @@ describe('ProcessHubMessageDeliveryStatusUseCase registro da recusa', () => {
 
     expect(deps.notifyOperator).not.toHaveBeenCalled()
     expect(recording.reportSmsStatus).not.toHaveBeenCalled()
+  })
+})
+
+describe('ProcessHubMessageDeliveryStatusUseCase registro de Entregue e Lido', () => {
+  const appendJobLog = async () => {}
+
+  /** Amostras reais: `moment` em segundos, tipo de callback próprio de cada estado. */
+  function makeProgressEnvelope(name: 'RECEIVED' | 'READ') {
+    return makeEnvelope(
+      { name },
+      {
+        moment: 1795600000,
+        type: name === 'READ' ? 'MessageStatusCallback' : 'DeliveryCallback',
+      },
+    )
+  }
+
+  function makeProgressDeps(
+    result: ProgressResult = 'recorded',
+    overrides: Partial<ProcessHubMessageDeliveryStatusDeps> = {},
+  ) {
+    const recording = {
+      recordProgress: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['recordProgress']>
+        >()
+        .mockResolvedValue(result),
+      recordRejection: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['recordRejection']>
+        >()
+        .mockResolvedValue('recorded'),
+      retryRecording: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['retryRecording']>
+        >()
+        .mockResolvedValue(),
+      outboxRepo: {
+        findByProviderMessageId: vi
+          .fn<FindOutboxByProviderId['findByProviderMessageId']>()
+          .mockResolvedValue({
+            smsSenderCode: 'thinkzap_sms_4821',
+            smsMessageId: 'sms-1',
+          } as WidgetOutboxRecord),
+      },
+      reportSmsStatus: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['reportSmsStatus']>
+        >()
+        .mockResolvedValue(),
+    }
+
+    return { ...makeDeps({ ...recording, ...overrides }), recording }
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+
+  it('RECEIVED registra a entrega e segue para a campanha como hoje', async () => {
+    const { useCase, deps, recording } = makeProgressDeps()
+    const envelope = makeProgressEnvelope('RECEIVED')
+
+    await useCase.execute(envelope, { appendJobLog })
+
+    expect(recording.recordProgress).toHaveBeenCalledWith({
+      instanceId: 'inst-db-1',
+      providerMessageId: PROVIDER_MESSAGE_ID,
+      stateItem: envelope.message.contents[0],
+    })
+    expect(recording.recordRejection).not.toHaveBeenCalled()
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+    expect(recording.reportSmsStatus).toHaveBeenCalledWith(
+      expect.anything(),
+      'delivered',
+    )
+    expect(deps.notifyOperator).not.toHaveBeenCalled()
+  })
+
+  it('estado que não é progresso nem recusa não registra nada', async () => {
+    const { useCase, recording } = makeProgressDeps()
+
+    await useCase.execute(makeEnvelope({ name: 'SENT' }), { appendJobLog })
+
+    expect(recording.recordProgress).not.toHaveBeenCalled()
+    expect(recording.recordRejection).not.toHaveBeenCalled()
+  })
+
+  it('recusa continua indo só para o registro de recusa', async () => {
+    const { useCase, recording } = makeProgressDeps()
+
+    await useCase.execute(makeEnvelope(), { appendJobLog })
+
+    expect(recording.recordRejection).toHaveBeenCalledOnce()
+    expect(recording.recordProgress).not.toHaveBeenCalled()
+  })
+
+  it('row ausente agenda a tentativa 1', async () => {
+    const { useCase, recording } = makeProgressDeps('row-missing')
+    const envelope = makeProgressEnvelope('READ')
+
+    await useCase.execute(envelope, { appendJobLog })
+
+    expect(recording.retryRecording).toHaveBeenCalledWith(envelope, 1)
+  })
+
+  it('row ainda ausente na tentativa 1 agenda a 2', async () => {
+    const { useCase, recording } = makeProgressDeps('row-missing')
+    const envelope = makeProgressEnvelope('READ')
+
+    await useCase.execute(envelope, { appendJobLog, recordOnlyAttempt: 1 })
+
+    expect(recording.retryRecording).toHaveBeenCalledWith(envelope, 2)
+  })
+
+  /** Envio que não passou pelo outbox (resposta do operador, bot) para aqui. */
+  it('tentativa 2 não agenda outra e encerra sem erro', async () => {
+    const { useCase, recording } = makeProgressDeps('row-missing')
+
+    await expect(
+      useCase.execute(makeProgressEnvelope('READ'), {
+        appendJobLog,
+        recordOnlyAttempt: 2,
+      }),
+    ).resolves.toBeUndefined()
+
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+  })
+
+  it('erro ao gravar reagenda e não lança', async () => {
+    const { useCase, recording } = makeProgressDeps('recorded', {
+      recordProgress: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['recordProgress']>
+        >()
+        .mockRejectedValue(new Error('banco fora')),
+    })
+    const envelope = makeProgressEnvelope('RECEIVED')
+
+    await expect(
+      useCase.execute(envelope, { appendJobLog }),
+    ).resolves.toBeUndefined()
+
+    expect(recording.retryRecording).toHaveBeenCalledWith(envelope, 1)
+    expect(recording.reportSmsStatus).toHaveBeenCalledOnce()
+  })
+
+  it('execução só de registro de um READ não avisa o chat nem reporta campanha', async () => {
+    const { useCase, deps, recording } = makeProgressDeps('recorded')
+
+    await useCase.execute(makeProgressEnvelope('READ'), {
+      appendJobLog,
+      recordOnlyAttempt: 1,
+    })
+
+    expect(recording.recordProgress).toHaveBeenCalledOnce()
+    expect(recording.recordRejection).not.toHaveBeenCalled()
+    expect(deps.notifyOperator).not.toHaveBeenCalled()
+    expect(deps.messageRepo.findByProviderMessageId).not.toHaveBeenCalled()
+    expect(recording.reportSmsStatus).not.toHaveBeenCalled()
+  })
+
+  it('execução só de registro de um RECEIVED grava e para antes da campanha', async () => {
+    const { useCase, deps, recording } = makeProgressDeps('recorded')
+
+    await useCase.execute(makeProgressEnvelope('RECEIVED'), {
+      appendJobLog,
+      recordOnlyAttempt: 1,
+    })
+
+    expect(recording.recordProgress).toHaveBeenCalledOnce()
+    expect(recording.recordRejection).not.toHaveBeenCalled()
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+    expect(recording.reportSmsStatus).not.toHaveBeenCalled()
+    expect(deps.messageRepo.findByProviderMessageId).not.toHaveBeenCalled()
+  })
+
+  /** Resposta do operador está no outbox mas não é acompanhada: não há o que esperar. */
+  it('envio não acompanhado não agenda nova tentativa', async () => {
+    const { useCase, recording } = makeProgressDeps('untracked')
+
+    await useCase.execute(makeProgressEnvelope('READ'), { appendJobLog })
+
+    expect(recording.recordProgress).toHaveBeenCalledOnce()
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+  })
+
+  it('desistir de um progresso sem row só loga em debug', async () => {
+    const { useCase, recording } = makeProgressDeps('row-missing')
+
+    await useCase.execute(makeProgressEnvelope('READ'), {
+      appendJobLog,
+      recordOnlyAttempt: 2,
+    })
+
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+    expect(logger.info).not.toHaveBeenCalled()
+    expect(logger.warn).not.toHaveBeenCalled()
+    expect(logger.error).not.toHaveBeenCalled()
+    expect(logger.debug).toHaveBeenCalledWith(
+      expect.objectContaining({ progressNotRecorded: true }),
+      expect.any(String),
+    )
   })
 })

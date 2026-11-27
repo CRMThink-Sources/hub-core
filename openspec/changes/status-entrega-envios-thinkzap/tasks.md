@@ -1,7 +1,8 @@
 # Tarefas: status de entrega dos envios do ThinkZap
 
 Etapa 1 (recusas e falhas) implementada na branch `task/status-entrega-envios-thinkzap`.
-Etapas 2 (entregue e lido) e 3 (aba "Envios") ainda não começaram.
+Etapa 2 (entregue e lido, linha oficial) implementada na branch
+`task/status-entrega-envios-etapa-2`. Falta a Z-API e a etapa 3 (aba "Envios").
 
 ## Etapa 1: validar em staging antes de produção
 
@@ -67,7 +68,42 @@ Etapas 2 (entregue e lido) e 3 (aba "Envios") ainda não começaram.
 
 ## Etapas seguintes
 
-- [ ] Etapa 2: capturar eventos reais de entregue e lido (Z-API e HubMessage,
-  `MESSAGE_STATUS`) e gravar `DELIVERED`/`READ`. O callback de campanha de SMS hoje
-  trata todo estado sem erro como entregue: não pode regredir.
+- [x] Etapa 2, linha oficial (HubMessage): `RECEIVED` grava Entregue e `READ` grava Lido
+  (colunas `delivered_at`/`read_at`), com rodapé no comentário. Plano em `plan-etapa-2.md`.
+- [ ] Etapa 2, Z-API: sem amostra do `MessageStatusCallback` (`ids[]`); hoje o evento é
+  descartado. Capturar o corpo bruto antes de implementar.
 - [ ] Etapa 3: aba "Envios" (`/thinkzap/envios`), com filtro por perfil.
+
+## Etapa 2 (linha oficial): validar em staging
+
+- [ ] Migration `add_delivery_read_to_thinkzap_outbox` aplicada pelo deploy (duas colunas
+  nulas; DDL instantâneo no MariaDB 10.3+).
+- [ ] Rodar `hubmessage:sync-channel-webhook-events` nos canais que ainda não assinam
+  `MESSAGE_STATUS` (8 de 17 em produção em 27/11); o script só acrescenta eventos.
+  Sem isso, "Lido" não chega nesses canais (Entregue chega pelo `MESSAGE_DELIVERY`).
+- [ ] Enviar um template oficial e ver o rodapé do comentário ir de Enviado a Entregue e
+  a Lido; conferir o caso de `READ` chegando antes do `RECEIVED`.
+- [ ] Envio de operador ou bot (fora do escopo): nenhum erro nem escrita.
+- [ ] Observar o volume de jobs de retentativa de status para envios fora do outbox:
+  até 4 jobs retidos 24 h por mensagem de operador fora da outbox unificada.
+- [ ] **Mudança no caminho de campanha de SMS:** agora só reporta `delivered` para
+  `RECEIVED` ou `READ` (antes, qualquer estado sem erro, inclusive `SENT`) e ignora os
+  demais. Na tela de campanha, "delivered" passa a aparecer alguns segundos depois do
+  aceite. Conferir em staging com uma campanha real.
+- [ ] Antes de rodar o script de sincronização, ler nos logs dos 9 canais que já assinam
+  `MESSAGE_STATUS` o que esse evento traz: se também manda `SENT`, `ERROR` ou `RECEIVED`
+  repetidos com outro `identifier` (um `ERROR` duplicado repetiria o aviso no chat).
+- [ ] Ordem: deploy com a migration primeiro; só depois rodar o script, em cada ambiente com
+  o `.env` dele.
+
+### Resíduos da etapa 2 (menores)
+
+- [ ] `alertedFailures` é marca d'água: A recusada (alerta), depois entregue, depois B
+  recusada não gera novo alerta.
+- [ ] `publishSendState` ainda agenda o job de alerta quando há `rejectedAt`, mesmo com a
+  mensagem entregue (sem efeito, só um job a mais).
+- [ ] `recordProgress` e `reportCampaignStatus` fazem a mesma consulta ao outbox.
+- [ ] O aviso `deliveryAfterRejection` não leva `traceKey` e repete em reentrega.
+- [ ] Timestamp da migration (`20261128120000`) está à frente da data de criação.
+- [ ] Faltam testes: `PARTIAL` com entregue e falha, `READ` + `DELIVERED` resultando em
+  `DELIVERED`, `DELIVERED` com parte na fila, rótulos em es para Entregue/Lido.

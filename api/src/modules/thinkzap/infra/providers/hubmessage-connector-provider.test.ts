@@ -15,6 +15,7 @@ function makeClient(overrides: Partial<HubMessageClient> = {}) {
       events: [
         'MESSAGE_RECEIVED',
         'MESSAGE_DELIVERY',
+        'MESSAGE_STATUS',
         'CONNECTED',
         'DISCONNECTED',
       ],
@@ -58,6 +59,7 @@ describe('HubMessageConnectorProvider', () => {
       events: [
         'MESSAGE_RECEIVED',
         'MESSAGE_DELIVERY',
+        'MESSAGE_STATUS',
         'CONNECTED',
         'DISCONNECTED',
       ],

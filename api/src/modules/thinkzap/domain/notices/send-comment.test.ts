@@ -15,6 +15,8 @@ function part(destination: string): SendPart {
     lastError: null,
     failureCode: null,
     failureReason: null,
+    deliveredAt: null,
+    readAt: null,
   }
 }
 
@@ -682,4 +684,84 @@ describe('falha sem motivo registrado', () => {
       }
     },
   )
+})
+
+describe('Entregue e Lido no comentário', () => {
+  const withState = (
+    state: 'DELIVERED' | 'READ',
+    destination: string,
+  ): RecipientSummary => ({
+    destination,
+    state,
+    failedPart: null,
+    hasUnconfirmed: false,
+  })
+  const many = (state: 'DELIVERED' | 'READ', count: number, from = 0) =>
+    Array.from({ length: count }, (_, i) =>
+      withState(state, `55110000${100 + from + i}`),
+    )
+
+  it('um destinatário lido: rodapé termina em Lido', () => {
+    const text = renderSendComment(
+      base({ recipients: [withState('READ', '5511999999999')] }),
+    )
+    expect(lastLine(text)).toMatch(/\[B\]Status:\[\/B\] Lido$/)
+  })
+
+  it('um destinatário entregue em inglês: Delivered', () => {
+    const text = renderSendComment(
+      base({
+        locale: 'en',
+        recipients: [withState('DELIVERED', '5511999999999')],
+      }),
+    )
+    expect(lastLine(text)).toMatch(/Delivered$/)
+  })
+
+  it('envio todo entregue usa o título de enviado', () => {
+    const delivered = renderSendComment(
+      base({ recipients: many('DELIVERED', 2) }),
+    )
+    const sentText = renderSendComment(base({ recipients: sentMany(2) }))
+    expect(delivered.split('\n')[0]).toBe(sentText.split('\n')[0])
+  })
+
+  it('misto de enviado, entregue e lido usa o título de enviado', () => {
+    const mixed = renderSendComment(
+      base({
+        recipients: [sent('1'), ...many('DELIVERED', 1), ...many('READ', 1, 5)],
+      }),
+    )
+    const sentText = renderSendComment(base({ recipients: sentMany(2) }))
+    expect(mixed.split('\n')[0]).toBe(sentText.split('\n')[0])
+  })
+
+  it('entregue com falha mantém o título neutro', () => {
+    const mixed = renderSendComment(
+      base({ recipients: [...many('DELIVERED', 1), failed('5599')] }),
+    )
+    const sentText = renderSendComment(base({ recipients: sentMany(2) }))
+    expect(mixed.split('\n')[0]).not.toBe(sentText.split('\n')[0])
+  })
+
+  it('22 destinatários: totais por estado e sem linha individual', () => {
+    const recipients = [...many('READ', 20), ...many('DELIVERED', 2, 50)]
+    const text = renderSendComment(base({ recipients }))
+    expect(text).toContain('Entregue: 2')
+    expect(text).toContain('Lido: 20')
+    expect(text).not.toContain(recipients[0]!.destination)
+    expect(text).not.toContain(recipients[21]!.destination)
+    expect(text).not.toMatch(/confira/i)
+  })
+
+  it('acima de 20, um FAILED no meio continua detalhado', () => {
+    const recipients = [
+      ...many('READ', 10),
+      failed('5599'),
+      ...many('DELIVERED', 11, 50),
+    ]
+    const text = renderSendComment(base({ recipients }))
+    expect(text).toContain('5599 — Falhou')
+    expect(text).not.toContain(recipients[0]!.destination)
+  })
 })

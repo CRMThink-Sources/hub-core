@@ -60,6 +60,8 @@ const COPY: Record<NoticeLocale, SendCopy> = {
     states: {
       WAITING: 'Aguardando envio',
       SENT: 'Enviado',
+      DELIVERED: 'Entregue',
+      READ: 'Lido',
       FAILED: 'Falhou',
       PARTIAL: 'Falhou em parte',
       UNKNOWN: 'Sem confirmação',
@@ -79,6 +81,8 @@ const COPY: Record<NoticeLocale, SendCopy> = {
     states: {
       WAITING: 'Waiting to be sent',
       SENT: 'Sent',
+      DELIVERED: 'Delivered',
+      READ: 'Read',
       FAILED: 'Failed',
       PARTIAL: 'Partially failed',
       UNKNOWN: 'Not confirmed',
@@ -98,6 +102,8 @@ const COPY: Record<NoticeLocale, SendCopy> = {
     states: {
       WAITING: 'Esperando envío',
       SENT: 'Enviado',
+      DELIVERED: 'Entregado',
+      READ: 'Leído',
       FAILED: 'Falló',
       PARTIAL: 'Falló en parte',
       UNKNOWN: 'Sin confirmación',
@@ -116,6 +122,14 @@ const COPY: Record<NoticeLocale, SendCopy> = {
 
 /** O motivo vem cru do provedor: uma quebra de linha tiraria o status do rodapé. */
 const singleLine = (value: string) => value.replace(/\s+/g, ' ').trim()
+
+/**
+ * Enviado, entregue e lido são o mesmo desfecho bom: o provedor aceitou e nada
+ * falhou. Ficam de fora da lista individual e juntos no título; só falha,
+ * parcial e desconhecido pedem atenção do atendente.
+ */
+const isSentGroup = (state: RecipientState) =>
+  state === 'SENT' || state === 'DELIVERED' || state === 'READ'
 
 /** Estado do destinatário, com o motivo quando houve falha. Ainda sem escape. */
 function stateText(
@@ -169,7 +183,7 @@ function statusLines(input: SendCommentInput): string[] {
   const summarized = input.recipients.length > DETAILED_RECIPIENTS_LIMIT
   const detailed = summarized
     ? input.recipients.filter(
-        ({ state }) => state !== 'WAITING' && state !== 'SENT',
+        ({ state }) => state !== 'WAITING' && !isSentGroup(state),
       )
     : input.recipients
 
@@ -190,15 +204,18 @@ function commentTitle({
 }: SendCommentInput): string {
   const labels = timelineLabels(locale)
   // `every` é verdadeiro em lista vazia, que não tem desfecho nenhum.
-  const all = (state: RecipientState) =>
-    recipients.length > 0 && recipients.every(r => r.state === state)
+  const all = (match: (state: RecipientState) => boolean) =>
+    recipients.length > 0 && recipients.every(r => match(r.state))
 
-  if (all('SENT')) return automation ? labels.robotTitle : labels.sentTitle
+  if (all(isSentGroup)) return automation ? labels.robotTitle : labels.sentTitle
   // "Falha no envio" convidaria a reenviar o que talvez tenha saído.
-  if (all('FAILED') && !recipients.some(r => r.hasUnconfirmed)) {
+  if (
+    all(state => state === 'FAILED') &&
+    !recipients.some(r => r.hasUnconfirmed)
+  ) {
     return labels.failedTitle
   }
-  if (all('UNKNOWN')) return labels.unknownTitle
+  if (all(state => state === 'UNKNOWN')) return labels.unknownTitle
   return COPY[locale].neutralTitle
 }
 

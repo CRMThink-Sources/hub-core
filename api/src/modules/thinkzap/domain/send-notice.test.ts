@@ -16,6 +16,8 @@ function part(overrides: Partial<SendPart> = {}): SendPart {
     lastError: null,
     failureCode: null,
     failureReason: null,
+    deliveredAt: null,
+    readAt: null,
     ...overrides,
   }
 }
@@ -202,5 +204,54 @@ describe('failureCount', () => {
       part({ destination: 'esperando', status: 'PENDING' }),
     ])
     expect(failureCount(recipients)).toBe(3)
+  })
+})
+
+describe('entregue e lido', () => {
+  it('lido sem entregue anterior mostra READ', () => {
+    expect(
+      summarizeRecipients([part({ status: 'SENT', readAt: new Date() })])[0]!
+        .state,
+    ).toBe('READ')
+  })
+
+  it('entregue em uma parte e só enviada na outra mostra SENT (o menor avanço)', () => {
+    const parts = [
+      part({ status: 'SENT', deliveredAt: new Date() }),
+      part({ status: 'SENT' }),
+    ]
+    expect(summarizeRecipients(parts)[0]!.state).toBe('SENT')
+  })
+
+  it('entregue prevalece sobre recusa registrada', () => {
+    const [r] = summarizeRecipients([
+      part({
+        status: 'SENT',
+        rejectedAt: new Date(),
+        deliveredAt: new Date(),
+      }),
+    ])
+    expect(r!.state).toBe('DELIVERED')
+    expect(r!.failedPart).toBeNull()
+  })
+
+  it('recusa sem entrega segue FAILED', () => {
+    expect(
+      summarizeRecipients([
+        part({ status: 'SENT', rejectedAt: new Date() }),
+      ])[0]!.state,
+    ).toBe('FAILED')
+  })
+
+  it('failureCount ignora DELIVERED e READ', () => {
+    const recipients = summarizeRecipients([
+      part({ destination: 'lido', status: 'SENT', readAt: new Date() }),
+      part({
+        destination: 'entregue',
+        status: 'SENT',
+        deliveredAt: new Date(),
+      }),
+    ])
+    expect(failureCount(recipients)).toBe(0)
   })
 })

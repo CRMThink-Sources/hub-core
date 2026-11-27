@@ -694,6 +694,38 @@ describe('PrismaWidgetOutboxRepository — recusa e aviso de envio', () => {
     expect(data.failureReason).toHaveLength(2000)
   })
 
+  it('grava a entrega só em row ainda sem ela', async () => {
+    const won = await sut().markDelivered('outbox-1', at)
+
+    expect(won).toBe(true)
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: 'outbox-1', deliveredAt: null },
+      data: { deliveredAt: at },
+    })
+  })
+
+  it('devolve false quando a entrega já estava gravada', async () => {
+    updateManyMock.mockResolvedValue({ count: 0 })
+
+    await expect(sut().markDelivered('outbox-1', at)).resolves.toBe(false)
+  })
+
+  it('grava a leitura só em row ainda sem ela', async () => {
+    const won = await sut().markRead('outbox-1', at)
+
+    expect(won).toBe(true)
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: 'outbox-1', readAt: null },
+      data: { readAt: at },
+    })
+  })
+
+  it('devolve false quando a leitura já estava gravada', async () => {
+    updateManyMock.mockResolvedValue({ count: 0 })
+
+    await expect(sut().markRead('outbox-1', at)).resolves.toBe(false)
+  })
+
   it('liga o grupo inteiro ao aviso, sem trocar o de quem já tem', async () => {
     await sut().linkSendNotice(
       { rowId: 'outbox-1', dispatchGroupId: 'group-1' },

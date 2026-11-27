@@ -681,6 +681,11 @@ model ThinkzapWidgetOutbox {
   /// retenção apaga aviso e outbox em momentos diferentes.
   sendNoticeId String? @map("send_notice_id")
 
+  /// Confirmações do provider de que a mensagem chegou e foi lida. Colunas
+  /// separadas, e não um status único, porque o provider pode entregar os eventos
+  /// fora de ordem (lido antes de entregue) e cada um precisa guardar o seu horário.
+  deliveredAt   DateTime? @map("delivered_at")
+  readAt        DateTime? @map("read_at")
   /// Recusa informada pelo provider **depois** de aceitar o envio. Fica fora de
   /// `status` de propósito: a mensagem continua `SENT` para a fila, que não pode
   /// reenviar o que o provider já recebeu.

@@ -25,6 +25,14 @@ vi.mock('@/queue/thinkzap-inbound.queue', () => ({
 }))
 vi.mock('@/config/env', () => ({ env: { appCodes: { thinkzap: 'tz' } } }))
 vi.mock('@/queue/redis-connection', () => ({ redisConnection: {} }))
+vi.mock('@/shared/infra/logger', () => ({
+  createWorkerSourceLogger: () => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  }),
+}))
 vi.mock('@/modules/thinkzap/application/ensure-bitrix-bot-id', () => ({
   ensureBitrixBotId: vi.fn(),
 }))
@@ -78,6 +86,9 @@ const envelope: HubMessageStatusEnvelope = {
 const retryRecording = () =>
   (m.deps as ProcessHubMessageDeliveryStatusDeps).retryRecording!
 
+const recordProgress = () =>
+  (m.deps as ProcessHubMessageDeliveryStatusDeps).recordProgress
+
 describe('processHubMessageDeliveryStatus nova tentativa de registro', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -106,6 +117,56 @@ describe('processHubMessageDeliveryStatus nova tentativa de registro', () => {
       )
     },
   )
+
+  /**
+   * Entregue e Lido da mesma mensagem esperam juntos: o estado no jobId impede que um
+   * deduplique o outro (o BullMQ ignora jobId repetido).
+   */
+  it.each([
+    ['READ', 'MessageStatusCallback', 'read', 1, 10_000],
+    ['READ', 'MessageStatusCallback', 'read', 2, 60_000],
+    ['RECEIVED', 'DeliveryCallback', 'delivered', 1, 10_000],
+  ] as const)(
+    '%s (%s): jobId com %s, tentativa %i espera %i ms',
+    async (name, type, kind, nextAttempt, delay) => {
+      const progress: HubMessageStatusEnvelope = {
+        message: {
+          ...envelope.message,
+          contents: [{ type, moment: 1795600000, state: { name } }],
+        },
+      }
+
+      await processHubMessageDeliveryStatus(progress, {
+        appendJobLog: async () => {},
+        traceKey: 'trace-1',
+      })
+
+      await retryRecording()(progress, nextAttempt)
+
+      expect(m.enqueue).toHaveBeenCalledWith(
+        {
+          source: 'hubmessage-status',
+          type,
+          body: progress.message,
+          traceKey: 'trace-1',
+          recordOnlyAttempt: nextAttempt,
+        },
+        {
+          jobId: `hubmessage-status-retry-${kind}-prov-1-${nextAttempt}`,
+          delay,
+        },
+      )
+    },
+  )
+
+  it('monta o registro de Entregue e Lido', async () => {
+    await processHubMessageDeliveryStatus(envelope, {
+      appendJobLog: async () => {},
+      traceKey: 'trace-1',
+    })
+
+    expect(recordProgress()).toBeTypeOf('function')
+  })
 
   it('repassa a tentativa em curso ao caso de uso', async () => {
     const appendJobLog = async () => {}

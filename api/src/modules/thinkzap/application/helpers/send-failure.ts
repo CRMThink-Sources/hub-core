@@ -25,6 +25,8 @@ export function toSendPart(row: WidgetOutboxRecord): SendPart {
     lastError: row.lastError,
     failureCode: row.failureCode,
     failureReason: row.failureReason,
+    deliveredAt: row.deliveredAt,
+    readAt: row.readAt,
   }
 }
 

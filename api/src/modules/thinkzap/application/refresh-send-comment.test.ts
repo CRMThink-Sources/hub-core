@@ -53,6 +53,8 @@ const row = (overrides: Partial<WidgetOutboxRecord> = {}): WidgetOutboxRecord =>
     origin: 'WIDGET',
     status: 'SENT',
     lastError: null,
+    deliveredAt: null,
+    readAt: null,
     rejectedAt: null,
     failureCode: null,
     failureReason: null,
@@ -485,5 +487,24 @@ describe('refreshSendComment', () => {
     expect(messageOf(publisher.publish.mock.calls[0])).toContain(
       'velho.pdf (não foi possível obter o arquivo)',
     )
+  })
+
+  it('não lista como falha o arquivo recusado depois de lido', async () => {
+    const { deps, publisher } = setup({
+      rows: [
+        row({
+          kind: 'MEDIA',
+          fileName: 'lido.pdf',
+          rejectedAt: new Date('2026-11-27T10:02:00Z'),
+          readAt: new Date('2026-11-27T10:01:00Z'),
+        }),
+      ],
+    })
+
+    await refreshSendComment('notice-1', deps)
+
+    const message = messageOf(publisher.publish.mock.calls[0])
+    expect(message).toContain('lido.pdf')
+    expect(message).not.toContain('lido.pdf (falha no envio)')
   })
 })

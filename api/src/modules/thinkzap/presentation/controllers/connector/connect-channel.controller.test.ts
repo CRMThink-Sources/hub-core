@@ -174,6 +174,7 @@ describe('ConnectChannelController', () => {
       events: [
         'MESSAGE_RECEIVED',
         'MESSAGE_DELIVERY',
+        'MESSAGE_STATUS',
         'CONNECTED',
         'DISCONNECTED',
       ],

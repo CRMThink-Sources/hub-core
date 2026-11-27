@@ -42,6 +42,8 @@ const row = (overrides: Partial<WidgetOutboxRecord> = {}): WidgetOutboxRecord =>
     destination: '5511888880000',
     status: 'FAILED',
     lastError: 'Número inválido',
+    deliveredAt: null,
+    readAt: null,
     rejectedAt: null,
     failureCode: null,
     failureReason: null,

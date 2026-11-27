@@ -10,6 +10,7 @@ import {
   type SendRobotFilesResult,
 } from '@/modules/thinkzap/domain/notices/timeline-notices'
 import {
+  isDelivered,
   isSettled,
   summarizeRecipients,
 } from '@/modules/thinkzap/domain/send-notice'
@@ -144,7 +145,9 @@ function filesOf(
   const failedReason = new Map<string, SendRobotFileFailure>()
   for (const row of media) {
     const name = row.fileName as string
-    if (row.status === 'SENT' && row.rejectedAt === null) accepted.add(name)
+    // Recusa registrada depois de entregue/lido não desfaz a chegada do arquivo.
+    if (row.status === 'SENT' && (row.rejectedAt === null || isDelivered(row)))
+      accepted.add(name)
     else if (row.status === 'FAILED' && row.lastError !== DAILY_LIMIT_FAILURE) {
       failedReason.set(
         name,
