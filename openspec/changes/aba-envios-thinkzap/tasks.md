@@ -16,8 +16,8 @@
 
 ## 4. API
 
-- [ ] 4.1 Criar os controllers `GET /messages/sends` e `GET /messages/sends/:id` com validação Zod (`from`, `to`, `status`, `line`, `destination`, `senderId`, `page`, `limit`), as factories em `modules/thinkzap/main/` e registrar as rotas em `routes.ts` **depois** de `thinkzapAccessMiddleware`, sem `requireThinkzapPermission`. Verificar: testes de controller cobrem parâmetros inválidos (400), usuário sem acesso (403 do middleware), detalhe alheio (404) e resposta no formato do contrato do design; um teste de rotas garante que as duas rotas ficam atrás do middleware (como `routes-insights-permission.test.ts`).
-- [ ] 4.2 Garantir que nenhum log novo carrega texto de mensagem ou telefone (apenas contagem e filtros) e documentar as rotas no `README`/spec da change quando houver lista de rotas. Verificar: busca nos novos arquivos por `logger` mostra só campos sem dado pessoal, conferida em revisão.
+- [x] 4.1 Criar os controllers `GET /messages/sends` e `GET /messages/sends/:id` com validação Zod (`from`, `to`, `status`, `line`, `destination`, `senderId`, `page`, `limit`), as factories em `modules/thinkzap/main/` e registrar as rotas em `routes.ts` **depois** de `thinkzapAccessMiddleware`, sem `requireThinkzapPermission`. Verificar: testes de controller cobrem parâmetros inválidos (400), usuário sem acesso (403 do middleware), detalhe alheio (404) e resposta no formato do contrato do design; um teste de rotas garante que as duas rotas ficam atrás do middleware (como `routes-insights-permission.test.ts`).
+- [x] 4.2 Garantir que nenhum log novo carrega texto de mensagem ou telefone (apenas contagem e filtros) e documentar as rotas no `README`/spec da change quando houver lista de rotas. Verificar: busca nos novos arquivos por `logger` mostra só campos sem dado pessoal, conferida em revisão.
 
 ## 5. Front
 
