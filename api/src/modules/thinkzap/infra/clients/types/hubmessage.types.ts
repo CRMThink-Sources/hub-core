@@ -38,17 +38,23 @@ export type HubMessageWebhookEvent =
  * como uma delas fica para trás na próxima mudança, deixando parte dos canais surda
  * para o evento novo.
  *
+ * `MESSAGE_STATUS` é o único caminho do "Lido": a HubMessage só avisa que o contato
+ * leu a mensagem por ele. Sem a assinatura, o envio fica em Entregue para sempre.
+ *
  * `CONNECTED`/`DISCONNECTED` alimentam o campo Conectado do item da linha na SPA
  * (`UF_CRM_93_CONNECTED`): sem eles, o CRM só saberia da conexão pela conclusão
  * síncrona do connect, e nunca de uma queda.
  *
  * Canais provisionados antes de um evento entrar nesta lista não o assinam. O script
  * `hubmessage:sync-channel-webhook-events` lista o webhook de cada canal e atualiza a
- * lista de eventos (`PATCH`) para incluir todos os daqui.
+ * lista de eventos (`PATCH`) para incluir todos os daqui — só acrescenta, nunca remove
+ * evento extra nem mexe em webhook de outra URL. Ele escreve na API da HubMessage, então
+ * quem roda é o operador, com o `.env` do ambiente certo; teste nenhum o executa.
  */
 export const HUBMESSAGE_CHANNEL_WEBHOOK_EVENTS: HubMessageWebhookEvent[] = [
   'MESSAGE_RECEIVED',
   'MESSAGE_DELIVERY',
+  'MESSAGE_STATUS',
   'CONNECTED',
   'DISCONNECTED',
 ]
