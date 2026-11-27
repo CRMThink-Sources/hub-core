@@ -92,7 +92,7 @@ type SendRobotFileLabels = {
  * em negrito, campos rotulados, a mensagem em citação e a orientação ao fim.
  * `template` é literal em todos: é por essa linha que o cliente concilia a cobrança.
  */
-type Labels = {
+export type TimelineLabels = {
   from: string
   to: string
   message: string
@@ -113,7 +113,7 @@ type Labels = {
 }
 
 function widgetSent(
-  l: Labels,
+  l: TimelineLabels,
   input: {
     fromPhone?: string
     destination: string
@@ -135,7 +135,7 @@ function widgetSent(
 }
 
 function widgetNotDelivered(
-  l: Labels,
+  l: TimelineLabels,
   kind: 'failed' | 'unknown',
   destination: string,
   text: string,
@@ -151,7 +151,7 @@ function widgetNotDelivered(
 }
 
 function sendRobotResult(
-  l: Labels,
+  l: TimelineLabels,
   fromPhone: string,
   sent: string[],
   input: { message: string; files?: SendRobotFilesResult },
@@ -165,18 +165,24 @@ function sendRobotResult(
   if (!input.files || input.message) {
     lines.push(bbMessage(l.message, input.message))
   }
-  if (input.files) {
-    if (input.files.sent.length > 0) {
-      lines.push(bbField(l.file.sentFiles, input.files.sent.join(', ')))
-    }
-    if (input.files.failed.length > 0) {
-      const failed = input.files.failed
-        .map(f => `${f.name} (${l.file.reasons[f.reason]})`)
-        .join(', ')
-      lines.push(bbField(l.file.failedFiles, failed))
-    }
-  }
+  if (input.files) lines.push(...bbFileFields(l, input.files))
   return bbLines(lines)
+}
+
+/** Linhas dos arquivos enviados e não enviados; lista vazia não gera linha. */
+export function bbFileFields(
+  l: TimelineLabels,
+  files: SendRobotFilesResult,
+): (string | undefined)[] {
+  const failed = files.failed
+    .map(f => `${f.name} (${l.file.reasons[f.reason]})`)
+    .join(', ')
+  return [
+    files.sent.length > 0
+      ? bbField(l.file.sentFiles, files.sent.join(', '))
+      : undefined,
+    failed ? bbField(l.file.failedFiles, failed) : undefined,
+  ]
 }
 
 /**
@@ -208,7 +214,7 @@ const DESTINATION_NOTICES: Record<
   },
 }
 
-const LABELS: Record<NoticeLocale, Labels> = {
+const LABELS: Record<NoticeLocale, TimelineLabels> = {
   pt: {
     from: 'De',
     to: 'Para',
@@ -486,6 +492,11 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         ]),
     },
   },
+}
+
+/** Rótulos do layout, para outros comentários de timeline não duplicarem a cópia. */
+export function timelineLabels(locale: NoticeLocale): TimelineLabels {
+  return LABELS[locale]
 }
 
 export function timelineNotices(locale: NoticeLocale): TimelineNotices {
