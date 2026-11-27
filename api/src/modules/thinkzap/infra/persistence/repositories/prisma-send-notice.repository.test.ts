@@ -7,6 +7,7 @@ const {
   updateMock,
   updateManyMock,
   deleteManyMock,
+  outboxFindManyMock,
 } = vi.hoisted(() => ({
   upsertMock: vi.fn(),
   findUniqueMock: vi.fn(),
@@ -14,6 +15,7 @@ const {
   updateMock: vi.fn(),
   updateManyMock: vi.fn(),
   deleteManyMock: vi.fn(),
+  outboxFindManyMock: vi.fn(),
 }))
 
 vi.mock('@/config/prisma', () => ({
@@ -26,6 +28,7 @@ vi.mock('@/config/prisma', () => ({
       updateMany: updateManyMock,
       deleteMany: deleteManyMock,
     },
+    thinkzapWidgetOutbox: { findMany: outboxFindManyMock },
   },
 }))
 
@@ -174,25 +177,82 @@ describe('PrismaSendNoticeRepository', () => {
     })
   })
 
-  it('expurga em lote os avisos anteriores ao corte', async () => {
-    findManyMock.mockResolvedValue([{ id: 'a' }, { id: 'b' }])
-    deleteManyMock.mockResolvedValue({ count: 2 })
-
-    await expect(sut().deleteExpiredBatch(at, 100)).resolves.toBe(2)
-
-    expect(findManyMock).toHaveBeenCalledWith({
-      where: { createdAt: { lt: at } },
-      select: { id: true },
-      orderBy: { createdAt: 'asc' },
-      take: 100,
+  describe('expurgo por retenção', () => {
+    beforeEach(() => {
+      findManyMock.mockReset()
+      deleteManyMock.mockReset()
+      outboxFindManyMock.mockReset()
+      outboxFindManyMock.mockResolvedValue([])
     })
-    expect(deleteManyMock).toHaveBeenCalledWith({
-      where: { id: { in: ['a', 'b'] } },
-    })
-  })
 
-  it('não apaga nada quando não há aviso vencido', async () => {
-    await expect(sut().deleteExpiredBatch(at, 100)).resolves.toBe(0)
-    expect(deleteManyMock).not.toHaveBeenCalled()
+    it('apaga os avisos vencidos que nenhuma row do outbox referencia', async () => {
+      findManyMock.mockResolvedValueOnce([{ id: 'a' }, { id: 'b' }])
+      deleteManyMock.mockResolvedValue({ count: 2 })
+
+      await expect(sut().deleteExpiredBatch(at, 100)).resolves.toBe(2)
+
+      expect(findManyMock).toHaveBeenCalledWith({
+        where: { createdAt: { lt: at } },
+        select: { id: true },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        take: 100,
+      })
+      expect(deleteManyMock).toHaveBeenCalledWith({
+        where: { id: { in: ['a', 'b'] }, createdAt: { lt: at } },
+      })
+    })
+
+    it('mantém o aviso que ainda é referenciado e apaga o resto', async () => {
+      findManyMock.mockResolvedValueOnce([{ id: 'a' }, { id: 'b' }])
+      outboxFindManyMock.mockResolvedValue([{ sendNoticeId: 'a' }])
+      deleteManyMock.mockResolvedValue({ count: 1 })
+
+      await expect(sut().deleteExpiredBatch(at, 100)).resolves.toBe(1)
+
+      expect(outboxFindManyMock).toHaveBeenCalledWith({
+        where: { sendNoticeId: { in: ['a', 'b'] } },
+        select: { sendNoticeId: true },
+        distinct: ['sendNoticeId'],
+      })
+      expect(deleteManyMock).toHaveBeenCalledWith({
+        where: { id: { in: ['b'] }, createdAt: { lt: at } },
+      })
+    })
+
+    it('lote todo referenciado devolve 0 sem apagar', async () => {
+      findManyMock.mockResolvedValueOnce([{ id: 'a' }])
+      outboxFindManyMock.mockResolvedValue([{ sendNoticeId: 'a' }])
+
+      await expect(sut().deleteExpiredBatch(at, 100)).resolves.toBe(0)
+      expect(deleteManyMock).not.toHaveBeenCalled()
+    })
+
+    /** Referenciados na frente não podem travar o job: segue a varredura adiante. */
+    it('segue para a página seguinte quando a primeira é toda referenciada', async () => {
+      findManyMock
+        .mockResolvedValueOnce([{ id: 'a' }, { id: 'b' }])
+        .mockResolvedValueOnce([{ id: 'c' }])
+      outboxFindManyMock
+        .mockResolvedValueOnce([{ sendNoticeId: 'a' }, { sendNoticeId: 'b' }])
+        .mockResolvedValueOnce([])
+      deleteManyMock.mockResolvedValue({ count: 1 })
+
+      await expect(sut().deleteExpiredBatch(at, 2)).resolves.toBe(1)
+
+      expect(findManyMock.mock.calls[1]![0]).toMatchObject({
+        cursor: { id: 'b' },
+        skip: 1,
+      })
+      expect(deleteManyMock).toHaveBeenCalledWith({
+        where: { id: { in: ['c'] }, createdAt: { lt: at } },
+      })
+    })
+
+    it('não apaga nada quando não há aviso vencido', async () => {
+      findManyMock.mockResolvedValue([])
+
+      await expect(sut().deleteExpiredBatch(at, 100)).resolves.toBe(0)
+      expect(deleteManyMock).not.toHaveBeenCalled()
+    })
   })
 })

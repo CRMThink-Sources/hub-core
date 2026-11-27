@@ -142,6 +142,26 @@ describe('runFailureRetention', () => {
     )
   })
 
+  it('a ordem dos alvos é mantida: o histórico antes dos avisos que ele referencia', async () => {
+    const order: string[] = []
+    const mk = (name: string) => ({
+      name,
+      deleteExpiredBatch: vi
+        .fn<(cutoff: Date, limit: number) => Promise<number>>()
+        .mockImplementation(() => {
+          order.push(name)
+          return Promise.resolve(0)
+        }),
+    })
+    const { deps } = makeDeps({
+      targets: [mk('histórico de envios'), mk('avisos de envio')],
+    })
+
+    await runFailureRetention(deps)
+
+    expect(order).toEqual(['histórico de envios', 'avisos de envio'])
+  })
+
   /** Muito volume vencido: vários lotes, nunca uma operação longa. */
   it('apaga em lotes sucessivos até um lote incompleto', async () => {
     const target = makeTarget('tentativas', [2, 2, 1])

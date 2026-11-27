@@ -537,6 +537,7 @@ describe('PrismaWidgetOutboxRepository — falhas de envio', () => {
         where: {
           id: { in: ['a'] },
           status: { in: ['SENT', 'FAILED', 'UNKNOWN'] },
+          updatedAt: { lt: cutoff },
         },
       })
     })

@@ -75,19 +75,19 @@ const defaultDeps = (): FailureRetentionJobDeps => {
         deleteExpiredBatch: (cutoff, limit) =>
           outbox.deleteExpiredFailuresBatch(cutoff, limit),
       },
-      // Os avisos saem antes do histórico que descrevem (dependentes primeiro), os dois
-      // com o mesmo prazo: o aviso não pode sobreviver às rows a que serve.
-      {
-        name: 'avisos de envio',
-        retentionDays: sendHistoryDays,
-        deleteExpiredBatch: (cutoff, limit) =>
-          notices.deleteExpiredBatch(cutoff, limit),
-      },
+      // O histórico sai antes dos avisos: as rows do outbox é que apontam para o aviso,
+      // e o aviso não pode sumir enquanto alguma ainda o referencia. Mesmo prazo nos dois.
       {
         name: 'histórico de envios',
         retentionDays: sendHistoryDays,
         deleteExpiredBatch: (cutoff, limit) =>
           outbox.deleteExpiredSendHistoryBatch(cutoff, limit),
+      },
+      {
+        name: 'avisos de envio',
+        retentionDays: sendHistoryDays,
+        deleteExpiredBatch: (cutoff, limit) =>
+          notices.deleteExpiredBatch(cutoff, limit),
       },
     ],
     clock: () => new Date(),
@@ -147,15 +147,17 @@ export async function runFailureRetention(
     const cutoff = cutoffFor(deps.retentionDays)
 
     const deleted: Record<string, number> = {}
+    const cutoffs: Record<string, string> = {}
     for (const target of deps.targets) {
       // Uma tabela com erro não impede as outras: os lotes já apagados ficam apagados.
-      deleted[target.name] = await purgeTarget(
-        target,
+      const targetCutoff =
         target.retentionDays === undefined
           ? cutoff
-          : cutoffFor(target.retentionDays),
-        deps,
-      )
+          : cutoffFor(target.retentionDays)
+      if (target.retentionDays !== undefined) {
+        cutoffs[target.name] = targetCutoff.toISOString()
+      }
+      deleted[target.name] = await purgeTarget(target, targetCutoff, deps)
     }
 
     apiLogger.info(
@@ -163,6 +165,9 @@ export async function runFailureRetention(
         app: 'thinkzap',
         retentionDays: deps.retentionDays,
         cutoff: cutoff.toISOString(),
+        // Alvos com prazo próprio (histórico de envios): cada um com o seu corte e prazo.
+        sendHistoryDays: env.thinkzapSendHistoryDays,
+        sendHistoryCutoffs: cutoffs,
         deleted,
       },
       '[FailureRetentionJob] Expurgo concluído',

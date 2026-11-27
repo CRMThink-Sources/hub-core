@@ -1,5 +1,8 @@
 import { prisma } from '@/config/prisma'
 
+/** Teto de páginas varridas por chamada do expurgo: a rodada tem prazo. */
+const MAX_SCAN_PAGES = 20
+
 export type SendNoticeRecord = {
   id: string
   /** Identidade do disparo; única. */
@@ -109,19 +112,51 @@ export class PrismaSendNoticeRepository {
    * Expurgo por retenção: apaga até `limit` avisos criados antes de `cutoff` e
    * devolve quantos. O `deleteMany` do Prisma não aceita `LIMIT`, então os ids vêm
    * antes — em lote, para nenhuma operação segurar a tabela por muito tempo.
+   *
+   * **Poupa o aviso que ainda tem row do outbox apontando para ele** (não há chave
+   * estrangeira): row pendente numa cadência longa, reprocessada ou com recusa tardia
+   * ainda aciona o comentário e o alerta, que sem o aviso não fazem nada, em silêncio.
+   * Aviso referenciado na frente da fila não pode travar os de trás: a varredura segue
+   * por cursor, até `MAX_SCAN_PAGES` páginas, e para ao juntar `limit` apagados ou ao
+   * acabar os vencidos. Devolver menos que `limit` encerra o alvo no job, então a
+   * rodada nunca gira sobre as mesmas linhas.
    */
   async deleteExpiredBatch(cutoff: Date, limit: number): Promise<number> {
-    const rows = await prisma.thinkzapSendNotice.findMany({
-      where: { createdAt: { lt: cutoff } },
-      select: { id: true },
-      orderBy: { createdAt: 'asc' },
-      take: limit,
-    })
-    if (rows.length === 0) return 0
+    let deleted = 0
+    let cursor: string | undefined
 
-    const { count } = await prisma.thinkzapSendNotice.deleteMany({
-      where: { id: { in: rows.map(row => row.id) } },
-    })
-    return count
+    for (let page = 0; page < MAX_SCAN_PAGES && deleted < limit; page++) {
+      const take = limit - deleted
+      const rows = await prisma.thinkzapSendNotice.findMany({
+        where: { createdAt: { lt: cutoff } },
+        select: { id: true },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        take,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      })
+      if (rows.length === 0) break
+
+      const ids = rows.map(row => row.id)
+      const referenced = await prisma.thinkzapWidgetOutbox.findMany({
+        where: { sendNoticeId: { in: ids } },
+        select: { sendNoticeId: true },
+        distinct: ['sendNoticeId'],
+      })
+      const kept = new Set(referenced.map(row => row.sendNoticeId))
+      const expired = ids.filter(id => !kept.has(id))
+
+      if (expired.length > 0) {
+        const { count } = await prisma.thinkzapSendNotice.deleteMany({
+          // Reconfirma o corte no delete, como os outros expurgos em lote.
+          where: { id: { in: expired }, createdAt: { lt: cutoff } },
+        })
+        deleted += count
+      }
+
+      if (rows.length < take) break
+      cursor = ids[ids.length - 1]
+    }
+
+    return deleted
   }
 }

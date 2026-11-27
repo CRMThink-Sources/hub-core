@@ -482,8 +482,10 @@ export class PrismaWidgetOutboxRepository {
     const { count } = await prisma.thinkzapWidgetOutbox.deleteMany({
       where: {
         id: { in: rows.map(row => row.id) },
-        // Reconfirma o status: entre o select e o delete a row pode ter voltado para a fila.
+        // Reconfirma status e `updatedAt`: entre o select e o delete a row pode ter
+        // voltado para a fila ou sido reprocessada.
         status: { in: [...SEND_HISTORY_STATUSES] },
+        updatedAt: { lt: cutoff },
       },
     })
     return count
