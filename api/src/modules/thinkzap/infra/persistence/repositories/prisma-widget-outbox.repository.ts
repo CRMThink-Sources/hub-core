@@ -97,9 +97,10 @@ export type WidgetOutboxRecord = {
   originContext: OutboxJson | null
   /** O aviso de envio que acompanha a parte; `null` = envio não acompanhado. */
   sendNoticeId: string | null
-  /** Recusa do provider posterior ao aceite: `status` segue `SENT`. */
+  /** Confirmações do provider: mensagem entregue e lida. */
   deliveredAt: Date | null
   readAt: Date | null
+  /** Recusa do provider posterior ao aceite: `status` segue `SENT`. */
   rejectedAt: Date | null
   failureCode: string | null
   failureReason: string | null

@@ -225,7 +225,7 @@ describe('delivered e undelivered vêm do webhook da HubMessage', () => {
     return { useCase, reportSmsStatus }
   }
 
-  it('reporta delivered na confirmação de entrega', async () => {
+  it('reporta delivered na leitura (READ)', async () => {
     const sut = makeUseCase(row({ providerMessageId: 'prov-1' }))
 
     await sut.useCase.execute(envelope('READ'))
@@ -235,6 +235,28 @@ describe('delivered e undelivered vêm do webhook da HubMessage', () => {
       'delivered',
     )
   })
+
+  it('reporta delivered na entrega (RECEIVED)', async () => {
+    const sut = makeUseCase(row({ providerMessageId: 'prov-1' }))
+
+    await sut.useCase.execute(envelope('RECEIVED'))
+
+    expect(sut.reportSmsStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ smsMessageId: 'msg-1' }),
+      'delivered',
+    )
+  })
+
+  it.each(['SENT', 'ALGO_NOVO'])(
+    'não reporta nada para o estado %s, que não é entrega',
+    async state => {
+      const sut = makeUseCase(row({ providerMessageId: 'prov-1' }))
+
+      await sut.useCase.execute(envelope(state))
+
+      expect(sut.reportSmsStatus).not.toHaveBeenCalled()
+    },
+  )
 
   it('reporta undelivered na falha de entrega', async () => {
     const sut = makeUseCase(row({ providerMessageId: 'prov-1' }))

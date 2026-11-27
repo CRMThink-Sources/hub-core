@@ -61,7 +61,7 @@ export type RecipientSummary = {
 
 // Entregue ou lido prova que a mensagem chegou: uma recusa registrada depois (ou
 // fora de ordem) não a transforma em falha.
-const isDelivered = (part: SendPart) =>
+export const isDelivered = (part: SendPart) =>
   part.deliveredAt !== null || part.readAt !== null
 
 const isFailed = (part: SendPart) =>
@@ -76,7 +76,8 @@ function summarize(destination: string, parts: SendPart[]): RecipientSummary {
   const hasUnconfirmed = unknown !== undefined
 
   if (failed) {
-    // Entregue ou lida conta como saída, mesmo que a fila não esteja em SENT.
+    // Parte entregue/lida com recusa registrada deixa de ser falha (`isFailed`) e
+    // volta a contar como enviada; a fila ainda precisa estar em SENT.
     const delivered = parts.some(
       part => part.status === 'SENT' && !isFailed(part),
     )

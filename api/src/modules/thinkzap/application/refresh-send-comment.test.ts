@@ -488,4 +488,23 @@ describe('refreshSendComment', () => {
       'velho.pdf (não foi possível obter o arquivo)',
     )
   })
+
+  it('não lista como falha o arquivo recusado depois de lido', async () => {
+    const { deps, publisher } = setup({
+      rows: [
+        row({
+          kind: 'MEDIA',
+          fileName: 'lido.pdf',
+          rejectedAt: new Date('2026-11-27T10:02:00Z'),
+          readAt: new Date('2026-11-27T10:01:00Z'),
+        }),
+      ],
+    })
+
+    await refreshSendComment('notice-1', deps)
+
+    const message = messageOf(publisher.publish.mock.calls[0])
+    expect(message).toContain('lido.pdf')
+    expect(message).not.toContain('lido.pdf (falha no envio)')
+  })
 })

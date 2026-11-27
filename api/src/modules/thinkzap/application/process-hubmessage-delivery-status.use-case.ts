@@ -243,6 +243,7 @@ export class ProcessHubMessageDeliveryStatusUseCase {
      */
     await this.reportCampaignStatus(instance.id, message._id, failed, {
       logContext,
+      stateItem,
       appendJobLog,
     })
 
@@ -422,6 +423,7 @@ export class ProcessHubMessageDeliveryStatusUseCase {
     failed: boolean,
     args: {
       logContext: Record<string, unknown>
+      stateItem: HubMessageStateItem | undefined
       appendJobLog: AppendJobLog
     },
   ): Promise<void> {
@@ -434,6 +436,19 @@ export class ProcessHubMessageDeliveryStatusUseCase {
 
     /** Sem as duas âncoras o envio não veio de campanha — não há onde reportar. */
     if (!row?.smsSenderCode || !row.smsMessageId) return
+
+    /**
+     * `delivered` só para RECEIVED/READ. A assinatura de MESSAGE_STATUS traz outros
+     * estados (SENT, desconhecidos); reportá-los como entregue afirmaria ao cliente
+     * uma chegada que o provider não confirmou.
+     */
+    if (!failed && !progressKindOf(args.stateItem)) {
+      log.debug(
+        args.logContext,
+        'Estado sem entrega confirmada; status da campanha não reportado',
+      )
+      return
+    }
 
     const status = failed ? 'undelivered' : 'delivered'
 
