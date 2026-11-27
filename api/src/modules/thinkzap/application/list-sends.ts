@@ -43,6 +43,8 @@ export type SendListEntry = {
   status: SendListStatus
   /** Só em FAILED, PARTIAL e UNKNOWN; já traduzido, nunca vazio. */
   failureReason: string | null
+  /** Alguma parte sem confirmação: o front avisa para conferir antes de reenviar. */
+  hasUnconfirmed: boolean
 }
 
 export type ListSendsOutput = {
@@ -92,10 +94,7 @@ export class ListSends {
     const [locale, page, catalog, lineIds, senderIds] = await Promise.all([
       this.locales.byInstallation(input.domainId, input.appCode),
       this.sends.list(effective, scope),
-      this.lines.listLines({
-        domainId: input.domainId,
-        appCode: input.appCode,
-      }),
+      this.listCatalog(input.domainId, input.appCode),
       this.sends.listLineIds(scope, period),
       this.sends.listSenderIds(scope, period),
     ])
@@ -135,13 +134,20 @@ export class ListSends {
           },
           status: summary.state,
           failureReason: failureReasonFor(summary, locale),
+          hasUnconfirmed: summary.hasUnconfirmed,
         },
       ]
     })
 
-    // Linhas do contexto mais as que só aparecem no histórico (linha excluída).
-    const lineOptions = new Map(catalog.map(line => [line.id, line.name]))
-    for (const id of lineIds) if (!lineOptions.has(id)) lineOptions.set(id, id)
+    // Administrador: o catálogo inteiro mais as linhas só do histórico (linha
+    // excluída). Operador: só as linhas dos próprios envios (`lineIds` já vem
+    // com o escopo dele), para não revelar as outras linhas da instalação.
+    const lineOptions = new Map<string, string>(
+      isAdmin ? catalog.map(line => [line.id, line.name]) : [],
+    )
+    for (const id of lineIds) {
+      if (!lineOptions.has(id)) lineOptions.set(id, nameOfLine(id))
+    }
 
     return {
       items,
@@ -156,6 +162,15 @@ export class ListSends {
         id,
         name: names.get(id) ?? null,
       })),
+    }
+  }
+
+  /** Melhor esforço: sem o catálogo a lista mostra o id da linha como nome. */
+  private async listCatalog(domainId: string, appCode: string) {
+    try {
+      return await this.lines.listLines({ domainId, appCode })
+    } catch {
+      return []
     }
   }
 

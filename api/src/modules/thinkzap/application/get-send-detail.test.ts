@@ -66,6 +66,7 @@ function build(
     sut: new GetSendDetail(sends, locales, lines, senderNames),
     sends,
     senderNames,
+    lines,
   }
 }
 
@@ -338,7 +339,58 @@ describe('GetSendDetail', () => {
     })
 
     expect(detail.failure?.code).toBeNull()
-    expect(detail.failure?.reason).toContain('no informó el motivo')
+    expect(detail.failure?.reason).toContain('motivo no informado')
+  })
+
+  it('catálogo de linhas falhando não derruba o detalhe', async () => {
+    const found = itemOf([outboxRow()])
+    const { sut, lines } = build({ found })
+    lines.listLines.mockRejectedValue(new Error('Bitrix fora'))
+
+    const detail = await sut.execute({
+      ...identity,
+      id: 'row-1',
+      isAdmin: true,
+    })
+
+    expect(detail.line).toEqual({ id: 'line-1', name: 'line-1' })
+  })
+
+  it('UNKNOWN com erro cru mostra a frase de conferir, e hasUnconfirmed', async () => {
+    const row = outboxRow({
+      status: 'UNKNOWN',
+      lastError: 'timeout of 30000ms exceeded',
+    })
+    const { sut } = build({ found: itemOf([row]), locale: 'en' })
+
+    const detail = await sut.execute({
+      ...identity,
+      id: 'row-1',
+      isAdmin: true,
+    })
+
+    expect(detail.hasUnconfirmed).toBe(true)
+    expect(detail.failure?.reason).toContain('BEFORE resending')
+    expect(detail.failure?.reason).not.toContain('timeout')
+    expect(detail.parts[0]?.failureReason).not.toContain('timeout')
+  })
+
+  it('recusa seguida de entrega não mostra horário de recusa', async () => {
+    const row = outboxRow({
+      rejectedAt: at(2),
+      deliveredAt: at(1),
+      failureCode: '131047',
+    })
+    const { sut } = build({ found: itemOf([row]) })
+
+    const detail = await sut.execute({
+      ...identity,
+      id: 'row-1',
+      isAdmin: true,
+    })
+
+    expect(detail.status).toBe('DELIVERED')
+    expect(detail.timestamps.rejectedAt).toBeNull()
   })
 
   it('Bitrix fora do ar: detalhe abre com remetente sem nome', async () => {

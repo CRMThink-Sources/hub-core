@@ -1,3 +1,4 @@
+import { sharedSendPhrases } from '@/modules/thinkzap/domain/notices/send-comment'
 import type { NoticeLocale } from '@/modules/thinkzap/domain/notices/notice-locale'
 import type {
   RecipientState,
@@ -26,32 +27,6 @@ const REASON_STATES: readonly RecipientState[] = [
   'PARTIAL',
   'UNKNOWN',
 ]
-
-/**
- * Frase para falha sem motivo registrado (sem recusa da Meta, sem erro da fila):
- * a tela nunca mostra um motivo vazio. `UNKNOWN` tem a sua porque ali o que se
- * sabe é que faltou confirmação, não que algo falhou.
- */
-const GENERIC_REASON: Record<
-  NoticeLocale,
-  { failed: string; unknown: string }
-> = {
-  pt: {
-    failed: 'O envio falhou e o provedor não informou o motivo.',
-    unknown:
-      'Sem confirmação do provedor. Confira a conversa antes de reenviar.',
-  },
-  en: {
-    failed: 'The send failed and the provider gave no reason.',
-    unknown:
-      'No confirmation from the provider. Check the conversation before resending.',
-  },
-  es: {
-    failed: 'El envío falló y el proveedor no informó el motivo.',
-    unknown:
-      'Sin confirmación del proveedor. Revise la conversación antes de reenviar.',
-  },
-}
 
 export function sendKindOf(part: WidgetOutboxRecord): SendKind {
   if (part.kind === 'TEMPLATE') return 'template'
@@ -93,12 +68,14 @@ export function failureReasonFor(
   locale: NoticeLocale,
 ): string | null {
   if (!REASON_STATES.includes(summary.state)) return null
+  const phrases = sharedSendPhrases(locale)
+  // Sem confirmação nunca mostra o erro cru (ex.: "timeout of 30000ms exceeded"):
+  // ele parece falha e convida ao reenvio, mas a mensagem pode ter sido entregue.
+  if (summary.state === 'UNKNOWN') return phrases.unknownAction
   const described = summary.failedPart
     ? describeSendFailure(locale)(summary.failedPart).trim()
     : ''
-  if (described !== '') return described
-  const generic = GENERIC_REASON[locale]
-  return summary.state === 'UNKNOWN' ? generic.unknown : generic.failed
+  return described !== '' ? described : phrases.unreportedReason
 }
 
 /** Estado e motivo de uma parte sozinha (a lista de partes do detalhe). */

@@ -380,9 +380,9 @@ describe('ListSends', () => {
     })
 
     it.each([
-      ['pt', 'não informou o motivo'],
-      ['en', 'no reason'],
-      ['es', 'no informó el motivo'],
+      ['pt', 'motivo não informado'],
+      ['en', 'reason not reported'],
+      ['es', 'motivo no informado'],
     ] as const)(
       'falha sem motivo registrado usa a frase genérica em %s',
       async (locale, fragment) => {
@@ -400,6 +400,132 @@ describe('ListSends', () => {
         expect(out.items[0]?.failureReason).toContain(fragment)
       },
     )
+  })
+
+  describe('sem confirmação, catálogo e opções', () => {
+    it.each([
+      ['pt', 'ANTES de reenviar'],
+      ['en', 'BEFORE resending'],
+      ['es', 'ANTES de reenviar'],
+    ] as const)(
+      'UNKNOWN nunca mostra o erro cru (%s)',
+      async (locale, fragment) => {
+        const unknown = outboxRow({
+          status: 'UNKNOWN',
+          lastError: 'timeout of 30000ms exceeded',
+        })
+        const { sut } = build({ items: [itemOf([unknown])], locale })
+
+        const out = await sut.execute({
+          ...identity,
+          isAdmin: true,
+          filters: filtersOf(),
+        })
+
+        expect(out.items[0]?.status).toBe('UNKNOWN')
+        expect(out.items[0]?.failureReason).toContain(fragment)
+        expect(out.items[0]?.failureReason).not.toContain('timeout')
+        expect(out.items[0]?.hasUnconfirmed).toBe(true)
+      },
+    )
+
+    it('falha com outra parte sem confirmação mantém o aviso hasUnconfirmed', async () => {
+      const parts = [
+        outboxRow({
+          id: 'p0',
+          partIndex: 0,
+          dispatchGroupId: 'g',
+          status: 'FAILED',
+          lastError: 'x',
+        }),
+        outboxRow({
+          id: 'p1',
+          partIndex: 1,
+          dispatchGroupId: 'g',
+          status: 'UNKNOWN',
+        }),
+      ]
+      const { sut } = build({ items: [itemOf(parts)] })
+
+      const out = await sut.execute({
+        ...identity,
+        isAdmin: true,
+        filters: filtersOf(),
+      })
+
+      expect(out.items[0]).toMatchObject({
+        status: 'FAILED',
+        hasUnconfirmed: true,
+      })
+    })
+
+    it('envio sem parte desconhecida tem hasUnconfirmed falso', async () => {
+      const { sut } = build({ items: [itemOf([outboxRow()])] })
+
+      const out = await sut.execute({
+        ...identity,
+        isAdmin: true,
+        filters: filtersOf(),
+      })
+
+      expect(out.items[0]?.hasUnconfirmed).toBe(false)
+    })
+
+    it('catálogo de linhas falhando não derruba a lista: id vira o nome', async () => {
+      const { sut, lines } = build({
+        items: [itemOf([outboxRow()])],
+        lineIds: ['line-1'],
+      })
+      lines.listLines.mockRejectedValue(new Error('Bitrix fora'))
+
+      const out = await sut.execute({
+        ...identity,
+        isAdmin: true,
+        filters: filtersOf(),
+      })
+
+      expect(out.items[0]?.line).toEqual({ id: 'line-1', name: 'line-1' })
+      expect(out.lines).toEqual([{ id: 'line-1', name: 'line-1' }])
+    })
+
+    it('operador só recebe as linhas dos próprios envios, com nome do catálogo', async () => {
+      const { sut } = build({
+        catalog: [
+          { id: 'line-1', name: 'Vendas' },
+          { id: 'line-2', name: 'Suporte' },
+        ],
+        lineIds: ['line-2'],
+      })
+
+      const operator = await sut.execute({
+        ...identity,
+        isAdmin: false,
+        filters: filtersOf(),
+      })
+
+      expect(operator.lines).toEqual([{ id: 'line-2', name: 'Suporte' }])
+    })
+
+    it('administrador recebe o catálogo inteiro', async () => {
+      const { sut } = build({
+        catalog: [
+          { id: 'line-1', name: 'Vendas' },
+          { id: 'line-2', name: 'Suporte' },
+        ],
+        lineIds: ['line-2'],
+      })
+
+      const admin = await sut.execute({
+        ...identity,
+        isAdmin: true,
+        filters: filtersOf(),
+      })
+
+      expect(admin.lines.map(line => line.id).sort()).toEqual([
+        'line-1',
+        'line-2',
+      ])
+    })
   })
 
   describe('kind e origem', () => {

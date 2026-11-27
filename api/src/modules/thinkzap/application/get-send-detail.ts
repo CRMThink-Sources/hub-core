@@ -39,6 +39,8 @@ export type SendDetail = {
   sender: { id: string | null; name: string | null }
   status: RecipientState
   failureReason: string | null
+  /** Alguma parte sem confirmação: conferir antes de reenviar. */
+  hasUnconfirmed: boolean
   text: string
   template: { name: string; language: string | null } | null
   timestamps: {
@@ -86,10 +88,7 @@ export class GetSendDetail {
 
     const [locale, catalog] = await Promise.all([
       this.locales.byInstallation(input.domainId, input.appCode),
-      this.lines.listLines({
-        domainId: input.domainId,
-        appCode: input.appCode,
-      }),
+      this.listCatalog(input.domainId, input.appCode),
     ])
 
     const senderId =
@@ -116,6 +115,7 @@ export class GetSendDetail {
       sender: { id: senderId, name: senderName },
       status: summary.state,
       failureReason: reason,
+      hasUnconfirmed: summary.hasUnconfirmed,
       text: textOf(item.parts),
       template: template?.templateName
         ? { name: template.templateName, language: template.templateLanguage }
@@ -133,6 +133,15 @@ export class GetSendDetail {
       crmRecord: crm
         ? { entity: head.entity, entityId: head.entityId, url: crm.url }
         : null,
+    }
+  }
+
+  /** Melhor esforço: sem o catálogo a linha aparece pelo id. */
+  private async listCatalog(domainId: string, appCode: string) {
+    try {
+      return await this.lines.listLines({ domainId, appCode })
+    } catch {
+      return []
     }
   }
 
@@ -163,7 +172,7 @@ function textOf(parts: WidgetOutboxRecord[]): string {
  * (o `sentAt` mais cedo); entregue e lido seguem a regra do status — o menor
  * avanço —, então só têm valor quando **todas** as partes os têm, e é o da
  * última parte a chegar. A entrega de uma parte lida conta como entregue. A
- * recusa mostra a primeira que a Meta informou.
+ * recusa mostra a primeira que a Meta informou entre as partes que falharam.
  */
 function timestampsOf(parts: WidgetOutboxRecord[]) {
   const dates = (pick: (part: WidgetOutboxRecord) => Date | null) =>
@@ -183,6 +192,9 @@ function timestampsOf(parts: WidgetOutboxRecord[]) {
     sentAt: earliest(dates(part => part.sentAt)),
     deliveredAt: whenAll(dates(part => part.deliveredAt ?? part.readAt)),
     readAt: whenAll(dates(part => part.readAt)),
-    rejectedAt: earliest(dates(part => part.rejectedAt)),
+    // Só recusa de parte que de fato falhou: entrega/leitura prevalece sobre ela.
+    rejectedAt: earliest(
+      dates(part => (part.deliveredAt || part.readAt ? null : part.rejectedAt)),
+    ),
   }
 }
