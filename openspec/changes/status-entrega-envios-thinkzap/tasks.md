@@ -86,5 +86,24 @@ Etapa 2 (entregue e lido, linha oficial) implementada na branch
 - [ ] Envio de operador ou bot (fora do escopo): nenhum erro nem escrita.
 - [ ] Observar o volume de jobs de retentativa de status para envios fora do outbox:
   até 4 jobs retidos 24 h por mensagem de operador fora da outbox unificada.
-- [ ] Observação: o caminho de campanha de SMS reporta `delivered` para qualquer estado sem
-  erro (inclusive `SENT`); comportamento anterior preservado de propósito.
+- [ ] **Mudança no caminho de campanha de SMS:** agora só reporta `delivered` para
+  `RECEIVED` ou `READ` (antes, qualquer estado sem erro, inclusive `SENT`) e ignora os
+  demais. Na tela de campanha, "delivered" passa a aparecer alguns segundos depois do
+  aceite. Conferir em staging com uma campanha real.
+- [ ] Antes de rodar o script de sincronização, ler nos logs dos 9 canais que já assinam
+  `MESSAGE_STATUS` o que esse evento traz: se também manda `SENT`, `ERROR` ou `RECEIVED`
+  repetidos com outro `identifier` (um `ERROR` duplicado repetiria o aviso no chat).
+- [ ] Ordem: deploy com a migration primeiro; só depois rodar o script, em cada ambiente com
+  o `.env` dele.
+
+### Resíduos da etapa 2 (menores)
+
+- [ ] `alertedFailures` é marca d'água: A recusada (alerta), depois entregue, depois B
+  recusada não gera novo alerta.
+- [ ] `publishSendState` ainda agenda o job de alerta quando há `rejectedAt`, mesmo com a
+  mensagem entregue (sem efeito, só um job a mais).
+- [ ] `recordProgress` e `reportCampaignStatus` fazem a mesma consulta ao outbox.
+- [ ] O aviso `deliveryAfterRejection` não leva `traceKey` e repete em reentrega.
+- [ ] Timestamp da migration (`20261128120000`) está à frente da data de criação.
+- [ ] Faltam testes: `PARTIAL` com entregue e falha, `READ` + `DELIVERED` resultando em
+  `DELIVERED`, `DELIVERED` com parte na fila, rótulos em es para Entregue/Lido.
