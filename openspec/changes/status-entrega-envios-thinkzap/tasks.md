@@ -1,7 +1,8 @@
 # Tarefas: status de entrega dos envios do ThinkZap
 
 Etapa 1 (recusas e falhas) implementada na branch `task/status-entrega-envios-thinkzap`.
-Etapas 2 (entregue e lido) e 3 (aba "Envios") ainda não começaram.
+Etapa 2 (entregue e lido, linha oficial) implementada na branch
+`task/status-entrega-envios-etapa-2`. Falta a Z-API e a etapa 3 (aba "Envios").
 
 ## Etapa 1: validar em staging antes de produção
 
@@ -67,7 +68,23 @@ Etapas 2 (entregue e lido) e 3 (aba "Envios") ainda não começaram.
 
 ## Etapas seguintes
 
-- [ ] Etapa 2: capturar eventos reais de entregue e lido (Z-API e HubMessage,
-  `MESSAGE_STATUS`) e gravar `DELIVERED`/`READ`. O callback de campanha de SMS hoje
-  trata todo estado sem erro como entregue: não pode regredir.
+- [x] Etapa 2, linha oficial (HubMessage): `RECEIVED` grava Entregue e `READ` grava Lido
+  (colunas `delivered_at`/`read_at`), com rodapé no comentário. Plano em `plan-etapa-2.md`.
+- [ ] Etapa 2, Z-API: sem amostra do `MessageStatusCallback` (`ids[]`); hoje o evento é
+  descartado. Capturar o corpo bruto antes de implementar.
 - [ ] Etapa 3: aba "Envios" (`/thinkzap/envios`), com filtro por perfil.
+
+## Etapa 2 (linha oficial): validar em staging
+
+- [ ] Migration `add_delivery_read_to_thinkzap_outbox` aplicada pelo deploy (duas colunas
+  nulas; DDL instantâneo no MariaDB 10.3+).
+- [ ] Rodar `hubmessage:sync-channel-webhook-events` nos canais que ainda não assinam
+  `MESSAGE_STATUS` (8 de 17 em produção em 27/11); o script só acrescenta eventos.
+  Sem isso, "Lido" não chega nesses canais (Entregue chega pelo `MESSAGE_DELIVERY`).
+- [ ] Enviar um template oficial e ver o rodapé do comentário ir de Enviado a Entregue e
+  a Lido; conferir o caso de `READ` chegando antes do `RECEIVED`.
+- [ ] Envio de operador ou bot (fora do escopo): nenhum erro nem escrita.
+- [ ] Observar o volume de jobs de retentativa de status para envios fora do outbox:
+  até 4 jobs retidos 24 h por mensagem de operador fora da outbox unificada.
+- [ ] Observação: o caminho de campanha de SMS reporta `delivered` para qualquer estado sem
+  erro (inclusive `SENT`); comportamento anterior preservado de propósito.
