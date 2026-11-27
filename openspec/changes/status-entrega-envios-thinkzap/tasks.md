@@ -2,7 +2,8 @@
 
 Etapa 1 (recusas e falhas) implementada na branch `task/status-entrega-envios-thinkzap`.
 Etapa 2 (entregue e lido, linha oficial) implementada na branch
-`task/status-entrega-envios-etapa-2`. Falta a Z-API e a etapa 3 (aba "Envios").
+`task/status-entrega-envios-etapa-2`. Etapa 3 (aba "Envios") implementada na change
+`aba-envios-thinkzap`. Falta a Z-API.
 
 ## Etapa 1: validar em staging antes de produção
 
@@ -72,7 +73,53 @@ Etapa 2 (entregue e lido, linha oficial) implementada na branch
   (colunas `delivered_at`/`read_at`), com rodapé no comentário. Plano em `plan-etapa-2.md`.
 - [ ] Etapa 2, Z-API: sem amostra do `MessageStatusCallback` (`ids[]`); hoje o evento é
   descartado. Capturar o corpo bruto antes de implementar.
-- [ ] Etapa 3: aba "Envios" (`/thinkzap/envios`), com filtro por perfil.
+- [x] Etapa 3: aba "Envios" (`/thinkzap/envios`), com filtro por perfil. Implementada na
+  change `aba-envios-thinkzap` (branch `task/aba-envios-thinkzap`). Validação abaixo.
+
+## Etapa 3 (aba Envios): validar em staging antes de produção
+
+- [ ] Migration `add_sends_list_indexes_to_thinkzap_outbox` aplicada no deploy: dois
+  `CREATE INDEX` online no outbox vivo. Fazer fora de horário de pico e sem transação longa
+  aberta nessa tabela (o lock de metadados pode atrasar envios por alguns segundos).
+- [ ] **Desempenho da lista com volume real:** `EXPLAIN`/`ANALYZE` da página, da contagem e
+  das duas consultas de opções, para 7 e 90 dias, administrador e operador, com e sem o
+  filtro de status, no maior tenant. Conferir qual índice o MariaDB escolhe (cuidado com o
+  índice único de `sms_message_id`). Cada requisição faz 4 passadas e não há timeout de
+  statement: se pesar, usar `max_statement_time`, dica de índice ou reduzir a janela.
+- [ ] O filtro por status devolve o mesmo que a tela mostra: FAILED, PARTIAL, UNKNOWN,
+  recusa depois de entrega, linhas Z-API (sempre "Enviado"), envios anteriores às etapas 1 e 2.
+- [ ] Administrador x operador x robô sem usuário: o operador só vê os próprios envios; o
+  detalhe de envio alheio responde "não encontrado"; usuário só com ThinkBot ou Finanças
+  recebe 403 nas duas rotas.
+- [ ] Nomes de remetente: `user.get` com `FILTER: { ID: [...] }`, usuários desativados, e a lista com o
+  Bitrix lento ou em pausa (abre sem nomes).
+- [ ] Link do registro do CRM: `BX24.getAuth().domain` disponível na página e o link abrindo
+  o registro certo; portais com domínio próprio mostram só texto.
+- [ ] **Conferência visual (a tela não foi vista rodando):** barra de filtros nas larguras
+  do iframe do Bitrix, selects e datas abrindo no iframe, tabela com rolagem lateral, cores
+  dos status em claro e escuro, filtros atualizando a URL e o botão voltar, painel de detalhe
+  (foco ao abrir e ao fechar, sem piscar "Carregando", texto com quebras de linha), fuso
+  (7 dias inclui hoje perto da meia-noite), os três idiomas, sessão expirada, erro com
+  tentar de novo, período vazio, e a primeira carga do namespace de tradução (o fallback do
+  Suspense usa tradução).
+- [ ] Confirmar a lista `BITRIX_CLOUD_TLDS` (`front/.../_lib/send-format.ts`) contra os
+  domínios oficiais da nuvem Bitrix24 antes de produção; ainda constam `eu, uk, cn, jp, vn,
+  id, th, mx, la, ae, nl, ch, in, com.tr` sem confirmação.
+
+### Resíduos da etapa 3 (menores, adiados)
+
+- [ ] `SEND_HISTORY_MAX_DAYS` do front/API segue 90 com o piso vindo do `env`; conferir a
+  mensagem de retenção em ambientes com prazo menor.
+- [ ] A consulta e a resolução de nomes engolem erro sem log; um `warn` só com o id da
+  instalação deixaria uma queda do Bitrix visível.
+- [ ] Instante ISO com dia impossível (`2026-02-31T10:00:00Z`) rola para o mês seguinte.
+- [ ] Teste de horário de verão e de fuso fixo em `toApiQuery`; período customizado sem
+  tamanho máximo no front (a API limita a 90 dias).
+- [ ] A lista e o detalhe podem divergir se um disparo cruzar o início do período (partes
+  criadas milissegundos antes e depois do corte: praticamente inalcançável).
+- [ ] O link do sino da notificação ainda não aponta para a aba.
+- [ ] Sem testes de renderização do front (ambiente de teste é node): filtros, painel e tabela
+  só têm teste das funções puras.
 
 ## Etapa 2 (linha oficial): validar em staging
 

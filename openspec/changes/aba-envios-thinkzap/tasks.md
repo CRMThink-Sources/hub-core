@@ -28,5 +28,5 @@
 
 ## 6. Integração e entrega
 
-- [ ] 6.1 Rodar `yarn check-types`, `yarn lint` e `yarn test` em `api/` e `front/` e corrigir o que a mudança tocar. Verificar: os três comandos sem erro nem warning nos dois pacotes (falha preexistente é anotada no commit).
-- [ ] 6.2 Registrar em `openspec/changes/status-entrega-envios-thinkzap/tasks.md` a etapa 3 como implementada e a lista de validação em staging: migration aplicada, desempenho da lista com volume real, equivalência do filtro de status com o estado exibido, administrador x operador x robô sem usuário, detalhe de envio alheio respondendo "não encontrado", nomes de remetente com o Bitrix lento, as três línguas. Verificar: o arquivo atualizado e commitado junto com a change.
+- [x] 6.1 Rodar `yarn check-types`, `yarn lint` e `yarn test` em `api/` e `front/` e corrigir o que a mudança tocar. Verificar: os três comandos sem erro nem warning nos dois pacotes (falha preexistente é anotada no commit).
+- [x] 6.2 Registrar em `openspec/changes/status-entrega-envios-thinkzap/tasks.md` a etapa 3 como implementada e a lista de validação em staging: migration aplicada, desempenho da lista com volume real, equivalência do filtro de status com o estado exibido, administrador x operador x robô sem usuário, detalhe de envio alheio respondendo "não encontrado", nomes de remetente com o Bitrix lento, as três línguas. Verificar: o arquivo atualizado e commitado junto com a change.
