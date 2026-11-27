@@ -7,6 +7,8 @@ const {
   deleteMock,
   cancelPartsMock,
   findPartsMock,
+  settingsMock,
+  displayNameMock,
 } = vi.hoisted(() => ({
   getContextMock: vi.fn(),
   findByBitrixMock: vi.fn(),
@@ -14,6 +16,8 @@ const {
   deleteMock: vi.fn(),
   cancelPartsMock: vi.fn(),
   findPartsMock: vi.fn(),
+  settingsMock: vi.fn(),
+  displayNameMock: vi.fn(),
 }))
 
 vi.mock('@/config/env', () => ({
@@ -54,6 +58,32 @@ vi.mock('@/modules/thinkzap/infra/clients/z-api.client', () => ({
     deleteMessage = deleteMock
   },
 }))
+vi.mock(
+  '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id',
+  () => ({ resolveSettingsByInstanceId: settingsMock }),
+)
+vi.mock('@/modules/application/main/make-get-aplication-context', () => ({
+  makeGetAplicationContext: () => ({}),
+}))
+vi.mock('@/shared/infra/clients/bitrix.client', () => ({
+  BitrixClient: class {},
+}))
+vi.mock(
+  '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter',
+  () => ({
+    BitrixGetUserDisplayNameAdapter: class {
+      getDisplayName = displayNameMock
+    },
+  }),
+)
+vi.mock(
+  '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository',
+  () => ({
+    PrismaAllowedUserRepository: class {
+      getByAppIdAndBitrixUserId = vi.fn().mockResolvedValue(null)
+    },
+  }),
+)
 vi.mock('@/shared/infra/logger', () => {
   const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }
   return { createWorkerSourceLogger: () => log, apiLogger: log }
@@ -87,6 +117,9 @@ const deleteEvent = (messages = [{ im: { message_id: '9' } }]) =>
   }) as IBX24MessageDeleteEvent
 
 const zapiContext = {
+  id: 'domain-1',
+  name: 'x.bitrix24.com',
+  app: { id: 'app-1', credential: {} },
   connector: { provider: 'ZAPI' },
   instance: { id: 'row-1', instanceId: 'inst', zApiToken: 'tok' },
 }
@@ -102,6 +135,8 @@ beforeEach(() => {
   deleteMock.mockResolvedValue(undefined)
   cancelPartsMock.mockResolvedValue(0)
   findPartsMock.mockResolvedValue([])
+  settingsMock.mockResolvedValue({ prefixOperatorNameEnabled: false })
+  displayNameMock.mockResolvedValue({ name: 'Maria Silva' })
 })
 
 describe('processBitrixMessageUpdate', () => {
@@ -109,6 +144,41 @@ describe('processBitrixMessageUpdate', () => {
     await processBitrixMessageUpdate(updateEvent())
 
     expect(findByBitrixMock).toHaveBeenCalledWith('row-1', '9')
+    expect(editMock).toHaveBeenCalledWith('inst', 'tok', '5511', 'ZM1', 'novo')
+  })
+
+  it('mantém o nome do operador na mensagem editada', async () => {
+    settingsMock.mockResolvedValue({ prefixOperatorNameEnabled: true })
+    findByBitrixMock.mockResolvedValue({
+      source: 'BITRIX',
+      providerMessageId: 'ZM1',
+      chatId: '5511',
+      bitrixUserId: '42',
+    })
+
+    await processBitrixMessageUpdate(updateEvent())
+
+    expect(displayNameMock).toHaveBeenCalledWith('42')
+    expect(editMock).toHaveBeenCalledWith(
+      'inst',
+      'tok',
+      '5511',
+      'ZM1',
+      '*Maria Silva:* novo',
+    )
+  })
+
+  it('não prefixa a edição de mensagem enviada pelo aparelho', async () => {
+    settingsMock.mockResolvedValue({ prefixOperatorNameEnabled: true })
+    findByBitrixMock.mockResolvedValue({
+      source: 'ZAPI',
+      providerMessageId: 'ZM1',
+      chatId: '5511',
+      bitrixUserId: '42',
+    })
+
+    await processBitrixMessageUpdate(updateEvent())
+
     expect(editMock).toHaveBeenCalledWith('inst', 'tok', '5511', 'ZM1', 'novo')
   })
 
