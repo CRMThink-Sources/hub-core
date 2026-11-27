@@ -25,11 +25,46 @@ import {
 } from './describe-hubmessage-delivery-failure'
 import type { NotifyOutcome } from './notify-operator-delivery-failed'
 import {
-  REJECTION_RETRY_DELAYS_MS,
-  type RejectionResult,
-} from './record-delivery-rejection'
+  progressKindOf,
+  retryDelaysFor,
+  type ProgressResult,
+} from './record-delivery-progress'
+import type { RejectionResult } from './record-delivery-rejection'
 
 const log = createWorkerSourceLogger('hubmessage')
+
+/** O que o callback registra no envio do outbox. */
+type RecordingKind = 'rejection' | 'progress'
+
+/**
+ * Textos e nível de log de cada registro. A escala de retentativas não mora aqui: vem
+ * do estado (`retryDelaysFor`), que é o que o processor também lê para a espera.
+ */
+const RECORDINGS: Record<
+  RecordingKind,
+  {
+    label: string
+    subject: string
+    subjectCapitalized: string
+    notRecordedFlag: 'rejectionNotRecorded' | 'progressNotRecorded'
+    giveUpLevel: 'info' | 'debug'
+  }
+> = {
+  rejection: {
+    label: 'da recusa',
+    subject: 'a recusa',
+    subjectCapitalized: 'Recusa',
+    notRecordedFlag: 'rejectionNotRecorded',
+    giveUpLevel: 'info',
+  },
+  progress: {
+    label: 'da entrega ou leitura',
+    subject: 'a entrega ou leitura',
+    subjectCapitalized: 'Entrega ou leitura',
+    notRecordedFlag: 'progressNotRecorded',
+    giveUpLevel: 'debug',
+  },
+}
 
 /** O mínimo do repositório de mensagens que este caminho usa. */
 export type FindMessageByProviderId = {
@@ -91,6 +126,15 @@ export type ProcessHubMessageDeliveryStatusDeps = {
     providerMessageId: string
     stateItem: HubMessageStateItem | undefined
   }) => Promise<RejectionResult>
+  /**
+   * Grava Entregue (`RECEIVED`) ou Lido (`READ`) no envio do outbox. Ausente, esses
+   * estados seguem só para o status de campanha, como antes.
+   */
+  recordProgress?: (input: {
+    instanceId: string
+    providerMessageId: string
+    stateItem: HubMessageStateItem | undefined
+  }) => Promise<ProgressResult>
   /** Agenda nova tentativa de registro quando a row do envio ainda não existe. */
   retryRecording?: (
     envelope: HubMessageStatusEnvelope,
@@ -161,13 +205,20 @@ export class ProcessHubMessageDeliveryStatusUseCase {
      * não depende de mensagem no canal aberto, e as saídas antecipadas abaixo o
      * deixariam como enviado no CRM.
      */
+    const recordArgs = {
+      logContext,
+      stateItem,
+      appendJobLog,
+      attempt: context.recordOnlyAttempt ?? 0,
+    }
     if (failed) {
-      await this.recordRejection(instance.id, envelope, {
-        logContext,
-        stateItem,
-        appendJobLog,
-        attempt: context.recordOnlyAttempt ?? 0,
-      })
+      await this.recordOnSend('rejection', instance.id, envelope, recordArgs)
+    } else if (progressKindOf(stateItem)) {
+      /**
+       * Mesmo lugar e mesmo motivo da recusa: o envio de robô não tem mensagem no
+       * canal aberto. A campanha abaixo continua recebendo o evento como antes.
+       */
+      await this.recordOnSend('progress', instance.id, envelope, recordArgs)
     }
 
     /**
@@ -249,11 +300,12 @@ export class ProcessHubMessageDeliveryStatusUseCase {
   }
 
   /**
-   * Registra a recusa no envio; sem a row, agenda outra tentativa. **Nunca lança**: o
-   * registro não pode custar o aviso ao operador, e o job de nova tentativa que
-   * falhasse esgotado viraria falha de recebimento.
+   * Registra a recusa ou o progresso (Entregue/Lido) no envio; sem a row, agenda outra
+   * tentativa. **Nunca lança**: o registro não pode custar o aviso ao operador, e o job
+   * de nova tentativa que falhasse esgotado viraria falha de recebimento.
    */
-  private async recordRejection(
+  private async recordOnSend(
+    kind: RecordingKind,
     instanceId: string,
     envelope: HubMessageStatusEnvelope,
     args: {
@@ -264,63 +316,73 @@ export class ProcessHubMessageDeliveryStatusUseCase {
       attempt: number
     },
   ): Promise<void> {
-    if (!this.deps.recordRejection) return
-    const { logContext, stateItem, appendJobLog, attempt } = args
+    const record =
+      kind === 'rejection'
+        ? this.deps.recordRejection
+        : this.deps.recordProgress
+    if (!record) return
+    const { logContext, stateItem, appendJobLog } = args
+    const recording = RECORDINGS[kind]
 
     try {
-      const result = await this.deps.recordRejection({
+      const result = await record({
         instanceId,
         providerMessageId: envelope.message._id,
         stateItem,
       })
-      await appendJobLog(`Registro da recusa no envio: ${result}.`)
+      await appendJobLog(`Registro ${recording.label} no envio: ${result}.`)
 
       if (result === 'row-missing') {
-        await this.scheduleOrGiveUp(envelope, args)
+        await this.scheduleOrGiveUp(kind, envelope, args)
       }
     } catch (err) {
       log.warn(
-        { ...logContext, err, rejectionNotRecorded: true },
-        'Falha ao registrar a recusa no envio',
+        { ...logContext, err, [recording.notRecordedFlag]: true },
+        `Falha ao registrar ${recording.subject} no envio`,
       )
       await appendJobLog(
-        `Falha ao registrar a recusa no envio: ${err instanceof Error ? err.message : String(err)}.`,
+        `Falha ao registrar ${recording.subject} no envio: ${err instanceof Error ? err.message : String(err)}.`,
       )
       /** Mesma escala da row ausente: sem isto a recusa se perderia no primeiro erro. */
-      await this.scheduleOrGiveUp(envelope, args)
+      await this.scheduleOrGiveUp(kind, envelope, args)
     }
   }
 
   /**
-   * Agenda a próxima tentativa de registro ou, esgotada a escala, encerra em log. Tem
-   * `try` próprio: Redis fora não pode derrubar o aviso ao chat.
+   * Agenda a próxima tentativa de registro ou, esgotada a escala do estado, encerra em
+   * log. Tem `try` próprio: Redis fora não pode derrubar o aviso ao chat.
    */
   private async scheduleOrGiveUp(
+    kind: RecordingKind,
     envelope: HubMessageStatusEnvelope,
     args: {
       logContext: Record<string, unknown>
+      stateItem: HubMessageStateItem | undefined
       appendJobLog: AppendJobLog
       attempt: number
     },
   ): Promise<void> {
     if (!this.deps.retryRecording) return
-    const { logContext, appendJobLog, attempt } = args
+    const { logContext, stateItem, appendJobLog, attempt } = args
+    const recording = RECORDINGS[kind]
 
-    if (attempt >= REJECTION_RETRY_DELAYS_MS.length) {
+    if (attempt >= retryDelaysFor(stateItem).length) {
       /**
        * Mensagem que não passou pelo outbox (caminho síncrono, bot) também termina
-       * aqui, e não é defeito; `rejectionNotRecorded` deixa o caso filtrável.
+       * aqui, e não é defeito; `rejectionNotRecorded` deixa o caso filtrável. No
+       * progresso esse é o caso comum (toda resposta do operador recebe Entregue e
+       * Lido), por isso fica em debug.
        */
-      log.info(
+      log[recording.giveUpLevel](
         {
           ...logContext,
           recordOnlyAttempt: attempt,
-          rejectionNotRecorded: true,
+          [recording.notRecordedFlag]: true,
         },
-        'Recusa não registrada: tentativas esgotadas',
+        `${recording.subjectCapitalized} não registrada: tentativas esgotadas`,
       )
       await appendJobLog(
-        'Tentativas esgotadas sem registrar a recusa no envio. Encerrado sem registro.',
+        `Tentativas esgotadas sem registrar ${recording.subject} no envio. Encerrado sem registro.`,
       )
       return
     }
@@ -328,12 +390,12 @@ export class ProcessHubMessageDeliveryStatusUseCase {
     try {
       await this.deps.retryRecording(envelope, attempt + 1)
       await appendJobLog(
-        `Tentativa ${attempt + 1} de registro da recusa agendada.`,
+        `Tentativa ${attempt + 1} de registro ${recording.label} agendada.`,
       )
     } catch (err) {
       log.warn(
-        { ...logContext, err, rejectionNotRecorded: true },
-        'Falha ao agendar nova tentativa de registro da recusa',
+        { ...logContext, err, [recording.notRecordedFlag]: true },
+        `Falha ao agendar nova tentativa de registro ${recording.label}`,
       )
     }
   }
