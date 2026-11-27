@@ -722,6 +722,10 @@ model ThinkzapWidgetOutbox {
   @@index([instanceId, providerMessageId])
   /// As partes que o aviso de envio resume.
   @@index([sendNoticeId])
+  /// Serve a listagem da aba Envios: filtra pela instalação e ordena/filtra por data.
+  @@index([domainId, createdAt])
+  /// Mesma listagem da aba Envios com o filtro opcional de quem enviou.
+  @@index([domainId, operatorBitrixUserId, createdAt])
   @@map("core_thinkerszap_widget_outbox")
 }
 

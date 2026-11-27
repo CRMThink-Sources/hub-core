@@ -2,7 +2,7 @@
 
 ## 1. Banco
 
-- [ ] 1.1 Em `api/prisma/schema.prisma`, adicionar em `ThinkzapWidgetOutbox` os índices `@@index([domainId, createdAt])` e `@@index([domainId, operatorBitrixUserId, createdAt])`, com comentário explicando que servem à aba Envios. Criar a migration SQL aditiva à mão (só `CREATE INDEX`), sem rodar `migrate dev/deploy` contra banco nenhum, e rodar `yarn prisma:generate`. Verificar: `git diff --stat api/prisma/migrations` mostra só a pasta nova e o `guardiao-migrations` aprova (nomes dos índices dentro do limite de 64 caracteres, nenhuma migration antiga alterada).
+- [x] 1.1 Em `api/prisma/schema.prisma`, adicionar em `ThinkzapWidgetOutbox` os índices `@@index([domainId, createdAt])` e `@@index([domainId, operatorBitrixUserId, createdAt])`, com comentário explicando que servem à aba Envios. Criar a migration SQL aditiva à mão (só `CREATE INDEX`), sem rodar `migrate dev/deploy` contra banco nenhum, e rodar `yarn prisma:generate`. Verificar: `git diff --stat api/prisma/migrations` mostra só a pasta nova e o `guardiao-migrations` aprova (nomes dos índices dentro do limite de 64 caracteres, nenhuma migration antiga alterada).
 
 ## 2. Consulta no repositório
 
