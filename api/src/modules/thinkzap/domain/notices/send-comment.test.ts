@@ -629,3 +629,57 @@ describe('renderSendAlert', () => {
     expect(text).toContain(link)
   })
 })
+
+describe('rótulo do status no idioma', () => {
+  it.each([
+    ['pt', '[B]Status:[/B] Enviado'],
+    ['en', '[B]Status:[/B] Sent'],
+    ['es', '[B]Estado:[/B] Enviado'],
+  ] as const)('%s', (locale, footer) => {
+    expect(lastLine(renderSendComment(base({ locale })))).toBe(footer)
+  })
+
+  it('es: título da lista de destinatários', () => {
+    const text = renderSendComment(
+      base({ locale: 'es', recipients: [sent('1'), sent('2')] }),
+    )
+
+    expect(text).toContain('[B]Estado:[/B]')
+    expect(text).not.toContain('Status')
+  })
+})
+
+describe('falha sem motivo registrado', () => {
+  it.each([
+    ['pt', failed, 'Falhou: motivo não informado'],
+    ['pt', partial, 'Falhou em parte: motivo não informado'],
+    ['en', failed, 'Failed: reason not reported'],
+    ['es', failed, 'Falló: motivo no informado'],
+    ['es', partial, 'Falló en parte: motivo no informado'],
+  ] as const)(
+    '%s: frase genérica em vez de dois-pontos solto',
+    (locale, state, expected) => {
+      for (const reason of ['', '   ']) {
+        const one = renderSendComment(
+          base({
+            locale,
+            recipients: [state('1')],
+            describeFailure: () => reason,
+          }),
+        )
+        const many = renderSendComment(
+          base({
+            locale,
+            recipients: [state('1'), sent('2')],
+            describeFailure: () => reason,
+          }),
+        )
+
+        expect(lastLine(one)).toContain(expected)
+        expect(many).toContain(`1 — ${expected}`)
+        expect(one).not.toMatch(/: *$/m)
+        expect(many).not.toMatch(/: *$/m)
+      }
+    },
+  )
+})

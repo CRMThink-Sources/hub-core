@@ -49,6 +49,8 @@ type SendCopy = {
   alertFailed: string
   alertUnknown: string
   reason: string
+  /** No lugar do motivo quando a parte falhou sem erro registrado. */
+  unreportedReason: string
   openRecord: string
 }
 
@@ -69,6 +71,7 @@ const COPY: Record<NoticeLocale, SendCopy> = {
     alertFailed: 'Destinatários com falha no envio',
     alertUnknown: 'Destinatários sem confirmação de envio',
     reason: 'Motivo',
+    unreportedReason: 'motivo não informado',
     openRecord: 'Abrir o registro',
   },
   en: {
@@ -87,10 +90,11 @@ const COPY: Record<NoticeLocale, SendCopy> = {
     alertFailed: 'Recipients with a failed send',
     alertUnknown: 'Recipients with an unconfirmed send',
     reason: 'Reason',
+    unreportedReason: 'reason not reported',
     openRecord: 'Open the record',
   },
   es: {
-    status: 'Status',
+    status: 'Estado',
     states: {
       WAITING: 'Esperando envío',
       SENT: 'Enviado',
@@ -105,6 +109,7 @@ const COPY: Record<NoticeLocale, SendCopy> = {
     alertFailed: 'Destinatarios con falla en el envío',
     alertUnknown: 'Destinatarios sin confirmación de envío',
     reason: 'Motivo',
+    unreportedReason: 'motivo no informado',
     openRecord: 'Abrir el registro',
   },
 }
@@ -117,10 +122,13 @@ function stateText(
   input: SendCommentInput,
   { state, failedPart }: RecipientSummary,
 ): string {
-  const label = COPY[input.locale].states[state]
+  const { states, unreportedReason } = COPY[input.locale]
+  const label = states[state]
   const failed = state === 'FAILED' || state === 'PARTIAL'
   if (!failed || !failedPart) return label
-  return `${label}: ${singleLine(input.describeFailure(failedPart))}`
+  // Parte que falhou sem `lastError` deixaria "Falhou: " com o motivo em branco.
+  const reason = singleLine(input.describeFailure(failedPart))
+  return `${label}: ${reason || unreportedReason}`
 }
 
 function recipientLine(
