@@ -45,6 +45,26 @@ Etapas 2 (entregue e lido) e 3 (aba "Envios") ainda não começaram.
 - Teste do repasse de `sendNoticeId` no serviço de template e do `crm.item.get` com erro
   permanente.
 
+## Antes de produção (revisão final)
+
+- [ ] Notificações em massa: um disparo de robô sobre N registros do CRM gera N avisos
+  para o mesmo usuário (um por disparo, `TAG` diferente). Agregar por usuário e janela,
+  ou limitar.
+- [ ] Concorrência 1 da fila de avisos serializa todos os portais; avaliar trava por aviso.
+- [ ] Confirmar `FAILURE_PURGE_ENABLED=true` em produção: sem o expurgo, as linhas
+  rastreadas (com texto e telefone) nunca são apagadas.
+- [ ] Ordem de deploy: migration, depois API e os dois workers juntos; imagens misturadas
+  postam o comentário antigo e o novo para o mesmo envio.
+
+## Resíduos da re-revisão final (menores)
+
+- [ ] Um 503 sem código na primeira tentativa, seguido de limite na última, pode ser lido
+  como "não escreveu" e permitir um segundo `comment.add`: marcar a requisição quando
+  alguma tentativa foi `HTTP_503` e tratar o erro final como ambíguo.
+- [ ] Em `update`, resolver o remetente (`user.get`) fora do `try` que interpreta
+  `NOT_FOUND` como "comentário apagado".
+- [ ] Publicação que demora mais de 2 minutos faz um job seguinte desistir da reivindicação.
+
 ## Etapas seguintes
 
 - [ ] Etapa 2: capturar eventos reais de entregue e lido (Z-API e HubMessage,
