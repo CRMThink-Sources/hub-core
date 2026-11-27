@@ -6,6 +6,12 @@ import { makeBitrixWebhookContextRepository } from '@/modules/thinkzap/main/make
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 import { createWorkerSourceLogger } from '@/shared/infra/logger'
+import { prepareOpenLineOutboundText } from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
+import { resolveSettingsByInstanceId } from '@/modules/thinkzap/application/helpers/resolve-settings-by-instance-id'
+import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
+import { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
+import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
 
 const log = createWorkerSourceLogger('bitrix')
 const messageRepo = new PrismaThinkzapMessageRepository()
@@ -27,9 +33,11 @@ export async function processBitrixMessageUpdate(
   }
 
   const bitrixWebhookContextRepo = makeBitrixWebhookContextRepository()
+  const appCode =
+    resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId ?? ''
   const context = await bitrixWebhookContextRepo.getContext({
     domainName: event.auth.domain,
-    appCode: resolveByMarketplaceCode(env.appCodes.thinkzap)?.appCodeId ?? '',
+    appCode,
     line: event.data.LINE,
   })
 
@@ -75,6 +83,35 @@ export async function processBitrixMessageUpdate(
     return
   }
 
+  /**
+   * A edição substitui o texto inteiro no WhatsApp: sem reaplicar o prefixo do envio,
+   * o nome do operador some. Só em row `BITRIX` — mensagem espelhada do aparelho saiu
+   * sem prefixo. O nome é o do autor gravado no envio.
+   */
+  const text =
+    record.source === 'BITRIX'
+      ? await prepareOpenLineOutboundText({
+          text: newText,
+          settings: await resolveSettingsByInstanceId(
+            {
+              instanceId: context.instance.instanceId,
+              domainId: context.id,
+              appCode,
+            },
+            makeGetAplicationContext(),
+          ),
+          operatorUserId: record.bitrixUserId ?? '',
+          appId: context.app.id,
+          getBitrixUserDisplayName: new BitrixGetUserDisplayNameAdapter(
+            new BitrixClient({
+              bitrixCredential: context.app.credential,
+              domain: context.name,
+            }),
+          ),
+          getAllowedUser: new PrismaAllowedUserRepository(),
+        })
+      : newText
+
   const zApiClient = new ZApiClient(env.zApi.partnerToken, env.zApi.clientToken)
 
   try {
@@ -83,7 +120,7 @@ export async function processBitrixMessageUpdate(
       context.instance.zApiToken || '',
       record.chatId || '',
       record.providerMessageId,
-      newText,
+      text,
     )
     log.info(
       {
