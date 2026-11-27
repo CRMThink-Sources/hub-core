@@ -197,6 +197,13 @@ A retenção entra já na etapa 1 para a aba nascer com histórico.
 - A change `historico-falhas-reprocessamento` mexe na mesma limpeza; conferir se foi
   arquivada antes de escrever os deltas de spec.
 
+## Limite conhecido
+
+Com `THINKZAP_UNIFIED_OUTBOX_DOMAINS` desligada para o portal, o envio com anexo pelo
+widget e o robô "Enviar mensagem" são síncronos e não criam row no outbox (só Z-API).
+Eles mantêm o comentário atual, sem status, e não entram na aba. Cobri-los depende de
+ligar a flag.
+
 ## A verificar antes ou durante a implementação
 
 - **Formato real dos eventos** de entregue e lido nos dois provedores. A documentação da
