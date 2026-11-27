@@ -32,6 +32,11 @@ export type ThinkzapInboundJob =
       type: string
       body: Record<string, unknown>
       traceKey: string
+      /**
+       * Presente no job que volta só para registrar a recusa num envio que ainda não
+       * estava no outbox; é o número da tentativa.
+       */
+      recordOnlyAttempt?: number
     }
   // Eventos `ONIMBOTV2*`. `source` próprio pelo mesmo motivo do `hubmessage-status`: o
   // branch `'bitrix'` casta para `IBX24MessageEvent` (`data.LINE`, `data.MESSAGES`) e o
@@ -68,12 +73,13 @@ export const THINKZAP_INBOUND_JOB_OPTIONS = {
 
 export async function enqueueThinkzapInboundJob(
   job: ThinkzapInboundJob,
-  opts?: { jobId?: string },
+  opts?: { jobId?: string; delay?: number },
 ) {
   const createdJob = await thinkzapInboundQueue.add('process-inbound', job, {
     ...THINKZAP_INBOUND_JOB_OPTIONS,
     // Chave determinística: reentrega do mesmo evento é colapsada pelo BullMQ.
     ...(opts?.jobId ? { jobId: opts.jobId } : {}),
+    ...(opts?.delay ? { delay: opts.delay } : {}),
   })
 
   apiLogger.info(

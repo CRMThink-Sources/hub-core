@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Request, Response } from 'express'
+import type {
+  OpenedSendNotice,
+  OpenSendNotice,
+} from '@/modules/thinkzap/application/open-send-notice'
 import { ConnectorProvider } from '@/modules/thinkzap/domain/entities/connector'
 
 const { resolveRelatedDestinationsMock } = vi.hoisted(() => ({
@@ -70,6 +74,12 @@ const makeDeps = (
 
   const sendNotification = { execute: vi.fn().mockResolvedValue(undefined) }
   const bitrix = {}
+  const refresh = vi
+    .fn<OpenedSendNotice['refresh']>()
+    .mockResolvedValue(undefined)
+  const openSendNotice = vi
+    .fn<OpenSendNotice>()
+    .mockResolvedValue({ id: 'notice_1', refresh })
 
   return {
     getDomain,
@@ -78,6 +88,8 @@ const makeDeps = (
     sendNotification,
     bitrix,
     enqueue,
+    openSendNotice,
+    refresh,
   }
 }
 
@@ -92,6 +104,8 @@ const makeController = (
     deps.sendNotification as never,
     deps.bitrix as never,
     expectedProvider,
+    null,
+    deps.openSendNotice,
   )
 
 /**
@@ -505,8 +519,8 @@ describe('BitrixButtonRobotWebhookHandlerController', () => {
       )
 
       expect(response.result).toEqual({ received: true, queued: 1 })
-      expect(lastNotice(deps)).toContain('5544444444444')
-      expect(lastNotice(deps)).not.toContain('destino do envio está vazio')
+      expect(deps.refresh).toHaveBeenCalledTimes(1)
+      expect(deps.sendNotification.execute).not.toHaveBeenCalled()
     })
 
     it('segue o idioma da instalação', async () => {
@@ -553,9 +567,9 @@ describe('BitrixButtonRobotWebhookHandlerController', () => {
     expect(response.status).toBe(404)
   })
 
-  it('não derruba o disparo quando o comentário de timeline falha', async () => {
+  it('não derruba o disparo quando o agendamento do comentário falha', async () => {
     const deps = makeDeps()
-    deps.sendNotification.execute.mockRejectedValue(new Error('bitrix fora'))
+    deps.refresh.mockRejectedValue(new Error('redis fora'))
 
     const response = await makeController(deps).perform(
       makeReq(fullProperties),
@@ -563,6 +577,92 @@ describe('BitrixButtonRobotWebhookHandlerController', () => {
     )
 
     expect(response.result).toEqual({ received: true, queued: 1 })
+  })
+
+  describe('aviso de envio', () => {
+    const twoRecipients = () => {
+      resolveRelatedDestinationsMock.mockResolvedValue({
+        destinations: [{ phone: '5511111111111' }, { phone: '5522222222222' }],
+      })
+      return makeReq({ ...fullProperties, sendToAllRelatedContacts: 'Y' })
+    }
+
+    it('abre um aviso só, liga os envios a ele e agenda o comentário uma vez', async () => {
+      const deps = makeDeps()
+
+      await makeController(deps).perform(twoRecipients(), res)
+
+      expect(deps.openSendNotice).toHaveBeenCalledTimes(1)
+      expect(deps.openSendNotice).toHaveBeenCalledWith({
+        entity: 'DEAL',
+        entityId: '10',
+        domainId: 'domain_1',
+        appCode: 'crmthink.thinkzap',
+        operatorBitrixUserId: null,
+      })
+      expect(deps.enqueue).toHaveBeenCalledTimes(2)
+      expect(deps.enqueue.mock.calls[0]?.[1]).toMatchObject({
+        sendNoticeId: 'notice_1',
+      })
+      expect(deps.enqueue.mock.calls[1]?.[1]).toMatchObject({
+        sendNoticeId: 'notice_1',
+      })
+      expect(deps.refresh).toHaveBeenCalledTimes(1)
+      expect(deps.refresh.mock.invocationCallOrder[0]).toBeGreaterThan(
+        deps.enqueue.mock.invocationCallOrder[1] as number,
+      )
+      // Nenhum comentário "enfileirado": quem comenta é o aviso.
+      expect(deps.sendNotification.execute).not.toHaveBeenCalled()
+    })
+
+    it('envia mesmo quando a abertura do aviso falha', async () => {
+      const deps = makeDeps()
+      deps.openSendNotice.mockRejectedValue(new Error('banco fora'))
+
+      const response = await makeController(deps).perform(twoRecipients(), res)
+
+      expect(response.result).toEqual({ received: true, queued: 2 })
+      expect(deps.enqueue.mock.calls[0]?.[1]).not.toHaveProperty('sendNoticeId')
+      expect(deps.sendNotification.execute).not.toHaveBeenCalled()
+    })
+
+    it('sem aviso aberto, envia sem ligar a nenhum', async () => {
+      const deps = makeDeps()
+      deps.openSendNotice.mockResolvedValue(null)
+
+      const response = await makeController(deps).perform(twoRecipients(), res)
+
+      expect(response.result).toEqual({ received: true, queued: 2 })
+      expect(deps.enqueue.mock.calls[0]?.[1]).not.toHaveProperty('sendNoticeId')
+      expect(deps.refresh).not.toHaveBeenCalled()
+    })
+
+    it('nada enfileirado: não agenda o comentário do aviso e comenta a recusa', async () => {
+      const deps = makeDeps({
+        enqueue: vi.fn().mockRejectedValue(new Error('Invalid destination')),
+      })
+
+      await makeController(deps).perform(makeReq(fullProperties), res)
+
+      expect(deps.refresh).not.toHaveBeenCalled()
+      expect(deps.sendNotification.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message:
+            'Nenhum destinatário válido para o envio da mensagem com botões.',
+        }),
+      )
+    })
+
+    it('recusa antes do envio não abre aviso', async () => {
+      const deps = makeDeps()
+
+      await makeController(deps).perform(
+        makeReq({ ...fullProperties, destination: '' }),
+        res,
+      )
+
+      expect(deps.openSendNotice).not.toHaveBeenCalled()
+    })
   })
 })
 
@@ -622,16 +722,6 @@ describe('BitrixButtonRobotWebhookHandlerController idioma da timeline', () => {
   const commentOf = (deps: ReturnType<typeof makeDeps>) =>
     (deps.sendNotification.execute.mock.calls[0]?.[0] as { message: string })
       .message
-
-  it('enfileirado em espanhol, com os telefones como estão', async () => {
-    const deps = makeDeps()
-
-    await withLocale(deps, 'es').perform(makeReq(fullProperties), res)
-
-    expect(commentOf(deps)).toMatch(
-      /^\[B\]Mensaje con botones en cola\[\/B\]\n\[B\]Para:\[\/B\] /,
-    )
-  })
 
   it('configuração incompleta em inglês', async () => {
     const deps = makeDeps()

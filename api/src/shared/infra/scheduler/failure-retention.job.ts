@@ -3,6 +3,7 @@ import { env } from '@/config/env'
 import { SubscriptionExpirationLock } from '@/modules/application/domain/subscription-expiration-lock'
 import { PrismaDeliveryAttemptRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-delivery-attempt.repository'
 import { PrismaInboundFailureRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-inbound-failure.repository'
+import { PrismaSendNoticeRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-send-notice.repository'
 import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { apiLogger } from '@/shared/infra/logger'
 import { redisFailureRetentionLock } from './failure-retention.lock'
@@ -24,6 +25,11 @@ export const FAILURE_RETENTION_MAX_BATCHES = 200
 export type RetentionTarget = {
   /** Nome no log, para dizer quantas linhas saíram de cada tabela. */
   name: string
+  /**
+   * Prazo próprio do alvo, no lugar do `retentionDays` do job. O histórico de envios
+   * rastreados vive mais que as falhas, e cada um precisa do seu corte.
+   */
+  retentionDays?: number
   deleteExpiredBatch(cutoff: Date, limit: number): Promise<number>
 }
 
@@ -42,6 +48,8 @@ const defaultDeps = (): FailureRetentionJobDeps => {
   const attempts = new PrismaDeliveryAttemptRepository()
   const inboundFailures = new PrismaInboundFailureRepository()
   const outbox = new PrismaWidgetOutboxRepository()
+  const notices = new PrismaSendNoticeRepository()
+  const sendHistoryDays = env.thinkzapSendHistoryDays
 
   return {
     enabled: env.failureRetention.purgeEnabled,
@@ -66,6 +74,20 @@ const defaultDeps = (): FailureRetentionJobDeps => {
         name: 'envios com falha',
         deleteExpiredBatch: (cutoff, limit) =>
           outbox.deleteExpiredFailuresBatch(cutoff, limit),
+      },
+      // O histórico sai antes dos avisos: as rows do outbox é que apontam para o aviso,
+      // e o aviso não pode sumir enquanto alguma ainda o referencia. Mesmo prazo nos dois.
+      {
+        name: 'histórico de envios',
+        retentionDays: sendHistoryDays,
+        deleteExpiredBatch: (cutoff, limit) =>
+          outbox.deleteExpiredSendHistoryBatch(cutoff, limit),
+      },
+      {
+        name: 'avisos de envio',
+        retentionDays: sendHistoryDays,
+        deleteExpiredBatch: (cutoff, limit) =>
+          notices.deleteExpiredBatch(cutoff, limit),
       },
     ],
     clock: () => new Date(),
@@ -120,14 +142,22 @@ export async function runFailureRetention(
       return
     }
 
-    const cutoff = new Date(
-      deps.clock().getTime() - deps.retentionDays * DAY_MS,
-    )
+    const now = deps.clock().getTime()
+    const cutoffFor = (days: number) => new Date(now - days * DAY_MS)
+    const cutoff = cutoffFor(deps.retentionDays)
 
     const deleted: Record<string, number> = {}
+    const cutoffs: Record<string, string> = {}
     for (const target of deps.targets) {
       // Uma tabela com erro não impede as outras: os lotes já apagados ficam apagados.
-      deleted[target.name] = await purgeTarget(target, cutoff, deps)
+      const targetCutoff =
+        target.retentionDays === undefined
+          ? cutoff
+          : cutoffFor(target.retentionDays)
+      if (target.retentionDays !== undefined) {
+        cutoffs[target.name] = targetCutoff.toISOString()
+      }
+      deleted[target.name] = await purgeTarget(target, targetCutoff, deps)
     }
 
     apiLogger.info(
@@ -135,6 +165,9 @@ export async function runFailureRetention(
         app: 'thinkzap',
         retentionDays: deps.retentionDays,
         cutoff: cutoff.toISOString(),
+        // Alvos com prazo próprio (histórico de envios): cada um com o seu corte e prazo.
+        sendHistoryDays: env.thinkzapSendHistoryDays,
+        sendHistoryCutoffs: cutoffs,
         deleted,
       },
       '[FailureRetentionJob] Expurgo concluído',

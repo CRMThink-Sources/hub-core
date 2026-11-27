@@ -676,6 +676,18 @@ model ThinkzapWidgetOutbox {
   /// O resto do que a origem precisa na entrega (conector, citação, eco do bot).
   originContext   Json?   @map("origin_context")
 
+  /// O aviso de envio (`ThinkzapSendNotice`) que acompanha esta parte. Nulo em envio
+  /// não acompanhado e nas rows anteriores à coluna. Sem chave estrangeira: a
+  /// retenção apaga aviso e outbox em momentos diferentes.
+  sendNoticeId String? @map("send_notice_id")
+
+  /// Recusa informada pelo provider **depois** de aceitar o envio. Fica fora de
+  /// `status` de propósito: a mensagem continua `SENT` para a fila, que não pode
+  /// reenviar o que o provider já recebeu.
+  rejectedAt    DateTime? @map("rejected_at")
+  failureCode   String?   @map("failure_code")
+  failureReason String?   @map("failure_reason") @db.Text
+
   /// Posição na fila FIFO da linha (`thinkzap:cadence-queue:{lineKey}`). Guardada
   /// aqui para o ticket voltar à mesma posição se o Redis perder a fila.
   queueSeq         Int?      @map("queue_seq")
@@ -701,7 +713,47 @@ model ThinkzapWidgetOutbox {
   @@index([status, createdAt])
   /// O desfecho agregado de um envio com várias partes.
   @@index([dispatchGroupId])
+  /// O status posterior do provider chega só com o id da mensagem dele.
+  @@index([instanceId, providerMessageId])
+  /// As partes que o aviso de envio resume.
+  @@index([sendNoticeId])
   @@map("core_thinkerszap_widget_outbox")
+}
+
+/// Aviso de um disparo acompanhado: o comentário de status no CRM e a notificação de
+/// falha a quem enviou. Um por disparo, compartilhado por todas as partes dele
+/// (`ThinkzapWidgetOutbox.sendNoticeId`).
+model ThinkzapSendNotice {
+  id          String @id @default(uuid())
+  /// Identidade do disparo: é o unique que faz partes que terminam em paralelo
+  /// chegarem ao mesmo aviso, e portanto a um comentário só.
+  dispatchKey String @unique @map("dispatch_key")
+
+  domainId             String  @map("domain_id")
+  appCode              String  @map("app_code")
+  entity               String
+  entityId             String  @map("entity_id")
+  operatorBitrixUserId String? @map("operator_bitrix_user_id")
+  /// Publica o comentário sem esperar a fila terminar todas as partes.
+  eager                Boolean @default(false)
+
+  /// Id do comentário na timeline do CRM, para atualizá-lo em vez de criar outro.
+  commentId        String?   @map("comment_id")
+  /// O comentário saiu em nome do operador; decide com que credencial atualizar.
+  commentAsAuthor  Boolean   @default(false) @map("comment_as_author")
+  /// `crm.timeline.comment.add` não tem chave de idempotência: só quem carimba
+  /// este campo cria o comentário.
+  commentClaimedAt DateTime? @map("comment_claimed_at")
+  fromPhone        String?   @map("from_phone")
+  /// Quantas falhas já foram notificadas, para só avisar de novo quando aumentar.
+  alertedFailures  Int       @default(0) @map("alerted_failures")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// Serve a limpeza por retenção.
+  @@index([createdAt])
+  @@map("core_thinkerszap_send_notices")
 }
 
 /// Imagem padrão do envio de um template com cabeçalho de imagem, por linha.

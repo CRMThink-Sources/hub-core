@@ -24,6 +24,10 @@ import {
   readMetaErrorCode,
 } from './describe-hubmessage-delivery-failure'
 import type { NotifyOutcome } from './notify-operator-delivery-failed'
+import {
+  REJECTION_RETRY_DELAYS_MS,
+  type RejectionResult,
+} from './record-delivery-rejection'
 
 const log = createWorkerSourceLogger('hubmessage')
 
@@ -78,6 +82,20 @@ export type ProcessHubMessageDeliveryStatusDeps = {
    * Nunca lança (o repositório de idioma cai em `pt`).
    */
   resolveLocale?: (domainId: string) => Promise<NoticeLocale>
+  /**
+   * Grava a recusa no envio do outbox (comentário e alerta do CRM). Ausente, só o
+   * aviso no canal aberto e o status de campanha acontecem.
+   */
+  recordRejection?: (input: {
+    instanceId: string
+    providerMessageId: string
+    stateItem: HubMessageStateItem | undefined
+  }) => Promise<RejectionResult>
+  /** Agenda nova tentativa de registro quando a row do envio ainda não existe. */
+  retryRecording?: (
+    envelope: HubMessageStatusEnvelope,
+    nextAttempt: number,
+  ) => Promise<void>
 }
 
 /**
@@ -100,7 +118,11 @@ export class ProcessHubMessageDeliveryStatusUseCase {
 
   async execute(
     envelope: HubMessageStatusEnvelope,
-    context: { appendJobLog: AppendJobLog } = { appendJobLog: noopJobLog },
+    context: {
+      appendJobLog: AppendJobLog
+      /** Definido só no job que volta apenas para registrar a recusa. */
+      recordOnlyAttempt?: number
+    } = { appendJobLog: noopJobLog },
   ): Promise<void> {
     const { appendJobLog } = context
     const { message } = envelope
@@ -133,6 +155,26 @@ export class ProcessHubMessageDeliveryStatusUseCase {
       )
       return
     }
+
+    /**
+     * A recusa é registrada **antes** dos demais caminhos: envio de robô e de widget
+     * não depende de mensagem no canal aberto, e as saídas antecipadas abaixo o
+     * deixariam como enviado no CRM.
+     */
+    if (failed) {
+      await this.recordRejection(instance.id, envelope, {
+        logContext,
+        stateItem,
+        appendJobLog,
+        attempt: context.recordOnlyAttempt ?? 0,
+      })
+    }
+
+    /**
+     * A execução original já avisou o chat e reportou a campanha; esta volta só
+     * porque a row não existia. Seguir repetiria o aviso ao operador.
+     */
+    if (context.recordOnlyAttempt !== undefined) return
 
     /**
      * O status da campanha é resolvido **antes** do aviso ao operador e independente
@@ -204,6 +246,96 @@ export class ProcessHubMessageDeliveryStatusUseCase {
       stateItem,
       appendJobLog,
     })
+  }
+
+  /**
+   * Registra a recusa no envio; sem a row, agenda outra tentativa. **Nunca lança**: o
+   * registro não pode custar o aviso ao operador, e o job de nova tentativa que
+   * falhasse esgotado viraria falha de recebimento.
+   */
+  private async recordRejection(
+    instanceId: string,
+    envelope: HubMessageStatusEnvelope,
+    args: {
+      logContext: Record<string, unknown>
+      stateItem: HubMessageStateItem | undefined
+      appendJobLog: AppendJobLog
+      /** Tentativas de registro já feitas depois da execução original. */
+      attempt: number
+    },
+  ): Promise<void> {
+    if (!this.deps.recordRejection) return
+    const { logContext, stateItem, appendJobLog, attempt } = args
+
+    try {
+      const result = await this.deps.recordRejection({
+        instanceId,
+        providerMessageId: envelope.message._id,
+        stateItem,
+      })
+      await appendJobLog(`Registro da recusa no envio: ${result}.`)
+
+      if (result === 'row-missing') {
+        await this.scheduleOrGiveUp(envelope, args)
+      }
+    } catch (err) {
+      log.warn(
+        { ...logContext, err, rejectionNotRecorded: true },
+        'Falha ao registrar a recusa no envio',
+      )
+      await appendJobLog(
+        `Falha ao registrar a recusa no envio: ${err instanceof Error ? err.message : String(err)}.`,
+      )
+      /** Mesma escala da row ausente: sem isto a recusa se perderia no primeiro erro. */
+      await this.scheduleOrGiveUp(envelope, args)
+    }
+  }
+
+  /**
+   * Agenda a próxima tentativa de registro ou, esgotada a escala, encerra em log. Tem
+   * `try` próprio: Redis fora não pode derrubar o aviso ao chat.
+   */
+  private async scheduleOrGiveUp(
+    envelope: HubMessageStatusEnvelope,
+    args: {
+      logContext: Record<string, unknown>
+      appendJobLog: AppendJobLog
+      attempt: number
+    },
+  ): Promise<void> {
+    if (!this.deps.retryRecording) return
+    const { logContext, appendJobLog, attempt } = args
+
+    if (attempt >= REJECTION_RETRY_DELAYS_MS.length) {
+      /**
+       * Mensagem que não passou pelo outbox (caminho síncrono, bot) também termina
+       * aqui, e não é defeito; `rejectionNotRecorded` deixa o caso filtrável.
+       */
+      log.info(
+        {
+          ...logContext,
+          recordOnlyAttempt: attempt,
+          rejectionNotRecorded: true,
+        },
+        'Recusa não registrada: tentativas esgotadas',
+      )
+      await appendJobLog(
+        'Tentativas esgotadas sem registrar a recusa no envio. Encerrado sem registro.',
+      )
+      return
+    }
+
+    try {
+      await this.deps.retryRecording(envelope, attempt + 1)
+      await appendJobLog(
+        `Tentativa ${attempt + 1} de registro da recusa agendada.`,
+      )
+    } catch (err) {
+      log.warn(
+        { ...logContext, err, rejectionNotRecorded: true },
+        'Falha ao agendar nova tentativa de registro da recusa',
+      )
+    }
   }
 
   /**

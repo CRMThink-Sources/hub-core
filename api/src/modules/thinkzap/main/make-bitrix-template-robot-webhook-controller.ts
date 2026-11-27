@@ -1,4 +1,5 @@
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
+import { makeOpenSendNotice } from '@/modules/thinkzap/main/make-send-notice-deps'
 import { Request } from 'express'
 import { PrismaTemplateDefaultsRepository } from '../infra/persistence/repositories/prisma-template-defaults.repository'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
@@ -65,5 +66,6 @@ export const makeBitrixTemplateRobotWebhookHandlerController = async (
     makeTimelineNotifier(bx, domain.name),
     bx,
     makeInstallationLocaleRepository(),
+    makeOpenSendNotice(),
   )
 }

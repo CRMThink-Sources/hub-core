@@ -198,7 +198,12 @@ dias (padrão 7). Ausente ou qualquer valor diferente de `true` deixa desligado.
 - O reprocesso de falha de recebimento pelo portal admin enfileira em `thinkzap-inbound`:
   confira que `QUEUE_PREFIX` é o mesmo na API e no worker de cada ambiente e diferente
   entre staging e produção, senão o evento (com dados do contato) cai na fila do outro.
-- Valor inválido em `FAILURE_RETENTION_DAYS` (`0`, texto, decimal) impede a API e os
+- O mesmo job guarda por `THINKZAP_SEND_HISTORY_DAYS` dias (padrão 90) o histórico dos
+  envios rastreados (widget e robôs, sem SMS; entregues ou com falha) e os avisos de envio,
+  que a aba de envios consulta; esses envios **não** saem no prazo de 7 dias das falhas.
+  Com `FAILURE_PURGE_ENABLED` desligado nada é apagado. Em banco compartilhado, use o mesmo
+  `THINKZAP_SEND_HISTORY_DAYS` nos dois ambientes: o menor prazo vence.
+- Valor inválido em `FAILURE_RETENTION_DAYS` ou `THINKZAP_SEND_HISTORY_DAYS` (`0`, texto, decimal) impede a API e os
   workers de subir, com a mensagem da variável a corrigir.
 
 ### Robô de template do Bizproc — ordem de deploy e registro

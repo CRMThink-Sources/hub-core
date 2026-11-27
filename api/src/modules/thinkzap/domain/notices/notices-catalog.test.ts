@@ -92,13 +92,6 @@ describe('catálogo de avisos do servidor', () => {
       expect(
         timeline.buttonRobot.providerMismatch('ZAPI', 'HUBMESSAGE'),
       ).toContain('HUBMESSAGE')
-      expect(
-        timeline.templateRobot.queued({
-          templateName: 'boas_vindas',
-          language: 'pt_BR',
-          destinations: ['551'],
-        }),
-      ).toContain('boas_vindas (pt_BR)')
 
       const failure = deliveryFailureNotices(locale)
       expect(failure.generic('131099', 'retorno cru')).toContain('131099')

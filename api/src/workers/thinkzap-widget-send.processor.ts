@@ -30,7 +30,12 @@ import {
 } from '@/modules/thinkzap/application/prepare-open-line-outbound-text'
 import { BitrixGetUserDisplayNameAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-get-user-display-name.adapter'
 import { PrismaAllowedUserRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-allowed-user.repository'
-import type { DispatchLineTarget } from '@/modules/thinkzap/application/dispatch-widget-outbox-message'
+import type {
+  DispatchLineTarget,
+  DispatchOutcome,
+} from '@/modules/thinkzap/application/dispatch-widget-outbox-message'
+import { isTrackedSend } from '@/modules/thinkzap/domain/send-notice'
+import { makePublishSendState } from '@/modules/thinkzap/main/make-send-notice-deps'
 import {
   notifyWidgetSendOutcome,
   WidgetSendOutcome,
@@ -80,6 +85,25 @@ export type WidgetSendJobOutcome =
   | 'done'
   | 'reschedule'
   | { deferUntil: number }
+
+const PUBLISHED_OUTCOMES: ReadonlySet<DispatchOutcome['status']> = new Set([
+  'sent',
+  'resumed',
+  'failed',
+  'unknown',
+  'skipped',
+])
+
+/**
+ * Desfechos depois dos quais o aviso de envio é republicado. `skipped` entra porque a
+ * row reprocessada (ou já terminal) também precisa do comentário em dia; `locked` e
+ * `deferred` não mexeram na row.
+ */
+export function shouldPublishSendState(
+  status: DispatchOutcome['status'],
+): boolean {
+  return PUBLISHED_OUTCOMES.has(status)
+}
 
 // `reschedule` (destino ocupado) adia sem gastar tentativa: contenção não é falha de envio.
 export async function processWidgetSendJob(
@@ -145,13 +169,25 @@ export async function processWidgetSendJob(
       (context.isLastAttempt ? ' | ÚLTIMA TENTATIVA' : ''),
   )
 
+  /**
+   * Disparo acompanhado (widget e robôs) tem o comentário de status e a notificação
+   * do aviso de envio no lugar dos comentários antigos. A origem não muda, então a
+   * row lida aqui decide pelo job inteiro; as demais nem consultam o aviso.
+   */
+  const tracked = isTrackedSend(row)
+  const publishSendState = makePublishSendState()
+
   const resolution = await resolveLineTarget(row, input =>
     makeGetAplicationContext().execute(input),
   )
   if (resolution.kind !== 'found') {
     return settleUnresolvedLine(row, resolution, context.isLastAttempt, {
       markFailed: (id, reason) => outbox.markFailed(id, reason),
-      notifyFailed: () => notifyOutcomeFor(row, 'failed'),
+      // Chamado logo depois do `markFailed`: o aviso já lê a row como falha.
+      notifyFailed: async () => {
+        await notifyOutcomeFor(row, 'failed')
+        if (tracked) await publishSendState(row.id)
+      },
       appendJobLog,
       recordAttempt: failure =>
         attempts.recordFailure(
@@ -270,6 +306,11 @@ export async function processWidgetSendJob(
     isLastAttempt: context.isLastAttempt,
   })
 
+  // Cada parte de um grupo publica; o comentário espera o grupo terminar.
+  if (tracked && shouldPublishSendState(result.status)) {
+    await publishSendState(row.id)
+  }
+
   log.info(
     {
       app: 'thinkzap',
@@ -339,10 +380,16 @@ async function authorOf(row: WidgetOutboxRecord): Promise<{
   }
 }
 
+/**
+ * Disparo acompanhado não ganha este comentário: o desfecho entra no comentário de
+ * status e, na falha, na notificação do aviso de envio. Os dois juntos duplicariam.
+ */
 async function notifyOutcomeFor(
   row: WidgetOutboxRecord,
   outcome: WidgetSendOutcome,
 ): Promise<void> {
+  if (isTrackedSend(row)) return
+
   try {
     const notifier = await makeNotifier(row)
     if (!notifier) return
@@ -371,7 +418,10 @@ async function notifyOutcomeFor(
 }
 
 // A linha `Template:` é por onde o cliente concilia o que a Meta cobrou — não remover.
+// Disparo acompanhado já mostra o template no comentário de status.
 async function notifySentFor(row: WidgetOutboxRecord): Promise<void> {
+  if (isTrackedSend(row)) return
+
   try {
     const notifier = await makeNotifier(row)
     if (!notifier) return
@@ -473,7 +523,9 @@ async function settleGroup(
     await settleRobotMessageGroup(settled, {
       locale,
       openChannelQueue: new BullMqOpenChannelConversationQueue(),
+      // O comentário de status do aviso de envio substitui este; a conversa segue.
       postTimeline: async (document, message) => {
+        if (isTrackedSend(settled.first)) return
         try {
           const notifier = await makeNotifier(settled.first)
           await notifier?.execute({
@@ -500,7 +552,9 @@ async function settleGroup(
   await settleWidgetAttachmentGroup(settled, {
     openChannelQueue: new BullMqOpenChannelConversationQueue(),
     notifyOutcome: (outcome, record) => notifyOutcomeFor(record, outcome),
+    // O comentário de status do aviso de envio substitui este; a conversa segue.
     postTimeline: async (record, message) => {
+      if (isTrackedSend(record)) return
       try {
         const notifier = await makeNotifier(record)
         await notifier?.execute({
@@ -520,7 +574,9 @@ async function settleGroup(
         )
       }
     },
-    fromPhone: async () => {
+    // Só serve ao comentário antigo: sem ele, não vale uma chamada à Z-API.
+    fromPhone: async record => {
+      if (isTrackedSend(record)) return ''
       if (line.provider !== ConnectorProvider.ZAPI || !line.zApiToken) return ''
       const phone = await new ZApiClient(
         env.zApi.partnerToken,

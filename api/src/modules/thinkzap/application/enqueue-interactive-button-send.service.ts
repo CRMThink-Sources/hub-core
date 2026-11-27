@@ -56,6 +56,8 @@ export type EnqueueInteractiveButtonIntentInput = {
   operatorBitrixUserId?: string
   /** Ausente = `WIDGET`; os robôs passam `ROBOT_BUTTONS`. */
   origin?: 'WIDGET' | 'ROBOT_BUTTONS'
+  /** Aviso aberto pelo robô para o disparo; ausente, o worker cria um por row. */
+  sendNoticeId?: string
 }
 
 export type EnqueueInteractiveButtonResult = {
@@ -195,6 +197,8 @@ export class EnqueueInteractiveButtonSendService {
        */
       operatorBitrixUserId: input.operatorBitrixUserId ?? null,
       origin: input.origin ?? 'WIDGET',
+      // Na criação: o worker pode processar a row antes de qualquer update.
+      ...(input.sendNoticeId ? { sendNoticeId: input.sendNoticeId } : {}),
     })
 
     await sequenceOutboxRows(
