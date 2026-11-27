@@ -43,4 +43,33 @@ describe('BitrixSendSenderNamesAdapter', () => {
 
     await expect(sut.resolveNames(['1'])).rejects.toThrow('Bitrix 503')
   })
+
+  it('não cria o cliente quando não há ids', async () => {
+    const factory = vi.fn<() => Promise<BitrixClient>>()
+    const names = await new BitrixSendSenderNamesAdapter(factory).resolveNames(
+      [],
+    )
+    expect(factory).not.toHaveBeenCalled()
+    expect(names.size).toBe(0)
+  })
+
+  it('falha ao criar o cliente deixa os nomes em branco, sem lançar', async () => {
+    const factory = vi
+      .fn<() => Promise<BitrixClient>>()
+      .mockRejectedValue(new Error('Credential not found'))
+    const names = await new BitrixSendSenderNamesAdapter(factory).resolveNames([
+      '1',
+    ])
+    expect(names.size).toBe(0)
+  })
+
+  it('usa o cliente criado pela fábrica', async () => {
+    const callMethod = vi
+      .fn()
+      .mockResolvedValue({ result: [{ ID: '1', NAME: 'Ana' }] })
+    const names = await new BitrixSendSenderNamesAdapter(() =>
+      Promise.resolve(clientWith(callMethod)),
+    ).resolveNames(['1'])
+    expect(names.get('1')).toBe('Ana')
+  })
 })

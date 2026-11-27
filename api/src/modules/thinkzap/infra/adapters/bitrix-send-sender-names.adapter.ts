@@ -17,16 +17,30 @@ const USER_GET_PAGE_SIZE = 50
  * Lança quando o Bitrix recusa; o caso de uso decide tolerar.
  */
 export class BitrixSendSenderNamesAdapter implements SendSenderNameResolver {
-  constructor(private readonly bitrix: BitrixClient) {}
+  /**
+   * Aceita o cliente pronto ou uma fábrica: a fábrica só roda quando há ids a
+   * resolver, e falha dela (instalação/credencial ausente) deixa os nomes em
+   * branco em vez de derrubar a lista (os nomes são melhor esforço).
+   */
+  constructor(
+    private readonly bitrix: BitrixClient | (() => Promise<BitrixClient>),
+  ) {}
 
   async resolveNames(userIds: string[]): Promise<Map<string, string>> {
     const names = new Map<string, string>()
+    if (userIds.length === 0) return names
+    let bitrix: BitrixClient
+    try {
+      bitrix =
+        typeof this.bitrix === 'function' ? await this.bitrix() : this.bitrix
+    } catch {
+      return names
+    }
     for (let i = 0; i < userIds.length; i += USER_GET_PAGE_SIZE) {
       const ids = userIds.slice(i, i + USER_GET_PAGE_SIZE)
-      const response = await this.bitrix.callMethod<UserGetResponse>(
-        'user.get',
-        { FILTER: { ID: ids } },
-      )
+      const response = await bitrix.callMethod<UserGetResponse>('user.get', {
+        FILTER: { ID: ids },
+      })
       for (const user of response?.result ?? []) {
         const name = [user.NAME, user.LAST_NAME]
           .filter(Boolean)

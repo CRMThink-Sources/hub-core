@@ -28,8 +28,13 @@ describe('rotas da aba Envios', () => {
 
       expect(middlewareAt).toBeGreaterThan(-1)
       expect(at).toBeGreaterThan(middlewareAt)
-      expect(registration).not.toContain('requireThinkzapPermission')
-      expect(registration).not.toContain('requireThinkzapAdmin')
+      // O texto real do registro: do `router.get(` até o próximo `router.`.
+      const start = source.lastIndexOf('router.get(', at)
+      const next = source.indexOf('router.', at + 1)
+      const real = source.slice(start, next === -1 ? undefined : next)
+      expect(real).toContain(factory)
+      expect(real).not.toContain('requireThinkzapPermission')
+      expect(real).not.toContain('requireThinkzapAdmin')
     },
   )
 })

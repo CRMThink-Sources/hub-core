@@ -11,19 +11,27 @@ import {
 } from '@/modules/thinkzap/domain/send-list-filters'
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+/** Instante completo: o offset (`Z` ou `±hh:mm`) é obrigatório, sem ele vale o fuso do servidor. */
+const INSTANT =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})$/
 
 /**
- * Data só com dia (`YYYY-MM-DD`) é o dia inteiro: `from` vira 00:00:00.000 e `to`
- * vira 23:59:59.999 (UTC). Sem isso o `to` de um seletor de data cairia à meia-noite
- * do início do dia e a lista perderia todos os envios do último dia escolhido.
- * Data com horário passa como veio.
+ * O front manda o instante completo com offset (início e fim do dia local do
+ * usuário). `YYYY-MM-DD` existe como alternativa e vale o dia inteiro em UTC:
+ * `from` vira 00:00:00.000 e `to` vira 23:59:59.999. Sem isso o `to` de um seletor
+ * de data cairia à meia-noite e a lista perderia o último dia escolhido. Qualquer
+ * outra forma (`1`, `March 7`, horário sem offset) é inválida: o `Date` aceitaria
+ * e interpretaria no fuso do servidor. Inválido devolve `Invalid Date`.
  */
 function toBoundary(value: string, edge: 'start' | 'end'): Date {
+  const invalid = new Date(NaN)
+  if (INSTANT.test(value)) return new Date(value)
+  if (!DATE_ONLY.test(value)) return invalid
   const suffix = edge === 'start' ? 'T00:00:00.000Z' : 'T23:59:59.999Z'
-  const date = new Date(DATE_ONLY.test(value) ? value + suffix : value)
-  // `2026-02-31` o JS aceita e empurra para março; dia que não existe é erro.
-  if (DATE_ONLY.test(value) && !date.toISOString().startsWith(value)) {
-    return new Date(NaN)
+  const date = new Date(value + suffix)
+  // `2026-02-31` o JS aceita e empurra para março; `2026-13-01` nem isso.
+  if (Number.isNaN(date.getTime()) || !date.toISOString().startsWith(value)) {
+    return invalid
   }
   return date
 }
@@ -34,7 +42,8 @@ const dateParam = z
   .min(1)
   .max(40)
   .refine(value => !Number.isNaN(toBoundary(value, 'start').getTime()), {
-    message: 'Data inválida. Envie YYYY-MM-DD ou uma data ISO 8601.',
+    message:
+      'Data inválida. Envie YYYY-MM-DD ou um instante ISO 8601 com offset (Z ou +hh:mm).',
   })
 
 /** Só dígitos: `Number('1e3')` e `' '` passariam por coerção e escapariam do teto. */

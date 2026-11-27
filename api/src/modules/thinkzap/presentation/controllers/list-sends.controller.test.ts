@@ -68,6 +68,12 @@ describe('ListSendsController', () => {
     ['limit', '-5'],
     ['from', 'ontem'],
     ['to', '2026-02-31'],
+    ['to', '2026-13-01'],
+    ['from', '2026-01-32'],
+    ['from', '1'],
+    ['from', 'March 7'],
+    ['to', '2026-11-20T10:00'],
+    ['to', '2026-11-20T10:00:00'],
   ])('%s=%s é 400 e não chama o caso de uso', async (key, value) => {
     const { controller, listSends } = makeSut()
     const response = await controller.perform(req({ [key]: value }))
@@ -117,6 +123,19 @@ describe('ListSendsController', () => {
     const filters = listSends.execute.mock.calls[0]?.[0].filters
     expect(filters?.from.toISOString()).toBe('2026-11-20T00:00:00.000Z')
     expect(filters?.to.toISOString()).toBe('2026-11-25T23:59:59.999Z')
+  })
+
+  it.each([
+    '2026-11-20T10:00:00Z',
+    '2026-11-20T10:00-03:00',
+    '2026-11-20T10:00:00.123+05:30',
+  ])('instante com offset %s é aceito', async value => {
+    const { controller, listSends } = makeSut()
+    const response = await controller.perform(req({ from: value }))
+    expect(response.status).toBe(200)
+    expect(
+      listSends.execute.mock.calls[0]?.[0].filters.from.toISOString(),
+    ).toBe(new Date(value).toISOString())
   })
 
   it('data com horário passa como veio', async () => {
