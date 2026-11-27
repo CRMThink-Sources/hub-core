@@ -70,6 +70,10 @@ const isFailed = (part: SendPart) =>
 const isQueued = (part: SendPart) =>
   part.status === 'PENDING' || part.status === 'SENDING'
 
+// ATENÇÃO: o filtro por status da aba Envios reproduz esta regra num `CASE` SQL
+// (`recipientStateCase` em `prisma-send-list.repository.ts`). Mudou a precedência
+// ou o que conta como falha, entregue ou na fila aqui? Mude lá junto, senão o
+// filtro passa a incluir envio que a linha mostra com outro status.
 function summarize(destination: string, parts: SendPart[]): RecipientSummary {
   const failed = parts.find(isFailed)
   const unknown = parts.find(part => part.status === 'UNKNOWN')
