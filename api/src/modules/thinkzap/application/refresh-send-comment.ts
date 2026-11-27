@@ -1,11 +1,9 @@
-import { dailyLimitNotices } from '@/modules/thinkzap/domain/daily-limit-notices'
 import type { NoticeLocale } from '@/modules/thinkzap/domain/notices/notice-locale'
 import {
   renderSendComment,
   type SendCommentInput,
 } from '@/modules/thinkzap/domain/notices/send-comment'
 import {
-  timelineLabels,
   timelineNotices,
   type SendRobotFileFailure,
   type SendRobotFilesResult,
@@ -13,7 +11,6 @@ import {
 import {
   isSettled,
   summarizeRecipients,
-  type SendPart,
 } from '@/modules/thinkzap/domain/send-notice'
 import type {
   PrismaSendNoticeRepository,
@@ -29,12 +26,12 @@ import type {
   TimelineCommentPublisher,
 } from '@/shared/data/contracts/send-notification'
 import { apiLogger } from '@/shared/infra/logger'
-import { describeHubMessageDeliveryFailure } from './describe-hubmessage-delivery-failure'
 import {
   DAILY_LIMIT_FAILURE,
   isAutomationOrigin,
   MEDIA_EXPIRED_FAILURE,
 } from './dispatch-widget-outbox-message'
+import { describeSendFailure, toSendPart } from './helpers/send-failure'
 
 export type RefreshSendCommentDeps = {
   notices: Pick<
@@ -51,9 +48,6 @@ export type RefreshSendCommentDeps = {
   fromPhone: (row: WidgetOutboxRecord) => Promise<string>
   now: () => Date
 }
-
-/** Teto do erro cru no comentário: o `lastError` pode trazer um corpo HTTP inteiro. */
-const RAW_ERROR_MAX_CHARS = 300
 
 /**
  * Lançado quando outra execução já reivindicou a publicação. O job tenta de novo, e
@@ -150,44 +144,6 @@ function kindOf(row: WidgetOutboxRecord): SendCommentInput['kind'] {
   return 'message'
 }
 
-function toPart(row: WidgetOutboxRecord): SendPart {
-  return {
-    destination: row.destination,
-    status: row.status,
-    rejectedAt: row.rejectedAt,
-    lastError: row.lastError,
-    failureCode: row.failureCode,
-    failureReason: row.failureReason,
-  }
-}
-
-function describeFailure(locale: NoticeLocale) {
-  return (part: SendPart): string => {
-    if (part.rejectedAt !== null) {
-      return describeHubMessageDeliveryFailure(
-        {
-          external_information: {
-            errors: [
-              {
-                code: part.failureCode ?? undefined,
-                message: part.failureReason ?? undefined,
-              },
-            ],
-          },
-        },
-        locale,
-      )
-    }
-    if (part.lastError === DAILY_LIMIT_FAILURE) {
-      return dailyLimitNotices(locale).chat
-    }
-    if (part.lastError === MEDIA_EXPIRED_FAILURE) {
-      return timelineLabels(locale).file.reasons.unavailable
-    }
-    return (part.lastError ?? '').slice(0, RAW_ERROR_MAX_CHARS)
-  }
-}
-
 /**
  * O "De:" do comentário. A consulta à linha sai uma vez só: o resultado fica no
  * aviso, e as edições seguintes não voltam ao provider.
@@ -227,9 +183,9 @@ function render(
       },
     }),
     text: stringField(first.dispatchMeta, 'message') ?? first.text,
-    recipients: summarizeRecipients(rows.map(toPart)),
+    recipients: summarizeRecipients(rows.map(toSendPart)),
     files: filesOf(rows, first),
-    describeFailure: describeFailure(locale),
+    describeFailure: describeSendFailure(locale),
   })
 }
 
@@ -254,7 +210,7 @@ export async function refreshSendComment(
   if (rows.length === 0) return
 
   const { commentId } = notice
-  if (!commentId && !notice.eager && !isSettled(rows.map(toPart))) return
+  if (!commentId && !notice.eager && !isSettled(rows.map(toSendPart))) return
 
   const publisher = await deps.publisher(notice)
   if (!publisher) {

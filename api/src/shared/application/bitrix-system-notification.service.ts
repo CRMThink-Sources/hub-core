@@ -16,7 +16,7 @@ export type SystemNotificationInput = {
  * Requer scope `im` no app. Best-effort: falha loga warn e segue (retorna false).
  */
 export class BitrixSystemNotificationService {
-  constructor(private readonly bitrix: BitrixClient) {}
+  constructor(private readonly bitrix: Pick<BitrixClient, 'callMethod'>) {}
 
   async notify(input: SystemNotificationInput): Promise<boolean> {
     if (!input.userId) return false
