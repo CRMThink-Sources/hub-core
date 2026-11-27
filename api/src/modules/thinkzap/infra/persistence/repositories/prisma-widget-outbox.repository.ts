@@ -94,6 +94,12 @@ export type WidgetOutboxRecord = {
   bitrixMessageId: string | null
   bitrixChatId: string | null
   originContext: OutboxJson | null
+  /** O aviso de envio que acompanha a parte; `null` = envio não acompanhado. */
+  sendNoticeId: string | null
+  /** Recusa do provider posterior ao aceite: `status` segue `SENT`. */
+  rejectedAt: Date | null
+  failureCode: string | null
+  failureReason: string | null
   queueSeq: number | null
   cadenceWaitUntil: Date | null
   /** Reprocessamentos manuais pelo portal admin; ver `requeueForReprocess`. */
@@ -176,6 +182,8 @@ export type CreateWidgetOutboxInput = {
   bitrixMessageId?: string | null
   bitrixChatId?: string | null
   originContext?: OutboxJson
+  /** Parte que nasce já ligada a um aviso de envio. */
+  sendNoticeId?: string | null
 }
 
 /** Uma parte de um envio em grupo, com o desfecho que importa para a timeline. */
@@ -290,6 +298,10 @@ type OutboxRow = {
   bitrixMessageId: string | null
   bitrixChatId: string | null
   originContext: unknown
+  sendNoticeId: string | null
+  rejectedAt: Date | null
+  failureCode: string | null
+  failureReason: string | null
   queueSeq: number | null
   cadenceWaitUntil: Date | null
   reprocessCount: number
@@ -338,6 +350,10 @@ function mapRow(row: OutboxRow): WidgetOutboxRecord {
     bitrixMessageId: row.bitrixMessageId,
     bitrixChatId: row.bitrixChatId,
     originContext: toJson(row.originContext),
+    sendNoticeId: row.sendNoticeId,
+    rejectedAt: row.rejectedAt,
+    failureCode: row.failureCode,
+    failureReason: row.failureReason,
     queueSeq: row.queueSeq,
     cadenceWaitUntil: row.cadenceWaitUntil,
     reprocessCount: row.reprocessCount,
@@ -656,6 +672,58 @@ export class PrismaWidgetOutboxRepository {
       where: { id },
       data: { status: 'UNKNOWN', lastError: error.slice(0, 2000) },
     })
+  }
+
+  /**
+   * Recusa informada pelo provider depois do aceite. Não mexe em `status`: a
+   * mensagem já foi entregue ao provider e não volta para a fila.
+   *
+   * Update condicional porque o provider repete o webhook de status: só a primeira
+   * recusa é gravada, e `true` diz ao chamador que cabe a ele avisar.
+   */
+  async markRejected(
+    id: string,
+    input: { code: string | null; reason: string; at: Date },
+  ): Promise<boolean> {
+    const { count } = await prisma.thinkzapWidgetOutbox.updateMany({
+      where: { id, rejectedAt: null },
+      data: {
+        rejectedAt: input.at,
+        failureCode: input.code,
+        failureReason: input.reason.slice(0, 2000),
+      },
+    })
+
+    return count > 0
+  }
+
+  /**
+   * Liga ao aviso a row informada ou, havendo grupo, todas as partes dele. Só
+   * preenche quem ainda não tem aviso: a parte nunca troca de comentário.
+   */
+  async linkSendNotice(
+    where: { rowId: string; dispatchGroupId: string | null },
+    noticeId: string,
+  ): Promise<void> {
+    await prisma.thinkzapWidgetOutbox.updateMany({
+      where: {
+        ...(where.dispatchGroupId
+          ? { dispatchGroupId: where.dispatchGroupId }
+          : { id: where.rowId }),
+        sendNoticeId: null,
+      },
+      data: { sendNoticeId: noticeId },
+    })
+  }
+
+  /** As partes que um aviso resume, na ordem em que o disparo as montou. */
+  async findBySendNotice(noticeId: string): Promise<WidgetOutboxRecord[]> {
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: { sendNoticeId: noticeId },
+      orderBy: [{ partIndex: 'asc' }, { createdAt: 'asc' }],
+    })
+
+    return rows.map(mapRow)
   }
 
   /**

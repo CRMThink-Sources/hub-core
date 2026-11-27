@@ -82,6 +82,10 @@ const dbRow = (overrides: Record<string, unknown> = {}) => ({
   bitrixMessageId: null,
   bitrixChatId: null,
   originContext: null,
+  sendNoticeId: null,
+  rejectedAt: null,
+  failureCode: null,
+  failureReason: null,
   queueSeq: null,
   cadenceWaitUntil: null,
   reprocessCount: 0,
@@ -539,5 +543,102 @@ describe('PrismaWidgetOutboxRepository — falhas de envio', () => {
         allowUnknown: false,
       }),
     ).resolves.toBe(false)
+  })
+})
+
+describe('PrismaWidgetOutboxRepository — recusa e aviso de envio', () => {
+  const at = new Date('2026-11-27T12:00:00.000Z')
+
+  beforeEach(() => {
+    createMock.mockReset().mockResolvedValue(dbRow())
+    findManyMock.mockReset().mockResolvedValue([])
+    updateManyMock.mockReset().mockResolvedValue({ count: 1 })
+  })
+
+  it('grava a recusa só em row ainda não recusada', async () => {
+    const won = await sut().markRejected('outbox-1', {
+      code: '131026',
+      reason: 'Número sem WhatsApp',
+      at,
+    })
+
+    expect(won).toBe(true)
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: 'outbox-1', rejectedAt: null },
+      data: {
+        rejectedAt: at,
+        failureCode: '131026',
+        failureReason: 'Número sem WhatsApp',
+      },
+    })
+  })
+
+  it('devolve false quando a recusa já estava gravada', async () => {
+    updateManyMock.mockResolvedValue({ count: 0 })
+
+    await expect(
+      sut().markRejected('outbox-1', { code: null, reason: 'x', at }),
+    ).resolves.toBe(false)
+  })
+
+  it('limita o tamanho do motivo gravado', async () => {
+    await sut().markRejected('outbox-1', {
+      code: null,
+      reason: 'a'.repeat(3000),
+      at,
+    })
+
+    const { data } = updateManyMock.mock.calls[0]?.[0] as {
+      data: { failureReason: string }
+    }
+    expect(data.failureReason).toHaveLength(2000)
+  })
+
+  it('liga o grupo inteiro ao aviso, sem trocar o de quem já tem', async () => {
+    await sut().linkSendNotice(
+      { rowId: 'outbox-1', dispatchGroupId: 'group-1' },
+      'notice-1',
+    )
+
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { dispatchGroupId: 'group-1', sendNoticeId: null },
+      data: { sendNoticeId: 'notice-1' },
+    })
+  })
+
+  it('liga só a própria row quando o envio não tem grupo', async () => {
+    await sut().linkSendNotice(
+      { rowId: 'outbox-1', dispatchGroupId: null },
+      'notice-1',
+    )
+
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: 'outbox-1', sendNoticeId: null },
+      data: { sendNoticeId: 'notice-1' },
+    })
+  })
+
+  it('lista as partes do aviso por partIndex e depois por criação', async () => {
+    const recusada = {
+      sendNoticeId: 'notice-1',
+      rejectedAt: at,
+      failureCode: '131026',
+      failureReason: 'Número sem WhatsApp',
+    }
+    findManyMock.mockResolvedValue([dbRow(recusada)])
+
+    const rows = await sut().findBySendNotice('notice-1')
+
+    expect(findManyMock).toHaveBeenCalledWith({
+      where: { sendNoticeId: 'notice-1' },
+      orderBy: [{ partIndex: 'asc' }, { createdAt: 'asc' }],
+    })
+    expect(rows[0]).toMatchObject(recusada)
+  })
+
+  it('grava o aviso já na criação da intenção', async () => {
+    await sut().create({ ...input, sendNoticeId: 'notice-1' })
+
+    expect(createData().sendNoticeId).toBe('notice-1')
   })
 })
