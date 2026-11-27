@@ -98,6 +98,8 @@ export type WidgetOutboxRecord = {
   /** O aviso de envio que acompanha a parte; `null` = envio não acompanhado. */
   sendNoticeId: string | null
   /** Recusa do provider posterior ao aceite: `status` segue `SENT`. */
+  deliveredAt: Date | null
+  readAt: Date | null
   rejectedAt: Date | null
   failureCode: string | null
   failureReason: string | null
@@ -300,6 +302,8 @@ type OutboxRow = {
   bitrixChatId: string | null
   originContext: unknown
   sendNoticeId: string | null
+  deliveredAt: Date | null
+  readAt: Date | null
   rejectedAt: Date | null
   failureCode: string | null
   failureReason: string | null
@@ -352,6 +356,8 @@ function mapRow(row: OutboxRow): WidgetOutboxRecord {
     bitrixChatId: row.bitrixChatId,
     originContext: toJson(row.originContext),
     sendNoticeId: row.sendNoticeId,
+    deliveredAt: row.deliveredAt,
+    readAt: row.readAt,
     rejectedAt: row.rejectedAt,
     failureCode: row.failureCode,
     failureReason: row.failureReason,
@@ -744,6 +750,29 @@ export class PrismaWidgetOutboxRepository {
         failureCode: input.code,
         failureReason: input.reason.slice(0, 2000),
       },
+    })
+
+    return count > 0
+  }
+
+  /**
+   * Entrega confirmada pelo provider. Update condicional porque o webhook de status
+   * é repetido: só o primeiro horário fica, e `true` diz que este chamador gravou.
+   */
+  async markDelivered(id: string, at: Date): Promise<boolean> {
+    const { count } = await prisma.thinkzapWidgetOutbox.updateMany({
+      where: { id, deliveredAt: null },
+      data: { deliveredAt: at },
+    })
+
+    return count > 0
+  }
+
+  /** Leitura confirmada pelo provider; mesma regra de `markDelivered`. */
+  async markRead(id: string, at: Date): Promise<boolean> {
+    const { count } = await prisma.thinkzapWidgetOutbox.updateMany({
+      where: { id, readAt: null },
+      data: { readAt: at },
     })
 
     return count > 0

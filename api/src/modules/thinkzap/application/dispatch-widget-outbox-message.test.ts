@@ -63,6 +63,8 @@ const row = (
   bitrixChatId: null,
   originContext: null,
   sendNoticeId: null,
+  deliveredAt: null,
+  readAt: null,
   rejectedAt: null,
   failureCode: null,
   failureReason: null,

@@ -53,6 +53,8 @@ const row = (overrides: Partial<WidgetOutboxRecord> = {}): WidgetOutboxRecord =>
     origin: 'WIDGET',
     status: 'SENT',
     lastError: null,
+    deliveredAt: null,
+    readAt: null,
     rejectedAt: null,
     failureCode: null,
     failureReason: null,
