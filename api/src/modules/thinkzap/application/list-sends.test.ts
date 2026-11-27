@@ -79,7 +79,9 @@ function build(
       ),
   }
   const sut = new ListSends(sends, locales, lines, senderNames)
-  return { sut, sends, locales, lines, senderNames }
+  const sutWithRetention = (days: number) =>
+    new ListSends(sends, locales, lines, senderNames, days)
+  return { sut, sutWithRetention, sends, locales, lines, senderNames }
 }
 
 describe('ListSends', () => {
@@ -585,6 +587,18 @@ describe('ListSends', () => {
 
       expect(out.items.map(item => item.origin)).toEqual(['widget', 'robot'])
     })
+  })
+
+  it('devolve a retenção efetiva configurada em retentionDays', async () => {
+    const { sutWithRetention } = build()
+
+    const out = await sutWithRetention(30).execute({
+      ...identity,
+      isAdmin: true,
+      filters: filtersOf({}),
+    })
+
+    expect(out.retentionDays).toBe(30)
   })
 
   it('devolve o envelope da página', async () => {

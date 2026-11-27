@@ -60,9 +60,22 @@ export type SendListFilters = SendListPeriod & {
   limit: number
 }
 
+/**
+ * Dias de histórico que a lista pode mostrar: no máximo 90, e nunca mais do que
+ * a retenção configurada (`THINKZAP_SEND_HISTORY_DAYS`) — com retenção de 30 dias
+ * o job já apagou o resto, e a tela não deve prometer mais que isso. A retenção
+ * entra por parâmetro para este código seguir puro (sem ler env).
+ */
+export function effectiveSendHistoryDays(retentionDays: number): number {
+  return Math.min(SEND_HISTORY_MAX_DAYS, retentionDays)
+}
+
 /** O mais antigo que a lista pode mostrar a partir de `now`. */
-export function sendHistoryFloor(now: Date): Date {
-  return new Date(now.getTime() - SEND_HISTORY_MAX_DAYS * DAY_MS)
+export function sendHistoryFloor(
+  now: Date,
+  historyDays: number = SEND_HISTORY_MAX_DAYS,
+): Date {
+  return new Date(now.getTime() - historyDays * DAY_MS)
 }
 
 function toDate(
@@ -101,6 +114,7 @@ function toFiniteInt(value: number | null | undefined): number | null {
 export function normalizeSendListFilters(
   input: SendListFiltersInput,
   now: Date,
+  historyDays: number = SEND_HISTORY_MAX_DAYS,
 ): SendListFilters {
   const requestedTo = toDate(input.to, 'to')
   const requestedFrom = toDate(input.from, 'from')
@@ -113,7 +127,7 @@ export function normalizeSendListFilters(
   // Datas trocadas na tela: o usuário quis o intervalo entre as duas.
   if (from > to) [from, to] = [to, from]
 
-  const floor = sendHistoryFloor(now)
+  const floor = sendHistoryFloor(now, historyDays)
   if (from < floor) from = floor
   // Período inteiro antes do prazo: `to < from` deixa a janela vazia, que é a
   // resposta certa (nada ali pode ser mostrado).

@@ -13,7 +13,10 @@ vi.mock(
   () => ({ PrismaAllowedDepartmentRepository: vi.fn() }),
 )
 
-import { requireThinkzapPermission } from './thinkzap-access.middleware'
+import {
+  requireThinkzapCanAccess,
+  requireThinkzapPermission,
+} from './thinkzap-access.middleware'
 import type { ThinkzapAccessResult } from '../../application/check-thinkzap-access'
 
 function mockRes() {
@@ -40,6 +43,45 @@ const accessNoConnectors: ThinkzapAccessResult = {
     },
   },
 }
+
+describe('requireThinkzapCanAccess', () => {
+  it('deixa passar quem tem acesso ao ThinkZap', () => {
+    const req = {
+      thinkzapAccess: { ...accessNoConnectors, canAccess: true },
+    } as Request
+    const { res, status } = mockRes()
+    const next = vi.fn()
+
+    requireThinkzapCanAccess(req, res, next)
+
+    expect(next).toHaveBeenCalledOnce()
+    expect(status).not.toHaveBeenCalled()
+  })
+
+  it('recusa com 403 quem tem registro, mas só de ThinkBot/Financeiro', () => {
+    const req = { thinkzapAccess: accessNoConnectors } as Request
+    const { res, status, json } = mockRes()
+    const next = vi.fn()
+
+    requireThinkzapCanAccess(req, res, next)
+
+    expect(next).not.toHaveBeenCalled()
+    expect(status).toHaveBeenCalledWith(403)
+    expect(json).toHaveBeenCalledWith({ error: 'thinkzap_access_denied' })
+  })
+
+  it('recusa com 403 quando o acesso não foi resolvido', () => {
+    const req = {} as Request
+    const { res, status, json } = mockRes()
+    const next = vi.fn()
+
+    requireThinkzapCanAccess(req, res, next)
+
+    expect(next).not.toHaveBeenCalled()
+    expect(status).toHaveBeenCalledWith(403)
+    expect(json).toHaveBeenCalledWith({ error: 'thinkzap_access_denied' })
+  })
+})
 
 describe('requireThinkzapPermission', () => {
   it('denies connectors.read when user has no connector permissions', () => {

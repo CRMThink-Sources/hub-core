@@ -5,6 +5,7 @@ import {
   SEND_LIST_MAX_LIMIT,
   SEND_LIST_MAX_PAGE,
   SEND_LIST_STATUSES,
+  effectiveSendHistoryDays,
   sendHistoryFloor,
 } from '@/modules/thinkzap/domain/send-list-filters'
 
@@ -35,6 +36,22 @@ describe('normalizeSendListFilters', () => {
     expect(filters.from).toEqual(daysAgo(90))
     expect(filters.from).toEqual(sendHistoryFloor(now))
     expect(filters.to).toEqual(now)
+  })
+
+  it('usa a retenção configurada quando menor que 90 dias', () => {
+    const days = effectiveSendHistoryDays(30)
+    const filters = normalizeSendListFilters(
+      { from: daysAgo(60), to: now },
+      now,
+      days,
+    )
+
+    expect(days).toBe(30)
+    expect(filters.from).toEqual(daysAgo(30))
+  })
+
+  it('nunca passa de 90 dias, mesmo com retenção maior', () => {
+    expect(effectiveSendHistoryDays(365)).toBe(90)
   })
 
   it('mantém um período dentro dos 90 dias como veio', () => {

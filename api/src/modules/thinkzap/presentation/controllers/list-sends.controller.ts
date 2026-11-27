@@ -5,6 +5,7 @@ import { Controller } from '@/shared/presentation/controller'
 import type { ListSends } from '@/modules/thinkzap/application/list-sends'
 import { InvalidSendListFilterError } from '@/modules/thinkzap/domain/errors/invalid-send-list-filter.error'
 import {
+  SEND_HISTORY_MAX_DAYS,
   SEND_LIST_MAX_LIMIT,
   SEND_LIST_MAX_PAGE,
   normalizeSendListFilters,
@@ -84,6 +85,7 @@ export class ListSendsController extends Controller {
   constructor(
     private readonly listSends: Pick<ListSends, 'execute'>,
     private readonly now: () => Date = () => new Date(),
+    private readonly historyDays: number = SEND_HISTORY_MAX_DAYS,
   ) {
     super()
   }
@@ -117,6 +119,7 @@ export class ListSendsController extends Controller {
           limit: query.limit,
         },
         this.now(),
+        this.historyDays,
       )
       const output = await this.listSends.execute({
         filters,

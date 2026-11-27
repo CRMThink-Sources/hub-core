@@ -1,4 +1,6 @@
 import type { Request } from 'express'
+import { env } from '@/config/env'
+import { effectiveSendHistoryDays } from '@/modules/thinkzap/domain/send-list-filters'
 import { makeGetAplicationContext } from '@/modules/application/main/make-get-aplication-context'
 import { BitrixSendSenderNamesAdapter } from '@/modules/thinkzap/infra/adapters/bitrix-send-sender-names.adapter'
 import { ContextSendLineCatalog } from '@/modules/thinkzap/infra/adapters/context-send-line-catalog.adapter'
@@ -12,8 +14,10 @@ import { makeBitrixClient } from '../../../shared/main/make-bitrix-client'
  * a resolver, para que 400 e falha de credencial não derrubem a lista; o catálogo de linhas usa o contexto com repositórios cacheados.
  */
 export function makeSendLookups(req: Request) {
+  const historyDays = effectiveSendHistoryDays(env.thinkzapSendHistoryDays)
   return {
-    sends: new PrismaSendListRepository(),
+    historyDays,
+    sends: new PrismaSendListRepository(() => new Date(), historyDays),
     locales: makeInstallationLocaleRepository(),
     lines: new ContextSendLineCatalog(makeGetAplicationContext()),
     senderNames: new BitrixSendSenderNamesAdapter(() => makeBitrixClient(req)),

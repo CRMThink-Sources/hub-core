@@ -81,6 +81,7 @@ import {
   thinkzapAccessMiddleware,
   requireThinkzapAdmin,
   requireThinkzapPermission,
+  requireThinkzapCanAccess,
 } from './infra/middleware/thinkzap-access.middleware'
 import { makeGetLogsControllerFactory } from '@/shared/main/make-get-logs-controller'
 import { makeGetThinkzapAccessController } from './main/make-get-thinkzap-access-controller'
@@ -267,9 +268,15 @@ export const createThinkerszapRoutes = (): Router => {
 
   // Aba Envios: qualquer usuário com acesso ao ThinkZap, sem permissão específica.
   // Quem não é administrador vê só os próprios envios (escopo no caso de uso).
-  router.get('/messages/sends', adaptControllerFactory(makeListSendsController))
+  // `requireThinkzapCanAccess`: quem só tem ThinkBot/Financeiro não vê envios.
+  router.get(
+    '/messages/sends',
+    requireThinkzapCanAccess,
+    adaptControllerFactory(makeListSendsController),
+  )
   router.get(
     '/messages/sends/:id',
+    requireThinkzapCanAccess,
     adaptControllerFactory(makeGetSendDetailController),
   )
 

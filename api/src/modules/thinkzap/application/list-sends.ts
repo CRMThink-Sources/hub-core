@@ -75,6 +75,8 @@ export class ListSends {
     private readonly locales: InstallationLocaleRepository,
     private readonly lines: SendLineCatalog,
     private readonly senderNames: SendSenderNameResolver,
+    /** Dias de histórico efetivos (`effectiveSendHistoryDays`), devolvidos à tela. */
+    private readonly retentionDays: number = SEND_HISTORY_MAX_DAYS,
   ) {}
 
   async execute(input: ListSendsInput): Promise<ListSendsOutput> {
@@ -154,7 +156,7 @@ export class ListSends {
       total: page.total,
       page: filters.page,
       limit: filters.limit,
-      retentionDays: SEND_HISTORY_MAX_DAYS,
+      retentionDays: this.retentionDays,
       lines: [...lineOptions]
         .map(([id, name]) => ({ id, name }))
         .sort((a, b) => a.name.localeCompare(b.name)),

@@ -5,8 +5,11 @@ import { ListSendsController } from '@/modules/thinkzap/presentation/controllers
 import { makeSendLookups } from '@/modules/thinkzap/main/make-send-lookups'
 
 export const makeListSendsController = (req: Request): Controller => {
-  const { sends, locales, lines, senderNames } = makeSendLookups(req)
+  const { sends, locales, lines, senderNames, historyDays } =
+    makeSendLookups(req)
   return new ListSendsController(
-    new ListSends(sends, locales, lines, senderNames),
+    new ListSends(sends, locales, lines, senderNames, historyDays),
+    () => new Date(),
+    historyDays,
   )
 }

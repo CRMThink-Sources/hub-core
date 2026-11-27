@@ -1,6 +1,7 @@
 import { prisma } from '@/config/prisma'
 import { Prisma } from '@/prisma/client'
 import {
+  SEND_HISTORY_MAX_DAYS,
   sendHistoryFloor,
   type SendListFilters,
   type SendListPeriod,
@@ -160,8 +161,8 @@ function visibleWhere(
 }
 
 /** Piso de 90 dias reaplicado aqui: o repositório não confia só no filtro. */
-function boundedFrom(from: Date, now: Date): Date {
-  const floor = sendHistoryFloor(now)
+function boundedFrom(from: Date, now: Date, historyDays: number): Date {
+  const floor = sendHistoryFloor(now, historyDays)
   return from > floor ? from : floor
 }
 
@@ -217,7 +218,11 @@ function toItem(parts: WidgetOutboxRecord[]): SendListItem | null {
  * função de janela, porque a versão do MariaDB de produção não está confirmada.
  */
 export class PrismaSendListRepository {
-  constructor(private readonly now: () => Date = () => new Date()) {}
+  constructor(
+    private readonly now: () => Date = () => new Date(),
+    /** `effectiveSendHistoryDays(env.thinkzapSendHistoryDays)`, injetado pelo wiring. */
+    private readonly historyDays: number = SEND_HISTORY_MAX_DAYS,
+  ) {}
 
   async list(
     filters: SendListFilters,
@@ -225,7 +230,7 @@ export class PrismaSendListRepository {
   ): Promise<SendListPage> {
     const visibility: VisibilityInput = {
       scope,
-      from: boundedFrom(filters.from, this.now()),
+      from: boundedFrom(filters.from, this.now(), this.historyDays),
       to: filters.to,
       subscriptionItemId: filters.subscriptionItemId,
       destination: filters.destination,
@@ -321,7 +326,7 @@ LIMIT ${filters.limit} OFFSET ${offset}`
       by: ['subscriptionItemId'],
       where: visibleWhere({
         scope,
-        from: boundedFrom(period.from, this.now()),
+        from: boundedFrom(period.from, this.now(), this.historyDays),
         to: period.to,
       }),
       orderBy: { subscriptionItemId: 'asc' },
@@ -344,7 +349,7 @@ LIMIT ${filters.limit} OFFSET ${offset}`
         AND: [
           visibleWhere({
             scope,
-            from: boundedFrom(period.from, this.now()),
+            from: boundedFrom(period.from, this.now(), this.historyDays),
             to: period.to,
           }),
           { operatorBitrixUserId: { not: null } },
@@ -369,7 +374,7 @@ LIMIT ${filters.limit} OFFSET ${offset}`
   ): Promise<SendListItem | null> {
     const visibility = visibleWhere({
       scope,
-      from: sendHistoryFloor(this.now()),
+      from: sendHistoryFloor(this.now(), this.historyDays),
       to: null,
     })
 

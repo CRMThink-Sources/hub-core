@@ -6,8 +6,10 @@ import { describe, expect, it } from 'vitest'
  * Mesma abordagem de `routes-insights-permission.test.ts`: `routes.ts` não tem
  * harness de rota, então a fiação é conferida pelo texto. As rotas da aba Envios
  * têm de ficar depois do `thinkzapAccessMiddleware` (quem não tem acesso ao
- * ThinkZap leva 403) e sem `requireThinkzapPermission` (qualquer usuário com
- * acesso vê os próprios envios; o escopo é do caso de uso).
+ * ThinkZap leva 403), com `requireThinkzapCanAccess` (quem tem registro só de
+ * ThinkBot/Financeiro tem `canAccess = false` e também não vê envios, como no
+ * front) e sem `requireThinkzapPermission` (qualquer usuário com acesso ao
+ * ThinkZap vê os próprios envios; o escopo é do caso de uso).
  */
 describe('rotas da aba Envios', () => {
   const source = readFileSync(join(__dirname, 'routes.ts'), 'utf8').replace(
@@ -20,10 +22,10 @@ describe('rotas da aba Envios', () => {
     ['/messages/sends', 'makeListSendsController'],
     ['/messages/sends/:id', 'makeGetSendDetailController'],
   ])(
-    'GET %s fica depois do middleware e sem permissão extra',
+    'GET %s fica depois do middleware, com requireThinkzapCanAccess e sem permissão extra',
     (path, factory) => {
       // Sem o ')' final: o Prettier pode deixar uma vírgula antes dele.
-      const registration = `router.get('${path}',adaptControllerFactory(${factory})`
+      const registration = `router.get('${path}',requireThinkzapCanAccess,adaptControllerFactory(${factory})`
       const at = source.indexOf(registration)
 
       expect(middlewareAt).toBeGreaterThan(-1)
@@ -33,6 +35,7 @@ describe('rotas da aba Envios', () => {
       const next = source.indexOf('router.', at + 1)
       const real = source.slice(start, next === -1 ? undefined : next)
       expect(real).toContain(factory)
+      expect(real).toContain('requireThinkzapCanAccess')
       expect(real).not.toContain('requireThinkzapPermission')
       expect(real).not.toContain('requireThinkzapAdmin')
     },
