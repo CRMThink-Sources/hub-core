@@ -245,4 +245,60 @@ describe('publishSendState', () => {
     expect(warnMock).toHaveBeenCalledTimes(1)
     expect(vi.getTimerCount()).toBe(0)
   })
+
+  /** Um insert ou update preso em lock do InnoDB também não pode segurar o envio. */
+  it.each(['findById', 'linkSendNotice'] as const)(
+    'desiste em 5 s quando %s nunca responde',
+    async method => {
+      vi.useFakeTimers()
+      const mocks = makeDeps(row())
+      mocks[method].mockReturnValue(new Promise<never>(() => {}))
+      const settled = vi.fn()
+
+      void publishSendState('outbox-1', mocks.deps).then(settled)
+      await vi.advanceTimersByTimeAsync(4_999)
+      expect(settled).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+
+      expect(settled).toHaveBeenCalled()
+      expect(mocks.enqueue).not.toHaveBeenCalled()
+      expect(warnMock).toHaveBeenCalledTimes(1)
+      expect(vi.getTimerCount()).toBe(0)
+    },
+  )
+
+  /** O prazo é um só para o corpo inteiro, não um por chamada. */
+  it('soma o tempo do banco e o da fila no mesmo prazo', async () => {
+    vi.useFakeTimers()
+    const { deps, findById, enqueue } = makeDeps(row())
+    findById.mockImplementation(
+      () => new Promise(resolve => setTimeout(() => resolve(row()), 3_000)),
+    )
+    enqueue.mockReturnValue(new Promise<void>(() => {}))
+    const settled = vi.fn()
+
+    void publishSendState('outbox-1', deps).then(settled)
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    expect(enqueue).toHaveBeenCalledTimes(1)
+    expect(settled).toHaveBeenCalled()
+  })
+
+  /** O trabalho abandonado pode falhar depois; isso não vira rejeição solta. */
+  it('absorve a falha que chega depois do prazo', async () => {
+    vi.useFakeTimers()
+    const { deps, linkSendNotice } = makeDeps(row())
+    linkSendNotice.mockImplementation(
+      () =>
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('lock wait timeout')), 50_000),
+        ),
+    )
+
+    const result = publishSendState('outbox-1', deps)
+    await vi.advanceTimersByTimeAsync(50_000)
+
+    await expect(result).resolves.toBeUndefined()
+    expect(warnMock).toHaveBeenCalledTimes(1)
+  })
 })

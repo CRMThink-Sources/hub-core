@@ -40,8 +40,8 @@ describe('sendNoticeSchedule', () => {
 
     expect(second.jobId).toBe(first.jobId)
     expect(first.jobId).toBe('send-notice-comment-notice-1-8000')
-    expect(first.delay).toBe(14_000)
-    expect(second.delay).toBe(1)
+    expect(first.delay).toBe(15_000)
+    expect(second.delay).toBe(1_001)
   })
 
   /** O job roda no fim da janela: o que chega durante a execução não pode colapsar nele. */
@@ -50,7 +50,17 @@ describe('sendNoticeSchedule', () => {
     const next = sendNoticeSchedule(comment, START + 15_000)
 
     expect(next.jobId).not.toBe(current.jobId)
-    expect(next.delay).toBe(15_000)
+    expect(next.delay).toBe(16_000)
+  })
+
+  /** Relógio adiantado de quem agenda não pode rodar o job antes de a janela fechar. */
+  it('roda 1 s depois do fim da janela, mantendo o jobId do início dela', () => {
+    const schedule = sendNoticeSchedule(comment, START)
+
+    expect(schedule).toEqual({
+      jobId: 'send-notice-comment-notice-1-8000',
+      delay: SEND_NOTICE_WINDOW_MS.comment + 1_000,
+    })
   })
 
   it('separa alerta e comentário do mesmo aviso, cada um na sua janela', () => {
@@ -58,7 +68,7 @@ describe('sendNoticeSchedule', () => {
 
     expect(schedule).toEqual({
       jobId: 'send-notice-alert-notice-1-1000',
-      delay: 100_000,
+      delay: 101_000,
     })
   })
 
@@ -73,7 +83,7 @@ describe('enqueueSendNotice', () => {
     vi.useRealTimers()
   })
 
-  it('agenda para o fim da janela, com 5 tentativas a partir de 5 s', async () => {
+  it('agenda para depois da janela, com 5 tentativas a partir de 5 s', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(START + 5_000)
 
@@ -81,10 +91,11 @@ describe('enqueueSendNotice', () => {
 
     expect(addMock).toHaveBeenCalledWith(expect.any(String), comment, {
       jobId: 'send-notice-comment-notice-1-8000',
-      delay: 10_000,
+      delay: 11_000,
       attempts: 5,
       backoff: { type: 'exponential', delay: 5_000 },
       removeOnComplete: true,
+      removeOnFail: { age: 7 * 24 * 60 * 60 },
     })
   })
 })
