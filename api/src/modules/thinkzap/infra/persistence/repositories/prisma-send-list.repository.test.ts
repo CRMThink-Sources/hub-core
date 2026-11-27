@@ -361,6 +361,49 @@ describe('PrismaSendListRepository', () => {
     })
   })
 
+  describe('defesa em profundidade e ordem das partes', () => {
+    it('reaplica só dígitos ao destinatário mesmo que o chamador não normalize', async () => {
+      mockRaw([], 0)
+      await sut().list({ ...filtersOf({}), destination: '99%_09' }, admin)
+
+      expect(pageQuery().values).toContain('%9909%')
+      expect(pageQuery().values).not.toContain('%99%_09%')
+    })
+
+    it('o head do JS segue o SQL: part_index nulo primeiro, depois data e id', async () => {
+      mockRaw([{ headId: 'b', groupId: 'g-1', destination: '5511' }], 1)
+      const at = daysAgo(1)
+      findManyMock.mockResolvedValue([
+        dbRow({
+          id: 'z',
+          dispatchGroupId: 'g-1',
+          destination: '5511',
+          partIndex: 0,
+          createdAt: at,
+        }),
+        dbRow({
+          id: 'b',
+          dispatchGroupId: 'g-1',
+          destination: '5511',
+          partIndex: null,
+          createdAt: at,
+        }),
+        dbRow({
+          id: 'a',
+          dispatchGroupId: 'g-1',
+          destination: '5511',
+          partIndex: null,
+          createdAt: at,
+        }),
+      ])
+
+      const page = await sut().list(filtersOf({}), admin)
+
+      expect(page.items[0]?.parts.map(part => part.id)).toEqual(['a', 'b', 'z'])
+      expect(page.items[0]?.headId).toBe('a')
+    })
+  })
+
   describe('CASE de status', () => {
     it('tem um ramo para cada estado, na precedência de summarizeRecipients', async () => {
       await sut().list(filtersOf({ status: 'SENT' }), admin)

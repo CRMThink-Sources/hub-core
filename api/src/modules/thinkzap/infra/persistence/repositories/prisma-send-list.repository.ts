@@ -89,6 +89,15 @@ type VisibilityInput = {
 }
 
 /**
+ * Só dígitos, de novo: `send-list-filters` já normaliza, mas o repositório não
+ * confia no chamador — `%` e `_` chegariam ao LIKE como curinga.
+ */
+function destinationDigits(input: VisibilityInput): string | null {
+  const digits = (input.destination ?? '').replace(/\D/g, '')
+  return digits === '' ? null : digits
+}
+
+/**
  * O remetente que entra no filtro: o do token para quem não é administrador,
  * sem exceção; o pedido só vale para o administrador.
  */
@@ -117,8 +126,9 @@ function visibleSql(input: VisibilityInput): Prisma.Sql {
     )
   }
   // Só dígitos (normalizado em `send-list-filters`), mas mesmo assim parâmetro.
-  if (input.destination) {
-    conditions.push(Prisma.sql`o.destination LIKE ${`%${input.destination}%`}`)
+  const destination = destinationDigits(input)
+  if (destination) {
+    conditions.push(Prisma.sql`o.destination LIKE ${`%${destination}%`}`)
   }
   const operator = operatorFilter(input)
   if (operator !== null) {
@@ -132,6 +142,7 @@ function visibleWhere(
   input: VisibilityInput,
 ): Prisma.ThinkzapWidgetOutboxWhereInput {
   const operator = operatorFilter(input)
+  const destination = destinationDigits(input)
   return {
     domainId: input.scope.domainId,
     appCode: input.scope.appCode,
@@ -143,9 +154,7 @@ function visibleWhere(
     ...(input.subscriptionItemId
       ? { subscriptionItemId: input.subscriptionItemId }
       : {}),
-    ...(input.destination
-      ? { destination: { contains: input.destination } }
-      : {}),
+    ...(destination ? { destination: { contains: destination } } : {}),
     ...(operator !== null ? { operatorBitrixUserId: operator } : {}),
   }
 }
@@ -167,9 +176,21 @@ type CountRow = { total: bigint | number | string }
 const groupKey = (groupId: string | null, id: string, destination: string) =>
   `${groupId ?? id}\u0000${destination}`
 
-const byPartOrder = (a: WidgetOutboxRecord, b: WidgetOutboxRecord) =>
-  (a.partIndex ?? 0) - (b.partIndex ?? 0) ||
-  a.createdAt.getTime() - b.createdAt.getTime()
+/**
+ * A mesma ordem do `ORDER BY o.part_index, o.created_at, o.id` do SQL: `part_index`
+ * nulo vem primeiro (como no MariaDB), e o id desempata. Sem isso o `headId` do JS
+ * poderia discordar do SQL, e o detalhe abriria outra parte.
+ */
+const byPartOrder = (a: WidgetOutboxRecord, b: WidgetOutboxRecord) => {
+  if (a.partIndex !== b.partIndex) {
+    if (a.partIndex === null) return -1
+    if (b.partIndex === null) return 1
+    return a.partIndex - b.partIndex
+  }
+  const byDate = a.createdAt.getTime() - b.createdAt.getTime()
+  if (byDate !== 0) return byDate
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+}
 
 function toItem(parts: WidgetOutboxRecord[]): SendListItem | null {
   const sorted = [...parts].sort(byPartOrder)

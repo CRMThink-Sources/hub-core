@@ -14,6 +14,11 @@ export const SEND_HISTORY_MAX_DAYS = 90
 export const SEND_LIST_DEFAULT_DAYS = 7
 export const SEND_LIST_DEFAULT_LIMIT = 20
 export const SEND_LIST_MAX_LIMIT = 100
+/**
+ * Teto da página: `(page - 1) * limit` vira OFFSET no SQL, e um `page` absurdo
+ * (ou `1e308`) estouraria o inteiro do banco em vez de devolver lista vazia.
+ */
+export const SEND_LIST_MAX_PAGE = 10000
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -81,7 +86,8 @@ function isSendListStatus(value: string): value is SendListStatus {
   return (SEND_LIST_STATUSES as readonly string[]).includes(value)
 }
 
-function toPositiveInt(value: number | null | undefined): number | null {
+/** Parte inteira de um número finito; o piso e o teto de cada campo ficam em quem chama. */
+function toFiniteInt(value: number | null | undefined): number | null {
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return null
   }
@@ -124,10 +130,13 @@ export function normalizeSendListFilters(
 
   const digits = (input.destination ?? '').replace(/\D/g, '')
 
-  const page = Math.max(1, toPositiveInt(input.page) ?? 1)
+  const page = Math.min(
+    SEND_LIST_MAX_PAGE,
+    Math.max(1, toFiniteInt(input.page) ?? 1),
+  )
   const limit = Math.min(
     SEND_LIST_MAX_LIMIT,
-    Math.max(1, toPositiveInt(input.limit) ?? SEND_LIST_DEFAULT_LIMIT),
+    Math.max(1, toFiniteInt(input.limit) ?? SEND_LIST_DEFAULT_LIMIT),
   )
 
   return {

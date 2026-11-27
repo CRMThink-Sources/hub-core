@@ -3,6 +3,7 @@ import { InvalidSendListFilterError } from '@/modules/thinkzap/domain/errors/inv
 import {
   normalizeSendListFilters,
   SEND_LIST_MAX_LIMIT,
+  SEND_LIST_MAX_PAGE,
   SEND_LIST_STATUSES,
   sendHistoryFloor,
 } from '@/modules/thinkzap/domain/send-list-filters'
@@ -139,6 +140,15 @@ describe('normalizeSendListFilters', () => {
     expect(normalizeSendListFilters({ page: 0 }, now).page).toBe(1)
     expect(normalizeSendListFilters({ page: -3 }, now).page).toBe(1)
     expect(normalizeSendListFilters({ page: 4 }, now).page).toBe(4)
+  })
+
+  it('limita a página ao teto para o OFFSET não estourar', () => {
+    expect(normalizeSendListFilters({ page: 1e308 }, now).page).toBe(
+      SEND_LIST_MAX_PAGE,
+    )
+    expect(normalizeSendListFilters({ page: 99999 }, now).page).toBe(
+      SEND_LIST_MAX_PAGE,
+    )
   })
 
   it('apara linha e remetente, e vazio vira ausente', () => {
