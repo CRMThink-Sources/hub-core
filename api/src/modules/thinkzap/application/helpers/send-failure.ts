@@ -25,6 +25,9 @@ export function toSendPart(row: WidgetOutboxRecord): SendPart {
     lastError: row.lastError,
     failureCode: row.failureCode,
     failureReason: row.failureReason,
+    // A row ainda não carrega a confirmação do provedor; a Task 2 liga os campos.
+    deliveredAt: null,
+    readAt: null,
   }
 }
 

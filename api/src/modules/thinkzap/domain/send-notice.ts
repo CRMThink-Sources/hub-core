@@ -28,6 +28,8 @@ export function isTrackedSend(row: {
 export type RecipientState =
   | 'WAITING'
   | 'SENT'
+  | 'DELIVERED'
+  | 'READ'
   | 'FAILED'
   | 'PARTIAL'
   | 'UNKNOWN'
@@ -40,6 +42,9 @@ export type SendPart = {
   lastError: string | null
   failureCode: string | null
   failureReason: string | null
+  /** Confirmação de entrega do provedor. Prevalece sobre uma recusa registrada. */
+  deliveredAt: Date | null
+  readAt: Date | null
 }
 
 export type RecipientSummary = {
@@ -54,8 +59,13 @@ export type RecipientSummary = {
   hasUnconfirmed: boolean
 }
 
+// Entregue ou lido prova que a mensagem chegou: uma recusa registrada depois (ou
+// fora de ordem) não a transforma em falha.
+const isDelivered = (part: SendPart) =>
+  part.deliveredAt !== null || part.readAt !== null
+
 const isFailed = (part: SendPart) =>
-  part.status === 'FAILED' || part.rejectedAt !== null
+  part.status === 'FAILED' || (part.rejectedAt !== null && !isDelivered(part))
 
 const isQueued = (part: SendPart) =>
   part.status === 'PENDING' || part.status === 'SENDING'
@@ -66,6 +76,7 @@ function summarize(destination: string, parts: SendPart[]): RecipientSummary {
   const hasUnconfirmed = unknown !== undefined
 
   if (failed) {
+    // Entregue ou lida conta como saída, mesmo que a fila não esteja em SENT.
     const delivered = parts.some(
       part => part.status === 'SENT' && !isFailed(part),
     )
@@ -86,12 +97,14 @@ function summarize(destination: string, parts: SendPart[]): RecipientSummary {
     }
   }
 
-  return {
-    destination,
-    state: parts.some(isQueued) ? 'WAITING' : 'SENT',
-    failedPart: null,
-    hasUnconfirmed,
-  }
+  let state: RecipientState = 'SENT'
+  if (parts.some(isQueued)) state = 'WAITING'
+  // O menor avanço entre as partes: basta uma ainda só enviada para não
+  // anunciar Entregue ou Lido.
+  else if (parts.every(part => part.readAt !== null)) state = 'READ'
+  else if (parts.every(isDelivered)) state = 'DELIVERED'
+
+  return { destination, state, failedPart: null, hasUnconfirmed }
 }
 
 /** Um item por destino, na ordem da primeira aparição. */

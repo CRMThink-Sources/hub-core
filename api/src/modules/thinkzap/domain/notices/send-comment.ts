@@ -60,6 +60,8 @@ const COPY: Record<NoticeLocale, SendCopy> = {
     states: {
       WAITING: 'Aguardando envio',
       SENT: 'Enviado',
+      DELIVERED: 'Entregue',
+      READ: 'Lido',
       FAILED: 'Falhou',
       PARTIAL: 'Falhou em parte',
       UNKNOWN: 'Sem confirmação',
@@ -79,6 +81,8 @@ const COPY: Record<NoticeLocale, SendCopy> = {
     states: {
       WAITING: 'Waiting to be sent',
       SENT: 'Sent',
+      DELIVERED: 'Delivered',
+      READ: 'Read',
       FAILED: 'Failed',
       PARTIAL: 'Partially failed',
       UNKNOWN: 'Not confirmed',
@@ -98,6 +102,8 @@ const COPY: Record<NoticeLocale, SendCopy> = {
     states: {
       WAITING: 'Esperando envío',
       SENT: 'Enviado',
+      DELIVERED: 'Entregado',
+      READ: 'Leído',
       FAILED: 'Falló',
       PARTIAL: 'Falló en parte',
       UNKNOWN: 'Sin confirmación',

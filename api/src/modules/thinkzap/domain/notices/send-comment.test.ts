@@ -15,6 +15,8 @@ function part(destination: string): SendPart {
     lastError: null,
     failureCode: null,
     failureReason: null,
+    deliveredAt: null,
+    readAt: null,
   }
 }
 
