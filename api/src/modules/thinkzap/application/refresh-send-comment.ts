@@ -24,6 +24,7 @@ import type {
   WidgetOutboxRecord,
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import type {
+  PublishedComment,
   SendNotificationInput,
   TimelineCommentPublisher,
 } from '@/shared/data/contracts/send-notification'
@@ -279,13 +280,9 @@ export async function refreshSendComment(
     : {}
   const target = { contextId: notice.entityId, entity: notice.entity }
 
-  if (!commentId) {
-    const claimed = await deps.notices.claimComment(noticeId, deps.now())
-    if (!claimed) throw new SendCommentClaimLostError(noticeId)
-  }
-
   // Relidas logo antes de escrever: uma execução mais lenta não pode gravar por
-  // cima um status mais velho do que o que a fila já tem.
+  // cima um status mais velho do que o que a fila já tem. E antes da reivindicação,
+  // que é única: uma falha aqui não pode gastá-la sem chegar ao Bitrix.
   const latest = await deps.outbox.findBySendNotice(noticeId)
   const message = render(latest.length > 0 ? latest : rows, locale, fromPhone)
 
@@ -306,6 +303,9 @@ export async function refreshSendComment(
     return
   }
 
+  const claimed = await deps.notices.claimComment(noticeId, deps.now())
+  if (!claimed) throw new SendCommentClaimLostError(noticeId)
+
   const published = await publisher.publish({ ...target, ...author, message })
   if (!published) {
     apiLogger.warn(
@@ -315,5 +315,39 @@ export async function refreshSendComment(
     return
   }
 
-  await deps.notices.saveComment(noticeId, published)
+  await saveCommentWithRetry(noticeId, published, deps)
+}
+
+const SAVE_COMMENT_ATTEMPTS = 3
+
+/**
+ * Sem o `commentId` gravado o comentário publicado nunca mais é editado, e a
+ * reivindicação impede publicar outro. Gravar é idempotente, então vale insistir
+ * aqui mesmo; esgotado, o id vai ao log para não se perder.
+ */
+async function saveCommentWithRetry(
+  noticeId: string,
+  published: PublishedComment,
+  deps: RefreshSendCommentDeps,
+): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await deps.notices.saveComment(noticeId, published)
+      return
+    } catch (err) {
+      if (attempt >= SAVE_COMMENT_ATTEMPTS) {
+        apiLogger.error(
+          {
+            app: 'thinkzap',
+            noticeId,
+            commentId: published.commentId,
+            asAuthor: published.asAuthor,
+            err,
+          },
+          'Comentário do aviso de envio publicado, mas o id não foi gravado: ele não será mais atualizado',
+        )
+        throw err
+      }
+    }
+  }
 }

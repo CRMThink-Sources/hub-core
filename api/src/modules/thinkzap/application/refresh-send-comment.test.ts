@@ -8,9 +8,13 @@ import type {
   WidgetOutboxRecord,
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import type { TimelineCommentPublisher } from '@/shared/data/contracts/send-notification'
-import { DAILY_LIMIT_FAILURE } from './dispatch-widget-outbox-message'
+import {
+  DAILY_LIMIT_FAILURE,
+  MEDIA_EXPIRED_FAILURE,
+} from './dispatch-widget-outbox-message'
 import {
   refreshSendComment,
+  SendCommentClaimLostError,
   type RefreshSendCommentDeps,
 } from './refresh-send-comment'
 
@@ -170,7 +174,9 @@ describe('refreshSendComment', () => {
   it('rejeita sem publicar quando perde a reivindicação', async () => {
     const { deps, publisher } = setup({ claim: false })
 
-    await expect(refreshSendComment('notice-1', deps)).rejects.toThrow()
+    await expect(refreshSendComment('notice-1', deps)).rejects.toBeInstanceOf(
+      SendCommentClaimLostError,
+    )
     expect(publisher.publish).not.toHaveBeenCalled()
   })
 
@@ -302,5 +308,94 @@ describe('refreshSendComment', () => {
 
     expect(notices.claimComment).not.toHaveBeenCalled()
     expect(publisher.publish).not.toHaveBeenCalled()
+  })
+
+  it('não reivindica quando a releitura das partes falha', async () => {
+    const { deps, notices, outbox } = setup({})
+    outbox.findBySendNotice
+      .mockResolvedValueOnce([row()])
+      .mockRejectedValueOnce(new Error('db fora'))
+
+    await expect(refreshSendComment('notice-1', deps)).rejects.toThrow(
+      'db fora',
+    )
+    expect(notices.claimComment).not.toHaveBeenCalled()
+  })
+
+  it('monta o comentário com a releitura das partes', async () => {
+    const { deps, publisher, outbox } = setup({})
+    outbox.findBySendNotice
+      .mockResolvedValueOnce([row({ status: 'SENT' })])
+      .mockResolvedValueOnce([
+        row({ status: 'FAILED', lastError: 'erro do provider' }),
+      ])
+
+    await refreshSendComment('notice-1', deps)
+
+    expect(messageOf(publisher.publish.mock.calls[0])).toContain(
+      'erro do provider',
+    )
+  })
+
+  it('tenta gravar o comentário de novo quando a gravação falha', async () => {
+    const { deps, notices } = setup({})
+    notices.saveComment
+      .mockRejectedValueOnce(new Error('db fora'))
+      .mockResolvedValueOnce(undefined)
+
+    await refreshSendComment('notice-1', deps)
+
+    expect(notices.saveComment).toHaveBeenCalledTimes(2)
+  })
+
+  it('lança depois de esgotar as tentativas de gravar o comentário', async () => {
+    const { deps, notices, publisher } = setup({})
+    notices.saveComment.mockRejectedValue(new Error('db fora'))
+
+    await expect(refreshSendComment('notice-1', deps)).rejects.toThrow(
+      'db fora',
+    )
+    expect(notices.saveComment).toHaveBeenCalledTimes(3)
+    expect(publisher.publish).toHaveBeenCalledTimes(1)
+  })
+
+  it('não lista em arquivo nenhum a mídia na fila ou sem confirmação', async () => {
+    const { deps, publisher } = setup({
+      notice: notice({ eager: true }),
+      rows: [
+        row({ kind: 'MEDIA', status: 'PENDING', fileName: 'fila.pdf' }),
+        row({
+          id: 'row-2',
+          kind: 'MEDIA',
+          status: 'UNKNOWN',
+          fileName: 'incerto.pdf',
+        }),
+      ],
+    })
+
+    await refreshSendComment('notice-1', deps)
+
+    const message = messageOf(publisher.publish.mock.calls[0])
+    expect(message).not.toContain('fila.pdf')
+    expect(message).not.toContain('incerto.pdf')
+  })
+
+  it('dá o motivo "não foi possível obter" ao arquivo expirado', async () => {
+    const { deps, publisher } = setup({
+      rows: [
+        row({
+          kind: 'MEDIA',
+          status: 'FAILED',
+          lastError: MEDIA_EXPIRED_FAILURE,
+          fileName: 'velho.pdf',
+        }),
+      ],
+    })
+
+    await refreshSendComment('notice-1', deps)
+
+    expect(messageOf(publisher.publish.mock.calls[0])).toContain(
+      'velho.pdf (não foi possível obter o arquivo)',
+    )
   })
 })
