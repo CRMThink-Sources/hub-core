@@ -21,8 +21,8 @@
 
 ## 5. Front
 
-- [ ] 5.1 Adicionar o item `envios` em `front/components/layouts/shared/aside/thinkzap-aside-config.ts` e o rótulo nos três `aside.json`, sem filtro de permissão em `app/(thinkzap)/layout.tsx` (aparece para quem tem `canAccess`). Verificar: teste do filtro de links do layout (ou da config) mostra o item para um usuário sem papel de administrador e `yarn check-types` passa.
-- [ ] 5.2 Criar `_lib/thinkzap-sends-client.ts` (lista e detalhe sobre `resolveThinkzapClient`), os tipos do contrato e os helpers puros (leitura e escrita da query string dos filtros, rótulo e cor por status) com testes `.test.ts`. Verificar: `yarn test` no front cobre ida e volta dos filtros pela query string, valor inválido caindo no padrão e todos os status mapeados.
+- [x] 5.1 Adicionar o item `envios` em `front/components/layouts/shared/aside/thinkzap-aside-config.ts` e o rótulo nos três `aside.json`, sem filtro de permissão em `app/(thinkzap)/layout.tsx` (aparece para quem tem `canAccess`). Verificar: teste do filtro de links do layout (ou da config) mostra o item para um usuário sem papel de administrador e `yarn check-types` passa.
+- [x] 5.2 Criar `_lib/thinkzap-sends-client.ts` (lista e detalhe sobre `resolveThinkzapClient`), os tipos do contrato e os helpers puros (leitura e escrita da query string dos filtros, rótulo e cor por status) com testes `.test.ts`. Verificar: `yarn test` no front cobre ida e volta dos filtros pela query string, valor inválido caindo no padrão e todos os status mapeados.
 - [ ] 5.3 Criar a página `app/(thinkzap)/thinkzap/envios/page.tsx` com barra de filtros (período, status, linha, destinatário e, só para administrador, remetente), tabela paginada, painel lateral de detalhe, estados de carregando, vazio e erro, aviso do prazo de 90 dias e da limitação da Z-API, e os `envios.json` em pt, en e es. Verificar: `yarn check-types`, `yarn lint` e `yarn build` passam; as três traduções têm as mesmas chaves (teste ou script de conferência existente do projeto); conferência manual da tela com dados de teste no ambiente local ou staging.
 
 ## 6. Integração e entrega

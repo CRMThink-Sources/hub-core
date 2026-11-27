@@ -21,6 +21,12 @@ export const THINKZAP_ASIDE_CONFIG = {
       href: '/thinkzap/insights',
       label: 'insights',
     },
+    // Histórico de envios com status de entrega. Visível para todo usuário com
+    // acesso ao ThinkZap (`canAccess`); o recorte por operador é feito na API.
+    {
+      href: '/thinkzap/envios',
+      label: 'envios',
+    },
     // `/thinkzap/financeiro` saiu com a cobrança antiga; a tela nova entra aqui.
     // Permissões e notificações de conexão, em sub-abas da mesma página.
     {
