@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangleIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatPortalDate } from '@/lib/format-date'
-import { capitalizeFirst } from '../../_lib/send-format'
 import type { SendListItem } from '../../_lib/thinkzap-sends-client'
 import { senderDisplay } from './envios-view'
 import { SendStatusBadge } from './send-status-badge'
@@ -31,6 +30,20 @@ export function UnconfirmedWarning() {
       <AlertTriangleIcon className="mt-px size-3.5 shrink-0" aria-hidden />
       <span>{t('unconfirmedWarning')}</span>
     </p>
+  )
+}
+
+/** Versão compacta do aviso, para a tabela: ícone com o texto no tooltip. */
+function UnconfirmedHint() {
+  const { t } = useTranslation('thinkzap/envios')
+  return (
+    <span
+      title={t('unconfirmedWarning')}
+      className="inline-flex text-amber-800 dark:text-amber-400"
+    >
+      <AlertTriangleIcon className="size-4" aria-hidden />
+      <span className="sr-only">{t('unconfirmedWarning')}</span>
+    </span>
   )
 }
 
@@ -110,14 +123,17 @@ export function SendsTable({ items, locale, onOpen }: Props) {
               <td className="px-4 py-3 text-muted-foreground">
                 <SenderLabel sender={item.sender} />
               </td>
-              <td className="max-w-xs px-4 py-3">
-                <SendStatusBadge status={item.status} />
-                {item.failureReason && (
-                  <p className="mt-1 text-xs break-words text-red-700 dark:text-red-400">
-                    {capitalizeFirst(item.failureReason)}
-                  </p>
-                )}
-                {item.hasUnconfirmed && <UnconfirmedWarning />}
+              {/*
+                Só o status: o motivo da falha deixava a linha muito alta, e o
+                detalhe já o mostra por inteiro. O aviso de conferência (parte sem
+                confirmação) vira um ícone na mesma linha, com o texto no tooltip
+                e para leitor de tela, para não perder o "confira antes de reenviar".
+              */}
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-1.5">
+                  <SendStatusBadge status={item.status} />
+                  {item.hasUnconfirmed && <UnconfirmedHint />}
+                </div>
               </td>
               <td className="px-4 py-3 text-right">
                 <Button
