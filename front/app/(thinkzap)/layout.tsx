@@ -2,7 +2,10 @@
 
 import { Aside } from '@/components/layouts/shared/aside/aside'
 import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkzap-aside-config'
-import { filterThinkzapAsideLinks } from '@/components/layouts/shared/aside/thinkzap-aside-links'
+import {
+  THINKZAP_CAN_ACCESS_HREFS,
+  filterThinkzapAsideLinks,
+} from '@/components/layouts/shared/aside/thinkzap-aside-links'
 import { SessionProvider } from '@/providers/session-provider'
 import { AplicationProvider } from '@/providers/aplication-provider'
 import {
@@ -53,10 +56,10 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
   const accessBlocked = useMemo(() => {
     if (!pathname || !thinkzapAccess) return false
     if (
-      (pathname === '/thinkzap' ||
-        pathname.startsWith('/thinkzap/conexoes') ||
-        pathname.startsWith('/thinkzap/insights') ||
-        pathname.startsWith('/thinkzap/envios')) &&
+      THINKZAP_CAN_ACCESS_HREFS.some(href =>
+        // `/thinkzap` só a raiz exata; as demais cobrem as subrotas.
+        href === '/thinkzap' ? pathname === href : pathname.startsWith(href),
+      ) &&
       !thinkzapAccess.canAccess
     ) {
       return true

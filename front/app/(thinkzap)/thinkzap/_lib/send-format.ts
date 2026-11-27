@@ -11,23 +11,67 @@ export function capitalizeFirst(text: string): string {
 }
 
 /**
- * Link absoluto para o registro no CRM. A API devolve só o caminho relativo ao
- * portal (`/crm/deal/details/1/`) porque não conhece o host que o usuário
- * abriu. O front sabe: o Bitrix abre o app em iframe com `?DOMAIN=` na URL
- * (`getBitrixAppInfoFromUrl().domain`).
- *
- * Sem domínio confiável devolve o caminho relativo (dentro do iframe ele
- * resolveria contra o host do app, não do portal, então o chamador pode
- * preferir mostrar só o texto). Só aceita caminho que começa com uma barra e um
- * host que seja apenas nome de domínio: nada de esquema, porta ou caminho
- * vindo da URL, para o link não virar redirecionamento aberto.
+ * Domínios de nuvem do Bitrix24 (`<portal>.bitrix24.<tld>`). Portais com
+ * domínio próprio e instalações on-premise ficam DE FORA de propósito: o host
+ * vem do parâmetro `DOMAIN` da URL do iframe, que é livre, e sem lista
+ * fechada um host estrangeiro viraria link clicável. Esses portais mostram o
+ * registro como texto, sem link.
+ */
+export const BITRIX_CLOUD_TLDS = [
+  'com',
+  'com.br',
+  'es',
+  'de',
+  'fr',
+  'it',
+  'pl',
+  'ru',
+  'ua',
+  'by',
+  'kz',
+  'in',
+  'eu',
+  'uk',
+  'co.uk',
+  'com.tr',
+  'tr',
+  'cn',
+  'jp',
+  'vn',
+  'id',
+  'th',
+  'mx',
+  'la',
+  'ae',
+  'co',
+  'nl',
+  'br',
+  'tc',
+  'ch',
+] as const
+
+const LABEL = '[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?'
+const TLDS = BITRIX_CLOUD_TLDS.map(t => t.replace(/\./g, '\\.')).join('|')
+const CLOUD_HOST_RE = new RegExp(
+  `^${LABEL}(?:\\.${LABEL})*\\.bitrix24\\.(?:${TLDS})$`,
+)
+const CRM_PATH_RE = /^\/crm\/[A-Za-z0-9/_-]+$/
+
+/**
+ * Link absoluto para o registro no CRM, ou `null` quando não dá para montar
+ * com segurança (o chamador mostra texto puro). A API devolve só o caminho
+ * relativo (`/crm/deal/details/1/`); o domínio vem do `?DOMAIN=` do iframe
+ * (`getBitrixAppInfoFromUrl().domain`) e só vale se for host de nuvem
+ * Bitrix24 (ver `BITRIX_CLOUD_TLDS`). O caminho precisa ser `/crm/...`
+ * simples, sem `..`, `//`, barra invertida, esquema, query ou hash: nunca se
+ * devolve a url crua, para ela não virar redirecionamento aberto.
  */
 export function crmRecordHref(
   portalHost: string | null | undefined,
   url: string,
-): string {
-  const host = (portalHost ?? '').trim()
-  const isHostname = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/i.test(host)
-  if (!isHostname || !url.startsWith('/') || url.startsWith('//')) return url
+): string | null {
+  const host = (portalHost ?? '').trim().toLowerCase()
+  if (host.length > 253 || !CLOUD_HOST_RE.test(host)) return null
+  if (!CRM_PATH_RE.test(url) || url.includes('//')) return null
   return `https://${host}${url}`
 }
