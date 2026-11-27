@@ -50,6 +50,27 @@ export function parseFailureRetentionDays(raw: string | undefined): number {
   return days
 }
 
+export const DEFAULT_SEND_HISTORY_DAYS = 90
+
+/**
+ * Por quantos dias o banco guarda o histórico dos envios rastreados (widget e robôs),
+ * que a aba de envios consulta. Mesma validação de `FAILURE_RETENTION_DAYS`.
+ */
+export function parseSendHistoryDays(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') {
+    return DEFAULT_SEND_HISTORY_DAYS
+  }
+
+  const days = /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN
+  if (!Number.isInteger(days) || days < 1) {
+    throw new Error(
+      `THINKZAP_SEND_HISTORY_DAYS inválido ("${raw}"): informe um número inteiro de dias maior ou igual a 1 (ou deixe vazio para ${DEFAULT_SEND_HISTORY_DAYS}).`,
+    )
+  }
+
+  return days
+}
+
 export function parseSubscriptionExpirationEnabled(
   raw: string | undefined,
   fallback: boolean,
@@ -151,6 +172,9 @@ export const env = {
     days: parseFailureRetentionDays(process.env.FAILURE_RETENTION_DAYS),
     purgeEnabled: process.env.FAILURE_PURGE_ENABLED === 'true',
   },
+  thinkzapSendHistoryDays: parseSendHistoryDays(
+    process.env.THINKZAP_SEND_HISTORY_DAYS,
+  ),
   appCodes: {
     thinkzap: process.env.THINKZAP_APP_CODE ?? 'crmthink.thinkzap',
     thinkanalise: process.env.THINKANALISE_APP_CODE ?? 'crmthink.thinkanalise',

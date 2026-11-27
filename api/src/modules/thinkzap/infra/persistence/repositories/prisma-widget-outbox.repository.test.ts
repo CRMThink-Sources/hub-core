@@ -38,6 +38,7 @@ vi.mock('@/config/prisma', () => ({
   },
 }))
 
+import { TRACKED_SEND_ORIGINS } from '@/modules/thinkzap/domain/send-notice'
 import {
   CreateWidgetOutboxInput,
   PrismaWidgetOutboxRepository,
@@ -437,6 +438,22 @@ describe('PrismaWidgetOutboxRepository — falhas de envio', () => {
       })
     })
 
+    /** Rastreada (widget/robôs, sem SMS) fica 90 dias: o expurgo de 7 dias a poupa. */
+    it('poupa as rastreadas: nega origem rastreada sem smsMessageId', async () => {
+      findManyMock.mockResolvedValue([])
+
+      await sut().deleteExpiredFailuresBatch(cutoff, 500)
+
+      expect(findManyMock.mock.calls[0]![0]).toMatchObject({
+        where: {
+          NOT: {
+            origin: { in: [...TRACKED_SEND_ORIGINS] },
+            smsMessageId: null,
+          },
+        },
+      })
+    })
+
     it('nunca seleciona entregue, pendente nem em envio', async () => {
       findManyMock.mockResolvedValue([])
 
@@ -468,6 +485,88 @@ describe('PrismaWidgetOutboxRepository — falhas de envio', () => {
 
       expect(await sut().deleteExpiredFailuresBatch(cutoff, 500)).toBe(0)
       expect(deleteManyMock).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('histórico de envios rastreados', () => {
+    const cutoff = new Date('2026-08-15T00:00:00Z')
+
+    beforeEach(() => {
+      deleteManyMock.mockClear()
+      findManyMock.mockReset()
+    })
+
+    it('seleciona só rastreadas em SENT/FAILED/UNKNOWN, sem SMS, antes do corte', async () => {
+      findManyMock.mockResolvedValue([{ id: 'a' }, { id: 'b' }])
+      deleteManyMock.mockResolvedValue({ count: 2 })
+
+      const count = await sut().deleteExpiredSendHistoryBatch(cutoff, 500)
+
+      expect(count).toBe(2)
+      expect(findManyMock.mock.calls[0]![0]).toMatchObject({
+        where: {
+          status: { in: ['SENT', 'FAILED', 'UNKNOWN'] },
+          origin: { in: [...TRACKED_SEND_ORIGINS] },
+          smsMessageId: null,
+          createdAt: { lt: cutoff },
+          updatedAt: { lt: cutoff },
+        },
+        take: 500,
+      })
+    })
+
+    it('nunca seleciona pendente nem em envio', async () => {
+      findManyMock.mockResolvedValue([])
+
+      await sut().deleteExpiredSendHistoryBatch(cutoff, 500)
+
+      const [args] = findManyMock.mock.calls[0]! as [
+        { where: { status: { in: string[] } } },
+      ]
+      expect(args.where.status.in).not.toContain('PENDING')
+      expect(args.where.status.in).not.toContain('SENDING')
+    })
+
+    it('o delete reconfirma o status dos ids selecionados', async () => {
+      findManyMock.mockResolvedValue([{ id: 'a' }])
+      deleteManyMock.mockResolvedValue({ count: 1 })
+
+      await sut().deleteExpiredSendHistoryBatch(cutoff, 500)
+
+      expect(deleteManyMock).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['a'] },
+          status: { in: ['SENT', 'FAILED', 'UNKNOWN'] },
+        },
+      })
+    })
+
+    it('sem vencidos não apaga nada', async () => {
+      findManyMock.mockResolvedValue([])
+
+      expect(await sut().deleteExpiredSendHistoryBatch(cutoff, 500)).toBe(0)
+      expect(deleteManyMock).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('deleteSentOlderThan', () => {
+    it('apaga só SENT antigas e poupa as rastreadas', async () => {
+      deleteManyMock.mockClear()
+      deleteManyMock.mockResolvedValue({ count: 4 })
+      const cutoff = new Date('2026-10-01T00:00:00Z')
+
+      expect(await sut().deleteSentOlderThan(cutoff)).toBe(4)
+
+      expect(deleteManyMock).toHaveBeenCalledWith({
+        where: {
+          status: 'SENT',
+          createdAt: { lt: cutoff },
+          NOT: {
+            origin: { in: [...TRACKED_SEND_ORIGINS] },
+            smsMessageId: null,
+          },
+        },
+      })
     })
   })
 

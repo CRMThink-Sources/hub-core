@@ -5,6 +5,10 @@ import { apiLogger } from '@/shared/infra/logger'
 /**
  * Limpeza por retenção do outbox do widget.
  *
+ * **Só remove `SENT`, e poupa os envios rastreados** (widget e robôs, sem SMS): esses
+ * ficam no histórico de envios, expurgado pelo job de retenção pelo prazo de
+ * `THINKZAP_SEND_HISTORY_DAYS`.
+ *
  * **Só remove `SENT`.** `FAILED` e `UNKNOWN` ficam até alguém resolver: são exatamente
  * as rows que descrevem mensagem que o cliente do parceiro não recebeu, e apagá-las
  * apagaria a única evidência do problema. `PENDING` e `SENDING` também ficam — são

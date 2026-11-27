@@ -5,6 +5,7 @@ import type {
   ThinkzapOutboxOrigin,
   ThinkzapOutboxStatus,
 } from '@/prisma/client'
+import { TRACKED_SEND_ORIGINS } from '@/modules/thinkzap/domain/send-notice'
 import type { InteractiveButtonDescriptor } from '@/modules/thinkzap/domain/ports/interactive-button-sender.port'
 import type { TemplateButtonParameter } from '@/modules/thinkzap/domain/ports/template-message-sender.port'
 
@@ -395,6 +396,18 @@ function toCreateData(input: CreateWidgetOutboxInput) {
   }
 }
 
+/** Estados terminais que o histórico de envios guarda (a fila em aberto nunca sai). */
+const SEND_HISTORY_STATUSES = ['SENT', 'FAILED', 'UNKNOWN'] as const
+
+/**
+ * Espelha `isTrackedSend`: origem rastreada e sem `smsMessageId` (a campanha de SMS usa
+ * a origem `WIDGET`, mas reporta status pelo provedor de SMS).
+ */
+const TRACKED_SEND_FILTER = {
+  origin: { in: [...TRACKED_SEND_ORIGINS] },
+  smsMessageId: null,
+}
+
 /**
  * A fila durável do envio pelo widget.
  *
@@ -412,6 +425,10 @@ export class PrismaWidgetOutboxRepository {
    * reprocessada que falhou de novo ontem continua visível até 7 dias depois dessa
    * última falha, e não some por ter sido criada há mais tempo. O índice
    * `[status, createdAt]` serve ao filtro.
+   *
+   * **Poupa as rastreadas** (`TRACKED_SEND_ORIGINS`, sem SMS): o histórico de envios
+   * guarda essas por 90 dias (`deleteExpiredSendHistoryBatch`). Se este expurgo de 7
+   * dias as apagasse, os 90 dias seriam só no papel.
    */
   async deleteExpiredFailuresBatch(
     cutoff: Date,
@@ -422,6 +439,7 @@ export class PrismaWidgetOutboxRepository {
         status: { in: ['FAILED', 'UNKNOWN'] },
         createdAt: { lt: cutoff },
         updatedAt: { lt: cutoff },
+        NOT: TRACKED_SEND_FILTER,
       },
       select: { id: true },
       orderBy: { createdAt: 'asc' },
@@ -434,6 +452,38 @@ export class PrismaWidgetOutboxRepository {
         id: { in: rows.map(row => row.id) },
         // Reconfirma o status: entre o select e o delete a intenção pode ter sido reprocessada.
         status: { in: ['FAILED', 'UNKNOWN'] },
+      },
+    })
+    return count
+  }
+
+  /**
+   * Expurgo do histórico de envios rastreados: apaga até `limit` rows de origem
+   * rastreada (sem SMS) em `SENT`, `FAILED` ou `UNKNOWN` com `createdAt` **e**
+   * `updatedAt` antes do corte. Pendente e em envio nunca saem: são trabalho em aberto.
+   */
+  async deleteExpiredSendHistoryBatch(
+    cutoff: Date,
+    limit: number,
+  ): Promise<number> {
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: {
+        status: { in: [...SEND_HISTORY_STATUSES] },
+        ...TRACKED_SEND_FILTER,
+        createdAt: { lt: cutoff },
+        updatedAt: { lt: cutoff },
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+    })
+    if (rows.length === 0) return 0
+
+    const { count } = await prisma.thinkzapWidgetOutbox.deleteMany({
+      where: {
+        id: { in: rows.map(row => row.id) },
+        // Reconfirma o status: entre o select e o delete a row pode ter voltado para a fila.
+        status: { in: [...SEND_HISTORY_STATUSES] },
       },
     })
     return count
@@ -751,10 +801,15 @@ export class PrismaWidgetOutboxRepository {
   /**
    * Limpeza por retenção. Só `SENT`: `FAILED` e `UNKNOWN` ficam até alguém resolver,
    * porque são exatamente as rows que descrevem mensagem que o cliente não recebeu.
+   * Poupa as rastreadas: o histórico de envios as guarda pelo prazo dele.
    */
   async deleteSentOlderThan(cutoff: Date): Promise<number> {
     const { count } = await prisma.thinkzapWidgetOutbox.deleteMany({
-      where: { status: 'SENT', createdAt: { lt: cutoff } },
+      where: {
+        status: 'SENT',
+        createdAt: { lt: cutoff },
+        NOT: TRACKED_SEND_FILTER,
+      },
     })
 
     return count
