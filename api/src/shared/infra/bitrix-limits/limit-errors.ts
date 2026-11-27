@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { BitrixMethodPausedError } from './bitrix-limits.port'
 
 /**
  * Os dois limites do Bitrix, reconhecidos pelo que a resposta diz.
@@ -81,3 +82,39 @@ export function retryDelayMs(
 }
 
 export const MAX_QUERY_LIMIT_RETRIES = 4
+
+/**
+ * Quanto esperar para refazer a chamada que o Bitrix recusou por intensidade mesmo
+ * depois das retentativas do interceptor: o balde do portal leva segundos para
+ * esvaziar, e voltar antes disso só bateria no limite de novo.
+ */
+export const QUERY_LIMIT_DEFER_MS = 60_000
+
+/** Código de limite no corpo que o `BitrixClient` serializa na mensagem do erro. */
+const LIMIT_CODE_IN_MESSAGE =
+  /"error"\s*:\s*"(?:QUERY_LIMIT_EXCEEDED|OPERATION_TIME_LIMIT)"/i
+
+/**
+ * Até quando adiar uma chamada que o Bitrix **com certeza não executou**, ou `null`
+ * quando o erro não garante isso.
+ *
+ * Só entram a pausa local (lançada antes de a requisição sair) e a recusa por limite,
+ * que o Bitrix devolve sem executar o método. Timeout, rede e 503 sem código ficam de
+ * fora: a chamada pode ter gravado, e para método que não é idempotente repetir
+ * duplicaria.
+ */
+export function bitrixRefusedUntil(
+  error: unknown,
+  nowMs: number,
+): number | null {
+  if (error instanceof BitrixMethodPausedError) {
+    return Math.max(error.untilMs, nowMs)
+  }
+
+  const hit = classifyLimitError(error)
+  const refusedByCode = hit !== null && hit.code in LIMIT_CODES
+  const refusedInMessage =
+    error instanceof Error && LIMIT_CODE_IN_MESSAGE.test(error.message)
+
+  return refusedByCode || refusedInMessage ? nowMs + QUERY_LIMIT_DEFER_MS : null
+}

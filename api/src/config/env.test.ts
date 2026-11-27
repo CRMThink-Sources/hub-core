@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   parseCrmthinkTasksGroupId,
   parseFailureRetentionDays,
+  parseSendHistoryDays,
   parseManualSubscriptionGraceDays,
   parseStripeSyncEnabled,
   parseSubscriptionExpirationEnabled,
@@ -148,4 +149,23 @@ describe('positiveMs', () => {
       expect(positiveMs(raw, 99)).toBe(99)
     },
   )
+})
+
+describe('parseSendHistoryDays', () => {
+  it('vazio usa o padrão de 90 dias', () => {
+    expect(parseSendHistoryDays(undefined)).toBe(90)
+    expect(parseSendHistoryDays('')).toBe(90)
+    expect(parseSendHistoryDays('  ')).toBe(90)
+  })
+
+  it('aceita inteiro maior ou igual a 1', () => {
+    expect(parseSendHistoryDays('1')).toBe(1)
+    expect(parseSendHistoryDays('120')).toBe(120)
+  })
+
+  it.each(['0', '-3', '1.5', 'abc'])('recusa "%s" nomeando a variável', raw => {
+    expect(() => parseSendHistoryDays(raw)).toThrow(
+      /THINKZAP_SEND_HISTORY_DAYS/,
+    )
+  })
 })

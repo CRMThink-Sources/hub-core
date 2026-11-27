@@ -190,6 +190,26 @@ describe('EnqueueInteractiveButtonSendService.enqueue', () => {
     expect(sendQueue.enqueue).toHaveBeenCalledWith({ outboxId: 'outbox-1' })
   })
 
+  // Ligada já na criação: o worker pode processar a row antes de qualquer update.
+  it('grava a row já ligada ao aviso do disparo', async () => {
+    const { service, outbox } = makeSut(zapiItem())
+    const target = await service.resolveTarget(baseInput)
+
+    await service.enqueue(target, {
+      ...baseInput,
+      destination: '11999999999',
+      body: 'uma mensagem',
+      buttons: [{ id: '1', label: 'Sim', type: 'REPLY' }],
+      entity: 'deal',
+      entityId: '42',
+      sendNoticeId: 'notice-1',
+    })
+
+    expect(outbox.create).toHaveBeenCalledWith(
+      expect.objectContaining({ sendNoticeId: 'notice-1' }),
+    )
+  })
+
   it('aceita REPLY para provider HUBMESSAGE — quick reply, até 3 botões', async () => {
     const { service, outbox } = makeSut(hubItem())
     const target = await service.resolveTarget(baseInput)

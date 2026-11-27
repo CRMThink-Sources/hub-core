@@ -1,3 +1,4 @@
+import type { OpenSendNotice } from '@/modules/thinkzap/application/open-send-notice'
 import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/ports/installation-locale.port'
 import { GetDomainRepository } from '@/shared/domain/repositories/domain/get-domain.repository'
 import { GetInstalledAppRepository } from '@/shared/domain/repositories/instaled-app/get-installed-app.repository'
@@ -20,6 +21,7 @@ export class BitrixButtonRobotUnofficialWebhookHandlerController extends BitrixB
     sendNotification: SendNotification,
     bitrix: BitrixClient,
     locales: InstallationLocaleRepository | null = null,
+    openSendNotice: OpenSendNotice | null = null,
   ) {
     super(
       getDomain,
@@ -29,6 +31,7 @@ export class BitrixButtonRobotUnofficialWebhookHandlerController extends BitrixB
       bitrix,
       ConnectorProvider.ZAPI,
       locales,
+      openSendNotice,
     )
   }
 }

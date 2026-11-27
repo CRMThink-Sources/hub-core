@@ -1,5 +1,6 @@
 import { makeSendCadence } from '@/modules/thinkzap/main/make-send-cadence'
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
+import { makeOpenSendNotice } from '@/modules/thinkzap/main/make-send-notice-deps'
 import { makeDailySendQuota } from '@/modules/thinkzap/main/make-daily-send-quota'
 import { Request } from 'express'
 import { env } from '@/config/env'
@@ -57,5 +58,6 @@ export const makeBitrixButtonRobotUnofficialWebhookHandlerController = async (
     makeTimelineNotifier(bx, domain.name),
     bx,
     makeInstallationLocaleRepository(),
+    makeOpenSendNotice(),
   )
 }

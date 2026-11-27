@@ -63,6 +63,8 @@ export type EnqueueTemplateIntentInput = {
    * "enviada por automação". Ausente = `WIDGET`, como sempre foi.
    */
   origin?: 'ROBOT_TEMPLATE'
+  /** Aviso aberto pelo robô para o disparo; ausente, o worker cria um por row. */
+  sendNoticeId?: string
 }
 
 /**
@@ -206,6 +208,8 @@ export class EnqueueTemplateSendService {
       smsSenderCode: input.smsSenderCode ?? null,
       smsMessageId: input.smsMessageId ?? null,
       ...(input.origin ? { origin: input.origin } : {}),
+      // Na criação: o worker pode processar a row antes de qualquer update.
+      ...(input.sendNoticeId ? { sendNoticeId: input.sendNoticeId } : {}),
     })
 
     /**

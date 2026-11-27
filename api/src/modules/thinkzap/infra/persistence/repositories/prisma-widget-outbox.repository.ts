@@ -5,6 +5,7 @@ import type {
   ThinkzapOutboxOrigin,
   ThinkzapOutboxStatus,
 } from '@/prisma/client'
+import { TRACKED_SEND_ORIGINS } from '@/modules/thinkzap/domain/send-notice'
 import type { InteractiveButtonDescriptor } from '@/modules/thinkzap/domain/ports/interactive-button-sender.port'
 import type { TemplateButtonParameter } from '@/modules/thinkzap/domain/ports/template-message-sender.port'
 
@@ -94,6 +95,12 @@ export type WidgetOutboxRecord = {
   bitrixMessageId: string | null
   bitrixChatId: string | null
   originContext: OutboxJson | null
+  /** O aviso de envio que acompanha a parte; `null` = envio não acompanhado. */
+  sendNoticeId: string | null
+  /** Recusa do provider posterior ao aceite: `status` segue `SENT`. */
+  rejectedAt: Date | null
+  failureCode: string | null
+  failureReason: string | null
   queueSeq: number | null
   cadenceWaitUntil: Date | null
   /** Reprocessamentos manuais pelo portal admin; ver `requeueForReprocess`. */
@@ -176,6 +183,8 @@ export type CreateWidgetOutboxInput = {
   bitrixMessageId?: string | null
   bitrixChatId?: string | null
   originContext?: OutboxJson
+  /** Parte que nasce já ligada a um aviso de envio. */
+  sendNoticeId?: string | null
 }
 
 /** Uma parte de um envio em grupo, com o desfecho que importa para a timeline. */
@@ -290,6 +299,10 @@ type OutboxRow = {
   bitrixMessageId: string | null
   bitrixChatId: string | null
   originContext: unknown
+  sendNoticeId: string | null
+  rejectedAt: Date | null
+  failureCode: string | null
+  failureReason: string | null
   queueSeq: number | null
   cadenceWaitUntil: Date | null
   reprocessCount: number
@@ -338,6 +351,10 @@ function mapRow(row: OutboxRow): WidgetOutboxRecord {
     bitrixMessageId: row.bitrixMessageId,
     bitrixChatId: row.bitrixChatId,
     originContext: toJson(row.originContext),
+    sendNoticeId: row.sendNoticeId,
+    rejectedAt: row.rejectedAt,
+    failureCode: row.failureCode,
+    failureReason: row.failureReason,
     queueSeq: row.queueSeq,
     cadenceWaitUntil: row.cadenceWaitUntil,
     reprocessCount: row.reprocessCount,
@@ -379,6 +396,18 @@ function toCreateData(input: CreateWidgetOutboxInput) {
   }
 }
 
+/** Estados terminais que o histórico de envios guarda (a fila em aberto nunca sai). */
+const SEND_HISTORY_STATUSES = ['SENT', 'FAILED', 'UNKNOWN'] as const
+
+/**
+ * Espelha `isTrackedSend`: origem rastreada e sem `smsMessageId` (a campanha de SMS usa
+ * a origem `WIDGET`, mas reporta status pelo provedor de SMS).
+ */
+const TRACKED_SEND_FILTER = {
+  origin: { in: [...TRACKED_SEND_ORIGINS] },
+  smsMessageId: null,
+}
+
 /**
  * A fila durável do envio pelo widget.
  *
@@ -396,6 +425,10 @@ export class PrismaWidgetOutboxRepository {
    * reprocessada que falhou de novo ontem continua visível até 7 dias depois dessa
    * última falha, e não some por ter sido criada há mais tempo. O índice
    * `[status, createdAt]` serve ao filtro.
+   *
+   * **Poupa as rastreadas** (`TRACKED_SEND_ORIGINS`, sem SMS): o histórico de envios
+   * guarda essas por 90 dias (`deleteExpiredSendHistoryBatch`). Se este expurgo de 7
+   * dias as apagasse, os 90 dias seriam só no papel.
    */
   async deleteExpiredFailuresBatch(
     cutoff: Date,
@@ -406,6 +439,7 @@ export class PrismaWidgetOutboxRepository {
         status: { in: ['FAILED', 'UNKNOWN'] },
         createdAt: { lt: cutoff },
         updatedAt: { lt: cutoff },
+        NOT: TRACKED_SEND_FILTER,
       },
       select: { id: true },
       orderBy: { createdAt: 'asc' },
@@ -418,6 +452,40 @@ export class PrismaWidgetOutboxRepository {
         id: { in: rows.map(row => row.id) },
         // Reconfirma o status: entre o select e o delete a intenção pode ter sido reprocessada.
         status: { in: ['FAILED', 'UNKNOWN'] },
+      },
+    })
+    return count
+  }
+
+  /**
+   * Expurgo do histórico de envios rastreados: apaga até `limit` rows de origem
+   * rastreada (sem SMS) em `SENT`, `FAILED` ou `UNKNOWN` com `createdAt` **e**
+   * `updatedAt` antes do corte. Pendente e em envio nunca saem: são trabalho em aberto.
+   */
+  async deleteExpiredSendHistoryBatch(
+    cutoff: Date,
+    limit: number,
+  ): Promise<number> {
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: {
+        status: { in: [...SEND_HISTORY_STATUSES] },
+        ...TRACKED_SEND_FILTER,
+        createdAt: { lt: cutoff },
+        updatedAt: { lt: cutoff },
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+    })
+    if (rows.length === 0) return 0
+
+    const { count } = await prisma.thinkzapWidgetOutbox.deleteMany({
+      where: {
+        id: { in: rows.map(row => row.id) },
+        // Reconfirma status e `updatedAt`: entre o select e o delete a row pode ter
+        // voltado para a fila ou sido reprocessada.
+        status: { in: [...SEND_HISTORY_STATUSES] },
+        updatedAt: { lt: cutoff },
       },
     })
     return count
@@ -659,6 +727,58 @@ export class PrismaWidgetOutboxRepository {
   }
 
   /**
+   * Recusa informada pelo provider depois do aceite. Não mexe em `status`: a
+   * mensagem já foi entregue ao provider e não volta para a fila.
+   *
+   * Update condicional porque o provider repete o webhook de status: só a primeira
+   * recusa é gravada, e `true` diz ao chamador que cabe a ele avisar.
+   */
+  async markRejected(
+    id: string,
+    input: { code: string | null; reason: string; at: Date },
+  ): Promise<boolean> {
+    const { count } = await prisma.thinkzapWidgetOutbox.updateMany({
+      where: { id, rejectedAt: null },
+      data: {
+        rejectedAt: input.at,
+        failureCode: input.code,
+        failureReason: input.reason.slice(0, 2000),
+      },
+    })
+
+    return count > 0
+  }
+
+  /**
+   * Liga ao aviso a row informada ou, havendo grupo, todas as partes dele. Só
+   * preenche quem ainda não tem aviso: a parte nunca troca de comentário.
+   */
+  async linkSendNotice(
+    where: { rowId: string; dispatchGroupId: string | null },
+    noticeId: string,
+  ): Promise<void> {
+    await prisma.thinkzapWidgetOutbox.updateMany({
+      where: {
+        ...(where.dispatchGroupId
+          ? { dispatchGroupId: where.dispatchGroupId }
+          : { id: where.rowId }),
+        sendNoticeId: null,
+      },
+      data: { sendNoticeId: noticeId },
+    })
+  }
+
+  /** As partes que um aviso resume, na ordem em que o disparo as montou. */
+  async findBySendNotice(noticeId: string): Promise<WidgetOutboxRecord[]> {
+    const rows = await prisma.thinkzapWidgetOutbox.findMany({
+      where: { sendNoticeId: noticeId },
+      orderBy: [{ partIndex: 'asc' }, { createdAt: 'asc' }],
+    })
+
+    return rows.map(mapRow)
+  }
+
+  /**
    * Devolve a intenção para `PENDING` sem consumir a marca de entrega.
    *
    * Para a falha **antes** da chamada ao provider: a retentativa do BullMQ precisa
@@ -683,10 +803,15 @@ export class PrismaWidgetOutboxRepository {
   /**
    * Limpeza por retenção. Só `SENT`: `FAILED` e `UNKNOWN` ficam até alguém resolver,
    * porque são exatamente as rows que descrevem mensagem que o cliente não recebeu.
+   * Poupa as rastreadas: o histórico de envios as guarda pelo prazo dele.
    */
   async deleteSentOlderThan(cutoff: Date): Promise<number> {
     const { count } = await prisma.thinkzapWidgetOutbox.deleteMany({
-      where: { status: 'SENT', createdAt: { lt: cutoff } },
+      where: {
+        status: 'SENT',
+        createdAt: { lt: cutoff },
+        NOT: TRACKED_SEND_FILTER,
+      },
     })
 
     return count

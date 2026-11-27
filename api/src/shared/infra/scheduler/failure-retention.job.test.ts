@@ -15,10 +15,15 @@ import {
 
 const NOW = new Date('2026-11-13T04:15:00Z')
 
-function makeTarget(name: string, batches: number[] = [0]) {
+function makeTarget(
+  name: string,
+  batches: number[] = [0],
+  retentionDays?: number,
+) {
   const queue = [...batches]
   return {
     name,
+    ...(retentionDays === undefined ? {} : { retentionDays }),
     deleteExpiredBatch: vi
       .fn<(cutoff: Date, limit: number) => Promise<number>>()
       .mockImplementation(() => Promise.resolve(queue.shift() ?? 0)),
@@ -57,6 +62,16 @@ describe('startFailureRetentionJob', () => {
     startFailureRetentionJob(deps)
 
     expect(schedule).not.toHaveBeenCalled()
+  })
+
+  /** Sem agendar, nenhum alvo (nem o de 90 dias) chega a ser chamado. */
+  it('desligado não apaga nada, nem o histórico', () => {
+    const history = makeTarget('histórico de envios', [1], 90)
+    const { deps } = makeDeps({ enabled: false, targets: [history] })
+
+    startFailureRetentionJob(deps)
+
+    expect(history.deleteExpiredBatch).not.toHaveBeenCalled()
   })
 
   it('ligado agenda uma vez por dia, de madrugada', () => {
@@ -110,6 +125,41 @@ describe('runFailureRetention', () => {
     expect(target.deleteExpiredBatch.mock.calls[0]![0]).toEqual(
       new Date('2026-10-29T04:15:00Z'),
     )
+  })
+
+  it('o alvo com prazo próprio usa o corte dele e os demais o do job', async () => {
+    const failures = makeTarget('envios com falha')
+    const history = makeTarget('histórico de envios', [0], 90)
+    const { deps } = makeDeps({ targets: [failures, history] })
+
+    await runFailureRetention(deps)
+
+    expect(failures.deleteExpiredBatch.mock.calls[0]![0]).toEqual(
+      new Date('2026-11-06T04:15:00Z'),
+    )
+    expect(history.deleteExpiredBatch.mock.calls[0]![0]).toEqual(
+      new Date('2026-08-15T04:15:00Z'),
+    )
+  })
+
+  it('a ordem dos alvos é mantida: o histórico antes dos avisos que ele referencia', async () => {
+    const order: string[] = []
+    const mk = (name: string) => ({
+      name,
+      deleteExpiredBatch: vi
+        .fn<(cutoff: Date, limit: number) => Promise<number>>()
+        .mockImplementation(() => {
+          order.push(name)
+          return Promise.resolve(0)
+        }),
+    })
+    const { deps } = makeDeps({
+      targets: [mk('histórico de envios'), mk('avisos de envio')],
+    })
+
+    await runFailureRetention(deps)
+
+    expect(order).toEqual(['histórico de envios', 'avisos de envio'])
   })
 
   /** Muito volume vencido: vários lotes, nunca uma operação longa. */

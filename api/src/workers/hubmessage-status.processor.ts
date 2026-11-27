@@ -1,5 +1,8 @@
 import { env } from '@/config/env'
-import type { HubMessageStatusEnvelope } from '@/modules/thinkzap/domain/interfaces/hubmessage-events.interface'
+import {
+  findStatusStateItem,
+  type HubMessageStatusEnvelope,
+} from '@/modules/thinkzap/domain/interfaces/hubmessage-events.interface'
 import type { AppendJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { noopJobLog } from '@/modules/thinkzap/domain/ports/job-log.port'
 import { ensureBitrixBotId } from '@/modules/thinkzap/application/ensure-bitrix-bot-id'
@@ -9,6 +12,12 @@ import { PrismaInstanceRepository } from '@/modules/thinkzap/infra/persistence/r
 import { PrismaThinkzapMessageRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-thinkzap-message.repository'
 import { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { reportSmsMessageStatus } from '@/modules/thinkzap/application/report-sms-message-status'
+import {
+  recordDeliveryRejection,
+  REJECTION_RETRY_DELAYS_MS,
+} from '@/modules/thinkzap/application/record-delivery-rejection'
+import { makePublishSendState } from '@/modules/thinkzap/main/make-send-notice-deps'
+import { enqueueThinkzapInboundJob } from '@/queue/thinkzap-inbound.queue'
 import { redisConnection } from '@/queue/redis-connection'
 import { thinkzapAppCodeId } from '@/shared/app-catalog/app-catalog'
 import { makeInstallationLocaleRepository } from '@/modules/thinkzap/main/make-installation-locale'
@@ -25,8 +34,16 @@ import { PrismaDomainRepository } from '@/shared/infra/persistence/repositories/
  */
 export async function processHubMessageDeliveryStatus(
   envelope: HubMessageStatusEnvelope,
-  deps: { appendJobLog: AppendJobLog } = { appendJobLog: noopJobLog },
+  deps: {
+    appendJobLog: AppendJobLog
+    /** Do job em curso, para a nova tentativa seguir no mesmo rastro do Loki. */
+    traceKey: string
+    recordOnlyAttempt?: number
+  } = { appendJobLog: noopJobLog, traceKey: '' },
 ): Promise<void> {
+  const outboxRepo = new PrismaWidgetOutboxRepository()
+  const publish = makePublishSendState()
+
   const useCase = new ProcessHubMessageDeliveryStatusUseCase({
     instanceRepo: new PrismaInstanceRepository(),
     messageRepo: new PrismaThinkzapMessageRepository(),
@@ -51,7 +68,29 @@ export async function processHubMessageDeliveryStatus(
         domainId,
         thinkzapAppCodeId(),
       ),
-    outboxRepo: new PrismaWidgetOutboxRepository(),
+    outboxRepo,
+    recordRejection: input =>
+      recordDeliveryRejection(input, {
+        outbox: outboxRepo,
+        publish,
+        now: () => new Date(),
+      }),
+    retryRecording: async ({ message }, nextAttempt) => {
+      await enqueueThinkzapInboundJob(
+        {
+          source: 'hubmessage-status',
+          type: findStatusStateItem({ message })?.type ?? 'MESSAGE_DELIVERY',
+          body: message as unknown as Record<string, unknown>,
+          traceKey: deps.traceKey,
+          recordOnlyAttempt: nextAttempt,
+        },
+        {
+          // O `_id` vem de fora, e o BullMQ rejeita ':' em jobId custom.
+          jobId: `hubmessage-status-retry-${message._id.replaceAll(':', '-')}-${nextAttempt}`,
+          delay: REJECTION_RETRY_DELAYS_MS[nextAttempt - 1],
+        },
+      )
+    },
     /**
      * `delivered` / `undelivered` na tela de campanha. Só a linha oficial passa por
      * aqui, e é por isso que só ela tem estes dois status — a Z-API não confirma
@@ -73,5 +112,8 @@ export async function processHubMessageDeliveryStatus(
     },
   })
 
-  await useCase.execute(envelope, deps)
+  await useCase.execute(envelope, {
+    appendJobLog: deps.appendJobLog,
+    recordOnlyAttempt: deps.recordOnlyAttempt,
+  })
 }
