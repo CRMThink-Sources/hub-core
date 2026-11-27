@@ -1,6 +1,8 @@
 import {
+  PublishedComment,
   SendNotification,
   SendNotificationInput,
+  TimelineCommentPublisher,
 } from '../data/contracts/send-notification'
 import { BitrixClient } from '../infra/clients/bitrix.client'
 import { apiLogger } from '../infra/logger'
@@ -42,9 +44,35 @@ export function isAuthorRefusal(error: unknown): boolean {
   return REFUSAL_PATTERN.test(text)
 }
 
-type CommentResponse = { error?: string; error_description?: string } | null
+type CommentResponse = {
+  result?: number | string
+  error?: string
+  error_description?: string
+} | null
 
-export class BitrixLivefeedNotificationService implements SendNotification {
+/**
+ * Só o código exato: `ERROR_METHOD_NOT_FOUND` e `OWNER_NOT_FOUND` contêm o mesmo
+ * texto e não dizem que o comentário sumiu. O `BitrixClient` lança com o corpo da
+ * resposta serializado na mensagem.
+ */
+const COMMENT_GONE_PATTERN = /"error"\s*:\s*"NOT_FOUND"/
+
+function isCommentGone(error: unknown): boolean {
+  return error instanceof Error && COMMENT_GONE_PATTERN.test(error.message)
+}
+
+/** `null` = o Bitrix não devolveu um id utilizável. */
+function publishedComment(
+  response: CommentResponse | undefined,
+  asAuthor: boolean,
+): PublishedComment | null {
+  const id = response?.result
+  return id ? { commentId: String(id), asAuthor } : null
+}
+
+export class BitrixLivefeedNotificationService
+  implements SendNotification, TimelineCommentPublisher
+{
   constructor(
     private readonly bitrixClient: BitrixClient,
     private readonly resolveAuthor?: TimelineAuthorResolver,
@@ -53,6 +81,12 @@ export class BitrixLivefeedNotificationService implements SendNotification {
   ) {}
 
   async execute(input: SendNotificationInput): Promise<void> {
+    await this.publish(input)
+  }
+
+  async publish(
+    input: SendNotificationInput,
+  ): Promise<PublishedComment | null> {
     const { contextId, entity, message, authorBitrixUserId } = input
 
     const entityId = Number(contextId)
@@ -61,14 +95,14 @@ export class BitrixLivefeedNotificationService implements SendNotification {
         '[BitrixLivefeedNotificationService] Invalid entityId:',
         contextId,
       )
-      return
+      return null
     }
 
     const fieldsFor = (comment: string) => ({
       fields: {
         ENTITY_ID: entityId,
         ENTITY_TYPE: entity.toUpperCase(),
-        COMMENT: withBrandIcon(comment, this.brandIconUrl),
+        COMMENT: this.decorate(comment),
       },
     })
 
@@ -76,47 +110,135 @@ export class BitrixLivefeedNotificationService implements SendNotification {
       authorBitrixUserId,
       fieldsFor(message),
     )
-    if (asAuthor === 'published') return
-    if (asAuthor === 'failed') return
+    if (asAuthor !== 'fallback') return asAuthor
 
     try {
-      await this.bitrixClient.callMethod(
+      const response = await this.bitrixClient.callMethod<CommentResponse>(
         'crm.timeline.comment.add',
         fieldsFor(await this.withSender(message, input)),
       )
+      if (response?.error) {
+        apiLogger.warn(
+          { entity, entityId, reason: response.error },
+          'Bitrix recusou o comentário de timeline da instalação',
+        )
+        return null
+      }
       apiLogger.info(
         { entity, entityId, authorMode: 'installation' },
         'Comentário de timeline publicado com a credencial da instalação',
       )
+      return publishedComment(response, false)
     } catch (error) {
       console.error(
         '[BitrixLivefeedNotificationService] Failed to add timeline comment:',
         error,
       )
+      return null
     }
   }
 
+  async update(
+    input: SendNotificationInput & PublishedComment,
+  ): Promise<boolean> {
+    const { commentId, asAuthor, authorBitrixUserId, message } = input
+    const paramsFor = (comment: string) => ({
+      id: Number(commentId),
+      fields: { COMMENT: this.decorate(comment) },
+    })
+
+    if (asAuthor) {
+      const outcome = await this.updateAsAuthor(
+        authorBitrixUserId,
+        paramsFor(message),
+      )
+      if (outcome !== 'fallback') return outcome === 'updated'
+    }
+
+    // Editar é idempotente: o que não for "não existe" sobe para quem chamou tentar
+    // de novo.
+    let response: CommentResponse
+    try {
+      response = await this.bitrixClient.callMethod<CommentResponse>(
+        'crm.timeline.comment.update',
+        paramsFor(await this.withSender(message, input)),
+      )
+    } catch (error) {
+      if (isCommentGone(error)) return false
+      throw error
+    }
+    if (response?.error === 'NOT_FOUND') return false
+    if (response?.error) {
+      throw new Error(
+        `Bitrix crm.timeline.comment.update: ${response.error} ${response.error_description ?? ''}`,
+      )
+    }
+    return true
+  }
+
   /**
-   * `published`: o comentário já está na timeline, em nome do autor.
-   * `failed`: falha ambígua; não repete (poderia duplicar).
-   * `fallback`: não deu para publicar como o autor, e é seguro tentar com a instalação.
+   * `updated`: editado em nome do autor. `gone`: o comentário não existe mais.
+   * `fallback`: o autor não pode editar, e vale tentar com a instalação.
+   * Qualquer outra falha lança.
    */
-  private async publishAsAuthor(
+  private async updateAsAuthor(
     authorBitrixUserId: string | undefined,
     params: Record<string, unknown>,
-  ): Promise<'published' | 'failed' | 'fallback'> {
-    if (!authorBitrixUserId || !this.resolveAuthor) return 'fallback'
+  ): Promise<'updated' | 'gone' | 'fallback'> {
+    if (!authorBitrixUserId) return 'fallback'
+    const client = await this.authorClient(authorBitrixUserId)
+    if (!client) return 'fallback'
 
-    let client: Pick<BitrixClient, 'callMethod'> | null
+    let response: CommentResponse
     try {
-      client = await this.resolveAuthor(authorBitrixUserId)
+      response = await client.callMethod<CommentResponse>(
+        'crm.timeline.comment.update',
+        params,
+      )
+    } catch (error) {
+      if (isCommentGone(error)) return 'gone'
+      if (isAuthorRefusal(error)) return this.refused(authorBitrixUserId)
+      throw error
+    }
+    if (!response?.error) return 'updated'
+    if (response.error === 'NOT_FOUND') return 'gone'
+
+    const reason = `${response.error} ${response.error_description ?? ''}`
+    if (isAuthorRefusal(reason)) return this.refused(authorBitrixUserId)
+    throw new Error(`Bitrix crm.timeline.comment.update: ${reason}`)
+  }
+
+  private decorate(comment: string): string {
+    return withBrandIcon(comment, this.brandIconUrl)
+  }
+
+  /** `null` = sem token utilizável do remetente. */
+  private async authorClient(
+    authorBitrixUserId: string,
+  ): Promise<Pick<BitrixClient, 'callMethod'> | null> {
+    if (!this.resolveAuthor) return null
+    try {
+      return await this.resolveAuthor(authorBitrixUserId)
     } catch (error) {
       apiLogger.warn(
         { authorBitrixUserId, err: error },
         'Token do remetente indisponível: comentário segue com a credencial da instalação',
       )
-      return 'fallback'
+      return null
     }
+  }
+
+  /**
+   * `PublishedComment`: o comentário já está na timeline, em nome do autor.
+   * `null`: falha ambígua (ou resposta sem id); não repete (poderia duplicar).
+   * `fallback`: não deu para publicar como o autor, e é seguro tentar com a instalação.
+   */
+  private async publishAsAuthor(
+    authorBitrixUserId: string | undefined,
+    params: Record<string, unknown>,
+  ): Promise<PublishedComment | null | 'fallback'> {
+    if (!authorBitrixUserId) return 'fallback'
+    const client = await this.authorClient(authorBitrixUserId)
     if (!client) return 'fallback'
 
     try {
@@ -131,20 +253,20 @@ export class BitrixLivefeedNotificationService implements SendNotification {
           { authorBitrixUserId, reason },
           'Bitrix recusou o comentário do remetente por motivo ambíguo; não será repetido',
         )
-        return 'failed'
+        return null
       }
       apiLogger.info(
         { authorBitrixUserId, authorMode: 'operator' },
         'Comentário de timeline publicado em nome do remetente',
       )
-      return 'published'
+      return publishedComment(response, true)
     } catch (error) {
       if (isAuthorRefusal(error)) return this.refused(authorBitrixUserId)
       console.error(
         '[BitrixLivefeedNotificationService] Failed to add timeline comment:',
         error,
       )
-      return 'failed'
+      return null
     }
   }
 

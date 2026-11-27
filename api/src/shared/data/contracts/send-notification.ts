@@ -19,3 +19,19 @@ export interface SendNotificationInput {
 export interface SendNotification {
   execute(input: SendNotificationInput): Promise<void>
 }
+
+/**
+ * Comentário já na timeline. `asAuthor` diz com qual credencial ele saiu, para a
+ * edição usar a mesma.
+ */
+export type PublishedComment = { commentId: string; asAuthor: boolean }
+
+export interface TimelineCommentPublisher {
+  /**
+   * `null` = não há comentário para editar depois. Não significa que ele não saiu:
+   * numa falha ambígua o Bitrix pode ter gravado, então não publique de novo.
+   */
+  publish(input: SendNotificationInput): Promise<PublishedComment | null>
+  /** `false` = o comentário não existe mais. Falha temporária lança. */
+  update(input: SendNotificationInput & PublishedComment): Promise<boolean>
+}
