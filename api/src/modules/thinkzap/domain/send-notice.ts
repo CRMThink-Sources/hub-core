@@ -47,6 +47,11 @@ export type RecipientSummary = {
   state: RecipientState
   /** A parte que explica o status, em `FAILED`, `PARTIAL` e `UNKNOWN`. */
   failedPart: SendPart | null
+  /**
+   * Alguma parte ficou sem confirmação, qualquer que seja o estado: uma falha ao
+   * lado não pode esconder o "confira antes de reenviar".
+   */
+  hasUnconfirmed: boolean
 }
 
 const isFailed = (part: SendPart) =>
@@ -57,6 +62,8 @@ const isQueued = (part: SendPart) =>
 
 function summarize(destination: string, parts: SendPart[]): RecipientSummary {
   const failed = parts.find(isFailed)
+  const unknown = parts.find(part => part.status === 'UNKNOWN')
+  const hasUnconfirmed = unknown !== undefined
 
   if (failed) {
     const delivered = parts.some(
@@ -66,17 +73,24 @@ function summarize(destination: string, parts: SendPart[]): RecipientSummary {
       destination,
       state: delivered ? 'PARTIAL' : 'FAILED',
       failedPart: failed,
+      hasUnconfirmed,
     }
   }
 
-  const unknown = parts.find(part => part.status === 'UNKNOWN')
-
-  if (unknown) return { destination, state: 'UNKNOWN', failedPart: unknown }
+  if (unknown) {
+    return {
+      destination,
+      state: 'UNKNOWN',
+      failedPart: unknown,
+      hasUnconfirmed,
+    }
+  }
 
   return {
     destination,
     state: parts.some(isQueued) ? 'WAITING' : 'SENT',
     failedPart: null,
+    hasUnconfirmed,
   }
 }
 

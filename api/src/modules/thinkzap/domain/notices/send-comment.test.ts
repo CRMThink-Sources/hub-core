@@ -22,30 +22,35 @@ const waiting = (destination: string): RecipientSummary => ({
   destination,
   state: 'WAITING',
   failedPart: null,
+  hasUnconfirmed: false,
 })
 
 const sent = (destination: string): RecipientSummary => ({
   destination,
   state: 'SENT',
   failedPart: null,
+  hasUnconfirmed: false,
 })
 
 const failed = (destination: string): RecipientSummary => ({
   destination,
   state: 'FAILED',
   failedPart: part(destination),
+  hasUnconfirmed: false,
 })
 
 const partial = (destination: string): RecipientSummary => ({
   destination,
   state: 'PARTIAL',
   failedPart: part(destination),
+  hasUnconfirmed: false,
 })
 
 const unknown = (destination: string): RecipientSummary => ({
   destination,
   state: 'UNKNOWN',
   failedPart: part(destination),
+  hasUnconfirmed: true,
 })
 
 const sentMany = (count: number) =>
@@ -109,7 +114,7 @@ describe('renderSendComment com um destinatário', () => {
     const text = renderSendComment(base({ recipients: [unknown('551')] }))
 
     expect(lastLine(text)).toBe(
-      '[B]Status:[/B] Sem confirmação. Confira a conversa com o contato ANTES de reenviar — ela pode ter sido entregue.',
+      '[B]Status:[/B] Sem confirmação. Confira a conversa com o contato ANTES de reenviar — a mensagem pode ter sido entregue.',
     )
   })
 
@@ -275,9 +280,181 @@ describe('renderSendComment com vários destinatários', () => {
       '5592 — Falhou: número inválido',
       '5593 — Falhou em parte: número inválido',
       '5594 — Sem confirmação',
-      'Confira a conversa com o contato ANTES de reenviar — ela pode ter sido entregue.',
+      'Confira a conversa com o contato ANTES de reenviar — a mensagem pode ter sido entregue.',
     ])
     expect(text).not.toContain('5591')
+  })
+})
+
+describe('título conforme o estado do disparo', () => {
+  const titles = [
+    {
+      locale: 'pt',
+      sent: 'Mensagem enviada',
+      robot: 'Mensagem enviada pelo robô',
+      failed: 'Falha no envio',
+      unknown: 'Envio sem confirmação',
+      neutral: 'Envio de mensagem',
+    },
+    {
+      locale: 'en',
+      sent: 'Message sent',
+      robot: 'Message sent by the robot',
+      failed: 'Send failed',
+      unknown: 'Send not confirmed',
+      neutral: 'Message send',
+    },
+    {
+      locale: 'es',
+      sent: 'Mensaje enviado',
+      robot: 'Mensaje enviado por el robot',
+      failed: 'Falla en el envío',
+      unknown: 'Envío sin confirmación',
+      neutral: 'Envío de mensaje',
+    },
+  ] as const
+
+  const title = (
+    locale: NoticeLocale,
+    recipients: RecipientSummary[],
+    automation = false,
+  ) =>
+    renderSendComment(base({ locale, recipients, automation })).split('\n')[0]
+
+  describe.each(titles)('$locale', copy => {
+    const { locale } = copy
+
+    it.each([false, true])(
+      'todos enviados afirmam o envio (robô: %s)',
+      automation => {
+        expect(title(locale, [sent('1'), sent('2')], automation)).toBe(
+          `[B]${automation ? copy.robot : copy.sent}[/B]`,
+        )
+      },
+    )
+
+    it.each([false, true])('todos com falha (robô: %s)', automation => {
+      expect(title(locale, [failed('1'), failed('2')], automation)).toBe(
+        `[B]${copy.failed}[/B]`,
+      )
+    })
+
+    it.each([false, true])('todos sem confirmação (robô: %s)', automation => {
+      expect(title(locale, [unknown('1'), unknown('2')], automation)).toBe(
+        `[B]${copy.unknown}[/B]`,
+      )
+    })
+
+    it.each<[string, RecipientSummary[]]>([
+      ['aguardando', [waiting('1')]],
+      ['parcial', [partial('1')]],
+      ['enviado e aguardando', [sent('1'), waiting('2')]],
+      ['enviado e com falha', [sent('1'), failed('2')]],
+      ['com falha e sem confirmação', [failed('1'), unknown('2')]],
+      ['sem destinatário', []],
+      [
+        'falha com parte sem confirmação',
+        [{ ...failed('1'), hasUnconfirmed: true }],
+      ],
+    ])('%s usa o título neutro, também no robô', (_, recipients) => {
+      for (const automation of [false, true]) {
+        expect(title(locale, recipients, automation)).toBe(
+          `[B]${copy.neutral}[/B]`,
+        )
+      }
+    })
+  })
+})
+
+describe('orientação de conferir antes de reenviar', () => {
+  const warnings = [
+    [
+      'pt',
+      'Confira a conversa com o contato ANTES de reenviar — a mensagem pode ter sido entregue.',
+    ],
+    [
+      'en',
+      'Check the conversation with the contact BEFORE resending — the message may have been delivered.',
+    ],
+    [
+      'es',
+      'Revise la conversación con el contacto ANTES de reenviar — el mensaje puede haber sido entregado.',
+    ],
+  ] as const
+
+  const unconfirmed = (recipient: RecipientSummary): RecipientSummary => ({
+    ...recipient,
+    hasUnconfirmed: true,
+  })
+
+  it.each(warnings)(
+    '%s: nomeia a mensagem no comentário e na notificação',
+    (locale, warning) => {
+      const comment = renderSendComment(
+        base({ locale, recipients: [unknown('1')] }),
+      )
+      const notice = renderSendAlert({
+        locale,
+        failed: 0,
+        unknown: 1,
+        reason: null,
+        recordUrl: null,
+      })
+
+      expect(comment).toContain(warning)
+      expect(notice).toContain(warning)
+    },
+  )
+
+  it.each([failed, partial])(
+    'um destinatário com falha e parte sem confirmação mantém o aviso',
+    state => {
+      const text = renderSendComment(
+        base({
+          recipients: [unconfirmed(state('551'))],
+          describeFailure: () => 'número inválido.',
+        }),
+      )
+
+      expect(lastLine(text)).toContain(`número inválido. ${warnings[0][1]}`)
+    },
+  )
+
+  it('na lista, o aviso aparece uma vez mesmo sem estado sem confirmação', () => {
+    const text = renderSendComment(
+      base({
+        recipients: [unconfirmed(failed('551')), unconfirmed(partial('552'))],
+      }),
+    )
+
+    expect(text.split(warnings[0][1])).toHaveLength(2)
+    expect(lastLine(text)).toBe(warnings[0][1])
+  })
+
+  it('sem parte sem confirmação não há aviso', () => {
+    const text = renderSendComment(
+      base({ recipients: [failed('551'), partial('552')] }),
+    )
+
+    expect(text).not.toContain('ANTES de reenviar')
+  })
+
+  it('com 21 destinatários resume e mantém o aviso', () => {
+    const text = renderSendComment(
+      base({
+        recipients: [...sentMany(20), unconfirmed(failed('5599'))],
+      }),
+    )
+
+    expect(text.split('\n').slice(-5)).toEqual([
+      '[B]Status:[/B]',
+      'Enviado: 20',
+      'Falhou: 1',
+      '5599 — Falhou: número inválido',
+      warnings[0][1],
+    ])
+    expect(text).toContain('[B]Para:[/B] 21')
+    expect(text).not.toContain(sentMany(20)[0]!.destination)
   })
 })
 
@@ -348,7 +525,7 @@ describe('renderSendComment por idioma', () => {
       base({ locale: 'es', recipients: [unknown('551')] }),
     )
 
-    expect(text).toContain('[B]Mensaje enviado[/B]')
+    expect(text).toContain('[B]Envío sin confirmación[/B]')
     expect(text).toContain('[B]De:[/B] 5511888888888')
     expect(lastLine(text)).toContain('Sin confirmación. Revise la conversación')
   })
@@ -397,6 +574,24 @@ describe('renderSendAlert', () => {
 
     expect(text).toContain('[B]Motivo:[/B] número inválido')
     expect(text).toContain('[URL=/crm/deal/details/9/]Abrir o registro[/URL]')
+  })
+
+  it('o motivo vem junto das falhas, antes das sem confirmação', () => {
+    const text = alert({
+      failed: 2,
+      unknown: 1,
+      reason: 'número inválido',
+      recordUrl: '/crm/deal/details/9/',
+    })
+
+    expect(text.split('\n')).toEqual([
+      '[B]ThinkZap: confira o envio[/B]',
+      'Destinatários com falha no envio: 2',
+      '[B]Motivo:[/B] número inválido',
+      'Destinatários sem confirmação de envio: 1',
+      'Confira a conversa com o contato ANTES de reenviar — a mensagem pode ter sido entregue.',
+      '[URL=/crm/deal/details/9/]Abrir o registro[/URL]',
+    ])
   })
 
   it('sem motivo único e sem registro, omite as duas linhas', () => {

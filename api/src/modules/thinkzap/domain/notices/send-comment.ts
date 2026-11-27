@@ -27,7 +27,7 @@ const DETAILED_RECIPIENTS_LIMIT = 20
 export type SendCommentInput = {
   locale: NoticeLocale
   kind: 'message' | 'template' | 'buttons'
-  /** Disparo de robô do Bizproc; muda o título. */
+  /** Disparo de robô do Bizproc; muda o título de envio concluído. */
   automation: boolean
   fromPhone: string
   template?: { name: string; language: string }
@@ -41,6 +41,10 @@ export type SendCommentInput = {
 type SendCopy = {
   status: string
   states: Record<RecipientState, string>
+  /** Título quando o disparo não tem um desfecho único para afirmar. */
+  neutralTitle: string
+  /** Nomeia a mensagem: a do widget usa "ela", logo abaixo do texto citado. */
+  unknownAction: string
   alertTitle: string
   alertFailed: string
   alertUnknown: string
@@ -58,6 +62,9 @@ const COPY: Record<NoticeLocale, SendCopy> = {
       PARTIAL: 'Falhou em parte',
       UNKNOWN: 'Sem confirmação',
     },
+    neutralTitle: 'Envio de mensagem',
+    unknownAction:
+      'Confira a conversa com o contato ANTES de reenviar — a mensagem pode ter sido entregue.',
     alertTitle: 'ThinkZap: confira o envio',
     alertFailed: 'Destinatários com falha no envio',
     alertUnknown: 'Destinatários sem confirmação de envio',
@@ -73,6 +80,9 @@ const COPY: Record<NoticeLocale, SendCopy> = {
       PARTIAL: 'Partially failed',
       UNKNOWN: 'Not confirmed',
     },
+    neutralTitle: 'Message send',
+    unknownAction:
+      'Check the conversation with the contact BEFORE resending — the message may have been delivered.',
     alertTitle: 'ThinkZap: check this send',
     alertFailed: 'Recipients with a failed send',
     alertUnknown: 'Recipients with an unconfirmed send',
@@ -88,6 +98,9 @@ const COPY: Record<NoticeLocale, SendCopy> = {
       PARTIAL: 'Falló en parte',
       UNKNOWN: 'Sin confirmación',
     },
+    neutralTitle: 'Envío de mensaje',
+    unknownAction:
+      'Revise la conversación con el contacto ANTES de reenviar — el mensaje puede haber sido entregado.',
     alertTitle: 'ThinkZap: revise el envío',
     alertFailed: 'Destinatarios con falla en el envío',
     alertUnknown: 'Destinatarios sin confirmación de envío',
@@ -129,8 +142,7 @@ function stateTotals({ locale, recipients }: SendCommentInput): string[] {
 
 /** Rodapé: o status é sempre o fim do comentário. */
 function statusLines(input: SendCommentInput): string[] {
-  const { status } = COPY[input.locale]
-  const { unknownAction } = timelineLabels(input.locale)
+  const { status, unknownAction } = COPY[input.locale]
   const [only, ...others] = input.recipients
 
   if (only && others.length === 0) {
@@ -138,7 +150,10 @@ function statusLines(input: SendCommentInput): string[] {
     return [
       bbField(
         status,
-        only.state === 'UNKNOWN' ? `${text}. ${unknownAction}` : text,
+        // O motivo do provedor pode já terminar em ponto.
+        only.hasUnconfirmed
+          ? `${text.replace(/\.+$/, '')}. ${unknownAction}`
+          : text,
       ),
     ]
   }
@@ -155,10 +170,28 @@ function statusLines(input: SendCommentInput): string[] {
     ...(summarized ? stateTotals(input) : []),
     ...detailed.map(recipient => recipientLine(input, recipient)),
     // Uma vez só: repetida em cada linha, a orientação afogaria a lista.
-    ...(input.recipients.some(r => r.state === 'UNKNOWN')
-      ? [unknownAction]
-      : []),
+    ...(input.recipients.some(r => r.hasUnconfirmed) ? [unknownAction] : []),
   ]
+}
+
+/** O título só afirma um desfecho que vale para todos os destinatários. */
+function commentTitle({
+  locale,
+  automation,
+  recipients,
+}: SendCommentInput): string {
+  const labels = timelineLabels(locale)
+  // `every` é verdadeiro em lista vazia, que não tem desfecho nenhum.
+  const all = (state: RecipientState) =>
+    recipients.length > 0 && recipients.every(r => r.state === state)
+
+  if (all('SENT')) return automation ? labels.robotTitle : labels.sentTitle
+  // "Falha no envio" convidaria a reenviar o que talvez tenha saído.
+  if (all('FAILED') && !recipients.some(r => r.hasUnconfirmed)) {
+    return labels.failedTitle
+  }
+  if (all('UNKNOWN')) return labels.unknownTitle
+  return COPY[locale].neutralTitle
 }
 
 export function renderSendComment(input: SendCommentInput): string {
@@ -170,7 +203,7 @@ export function renderSendComment(input: SendCommentInput): string {
       : String(input.recipients.length)
 
   return bbLines([
-    bbTitle(input.automation ? labels.robotTitle : labels.sentTitle),
+    bbTitle(commentTitle(input)),
     bbField(labels.from, input.fromPhone),
     bbField(labels.to, to),
     input.template
@@ -200,10 +233,11 @@ export function renderSendAlert(input: {
   return bbLines([
     bbTitle(copy.alertTitle),
     input.failed > 0 ? `${copy.alertFailed}: ${input.failed}` : undefined,
+    // O motivo é das falhas: fica colado nelas, e não nas sem confirmação.
+    input.reason ? bbField(copy.reason, singleLine(input.reason)) : undefined,
     // Sem confirmação não é falha: a mensagem pode ter saído.
     input.unknown > 0 ? `${copy.alertUnknown}: ${input.unknown}` : undefined,
-    input.reason ? bbField(copy.reason, singleLine(input.reason)) : undefined,
-    input.unknown > 0 ? timelineLabels(input.locale).unknownAction : undefined,
+    input.unknown > 0 ? copy.unknownAction : undefined,
     url ? `[URL=${url}]${copy.openRecord}[/URL]` : undefined,
   ])
 }

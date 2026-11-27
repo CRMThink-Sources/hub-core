@@ -111,8 +111,51 @@ describe('summarizeRecipients', () => {
     expect(
       summarizeRecipients([part({ status: 'SENT' }), part({ status: 'SENT' })]),
     ).toEqual([
-      { destination: '5511999999999', state: 'SENT', failedPart: null },
+      {
+        destination: '5511999999999',
+        state: 'SENT',
+        failedPart: null,
+        hasUnconfirmed: false,
+      },
     ])
+  })
+
+  it('parte sem confirmação fica marcada mesmo quando a falha define o estado', () => {
+    for (const other of ['FAILED', 'SENT'] as const) {
+      const [r] = summarizeRecipients([
+        part({ status: 'UNKNOWN' }),
+        part({
+          status: other,
+          rejectedAt: other === 'SENT' ? new Date() : null,
+        }),
+      ])
+      expect(r!.hasUnconfirmed).toBe(true)
+    }
+    const [partial] = summarizeRecipients([
+      part({ status: 'SENT' }),
+      part({ status: 'FAILED' }),
+      part({ status: 'UNKNOWN' }),
+    ])
+    expect(partial!.state).toBe('PARTIAL')
+    expect(partial!.hasUnconfirmed).toBe(true)
+  })
+
+  it('só sem confirmação marca hasUnconfirmed', () => {
+    expect(
+      summarizeRecipients([part({ status: 'UNKNOWN' })])[0]!.hasUnconfirmed,
+    ).toBe(true)
+    for (const status of ['PENDING', 'SENDING', 'SENT', 'FAILED'] as const) {
+      const [r] = summarizeRecipients([part({ status })])
+      expect(r!.hasUnconfirmed).toBe(false)
+    }
+  })
+
+  it('a marca é por destinatário', () => {
+    const summary = summarizeRecipients([
+      part({ destination: 'a', status: 'UNKNOWN' }),
+      part({ destination: 'b', status: 'SENT' }),
+    ])
+    expect(summary.map(r => r.hasUnconfirmed)).toEqual([true, false])
   })
 
   it('agrupa por destino na ordem da primeira aparição', () => {
