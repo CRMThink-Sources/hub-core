@@ -213,9 +213,23 @@ thinkzapInboundWorker.on('failed', (job, err) => {
   )
 })
 
+/**
+ * A retentativa só de registro do status da HubMessage volta para todo envio fora do
+ * outbox (resposta do operador, bot), o caso comum de Entregue e Lido: em info, cada
+ * mensagem enviada somaria linhas de active/completed sem nada a dizer.
+ */
+export function jobLifecycleLogLevel(
+  data: ThinkzapInboundJob | undefined,
+): 'info' | 'debug' {
+  return data?.source === 'hubmessage-status' &&
+    data.recordOnlyAttempt !== undefined
+    ? 'debug'
+    : 'info'
+}
+
 thinkzapInboundWorker.on('completed', job => {
   const data = job?.data as ThinkzapInboundJob | undefined
-  workerLogger.info(
+  workerLogger[jobLifecycleLogLevel(data)](
     {
       event: 'worker.job.completed',
       app: 'thinkzap',
@@ -231,7 +245,7 @@ thinkzapInboundWorker.on('completed', job => {
 
 thinkzapInboundWorker.on('active', job => {
   const data = job?.data as ThinkzapInboundJob | undefined
-  workerLogger.info(
+  workerLogger[jobLifecycleLogLevel(data)](
     {
       event: 'worker.job.active',
       app: 'thinkzap',

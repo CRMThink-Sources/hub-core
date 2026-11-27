@@ -1,9 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+/**
+ * Logger compartilhado para os testes poderem ver o nível usado. O caminho sem outbox
+ * (resposta do operador, bot) é o caso comum e não pode subir de debug.
+ */
+const logger = vi.hoisted(() => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}))
+
+vi.mock('@/shared/infra/logger', () => ({
+  createWorkerSourceLogger: () => logger,
+}))
+
 import type { HubMessageStatusEnvelope } from '@/modules/thinkzap/domain/interfaces/hubmessage-events.interface'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
+import type { WidgetOutboxRecord } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import {
   ProcessHubMessageDeliveryStatusUseCase,
+  type FindOutboxByProviderId,
   type ProcessHubMessageDeliveryStatusDeps,
 } from './process-hubmessage-delivery-status.use-case'
 import type { ProgressResult } from './record-delivery-progress'
@@ -611,16 +628,24 @@ describe('ProcessHubMessageDeliveryStatusUseCase registro de Entregue e Lido', (
         >()
         .mockResolvedValue(),
       outboxRepo: {
-        findByProviderMessageId: vi.fn().mockResolvedValue({
-          smsSenderCode: 'thinkzap_sms_4821',
-          smsMessageId: 'sms-1',
-        }),
+        findByProviderMessageId: vi
+          .fn<FindOutboxByProviderId['findByProviderMessageId']>()
+          .mockResolvedValue({
+            smsSenderCode: 'thinkzap_sms_4821',
+            smsMessageId: 'sms-1',
+          } as WidgetOutboxRecord),
       },
-      reportSmsStatus: vi.fn().mockResolvedValue(undefined),
+      reportSmsStatus: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['reportSmsStatus']>
+        >()
+        .mockResolvedValue(),
     }
 
     return { ...makeDeps({ ...recording, ...overrides }), recording }
   }
+
+  beforeEach(() => vi.clearAllMocks())
 
   it('RECEIVED registra a entrega e segue para a campanha como hoje', async () => {
     const { useCase, deps, recording } = makeProgressDeps()
@@ -723,5 +748,48 @@ describe('ProcessHubMessageDeliveryStatusUseCase registro de Entregue e Lido', (
     expect(deps.notifyOperator).not.toHaveBeenCalled()
     expect(deps.messageRepo.findByProviderMessageId).not.toHaveBeenCalled()
     expect(recording.reportSmsStatus).not.toHaveBeenCalled()
+  })
+
+  it('execução só de registro de um RECEIVED grava e para antes da campanha', async () => {
+    const { useCase, deps, recording } = makeProgressDeps('recorded')
+
+    await useCase.execute(makeProgressEnvelope('RECEIVED'), {
+      appendJobLog,
+      recordOnlyAttempt: 1,
+    })
+
+    expect(recording.recordProgress).toHaveBeenCalledOnce()
+    expect(recording.recordRejection).not.toHaveBeenCalled()
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+    expect(recording.reportSmsStatus).not.toHaveBeenCalled()
+    expect(deps.messageRepo.findByProviderMessageId).not.toHaveBeenCalled()
+  })
+
+  /** Resposta do operador está no outbox mas não é acompanhada: não há o que esperar. */
+  it('envio não acompanhado não agenda nova tentativa', async () => {
+    const { useCase, recording } = makeProgressDeps('untracked')
+
+    await useCase.execute(makeProgressEnvelope('READ'), { appendJobLog })
+
+    expect(recording.recordProgress).toHaveBeenCalledOnce()
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+  })
+
+  it('desistir de um progresso sem row só loga em debug', async () => {
+    const { useCase, recording } = makeProgressDeps('row-missing')
+
+    await useCase.execute(makeProgressEnvelope('READ'), {
+      appendJobLog,
+      recordOnlyAttempt: 2,
+    })
+
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+    expect(logger.info).not.toHaveBeenCalled()
+    expect(logger.warn).not.toHaveBeenCalled()
+    expect(logger.error).not.toHaveBeenCalled()
+    expect(logger.debug).toHaveBeenCalledWith(
+      expect.objectContaining({ progressNotRecorded: true }),
+      expect.any(String),
+    )
   })
 })

@@ -74,7 +74,7 @@ vi.mock('@/shared/infra/logger', () => ({
   },
 }))
 
-import './thinkzap-inbound.worker'
+import { jobLifecycleLogLevel } from './thinkzap-inbound.worker'
 
 const run = (type: string, attemptsMade = 0) =>
   m.captured.fn!(
@@ -152,4 +152,36 @@ describe('despacho de jobs bitrix do thinkzap-inbound', () => {
       )
     },
   )
+})
+
+describe('nível do log de ciclo de vida do job', () => {
+  it.each([
+    ['retentativa de registro de status', { recordOnlyAttempt: 1 }, 'debug'],
+    ['status original', {}, 'info'],
+  ] as const)('%s', (_, extra, level) => {
+    expect(
+      jobLifecycleLogLevel({
+        source: 'hubmessage-status',
+        type: 'MessageStatusCallback',
+        traceKey: 't',
+        body: {},
+        ...extra,
+      }),
+    ).toBe(level)
+  })
+
+  it('outras origens seguem em info', () => {
+    expect(
+      jobLifecycleLogLevel({
+        source: 'bitrix',
+        type: 'ONIMCONNECTORMESSAGEADD',
+        traceKey: 't',
+        body: {},
+      } as Parameters<typeof jobLifecycleLogLevel>[0]),
+    ).toBe('info')
+  })
+
+  it('sem dados do job segue em info', () => {
+    expect(jobLifecycleLogLevel(undefined)).toBe('info')
+  })
 })

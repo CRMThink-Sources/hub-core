@@ -59,12 +59,27 @@ export function retryDelaysFor(
     : REJECTION_RETRY_DELAYS_MS
 }
 
-/** `moment` do callback vem em segundos (amostras reais de RECEIVED e READ). */
-function momentOf(stateItem: HubMessageStateItem | undefined): Date | null {
+/** Antes disto o canal oficial nem existia para nós: valor assim é unidade errada. */
+const EARLIEST_PLAUSIBLE_MS = Date.UTC(2020, 0, 1)
+/** Folga para relógio adiantado do provider. */
+const MAX_FUTURE_SKEW_MS = 86_400_000
+
+/**
+ * `moment` do callback vem em segundos (amostras reais de RECEIVED e READ). Valor fora
+ * da janela plausível (em milissegundos, por exemplo, cairia em outro milênio) vira
+ * `null` e o chamador usa o relógio: um horário absurdo no comentário do CRM é pior
+ * que alguns segundos de diferença.
+ */
+function momentOf(
+  stateItem: HubMessageStateItem | undefined,
+  now: Date,
+): Date | null {
   const moment = stateItem?.moment
-  if (typeof moment !== 'number' || !Number.isFinite(moment) || moment <= 0)
-    return null
-  return new Date(moment * 1000)
+  if (typeof moment !== 'number' || !Number.isFinite(moment)) return null
+  const ms = moment * 1000
+  if (ms < EARLIEST_PLAUSIBLE_MS) return null
+  if (ms > now.getTime() + MAX_FUTURE_SKEW_MS) return null
+  return new Date(ms)
 }
 
 /**
@@ -119,7 +134,8 @@ export async function recordDeliveryProgress(
     )
   }
 
-  const at = momentOf(input.stateItem) ?? deps.now()
+  const now = deps.now()
+  const at = momentOf(input.stateItem, now) ?? now
   const recorded =
     kind === 'read'
       ? await deps.outbox.markRead(row.id, at)

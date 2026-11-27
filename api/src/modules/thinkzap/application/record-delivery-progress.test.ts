@@ -133,6 +133,20 @@ describe('recordDeliveryProgress', () => {
     expect(deps.outbox.markRead).not.toHaveBeenCalled()
   })
 
+  /** `NOW` = 2026-11-27T12:00Z; a janela aceita de 2020-01-01 até um dia depois. */
+  it.each([
+    ['em milissegundos', MOMENT_S * 1000, NOW],
+    ['muito no futuro', NOW.getTime() / 1000 + 2 * 86_400, NOW],
+    ['antes de 2020', 1_500_000_000, NOW],
+    ['válido', MOMENT_S, new Date(MOMENT_S * 1000)],
+  ])('moment %s', async (_, moment, expected) => {
+    const deps = makeDeps()
+
+    await recordDeliveryProgress(input({ ...receivedItem, moment }), deps)
+
+    expect(deps.outbox.markDelivered).toHaveBeenCalledWith('outbox-1', expected)
+  })
+
   it('sem moment válido usa o relógio', async () => {
     const deps = makeDeps()
 

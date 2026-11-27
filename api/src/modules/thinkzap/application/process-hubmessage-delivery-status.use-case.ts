@@ -183,7 +183,15 @@ export class ProcessHubMessageDeliveryStatusUseCase {
       recipient: message.recipient?.identifier,
     }
 
-    log.info(logContext, 'Processing HubMessage delivery status')
+    /**
+     * A retentativa só de registro volta para todo envio que não está no outbox
+     * (resposta do operador, bot), o caso comum de Entregue e Lido: em info, cada
+     * mensagem enviada geraria mais linhas de log sem nada a dizer.
+     */
+    log[context.recordOnlyAttempt === undefined ? 'info' : 'debug'](
+      logContext,
+      'Processing HubMessage delivery status',
+    )
     await appendJobLog(
       `Status HubMessage | canal=${message.channel_id} | providerMessageId=${message._id} | ` +
         `estado=${state?.name ?? '—'} | erro=${failed ? 'sim' : 'não'}`,
