@@ -37,9 +37,9 @@ export async function processHubMessageDeliveryStatus(
   deps: {
     appendJobLog: AppendJobLog
     /** Do job em curso, para a nova tentativa seguir no mesmo rastro do Loki. */
-    traceKey?: string
+    traceKey: string
     recordOnlyAttempt?: number
-  } = { appendJobLog: noopJobLog },
+  } = { appendJobLog: noopJobLog, traceKey: '' },
 ): Promise<void> {
   const outboxRepo = new PrismaWidgetOutboxRepository()
   const publish = makePublishSendState()
@@ -81,7 +81,7 @@ export async function processHubMessageDeliveryStatus(
           source: 'hubmessage-status',
           type: findStatusStateItem({ message })?.type ?? 'MESSAGE_DELIVERY',
           body: message as unknown as Record<string, unknown>,
-          traceKey: deps.traceKey ?? '',
+          traceKey: deps.traceKey,
           recordOnlyAttempt: nextAttempt,
         },
         {

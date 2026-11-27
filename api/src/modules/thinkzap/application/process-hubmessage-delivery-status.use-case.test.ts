@@ -384,7 +384,7 @@ describe('ProcessHubMessageDeliveryStatusUseCase registro da recusa', () => {
 
   function makeRecordingDeps(
     result: RejectionResult = 'recorded',
-    overrides: Record<string, unknown> = {},
+    overrides: Partial<ProcessHubMessageDeliveryStatusDeps> = {},
   ) {
     const recording = {
       recordRejection: vi
@@ -495,7 +495,11 @@ describe('ProcessHubMessageDeliveryStatusUseCase registro da recusa', () => {
 
   it('erro no registro não impede o aviso ao chat', async () => {
     const { useCase, deps } = makeRecordingDeps('recorded', {
-      recordRejection: vi.fn().mockRejectedValue(new Error('banco fora')),
+      recordRejection: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['recordRejection']>
+        >()
+        .mockRejectedValue(new Error('banco fora')),
     })
 
     await expect(
@@ -507,7 +511,11 @@ describe('ProcessHubMessageDeliveryStatusUseCase registro da recusa', () => {
 
   it('erro ao agendar a nova tentativa não impede o aviso ao chat', async () => {
     const { useCase, deps } = makeRecordingDeps('row-missing', {
-      retryRecording: vi.fn().mockRejectedValue(new Error('redis fora')),
+      retryRecording: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['retryRecording']>
+        >()
+        .mockRejectedValue(new Error('redis fora')),
     })
 
     await expect(
@@ -515,5 +523,54 @@ describe('ProcessHubMessageDeliveryStatusUseCase registro da recusa', () => {
     ).resolves.toBeUndefined()
 
     expect(deps.notifyOperator).toHaveBeenCalledOnce()
+  })
+
+  it('erro ao gravar agenda a tentativa 1', async () => {
+    const { useCase, recording } = makeRecordingDeps('recorded', {
+      recordRejection: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['recordRejection']>
+        >()
+        .mockRejectedValue(new Error('banco fora')),
+    })
+    const envelope = makeEnvelope()
+
+    await useCase.execute(envelope, { appendJobLog })
+
+    expect(recording.retryRecording).toHaveBeenCalledWith(envelope, 1)
+  })
+
+  it('erro ao gravar na tentativa 5 não agenda e não lança', async () => {
+    const { useCase, recording } = makeRecordingDeps('recorded', {
+      recordRejection: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['recordRejection']>
+        >()
+        .mockRejectedValue(new Error('banco fora')),
+    })
+
+    await expect(
+      useCase.execute(makeEnvelope(), { appendJobLog, recordOnlyAttempt: 5 }),
+    ).resolves.toBeUndefined()
+
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+  })
+
+  it('execução só de registro que lança não avisa o chat nem reporta campanha', async () => {
+    const { useCase, deps, recording } = makeRecordingDeps('recorded', {
+      recordRejection: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['recordRejection']>
+        >()
+        .mockRejectedValue(new Error('banco fora')),
+    })
+
+    await useCase.execute(makeEnvelope(), {
+      appendJobLog,
+      recordOnlyAttempt: 2,
+    })
+
+    expect(deps.notifyOperator).not.toHaveBeenCalled()
+    expect(recording.reportSmsStatus).not.toHaveBeenCalled()
   })
 })

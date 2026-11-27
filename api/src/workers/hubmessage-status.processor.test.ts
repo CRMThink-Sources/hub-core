@@ -112,6 +112,7 @@ describe('processHubMessageDeliveryStatus nova tentativa de registro', () => {
 
     await processHubMessageDeliveryStatus(envelope, {
       appendJobLog,
+      traceKey: 'trace-1',
       recordOnlyAttempt: 3,
     })
 

@@ -275,27 +275,9 @@ export class ProcessHubMessageDeliveryStatusUseCase {
       })
       await appendJobLog(`Registro da recusa no envio: ${result}.`)
 
-      if (result !== 'row-missing' || !this.deps.retryRecording) return
-
-      if (attempt >= REJECTION_RETRY_DELAYS_MS.length) {
-        /**
-         * `info`: mensagem que não passou pelo outbox (caminho síncrono, bot) também
-         * termina aqui, e não é defeito.
-         */
-        log.info(
-          { ...logContext, recordOnlyAttempt: attempt },
-          'Envio não encontrado no outbox; recusa não registrada',
-        )
-        await appendJobLog(
-          'Tentativas esgotadas sem achar o envio no outbox. Encerrado sem registro.',
-        )
-        return
+      if (result === 'row-missing') {
+        await this.scheduleOrGiveUp(envelope, args)
       }
-
-      await this.deps.retryRecording(envelope, attempt + 1)
-      await appendJobLog(
-        `Envio ainda não está no outbox; tentativa ${attempt + 1} de registro agendada.`,
-      )
     } catch (err) {
       log.warn(
         { ...logContext, err, rejectionNotRecorded: true },
@@ -303,6 +285,55 @@ export class ProcessHubMessageDeliveryStatusUseCase {
       )
       await appendJobLog(
         `Falha ao registrar a recusa no envio: ${err instanceof Error ? err.message : String(err)}.`,
+      )
+      /** Mesma escala da row ausente: sem isto a recusa se perderia no primeiro erro. */
+      await this.scheduleOrGiveUp(envelope, args)
+    }
+  }
+
+  /**
+   * Agenda a próxima tentativa de registro ou, esgotada a escala, encerra em log. Tem
+   * `try` próprio: Redis fora não pode derrubar o aviso ao chat.
+   */
+  private async scheduleOrGiveUp(
+    envelope: HubMessageStatusEnvelope,
+    args: {
+      logContext: Record<string, unknown>
+      appendJobLog: AppendJobLog
+      attempt: number
+    },
+  ): Promise<void> {
+    if (!this.deps.retryRecording) return
+    const { logContext, appendJobLog, attempt } = args
+
+    if (attempt >= REJECTION_RETRY_DELAYS_MS.length) {
+      /**
+       * Mensagem que não passou pelo outbox (caminho síncrono, bot) também termina
+       * aqui, e não é defeito; `rejectionNotRecorded` deixa o caso filtrável.
+       */
+      log.info(
+        {
+          ...logContext,
+          recordOnlyAttempt: attempt,
+          rejectionNotRecorded: true,
+        },
+        'Recusa não registrada: tentativas esgotadas',
+      )
+      await appendJobLog(
+        'Tentativas esgotadas sem registrar a recusa no envio. Encerrado sem registro.',
+      )
+      return
+    }
+
+    try {
+      await this.deps.retryRecording(envelope, attempt + 1)
+      await appendJobLog(
+        `Tentativa ${attempt + 1} de registro da recusa agendada.`,
+      )
+    } catch (err) {
+      log.warn(
+        { ...logContext, err, rejectionNotRecorded: true },
+        'Falha ao agendar nova tentativa de registro da recusa',
       )
     }
   }

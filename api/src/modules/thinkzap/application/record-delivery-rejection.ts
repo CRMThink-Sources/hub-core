@@ -28,8 +28,9 @@ export type RejectionResult =
  * Grava na row do outbox a recusa que a Meta informou depois do aceite, e agenda o
  * aviso do envio.
  *
- * Só publica na primeira gravação: o provedor repete o webhook de status, e cada
- * repetição não pode virar um novo alerta a quem enviou.
+ * Publica também na repetição (`duplicate`): se a primeira gravação perdeu o aviso,
+ * a reentrega o recupera. A publicação é idempotente (o aviso sai de `ensure` e o
+ * alerta tem chave própria), então repetir não duplica nada.
  */
 export async function recordDeliveryRejection(
   input: {
@@ -58,8 +59,6 @@ export async function recordDeliveryRejection(
     reason: buildFailureText(input.stateItem).slice(0, MAX_REASON_LENGTH),
     at: deps.now(),
   })
-  if (!recorded) return 'duplicate'
-
   await deps.publish(row.id)
-  return 'recorded'
+  return recorded ? 'recorded' : 'duplicate'
 }

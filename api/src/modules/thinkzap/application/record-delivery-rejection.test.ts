@@ -104,14 +104,14 @@ describe('recordDeliveryRejection', () => {
     )
   })
 
-  it('segunda entrega devolve duplicate sem publicar', async () => {
+  it('segunda entrega devolve duplicate e publica de novo', async () => {
     const deps = makeDeps(trackedRow, false)
 
     await expect(recordDeliveryRejection(input, deps)).resolves.toBe(
       'duplicate',
     )
 
-    expect(deps.publish).not.toHaveBeenCalled()
+    expect(deps.publish).toHaveBeenCalledWith('outbox-1')
   })
 
   it.each([

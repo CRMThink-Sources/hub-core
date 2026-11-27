@@ -65,13 +65,13 @@ const localeOf = (notice: SendNoticeRecord) =>
   )
 
 /**
- * O número da linha que enviou. A instância é achada pelo `instanceId` da row, que
+ * O número da linha que enviou. A instância é achada pelo `instanceId` da row (a chave primária de `Instance`), que
  * na Z-API é a instância e na linha oficial é o canal (as duas colunas guardam o
  * canal). A HubMessage não expõe leitura de canal, então a oficial usa o que está
  * gravado, como o rótulo do conector.
  */
 async function lineFromPhone(row: WidgetOutboxRecord): Promise<string> {
-  const instance = await new PrismaInstanceRepository().getInstanceByInstanceId(
+  const instance = await new PrismaInstanceRepository().getInstance(
     row.instanceId,
   )
   if (!instance) return ''
