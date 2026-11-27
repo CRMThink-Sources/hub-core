@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { HubMessageStatusEnvelope } from '@/modules/thinkzap/domain/interfaces/hubmessage-events.interface'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
-import { ProcessHubMessageDeliveryStatusUseCase } from './process-hubmessage-delivery-status.use-case'
+import {
+  ProcessHubMessageDeliveryStatusUseCase,
+  type ProcessHubMessageDeliveryStatusDeps,
+} from './process-hubmessage-delivery-status.use-case'
+import type { RejectionResult } from './record-delivery-rejection'
 
 const CHANNEL_ID = '40A14E4772D74EB78957CF0E407E695C'
 const PROVIDER_MESSAGE_ID = '01A015EEAFCA741A85FDD86E205BDD18'
@@ -372,5 +376,144 @@ describe('ProcessHubMessageDeliveryStatusUseCase idioma do aviso', () => {
     })
 
     expect(noticeOf(deps)).toContain('Sua mensagem não foi entregue')
+  })
+})
+
+describe('ProcessHubMessageDeliveryStatusUseCase registro da recusa', () => {
+  const appendJobLog = async () => {}
+
+  function makeRecordingDeps(
+    result: RejectionResult = 'recorded',
+    overrides: Record<string, unknown> = {},
+  ) {
+    const recording = {
+      recordRejection: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['recordRejection']>
+        >()
+        .mockResolvedValue(result),
+      retryRecording: vi
+        .fn<
+          NonNullable<ProcessHubMessageDeliveryStatusDeps['retryRecording']>
+        >()
+        .mockResolvedValue(),
+      outboxRepo: {
+        findByProviderMessageId: vi.fn().mockResolvedValue({
+          smsSenderCode: 'thinkzap_sms_4821',
+          smsMessageId: 'sms-1',
+        }),
+      },
+      reportSmsStatus: vi.fn().mockResolvedValue(undefined),
+    }
+
+    return { ...makeDeps({ ...recording, ...overrides }), recording }
+  }
+
+  it('recusa registra o envio e segue avisando o chat', async () => {
+    const { useCase, deps, recording } = makeRecordingDeps()
+    const envelope = makeEnvelope()
+
+    await useCase.execute(envelope, { appendJobLog })
+
+    expect(recording.recordRejection).toHaveBeenCalledWith({
+      instanceId: 'inst-db-1',
+      providerMessageId: PROVIDER_MESSAGE_ID,
+      stateItem: envelope.message.contents[0],
+    })
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+    expect(deps.notifyOperator).toHaveBeenCalledOnce()
+    expect(recording.reportSmsStatus).toHaveBeenCalledOnce()
+  })
+
+  /** Campanha e robô não gravam mensagem do canal aberto: o registro vem antes. */
+  it('registra mesmo sem mensagem do canal aberto', async () => {
+    const { useCase, recording } = makeRecordingDeps('recorded', {
+      messageRepo: { findByProviderMessageId: vi.fn().mockResolvedValue(null) },
+    })
+
+    await useCase.execute(makeEnvelope(), { appendJobLog })
+
+    expect(recording.recordRejection).toHaveBeenCalledOnce()
+  })
+
+  it('estado sem erro não grava recusa', async () => {
+    const { useCase, recording } = makeRecordingDeps()
+
+    await useCase.execute(
+      makeEnvelope({ '@class': '.Sent', name: 'DELIVERED' }),
+      { appendJobLog },
+    )
+
+    expect(recording.recordRejection).not.toHaveBeenCalled()
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+  })
+
+  it('row ausente agenda a tentativa 1', async () => {
+    const { useCase, recording } = makeRecordingDeps('row-missing')
+    const envelope = makeEnvelope()
+
+    await useCase.execute(envelope, { appendJobLog })
+
+    expect(recording.retryRecording).toHaveBeenCalledWith(envelope, 1)
+  })
+
+  it('row ainda ausente na tentativa 4 agenda a 5', async () => {
+    const { useCase, recording } = makeRecordingDeps('row-missing')
+    const envelope = makeEnvelope()
+
+    await useCase.execute(envelope, { appendJobLog, recordOnlyAttempt: 4 })
+
+    expect(recording.retryRecording).toHaveBeenCalledWith(envelope, 5)
+  })
+
+  it('tentativa 5 não agenda outra e encerra sem erro', async () => {
+    const { useCase, recording } = makeRecordingDeps('row-missing')
+
+    await expect(
+      useCase.execute(makeEnvelope(), { appendJobLog, recordOnlyAttempt: 5 }),
+    ).resolves.toBeUndefined()
+
+    expect(recording.retryRecording).not.toHaveBeenCalled()
+  })
+
+  it.each(['recorded', 'row-missing'] as const)(
+    'execução só de registro (%s) não avisa o chat nem reporta campanha',
+    async result => {
+      const { useCase, deps, recording } = makeRecordingDeps(result)
+
+      await useCase.execute(makeEnvelope(), {
+        appendJobLog,
+        recordOnlyAttempt: 1,
+      })
+
+      expect(recording.recordRejection).toHaveBeenCalledOnce()
+      expect(deps.notifyOperator).not.toHaveBeenCalled()
+      expect(deps.messageRepo.findByProviderMessageId).not.toHaveBeenCalled()
+      expect(recording.reportSmsStatus).not.toHaveBeenCalled()
+    },
+  )
+
+  it('erro no registro não impede o aviso ao chat', async () => {
+    const { useCase, deps } = makeRecordingDeps('recorded', {
+      recordRejection: vi.fn().mockRejectedValue(new Error('banco fora')),
+    })
+
+    await expect(
+      useCase.execute(makeEnvelope(), { appendJobLog }),
+    ).resolves.toBeUndefined()
+
+    expect(deps.notifyOperator).toHaveBeenCalledOnce()
+  })
+
+  it('erro ao agendar a nova tentativa não impede o aviso ao chat', async () => {
+    const { useCase, deps } = makeRecordingDeps('row-missing', {
+      retryRecording: vi.fn().mockRejectedValue(new Error('redis fora')),
+    })
+
+    await expect(
+      useCase.execute(makeEnvelope(), { appendJobLog }),
+    ).resolves.toBeUndefined()
+
+    expect(deps.notifyOperator).toHaveBeenCalledOnce()
   })
 })

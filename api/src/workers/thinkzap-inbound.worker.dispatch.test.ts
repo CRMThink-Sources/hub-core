@@ -9,6 +9,7 @@ const m = vi.hoisted(() => ({
   received: vi.fn().mockResolvedValue(undefined),
   update: vi.fn().mockResolvedValue(undefined),
   del: vi.fn().mockResolvedValue(undefined),
+  status: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('bullmq', () => ({
@@ -40,7 +41,7 @@ vi.mock('./hubmessage-received-message.processor', () => ({
   processHubMessageReceivedMessage: vi.fn(),
 }))
 vi.mock('./hubmessage-status.processor', () => ({
-  processHubMessageDeliveryStatus: vi.fn(),
+  processHubMessageDeliveryStatus: m.status,
 }))
 vi.mock('./bitrix-bot-event.processor', () => ({
   processBitrixBotEvent: vi.fn(),
@@ -85,6 +86,33 @@ const run = (type: string, attemptsMade = 0) =>
     },
     'tok',
   )
+
+describe('despacho do status da HubMessage no thinkzap-inbound', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('repassa traceKey e a tentativa de registro ao processor', async () => {
+    await m.captured.fn!(
+      {
+        id: '1',
+        attemptsMade: 0,
+        opts: { attempts: 3 },
+        data: {
+          source: 'hubmessage-status',
+          type: 'ErrorCallback',
+          traceKey: 't',
+          body: { _id: 'prov-1' },
+          recordOnlyAttempt: 2,
+        },
+      },
+      'tok',
+    )
+
+    expect(m.status).toHaveBeenCalledWith(
+      { message: { _id: 'prov-1' } },
+      expect.objectContaining({ traceKey: 't', recordOnlyAttempt: 2 }),
+    )
+  })
+})
 
 describe('despacho de jobs bitrix do thinkzap-inbound', () => {
   beforeEach(() => vi.clearAllMocks())

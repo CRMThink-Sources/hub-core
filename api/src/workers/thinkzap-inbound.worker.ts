@@ -88,7 +88,11 @@ async function processJob(
     )
     await processHubMessageDeliveryStatus(
       { message: data.body } as unknown as HubMessageStatusEnvelope,
-      { appendJobLog },
+      {
+        appendJobLog,
+        traceKey: data.traceKey,
+        recordOnlyAttempt: data.recordOnlyAttempt,
+      },
     )
   } else if (data.source === 'bitrix-bot') {
     // Antes do branch `'bitrix'`: o processor lê `bot`/`chat`/`user`, não `data.MESSAGES`.
