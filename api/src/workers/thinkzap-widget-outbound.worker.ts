@@ -171,7 +171,7 @@ thinkzapWidgetOutboundWorker.on('ready', () => {
  */
 export const thinkzapSendNoticesWorker = new Worker<SendNoticeJob>(
   THINKZAP_SEND_NOTICES,
-  job => processSendNoticeJob(job.data),
+  (job, token) => processSendNoticeJob(job, token),
   { ...bullBaseOptions, concurrency: 1 },
 )
 

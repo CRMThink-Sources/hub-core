@@ -1,3 +1,4 @@
+import { SendNoticeDeferredError } from '@/modules/thinkzap/domain/errors/send-notice-deferred.error'
 import type { NoticeLocale } from '@/modules/thinkzap/domain/notices/notice-locale'
 import {
   renderSendComment,
@@ -25,6 +26,7 @@ import type {
   SendNotificationInput,
   TimelineCommentPublisher,
 } from '@/shared/data/contracts/send-notification'
+import { bitrixRefusedUntil } from '@/shared/infra/bitrix-limits/limit-errors'
 import { apiLogger } from '@/shared/infra/logger'
 import {
   DAILY_LIMIT_FAILURE,
@@ -36,7 +38,11 @@ import { describeSendFailure, toSendPart } from './helpers/send-failure'
 export type RefreshSendCommentDeps = {
   notices: Pick<
     PrismaSendNoticeRepository,
-    'findById' | 'claimComment' | 'saveComment' | 'saveFromPhone'
+    | 'findById'
+    | 'claimComment'
+    | 'releaseCommentClaim'
+    | 'saveComment'
+    | 'saveFromPhone'
   >
   outbox: Pick<PrismaWidgetOutboxRepository, 'findBySendNotice'>
   /** `null` = sem como falar com o Bitrix do portal (domínio removido). */
@@ -60,6 +66,28 @@ export class SendCommentClaimLostError extends Error {
     )
     this.name = 'SendCommentClaimLostError'
   }
+}
+
+/**
+ * Idade a partir da qual uma reivindicação sem `commentId` é dada como encerrada: a
+ * publicação (timeout do cliente mais as retentativas por intensidade) termina bem
+ * antes disso. Depois dela, a reivindicação é de uma publicação ambígua que não será
+ * repetida, e lançar só encheria o log de erro e o Redis de jobs falhos.
+ */
+const STALE_CLAIM_MS = 2 * 60_000
+
+/**
+ * O Bitrix recusou sem executar (pausa ou limite): vira o adiamento do job. Outro
+ * erro sobe como está.
+ */
+function deferIfRefused(
+  error: unknown,
+  noticeId: string,
+  deps: RefreshSendCommentDeps,
+): never {
+  const untilMs = bitrixRefusedUntil(error, deps.now().getTime())
+  if (untilMs === null) throw error
+  throw new SendNoticeDeferredError(noticeId, untilMs, error)
 }
 
 type RobotMeta = {
@@ -194,10 +222,11 @@ function render(
  * remontado inteiro a partir das rows, então rodar de novo só repete o mesmo texto.
  *
  * A publicação é **no máximo uma vez**: `crm.timeline.comment.add` não é idempotente,
- * e uma falha ambígua pode ter gravado o comentário. Por isso a reivindicação nunca é
- * devolvida e `publish` nulo não é repetido — um aviso reivindicado que nunca ganhou
- * `commentId` esgota as tentativas do job e fica sem comentário, de propósito. Editar
- * é idempotente: a falha sobe e o job tenta de novo.
+ * e uma falha ambígua pode ter gravado o comentário. Por isso `publish` nulo não é
+ * repetido, e um aviso reivindicado há mais de `STALE_CLAIM_MS` sem `commentId` fica
+ * sem comentário, de propósito. A única devolução da reivindicação é a recusa em que
+ * o Bitrix com certeza não gravou (pausa ou limite): aí o job é adiado e publica
+ * depois. Editar é idempotente: a falha sobe e o job tenta de novo, e a pausa adia.
  */
 export async function refreshSendComment(
   noticeId: string,
@@ -243,13 +272,15 @@ export async function refreshSendComment(
   const message = render(latest.length > 0 ? latest : rows, locale, fromPhone)
 
   if (commentId) {
-    const updated = await publisher.update({
-      ...target,
-      ...author,
-      message,
-      commentId,
-      asAuthor: notice.commentAsAuthor,
-    })
+    const updated = await publisher
+      .update({
+        ...target,
+        ...author,
+        message,
+        commentId,
+        asAuthor: notice.commentAsAuthor,
+      })
+      .catch((error: unknown) => deferIfRefused(error, noticeId, deps))
     if (!updated) {
       apiLogger.warn(
         { app: 'thinkzap', noticeId, commentId },
@@ -260,9 +291,34 @@ export async function refreshSendComment(
   }
 
   const claimed = await deps.notices.claimComment(noticeId, deps.now())
-  if (!claimed) throw new SendCommentClaimLostError(noticeId)
+  if (!claimed) {
+    // A data é a lida no começo: se outra execução reivindicou depois disso, ela
+    // ainda é nula aqui e conta como recente.
+    const claimedAt = notice.commentClaimedAt?.getTime()
+    if (
+      claimedAt !== undefined &&
+      deps.now().getTime() - claimedAt >= STALE_CLAIM_MS
+    ) {
+      apiLogger.warn(
+        { app: 'thinkzap', noticeId, claimedAt: notice.commentClaimedAt },
+        'Comentário do aviso de envio reivindicado sem publicação confirmada; não será publicado',
+      )
+      return
+    }
+    throw new SendCommentClaimLostError(noticeId)
+  }
 
-  const published = await publisher.publish({ ...target, ...author, message })
+  let published: PublishedComment | null
+  try {
+    published = await publisher.publish({ ...target, ...author, message })
+  } catch (error) {
+    // Só a recusa sem gravação devolve a reivindicação; outro erro a mantém, porque
+    // não se sabe se o comentário saiu.
+    if (bitrixRefusedUntil(error, deps.now().getTime()) !== null) {
+      await deps.notices.releaseCommentClaim(noticeId)
+    }
+    return deferIfRefused(error, noticeId, deps)
+  }
   if (!published) {
     apiLogger.warn(
       { app: 'thinkzap', noticeId },

@@ -109,5 +109,6 @@ export function makeNotifySendFailuresDeps(): NotifySendFailuresDeps {
     outbox: new PrismaWidgetOutboxRepository(),
     bitrix: async notice => (await bitrixOf(notice))?.bitrix ?? null,
     locale: localeOf,
+    now: () => new Date(),
   }
 }

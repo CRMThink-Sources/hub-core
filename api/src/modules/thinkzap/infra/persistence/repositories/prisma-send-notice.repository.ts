@@ -84,6 +84,18 @@ export class PrismaSendNoticeRepository {
     return count > 0
   }
 
+  /**
+   * Devolve a reivindicação quando o Bitrix recusou a publicação sem gravar nada
+   * (pausa ou limite), para o job adiado poder publicar. Só sem `commentId`: com ele o
+   * comentário já existe, e liberar abriria caminho para um segundo.
+   */
+  async releaseCommentClaim(id: string): Promise<void> {
+    await prisma.thinkzapSendNotice.updateMany({
+      where: { id, commentId: null },
+      data: { commentClaimedAt: null },
+    })
+  }
+
   async saveComment(
     id: string,
     input: { commentId: string; asAuthor: boolean },

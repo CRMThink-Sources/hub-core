@@ -7,7 +7,10 @@ import type {
   PrismaWidgetOutboxRepository,
   WidgetOutboxRecord,
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
+import { SendNoticeDeferredError } from '@/modules/thinkzap/domain/errors/send-notice-deferred.error'
 import type { TimelineCommentPublisher } from '@/shared/data/contracts/send-notification'
+import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
+import { QUERY_LIMIT_DEFER_MS } from '@/shared/infra/bitrix-limits/limit-errors'
 import {
   DAILY_LIMIT_FAILURE,
   MEDIA_EXPIRED_FAILURE,
@@ -88,6 +91,9 @@ function setup(input: {
     claimComment: vi
       .fn<PrismaSendNoticeRepository['claimComment']>()
       .mockResolvedValue(input.claim ?? true),
+    releaseCommentClaim: vi
+      .fn<PrismaSendNoticeRepository['releaseCommentClaim']>()
+      .mockResolvedValue(undefined),
     saveComment: vi
       .fn<PrismaSendNoticeRepository['saveComment']>()
       .mockResolvedValue(undefined),
@@ -178,6 +184,88 @@ describe('refreshSendComment', () => {
       SendCommentClaimLostError,
     )
     expect(publisher.publish).not.toHaveBeenCalled()
+  })
+
+  it('reivindicação antiga sem comentário: desiste sem lançar', async () => {
+    const { deps, publisher } = setup({
+      claim: false,
+      // `now` do setup é 10:05: a reivindicação tem 3 min.
+      notice: notice({ commentClaimedAt: new Date('2026-11-27T10:02:00Z') }),
+    })
+
+    await expect(refreshSendComment('notice-1', deps)).resolves.toBeUndefined()
+    expect(publisher.publish).not.toHaveBeenCalled()
+  })
+
+  it('reivindicação recente: lança para o job tentar de novo', async () => {
+    const { deps } = setup({
+      claim: false,
+      notice: notice({ commentClaimedAt: new Date('2026-11-27T10:04:00Z') }),
+    })
+
+    await expect(refreshSendComment('notice-1', deps)).rejects.toBeInstanceOf(
+      SendCommentClaimLostError,
+    )
+  })
+
+  it('pausa do Bitrix na publicação devolve a reivindicação e adia o job', async () => {
+    const { deps, publisher, notices } = setup({})
+    const until = new Date('2026-11-27T10:09:00Z').getTime()
+    publisher.publish.mockRejectedValue(
+      new BitrixMethodPausedError('crm.timeline.comment.add', 'x', until),
+    )
+
+    const error: unknown = await refreshSendComment('notice-1', deps).catch(
+      (e: unknown) => e,
+    )
+
+    expect(error).toBeInstanceOf(SendNoticeDeferredError)
+    expect((error as SendNoticeDeferredError).untilMs).toBe(until)
+    expect(notices.releaseCommentClaim).toHaveBeenCalledWith('notice-1')
+    expect(notices.saveComment).not.toHaveBeenCalled()
+  })
+
+  it('limite de intensidade na publicação adia um intervalo fixo', async () => {
+    const { deps, publisher, notices } = setup({})
+    publisher.publish.mockRejectedValue(
+      new Error('Bitrix error: 503 - {"error":"QUERY_LIMIT_EXCEEDED"}'),
+    )
+
+    const error: unknown = await refreshSendComment('notice-1', deps).catch(
+      (e: unknown) => e,
+    )
+
+    expect((error as SendNoticeDeferredError).untilMs).toBe(
+      deps.now().getTime() + QUERY_LIMIT_DEFER_MS,
+    )
+    expect(notices.releaseCommentClaim).toHaveBeenCalledWith('notice-1')
+  })
+
+  it('outro erro da publicação sobe sem devolver a reivindicação', async () => {
+    const { deps, publisher, notices } = setup({})
+    publisher.publish.mockRejectedValue(new Error('inesperado'))
+
+    await expect(refreshSendComment('notice-1', deps)).rejects.toThrow(
+      'inesperado',
+    )
+    expect(notices.releaseCommentClaim).not.toHaveBeenCalled()
+  })
+
+  it('pausa do Bitrix na edição adia o job', async () => {
+    const { deps, publisher } = setup({
+      notice: notice({ commentId: '900' }),
+    })
+    const until = new Date('2026-11-27T10:09:00Z').getTime()
+    publisher.update.mockRejectedValue(
+      new BitrixMethodPausedError('crm.timeline.comment.update', 'x', until),
+    )
+
+    const error: unknown = await refreshSendComment('notice-1', deps).catch(
+      (e: unknown) => e,
+    )
+
+    expect(error).toBeInstanceOf(SendNoticeDeferredError)
+    expect((error as SendNoticeDeferredError).untilMs).toBe(until)
   })
 
   it('resolve sem gravar o comentário quando a publicação devolve null', async () => {

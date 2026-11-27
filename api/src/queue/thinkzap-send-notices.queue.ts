@@ -8,7 +8,12 @@ export const THINKZAP_SEND_NOTICES = 'thinkzap-send-notices'
  * notificação de falha. Só o id viaja: o estado das partes é relido do banco na
  * hora de publicar.
  */
-export type SendNoticeJob = { kind: 'comment' | 'alert'; noticeId: string }
+export type SendNoticeJob = {
+  kind: 'comment' | 'alert'
+  noticeId: string
+  /** Quantas vezes o job já foi adiado por limite do Bitrix. Ausente = nenhuma. */
+  deferrals?: number
+}
 
 /**
  * Quanto tempo cada publicação acumula eventos. O alerta espera mais para um

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { BitrixMethodPausedError } from '../infra/bitrix-limits/bitrix-limits.port'
 import type { BitrixClient } from '../infra/clients/bitrix.client'
 import {
   BitrixLivefeedNotificationService,
@@ -32,6 +33,16 @@ function setup(resolveImpl?: TimelineAuthorResolver) {
 }
 
 const base = { contextId: '10', entity: 'deal', message: 'oi' }
+
+/** Recusas em que o Bitrix com certeza não gravou nada. */
+const paused = () =>
+  new BitrixMethodPausedError(
+    'crm.timeline.comment.add',
+    'x.bitrix24.com.br',
+    Date.now() + 60_000,
+  )
+const queryLimit = () =>
+  new Error('Bitrix error: 503 - {"error":"QUERY_LIMIT_EXCEEDED"}')
 const commentCall = {
   fields: { ENTITY_ID: 10, ENTITY_TYPE: 'DEAL', COMMENT: 'oi' },
 }
@@ -152,6 +163,16 @@ describe('BitrixLivefeedNotificationService', () => {
     )
   })
 
+  it.each([
+    ['pausa', paused],
+    ['limite de intensidade', queryLimit],
+  ])('%s no Bitrix segue engolida para quem só publica', async (_, error) => {
+    const { service, installationCall } = setup()
+    installationCall.mockRejectedValue(error())
+
+    await expect(service.execute(base)).resolves.toBeUndefined()
+  })
+
   it('entidade inválida não chama o Bitrix', async () => {
     const { service, installationCall, authorCall } = setup()
 
@@ -219,6 +240,50 @@ describe('publish', () => {
     ).resolves.toBeNull()
 
     expect(installationCall).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['pausa', paused],
+    ['limite de intensidade', queryLimit],
+  ])('%s como autor sobe, sem tentar a instalação', async (_, error) => {
+    const { service, authorCall, installationCall } = setup()
+    const refusal = error()
+    authorCall.mockRejectedValue(refusal)
+
+    await expect(
+      service.publish({ ...base, authorBitrixUserId: '7' }),
+    ).rejects.toBe(refusal)
+
+    expect(installationCall).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['pausa', paused],
+    ['limite de intensidade', queryLimit],
+  ])('%s na instalação sobe: nada foi gravado', async (_, error) => {
+    const { service, installationCall } = setup()
+    const refusal = error()
+    installationCall.mockRejectedValue(refusal)
+
+    await expect(service.publish(base)).rejects.toBe(refusal)
+  })
+
+  it('pausa só no nome do remetente publica sem a linha dele', async () => {
+    const { service, installationCall } = setup(() => Promise.resolve(null))
+    installationCall.mockImplementation(method =>
+      method === 'user.get' ? Promise.reject(paused()) : reply({ result: 5 }),
+    )
+
+    await expect(
+      service.publish({
+        ...base,
+        authorBitrixUserId: '7',
+        senderLine: name => `Enviado por: ${name}`,
+      }),
+    ).resolves.toEqual({ commentId: '5', asAuthor: false })
+    expect(installationCall).toHaveBeenCalledWith('crm.timeline.comment.add', {
+      fields: containing({ COMMENT: 'oi' }),
+    })
   })
 
   it('entidade inválida devolve null', async () => {
@@ -362,6 +427,46 @@ describe('update', () => {
       ).rejects.toThrow(code)
     },
   )
+
+  it('falha ao obter o nome do remetente rejeita, para não gravar sem ele', async () => {
+    const { service, installationCall } = setup()
+    installationCall.mockImplementation(method =>
+      method === 'user.get'
+        ? Promise.reject(new Error('timeout of 30000ms exceeded'))
+        : reply({ result: 77 }),
+    )
+
+    await expect(service.update(byInstallation)).rejects.toThrow('timeout')
+
+    expect(installationCall).not.toHaveBeenCalledWith(
+      'crm.timeline.comment.update',
+      expect.anything(),
+    )
+  })
+
+  it('remetente sem nome no Bitrix edita sem a linha dele', async () => {
+    const { service, installationCall } = setup()
+    installationCall.mockImplementation(method =>
+      reply(method === 'user.get' ? { result: [] } : { result: 77 }),
+    )
+
+    await expect(service.update(byInstallation)).resolves.toBe(true)
+
+    expect(installationCall).toHaveBeenCalledWith(
+      'crm.timeline.comment.update',
+      updateCall('novo'),
+    )
+  })
+
+  it('pausa como autor sobe sem trocar de credencial', async () => {
+    const { service, authorCall, installationCall } = setup()
+    const refusal = paused()
+    authorCall.mockRejectedValue(refusal)
+
+    await expect(service.update(byAuthor)).rejects.toBe(refusal)
+
+    expect(installationCall).not.toHaveBeenCalled()
+  })
 
   it('erro de rede como autor rejeita sem trocar de credencial', async () => {
     const { service, authorCall, installationCall } = setup()

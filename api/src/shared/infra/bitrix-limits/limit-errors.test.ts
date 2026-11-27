@@ -1,6 +1,12 @@
 import { AxiosError, AxiosHeaders } from 'axios'
 import { describe, expect, it } from 'vitest'
-import { classifyLimitError, retryDelayMs } from './limit-errors'
+import { BitrixMethodPausedError } from './bitrix-limits.port'
+import {
+  bitrixRefusedUntil,
+  classifyLimitError,
+  QUERY_LIMIT_DEFER_MS,
+  retryDelayMs,
+} from './limit-errors'
 
 const bitrixError = (status: number, body: unknown): AxiosError => {
   const error = new AxiosError('falhou')
@@ -86,5 +92,61 @@ describe('retryDelayMs', () => {
     const second = retryDelayMs(3, { random: () => 0.9 })
 
     expect(first).not.toBe(second)
+  })
+})
+
+describe('bitrixRefusedUntil', () => {
+  const now = 1_000_000
+
+  it('método pausado: adia até o fim da pausa', () => {
+    const error = new BitrixMethodPausedError(
+      'crm.item.get',
+      'x.bitrix24',
+      now + 90_000,
+    )
+
+    expect(bitrixRefusedUntil(error, now)).toBe(now + 90_000)
+  })
+
+  it('pausa já vencida não agenda no passado', () => {
+    const error = new BitrixMethodPausedError(
+      'crm.item.get',
+      'x.bitrix24',
+      now - 5,
+    )
+
+    expect(bitrixRefusedUntil(error, now)).toBe(now)
+  })
+
+  it.each(['QUERY_LIMIT_EXCEEDED', 'OPERATION_TIME_LIMIT'])(
+    '%s lançado pelo BitrixClient adia um intervalo fixo',
+    code => {
+      const error = new Error(`Bitrix error: 503 - {"error":"${code}"}`)
+
+      expect(bitrixRefusedUntil(error, now)).toBe(now + QUERY_LIMIT_DEFER_MS)
+    },
+  )
+
+  it('limite no AxiosError cru também conta', () => {
+    const error = bitrixError(503, { error: 'QUERY_LIMIT_EXCEEDED' })
+
+    expect(bitrixRefusedUntil(error, now)).toBe(now + QUERY_LIMIT_DEFER_MS)
+  })
+
+  it.each<[string, unknown]>([
+    ['timeout', new Error('timeout of 30000ms exceeded')],
+    [
+      'rede',
+      new Error('Failed to call Bitrix method: crm.timeline.comment.add'),
+    ],
+    ['503 sem código', bitrixError(503, {})],
+    ['503 sem código no BitrixClient', new Error('Bitrix error: 503 - ""')],
+    [
+      'outro erro do Bitrix',
+      new Error('Bitrix error: 400 - {"error":"ACCESS_DENIED"}'),
+    ],
+    ['não é erro', 'QUERY_LIMIT_EXCEEDED'],
+  ])('%s é ambíguo: null', (_, error) => {
+    expect(bitrixRefusedUntil(error, now)).toBeNull()
   })
 })

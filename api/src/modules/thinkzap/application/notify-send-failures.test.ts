@@ -7,6 +7,8 @@ import type {
   PrismaWidgetOutboxRepository,
   WidgetOutboxRecord,
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
+import { SendNoticeDeferredError } from '@/modules/thinkzap/domain/errors/send-notice-deferred.error'
+import { BitrixMethodPausedError } from '@/shared/infra/bitrix-limits/bitrix-limits.port'
 import type { BitrixClient } from '@/shared/infra/clients/bitrix.client'
 import {
   notifySendFailures,
@@ -58,11 +60,16 @@ function setup(
     rows?: WidgetOutboxRecord[]
     assignedById?: unknown
     notifyFails?: boolean
+    /** Erro lançado pela chamada de `method`, no lugar da resposta. */
+    failing?: { method: string; error: Error }
   } = {},
 ) {
   const callMethod = vi
     .fn<(method: string, params: Record<string, unknown>) => Promise<unknown>>()
     .mockImplementation(method => {
+      if (input.failing?.method === method) {
+        return Promise.reject(input.failing.error)
+      }
       if (method === 'crm.item.get') {
         return Promise.resolve({
           result: { item: { assignedById: input.assignedById } },
@@ -92,6 +99,7 @@ function setup(
       callMethod: callMethod as BitrixClient['callMethod'],
     }),
     locale: vi.fn<NotifySendFailuresDeps['locale']>().mockResolvedValue('pt'),
+    now: () => new Date(NOW),
   }
   const notifications = () =>
     callMethod.mock.calls
@@ -100,7 +108,54 @@ function setup(
   return { deps, callMethod, notices, notifications }
 }
 
+const NOW = Date.parse('2026-11-27T10:05:00Z')
+
 describe('notifySendFailures', () => {
+  it('pausa do Bitrix na notificação adia o aviso sem gravá-lo', async () => {
+    const until = NOW + 120_000
+    const { deps, notices } = setup({
+      failing: {
+        method: 'im.notify.system.add',
+        error: new BitrixMethodPausedError('im.notify.system.add', 'x', until),
+      },
+    })
+
+    const error: unknown = await notifySendFailures('notice-1', deps).catch(
+      (e: unknown) => e,
+    )
+
+    expect(error).toBeInstanceOf(SendNoticeDeferredError)
+    expect((error as SendNoticeDeferredError).untilMs).toBe(until)
+    expect(notices.saveAlerted).not.toHaveBeenCalled()
+  })
+
+  it('limite ao buscar o responsável também adia', async () => {
+    const { deps } = setup({
+      notice: notice({ operatorBitrixUserId: null }),
+      failing: {
+        method: 'crm.item.get',
+        error: new Error(
+          'Bitrix error: 503 - {"error":"QUERY_LIMIT_EXCEEDED"}',
+        ),
+      },
+    })
+
+    await expect(notifySendFailures('notice-1', deps)).rejects.toBeInstanceOf(
+      SendNoticeDeferredError,
+    )
+  })
+
+  it('outra falha ao buscar o responsável sobe como está', async () => {
+    const { deps } = setup({
+      notice: notice({ operatorBitrixUserId: null }),
+      failing: { method: 'crm.item.get', error: new Error('socket hang up') },
+    })
+
+    await expect(notifySendFailures('notice-1', deps)).rejects.toThrow(
+      'socket hang up',
+    )
+  })
+
   it('avisa 3 falhas numa chamada só, com a tag do aviso', async () => {
     const { deps, notices, notifications } = setup()
 

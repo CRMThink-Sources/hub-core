@@ -4,6 +4,7 @@ import {
   SendNotificationInput,
   TimelineCommentPublisher,
 } from '../data/contracts/send-notification'
+import { bitrixRefusedUntil } from '../infra/bitrix-limits/limit-errors'
 import { BitrixClient } from '../infra/clients/bitrix.client'
 import { apiLogger } from '../infra/logger'
 
@@ -61,6 +62,14 @@ function isCommentGone(error: unknown): boolean {
   return error instanceof Error && COMMENT_GONE_PATTERN.test(error.message)
 }
 
+/**
+ * Pausa por limite ou recusa por intensidade: o Bitrix não executou o método, então
+ * nada foi gravado e publicar de novo depois não duplica.
+ */
+function nothingWritten(error: unknown): boolean {
+  return bitrixRefusedUntil(error, Date.now()) !== null
+}
+
 /** `null` = o Bitrix não devolveu um id utilizável. */
 function publishedComment(
   response: CommentResponse | undefined,
@@ -80,10 +89,25 @@ export class BitrixLivefeedNotificationService
     private readonly brandIconUrl?: string,
   ) {}
 
+  /**
+   * Publicação sem retorno, de quem não acompanha o comentário. Engole também a
+   * recusa por limite, como sempre fez: esses chamadores não têm como reagendar.
+   */
   async execute(input: SendNotificationInput): Promise<void> {
-    await this.publish(input)
+    try {
+      await this.publish(input)
+    } catch (error) {
+      apiLogger.warn(
+        { entity: input.entity, contextId: input.contextId, err: error },
+        'Bitrix recusou o comentário de timeline por limite; não será repetido',
+      )
+    }
   }
 
+  /**
+   * Lança só quando o Bitrix com certeza não gravou (pausa ou recusa por limite), para
+   * quem chamou adiar e publicar de novo. Falha ambígua continua `null`.
+   */
   async publish(
     input: SendNotificationInput,
   ): Promise<PublishedComment | null> {
@@ -130,6 +154,7 @@ export class BitrixLivefeedNotificationService
       )
       return publishedComment(response, false)
     } catch (error) {
+      if (nothingWritten(error)) throw error
       console.error(
         '[BitrixLivefeedNotificationService] Failed to add timeline comment:',
         error,
@@ -161,7 +186,9 @@ export class BitrixLivefeedNotificationService
     try {
       response = await this.bitrixClient.callMethod<CommentResponse>(
         'crm.timeline.comment.update',
-        paramsFor(await this.withSender(message, input)),
+        // Na edição, sem o nome o texto perderia o "Enviado por" de vez: a falha
+        // sobe e o job tenta de novo, já que editar é idempotente.
+        paramsFor(await this.withSender(message, input, { strict: true })),
       )
     } catch (error) {
       if (isCommentGone(error)) return false
@@ -262,6 +289,9 @@ export class BitrixLivefeedNotificationService
       return publishedComment(response, true)
     } catch (error) {
       if (isAuthorRefusal(error)) return this.refused(authorBitrixUserId)
+      // A instalação divide o balde do portal e a pausa do método: tentar por ela
+      // agora só bateria no mesmo limite.
+      if (nothingWritten(error)) throw error
       console.error(
         '[BitrixLivefeedNotificationService] Failed to add timeline comment:',
         error,
@@ -278,10 +308,14 @@ export class BitrixLivefeedNotificationService
     return 'fallback'
   }
 
-  /** Nomeia o remetente no texto, já que o autor exibido será quem instalou o app. */
+  /**
+   * Nomeia o remetente no texto, já que o autor exibido será quem instalou o app.
+   * `strict`: a falha ao buscar o nome sobe em vez de sair o texto sem a linha.
+   */
   private async withSender(
     message: string,
     input: SendNotificationInput,
+    { strict = false }: { strict?: boolean } = {},
   ): Promise<string> {
     const { authorBitrixUserId, senderLine } = input
     if (!authorBitrixUserId || !senderLine) return message
@@ -293,7 +327,8 @@ export class BitrixLivefeedNotificationService
       const user = response.result?.[0]
       const name = [user?.NAME, user?.LAST_NAME].filter(Boolean).join(' ')
       return name ? `${message}\n${senderLine(name)}` : message
-    } catch {
+    } catch (error) {
+      if (strict) throw error
       return message
     }
   }

@@ -1,3 +1,4 @@
+import { SendNoticeDeferredError } from '@/modules/thinkzap/domain/errors/send-notice-deferred.error'
 import type { NoticeLocale } from '@/modules/thinkzap/domain/notices/notice-locale'
 import { renderSendAlert } from '@/modules/thinkzap/domain/notices/send-comment'
 import {
@@ -12,6 +13,7 @@ import type {
 } from '@/modules/thinkzap/infra/persistence/repositories/prisma-send-notice.repository'
 import type { PrismaWidgetOutboxRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-widget-outbox.repository'
 import { BitrixSystemNotificationService } from '@/shared/application/bitrix-system-notification.service'
+import { bitrixRefusedUntil } from '@/shared/infra/bitrix-limits/limit-errors'
 import type {
   BitrixClient,
   ICrmItemResponse,
@@ -28,6 +30,7 @@ export type NotifySendFailuresDeps = {
     notice: SendNoticeRecord,
   ) => Promise<Pick<BitrixClient, 'callMethod'> | null>
   locale: (notice: SendNoticeRecord) => Promise<NoticeLocale>
+  now: () => Date
 }
 
 /**
@@ -82,8 +85,24 @@ async function resolveRecipient(
  * Notifica quem enviou sobre as falhas e recusas de um disparo. Só quando a
  * contagem passa da já avisada: a mesma recusa reprocessada não repete a
  * notificação. A tag por aviso faz a nova substituir a anterior no Bitrix.
+ *
+ * Bitrix pausado ou recusando por limite vira `SendNoticeDeferredError`: o worker
+ * reagenda o alerta para depois da pausa, em vez de gastar as tentativas nela.
  */
 export async function notifySendFailures(
+  noticeId: string,
+  deps: NotifySendFailuresDeps,
+): Promise<void> {
+  try {
+    await notify(noticeId, deps)
+  } catch (error) {
+    const untilMs = bitrixRefusedUntil(error, deps.now().getTime())
+    if (untilMs === null) throw error
+    throw new SendNoticeDeferredError(noticeId, untilMs, error)
+  }
+}
+
+async function notify(
   noticeId: string,
   deps: NotifySendFailuresDeps,
 ): Promise<void> {
@@ -127,7 +146,9 @@ export async function notifySendFailures(
     recordUrl: record?.url ?? null,
   })
 
-  const notified = await new BitrixSystemNotificationService(bitrix).notify({
+  const notified = await new BitrixSystemNotificationService(
+    bitrix,
+  ).notifyOrDefer({
     userId,
     message,
     tag: `thinkzap-send-${noticeId}`,

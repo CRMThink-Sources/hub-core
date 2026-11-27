@@ -150,6 +150,15 @@ describe('PrismaSendNoticeRepository', () => {
     await expect(sut().claimComment('notice-1', at)).resolves.toBe(false)
   })
 
+  it('devolve a reivindicação só enquanto não há comentário publicado', async () => {
+    await sut().releaseCommentClaim('notice-1')
+
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: 'notice-1', commentId: null },
+      data: { commentClaimedAt: null },
+    })
+  })
+
   it('grava o comentário publicado e a autoria', async () => {
     await sut().saveComment('notice-1', { commentId: '99', asAuthor: true })
 
