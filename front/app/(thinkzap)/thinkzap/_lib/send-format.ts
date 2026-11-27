@@ -32,9 +32,7 @@ export const BITRIX_CLOUD_TLDS = [
   'in',
   'eu',
   'uk',
-  'co.uk',
   'com.tr',
-  'tr',
   'cn',
   'jp',
   'vn',
@@ -43,10 +41,7 @@ export const BITRIX_CLOUD_TLDS = [
   'mx',
   'la',
   'ae',
-  'co',
   'nl',
-  'br',
-  'tc',
   'ch',
 ] as const
 

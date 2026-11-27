@@ -39,6 +39,14 @@ describe('crmRecordHref', () => {
     }
   })
 
+  // Sufixos sem confirmação de que a Bitrix controla: ficam sem link.
+  it.each(['tc', 'br', 'co', 'tr', 'co.uk'])(
+    'não monta link para o sufixo não confirmado %s',
+    tld => {
+      expect(crmRecordHref('acme.bitrix24.' + tld, url)).toBeNull()
+    },
+  )
+
   it('normaliza maiúsculas do domínio', () => {
     expect(crmRecordHref('ACME.Bitrix24.com.br', url)).toBe(
       'https://acme.bitrix24.com.br/crm/deal/details/42/',
