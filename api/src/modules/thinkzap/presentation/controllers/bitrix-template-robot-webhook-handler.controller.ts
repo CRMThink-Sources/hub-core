@@ -1,6 +1,7 @@
 import type { InstallationLocaleRepository } from '@/modules/thinkzap/domain/ports/installation-locale.port'
 import { DEFAULT_NOTICE_LOCALE } from '@/modules/thinkzap/domain/notices/notice-locale'
 import { timelineNotices } from '@/modules/thinkzap/domain/notices/timeline-notices'
+import type { OpenSendNotice } from '@/modules/thinkzap/application/open-send-notice'
 import { Request, Response } from 'express'
 import {
   robotTimelineAuthor,
@@ -47,6 +48,8 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
     private readonly bitrix: BitrixClient,
     /** Idioma dos comentários de timeline. Ausente, português. */
     private readonly locales: InstallationLocaleRepository | null = null,
+    /** Ausente, o disparo não abre aviso próprio: o worker cria um por row. */
+    private readonly openSendNotice: OpenSendNotice | null = null,
   ) {
     super()
   }
@@ -82,7 +85,8 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
       return this.badRequest(new Error('Document ID not found'))
     }
 
-    // Todo desfecho daqui em diante comenta na timeline, no idioma da instalação.
+    // As recusas daqui em diante comentam na timeline, no idioma da instalação; o
+    // status do que foi enfileirado sai no comentário do aviso de envio.
     const locale =
       (await this.locales?.byAppId(app.id)) ?? DEFAULT_NOTICE_LOCALE
     const notices = timelineNotices(locale).templateRobot
@@ -205,6 +209,16 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
       })
     }
 
+    // Antes do laço: as rows precisam nascer ligadas ao aviso do disparo. A falha em
+    // abri-lo não segura o envio.
+    const notice = await this.openSendNotice?.({
+      entity: crmDocument?.entity ?? '',
+      entityId: crmDocument?.entityId ?? '',
+      domainId: scope.domainId,
+      appCode: scope.appCode,
+      operatorBitrixUserId: this.author.authorBitrixUserId ?? null,
+    }).catch(() => null)
+
     const queued: string[] = []
     const failedDestinations: string[] = []
     for (const destination of recipients) {
@@ -222,6 +236,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
           entityId: crmDocument?.entityId ?? '',
           origin: 'ROBOT_TEMPLATE',
           operatorBitrixUserId: this.author.authorBitrixUserId,
+          ...(notice && { sendNoticeId: notice.id }),
         })
         queued.push(result.destination)
       } catch (error) {
@@ -265,10 +280,7 @@ export class BitrixTemplateRobotWebhookHandlerController extends Controller {
       })
     }
 
-    await this.comment(
-      crmDocument,
-      notices.queued({ templateName, language, destinations: queued }),
-    )
+    await notice?.refresh().catch(() => undefined)
 
     return this.ok({ received: true, queued: queued.length })
   }

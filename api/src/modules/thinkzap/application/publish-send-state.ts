@@ -1,3 +1,4 @@
+import { withTimeout } from '@/modules/thinkzap/application/helpers/with-timeout'
 import { isTrackedSend } from '@/modules/thinkzap/domain/send-notice'
 import { logThinkzapError } from '@/modules/thinkzap/errors/catalog'
 import type { PrismaSendNoticeRepository } from '@/modules/thinkzap/infra/persistence/repositories/prisma-send-notice.repository'
@@ -18,22 +19,6 @@ export type PublishSendStateDeps = {
   outbox: Pick<PrismaWidgetOutboxRepository, 'findById' | 'linkSendNotice'>
   notices: Pick<PrismaSendNoticeRepository, 'ensure'>
   enqueue: (job: SendNoticeJob) => Promise<void>
-}
-
-async function withTimeout(work: Promise<unknown>): Promise<void> {
-  let timer: NodeJS.Timeout | undefined
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error('O aviso de envio não foi agendado a tempo.')),
-      PUBLISH_TIMEOUT_MS,
-    )
-  })
-
-  try {
-    await Promise.race([work, timeout])
-  } finally {
-    clearTimeout(timer)
-  }
 }
 
 async function scheduleSendNotice(
@@ -85,7 +70,11 @@ export async function publishSendState(
   deps: PublishSendStateDeps,
 ): Promise<void> {
   try {
-    await withTimeout(scheduleSendNotice(outboxId, deps))
+    await withTimeout(
+      scheduleSendNotice(outboxId, deps),
+      PUBLISH_TIMEOUT_MS,
+      'O aviso de envio não foi agendado a tempo.',
+    )
   } catch (err) {
     logThinkzapError(
       apiLogger,

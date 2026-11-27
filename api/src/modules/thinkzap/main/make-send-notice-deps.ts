@@ -1,5 +1,9 @@
 import { env } from '@/config/env'
 import type { NotifySendFailuresDeps } from '@/modules/thinkzap/application/notify-send-failures'
+import {
+  openSendNotice,
+  type OpenSendNotice,
+} from '@/modules/thinkzap/application/open-send-notice'
 import { publishSendState } from '@/modules/thinkzap/application/publish-send-state'
 import type { RefreshSendCommentDeps } from '@/modules/thinkzap/application/refresh-send-comment'
 import { hubMessageConnectorLabel } from '@/modules/thinkzap/domain/hubmessage-connector-label'
@@ -28,6 +32,16 @@ export function makePublishSendState(): (outboxId: string) => Promise<void> {
   }
 
   return outboxId => publishSendState(outboxId, deps)
+}
+
+/** Abre o aviso de um disparo dos robôs de template e de botões. Nunca lança. */
+export function makeOpenSendNotice(): OpenSendNotice {
+  const deps = {
+    notices: new PrismaSendNoticeRepository(),
+    enqueue: enqueueSendNotice,
+  }
+
+  return input => openSendNotice(input, deps)
 }
 
 /** Cliente por domínio/app code: no worker não há `req`. Domínio removido = `null`. */

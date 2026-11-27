@@ -48,7 +48,6 @@ export type TimelineNotices = {
     destinationEmpty: string
     /** O Bitrix não resolveu o campo e entregou o texto cru no lugar do telefone. */
     destinationUnresolved: (value: string) => string
-    queued: (destinations: string[]) => string
   }
   templateRobot: {
     incomplete: string
@@ -63,11 +62,6 @@ export type TimelineNotices = {
     destinationEmpty: string
     /** O Bitrix não resolveu o campo e entregou o texto cru no lugar do telefone. */
     destinationUnresolved: (value: string) => string
-    queued: (input: {
-      templateName: string
-      language: string
-      destinations: string[]
-    }) => string
   }
 }
 
@@ -106,8 +100,6 @@ export type TimelineLabels = {
   unknownAction: string
   robotTitle: string
   robotNoRecipientsTitle: string
-  buttonQueuedTitle: string
-  templateQueuedTitle: string
   sentBy: string
   file: SendRobotFileLabels
 }
@@ -231,8 +223,6 @@ const LABELS: Record<NoticeLocale, TimelineLabels> = {
       'Confira a conversa com o contato ANTES de reenviar — ela pode ter sido entregue.',
     robotTitle: 'Mensagem enviada pelo robô',
     robotNoRecipientsTitle: 'Robô sem destinatário',
-    buttonQueuedTitle: 'Mensagem com botões enfileirada',
-    templateQueuedTitle: 'Template enfileirado',
     sentBy: 'Enviado por',
     file: {
       message: 'Mensagem',
@@ -263,8 +253,6 @@ const LABELS: Record<NoticeLocale, TimelineLabels> = {
       'Check the conversation with the contact BEFORE resending — it may have been delivered.',
     robotTitle: 'Message sent by the robot',
     robotNoRecipientsTitle: 'Robot with no recipient',
-    buttonQueuedTitle: 'Button message queued',
-    templateQueuedTitle: 'Template queued',
     sentBy: 'Sent by',
     file: {
       message: 'Message',
@@ -294,8 +282,6 @@ const LABELS: Record<NoticeLocale, TimelineLabels> = {
       'Revise la conversación con el contacto ANTES de reenviar — puede haber sido entregado.',
     robotTitle: 'Mensaje enviado por el robot',
     robotNoRecipientsTitle: 'Robot sin destinatario',
-    buttonQueuedTitle: 'Mensaje con botones en cola',
-    templateQueuedTitle: 'Plantilla en cola',
     sentBy: 'Enviado por',
     file: {
       message: 'Mensaje',
@@ -345,11 +331,6 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         'Nenhum destinatário válido para o envio da mensagem com botões.',
       destinationEmpty: DESTINATION_NOTICES.pt.empty,
       destinationUnresolved: DESTINATION_NOTICES.pt.unresolved,
-      queued: destinations =>
-        bbLines([
-          bbTitle(LABELS.pt.buttonQueuedTitle),
-          bbField(LABELS.pt.to, destinations.join(', ')),
-        ]),
     },
     templateRobot: {
       incomplete:
@@ -364,12 +345,6 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       noValidRecipients: 'Nenhum destinatário válido para o envio do template.',
       destinationEmpty: DESTINATION_NOTICES.pt.empty,
       destinationUnresolved: DESTINATION_NOTICES.pt.unresolved,
-      queued: ({ templateName, language, destinations }) =>
-        bbLines([
-          bbTitle(LABELS.pt.templateQueuedTitle),
-          bbField(LABELS.pt.template, `${templateName} (${language})`),
-          bbField(LABELS.pt.to, destinations.join(', ')),
-        ]),
     },
   },
   en: {
@@ -404,11 +379,6 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       noValidRecipients: 'No valid recipients for the button message.',
       destinationEmpty: DESTINATION_NOTICES.en.empty,
       destinationUnresolved: DESTINATION_NOTICES.en.unresolved,
-      queued: destinations =>
-        bbLines([
-          bbTitle(LABELS.en.buttonQueuedTitle),
-          bbField(LABELS.en.to, destinations.join(', ')),
-        ]),
     },
     templateRobot: {
       incomplete:
@@ -423,12 +393,6 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       noValidRecipients: 'No valid recipients for the template.',
       destinationEmpty: DESTINATION_NOTICES.en.empty,
       destinationUnresolved: DESTINATION_NOTICES.en.unresolved,
-      queued: ({ templateName, language, destinations }) =>
-        bbLines([
-          bbTitle(LABELS.en.templateQueuedTitle),
-          bbField(LABELS.en.template, `${templateName} (${language})`),
-          bbField(LABELS.en.to, destinations.join(', ')),
-        ]),
     },
   },
   es: {
@@ -465,11 +429,6 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
         'No hay destinatarios válidos para el mensaje con botones.',
       destinationEmpty: DESTINATION_NOTICES.es.empty,
       destinationUnresolved: DESTINATION_NOTICES.es.unresolved,
-      queued: destinations =>
-        bbLines([
-          bbTitle(LABELS.es.buttonQueuedTitle),
-          bbField(LABELS.es.to, destinations.join(', ')),
-        ]),
     },
     templateRobot: {
       incomplete:
@@ -484,12 +443,6 @@ const NOTICES: Record<NoticeLocale, TimelineNotices> = {
       noValidRecipients: 'No hay destinatarios válidos para la plantilla.',
       destinationEmpty: DESTINATION_NOTICES.es.empty,
       destinationUnresolved: DESTINATION_NOTICES.es.unresolved,
-      queued: ({ templateName, language, destinations }) =>
-        bbLines([
-          bbTitle(LABELS.es.templateQueuedTitle),
-          bbField(LABELS.es.template, `${templateName} (${language})`),
-          bbField(LABELS.es.to, destinations.join(', ')),
-        ]),
     },
   },
 }
