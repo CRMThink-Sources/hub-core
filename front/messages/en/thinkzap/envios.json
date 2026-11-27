@@ -1,0 +1,110 @@
+{
+  "title": "Sends",
+  "description": "Messages sent from the CRM widget and by automation robots, with the status of each recipient.",
+  "refresh": "Refresh",
+  "notices": {
+    "retention": "Send history is kept for {{retentionDays}} days.",
+    "zapi": "Z-API lines only report \"Sent\" (no delivery confirmation)."
+  },
+  "filters": {
+    "ariaLabel": "Send filters",
+    "period": "Period",
+    "periodLast": "Last {{days}} days",
+    "periodCustom": "Custom",
+    "from": "From",
+    "to": "To",
+    "invalidRange": "The start date must be on or before the end date.",
+    "status": "Status",
+    "allStatuses": "All statuses",
+    "line": "Line",
+    "allLines": "All lines",
+    "destination": "Recipient",
+    "destinationPlaceholder": "Part of the phone number",
+    "destinationHint": "Type part of the number; formatting and country code are ignored.",
+    "sender": "Sender",
+    "allSenders": "All senders",
+    "senderUnnamed": "User {{id}}",
+    "clear": "Clear filters"
+  },
+  "status": {
+    "waiting": "Waiting to send",
+    "sent": "Sent",
+    "delivered": "Delivered",
+    "read": "Read",
+    "failed": "Failed",
+    "partial": "Partly failed",
+    "unknown": "Unconfirmed"
+  },
+  "kind": {
+    "text": "Text",
+    "template": "Template",
+    "attachment": "Attachment",
+    "buttons": "Buttons"
+  },
+  "origin": {
+    "widget": "CRM widget",
+    "robot": "Robot"
+  },
+  "sender": {
+    "automation": "Automation",
+    "unknown": "Name unavailable"
+  },
+  "table": {
+    "caption": "Sends in the period, newest first",
+    "createdAt": "Date and time",
+    "line": "Line",
+    "destination": "Recipient",
+    "kind": "Type",
+    "origin": "Origin",
+    "sender": "Sender",
+    "status": "Status",
+    "actions": "Actions",
+    "open": "Details",
+    "openAria": "View details of the send to {{destination}}"
+  },
+  "unconfirmedWarning": "Check the conversation with the contact before resending.",
+  "pagination": {
+    "ariaLabel": "Sends pagination",
+    "summary": "Page {{page}} of {{totalPages}} · {{total}} total",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "states": {
+    "loading": "Loading sends...",
+    "emptyTitle": "No sends in this period",
+    "emptyDescription": "Adjust the period or the filters to see other sends.",
+    "errorTitle": "Could not load the sends",
+    "errorDescription": "Check your connection and try again.",
+    "retry": "Try again",
+    "sessionExpired": "Session expired. Please sign in again."
+  },
+  "detail": {
+    "title": "Send details",
+    "loading": "Loading details...",
+    "error": "Could not load the send details.",
+    "retry": "Try again",
+    "notFound": "Send not found",
+    "notFoundDescription": "It may no longer be in the history or may not be available to you.",
+    "message": "Message",
+    "noText": "No text",
+    "template": "Template",
+    "templateLanguage": "Language",
+    "destination": "Recipient",
+    "line": "Line",
+    "sender": "Sender",
+    "origin": "Origin",
+    "kind": "Type",
+    "createdAt": "Created at",
+    "failureReason": "Failure reason",
+    "metaCode": "Meta code",
+    "timestamps": "Timestamps",
+    "sentAt": "Sent at",
+    "deliveredAt": "Delivered at",
+    "readAt": "Read at",
+    "rejectedAt": "Rejected at",
+    "parts": "Parts of the send",
+    "crmRecord": "CRM record",
+    "openCrm": "Open in CRM",
+    "opensInNewTab": "(opens in a new tab)"
+  }
+}
