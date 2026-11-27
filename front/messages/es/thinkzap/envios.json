@@ -21,6 +21,7 @@
     "destination": "Destinatario",
     "destinationPlaceholder": "Parte del teléfono",
     "destinationHint": "Escribe parte del número; se ignoran el formato y el código de país.",
+    "destinationNoDigits": "Escribe al menos un número: las letras no filtran.",
     "sender": "Remitente",
     "allSenders": "Todos los remitentes",
     "senderUnnamed": "Usuario {{id}}",
@@ -44,6 +45,14 @@
   "origin": {
     "widget": "Widget del CRM",
     "robot": "Robot"
+  },
+  "entity": {
+    "lead": "Lead",
+    "deal": "Negocio",
+    "contact": "Contacto",
+    "company": "Empresa",
+    "dynamic": "Elemento del CRM",
+    "unknown": "Registro"
   },
   "sender": {
     "automation": "Automatización",

@@ -1,3 +1,4 @@
+import axios from 'axios'
 import {
   DEFAULT_SEND_FILTERS,
   SEND_MAX_PAGE,
@@ -51,9 +52,56 @@ export function clearedSendFilters(): SendFilters {
   return { ...DEFAULT_SEND_FILTERS }
 }
 
-/** Algum filtro difere do padrão (a página não conta: não é filtro). */
-export function hasActiveFilters(filters: SendFilters): boolean {
-  return writeSendFilters({ ...filters, page: 1 }) !== ''
+/**
+ * Algum filtro difere do padrão (a página não conta: não é filtro). Sem o filtro
+ * de remetente na tela (não administrador), um `?senderId=` na URL não é filtro
+ * que o usuário veja: contá-lo mostraria "Limpar filtros" sem nada para limpar.
+ */
+export function hasActiveFilters(
+  filters: SendFilters,
+  senderFilterVisible = true,
+): boolean {
+  const visible = senderFilterVisible ? filters : { ...filters, senderId: null }
+  return writeSendFilters({ ...visible, page: 1 }) !== ''
+}
+
+/** A API ignora o `senderId` de quem não é administrador; a tela também o ignora. */
+export function scopeSendFilters(
+  filters: SendFilters,
+  isAdmin: boolean,
+): SendFilters {
+  return isAdmin ? filters : { ...filters, senderId: null }
+}
+
+/**
+ * O destinatário que vai para a URL e para a API: só dígitos (a coluna é
+ * normalizada). Texto sem dígito algum não vira filtro — a API o descartaria e
+ * a lista não mudaria, enquanto o campo continuaria mostrando o que foi digitado.
+ */
+export function destinationDigits(value: string): string | null {
+  const digits = value.replace(/\D/g, '')
+  return digits === '' ? null : digits
+}
+
+const CRM_ENTITY_KEYS = ['lead', 'deal', 'contact', 'company'] as const
+
+/**
+ * Chave de tradução (`entity.<chave>`) do tipo do registro no CRM. O widget grava
+ * `deal` e o robô `DEAL`; item de SPA vem como `dynamic_<n>`. O que não se
+ * reconhece cai em `unknown`, em vez de mostrar o valor cru.
+ */
+export function crmEntityKey(
+  entity: string,
+): (typeof CRM_ENTITY_KEYS)[number] | 'dynamic' | 'unknown' {
+  const lower = entity.trim().toLowerCase()
+  const known = CRM_ENTITY_KEYS.find(key => key === lower)
+  if (known) return known
+  return /^dynamic_\d+$/.test(lower) ? 'dynamic' : 'unknown'
+}
+
+/** 401 do axios: o token da sessão expirou. */
+export function isUnauthorizedError(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 401
 }
 
 export type SendPagination = {

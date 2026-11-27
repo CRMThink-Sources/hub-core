@@ -22,6 +22,7 @@ import { SEND_STATUSES, sendStatusView } from '../../_lib/send-status'
 import type { SendListResponse } from '../../_lib/thinkzap-sends-client'
 import {
   clearedSendFilters,
+  destinationDigits,
   hasActiveFilters,
   isValidCustomRange,
   localDayDaysAgo,
@@ -40,7 +41,11 @@ const CUSTOM = 'custom'
 
 type Props = {
   filters: SendFilters
-  onChange: (next: SendFilters) => void
+  /**
+   * Recebe a função que monta o novo estado a partir dos filtros ATUAIS da URL
+   * (não do último render): duas mudanças rápidas não se sobrescrevem.
+   */
+  onChange: (update: (current: SendFilters) => SendFilters) => void
   lines: SendListResponse['lines']
   senders: SendListResponse['senders']
   /** Só administrador filtra por remetente (a API ignora o filtro dos demais). */
@@ -85,24 +90,29 @@ export function SendFilterBar({
 
   // Rascunho do destinatário, com espera; sincroniza quando a URL muda por
   // fora (voltar do navegador, limpar filtros).
+  // O campo mantém o que o usuário digitou (máscara, "+"), mas só os dígitos
+  // vão para a URL e para a API.
   const [destinationDraft, setDestinationDraft] = useState(
     filters.destination ?? '',
   )
   useEffect(() => {
     setDestinationDraft(current =>
-      (current.trim() || null) === filters.destination
+      destinationDigits(current) === filters.destination
         ? current
         : (filters.destination ?? ''),
     )
   }, [filters.destination])
   useEffect(() => {
-    const next = destinationDraft.trim() || null
+    const next = destinationDigits(destinationDraft)
     if (next === filters.destination) return
     const timer = setTimeout(() => {
-      onChange(withFilterChange(filters, { destination: next }))
+      onChange(current => withFilterChange(current, { destination: next }))
     }, DESTINATION_DEBOUNCE_MS)
     return () => clearTimeout(timer)
-  }, [destinationDraft, filters, onChange])
+  }, [destinationDraft, filters.destination, onChange])
+  const destinationHasNoDigits =
+    destinationDraft.trim() !== '' &&
+    destinationDigits(destinationDraft) === null
 
   const today = toLocalDay(new Date())
   const earliest = localDayDaysAgo(new Date(), retentionDays ?? 90)
@@ -113,8 +123,8 @@ export function SendFilterBar({
     if (value === CUSTOM) {
       // Começa do período que estava na tela, para a troca não mudar a lista.
       const days = period.kind === 'preset' ? period.days : 7
-      onChange(
-        withFilterChange(filters, {
+      onChange(current =>
+        withFilterChange(current, {
           period: {
             kind: 'custom',
             from: localDayDaysAgo(new Date(), days),
@@ -126,7 +136,9 @@ export function SendFilterBar({
     }
     const days = SEND_PERIOD_PRESETS.find(p => String(p) === value)
     if (days) {
-      onChange(withFilterChange(filters, { period: { kind: 'preset', days } }))
+      onChange(current =>
+        withFilterChange(current, { period: { kind: 'preset', days } }),
+      )
     }
   }
 
@@ -135,8 +147,8 @@ export function SendFilterBar({
     const next = { ...rangeDraft, ...patch }
     setRangeDraft(next)
     if (isValidCustomRange(next.from, next.to)) {
-      onChange(
-        withFilterChange(filters, {
+      onChange(current =>
+        withFilterChange(current, {
           period: { kind: 'custom', from: next.from, to: next.to },
         }),
       )
@@ -222,7 +234,7 @@ export function SendFilterBar({
           value={filters.status ?? ALL}
           onValueChange={(value: string | null) => {
             const status = SEND_STATUSES.find(s => s === value) ?? null
-            onChange(withFilterChange(filters, { status }))
+            onChange(current => withFilterChange(current, { status }))
           }}
         >
           <SelectTrigger id={statusId} className="w-44">
@@ -250,8 +262,8 @@ export function SendFilterBar({
         <Select
           value={filters.lineId ?? ALL}
           onValueChange={(value: string | null) =>
-            onChange(
-              withFilterChange(filters, {
+            onChange(current =>
+              withFilterChange(current, {
                 lineId: value && value !== ALL ? value : null,
               }),
             )
@@ -291,8 +303,15 @@ export function SendFilterBar({
           value={destinationDraft}
           onChange={event => setDestinationDraft(event.target.value)}
         />
-        <span id={destinationHintId} className="sr-only">
-          {t('filters.destinationHint')}
+        <span
+          id={destinationHintId}
+          className={
+            destinationHasNoDigits ? 'text-xs text-destructive' : 'sr-only'
+          }
+        >
+          {destinationHasNoDigits
+            ? t('filters.destinationNoDigits')
+            : t('filters.destinationHint')}
         </span>
       </div>
 
@@ -302,8 +321,8 @@ export function SendFilterBar({
           <Select
             value={filters.senderId ?? ALL}
             onValueChange={(value: string | null) =>
-              onChange(
-                withFilterChange(filters, {
+              onChange(current =>
+                withFilterChange(current, {
                   senderId: value && value !== ALL ? value : null,
                 }),
               )
@@ -328,13 +347,13 @@ export function SendFilterBar({
         </div>
       )}
 
-      {hasActiveFilters(filters) && (
+      {hasActiveFilters(filters, showSenderFilter) && (
         <Button
           type="button"
           variant="ghost"
           onClick={() => {
             setDestinationDraft('')
-            onChange(clearedSendFilters())
+            onChange(() => clearedSendFilters())
           }}
         >
           <XIcon className="size-4" />

@@ -3,7 +3,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
-import axios from 'axios'
 import { InfoIcon, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useThinkzapAccessState } from '@/providers/thinkzap-access-provider'
@@ -18,7 +17,11 @@ import {
   type SendFilters,
 } from '../_lib/send-filters'
 import { listSends, type SendListResponse } from '../_lib/thinkzap-sends-client'
-import { mergeSendFiltersIntoSearch } from '../_components/envios/envios-view'
+import {
+  isUnauthorizedError,
+  mergeSendFiltersIntoSearch,
+  scopeSendFilters,
+} from '../_components/envios/envios-view'
 import {
   SendsEmpty,
   SendsError,
@@ -87,7 +90,12 @@ function EnviosContent() {
     setPortalHost(resolvePortalHost())
   }, [])
 
-  const filters = useMemo(() => readSendFilters(searchParams), [searchParams])
+  // Quem não é administrador não vê o filtro de remetente: um `?senderId=` na
+  // URL não vale (a API o ignoraria e a tela mostraria um filtro invisível).
+  const filters = useMemo(
+    () => scopeSendFilters(readSendFilters(searchParams), isAdmin),
+    [searchParams, isAdmin],
+  )
   // Chave estável dos filtros: o objeto muda a cada leitura da URL.
   const filtersKey = writeSendFilters(filters)
 
@@ -108,13 +116,13 @@ function EnviosContent() {
       data: current.status === 'error' ? null : current.data,
     }))
     // Datas sempre por `toApiQuery`: início e fim do dia LOCAL como instante.
-    listSends(client, toApiQuery(readSendFilters(searchParams), new Date()))
+    listSends(client, toApiQuery(filters, new Date()))
       .then(data => {
         if (!cancelled) setList({ status: 'ready', data })
       })
       .catch((error: unknown) => {
         if (cancelled) return
-        if (axios.isAxiosError(error) && error.response?.status === 401) {
+        if (isUnauthorizedError(error)) {
           setClientState({ status: 'unauthenticated' })
           return
         }
@@ -123,18 +131,27 @@ function EnviosContent() {
     return () => {
       cancelled = true
     }
-    // `searchParams` entra pela chave: outros parâmetros da URL não refazem a consulta.
+    // `filters` entra pela chave: outros parâmetros da URL não refazem a consulta.
   }, [client, filtersKey, attempt])
 
   const changeFilters = useCallback(
-    (next: SendFilters) => {
-      const search = mergeSendFiltersIntoSearch(window.location.search, next)
+    (update: (current: SendFilters) => SendFilters) => {
+      // Parte da URL de agora, não do último render: duas mudanças rápidas
+      // (ex.: status e linha) não se sobrescrevem.
+      const current = scopeSendFilters(
+        readSendFilters(new URLSearchParams(window.location.search)),
+        isAdmin,
+      )
+      const search = mergeSendFiltersIntoSearch(
+        window.location.search,
+        update(current),
+      )
       // `push`: cada filtro vira um passo do histórico, para o "voltar" desfazer.
       router.push(search ? `${pathname}?${search}` : pathname, {
         scroll: false,
       })
     },
-    [router, pathname],
+    [router, pathname, isAdmin],
   )
 
   if (clientState.status === 'loading') return <SendsLoading />
@@ -203,7 +220,9 @@ function EnviosContent() {
                 limit={data.limit}
                 locale={locale}
                 disabled={isLoading}
-                onPageChange={page => changeFilters({ ...filters, page })}
+                onPageChange={page =>
+                  changeFilters(current => ({ ...current, page }))
+                }
               />
             )}
           </>
@@ -228,7 +247,9 @@ function EnviosContent() {
               limit={data.limit}
               locale={locale}
               disabled={isLoading}
-              onPageChange={page => changeFilters({ ...filters, page })}
+              onPageChange={page =>
+                changeFilters(current => ({ ...current, page }))
+              }
             />
           </>
         )}

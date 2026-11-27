@@ -85,7 +85,11 @@ export function SendsTable({ items, locale, onOpen }: Props) {
           {items.map(item => (
             <tr
               key={item.id}
-              onClick={() => onOpen(item.id)}
+              onClick={() => {
+                // Selecionar o telefone para copiar não abre o detalhe.
+                if (window.getSelection()?.toString()) return
+                onOpen(item.id)
+              }}
               className="cursor-pointer border-b border-border align-top last:border-b-0 hover:bg-muted/30"
             >
               <td className="px-4 py-3 font-medium whitespace-nowrap text-foreground tabular-nums">

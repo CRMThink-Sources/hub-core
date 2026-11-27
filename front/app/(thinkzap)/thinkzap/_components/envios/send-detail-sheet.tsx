@@ -18,7 +18,11 @@ import {
   getSendDetail,
   type SendDetail,
 } from '../../_lib/thinkzap-sends-client'
-import { presentTimestamps } from './envios-view'
+import {
+  crmEntityKey,
+  isUnauthorizedError,
+  presentTimestamps,
+} from './envios-view'
 import { SendStatusBadge } from './send-status-badge'
 import { SenderLabel, UnconfirmedWarning } from './sends-table'
 
@@ -27,6 +31,7 @@ type DetailState =
   | { status: 'found'; id: string; detail: SendDetail }
   | { status: 'not-found'; id: string }
   | { status: 'error'; id: string }
+  | { status: 'unauthorized'; id: string }
 
 type Props = {
   /** Envio aberto; `null` fecha o painel. */
@@ -54,6 +59,11 @@ export function SendDetailSheet({
   const { t } = useTranslation('thinkzap/envios')
   const [state, setState] = useState<DetailState | null>(null)
   const [attempt, setAttempt] = useState(0)
+  // Ao fechar, `id` vira `null` mas o painel ainda anima a saída: mantém o último
+  // envio para o corpo não piscar "Carregando"; só some quando outro abre.
+  const [lastId, setLastId] = useState<string | null>(id)
+  if (id !== null && id !== lastId) setLastId(id)
+  const displayId = id ?? lastId
 
   useEffect(() => {
     if (!id) return
@@ -68,8 +78,12 @@ export function SendDetailSheet({
             : { status: 'not-found', id },
         )
       })
-      .catch(() => {
-        if (!cancelled) setState({ status: 'error', id })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setState({
+          status: isUnauthorizedError(error) ? 'unauthorized' : 'error',
+          id,
+        })
       })
     return () => {
       cancelled = true
@@ -77,7 +91,7 @@ export function SendDetailSheet({
   }, [id, client, attempt])
 
   // Resposta de um envio aberto antes (troca rápida de linha) não aparece.
-  const shown = state && state.id === id ? state : null
+  const shown = state && state.id === displayId ? state : null
   const detail = shown?.status === 'found' ? shown.detail : null
 
   return (
@@ -114,6 +128,10 @@ export function SendDetailSheet({
                 {t('detail.notFoundDescription')}
               </p>
             </div>
+          ) : shown.status === 'unauthorized' ? (
+            <p role="alert" className="text-sm text-muted-foreground">
+              {t('states.sessionExpired')}
+            </p>
           ) : shown.status === 'error' ? (
             <div role="alert">
               <p className="text-sm text-muted-foreground">
@@ -281,7 +299,8 @@ function DetailBody({
             </a>
           ) : (
             <p className="text-sm text-foreground">
-              {detail.crmRecord.entity} #{detail.crmRecord.entityId}
+              {t(`entity.${crmEntityKey(detail.crmRecord.entity)}`)} #
+              {detail.crmRecord.entityId}
             </p>
           )}
         </section>

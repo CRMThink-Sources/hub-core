@@ -6,11 +6,15 @@ import {
 } from '../../_lib/send-filters'
 import {
   clearedSendFilters,
+  crmEntityKey,
+  destinationDigits,
   hasActiveFilters,
+  isUnauthorizedError,
   isValidCustomRange,
   localDayDaysAgo,
   mergeSendFiltersIntoSearch,
   presentTimestamps,
+  scopeSendFilters,
   sendPagination,
   senderDisplay,
   toLocalDay,
@@ -70,6 +74,15 @@ describe('hasActiveFilters', () => {
   it('padrão não conta como filtro, nem a página', () => {
     expect(hasActiveFilters(clearedSendFilters())).toBe(false)
     expect(hasActiveFilters(filters({ page: 3 }))).toBe(false)
+  })
+
+  it('senderId sozinho não conta quando o filtro de remetente não aparece', () => {
+    expect(hasActiveFilters(filters({ senderId: '9' }), false)).toBe(false)
+    expect(hasActiveFilters(filters({ senderId: '9' }), true)).toBe(true)
+    expect(hasActiveFilters(filters({ senderId: '9' }))).toBe(true)
+    expect(
+      hasActiveFilters(filters({ senderId: '9', lineId: '1' }), false),
+    ).toBe(true)
   })
 
   it('qualquer filtro fora do padrão conta', () => {
@@ -170,5 +183,59 @@ describe('dias locais', () => {
     expect(isValidCustomRange('2026-11-01', '2026-11-01')).toBe(true)
     expect(isValidCustomRange('2026-11-02', '2026-11-01')).toBe(false)
     expect(isValidCustomRange('', '2026-11-01')).toBe(false)
+  })
+})
+
+describe('scopeSendFilters', () => {
+  it('descarta o senderId de quem não é administrador', () => {
+    expect(scopeSendFilters(filters({ senderId: '9' }), false).senderId).toBe(
+      null,
+    )
+  })
+
+  it('mantém o senderId do administrador', () => {
+    expect(scopeSendFilters(filters({ senderId: '9' }), true).senderId).toBe(
+      '9',
+    )
+  })
+})
+
+describe('destinationDigits', () => {
+  it('fica só com os dígitos, sem máscara', () => {
+    expect(destinationDigits('+55 (11) 9 8888-7777')).toBe('5511988887777')
+  })
+
+  it('texto sem dígitos não vira filtro', () => {
+    expect(destinationDigits('abc')).toBeNull()
+    expect(destinationDigits('  ')).toBeNull()
+  })
+})
+
+describe('crmEntityKey', () => {
+  it.each([
+    ['lead', 'lead'],
+    ['DEAL', 'deal'],
+    ['Contact', 'contact'],
+    ['company', 'company'],
+    ['dynamic_1038', 'dynamic'],
+    ['qualquer_coisa', 'unknown'],
+  ])('%s -> %s', (entity, key) => {
+    expect(crmEntityKey(entity)).toBe(key)
+  })
+})
+
+describe('isUnauthorizedError', () => {
+  it('reconhece o 401 do axios e nada além dele', () => {
+    const unauthorized = Object.assign(new Error('x'), {
+      isAxiosError: true,
+      response: { status: 401 },
+    })
+    const forbidden = Object.assign(new Error('x'), {
+      isAxiosError: true,
+      response: { status: 403 },
+    })
+    expect(isUnauthorizedError(unauthorized)).toBe(true)
+    expect(isUnauthorizedError(forbidden)).toBe(false)
+    expect(isUnauthorizedError(new Error('x'))).toBe(false)
   })
 })

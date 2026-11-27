@@ -21,6 +21,7 @@
     "destination": "Recipient",
     "destinationPlaceholder": "Part of the phone number",
     "destinationHint": "Type part of the number; formatting and country code are ignored.",
+    "destinationNoDigits": "Type at least one digit: letters do not filter.",
     "sender": "Sender",
     "allSenders": "All senders",
     "senderUnnamed": "User {{id}}",
@@ -44,6 +45,14 @@
   "origin": {
     "widget": "CRM widget",
     "robot": "Robot"
+  },
+  "entity": {
+    "lead": "Lead",
+    "deal": "Deal",
+    "contact": "Contact",
+    "company": "Company",
+    "dynamic": "CRM item",
+    "unknown": "Record"
   },
   "sender": {
     "automation": "Automation",
