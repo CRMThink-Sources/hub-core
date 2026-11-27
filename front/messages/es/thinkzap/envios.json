@@ -1,0 +1,119 @@
+{
+  "title": "Envíos",
+  "description": "Mensajes enviados desde el widget del CRM y por los robots, con el estado de cada destinatario.",
+  "refresh": "Actualizar",
+  "notices": {
+    "retention": "El historial de envíos se guarda durante {{retentionDays}} días.",
+    "zapi": "Las líneas Z-API solo informan \"Enviado\" (sin confirmación de entrega)."
+  },
+  "filters": {
+    "ariaLabel": "Filtros de los envíos",
+    "period": "Período",
+    "periodLast": "Últimos {{days}} días",
+    "periodCustom": "Personalizado",
+    "from": "Desde",
+    "to": "Hasta",
+    "invalidRange": "La fecha inicial debe ser igual o anterior a la fecha final.",
+    "status": "Estado",
+    "allStatuses": "Todos los estados",
+    "line": "Línea",
+    "allLines": "Todas las líneas",
+    "destination": "Destinatario",
+    "destinationPlaceholder": "Parte del teléfono",
+    "destinationHint": "Escribe parte del número; se ignoran el formato y el código de país.",
+    "destinationNoDigits": "Escribe al menos un número: las letras no filtran.",
+    "sender": "Remitente",
+    "allSenders": "Todos los remitentes",
+    "senderUnnamed": "Usuario {{id}}",
+    "clear": "Limpiar filtros"
+  },
+  "status": {
+    "waiting": "Esperando envío",
+    "sent": "Enviado",
+    "delivered": "Entregado",
+    "read": "Leído",
+    "failed": "Falló",
+    "partial": "Falló en parte",
+    "unknown": "Sin confirmación"
+  },
+  "kind": {
+    "text": "Texto",
+    "template": "Plantilla",
+    "attachment": "Adjunto",
+    "buttons": "Botones"
+  },
+  "origin": {
+    "widget": "Widget del CRM",
+    "robot": "Robot"
+  },
+  "entity": {
+    "lead": "Lead",
+    "deal": "Negocio",
+    "contact": "Contacto",
+    "company": "Empresa",
+    "dynamic": "Elemento del CRM",
+    "unknown": "Registro"
+  },
+  "sender": {
+    "automation": "Automatización",
+    "unknown": "Nombre no disponible"
+  },
+  "table": {
+    "caption": "Envíos del período, del más reciente al más antiguo",
+    "createdAt": "Fecha y hora",
+    "line": "Línea",
+    "destination": "Destinatario",
+    "kind": "Tipo",
+    "origin": "Origen",
+    "sender": "Remitente",
+    "status": "Estado",
+    "actions": "Acciones",
+    "open": "Detalles",
+    "openAria": "Ver detalles del envío a {{destination}}"
+  },
+  "unconfirmedWarning": "Revisa la conversación con el contacto antes de reenviar.",
+  "pagination": {
+    "ariaLabel": "Paginación de los envíos",
+    "summary": "Página {{page}} de {{totalPages}} · {{total}} en total",
+    "previous": "Anterior",
+    "next": "Siguiente"
+  },
+  "states": {
+    "loading": "Cargando envíos...",
+    "emptyTitle": "Ningún envío en el período",
+    "emptyDescription": "Ajusta el período o los filtros para ver otros envíos.",
+    "errorTitle": "No se pudieron cargar los envíos",
+    "errorDescription": "Revisa la conexión e inténtalo de nuevo.",
+    "retry": "Intentar de nuevo",
+    "sessionExpired": "Sesión expirada. Inicia sesión de nuevo."
+  },
+  "detail": {
+    "title": "Detalles del envío",
+    "loading": "Cargando detalles...",
+    "error": "No se pudieron cargar los detalles del envío.",
+    "retry": "Intentar de nuevo",
+    "notFound": "Envío no encontrado",
+    "notFoundDescription": "Puede que ya no esté en el historial o que no esté disponible para ti.",
+    "message": "Mensaje",
+    "noText": "Sin texto",
+    "template": "Plantilla",
+    "templateLanguage": "Idioma",
+    "destination": "Destinatario",
+    "line": "Línea",
+    "sender": "Remitente",
+    "origin": "Origen",
+    "kind": "Tipo",
+    "createdAt": "Creado el",
+    "failureReason": "Motivo del fallo",
+    "metaCode": "Código de Meta",
+    "timestamps": "Horarios",
+    "sentAt": "Enviado el",
+    "deliveredAt": "Entregado el",
+    "readAt": "Leído el",
+    "rejectedAt": "Rechazado el",
+    "parts": "Partes del envío",
+    "crmRecord": "Registro en el CRM",
+    "openCrm": "Abrir en el CRM",
+    "opensInNewTab": "(se abre en una pestaña nueva)"
+  }
+}

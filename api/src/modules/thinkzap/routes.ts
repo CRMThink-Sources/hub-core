@@ -21,6 +21,8 @@ import { makeSendWidgetMessageController } from './main/make-send-widget-message
 import { makeSendWidgetMessageMultipartController } from './main/make-send-widget-message-multipart-controller'
 import { makeGetLineStatusForWidgetController } from './main/make-get-line-status-for-widget-controller'
 import { makeGetOutboxStatusController } from './main/make-get-outbox-status-controller'
+import { makeListSendsController } from './main/make-list-sends-controller'
+import { makeGetSendDetailController } from './main/make-get-send-detail-controller'
 import { makeListWidgetTemplatesController } from './main/make-list-widget-templates-controller'
 import { makeListTemplateLinesController } from './main/make-list-template-lines-controller'
 import {
@@ -79,6 +81,7 @@ import {
   thinkzapAccessMiddleware,
   requireThinkzapAdmin,
   requireThinkzapPermission,
+  requireThinkzapCanAccess,
 } from './infra/middleware/thinkzap-access.middleware'
 import { makeGetLogsControllerFactory } from '@/shared/main/make-get-logs-controller'
 import { makeGetThinkzapAccessController } from './main/make-get-thinkzap-access-controller'
@@ -261,6 +264,20 @@ export const createThinkerszapRoutes = (): Router => {
   router.get(
     '/novidades',
     adaptControllerFactory(makeListPublishedProductUpdatesController),
+  )
+
+  // Aba Envios: qualquer usuário com acesso ao ThinkZap, sem permissão específica.
+  // Quem não é administrador vê só os próprios envios (escopo no caso de uso).
+  // `requireThinkzapCanAccess`: quem só tem ThinkBot/Financeiro não vê envios.
+  router.get(
+    '/messages/sends',
+    requireThinkzapCanAccess,
+    adaptControllerFactory(makeListSendsController),
+  )
+  router.get(
+    '/messages/sends/:id',
+    requireThinkzapCanAccess,
+    adaptControllerFactory(makeGetSendDetailController),
   )
 
   /**

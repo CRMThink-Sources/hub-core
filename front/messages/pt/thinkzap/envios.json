@@ -1,0 +1,119 @@
+{
+  "title": "Envios",
+  "description": "Mensagens enviadas pelo widget do CRM e pelos robôs, com o status de cada destinatário.",
+  "refresh": "Atualizar",
+  "notices": {
+    "retention": "O histórico dos envios é guardado por {{retentionDays}} dias.",
+    "zapi": "Linhas Z-API informam só \"Enviado\" (sem confirmação de entrega)."
+  },
+  "filters": {
+    "ariaLabel": "Filtros dos envios",
+    "period": "Período",
+    "periodLast": "Últimos {{days}} dias",
+    "periodCustom": "Personalizado",
+    "from": "De",
+    "to": "Até",
+    "invalidRange": "A data inicial precisa ser igual ou anterior à data final.",
+    "status": "Status",
+    "allStatuses": "Todos os status",
+    "line": "Linha",
+    "allLines": "Todas as linhas",
+    "destination": "Destinatário",
+    "destinationPlaceholder": "Parte do telefone",
+    "destinationHint": "Digite parte do número; máscara e código do país são ignorados.",
+    "destinationNoDigits": "Digite ao menos um número: letras não filtram.",
+    "sender": "Remetente",
+    "allSenders": "Todos os remetentes",
+    "senderUnnamed": "Usuário {{id}}",
+    "clear": "Limpar filtros"
+  },
+  "status": {
+    "waiting": "Aguardando envio",
+    "sent": "Enviado",
+    "delivered": "Entregue",
+    "read": "Lido",
+    "failed": "Falhou",
+    "partial": "Falhou em parte",
+    "unknown": "Sem confirmação"
+  },
+  "kind": {
+    "text": "Texto",
+    "template": "Template",
+    "attachment": "Anexo",
+    "buttons": "Botões"
+  },
+  "origin": {
+    "widget": "Widget do CRM",
+    "robot": "Robô"
+  },
+  "entity": {
+    "lead": "Lead",
+    "deal": "Negócio",
+    "contact": "Contato",
+    "company": "Empresa",
+    "dynamic": "Item do CRM",
+    "unknown": "Registro"
+  },
+  "sender": {
+    "automation": "Automação",
+    "unknown": "Nome indisponível"
+  },
+  "table": {
+    "caption": "Envios do período, do mais recente para o mais antigo",
+    "createdAt": "Data e hora",
+    "line": "Linha",
+    "destination": "Destinatário",
+    "kind": "Tipo",
+    "origin": "Origem",
+    "sender": "Remetente",
+    "status": "Status",
+    "actions": "Ações",
+    "open": "Detalhes",
+    "openAria": "Ver detalhes do envio para {{destination}}"
+  },
+  "unconfirmedWarning": "Confira a conversa com o contato antes de reenviar.",
+  "pagination": {
+    "ariaLabel": "Paginação dos envios",
+    "summary": "Página {{page}} de {{totalPages}} · {{total}} no total",
+    "previous": "Anterior",
+    "next": "Próxima"
+  },
+  "states": {
+    "loading": "Carregando envios...",
+    "emptyTitle": "Nenhum envio no período",
+    "emptyDescription": "Ajuste o período ou os filtros para ver outros envios.",
+    "errorTitle": "Não foi possível carregar os envios",
+    "errorDescription": "Verifique a conexão e tente de novo.",
+    "retry": "Tentar de novo",
+    "sessionExpired": "Sessão expirada. Entre novamente."
+  },
+  "detail": {
+    "title": "Detalhes do envio",
+    "loading": "Carregando detalhes...",
+    "error": "Não foi possível carregar os detalhes do envio.",
+    "retry": "Tentar de novo",
+    "notFound": "Envio não encontrado",
+    "notFoundDescription": "Ele pode ter saído do histórico ou não estar disponível para você.",
+    "message": "Mensagem",
+    "noText": "Sem texto",
+    "template": "Template",
+    "templateLanguage": "Idioma",
+    "destination": "Destinatário",
+    "line": "Linha",
+    "sender": "Remetente",
+    "origin": "Origem",
+    "kind": "Tipo",
+    "createdAt": "Criado em",
+    "failureReason": "Motivo da falha",
+    "metaCode": "Código da Meta",
+    "timestamps": "Horários",
+    "sentAt": "Enviado em",
+    "deliveredAt": "Entregue em",
+    "readAt": "Lido em",
+    "rejectedAt": "Recusado em",
+    "parts": "Partes do envio",
+    "crmRecord": "Registro no CRM",
+    "openCrm": "Abrir no CRM",
+    "opensInNewTab": "(abre em nova aba)"
+  }
+}

@@ -54,6 +54,18 @@ type SendCopy = {
   openRecord: string
 }
 
+/**
+ * Frases do comentário que a aba Envios reaproveita, para lista, detalhe e
+ * comentário do CRM dizerem a mesma coisa.
+ */
+export function sharedSendPhrases(locale: NoticeLocale): {
+  unknownAction: string
+  unreportedReason: string
+} {
+  const { unknownAction, unreportedReason } = COPY[locale]
+  return { unknownAction, unreportedReason }
+}
+
 const COPY: Record<NoticeLocale, SendCopy> = {
   pt: {
     status: 'Status',

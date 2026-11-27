@@ -87,6 +87,25 @@ export function requireThinkzapAdmin(
   next()
 }
 
+/**
+ * Acesso ao ThinkZap em si (`canAccess`), sem exigir permissão de categoria.
+ * `thinkzapAccessMiddleware` só recusa quem não tem registro algum: quem foi
+ * liberado apenas para ThinkBot/Financeiro passa por ele com `canAccess = false`
+ * e a tela de ThinkZap já o bloqueia; a API tem de recusar igual, senão devolve
+ * dados (ex.: os envios) que o produto diz não serem dele.
+ */
+export function requireThinkzapCanAccess(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (!req.thinkzapAccess?.canAccess) {
+    res.status(403).json({ error: THINKZAP_ACCESS_DENIED })
+    return
+  }
+  next()
+}
+
 export function requireThinkzapPermission<C extends ThinkzapPermissionCategory>(
   category: C,
   action: ThinkzapPermissionActionOf<C>,

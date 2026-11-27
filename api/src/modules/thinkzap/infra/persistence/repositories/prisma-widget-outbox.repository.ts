@@ -318,7 +318,8 @@ type OutboxRow = {
   sentAt: Date | null
 }
 
-function mapRow(row: OutboxRow): WidgetOutboxRecord {
+/** Exportado para a aba Envios ler as partes com a mesma conversão. */
+export function mapRow(row: OutboxRow): WidgetOutboxRecord {
   return {
     id: row.id,
     clientMessageId: row.clientMessageId,

@@ -2,6 +2,10 @@
 
 import { Aside } from '@/components/layouts/shared/aside/aside'
 import { THINKZAP_ASIDE_CONFIG } from '@/components/layouts/shared/aside/thinkzap-aside-config'
+import {
+  THINKZAP_CAN_ACCESS_HREFS,
+  filterThinkzapAsideLinks,
+} from '@/components/layouts/shared/aside/thinkzap-aside-links'
 import { SessionProvider } from '@/providers/session-provider'
 import { AplicationProvider } from '@/providers/aplication-provider'
 import {
@@ -42,31 +46,20 @@ function ThinkzapContent({ children }: { children: React.ReactNode }) {
     thinkzapAccess?.canManageAccess === true || isBitrixAdmin()
 
   const asideLinks = useMemo(() => {
-    return THINKZAP_ASIDE_CONFIG.links.filter(link => {
-      if (link.href === '/thinkzap/bots' && !envConfig.thinkbotMenuEnabled) {
-        return false
-      }
-      if (link.href === '/thinkzap/administracao') return canManageAccess
-      if (link.href === '/thinkzap/bots') {
-        return thinkzapAccess?.canAccessThinkbot === true
-      }
-      if (
-        link.href === '/thinkzap' ||
-        link.href === '/thinkzap/conexoes' ||
-        link.href === '/thinkzap/insights'
-      ) {
-        return thinkzapAccess?.canAccess === true
-      }
-      return true
+    return filterThinkzapAsideLinks(THINKZAP_ASIDE_CONFIG.links, {
+      canManageAccess,
+      thinkzapAccess,
+      thinkbotMenuEnabled: envConfig.thinkbotMenuEnabled,
     })
   }, [canManageAccess, thinkzapAccess])
 
   const accessBlocked = useMemo(() => {
     if (!pathname || !thinkzapAccess) return false
     if (
-      (pathname === '/thinkzap' ||
-        pathname.startsWith('/thinkzap/conexoes') ||
-        pathname.startsWith('/thinkzap/insights')) &&
+      THINKZAP_CAN_ACCESS_HREFS.some(href =>
+        // `/thinkzap` só a raiz exata; as demais cobrem as subrotas.
+        href === '/thinkzap' ? pathname === href : pathname.startsWith(href),
+      ) &&
       !thinkzapAccess.canAccess
     ) {
       return true
